@@ -4,6 +4,7 @@ import * as cp from 'child_process';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer, XlideNode } from './xlsmExplorer';
 import { XlideFileSystemProvider, encodeModuleUri, decodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
+import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
     exportWorkbookModules,
@@ -171,7 +172,9 @@ export function registerCommands(
         // Open a module (or navigate to a sub's line inside one)
         vscode.commands.registerCommand('xlide.openModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
-            const uri = encodeModuleUri(node.filePath, node.moduleName);
+            const uri = node.isRemote && node.remoteId
+                ? encodeRemoteModuleUri(node.remoteId, node.moduleName)
+                : encodeModuleUri(node.filePath, node.moduleName);
 
             // Set the language to 'vba' so syntax highlighters kick in
             const doc = await vscode.workspace.openTextDocument(uri);

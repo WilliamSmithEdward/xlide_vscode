@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
+import type { LiveShareIntegration } from './liveShare';
+import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
 
 export const XLIDE_SCHEME = 'xlide-vba';
+export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
 /**
  * Encodes a (xlsmPath, moduleName) pair into a virtual URI.
@@ -51,7 +54,18 @@ export class XlideFileSystemProvider
     private _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile = this._emitter.event;
 
+    private _liveShare: LiveShareIntegration | undefined;
+
     constructor(private readonly _bridge: PythonBridge) {}
+
+    /** Attach the Live Share integration so remote xlide-vba://liveshare/... URIs are routed via RPC. */
+    setLiveShare(liveShare: LiveShareIntegration): void {
+        this._liveShare = liveShare;
+        liveShare.onRemoteFileChanged = (workbookId, moduleName) => {
+            const uri = encodeRemoteModuleUri(workbookId, moduleName);
+            this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+        };
+    }
 
     // ------------------------------------------------------------------
     // Required by FileSystemProvider but not meaningful for our use case
@@ -91,6 +105,14 @@ export class XlideFileSystemProvider
     // ------------------------------------------------------------------
 
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
+        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
+            if (!this._liveShare) {
+                throw vscode.FileSystemError.Unavailable('XLIDE: Live Share integration not initialized.');
+            }
+            const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
+            const source = await this._liveShare.guestReadModule(workbookId, moduleName);
+            return Buffer.from(source, 'utf-8');
+        }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
         const result = await this._bridge.call<{ source: string }>(
             'readModule',
@@ -104,8 +126,17 @@ export class XlideFileSystemProvider
         content: Uint8Array,
         _options: { create: boolean; overwrite: boolean },
     ): Promise<void> {
-        const { xlsmPath, moduleName } = decodeModuleUri(uri);
         const source = Buffer.from(content).toString('utf-8');
+        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
+            if (!this._liveShare) {
+                throw vscode.FileSystemError.Unavailable('XLIDE: Live Share integration not initialized.');
+            }
+            const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
+            await this._liveShare.guestWriteModule(workbookId, moduleName, source);
+            this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+            return;
+        }
+        const { xlsmPath, moduleName } = decodeModuleUri(uri);
         await this._bridge.call('writeModule', {
             path: xlsmPath,
             module: moduleName,

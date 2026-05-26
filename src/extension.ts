@@ -7,6 +7,7 @@ import { PythonBridge } from './pythonBridge';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
+import { LiveShareIntegration } from './liveShare';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -63,6 +64,9 @@ export function activate(context: vscode.ExtensionContext): void {
     const bridge = new PythonBridge(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
     const explorer = new XlsmExplorer(bridge);
+    const liveShare = new LiveShareIntegration(bridge, out);
+    fsProvider.setLiveShare(liveShare);
+    explorer.setLiveShare(liveShare);
 
     context.subscriptions.push(
         out,
@@ -138,8 +142,14 @@ export function activate(context: vscode.ExtensionContext): void {
         ...registerCommands(context, bridge, explorer, fsProvider, out),
         ...registerAgentTools(context, bridge, explorer, fsProvider),
 
+        liveShare,
         bridge,
     );
+
+    // Initialize Live Share integration (no-op if extension isn't installed)
+    void liveShare.start().catch((err: Error) => {
+        out.appendLine(`Live Share init failed: ${err.message}`);
+    });
 
     // VBA language services: syntax-aware symbol index + providers
     registerVbaLanguageProviders(context, bridge);

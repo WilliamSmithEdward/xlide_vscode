@@ -12,9 +12,12 @@
   "engines": {
     "vscode": "^1.95.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "onFileSystem:xlide-vba",
+    "onView:xlide.explorer",
     "workspaceContains:**/*.xlsm",
     "workspaceContains:**/*.xlsb",
     "workspaceContains:**/*.xlam"
@@ -176,8 +179,15 @@
     "languages": [
       {
         "id": "vba",
-        "aliases": ["VBA", "Visual Basic for Applications"],
-        "extensions": [".bas", ".cls", ".frm"],
+        "aliases": [
+          "VBA",
+          "Visual Basic for Applications"
+        ],
+        "extensions": [
+          ".bas",
+          ".cls",
+          ".frm"
+        ],
         "configuration": "./language-configuration/vba-language-configuration.json"
       }
     ],
@@ -203,7 +213,9 @@
               "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
             }
           },
-          "required": ["filePath"]
+          "required": [
+            "filePath"
+          ]
         }
       },
       {
@@ -224,7 +236,10 @@
               "description": "Name of the VBA module"
             }
           },
-          "required": ["filePath", "moduleName"]
+          "required": [
+            "filePath",
+            "moduleName"
+          ]
         }
       },
       {
@@ -245,7 +260,10 @@
               "description": "Name of the VBA module to read"
             }
           },
-          "required": ["filePath", "moduleName"]
+          "required": [
+            "filePath",
+            "moduleName"
+          ]
         }
       },
       {
@@ -270,7 +288,11 @@
               "description": "The full VBA source code to write into the module"
             }
           },
-          "required": ["filePath", "moduleName", "source"]
+          "required": [
+            "filePath",
+            "moduleName",
+            "source"
+          ]
         }
       },
       {
@@ -295,7 +317,11 @@
               "description": "Cell range in A1 notation, e.g. 'A1:D10'"
             }
           },
-          "required": ["filePath", "sheet", "range"]
+          "required": [
+            "filePath",
+            "sheet",
+            "range"
+          ]
         }
       },
       {
@@ -328,7 +354,12 @@
               }
             }
           },
-          "required": ["filePath", "sheet", "startCell", "data"]
+          "required": [
+            "filePath",
+            "sheet",
+            "startCell",
+            "data"
+          ]
         }
       },
       {
@@ -350,11 +381,16 @@
             },
             "exportMode": {
               "type": "string",
-              "enum": ["trueUp", "replaceExistingOnly"],
+              "enum": [
+                "trueUp",
+                "replaceExistingOnly"
+              ],
               "description": "Optional mode override for this run"
             }
           },
-          "required": ["filePath"]
+          "required": [
+            "filePath"
+          ]
         }
       },
       {
@@ -372,11 +408,17 @@
             },
             "exportMode": {
               "type": "string",
-              "enum": ["trueUp", "replaceExistingOnly"],
+              "enum": [
+                "trueUp",
+                "replaceExistingOnly"
+              ],
               "description": "Persistent export mode to store in workbookname.extension.repo.json"
             }
           },
-          "required": ["filePath", "exportMode"]
+          "required": [
+            "filePath",
+            "exportMode"
+          ]
         }
       }
     ]
@@ -398,6 +440,7 @@
     "@typescript-eslint/parser": "^8.10.0",
     "esbuild": "^0.24.0",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vsls": "^1.0.4753"
   }
 }
