@@ -1,0 +1,206 @@
+{
+  "Sub procedure": {
+    "prefix": "sub",
+    "body": [
+      "${1|Public,Private,Friend|} Sub ${2:Name}(${3})",
+      "\t$0",
+      "End Sub"
+    ],
+    "description": "Sub procedure"
+  },
+  "Function": {
+    "prefix": "func",
+    "body": [
+      "${1|Public,Private,Friend|} Function ${2:Name}(${3}) As ${4:Variant}",
+      "\t$0",
+      "End Function"
+    ],
+    "description": "Function"
+  },
+  "Property Get": {
+    "prefix": "propget",
+    "body": [
+      "${1|Public,Private,Friend|} Property Get ${2:Name}() As ${3:Variant}",
+      "\t${2:Name} = $0",
+      "End Property"
+    ],
+    "description": "Property Get"
+  },
+  "Property Let": {
+    "prefix": "proplet",
+    "body": [
+      "${1|Public,Private,Friend|} Property Let ${2:Name}(${3:Value} As ${4:Variant})",
+      "\t$0",
+      "End Property"
+    ],
+    "description": "Property Let"
+  },
+  "Property Set": {
+    "prefix": "propset",
+    "body": [
+      "${1|Public,Private,Friend|} Property Set ${2:Name}(${3:Value} As ${4:Object})",
+      "\tSet $0 = ${3:Value}",
+      "End Property"
+    ],
+    "description": "Property Set"
+  },
+  "For ... Next": {
+    "prefix": "for",
+    "body": [
+      "For ${1:i} = ${2:1} To ${3:n}",
+      "\t$0",
+      "Next ${1:i}"
+    ],
+    "description": "For ... Next loop"
+  },
+  "For Each ... Next": {
+    "prefix": "foreach",
+    "body": [
+      "For Each ${1:item} In ${2:collection}",
+      "\t$0",
+      "Next ${1:item}"
+    ],
+    "description": "For Each loop"
+  },
+  "Do While ... Loop": {
+    "prefix": "dowhile",
+    "body": [
+      "Do While ${1:condition}",
+      "\t$0",
+      "Loop"
+    ],
+    "description": "Do While loop"
+  },
+  "Do ... Loop Until": {
+    "prefix": "dountil",
+    "body": [
+      "Do",
+      "\t$0",
+      "Loop Until ${1:condition}"
+    ],
+    "description": "Do ... Loop Until"
+  },
+  "While ... Wend": {
+    "prefix": "while",
+    "body": [
+      "While ${1:condition}",
+      "\t$0",
+      "Wend"
+    ],
+    "description": "While loop"
+  },
+  "If ... Then": {
+    "prefix": "if",
+    "body": [
+      "If ${1:condition} Then",
+      "\t$0",
+      "End If"
+    ],
+    "description": "If ... End If"
+  },
+  "If ... Else": {
+    "prefix": "ifelse",
+    "body": [
+      "If ${1:condition} Then",
+      "\t$2",
+      "Else",
+      "\t$0",
+      "End If"
+    ],
+    "description": "If ... Else ... End If"
+  },
+  "Select Case": {
+    "prefix": "select",
+    "body": [
+      "Select Case ${1:expression}",
+      "\tCase ${2:value}",
+      "\t\t$0",
+      "\tCase Else",
+      "",
+      "End Select"
+    ],
+    "description": "Select Case block"
+  },
+  "With block": {
+    "prefix": "with",
+    "body": [
+      "With ${1:object}",
+      "\t.$0",
+      "End With"
+    ],
+    "description": "With block"
+  },
+  "Class module skeleton": {
+    "prefix": "class",
+    "body": [
+      "Option Explicit",
+      "",
+      "Private Type TThis",
+      "\t$1",
+      "End Type",
+      "",
+      "Private this As TThis",
+      "",
+      "Private Sub Class_Initialize()",
+      "\t$0",
+      "End Sub",
+      "",
+      "Private Sub Class_Terminate()",
+      "End Sub",
+      ""
+    ],
+    "description": "Class module skeleton"
+  },
+  "User-defined Type": {
+    "prefix": "type",
+    "body": [
+      "${1|Public,Private|} Type ${2:Name}",
+      "\t${3:Field} As ${4:Variant}",
+      "End Type"
+    ],
+    "description": "Type ... End Type"
+  },
+  "Enum": {
+    "prefix": "enum",
+    "body": [
+      "${1|Public,Private|} Enum ${2:Name}",
+      "\t${3:Value1} = ${4:0}",
+      "End Enum"
+    ],
+    "description": "Enum ... End Enum"
+  },
+  "On Error Resume Next block": {
+    "prefix": "onerror",
+    "body": [
+      "On Error GoTo ${1:ErrHandler}",
+      "$0",
+      "Exit ${2|Sub,Function,Property|}",
+      "${1:ErrHandler}:",
+      "\tMsgBox \"Error \" & Err.Number & \": \" & Err.Description",
+      "End ${2|Sub,Function,Property|}"
+    ],
+    "description": "On Error GoTo error handler"
+  },
+  "Option Explicit header": {
+    "prefix": "option",
+    "body": [
+      "Option Explicit",
+      "$0"
+    ],
+    "description": "Option Explicit header"
+  },
+  "MsgBox": {
+    "prefix": "msgbox",
+    "body": [
+      "MsgBox \"${1:Message}\"$0"
+    ],
+    "description": "MsgBox"
+  },
+  "Debug.Print": {
+    "prefix": "dp",
+    "body": [
+      "Debug.Print ${1:value}$0"
+    ],
+    "description": "Debug.Print"
+  }
+}

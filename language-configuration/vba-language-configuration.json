@@ -26,5 +26,43 @@
       "start": "(?i)^[ \\t]*((?:Public|Private|Friend|Global|Static)[ \\t]+)*(Sub|Function)[ \\t]+\\w|^[ \\t]*((?:Public|Private|Friend)[ \\t]+)*(Property)[ \\t]+(Get|Let|Set)[ \\t]+\\w|^[ \\t]*((?:Public|Private|Global)[ \\t]+)*(Type|Enum)[ \\t]+\\w",
       "end": "(?i)^[ \\t]*End[ \\t]+(Sub|Function|Property|Type|Enum)\\b"
     }
-  }
+  },
+  "onEnterRules": [
+    {
+      "beforeText": "(?i)^[ \t]*If\\b.*\\bThen[ \t]*(?:'.*)?$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "(?i)^[ \t]*Else(If\\b.*\\bThen)?[ \t]*(?:'.*)?$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "(?i)^[ \t]*Case\\b.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "(?i)^[ \t]*(For|Do|While|With)\\b.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "(?i)^[ \t]*Select[ \t]+Case\\b.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "(?i)^[ \t]*((?:Public|Private|Friend|Global|Static)[ \t]+)*(Sub|Function)[ \t]+\\w.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "(?i)^[ \t]*((?:Public|Private|Friend)[ \t]+)*Property[ \t]+(Get|Let|Set)[ \t]+\\w.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "^[ \t]*'.*$",
+      "action": { "indent": "none", "appendText": "' " }
+    },
+    {
+      "beforeText": ".*[ \t]_$",
+      "action": { "indent": "indent" }
+    }
+  ]
 }

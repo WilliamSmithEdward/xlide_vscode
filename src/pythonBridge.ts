@@ -72,13 +72,33 @@ export class PythonBridge implements vscode.Disposable {
 
             this._proc.on('exit', (code) => {
                 this._out.appendLine(`Python backend exited with code ${code}`);
-                if (!this._ready) {
+                const wasReady = this._ready;
+                // Reset state so the next call() doesn't hang on a dead bridge.
+                this._ready = false;
+                this._startPromise = undefined;
+                this._readyResolve = undefined;
+                if (!wasReady) {
                     const stderr = this._stderrLines.join('\n');
                     this._readyReject?.(
                         new Error(`Python backend exited (code ${code}).\n${stderr}`),
                     );
                 }
+                this._readyReject = undefined;
                 this._rejectAll(new Error(`Python backend exited with code ${code}`));
+                if (wasReady) {
+                    // Surface unexpected crash to the user.
+                    void vscode.window.showWarningMessage(
+                        `XLIDE: Python backend exited unexpectedly (code ${code}). Run "XLIDE: Reload Window" or set xlide.pythonPath, then try again.`,
+                        'Reload Window',
+                        'View XLIDE Output',
+                    ).then((choice) => {
+                        if (choice === 'Reload Window') {
+                            void vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        } else if (choice === 'View XLIDE Output') {
+                            this._out.show(true);
+                        }
+                    });
+                }
             });
 
             this._proc.stderr!.on('data', (chunk: Buffer) => {

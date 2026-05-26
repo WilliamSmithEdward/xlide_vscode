@@ -17,7 +17,6 @@
   ],
   "activationEvents": [
     "onFileSystem:xlide-vba",
-    "onView:xlide.explorer",
     "workspaceContains:**/*.xlsm",
     "workspaceContains:**/*.xlsb",
     "workspaceContains:**/*.xlam"
@@ -149,22 +148,22 @@
         },
         {
           "command": "xlide.openWorkbook",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|module|sub)$/",
+          "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "1_actions@3"
         },
         {
           "command": "xlide.exportModulesToFolder",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|module|sub)$/",
+          "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "1_actions@4"
         },
         {
           "command": "xlide.changeRepoFolder",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|module|sub)$/",
+          "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "1_actions@5"
         },
         {
           "command": "xlide.configureExportMode",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|module|sub)$/",
+          "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "1_actions@6"
         }
       ]
@@ -196,6 +195,12 @@
         "language": "vba",
         "scopeName": "source.vba",
         "path": "./syntaxes/vba.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "vba",
+        "path": "./snippets/vba.json"
       }
     ],
     "languageModelTools": [

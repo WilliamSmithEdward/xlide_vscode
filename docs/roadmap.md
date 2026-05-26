@@ -1,0 +1,50 @@
+# XLIDE Roadmap
+
+Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items already implemented are marked `[x]`. North star: match Visual Studio 2022 VB editing experience as closely as possible.
+
+## Top 5 (implemented in this pass)
+
+- [x] **(1) Workbook-locked error UX** — detect "file in use by Excel" on `writeModule`/`readModule` and show a Retry action.
+- [x] **(2) VBA snippets** — `snippets/vba.json` for `sub`, `func`, `for`, `forEach`, `with`, `select`, `class`, `prop`.
+- [x] **(3) Bridge auto-restart** — on unexpected Python child exit, mark the bridge as stopped so the next `call()` rejects cleanly with a clear, actionable error instead of hanging.
+- [x] **(4) VBA `onEnterRules` / auto-pair** — auto-insert `End Sub`/`End Function`/`End If`/`Next`/`Loop` etc. like the VBA IDE.
+- [x] **(5) Status bar items** — show `XLIDE: <workbook>` on the active module, plus `XLIDE (Live Share): N` for guests.
+
+## High-leverage UX
+
+- [ ] **(6) Reveal in XLIDE Explorer** — `treeView.reveal(node)` for the active module.
+- [ ] **(7) Auto-expand sidebar on first .xlsm** — expand the first workbook automatically on activation.
+- [ ] **(8) Persist last-opened modules** — remember which `xlide-vba://` editors were open per workbook in `workspaceState`.
+- [ ] **(9) Welcome notification on first activation** — single, dismissible nudge replacing the deleted walkthrough.
+
+## Editor polish
+
+- [ ] **(10) Document outline icons** — verify symbol-kind mapping covers Sub/Function/Property/Const/Type/Enum.
+- [ ] **(11) Command palette categorization audit** — every `xlide.*` command should declare `"category": "XLIDE"`.
+- [ ] **(12) Activity-bar icon** — only if promoting XLIDE out of the file Explorer view.
+
+## Performance / reliability
+
+- [ ] **(13) Cache `listModules`/`listSubs` per workbook** with invalidation on write.
+- [ ] **(14) Debounce filesystem watcher** — coalesce explorer refreshes (~200 ms).
+- [ ] **(15) Cancellation tokens on RPC** — accept `CancellationToken` in `bridge.call()` to abort long operations on shutdown.
+
+## Live Share polish
+
+- [ ] **(16) Pre-translate paths via `convertLocalUriToShared`** — embed `vsls:` paths instead of opaque workbookIds, so right-clicks could reach the host's shared file.
+- [ ] **(17) Guest follow-on-open** — broadcast `xlide.openModule` invocations so guests can follow the host.
+
+## Developer experience
+
+- [ ] **(18) Smoke test command** — `xlide.dev.smoke` runs listModules / readModule / writeModule roundtrip against a checked-in fixture.
+- [ ] **(19) TS unit tests** — `tests/` folder with Mocha or vitest for pure-logic (URI encode/decode, sidecar JSON, managedFiles diff).
+- [ ] **(20) CI workflow** — `.github/workflows/ci.yml` running `npm run compile` + `pytest`.
+- [ ] **(21) CHANGELOG.md** + early releases tagged as `--pre-release` on the marketplace.
+
+## Files to Keep Up To Date
+
+- `docs/architecture.md` — structure changes
+- `docs/roadmap.md` — this file
+- `README.md` — dev-facing docs
+- `MARKETPLACE.md` — user-facing marketplace listing
+- `CHANGELOG.md` — when added

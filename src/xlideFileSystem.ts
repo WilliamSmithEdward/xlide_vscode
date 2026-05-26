@@ -8,6 +8,31 @@ export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
 /**
+ * Heuristic: does this error string look like a Windows file-sharing violation
+ * caused by Excel having the workbook open?
+ */
+function isWorkbookLockedError(message: string): boolean {
+    return /WinError\s*32|being used by another process|sharing violation|Permission denied|PermissionError/i
+        .test(message);
+}
+
+function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): void {
+    const name = path.basename(xlsmPath);
+    const verb = op === 'read' ? 'open' : 'save';
+    void vscode.window.showWarningMessage(
+        `XLIDE: Cannot ${verb} "${name}" - it appears to be open in Excel. Close the workbook and try again.`,
+        'Retry',
+        'Reveal File',
+    ).then((choice) => {
+        if (choice === 'Retry') {
+            void vscode.commands.executeCommand('workbench.action.files.revert');
+        } else if (choice === 'Reveal File') {
+            void vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(xlsmPath));
+        }
+    });
+}
+
+/**
  * Encodes a (xlsmPath, moduleName) pair into a virtual URI.
  * URI form: xlide-vba:///C:/path/to/workbook.xlsm/ModuleName.bas
  */
@@ -114,11 +139,22 @@ export class XlideFileSystemProvider
             return Buffer.from(source, 'utf-8');
         }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
-        const result = await this._bridge.call<{ source: string }>(
-            'readModule',
-            { path: xlsmPath, module: moduleName },
-        );
-        return Buffer.from(result.source, 'utf-8');
+        try {
+            const result = await this._bridge.call<{ source: string }>(
+                'readModule',
+                { path: xlsmPath, module: moduleName },
+            );
+            return Buffer.from(result.source, 'utf-8');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (isWorkbookLockedError(message)) {
+                reportWorkbookLocked(xlsmPath, 'read');
+                throw vscode.FileSystemError.Unavailable(
+                    `XLIDE: "${path.basename(xlsmPath)}" is open in Excel. Close it and click Retry.`,
+                );
+            }
+            throw err;
+        }
     }
 
     async writeFile(
@@ -137,11 +173,22 @@ export class XlideFileSystemProvider
             return;
         }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
-        await this._bridge.call('writeModule', {
-            path: xlsmPath,
-            module: moduleName,
-            source,
-        });
+        try {
+            await this._bridge.call('writeModule', {
+                path: xlsmPath,
+                module: moduleName,
+                source,
+            });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (isWorkbookLockedError(message)) {
+                reportWorkbookLocked(xlsmPath, 'write');
+                throw vscode.FileSystemError.Unavailable(
+                    `XLIDE: "${path.basename(xlsmPath)}" is open in Excel. Close it and save again.`,
+                );
+            }
+            throw err;
+        }
         this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
     }
 

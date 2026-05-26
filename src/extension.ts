@@ -8,6 +8,7 @@ import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
 import { LiveShareIntegration } from './liveShare';
+import { XlideStatusBar } from './statusBar';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -67,6 +68,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const liveShare = new LiveShareIntegration(bridge, out);
     fsProvider.setLiveShare(liveShare);
     explorer.setLiveShare(liveShare);
+    const statusBar = new XlideStatusBar(liveShare);
 
     context.subscriptions.push(
         out,
@@ -142,6 +144,7 @@ export function activate(context: vscode.ExtensionContext): void {
         ...registerCommands(context, bridge, explorer, fsProvider, out),
         ...registerAgentTools(context, bridge, explorer, fsProvider),
 
+        statusBar,
         liveShare,
         bridge,
     );
