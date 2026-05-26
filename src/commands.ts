@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as cp from 'child_process';
+import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer, XlideNode } from './xlsmExplorer';
 import { XlideFileSystemProvider, encodeModuleUri, decodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
@@ -347,6 +348,230 @@ export function registerCommands(
         // Backward-compatible alias for previous command id
         vscode.commands.registerCommand('xlide.dumpModulesToFolder', async (node: XlideNode) => {
             await vscode.commands.executeCommand('xlide.exportModulesToFolder', node);
+        }),
+
+        // Import selected module files from the configured (or user-chosen) export folder
+        vscode.commands.registerCommand('xlide.importModulesFromFolder', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) { return; }
+
+            try {
+                const existingConfig = await readWorkbookRepoConfig(filePath);
+                const configuredFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
+
+                let importFolder: string;
+                if (configuredFolder) {
+                    importFolder = configuredFolder;
+                } else {
+                    const selected = await vscode.window.showOpenDialog({
+                        canSelectFiles: false,
+                        canSelectFolders: true,
+                        canSelectMany: false,
+                        openLabel: 'Select folder to import from',
+                        defaultUri: vscode.Uri.file(path.dirname(filePath)),
+                    });
+                    if (!selected || selected.length === 0) { return; }
+                    importFolder = selected[0].fsPath;
+                }
+
+                let entries: string[];
+                try {
+                    entries = await fs.promises.readdir(importFolder);
+                } catch {
+                    vscode.window.showErrorMessage(`XLIDE: Cannot read folder: ${importFolder}`);
+                    return;
+                }
+
+                const moduleFiles = entries
+                    .filter(e => /\.(bas|cls|frm)$/i.test(e))
+                    .sort();
+
+                if (moduleFiles.length === 0) {
+                    vscode.window.showInformationMessage(
+                        `XLIDE: No .bas/.cls/.frm files found in ${importFolder}`,
+                    );
+                    return;
+                }
+
+                // Fetch live module list so we know which names exist and their types.
+                let liveModuleMap = new Map<string, string>();
+                try {
+                    const liveModules = await bridge.call<Array<{ name: string; type: string }>>(
+                        'listModules', { path: filePath },
+                    );
+                    liveModuleMap = new Map(liveModules.map(m => [m.name, m.type]));
+                } catch {
+                    // Non-fatal: without live data we can't detect missing document modules.
+                    log('[importModules] Warning: could not fetch live module list');
+                }
+
+                // UserForms always carry TWO GUIDs in VB_Base (type-lib + instance).
+                // Class and document modules each have exactly one.
+                // Document CLSIDs are the known Excel Workbook/Sheet/Chart GUIDs.
+                const GUID_RE = /\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/g;
+                const DOCUMENT_CLSIDS = new Set([
+                    '{00020819-0000-0000-C000-000000000046}', // Workbook
+                    '{00020820-0000-0000-C000-000000000046}', // Worksheet
+                    '{00020821-0000-0000-C000-000000000046}', // Chart
+                ]);
+
+                async function fileModuleSubtype(file: string): Promise<'userform' | 'document' | 'class' | null> {
+                    try {
+                        const head = (await fs.promises.readFile(
+                            path.join(importFolder, file), 'utf8',
+                        )).slice(0, 2000);
+                        const vbBaseMatch = head.match(/Attribute\s+VB_Base\s*=\s*"([^"]*)"/i);
+                        if (vbBaseMatch) {
+                            const guids = vbBaseMatch[1].match(new RegExp(GUID_RE.source, 'g')) ?? [];
+                            if (guids.length >= 2) { return 'userform'; }
+                            if (guids.some(g => DOCUMENT_CLSIDS.has(g.toUpperCase().replace(/\{([^}]+)\}/, '{$1}')))) {
+                                return 'document';
+                            }
+                            return 'class';
+                        }
+                        if (/Attribute\s+VB_PredeclaredId\s*=\s*True/i.test(head)) {
+                            return 'document';
+                        }
+                        return null;
+                    } catch {
+                        return null;
+                    }
+                }
+
+                type ImportItem = vscode.QuickPickItem & { file: string; isDocumentMissing: boolean; moduleKind: string };
+
+                const importable: ImportItem[] = [];
+                const unavailable: ImportItem[] = [];
+
+                for (const file of moduleFiles) {
+                    const moduleName = path.basename(file, path.extname(file));
+                    const liveType = liveModuleMap.get(moduleName);
+                    const isFormFile = /\.frm$/i.test(file);
+                    const isClsFile = /\.cls$/i.test(file);
+
+                    // Determine the source-of-truth subtype: live workbook wins; otherwise inspect the file header.
+                    let subtype: 'userform' | 'document' | 'class' | 'standard';
+                    if (liveType === 'userform' || liveType === 'document' || liveType === 'class' || liveType === 'standard') {
+                        subtype = liveType;
+                    } else if (isFormFile) {
+                        subtype = 'userform';
+                    } else if (isClsFile) {
+                        const fileSub = await fileModuleSubtype(file);
+                        if (fileSub === 'userform') {
+                            subtype = 'userform';
+                        } else if (fileSub === 'document') {
+                            subtype = 'document';
+                        } else {
+                            subtype = 'class';
+                        }
+                    } else {
+                        subtype = 'standard';
+                    }
+
+                    // Userforms and document modules cannot be created from scratch \u2014
+                    // they must already exist in the live workbook to be importable.
+                    const requiresExisting = subtype === 'document' || subtype === 'userform';
+                    const existsInWorkbook = liveModuleMap.has(moduleName);
+
+                    if (requiresExisting && !existsInWorkbook) {
+                        const kindLabel = subtype === 'userform' ? 'UserForm' : 'Document module';
+                        unavailable.push({
+                            label: moduleName,
+                            description: file,
+                            detail: `${kindLabel} \u2014 not in this workbook, cannot create`,
+                            picked: false,
+                            file,
+                            isDocumentMissing: true,
+                            moduleKind: subtype,
+                        });
+                    } else {
+                        let newDetail: string;
+                        switch (subtype) {
+                            case 'class':
+                                newDetail = 'Will be created as a new class module';
+                                break;
+                            case 'userform':
+                                newDetail = 'Will update existing UserForm code';
+                                break;
+                            case 'document':
+                                newDetail = 'Will update existing document module code';
+                                break;
+                            default:
+                                newDetail = 'Will be created as a new standard module';
+                        }
+                        importable.push({
+                            label: moduleName,
+                            description: existsInWorkbook ? file : `${file}  (new)`,
+                            detail: existsInWorkbook ? undefined : newDetail,
+                            picked: true,
+                            file,
+                            isDocumentMissing: false,
+                            moduleKind: subtype,
+                        });
+                    }
+                }
+
+                const quickPickItems: (vscode.QuickPickItem | ImportItem)[] = [...importable];
+                if (unavailable.length > 0) {
+                    quickPickItems.push(
+                        { label: 'Cannot import', kind: vscode.QuickPickItemKind.Separator } as vscode.QuickPickItem,
+                        ...unavailable,
+                    );
+                }
+
+                const picks = await vscode.window.showQuickPick(
+                    quickPickItems as ImportItem[],
+                    {
+                        canPickMany: true,
+                        title: `Import modules into ${path.basename(filePath)}`,
+                        placeHolder: 'Select modules to import (all selected by default)',
+                    },
+                );
+                if (!picks || picks.length === 0) { return; }
+
+                let importedCount = 0;
+                const errors: string[] = [];
+                for (const pick of picks) {
+                    if ((pick as ImportItem).isDocumentMissing) { continue; }
+                    try {
+                        const source = await fs.promises.readFile(
+                            path.join(importFolder, (pick as ImportItem).file),
+                            'utf8',
+                        );
+                        log(`[importModules] Importing ${pick.label} from ${(pick as ImportItem).file}`);
+                        await bridge.call('writeModule', {
+                            path: filePath,
+                            module: pick.label,
+                            source,
+                            kind: (pick as ImportItem).moduleKind,
+                        });
+                        importedCount++;
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        errors.push(`${pick.label}: ${message}`);
+                        log(`[importModules] Error importing ${pick.label}: ${message}`);
+                    }
+                }
+
+                explorer.refresh();
+
+                if (errors.length > 0) {
+                    void vscode.window.showWarningMessage(
+                        `XLIDE: Imported ${importedCount} module(s), ${errors.length} failed. See XLIDE Output for details.`,
+                        'View Output',
+                    ).then(choice => {
+                        if (choice === 'View Output') { out.show(true); }
+                    });
+                } else {
+                    vscode.window.showInformationMessage(
+                        `XLIDE: Imported ${importedCount} module(s) into ${path.basename(filePath)}`,
+                    );
+                }
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[importModules] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Import failed: ${message}`);
+            }
         }),
 
         // Change the configured export folder for this workbook

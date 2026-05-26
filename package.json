@@ -90,6 +90,12 @@
         "icon": "$(export)"
       },
       {
+        "command": "xlide.importModulesFromFolder",
+        "title": "Import Modules from Folder",
+        "category": "XLIDE",
+        "icon": "$(import)"
+      },
+      {
         "command": "xlide.changeRepoFolder",
         "title": "Change Export Folder",
         "category": "XLIDE"
@@ -157,14 +163,19 @@
           "group": "1_actions@4"
         },
         {
-          "command": "xlide.changeRepoFolder",
+          "command": "xlide.importModulesFromFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "1_actions@5"
         },
         {
-          "command": "xlide.configureExportMode",
+          "command": "xlide.changeRepoFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "1_actions@6"
+        },
+        {
+          "command": "xlide.configureExportMode",
+          "when": "view == xlide.explorer && viewItem == xlsm",
+          "group": "1_actions@7"
         }
       ]
     },

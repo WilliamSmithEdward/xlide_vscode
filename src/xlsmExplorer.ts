@@ -29,6 +29,7 @@ const MODULE_ICONS: Record<string, string> = {
     standard: 'symbol-module',
     class: 'symbol-class',
     document: 'symbol-namespace',
+    userform: 'window',
 };
 
 export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
@@ -36,6 +37,10 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     readonly onDidChangeTreeData = this._emitter.event;
 
     private _liveShare: LiveShareIntegration | undefined;
+
+    // Stable node references required by treeView.reveal()
+    private _xlsmNodes = new Map<string, XlideNode>(); // key: filePath
+    private _moduleNodes = new Map<string, XlideNode>(); // key: filePath + '::' + moduleName
 
     constructor(private readonly _bridge: PythonBridge) {}
 
@@ -45,7 +50,39 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     }
 
     refresh(): void {
+        this._xlsmNodes.clear();
+        this._moduleNodes.clear();
         this._emitter.fire();
+    }
+
+    /** Required by treeView.reveal() — walks xlsm -> module -> sub. */
+    getParent(node: XlideNode): XlideNode | undefined {
+        if (node.kind === 'module') {
+            return this._xlsmNodes.get(node.filePath);
+        }
+        if (node.kind === 'sub') {
+            return this._moduleNodes.get(`${node.filePath}::${node.moduleName ?? ''}`);
+        }
+        return undefined;
+    }
+
+    /** Returns the cached module node, if the tree has loaded it. */
+    getModuleNode(filePath: string, moduleName: string): XlideNode | undefined {
+        return this._moduleNodes.get(`${filePath}::${moduleName}`);
+    }
+
+    /** Returns the cached xlsm node, if the tree has loaded it. */
+    getXlsmNode(filePath: string): XlideNode | undefined {
+        return this._xlsmNodes.get(filePath);
+    }
+
+    /**
+     * Eagerly loads and caches the root xlsm nodes without waiting for the tree
+     * to expand them. Returns the first node (if any) so callers can auto-reveal.
+     */
+    async warmXlsmCache(): Promise<XlideNode | undefined> {
+        const nodes = await this._getXlsmFiles();
+        return nodes[0];
     }
 
     getTreeItem(node: XlideNode): vscode.TreeItem {
@@ -152,9 +189,11 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
             const modules = await this._liveShare.guestListModules(workbookId);
             return modules
                 .sort((a, b) => {
-                    const typeOrder: Record<string, number> = { document: 0, class: 1, standard: 2 };
-                    const aOrder = typeOrder[a.type] ?? 3;
-                    const bOrder = typeOrder[b.type] ?? 3;
+                    const typeOrder: Record<string, number> = {
+                        document: 0, userform: 1, standard: 2, class: 3,
+                    };
+                    const aOrder = typeOrder[a.type] ?? 4;
+                    const bOrder = typeOrder[b.type] ?? 4;
                     if (aOrder !== bOrder) return aOrder - bOrder;
                     return a.name.localeCompare(b.name);
                 })
@@ -197,12 +236,16 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
             '{**/node_modules/**,**/.venv/**,**/venv/**}',
         );
         return uris
+            .filter(uri => !path.basename(uri.fsPath).startsWith('~$'))
             .sort((a, b) => a.fsPath.localeCompare(b.fsPath))
-            .map((uri) => ({
-                kind: 'xlsm' as const,
-                label: path.basename(uri.fsPath),
-                filePath: uri.fsPath,
-            }));
+            .map((uri) => {
+                let node = this._xlsmNodes.get(uri.fsPath);
+                if (!node) {
+                    node = { kind: 'xlsm', label: path.basename(uri.fsPath), filePath: uri.fsPath };
+                    this._xlsmNodes.set(uri.fsPath, node);
+                }
+                return node;
+            });
     }
 
     private async _getModules(filePath: string): Promise<XlideNode[]> {
@@ -211,22 +254,32 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
                 'listModules',
                 { path: filePath },
             );
-            // Sort: document types first, then standard, then alphabetically within each group
+            // Sort: document, userform, standard, class — alphabetical within each group.
             return modules
                 .sort((a, b) => {
-                    const typeOrder: Record<string, number> = { document: 0, class: 1, standard: 2 };
-                    const aOrder = typeOrder[a.type] ?? 3;
-                    const bOrder = typeOrder[b.type] ?? 3;
+                    const typeOrder: Record<string, number> = {
+                        document: 0, userform: 1, standard: 2, class: 3,
+                    };
+                    const aOrder = typeOrder[a.type] ?? 4;
+                    const bOrder = typeOrder[b.type] ?? 4;
                     if (aOrder !== bOrder) return aOrder - bOrder;
                     return a.name.localeCompare(b.name);
                 })
-                .map((m) => ({
-                    kind: 'module' as const,
-                    label: m.name,
-                    filePath,
-                    moduleName: m.name,
-                    moduleType: m.type,
-                }));
+                .map((m) => {
+                    const key = `${filePath}::${m.name}`;
+                    let node = this._moduleNodes.get(key);
+                    if (!node) {
+                        node = {
+                            kind: 'module',
+                            label: m.name,
+                            filePath,
+                            moduleName: m.name,
+                            moduleType: m.type,
+                        };
+                        this._moduleNodes.set(key, node);
+                    }
+                    return node;
+                });
         } catch (err) {
             vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${path.basename(filePath)}": ${err}`);
             return [];

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { XlsmExplorer } from './xlsmExplorer';
-import { XlideFileSystemProvider, XLIDE_SCHEME } from './xlideFileSystem';
+import { XlideFileSystemProvider, XLIDE_SCHEME, XLIDE_LIVESHARE_AUTHORITY, decodeModuleUri } from './xlideFileSystem';
 import { PythonBridge } from './pythonBridge';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
@@ -70,6 +70,12 @@ export function activate(context: vscode.ExtensionContext): void {
     explorer.setLiveShare(liveShare);
     const statusBar = new XlideStatusBar(liveShare);
 
+    // Keep reference outside subscriptions for post-start auto-expand and reveal.
+    const treeView = vscode.window.createTreeView('xlide.explorer', {
+        treeDataProvider: explorer,
+        showCollapseAll: true,
+    });
+
     context.subscriptions.push(
         out,
 
@@ -79,10 +85,18 @@ export function activate(context: vscode.ExtensionContext): void {
             isReadonly: false,
         }),
 
-        // Tree view in the Explorer sidebar
-        vscode.window.createTreeView('xlide.explorer', {
-            treeDataProvider: explorer,
-            showCollapseAll: true,
+        treeView,
+
+        // Item 6: Reveal active module in the XLIDE Explorer tree.
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (!editor) { return; }
+            const uri = editor.document.uri;
+            if (uri.scheme !== XLIDE_SCHEME || uri.authority === XLIDE_LIVESHARE_AUTHORITY) { return; }
+            const { xlsmPath, moduleName } = decodeModuleUri(uri);
+            const node = explorer.getModuleNode(xlsmPath, moduleName);
+            if (node) {
+                void treeView.reveal(node, { select: true, focus: false });
+            }
         }),
 
         // Refresh the explorer when .xlsm/.xlsb/.xlam files are added or removed
@@ -165,6 +179,27 @@ export function activate(context: vscode.ExtensionContext): void {
 
     bridge.start().then(() => {
         out.appendLine('XLIDE ready.');
+
+        // Item 9: Show a one-time welcome notification on first ever activation.
+        if (!context.globalState.get('xlide.welcomed')) {
+            void context.globalState.update('xlide.welcomed', true);
+            void vscode.window.showInformationMessage(
+                'XLIDE is ready. Right-click a workbook in the XLIDE Explorer to export modules, ' +
+                'or press F5 inside a module to run the macro at the cursor.',
+                'Open Explorer',
+            ).then(choice => {
+                if (choice === 'Open Explorer') {
+                    void vscode.commands.executeCommand('xlide.explorer.focus');
+                }
+            });
+        }
+
+        // Item 7: Auto-expand the first workbook on activation so modules are visible.
+        void explorer.warmXlsmCache().then(firstNode => {
+            if (firstNode) {
+                void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
+            }
+        });
     }).catch(async (err: Error) => {
         out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
 

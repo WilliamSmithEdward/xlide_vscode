@@ -12,10 +12,10 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 
 ## High-leverage UX
 
-- [ ] **(6) Reveal in XLIDE Explorer** — `treeView.reveal(node)` for the active module.
-- [ ] **(7) Auto-expand sidebar on first .xlsm** — expand the first workbook automatically on activation.
-- [ ] **(8) Persist last-opened modules** — remember which `xlide-vba://` editors were open per workbook in `workspaceState`.
-- [ ] **(9) Welcome notification on first activation** — single, dismissible nudge replacing the deleted walkthrough.
+- [x] **(6) Reveal in XLIDE Explorer** — `treeView.reveal(node)` for the active module.
+- [x] **(7) Auto-expand sidebar on first .xlsm** — expand the first workbook automatically on activation.
+- [x] **(8) Persist last-opened modules** — handled automatically by VS Code's editor restoration via the `onFileSystem:xlide-vba` activation event; no additional code required.
+- [x] **(9) Welcome notification on first activation** — single, dismissible nudge replacing the deleted walkthrough.
 
 ## Editor polish
 

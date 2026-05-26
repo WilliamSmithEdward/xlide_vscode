@@ -131,6 +131,7 @@ async function exportWorkbookModules(
         const sourceResult = await bridge.call<{ source: string }>('readModule', {
             path: params.filePath,
             module: mod.name,
+            full: true,   // include VBA attribute headers so exported files round-trip cleanly
         });
 
         const safeName = sanitizeFileName(mod.name) || mod.name;

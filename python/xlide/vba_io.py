@@ -64,12 +64,38 @@ _PROC_RE = re.compile(
 )
 
 
+# Known document module CLSIDs (Excel Workbook, Worksheet, Chart).
+# UserForms always carry TWO GUIDs in VB_Base — that pattern is the reliable
+# discriminator and does not depend on any specific CLSID value.
+_WORKBOOK_CLSID = "{00020819-0000-0000-C000-000000000046}"
+_WORKSHEET_CLSID = "{00020820-0000-0000-C000-000000000046}"
+_CHART_CLSID = "{00020821-0000-0000-C000-000000000046}"
+_DOCUMENT_CLSIDS = (_WORKBOOK_CLSID, _WORKSHEET_CLSID, _CHART_CLSID)
+_GUID_RE = re.compile(r"\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}")
+
+
 def _module_type(name: str, source: str) -> str:
-    """Infer module type from source content and name."""
-    stripped = source.lstrip()
-    if stripped.lower().startswith("version 1.0 class"):
-        return "class"
-    if "Attribute VB_PredeclaredId = True" in source:
+    """Infer module type from source content and name.
+
+    Returns one of: 'standard', 'class', 'document', 'userform'.
+    """
+    # Pull the VB_Base attribute value (if any).
+    vb_base_match = re.search(
+        r'^\s*Attribute\s+VB_Base\s*=\s*"([^"]*)"',
+        source,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    vb_base = vb_base_match.group(1) if vb_base_match else ""
+
+    if vb_base:
+        # UserForms always have TWO GUIDs in VB_Base (type-lib + instance).
+        # Class and document modules each have exactly one.
+        if len(_GUID_RE.findall(vb_base)) >= 2:
+            return "userform"
+        if any(c in vb_base for c in _DOCUMENT_CLSIDS):
+            return "document"
+
+    if re.search(r"^\s*Attribute\s+VB_PredeclaredId\s*=\s*True", source, re.MULTILINE | re.IGNORECASE):
         return "document"
     # Well-known document-module names across common Excel locales.
     if name == "ThisWorkbook" or re.match(
@@ -81,12 +107,21 @@ def _module_type(name: str, source: str) -> str:
 
 def list_modules(*, path: str) -> list[dict[str, Any]]:
     """Return [{name, type}] for every VBA module in the workbook."""
+    from pyopenvba import VBAModuleKind
+
     with ExcelFile(path) as wb:
-        names: list[str] = wb.module_names()
         result = []
-        for name in names:
-            source = wb.get_module(name)
-            result.append({"name": name, "type": _module_type(name, source)})
+        for m in wb.vba_project().modules:
+            if m.kind == VBAModuleKind.standard:
+                mod_type = "standard"
+            else:
+                # VBAModuleKind.other covers both class and document modules.
+                # Use source heuristics to distinguish them.
+                mod_type = _module_type(m.name, m.source)
+                if mod_type == "standard":
+                    # .kind says it's not a standard module — treat as class.
+                    mod_type = "class"
+            result.append({"name": m.name, "type": mod_type})
         return result
 
 
@@ -113,33 +148,50 @@ def list_subs(*, path: str, module: str) -> list[dict[str, Any]]:
     return subs
 
 
-def read_module(*, path: str, module: str) -> dict[str, Any]:
-    """Return {source} containing only the user-visible body (no Attribute header)."""
+def read_module(*, path: str, module: str, full: bool = False) -> dict[str, Any]:
+    """Return {source} containing the module source.
+
+    full=False (default) — returns only the user-visible body (no Attribute header).
+    full=True            — returns the complete source including VERSION/Attribute headers,
+                           suitable for exporting to files that need to round-trip accurately.
+    """
     with ExcelFile(path) as wb:
         source = wb.get_module(module)
+    if full:
+        return {"source": source}
     _, body = _split_vba_source(source)
     return {"source": body}
 
 
-def write_module(*, path: str, module: str, source: str) -> dict[str, Any]:
+def write_module(*, path: str, module: str, source: str, kind: str = "standard") -> dict[str, Any]:
     """Write source into a VBA module and save the workbook in place.
 
-    If the module does not yet exist it is created as a standard module.
+    ``source`` may be a bare visible body OR a full-source export (with
+    VERSION/Attribute headers).  In either case the incoming header is stripped
+    and replaced with the header already stored in the workbook, so the file
+    round-trips cleanly regardless of what the caller provides.
+
+    If the module does not yet exist it is created using ``kind``:
+    - ``'standard'``: bas-style standard module
+    - ``'class'``: cls-style class module (VB_PredeclaredId = False)
     """
     from pyopenvba import VBAModuleKind
+
+    # Strip any incoming header so callers can pass full-export content safely.
+    _, body = _split_vba_source(source)
 
     with ExcelFile(path) as wb:
         existing = wb.module_names()
         if module in existing:
-            # Re-read the current header and re-attach it so the workbook
-            # round-trips cleanly even though the editor only shows the body.
+            # Re-read the workbook's own header and re-attach it.
             current = wb.get_module(module)
             header, _ = _split_vba_source(current)
-            full_source = _join_vba_source(header, source)
+            full_source = _join_vba_source(header, body)
             wb.set_module(module, full_source)
         else:
+            vba_kind = VBAModuleKind.other if kind == "class" else VBAModuleKind.standard
             project = wb.vba_project()
-            project.add_module(module, source, kind=VBAModuleKind.standard)
+            project.add_module(module, body, kind=vba_kind)
         wb.save()
     return {"ok": True}
 
