@@ -28,13 +28,23 @@ export class PythonBridge implements vscode.Disposable {
     private _nextId = 1;
     private _ready = false;
     private _queue: Array<() => void> = [];
+    private _readyResolve: (() => void) | undefined;
+    private _readyReject: ((err: Error) => void) | undefined;
+    private _stderrLines: string[] = [];
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
         private readonly _out: vscode.OutputChannel,
     ) {}
 
+    /** Exposed so callers can run pip install against the same Python. */
+    resolvePython(): string { return this._resolvePython(); }
+
     async start(): Promise<void> {
+        // Reset state so start() can be called again after a failed attempt.
+        this._ready = false;
+        this._stderrLines = [];
+
         const pythonPath = this._resolvePython();
         const serverScript = path.join(
             this._context.extensionPath,
@@ -45,33 +55,43 @@ export class PythonBridge implements vscode.Disposable {
 
         this._out.appendLine(`Starting Python bridge: ${pythonPath} ${serverScript}`);
 
-        this._proc = cp.spawn(pythonPath, [serverScript], {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: serverDir,   // xlide package is importable from here
-        });
+        return new Promise<void>((resolve, reject) => {
+            this._readyResolve = resolve;
+            this._readyReject = reject;
 
-        this._proc.on('error', (err) => {
-            this._out.appendLine(`Process error: ${err.message}`);
-            this._rejectAll(new Error(`Python process error: ${err.message}`));
-            throw err;
-        });
+            this._proc = cp.spawn(pythonPath, [serverScript], {
+                stdio: ['pipe', 'pipe', 'pipe'],
+                cwd: serverDir,
+            });
 
-        this._proc.on('exit', (code) => {
-            this._out.appendLine(`Python backend exited with code ${code}`);
-            this._rejectAll(new Error(`Python backend exited with code ${code}`));
-        });
+            this._proc.on('error', (err) => {
+                this._out.appendLine(`Process error: ${err.message}`);
+                this._readyReject?.(new Error(`Cannot start Python: ${err.message}`));
+                this._rejectAll(new Error(`Python process error: ${err.message}`));
+            });
 
-        this._proc.stderr!.on('data', (chunk: Buffer) => {
-            const text = chunk.toString().trim();
-            if (text) {
-                this._out.appendLine(`[python] ${text}`);
-            }
-        });
+            this._proc.on('exit', (code) => {
+                this._out.appendLine(`Python backend exited with code ${code}`);
+                if (!this._ready) {
+                    const stderr = this._stderrLines.join('\n');
+                    this._readyReject?.(
+                        new Error(`Python backend exited (code ${code}).\n${stderr}`),
+                    );
+                }
+                this._rejectAll(new Error(`Python backend exited with code ${code}`));
+            });
 
-        const rl = readline.createInterface({ input: this._proc.stdout! });
-        rl.on('line', (line) => this._onLine(line));
-        // _ready is set to true only when the server emits {"ready":true}
-        // (after all Python imports finish).  Until then, calls are queued.
+            this._proc.stderr!.on('data', (chunk: Buffer) => {
+                const text = chunk.toString().trim();
+                if (text) {
+                    this._out.appendLine(`[python] ${text}`);
+                    this._stderrLines.push(text);
+                }
+            });
+
+            const rl = readline.createInterface({ input: this._proc.stdout! });
+            rl.on('line', (line) => this._onLine(line));
+        });
     }
 
     private _resolvePython(): string {
@@ -105,6 +125,7 @@ export class PythonBridge implements vscode.Disposable {
         if (line.trim() === '{"ready":true}') {
             this._out.appendLine('Python backend ready.');
             this._ready = true;
+            this._readyResolve?.();
             for (const fn of this._queue) { fn(); }
             this._queue = [];
             return;

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer } from './xlsmExplorer';
+import { XlideFileSystemProvider, encodeModuleUri } from './xlideFileSystem';
 
 // --------------------------------------------------------------------------
 // Input types matching the inputSchema in package.json
@@ -23,6 +24,7 @@ export function registerAgentTools(
     _context: vscode.ExtensionContext,
     bridge: PythonBridge,
     explorer: XlsmExplorer,
+    fsProvider: XlideFileSystemProvider,
 ): vscode.Disposable[] {
     return [
         // ----------------------------------------------------------------
@@ -76,6 +78,9 @@ export function registerAgentTools(
                     source,
                 });
                 explorer.refresh();
+                // Notify VS Code that the file changed so open editors reload
+                const uri = encodeModuleUri(filePath, moduleName);
+                fsProvider.notifyFileChanged(uri);
                 return textResult(
                     `Module "${moduleName}" written successfully to "${filePath}".`,
                 );

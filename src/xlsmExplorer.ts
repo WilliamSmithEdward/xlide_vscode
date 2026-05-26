@@ -58,7 +58,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
                     MODULE_ICONS[node.moduleType ?? 'standard'] ?? 'symbol-module',
                 );
                 item.description = node.moduleType;
-                item.contextValue = 'module';
+                // Include module type in contextValue so delete can be hidden from document modules
+                item.contextValue = `module-${node.moduleType ?? 'standard'}`;
                 item.command = {
                     command: 'xlide.openModule',
                     title: 'Open Module',
@@ -96,7 +97,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     private async _getXlsmFiles(): Promise<XlideNode[]> {
         const uris = await vscode.workspace.findFiles(
             '**/*.{xlsm,xlsb,xlam}',
-            '**/node_modules/**',
+            '{**/node_modules/**,**/.venv/**,**/venv/**}',
         );
         return uris
             .sort((a, b) => a.fsPath.localeCompare(b.fsPath))
@@ -113,13 +114,22 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
                 'listModules',
                 { path: filePath },
             );
-            return modules.map((m) => ({
-                kind: 'module' as const,
-                label: m.name,
-                filePath,
-                moduleName: m.name,
-                moduleType: m.type,
-            }));
+            // Sort: document types first, then standard, then alphabetically within each group
+            return modules
+                .sort((a, b) => {
+                    const typeOrder: Record<string, number> = { document: 0, class: 1, standard: 2 };
+                    const aOrder = typeOrder[a.type] ?? 3;
+                    const bOrder = typeOrder[b.type] ?? 3;
+                    if (aOrder !== bOrder) return aOrder - bOrder;
+                    return a.name.localeCompare(b.name);
+                })
+                .map((m) => ({
+                    kind: 'module' as const,
+                    label: m.name,
+                    filePath,
+                    moduleName: m.name,
+                    moduleType: m.type,
+                }));
         } catch (err) {
             vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${path.basename(filePath)}": ${err}`);
             return [];

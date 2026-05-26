@@ -114,6 +114,11 @@ export class XlideFileSystemProvider
         this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
     }
 
+    // Public method for agent tools to notify that a file has changed
+    notifyFileChanged(uri: vscode.Uri): void {
+        this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+    }
+
     dispose(): void {
         this._emitter.dispose();
     }

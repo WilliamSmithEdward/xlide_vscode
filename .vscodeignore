@@ -1,5 +1,12 @@
 .vscode/**
-out/**
+.venv/**
 node_modules/**
+src/**
+docs/**
+esbuild.js
+tsconfig.json
 .gitignore
+**/__pycache__/**
+**/*.pyc
 **/*.map
+out/**/*.map
