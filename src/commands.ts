@@ -60,6 +60,9 @@ export function registerCommands(
             '  $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
             '}',
             '$workbook.Activate()',
+            'try { Add-Type -MemberDefinition "[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);" -Name XlideWin32 -Namespace XlideHelper } catch { }',
+            '[XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
+            '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
         ].join('; ');
 
         log(`[openWorkbook] Running: powershell -Command "${script}"`);
@@ -117,6 +120,9 @@ export function registerCommands(
             '  $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
             '}',
             '$workbook.Activate()',
+            'try { Add-Type -MemberDefinition "[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);" -Name XlideWin32 -Namespace XlideHelper } catch { }',
+            '[XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
+            '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
             '$macroRef = "\'" + $workbook.Name + "\'!" + $macroName',
             '$excel.Run($macroRef)',
         ].join('; ');
@@ -223,6 +229,35 @@ export function registerCommands(
                 await vscode.languages.setTextDocumentLanguage(doc, 'vba');
             } catch (err) {
                 vscode.window.showErrorMessage(`XLIDE: Failed to create module: ${err}`);
+            }
+        }),
+
+        // Add a new class module
+        vscode.commands.registerCommand('xlide.newClassModule', async (node: XlideNode) => {
+            if (node?.kind !== 'xlsm') { return; }
+            const name = await vscode.window.showInputBox({
+                prompt: 'New class module name',
+                placeHolder: 'MyClass',
+                validateInput: (v) =>
+                    /^\w+$/.test(v) ? undefined : 'Module names must be alphanumeric',
+            });
+            if (!name) { return; }
+
+            const stub = `Option Explicit\r\n\r\nPrivate Sub Class_Initialize()\r\n\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminate()\r\n\r\nEnd Sub\r\n`;
+            try {
+                await bridge.call('writeModule', {
+                    path: node.filePath,
+                    module: name,
+                    source: stub,
+                    kind: 'class',
+                });
+                explorer.refresh();
+                const uri = encodeModuleUri(node.filePath, name);
+                const doc = await vscode.workspace.openTextDocument(uri);
+                await vscode.window.showTextDocument(doc, { preview: false });
+                await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+            } catch (err) {
+                vscode.window.showErrorMessage(`XLIDE: Failed to create class module: ${err}`);
             }
         }),
 

@@ -68,6 +68,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "xlide.newClassModule",
+        "title": "Add Class Module",
+        "category": "XLIDE",
+        "icon": "$(symbol-class)"
+      },
+      {
         "command": "xlide.deleteModule",
         "title": "Delete Module",
         "category": "XLIDE"
@@ -140,42 +146,47 @@
         {
           "command": "xlide.newModule",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "1_actions@1"
+          "group": "1_create@1"
+        },
+        {
+          "command": "xlide.newClassModule",
+          "when": "view == xlide.explorer && viewItem == xlsm",
+          "group": "1_create@2"
         },
         {
           "command": "xlide.renameModule",
           "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class)$/",
-          "group": "1_actions@1"
+          "group": "2_edit@1"
         },
         {
           "command": "xlide.deleteModule",
           "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class)$/",
-          "group": "1_actions@2"
+          "group": "2_edit@2"
         },
         {
           "command": "xlide.openWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "1_actions@3"
+          "group": "3_workbook@1"
         },
         {
           "command": "xlide.exportModulesToFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "1_actions@4"
+          "group": "4_transfer@1"
         },
         {
           "command": "xlide.importModulesFromFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "1_actions@5"
+          "group": "4_transfer@2"
         },
         {
           "command": "xlide.changeRepoFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "1_actions@6"
+          "group": "5_settings@1"
         },
         {
           "command": "xlide.configureExportMode",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "1_actions@7"
+          "group": "5_settings@2"
         }
       ]
     },
