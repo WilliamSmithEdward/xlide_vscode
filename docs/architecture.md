@@ -27,8 +27,9 @@ xlide_vscode/
     pythonBridge.ts     PythonBridge class — spawns server.py, JSON-RPC 2.0 client
     xlsmExplorer.ts     XlsmExplorer — TreeDataProvider for the XLIDE sidebar
     xlideFileSystem.ts  XlideFileSystemProvider — virtual xlide-vba:// filesystem
-    commands.ts         Command handlers: open, new, rename, delete module
-    agentTools.ts       Six LanguageModelTool registrations for AI agent use
+    commands.ts         Command handlers: open/new/rename/delete, workbook open/run, export modules
+    agentTools.ts       LanguageModelTool registrations for AI agent use
+    moduleDump.ts       Shared export/config logic for UI commands and AI tools
 
   python/
     server.py           JSON-RPC 2.0 dispatcher (stdin -> stdout, newline-delimited)
@@ -112,6 +113,18 @@ All calls are queued if the process has not yet started; in-flight calls are rej
 
 ---
 
+## Windows Excel COM behavior
+
+The commands `xlide.openWorkbook` and `xlide.runMacroAtCursor` use PowerShell COM automation on Windows.
+
+Setting:
+
+- `xlide.attachToRunningExcel` (default `true`)
+  - `true`: tries to attach to a running `Excel.Application` and reuse an already-open workbook (matched by full path or workbook name) before opening.
+  - `false`: always opens through a new COM-created Excel application path.
+
+---
+
 ## JSON-RPC methods
 
 | Method | Required params | Optional params | Returns |
@@ -129,6 +142,44 @@ Errors are returned as `{"error": {"code": -32000, "message": "…"}}`.
 
 ---
 
+## Module export
+
+`moduleDump.ts` is the single source of truth for export/config behavior.
+
+Both lanes call into this shared implementation:
+
+- UI commands (`xlide.exportModulesToFolder`, `xlide.configureExportMode`)
+- AI tools (`xlide_exportModules`, `xlide_configureExportMode`)
+
+The export operation exports all modules from a workbook by reading each module live over JSON-RPC (`listModules` then `readModule` per module).
+
+- User picks a destination folder with a folder picker.
+- Output file extension is `.bas` for standard modules and `.cls` for class/document modules.
+- Export mode is per-workbook and persisted in the workbook-local JSON config:
+  - `trueUp` (default): replace existing, add new, remove no-longer-existing modules
+  - `replaceExistingOnly`: replace files that already exist; do not add missing files; do not remove stale files
+- A workbook-local config file is written beside the workbook:
+
+```
+<workbook-filename>.extension.repo.json
+```
+
+Config schema:
+
+```json
+{
+  "exportFolder": "C:/absolute/path/to/export/folder",
+  "exportMode": "trueUp",
+  "managedFiles": ["Module1.bas", "Sheet1.cls"]
+}
+```
+
+On later runs, `exportFolder` is used as the default folder in the picker.
+
+The command `xlide.configureExportMode` updates `exportMode` for a workbook.
+
+---
+
 ## AI agent tools
 
 Declared in `package.json` under `contributes.languageModelTools` and registered at activation via `vscode.lm.registerTool`. Copilot can invoke them inline or via `#` references in chat.
@@ -141,6 +192,8 @@ Declared in `package.json` under `contributes.languageModelTools` and registered
 | `xlide_writeModule` | `#xlideWriteModule` | saves .xlsm | Yes |
 | `xlide_readCells` | `#xlideReadCells` | none | No |
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |
+| `xlide_exportModules` | `#xlideExportModules` | writes export files + updates workbook JSON config | Yes |
+| `xlide_configureExportMode` | `#xlideConfigureExportMode` | updates workbook JSON config | Yes |
 
 ---
 

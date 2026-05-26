@@ -4,6 +4,13 @@ import * as cp from 'child_process';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer, XlideNode } from './xlsmExplorer';
 import { XlideFileSystemProvider, encodeModuleUri, decodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
+import {
+    type ExportMode,
+    exportWorkbookModules,
+    normalizeExportMode,
+    readWorkbookRepoConfig,
+    setWorkbookExportMode,
+} from './moduleDump';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -21,13 +28,35 @@ export function registerCommands(
         out.show(true);
     }
 
+    function shouldAttachToRunningExcel(): boolean {
+        return vscode.workspace
+            .getConfiguration('xlide')
+            .get<boolean>('attachToRunningExcel', true);
+    }
+
     // Helper functions for Windows COM-based Excel operations
-    function runWindowsExcelReadOnly(filePath: string): void {
+    function runWindowsExcelReadOnly(filePath: string, attachToRunning: boolean): void {
         const script = [
             '$ErrorActionPreference = "Stop"',
-            '$excel = New-Object -ComObject Excel.Application',
+            `$targetPath = ${psSingleQuoted(filePath)}`,
+            `$targetName = ${psSingleQuoted(path.basename(filePath))}`,
+            '$excel = $null',
+            '$workbook = $null',
+            `$attachToRunning = ${attachToRunning ? '$true' : '$false'}`,
+            'if ($attachToRunning) {',
+            '  try { $excel = [Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application") } catch { }',
+            '}',
+            'if (-not $excel) {',
+            '  $excel = New-Object -ComObject Excel.Application',
+            '}',
             '$excel.Visible = $true',
-            `$null = $excel.Workbooks.Open(${psSingleQuoted(filePath)}, 0, $true)`,
+            'foreach ($wb in @($excel.Workbooks)) {',
+            '  if (($wb.FullName -ieq $targetPath) -or ($wb.Name -ieq $targetName)) { $workbook = $wb; break }',
+            '}',
+            'if (-not $workbook) {',
+            '  $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
+            '}',
+            '$workbook.Activate()',
         ].join('; ');
 
         log(`[openWorkbook] Running: powershell -Command "${script}"`);
@@ -62,15 +91,31 @@ export function registerCommands(
         });
     }
 
-    function runWindowsExcelMacroReadOnly(filePath: string, macroName: string): void {
-        const workbookName = path.basename(filePath);
-        const macroRef = `'${workbookName}'!${macroName}`;
+    function runWindowsExcelMacroReadOnly(filePath: string, macroName: string, attachToRunning: boolean): void {
         const script = [
             '$ErrorActionPreference = "Stop"',
-            '$excel = New-Object -ComObject Excel.Application',
+            `$targetPath = ${psSingleQuoted(filePath)}`,
+            `$targetName = ${psSingleQuoted(path.basename(filePath))}`,
+            `$macroName = ${psSingleQuoted(macroName)}`,
+            '$excel = $null',
+            '$workbook = $null',
+            `$attachToRunning = ${attachToRunning ? '$true' : '$false'}`,
+            'if ($attachToRunning) {',
+            '  try { $excel = [Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application") } catch { }',
+            '}',
+            'if (-not $excel) {',
+            '  $excel = New-Object -ComObject Excel.Application',
+            '}',
             '$excel.Visible = $true',
-            `$null = $excel.Workbooks.Open(${psSingleQuoted(filePath)}, 0, $true)`,
-            `$excel.Run(${psSingleQuoted(macroRef)})`,
+            'foreach ($wb in @($excel.Workbooks)) {',
+            '  if (($wb.FullName -ieq $targetPath) -or ($wb.Name -ieq $targetName)) { $workbook = $wb; break }',
+            '}',
+            'if (-not $workbook) {',
+            '  $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
+            '}',
+            '$workbook.Activate()',
+            '$macroRef = "\'" + $workbook.Name + "\'!" + $macroName',
+            '$excel.Run($macroRef)',
         ].join('; ');
 
         log(`[runMacro] Running: ${macroName}`);
@@ -104,6 +149,17 @@ export function registerCommands(
         child.on('exit', (code, signal) => {
             log(`[runMacro] powershell exited with code=${code} signal=${signal ?? 'none'}`);
         });
+    }
+
+    function resolveWorkbookPath(node?: XlideNode): string | undefined {
+        let filePath = node?.filePath;
+        if (!filePath) {
+            const active = vscode.window.activeTextEditor;
+            if (active && active.document.uri.scheme === XLIDE_SCHEME) {
+                filePath = decodeModuleUri(active.document.uri).xlsmPath;
+            }
+        }
+        return filePath;
     }
 
     return [
@@ -227,21 +283,123 @@ export function registerCommands(
             }
         }),
 
-        // Open the workbook with the registered app (Excel), read-only
-        vscode.commands.registerCommand('xlide.openWorkbook', async (node: XlideNode) => {
-            let filePath = node?.filePath;
-            if (!filePath) {
-                const active = vscode.window.activeTextEditor;
-                if (active && active.document.uri.scheme === XLIDE_SCHEME) {
-                    filePath = decodeModuleUri(active.document.uri).xlsmPath;
-                }
-            }
+        // Export all modules to a user-selected folder and persist folder in workbook config JSON
+        vscode.commands.registerCommand('xlide.exportModulesToFolder', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
 
             try {
+                const existingConfig = await readWorkbookRepoConfig(filePath);
+                const exportMode = normalizeExportMode(existingConfig.exportMode ?? existingConfig.dumpMode);
+                const defaultFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
+                const defaultUri = defaultFolder
+                    ? vscode.Uri.file(defaultFolder)
+                    : vscode.Uri.file(path.dirname(filePath));
+
+                const selected = await vscode.window.showOpenDialog({
+                    canSelectFiles: false,
+                    canSelectFolders: true,
+                    canSelectMany: false,
+                    openLabel: 'Select export folder',
+                    defaultUri,
+                });
+                if (!selected || selected.length === 0) { return; }
+
+                const exportFolder = selected[0].fsPath;
+
+                log(`[exportModules] Workbook: ${filePath}`);
+                log(`[exportModules] Target folder: ${exportFolder}`);
+                log(`[exportModules] Mode: ${exportMode}`);
+
+                const result = await exportWorkbookModules(bridge, {
+                    filePath,
+                    exportFolder,
+                    exportMode,
+                });
+
+                log(`[exportModules] Wrote ${result.writtenCount} module(s)`);
+                if (result.skippedNewCount > 0) {
+                    log(`[exportModules] Skipped ${result.skippedNewCount} new module(s) because mode=replaceExistingOnly`);
+                }
+                if (result.removedCount > 0) {
+                    log(`[exportModules] Removed ${result.removedCount} stale module file(s)`);
+                }
+                log(`[exportModules] Config updated: ${result.configPath}`);
+                vscode.window.showInformationMessage(
+                    `XLIDE: Exported ${result.writtenCount} module(s) to ${result.exportFolder} [mode=${result.exportMode}]`,
+                );
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[exportModules] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to export modules: ${message}`);
+            }
+        }),
+
+        // Backward-compatible alias for previous command id
+        vscode.commands.registerCommand('xlide.dumpModulesToFolder', async (node: XlideNode) => {
+            await vscode.commands.executeCommand('xlide.exportModulesToFolder', node);
+        }),
+
+        // Configure export behavior for this workbook
+        vscode.commands.registerCommand('xlide.configureExportMode', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) { return; }
+
+            try {
+                const existingConfig = await readWorkbookRepoConfig(filePath);
+                const currentMode = normalizeExportMode(existingConfig.exportMode ?? existingConfig.dumpMode);
+                const selection = await vscode.window.showQuickPick(
+                    [
+                        {
+                            label: 'True Up (default)',
+                            description: 'Replace existing, add new, remove no longer existing',
+                            mode: 'trueUp' as ExportMode,
+                        },
+                        {
+                            label: 'Replace Existing Only',
+                            description: 'Replace files that already exist in the folder only',
+                            mode: 'replaceExistingOnly' as ExportMode,
+                        },
+                    ],
+                    {
+                        title: `Configure module export mode for ${path.basename(filePath)}`,
+                        placeHolder: currentMode === 'trueUp'
+                            ? 'Current: True Up'
+                            : 'Current: Replace Existing Only',
+                    },
+                );
+
+                if (!selection) { return; }
+
+                await setWorkbookExportMode(filePath, selection.mode);
+
+                log(`[exportModules] Config mode set to ${selection.mode} for ${filePath}`);
+                vscode.window.showInformationMessage(
+                    `XLIDE: Export mode set to ${selection.mode} for ${path.basename(filePath)}`,
+                );
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[exportModules] Configure mode error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to configure export mode: ${message}`);
+            }
+        }),
+
+        // Backward-compatible alias for previous command id
+        vscode.commands.registerCommand('xlide.configureDumpMode', async (node: XlideNode) => {
+            await vscode.commands.executeCommand('xlide.configureExportMode', node);
+        }),
+
+        // Open the workbook with the registered app (Excel), read-only
+        vscode.commands.registerCommand('xlide.openWorkbook', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) { return; }
+
+            try {
+                const attachToRunning = shouldAttachToRunningExcel();
                 log(`[openWorkbook] Requested for: ${filePath}`);
+                log(`[openWorkbook] attachToRunningExcel=${attachToRunning}`);
                 if (process.platform === 'win32') {
-                    runWindowsExcelReadOnly(filePath);
+                    runWindowsExcelReadOnly(filePath, attachToRunning);
                 } else if (process.platform === 'darwin') {
                     // macOS: use open with Excel (read-only requires AppleScript, so just open normally)
                     cp.spawn('open', ['-a', 'Microsoft Excel', filePath]);
@@ -295,7 +453,9 @@ export function registerCommands(
 
                 // Open the workbook read-only
                 if (process.platform === 'win32') {
-                    runWindowsExcelMacroReadOnly(xlsmPath, `${moduleName}.${currentProc}`);
+                    const attachToRunning = shouldAttachToRunningExcel();
+                    log(`[runMacro] attachToRunningExcel=${attachToRunning}`);
+                    runWindowsExcelMacroReadOnly(xlsmPath, `${moduleName}.${currentProc}`, attachToRunning);
                 } else if (process.platform === 'darwin') {
                     cp.spawn('open', ['-a', 'Microsoft Excel', xlsmPath]);
                     vscode.window.showInformationMessage(

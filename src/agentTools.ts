@@ -2,6 +2,11 @@ import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider, encodeModuleUri } from './xlideFileSystem';
+import {
+    type ExportMode,
+    exportWorkbookModules,
+    setWorkbookExportMode,
+} from './moduleDump';
 
 // --------------------------------------------------------------------------
 // Input types matching the inputSchema in package.json
@@ -13,6 +18,8 @@ interface ReadModuleInput  { filePath: string; moduleName: string; }
 interface WriteModuleInput { filePath: string; moduleName: string; source: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
+interface ExportModulesInput { filePath: string; exportFolder?: string; exportMode?: ExportMode; }
+interface ConfigureExportModeInput { filePath: string; exportMode: ExportMode; }
 
 function textResult(value: string): vscode.LanguageModelToolResult {
     return new vscode.LanguageModelToolResult([
@@ -138,6 +145,55 @@ export function registerAgentTools(
                         title: 'Write Excel Cells',
                         message: new vscode.MarkdownString(
                             `Write data to sheet **${sheet}** starting at \`${startCell}\` in \`${filePath}\`?`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_exportModules  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<ExportModulesInput>('xlide_exportModules', {
+            async invoke(options, _token) {
+                const { filePath, exportFolder, exportMode } = options.input;
+                const result = await exportWorkbookModules(bridge, { filePath, exportFolder, exportMode });
+                return textResult(JSON.stringify(result, null, 2));
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, exportFolder, exportMode } = options.input;
+                return {
+                    invocationMessage: `Exporting VBA modules for "${filePath}"`,
+                    confirmationMessages: {
+                        title: 'Export VBA Modules',
+                        message: new vscode.MarkdownString(
+                            `Export all modules for \`${filePath}\` using mode **${exportMode ?? 'trueUp'}**` +
+                            `${exportFolder ? ` to folder \`${exportFolder}\`` : ' using configured folder'}` +
+                            `?\n\nThis writes files and updates workbookname.extension.repo.json.`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_configureExportMode  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<ConfigureExportModeInput>('xlide_configureExportMode', {
+            async invoke(options, _token) {
+                const { filePath, exportMode } = options.input;
+                const updated = await setWorkbookExportMode(filePath, exportMode);
+                return textResult(JSON.stringify({ filePath, ...updated }, null, 2));
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, exportMode } = options.input;
+                return {
+                    invocationMessage: `Configuring export mode for "${filePath}"`,
+                    confirmationMessages: {
+                        title: 'Configure Export Mode',
+                        message: new vscode.MarkdownString(
+                            `Set export mode for \`${filePath}\` to **${exportMode}**?\n\n` +
+                            `This updates workbookname.extension.repo.json beside the workbook.`,
                         ),
                     },
                 };

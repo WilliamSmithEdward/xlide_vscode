@@ -26,6 +26,11 @@
           "type": "string",
           "default": "",
           "description": "Path to the Python executable used to run the XLIDE backend. Leave empty to use 'python' (Windows) or 'python3' (Mac/Linux) from PATH."
+        },
+        "xlide.attachToRunningExcel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Windows only: when opening a workbook or running a macro, try to attach to a running Excel instance and reuse an already-open workbook before opening it again."
         }
       }
     },
@@ -68,6 +73,18 @@
         "title": "Open Workbook in Excel",
         "category": "XLIDE",
         "icon": "$(file-excel)"
+      },
+      {
+        "command": "xlide.exportModulesToFolder",
+        "title": "Export All Modules to Folder",
+        "category": "XLIDE",
+        "icon": "$(export)"
+      },
+      {
+        "command": "xlide.configureExportMode",
+        "title": "Configure Module Export Mode",
+        "category": "XLIDE",
+        "icon": "$(settings-gear)"
       },
       {
         "command": "xlide.runMacroAtCursor",
@@ -119,6 +136,16 @@
           "command": "xlide.openWorkbook",
           "when": "view == xlide.explorer && viewItem =~ /^(xlsm|module|sub)$/",
           "group": "1_actions@3"
+        },
+        {
+          "command": "xlide.exportModulesToFolder",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|module|sub)$/",
+          "group": "1_actions@4"
+        },
+        {
+          "command": "xlide.configureExportMode",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|module|sub)$/",
+          "group": "1_actions@5"
         }
       ]
     },
@@ -277,6 +304,54 @@
             }
           },
           "required": ["filePath", "sheet", "startCell", "data"]
+        }
+      },
+      {
+        "name": "xlide_exportModules",
+        "displayName": "Export VBA Modules to Folder",
+        "modelDescription": "Exports all VBA modules from a workbook to a folder using workbookname.extension.repo.json behavior shared with UI commands. Uses live module reads from the workbook. Supports exportMode trueUp (default: replace existing, add new, remove stale) and replaceExistingOnly (replace existing files only).",
+        "toolReferenceName": "xlideExportModules",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            },
+            "exportFolder": {
+              "type": "string",
+              "description": "Optional absolute folder path. If omitted, uses exportFolder from workbookname.extension.repo.json"
+            },
+            "exportMode": {
+              "type": "string",
+              "enum": ["trueUp", "replaceExistingOnly"],
+              "description": "Optional mode override for this run"
+            }
+          },
+          "required": ["filePath"]
+        }
+      },
+      {
+        "name": "xlide_configureExportMode",
+        "displayName": "Configure VBA Export Mode",
+        "modelDescription": "Sets the persistent exportMode in workbookname.extension.repo.json beside the workbook. Use trueUp by default unless the user explicitly requests replaceExistingOnly.",
+        "toolReferenceName": "xlideConfigureExportMode",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            },
+            "exportMode": {
+              "type": "string",
+              "enum": ["trueUp", "replaceExistingOnly"],
+              "description": "Persistent export mode to store in workbookname.extension.repo.json"
+            }
+          },
+          "required": ["filePath", "exportMode"]
         }
       }
     ]
