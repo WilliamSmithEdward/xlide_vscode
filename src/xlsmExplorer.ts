@@ -44,6 +44,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     // listModules cache: avoids repeated bridge round-trips while the tree is
     // expanded.  Cleared on refresh() so edits always re-fetch.
     private _modulesListCache = new Map<string, Array<{ name: string; type: string }>>();
+    // Accordion: only one module node is expanded at a time.
+    private _activeModuleKey: string | undefined;
 
     constructor(private readonly _bridge: PythonBridge) {}
 
@@ -81,6 +83,38 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     }
 
     /**
+     * Accordion-expand the given module and collapse all sibling module nodes
+     * under the same workbook. Safe to call before the tree has loaded.
+     */
+    setActiveModule(filePath: string, moduleName: string): void {
+        const key = `${filePath}::${moduleName}`;
+        if (this._activeModuleKey === key) { return; }
+        this._activeModuleKey = key;
+        // VS Code applies a TreeItem's collapsibleState only when it first sees
+        // an element id.  getTreeItem() therefore stamps an id that encodes the
+        // active-state — toggling the active module changes every sibling's id,
+        // forcing VS Code to render them fresh with Collapsed.
+        const xlsmNode = this._xlsmNodes.get(filePath);
+        if (xlsmNode) {
+            this._emitter.fire(xlsmNode);
+        }
+    }
+
+    /**
+     * Clear the active module (e.g. when the last XLIDE editor closes) so that
+     * every module under every workbook collapses.
+     */
+    clearActiveModule(): void {
+        if (this._activeModuleKey === undefined) { return; }
+        this._activeModuleKey = undefined;
+        // Re-render every loaded workbook so all module ids rotate and apply
+        // the Collapsed initial state.
+        for (const xlsmNode of this._xlsmNodes.values()) {
+            this._emitter.fire(xlsmNode);
+        }
+    }
+
+    /**
      * Eagerly loads and caches the root xlsm nodes without waiting for the tree
      * to expand them. Returns the first node (if any) so callers can auto-reveal.
      */
@@ -90,12 +124,32 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     }
 
     getTreeItem(node: XlideNode): vscode.TreeItem {
+        const isActiveModule =
+            node.kind === 'module' &&
+            `${node.filePath}::${node.moduleName}` === this._activeModuleKey;
         const item = new vscode.TreeItem(
             node.label,
             node.kind === 'sub'
                 ? vscode.TreeItemCollapsibleState.None
-                : vscode.TreeItemCollapsibleState.Collapsed,
+                : isActiveModule
+                    ? vscode.TreeItemCollapsibleState.Expanded
+                    : vscode.TreeItemCollapsibleState.Collapsed,
         );
+
+        // Encode the *current* active-module key into every module id.  Each
+        // accordion transition therefore changes every sibling's id, forcing
+        // VS Code to render them fresh and apply the Collapsed initial state.
+        // (Encoding only the node's own active flag is insufficient: a sibling
+        // the user manually expanded earlier keeps its id and its expanded UI
+        // state across active-module changes.)
+        if (node.kind === 'module') {
+            const activeKey = this._activeModuleKey ?? '-';
+            item.id = `m::${node.filePath}::${node.moduleName}::${activeKey}`;
+        } else if (node.kind === 'sub') {
+            item.id = `s::${node.filePath}::${node.moduleName}::${node.label}::${node.line ?? 0}`;
+        } else if (node.kind === 'xlsm') {
+            item.id = `w::${node.isRemote ? node.remoteId ?? '' : node.filePath}`;
+        }
 
         switch (node.kind) {
             case 'xlsm':

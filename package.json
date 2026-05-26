@@ -1,6 +1,6 @@
 {
   "name": "xlide",
-  "displayName": "XLIDE",
+  "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
   "version": "0.0.1",
   "publisher": "WilliamSmithE",

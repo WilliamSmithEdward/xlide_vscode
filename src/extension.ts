@@ -88,14 +88,45 @@ export function activate(context: vscode.ExtensionContext): void {
         treeView,
 
         // Item 6: Reveal active module in the XLIDE Explorer tree.
-        vscode.window.onDidChangeActiveTextEditor((editor) => {
-            if (!editor) { return; }
-            const uri = editor.document.uri;
-            if (uri.scheme !== XLIDE_SCHEME || uri.authority === XLIDE_LIVESHARE_AUTHORITY) { return; }
-            const { xlsmPath, moduleName } = decodeModuleUri(uri);
-            const node = explorer.getModuleNode(xlsmPath, moduleName);
-            if (node) {
-                void treeView.reveal(node, { select: true, focus: false });
+        // Also drives accordion collapse: only the active module stays expanded.
+        // Debounced so rapid tab switches (e.g. Ctrl+W spam) coalesce into a
+        // single setActiveModule + reveal, avoiding overlapping async reveal
+        // calls that could leave stale modules expanded.
+        (() => {
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            let pending: { xlsmPath: string; moduleName: string } | undefined;
+            const apply = () => {
+                timer = undefined;
+                if (!pending) { return; }
+                const { xlsmPath, moduleName } = pending;
+                pending = undefined;
+                explorer.setActiveModule(xlsmPath, moduleName);
+                const node = explorer.getModuleNode(xlsmPath, moduleName);
+                if (node) {
+                    void treeView.reveal(node, { select: true, focus: false, expand: true });
+                }
+            };
+            return vscode.window.onDidChangeActiveTextEditor((editor) => {
+                // No active editor (e.g. user closed the last tab) — collapse all modules.
+                if (!editor) {
+                    pending = undefined;
+                    if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+                    explorer.clearActiveModule();
+                    return;
+                }
+                const uri = editor.document.uri;
+                if (uri.scheme !== XLIDE_SCHEME || uri.authority === XLIDE_LIVESHARE_AUTHORITY) { return; }
+                pending = decodeModuleUri(uri);
+                if (timer !== undefined) { clearTimeout(timer); }
+                timer = setTimeout(apply, 60);
+            });
+        })(),
+
+        // Accordion: if the user manually clicks the expand arrow on a module node,
+        // collapse all sibling modules under the same workbook.
+        treeView.onDidExpandElement((e) => {
+            if (e.element.kind === 'module' && e.element.filePath && e.element.moduleName) {
+                explorer.setActiveModule(e.element.filePath, e.element.moduleName);
             }
         }),
 
