@@ -9,6 +9,7 @@ import {
     exportWorkbookModules,
     normalizeExportMode,
     readWorkbookRepoConfig,
+    writeWorkbookRepoConfig,
     setWorkbookExportMode,
 } from './moduleDump';
 
@@ -291,21 +292,24 @@ export function registerCommands(
             try {
                 const existingConfig = await readWorkbookRepoConfig(filePath);
                 const exportMode = normalizeExportMode(existingConfig.exportMode ?? existingConfig.dumpMode);
-                const defaultFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
-                const defaultUri = defaultFolder
-                    ? vscode.Uri.file(defaultFolder)
-                    : vscode.Uri.file(path.dirname(filePath));
+                const configuredFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
 
-                const selected = await vscode.window.showOpenDialog({
-                    canSelectFiles: false,
-                    canSelectFolders: true,
-                    canSelectMany: false,
-                    openLabel: 'Select export folder',
-                    defaultUri,
-                });
-                if (!selected || selected.length === 0) { return; }
-
-                const exportFolder = selected[0].fsPath;
+                let exportFolder: string;
+                if (configuredFolder) {
+                    // Folder already set — export directly without prompting
+                    exportFolder = configuredFolder;
+                } else {
+                    // First time — ask the user to pick a folder
+                    const selected = await vscode.window.showOpenDialog({
+                        canSelectFiles: false,
+                        canSelectFolders: true,
+                        canSelectMany: false,
+                        openLabel: 'Select export folder',
+                        defaultUri: vscode.Uri.file(path.dirname(filePath)),
+                    });
+                    if (!selected || selected.length === 0) { return; }
+                    exportFolder = selected[0].fsPath;
+                }
 
                 log(`[exportModules] Workbook: ${filePath}`);
                 log(`[exportModules] Target folder: ${exportFolder}`);
@@ -338,6 +342,41 @@ export function registerCommands(
         // Backward-compatible alias for previous command id
         vscode.commands.registerCommand('xlide.dumpModulesToFolder', async (node: XlideNode) => {
             await vscode.commands.executeCommand('xlide.exportModulesToFolder', node);
+        }),
+
+        // Change the configured export folder for this workbook
+        vscode.commands.registerCommand('xlide.changeRepoFolder', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) { return; }
+
+            try {
+                const existingConfig = await readWorkbookRepoConfig(filePath);
+                const currentFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
+                const selected = await vscode.window.showOpenDialog({
+                    canSelectFiles: false,
+                    canSelectFolders: true,
+                    canSelectMany: false,
+                    openLabel: 'Select new export folder',
+                    defaultUri: currentFolder
+                        ? vscode.Uri.file(currentFolder)
+                        : vscode.Uri.file(path.dirname(filePath)),
+                });
+                if (!selected || selected.length === 0) { return; }
+
+                const newFolder = selected[0].fsPath;
+                await writeWorkbookRepoConfig(filePath, {
+                    ...existingConfig,
+                    exportFolder: newFolder,
+                    dumpFolder: undefined,
+                });
+                log(`[changeRepoFolder] Folder set to ${newFolder} for ${filePath}`);
+                vscode.window.showInformationMessage(
+                    `XLIDE: Export folder updated to ${newFolder}`,
+                );
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                vscode.window.showErrorMessage(`XLIDE: Failed to update export folder: ${message}`);
+            }
         }),
 
         // Configure export behavior for this workbook

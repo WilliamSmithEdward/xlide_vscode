@@ -32,9 +32,13 @@ function installDependencies(
             proc.on('error', (err) => reject(new Error(`pip failed: ${err.message}`)));
             proc.on('exit', (code) => {
                 if (code === 0) {
-                    vscode.window.showInformationMessage('XLIDE: Dependencies installed. Starting...');
                     bridge.start()
-                        .then(() => out.appendLine('XLIDE ready.'))
+                        .then(() => {
+                            out.appendLine('XLIDE ready.');
+                            void vscode.window.showInformationMessage(
+                                'XLIDE: Dependencies installed and bridge started. If any files failed to open, click Try Again in the editor tab.',
+                            );
+                        })
                         .catch((err: Error) => {
                             out.appendLine(`ERROR after install: ${err.message}`);
                             vscode.window.showErrorMessage(`XLIDE: ${err.message}`);
@@ -75,6 +79,54 @@ export function activate(context: vscode.ExtensionContext): void {
             showCollapseAll: true,
         }),
 
+        // Refresh the explorer when .xlsm/.xlsb/.xlam files are added or removed
+        (() => {
+            const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
+            watcher.onDidCreate(() => explorer.refresh());
+            watcher.onDidDelete(() => explorer.refresh());
+            return watcher;
+        })(),
+
+        // DEV ONLY: preview error notification UX
+        vscode.commands.registerCommand('xlide.previewErrors', async () => {
+            const pick = await vscode.window.showQuickPick([
+                { label: 'Scenario A: Python not found', id: 'a' },
+                { label: 'Scenario B: Packages missing', id: 'b' },
+                { label: 'After install success', id: 'c' },
+            ], { title: 'XLIDE: Preview error notification' });
+            if (!pick) { return; }
+            if (pick.id === 'a') {
+                const choice = await vscode.window.showErrorMessage(
+                    'XLIDE: Python 3.10+ was not found. Install Python and tick "Add Python to PATH", then reload the window. Or set xlide.pythonPath to your Python executable and reload.',
+                    'Get Python', 'Set Python Path', 'Reload Window',
+                );
+                if (choice === 'Reload Window') {
+                    void vscode.commands.executeCommand('workbench.action.reloadWindow');
+                } else if (choice === 'Get Python') {
+                    void vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
+                    void vscode.window.showInformationMessage(
+                        'After installing Python, reload the window to start XLIDE.',
+                        'Reload Window',
+                    ).then(a => { if (a === 'Reload Window') { void vscode.commands.executeCommand('workbench.action.reloadWindow'); } });
+                } else if (choice === 'Set Python Path') {
+                    void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
+                    void vscode.window.showInformationMessage(
+                        'After setting the path, reload the window to start XLIDE.',
+                        'Reload Window',
+                    ).then(a => { if (a === 'Reload Window') { void vscode.commands.executeCommand('workbench.action.reloadWindow'); } });
+                }
+            } else if (pick.id === 'b') {
+                await vscode.window.showErrorMessage(
+                    'XLIDE: Required Python packages are missing (pyOpenVBA, openpyxl). Click "Install Now" to install them automatically.',
+                    'Install Now', 'View XLIDE Output', 'Dismiss',
+                );
+            } else if (pick.id === 'c') {
+                void vscode.window.showInformationMessage(
+                    'XLIDE: Dependencies installed and bridge started. If any files failed to open, click Try Again in the editor tab.',
+                );
+            }
+        }),
+
         // Manual setup command (also auto-triggered on missing packages)
         vscode.commands.registerCommand('xlide.setup', () =>
             installDependencies(bridge, context, out).catch((err: Error) => {
@@ -105,18 +157,34 @@ export function activate(context: vscode.ExtensionContext): void {
 
         if (isPythonNotFound(err.message)) {
             const choice = await vscode.window.showErrorMessage(
-                'XLIDE: Python was not found on your system. ' +
-                'Install Python 3.9+ and tick "Add Python to PATH", or set the xlide.pythonPath setting to point at your Python executable.',
+                'XLIDE: Python 3.10+ was not found. Install Python and tick "Add Python to PATH", ' +
+                'then reload the window. Or set xlide.pythonPath to your Python executable and reload.',
                 'Get Python',
                 'Set Python Path',
-                'View XLIDE Output',
+                'Reload Window',
             );
             if (choice === 'Get Python') {
                 void vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
+                void vscode.window.showInformationMessage(
+                    'After installing Python, reload the window to start XLIDE.',
+                    'Reload Window',
+                ).then(action => {
+                    if (action === 'Reload Window') {
+                        void vscode.commands.executeCommand('workbench.action.reloadWindow');
+                    }
+                });
             } else if (choice === 'Set Python Path') {
                 void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
-            } else if (choice === 'View XLIDE Output') {
-                out.show(true);
+                void vscode.window.showInformationMessage(
+                    'After setting the path, reload the window to start XLIDE.',
+                    'Reload Window',
+                ).then(action => {
+                    if (action === 'Reload Window') {
+                        void vscode.commands.executeCommand('workbench.action.reloadWindow');
+                    }
+                });
+            } else if (choice === 'Reload Window') {
+                void vscode.commands.executeCommand('workbench.action.reloadWindow');
             }
         } else if (isMissingPackage(err.message)) {
             const choice = await vscode.window.showErrorMessage(
