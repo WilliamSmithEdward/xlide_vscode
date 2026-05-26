@@ -143,9 +143,11 @@ export function registerCommands(
             }
         });
         child.stderr?.on('data', (d: Buffer) => {
-            const text = d.toString().trim();
-            if (text) {
-                log(`[runMacro stderr] ${text}`);
+            for (const line of d.toString().split('\n')) {
+                const trimmed = line.trimEnd();
+                if (trimmed) {
+                    log(`[runMacro stderr] ${trimmed}`);
+                }
             }
         });
         child.on('exit', (code, signal) => {
