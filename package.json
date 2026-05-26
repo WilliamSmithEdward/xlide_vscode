@@ -4,6 +4,7 @@
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
   "version": "0.0.1",
   "publisher": "WilliamSmithE",
+  "readme": "MARKETPLACE.md",
   "repository": {
     "type": "git",
     "url": "https://github.com/WilliamSmithEdward/xlide_vscode.git"
@@ -160,7 +161,15 @@
       {
         "id": "vba",
         "aliases": ["VBA", "Visual Basic for Applications"],
-        "extensions": [".bas", ".cls", ".frm"]
+        "extensions": [".bas", ".cls", ".frm"],
+        "configuration": "./language-configuration/vba-language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vba",
+        "scopeName": "source.vba",
+        "path": "./syntaxes/vba.tmLanguage.json"
       }
     ],
     "languageModelTools": [

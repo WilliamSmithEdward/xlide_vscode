@@ -6,6 +6,7 @@ import { XlideFileSystemProvider, XLIDE_SCHEME } from './xlideFileSystem';
 import { PythonBridge } from './pythonBridge';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
+import { registerVbaLanguageProviders } from './vbaLanguageProviders';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -88,30 +89,62 @@ export function activate(context: vscode.ExtensionContext): void {
         bridge,
     );
 
+    // VBA language services: syntax-aware symbol index + providers
+    registerVbaLanguageProviders(context, bridge);
+
     const isMissingPackage = (msg: string) =>
         /No module named|ModuleNotFoundError|ImportError/i.test(msg);
+
+    const isPythonNotFound = (msg: string) =>
+        /python.*not found|not recognized|cannot find|no such file|ENOENT|spawn.*python/i.test(msg);
 
     bridge.start().then(() => {
         out.appendLine('XLIDE ready.');
     }).catch(async (err: Error) => {
         out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
-        if (isMissingPackage(err.message)) {
+
+        if (isPythonNotFound(err.message)) {
             const choice = await vscode.window.showErrorMessage(
-                'XLIDE: Required Python packages (pyopenvba, openpyxl) are missing.',
+                'XLIDE: Python was not found on your system. ' +
+                'Install Python 3.9+ and tick "Add Python to PATH", or set the xlide.pythonPath setting to point at your Python executable.',
+                'Get Python',
+                'Set Python Path',
+                'View XLIDE Output',
+            );
+            if (choice === 'Get Python') {
+                void vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
+            } else if (choice === 'Set Python Path') {
+                void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
+            } else if (choice === 'View XLIDE Output') {
+                out.show(true);
+            }
+        } else if (isMissingPackage(err.message)) {
+            const choice = await vscode.window.showErrorMessage(
+                'XLIDE: Required Python packages are missing (pyOpenVBA, openpyxl). ' +
+                'Click "Install Now" to install them automatically.',
                 'Install Now',
+                'View XLIDE Output',
                 'Dismiss',
             );
             if (choice === 'Install Now') {
                 await installDependencies(bridge, context, out).catch((e: Error) => {
                     out.appendLine(`Setup error: ${e.message}`);
-                    vscode.window.showErrorMessage(`XLIDE setup failed: ${e.message}`);
+                    vscode.window.showErrorMessage(`XLIDE setup failed: ${e.message}. See the XLIDE output channel for details.`);
                 });
+            } else if (choice === 'View XLIDE Output') {
+                out.show(true);
             }
         } else {
-            vscode.window.showErrorMessage(
-                `XLIDE: Failed to start Python backend - ${err.message}. ` +
-                `Check the xlide.pythonPath setting or view the XLIDE output channel.`,
+            const choice = await vscode.window.showErrorMessage(
+                `XLIDE: Failed to start Python backend. ${err.message}`,
+                'View XLIDE Output',
+                'Set Python Path',
             );
+            if (choice === 'View XLIDE Output') {
+                out.show(true);
+            } else if (choice === 'Set Python Path') {
+                void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
+            }
         }
     });
 }

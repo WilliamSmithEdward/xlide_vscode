@@ -197,6 +197,40 @@ Declared in `package.json` under `contributes.languageModelTools` and registered
 
 ---
 
+## VBA language services
+
+VBA is registered as the `vba` language (extensions `.bas`, `.cls`, `.frm`).
+
+**Syntax coloring** — `syntaxes/vba.tmLanguage.json` provides a TextMate grammar
+covering comments, attribute lines, `#If` directives, string/number/date literals,
+procedure declarations (`Sub`, `Function`, `Property Get/Let/Set`), declarations
+(`Dim`, `Public`, `Private`, `Const`, `Declare`, `Type`, `Enum`), built-in types
+and constants, control-flow keywords, and built-in functions.
+`language-configuration/vba-language-configuration.json` configures the
+apostrophe line comment, brackets, indent rules, and procedure-based folding.
+
+**Symbol intelligence** — `src/vbaSymbolIndex.ts` keeps a workbook-scoped cache
+of parsed module symbols. Modules are parsed with a lightweight regex pass
+(`parseVbaModule`) that yields each `Sub`, `Function`, and `Property Get/Let/Set`
+with name range and body range. The index loads modules lazily through the
+Python bridge (`listModules` + `readModule`) and can refresh a single module
+after a save.
+
+`src/vbaLanguageProviders.ts` registers four providers against the `vba`
+language under the `xlide-vba` scheme:
+
+| Provider | Behavior |
+|---|---|
+| `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
+| `DefinitionProvider` | Resolves an identifier across all modules in the workbook; honors `Module.Member` qualifiers and `Private` visibility |
+| `ReferenceProvider` | Word-boundary search across all modules, skipping string literals and apostrophe comments |
+| `RenameProvider` | `prepareRename` checks the identifier is a known procedure; `provideRenameEdits` returns a `WorkspaceEdit` that rewrites every module; VS Code applies the edit and Ctrl+S persists each module through the virtual filesystem |
+
+The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
+the cache stays in sync with user edits.
+
+---
+
 ## Key design decisions
 
 | Decision | Rationale |
@@ -229,3 +263,4 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New VS Code command | `src/commands.ts`, `package.json` (`contributes.commands`, `menus`), `docs/architecture.md` |
 | New Python source file | `python/xlide/__init__.py` (if re-exported), `docs/architecture.md` |
 | Dependency added/removed | `python/requirements.txt`, `README.md` |
+| New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |

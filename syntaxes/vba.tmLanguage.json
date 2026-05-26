@@ -1,0 +1,287 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "VBA",
+  "scopeName": "source.vba",
+  "fileTypes": [".bas", ".cls", ".frm"],
+  "patterns": [
+    { "include": "#line-continuation" },
+    { "include": "#comments" },
+    { "include": "#attributes" },
+    { "include": "#directives" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#procedures" },
+    { "include": "#declarations" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#keywords" },
+    { "include": "#operators" },
+    { "include": "#reserved-names" },
+    { "include": "#builtin-functions" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "line-continuation": {
+      "name": "punctuation.separator.continuation.vba",
+      "match": "\\s+_$"
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.apostrophe.vba",
+          "match": "'.*$"
+        },
+        {
+          "name": "comment.line.rem.vba",
+          "match": "(?i)^\\s*\\bRem\\b.*$"
+        }
+      ]
+    },
+    "attributes": {
+      "comment": "Module header Attribute lines (VB_Name, VB_Exposed, etc.)",
+      "match": "(?i)^\\s*(Attribute)\\s+([A-Za-z_][A-Za-z0-9_\\.]*(?:\\s+[A-Za-z_][A-Za-z0-9_]*)*)\\s*(=)",
+      "captures": {
+        "1": { "name": "keyword.other.attribute.vba" },
+        "2": { "name": "variable.other.attribute.vba" },
+        "3": { "name": "keyword.operator.assignment.vba" }
+      }
+    },
+    "directives": {
+      "patterns": [
+        {
+          "comment": "Conditional compilation directives: #If #ElseIf #Else #End If #Const",
+          "name": "meta.preprocessor.vba",
+          "match": "(?i)^\\s*(#\\s*(?:If|ElseIf|Else|End\\s+If|EndIf|Const))\\b.*$",
+          "captures": {
+            "1": { "name": "keyword.control.preprocessor.vba" }
+          }
+        },
+        {
+          "comment": "Option Explicit / Base / Compare / Private Module",
+          "match": "(?i)^\\s*(Option)\\s+(Explicit|Base|Compare|Private\\s+Module)\\b",
+          "captures": {
+            "1": { "name": "keyword.control.option.vba" },
+            "2": { "name": "keyword.other.option.vba" }
+          }
+        },
+        {
+          "comment": "Def-type implicit-type directives: DefBool DefByte DefInt DefLng etc. (section 5.2.2 MS-VBAL)",
+          "match": "(?i)^\\s*(DefBool|DefByte|DefCur|DefDate|DefDbl|DefDec|DefInt|DefLng|DefLngLng|DefLngPtr|DefObj|DefSng|DefStr|DefVar)\\b",
+          "captures": {
+            "1": { "name": "keyword.other.directive.deftype.vba" }
+          }
+        },
+        {
+          "comment": "Implements directive (class modules, section 5.2.1)",
+          "match": "(?i)^\\s*(Implements)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.other.implements.vba" },
+            "2": { "name": "entity.name.type.vba" }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.vba",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.double-quote.vba",
+          "match": "\"\""
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.vba",
+          "match": "(?i)&H[0-9A-F]+[%&^]?"
+        },
+        {
+          "name": "constant.numeric.octal.vba",
+          "match": "(?i)&O[0-7]+[%&^]?"
+        },
+        {
+          "name": "constant.numeric.float.vba",
+          "match": "\\b\\d+\\.\\d+(?:[eE][+-]?\\d+)?[!#@]?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.vba",
+          "match": "\\b\\d+[%&^!#@]?\\b"
+        },
+        {
+          "name": "constant.other.date.vba",
+          "comment": "Date literal: #1/1/2024# or #2024-01-01 08:30:00 AM#",
+          "match": "#[^#\\r\\n]+#"
+        }
+      ]
+    },
+    "procedures": {
+      "patterns": [
+        {
+          "comment": "Sub / Function declaration — captures visibility, Static, keyword, and name",
+          "match": "(?i)^\\s*((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" },
+            "2": { "name": "storage.modifier.static.vba" },
+            "3": { "name": "storage.type.function.vba" },
+            "4": { "name": "entity.name.function.vba" }
+          }
+        },
+        {
+          "comment": "Property Get / Let / Set declaration",
+          "match": "(?i)^\\s*((?:Public|Private|Friend)\\s+)?(?:(Static)\\s+)?(Property)\\s+(Get|Let|Set)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" },
+            "2": { "name": "storage.modifier.static.vba" },
+            "3": { "name": "storage.type.property.vba" },
+            "4": { "name": "storage.type.property.vba" },
+            "5": { "name": "entity.name.function.property.vba" }
+          }
+        },
+        {
+          "comment": "End Sub / End Function / End Property / End If / End With / End Select / End Type / End Enum",
+          "match": "(?i)^\\s*(End)\\s+(Sub|Function|Property|If|With|Select|Type|Enum)\\b",
+          "captures": {
+            "1": { "name": "keyword.control.end.vba" },
+            "2": { "name": "keyword.control.end.vba" }
+          }
+        },
+        {
+          "comment": "EndIf as one token (alternative form)",
+          "match": "(?i)\\bEndIf\\b",
+          "name": "keyword.control.end.vba"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "comment": "Declare [PtrSafe] Sub/Function — Windows API declaration",
+          "match": "(?i)^\\s*((?:Public|Private)\\s+)?(Declare)(?:\\s+(PtrSafe))?\\s+(Sub|Function)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" },
+            "2": { "name": "keyword.other.declare.vba" },
+            "3": { "name": "storage.modifier.vba" },
+            "4": { "name": "storage.type.function.vba" },
+            "5": { "name": "entity.name.function.vba" }
+          }
+        },
+        {
+          "comment": "Type or Enum block header",
+          "match": "(?i)^\\s*((?:Public|Private|Global)\\s+)?(Type|Enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" },
+            "2": { "name": "storage.type.vba" },
+            "3": { "name": "entity.name.type.vba" }
+          }
+        },
+        {
+          "comment": "Event declaration in class modules",
+          "match": "(?i)^\\s*((?:Public|Private)\\s+)?(Event)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" },
+            "2": { "name": "keyword.other.event.vba" },
+            "3": { "name": "entity.name.function.vba" }
+          }
+        },
+        {
+          "comment": "Module-level variable / const / redim storage modifiers",
+          "match": "(?i)\\b(Public|Private|Friend|Global|Dim|Const|Static|ReDim|Shared)\\b",
+          "captures": {
+            "1": { "name": "storage.modifier.vba" }
+          }
+        }
+      ]
+    },
+    "types": {
+      "comment": "Built-in type names: reserved-type-identifier + Object (section 3.3.5.2 MS-VBAL)",
+      "name": "support.type.vba",
+      "match": "(?i)\\b(Boolean|Byte|Integer|Long|LongLong|LongPtr|Single|Double|Currency|Date|String|Variant|Object)\\b"
+    },
+    "constants": {
+      "comment": "Language literal-identifiers and common VBA/Excel intrinsic constants",
+      "name": "constant.language.vba",
+      "match": "(?i)\\b(True|False|Nothing|Null|Empty|vbCrLf|vbCr|vbLf|vbNewLine|vbTab|vbNullString|vbNullChar|vbBack|vbFormFeed|vbVerticalTab|vbBlack|vbRed|vbGreen|vbYellow|vbBlue|vbMagenta|vbCyan|vbWhite|vbOKOnly|vbOKCancel|vbAbortRetryIgnore|vbYesNoCancel|vbYesNo|vbRetryCancel|vbCritical|vbQuestion|vbExclamation|vbInformation|vbDefaultButton1|vbDefaultButton2|vbDefaultButton3|vbApplicationModal|vbSystemModal|vbOK|vbCancel|vbAbort|vbRetry|vbIgnore|vbYes|vbNo|vbString|vbBinaryCompare|vbTextCompare|xlUp|xlDown|xlToLeft|xlToRight|xlValues|xlFormulas|xlComments|xlWhole|xlPart|xlByRows|xlByColumns|xlNext|xlPrevious|xlCellTypeLastCell|xlCellTypeBlanks|xlShiftUp|xlShiftToLeft|xlShiftDown|xlShiftToRight)\\b"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "comment": "Control flow — statement-keywords and marker-keywords (section 3.3.5.2 MS-VBAL)",
+          "name": "keyword.control.vba",
+          "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Step|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Error|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Seek|Print|Input|LSet|RSet|Erase|Write)\\b"
+        },
+        {
+          "comment": "Logical operators: operator-identifier (section 3.3.5.2 MS-VBAL)",
+          "name": "keyword.operator.logical.vba",
+          "match": "(?i)\\b(And|Or|Not|Xor|Eqv|Imp)\\b"
+        },
+        {
+          "comment": "Word operators: operator-identifier + marker-keywords used as operators",
+          "name": "keyword.operator.word.vba",
+          "match": "(?i)\\b(Is|Like|Mod|TypeOf|AddressOf|New)\\b"
+        },
+        {
+          "comment": "Statement / marker keywords not elsewhere classified",
+          "name": "keyword.other.vba",
+          "match": "(?i)\\b(As|ByVal|ByRef|Optional|ParamArray|Preserve|WithEvents|RaiseEvent|Lib|Alias|Set|Let|Call|Spc|Tab|Any)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.vba",
+          "match": "(<=|>=|<>|=|<|>)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.vba",
+          "match": "(\\+|-|\\*|/|\\\\|\\^)"
+        },
+        {
+          "name": "keyword.operator.string-concat.vba",
+          "match": "(?<![<>])&(?!H|O|[0-9])",
+          "comment": "String concatenation & (exclude hex &H, octal &O, and type-suffix &)"
+        }
+      ]
+    },
+    "reserved-names": {
+      "comment": "reserved-name identifiers (section 3.3.5.2 MS-VBAL): Me, Debug, conversion functions etc.",
+      "patterns": [
+        {
+          "name": "variable.language.self.vba",
+          "match": "(?i)\\bMe\\b"
+        },
+        {
+          "name": "support.variable.vba",
+          "match": "(?i)\\bDebug\\b"
+        }
+      ]
+    },
+    "builtin-functions": {
+      "comment": "VBA Standard Library built-in functions (reserved-name + special-form from section 3.3.5.2 MS-VBAL, plus VBA runtime)",
+      "name": "support.function.builtin.vba",
+      "match": "(?i)\\b(Abs|Array|Asc|AscB|AscW|Atn|CBool|CByte|CCur|CDate|CDbl|CDec|Choose|Chr|ChrB|ChrW|CInt|CLng|CLngLng|CLngPtr|Cos|CreateObject|CSng|CStr|CurDir|CVar|CVErr|DateAdd|DateDiff|DatePart|DateSerial|DateValue|Day|DDB|Dir|DoEvents|Environ|EOF|Err|Exp|FileAttr|FileCopy|FileDateTime|FileLen|Filter|Fix|Format|FormatCurrency|FormatDateTime|FormatNumber|FormatPercent|FreeFile|FV|GetAttr|GetObject|GetSetting|Hex|Hour|IIf|IMEStatus|InputBox|InStr|InStrB|InStrRev|Int|IPmt|IRR|IsArray|IsDate|IsEmpty|IsError|IsMissing|IsNull|IsNumeric|IsObject|Join|LBound|LCase|Left|LeftB|Len|LenB|Loc|LOF|Log|LTrim|Mid|MidB|Minute|MIRR|Month|MonthName|MsgBox|Now|NPer|NPV|Oct|Partition|Pmt|PPmt|PSet|PV|QBColor|Randomize|Rate|Replace|RGB|Right|RightB|Rnd|Round|RTrim|Scale|Second|Sgn|Shell|Sin|SLN|Space|Split|Sqr|Str|StrComp|StrConv|StrReverse|Switch|SYD|Tan|Time|Timer|TimeSerial|TimeValue|Trim|TypeName|UBound|UCase|Val|VarType|Weekday|WeekdayName|Year)\\b(?=\\s*[\\(\\s]|$)"
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "comment": "Member access: identifier after a dot",
+          "name": "variable.other.member.vba",
+          "match": "(?<=\\.)([A-Za-z_][A-Za-z0-9_]*)"
+        },
+        {
+          "comment": "Foreign name: [Identifier With Spaces]",
+          "name": "variable.other.foreign.vba",
+          "match": "\\[[^\\]\\n]+\\]"
+        },
+        {
+          "comment": "Ordinary identifier",
+          "name": "variable.other.vba",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}
