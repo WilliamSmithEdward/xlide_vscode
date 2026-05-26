@@ -27,7 +27,7 @@ export class PythonBridge implements vscode.Disposable {
     private _pending = new Map<number, PendingRequest>();
     private _nextId = 1;
     private _ready = false;
-    private _queue: Array<() => void> = [];
+    private _startPromise: Promise<void> | undefined;
     private _readyResolve: (() => void) | undefined;
     private _readyReject: ((err: Error) => void) | undefined;
     private _stderrLines: string[] = [];
@@ -55,7 +55,7 @@ export class PythonBridge implements vscode.Disposable {
 
         this._out.appendLine(`Starting Python bridge: ${pythonPath} ${serverScript}`);
 
-        return new Promise<void>((resolve, reject) => {
+        this._startPromise = new Promise<void>((resolve, reject) => {
             this._readyResolve = resolve;
             this._readyReject = reject;
 
@@ -92,6 +92,7 @@ export class PythonBridge implements vscode.Disposable {
             const rl = readline.createInterface({ input: this._proc.stdout! });
             rl.on('line', (line) => this._onLine(line));
         });
+        return this._startPromise;
     }
 
     private _resolvePython(): string {
@@ -126,8 +127,6 @@ export class PythonBridge implements vscode.Disposable {
             this._out.appendLine('Python backend ready.');
             this._ready = true;
             this._readyResolve?.();
-            for (const fn of this._queue) { fn(); }
-            this._queue = [];
             return;
         }
 
@@ -149,28 +148,23 @@ export class PythonBridge implements vscode.Disposable {
     }
 
     call<T = unknown>(method: string, params: unknown): Promise<T> {
-        return new Promise<T>((resolve, reject) => {
-            const doSend = () => {
-                const id = this._nextId++;
-                this._pending.set(id, {
-                    resolve: resolve as (v: unknown) => void,
-                    reject,
-                });
-                const req: JsonRpcRequest = {
-                    jsonrpc: '2.0',
-                    id,
-                    method,
-                    params,
-                };
-                this._proc!.stdin!.write(JSON.stringify(req) + '\n');
-            };
-
-            if (this._ready) {
-                doSend();
-            } else {
-                this._queue.push(doSend);
-            }
+        const doSend = (): Promise<T> => new Promise<T>((resolve, reject) => {
+            const id = this._nextId++;
+            this._pending.set(id, {
+                resolve: resolve as (v: unknown) => void,
+                reject,
+            });
+            const req: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
+            this._proc!.stdin!.write(JSON.stringify(req) + '\n');
         });
+
+        if (this._ready) {
+            return doSend();
+        } else if (this._startPromise) {
+            return this._startPromise.then(() => doSend());
+        } else {
+            return Promise.reject(new Error('XLIDE: Python bridge not started.'));
+        }
     }
 
     private _rejectAll(err: Error): void {

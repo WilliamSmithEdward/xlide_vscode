@@ -14,6 +14,7 @@
   },
   "categories": ["Other"],
   "activationEvents": [
+    "onFileSystem:xlide-vba",
     "workspaceContains:**/*.xlsm",
     "workspaceContains:**/*.xlsb",
     "workspaceContains:**/*.xlam"
