@@ -1,0 +1,270 @@
+{
+  "name": "xlide",
+  "displayName": "XLIDE",
+  "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
+  "version": "0.0.1",
+  "publisher": "WilliamSmithE",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "workspaceContains:**/*.xlsm",
+    "workspaceContains:**/*.xlsb",
+    "workspaceContains:**/*.xlam"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "XLIDE",
+      "properties": {
+        "xlide.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Python executable used to run the XLIDE backend. Leave empty to use 'python' (Windows) or 'python3' (Mac/Linux) from PATH."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "xlide.refreshExplorer",
+        "title": "Refresh",
+        "category": "XLIDE",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "xlide.openModule",
+        "title": "Open Module",
+        "category": "XLIDE",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "xlide.newModule",
+        "title": "Add Standard Module",
+        "category": "XLIDE",
+        "icon": "$(add)"
+      },
+      {
+        "command": "xlide.deleteModule",
+        "title": "Delete Module",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.renameModule",
+        "title": "Rename Module",
+        "category": "XLIDE"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "xlide.explorer",
+          "name": "XLIDE",
+          "contextualTitle": "Excel VBA Explorer",
+          "icon": "$(file-code)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "xlide.refreshExplorer",
+          "when": "view == xlide.explorer",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "xlide.openModule",
+          "when": "view == xlide.explorer && viewItem == module",
+          "group": "inline@1"
+        },
+        {
+          "command": "xlide.newModule",
+          "when": "view == xlide.explorer && viewItem == xlsm",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "xlide.renameModule",
+          "when": "view == xlide.explorer && viewItem == module",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "xlide.deleteModule",
+          "when": "view == xlide.explorer && viewItem == module",
+          "group": "1_actions@2"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "vba",
+        "aliases": ["VBA", "Visual Basic for Applications"],
+        "extensions": [".bas", ".cls", ".frm"]
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "xlide_listModules",
+        "displayName": "List VBA Modules",
+        "modelDescription": "Lists all VBA modules in an Excel .xlsm file. Returns module names and types (standard, class, document). Use this before reading or editing a module.",
+        "toolReferenceName": "xlideListModules",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            }
+          },
+          "required": ["filePath"]
+        }
+      },
+      {
+        "name": "xlide_listSubs",
+        "displayName": "List VBA Subs and Functions",
+        "modelDescription": "Lists all Sub and Function procedures in a specific VBA module. Returns procedure names, kinds (Sub/Function/Property Get/Let/Set), and line numbers.",
+        "toolReferenceName": "xlideListSubs",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Name of the VBA module"
+            }
+          },
+          "required": ["filePath", "moduleName"]
+        }
+      },
+      {
+        "name": "xlide_readModule",
+        "displayName": "Read VBA Module",
+        "modelDescription": "Reads the full VBA source code of a module from an Excel file. Returns the raw VBA text including Attribute declarations.",
+        "toolReferenceName": "xlideReadModule",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Name of the VBA module to read"
+            }
+          },
+          "required": ["filePath", "moduleName"]
+        }
+      },
+      {
+        "name": "xlide_writeModule",
+        "displayName": "Write VBA Module",
+        "modelDescription": "Writes (overwrites) the VBA source code of a module in an Excel file. The file is saved automatically. Use this to apply AI-generated or edited VBA code.",
+        "toolReferenceName": "xlideWriteModule",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Name of the VBA module to write"
+            },
+            "source": {
+              "type": "string",
+              "description": "The full VBA source code to write into the module"
+            }
+          },
+          "required": ["filePath", "moduleName", "source"]
+        }
+      },
+      {
+        "name": "xlide_readCells",
+        "displayName": "Read Excel Cells",
+        "modelDescription": "Reads cell values from a worksheet in an Excel file. Returns a 2D array of values (rows x columns).",
+        "toolReferenceName": "xlideReadCells",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "sheet": {
+              "type": "string",
+              "description": "Name of the worksheet"
+            },
+            "range": {
+              "type": "string",
+              "description": "Cell range in A1 notation, e.g. 'A1:D10'"
+            }
+          },
+          "required": ["filePath", "sheet", "range"]
+        }
+      },
+      {
+        "name": "xlide_writeCells",
+        "displayName": "Write Excel Cells",
+        "modelDescription": "Writes values to a range of cells in a worksheet in an Excel file. The file is saved automatically.",
+        "toolReferenceName": "xlideWriteCells",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "sheet": {
+              "type": "string",
+              "description": "Name of the worksheet"
+            },
+            "startCell": {
+              "type": "string",
+              "description": "Top-left cell in A1 notation, e.g. 'A1'"
+            },
+            "data": {
+              "type": "array",
+              "description": "2D array of values to write (rows of columns)",
+              "items": {
+                "type": "array",
+                "items": {}
+              }
+            }
+          },
+          "required": ["filePath", "sheet", "startCell", "data"]
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && node esbuild.js",
+    "watch": "npm-run-all -p watch:esbuild watch:tsc",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.10.0",
+    "esbuild": "^0.24.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.6.3"
+  }
+}

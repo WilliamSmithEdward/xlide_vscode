@@ -1,0 +1,2 @@
+pyOpenVBA>=3.0.1
+openpyxl>=3.1.0

@@ -1,0 +1,17 @@
+# Node
+node_modules/
+out/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# VS Code
+.vscode/settings.json
+
+# OS
+Thumbs.db
+.DS_Store
