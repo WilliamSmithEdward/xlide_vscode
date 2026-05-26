@@ -167,13 +167,21 @@ export class PythonBridge implements vscode.Disposable {
         }
     }
 
-    call<T = unknown>(method: string, params: unknown): Promise<T> {
+    call<T = unknown>(method: string, params?: unknown, token?: vscode.CancellationToken): Promise<T> {
         const doSend = (): Promise<T> => new Promise<T>((resolve, reject) => {
             const id = this._nextId++;
             this._pending.set(id, {
                 resolve: resolve as (v: unknown) => void,
                 reject,
             });
+            if (token) {
+                token.onCancellationRequested(() => {
+                    if (this._pending.has(id)) {
+                        this._pending.delete(id);
+                        reject(new vscode.CancellationError());
+                    }
+                });
+            }
             const req: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
             this._proc!.stdin!.write(JSON.stringify(req) + '\n');
         });

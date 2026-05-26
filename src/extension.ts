@@ -100,10 +100,16 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
 
         // Refresh the explorer when .xlsm/.xlsb/.xlam files are added or removed
+        // Debounced so rapid file-system events (save storms) coalesce into one refresh.
         (() => {
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            const debouncedRefresh = () => {
+                if (timer !== undefined) { clearTimeout(timer); }
+                timer = setTimeout(() => { timer = undefined; explorer.refresh(); }, 200);
+            };
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
-            watcher.onDidCreate(() => explorer.refresh());
-            watcher.onDidDelete(() => explorer.refresh());
+            watcher.onDidCreate(debouncedRefresh);
+            watcher.onDidDelete(debouncedRefresh);
             return watcher;
         })(),
 

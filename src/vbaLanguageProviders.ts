@@ -20,6 +20,9 @@ function symbolKindToVscode(kind: VbaSymbol['kind']): vscode.SymbolKind {
         case 'PropertyLet':
         case 'PropertySet':
             return vscode.SymbolKind.Property;
+        case 'Const': return vscode.SymbolKind.Constant;
+        case 'Enum': return vscode.SymbolKind.Enum;
+        case 'Type': return vscode.SymbolKind.Struct;
     }
 }
 

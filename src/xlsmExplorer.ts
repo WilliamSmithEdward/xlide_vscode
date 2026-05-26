@@ -41,6 +41,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     // Stable node references required by treeView.reveal()
     private _xlsmNodes = new Map<string, XlideNode>(); // key: filePath
     private _moduleNodes = new Map<string, XlideNode>(); // key: filePath + '::' + moduleName
+    // listModules cache: avoids repeated bridge round-trips while the tree is
+    // expanded.  Cleared on refresh() so edits always re-fetch.
+    private _modulesListCache = new Map<string, Array<{ name: string; type: string }>>();
 
     constructor(private readonly _bridge: PythonBridge) {}
 
@@ -52,6 +55,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     refresh(): void {
         this._xlsmNodes.clear();
         this._moduleNodes.clear();
+        this._modulesListCache.clear();
         this._emitter.fire();
     }
 
@@ -250,10 +254,14 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
 
     private async _getModules(filePath: string): Promise<XlideNode[]> {
         try {
-            const modules = await this._bridge.call<Array<{ name: string; type: string }>>(
-                'listModules',
-                { path: filePath },
-            );
+            let modules = this._modulesListCache.get(filePath);
+            if (!modules) {
+                modules = await this._bridge.call<Array<{ name: string; type: string }>>(
+                    'listModules',
+                    { path: filePath },
+                );
+                this._modulesListCache.set(filePath, modules);
+            }
             // Sort: document, userform, standard, class — alphabetical within each group.
             return modules
                 .sort((a, b) => {

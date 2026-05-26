@@ -19,15 +19,15 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 
 ## Editor polish
 
-- [ ] **(10) Document outline icons** — verify symbol-kind mapping covers Sub/Function/Property/Const/Type/Enum.
-- [ ] **(11) Command palette categorization audit** — every `xlide.*` command should declare `"category": "XLIDE"`.
+- [x] **(10) Document outline icons** — symbol-kind mapping extended to cover Sub/Function/Property/Const/Type/Enum in `vbaSymbolIndex.ts` and `vbaLanguageProviders.ts`.
+- [x] **(11) Command palette categorization audit** — every `xlide.*` command declares `"category": "XLIDE"`.
 - [ ] **(12) Activity-bar icon** — only if promoting XLIDE out of the file Explorer view.
 
 ## Performance / reliability
 
-- [ ] **(13) Cache `listModules`/`listSubs` per workbook** with invalidation on write.
-- [ ] **(14) Debounce filesystem watcher** — coalesce explorer refreshes (~200 ms).
-- [ ] **(15) Cancellation tokens on RPC** — accept `CancellationToken` in `bridge.call()` to abort long operations on shutdown.
+- [x] **(13) Cache `listModules`/`listSubs` per workbook** — `_modulesListCache` in `XlsmExplorer` avoids repeated bridge round-trips; cleared on `refresh()` so edits always re-fetch.
+- [x] **(14) Debounce filesystem watcher** — coalesces explorer refreshes to 200 ms in `extension.ts`.
+- [x] **(15) Cancellation tokens on RPC** — `bridge.call()` now accepts an optional `CancellationToken`; pending requests are rejected with `CancellationError` on cancellation.
 
 ## Live Share polish
 

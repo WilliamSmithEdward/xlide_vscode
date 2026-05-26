@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 
-export type VbaSymbolKind = 'Sub' | 'Function' | 'PropertyGet' | 'PropertyLet' | 'PropertySet';
+export type VbaSymbolKind =
+    | 'Sub' | 'Function' | 'PropertyGet' | 'PropertyLet' | 'PropertySet'
+    | 'Const' | 'Enum' | 'Type';
 
 export interface VbaSymbol {
     name: string;
@@ -33,6 +35,8 @@ interface CachedWorkbook {
 
 const PROC_RE = /^([ \t]*)(?:(Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function|Property\s+Get|Property\s+Let|Property\s+Set)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
 const END_RE = /^[ \t]*End\s+(Sub|Function|Property)\b/i;
+// Declarations that appear as single-line symbols (no End block).
+const DECL_RE = /^[ \t]*(?:(Public|Private|Friend|Global)\s+)?(?:Const\s+([A-Za-z_][A-Za-z0-9_]*)|(?:Enum|Type)\s+([A-Za-z_][A-Za-z0-9_]*))/i;
 
 function kindFromRaw(raw: string): VbaSymbolKind {
     const normalized = raw.replace(/\s+/g, '').toLowerCase();
@@ -44,7 +48,7 @@ function kindFromRaw(raw: string): VbaSymbolKind {
 }
 
 /**
- * Parses VBA module source into a list of procedure symbols.
+ * Parses VBA module source into a list of procedure and declaration symbols.
  * Lightweight regex-based parser; good enough for navigation/rename.
  */
 export function parseVbaModule(source: string): VbaSymbol[] {
@@ -56,11 +60,7 @@ export function parseVbaModule(source: string): VbaSymbol[] {
         const line = lines[i];
         const procMatch = PROC_RE.exec(line);
         if (procMatch) {
-            // Close any previous symbol that didn't have a matching End
-            if (current) {
-                current.endLine = i - 1;
-                symbols.push(current);
-            }
+            if (current) { current.endLine = i - 1; symbols.push(current); }
             const visibility = (procMatch[2] ?? '').toLowerCase();
             const rawKind = procMatch[3];
             const name = procMatch[4];
@@ -81,6 +81,38 @@ export function parseVbaModule(source: string): VbaSymbol[] {
             current.endLine = i;
             symbols.push(current);
             current = undefined;
+            continue;
+        }
+        // Single-line declarations: Const, Enum <name>, Type <name>
+        if (!current) {
+            const declMatch = DECL_RE.exec(line);
+            if (declMatch) {
+                const visibility = (declMatch[1] ?? '').toLowerCase();
+                const constName = declMatch[2];   // Const path
+                const blockName = declMatch[3];   // Enum / Type path
+                // Determine kind by checking which keyword was matched
+                let kind: VbaSymbolKind;
+                let name: string;
+                if (constName) {
+                    kind = 'Const'; name = constName;
+                } else {
+                    const keyword = line.trim().replace(/^(?:Public|Private|Friend|Global)\s+/i, '').split(/\s+/)[0];
+                    kind = /^Enum$/i.test(keyword) ? 'Enum' : 'Type';
+                    name = blockName;
+                }
+                const col = line.indexOf(name);
+                // Const is a single-line symbol; Enum/Type span to End Enum/Type.
+                // Treat all as point symbols (endLine = startLine) — VS Code outline
+                // only needs the declaration line for breadcrumb navigation.
+                symbols.push({
+                    name,
+                    kind,
+                    line: i, column: col >= 0 ? col : 0,
+                    length: name.length,
+                    startLine: i, endLine: i,
+                    isPublic: visibility !== 'private',
+                });
+            }
         }
     }
     if (current) {
