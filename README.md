@@ -173,5 +173,5 @@ Related upstream issue: [microsoft/live-share#4877](https://github.com/microsoft
 ## Further reading
 
 - [docs/architecture.md](docs/architecture.md) -- full architecture reference
-- [MS-VBAL specification](https://docs.microsoft.com/openspecs/office_file_formats/ms-vbal)
+- [MS-VBAL specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74)
 - [pyOpenVBA](https://github.com/WilliamSmithEdward/pyOpenVBA)
