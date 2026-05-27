@@ -294,7 +294,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
             '{**/node_modules/**,**/.venv/**,**/venv/**}',
         );
         return uris
-            .filter(uri => !path.basename(uri.fsPath).startsWith('~$'))
+            .filter(uri => uri.scheme === 'file' && !path.basename(uri.fsPath).startsWith('~$'))
             .sort((a, b) => a.fsPath.localeCompare(b.fsPath))
             .map((uri) => {
                 let node = this._xlsmNodes.get(uri.fsPath);
