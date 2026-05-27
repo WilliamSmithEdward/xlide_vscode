@@ -174,4 +174,4 @@ Related upstream issue: [microsoft/live-share#4877](https://github.com/microsoft
 
 - [docs/architecture.md](docs/architecture.md) -- full architecture reference
 - [MS-VBAL specification](https://docs.microsoft.com/openspecs/office_file_formats/ms-vbal)
-- [pyOpenVBA](https://github.com/DecimalTurn/pyOpenVBA)
+- [pyOpenVBA](https://github.com/WilliamSmithEdward/pyOpenVBA)
