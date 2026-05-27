@@ -61,6 +61,18 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
         this._emitter.fire();
     }
 
+    /**
+     * Refresh just the children of a single module node (i.e. its sub list)
+     * without collapsing the tree or clearing other caches. If the module node
+     * isn't loaded yet, this is a no-op.
+     */
+    refreshModuleSubs(filePath: string, moduleName: string): void {
+        const node = this._moduleNodes.get(`${filePath}::${moduleName}`);
+        if (node) {
+            this._emitter.fire(node);
+        }
+    }
+
     /** Required by treeView.reveal() — walks xlsm -> module -> sub. */
     getParent(node: XlideNode): XlideNode | undefined {
         if (node.kind === 'module') {

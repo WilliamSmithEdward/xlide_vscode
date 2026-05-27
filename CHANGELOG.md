@@ -2,6 +2,11 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [1.0.8] - 2026-05-26
+
+### Fixed
+- **Tree view sync after rename/edit** — Renaming a procedure via Rename Symbol (F2) or by editing the source manually now refreshes the affected module's sub list in the XLIDE Explorer on save, instead of showing the old name until a full refresh.
+
 ## [1.0.7] - 2026-05-26
 
 ### Changed

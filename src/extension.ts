@@ -223,7 +223,20 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     // VBA language services: syntax-aware symbol index + providers
-    registerVbaLanguageProviders(context, bridge);
+    const vbaIndex = registerVbaLanguageProviders(context, bridge);
+
+    // When the symbol index updates (e.g. after a rename or save), refresh
+    // the matching module's sub list in the explorer so renamed procedures
+    // appear immediately.
+    context.subscriptions.push(
+        vbaIndex.onDidChange(({ xlsmPath, moduleName }) => {
+            if (!xlsmPath) {
+                explorer.refresh();
+            } else if (moduleName) {
+                explorer.refreshModuleSubs(xlsmPath, moduleName);
+            }
+        }),
+    );
 
     const isMissingPackage = (msg: string) =>
         /No module named|ModuleNotFoundError|ImportError/i.test(msg);
