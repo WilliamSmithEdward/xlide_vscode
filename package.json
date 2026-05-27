@@ -50,6 +50,11 @@
         "category": "XLIDE"
       },
       {
+        "command": "xlide.dev.smoke",
+        "title": "Run Smoke Test",
+        "category": "XLIDE"
+      },
+      {
         "command": "xlide.refreshExplorer",
         "title": "Refresh",
         "category": "XLIDE",
@@ -86,6 +91,12 @@
       {
         "command": "xlide.openWorkbook",
         "title": "Open Workbook in Excel",
+        "category": "XLIDE",
+        "icon": "$(file-excel)"
+      },
+      {
+        "command": "xlide.openWorkbookReadOnly",
+        "title": "Open Workbook in Excel (Read Only)",
         "category": "XLIDE",
         "icon": "$(file-excel)"
       },
@@ -167,6 +178,11 @@
           "command": "xlide.openWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "3_workbook@1"
+        },
+        {
+          "command": "xlide.openWorkbookReadOnly",
+          "when": "view == xlide.explorer && viewItem == xlsm",
+          "group": "3_workbook@2"
         },
         {
           "command": "xlide.exportModulesToFolder",
@@ -458,7 +474,8 @@
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check-types && node esbuild.js --production",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "20.x",
@@ -468,6 +485,7 @@
     "esbuild": "^0.24.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.6.3",
+    "vitest": "^4.1.7",
     "vsls": "^1.0.4753"
   }
 }

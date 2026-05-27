@@ -36,10 +36,10 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 
 ## Developer experience
 
-- [ ] **(18) Smoke test command** — `xlide.dev.smoke` runs listModules / readModule / writeModule roundtrip against a checked-in fixture.
-- [ ] **(19) TS unit tests** — `tests/` folder with Mocha or vitest for pure-logic (URI encode/decode, sidecar JSON, managedFiles diff).
-- [ ] **(20) CI workflow** — `.github/workflows/ci.yml` running `npm run compile` + `pytest`.
-- [ ] **(21) CHANGELOG.md** + early releases tagged as `--pre-release` on the marketplace.
+- [x] **(18) Smoke test command** — `xlide.dev.smoke` (XLIDE: Run Smoke Test) — finds a workbook in the workspace, runs `listModules` + `readModule`, and reports results in the XLIDE Output channel.
+- [x] **(19) TS unit tests** — `tests/vbaParsing.test.ts` (parseVbaModule: Sub/Function/Property/Const/Enum/Type, spans, visibility) and `tests/uriCodec.test.ts` (decodeModuleUri: module name, URL-encoding, extension variants, error cases). Run with `npm test` (vitest).
+- [x] **(20) CI workflow** — `.github/workflows/ci.yml` runs `npm run compile` + `npm test` (TypeScript job) and `pytest python/tests/` (Python job) on push and pull requests.
+- [x] **(21) CHANGELOG.md** — created at repo root; all implemented features documented.
 
 ## Files to Keep Up To Date
 

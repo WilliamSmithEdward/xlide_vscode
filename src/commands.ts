@@ -38,7 +38,8 @@ export function registerCommands(
     }
 
     // Helper functions for Windows COM-based Excel operations
-    function runWindowsExcelReadOnly(filePath: string, attachToRunning: boolean): void {
+    function runWindowsExcel(filePath: string, attachToRunning: boolean, readOnly: boolean): void {
+        const roFlag = readOnly ? '$true' : '$false';
         const script = [
             '$ErrorActionPreference = "Stop"',
             `$targetPath = ${psSingleQuoted(filePath)}`,
@@ -57,10 +58,10 @@ export function registerCommands(
             '  if (($wb.FullName -ieq $targetPath) -or ($wb.Name -ieq $targetName)) { $workbook = $wb; break }',
             '}',
             'if (-not $workbook) {',
-            '  $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
+            `  $workbook = $excel.Workbooks.Open($targetPath, 0, ${roFlag})`,
             '}',
             '$workbook.Activate()',
-            'try { Add-Type -MemberDefinition "[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);" -Name XlideWin32 -Namespace XlideHelper } catch { }',
+            "try { Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);' -Name XlideWin32 -Namespace XlideHelper } catch { }",
             '[XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
             '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
         ].join('; ');
@@ -120,7 +121,7 @@ export function registerCommands(
             '  $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
             '}',
             '$workbook.Activate()',
-            'try { Add-Type -MemberDefinition "[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);" -Name XlideWin32 -Namespace XlideHelper } catch { }',
+            "try { Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);' -Name XlideWin32 -Namespace XlideHelper } catch { }",
             '[XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
             '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
             '$macroRef = "\'" + $workbook.Name + "\'!" + $macroName',
@@ -693,22 +694,99 @@ export function registerCommands(
             await vscode.commands.executeCommand('xlide.configureExportMode', node);
         }),
 
-        // Open the workbook with the registered app (Excel), read-only
+        // DEV: smoke test — verifies listModules + readModule against a workspace workbook
+        vscode.commands.registerCommand('xlide.dev.smoke', async () => {
+            log('[smoke] Starting smoke test...');
+
+            const uris = (await vscode.workspace.findFiles('**/*.{xlsm,xlsb,xlam}',
+                '{**/node_modules/**,**/.venv/**,**/venv/**}'))
+                .filter(u => !path.basename(u.fsPath).startsWith('~$'));
+
+            if (uris.length === 0) {
+                vscode.window.showErrorMessage('XLIDE Smoke: No workbook found in the workspace.');
+                return;
+            }
+
+            let workbookPath: string;
+            if (uris.length === 1) {
+                workbookPath = uris[0].fsPath;
+            } else {
+                const pick = await vscode.window.showQuickPick(
+                    uris.map(u => ({ label: path.basename(u.fsPath), description: u.fsPath, fsPath: u.fsPath })),
+                    { title: 'XLIDE Smoke Test: pick a workbook' },
+                );
+                if (!pick) { return; }
+                workbookPath = pick.fsPath;
+            }
+
+            log(`[smoke] Workbook: ${workbookPath}`);
+
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'XLIDE: Running smoke test...', cancellable: false },
+                async () => {
+                    try {
+                        // Step 1: listModules
+                        const modules = await bridge.call<Array<{ name: string; type: string }>>(
+                            'listModules', { path: workbookPath },
+                        );
+                        log(`[smoke] listModules OK — ${modules.length} module(s): ${modules.map(m => m.name).join(', ')}`);
+
+                        if (modules.length === 0) {
+                            vscode.window.showWarningMessage('XLIDE Smoke: workbook has no VBA modules.');
+                            return;
+                        }
+
+                        // Step 2: readModule (prefer a non-document module)
+                        const target = modules.find(m => m.type !== 'document') ?? modules[0];
+                        const source = await bridge.call<string>(
+                            'readModule', { path: workbookPath, module: target.name, full: false },
+                        );
+                        log(`[smoke] readModule "${target.name}" OK — ${source.length} chars`);
+
+                        log('[smoke] All checks passed.');
+                        void vscode.window.showInformationMessage(
+                            `XLIDE Smoke: OK — ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
+                        );
+                    } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        log(`[smoke] FAILED: ${msg}`);
+                        vscode.window.showErrorMessage(`XLIDE Smoke FAILED: ${msg}`);
+                    }
+                },
+            );
+        }),
+
+        // Open the workbook in Excel (editable)
         vscode.commands.registerCommand('xlide.openWorkbook', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
-
             try {
                 const attachToRunning = shouldAttachToRunningExcel();
                 log(`[openWorkbook] Requested for: ${filePath}`);
-                log(`[openWorkbook] attachToRunningExcel=${attachToRunning}`);
                 if (process.platform === 'win32') {
-                    runWindowsExcelReadOnly(filePath, attachToRunning);
+                    runWindowsExcel(filePath, attachToRunning, false);
                 } else if (process.platform === 'darwin') {
-                    // macOS: use open with Excel (read-only requires AppleScript, so just open normally)
                     cp.spawn('open', ['-a', 'Microsoft Excel', filePath]);
                 } else {
-                    // Linux: libreoffice with read-only flag
+                    cp.spawn('libreoffice', ['--calc', '--norestore', filePath]);
+                }
+            } catch (err) {
+                vscode.window.showErrorMessage(`Failed to open workbook: ${err}`);
+            }
+        }),
+
+        // Open the workbook in Excel (read-only)
+        vscode.commands.registerCommand('xlide.openWorkbookReadOnly', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) { return; }
+            try {
+                const attachToRunning = shouldAttachToRunningExcel();
+                log(`[openWorkbookReadOnly] Requested for: ${filePath}`);
+                if (process.platform === 'win32') {
+                    runWindowsExcel(filePath, attachToRunning, true);
+                } else if (process.platform === 'darwin') {
+                    cp.spawn('open', ['-a', 'Microsoft Excel', filePath]);
+                } else {
                     cp.spawn('libreoffice', ['--calc', '--norestore', '--view', filePath]);
                 }
             } catch (err) {
