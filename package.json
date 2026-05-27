@@ -18,11 +18,7 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onFileSystem:xlide-vba",
-    "onView:xlide.explorer",
-    "workspaceContains:**/*.xlsm",
-    "workspaceContains:**/*.xlsb",
-    "workspaceContains:**/*.xlam"
+    "onFileSystem:xlide-vba"
   ],
   "main": "./out/extension.js",
   "contributes": {
