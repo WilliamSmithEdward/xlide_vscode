@@ -6,6 +6,8 @@ Find All References, Rename Symbol), save changes back to the `.xlsm` file
 with Ctrl+S, and expose every operation to GitHub Copilot via the Language
 Model API.
 
+<a href="https://github.com/sponsors/WilliamSmithEdward"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?style=for-the-badge" alt="Sponsor WilliamSmithEdward"></a>
+
 ---
 
 ## Requirements
