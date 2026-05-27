@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
   "readme": "MARKETPLACE.md",
@@ -151,13 +151,7 @@
     "viewsWelcome": [
       {
         "view": "xlide.explorer",
-        "contents": "XLIDE VBA browsing for Live Share guests is currently not supported.\n\nWhat still works in a Live Share session:\n- Guests can fully view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- The host can open, edit, and save VBA modules in their own workbooks using XLIDE locally.\n- Guests do not need XLIDE installed to participate in the shared session.",
-        "when": "xlide.isLiveShareGuest"
-      },
-      {
-        "view": "xlide.explorer",
-        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)",
-        "when": "!xlide.isLiveShareGuest"
+        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)\n\nLive Share notes:\n- Guests can view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- Guests do not need XLIDE installed to participate."
       }
     ],
     "menus": {

@@ -2,6 +2,11 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [1.0.7] - 2026-05-26
+
+### Changed
+- Unified the XLIDE Explorer welcome message: a single entry shown in all sessions (host and Live Share guest) with the workbook hint, Refresh link, and brief Live Share notes.
+
 ## [Unreleased]
 
 ### Added
