@@ -192,6 +192,11 @@ export function activate(context: vscode.ExtensionContext): void {
             }),
         ),
 
+        // Show the XLIDE output channel (used by the explorer welcome view).
+        vscode.commands.registerCommand('xlide.showOutput', () => {
+            out.show(true);
+        }),
+
         ...registerCommands(context, bridge, explorer, fsProvider, out),
         ...registerAgentTools(context, bridge, explorer, fsProvider),
 

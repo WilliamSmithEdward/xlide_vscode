@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "1.0.5",
+  "version": "1.0.10",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
   "readme": "MARKETPLACE.md",
@@ -17,7 +17,9 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onFileSystem:xlide-vba",
+    "onView:xlide.explorer",
     "workspaceContains:**/*.xlsm",
     "workspaceContains:**/*.xlsb",
     "workspaceContains:**/*.xlam"
@@ -40,6 +42,11 @@
       }
     },
     "commands": [
+      {
+        "command": "xlide.showOutput",
+        "title": "Show Output Channel",
+        "category": "XLIDE"
+      },
       {
         "command": "xlide.setup",
         "title": "Install Python Dependencies",
@@ -141,6 +148,12 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "xlide.explorer",
+        "contents": "No Excel workbooks (.xlsm/.xlsb/.xlam) found in the current workspace.\n\nIf you joined a Live Share session, the host must also have XLIDE installed and activated.\n\n[Check XLIDE Output](command:xlide.showOutput)\n[Refresh](command:xlide.refreshExplorer)"
+      }
+    ],
     "menus": {
       "view/title": [
         {

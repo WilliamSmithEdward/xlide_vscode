@@ -3,7 +3,7 @@ import * as path from 'path';
 import type * as vsls from 'vsls/vscode';
 import { PythonBridge } from './pythonBridge';
 
-const SERVICE_NAME = 'xlide';
+const SERVICE_NAME = 'WilliamSmithE.xlide';
 
 // RPC method names (kept identical between host and guest).
 const RPC_LIST_WORKBOOKS = 'listWorkbooks';
@@ -98,26 +98,29 @@ export class LiveShareIntegration implements vscode.Disposable {
     ) {}
 
     async start(): Promise<void> {
+        this._out.appendLine('[LiveShare] start() invoked');
         let mod: typeof vsls;
         try {
             mod = await import('vsls/vscode');
         } catch (err) {
-            this._out.appendLine(`Live Share API not available: ${err}`);
+            this._out.appendLine(`[LiveShare] API module not available: ${err}`);
             return;
         }
         try {
-            this._api = await mod.getApi();
+            this._api = await mod.getApi('WilliamSmithE.xlide');
         } catch (err) {
-            this._out.appendLine(`Live Share getApi failed: ${err}`);
+            this._out.appendLine(`[LiveShare] getApi failed: ${err}`);
             return;
         }
         if (!this._api) {
-            this._out.appendLine('Live Share extension not installed; integration disabled.');
+            this._out.appendLine('[LiveShare] extension not installed; integration disabled.');
             return;
         }
+        this._out.appendLine('[LiveShare] API obtained');
         const api = this._api;
         this._disposables.push(api.onDidChangeSession((e) => this._onSessionChange(e)));
         // Handle the case where activation happens after a session is already in progress
+        this._out.appendLine(`[LiveShare] initial session role=${api.session?.role}, id=${api.session?.id ?? '<none>'}`);
         await this._onSessionChange({ session: api.session });
 
         // Refresh remote workbook list when the host's xlsm files change.
@@ -130,7 +133,8 @@ export class LiveShareIntegration implements vscode.Disposable {
 
     private async _onSessionChange(e: vsls.SessionChangeEvent): Promise<void> {
         const role = e.session.role;
-        this._out.appendLine(`Live Share session role: ${role}`);
+        const roleName = role === 1 ? 'Host' : role === 2 ? 'Guest' : `None(${role})`;
+        this._out.appendLine(`[LiveShare] session change -> role=${roleName}`);
         // Tear down any previous state
         if (this._hostService) {
             try { await this._api?.unshareService(SERVICE_NAME); } catch { /* ignore */ }
@@ -154,15 +158,19 @@ export class LiveShareIntegration implements vscode.Disposable {
 
     private async _initHost(): Promise<void> {
         if (!this._api) { return; }
+        this._out.appendLine(`[LiveShare] host: sharing service '${SERVICE_NAME}'...`);
         let svc: vsls.SharedService | null;
         try {
             svc = await this._api.shareService(SERVICE_NAME);
         } catch (err) {
-            this._out.appendLine(`Live Share shareService failed: ${err}`);
+            this._out.appendLine(`[LiveShare] host: shareService failed: ${err}`);
             return;
         }
         if (!svc) {
-            this._out.appendLine('Live Share: shareService returned null (access denied).');
+            this._out.appendLine('[LiveShare] host: shareService returned null.');
+            this._out.appendLine('[LiveShare] host: This is a Live Share restriction on third-party extensions.');
+            this._out.appendLine('[LiveShare] host: Fix: set "liveshare.featureSet": "insiders" in VS Code settings on host AND guest, then reload both windows.');
+            void this._promptFeatureSetFix();
             return;
         }
         this._hostService = svc;
@@ -172,6 +180,7 @@ export class LiveShareIntegration implements vscode.Disposable {
         svc.onRequest(RPC_READ_MODULE, (args) => this._handleReadModule(args));
         svc.onRequest(RPC_WRITE_MODULE, (args) => this._handleWriteModule(args));
         await this._refreshHostWorkbooks();
+        this._out.appendLine(`[LiveShare] host: ready, sharing ${this._hostWorkbooks.size} workbook(s)`);
     }
 
     private async _refreshHostWorkbooks(): Promise<void> {
@@ -272,20 +281,34 @@ export class LiveShareIntegration implements vscode.Disposable {
 
     private async _initGuest(): Promise<void> {
         if (!this._api) { return; }
+        this._out.appendLine(`[LiveShare] guest: connecting to service '${SERVICE_NAME}'...`);
+        // Guests also need the "insiders" feature set for the shared service proxy to work.
+        const featureSet = vscode.workspace.getConfiguration('liveshare').get<string>('featureSet');
+        if (featureSet !== 'insiders') {
+            this._out.appendLine(`[LiveShare] guest: liveshare.featureSet='${featureSet}', expected 'insiders'.`);
+            void this._promptFeatureSetFix();
+        }
         let proxy: vsls.SharedServiceProxy | null;
         try {
             proxy = await this._api.getSharedService(SERVICE_NAME);
         } catch (err) {
-            this._out.appendLine(`Live Share getSharedService failed: ${err}`);
+            this._out.appendLine(`[LiveShare] guest: getSharedService failed: ${err}`);
             return;
         }
         if (!proxy) {
-            this._out.appendLine('Live Share: XLIDE service unavailable (host extension not installed?).');
+            this._out.appendLine('[LiveShare] guest: XLIDE service unavailable (host extension not installed/activated?).');
             return;
         }
         this._guestProxy = proxy;
-        proxy.onDidChangeIsServiceAvailable(() => this._onDidChange.fire());
-        proxy.onNotify(NOTIFY_WORKBOOKS_CHANGED, () => this._onDidChange.fire());
+        this._out.appendLine(`[LiveShare] guest: proxy acquired, isServiceAvailable=${proxy.isServiceAvailable}`);
+        proxy.onDidChangeIsServiceAvailable((available) => {
+            this._out.appendLine(`[LiveShare] guest: service availability changed -> ${available}`);
+            this._onDidChange.fire();
+        });
+        proxy.onNotify(NOTIFY_WORKBOOKS_CHANGED, () => {
+            this._out.appendLine('[LiveShare] guest: host notified workbooks changed');
+            this._onDidChange.fire();
+        });
         proxy.onNotify(NOTIFY_FILE_CHANGED, (args: object) => {
             const a = args as { workbookId?: string; module?: string };
             if (a.workbookId && a.module) {
@@ -328,7 +351,10 @@ export class LiveShareIntegration implements vscode.Disposable {
 
     async guestListWorkbooks(): Promise<RemoteWorkbookInfo[]> {
         const p = this._requireProxy();
-        return await p.request(RPC_LIST_WORKBOOKS, []) as RemoteWorkbookInfo[];
+        this._out.appendLine('[LiveShare] guest: requesting workbook list from host...');
+        const list = await p.request(RPC_LIST_WORKBOOKS, []) as RemoteWorkbookInfo[];
+        this._out.appendLine(`[LiveShare] guest: received ${list.length} workbook(s) from host`);
+        return list;
     }
 
     async guestListModules(workbookId: string): Promise<RemoteModuleInfo[]> {
@@ -357,6 +383,25 @@ export class LiveShareIntegration implements vscode.Disposable {
             throw new Error('XLIDE: Live Share host service is not available.');
         }
         return this._guestProxy;
+    }
+
+    private async _promptFeatureSetFix(): Promise<void> {
+        const cfg = vscode.workspace.getConfiguration('liveshare');
+        const current = cfg.get<string>('featureSet');
+        if (current === 'insiders') { return; }
+        const ENABLE = 'Enable and Reload';
+        const choice = await vscode.window.showWarningMessage(
+            'XLIDE Live Share integration requires Live Share\'s "insiders" feature set on the host (a Live Share gating for third-party extensions). Enable it now?',
+            ENABLE,
+            'Dismiss',
+        );
+        if (choice !== ENABLE) { return; }
+        try {
+            await cfg.update('featureSet', 'insiders', vscode.ConfigurationTarget.Global);
+            await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        } catch (err) {
+            this._out.appendLine(`[LiveShare] failed to update liveshare.featureSet: ${err}`);
+        }
     }
 
     dispose(): void {
