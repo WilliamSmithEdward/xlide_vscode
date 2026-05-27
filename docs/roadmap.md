@@ -21,7 +21,7 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 
 - [x] **(10) Document outline icons** — symbol-kind mapping extended to cover Sub/Function/Property/Const/Type/Enum in `vbaSymbolIndex.ts` and `vbaLanguageProviders.ts`.
 - [x] **(11) Command palette categorization audit** — every `xlide.*` command declares `"category": "XLIDE"`.
-- [ ] **(12) Activity-bar icon** — only if promoting XLIDE out of the file Explorer view.
+- [ ] ~~**(12) Activity-bar icon**~~ — won't implement for now; XLIDE stays in the File Explorer view.
 
 ## Performance / reliability
 
@@ -31,8 +31,8 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 
 ## Live Share polish
 
-- [ ] **(16) Pre-translate paths via `convertLocalUriToShared`** — embed `vsls:` paths instead of opaque workbookIds, so right-clicks could reach the host's shared file.
-- [ ] **(17) Guest follow-on-open** — broadcast `xlide.openModule` invocations so guests can follow the host.
+- [ ] ~~**(16) Pre-translate paths via `convertLocalUriToShared`**~~ — won't implement for now; Live Share API is opaque and poorly documented.
+- [ ] ~~**(17) Guest follow-on-open)**~~ — won't implement for now; depends on Live Share coordination layer.
 
 ## Developer experience
 
