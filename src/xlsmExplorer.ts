@@ -203,7 +203,14 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     async getChildren(node?: XlideNode): Promise<XlideNode[]> {
         if (!node) {
             // Live Share guest sees the host's workbooks; local files are not visible.
-            if (this._liveShare?.isGuest) {
+            // Use isInGuestSession (session role) rather than isGuest (proxy ready)
+            // so we don't briefly render the host's vsls:// URIs as broken local nodes
+            // before the shared service proxy has connected.
+            if (this._liveShare?.isInGuestSession) {
+                if (!this._liveShare.isGuest) {
+                    // Proxy not ready yet — render nothing; onDidChange will refresh.
+                    return [];
+                }
                 return this._getRemoteWorkbooks();
             }
             return this._getXlsmFiles();

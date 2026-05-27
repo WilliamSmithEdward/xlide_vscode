@@ -302,6 +302,15 @@ export class LiveShareIntegration implements vscode.Disposable {
         return this._guestProxy !== null && this._guestProxy.isServiceAvailable;
     }
 
+    /**
+     * True whenever the current Live Share session role is Guest, regardless
+     * of whether the shared service proxy has connected yet. Used to suppress
+     * local workbook discovery on the guest side (the workspace is virtual).
+     */
+    get isInGuestSession(): boolean {
+        return this._api?.session?.role === 2 /* Guest */;
+    }
+
     get isHost(): boolean {
         return this._hostService !== null;
     }
