@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "WilliamSmithE",
   "readme": "MARKETPLACE.md",
   "repository": {
