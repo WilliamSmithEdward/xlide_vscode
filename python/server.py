@@ -15,7 +15,7 @@ import sys
 from typing import Any
 
 from xlide.vba_io import list_modules, list_subs, read_module, write_module, rename_module, delete_module
-from xlide.excel_io import read_cells, write_cells
+from xlide.excel_io import get_workbook_info, list_sheets, read_cells, read_formulas, write_cells, run_openpyxl
 
 _HANDLERS: dict[str, Any] = {
     "listModules": list_modules,
@@ -24,8 +24,12 @@ _HANDLERS: dict[str, Any] = {
     "writeModule": write_module,
     "renameModule": rename_module,
     "deleteModule": delete_module,
+    "listSheets": list_sheets,
+    "getWorkbookInfo": get_workbook_info,
     "readCells": read_cells,
+    "readFormulas": read_formulas,
     "writeCells": write_cells,
+    "runOpenpyxl": run_openpyxl,
 }
 
 

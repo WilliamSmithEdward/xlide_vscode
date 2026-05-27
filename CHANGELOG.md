@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [1.0.9] - 2026-05-26
+
+### Added
+- **`xlide_listWorkbooks`** agent tool — discovers all `.xlsm`/`.xlsb`/`.xlam` files in the workspace so the agent never needs to be told a file path.
+- **`xlide_getWorkbookInfo`** agent tool — single round-trip returning sheets, VBA modules, and named ranges together.
+- **`xlide_listSheets`** agent tool — sheet names and used dimensions for cell-range discovery.
+- **`xlide_readFormulas`** agent tool — reads raw formula strings (`=SUM(A1:A10)`) instead of computed values.
+- **`xlide_runOpenpyxl`** agent tool — executes arbitrary openpyxl Python code against a workbook, exposing the full openpyxl API (styling, charts, number formats, conditional formatting, etc.).
+- **`xlide_renameModule`** agent tool — renames a VBA module (Python layer already supported this; now exposed to AI agents).
+- **`xlide_deleteModule`** agent tool — deletes a VBA module (same).
+- **`.github/copilot-instructions.md`** — canonical XLIDE agent workflow loaded automatically by Copilot in every session.
+
+### Fixed
+- **`xlide_writeModule` description** clarified that passing a non-existent module name creates the module automatically.
+- **`xlide_readCells` / `xlide_writeCells` descriptions** updated to reference `xlide_listSheets` for sheet discovery.
+
 ## [1.0.8] - 2026-05-26
 
 ### Fixed

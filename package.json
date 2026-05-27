@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
   "readme": "MARKETPLACE.md",
@@ -253,6 +253,36 @@
     ],
     "languageModelTools": [
       {
+        "name": "xlide_listWorkbooks",
+        "displayName": "List Excel Workbooks",
+        "modelDescription": "Finds all Excel workbooks (.xlsm, .xlsb, .xlam) in the current workspace and returns their absolute paths. Call this first when the user has not specified a file path, or when you need to discover which workbooks are available.",
+        "toolReferenceName": "xlideListWorkbooks",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "xlide_getWorkbookInfo",
+        "displayName": "Get Workbook Info",
+        "modelDescription": "Returns a combined one-shot summary of an Excel workbook: VBA modules (name + type), worksheets (name + used dimensions), and named ranges. Use this as the first discovery call instead of calling xlide_listModules and xlide_listSheets separately.",
+        "toolReferenceName": "xlideGetWorkbookInfo",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            }
+          },
+          "required": [
+            "filePath"
+          ]
+        }
+      },
+      {
         "name": "xlide_listModules",
         "displayName": "List VBA Modules",
         "modelDescription": "Lists all VBA modules in an Excel .xlsm file. Returns module names and types (standard, class, document). Use this before reading or editing a module.",
@@ -322,7 +352,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Writes (overwrites) the VBA source code of a module in an Excel file. The file is saved automatically. Use this to apply AI-generated or edited VBA code. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "modelDescription": "Writes the VBA source code of a module in an Excel file and saves automatically. If the module does not exist it is created (use moduleName to set the name, and optionally pass kind='class' in the source for class modules — default is standard). Use this to apply AI-generated or edited VBA code, or to create new modules from scratch. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -349,10 +379,111 @@
         }
       },
       {
+        "name": "xlide_renameModule",
+        "displayName": "Rename VBA Module",
+        "modelDescription": "Renames a VBA module in an Excel workbook and saves the file. Use this to change a module's name. After renaming, any references to the old name in other modules must be updated manually with xlide_writeModule.",
+        "toolReferenceName": "xlideRenameModule",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Current name of the VBA module"
+            },
+            "newName": {
+              "type": "string",
+              "description": "New name for the VBA module"
+            }
+          },
+          "required": [
+            "filePath",
+            "moduleName",
+            "newName"
+          ]
+        }
+      },
+      {
+        "name": "xlide_deleteModule",
+        "displayName": "Delete VBA Module",
+        "modelDescription": "Permanently deletes a VBA module from an Excel workbook and saves the file. This cannot be undone. Only delete standard or class modules; avoid deleting document modules (Sheet/ThisWorkbook).",
+        "toolReferenceName": "xlideDeleteModule",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Name of the VBA module to delete"
+            }
+          },
+          "required": [
+            "filePath",
+            "moduleName"
+          ]
+        }
+      },
+      {
+        "name": "xlide_listSheets",
+        "displayName": "List Excel Sheets",
+        "modelDescription": "Lists all worksheet names and their used cell ranges (dimensions) in an Excel file. Call this first whenever the sheet name is unknown before using xlide_readCells, xlide_writeCells, or xlide_runOpenpyxl. Returns an array of {name, dimensions} objects where dimensions is in A1 notation (e.g. 'A1:D20') or empty for a blank sheet.",
+        "toolReferenceName": "xlideListSheets",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            }
+          },
+          "required": [
+            "filePath"
+          ]
+        }
+      },
+      {
         "name": "xlide_readCells",
         "displayName": "Read Excel Cells",
-        "modelDescription": "Reads cell values from a worksheet in an Excel file. Returns a 2D array of values (rows x columns).",
+        "modelDescription": "Reads computed cell values (not formulas) from a worksheet in an Excel file. Returns a 2D array of values (rows x columns). If the sheet name is unknown, call xlide_listSheets first. To read raw formulas instead, use xlide_readFormulas.",
         "toolReferenceName": "xlideReadCells",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "sheet": {
+              "type": "string",
+              "description": "Name of the worksheet"
+            },
+            "range": {
+              "type": "string",
+              "description": "Cell range in A1 notation, e.g. 'A1:D10'"
+            }
+          },
+          "required": [
+            "filePath",
+            "sheet",
+            "range"
+          ]
+        }
+      },
+      {
+        "name": "xlide_readFormulas",
+        "displayName": "Read Excel Formulas",
+        "modelDescription": "Reads raw cell content including formula strings (e.g. '=SUM(A1:A10)') from a worksheet. Use this instead of xlide_readCells when you need to understand or reproduce spreadsheet logic. Returns a 2D array; formula cells contain the formula string, non-formula cells contain their value.",
+        "toolReferenceName": "xlideReadFormulas",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -380,7 +511,7 @@
       {
         "name": "xlide_writeCells",
         "displayName": "Write Excel Cells",
-        "modelDescription": "Writes values to a range of cells in a worksheet in an Excel file. The file is saved automatically. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "modelDescription": "Writes values to a range of cells in a worksheet in an Excel file. The file is saved automatically. If the sheet name is unknown, call xlide_listSheets first. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
         "toolReferenceName": "xlideWriteCells",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -471,6 +602,34 @@
           "required": [
             "filePath",
             "exportMode"
+          ]
+        }
+      },
+      {
+        "name": "xlide_runOpenpyxl",
+        "displayName": "Run openpyxl Code",
+        "modelDescription": "Executes arbitrary Python code with full openpyxl access to an Excel workbook. The code runs in a namespace with: `wb` (open openpyxl Workbook), `openpyxl` (the module), `json` (stdlib json), and `result` (assign your return value here). If `save` is true (default), the workbook is saved after execution. Use this to style cells, add/remove sheets, set column widths, number formats, conditional formatting, charts, named ranges, or any other openpyxl operation. IMPORTANT: Use only ASCII characters in cell values and strings to avoid character mangling. Assign the return value to `result`; captured stdout is also returned.",
+        "toolReferenceName": "xlideRunOpenpyxl",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            },
+            "code": {
+              "type": "string",
+              "description": "Python code to execute. `wb` is the open Workbook, `openpyxl` is the module, `json` is available. Assign your return value to `result`."
+            },
+            "save": {
+              "type": "boolean",
+              "description": "Whether to save the workbook after execution (default: true). Set false for read-only queries."
+            }
+          },
+          "required": [
+            "filePath",
+            "code"
           ]
         }
       }

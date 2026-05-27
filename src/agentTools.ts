@@ -16,8 +16,14 @@ interface ListModulesInput { filePath: string; }
 interface ListSubsInput    { filePath: string; moduleName: string; }
 interface ReadModuleInput  { filePath: string; moduleName: string; }
 interface WriteModuleInput { filePath: string; moduleName: string; source: string; }
+interface RenameModuleInput { filePath: string; moduleName: string; newName: string; }
+interface DeleteModuleInput { filePath: string; moduleName: string; }
+interface ListSheetsInput  { filePath: string; }
+interface GetWorkbookInfoInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
+interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
+interface RunOpenpyxlInput { filePath: string; code: string; save?: boolean; }
 interface ExportModulesInput { filePath: string; exportFolder?: string; exportMode?: ExportMode; }
 interface ConfigureExportModeInput { filePath: string; exportMode: ExportMode; }
 
@@ -34,6 +40,17 @@ export function registerAgentTools(
     fsProvider: XlideFileSystemProvider,
 ): vscode.Disposable[] {
     return [
+        // ----------------------------------------------------------------
+        // xlide_listWorkbooks
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<Record<string, never>>('xlide_listWorkbooks', {
+            async invoke(_options, _token) {
+                const uris = await vscode.workspace.findFiles('**/*.{xlsm,xlsb,xlam}');
+                const files = uris.map((u) => u.fsPath).sort();
+                return textResult(JSON.stringify(files, null, 2));
+            },
+        }),
+
         // ----------------------------------------------------------------
         // xlide_listModules
         // ----------------------------------------------------------------
@@ -108,6 +125,82 @@ export function registerAgentTools(
         }),
 
         // ----------------------------------------------------------------
+        // xlide_renameModule  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<RenameModuleInput>('xlide_renameModule', {
+            async invoke(options, _token) {
+                const { filePath, moduleName, newName } = options.input;
+                await bridge.call('renameModule', { path: filePath, module: moduleName, newName });
+                explorer.refresh();
+                return textResult(`Module "${moduleName}" renamed to "${newName}" in "${filePath}".`);
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, moduleName, newName } = options.input;
+                return {
+                    invocationMessage: `Renaming module "${moduleName}" to "${newName}"`,
+                    confirmationMessages: {
+                        title: 'Rename VBA Module',
+                        message: new vscode.MarkdownString(
+                            `Rename module **${moduleName}** to **${newName}** in \`${filePath}\`?`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_deleteModule  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<DeleteModuleInput>('xlide_deleteModule', {
+            async invoke(options, _token) {
+                const { filePath, moduleName } = options.input;
+                await bridge.call('deleteModule', { path: filePath, module: moduleName });
+                explorer.refresh();
+                return textResult(`Module "${moduleName}" deleted from "${filePath}".`);
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, moduleName } = options.input;
+                return {
+                    invocationMessage: `Deleting module "${moduleName}"`,
+                    confirmationMessages: {
+                        title: 'Delete VBA Module',
+                        message: new vscode.MarkdownString(
+                            `Permanently delete module **${moduleName}** from \`${filePath}\`?\n\n` +
+                            `This cannot be undone.`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_listSheets
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<ListSheetsInput>('xlide_listSheets', {
+            async invoke(options, _token) {
+                const result = await bridge.call<{ sheets: Array<{ name: string; dimensions: string }> }>(
+                    'listSheets',
+                    { path: options.input.filePath },
+                );
+                return textResult(JSON.stringify(result.sheets, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_getWorkbookInfo
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<GetWorkbookInfoInput>('xlide_getWorkbookInfo', {
+            async invoke(options, _token) {
+                const result = await bridge.call<{
+                    modules: Array<{ name: string; type: string }>;
+                    sheets: Array<{ name: string; dimensions: string }>;
+                    namedRanges: Array<{ name: string; ref: string }>;
+                }>('getWorkbookInfo', { path: options.input.filePath });
+                return textResult(JSON.stringify(result, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
         // xlide_readCells
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadCellsInput>('xlide_readCells', {
@@ -115,6 +208,20 @@ export function registerAgentTools(
                 const { filePath, sheet, range } = options.input;
                 const result = await bridge.call<{ data: unknown[][] }>(
                     'readCells',
+                    { path: filePath, sheet, range },
+                );
+                return textResult(JSON.stringify(result.data, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_readFormulas
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<ReadFormulasInput>('xlide_readFormulas', {
+            async invoke(options, _token) {
+                const { filePath, sheet, range } = options.input;
+                const result = await bridge.call<{ data: unknown[][] }>(
+                    'readFormulas',
                     { path: filePath, sheet, range },
                 );
                 return textResult(JSON.stringify(result.data, null, 2));
@@ -145,6 +252,37 @@ export function registerAgentTools(
                         title: 'Write Excel Cells',
                         message: new vscode.MarkdownString(
                             `Write data to sheet **${sheet}** starting at \`${startCell}\` in \`${filePath}\`?`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_runOpenpyxl  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<RunOpenpyxlInput>('xlide_runOpenpyxl', {
+            async invoke(options, _token) {
+                const { filePath, code, save } = options.input;
+                const result = await bridge.call<{ result: unknown; stdout: string }>(
+                    'runOpenpyxl',
+                    { path: filePath, code, save: save !== false },
+                );
+                const parts: string[] = [];
+                if (result.stdout) { parts.push(`stdout:\n${result.stdout}`); }
+                parts.push(`result: ${JSON.stringify(result.result, null, 2)}`);
+                return textResult(parts.join('\n'));
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, save } = options.input;
+                const saveLabel = save === false ? 'without saving' : 'and save';
+                return {
+                    invocationMessage: `Running openpyxl code against "${filePath}"`,
+                    confirmationMessages: {
+                        title: 'Run openpyxl Code',
+                        message: new vscode.MarkdownString(
+                            `Execute Python/openpyxl code against \`${filePath}\` ${saveLabel}?\n\n` +
+                            `The code runs with full openpyxl access to the workbook.`,
                         ),
                     },
                 };
