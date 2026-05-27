@@ -146,6 +146,28 @@ Stored beside each workbook as `<workbookname>.extension.repo.json`:
 
 ---
 
+## Live Share
+
+XLIDE VBA browsing for Live Share **guests** is currently not supported.
+Microsoft's Live Share platform restricts the shared-service RPC channel
+(`vsls.shareService`) to extensions on a curated first-party allowlist, so
+third-party extensions like XLIDE cannot proxy VBA read/write calls from a
+guest to the host. The XLIDE Explorer therefore returns an empty tree for
+guests and shows an informational welcome view.
+
+What still works in a Live Share session:
+
+| Role | XLIDE behaviour |
+|---|---|
+| **Host** | Full local VBA editing -- open, edit, save `.xlsm`/`.xlsb`/`.xlam` modules exactly as if no session were active. |
+| **Guest** | Can fully view and edit any VBA module the host has open in the editor (Live Share shares those buffers normally). Cannot browse the XLIDE Explorer or open new modules independently -- only the host can navigate and open them. XLIDE panel shows a "not supported" notice. |
+| **Guest without XLIDE installed** | No action needed -- XLIDE is host-only. Joining a session does not require the extension. |
+
+Related upstream issue: [microsoft/live-share#4877](https://github.com/microsoft/live-share/issues/4877)
+(third-party `shareService` allowlist, closed as Not Planned).
+
+---
+
 ## Further reading
 
 - [docs/architecture.md](docs/architecture.md) -- full architecture reference

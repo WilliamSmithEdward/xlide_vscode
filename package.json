@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "1.0.10",
+  "version": "1.0.6",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
   "readme": "MARKETPLACE.md",
@@ -151,14 +151,20 @@
     "viewsWelcome": [
       {
         "view": "xlide.explorer",
-        "contents": "No Excel workbooks (.xlsm/.xlsb/.xlam) found in the current workspace.\n\nIf you joined a Live Share session, the host must also have XLIDE installed and activated.\n\n[Check XLIDE Output](command:xlide.showOutput)\n[Refresh](command:xlide.refreshExplorer)"
+        "contents": "XLIDE VBA browsing for Live Share guests is currently not supported.\n\nWhat still works in a Live Share session:\n- Guests can fully view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- The host can open, edit, and save VBA modules in their own workbooks using XLIDE locally.\n- Guests do not need XLIDE installed to participate in the shared session.",
+        "when": "xlide.isLiveShareGuest"
+      },
+      {
+        "view": "xlide.explorer",
+        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)",
+        "when": "!xlide.isLiveShareGuest"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "xlide.refreshExplorer",
-          "when": "view == xlide.explorer",
+          "when": "view == xlide.explorer && !xlide.isLiveShareGuest",
           "group": "navigation"
         }
       ],
@@ -487,6 +493,7 @@
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check-types && node esbuild.js --production",
+    "vsix": "npm run package && node -e \"const {execSync}=require('child_process'),{version}=require('./package.json');require('fs').mkdirSync('dist',{recursive:true});execSync('npx vsce package --out dist/xlide-'+version+'.vsix',{stdio:'inherit'})\"",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run"

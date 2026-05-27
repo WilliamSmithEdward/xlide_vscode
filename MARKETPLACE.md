@@ -71,5 +71,27 @@ Check the **XLIDE** output channel for error details.
 
 ---
 
+## Live Share
+
+XLIDE VBA browsing for Live Share **guests** is currently not supported.
+Microsoft's Live Share platform restricts the shared-service RPC channel
+that XLIDE would need to relay VBA reads/writes from a guest to the host,
+so the XLIDE Explorer is empty for guests by design.
+
+What still works in a Live Share session:
+
+- The **host** can open, edit, and save VBA modules in their own workbooks
+  using XLIDE locally -- exactly as if no session were active.
+- **Guests can fully view and edit any VBA module the host has open** in
+  the editor. Live Share shares those editor buffers normally, so guests
+  get full co-editing, cursors, and selections on the open VBA code.
+- Guests cannot independently browse the XLIDE Explorer or open new
+  modules -- only the host can navigate and open them.
+- **Guests do not need XLIDE installed** to join the session. If a guest
+  does install it, the XLIDE panel simply shows a "not supported" notice
+  and otherwise stays out of the way.
+
+---
+
 For development docs and architecture details, see the
 [GitHub repository](https://github.com/WilliamSmithEdward/xlide_vscode).

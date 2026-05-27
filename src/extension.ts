@@ -70,6 +70,18 @@ export function activate(context: vscode.ExtensionContext): void {
     explorer.setLiveShare(liveShare);
     const statusBar = new XlideStatusBar(liveShare);
 
+    // Mirror Live Share guest state into a context key so the explorer welcome view
+    // can show a "not supported" message instead of the generic empty-workspace one.
+    const updateGuestContext = () => {
+        void vscode.commands.executeCommand(
+            'setContext',
+            'xlide.isLiveShareGuest',
+            liveShare.isInGuestSession,
+        );
+    };
+    updateGuestContext();
+    liveShare.onDidChange(updateGuestContext);
+
     // Keep reference outside subscriptions for post-start auto-expand and reveal.
     const treeView = vscode.window.createTreeView('xlide.explorer', {
         treeDataProvider: explorer,
