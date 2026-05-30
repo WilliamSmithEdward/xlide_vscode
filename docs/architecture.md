@@ -137,17 +137,32 @@ Setting:
 | `listModules` | `path` | — | `[{name, type}]` |
 | `listSubs` | `path`, `module` | — | `[{name, kind, line}]` |
 | `readModule` | `path`, `module` | — | `{source}` |
-| `writeModule` | `path`, `module`, `source` | — | `{ok}` |
-| `renameModule` | `path`, `module`, `newName` | — | `{ok}` |
-| `deleteModule` | `path`, `module` | — | `{ok}` |
+| `writeModule` | `path`, `module`, `source` | — | `{ok, signatureDropped}` |
+| `renameModule` | `path`, `module`, `newName` | — | `{ok, signatureDropped}` |
+| `deleteModule` | `path`, `module` | — | `{ok, signatureDropped}` |
 | `listSheets` | `path` | — | `{sheets: [{name, dimensions}]}` |
-| `getWorkbookInfo` | `path` | — | `{modules, sheets, namedRanges}` |
+| `getWorkbookInfo` | `path` | — | `{modules, sheets, namedRanges, isPasswordProtected, isSigned}` |
+| `getProtectionInfo` | `path` | — | `{isPasswordProtected, isSigned}` |
+| `validateWorkbook` | `path` | — | `{issues: [string]}` |
+| `createWorkbook` | `path` | — | `{ok, path}` |
 | `readCells` | `path`, `sheet`, `range` | — | `{data: [[…]]}` |
 | `readFormulas` | `path`, `sheet`, `range` | — | `{data: [[…]]}` (raw formula strings) |
 | `writeCells` | `path`, `sheet`, `startCell`, `data` | — | `{ok}` |
 | `runOpenpyxl` | `path`, `code` | `save` (bool, default `true`) | `{result, stdout}` |
 
 Errors are returned as `{"error": {"code": -32000, "message": "…"}}`.
+
+---
+
+## Protected & signed workbooks
+
+All mutating saves in `vba_io.py` (`writeModule`, `renameModule`, `deleteModule`) call `ExcelFile.save(allow_protected=True)`, so password-locked VBA projects can be edited in place. The save is wrapped in `warnings.catch_warnings(record=True)`: pyOpenVBA emits a `UserWarning` when it drops a now-stale digital-signature stream, and that is surfaced to the caller as `signatureDropped: true` rather than being silenced.
+
+On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in `xlideFileSystem.ts` shows a one-time-per-workbook warning when a signature is invalidated. `writeFile` and the three write agent tools/commands all forward the flag.
+
+`getProtectionInfo` reports `{isPasswordProtected, isSigned}` using public pyOpenVBA APIs (`vba_project().protection` + `detect_signature(CFB(vba_project_bytes()))`). `XlsmExplorer` lazily probes this when a workbook is expanded and renders `[locked]`/`[signed]` badges on the workbook node. `getWorkbookInfo` folds the same two flags into its summary.
+
+`validateWorkbook` wraps `ExcelFile.validate()` (cross-structure consistency check); `createWorkbook` wraps `ExcelFile.create_new(path)` to scaffold a fresh macro-enabled workbook from pyOpenVBA's baked-in template.
 
 ---
 
@@ -209,6 +224,8 @@ Declared in `package.json` under `contributes.languageModelTools` and registered
 | `xlide_deleteModule` | `#xlideDeleteModule` | saves .xlsm | Yes |
 | `xlide_listSheets` | `#xlideListSheets` | none | No |
 | `xlide_getWorkbookInfo` | `#xlideGetWorkbookInfo` | none | No |
+| `xlide_validateWorkbook` | `#xlideValidateWorkbook` | none | No |
+| `xlide_createWorkbook` | `#xlideCreateWorkbook` | creates/overwrites .xlsm | Yes |
 | `xlide_readCells` | `#xlideReadCells` | none | No |
 | `xlide_readFormulas` | `#xlideReadFormulas` | none | No |
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |

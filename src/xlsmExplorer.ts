@@ -23,6 +23,10 @@ export interface XlideNode {
     remoteId?: string;
     /** Relative folder for display (remote only). */
     remoteRelativeFolder?: string;
+    /** Workbook only: VBA project carries a password lock. */
+    isPasswordProtected?: boolean;
+    /** Workbook only: VBA project carries a digital signature. */
+    isSigned?: boolean;
 }
 
 const MODULE_ICONS: Record<string, string> = {
@@ -44,6 +48,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     // listModules cache: avoids repeated bridge round-trips while the tree is
     // expanded.  Cleared on refresh() so edits always re-fetch.
     private _modulesListCache = new Map<string, Array<{ name: string; type: string }>>();
+    // Protection-state cache: {isPasswordProtected, isSigned} per workbook path.
+    // Loaded lazily when a workbook is expanded; cleared on refresh().
+    private _protectionCache = new Map<string, { isPasswordProtected: boolean; isSigned: boolean }>();
     // Accordion: only one module node is expanded at a time.
     private _activeModuleKey: string | undefined;
 
@@ -58,6 +65,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
         this._xlsmNodes.clear();
         this._moduleNodes.clear();
         this._modulesListCache.clear();
+        this._protectionCache.clear();
         this._emitter.fire();
     }
 
@@ -177,6 +185,23 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
                         path.dirname(node.filePath),
                     ) || '';
                     item.contextValue = 'xlsm';
+                    // Append protection/signature badges once known.
+                    const badges: string[] = [];
+                    if (node.isPasswordProtected) { badges.push('locked'); }
+                    if (node.isSigned) { badges.push('signed'); }
+                    if (badges.length > 0) {
+                        const tag = `[${badges.join(', ')}]`;
+                        item.description = item.description ? `${item.description}  ${tag}` : tag;
+                        const tip = new vscode.MarkdownString(node.filePath);
+                        if (node.isPasswordProtected) {
+                            tip.appendMarkdown('\n\n$(lock) VBA project is password-protected');
+                        }
+                        if (node.isSigned) {
+                            tip.appendMarkdown('\n\n$(shield) VBA project is digitally signed (edits will invalidate the signature)');
+                        }
+                        tip.supportThemeIcons = true;
+                        item.tooltip = tip;
+                    }
                 }
                 break;
 
@@ -327,6 +352,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
 
     private async _getModules(filePath: string): Promise<XlideNode[]> {
         try {
+            // Kick off a lazy, best-effort protection probe so the workbook node
+            // can show locked/signed badges once the data arrives.
+            void this._loadProtection(filePath);
             let modules = this._modulesListCache.get(filePath);
             if (!modules) {
                 modules = await this._bridge.call<Array<{ name: string; type: string }>>(
@@ -364,6 +392,30 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
         } catch (err) {
             vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${path.basename(filePath)}": ${err}`);
             return [];
+        }
+    }
+
+    /**
+     * Lazily fetch the workbook's VBA protection/signature state and, once
+     * known, stamp it onto the cached xlsm node and re-render so the tree item
+     * shows the locked/signed badge. Best-effort: failures are ignored.
+     */
+    private async _loadProtection(filePath: string): Promise<void> {
+        if (this._protectionCache.has(filePath)) { return; }
+        try {
+            const info = await this._bridge.call<{ isPasswordProtected: boolean; isSigned: boolean }>(
+                'getProtectionInfo',
+                { path: filePath },
+            );
+            this._protectionCache.set(filePath, info);
+            const node = this._xlsmNodes.get(filePath);
+            if (node) {
+                node.isPasswordProtected = info.isPasswordProtected;
+                node.isSigned = info.isSigned;
+                this._emitter.fire(node);
+            }
+        } catch {
+            // Badge is best-effort; ignore probe failures.
         }
     }
 

@@ -8,6 +8,26 @@ export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
 /**
+ * Tracks workbook paths for which the signature-dropped notice has already
+ * been shown this session, so the user sees it at most once per file.
+ */
+const _sigWarnedPaths = new Set<string>();
+
+/**
+ * Show a one-time warning when a VBA digital signature was invalidated by a
+ * save.  Safe to call on every write — suppressed after the first occurrence
+ * per workbook path per session.
+ */
+export function notifySignatureDropped(filePath: string, signatureDropped: boolean): void {
+    if (!signatureDropped || _sigWarnedPaths.has(filePath)) { return; }
+    _sigWarnedPaths.add(filePath);
+    void vscode.window.showWarningMessage(
+        `XLIDE: "${path.basename(filePath)}" had a VBA digital signature that was invalidated by this edit. ` +
+        `Re-sign the workbook externally to restore trust.`,
+    );
+}
+
+/**
  * Heuristic: does this error string look like a Windows file-sharing violation
  * caused by Excel having the workbook open?
  */
@@ -174,11 +194,15 @@ export class XlideFileSystemProvider
         }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
         try {
-            await this._bridge.call('writeModule', {
-                path: xlsmPath,
-                module: moduleName,
-                source,
-            });
+            const result = await this._bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                'writeModule',
+                {
+                    path: xlsmPath,
+                    module: moduleName,
+                    source,
+                },
+            );
+            notifySignatureDropped(xlsmPath, result.signatureDropped);
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             if (isWorkbookLockedError(message)) {

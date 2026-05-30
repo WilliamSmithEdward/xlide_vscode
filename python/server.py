@@ -14,7 +14,17 @@ import json
 import sys
 from typing import Any
 
-from xlide.vba_io import list_modules, list_subs, read_module, write_module, rename_module, delete_module
+from xlide.vba_io import (
+    list_modules,
+    list_subs,
+    read_module,
+    write_module,
+    rename_module,
+    delete_module,
+    get_protection_info,
+    validate_workbook,
+    create_workbook,
+)
 from xlide.excel_io import get_workbook_info, list_sheets, read_cells, read_formulas, write_cells, run_openpyxl
 
 _HANDLERS: dict[str, Any] = {
@@ -26,6 +36,9 @@ _HANDLERS: dict[str, Any] = {
     "deleteModule": delete_module,
     "listSheets": list_sheets,
     "getWorkbookInfo": get_workbook_info,
+    "getProtectionInfo": get_protection_info,
+    "validateWorkbook": validate_workbook,
+    "createWorkbook": create_workbook,
     "readCells": read_cells,
     "readFormulas": read_formulas,
     "writeCells": write_cells,

@@ -4,7 +4,7 @@ import * as cp from 'child_process';
 import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer, XlideNode } from './xlsmExplorer';
-import { XlideFileSystemProvider, encodeModuleUri, decodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
+import { XlideFileSystemProvider, encodeModuleUri, decodeModuleUri, XLIDE_SCHEME, notifySignatureDropped } from './xlideFileSystem';
 import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
@@ -274,11 +274,15 @@ export function registerCommands(
             if (!newName || newName === node.moduleName) { return; }
 
             try {
-                await bridge.call('renameModule', {
-                    path: node.filePath,
-                    module: node.moduleName,
-                    newName,
-                });
+                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                    'renameModule',
+                    {
+                        path: node.filePath,
+                        module: node.moduleName,
+                        newName,
+                    },
+                );
+                notifySignatureDropped(node.filePath, result.signatureDropped);
                 explorer.refresh();
             } catch (err) {
                 vscode.window.showErrorMessage(`XLIDE: Rename failed: ${err}`);
@@ -305,10 +309,14 @@ export function registerCommands(
             if (choice !== 'Delete') { return; }
 
             try {
-                await bridge.call('deleteModule', {
-                    path: node.filePath,
-                    module: node.moduleName,
-                });
+                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                    'deleteModule',
+                    {
+                        path: node.filePath,
+                        module: node.moduleName,
+                    },
+                );
+                notifySignatureDropped(node.filePath, result.signatureDropped);
                 // Close any open editors for this module
                 const uri = encodeModuleUri(node.filePath, node.moduleName);
                 for (const tab of vscode.window.tabGroups.all.flatMap((g) => g.tabs)) {
@@ -751,6 +759,70 @@ export function registerCommands(
                         const msg = err instanceof Error ? err.message : String(err);
                         log(`[smoke] FAILED: ${msg}`);
                         vscode.window.showErrorMessage(`XLIDE Smoke FAILED: ${msg}`);
+                    }
+                },
+            );
+        }),
+
+        // Validate the workbook's VBA project structure
+        vscode.commands.registerCommand('xlide.validateWorkbook', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) {
+                vscode.window.showWarningMessage('XLIDE: No workbook selected to validate.');
+                return;
+            }
+            const name = path.basename(filePath);
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: `XLIDE: Validating "${name}"...`, cancellable: false },
+                async () => {
+                    try {
+                        const res = await bridge.call<{ issues: string[] }>('validateWorkbook', { path: filePath });
+                        const issues = res.issues ?? [];
+                        if (issues.length === 0) {
+                            log(`[validate] "${name}": no issues`);
+                            void vscode.window.showInformationMessage(`XLIDE: "${name}" passed validation (no issues).`);
+                            return;
+                        }
+                        log(`[validate] "${name}": ${issues.length} issue(s):`);
+                        for (const issue of issues) {
+                            log(`[validate]   - ${issue}`);
+                        }
+                        out.show(true);
+                        void vscode.window.showWarningMessage(
+                            `XLIDE: "${name}" has ${issues.length} validation issue(s). See XLIDE Output for details.`,
+                        );
+                    } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        log(`[validate] FAILED: ${msg}`);
+                        vscode.window.showErrorMessage(`XLIDE: Validation failed: ${msg}`);
+                    }
+                },
+            );
+        }),
+
+        // Create a new, empty macro-enabled workbook
+        vscode.commands.registerCommand('xlide.newWorkbook', async () => {
+            const defaultDir = vscode.workspace.workspaceFolders?.[0]?.uri;
+            const target = await vscode.window.showSaveDialog({
+                title: 'XLIDE: New Macro-Enabled Workbook',
+                defaultUri: defaultDir ? vscode.Uri.joinPath(defaultDir, 'NewWorkbook.xlsm') : undefined,
+                filters: { 'Macro-Enabled Workbook': ['xlsm', 'xlsb'] },
+            });
+            if (!target) { return; }
+            const filePath = target.fsPath;
+            const name = path.basename(filePath);
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: `XLIDE: Creating "${name}"...`, cancellable: false },
+                async () => {
+                    try {
+                        await bridge.call<{ ok: boolean; path: string }>('createWorkbook', { path: filePath });
+                        log(`[newWorkbook] Created "${filePath}"`);
+                        explorer.refresh();
+                        void vscode.window.showInformationMessage(`XLIDE: Created "${name}".`);
+                    } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        log(`[newWorkbook] FAILED: ${msg}`);
+                        vscode.window.showErrorMessage(`XLIDE: Failed to create workbook: ${msg}`);
                     }
                 },
             );

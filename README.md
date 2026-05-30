@@ -1,6 +1,6 @@
-﻿# XLIDE - Excel VBA for VS Code
+﻿# XLIDE - VBA for VS Code
 
-Edit Excel VBA code directly in VS Code. Browse modules in a sidebar tree,
+Edit VBA code directly in VS Code. Browse modules in a sidebar tree,
 edit with syntax highlighting and symbol navigation (Go to Definition,
 Find All References, Rename Symbol), save changes back to the `.xlsm` file
 with Ctrl+S, and expose every operation to GitHub Copilot via the Language
@@ -126,6 +126,8 @@ def-type directives, and implementation-reserved identifiers).
 | `xlide_writeModule` | `#xlideWriteModule` | W | Yes |
 | `xlide_readCells` | `#xlideReadCells` | R | No |
 | `xlide_writeCells` | `#xlideWriteCells` | W | Yes |
+| `xlide_validateWorkbook` | `#xlideValidateWorkbook` | R | No |
+| `xlide_createWorkbook` | `#xlideCreateWorkbook` | W | Yes |
 | `xlide_exportModules` | `#xlideExportModules` | W | Yes |
 | `xlide_configureExportMode` | `#xlideConfigureExportMode` | W | Yes |
 

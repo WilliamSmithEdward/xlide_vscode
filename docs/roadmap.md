@@ -41,10 +41,17 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 - [x] **(20) CI workflow** — `.github/workflows/ci.yml` runs `npm run compile` + `npm test` (TypeScript job) and `pytest python/tests/` (Python job) on push and pull requests.
 - [x] **(21) CHANGELOG.md** — created at repo root; all implemented features documented.
 
+## Protected, signed & lifecycle
+
+- [x] **(22) Protected-workbook editing** — `writeModule`/`renameModule`/`deleteModule` save with `allow_protected=True` so password-locked VBA projects edit in place.
+- [x] **(23) Signature-invalidation notice** — dropped digital signatures are detected (`signatureDropped`) and surfaced once per workbook via `notifySignatureDropped`, instead of being silenced.
+- [x] **(24) Protection/signature badges** — `XlsmExplorer` lazily probes `getProtectionInfo` and shows `[locked]`/`[signed]` tags on workbook nodes.
+- [x] **(25) Validate VBA Project** — `xlide.validateWorkbook` command + `xlide_validateWorkbook` tool wrap `ExcelFile.validate()`, reporting issues to the Output channel.
+- [x] **(26) New Macro-Enabled Workbook** — `xlide.newWorkbook` command + `xlide_createWorkbook` tool scaffold a fresh `.xlsm`/`.xlsb` via `ExcelFile.create_new`.
+
 ## Files to Keep Up To Date
 
 - `docs/architecture.md` — structure changes
 - `docs/roadmap.md` — this file
-- `README.md` — dev-facing docs
-- `MARKETPLACE.md` — user-facing marketplace listing
+- `README.md` — dev-facing docs and marketplace listing
 - `CHANGELOG.md` — when added

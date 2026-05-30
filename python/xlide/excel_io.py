@@ -17,11 +17,13 @@ def _parse_cell(ref: str) -> tuple[int, int]:
 
 
 from xlide.vba_io import list_modules as _list_modules
+from xlide.vba_io import get_protection_info as _get_protection_info
 
 
 def get_workbook_info(*, path: str) -> dict[str, Any]:
-    """Return a combined summary: VBA modules, sheet names/dimensions, and named ranges."""
+    """Return a combined summary: VBA modules, sheet names/dimensions, named ranges, and protection state."""
     modules = _list_modules(path=path)
+    protection = _get_protection_info(path=path)
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
         sheets = [
@@ -34,7 +36,12 @@ def get_workbook_info(*, path: str) -> dict[str, Any]:
         ]
     finally:
         wb.close()
-    return {"modules": modules, "sheets": sheets, "namedRanges": named_ranges}
+    return {
+        "modules": modules,
+        "sheets": sheets,
+        "namedRanges": named_ranges,
+        **protection,
+    }
 
 
 def list_sheets(*, path: str) -> dict[str, Any]:

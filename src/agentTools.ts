@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer } from './xlsmExplorer';
-import { XlideFileSystemProvider, encodeModuleUri } from './xlideFileSystem';
+import { XlideFileSystemProvider, encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
 import {
     type ExportMode,
     exportWorkbookModules,
@@ -20,6 +20,8 @@ interface RenameModuleInput { filePath: string; moduleName: string; newName: str
 interface DeleteModuleInput { filePath: string; moduleName: string; }
 interface ListSheetsInput  { filePath: string; }
 interface GetWorkbookInfoInput { filePath: string; }
+interface ValidateWorkbookInput { filePath: string; }
+interface CreateWorkbookInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
@@ -96,11 +98,12 @@ export function registerAgentTools(
         vscode.lm.registerTool<WriteModuleInput>('xlide_writeModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, source } = options.input;
-                await bridge.call('writeModule', {
+                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>('writeModule', {
                     path: filePath,
                     module: moduleName,
                     source,
                 });
+                notifySignatureDropped(filePath, result.signatureDropped);
                 explorer.refresh();
                 // Notify VS Code that the file changed so open editors reload
                 const uri = encodeModuleUri(filePath, moduleName);
@@ -130,7 +133,10 @@ export function registerAgentTools(
         vscode.lm.registerTool<RenameModuleInput>('xlide_renameModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, newName } = options.input;
-                await bridge.call('renameModule', { path: filePath, module: moduleName, newName });
+                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                    'renameModule', { path: filePath, module: moduleName, newName },
+                );
+                notifySignatureDropped(filePath, result.signatureDropped);
                 explorer.refresh();
                 return textResult(`Module "${moduleName}" renamed to "${newName}" in "${filePath}".`);
             },
@@ -154,7 +160,10 @@ export function registerAgentTools(
         vscode.lm.registerTool<DeleteModuleInput>('xlide_deleteModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName } = options.input;
-                await bridge.call('deleteModule', { path: filePath, module: moduleName });
+                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                    'deleteModule', { path: filePath, module: moduleName },
+                );
+                notifySignatureDropped(filePath, result.signatureDropped);
                 explorer.refresh();
                 return textResult(`Module "${moduleName}" deleted from "${filePath}".`);
             },
@@ -196,6 +205,33 @@ export function registerAgentTools(
                     sheets: Array<{ name: string; dimensions: string }>;
                     namedRanges: Array<{ name: string; ref: string }>;
                 }>('getWorkbookInfo', { path: options.input.filePath });
+                return textResult(JSON.stringify(result, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_validateWorkbook
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<ValidateWorkbookInput>('xlide_validateWorkbook', {
+            async invoke(options, _token) {
+                const result = await bridge.call<{ issues: string[] }>(
+                    'validateWorkbook',
+                    { path: options.input.filePath },
+                );
+                return textResult(JSON.stringify(result, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_createWorkbook
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<CreateWorkbookInput>('xlide_createWorkbook', {
+            async invoke(options, _token) {
+                const result = await bridge.call<{ ok: boolean; path: string }>(
+                    'createWorkbook',
+                    { path: options.input.filePath },
+                );
+                explorer.refresh();
                 return textResult(JSON.stringify(result, null, 2));
             },
         }),

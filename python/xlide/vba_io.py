@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 from typing import Any
 
 from pyopenvba import ExcelFile
@@ -192,8 +193,11 @@ def write_module(*, path: str, module: str, source: str, kind: str = "standard")
             vba_kind = VBAModuleKind.other if kind == "class" else VBAModuleKind.standard
             project = wb.vba_project()
             project.add_module(module, body, kind=vba_kind)
-        wb.save()
-    return {"ok": True}
+        with warnings.catch_warnings(record=True) as _caught:
+            warnings.simplefilter("always")
+            wb.save(allow_protected=True)
+    signature_dropped = any(issubclass(w.category, UserWarning) for w in _caught)
+    return {"ok": True, "signatureDropped": signature_dropped}
 
 
 def rename_module(*, path: str, module: str, newName: str) -> dict[str, Any]:
@@ -201,8 +205,11 @@ def rename_module(*, path: str, module: str, newName: str) -> dict[str, Any]:
     with ExcelFile(path) as wb:
         project = wb.vba_project()
         project.rename_module(module, newName)
-        wb.save()
-    return {"ok": True}
+        with warnings.catch_warnings(record=True) as _caught:
+            warnings.simplefilter("always")
+            wb.save(allow_protected=True)
+    signature_dropped = any(issubclass(w.category, UserWarning) for w in _caught)
+    return {"ok": True, "signatureDropped": signature_dropped}
 
 
 def delete_module(*, path: str, module: str) -> dict[str, Any]:
@@ -210,5 +217,56 @@ def delete_module(*, path: str, module: str) -> dict[str, Any]:
     with ExcelFile(path) as wb:
         project = wb.vba_project()
         project.delete_module(module)
-        wb.save()
-    return {"ok": True}
+        with warnings.catch_warnings(record=True) as _caught:
+            warnings.simplefilter("always")
+            wb.save(allow_protected=True)
+    signature_dropped = any(issubclass(w.category, UserWarning) for w in _caught)
+    return {"ok": True, "signatureDropped": signature_dropped}
+
+
+def get_protection_info(*, path: str) -> dict[str, Any]:
+    """Return {isPasswordProtected, isSigned} for the workbook's VBA project.
+
+    - isPasswordProtected: the VBA project carries a password-lock record.
+    - isSigned: the project has at least one digital-signature stream.
+
+    Both flags are derived from public pyopenvba APIs only.
+    """
+    from pyopenvba.cfb import CFB
+    from pyopenvba.excel import detect_signature
+
+    with ExcelFile(path) as wb:
+        project = wb.vba_project()
+        is_protected = (
+            project.protection is not None and project.protection.has_password
+        )
+        is_signed = detect_signature(CFB(wb.vba_project_bytes())).present
+    return {
+        "isPasswordProtected": bool(is_protected),
+        "isSigned": bool(is_signed),
+    }
+
+
+def validate_workbook(*, path: str) -> dict[str, Any]:
+    """Return {issues: [...]} listing cross-structure inconsistencies.
+
+    An empty list means pyOpenVBA found no problems with the VBA project's
+    internal structure.
+    """
+    with ExcelFile(path) as wb:
+        issues = wb.validate()
+    return {"issues": list(issues)}
+
+
+def create_workbook(*, path: str) -> dict[str, Any]:
+    """Create a new macro-enabled workbook with an empty VBA project.
+
+    The workbook contains ThisWorkbook, Sheet1, and a bare Module1, built
+    from pyOpenVBA's baked-in template so it opens cleanly in Excel.
+    Supported extensions: .xlsm (default) and .xlsb.  Overwrites ``path``
+    if it already exists.
+    """
+    wb = ExcelFile.create_new(path)
+    wb.close()
+    return {"ok": True, "path": path}
+
