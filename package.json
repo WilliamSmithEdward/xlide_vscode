@@ -70,6 +70,12 @@
         "icon": "$(go-to-file)"
       },
       {
+        "command": "xlide.findReferences",
+        "title": "Find All References",
+        "category": "XLIDE",
+        "icon": "$(references)"
+      },
+      {
         "command": "xlide.newModule",
         "title": "Add Standard Module",
         "category": "XLIDE",
@@ -179,6 +185,11 @@
           "command": "xlide.openModule",
           "when": "view == xlide.explorer && viewItem == module",
           "group": "inline@1"
+        },
+        {
+          "command": "xlide.findReferences",
+          "when": "view == xlide.explorer && viewItem == sub",
+          "group": "1_navigate@1"
         },
         {
           "command": "xlide.newModule",

@@ -207,10 +207,20 @@ class VbaReferenceProvider implements vscode.ReferenceProvider {
 
         const { xlsmPath } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
+        const lowerWord = word.toLowerCase();
         const locations: vscode.Location[] = [];
         for (const mod of modules) {
             const uri = encodeModuleUri(xlsmPath, mod.moduleName);
+            // Declaration sites (the Sub/Function/Property name token itself) are
+            // not "references" to the procedure, so skip them. Their positions
+            // come from the parsed symbol table.
+            const declKeys = new Set(
+                mod.symbols
+                    .filter((s) => s.name.toLowerCase() === lowerWord)
+                    .map((s) => `${s.line}:${s.column}`),
+            );
             for (const occ of findIdentifierOccurrences(mod.source, word)) {
+                if (declKeys.has(`${occ.line}:${occ.column}`)) { continue; }
                 locations.push(new vscode.Location(
                     uri,
                     new vscode.Range(occ.line, occ.column, occ.line, occ.column + word.length),

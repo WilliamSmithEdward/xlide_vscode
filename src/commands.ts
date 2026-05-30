@@ -204,7 +204,40 @@ export function registerCommands(
             await vscode.languages.setTextDocumentLanguage(doc, 'vba');
         }),
 
-        // Add a new standard module to an .xlsm
+        // Find all references to the procedure represented by a tree node
+        vscode.commands.registerCommand('xlide.findReferences', async (node: XlideNode) => {
+            if (!node?.moduleName || node.kind !== 'sub') { return; }
+            const uri = node.isRemote && node.remoteId
+                ? encodeRemoteModuleUri(node.remoteId, node.moduleName)
+                : encodeModuleUri(node.filePath, node.moduleName);
+
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+            const editor = await vscode.window.showTextDocument(doc, { preview: false });
+
+            // Locate the procedure name on its declaration line so the reference
+            // search starts on the identifier. The node label is "<kind> <name>"
+            // (kind may be "Property Get" etc.), so the bare name is the last token.
+            const procName = node.label.split(' ').pop() ?? '';
+            let pos = new vscode.Position(Math.max(0, (node.line ?? 1) - 1), 0);
+            if (procName && node.line !== undefined && node.line > 0) {
+                const lineText = doc.lineAt(node.line - 1).text;
+                const col = lineText.indexOf(procName);
+                if (col >= 0) {
+                    pos = new vscode.Position(node.line - 1, col);
+                }
+            }
+
+            // Move the active editor's cursor onto the identifier so the
+            // references command resolves the correct symbol, then trigger it.
+            editor.selection = new vscode.Selection(pos, pos);
+            editor.revealRange(
+                new vscode.Range(pos, pos),
+                vscode.TextEditorRevealType.InCenterIfOutsideViewport,
+            );
+            await vscode.commands.executeCommand('references-view.findReferences', uri, pos);
+        }),
+
         vscode.commands.registerCommand('xlide.newModule', async (node: XlideNode) => {
             if (node?.kind !== 'xlsm') { return; }
             const name = await vscode.window.showInputBox({
@@ -875,6 +908,12 @@ export function registerCommands(
             }
 
             try {
+                // Persist any in-editor changes first so the macro that runs
+                // reflects the current source rather than the last-saved version.
+                if (editor.document.isDirty) {
+                    await editor.document.save();
+                }
+
                 // Decode the URI to get filePath and moduleName
                 const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
                 log(`[runMacro] Requested from module: ${moduleName} in ${xlsmPath}`);
