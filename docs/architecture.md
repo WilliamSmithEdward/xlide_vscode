@@ -34,7 +34,8 @@ xlide_vscode/
     statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of parsed VBA symbols
-    vbaLanguageProviders.ts  Document/definition/reference/rename providers for the vba language
+    vbaLanguageProviders.ts  Document/definition/reference/rename providers, diagnostics, and smart-enter for the vba language
+    vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource) and smart-enter helpers (no vscode dependency)
 
   python/
     server.py           JSON-RPC 2.0 dispatcher (stdin -> stdout, newline-delimited)
@@ -277,8 +278,8 @@ with name range and body range. The index loads modules lazily through the
 Python bridge (`listModules` + `readModule`) and can refresh a single module
 after a save.
 
-`src/vbaLanguageProviders.ts` registers four providers against the `vba`
-language under the `xlide-vba` scheme:
+`src/vbaLanguageProviders.ts` registers the language providers plus diagnostics
+and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 
 | Provider | Behavior |
 |---|---|
@@ -286,6 +287,17 @@ language under the `xlide-vba` scheme:
 | `DefinitionProvider` | Resolves an identifier across all modules in the workbook; honors `Module.Member` qualifiers and `Private` visibility |
 | `ReferenceProvider` | Word-boundary search across all modules, skipping string literals and apostrophe comments |
 | `RenameProvider` | `prepareRename` checks the identifier is a known procedure; `provideRenameEdits` returns a `WorkspaceEdit` that rewrites every module; VS Code applies the edit and Ctrl+S persists each module through the virtual filesystem |
+| Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
+| Smart enter (auto-block) | Pressing Enter after a `Sub`/`Function`/`Property` header auto-inserts the matching `End ...` below and leaves the caret on the indented body line |
+
+The `ReferenceProvider` excludes the procedure declaration token itself, so
+"Find All References" returns only call sites, not the definition.
+
+**Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
+is unit-tested directly (`tests/vbaLinter.test.ts`). It strips strings/comments,
+joins `_` line continuations, then walks a block stack to detect imbalance. The
+same module exports `detectProcOpener`/`isProcClosedAhead` used by the
+smart-enter feature.
 
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
@@ -324,5 +336,5 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New VS Code command | `src/commands.ts`, `package.json` (`contributes.commands`, `menus`), `docs/architecture.md` |
 | New Python source file | `python/xlide/__init__.py` (if re-exported), `docs/architecture.md` |
 | Dependency added/removed | `python/requirements.txt`, `README.md` |
-| New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
+| New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLinter.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | Live Share RPC surface change | `src/liveShare.ts`, `docs/architecture.md` |

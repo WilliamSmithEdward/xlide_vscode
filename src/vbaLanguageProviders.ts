@@ -2,6 +2,12 @@ import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XLIDE_SCHEME, decodeModuleUri, encodeModuleUri } from './xlideFileSystem';
 import { VbaSymbol, VbaSymbolIndex, parseVbaModule } from './vbaSymbolIndex';
+import {
+    lintVbaSource,
+    stripVba,
+    detectProcOpener,
+    isProcClosedAhead,
+} from './vbaLinter';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -297,11 +303,124 @@ class VbaRenameProvider implements vscode.RenameProvider {
 // Registration
 // ---------------------------------------------------------------------------
 
+function isVbaDocument(document: vscode.TextDocument): boolean {
+    return document.languageId === 'vba' || document.uri.scheme === XLIDE_SCHEME;
+}
+
+/**
+ * Live structural linting: reports unbalanced Sub/Function/If/For/... blocks as
+ * diagnostics. Lints on open and (debounced) on every edit so problems surface
+ * while typing, the way a real IDE does.
+ */
+function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
+    const collection = vscode.languages.createDiagnosticCollection('vba');
+    const timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    const run = (document: vscode.TextDocument): void => {
+        if (!isVbaDocument(document)) { return; }
+        const diagnostics = lintVbaSource(document.getText()).map((p) => {
+            const diag = new vscode.Diagnostic(
+                new vscode.Range(p.line, p.startCol, p.line, p.endCol),
+                p.message,
+                p.severity === 'error'
+                    ? vscode.DiagnosticSeverity.Error
+                    : vscode.DiagnosticSeverity.Warning,
+            );
+            diag.source = 'XLIDE';
+            return diag;
+        });
+        collection.set(document.uri, diagnostics);
+    };
+
+    const schedule = (document: vscode.TextDocument): void => {
+        if (!isVbaDocument(document)) { return; }
+        const key = document.uri.toString();
+        const existing = timers.get(key);
+        if (existing) { clearTimeout(existing); }
+        timers.set(key, setTimeout(() => {
+            timers.delete(key);
+            run(document);
+        }, 300));
+    };
+
+    context.subscriptions.push(
+        collection,
+        vscode.workspace.onDidOpenTextDocument(run),
+        vscode.workspace.onDidChangeTextDocument((e) => schedule(e.document)),
+        vscode.workspace.onDidCloseTextDocument((doc) => {
+            const key = doc.uri.toString();
+            const t = timers.get(key);
+            if (t) { clearTimeout(t); timers.delete(key); }
+            collection.delete(doc.uri);
+        }),
+    );
+    vscode.workspace.textDocuments.forEach(run);
+}
+
+/**
+ * VBA-IDE-style smart Enter: typing a `Sub`/`Function`/`Property` header and
+ * pressing Enter auto-inserts the matching `End ...` below, leaving the cursor
+ * on the indented body line.
+ */
+function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
+    let applying = false;
+
+    const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
+        if (applying) { return; }
+        const doc = e.document;
+        if (!isVbaDocument(doc)) { return; }
+        if (e.contentChanges.length !== 1) { return; }
+
+        const change = e.contentChanges[0];
+        // React only to a plain Enter (newline plus optional auto-indent),
+        // never to pastes or multi-character insertions.
+        if (!/^\r?\n[ \t]*$/.test(change.text)) { return; }
+
+        const openerLineIndex = change.range.start.line;
+        const openerLine = doc.lineAt(openerLineIndex).text;
+        const opener = detectProcOpener(stripVba(openerLine));
+        if (!opener) { return; }
+
+        const bodyLineIndex = openerLineIndex + 1;
+        if (bodyLineIndex >= doc.lineCount) { return; }
+
+        const strippedLines = doc.getText().split(/\r\n|\r|\n/).map(stripVba);
+        if (isProcClosedAhead(strippedLines, openerLineIndex, opener.endKeyword)) { return; }
+
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document !== doc) { return; }
+
+        const indent = /^[ \t]*/.exec(openerLine)?.[0] ?? '';
+        const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+        const bodyIndentLen = doc.lineAt(bodyLineIndex).text.length;
+        const insertPos = new vscode.Position(bodyLineIndex, bodyIndentLen);
+
+        applying = true;
+        try {
+            await editor.edit(
+                (eb) => eb.insert(insertPos, `${eol}${indent}${opener.endKeyword}`),
+                { undoStopBefore: false, undoStopAfter: true },
+            );
+        } finally {
+            applying = false;
+        }
+
+        // Keep the caret on the indented body line, above the inserted End.
+        const caret = new vscode.Position(bodyLineIndex, bodyIndentLen);
+        editor.selection = new vscode.Selection(caret, caret);
+    });
+
+    context.subscriptions.push(sub);
+}
+
 export function registerVbaLanguageProviders(
     context: vscode.ExtensionContext,
     bridge: PythonBridge,
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
+
+    registerVbaDiagnostics(context);
+    registerVbaAutoBlock(context);
 
     context.subscriptions.push(
         index,

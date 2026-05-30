@@ -5,12 +5,18 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 ## [Unreleased]
 
 ### Added
+- **Live VBA linting** — a structural block-balance analyzer (`src/vbaLinter.ts`) reports unbalanced constructs as diagnostics while you type: missing `End Sub`/`End Function`/`End Property`/`End If`/`End With`/`End Select`/`End Type`/`End Enum`/`Next`/`Loop`/`Wend`, stray closers with no opener, and inner blocks left unclosed. Strings, comments, and `_` line continuations are handled.
+- **Smart Enter (auto-block)** — typing a `Sub`/`Function`/`Property` header and pressing Enter auto-inserts the matching `End ...` below, leaving the caret on the indented body line, just like the VBA IDE.
 - **Protected-workbook editing** — VBA module writes/renames/deletes now save with `allow_protected=True`, so password-locked VBA projects can be edited without errors.
 - **Signature-invalidation notice** — when an edit drops a workbook's VBA digital signature, XLIDE surfaces a one-time warning (per workbook, per session) prompting the user to re-sign externally. The signature state is captured via `signatureDropped` from the Python layer rather than silently discarded.
 - **Protection/signature badges** in the XLIDE Explorer — workbook nodes now show `[locked]` and/or `[signed]` tags (lazily probed) so the project's protection state is visible at a glance.
 - **Validate VBA Project** command + `xlide_validateWorkbook` agent tool — audits a workbook's VBA project for cross-structure inconsistencies and reports any issues to the XLIDE Output channel.
 - **New Macro-Enabled Workbook** command (view title + Command Palette) + `xlide_createWorkbook` agent tool — creates a fresh `.xlsm`/`.xlsb` with an empty VBA project from pyOpenVBA's baked-in template.
 - **`getProtectionInfo` / `validateWorkbook` / `createWorkbook`** JSON-RPC handlers in the Python server; `get_workbook_info` now also returns `isPasswordProtected` and `isSigned`.
+
+### Changed
+- **F5 (Run Macro at Cursor)** now saves the active module first when it has unsaved changes, so the macro that runs reflects the current editor source rather than the last-saved version.
+- **Find All References** now excludes the procedure declaration token itself, returning only call sites; added a **Find All References** entry to the Explorer tree-view context menu for Sub/Function nodes.
 
 ## [1.0.9] - 2026-05-26
 
