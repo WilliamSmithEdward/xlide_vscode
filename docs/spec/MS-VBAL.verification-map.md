@@ -220,6 +220,12 @@ family) in `registerVbaDiagnostics`.
 | `invalid-proc-header` | A `Sub`/`Function`/`Property` header where a token other than `(` (or `As` for a `Function`/`Property Get`) follows the procedure name (e.g. `Sub My Sub`) | 5.3.1 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `unbalanced-parens` | A `(` left open at a statement boundary, or a `)` with no matching `(`, within one logical statement | 3.3.1 (special tokens) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `argument-count` | A call statement to a same-module Sub/Function supplies too few/too many arguments (Optional/ParamArray aware), or a named argument names no parameter | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `dim-initializer` | A variable declaration includes a VB.NET-style inline initializer (`Dim x As Long = 1`), which VBA does not allow; `Const` is exempt | 5.2.3.1 (variable declaration) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `call-requires-parens` | A `Call` statement supplies arguments without enclosing parentheses (`Call MsgBox "hi"`) | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `required-param-after-optional` | A required parameter follows an `Optional` parameter in a procedure header | 5.3.1.5 (parameter list) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `paramarray-not-last` | A `ParamArray` parameter is not the final parameter | 5.3.1.6 (ParamArray) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `exit-wrong-proc` | An `Exit Sub`/`Exit Function`/`Exit Property` does not match the enclosing procedure kind (`Exit Do`/`Exit For` excluded) | 5.4.1.3 (Exit statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `option-after-declaration` | An `Option` statement appears after a declaration or procedure (only `Attribute` lines may precede it) | 5.2.1 (module options) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 
 Deliberately deferred (not shipped): `undeclared-variable` (variable used
 without declaration under Option Explicit) and the broad arbitrary-expression

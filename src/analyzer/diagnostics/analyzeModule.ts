@@ -30,6 +30,7 @@ import type {
 	ProcedureNode,
 	Span,
 	StatementNode,
+	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -152,8 +153,13 @@ function runRules(
 	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
 	checkConstAssignment(source, mod, symbols, push);
 	checkOptionExplicit(source, mod, push);
+	checkOptionPlacement(mod, push);
 	checkProcedureHeader(source, mod, push);
+	checkParameterOrder(mod, push);
 	checkUnbalancedParens(source, push);
+	checkDimInitializer(source, mod, push);
+	checkCallParens(source, mod, push);
+	checkExitStatements(source, mod, push);
 	checkArgumentCount(source, mod, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
@@ -972,4 +978,313 @@ function checkOptionExplicit(
 		'Option Explicit is not specified; variables can be used without being declared. Add "Option Explicit" to the top of the module.',
 		{ start: 0, end },
 	);
+}
+
+/**
+ * Rule: a variable declaration cannot include an inline initializer. VBA has no
+ * VB.NET-style `Dim x As Long = 1`; the `= value` is a syntax error. `Const`
+ * legitimately uses `=` and is skipped. Detection walks every non-Const
+ * VariableGroup (module level and inside procedure bodies) and looks for a
+ * top-level `=` operator in the group's source slice - a declaration list has no
+ * other lawful place for a depth-0 `=`.
+ */
+function checkDimInitializer(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	const inspect = (group: VariableGroupNode): void => {
+		if (group.isConst) {
+			return; // Const requires `=`; not an error.
+		}
+		const at = topLevelAssignOffset(source, group.span);
+		if (at !== undefined) {
+			push(
+				'dimInitializer',
+				'A variable declaration cannot include an initializer in VBA; assign the value in a separate statement.',
+				{ start: at, end: at + 1 },
+			);
+		}
+	};
+	for (const member of mod.members) {
+		if (member.kind === 'VariableGroup') {
+			inspect(member);
+		} else if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, inspect);
+		}
+	}
+}
+
+/** Walks every VariableGroupNode in a body, descending into nested blocks. */
+function forEachVariableGroup(
+	body: BodyNode[],
+	visit: (group: VariableGroupNode) => void,
+): void {
+	for (const node of body) {
+		if (node.kind === 'VariableGroup') {
+			visit(node);
+		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
+			forEachVariableGroup((node as { body: BodyNode[] }).body, visit);
+		}
+	}
+}
+
+/**
+ * Returns the absolute offset of the first top-level `=` operator in the source
+ * slice for `span`, or undefined. Parenthesised regions (array bounds, default
+ * sub-expressions) are skipped so only a declaration-level `=` is reported.
+ */
+function topLevelAssignOffset(source: string, span: Span): number | undefined {
+	const toks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	let depth = 0;
+	for (const t of toks) {
+		const r = t.rawText;
+		if (r === '(') {
+			depth++;
+		} else if (r === ')') {
+			depth--;
+		} else if (depth === 0 && t.kind === 'operator' && r === '=') {
+			return span.start + t.start;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Rule: parameter-order constraints. A required parameter may not follow an
+ * `Optional` one, and `ParamArray` must be the final parameter. Both are read
+ * straight off the parsed parameter flags, so they are deterministic.
+ */
+function checkParameterOrder(mod: ModuleNode, push: PushFn): void {
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const params = member.params;
+		let optionalSeen = false;
+		for (let i = 0; i < params.length; i++) {
+			const p = params[i];
+			if (p.paramArray) {
+				if (i !== params.length - 1) {
+					push(
+						'paramArrayNotLast',
+						`ParamArray '${p.name}' must be the last parameter.`,
+						p.span,
+					);
+				}
+				continue;
+			}
+			if (p.optional) {
+				optionalSeen = true;
+				continue;
+			}
+			if (optionalSeen) {
+				push(
+					'requiredParamAfterOptional',
+					`Parameter '${p.name}' must be Optional because it follows an Optional parameter.`,
+					p.span,
+				);
+			}
+		}
+	}
+}
+
+/**
+ * Rule: a `Call` statement must wrap its arguments in parentheses. After the
+ * `Call` keyword the callee chain (identifier, then any run of `.member` or
+ * `(...)` groups) is consumed; any token left over is an unparenthesised
+ * argument - the VBE "Expected: (" error. Unbalanced parentheses are left to the
+ * dedicated rule.
+ */
+function checkCallParens(source: string, mod: ModuleNode, push: PushFn): void {
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			const at = unparenthesizedCallArg(source, stmt.span);
+			if (at) {
+				push(
+					'callRequiresParens',
+					'A Call statement requires parentheses around its argument list.',
+					at,
+				);
+			}
+		});
+	}
+}
+
+/** Returns the span of the first stray argument token in a `Call` statement. */
+function unparenthesizedCallArg(source: string, span: Span): Span | undefined {
+	const toks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	if (toks.length === 0 || toks[0].rawText.toLowerCase() !== 'call') {
+		return undefined;
+	}
+	let i = 1;
+	const callee = toks[i];
+	if (
+		!callee ||
+		(callee.kind !== 'identifier' && callee.kind !== 'bracketedIdentifier')
+	) {
+		return undefined; // malformed Call header - not this rule's concern
+	}
+	i++;
+	for (;;) {
+		const t = toks[i];
+		if (!t) {
+			break;
+		}
+		if (t.rawText === '.') {
+			const name = toks[i + 1];
+			if (
+				name &&
+				(name.kind === 'identifier' ||
+					name.kind === 'bracketedIdentifier' ||
+					name.kind === 'keyword')
+			) {
+				i += 2;
+				continue;
+			}
+			break;
+		}
+		if (t.rawText === '(') {
+			const close = matchParenFrom(toks, i);
+			if (close < 0) {
+				return undefined; // unbalanced - reported elsewhere
+			}
+			i = close + 1;
+			continue;
+		}
+		break;
+	}
+	const stray = toks[i];
+	if (stray) {
+		return { start: span.start + stray.start, end: span.start + stray.end };
+	}
+	return undefined;
+}
+
+/** Index of the `)` matching the `(` at `open`, or -1 if unbalanced. */
+function matchParenFrom(toks: VbaToken[], open: number): number {
+	let depth = 0;
+	for (let k = open; k < toks.length; k++) {
+		const r = toks[k].rawText;
+		if (r === '(') {
+			depth++;
+		} else if (r === ')') {
+			depth--;
+			if (depth === 0) {
+				return k;
+			}
+		}
+	}
+	return -1;
+}
+
+/**
+ * Rule: an `Exit Sub` / `Exit Function` / `Exit Property` must match the kind of
+ * the procedure that encloses it (the three Property accessors all map to
+ * `Property`). `Exit Do` / `Exit For` are loop exits and are ignored here.
+ */
+function checkExitStatements(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const expected = expectedExitWord(member.procKind);
+		const label = enclosingProcLabel(member.procKind);
+		forEachStatement(member.body, (stmt) => {
+			const hit = exitTarget(source, stmt.span);
+			if (hit && hit.word !== expected) {
+				push(
+					'exitWrongProcedure',
+					`'Exit ${hit.word}' is not valid inside a ${label}; use 'Exit ${expected}'.`,
+					hit.span,
+				);
+			}
+		});
+	}
+}
+
+/** Maps a procedure kind to the keyword its `Exit` statement must use. */
+function expectedExitWord(kind: ProcedureNode['procKind']): string {
+	if (kind === 'Sub') {
+		return 'Sub';
+	}
+	if (kind === 'Function') {
+		return 'Function';
+	}
+	return 'Property';
+}
+
+/** Human label for a procedure kind, for diagnostic messages. */
+function enclosingProcLabel(kind: ProcedureNode['procKind']): string {
+	if (kind === 'Sub') {
+		return 'Sub';
+	}
+	if (kind === 'Function') {
+		return 'Function';
+	}
+	return 'Property procedure';
+}
+
+/** If a statement is `Exit Sub|Function|Property`, returns the word and span. */
+function exitTarget(
+	source: string,
+	span: Span,
+): { word: string; span: Span } | undefined {
+	const toks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	if (toks.length < 2 || toks[0].rawText.toLowerCase() !== 'exit') {
+		return undefined;
+	}
+	const w = toks[1].rawText.toLowerCase();
+	let word: string;
+	if (w === 'sub') {
+		word = 'Sub';
+	} else if (w === 'function') {
+		word = 'Function';
+	} else if (w === 'property') {
+		word = 'Property';
+	} else {
+		return undefined; // Exit Do / Exit For etc.
+	}
+	return {
+		word,
+		span: { start: span.start + toks[0].start, end: span.start + toks[1].end },
+	};
+}
+
+/**
+ * Rule: `Option` statements must precede every declaration and procedure (only
+ * `Attribute` lines may come before them in an exported module). Once a real
+ * declaration has appeared, any later `Option` is misplaced.
+ */
+function checkOptionPlacement(mod: ModuleNode, push: PushFn): void {
+	let declarationSeen = false;
+	for (const member of mod.members) {
+		if (member.kind === 'Attribute') {
+			continue;
+		}
+		if (member.kind === 'Option') {
+			if (declarationSeen) {
+				push(
+					'optionAfterDeclaration',
+					'Option statements must appear before any declaration or procedure.',
+					member.span,
+				);
+			}
+			continue;
+		}
+		declarationSeen = true;
+	}
 }

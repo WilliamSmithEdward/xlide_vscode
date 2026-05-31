@@ -512,3 +512,167 @@ describe('analyzeModule - argument count', () => {
 	});
 });
 
+describe('analyzeModule - declaration initializer', () => {
+	it('flags a module-level Dim with a VB.NET-style initializer', () => {
+		const src = 'Private x As Long = 1\n';
+		const hits = byCode(analyzeModule(src), 'dim-initializer');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('=');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags a local Dim with an initializer', () => {
+		const src = 'Sub T()\n    Dim n As Long = 5\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'dim-initializer')).toHaveLength(1);
+	});
+
+	it('flags an initializer without an As clause', () => {
+		const src = 'Sub T()\n    Dim n = 5\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'dim-initializer')).toHaveLength(1);
+	});
+
+	it('does not flag a Const declaration', () => {
+		const src = 'Const Pi As Double = 3.14\n';
+		expect(byCode(analyzeModule(src), 'dim-initializer')).toHaveLength(0);
+	});
+
+	it('does not flag a plain declaration', () => {
+		const src = 'Sub T()\n    Dim n As Long\n    n = 5\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'dim-initializer')).toHaveLength(0);
+	});
+
+	it('does not flag an array bound that contains digits', () => {
+		const src = 'Sub T()\n    Dim a(1 To 10) As Long\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'dim-initializer')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - Call requires parentheses', () => {
+	it('flags an unparenthesised Call argument list', () => {
+		const src = 'Sub T()\n    Call MsgBox "hello"\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'call-requires-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"hello"');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags an unparenthesised member Call', () => {
+		const src = 'Sub T()\n    Call obj.Method 1, 2\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(1);
+	});
+
+	it('accepts Call with parentheses', () => {
+		const src = 'Sub T()\n    Call MsgBox("hello")\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(0);
+	});
+
+	it('accepts a parameterless Call', () => {
+		const src = 'Sub T()\n    Call DoWork\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(0);
+	});
+
+	it('accepts a Call to a parenthesised member chain', () => {
+		const src = 'Sub T()\n    Call obj.Method(1, 2)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(0);
+	});
+
+	it('does not flag a parenless non-Call statement', () => {
+		const src = 'Sub T()\n    MsgBox "hello"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - parameter order', () => {
+	it('flags a required parameter after an Optional one', () => {
+		const src =
+			'Sub T(Optional ByVal a As Long = 1, ByVal b As Long)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'required-param-after-optional');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toContain('b');
+	});
+
+	it('accepts trailing Optional parameters', () => {
+		const src =
+			'Sub T(ByVal a As Long, Optional ByVal b As Long = 1)\nEnd Sub\n';
+		expect(
+			byCode(analyzeModule(src), 'required-param-after-optional'),
+		).toHaveLength(0);
+	});
+
+	it('flags a ParamArray that is not last', () => {
+		const src = 'Sub T(ParamArray items() As Variant, ByVal n As Long)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'paramarray-not-last');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toContain('items');
+	});
+
+	it('accepts a trailing ParamArray', () => {
+		const src = 'Sub T(ByVal n As Long, ParamArray items() As Variant)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'paramarray-not-last')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - Exit statement matches procedure', () => {
+	it('flags Exit Function inside a Sub', () => {
+		const src = 'Sub T()\n    Exit Function\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'exit-wrong-proc');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Exit Function');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags Exit Sub inside a Function', () => {
+		const src = 'Function F() As Long\n    Exit Sub\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(1);
+	});
+
+	it('flags Exit Sub inside a Property', () => {
+		const src = 'Property Get Name() As String\n    Exit Sub\nEnd Property\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(1);
+	});
+
+	it('accepts a matching Exit Sub', () => {
+		const src = 'Sub T()\n    Exit Sub\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(0);
+	});
+
+	it('accepts a matching Exit Property', () => {
+		const src = 'Property Let Name(v As String)\n    Exit Property\nEnd Property\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(0);
+	});
+
+	it('ignores Exit For and Exit Do', () => {
+		const src =
+			'Sub T()\n' +
+			'    Do\n        Exit Do\n    Loop\n' +
+			'    For i = 1 To 3\n        Exit For\n    Next i\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - Option placement', () => {
+	it('flags an Option after a declaration', () => {
+		const src = 'Private m_Count As Long\nOption Explicit\n';
+		const hits = byCode(analyzeModule(src), 'option-after-declaration');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags an Option after a procedure', () => {
+		const src = 'Sub T()\nEnd Sub\nOption Base 1\n';
+		expect(byCode(analyzeModule(src), 'option-after-declaration')).toHaveLength(1);
+	});
+
+	it('accepts Options at the top of the module', () => {
+		const src = 'Option Explicit\nOption Base 1\nPrivate m_Count As Long\n';
+		expect(byCode(analyzeModule(src), 'option-after-declaration')).toHaveLength(0);
+	});
+
+	it('accepts Options after Attribute lines', () => {
+		const src =
+			'Attribute VB_Name = "Module1"\nOption Explicit\nSub T()\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'option-after-declaration')).toHaveLength(0);
+	});
+});
+
