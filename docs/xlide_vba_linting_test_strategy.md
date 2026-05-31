@@ -36,6 +36,28 @@ The core linter must be testable without launching VS Code, Excel, or COM.
 
 ---
 
+## Corpus Accuracy Policy
+
+The syntax corpus is a development asset, not an infallible specification.
+Existing corpus cases may be incomplete, stale, or based on assumptions made
+before the Excel/VBE oracle existed.
+
+When a corpus case affects analyzer behavior, diagnostic severity, or VBE
+compile-equivalence metadata, treat it as pending until one of these is true:
+
+- it is traced to an explicit MS-VBAL source rule;
+- it is verified with the Excel/VBE oracle;
+- it is intentionally marked `observe` or pending and does not drive a hard
+  diagnostic.
+
+If the corpus and oracle disagree, the corpus case is suspect. Update the corpus
+or mark the discrepancy before using it to justify analyzer behavior.
+
+This does not mean running the oracle for every change. It means using the oracle
+for new VBE-behavior evaluation, debugging, discovery, and corpus coverage work.
+
+---
+
 ## Current XLIDE Shape
 
 XLIDE already has the right separation for this strategy. Do not rewrite it into
@@ -378,6 +400,23 @@ Example XLIDE opinion warning:
 ```
 
 This prevents false failures in the oracle layer.
+
+## Severity Policy
+
+Default severity should reflect whether the diagnostic blocks real VBA
+compilation or is XLIDE guidance:
+
+- **Error / red squiggly**: deterministic VBE compile-equivalent failures, or
+  constructs XLIDE can prove are invalid from explicit source/metadata.
+- **Warning / yellow squiggly**: XLIDE-only guidance, maintainability advice,
+  suspicious patterns, or soft runtime risks that may still compile.
+- **No diagnostic**: uncertain, incomplete while typing, host/object behavior
+  XLIDE cannot prove, or anything that would require heuristic guessing.
+
+In practice, `vbeCompileEquivalent: true` diagnostics generally default to
+`error`. Diagnostics with `vbeCompileEquivalent: false` should generally default
+to `warning` or lower unless XLIDE has deterministic proof that the construct is
+invalid under its own non-VBE rule model.
 
 ---
 
