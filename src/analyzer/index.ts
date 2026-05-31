@@ -53,6 +53,11 @@ export {
 	resolveIdentifierCompletions,
 } from './completion/identifierCompletion';
 export {
+	ProjectTypeSemanticToken,
+	ProjectTypeSemanticTokenType,
+	resolveProjectTypeSemanticTokens,
+} from './semantic/typeSemanticTokens';
+export {
 	HoverContext,
 	HoverInfo,
 	resolveHover,

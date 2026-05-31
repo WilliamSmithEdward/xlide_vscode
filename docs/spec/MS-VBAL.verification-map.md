@@ -109,6 +109,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Project symbol graph + name resolution | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.3 (scope) / 4.2 (visibility) | Verified |
 | Project visible procedure-name surface | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 5.3 / 4.2 (visibility) | Verified |
 | Project visible type-name surface | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.2.3.1.4 / 5.2.3.3 / 5.2.3.4 / 4.2 | Verified |
+| Project type semantic tokens | src/analyzer/semantic/typeSemanticTokens.ts | tests/vbaSemanticTokens.test.ts | 5.2.3.1.4 / 5.2.3.3 / 5.2.3.4 | Verified |
 | Duplicate-procedure detection | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.3.1 | Verified |
 | Type-position completion (after As / As New) | src/analyzer/completion/typeCompletion.ts | tests/vbaTypeCompletion.test.ts | 5.2.3.1.4 (type-spec) | Verified |
 | Identifier completion (globals/code names/in-scope decls) | src/analyzer/completion/identifierCompletion.ts | tests/vbaIdentifierCompletion.test.ts | 5.6.10 (simple-name-expression) | Verified |

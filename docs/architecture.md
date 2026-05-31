@@ -47,6 +47,8 @@ xlide_vscode/
         nodes.ts        AST node types + spans + ParseDiagnostic (MS-VBAL 4.2/5.x)
         parserState.ts  Logical-statement splitter + statement cursor (MS-VBAL 3.3.1 EOS)
         parseModule.ts  Error-tolerant module parser -> ModuleNode AST (MS-VBAL 5.x)
+      semantic/
+        typeSemanticTokens.ts  Pure resolver for project-defined type semantic tokens in declaration type positions
       index.ts          Public, vscode-free analyzer surface (lexer + parser)
 
   python/
@@ -604,6 +606,18 @@ single module:
   `Private`/`Dim`/`Friend` and unmodified module variables stay module-private.
   This index now drives the live `DefinitionProvider`, `ReferenceProvider`, and
   `RenameProvider` (see "Symbol intelligence").
+
+**Project type semantic coloring** - TextMate grammar handles static VBA
+tokens only; workbook classes, document modules, UserForms, UDTs, and enums are
+dynamic project symbols. `src/analyzer/semantic/typeSemanticTokens.ts` therefore
+parses the live module, accepts the current module's
+`ProjectIndex.visibleTypeNames()` result, and emits semantic tokens only for
+resolved project-defined type names in actual declaration type positions
+(`As Person`, parameter types, return types, module/local variables, and UDT
+fields). The VS Code provider in `src/vbaLanguageProviders.ts` overlays the
+live editor text for the current module before resolving visible types, so
+`Dim customer As Person` can receive class coloring as soon as `Person` exists
+in the workbook project. Unresolved names and non-type positions are ignored.
 
 ---
 

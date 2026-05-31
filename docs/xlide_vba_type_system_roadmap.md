@@ -216,6 +216,8 @@ Landed first:
 ### Phase 4: Object and Member Types
 
 - Resolve receiver type chains such as `ThisWorkbook.Worksheets(1).Range("A1")`.
+- Resolve workbook-defined class/document/UserForm members for known receiver
+  types such as `Dim p As Person: p.`.
 - Validate Excel object model method/property calls.
 - Add `Set` diagnostics and member-not-found diagnostics where receiver type is
   known.
@@ -224,8 +226,11 @@ Landed first:
 
 - Broaden curated VBA runtime signatures.
 - Broaden Excel object model signatures.
-- Support external `.vbref.xml` metadata as a first-class type-signature source.
+- Support external `.vbref.xml` metadata as a first-class type-signature and
+  object/member completion source for explicitly declared external APIs.
 - Keep metadata provenance auditable.
+- Ship downstream developer documentation and examples for authoring metadata
+  before enabling the workflow by default.
 
 ### Phase 6: Realtime Typing Experience
 

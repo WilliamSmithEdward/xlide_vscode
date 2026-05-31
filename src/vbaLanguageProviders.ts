@@ -13,7 +13,9 @@ import {
     DiagnosticSeverity as RuleSeverity,
     ModuleSymbolKind,
     ProjectIndex,
+    ProjectTypeSemanticTokenType,
     ReferenceScope,
+    resolveProjectTypeSemanticTokens,
     SeverityOverrides,
     VbaDiagnostic,
     VbaSymbol as AstSymbol,
@@ -171,14 +173,25 @@ function moduleKindFromType(type?: string): ModuleSymbolKind {
 }
 
 /** Builds a fresh AST ProjectIndex from the cached module sources. */
-function buildProjectIndex(modules: VbaModuleSymbols[]): ProjectIndex {
+function buildProjectIndex(
+    modules: VbaModuleSymbols[],
+    liveOverride?: { moduleName: string; moduleKind: ModuleSymbolKind; source: string },
+): ProjectIndex {
     const index = new ProjectIndex();
+    let appliedOverride = false;
     for (const mod of modules) {
+        const isOverride =
+            liveOverride &&
+            mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
         index.setModule({
             moduleName: mod.moduleName,
-            moduleKind: moduleKindFromType(mod.type),
-            source: mod.source,
+            moduleKind: isOverride ? liveOverride.moduleKind : moduleKindFromType(mod.type),
+            source: isOverride ? liveOverride.source : mod.source,
         });
+        appliedOverride = appliedOverride || !!isOverride;
+    }
+    if (liveOverride && !appliedOverride) {
+        index.setModule(liveOverride);
     }
     return index;
 }
@@ -424,6 +437,86 @@ function isVbaDocument(document: vscode.TextDocument): boolean {
     return document.languageId === 'vba' || document.uri.scheme === XLIDE_SCHEME;
 }
 
+function moduleNameFromDocument(document: vscode.TextDocument): string {
+    if (document.uri.scheme === XLIDE_SCHEME) {
+        try {
+            return decodeModuleUri(document.uri).moduleName;
+        } catch {
+            /* fall through */
+        }
+    }
+    const base = document.uri.path.split('/').pop() ?? 'Module';
+    return base.replace(/\.[^.]+$/, '') || 'Module';
+}
+
+const PROJECT_TYPE_TOKEN_TYPES: ProjectTypeSemanticTokenType[] = [
+    'class',
+    'enum',
+    'struct',
+    'type',
+];
+const PROJECT_TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(PROJECT_TYPE_TOKEN_TYPES);
+
+class VbaProjectTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
+    constructor(private readonly _index: VbaSymbolIndex) {}
+
+    async provideDocumentSemanticTokens(
+        document: vscode.TextDocument,
+        token: vscode.CancellationToken,
+    ): Promise<vscode.SemanticTokens> {
+        const builder = new vscode.SemanticTokensBuilder(PROJECT_TYPE_TOKEN_LEGEND);
+        if (!isVbaDocument(document)) { return builder.build(); }
+
+        const source = document.getText();
+        const moduleName = moduleNameFromDocument(document);
+        let projectTypes: ReturnType<ProjectIndex['visibleTypeNames']> = [];
+        try {
+            const project = await this._projectIndexForDocument(document, source, moduleName);
+            projectTypes = project.visibleTypeNames(moduleName);
+        } catch {
+            projectTypes = [];
+        }
+
+        for (const item of resolveProjectTypeSemanticTokens(source, projectTypes)) {
+            if (token.isCancellationRequested) { break; }
+            builder.push(
+                new vscode.Range(
+                    document.positionAt(item.span.start),
+                    document.positionAt(item.span.end),
+                ),
+                item.tokenType,
+                [],
+            );
+        }
+        return builder.build();
+    }
+
+    private async _projectIndexForDocument(
+        document: vscode.TextDocument,
+        source: string,
+        moduleName: string,
+    ): Promise<ProjectIndex> {
+        if (document.uri.scheme !== XLIDE_SCHEME) {
+            return buildProjectIndex([], {
+                moduleName,
+                moduleKind: 'standard',
+                source,
+            });
+        }
+
+        const decoded = decodeModuleUri(document.uri);
+        const modules = await this._index.getAllModules(decoded.xlsmPath);
+        const current = modules.find(
+            (m) => m.moduleName.toLowerCase() === moduleName.toLowerCase(),
+        );
+        return buildProjectIndex(modules, {
+            moduleName,
+            moduleKind: moduleKindFromType(current?.type),
+            source,
+        });
+    }
+}
+
 /**
  * Live diagnostics: structural block-balance (lintVbaSource) plus the analyzer's
  * high-confidence semantic rules (analyzeModule) - unterminated strings,
@@ -446,18 +539,6 @@ function registerVbaDiagnostics(
             case 'information': return vscode.DiagnosticSeverity.Information;
             case 'hint': return vscode.DiagnosticSeverity.Hint;
         }
-    };
-
-    const moduleNameOf = (document: vscode.TextDocument): string => {
-        if (document.uri.scheme === XLIDE_SCHEME) {
-            try {
-                return decodeModuleUri(document.uri).moduleName;
-            } catch {
-                /* fall through */
-            }
-        }
-        const base = document.uri.path.split('/').pop() ?? 'Module';
-        return base.replace(/\.[^.]+$/, '') || 'Module';
     };
 
     const run = (document: vscode.TextDocument): void => {
@@ -484,7 +565,7 @@ function registerVbaDiagnostics(
                 const { xlsmPath } = decodeModuleUri(document.uri);
                 const modules = await index.getAllModules(xlsmPath);
                 const project = buildProjectIndex(modules);
-                knownProcedures = project.visibleProcedureNames(moduleNameOf(document));
+                knownProcedures = project.visibleProcedureNames(moduleNameFromDocument(document));
                 projectProcedures = project.procedureSignatures();
             } catch {
                 knownProcedures = undefined;
@@ -514,7 +595,7 @@ function registerVbaDiagnostics(
         let semantic: VbaDiagnostic[] = [];
         try {
             semantic = analyzeModule(text, {
-                moduleName: moduleNameOf(document),
+                moduleName: moduleNameFromDocument(document),
                 severities,
                 knownProcedures,
                 projectProcedures,
@@ -655,6 +736,11 @@ export function registerVbaLanguageProviders(
         vscode.languages.registerRenameProvider(
             VBA_SELECTOR,
             new VbaRenameProvider(index),
+        ),
+        vscode.languages.registerDocumentSemanticTokensProvider(
+            VBA_SELECTOR,
+            new VbaProjectTypeSemanticTokensProvider(index),
+            PROJECT_TYPE_TOKEN_LEGEND,
         ),
         // Keep the index consistent with saves to virtual VBA documents.
         vscode.workspace.onDidSaveTextDocument((doc) => {

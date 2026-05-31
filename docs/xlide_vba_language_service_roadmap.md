@@ -847,8 +847,11 @@ Do not ship low-confidence diagnostics by default.
 > `Type`/`Enum` + class/UserForm module names). Identifier completion offers
 > host-injected globals, code names, and the enclosing procedure's
 > params/locals plus module-level vars/consts/procs/enums/types; it is
-> suppressed after `.`, after `As`, and in declaration-name positions. Covered
-> by `tests/vba{MemberCompletion,TypeCompletion,IdentifierCompletion}.test.ts`.
+> suppressed after `.`, after `As`, and in declaration-name positions. Resolved
+> project-defined type names also get semantic tokens in declaration type
+> positions via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
+> `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by
+> `tests/vba{MemberCompletion,TypeCompletion,IdentifierCompletion}.test.ts`.
 > Remaining: keyword/snippet completion at statement start, after access
 > modifiers, after `Option`/`On Error`, and signature help (Phase 7).
 
@@ -871,6 +874,9 @@ Provide completions from:
 - UDTs and fields where known.
 - Built-in VBA runtime functions.
 - Host object model metadata.
+- Workbook-defined class/document/UserForm members when the receiver type is
+  known.
+- External object/member metadata for explicitly declared referenced APIs.
 - XLIDE-provided workbook context, where safe.
 
 ### Trigger Contexts
@@ -1228,9 +1234,15 @@ Then suggest verified members.
 
 - `Application.` provides useful completions.
 - `Workbook`, `Worksheet`, and `Range` provide useful completions.
+- `Dim p As Person: p.` suggests public members from the workbook-defined
+  `Person` class module.
+- External object/member metadata can add deterministic completions for
+  referenced APIs that are not present in workbook source.
 - Metadata is versioned.
 - Metadata source is documented.
 - Host metadata never overrides core language rules.
+- Downstream developer documentation explains the metadata schema, examples,
+  reload behavior, precedence, and troubleshooting before the workflow ships.
 
 ---
 
@@ -1251,6 +1263,7 @@ Implement:
 - `CompletionItemProvider`.
 - `HoverProvider`.
 - `SignatureHelpProvider`.
+- `DocumentSemanticTokensProvider`.
 - `CodeActionProvider`.
 - Diagnostics through `DiagnosticCollection`.
 - Optional `DocumentFormattingEditProvider` only for very safe formatting.

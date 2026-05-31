@@ -53,6 +53,9 @@ heuristic diagnostics.
 - `ProjectIndex` exposes deterministic visible project type names for the
   current module: object module names plus visible `Type` and `Enum`
   declarations, preserving duplicates for future ambiguity handling.
+- Project-defined type names now get VS Code semantic tokens in declaration
+  type positions, so resolved classes, document modules, UserForms, UDTs, and
+  enums can be colored without hardcoding them into static grammar.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -240,15 +243,35 @@ Definition of done:
 Purpose: validate Excel/VBA object use where receiver type is known.
 
 - [ ] Track `Set` assignments to known object types.
-- [ ] Resolve class/document module member calls.
+- [ ] Resolve class/document/UserForm module member calls and completions for
+  workbook-defined object variables such as `Dim p As Person: p.`.
+- [ ] Build a deterministic workbook class-member model from source:
+  public/default-public methods, properties, events, and fields, with
+  signatures, return types, visibility, and declaration spans.
+- [ ] Feed workbook class-member resolution into `object.` completion, hover,
+  signature help, go-to-definition, and return-type chaining.
+- [ ] Extend external metadata files as an explicit object/member metadata
+  source for referenced libraries, add-ins, team APIs, and host extensions that
+  XLIDE cannot parse from workbook source.
+- [ ] Ensure external object metadata can provide member names, kinds,
+  signatures, parameter docs/types, return types, examples, and provenance.
+- [ ] Define deterministic precedence:
+  source symbols win for workbook-owned members; inline docs enrich source;
+  external metadata describes explicitly declared external/extension members;
+  curated host/runtime metadata remains the built-in fallback.
 - [ ] Resolve curated Excel object model receiver chains.
 - [ ] Add `member-not-found` only when receiver type is known.
 - [ ] Add `set-required` and `set-forbidden` only where deterministic.
+- [ ] Add downstream developer documentation/how-to for object member
+  completion and external object metadata before shipping this workflow.
 
 Definition of done:
 
 - Object diagnostics do not guess from names.
 - Host metadata has auditable provenance.
+- A downstream developer can author external object/member metadata, reload it,
+  verify `object.` completion, and troubleshoot missing members without reading
+  XLIDE source.
 
 ## Workstream G: Realtime Experience
 
@@ -257,6 +280,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [ ] Suppress hard errors for incomplete expressions where VBE behavior is not
   yet deterministically knowable.
 - [ ] Make diagnostic ranges precise and stable.
+- [x] Emit semantic tokens for resolved project-defined type names in
+  declaration type positions (`As Person`, function returns, parameters, UDT
+  fields, and local/module variables).
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model.
@@ -558,7 +584,11 @@ of development.
   - running macros
   - running VBA tests
   - using doc comments and metadata
+  - adding external object/member metadata for `object.` completion
   - interpreting setup health
+- [ ] Ship a full downstream developer how-to for external object/member
+  metadata, including schema, examples, precedence, reload behavior, and
+  troubleshooting.
 - [ ] Add troubleshooting playbooks for common Excel/COM/security failures.
 - [ ] Add versioned changelog and release checklist.
 - [ ] Add compatibility notes for Windows, macOS/Linux, WSL, and remote
@@ -625,6 +655,7 @@ Definition of done:
 - `docs/xlide_vba_linting_test_strategy.md`
 - `docs/xlide_vba_lint_suppression_comments.md`
 - `docs/xlide_vba_com_test_runner.md`
+- `docs/xlide_external_member_metadata.md`
 - `docs/xlide_sidebar_panel.md`
 - `docs/xlide_development_principles.md`
 - `src/analyzer/diagnostics/ruleMetadata.ts`
