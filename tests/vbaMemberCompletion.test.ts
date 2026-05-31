@@ -283,6 +283,32 @@ describe('member completion - declared variables', () => {
 		expect(got).toContain('UsedRange');
 	});
 
+	it('uses the declared Worksheet type after assignment from Sheets(index)', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Set ws = Workbooks(1).Sheets(1)\n' +
+			'    ws.\n' +
+			'End Sub\n';
+		const got = names(src, 'ws.');
+		expect(got).toContain('Range');
+		expect(got).toContain('Cells');
+		expect(got).not.toContain('ChartType');
+	});
+
+	it('uses the declared Chart type after assignment from Sheets(index)', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim ch As Chart\n' +
+			'    Set ch = Workbooks(1).Sheets(1)\n' +
+			'    ch.\n' +
+			'End Sub\n';
+		const got = names(src, 'ch.');
+		expect(got).toContain('ChartType');
+		expect(got).toContain('SeriesCollection');
+		expect(got).not.toContain('Range');
+	});
+
 	it('resolves a parameter typed As Range', () => {
 		const src = 'Sub Test(rng As Range)\n    rng.\nEnd Sub\n';
 		const got = names(src, 'rng.');

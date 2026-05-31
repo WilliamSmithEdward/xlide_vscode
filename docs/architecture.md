@@ -397,7 +397,10 @@ into a pure analyzer layer and a thin VS Code provider:
   `Workbooks(1).Sheets(1).Range("A1").`), resolves the root (`Me`, a host
   global, a worksheet code name, or a typed local/module
   variable found by parsing the module), follows member return types through the
-  chain, and returns the filtered members. It also accepts a source-backed
+  chain, and returns the filtered members. When a typed variable proves a more
+  specific member surface after assignment from a mixed collection (for example
+  `Dim ws As Worksheet: Set ws = Sheets(1)`), the declared type wins over the
+  collection's merged item surface. It also accepts a source-backed
   workbook class-member surface from `ProjectIndex.projectClassMembers()`, so
   variables declared as workbook classes (for example `Dim p As Person`) can
   offer public/default-public source members at `p.` without guessing from
