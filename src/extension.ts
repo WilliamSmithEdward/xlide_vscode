@@ -9,6 +9,7 @@ import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
 import { LiveShareIntegration } from './liveShare';
 import { XlideStatusBar } from './statusBar';
+import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -96,6 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
             isCaseSensitive: process.platform !== 'win32',
             isReadonly: false,
         }),
+        registerXlideDirtyModuleBackups(context, out),
 
         treeView,
 

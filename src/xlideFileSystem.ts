@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import type { LiveShareIntegration } from './liveShare';
 import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
@@ -100,6 +101,8 @@ export class XlideFileSystemProvider
     readonly onDidChangeFile = this._emitter.event;
 
     private _liveShare: LiveShareIntegration | undefined;
+    private _clock = Date.now();
+    private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number }>();
 
     constructor(private readonly _bridge: PythonBridge) {}
 
@@ -108,6 +111,7 @@ export class XlideFileSystemProvider
         this._liveShare = liveShare;
         liveShare.onRemoteFileChanged = (workbookId, moduleName) => {
             const uri = encodeRemoteModuleUri(workbookId, moduleName);
+            this.bumpStat(uri);
             this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
         };
     }
@@ -120,12 +124,13 @@ export class XlideFileSystemProvider
         return new vscode.Disposable(() => { /* no-op */ });
     }
 
-    stat(_uri: vscode.Uri): vscode.FileStat {
+    stat(uri: vscode.Uri): vscode.FileStat {
+        const state = this.ensureStat(uri);
         return {
             type: vscode.FileType.File,
-            ctime: 0,
-            mtime: Date.now(),
-            size: 0,
+            ctime: state.ctime,
+            mtime: state.mtime,
+            size: state.size,
         };
     }
 
@@ -156,7 +161,9 @@ export class XlideFileSystemProvider
             }
             const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
             const source = await this._liveShare.guestReadModule(workbookId, moduleName);
-            return Buffer.from(source, 'utf-8');
+            const bytes = Buffer.from(source, 'utf-8');
+            this.updateSize(uri, bytes.byteLength);
+            return bytes;
         }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
         try {
@@ -164,7 +171,9 @@ export class XlideFileSystemProvider
                 'readModule',
                 { path: xlsmPath, module: moduleName },
             );
-            return Buffer.from(result.source, 'utf-8');
+            const bytes = Buffer.from(result.source, 'utf-8');
+            this.updateSize(uri, bytes.byteLength);
+            return bytes;
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             if (isWorkbookLockedError(message)) {
@@ -189,6 +198,7 @@ export class XlideFileSystemProvider
             }
             const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
             await this._liveShare.guestWriteModule(workbookId, moduleName, source);
+            this.markChanged(uri, Buffer.byteLength(source, 'utf-8'));
             this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
             return;
         }
@@ -213,15 +223,74 @@ export class XlideFileSystemProvider
             }
             throw err;
         }
+        this.markChanged(uri, Buffer.byteLength(source, 'utf-8'));
         this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
     }
 
     // Public method for agent tools to notify that a file has changed
     notifyFileChanged(uri: vscode.Uri): void {
+        this.markChanged(uri);
         this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
     }
 
     dispose(): void {
         this._emitter.dispose();
+    }
+
+    private ensureStat(uri: vscode.Uri): { ctime: number; mtime: number; size: number } {
+        const key = this.statKey(uri);
+        const existing = this._stats.get(key);
+        if (existing) {
+            return existing;
+        }
+        const now = this.backingFileTimestamp(uri) ?? this.nextTimestamp();
+        this._clock = Math.max(this._clock, now);
+        const created = { ctime: now, mtime: now, size: 0 };
+        this._stats.set(key, created);
+        return created;
+    }
+
+    private updateSize(uri: vscode.Uri, size: number): void {
+        this.ensureStat(uri).size = size;
+    }
+
+    private bumpStat(uri: vscode.Uri, size?: number): void {
+        const state = this.ensureStat(uri);
+        state.mtime = this.nextTimestamp(state.mtime);
+        if (size !== undefined) {
+            state.size = size;
+        }
+    }
+
+    private markChanged(uri: vscode.Uri, size?: number): void {
+        const state = this.ensureStat(uri);
+        state.mtime = this.backingFileTimestamp(uri) ?? this.nextTimestamp(state.mtime);
+        this._clock = Math.max(this._clock, state.mtime);
+        if (size !== undefined) {
+            state.size = size;
+        }
+    }
+
+    private nextTimestamp(after = 0): number {
+        const now = Date.now();
+        this._clock = Math.max(this._clock + 1, now, after + 1);
+        return this._clock;
+    }
+
+    private statKey(uri: vscode.Uri): string {
+        return uri.toString();
+    }
+
+    private backingFileTimestamp(uri: vscode.Uri): number | undefined {
+        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
+            return undefined;
+        }
+        try {
+            const { xlsmPath } = decodeModuleUri(uri);
+            const stat = fs.statSync(xlsmPath);
+            return Number.isFinite(stat.mtimeMs) ? Math.trunc(stat.mtimeMs) : undefined;
+        } catch {
+            return undefined;
+        }
     }
 }

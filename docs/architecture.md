@@ -88,10 +88,18 @@ xlide-vba:///C:/path/to/workbook.xlsm/Module1.bas
 |---|---|
 | `readFile(uri)` | Calls `readModule` on the Python bridge; returns UTF-8 bytes |
 | `writeFile(uri, content)` | Calls `writeModule`; saves the .xlsm in place |
-| `stat()` | Returns a synthetic `FileStat` (file, mtime=now) |
+| `stat()` | Returns a synthetic, stable `FileStat`; `mtime` changes only after XLIDE saves or receives an explicit module-change notification |
 | All others | Throw `FileSystemError.NoPermissions` |
 
 VS Code treats the file as fully editable — Ctrl+S triggers `writeFile` with no extra command needed.
+
+`src/xlideDirtyModuleBackups.ts` adds an XLIDE-owned safety layer for dirty
+module editors. Because VS Code Hot Exit is not reliable enough for virtual
+workbook modules, every dirty local `xlide-vba://` document is synchronously
+mirrored into extension global storage. When the same module reopens after a
+VS Code restart, XLIDE reapplies the stored text as an editor edit, making the
+tab dirty again and offering Save/Revert actions. A successful save removes the
+backup.
 
 ### URI encoding / decoding
 
