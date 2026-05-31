@@ -104,6 +104,7 @@ export {
 } from './diagnostics/analyzeModule';
 export {
 	DIAGNOSTIC_RULES,
+	DiagnosticCategory,
 	DiagnosticRuleMetadata,
 	DiagnosticRuleName,
 	DiagnosticSeverity,
