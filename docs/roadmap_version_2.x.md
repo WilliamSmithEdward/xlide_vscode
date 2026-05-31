@@ -91,7 +91,7 @@ truth.
   - VBE-oracle-verified
   - observed but not asserted
   - pending verification
-- [ ] Add an oracle-result update workflow for promoted corpus cases.
+- [x] Add an oracle-result update workflow for promoted corpus cases.
 - [ ] Review current syntax corpus for cases that predate the oracle and mark
   them pending until verified.
 - [ ] Add focused oracle fixtures for newly debated syntax edges only.
@@ -209,11 +209,10 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Add an oracle-result update workflow for promoted corpus cases.
-2. Audit existing corpus cases that influenced current diagnostics and mark
+1. Audit existing corpus cases that influenced current diagnostics and mark
    whether they are oracle-verified.
-3. Start Phase 2 with same-module return type inference for nested calls.
-4. Add assignment type mismatch as warning/error only after the expression
+2. Start Phase 2 with same-module return type inference for nested calls.
+3. Add assignment type mismatch as warning/error only after the expression
    return type model can prove the source and target types.
 
 ## Files To Keep In Sync
@@ -226,5 +225,6 @@ Definition of done:
 - `syntax_corpus/README.md`
 - `syntax_corpus/corpus_provenance.json`
 - `syntax_corpus/oracle/README.md`
+- `syntax_corpus/oracle/run_excel_vbe_oracle.py`
 - `syntax_corpus/oracle/vbe_oracle_cases.json`
 - `tests/corpusProvenance.test.ts`

@@ -22,15 +22,65 @@ WORKER = ROOT / "excel_vbe_oracle_worker.ps1"
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
+    return load_cases_document(path)["cases"]
+
+
+def load_cases_document(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8-sig"))
     cases = data.get("cases")
     if not isinstance(cases, list):
         raise ValueError(f"{path} does not contain a cases array")
-    return cases
+    return data
 
 
 def expected_matches(expected: str | None, outcome: str) -> bool:
     return expected in (None, "", "observe") or expected == outcome
+
+
+def promote_observed_cases(
+    document: dict[str, Any],
+    results: list[dict[str, Any]],
+) -> tuple[int, list[str]]:
+    result_by_id = {
+        str(result.get("caseId")): result
+        for result in results
+        if str(result.get("caseId") or "")
+    }
+    cases = document.get("cases", [])
+    if not isinstance(cases, list):
+        return 0, ["cases is not an array"]
+
+    errors: list[str] = []
+    cases_by_id: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        case_id = str(case.get("id") or "")
+        if case_id:
+            cases_by_id[case_id] = case
+
+    for case_id, result in result_by_id.items():
+        case = cases_by_id.get(case_id)
+        if case is None:
+            errors.append(f"{case_id}: result has no matching fixture")
+            continue
+        expected = str(case.get("expected", "observe"))
+        if expected != "observe":
+            errors.append(f"{case_id}: expected is already {expected!r}")
+            continue
+        outcome = str(result.get("outcome", ""))
+        if outcome not in ("accepted", "rejected"):
+            errors.append(f"{case_id}: outcome {outcome!r} cannot be promoted")
+
+    if errors:
+        return 0, errors
+
+    promoted = 0
+    for case_id, result in result_by_id.items():
+        case = cases_by_id[case_id]
+        case["expected"] = str(result["outcome"])
+        case["provenance"] = "vbe-oracle-verified"
+        promoted += 1
+
+    return promoted, []
 
 
 def kill_recorded_excel(pid_path: Path) -> None:
@@ -197,13 +247,27 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="Exit non-zero when observed outcomes do not match fixture expectations",
     )
+    parser.add_argument(
+        "--promote-observed",
+        action="store_true",
+        help=(
+            "After running selected observe-only cases, write accepted/rejected "
+            "oracle outcomes back as asserted vbe-oracle-verified expectations. "
+            "Requires at least one --case."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    if args.promote_observed and not args.case_ids:
+        print("--promote-observed requires at least one --case", file=sys.stderr)
+        return 2
 
     if os.name != "nt":
         print("Excel/VBE oracle tests require Windows.", file=sys.stderr)
         return 2
 
-    cases = load_cases(args.cases)
+    document = load_cases_document(args.cases)
+    cases = document["cases"]
     if args.case_ids:
         wanted = set(args.case_ids)
         cases = [case for case in cases if case.get("id") in wanted]
@@ -223,6 +287,19 @@ def main(argv: list[str]) -> int:
         if not result["matched"]:
             failures += 1
         results.append(result)
+
+    if args.promote_observed:
+        if failures:
+            print("Cannot promote while expectation failures exist.", file=sys.stderr)
+            return 1
+        promoted, errors = promote_observed_cases(document, results)
+        if errors:
+            print("Cannot promote observed oracle result(s):", file=sys.stderr)
+            for error in errors:
+                print(f"  {error}", file=sys.stderr)
+            return 1
+        args.cases.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+        print(f"Promoted {promoted} oracle case(s) in {args.cases}", file=sys.stderr)
 
     if args.json:
         print(json.dumps({"results": results, "failureCount": failures}, indent=2))

@@ -20,6 +20,18 @@ python syntax_corpus/oracle/run_excel_vbe_oracle.py --timeout 30 --json
 python syntax_corpus/oracle/run_excel_vbe_oracle.py --strict
 ```
 
+Promotion workflow for an observe-only case:
+
+```powershell
+python syntax_corpus/oracle/run_excel_vbe_oracle.py --case local_string_with_argument_statement --promote-observed
+```
+
+Promotion is deliberately narrow. It requires at least one `--case`, refuses
+fixtures whose `expected` value is already asserted, and writes only
+`accepted`/`rejected` outcomes back to `vbe_oracle_cases.json` with
+`provenance: "vbe-oracle-verified"`. Timeouts and worker errors remain
+unpromotable.
+
 ## Requirements
 
 - Windows
