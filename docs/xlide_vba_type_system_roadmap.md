@@ -126,6 +126,11 @@ Each diagnostic should declare:
 
 ## Implementation Phases
 
+Coverage planning lives in `docs/type_analysis_corpus_coverage.md`. Treat that
+matrix as the backlog for pending, partial, missing, and verified corpus areas;
+do not treat pending Markdown corpus examples as authority for hard diagnostics
+until the case has spec, oracle, or deterministic XLIDE-owned evidence.
+
 ### Phase 1: Literal and Declared-Type Arguments
 
 Status: started.

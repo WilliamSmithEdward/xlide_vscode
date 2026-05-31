@@ -55,6 +55,8 @@ heuristic diagnostics.
 - Inline documentation comments support descriptive metadata plus optional
   `type`, `unit`, and `value` hints.
 - Excel/VBE oracle harness exists under `syntax_corpus/oracle/`.
+- The wider unverified type-analysis backlog is tracked in
+  `docs/type_analysis_corpus_coverage.md`.
 - Oracle cleanup is coordinator-owned: the recorded disposable Excel PID is
   killed after each oracle case.
 
@@ -109,6 +111,8 @@ truth.
 - [x] Review current syntax corpus for cases that predate the oracle and mark
   them pending until verified.
 - [x] Add focused oracle fixtures for newly debated syntax edges only.
+- [x] Add a type-analysis corpus coverage matrix for pending, partial, missing,
+  and verified type-analysis areas.
 
 Definition of done:
 
@@ -240,12 +244,15 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Start the project-wide binder vertical slice for public procedures across
+1. Use `docs/type_analysis_corpus_coverage.md` to choose the next verified
+   corpus additions for the project-wide binder.
+2. Start the project-wide binder vertical slice for public procedures across
    standard modules.
 
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.x.md`
+- `docs/type_analysis_corpus_coverage.md`
 - `docs/xlide_vba_type_system_roadmap.md`
 - `docs/xlide_vba_linting_test_strategy.md`
 - `docs/xlide_development_principles.md`

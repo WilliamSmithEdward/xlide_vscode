@@ -42,6 +42,11 @@ The syntax corpus is a development asset, not an infallible specification.
 Existing corpus cases may be incomplete, stale, or based on assumptions made
 before the Excel/VBE oracle existed.
 
+For the broader type-analysis backlog, use
+`docs/type_analysis_corpus_coverage.md` as the planning matrix. It can list
+pending and missing areas, but those entries are not diagnostic authority until
+promoted through this provenance workflow.
+
 When a corpus case affects analyzer behavior, diagnostic severity, or VBE
 compile-equivalence metadata, treat it as pending until one of these is true:
 
