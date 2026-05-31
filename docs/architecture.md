@@ -472,14 +472,25 @@ high-confidence semantic problems directly from module text:
 
 - `src/analyzer/diagnostics/ruleMetadata.ts` is the typed rule catalogue
   (`DIAGNOSTIC_RULES`): each rule carries a stable `code`, `title`,
-  `defaultSeverity`, `source: 'XLIDE'`, an MS-VBAL `specReference`, and a
-  `confidence`. Only high-confidence rules ship. The broad `undeclared-variable`
+  `defaultSeverity`, `category`, `vbeCompileEquivalent`, `source: 'XLIDE'`, an
+  MS-VBAL `specReference`, and a `confidence`. Only high-confidence rules ship.
+  The broad `undeclared-variable`
   rule and the arbitrary-expression `unknown-call` rule are deliberately absent —
   they would need an expression binder plus a complete host catalogue and would
   otherwise produce false positives, which the project's no-false-positive rule
   forbids. The one cross-module rule that does ship, `unknown-call`
   (`unknownCallStatement`), is restricted to the unambiguous call forms where the
   callee is a bare (non-member) identifier (see below).
+
+Diagnostic severity policy:
+
+| Diagnostic kind | Default surface | Rule metadata expectation |
+| --- | --- | --- |
+| Deterministic VBE compile failure | Error / red squiggly | `vbeCompileEquivalent: true` with a spec reference or oracle-verified behavior |
+| Deterministic XLIDE-invalid or runtime-risk rule | Error or warning, depending on blast radius | `vbeCompileEquivalent: false`, explicit `category`, and tests that prove the analyzer has enough information |
+| XLIDE-only guidance or style | Warning / yellow squiggly or lower | `vbeCompileEquivalent: false` and non-compile category such as `style`, `excel-host`, or `project-symbol` |
+| Uncertain, incomplete while typing, host-dependent, or heuristic-only behavior | No diagnostic | No active rule until the behavior is spec-backed or oracle-verified |
+
 - `src/analyzer/diagnostics/analyzeModule.ts` exposes
   `analyzeModule(source, opts)` returning `VbaDiagnostic[]` (code, message,
   severity, offset `span`). It reuses the lexer, parser, and symbol graph and

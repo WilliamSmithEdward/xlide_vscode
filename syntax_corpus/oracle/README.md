@@ -62,3 +62,13 @@ signal.
 
 Use `expected: "observe"` when the case exists to collect behavior but the repo
 does not yet assert a specific result.
+
+Every oracle case must also declare `provenance`:
+
+- `vbe-oracle-verified` for accepted/rejected expectations that are intended to
+  assert Excel/VBE compile behavior.
+- `observed-not-asserted` for `expected: "observe"` cases.
+
+Oracle provenance is case-level. The file-level entry in
+`syntax_corpus/corpus_provenance.json` only records that this fixture file is
+owned by the oracle workflow.

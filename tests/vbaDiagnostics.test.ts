@@ -176,6 +176,25 @@ describe('analyzeModule - Option Explicit', () => {
 });
 
 describe('analyzeModule - general contract', () => {
+	it('every diagnostic rule declares category and VBE compile equivalence', () => {
+		const categories = new Set([
+			'syntax',
+			'lexer',
+			'parser',
+			'realtime-recovery',
+			'declaration',
+			'semantic',
+			'project-symbol',
+			'module-kind',
+			'excel-host',
+			'style',
+		]);
+		for (const [name, rule] of Object.entries(DIAGNOSTIC_RULES)) {
+			expect(categories.has(rule.category), name).toBe(true);
+			expect(typeof rule.vbeCompileEquivalent, name).toBe('boolean');
+		}
+	});
+
 	it('never throws on malformed input', () => {
 		const samples = ['', 'Sub', 'End Sub', 'Dim', '"', 'If Then', ':::'];
 		for (const s of samples) {

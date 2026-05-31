@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "allowedProvenance": [
+    "spec-derived",
+    "vbe-oracle-verified",
+    "observed-not-asserted",
+    "pending-verification"
+  ],
+  "files": [
+    {
+      "path": "excel_vba_realtime_linting_test_corpus.md",
+      "provenance": "pending-verification",
+      "notes": "Markdown scaffold created before the current oracle workflow. Promote individual cases only after MS-VBAL or oracle verification."
+    },
+    {
+      "path": "excel_vba_linting_additional_edge_cases.md",
+      "provenance": "pending-verification",
+      "notes": "Legacy Markdown edge corpus; useful for discovery, not hard analyzer expectations until verified."
+    },
+    {
+      "path": "excel_vba_linting_final_hardening_cases.md",
+      "provenance": "pending-verification",
+      "notes": "Legacy hardening corpus; individual cases need explicit provenance before driving diagnostics."
+    },
+    {
+      "path": "excel_vba_linting_limits_boundary_cases.md",
+      "provenance": "pending-verification",
+      "notes": "Boundary-case corpus with mixed syntax, editor, and host behavior. Verify generated cases before promotion."
+    },
+    {
+      "path": "xlide_vba_legacy_visible_corpus_edges.md",
+      "provenance": "pending-verification",
+      "notes": "Visible editor edge notes retained for coverage planning; not authoritative without case-level evidence."
+    },
+    {
+      "path": "xlide_vba_visible_linting_corpus_recommendations.md",
+      "provenance": "pending-verification",
+      "notes": "Recommendations document, not an executable source of truth."
+    },
+    {
+      "path": "oracle/vbe_oracle_cases.json",
+      "provenance": "vbe-oracle-verified",
+      "notes": "Machine-readable oracle fixture file. Case-level provenance controls; observe-only cases remain observed-not-asserted."
+    }
+  ]
+}

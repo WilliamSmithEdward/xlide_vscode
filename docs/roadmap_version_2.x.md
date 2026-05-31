@@ -67,8 +67,8 @@ Purpose: make every diagnostic self-describing and severity-safe.
 - [x] Add `category` to every rule.
 - [x] Add `vbeCompileEquivalent` to every rule.
 - [x] Document red/yellow/no-diagnostic severity policy.
-- [ ] Add tests that assert every rule declares category and VBE equivalence.
-- [ ] Add a short diagnostic policy table to architecture docs.
+- [x] Add tests that assert every rule declares category and VBE equivalence.
+- [x] Add a short diagnostic policy table to architecture docs.
 - [ ] Use category/equivalence fields when reporting workbook lint summaries.
 
 Definition of done:
@@ -86,7 +86,7 @@ truth.
 - [x] Capture VBE compile popups as the primary oracle signal.
 - [x] Keep oracle out of routine per-change verification.
 - [x] Kill the recorded disposable Excel PID after each oracle case.
-- [ ] Mark corpus fixtures with provenance:
+- [x] Mark corpus fixtures with provenance:
   - spec-derived
   - VBE-oracle-verified
   - observed but not asserted
@@ -209,13 +209,11 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Add tests that every `DIAGNOSTIC_RULES` entry has `category` and
-   `vbeCompileEquivalent`.
-2. Add a corpus provenance field or sidecar convention.
-3. Audit existing corpus cases that influenced current diagnostics and mark
+1. Add an oracle-result update workflow for promoted corpus cases.
+2. Audit existing corpus cases that influenced current diagnostics and mark
    whether they are oracle-verified.
-4. Start Phase 2 with same-module return type inference for nested calls.
-5. Add assignment type mismatch as warning/error only after the expression
+3. Start Phase 2 with same-module return type inference for nested calls.
+4. Add assignment type mismatch as warning/error only after the expression
    return type model can prove the source and target types.
 
 ## Files To Keep In Sync
@@ -225,5 +223,8 @@ Definition of done:
 - `docs/xlide_vba_linting_test_strategy.md`
 - `docs/xlide_development_principles.md`
 - `src/analyzer/diagnostics/ruleMetadata.ts`
+- `syntax_corpus/README.md`
+- `syntax_corpus/corpus_provenance.json`
 - `syntax_corpus/oracle/README.md`
 - `syntax_corpus/oracle/vbe_oracle_cases.json`
+- `tests/corpusProvenance.test.ts`
