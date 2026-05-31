@@ -375,10 +375,11 @@ into a pure analyzer layer and a thin VS Code provider:
   member-access chaining flows into these types (e.g. `Range.Font.`,
   `ws.ListObjects(1).Range.`). It also holds the host-global table
   (`ThisWorkbook` -> `Excel.Workbook`, `Application` -> `Excel.Application`, ...)
-  and the `As`-type alias table. The reference corpus under `reference/` is used
-  only as a transcription source; none of it is bundled or generated into the
-  extension. LLM-generated member lists are never used; this is host metadata,
-  not VBA grammar.
+  and the `As`-type alias table. The reference corpus under `reference/` is the
+  repo-local dump source for future metadata completion work; the current
+  implementation still uses it only as a transcription source, and none of it is
+  bundled or generated into the extension yet. LLM-generated member lists are
+  never used; this is host metadata, not VBA grammar.
 - `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
   metadata (`resolveHostGlobal`, `resolveHostAlias`, `getHostMembers`,
   `resolveMemberReturnType`).

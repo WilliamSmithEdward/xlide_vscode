@@ -335,6 +335,25 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   XLIDE cannot parse from workbook source.
 - [ ] Ensure external object metadata can provide member names, kinds,
   signatures, parameter docs/types, return types, examples, and provenance.
+- [ ] Drive host/object member curation toward completeness through the
+  repo-local `reference/` dump corpus, not hand-entered guesses. In this repo,
+  "reference dumps" means the checked-in material under `reference/`, including
+  `reference/index.json`, `reference/members.json`, and the library folders such
+  as `reference/excel/`, `reference/vba/`, `reference/office/`,
+  `reference/msforms/`, `reference/vbide/`, and related COM/library dumps:
+  - ingest the `reference/` dump corpus into a normalized metadata format
+  - record Office/version/source provenance for every type, member, signature,
+    return type, enum, event, default member, and writable/read-only fact
+  - diff generated dumps against curated metadata and official docs where
+    available
+  - add oracle spot checks for behavior that a reference dump cannot answer
+  - produce coverage reports by host type so gaps are visible
+  - mark a host type `exhaustive` only after its dump-backed surface is complete
+    enough to prove member absence for that type/version
+- [ ] Keep generated/reference metadata separate from source-backed workbook
+  symbols, then merge through the unified object-member contract. Source stays
+  authoritative for workbook-owned classes/modules; dump-backed metadata becomes
+  authoritative only for the exact referenced host/library surface it describes.
 - [ ] Define a unified object-member rule contract used by source-backed
   classes, document modules, UserForms, curated host objects, and external
   metadata. The contract must identify whether a member surface is exhaustive,
@@ -349,6 +368,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   external metadata describes explicitly declared external/extension members;
   curated host/runtime metadata remains the built-in fallback.
 - [ ] Resolve curated Excel object model receiver chains.
+- [ ] Promote dump-backed exhaustive Excel object types into hard
+  `member-not-found` only type-by-type, after coverage reports and representative
+  oracle controls prove the surface is complete enough for red diagnostics.
 - [x] Add `member-not-found` only when receiver type is known and source-backed
   workbook class member metadata is unambiguous.
 - [ ] Add `set-required` and `set-forbidden` for object member assignments only
@@ -505,6 +527,13 @@ development.
   theme-neutral.
 - [ ] Expand the current workbook/module explorer into a full XLIDE sidebar
   with deterministic status sections and command surfaces.
+- [ ] Keep the existing XLIDE workbook/module tree in the VS Code Explorer
+  section even after the dedicated XLIDE Activity Bar/sidebar ships. Explorer is
+  the file/navigation surface; the XLIDE sidebar is the product shell for
+  health, commands, configuration, tests, lint summaries, and status.
+- [ ] Add a unified configuration section/menu collection in the XLIDE sidebar:
+  show effective settings, their source layer, validation state, quick actions,
+  and links to edit user, workspace, and local workspace config.
 - [ ] Add setup health checks with pass/warn/fail/unknown states for:
   - active XLIDE workbook/project context
   - workbook source sync/export mapping
@@ -581,6 +610,21 @@ the deterministic analyzer contract.
 
 - [ ] Define workspace/project configuration for XLIDE.
 - [ ] Separate team-shared settings from local-machine settings.
+- [ ] Implement a deterministic configuration resolver with explicit provenance
+  for every effective setting:
+  - built-in defaults declared in the extension schema
+  - user/machine defaults through VS Code settings
+  - workspace/team config stored in a versionable workspace file such as
+    `.xlide/settings.json`
+  - workspace-local machine overrides stored separately, such as
+    `.xlide/settings.local.json`, for paths, COM behavior, and other local
+    choices that should not be committed
+  - explicit command/session overrides for one-off operations
+- [ ] Make built-in defaults configurable by users and overrideable by
+  workspace config without weakening diagnostic determinism.
+- [ ] Surface all configuration through the unified XLIDE sidebar menu
+  collection, while preserving normal VS Code Settings integration for users
+  who prefer native settings UI.
 - [ ] Add rule severity overrides with guardrails:
   - error to warning only when the rule permits downgrade
   - warning to off
@@ -594,7 +638,8 @@ the deterministic analyzer contract.
   - result output path
 - [ ] Add sidebar/profile UI for active configuration.
 - [ ] Add configuration validation diagnostics for malformed settings.
-- [ ] Document precedence: defaults, workspace, user/local, command override.
+- [ ] Document precedence and conflict handling for defaults, user/machine,
+  workspace/team, workspace-local, and command/session override layers.
 
 Definition of done:
 

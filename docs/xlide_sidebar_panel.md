@@ -10,10 +10,15 @@ development in VS Code.
 - Make XLIDE visible as a first-class Activity Bar extension.
 - Put the most common workbook workflows in one polished sidebar.
 - Surface setup health clearly before a developer tries to lint, run, or test.
+- Provide one unified XLIDE configuration surface while preserving native VS
+  Code Settings for users who prefer it.
 - Keep every status deterministic: pass, warn, fail, or unknown with a concrete
   next action.
 - Avoid replacing command-palette workflows; the sidebar should make them easier
   to discover and run.
+- Keep workbook/module navigation available in the VS Code Explorer. The XLIDE
+  Activity Bar/sidebar is an additional command, health, test, lint, and config
+  surface, not a reason to remove the Explorer tree.
 
 ## Activity Bar Icon
 
@@ -43,8 +48,9 @@ Recommended sections:
 1. **Project**
    - Active workbook
    - Linked source folder
-   - Module tree
+   - Current project context and selected workbook
    - Dirty/sync status
+   - Link/button to reveal the workbook/module tree in Explorer
 
 2. **Setup Health**
    - Requirements and recommendations
@@ -77,6 +83,16 @@ Recommended sections:
    - Last export/import
    - Last lint/test run
    - COM/reset warnings
+
+7. **Configuration**
+   - Effective configuration grouped by workflow
+   - Source layer for every value: default, user, workspace, workspace-local, or
+     command/session override
+   - Validation errors/warnings
+   - Quick actions to edit user settings, workspace settings, and local
+     workspace overrides
+   - Reset-to-default actions where safe
+   - Profile/rule-set selector once profiles exist
 
 ## Setup Health Checks
 
@@ -133,6 +149,8 @@ disabled states where appropriate:
 - `XLIDE: Reopen Workbook`
 - `XLIDE: Refresh Project`
 - `XLIDE: Open Settings`
+- `XLIDE: Open Workspace XLIDE Settings`
+- `XLIDE: Open Local XLIDE Overrides`
 - `XLIDE: Open Logs`
 
 Buttons should not silently run destructive operations. Sync/write actions need
@@ -166,10 +184,16 @@ clear status and should reuse existing safe workbook handling.
 - Keep the sidebar state model separate from VS Code rendering so it can be unit
   tested.
 - Reuse the existing workbook explorer provider where possible.
+- Keep the workbook/module explorer contributed to the Explorer view. The
+  dedicated XLIDE Activity Bar view can reference the same selected workbook and
+  provide actions/status, but should not make the Explorer tree disappear.
 - Setup checks should be pure functions where possible and explicit async probes
   where COM/workbook state is required.
 - Do not require Excel COM for basic sidebar rendering.
 - Do not run health probes that mutate the workbook.
+- Configuration rendering should consume the same resolver used by production
+  code so displayed values always match behavior. The resolver must preserve
+  setting provenance and validate malformed workspace files deterministically.
 
 ## Non-Goals
 
