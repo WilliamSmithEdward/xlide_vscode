@@ -26,3 +26,14 @@ of done.
 Implementation should then proceed iteratively through production-quality
 vertical slices. Each slice should fit the larger roadmap and avoid throwaway
 MVP shortcuts or half measures.
+
+## Excel/VBE Oracle Usage
+
+The Excel/VBE oracle is a discovery, debugging, and corpus-coverage tool. Use it
+when investigating real VBE behavior, validating new corpus cases, or changing
+the oracle harness itself.
+
+Do not run the oracle as routine verification for every code change. Prefer fast
+local checks such as targeted unit tests, `npm.cmd test`,
+`npm.cmd run check-types`, and `npm.cmd run compile` unless the change depends
+on fresh Excel/VBE behavior.
