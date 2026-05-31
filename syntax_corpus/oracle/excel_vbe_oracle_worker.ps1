@@ -469,7 +469,7 @@ try {
 
     if ($mode -eq "compile") {
         Set-Stage "compile"
-        $excel.Visible = $true
+        $excel.Visible = $false
         $excel.VBE.MainWindow.Visible = $true
 
         [void]$component.Activate()
