@@ -251,6 +251,113 @@ Definition of done:
 - Typing incomplete code does not create avoidable noise.
 - Completed invalid code produces deterministic, useful diagnostics.
 
+## Workstream H: Developer VBA Test Runner
+
+Purpose: let workbook developers write and run deterministic tests for their own
+VBA code from XLIDE, using Excel COM as the execution host.
+
+- [ ] Define an explicit VBA test discovery contract. Discovery must be
+  annotation-driven or manifest-driven, not naming-heuristic-driven.
+- [ ] Add a developer-facing `xlide.runVbaTests` command that runs selected
+  tests through Excel COM.
+- [ ] Run tests against a disposable workbook/session by default so test runs do
+  not mutate the developer's open workbook unexpectedly.
+- [ ] Reuse the workbook close/reopen/reset discipline from macro execution and
+  warn when a workbook cannot be safely reopened in XLIDE's context.
+- [ ] Add a small VBA assertion/support module or equivalent injected test
+  runtime for assertions such as equality, truth, expected error, and expected
+  no error.
+- [ ] Support rich explicit test metadata:
+  - tags/categories
+  - skip reason
+  - expected failure (`xfail`) reason
+  - per-test timeout
+  - owner or requirement id
+  - expected error metadata
+  - output/state assertions
+- [ ] Support developer-friendly test selection and execution modes:
+  - run all
+  - run current test
+  - run current module
+  - include/exclude tags
+  - rerun failed
+  - fail fast
+  - machine-readable automation mode
+- [ ] Support setup/teardown patterns:
+  - per-test setup and teardown
+  - per-module setup and teardown
+  - workbook/session setup and teardown
+  - deterministic cleanup failure reporting
+- [ ] Capture deterministic test results:
+  - pass/fail/skip
+  - expected failure (`xfail`)
+  - unexpected pass (`xpass`)
+  - compile errors
+  - runtime errors, including error number and description
+  - assertion failures
+  - explicit test log/output written through the XLIDE test API
+  - timeout and teardown failures
+- [ ] Support tests that assert expected output, expected state, expected thrown
+  error, and expected absence of errors.
+- [ ] Return machine-readable JSON results for automation and render a concise
+  Problems/Test Results view in VS Code.
+- [ ] Keep the product test runner separate from the Excel/VBE oracle. The
+  oracle validates XLIDE behavior; the test runner validates user VBA projects.
+- [ ] Add fixture tests before enabling broad adoption.
+- [ ] Fully document the downstream developer workflow before calling the test
+  runner shipped:
+  - how to author tests
+  - how to mark test procedures explicitly
+  - metadata for tags, skips, expected failures, timeouts, owners, and
+    requirement ids
+  - assertion API reference
+  - expected-error and expected-output patterns
+  - setup/teardown and test data patterns
+  - filtering, rerun failed, and fail-fast workflows
+  - workbook/session lifecycle
+  - COM/Excel trust requirements
+  - timeout and cleanup behavior
+  - command palette and automation usage
+  - result JSON schema
+  - troubleshooting and known host limitations
+
+Definition of done:
+
+- A developer can author VBA tests, run them through Excel COM from XLIDE, and
+  receive deterministic pass/fail/error/output results.
+- The runner is opt-in, visible to the user, timeout-bounded, and safe against
+  silent workbook mutation.
+- The full workflow is documented for downstream workbook developers, including
+  examples they can copy into real projects.
+
+## Workstream I: Lint Suppression Directives
+
+Purpose: give developers deterministic, VBA-comment-compatible control over
+XLIDE lint diagnostics without changing VBA execution behavior.
+
+- [x] Document the proposed suppression syntax in
+  `docs/xlide_vba_lint_suppression_comments.md`.
+- [ ] Parse suppression directives only from explicit XLIDE comment directives.
+- [ ] Support module-level suppression.
+- [ ] Support next-member suppression for `Sub`, `Function`, `Property`,
+  `Type`, and `Enum` blocks.
+- [ ] Support line-level and next-line suppression.
+- [ ] Support paired arbitrary block suppression.
+- [ ] Support optional diagnostic-code lists so developers can suppress one rule
+  without hiding unrelated diagnostics.
+- [ ] Add directive diagnostics for malformed, unbalanced, or unknown-code
+  directives without guessing the user's intent.
+- [ ] Preserve a suppressed-diagnostic count so ignored problems can be audited.
+- [ ] Add unit tests for every directive scope, nesting edge, and malformed
+  directive case.
+
+Definition of done:
+
+- Suppression behavior is lexical, deterministic, auditable, and fully
+  compatible with VBA because directives are comments.
+- Suppressions hide XLIDE diagnostics only; they never make invalid VBA valid
+  and never affect COM/test/oracle execution.
+
 ## Immediate Next Steps
 
 1. Use `syntax_corpus/managed_backlog.md` and
@@ -260,6 +367,8 @@ Definition of done:
    standard modules.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
+4. Keep the VBA test runner and lint-suppression directives as planned
+   workstreams until their specs and fixture coverage are ready.
 
 ## Files To Keep In Sync
 
@@ -267,6 +376,8 @@ Definition of done:
 - `docs/type_analysis_corpus_coverage.md`
 - `docs/xlide_vba_type_system_roadmap.md`
 - `docs/xlide_vba_linting_test_strategy.md`
+- `docs/xlide_vba_lint_suppression_comments.md`
+- `docs/xlide_vba_com_test_runner.md`
 - `docs/xlide_development_principles.md`
 - `src/analyzer/diagnostics/ruleMetadata.ts`
 - `syntax_corpus/README.md`
