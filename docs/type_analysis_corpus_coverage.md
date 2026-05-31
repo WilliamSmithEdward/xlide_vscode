@@ -51,7 +51,7 @@ view of that backlog.
 | Arrays | Pending | Legacy corpus mentions arrays and `Array()` | Dynamic/fixed arrays, indexed element type, array parameter compatibility, `ParamArray` elements | Parser/binder tests and oracle for compile errors |
 | Enums | Pending | Legacy corpus mentions enums | Enum declaration, enum member values, enum-to-integer compatibility, unknown enum names | Spec plus binder tests |
 | UDTs | Pending | Legacy corpus mentions UDTs | UDT declarations, member access, object members in UDTs, cross-module UDT names | Spec plus compile oracle for edge cases |
-| Classes and document modules | Partial | `ProjectIndex.visibleTypeNames()`, `ProjectIndex.projectClassMembers()`, member-completion tests for `Dim p As Person: p.`, inline-doc completion/hover tests for `p.Age`, property assignment diagnostics for typed writable and read-only properties, semantic-token tests for `As Person` and `New Person` | Class-level/module-level docs, class instances beyond current member-assignment slice, default members, events, Friend visibility, `Property Set` object assignment, document/UserForm designer members, signature/go-to-definition | Project fixture builder and binder tests; oracle only when VBA behavior affects diagnostics |
+| Classes and document modules | Partial | `ProjectIndex.visibleTypeNames()`, `ProjectIndex.projectClassMembers()`, member-completion tests for `Dim p As Person: p.`, inline-doc completion/hover tests for `p.Age`, property assignment diagnostics for typed writable and read-only properties, `member-not-found` diagnostics for source-backed class receivers, semantic-token tests for `As Person` and `New Person` | Class-level/module-level docs, class instances beyond current member-assignment slice, late-bound `Object`/`Variant` receiver behavior, public class fields/constants oracle coverage, default members and `VB_UserMemId = 0` attributes, events, Friend visibility, `Property Set` object assignment, document/UserForm designer members, signature/go-to-definition | Project fixture builder and binder tests; oracle only when VBA behavior affects diagnostics |
 | Excel object model receiver chains | Pending | Legacy host-pattern corpus | `Workbook.Worksheets().Range`, member existence, property vs method calls | Curated host metadata plus integration tests |
 | Native VBA runtime metadata breadth | Partial | Curated metadata and `Left` coercion oracle | More functions with typed params and returns, statements vs functions, shadowing | Primary docs for signatures, oracle for behavior disputes |
 | External `.vbref.xml` metadata types | Partial | Docs type-hint strategy exists | Metadata-driven callable signatures, precedence vs source, stale metadata behavior | Unit tests, no oracle unless VBA behavior is involved |
@@ -84,6 +84,10 @@ These are the highest-value additions before the next major binder slice:
 8. **Native metadata expansion matrix**: prioritize common VBA runtime
    functions with typed parameters and returns, one oracle probe per behavior
    family when signatures alone do not answer compatibility.
+9. **Class/object member edge matrix**: verify late-bound `Object` and
+   `Variant` receivers, public class fields/constants as writable/read-only
+   members, and default members declared through exported
+   `VB_UserMemId = 0` attributes before these cases drive hard diagnostics.
 
 ## Adequacy Assessment
 

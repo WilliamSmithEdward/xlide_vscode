@@ -498,6 +498,72 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "class_unknown_property_assignment_compile",
+      "description": "A workbook class receiver is assigned through a member name that does not exist on the class.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Private mAge As Integer\n\nPublic Property Get Age() As Integer\n    Age = mAge\nEnd Property\n\nPublic Property Let Age(ByVal value As Integer)\n    mAge = value\nEnd Property\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Height = 2\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "class_unknown_method_call_compile",
+      "description": "A workbook class receiver calls a member name that does not exist on the class.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Sub Save()\nEnd Sub\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Delete\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "class_known_property_assignment_compile",
+      "description": "Compile control: a workbook class receiver is assigned through a known writable property.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Private mAge As Integer\n\nPublic Property Get Age() As Integer\n    Age = mAge\nEnd Property\n\nPublic Property Let Age(ByVal value As Integer)\n    mAge = value\nEnd Property\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = 2\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "compile_then_run_valid_control",
       "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
       "provenance": "vbe-oracle-verified",

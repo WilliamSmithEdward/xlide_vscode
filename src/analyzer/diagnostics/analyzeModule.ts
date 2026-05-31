@@ -187,6 +187,7 @@ function runRules(
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
 	checkScalarMemberAccess(source, mod, symbols, push);
+	checkProjectMemberNotFound(source, mod, opts.projectClassMembers, push);
 	checkNonCallableCallStatement(source, mod, symbols, push);
 	checkArgumentCount(source, mod, opts.projectProcedures, push);
 	checkArgumentTypes(source, mod, symbols, opts.projectProcedures, push);
@@ -481,6 +482,95 @@ function resolveExactMemberCompletion(
 	return resolveMemberCompletions(source, memberEndOffset, {
 		projectClassMembers,
 	}).find((member) => member.name.toLowerCase() === memberName.toLowerCase());
+}
+
+function checkProjectMemberNotFound(
+	source: string,
+	mod: ModuleNode,
+	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	push: PushFn,
+): void {
+	if (!projectClassMembers || projectClassMembers.length === 0) {
+		return;
+	}
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			for (const ref of memberAccessReferences(source, stmt.span)) {
+				const surface = resolveProjectClassMemberSurface(
+					source,
+					ref.dotEndOffset,
+					projectClassMembers,
+				);
+				if (!surface) {
+					continue;
+				}
+				if (
+					surface.members.some(
+						(candidate) =>
+							candidate.name.toLowerCase() === ref.member.toLowerCase(),
+					)
+				) {
+					continue;
+				}
+				push(
+					'memberNotFound',
+					`Method or data member not found: '${surface.owner}.${ref.member}'.`,
+					ref.memberSpan,
+				);
+			}
+		});
+	}
+}
+
+function memberAccessReferences(
+	source: string,
+	span: Span,
+): { member: string; memberSpan: Span; dotEndOffset: number }[] {
+	const toks = statementTokens(source, span);
+	const out: { member: string; memberSpan: Span; dotEndOffset: number }[] = [];
+	for (let i = 1; i < toks.length - 1; i++) {
+		if (toks[i].rawText !== '.') {
+			continue;
+		}
+		const member = tokenName(toks[i + 1]);
+		if (!member) {
+			continue;
+		}
+		out.push({
+			member,
+			memberSpan: {
+				start: span.start + toks[i + 1].start,
+				end: span.start + toks[i + 1].end,
+			},
+			dotEndOffset: span.start + toks[i].end,
+		});
+	}
+	return out;
+}
+
+function resolveProjectClassMemberSurface(
+	source: string,
+	dotEndOffset: number,
+	projectClassMembers: readonly VbaProjectClassMembers[],
+): { owner: string; members: MemberCompletion[] } | undefined {
+	const members = resolveMemberCompletions(source, dotEndOffset, {
+		projectClassMembers,
+	});
+	if (members.length === 0) {
+		return undefined;
+	}
+	const owner = members[0].owner;
+	if (
+		!projectClassMembers.some(
+			(type) => type.name.toLowerCase() === owner.toLowerCase(),
+		)
+	) {
+		return undefined;
+	}
+	return { owner, members };
 }
 
 /**

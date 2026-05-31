@@ -575,7 +575,14 @@ Diagnostic severity policy:
   control succeeds. `readonly-member-assignment` is a compile-equivalent
   diagnostic for source-backed project class properties whose member surface has
   no setter; focused oracle evidence rejects this as `Can't assign to read-only
-  property`. `unexpected-declaration-token` is a compile-equivalent
+  property`. `member-not-found` is another source-backed class-member rule: it
+  fires only when a workbook class receiver resolves to an unambiguous
+  `ProjectIndex.projectClassMembers()` surface and the member name is absent;
+  focused oracle evidence rejects unknown property assignment and unknown method
+  call with `Method or data member not found`, while a known-property control
+  compiles. Host object-model and ambiguous receiver cases stay silent until the
+  corresponding member catalogue is complete. `unexpected-declaration-token` is
+  a compile-equivalent
   declaration diagnostic for extra same-statement tokens after a complete
   `As` type name, such as `Dim s As String junk`; the representative `Dim`
   shape is backed by focused VBE oracle evidence, and fixed-length string

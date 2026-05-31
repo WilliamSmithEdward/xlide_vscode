@@ -1309,6 +1309,88 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(spanText(src, hits[0])).toBe('Age');
 		expect(hits[0].message).toContain('read-only');
 	});
+
+	it('errors when a known class receiver uses an unknown member in assignment', () => {
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n' +
+			'Public Property Let Age(ByVal value As Integer)\n' +
+			'    mAge = value\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Height = 2\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'member-not-found',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Height');
+		expect(hits[0].message).toContain('Person.Height');
+	});
+
+	it('errors when a known class receiver calls an unknown method', () => {
+		const person = 'Public Sub Save()\nEnd Sub\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Delete\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'member-not-found',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Delete');
+	});
+
+	it('accepts known class members and ambiguous project receiver types', () => {
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n' +
+			'Public Property Let Age(ByVal value As Integer)\n' +
+			'    mAge = value\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = 2\n' +
+			'    p.Unknown = 2\n' +
+			'End Sub\n';
+		const knownDiagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+			]),
+		});
+		expect(byCode(knownDiagnostics, 'member-not-found')).toHaveLength(1);
+		expect(spanText(src, byCode(knownDiagnostics, 'member-not-found')[0])).toBe(
+			'Unknown',
+		);
+		const ambiguous = projectClassMembers([
+			{ moduleName: 'Person', moduleKind: 'class', source: person },
+			{ moduleName: 'Other', moduleKind: 'class', source: person.replace(/Age/g, 'Size') },
+		]).map((type) => ({ ...type, name: 'Person' }));
+		expect(
+			byCode(analyzeModule(src, { projectClassMembers: ambiguous }), 'member-not-found'),
+		).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - string arithmetic coercion', () => {

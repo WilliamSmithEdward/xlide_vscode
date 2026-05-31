@@ -171,6 +171,21 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "member-not-found",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic source-backed project class member model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "class_unknown_property_assignment_compile",
+        "class_unknown_method_call_compile",
+        "class_known_property_assignment_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Host/object-model and ambiguous receiver cases remain silent.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "string-arithmetic-coercion",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE numeric-expression compatibility model",

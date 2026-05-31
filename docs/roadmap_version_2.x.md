@@ -73,6 +73,9 @@ heuristic diagnostics.
   deterministic assignment validation when XLIDE knows the receiver member and
   setter type. Read-only property assignment is compile-equivalent red; typed
   writable property assignment can be deterministic-runtime red.
+- Source-backed workbook class receiver/member binding now reports
+  `member-not-found` when an unambiguous project class member surface proves the
+  member is absent.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -287,6 +290,21 @@ Purpose: validate Excel/VBA object use where receiver type is known.
 - [x] Add oracle-backed diagnostics for source-backed property assignment:
   nonnumeric string to typed writable property is deterministic runtime error
   13, and assignment to a read-only property is a compile-equivalent error.
+- [x] Add oracle-backed `member-not-found` diagnostics for unambiguous
+  source-backed workbook class receivers.
+- [ ] Oracle-verify late-bound member access for `Object` and `Variant`
+  receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
+  resolves the member only at runtime; decide separately whether an optional
+  yellow `XLIDE(late-bound-invocation)` guidance rule belongs behind a setting.
+- [ ] Oracle-verify public class module variables as object members:
+  `Public Age As Integer` should be indexed as a valid writable member, public
+  constants should be read-only, and assignment/type diagnostics should consume
+  those member facts. The source member model already includes public fields and
+  constants, but this needs explicit oracle-backed regression coverage.
+- [ ] Explore VBA default members, including exported attributes such as
+  `Attribute Value.VB_UserMemId = 0`, before inferring direct object usage like
+  `textValue = p`. Define deterministic attribute extraction and source mapping
+  before adding diagnostics or type inference.
 - [ ] Define and implement deterministic class/module-level documentation for
   workbook object modules. VBA has no source-level `Class Person` declaration,
   so XLIDE must use an explicit documented convention such as a module-header
@@ -306,7 +324,8 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   external metadata describes explicitly declared external/extension members;
   curated host/runtime metadata remains the built-in fallback.
 - [ ] Resolve curated Excel object model receiver chains.
-- [ ] Add `member-not-found` only when receiver type is known.
+- [x] Add `member-not-found` only when receiver type is known and source-backed
+  workbook class member metadata is unambiguous.
 - [ ] Add `set-required` and `set-forbidden` for object member assignments only
   where deterministic, including `Property Set` and object-valued public
   fields.
@@ -637,10 +656,6 @@ of development.
 - [ ] Ship a full downstream developer how-to for external object/member
   metadata, including schema, examples, precedence, reload behavior, and
   troubleshooting.
-- [ ] Add troubleshooting playbooks for common Excel/COM/security failures.
-- [ ] Add versioned changelog and release checklist.
-- [ ] Add compatibility notes for Windows, macOS/Linux, WSL, and remote
-  containers.
 
 Definition of done:
 

@@ -213,6 +213,18 @@ export const DIAGNOSTIC_RULES = {
 		specReference: "VBE oracle: Can't assign to read-only property",
 		confidence: 'high',
 	},
+	memberNotFound: {
+		code: 'member-not-found',
+		title: 'Object member not found',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE oracle: Method or data member not found',
+		requiresWholeProject: true,
+		confidence: 'high',
+	},
 	stringArithmeticCoercion: {
 		code: 'string-arithmetic-coercion',
 		title: 'Nonnumeric string in numeric expression',
