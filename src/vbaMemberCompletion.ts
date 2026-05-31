@@ -451,6 +451,9 @@ class VbaMemberCompletionProvider
 	private _toIdentItem(id: IdentifierCompletion): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(id.name, this._identItemKind(id));
 		item.detail = id.detail;
+		if (id.documentation) {
+			item.documentation = new vscode.MarkdownString(id.documentation);
+		}
 		return item;
 	}
 

@@ -159,6 +159,7 @@ function runRules(
 	checkUnbalancedParens(source, push);
 	checkDimInitializer(source, mod, push);
 	checkCallParens(source, mod, push);
+	checkExpressionCallParens(source, mod, push);
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
 	checkArgumentCount(source, mod, push);
@@ -1115,6 +1116,152 @@ function checkCallParens(source: string, mod: ModuleNode, push: PushFn): void {
 			}
 		});
 	}
+}
+
+/**
+ * Rule: when a Function is used inside an expression, its argument list must be
+ * parenthesized (`x = Foo(1, 2)`). The parenless form (`Foo 1, 2`) is only a
+ * call-statement form and becomes a VBE syntax error after `=`.
+ */
+function checkExpressionCallParens(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	const moduleFunctions = new Set<string>();
+	for (const member of mod.members) {
+		if (
+			member.kind === 'Procedure' &&
+			(member.procKind === 'Function' || member.procKind === 'PropertyGet')
+		) {
+			moduleFunctions.add(member.name.toLowerCase());
+		}
+	}
+
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			const hit = parenlessExpressionCall(source, stmt.span, moduleFunctions);
+			if (hit) {
+				push(
+					'expressionCallRequiresParens',
+					`Function call arguments in an expression must be enclosed in parentheses: use '${hit.name}(...)'.`,
+					hit.span,
+				);
+			}
+		});
+	}
+}
+
+function parenlessExpressionCall(
+	source: string,
+	span: Span,
+	moduleFunctions: ReadonlySet<string>,
+): { name: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[0]))) {
+		return undefined;
+	}
+	const eq = topLevelOperatorIndex(toks, '=');
+	if (eq < 0) {
+		return undefined;
+	}
+
+	for (let i = eq + 1; i < toks.length - 1; i++) {
+		const tok = toks[i];
+		const name = tokenName(tok);
+		if (!name || !isExpressionCallable(name, moduleFunctions)) {
+			continue;
+		}
+		if (i > eq + 1 && toks[i - 1].rawText === '.') {
+			continue; // member calls need receiver typing before we can be precise
+		}
+		const next = toks[i + 1];
+		if (!isParenlessArgumentStart(next)) {
+			continue;
+		}
+		const gap = source.slice(span.start + tok.end, span.start + next.start);
+		if (!/\s/.test(gap)) {
+			continue;
+		}
+		return {
+			name,
+			span: { start: span.start + tok.start, end: span.start + tok.end },
+		};
+	}
+	return undefined;
+}
+
+function isExpressionCallable(
+	name: string,
+	moduleFunctions: ReadonlySet<string>,
+): boolean {
+	const lower = name.toLowerCase();
+	if (moduleFunctions.has(lower)) {
+		return true;
+	}
+	return resolveRuntimeFunction(name)?.kind === 'function';
+}
+
+function isParenlessArgumentStart(tok: VbaToken | undefined): boolean {
+	if (!tok) {
+		return false;
+	}
+	switch (tok.kind) {
+		case 'identifier':
+		case 'keyword':
+		case 'bracketedIdentifier':
+		case 'integerLiteral':
+		case 'floatLiteral':
+		case 'stringLiteral':
+		case 'dateLiteral':
+			return true;
+		default:
+			return false;
+	}
+}
+
+function isNonAssignmentStatementLeader(word: string): boolean {
+	switch (word) {
+		case 'if':
+		case 'elseif':
+		case 'for':
+		case 'do':
+		case 'loop':
+		case 'while':
+		case 'select':
+		case 'case':
+			return true;
+		default:
+			return false;
+	}
+}
+
+function tokenName(tok: VbaToken): string | undefined {
+	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
+		return tok.rawText;
+	}
+	if (tok.kind === 'bracketedIdentifier') {
+		return stripHeaderBrackets(tok.rawText);
+	}
+	return undefined;
+}
+
+function topLevelOperatorIndex(toks: VbaToken[], operator: string): number {
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+		} else if (raw === ')' || raw === ']') {
+			depth--;
+		} else if (depth === 0 && toks[i].kind === 'operator' && raw === operator) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 /** Returns the span of the first stray argument token in a `Call` statement. */

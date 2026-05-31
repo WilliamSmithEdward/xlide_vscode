@@ -18,7 +18,13 @@ non-space characters are `'''` (three apostrophes), placed **directly above** a
 declaration - exactly like C# `///` comments in Visual Studio.
 
 ```vba
- 
+''' <summary>Calculates the invoice total after tax.</summary>
+''' <param name="Subtotal">The pre-tax invoice amount.</param>
+''' <param name="TaxRate">The tax rate as a decimal value, such as 0.0825.</param>
+''' <returns>The subtotal plus calculated tax.</returns>
+Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency
+    InvoiceTotal = Subtotal + (Subtotal * TaxRate)
+End Function
 ```
 
 Rules:

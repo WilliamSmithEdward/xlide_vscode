@@ -582,6 +582,47 @@ describe('analyzeModule - Call requires parentheses', () => {
 	});
 });
 
+describe('analyzeModule - expression call requires parentheses', () => {
+	it('flags a same-module Function called with parenless arguments in an assignment', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    Dim total As Double\n' +
+			'    total = InvoiceTotal 100, 0.08\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'expression-call-requires-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('InvoiceTotal');
+	});
+
+	it('flags a runtime Function called with parenless arguments in an assignment', () => {
+		const src = 'Sub T()\n    answer = MsgBox "hello"\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'expression-call-requires-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('MsgBox');
+	});
+
+	it('accepts a parenthesized Function call in an assignment', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = InvoiceTotal(100, 0.08)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'expression-call-requires-parens')).toHaveLength(0);
+	});
+
+	it('accepts a parameterless Function reference in an expression', () => {
+		const src =
+			'Public Function CurrentTotal() As Currency\nEnd Function\n' +
+			'Public Sub TestTotal()\n' +
+			'    total = CurrentTotal + 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'expression-call-requires-parens')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - parameter order', () => {
 	it('flags a required parameter after an Optional one', () => {
 		const src =

@@ -141,6 +141,14 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
 	},
+	expressionCallRequiresParens: {
+		code: 'expression-call-requires-parens',
+		title: 'Function call in an expression requires parentheses around arguments',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6.9',
+		confidence: 'high',
+	},
 	requiredParamAfterOptional: {
 		code: 'required-param-after-optional',
 		title: 'A required parameter cannot follow an Optional parameter',

@@ -17,6 +17,7 @@ import { getHostGlobals, getHostType } from '../host/hostModel';
 import { VBA_RUNTIME_FUNCTIONS } from '../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { ModuleSymbolKind, VbaSymbol, isProcedureKind } from '../symbols/symbolModel';
+import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 
 /** Origin of an identifier completion (drives the icon shown in the editor). */
 export type IdentifierCompletionKind =
@@ -36,6 +37,7 @@ export interface IdentifierCompletion {
 	name: string;
 	kind: IdentifierCompletionKind;
 	detail: string;
+	documentation?: string;
 }
 
 /** Project/module facts the identifier resolver needs from outside the source. */
@@ -133,7 +135,12 @@ export function resolveIdentifierCompletions(
 	const lowerPartial = partial.toLowerCase();
 	const out: IdentifierCompletion[] = [];
 	const seen = new Set<string>();
-	const add = (name: string, kind: IdentifierCompletionKind, detail: string): void => {
+	const add = (
+		name: string,
+		kind: IdentifierCompletionKind,
+		detail: string,
+		documentation?: string,
+	): void => {
 		if (!name || !IDENT_RE.test(name)) {
 			return;
 		}
@@ -142,7 +149,7 @@ export function resolveIdentifierCompletions(
 			return;
 		}
 		seen.add(key);
-		out.push({ name, kind, detail });
+		out.push({ name, kind, detail, documentation });
 	};
 
 	addInScopeSymbols(source, offset, ctx, add);
@@ -167,7 +174,12 @@ export function resolveIdentifierCompletions(
 	return out;
 }
 
-type AddFn = (name: string, kind: IdentifierCompletionKind, detail: string) => void;
+type AddFn = (
+	name: string,
+	kind: IdentifierCompletionKind,
+	detail: string,
+	documentation?: string,
+) => void;
 
 /** Adds in-scope declared symbols (params/locals of the enclosing procedure plus
  *  module-level declarations) for the module being edited. */
@@ -213,35 +225,38 @@ function addInScopeSymbols(
 }
 
 function addSymbol(symbol: VbaSymbol, add: AddFn): void {
+	const documentation = hasDocContent(symbol.doc)
+		? renderDocMarkdown(symbol.doc)
+		: undefined;
 	switch (symbol.kind) {
 		case 'parameter':
-			add(symbol.name, 'parameter', detailWithType('parameter', symbol.asType));
+			add(symbol.name, 'parameter', detailWithType('parameter', symbol.asType), documentation);
 			return;
 		case 'localVariable':
-			add(symbol.name, 'variable', detailWithType('local variable', symbol.asType));
+			add(symbol.name, 'variable', detailWithType('local variable', symbol.asType), documentation);
 			return;
 		case 'moduleVariable':
-			add(symbol.name, 'variable', detailWithType('module variable', symbol.asType));
+			add(symbol.name, 'variable', detailWithType('module variable', symbol.asType), documentation);
 			return;
 		case 'constant':
-			add(symbol.name, 'constant', detailWithType('constant', symbol.asType));
+			add(symbol.name, 'constant', detailWithType('constant', symbol.asType), documentation);
 			return;
 		case 'sub':
-			add(symbol.name, 'procedure', 'Sub');
+			add(symbol.name, 'procedure', 'Sub', documentation);
 			return;
 		case 'function':
-			add(symbol.name, 'procedure', detailWithType('Function', symbol.asType));
+			add(symbol.name, 'procedure', detailWithType('Function', symbol.asType), documentation);
 			return;
 		case 'propertyGet':
 		case 'propertyLet':
 		case 'propertySet':
-			add(symbol.name, 'procedure', 'Property');
+			add(symbol.name, 'procedure', 'Property', documentation);
 			return;
 		case 'enum':
-			add(symbol.name, 'enum', 'Enum');
+			add(symbol.name, 'enum', 'Enum', documentation);
 			return;
 		case 'type':
-			add(symbol.name, 'type', 'Type');
+			add(symbol.name, 'type', 'Type', documentation);
 			return;
 		default:
 			return;

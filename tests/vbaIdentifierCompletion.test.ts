@@ -107,6 +107,21 @@ describe('identifier completion - in-scope declarations', () => {
 		expect(got).toContain('Helper');
 	});
 
+	it('includes inline documentation for documented procedures', () => {
+		const src =
+			"''' <summary>Calculates the invoice total after tax.</summary>\n" +
+			"''' <param name=\"Subtotal\">The pre-tax invoice amount.</param>\n" +
+			"''' <returns>The subtotal plus calculated tax.</returns>\n" +
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
+			'End Function\n' +
+			'Sub Test()\n    invoi\nEnd Sub\n';
+		const got = resolveIdentifierCompletions(src, at(src, '    invoi'));
+		const item = got.find((c) => c.name === 'InvoiceTotal');
+		expect(item?.documentation).toContain('Calculates the invoice total after tax.');
+		expect(item?.documentation).toContain('`Subtotal`: The pre-tax invoice amount.');
+		expect(item?.documentation).toContain('**Returns:** The subtotal plus calculated tax.');
+	});
+
 	it('offers enum members by bare name', () => {
 		const src =
 			'Public Enum Color\n    Red\n    Green\nEnd Enum\n' +
