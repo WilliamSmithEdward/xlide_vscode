@@ -13,6 +13,7 @@
 //   - 5.4   Local variable declarations (Dim/Static inside a procedure)
 
 import type { Span } from '../parser/nodes';
+import type { VbaDoc } from '../docs/docModel';
 
 /**
  * The workbook-project role of a module, as reported by the host
@@ -65,6 +66,8 @@ export interface VbaSymbol {
 	asType?: string;
 	/** Nested symbols (procedure params/locals, enum members, UDT fields). */
 	children?: VbaSymbol[];
+	/** Inline `'''` XML documentation comment attached to the declaration. */
+	doc?: VbaDoc;
 }
 
 /** The symbol view of a single module. */

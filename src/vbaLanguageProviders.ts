@@ -19,6 +19,7 @@ import {
     VbaSymbol as AstSymbol,
 } from './analyzer';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
+import { DocMetadataLoader } from './vbaDocMetadata';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -626,7 +627,9 @@ export function registerVbaLanguageProviders(
 
     registerVbaDiagnostics(context, index);
     registerVbaAutoBlock(context);
-    registerVbaMemberCompletion(context, bridge, VBA_SELECTOR);
+    const docMetadata = new DocMetadataLoader();
+    void docMetadata.start(context);
+    registerVbaMemberCompletion(context, bridge, VBA_SELECTOR, docMetadata.registry);
 
     context.subscriptions.push(
         index,

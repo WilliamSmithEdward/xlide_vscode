@@ -69,6 +69,17 @@ export {
 	SignatureParameter,
 } from './signature/signatureHelp';
 export {
+	hasDocContent,
+	renderDocMarkdown,
+	renderSignatureDocMarkdown,
+	VbaDoc,
+	VbaDocParam,
+	VbaDocSource,
+} from './docs/docModel';
+export { extractLeadingDoc, parseDocBody } from './docs/docComment';
+export { ExternalDocEntry, parseMetadataFile } from './docs/externalDoc';
+export { DocRegistry } from './docs/docRegistry';
+export {
 	isProcedureKind,
 	ModuleSymbolKind,
 	ModuleSymbols,

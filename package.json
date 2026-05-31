@@ -50,6 +50,16 @@
           ],
           "default": "warning",
           "description": "Severity for the reminder shown when a code module omits 'Option Explicit'. Set to 'off' to disable just this check."
+        },
+        "xlide.docs.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enrich VBA hovers and call tips with developer-defined XML documentation: '''-comments above your procedures and external metadata files found in the workspace."
+        },
+        "xlide.docs.metadataGlob": {
+          "type": "string",
+          "default": "**/*.vbref.xml",
+          "description": "Glob (relative to each workspace folder) that locates external VBA documentation metadata files. These describe symbols using the same XML vocabulary as '''-comments and override the built-in curated library."
         }
       }
     },

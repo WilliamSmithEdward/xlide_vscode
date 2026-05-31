@@ -21,6 +21,8 @@ import { HostObjectModel } from '../host/excelObjectModel';
 import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { resolveReceiverTypeAt } from '../completion/memberAccess';
+import { DocRegistry } from '../docs/docRegistry';
+import { VbaDoc, hasDocContent, renderDocMarkdown } from '../docs/docModel';
 
 /** A resolved hover description for the identifier under the cursor. */
 export interface HoverInfo {
@@ -30,6 +32,8 @@ export interface HoverInfo {
 	details: string[];
 	/** Span of the identifier the hover applies to. */
 	span: Span;
+	/** Markdown documentation (summary, params, returns) when available. */
+	documentation?: string;
 }
 
 /** Project/module facts the hover resolver needs from outside the source. */
@@ -44,6 +48,8 @@ export interface HoverContext {
 	moduleKind?: ModuleSymbolKind;
 	/** Host object model to resolve against. Defaults to the Excel model. */
 	model?: HostObjectModel;
+	/** Developer-defined external documentation (overrides the curated library). */
+	docRegistry?: DocRegistry;
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -97,6 +103,11 @@ export function resolveHover(
 					signature: `${displayType(receiverType)}.${member.name}${call}${ret}`,
 					details: [`Excel host ${member.kind}`],
 					span,
+					documentation: externalDocMarkdown(
+						ctx,
+						member.name,
+						displayType(receiverType),
+					),
 				};
 			}
 		}
@@ -117,6 +128,7 @@ export function resolveHover(
 			signature: `${name} As ${displayType(globalType)}`,
 			details: ['Excel host global'],
 			span,
+			documentation: externalDocMarkdown(ctx, name),
 		};
 	}
 
@@ -128,6 +140,7 @@ export function resolveHover(
 			signature: `${name} As ${friendly}`,
 			details: [`${friendly} code name`],
 			span,
+			documentation: externalDocMarkdown(ctx, name),
 		};
 	}
 
@@ -138,10 +151,25 @@ export function resolveHover(
 			signature: runtime.signature,
 			details: [`VBA runtime ${runtime.kind}`],
 			span,
+			documentation: externalDocMarkdown(ctx, name),
 		};
 	}
 
 	return undefined;
+}
+
+/**
+ * Renders developer-defined external documentation for `name` (optionally within
+ * `qualifier`) to Markdown, or undefined when none is registered. This is the
+ * override that lets a team re-describe a curated library symbol.
+ */
+function externalDocMarkdown(
+	ctx: HoverContext,
+	name: string,
+	qualifier?: string,
+): string | undefined {
+	const doc = ctx.docRegistry?.lookup(name, qualifier);
+	return hasDocContent(doc) ? renderDocMarkdown(doc) : undefined;
 }
 
 /** Finds the index of the identifier-like token whose span covers `offset`. */
@@ -170,6 +198,29 @@ function resolveUserSymbol(
 	span: Span,
 ): HoverInfo | undefined {
 	const moduleName = ctx.moduleName ?? 'Module';
+	const symbol = findUserSymbol(source, offset, name, ctx, moduleName);
+	if (!symbol) {
+		return undefined;
+	}
+	const info = buildSymbolHover(symbol, moduleName, span);
+	// Precedence: an inline `'''` doc-comment on the declaration wins; otherwise
+	// fall back to a developer-defined external metadata entry.
+	const doc: VbaDoc | undefined =
+		symbol.doc ?? ctx.docRegistry?.lookup(symbol.name, moduleName);
+	if (hasDocContent(doc)) {
+		info.documentation = renderDocMarkdown(doc);
+	}
+	return info;
+}
+
+/** Finds the user symbol the cursor resolves to, or undefined. */
+function findUserSymbol(
+	source: string,
+	offset: number,
+	name: string,
+	ctx: HoverContext,
+	moduleName: string,
+): VbaSymbol | undefined {
 	let mod;
 	try {
 		mod = buildModuleSymbols(moduleName, ctx.moduleKind ?? 'standard', source);
@@ -186,14 +237,14 @@ function resolveUserSymbol(
 	if (enclosing?.children) {
 		const local = enclosing.children.find(matches);
 		if (local) {
-			return buildSymbolHover(local, moduleName, span);
+			return local;
 		}
 	}
 
 	// 2. Module-level declarations.
 	const top = (mod.root.children ?? []).find(matches);
 	if (top) {
-		return buildSymbolHover(top, moduleName, span);
+		return top;
 	}
 
 	// 3. Enum members declared anywhere in the module.
@@ -201,7 +252,7 @@ function resolveUserSymbol(
 		if (child.kind === 'enum') {
 			const member = (child.children ?? []).find(matches);
 			if (member) {
-				return buildSymbolHover(member, moduleName, span);
+				return member;
 			}
 		}
 	}

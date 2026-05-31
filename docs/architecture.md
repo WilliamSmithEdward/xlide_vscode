@@ -425,6 +425,29 @@ callee yields no tip. Host-member receiver types are resolved by reusing
 the object model in `excelObjectModel.ts`; `resolveHostMemberSignature` in
 `hostModel.ts` looks them up case-insensitively.
 
+**Developer documentation (XML doc-comments + external metadata)** —
+`src/analyzer/docs/` adds Visual-Studio-style IntelliSense documentation. A
+developer annotates a declaration with a `'''` XML doc-comment block (the same
+tag vocabulary as C# `///`: `<summary>`, `<param name="...">`, `<returns>`,
+`<remarks>`, `<example>`), and/or ships external `*.vbref.xml` metadata files
+that document any symbol — including host members and runtime functions — using
+`<member name="Module.Symbol">` entries with the **same** vocabulary.
+`docModel.ts` is the host-agnostic model (`VbaDoc`) plus the hover/call-tip
+Markdown renderers; `docComment.ts` parses inline blocks (and the shared XML
+body); `externalDoc.ts` parses metadata files; `docRegistry.ts` resolves a name
+(with optional qualifier) to a `VbaDoc`. Inline docs are attached to symbols in
+`buildModuleSymbols.ts` (a backward scan over contiguous `'''` lines above each
+member). Hover (`resolveHover`) and signature help (`resolveSignatureHelp`) now
+carry a `documentation?` field (and per-parameter docs for call tips), with the
+precedence **inline comment > external metadata > curated library** — i.e.
+developer-defined metadata overrides the built-in library. The vscode side
+(`src/vbaDocMetadata.ts`, `DocMetadataLoader`) discovers metadata files anywhere
+in the workspace via the `xlide.docs.metadataGlob` setting (default
+`**/*.vbref.xml`), parses them into a live `DocRegistry`, and reloads on file
+change; the registry is passed into the hover and signature-help contexts by
+`src/vbaMemberCompletion.ts`. The full standard and usage paths live in
+`docs/vba-doc-comments.md`.
+
 **Active diagnostics engine** — `src/analyzer/diagnostics/` computes
 high-confidence semantic problems directly from module text:
 
@@ -561,4 +584,5 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New active diagnostic rule | `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (rule + MS-VBAL `specReference`), `tests/vbaDiagnostics.test.ts`, `src/vbaLanguageProviders.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
+| New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/vbaDocComments.test.ts`, `docs/vba-doc-comments.md`, `docs/architecture.md` |
 | Live Share RPC surface change | `src/liveShare.ts`, `docs/architecture.md` |

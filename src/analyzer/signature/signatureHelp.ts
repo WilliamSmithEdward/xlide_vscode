@@ -25,11 +25,16 @@ import { ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveReceiverTypeAt, MemberCompletionContext } from '../completion/memberAccess';
 import { resolveHostMemberSignature } from '../host/hostModel';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
+import { extractLeadingDoc } from '../docs/docComment';
+import { DocRegistry } from '../docs/docRegistry';
+import { VbaDoc, hasDocContent, renderSignatureDocMarkdown } from '../docs/docModel';
 
 /** A single parameter slot within a signature label. */
 export interface SignatureParameter {
 	/** The parameter text exactly as it appears in `SignatureInfo.label`. */
 	label: string;
+	/** Markdown note for this parameter (from `<param name="...">`). */
+	documentation?: string;
 }
 
 /** A resolved call tip: the signature line and which parameter is active. */
@@ -40,6 +45,8 @@ export interface SignatureInfo {
 	parameters: SignatureParameter[];
 	/** Zero-based index of the active parameter (clamped to the last param). */
 	activeParameter: number;
+	/** Markdown summary (summary/returns/remarks) for the whole signature. */
+	documentation?: string;
 }
 
 /** Context for signature resolution. */
@@ -50,6 +57,8 @@ export interface SignatureHelpContext extends MemberCompletionContext {
 	 * where the caret and the procedures live in the same module).
 	 */
 	moduleSource?: string;
+	/** Developer-defined external documentation (overrides the curated library). */
+	docRegistry?: DocRegistry;
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -352,7 +361,10 @@ export function resolveSignatureHelp(
 		if (!site) {
 			return undefined;
 		}
-		const sig = signatureForCallee(site, source, ctx);
+		const doc = docForCallee(site, source, ctx);
+		// External metadata can supply a signature for a callee the curated
+		// library cannot resolve (developer-defined overrides the library).
+		const sig = signatureForCallee(site, source, ctx) ?? doc?.signature;
 		if (!sig) {
 			return undefined;
 		}
@@ -368,10 +380,66 @@ export function resolveSignatureHelp(
 		}
 		return {
 			label: parsed.label,
-			parameters: parsed.params.map((p) => ({ label: p })),
+			parameters: parsed.params.map((p) => ({
+				label: p,
+				documentation: paramDocFor(doc, p),
+			})),
 			activeParameter: active,
+			documentation: hasDocContent(doc)
+				? renderSignatureDocMarkdown(doc) || undefined
+				: undefined,
 		};
 	} catch {
 		return undefined;
 	}
+}
+
+/**
+ * Resolves developer-defined documentation for the call site: an inline `'''`
+ * comment on a user procedure wins, then an external metadata entry. Host and
+ * runtime callees are documented through the registry only.
+ */
+function docForCallee(
+	site: CallSite,
+	source: string,
+	ctx: SignatureHelpContext,
+): VbaDoc | undefined {
+	if (!site.isMember) {
+		const moduleSource = ctx.moduleSource ?? source;
+		const proc = findUserProc(moduleSource, site.calleeName);
+		if (proc) {
+			const inline = extractLeadingDoc(moduleSource, proc.span.start);
+			if (inline) {
+				return inline;
+			}
+		}
+	}
+	return ctx.docRegistry?.lookup(site.calleeName);
+}
+
+/** Returns the `<param>` note matching a signature parameter substring, if any. */
+function paramDocFor(doc: VbaDoc | undefined, paramLabel: string): string | undefined {
+	if (!doc || doc.params.length === 0) {
+		return undefined;
+	}
+	const name = leadingIdentifier(paramLabel);
+	if (!name) {
+		return undefined;
+	}
+	const lower = name.toLowerCase();
+	const match = doc.params.find((p) => p.name.toLowerCase() === lower);
+	return match ? match.text : undefined;
+}
+
+/** Extracts the parameter name from a signature parameter slot text. */
+function leadingIdentifier(paramLabel: string): string | undefined {
+	const modifiers = new Set(['optional', 'byval', 'byref', 'paramarray']);
+	const re = /[A-Za-z_][A-Za-z0-9_]*/g;
+	let m: RegExpExecArray | null;
+	while ((m = re.exec(paramLabel)) !== null) {
+		if (!modifiers.has(m[0].toLowerCase())) {
+			return m[0];
+		}
+	}
+	return undefined;
 }

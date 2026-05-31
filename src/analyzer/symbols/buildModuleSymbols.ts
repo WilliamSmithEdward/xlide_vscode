@@ -20,6 +20,7 @@ import type {
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
+import { extractLeadingDoc } from '../docs/docComment';
 import type {
 	ModuleSymbolKind,
 	ModuleSymbols,
@@ -245,6 +246,7 @@ function buildModuleVariables(
 	rootChildren: VbaSymbol[],
 	flat: VbaSymbol[],
 ): void {
+	const doc = extractLeadingDoc(source, group.span.start);
 	for (const decl of group.declarations) {
 		const symbol: VbaSymbol = {
 			name: decl.name,
@@ -254,6 +256,7 @@ function buildModuleVariables(
 			moduleName,
 			visibility: toVisibility(group.modifier),
 			asType: decl.asType,
+			doc,
 		};
 		rootChildren.push(symbol);
 		flat.push(symbol);
@@ -281,18 +284,21 @@ export function buildModuleSymbols(
 		switch (member.kind) {
 			case 'Procedure': {
 				const proc = buildProcedure(member, source, moduleName, flat);
+				proc.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(proc);
 				flat.push(proc);
 				break;
 			}
 			case 'Type': {
 				const type = buildType(member, source, moduleName, flat);
+				type.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(type);
 				flat.push(type);
 				break;
 			}
 			case 'Enum': {
 				const en = buildEnum(member, source, moduleName, flat);
+				en.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(en);
 				flat.push(en);
 				break;
@@ -309,6 +315,7 @@ export function buildModuleSymbols(
 					fullSpan: member.span,
 					moduleName,
 					visibility: toVisibility(member.visibility),
+					doc: extractLeadingDoc(source, member.span.start),
 				};
 				rootChildren.push(symbol);
 				flat.push(symbol);

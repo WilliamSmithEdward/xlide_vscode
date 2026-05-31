@@ -14,6 +14,7 @@ import { PythonBridge } from './pythonBridge';
 import { XLIDE_SCHEME, decodeModuleUri } from './xlideFileSystem';
 import {
 	buildModuleSymbols,
+	DocRegistry,
 	getHostType,
 	HoverContext,
 	IdentifierCompletion,
@@ -81,7 +82,10 @@ class VbaMemberCompletionProvider
 	private readonly _cache = new Map<string, CachedModules>();
 	private readonly _typeCache = new Map<string, CachedProjectTypes>();
 
-	constructor(private readonly _bridge: PythonBridge) {}
+	constructor(
+		private readonly _bridge: PythonBridge,
+		private readonly _docs?: DocRegistry,
+	) {}
 
 	/** Drop cached module lists for a workbook (e.g. after a project change). */
 	invalidate(xlsmPath?: string): void {
@@ -131,7 +135,12 @@ class VbaMemberCompletionProvider
 		}
 		const md = new vscode.MarkdownString();
 		md.appendCodeblock(info.signature, 'vba');
+		if (info.documentation) {
+			md.appendMarkdown('\n\n');
+			md.appendMarkdown(info.documentation);
+		}
 		if (info.details.length > 0) {
+			md.appendMarkdown('\n\n');
 			md.appendMarkdown(info.details.join('  \n'));
 		}
 		const range = new vscode.Range(
@@ -150,15 +159,23 @@ class VbaMemberCompletionProvider
 		const ctx: SignatureHelpContext = {
 			...(await this._buildContext(document)),
 			moduleSource: source,
+			docRegistry: this._docs,
 		};
 		const info = resolveSignatureHelp(source, offset, ctx);
 		if (!info) {
 			return undefined;
 		}
 		const sig = new vscode.SignatureInformation(info.label);
-		sig.parameters = info.parameters.map(
-			(p) => new vscode.ParameterInformation(p.label),
-		);
+		sig.parameters = info.parameters.map((p) => {
+			const pi = new vscode.ParameterInformation(p.label);
+			if (p.documentation) {
+				pi.documentation = new vscode.MarkdownString(p.documentation);
+			}
+			return pi;
+		});
+		if (info.documentation) {
+			sig.documentation = new vscode.MarkdownString(info.documentation);
+		}
 		const help = new vscode.SignatureHelp();
 		help.signatures = [sig];
 		help.activeSignature = 0;
@@ -170,7 +187,7 @@ class VbaMemberCompletionProvider
 		document: vscode.TextDocument,
 	): Promise<HoverContext> {
 		if (document.uri.scheme !== XLIDE_SCHEME) {
-			return {};
+			return { docRegistry: this._docs };
 		}
 		try {
 			const decoded = decodeModuleUri(document.uri);
@@ -183,9 +200,10 @@ class VbaMemberCompletionProvider
 				meType: meTypeFor(current),
 				moduleName: decoded.moduleName,
 				moduleKind: current ? this._moduleKind(current.type) : 'standard',
+				docRegistry: this._docs,
 			};
 		} catch {
-			return {};
+			return { docRegistry: this._docs };
 		}
 	}
 
@@ -468,8 +486,9 @@ export function registerVbaMemberCompletion(
 	context: vscode.ExtensionContext,
 	bridge: PythonBridge,
 	selector: vscode.DocumentSelector,
+	docs?: DocRegistry,
 ): void {
-	const provider = new VbaMemberCompletionProvider(bridge);
+	const provider = new VbaMemberCompletionProvider(bridge, docs);
 	context.subscriptions.push(
 		vscode.languages.registerCompletionItemProvider(
 			selector,
