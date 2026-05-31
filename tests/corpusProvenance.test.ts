@@ -140,6 +140,42 @@ describe('syntax corpus provenance', () => {
 		}
 	});
 
+	it('keeps the managed backlog connected to every Markdown corpus source', () => {
+		const sidecar = readJson<CorpusProvenanceSidecar>(
+			join(corpusRoot, 'corpus_provenance.json'),
+		);
+		const backlog = readFileSync(join(corpusRoot, 'managed_backlog.md'), 'utf8');
+		const markdownSources = sidecar.files
+			.map((entry) => entry.path)
+			.filter((path) => path.endsWith('.md') && path !== 'managed_backlog.md');
+
+		for (const path of markdownSources) {
+			expect(backlog).toContain(`\`${path}\``);
+		}
+
+		for (const category of [
+			'syntax-core',
+			'realtime-recovery',
+			'diagnostic-ranges',
+			'type-analysis',
+			'runtime-resolution',
+			'project-binder',
+			'module-context',
+			'object-member',
+			'host-behavior',
+			'completion-context',
+			'userform-designer',
+			'limits-boundaries',
+			'legacy-edges',
+			'tokenizer',
+			'roundtrip-io',
+			'canary-verdicts',
+			'casing',
+		]) {
+			expect(backlog).toContain(`\`${category}\``);
+		}
+	});
+
 	it('maps every diagnostic rule to corpus and oracle evidence', () => {
 		const audit = readJson<DiagnosticInfluenceAudit>(
 			join(corpusRoot, 'diagnostic_influence_audit.json'),

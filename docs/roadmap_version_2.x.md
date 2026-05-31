@@ -113,11 +113,12 @@ truth.
 - [x] Add focused oracle fixtures for newly debated syntax edges only.
 - [x] Add a type-analysis corpus coverage matrix for pending, partial, missing,
   and verified type-analysis areas.
-- [ ] Complete full `syntax_corpus` digestion into managed backlog categories
-  (syntax, realtime recovery, type analysis, host behavior, completion context,
-  UserForm/designer symbols, limits, and legacy edges). Treat every Markdown
-  case as raw material until promoted through spec, oracle, or deterministic
-  XLIDE-owned evidence.
+- [x] Complete full `syntax_corpus` digestion into managed backlog categories
+  (syntax, realtime recovery, type analysis, runtime resolution, project
+  binding, host behavior, completion context, UserForm/designer symbols,
+  limits, and legacy edges). Treat every Markdown case as raw material until
+  promoted through spec, oracle, or deterministic XLIDE-owned evidence. See
+  `syntax_corpus/managed_backlog.md`.
 
 Definition of done:
 
@@ -252,13 +253,13 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Digest the remaining pending Markdown corpus files into managed backlog
-   categories, including
-   `syntax_corpus/xlide_vba_realtime_linting_final_corpus_addendum.md`.
-2. Use `docs/type_analysis_corpus_coverage.md` to choose the next verified
+1. Use `syntax_corpus/managed_backlog.md` and
+   `docs/type_analysis_corpus_coverage.md` to choose the next verified
    corpus additions for the project-wide binder.
-3. Start the project-wide binder vertical slice for public procedures across
+2. Start the project-wide binder vertical slice for public procedures across
    standard modules.
+3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
+   they become relevant to analyzer behavior.
 
 ## Files To Keep In Sync
 
@@ -271,6 +272,7 @@ Definition of done:
 - `syntax_corpus/README.md`
 - `syntax_corpus/corpus_provenance.json`
 - `syntax_corpus/diagnostic_influence_audit.json`
+- `syntax_corpus/managed_backlog.md`
 - `syntax_corpus/oracle/README.md`
 - `syntax_corpus/oracle/run_excel_vbe_oracle.py`
 - `syntax_corpus/oracle/vbe_oracle_cases.json`

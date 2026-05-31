@@ -38,6 +38,11 @@ current evidence source. It distinguishes diagnostics backed by asserted oracle
 cases from diagnostics that are spec-derived and diagnostics that only mention
 observe-only oracle cases for future discovery.
 
+`managed_backlog.md` digests the Markdown corpus into backlog categories such as
+syntax, realtime recovery, type analysis, runtime resolution, project binding,
+host behavior, completion context, UserForm/designer symbols, limits, and
+legacy edges. It is a planning index, not diagnostic-driving evidence.
+
 When promoting a Markdown example into an executable fixture, copy the case into
 a machine-readable fixture file and assign one of the provenance states above.
 Hard error expectations require `spec-derived` or `vbe-oracle-verified`

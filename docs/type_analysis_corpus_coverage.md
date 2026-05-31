@@ -9,6 +9,10 @@ diagnostic-driving evidence only after it is promoted to a verified source such
 as MS-VBAL/spec evidence, an asserted Excel/VBE oracle case, or deterministic
 XLIDE-owned metadata with tests.
 
+The cross-category Markdown digestion lives in
+`syntax_corpus/managed_backlog.md`; this file is the narrower type-analysis
+view of that backlog.
+
 ## Status Legend
 
 - **Verified**: enough asserted evidence exists for the current rule surface.
