@@ -257,6 +257,23 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "object-module-public-member",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle for public object-module declaration restrictions",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "class_public_constant_declaration_compile",
+        "class_public_array_declaration_compile",
+        "class_public_fixed_string_declaration_compile",
+        "class_public_type_declaration_compile",
+        "class_public_declare_declaration_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The active rule is module-kind-sensitive and only fires for explicit Public constants, arrays, fixed-length strings, user-defined Types, and Declare statements in object modules. Standard modules and non-public declarations remain outside this rule.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "invalid-as-type-name",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL reserved-name/type-identifier distinction",

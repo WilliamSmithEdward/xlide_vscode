@@ -185,6 +185,7 @@ function runRules(
 	checkUnbalancedParens(source, push);
 	checkDimInitializer(source, mod, push);
 	checkUnexpectedDeclarationTokens(source, mod, push);
+	checkObjectModulePublicMembers(source, mod, moduleKind, push);
 	checkInvalidAsTypeNames(source, mod, push);
 	checkCallParens(source, mod, push);
 	checkExpressionCallParens(source, mod, push);
@@ -2681,6 +2682,68 @@ function forEachVariableGroup(
 	}
 }
 
+/**
+ * Rule: object modules cannot expose certain public declarations as object
+ * members. VBE reports one compile error family for public constants,
+ * fixed-length strings, arrays, user-defined types, and Declare statements in
+ * class/document/UserForm modules.
+ */
+function checkObjectModulePublicMembers(
+	source: string,
+	mod: ModuleNode,
+	moduleKind: ModuleSymbolKind,
+	push: PushFn,
+): void {
+	if (!isObjectModuleKind(moduleKind)) {
+		return;
+	}
+
+	const report = (kind: string, span: Span): void => {
+		push(
+			'objectModulePublicMember',
+			`Public ${kind} are not allowed as Public members of object modules; VBE Compile rejects this declaration.`,
+			span,
+		);
+	};
+
+	for (const member of mod.members) {
+		if (member.kind === 'VariableGroup' && isPublicModifier(member.modifier)) {
+			for (const decl of member.declarations) {
+				const span = declaredNameSpan(source, decl.span, decl.name);
+				if (member.isConst) {
+					report('constants', span);
+				} else if (decl.isArray) {
+					report('arrays', span);
+				} else if (isFixedLengthStringType(decl.asType)) {
+					report('fixed-length strings', span);
+				}
+			}
+			continue;
+		}
+
+		if (member.kind === 'Type' && isPublicModifier(member.visibility)) {
+			report('user-defined types', declaredNameSpan(source, member.span, member.name));
+			continue;
+		}
+
+		if (member.kind === 'Declare' && isPublicModifier(member.visibility)) {
+			report('Declare statements', declaredNameSpan(source, member.span, member.name));
+		}
+	}
+}
+
+function isPublicModifier(value: string | undefined): boolean {
+	return value?.toLowerCase() === 'public';
+}
+
+function isFixedLengthStringType(asType: string | undefined): boolean {
+	if (!asType) {
+		return false;
+	}
+	const toks = tokenize(asType).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	return toks.length >= 3 && tokenText(toks[0]) === 'string' && toks[1]?.rawText === '*';
+}
+
 function unexpectedTokenAfterDeclarationType(
 	source: string,
 	span: Span,
@@ -2816,6 +2879,16 @@ function asTypeNameSpan(
 		start: decl.span.start + typeToken.start,
 		end: decl.span.start + typeToken.end,
 	};
+}
+
+function declaredNameSpan(source: string, span: Span, name: string): Span {
+	const lower = name.toLowerCase();
+	for (const tok of statementTokens(source, span)) {
+		if (tokenName(tok)?.toLowerCase() === lower) {
+			return absoluteSpan(span, tok);
+		}
+	}
+	return span;
 }
 
 /**

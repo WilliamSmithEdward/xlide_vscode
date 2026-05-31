@@ -1930,6 +1930,61 @@ describe('analyzeModule - unexpected declaration tokens', () => {
 	});
 });
 
+describe('analyzeModule - object module public declaration restrictions', () => {
+	it('flags public declarations that cannot be object-module members', () => {
+		const src =
+			'Public Const MaxRows As Long = 1000\n' +
+			'Public Names() As String\n' +
+			'Public FixedName As String * 20\n' +
+			'Public Type Customer\n' +
+			'    Name As String\n' +
+			'End Type\n' +
+			'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'Person', moduleKind: 'class' }),
+			'object-module-public-member',
+		);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'MaxRows',
+			'Names',
+			'FixedName',
+			'Customer',
+			'Sleep',
+		]);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('object modules');
+	});
+
+	it('does not apply object-module public-member restrictions in standard modules', () => {
+		const src =
+			'Public Const MaxRows As Long = 1000\n' +
+			'Public Names() As String\n' +
+			'Public FixedName As String * 20\n' +
+			'Public Type Customer\n' +
+			'    Name As String\n' +
+			'End Type\n' +
+			'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
+		expect(byCode(analyzeModule(src), 'object-module-public-member')).toHaveLength(0);
+	});
+
+	it('does not flag private object-module declarations in this public-member rule', () => {
+		const src =
+			'Private Const MaxRows As Long = 1000\n' +
+			'Private Names() As String\n' +
+			'Private FixedName As String * 20\n' +
+			'Private Type Customer\n' +
+			'    Name As String\n' +
+			'End Type\n' +
+			'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
+		expect(
+			byCode(
+				analyzeModule(src, { moduleName: 'Person', moduleKind: 'class' }),
+				'object-module-public-member',
+			),
+		).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - Call requires parentheses', () => {
 	it('flags an unparenthesised Call argument list', () => {
 		const src = 'Sub T()\n    Call MsgBox "hello"\nEnd Sub\n';

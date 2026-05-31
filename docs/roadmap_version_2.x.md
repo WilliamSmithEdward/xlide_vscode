@@ -222,11 +222,12 @@ Purpose: finish the conservative first slice before broadening inference.
   - assignment/truncation behavior
   - interaction with scalar member access and declaration trailing-token rules
   - type-declaration suffix interactions such as `$`
-- [ ] Add module-kind-sensitive diagnostics for object-module public
+- [x] Add module-kind-sensitive diagnostics for object-module public
   declarations VBE rejects, including `Public Const`, public fixed-length
-  strings, public arrays, public UDTs, and public `Declare` statements. Use
-  module metadata before emitting hard errors because standard modules have
-  different rules.
+  strings, public arrays, public UDTs, and public `Declare` statements. The
+  `object-module-public-member` rule uses module metadata before emitting hard
+  errors because standard modules have different rules, and each branch has
+  focused VBE oracle coverage.
 
 Definition of done:
 

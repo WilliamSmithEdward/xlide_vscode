@@ -566,6 +566,94 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "class_public_array_declaration_compile",
+      "description": "A public array declaration in a class module is rejected before it can become an object member.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Names() As String\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "class_public_fixed_string_declaration_compile",
+      "description": "A public fixed-length String declaration in a class module is rejected before it can become an object member.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public FixedName As String * 20\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "class_public_type_declaration_compile",
+      "description": "A public user-defined Type declaration in a class module is rejected before it can become an object member.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Type Customer\n    Name As String\nEnd Type\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "class_public_declare_declaration_compile",
+      "description": "A public Declare statement in a class module is rejected before it can become an object member.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal ms As LongPtr)\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "class_unknown_property_assignment_compile",
       "description": "A workbook class receiver is assigned through a member name that does not exist on the class.",
       "provenance": "vbe-oracle-verified",

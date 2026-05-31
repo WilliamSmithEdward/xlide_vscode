@@ -281,6 +281,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.1 / VBE oracle: Syntax error',
 		confidence: 'high',
 	},
+	objectModulePublicMember: {
+		code: 'object-module-public-member',
+		title: 'Invalid public member in object module',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE oracle: public object-module member restrictions',
+		confidence: 'high',
+	},
 	invalidAsTypeName: {
 		code: 'invalid-as-type-name',
 		title: 'Invalid As type name',

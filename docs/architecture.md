@@ -631,8 +631,13 @@ Diagnostic severity policy:
   a compile-equivalent
   declaration diagnostic for extra same-statement tokens after a complete
   `As` type name, such as `Dim s As String junk`; the representative `Dim`
-  shape is backed by focused VBE oracle evidence, and fixed-length string
-  syntax remains out of scope until its full grammar is verified.
+  shape is backed by focused VBE oracle evidence, and broad fixed-length string
+  behavior remains out of scope until its full grammar is verified. A separate
+  `object-module-public-member` rule is module-kind-sensitive: in class,
+  document, and UserForm modules it rejects explicit Public constants, arrays,
+  fixed-length strings, user-defined Types, and Declare statements. Each branch
+  is backed by focused VBE oracle evidence, while standard modules and non-Public
+  declarations stay outside the rule.
   `invalid-as-type-name` is
   currently limited to reserved runtime functions such as `Int` used as `As`
   type names; broad unknown type names wait for the project-wide binder and
