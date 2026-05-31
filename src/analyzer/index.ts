@@ -90,6 +90,8 @@ export {
 	VbaSymbolKind,
 	VbaProcedureParam,
 	VbaProcedureSignature,
+	VbaProjectTypeKind,
+	VbaProjectTypeName,
 } from './symbols/symbolModel';
 export { buildModuleSymbols } from './symbols/buildModuleSymbols';
 export {

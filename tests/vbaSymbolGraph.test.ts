@@ -384,6 +384,124 @@ describe('ProjectIndex procedure signatures', () => {
 	});
 });
 
+describe('ProjectIndex visible type names', () => {
+	it('includes object modules and visible project Type/Enum declarations', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: [
+				'Private Type LocalRecord',
+				'    Value As Long',
+				'End Type',
+				'Private Enum LocalMode',
+				'    LocalOnly',
+				'End Enum',
+			].join('\n'),
+		});
+		index.setModule({
+			moduleName: 'SharedTypes',
+			moduleKind: 'standard',
+			source: [
+				'Public Type ExportedRecord',
+				'    Value As Long',
+				'End Type',
+				'Enum ExportedMode',
+				'    First',
+				'End Enum',
+				'Private Type HiddenRecord',
+				'    Value As Long',
+				'End Type',
+			].join('\n'),
+		});
+		index.setModule({
+			moduleName: 'Customer',
+			moduleKind: 'class',
+			source: 'Public Sub Save()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Sheet1',
+			moduleKind: 'document',
+			source: '',
+		});
+		index.setModule({
+			moduleName: 'OrderForm',
+			moduleKind: 'userform',
+			source: '',
+		});
+
+		const visible = index.visibleTypeNames('Module1');
+		const labels = visible
+			.map((t) => `${t.name}:${t.kind}:${t.moduleName}`)
+			.sort();
+		expect(labels).toEqual([
+			'Customer:class:Customer',
+			'ExportedMode:enum:SharedTypes',
+			'ExportedRecord:userType:SharedTypes',
+			'LocalMode:enum:Module1',
+			'LocalRecord:userType:Module1',
+			'OrderForm:userform:OrderForm',
+			'Sheet1:document:Sheet1',
+		]);
+	});
+
+	it('does not expose Private Type/Enum declarations from other modules', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source: '',
+		});
+		index.setModule({
+			moduleName: 'Types',
+			moduleKind: 'standard',
+			source: [
+				'Private Type HiddenRecord',
+				'    Value As Long',
+				'End Type',
+				'Private Enum HiddenMode',
+				'    Hidden',
+				'End Enum',
+			].join('\n'),
+		});
+		expect(index.visibleTypeNames('Caller').map((t) => t.name)).toEqual([]);
+	});
+
+	it('preserves duplicate visible type names for future ambiguity handling', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'First',
+			moduleKind: 'standard',
+			source: 'Public Type Customer\n    Id As Long\nEnd Type\n',
+		});
+		index.setModule({
+			moduleName: 'Second',
+			moduleKind: 'class',
+			source: '',
+		});
+		index.setModule({
+			moduleName: 'Consumer',
+			moduleKind: 'standard',
+			source: '',
+		});
+		const names = index.visibleTypeNames('Consumer').filter(
+			(t) => t.name.toLowerCase() === 'customer',
+		);
+		expect(names).toHaveLength(1);
+
+		index.setModule({
+			moduleName: 'Customer',
+			moduleKind: 'class',
+			source: '',
+		});
+		const duplicates = index.visibleTypeNames('Consumer').filter(
+			(t) => t.name.toLowerCase() === 'customer',
+		);
+		expect(duplicates).toHaveLength(2);
+		expect(duplicates.map((t) => t.kind).sort()).toEqual(['class', 'userType']);
+	});
+});
+
 describe('ProjectIndex resolveQualifiedDefinition', () => {
 	const index = new ProjectIndex();
 	index.setModule({

@@ -549,9 +549,13 @@ Diagnostic severity policy:
   cases confirm the representative expression compiles but raises runtime error
   13 when executed. `invalid-as-type-name` is
   currently limited to reserved runtime functions such as `Int` used as `As`
-  type names; broad unknown type names wait for the project-wide binder so
-  cross-module classes/UDTs are not flagged prematurely. `set-requires-object`
-  fires only when `Set` targets a known intrinsic scalar variable.
+  type names; broad unknown type names wait for the project-wide binder and
+  external-reference story so cross-module classes/UDTs and referenced types are
+  not flagged prematurely. The binder groundwork now includes
+  `ProjectIndex.visibleTypeNames()` for project-defined type names, but the
+  broad unknown-type diagnostic remains intentionally unshipped.
+  `set-requires-object` fires only when `Set` targets a known intrinsic scalar
+  variable.
   `unknown-call` rule runs only when the caller
   passes `knownProcedures` (the project-wide procedure-name set from
   `ProjectIndex.procedureNames()`); without it that rule is skipped so a single
@@ -590,7 +594,9 @@ single module:
   declarations in other modules), `resolveQualifiedDefinition` (the exported
   member of a named module, for `Module.Member` references), `referenceScope`
   (the binding scope of a name for scope-restricted reference/rename search),
-  and `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit
+  `visibleTypeNames` (class/document/UserForm module names plus visible
+  `Type`/`Enum` declarations for future `As` binding), and
+  `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit
   `Public`/`Global` and default-`Public` procedures are exported;
   `Private`/`Dim`/`Friend` and unmodified module variables stay module-private.
   This index now drives the live `DefinitionProvider`, `ReferenceProvider`, and

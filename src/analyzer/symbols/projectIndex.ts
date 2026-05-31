@@ -15,6 +15,8 @@ import {
 	qualifiedProcedureKey,
 	type ModuleSymbolKind,
 	type ModuleSymbols,
+	type VbaProjectTypeKind,
+	type VbaProjectTypeName,
 	type VbaSymbol,
 	type VbaProcedureSignature,
 } from './symbolModel';
@@ -90,6 +92,34 @@ function addProcedureSignature(
 	} else {
 		signatures.set(key, [sig]);
 	}
+}
+
+function moduleKindAsTypeName(kind: ModuleSymbolKind): VbaProjectTypeKind | undefined {
+	switch (kind) {
+		case 'class':
+			return 'class';
+		case 'document':
+			return 'document';
+		case 'userform':
+			return 'userform';
+		default:
+			return undefined;
+	}
+}
+
+function projectTypeKind(symbol: VbaSymbol): VbaProjectTypeKind | undefined {
+	switch (symbol.kind) {
+		case 'enum':
+			return 'enum';
+		case 'type':
+			return 'userType';
+		default:
+			return undefined;
+	}
+}
+
+function isTypeExported(symbol: VbaSymbol): boolean {
+	return symbol.visibility !== 'Private';
 }
 
 /** A project-wide symbol index built from a set of module sources. */
@@ -180,6 +210,50 @@ export class ProjectIndex {
 			}
 		}
 		return signatures;
+	}
+
+	/**
+	 * Project-defined type names visible from `moduleName`, excluding intrinsic
+	 * VBA types and host object-model types. Current-module `Type`/`Enum`
+	 * declarations are visible regardless of `Private`; other modules expose only
+	 * non-Private `Type`/`Enum` declarations. Class, document, and UserForm module
+	 * names are represented as type names because they are object modules.
+	 *
+	 * Duplicates are preserved deliberately so future binder code can detect
+	 * ambiguity instead of silently picking whichever module happened to be read
+	 * first.
+	 */
+	visibleTypeNames(moduleName: string): VbaProjectTypeName[] {
+		const currentLower = moduleName.toLowerCase();
+		const out: VbaProjectTypeName[] = [];
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			const moduleTypeKind = moduleKindAsTypeName(mod.moduleKind);
+			if (moduleTypeKind) {
+				out.push({
+					name: mod.moduleName,
+					kind: moduleTypeKind,
+					moduleName: mod.moduleName,
+				});
+			}
+
+			for (const symbol of mod.root.children ?? []) {
+				const kind = projectTypeKind(symbol);
+				if (!kind) {
+					continue;
+				}
+				if (!sameModule && !isTypeExported(symbol)) {
+					continue;
+				}
+				out.push({
+					name: symbol.name,
+					kind,
+					moduleName: mod.moduleName,
+					visibility: symbol.visibility,
+				});
+			}
+		}
+		return out;
 	}
 
 	/** The {@link ModuleSymbols} for a module, or undefined. */

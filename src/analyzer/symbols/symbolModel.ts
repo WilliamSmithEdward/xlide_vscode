@@ -98,6 +98,24 @@ export interface VbaProcedureSignature {
 	returnType?: string;
 }
 
+/** Project-defined type-name categories visible in `As` type positions. */
+export type VbaProjectTypeKind =
+	| 'class'
+	| 'document'
+	| 'userform'
+	| 'enum'
+	| 'userType';
+
+/** A project-defined type name visible to a module. */
+export interface VbaProjectTypeName {
+	name: string;
+	kind: VbaProjectTypeKind;
+	/** Module where the type name is declared or represented. */
+	moduleName: string;
+	/** Visibility on Type/Enum declarations when present. */
+	visibility?: SymbolVisibility;
+}
+
 /** Lowercased key used for module-qualified procedure lookups. */
 export function qualifiedProcedureKey(moduleName: string, name: string): string {
 	return `${moduleName.toLowerCase()}.${name.toLowerCase()}`;

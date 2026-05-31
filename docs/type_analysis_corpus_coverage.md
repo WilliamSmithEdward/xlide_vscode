@@ -36,7 +36,7 @@ view of that backlog.
 | Unknown and `Variant` suppression | Partial | Unit tests for arguments, assignments, arithmetic, concatenation | `Empty`, `Null`, `Nothing`, implicit Variant under missing `Option Explicit` | Unit tests plus oracle if runtime behavior drives red/yellow policy |
 | Object argument mismatch | Partial | Oracle `string_literal_to_object_argument`, same-module return tests | Passing `Nothing`, object variables, class instances, host objects | Compile oracle and project binder tests |
 | `Set` to scalar | Partial | Oracle `set_scalar_integer_assignment`, unit tests | `Set` required for object assignment, `Set` forbidden with non-object RHS, property Set/Let/Get behavior | Compile oracle and binder tests |
-| Invalid `As` type names | Partial | Oracle `As Int`; broad unknown deferred | Project classes, UDTs, enums, document modules, host types, misspellings | Project binder tests plus compile oracle for disputed names |
+| Invalid `As` type names | Partial | Oracle `As Int`; `ProjectIndex.visibleTypeNames()` for project classes/document/userform modules and visible UDT/Enum names; broad unknown deferred | Host/reference type catalog, known non-type declarations in type position, misspellings, ambiguity handling | Project binder tests plus compile oracle for disputed names |
 | Broad numeric family | Pending | Some `Integer`, `Double`, `Currency`, `Long` examples | Byte, LongLong, LongPtr, Single, Decimal, fixed-width overflow, type-declaration suffixes | Runtime oracle for coercion/overflow; parser tests for suffixes |
 | Boolean compatibility | Partial | Boolean assignment true/invalid-string runtime cases | Boolean parameters, numeric-to-Boolean, comparisons, `And`/`Or`/`Not` operands | Runtime oracle for coercion, parser/unit tests for operators |
 | Date compatibility | Missing | Legacy corpus mentions date literals | String-to-Date, numeric-to-Date, date parameters, locale-sensitive strings | Needs oracle/spec before diagnostics |
@@ -62,17 +62,21 @@ view of that backlog.
 
 These are the highest-value additions before the next major binder slice:
 
-1. **Project fixture builder**: machine-readable multi-module fixtures so
+1. **`As` type resolver**: build on `ProjectIndex.visibleTypeNames()` to
+   separate known project/host types, known non-type declarations, ambiguous
+   type names, and unknown external-reference candidates before any broad
+   unknown diagnostic ships.
+2. **Project fixture builder**: machine-readable multi-module fixtures so
    cross-module calls, classes, UDTs, and enums can be tested deterministically.
-2. **ByRef oracle matrix**: exactness, coercion, literals, parenthesized
+3. **ByRef oracle matrix**: exactness, coercion, literals, parenthesized
    expressions, and object references.
-3. **Date coercion matrix**: accepted literals, rejected strings, and
+4. **Date coercion matrix**: accepted literals, rejected strings, and
    locale-sensitive cases marked as no-diagnostic until deterministic.
-4. **Object assignment matrix**: `Set` required, `Set` forbidden, object return
+5. **Object assignment matrix**: `Set` required, `Set` forbidden, object return
    assignment, and Property Get/Let/Set.
-5. **Operator matrix**: arithmetic, integer division, `Mod`, comparisons,
+6. **Operator matrix**: arithmetic, integer division, `Mod`, comparisons,
    `Like`, `Is`, and Boolean operators.
-6. **Native metadata expansion matrix**: prioritize common VBA runtime
+7. **Native metadata expansion matrix**: prioritize common VBA runtime
    functions with typed parameters and returns, one oracle probe per behavior
    family when signatures alone do not answer compatibility.
 

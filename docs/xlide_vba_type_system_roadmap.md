@@ -178,6 +178,11 @@ Landed first:
 - Runtime functions such as `Int` used as `As` type names are compile-equivalent
   errors. Broad unknown type names remain deferred until the project binder can
   see workbook classes, UDTs, enums, and host object types.
+- The project binder now exposes visible project type names from
+  `ProjectIndex.visibleTypeNames()`: class/document/UserForm module names,
+  current-module `Type`/`Enum` declarations, and non-`Private` cross-module
+  `Type`/`Enum` declarations. It preserves duplicates so the future resolver
+  can report ambiguity deterministically instead of picking by module order.
 - `Set` assignment to a known intrinsic scalar variable is a compile-equivalent
   error. Unknown object-like target types remain deferred to the object binder.
 - Named arguments map to the named parameter before type validation.
@@ -199,6 +204,8 @@ Landed first:
   signatures feed cross-module argument count and type diagnostics; ambiguous
   duplicate exported bare names are skipped, while module-qualified
   `ModuleName.ProcedureName` calls resolve through the named standard module.
+- Landed type-name binder groundwork: `ProjectIndex.visibleTypeNames()` exposes
+  visible project-defined type names to the future `As` type resolver.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

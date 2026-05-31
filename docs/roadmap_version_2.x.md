@@ -50,6 +50,9 @@ heuristic diagnostics.
 - High-confidence argument count and type mismatch diagnostics exist.
 - Non-callable call statements are flagged, including bare variable statements
   that VBE Compile rejects.
+- `ProjectIndex` exposes deterministic visible project type names for the
+  current module: object module names plus visible `Type` and `Enum`
+  declarations, preserving duplicates for future ambiguity handling.
 - Runtime metadata is curated explicitly; parameter types are not inferred from
   parameter names.
 - Inline documentation comments support descriptive metadata plus optional
@@ -209,6 +212,9 @@ Purpose: move from same-module checks to workbook-aware analysis.
   calls and ambiguous duplicate behavior in the first deterministic slice:
   ambiguous bare exported names stay silent, while `ModuleName.ProcedureName`
   resolves through the named standard module only.
+- [x] Expose visible project-defined type names from `ProjectIndex` as binder
+  groundwork: current-module `Type`/`Enum`, cross-module non-`Private`
+  `Type`/`Enum`, and class/document/UserForm module names.
 - [ ] Model module-level visibility and shadowing.
 - [ ] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
@@ -592,8 +598,10 @@ Definition of done:
 1. Use `syntax_corpus/managed_backlog.md` and
    `docs/type_analysis_corpus_coverage.md` to choose the next verified
    corpus additions for the project-wide binder.
-2. Start the project-wide binder vertical slice for public procedures across
-   standard modules.
+2. Extend the project-wide binder from type-name visibility into an `As`
+   type-name resolver that can distinguish known project/host types, known
+   non-type declarations, ambiguous type names, and still-unknown external
+   reference names without guessing.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
 4. Keep the VBA test runner and lint-suppression directives as planned
