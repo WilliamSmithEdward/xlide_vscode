@@ -175,6 +175,30 @@ describe('member completion - host globals', () => {
 		expect(accept?.owner).toBe('Excel.Workbook');
 		expect(accept?.surfaceExhaustive).toBe(true);
 	});
+
+	it('uses the dump-backed Workbook surface for ActiveWorkbook and Workbook variables', () => {
+		const activeSrc = 'Sub Test()\n    ActiveWorkbook.Accept\nEnd Sub\n';
+		const active = resolveMemberCompletions(
+			activeSrc,
+			dotOffset(activeSrc, 'ActiveWorkbook.Accept'),
+		);
+		expect(
+			active.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive,
+		).toBe(true);
+
+		const variableSrc =
+			'Sub Test()\n' +
+			'    Dim wb As Workbook\n' +
+			'    wb.Accept\n' +
+			'End Sub\n';
+		const variable = resolveMemberCompletions(
+			variableSrc,
+			dotOffset(variableSrc, 'wb.Accept'),
+		);
+		expect(
+			variable.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive,
+		).toBe(true);
+	});
 });
 
 describe('member completion - code names and Me', () => {

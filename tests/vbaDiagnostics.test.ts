@@ -1446,6 +1446,41 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
 	});
 
+	it('uses the exhaustive Workbook host surface for ActiveWorkbook', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    ActiveWorkbook.doesnotexist\n' +
+			'    ActiveWorkbook.AcceptAllChanges\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: '' },
+			]),
+		});
+		const hits = byCode(diagnostics, 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('doesnotexist');
+		expect(hits[0].message).toContain('Excel.Workbook.doesnotexist');
+	});
+
+	it('uses the exhaustive Workbook host surface for declared Workbook variables', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim wb As Workbook\n' +
+			'    wb.doesnotexist\n' +
+			'    wb.AcceptAllChanges\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: '' },
+			]),
+		});
+		const hits = byCode(diagnostics, 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('doesnotexist');
+		expect(hits[0].message).toContain('Excel.Workbook.doesnotexist');
+	});
+
 	it('uses an exhaustive host object model to prove a missing member', () => {
 		const model: HostObjectModel = {
 			source: 'test fixture',

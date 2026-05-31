@@ -4,6 +4,7 @@ node_modules/**
 src/**
 docs/**
 reference/**
+scripts/**
 esbuild.js
 tsconfig.json
 .gitignore
