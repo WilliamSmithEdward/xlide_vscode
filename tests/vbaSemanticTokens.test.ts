@@ -65,6 +65,21 @@ describe('project type semantic tokens', () => {
 		expect(tokenTexts(source, projectTypes)).toEqual([]);
 	});
 
+	it('marks project classes in New expressions', () => {
+		const source =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New person\n' +
+			'End Sub\n';
+		const projectTypes: VbaProjectTypeName[] = [
+			{ name: 'Person', kind: 'class', moduleName: 'Person' },
+		];
+		expect(tokenTexts(source, projectTypes)).toEqual([
+			{ text: 'Person', type: 'class' },
+			{ text: 'person', type: 'class' },
+		]);
+	});
+
 	it('uses the project binder visible type names as input', () => {
 		const source =
 			'Public Sub T()\n' +

@@ -30,6 +30,24 @@ function projectProcedures(
 	return project.procedureSignatures();
 }
 
+function projectClassMembers(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+): ReturnType<ProjectIndex['projectClassMembers']> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.projectClassMembers();
+}
+
 function visibleProjectProcedures(
 	modules: Array<{
 		moduleName: string;
@@ -1211,6 +1229,85 @@ describe('analyzeModule - assignment type validation', () => {
 			'    item = "blah"\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+	});
+
+	it('errors on a nonnumeric string literal assigned to a typed class property', () => {
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n' +
+			'Public Property Let Age(ByVal value As Integer)\n' +
+			'    mAge = value\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = "blah"\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'assignment-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"blah"');
+		expect(hits[0].message).toContain('p.Age');
+		expect(hits[0].message).toContain('Integer');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
+	it('accepts numeric string assignment to a typed class property', () => {
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n' +
+			'Public Property Let Age(ByVal value As Integer)\n' +
+			'    mAge = value\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = "2"\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+			]),
+		});
+		expect(byCode(diagnostics, 'assignment-type-mismatch')).toHaveLength(0);
+		expect(byCode(diagnostics, 'readonly-member-assignment')).toHaveLength(0);
+	});
+
+	it('errors on assignment to a read-only class property', () => {
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = 2\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'readonly-member-assignment',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Age');
+		expect(hits[0].message).toContain('read-only');
 	});
 });
 

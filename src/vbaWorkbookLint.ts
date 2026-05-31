@@ -139,10 +139,13 @@ export async function lintWorkbook(
         }
     }
     let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
+    let projectClassMembers: ReturnType<ProjectIndex['projectClassMembers']> | undefined;
     try {
         projectProcedures = project.procedureSignatures();
+        projectClassMembers = project.projectClassMembers();
     } catch {
         projectProcedures = undefined;
+        projectClassMembers = undefined;
     }
 
     const config = vscode.workspace.getConfiguration('xlide');
@@ -189,6 +192,7 @@ export async function lintWorkbook(
                 severities,
                 knownProcedures,
                 projectProcedures,
+                projectClassMembers,
             });
         } catch {
             semantic = [];

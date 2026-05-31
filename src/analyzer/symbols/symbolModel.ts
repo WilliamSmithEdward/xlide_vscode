@@ -116,6 +116,30 @@ export interface VbaProjectTypeName {
 	visibility?: SymbolVisibility;
 }
 
+/** A source-declared member of a project object module. */
+export interface VbaProjectClassMember {
+	name: string;
+	kind: 'property' | 'method' | 'event';
+	/** Declared return/object type when the source provides one. */
+	returns?: string;
+	/** True when source proves assignment to the member is allowed. */
+	writable?: boolean;
+	/** Declared value type accepted by assignment when source provides one. */
+	writeType?: string;
+	moduleName: string;
+	visibility?: SymbolVisibility;
+	/** Inline `'''` XML documentation comment attached to the member declaration. */
+	doc?: VbaDoc;
+}
+
+/** Public member surface for a workbook-defined object type. */
+export interface VbaProjectClassMembers {
+	name: string;
+	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform'>;
+	moduleName: string;
+	members: VbaProjectClassMember[];
+}
+
 /** Lowercased key used for module-qualified procedure lookups. */
 export function qualifiedProcedureKey(moduleName: string, name: string): string {
 	return `${moduleName.toLowerCase()}.${name.toLowerCase()}`;

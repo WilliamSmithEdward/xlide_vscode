@@ -95,6 +95,8 @@ export {
 	VbaSymbolKind,
 	VbaProcedureParam,
 	VbaProcedureSignature,
+	VbaProjectClassMember,
+	VbaProjectClassMembers,
 	VbaProjectTypeKind,
 	VbaProjectTypeName,
 } from './symbols/symbolModel';

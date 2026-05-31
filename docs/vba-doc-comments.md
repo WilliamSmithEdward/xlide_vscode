@@ -27,6 +27,19 @@ Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double
 End Function
 ```
 
+Class-module members use the same syntax. For example, in a `Person` class
+module:
+
+```vba
+''' <summary>Age in whole years.</summary>
+Public Property Get Age() As Integer
+    Age = mAge
+End Property
+```
+
+When another module has `Dim p As Person`, XLIDE shows that summary in `p.Age`
+completion and hover.
+
 Rules:
 
 - The block must sit on the lines immediately above the declaration. A blank

@@ -544,6 +544,60 @@ describe('ProjectIndex visible type names', () => {
 	});
 });
 
+describe('ProjectIndex project class members', () => {
+	it('exposes source-declared public/default-public class members', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: [
+				'Public Name As String',
+				'Private Secret As String',
+				"''' <summary>Age in whole years.</summary>",
+				'Public Property Get Age() As Long',
+				'End Property',
+				'Public Property Let Age(ByVal value As Long)',
+				'End Property',
+				'Sub Save()',
+				'End Sub',
+				'Private Sub Hidden()',
+				'End Sub',
+				'Public Function Manager() As Person',
+				'End Function',
+			].join('\n'),
+		});
+		const person = index.projectClassMembers().find((t) => t.name === 'Person');
+		expect(person?.members.map((m) => `${m.name}:${m.kind}:${m.returns ?? ''}`)).toEqual([
+			'Name:property:String',
+			'Age:property:Long',
+			'Save:method:',
+			'Manager:method:Person',
+		]);
+		const age = person?.members.find((m) => m.name === 'Age');
+		expect(age?.doc?.summary).toBe('Age in whole years.');
+		expect(age?.writable).toBe(true);
+		expect(age?.writeType).toBe('Long');
+		const save = person?.members.find((m) => m.name === 'Save');
+		expect(save?.writable).toBeUndefined();
+	});
+
+	it('marks Property Get-only members and constants as read-only', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: [
+				'Public Const Species As String = "Human"',
+				'Public Property Get Age() As Long',
+				'End Property',
+			].join('\n'),
+		});
+		const person = index.projectClassMembers().find((t) => t.name === 'Person');
+		expect(person?.members.find((m) => m.name === 'Age')?.writable).toBe(false);
+		expect(person?.members.find((m) => m.name === 'Species')?.writable).toBe(false);
+	});
+});
+
 describe('ProjectIndex resolveQualifiedDefinition', () => {
 	const index = new ProjectIndex();
 	index.setModule({

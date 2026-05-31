@@ -81,6 +81,13 @@ not use keyboard accelerators for compile invocation. A `Compile error:` dialog
 is treated as compile rejection. If no compile dialog appears before the popup
 watch period ends, the case is recorded as compile-accepted.
 
+By default a fixture supplies one standard-module `source` string. For
+workbook-object behavior, a fixture may instead supply a `modules` array. Each
+entry has `name`, `type` (`standard` or `class`), and `source`; mark the standard
+module containing the `entryPoint` with `entry: true` when it is not the first
+standard module. This lets the oracle verify class-module member behavior
+without changing production code.
+
 Use `mode: "compile_then_run"` for discovery cases where the failure phase is
 not known yet. The coordinator invokes compile first. If compile rejects, the
 case records compile rejection and does not run. If compile accepts, the

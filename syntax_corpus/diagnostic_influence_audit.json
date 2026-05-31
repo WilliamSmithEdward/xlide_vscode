@@ -148,12 +148,27 @@
         "integer_assignment_nonnumeric_string_runtime",
         "integer_assignment_numeric_string_runtime",
         "boolean_assignment_nonboolean_string_runtime",
-        "boolean_assignment_true_string_runtime"
+        "boolean_assignment_true_string_runtime",
+        "class_property_integer_nonnumeric_string_runtime",
+        "class_property_integer_numeric_string_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean controls run successfully.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean/property controls run successfully.",
       "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "readonly-member-assignment",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic source-backed project class member model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "class_readonly_property_assignment_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter.",
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "string-arithmetic-coercion",

@@ -387,12 +387,21 @@ into a pure analyzer layer and a thin VS Code provider:
   parentheses for chaining like `ws.Range("A1").Offset(1, 0).`), resolves the
   root (`Me`, a host global, a worksheet code name, or a typed local/module
   variable found by parsing the module), follows member return types through the
-  chain, and returns the filtered members.
+  chain, and returns the filtered members. It also accepts a source-backed
+  workbook class-member surface from `ProjectIndex.projectClassMembers()`, so
+  variables declared as workbook classes (for example `Dim p As Person`) can
+  offer public/default-public source members at `p.` without guessing from
+  names. Source-backed workbook members carry inline `'''` documentation through
+  to completion and hover.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it builds the project context
   from the workbook's module list (worksheet code names and the `Me` type for
   the current document module) via the Python bridge and renders the resolved
-  members. In a declaration type position (after `As` / `As New`) it instead
+  members. For workbook class members, open XLIDE module documents are read from
+  their live editor text first, so unsaved changes in an open `Person` class are
+  reflected the next time completion is requested elsewhere; saved module text
+  is read through the bridge when no live editor text exists. In a declaration
+  type position (after `As` / `As New`) it instead
   offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
   (`resolveTypeCompletions`): VBA built-in data types, the Excel host types, and
   project-defined types — user `Type`s/`Enum`s in the current module, public
@@ -409,8 +418,8 @@ into a pure analyzer layer and a thin VS Code provider:
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`
   (`resolveHover`), a pure resolver that describes the identifier under the
-  cursor: `receiver.member` host members (reusing the exported
-  `resolveReceiverTypeAt` from `memberAccess.ts`), host globals, worksheet code
+  cursor: `receiver.member` host or source-backed workbook members (reusing the
+  same member-access resolver as completion), host globals, worksheet code
   names, user declarations from the live module symbol graph (procedure
   signatures with parameters and return type, variables/parameters/constants
   with their `As` type, enums and members, user types and fields), and built-in
@@ -466,7 +475,9 @@ Markdown renderers; `docComment.ts` parses inline blocks (and the shared XML
 body); `externalDoc.ts` parses metadata files; `docRegistry.ts` resolves a name
 (with optional qualifier) to a `VbaDoc`. Inline docs are attached to symbols in
 `buildModuleSymbols.ts` (a backward scan over contiguous `'''` lines above each
-member). Hover (`resolveHover`) and signature help (`resolveSignatureHelp`) now
+member), including class-module properties and methods; the project
+class-member surface carries those docs into `object.` completion and member
+hover. Hover (`resolveHover`) and signature help (`resolveSignatureHelp`) now
 carry a `documentation?` field (and per-parameter docs for call tips), with the
 precedence **inline comment > external metadata > curated library** — i.e.
 developer-defined metadata overrides the built-in library. The vscode side
@@ -557,7 +568,14 @@ Diagnostic severity policy:
   deterministic-runtime-error diagnostic for numeric contexts containing a
   provably nonnumeric string literal in an arithmetic expression; focused oracle
   cases confirm the representative expression compiles but raises runtime error
-  13 when executed. `unexpected-declaration-token` is a compile-equivalent
+  13 when executed. Source-backed workbook class members feed the same
+  assignment validator for member assignments such as `p.Age = "blah"` when the
+  receiver and setter type are known; focused multi-module oracle cases confirm
+  the nonnumeric string case raises runtime error 13 and the numeric-string
+  control succeeds. `readonly-member-assignment` is a compile-equivalent
+  diagnostic for source-backed project class properties whose member surface has
+  no setter; focused oracle evidence rejects this as `Can't assign to read-only
+  property`. `unexpected-declaration-token` is a compile-equivalent
   declaration diagnostic for extra same-statement tokens after a complete
   `As` type name, such as `Dim s As String junk`; the representative `Dim`
   shape is backed by focused VBE oracle evidence, and fixed-length string
@@ -588,11 +606,11 @@ This engine is merged with the structural block-balance linter
 family) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`: both
 run on open and debounced (300 ms) on every edit, on real `.vba` files and on
 virtual `xlide-vba` module documents, with no save. Everything is computed from
-the live editor text; the only cross-module input is the current module's
-visibility-filtered procedure-name set, which the provider reads from the
-`VbaSymbolIndex` cache (`getAllModules`, a Python round-trip only on the first,
-uncached load) and passes to `analyzeModule` as `knownProcedures` for the
-bare-call rule.
+the live editor text plus deterministic project context. For workbook-backed
+documents the provider overlays the current live module text into a fresh
+`ProjectIndex`, then passes visibility-filtered procedure names,
+cross-module standard-module signatures, and source-backed project class-member
+surfaces into `analyzeModule`.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
 
@@ -630,12 +648,14 @@ tokens only; workbook classes, document modules, UserForms, UDTs, and enums are
 dynamic project symbols. `src/analyzer/semantic/typeSemanticTokens.ts` therefore
 parses the live module, accepts the current module's
 `ProjectIndex.visibleTypeNames()` result, and emits semantic tokens only for
-resolved project-defined type names in actual declaration type positions
-(`As Person`, parameter types, return types, module/local variables, and UDT
-fields). The VS Code provider in `src/vbaLanguageProviders.ts` overlays the
-live editor text for the current module before resolving visible types, so
-`Dim customer As Person` can receive class coloring as soon as `Person` exists
-in the workbook project. Unresolved names and non-type positions are ignored.
+resolved project-defined type names in actual type positions (`As Person`,
+parameter types, return types, module/local variables, UDT fields, and
+`New Person` expressions). The VS Code provider in
+`src/vbaLanguageProviders.ts` overlays the live editor text for the current
+module before resolving visible types, so `Dim customer As Person` and
+`Set customer = New Person` can receive class coloring as soon as `Person`
+exists in the workbook project. Unresolved names and non-type positions are
+ignored.
 
 ---
 

@@ -430,6 +430,74 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "class_property_integer_nonnumeric_string_runtime",
+      "description": "A writable Integer class property receives a provably nonnumeric string literal through member assignment.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Private mAge As Integer\n\nPublic Property Get Age() As Integer\n    Age = mAge\nEnd Property\n\nPublic Property Let Age(ByVal value As Integer)\n    mAge = value\nEnd Property\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = \"blah\"\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "class_property_integer_numeric_string_runtime",
+      "description": "Runtime control: a writable Integer class property receives a numeric string literal through member assignment.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Private mAge As Integer\n\nPublic Property Get Age() As Integer\n    Age = mAge\nEnd Property\n\nPublic Property Let Age(ByVal value As Integer)\n    mAge = value\nEnd Property\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = \"2\"\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "class_readonly_property_assignment_compile",
+      "description": "A class property with only Property Get is assigned through member syntax.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Private mAge As Integer\n\nPublic Property Get Age() As Integer\n    Age = mAge\nEnd Property\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = 2\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "compile_then_run_valid_control",
       "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
       "provenance": "vbe-oracle-verified",

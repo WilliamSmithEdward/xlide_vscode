@@ -202,6 +202,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.3 / runtime type coercion',
 		confidence: 'high',
 	},
+	readonlyMemberAssignment: {
+		code: 'readonly-member-assignment',
+		title: 'Assignment to a read-only member',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: "VBE oracle: Can't assign to read-only property",
+		confidence: 'high',
+	},
 	stringArithmeticCoercion: {
 		code: 'string-arithmetic-coercion',
 		title: 'Nonnumeric string in numeric expression',

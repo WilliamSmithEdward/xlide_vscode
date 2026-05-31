@@ -29,6 +29,14 @@ heuristic diagnostics.
   wording such as "may", "can", "risk", or "consider" because they represent
   guidance or uncertainty.
 - For complicated work, create or update a roadmap before implementation.
+- When an implementation intentionally leaves a syntax, typing, host, or
+  realtime edge out of scope, record that gap in this roadmap or the linked
+  corpus/type coverage backlog before moving on.
+- New source-backed or metadata-backed language-service surfaces must preserve
+  available XML documentation end-to-end. If completion, hover, signature help,
+  go-to-definition, diagnostics, tests, or sidebar views expose a documented
+  symbol without showing or preserving its documentation where that surface can
+  reasonably display it, that is a tracked gap, not an acceptable final state.
 - The Excel/VBE oracle is a discovery, debugging, and corpus-coverage tool, not
   a routine per-change test.
 - The syntax corpus is evidence, not authority. Corpus cases may be incomplete
@@ -54,8 +62,17 @@ heuristic diagnostics.
   current module: object module names plus visible `Type` and `Enum`
   declarations, preserving duplicates for future ambiguity handling.
 - Project-defined type names now get VS Code semantic tokens in declaration
-  type positions, so resolved classes, document modules, UserForms, UDTs, and
-  enums can be colored without hardcoding them into static grammar.
+  type positions and `New` expressions, so resolved classes, document modules,
+  UserForms, UDTs, and enums can be colored without hardcoding them into static
+  grammar.
+- Workbook class member completion has a first deterministic source-backed
+  slice: variables declared as project classes can offer public/default-public
+  class members at `object.`, including chaining through class members whose
+  return type is another known project class.
+- Source-backed workbook class property assignments now participate in
+  deterministic assignment validation when XLIDE knows the receiver member and
+  setter type. Read-only property assignment is compile-equivalent red; typed
+  writable property assignment can be deterministic-runtime red.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -174,6 +191,13 @@ Purpose: finish the conservative first slice before broadening inference.
 - [x] Add compile-equivalent diagnostics for extra same-statement tokens after
   complete declaration type names, such as `Dim s As String junk`, after focused
   oracle verification of the representative `Dim` case.
+- [ ] Validate fixed-length string declarations and behavior before broadening
+  declaration/type-token diagnostics around `As String * n`:
+  - accepted declaration shapes in standard/class/document/UserForm modules
+  - invalid lengths and boundary limits
+  - assignment/truncation behavior
+  - interaction with scalar member access and declaration trailing-token rules
+  - type-declaration suffix interactions such as `$`
 
 Definition of done:
 
@@ -250,13 +274,28 @@ Definition of done:
 Purpose: validate Excel/VBA object use where receiver type is known.
 
 - [ ] Track `Set` assignments to known object types.
-- [ ] Resolve class/document/UserForm module member calls and completions for
-  workbook-defined object variables such as `Dim p As Person: p.`.
-- [ ] Build a deterministic workbook class-member model from source:
-  public/default-public methods, properties, events, and fields, with
-  signatures, return types, visibility, and declaration spans.
-- [ ] Feed workbook class-member resolution into `object.` completion, hover,
-  signature help, go-to-definition, and return-type chaining.
+- [x] Build the first deterministic workbook class-member model from source:
+  public/default-public methods, properties, and public fields/constants, with
+  return types, setter/write types, mutability, visibility, and inline XML
+  documentation.
+- [x] Feed workbook class-member resolution into `object.` completion and
+  return-type chaining for variables declared as project classes, such as
+  `Dim p As Person: p.`.
+- [x] Surface inline XML documentation for source-backed workbook class members
+  in `object.` completion and member hover, including properties such as
+  `p.Age`.
+- [x] Add oracle-backed diagnostics for source-backed property assignment:
+  nonnumeric string to typed writable property is deterministic runtime error
+  13, and assignment to a read-only property is a compile-equivalent error.
+- [ ] Define and implement deterministic class/module-level documentation for
+  workbook object modules. VBA has no source-level `Class Person` declaration,
+  so XLIDE must use an explicit documented convention such as a module-header
+  `'''` block or external metadata before class-name type completion/hover can
+  claim class-level docs.
+- [ ] Extend the source member model to events, richer signatures, declaration
+  spans, and document/UserForm designer-backed members.
+- [ ] Feed workbook class-member resolution into signature help,
+  go-to-definition, and member-call diagnostics.
 - [ ] Extend external metadata files as an explicit object/member metadata
   source for referenced libraries, add-ins, team APIs, and host extensions that
   XLIDE cannot parse from workbook source.
@@ -268,7 +307,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   curated host/runtime metadata remains the built-in fallback.
 - [ ] Resolve curated Excel object model receiver chains.
 - [ ] Add `member-not-found` only when receiver type is known.
-- [ ] Add `set-required` and `set-forbidden` only where deterministic.
+- [ ] Add `set-required` and `set-forbidden` for object member assignments only
+  where deterministic, including `Property Set` and object-valued public
+  fields.
 - [ ] Add downstream developer documentation/how-to for object member
   completion and external object metadata before shipping this workflow.
 
@@ -289,7 +330,7 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [ ] Make diagnostic ranges precise and stable.
 - [x] Emit semantic tokens for resolved project-defined type names in
   declaration type positions (`As Person`, function returns, parameters, UDT
-  fields, and local/module variables).
+  fields, and local/module variables) and `New Person` expressions.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model.

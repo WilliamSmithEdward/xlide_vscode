@@ -22,6 +22,7 @@ import {
 	MemberCompletion,
 	MemberCompletionContext,
 	ModuleSymbolKind,
+	ProjectIndex,
 	ProjectTypeName,
 	resolveHover,
 	resolveIdentifierCompletions,
@@ -31,6 +32,7 @@ import {
 	SignatureHelpContext,
 	TypeCompletion,
 	TypeCompletionContext,
+	VbaProjectClassMembers,
 } from './analyzer';
 
 const WORKBOOK = 'Excel.Workbook';
@@ -200,6 +202,9 @@ class VbaMemberCompletionProvider
 				meType: meTypeFor(current),
 				moduleName: decoded.moduleName,
 				moduleKind: current ? this._moduleKind(current.type) : 'standard',
+				projectClassMembers: entries
+					? await this._loadProjectClassMembers(decoded.xlsmPath, entries)
+					: undefined,
 				docRegistry: this._docs,
 			};
 		} catch {
@@ -226,9 +231,14 @@ class VbaMemberCompletionProvider
 		const current = entries.find(
 			(e) => e.name.toLowerCase() === decoded.moduleName.toLowerCase(),
 		);
+		const projectClassMembers = await this._loadProjectClassMembers(
+			decoded.xlsmPath,
+			entries,
+		);
 		return {
 			codeNames: codeNamesFor(entries),
 			meType: meTypeFor(current),
+			projectClassMembers,
 		};
 	}
 
@@ -247,6 +257,73 @@ class VbaMemberCompletionProvider
 		} catch {
 			return cached?.entries;
 		}
+	}
+
+	private async _loadProjectClassMembers(
+		xlsmPath: string,
+		entries: ModuleEntry[],
+	): Promise<VbaProjectClassMembers[]> {
+		const project = new ProjectIndex();
+		for (const entry of entries) {
+			const kind = this._moduleKind(entry.type);
+			if (kind !== 'class' && kind !== 'userform' && kind !== 'document') {
+				continue;
+			}
+			const source = await this._moduleSource(xlsmPath, entry);
+			if (source === undefined) {
+				continue;
+			}
+			project.setModule({
+				moduleName: entry.name,
+				moduleKind: kind,
+				source,
+			});
+		}
+		return project.projectClassMembers();
+	}
+
+	private async _moduleSource(
+		xlsmPath: string,
+		entry: ModuleEntry,
+	): Promise<string | undefined> {
+		const open = this._openModuleSource(xlsmPath, entry.name);
+		if (open !== undefined) {
+			return open;
+		}
+		try {
+			const res = await this._bridge.call<{ source: string }>('readModule', {
+				path: xlsmPath,
+				module: entry.name,
+			});
+			return res.source;
+		} catch {
+			return undefined;
+		}
+	}
+
+	private _openModuleSource(
+		xlsmPath: string,
+		moduleName: string,
+	): string | undefined {
+		const workbookKey = this._key(xlsmPath);
+		const moduleKey = moduleName.toLowerCase();
+		for (const doc of vscode.workspace.textDocuments) {
+			if (doc.uri.scheme !== XLIDE_SCHEME) {
+				continue;
+			}
+			try {
+				const decoded = decodeModuleUri(doc.uri);
+				if (
+					this._key(decoded.xlsmPath) === workbookKey &&
+					decoded.moduleName.toLowerCase() === moduleKey
+				) {
+					return doc.getText();
+				}
+			} catch {
+				// Ignore virtual documents outside XLIDE's module URI shape.
+			}
+		}
+		return undefined;
 	}
 
 	/**
@@ -426,6 +503,9 @@ class VbaMemberCompletionProvider
 		if (mem.returns) {
 			const returnName = getHostType(mem.returns)?.displayName ?? mem.returns;
 			item.detail += ` -> ${returnName}`;
+		}
+		if (mem.documentation) {
+			item.documentation = new vscode.MarkdownString(mem.documentation);
 		}
 		return item;
 	}

@@ -17,6 +17,8 @@ import {
 	type ModuleSymbols,
 	type VbaProjectTypeKind,
 	type VbaProjectTypeName,
+	type VbaProjectClassMember,
+	type VbaProjectClassMembers,
 	type VbaSymbol,
 	type VbaProcedureSignature,
 } from './symbolModel';
@@ -120,6 +122,63 @@ function projectTypeKind(symbol: VbaSymbol): VbaProjectTypeKind | undefined {
 
 function isTypeExported(symbol: VbaSymbol): boolean {
 	return symbol.visibility !== 'Private';
+}
+
+function isVisibleProjectObjectMember(symbol: VbaSymbol): boolean {
+	if (isProcedureKind(symbol.kind)) {
+		return symbol.visibility !== 'Private';
+	}
+	if (symbol.kind === 'moduleVariable' || symbol.kind === 'constant') {
+		return symbol.visibility === 'Public' || symbol.visibility === 'Global';
+	}
+	return false;
+}
+
+function projectObjectMemberKind(symbol: VbaSymbol): VbaProjectClassMember['kind'] | undefined {
+	switch (symbol.kind) {
+		case 'sub':
+		case 'function':
+			return 'method';
+		case 'propertyGet':
+		case 'propertyLet':
+		case 'propertySet':
+		case 'moduleVariable':
+		case 'constant':
+			return 'property';
+		default:
+			return undefined;
+	}
+}
+
+function projectObjectMemberWritable(symbol: VbaSymbol): boolean | undefined {
+	switch (symbol.kind) {
+		case 'propertyLet':
+		case 'propertySet':
+		case 'moduleVariable':
+			return true;
+		case 'propertyGet':
+		case 'constant':
+			return false;
+		default:
+			return undefined;
+	}
+}
+
+function projectObjectMemberWriteType(symbol: VbaSymbol): string | undefined {
+	switch (symbol.kind) {
+		case 'propertyLet':
+		case 'propertySet':
+			return lastParameter(symbol)?.asType;
+		case 'moduleVariable':
+			return symbol.asType;
+		default:
+			return undefined;
+	}
+}
+
+function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
+	const params = (symbol.children ?? []).filter((child) => child.kind === 'parameter');
+	return params[params.length - 1];
 }
 
 /** A project-wide symbol index built from a set of module sources. */
@@ -279,6 +338,31 @@ export class ProjectIndex {
 					visibility: symbol.visibility,
 				});
 			}
+		}
+		return out;
+	}
+
+	/**
+	 * Public/default-public members of workbook-defined object modules. This is
+	 * the source-backed surface used by member completion for variables declared
+	 * `As Person` where `Person` is a class/UserForm/document module. Private
+	 * members are deliberately hidden. Public fields/constants are represented as
+	 * properties; Property Get/Let/Set declarations collapse to one property item.
+	 */
+	projectClassMembers(): VbaProjectClassMembers[] {
+		const out: VbaProjectClassMembers[] = [];
+		for (const mod of this.modules.values()) {
+			const kind = moduleKindAsTypeName(mod.moduleKind);
+			if (kind !== 'class' && kind !== 'document' && kind !== 'userform') {
+				continue;
+			}
+			const members = this.visibleObjectMembers(mod);
+			out.push({
+				name: mod.moduleName,
+				kind,
+				moduleName: mod.moduleName,
+				members,
+			});
 		}
 		return out;
 	}
@@ -559,5 +643,49 @@ export class ProjectIndex {
 			}
 		}
 		return hits;
+	}
+
+	private visibleObjectMembers(mod: ModuleSymbols): VbaProjectClassMember[] {
+		const byName = new Map<string, VbaProjectClassMember>();
+		for (const symbol of mod.root.children ?? []) {
+			if (!isVisibleProjectObjectMember(symbol)) {
+				continue;
+			}
+			const kind = projectObjectMemberKind(symbol);
+			if (!kind) {
+				continue;
+			}
+			const key = symbol.name.toLowerCase();
+			const existing = byName.get(key);
+			if (existing) {
+				if (!existing.returns && symbol.asType) {
+					existing.returns = symbol.asType;
+				}
+				const writable = projectObjectMemberWritable(symbol);
+				if (writable === true) {
+					existing.writable = true;
+				} else if (existing.writable === undefined && writable === false) {
+					existing.writable = false;
+				}
+				if (!existing.writeType) {
+					existing.writeType = projectObjectMemberWriteType(symbol);
+				}
+				if (!existing.doc && symbol.doc) {
+					existing.doc = symbol.doc;
+				}
+				continue;
+			}
+			byName.set(key, {
+				name: symbol.name,
+				kind,
+				returns: symbol.asType,
+				writable: projectObjectMemberWritable(symbol),
+				writeType: projectObjectMemberWriteType(symbol),
+				moduleName: mod.moduleName,
+				visibility: symbol.visibility,
+				doc: symbol.doc,
+			});
+		}
+		return [...byName.values()];
 	}
 }

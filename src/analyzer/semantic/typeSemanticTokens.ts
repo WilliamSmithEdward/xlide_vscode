@@ -14,6 +14,7 @@ import type {
 	TypeFieldNode,
 	VariableDeclNode,
 	VariableGroupNode,
+	StatementNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { tokenize } from '../lexer/tokenize';
@@ -111,6 +112,28 @@ function typeNameSpanAfterAs(source: string, span: Span): { name: string; span: 
 		};
 	}
 	return undefined;
+}
+
+function typeNameSpansAfterNew(source: string, span: Span): { name: string; span: Span }[] {
+	const toks = codeTokens(source, span);
+	const out: { name: string; span: Span }[] = [];
+	for (let i = 0; i < toks.length; i++) {
+		if ((toks[i].canonicalText ?? toks[i].rawText).toLowerCase() !== 'new') {
+			continue;
+		}
+		const name = tokenName(toks[i + 1]);
+		if (!name) {
+			continue;
+		}
+		out.push({
+			name,
+			span: {
+				start: span.start + toks[i + 1].start,
+				end: span.start + toks[i + 1].end,
+			},
+		});
+	}
+	return out;
 }
 
 function headerSpanForProcedure(source: string, proc: ProcedureNode): Span {
@@ -228,9 +251,22 @@ function collectBody(
 	for (const node of body) {
 		if (node.kind === 'VariableGroup') {
 			collectVariableGroup(source, node, candidates, out);
+		} else if (node.kind === 'Statement') {
+			collectStatement(source, node, candidates, out);
 		} else if ('body' in node && Array.isArray(node.body)) {
 			collectBody(source, node.body, candidates, out);
 		}
+	}
+}
+
+function collectStatement(
+	source: string,
+	stmt: StatementNode,
+	candidates: ReadonlyMap<string, TypeCandidate>,
+	out: ProjectTypeSemanticToken[],
+): void {
+	for (const hit of typeNameSpansAfterNew(source, stmt.span)) {
+		pushIfProjectType(out, candidates, hit);
 	}
 }
 

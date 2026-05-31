@@ -249,6 +249,69 @@ describe('member completion - declared variables', () => {
 	});
 });
 
+describe('member completion - workbook classes', () => {
+	const projectClassMembers = [
+		{
+			name: 'Person',
+			kind: 'class' as const,
+			moduleName: 'Person',
+			members: [
+				{ name: 'Name', kind: 'property' as const, returns: 'String', moduleName: 'Person' },
+				{
+					name: 'Age',
+					kind: 'property' as const,
+					returns: 'Integer',
+					writable: true,
+					writeType: 'Integer',
+					moduleName: 'Person',
+					doc: {
+						summary: 'Age in whole years.',
+						params: [],
+						source: 'inline' as const,
+					},
+				},
+				{ name: 'Save', kind: 'method' as const, moduleName: 'Person' },
+				{ name: 'Manager', kind: 'method' as const, returns: 'Person', moduleName: 'Person' },
+			],
+		},
+	];
+
+	it('offers members for a variable declared as a project class', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    p.\nEnd Sub\n';
+		const got = names(src, 'p.', { projectClassMembers });
+		expect(got).toContain('Name');
+		expect(got).toContain('Save');
+	});
+
+	it('includes inline documentation for source-backed project class members', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    p.Ag\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'p.Ag'), {
+			projectClassMembers,
+		});
+		const age = got.find((m) => m.name === 'Age');
+		expect(age?.documentation).toContain('Age in whole years.');
+		expect(age?.writable).toBe(true);
+		expect(age?.writeType).toBe('Integer');
+	});
+
+	it('chains through project class members that return a project class', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    p.Manager.\nEnd Sub\n';
+		const got = names(src, 'p.Manager.', { projectClassMembers });
+		expect(got).toContain('Name');
+		expect(got).toContain('Save');
+	});
+
+	it('does not resolve ambiguous project class member surfaces', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    p.\nEnd Sub\n';
+		expect(names(src, 'p.', {
+			projectClassMembers: [
+				...projectClassMembers,
+				{ ...projectClassMembers[0], moduleName: 'OtherPerson' },
+			],
+		})).toEqual([]);
+	});
+});
+
 describe('member completion - chaining', () => {
 	it('walks a member chain through return types', () => {
 		const src = 'Sub Test()\n    ThisWorkbook.ActiveSheet.\nEnd Sub\n';

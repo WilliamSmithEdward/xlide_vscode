@@ -560,16 +560,27 @@ function registerVbaDiagnostics(
         // arity/type checks. Only available for workbook-backed docs.
         let knownProcedures: ReadonlySet<string> | undefined;
         let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
+        let projectClassMembers: ReturnType<ProjectIndex['projectClassMembers']> | undefined;
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
+                const moduleName = moduleNameFromDocument(document);
                 const modules = await index.getAllModules(xlsmPath);
-                const project = buildProjectIndex(modules);
-                knownProcedures = project.visibleProcedureNames(moduleNameFromDocument(document));
+                const current = modules.find(
+                    (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
+                );
+                const project = buildProjectIndex(modules, {
+                    moduleName,
+                    moduleKind: moduleKindFromType(current?.type),
+                    source: text,
+                });
+                knownProcedures = project.visibleProcedureNames(moduleName);
                 projectProcedures = project.procedureSignatures();
+                projectClassMembers = project.projectClassMembers();
             } catch {
                 knownProcedures = undefined;
                 projectProcedures = undefined;
+                projectClassMembers = undefined;
             }
         }
 
@@ -599,6 +610,7 @@ function registerVbaDiagnostics(
                 severities,
                 knownProcedures,
                 projectProcedures,
+                projectClassMembers,
             });
         } catch {
             semantic = [];

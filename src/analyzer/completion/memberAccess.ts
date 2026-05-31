@@ -17,13 +17,20 @@ import {
 	ProcedureNode,
 	VariableGroupNode,
 } from '../parser/nodes';
-import { HostMemberKind, HostObjectModel } from '../host/excelObjectModel';
+import type {
+	HostMember,
+	HostMemberKind,
+	HostObjectModel,
+} from '../host/excelObjectModel';
 import {
 	getHostMembers,
 	resolveHostAlias,
 	resolveHostGlobal,
 	resolveMemberReturnType,
 } from '../host/hostModel';
+import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
+import type { VbaDoc } from '../docs/docModel';
+import type { VbaProjectClassMembers } from '../symbols/symbolModel';
 
 /** Project/module facts the resolver needs that come from outside the source. */
 export interface MemberCompletionContext {
@@ -35,6 +42,8 @@ export interface MemberCompletionContext {
 	codeNames?: Record<string, string>;
 	/** Qualified host type that `Me` resolves to in the current module. */
 	meType?: string;
+	/** Source-declared workbook class/UserForm/document members, keyed by type. */
+	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Host object model to resolve against. Defaults to the Excel model. */
 	model?: HostObjectModel;
 }
@@ -45,11 +54,24 @@ export interface MemberCompletion {
 	kind: HostMemberKind;
 	/** Qualified type the member returns, when chainable. */
 	returns?: string;
+	/** True when source proves assignment to the member is allowed. */
+	writable?: boolean;
+	/** Declared value type accepted by assignment when source provides one. */
+	writeType?: string;
 	/** Qualified type the member belongs to (for detail text). */
 	owner: string;
+	/** Markdown documentation rendered from source-backed XML doc comments. */
+	documentation?: string;
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const PROJECT_TYPE_PREFIX = 'project:';
+
+type CompletionMemberSource = Pick<HostMember, 'name' | 'kind' | 'returns'> & {
+	writable?: boolean;
+	writeType?: string;
+	doc?: VbaDoc;
+};
 
 function word(token: VbaToken): string {
 	return token.rawText;
@@ -77,7 +99,6 @@ export function resolveMemberCompletions(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): MemberCompletion[] {
-	const model = ctx.model;
 	const prefixText = source.slice(0, Math.max(0, offset));
 	// Keep newline tokens: they mark statement boundaries so a dangling
 	// member-access dot on a previous line is not merged into this chain.
@@ -103,13 +124,22 @@ export function resolveMemberCompletions(
 	}
 
 	const lowerPrefix = typedPrefix.toLowerCase();
-	return getHostMembers(currentType, model)
+	const surface = memberSurfaceForType(currentType, ctx);
+	if (!surface) {
+		return [];
+	}
+	return surface.members
 		.filter((mem) => mem.name.toLowerCase().startsWith(lowerPrefix))
 		.map((mem) => ({
 			name: mem.name,
 			kind: mem.kind,
 			returns: mem.returns,
-			owner: currentType,
+			writable: mem.writable,
+			writeType: mem.writeType,
+			owner: surface.owner,
+			documentation: hasDocContent(mem.doc)
+				? renderDocMarkdown(mem.doc)
+				: undefined,
 		}));
 }
 
@@ -162,7 +192,7 @@ function receiverTypeFromTokens(
 	}
 	let currentType: string | undefined = rootType;
 	for (let s = 1; s < chain.length && currentType; s += 1) {
-		currentType = resolveMemberReturnType(currentType, chain[s], ctx.model);
+		currentType = resolveAnyMemberReturnType(currentType, chain[s], ctx);
 	}
 	return currentType;
 }
@@ -245,9 +275,91 @@ function resolveRoot(
 	}
 	const declaredType = findDeclaredType(source, offset, root);
 	if (declaredType) {
-		return resolveHostAlias(declaredType, model);
+		return resolveDeclaredObjectType(declaredType, ctx, model);
 	}
 	return undefined;
+}
+
+function memberSurfaceForType(
+	typeName: string,
+	ctx: MemberCompletionContext,
+): { owner: string; members: readonly CompletionMemberSource[] } | undefined {
+	if (typeName.startsWith(PROJECT_TYPE_PREFIX)) {
+		const projectType = projectClassMembersByName(ctx).get(
+			typeName.slice(PROJECT_TYPE_PREFIX.length),
+		);
+		return projectType
+			? { owner: projectType.name, members: projectType.members }
+			: undefined;
+	}
+	return { owner: typeName, members: getHostMembers(typeName, ctx.model) };
+}
+
+function resolveAnyMemberReturnType(
+	ownerType: string,
+	memberName: string,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	if (!ownerType.startsWith(PROJECT_TYPE_PREFIX)) {
+		return resolveMemberReturnType(ownerType, memberName, ctx.model);
+	}
+	const projectType = projectClassMembersByName(ctx).get(
+		ownerType.slice(PROJECT_TYPE_PREFIX.length),
+	);
+	const member = projectType?.members.find(
+		(m) => m.name.toLowerCase() === memberName.toLowerCase(),
+	);
+	return member?.returns
+		? resolveDeclaredObjectType(member.returns, ctx, ctx.model)
+		: undefined;
+}
+
+function resolveDeclaredObjectType(
+	declaredType: string,
+	ctx: MemberCompletionContext,
+	model: HostObjectModel | undefined,
+): string | undefined {
+	const host = resolveHostAlias(declaredType, model);
+	if (host) {
+		return host;
+	}
+	const key = simpleTypeName(declaredType)?.toLowerCase();
+	if (key && projectClassMembersByName(ctx).has(key)) {
+		return projectTypeKey(key);
+	}
+	return undefined;
+}
+
+function simpleTypeName(typeText: string): string | undefined {
+	const trimmed = typeText.trim();
+	if (!IDENT_RE.test(trimmed)) {
+		return undefined;
+	}
+	return trimmed;
+}
+
+function projectTypeKey(lowerName: string): string {
+	return `${PROJECT_TYPE_PREFIX}${lowerName}`;
+}
+
+function projectClassMembersByName(
+	ctx: MemberCompletionContext,
+): ReadonlyMap<string, VbaProjectClassMembers> {
+	const out = new Map<string, VbaProjectClassMembers>();
+	const ambiguous = new Set<string>();
+	for (const type of ctx.projectClassMembers ?? []) {
+		const key = type.name.toLowerCase();
+		if (ambiguous.has(key)) {
+			continue;
+		}
+		if (out.has(key)) {
+			out.delete(key);
+			ambiguous.add(key);
+			continue;
+		}
+		out.set(key, type);
+	}
+	return out;
 }
 
 /**

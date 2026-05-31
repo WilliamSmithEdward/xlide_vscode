@@ -558,6 +558,24 @@ function ConvertTo-NormalizedCommandCaption($Caption) {
     return ([string]$Caption).Replace('&', '').Trim()
 }
 
+function ConvertTo-VbComponentType($TypeName) {
+    switch (([string]$TypeName).ToLowerInvariant()) {
+        "class" { return 2 }
+        "standard" { return 1 }
+        default { return 1 }
+    }
+}
+
+function Add-OracleComponent($VbProject, $ModuleSpec) {
+    $componentType = ConvertTo-VbComponentType $ModuleSpec.type
+    $component = $VbProject.VBComponents.Add($componentType)
+    if ($ModuleSpec.PSObject.Properties.Name -contains "name" -and $ModuleSpec.name) {
+        $component.Name = [string]$ModuleSpec.name
+    }
+    $component.CodeModule.AddFromString([string]$ModuleSpec.source)
+    return $component
+}
+
 function Find-VbeCommandControl($Controls, [string]$Caption) {
     foreach ($control in @($Controls)) {
         $normalized = ConvertTo-NormalizedCommandCaption $control.Caption
@@ -630,10 +648,28 @@ try {
 
     Set-Stage "add_module"
     $vbProject = $workbook.VBProject
-    $component = $vbProject.VBComponents.Add(1)
-    $component.Name = "XlideOracleModule"
+    $component = $null
+    if ($case.PSObject.Properties.Name -contains "modules" -and $case.modules) {
+        Set-Stage "add_modules"
+        foreach ($moduleSpec in @($case.modules)) {
+            $added = Add-OracleComponent $vbProject $moduleSpec
+            if ($null -eq $component -and (ConvertTo-VbComponentType $moduleSpec.type) -eq 1) {
+                $component = $added
+            }
+            if ($moduleSpec.PSObject.Properties.Name -contains "entry" -and $moduleSpec.entry) {
+                $component = $added
+            }
+        }
+        if ($null -eq $component) {
+            throw "Oracle case with modules must include a standard entry module."
+        }
+    }
+    else {
+        $component = $vbProject.VBComponents.Add(1)
+        $component.Name = "XlideOracleModule"
+        $component.CodeModule.AddFromString([string]$case.source)
+    }
     $codeModule = $component.CodeModule
-    $codeModule.AddFromString([string]$case.source)
 
     if ($case.PSObject.Properties.Name -contains "mode" -and $case.mode) {
         $mode = [string]$case.mode

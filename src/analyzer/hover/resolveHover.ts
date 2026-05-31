@@ -18,11 +18,15 @@ import {
 } from '../symbols/symbolModel';
 import { Span } from '../parser/nodes';
 import { HostObjectModel } from '../host/excelObjectModel';
-import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
+import { getHostType, resolveHostGlobal } from '../host/hostModel';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
-import { resolveReceiverTypeAt } from '../completion/memberAccess';
+import {
+	MemberCompletion,
+	resolveMemberCompletions,
+} from '../completion/memberAccess';
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderDocMarkdown } from '../docs/docModel';
+import type { VbaProjectClassMembers } from '../symbols/symbolModel';
 
 /** A resolved hover description for the identifier under the cursor. */
 export interface HoverInfo {
@@ -48,6 +52,8 @@ export interface HoverContext {
 	moduleKind?: ModuleSymbolKind;
 	/** Host object model to resolve against. Defaults to the Excel model. */
 	model?: HostObjectModel;
+	/** Source-declared workbook class/UserForm/document members, keyed by type. */
+	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
 }
@@ -89,27 +95,13 @@ export function resolveHover(
 	const span: Span = { start: token.start, end: token.end };
 	const name = token.rawText;
 
-	// Member access: `receiver.member` - describe the host member.
+	// Member access: `receiver.member` - describe the host or project member.
 	if (idx > 0 && tokens[idx - 1].rawText === '.') {
-		const receiverType = resolveReceiverTypeAt(source, token.start, ctx);
-		if (receiverType) {
-			const member = getHostMembers(receiverType, ctx.model).find(
-				(mem) => mem.name.toLowerCase() === name.toLowerCase(),
-			);
-			if (member) {
-				const ret = member.returns ? ` As ${displayType(member.returns)}` : '';
-				const call = member.kind === 'method' ? '()' : '';
-				return {
-					signature: `${displayType(receiverType)}.${member.name}${call}${ret}`,
-					details: [`Excel host ${member.kind}`],
-					span,
-					documentation: externalDocMarkdown(
-						ctx,
-						member.name,
-						displayType(receiverType),
-					),
-				};
-			}
+		const member = resolveMemberCompletions(source, token.end, ctx).find(
+			(mem) => mem.name.toLowerCase() === name.toLowerCase(),
+		);
+		if (member) {
+			return buildMemberHover(member, ctx, span);
 		}
 		// Unknown member - do not guess.
 		return undefined;
@@ -156,6 +148,28 @@ export function resolveHover(
 	}
 
 	return undefined;
+}
+
+/** Builds a hover for a resolved host or project object member. */
+function buildMemberHover(
+	member: MemberCompletion,
+	ctx: HoverContext,
+	span: Span,
+): HoverInfo {
+	const ownerName = displayType(member.owner);
+	const ret = member.returns ? ` As ${displayType(member.returns)}` : '';
+	const call = member.kind === 'method' ? '()' : '';
+	const hostType = !!getHostType(member.owner, ctx.model);
+	return {
+		signature: `${ownerName}.${member.name}${call}${ret}`,
+		details: [
+			hostType ? `Excel host ${member.kind}` : `${ownerName} ${member.kind}`,
+		],
+		span,
+		documentation:
+			member.documentation ??
+			externalDocMarkdown(ctx, member.name, ownerName),
+	};
 }
 
 /**

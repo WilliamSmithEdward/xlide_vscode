@@ -40,10 +40,15 @@ import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
 	ModuleSymbolKind,
+	VbaProjectClassMembers,
 	VbaProcedureSignature,
 	VbaSymbol,
 } from '../symbols/symbolModel';
 import { isProcedureKind, qualifiedProcedureKey } from '../symbols/symbolModel';
+import {
+	resolveMemberCompletions,
+	type MemberCompletion,
+} from '../completion/memberAccess';
 import {
 	DIAGNOSTIC_RULES,
 	DiagnosticRuleName,
@@ -90,6 +95,8 @@ export interface AnalyzeModuleOptions {
 	 * single-module only.
 	 */
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
+	/** Source-declared workbook class/UserForm/document members visible to this module. */
+	projectClassMembers?: readonly VbaProjectClassMembers[];
 }
 
 /** Counts double-quote characters; an odd count means the string is unterminated. */
@@ -183,7 +190,7 @@ function runRules(
 	checkNonCallableCallStatement(source, mod, symbols, push);
 	checkArgumentCount(source, mod, opts.projectProcedures, push);
 	checkArgumentTypes(source, mod, symbols, opts.projectProcedures, push);
-	checkAssignmentTypes(source, mod, symbols, push);
+	checkAssignmentTypes(source, mod, symbols, opts.projectClassMembers, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
 	}
@@ -410,6 +417,70 @@ function bareAssignmentTarget(
 		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
 		valueTokens: toks.slice(i + 2),
 	};
+}
+
+function memberAssignmentTarget(
+	source: string,
+	span: Span,
+): {
+	member: string;
+	label: string;
+	memberSpan: Span;
+	valueTokens: VbaToken[];
+} | undefined {
+	const toks = statementTokens(source, span);
+	let i = 0;
+	if (
+		toks.length >= 2 &&
+		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
+		toks[1].rawText === ':'
+	) {
+		i = 2;
+	}
+	if (tokenText(toks[i]) === 'set') {
+		return undefined;
+	}
+	if (tokenText(toks[i]) === 'let') {
+		i++;
+	}
+	const eq = topLevelOperatorIndex(toks.slice(i), '=');
+	if (eq < 0) {
+		return undefined;
+	}
+	const equalsIndex = i + eq;
+	const lhs = toks.slice(i, equalsIndex);
+	if (lhs.length < 3) {
+		return undefined;
+	}
+	const memberTok = lhs[lhs.length - 1];
+	if (!tokenName(memberTok) || lhs[lhs.length - 2]?.rawText !== '.') {
+		return undefined;
+	}
+	if (lhs.some((tok) => tok.kind === 'operator' && tok.rawText === '=')) {
+		return undefined;
+	}
+	return {
+		member: tokenName(memberTok)!,
+		label: source
+			.slice(span.start + lhs[0].start, span.start + memberTok.end)
+			.trim(),
+		memberSpan: {
+			start: span.start + memberTok.start,
+			end: span.start + memberTok.end,
+		},
+		valueTokens: toks.slice(equalsIndex + 1),
+	};
+}
+
+function resolveExactMemberCompletion(
+	source: string,
+	memberName: string,
+	memberEndOffset: number,
+	projectClassMembers: readonly VbaProjectClassMembers[],
+): MemberCompletion | undefined {
+	return resolveMemberCompletions(source, memberEndOffset, {
+		projectClassMembers,
+	}).find((member) => member.name.toLowerCase() === memberName.toLowerCase());
 }
 
 /**
@@ -1322,6 +1393,7 @@ function checkAssignmentTypes(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
 	push: PushFn,
 ): void {
 	const moduleSignatures = buildModuleTypeSignatures(mod);
@@ -1371,7 +1443,86 @@ function checkAssignmentTypes(
 				actual.span,
 			);
 		});
+		checkMemberAssignmentTypes(
+			source,
+			member,
+			env,
+			moduleSignatures,
+			projectClassMembers,
+			push,
+		);
 	}
+}
+
+function checkMemberAssignmentTypes(
+	source: string,
+	member: ProcedureNode,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	push: PushFn,
+): void {
+	if (!projectClassMembers || projectClassMembers.length === 0) {
+		return;
+	}
+	forEachStatement(member.body, (stmt) => {
+		const assignment = memberAssignmentTarget(source, stmt.span);
+		if (!assignment) {
+			return;
+		}
+		const target = resolveExactMemberCompletion(
+			source,
+			assignment.member,
+			assignment.memberSpan.end,
+			projectClassMembers,
+		);
+		if (!target || target.writable === undefined) {
+			return;
+		}
+		if (target.writable === false) {
+			push(
+				'readonlyMemberAssignment',
+				`Cannot assign to read-only property '${assignment.label}'.`,
+				assignment.memberSpan,
+			);
+			return;
+		}
+		const expected = target.writeType ?? target.returns;
+		if (!expected || normalizeType(expected) === 'object') {
+			return;
+		}
+		const stringArithmetic = nonnumericStringArithmeticOperand(
+			expected,
+			assignment.valueTokens,
+			stmt.span.start,
+		);
+		if (stringArithmetic) {
+			push(
+				'stringArithmeticCoercion',
+				`Assignment to '${assignment.label}' expects ${expected}, but this numeric expression contains ${stringArithmetic.label}. This will raise Run-time error '13': Type mismatch.`,
+				stringArithmetic.span,
+			);
+			return;
+		}
+		const actual = inferArgumentType(
+			assignment.valueTokens,
+			stmt.span.start,
+			env,
+			moduleSignatures,
+		);
+		if (!actual) {
+			return;
+		}
+		const reason = incompatibilityReason(expected, actual);
+		if (!reason) {
+			return;
+		}
+		push(
+			'assignmentTypeMismatch',
+			`Assignment to '${assignment.label}' expects ${expected}, but got ${actual.label}. ${reason}`,
+			actual.span,
+		);
+	});
 }
 
 function checkSetAssignments(

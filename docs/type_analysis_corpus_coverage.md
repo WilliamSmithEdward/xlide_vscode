@@ -51,7 +51,7 @@ view of that backlog.
 | Arrays | Pending | Legacy corpus mentions arrays and `Array()` | Dynamic/fixed arrays, indexed element type, array parameter compatibility, `ParamArray` elements | Parser/binder tests and oracle for compile errors |
 | Enums | Pending | Legacy corpus mentions enums | Enum declaration, enum member values, enum-to-integer compatibility, unknown enum names | Spec plus binder tests |
 | UDTs | Pending | Legacy corpus mentions UDTs | UDT declarations, member access, object members in UDTs, cross-module UDT names | Spec plus compile oracle for edge cases |
-| Classes and document modules | Pending | Legacy corpus mentions class patterns | Class instances, default members, document module code names, userforms | Project fixture builder and binder tests |
+| Classes and document modules | Partial | `ProjectIndex.visibleTypeNames()`, `ProjectIndex.projectClassMembers()`, member-completion tests for `Dim p As Person: p.`, inline-doc completion/hover tests for `p.Age`, property assignment diagnostics for typed writable and read-only properties, semantic-token tests for `As Person` and `New Person` | Class-level/module-level docs, class instances beyond current member-assignment slice, default members, events, Friend visibility, `Property Set` object assignment, document/UserForm designer members, signature/go-to-definition | Project fixture builder and binder tests; oracle only when VBA behavior affects diagnostics |
 | Excel object model receiver chains | Pending | Legacy host-pattern corpus | `Workbook.Worksheets().Range`, member existence, property vs method calls | Curated host metadata plus integration tests |
 | Native VBA runtime metadata breadth | Partial | Curated metadata and `Left` coercion oracle | More functions with typed params and returns, statements vs functions, shadowing | Primary docs for signatures, oracle for behavior disputes |
 | External `.vbref.xml` metadata types | Partial | Docs type-hint strategy exists | Metadata-driven callable signatures, precedence vs source, stale metadata behavior | Unit tests, no oracle unless VBA behavior is involved |
@@ -75,9 +75,13 @@ These are the highest-value additions before the next major binder slice:
    locale-sensitive cases marked as no-diagnostic until deterministic.
 5. **Object assignment matrix**: `Set` required, `Set` forbidden, object return
    assignment, and Property Get/Let/Set.
-6. **Operator matrix**: arithmetic, integer division, `Mod`, comparisons,
+6. **Fixed-length string matrix**: verify `As String * n` declaration grammar,
+   allowed module contexts, length boundaries, assignment/truncation behavior,
+   interaction with member access, and type-declaration suffixes before any
+   analyzer rule treats `String * n` as ordinary trailing declaration tokens.
+7. **Operator matrix**: arithmetic, integer division, `Mod`, comparisons,
    `Like`, `Is`, and Boolean operators.
-7. **Native metadata expansion matrix**: prioritize common VBA runtime
+8. **Native metadata expansion matrix**: prioritize common VBA runtime
    functions with typed parameters and returns, one oracle probe per behavior
    family when signatures alone do not answer compatibility.
 

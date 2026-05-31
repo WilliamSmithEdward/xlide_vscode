@@ -220,6 +220,36 @@ describe('hover documentation', () => {
 		expect(info?.documentation).toContain('Inline wins.');
 		expect(info?.documentation).not.toContain('External wins');
 	});
+
+	it('shows inline docs for project class property members', () => {
+		const src = 'Sub Caller()\n    Dim p As Person\n    p.Age\nEnd Sub\n';
+		const offset = src.indexOf('Age') + 1;
+		const info = resolveHover(src, offset, {
+			moduleName: 'Module1',
+			projectClassMembers: [
+				{
+					name: 'Person',
+					kind: 'class',
+					moduleName: 'Person',
+					members: [
+						{
+							name: 'Age',
+							kind: 'property',
+							returns: 'Integer',
+							moduleName: 'Person',
+							doc: {
+								summary: 'Age in whole years.',
+								params: [],
+								source: 'inline',
+							},
+						},
+					],
+				},
+			],
+		});
+		expect(info?.signature).toBe('Person.Age As Integer');
+		expect(info?.documentation).toContain('Age in whole years.');
+	});
 });
 
 describe('signature help documentation', () => {
