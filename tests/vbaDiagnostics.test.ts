@@ -1410,6 +1410,42 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
 	});
 
+	it('errors when ThisWorkbook uses a member absent from source and the exhaustive Workbook host surface', () => {
+		const workbook =
+			'Public Sub Hello()\n' +
+			'End Sub\n';
+		const src =
+			'Public Sub T()\n' +
+			'    ThisWorkbook.doesnotexist\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: workbook },
+			]),
+		});
+		const hits = byCode(diagnostics, 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('doesnotexist');
+		expect(hits[0].message).toContain('ThisWorkbook.doesnotexist');
+	});
+
+	it('accepts ThisWorkbook members from source and the exhaustive Workbook host surface', () => {
+		const workbook =
+			'Public Sub Hello()\n' +
+			'End Sub\n';
+		const src =
+			'Public Sub T()\n' +
+			'    ThisWorkbook.Hello\n' +
+			'    ThisWorkbook.AcceptAllChanges\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: workbook },
+			]),
+		});
+		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
+	});
+
 	it('uses an exhaustive host object model to prove a missing member', () => {
 		const model: HostObjectModel = {
 			source: 'test fixture',

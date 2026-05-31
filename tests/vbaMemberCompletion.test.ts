@@ -167,6 +167,14 @@ describe('member completion - host globals', () => {
 		expect(got).not.toContain('FooBar');
 		expect(got).not.toContain('DoesNotExist');
 	});
+
+	it('includes dump-backed Workbook members after ThisWorkbook.', () => {
+		const src = 'Sub Test()\n    ThisWorkbook.Accept\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'ThisWorkbook.Accept'));
+		const accept = got.find((member) => member.name === 'AcceptAllChanges');
+		expect(accept?.owner).toBe('Excel.Workbook');
+		expect(accept?.surfaceExhaustive).toBe(true);
+	});
 });
 
 describe('member completion - code names and Me', () => {
@@ -331,6 +339,27 @@ describe('member completion - workbook classes', () => {
 		expect(got.map((member) => member.name)).toContain('Hello');
 		expect(got[0]?.surfaceExhaustive).toBe(false);
 	});
+
+	it('merges ThisWorkbook source members with the exhaustive Workbook host surface', () => {
+		const src = 'Sub Test()\n    ThisWorkbook.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'ThisWorkbook.'), {
+			projectClassMembers: [
+				{
+					name: 'ThisWorkbook',
+					kind: 'document',
+					moduleName: 'ThisWorkbook',
+					exhaustive: false,
+					members: [
+						{ name: 'Hello', kind: 'method', moduleName: 'ThisWorkbook' },
+					],
+				},
+			],
+		});
+		expect(got.map((member) => member.name)).toContain('Hello');
+		expect(got.map((member) => member.name)).toContain('AcceptAllChanges');
+		expect(got.find((member) => member.name === 'Hello')?.surfaceExhaustive).toBe(true);
+		expect(got.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive).toBe(true);
+	});
 });
 
 describe('member completion - chaining', () => {
@@ -378,18 +407,26 @@ describe('member completion - negative cases', () => {
 			const members = getHostMembers(type);
 			expect(members.length).toBeGreaterThan(0);
 			for (const mem of members) {
-				expect(mem.name).toMatch(/^[A-Za-z][A-Za-z0-9]*$/);
+				expect(mem.name).toMatch(/^[A-Za-z_][A-Za-z0-9_]*$/);
 				expect(['property', 'method', 'event']).toContain(mem.kind);
 			}
 		}
 	});
 
-	it('marks curated host member surfaces as non-exhaustive', () => {
+	it('marks non-dump-backed curated host member surfaces as non-exhaustive', () => {
+		const src = 'Sub Test()\n    Application.Work\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Application.Work'));
+		const workbooks = got.find((member) => member.name === 'Workbooks');
+		expect(workbooks?.owner).toBe('Excel.Application');
+		expect(workbooks?.surfaceExhaustive).toBe(false);
+	});
+
+	it('marks dump-backed Workbook host member surfaces as exhaustive', () => {
 		const src = 'Sub Test()\n    ThisWorkbook.Sav\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'ThisWorkbook.Sav'));
 		const save = got.find((member) => member.name === 'Save');
 		expect(save?.owner).toBe('Excel.Workbook');
-		expect(save?.surfaceExhaustive).toBe(false);
+		expect(save?.surfaceExhaustive).toBe(true);
 	});
 
 	it('can mark a verified exhaustive host member surface', () => {

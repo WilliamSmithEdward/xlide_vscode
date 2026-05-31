@@ -12,6 +12,11 @@
 // docs/xlide_vba_language_service_roadmap.md it must never override core
 // MS-VBAL language resolution. LLM-generated member lists are never used here.
 
+import {
+	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
+	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
+} from './excelWorkbookReferenceMembers';
+
 export type HostMemberKind = 'property' | 'method' | 'event';
 
 export interface HostMember {
@@ -100,8 +105,25 @@ function m(name: string, returns?: string): HostMember {
 	return { name, kind: 'method', returns };
 }
 
+function mergeHostMembers(
+	primary: readonly HostMember[],
+	reference: readonly HostMember[],
+): HostMember[] {
+	const out: HostMember[] = [];
+	const seen = new Set<string>();
+	for (const member of [...primary, ...reference]) {
+		const key = member.name.toLowerCase();
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		out.push(member);
+	}
+	return out;
+}
+
 export const EXCEL_OBJECT_MODEL: HostObjectModel = {
-	source: 'Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30',
+	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
 	aliases: {
 		workbook: WORKBOOK,
 		worksheet: WORKSHEET,
@@ -220,7 +242,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[WORKBOOK]: {
 			displayName: 'Workbook',
-			members: [
+			exhaustive: true,
+			members: mergeHostMembers([
 				p('ActiveChart', CHART),
 				p('ActiveSheet', WORKSHEET),
 				p('Application', APPLICATION),
@@ -257,7 +280,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('SaveCopyAs'),
 				m('SendMail'),
 				m('Unprotect'),
-			],
+			], EXCEL_WORKBOOK_REFERENCE_MEMBERS),
 		},
 		[WORKSHEET]: {
 			displayName: 'Worksheet',

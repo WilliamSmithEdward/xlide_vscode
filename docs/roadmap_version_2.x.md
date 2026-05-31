@@ -88,6 +88,10 @@ heuristic diagnostics.
   absence diagnostics require an exhaustive receiver surface; source-only
   document modules, UserForms, and curated host objects stay silent until their
   host/designer metadata is complete enough to prove absence.
+- `Excel.Workbook` now has a dump-backed exhaustive member surface generated
+  from `reference/excel/json/Workbook.json`, so `ThisWorkbook.DoesntExist`
+  participates in the unified hard `member-not-found` rule while the extension
+  still does not read `reference/` at runtime.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -308,6 +312,10 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   class module surfaces can prove absence; document modules, UserForms, and
   curated host object surfaces cannot produce hard `member-not-found` until
   their full host/designer surface is modeled.
+- [x] Promote the first dump-backed exhaustive host type: `Excel.Workbook`
+  metadata generated from `reference/excel/json/Workbook.json`, enabling
+  hard `member-not-found` for `ThisWorkbook.<missing>` through the same
+  object-member rule contract.
 - [ ] Oracle-verify late-bound member access for `Object` and `Variant`
   receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
   resolves the member only at runtime; decide separately whether an optional
@@ -342,6 +350,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   as `reference/excel/`, `reference/vba/`, `reference/office/`,
   `reference/msforms/`, `reference/vbide/`, and related COM/library dumps:
   - ingest the `reference/` dump corpus into a normalized metadata format
+  - keep `reference/` as development context only; production extension code
+    must not read it at runtime, and promoted metadata must be generated or
+    checked in under `src/` with provenance
   - record Office/version/source provenance for every type, member, signature,
     return type, enum, event, default member, and writable/read-only fact
   - diff generated dumps against curated metadata and official docs where

@@ -69,6 +69,8 @@ export interface MemberCompletion {
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PROJECT_TYPE_PREFIX = 'project:';
+const COMBINED_TYPE_PREFIX = 'combined:';
+const COMBINED_TYPE_SEPARATOR = '|';
 
 type CompletionMemberSource = Pick<HostMember, 'name' | 'kind' | 'returns'> & {
 	writable?: boolean;
@@ -275,13 +277,14 @@ function resolveRoot(
 	if (lower === 'me') {
 		return ctx.meType;
 	}
+	const projectKey = projectClassMembersByName(ctx).has(lower) ? lower : undefined;
 	const asGlobal = resolveHostGlobal(root, model);
 	if (asGlobal) {
-		return asGlobal;
+		return projectKey ? combinedTypeKey(projectKey, asGlobal) : asGlobal;
 	}
 	const asCode = ctx.codeNames?.[lower];
 	if (asCode) {
-		return asCode;
+		return projectKey ? combinedTypeKey(projectKey, asCode) : asCode;
 	}
 	const declaredType = findDeclaredType(source, offset, root);
 	if (declaredType) {
@@ -294,6 +297,24 @@ function memberSurfaceForType(
 	typeName: string,
 	ctx: MemberCompletionContext,
 ): MemberSurface | undefined {
+	const combined = parseCombinedTypeKey(typeName);
+	if (combined) {
+		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
+		const hostType = getHostType(combined.hostType, ctx.model);
+		if (!projectType && !hostType) {
+			return undefined;
+		}
+		return {
+			owner: projectType?.name ?? combined.hostType,
+			members: mergeCompletionMembers(
+				projectType?.members ?? [],
+				getHostMembers(combined.hostType, ctx.model),
+			),
+			exhaustive:
+				projectSourceSurfaceCompleteWhenMergedWithHost(projectType) &&
+				hostType?.exhaustive === true,
+		};
+	}
 	if (typeName.startsWith(PROJECT_TYPE_PREFIX)) {
 		const projectType = projectClassMembersByName(ctx).get(
 			typeName.slice(PROJECT_TYPE_PREFIX.length),
@@ -319,6 +340,17 @@ function resolveAnyMemberReturnType(
 	memberName: string,
 	ctx: MemberCompletionContext,
 ): string | undefined {
+	const combined = parseCombinedTypeKey(ownerType);
+	if (combined) {
+		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
+		const projectMember = projectType?.members.find(
+			(m) => m.name.toLowerCase() === memberName.toLowerCase(),
+		);
+		if (projectMember?.returns) {
+			return resolveDeclaredObjectType(projectMember.returns, ctx, ctx.model);
+		}
+		return resolveMemberReturnType(combined.hostType, memberName, ctx.model);
+	}
 	if (!ownerType.startsWith(PROJECT_TYPE_PREFIX)) {
 		return resolveMemberReturnType(ownerType, memberName, ctx.model);
 	}
@@ -344,7 +376,8 @@ function resolveDeclaredObjectType(
 	}
 	const key = simpleTypeName(declaredType)?.toLowerCase();
 	if (key && projectClassMembersByName(ctx).has(key)) {
-		return projectTypeKey(key);
+		const codeNameHost = ctx.codeNames?.[key];
+		return codeNameHost ? combinedTypeKey(key, codeNameHost) : projectTypeKey(key);
 	}
 	return undefined;
 }
@@ -359,6 +392,56 @@ function simpleTypeName(typeText: string): string | undefined {
 
 function projectTypeKey(lowerName: string): string {
 	return `${PROJECT_TYPE_PREFIX}${lowerName}`;
+}
+
+function combinedTypeKey(projectKey: string, hostType: string): string {
+	return `${COMBINED_TYPE_PREFIX}${projectKey}${COMBINED_TYPE_SEPARATOR}${hostType}`;
+}
+
+function parseCombinedTypeKey(
+	typeName: string,
+): { projectKey: string; hostType: string } | undefined {
+	if (!typeName.startsWith(COMBINED_TYPE_PREFIX)) {
+		return undefined;
+	}
+	const body = typeName.slice(COMBINED_TYPE_PREFIX.length);
+	const sep = body.indexOf(COMBINED_TYPE_SEPARATOR);
+	if (sep < 1 || sep >= body.length - 1) {
+		return undefined;
+	}
+	return {
+		projectKey: body.slice(0, sep),
+		hostType: body.slice(sep + 1),
+	};
+}
+
+function mergeCompletionMembers(
+	sourceMembers: readonly CompletionMemberSource[],
+	hostMembers: readonly CompletionMemberSource[],
+): CompletionMemberSource[] {
+	const out: CompletionMemberSource[] = [];
+	const seen = new Set<string>();
+	for (const member of [...sourceMembers, ...hostMembers]) {
+		const key = member.name.toLowerCase();
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		out.push(member);
+	}
+	return out;
+}
+
+function projectSourceSurfaceCompleteWhenMergedWithHost(
+	projectType: VbaProjectClassMembers | undefined,
+): boolean {
+	if (!projectType) {
+		return true;
+	}
+	if (projectType.kind === 'userform') {
+		return false;
+	}
+	return true;
 }
 
 function projectClassMembersByName(
