@@ -46,6 +46,8 @@ export interface HoverContext {
 	codeNames?: Record<string, string>;
 	/** Qualified host type that `Me` resolves to in the current module. */
 	meType?: string;
+	/** Project object type that `Me` resolves to in the current class/document module. */
+	meProjectType?: string;
 	/** Name of the module being edited (for "Declared in Module" text). */
 	moduleName?: string;
 	/** Kind of the module being edited. */

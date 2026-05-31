@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCanonicalCaseEdit } from '../src/analyzer';
+import { resolveCanonicalCaseEdit, type CanonicalCaseContext } from '../src/analyzer';
 
-function editAtMarker(src: string) {
+function editAtMarker(src: string, ctx: CanonicalCaseContext = {}) {
 	const offset = src.indexOf('|');
 	if (offset < 0) {
 		throw new Error('Missing | marker');
 	}
-	return resolveCanonicalCaseEdit(src.replace('|', ''), offset);
+	return resolveCanonicalCaseEdit(src.replace('|', ''), offset, ctx);
 }
 
 describe('canonical casing edits', () => {
@@ -20,6 +20,23 @@ describe('canonical casing edits', () => {
 	it('canonicalizes runtime functions before an argument list', () => {
 		const edit = editAtMarker('Sub T()\n    x = left|("test", 3)\nEnd Sub\n');
 		expect(edit?.text).toBe('Left');
+	});
+
+	it('canonicalizes source-backed current class members through Me', () => {
+		const edit = editAtMarker('Sub T()\n    Me.save|\nEnd Sub\n', {
+			member: {
+				meProjectType: 'Person',
+				projectClassMembers: [
+					{
+						name: 'Person',
+						kind: 'class',
+						moduleName: 'Person',
+						members: [{ name: 'Save', kind: 'method', moduleName: 'Person' }],
+					},
+				],
+			},
+		});
+		expect(edit?.text).toBe('Save');
 	});
 
 	it('canonicalizes keywords without touching comments or strings', () => {

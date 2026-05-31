@@ -96,7 +96,7 @@ heuristic diagnostics.
   `argument-count` and argument-type diagnostics for parenthesized member calls
   such as `Application.SheetCalculate()` and `ActiveSheet.Range()`.
 - Source-backed workbook class member resolution now feeds go-to-definition for
-  `object.Member` references.
+  `object.Member` and current-object `Me.Member` references.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -371,6 +371,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   parameter docs.
 - [x] Feed workbook class-member resolution into go-to-definition and
   member-call diagnostics.
+- [x] Resolve `Me.Member` through the same source-backed current object module
+  surface used for normal object receivers, merging with the known host surface
+  when the current module has one.
 - [ ] Extend external metadata files as an explicit object/member metadata
   source for referenced libraries, add-ins, team APIs, and host extensions that
   XLIDE cannot parse from workbook source.
@@ -449,7 +452,7 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
   arity/type checks, and go-to-definition now consumes it for source-backed
-  members.
+  members, including current-object `Me.Member` references.
 
 Definition of done:
 

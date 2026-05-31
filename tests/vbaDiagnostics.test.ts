@@ -962,6 +962,28 @@ describe('analyzeModule - argument count', () => {
 		expect(hits[0].message).toContain('expected 1 argument');
 		expect(hits[0].message).toContain('got 0');
 	});
+
+	it('flags missing required arguments on current class Me member calls', () => {
+		const src =
+			'Public Sub Main()\n' +
+			'    Me.Save()\n' +
+			'End Sub\n' +
+			'Public Sub Save(ByVal Caption As String)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				moduleName: 'Person',
+				moduleKind: 'class',
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: src },
+				]),
+			}),
+			'argument-count',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Save');
+		expect(hits[0].message).toContain('expected 1 argument');
+	});
 });
 
 describe('analyzeModule - argument type validation', () => {
@@ -1474,6 +1496,26 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(spanText(src, hits[0])).toBe('Delete');
 	});
 
+	it('errors when current class Me uses an unknown member', () => {
+		const src =
+			'Public Sub Save()\n' +
+			'    Me.Delete\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				moduleName: 'Person',
+				moduleKind: 'class',
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: src },
+				]),
+			}),
+			'member-not-found',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Delete');
+		expect(hits[0].message).toContain('Person.Delete');
+	});
+
 	it('accepts known class members and ambiguous project receiver types', () => {
 		const person =
 			'Private mAge As Integer\n' +
@@ -1606,6 +1648,21 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('asdf');
 		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+	});
+
+	it('uses the current workbook Me host surface for ThisWorkbook modules', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Me.asdf\n' +
+			'    Me.AcceptAllChanges\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'ThisWorkbook', moduleKind: 'document' }),
+			'member-not-found',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('asdf');
+		expect(hits[0].message).toContain('Excel.Workbook.asdf');
 	});
 
 	it('uses the exhaustive Worksheet host surface for declared Worksheet variables', () => {

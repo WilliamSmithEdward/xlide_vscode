@@ -49,6 +49,7 @@ import { isProcedureKind, qualifiedProcedureKey } from '../symbols/symbolModel';
 import {
 	resolveMemberCompletions,
 	type MemberCompletion,
+	type MemberCompletionContext,
 } from '../completion/memberAccess';
 import {
 	DIAGNOSTIC_RULES,
@@ -170,6 +171,7 @@ function runRules(
 
 	const mod = parseModule(source);
 	const symbols = buildModuleSymbols(moduleName, moduleKind, source);
+	const memberCtx = diagnosticMemberCompletionContext(opts);
 
 	checkUnterminatedStrings(source, push);
 	checkDuplicateProcedures(symbols.root.children ?? [], push);
@@ -190,14 +192,13 @@ function runRules(
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
 	checkScalarMemberAccess(source, mod, symbols, push);
-	checkMemberNotFound(source, mod, opts.projectClassMembers, opts.hostModel, push);
+	checkMemberNotFound(source, mod, memberCtx, push);
 	checkNonCallableCallStatement(source, mod, symbols, push);
 	checkArgumentCount(
 		source,
 		mod,
 		opts.projectProcedures,
-		opts.projectClassMembers,
-		opts.hostModel,
+		memberCtx,
 		push,
 	);
 	checkArgumentTypes(
@@ -205,11 +206,10 @@ function runRules(
 		mod,
 		symbols,
 		opts.projectProcedures,
-		opts.projectClassMembers,
-		opts.hostModel,
+		memberCtx,
 		push,
 	);
-	checkAssignmentTypes(source, mod, symbols, opts.projectClassMembers, push);
+	checkAssignmentTypes(source, mod, symbols, memberCtx, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
 	}
@@ -218,6 +218,45 @@ function runRules(
 }
 
 type PushFn = (rule: DiagnosticRuleName, message: string, span: Span) => void;
+
+function diagnosticMemberCompletionContext(
+	opts: AnalyzeModuleOptions,
+): MemberCompletionContext {
+	const ctx: MemberCompletionContext = {
+		projectClassMembers: opts.projectClassMembers,
+		model: opts.hostModel,
+	};
+	const meProjectType = meProjectTypeFor(opts.moduleName, opts.moduleKind);
+	if (meProjectType) {
+		ctx.meProjectType = meProjectType;
+	}
+	const meType = meHostTypeFor(opts.moduleName, opts.moduleKind);
+	if (meType) {
+		ctx.meType = meType;
+	}
+	return ctx;
+}
+
+function meProjectTypeFor(
+	moduleName: string | undefined,
+	moduleKind: ModuleSymbolKind | undefined,
+): string | undefined {
+	return moduleName && isObjectModuleKind(moduleKind) ? moduleName : undefined;
+}
+
+function meHostTypeFor(
+	moduleName: string | undefined,
+	moduleKind: ModuleSymbolKind | undefined,
+): string | undefined {
+	if (!moduleName || moduleKind !== 'document') {
+		return undefined;
+	}
+	return moduleName.toLowerCase() === 'thisworkbook' ? 'Excel.Workbook' : undefined;
+}
+
+function isObjectModuleKind(moduleKind: ModuleSymbolKind | undefined): boolean {
+	return moduleKind === 'class' || moduleKind === 'document' || moduleKind === 'userform';
+}
 
 /** Rule: a string literal with an odd number of quotes is never closed. */
 function checkUnterminatedStrings(source: string, push: PushFn): void {
@@ -495,20 +534,17 @@ function resolveExactMemberCompletion(
 	source: string,
 	memberName: string,
 	memberEndOffset: number,
-	projectClassMembers: readonly VbaProjectClassMembers[],
-	hostModel?: HostObjectModel,
+	memberCtx: MemberCompletionContext,
 ): MemberCompletion | undefined {
-	return resolveMemberCompletions(source, memberEndOffset, {
-		projectClassMembers,
-		model: hostModel,
-	}).find((member) => member.name.toLowerCase() === memberName.toLowerCase());
+	return resolveMemberCompletions(source, memberEndOffset, memberCtx).find(
+		(member) => member.name.toLowerCase() === memberName.toLowerCase(),
+	);
 }
 
 function checkMemberNotFound(
 	source: string,
 	mod: ModuleNode,
-	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
-	hostModel: HostObjectModel | undefined,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	for (const member of mod.members) {
@@ -520,8 +556,7 @@ function checkMemberNotFound(
 				const surface = resolveExhaustiveMemberSurface(
 					source,
 					ref.dotEndOffset,
-					projectClassMembers ?? [],
-					hostModel,
+					memberCtx,
 				);
 				if (!surface) {
 					continue;
@@ -573,13 +608,9 @@ function memberAccessReferences(
 function resolveExhaustiveMemberSurface(
 	source: string,
 	dotEndOffset: number,
-	projectClassMembers: readonly VbaProjectClassMembers[],
-	hostModel: HostObjectModel | undefined,
+	memberCtx: MemberCompletionContext,
 ): { owner: string; members: MemberCompletion[] } | undefined {
-	const members = resolveMemberCompletions(source, dotEndOffset, {
-		projectClassMembers,
-		model: hostModel,
-	});
+	const members = resolveMemberCompletions(source, dotEndOffset, memberCtx);
 	if (members.length === 0) {
 		return undefined;
 	}
@@ -1049,8 +1080,7 @@ function checkArgumentCount(
 	source: string,
 	mod: ModuleNode,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
-	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
-	hostModel: HostObjectModel | undefined,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	const procsByName = new Map<string, ProcedureNode[]>();
@@ -1093,8 +1123,7 @@ function checkArgumentCount(
 			for (const memberCall of memberExpressionCalls(
 				source,
 				stmt.span,
-				projectClassMembers ?? [],
-				hostModel,
+				memberCtx,
 			)) {
 				validateArity(memberCall.signature, memberCall.call, push);
 			}
@@ -1477,8 +1506,7 @@ function checkArgumentTypes(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
-	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
-	hostModel: HostObjectModel | undefined,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
@@ -1494,8 +1522,7 @@ function checkArgumentTypes(
 			for (const memberCall of memberExpressionCalls(
 				source,
 				stmt.span,
-				projectClassMembers ?? [],
-				hostModel,
+				memberCtx,
 			)) {
 				validateArgumentTypesForSignature(
 					memberCall.signature,
@@ -1521,7 +1548,7 @@ function checkAssignmentTypes(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
-	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	const moduleSignatures = buildModuleTypeSignatures(mod);
@@ -1576,7 +1603,7 @@ function checkAssignmentTypes(
 			member,
 			env,
 			moduleSignatures,
-			projectClassMembers,
+			memberCtx,
 			push,
 		);
 	}
@@ -1587,10 +1614,10 @@ function checkMemberAssignmentTypes(
 	member: ProcedureNode,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
-	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
-	if (!projectClassMembers || projectClassMembers.length === 0) {
+	if (!memberCtx.projectClassMembers || memberCtx.projectClassMembers.length === 0) {
 		return;
 	}
 	forEachStatement(member.body, (stmt) => {
@@ -1602,7 +1629,7 @@ function checkMemberAssignmentTypes(
 			source,
 			assignment.member,
 			assignment.memberSpan.end,
-			projectClassMembers,
+			memberCtx,
 		);
 		if (!target || target.writable === undefined) {
 			return;
@@ -1909,8 +1936,7 @@ interface BoundMemberCall {
 function memberExpressionCalls(
 	source: string,
 	span: Span,
-	projectClassMembers: readonly VbaProjectClassMembers[],
-	hostModel: HostObjectModel | undefined,
+	memberCtx: MemberCompletionContext,
 ): BoundMemberCall[] {
 	const toks = statementTokens(source, span);
 	const out: BoundMemberCall[] = [];
@@ -1927,8 +1953,7 @@ function memberExpressionCalls(
 			source,
 			name,
 			span.start + toks[i].end,
-			projectClassMembers,
-			hostModel,
+			memberCtx,
 		);
 		if (!member?.signature) {
 			continue;

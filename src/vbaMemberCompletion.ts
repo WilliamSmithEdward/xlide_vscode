@@ -63,6 +63,14 @@ function meTypeFor(entry: ModuleEntry | undefined): string | undefined {
 	return entry.name.toLowerCase() === 'thisworkbook' ? WORKBOOK : WORKSHEET;
 }
 
+/** Maps `Me` to the source-backed current object module when applicable. */
+function meProjectTypeFor(entry: ModuleEntry | undefined): string | undefined {
+	if (!entry || !['class', 'document', 'userform'].includes(entry.type)) {
+		return undefined;
+	}
+	return entry.name;
+}
+
 /** Builds the lowercased code-name -> host type map for a workbook project. */
 function codeNamesFor(entries: ModuleEntry[]): Record<string, string> {
 	const out: Record<string, string> = {};
@@ -242,6 +250,7 @@ class VbaMemberCompletionProvider
 			return {
 				codeNames: codeNamesFor(entries ?? []),
 				meType: meTypeFor(current),
+				meProjectType: meProjectTypeFor(current),
 				moduleName: decoded.moduleName,
 				moduleKind: current ? this._moduleKind(current.type) : 'standard',
 				projectClassMembers: entries
@@ -280,6 +289,7 @@ class VbaMemberCompletionProvider
 		return {
 			codeNames: codeNamesFor(entries),
 			meType: meTypeFor(current),
+			meProjectType: meProjectTypeFor(current),
 			projectClassMembers,
 		};
 	}

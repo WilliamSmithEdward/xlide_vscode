@@ -210,6 +210,20 @@ function codeNamesForModules(modules: VbaModuleSymbols[]): Record<string, string
     return out;
 }
 
+function meProjectTypeForModule(moduleName: string, type?: string): string | undefined {
+    const kind = moduleKindFromType(type);
+    return kind === 'class' || kind === 'document' || kind === 'userform'
+        ? moduleName
+        : undefined;
+}
+
+function meHostTypeForModule(moduleName: string, type?: string): string | undefined {
+    if (moduleKindFromType(type) !== 'document') { return undefined; }
+    return moduleName.toLowerCase() === 'thisworkbook'
+        ? 'Excel.Workbook'
+        : 'Excel.Worksheet';
+}
+
 /** Byte offsets where each line begins, for occurrence -> offset mapping. */
 function lineStartOffsets(source: string): number[] {
     const starts = [0];
@@ -285,9 +299,13 @@ function sourceMemberDefinitionsAt(
     memberEndOffset: number,
     project: ProjectIndex,
     modules: VbaModuleSymbols[],
+    currentModuleName: string,
+    currentModuleType?: string,
 ): readonly VbaProjectClassMemberDefinition[] {
     const member = resolveMemberCompletions(source, memberEndOffset, {
         codeNames: codeNamesForModules(modules),
+        meType: meHostTypeForModule(currentModuleName, currentModuleType),
+        meProjectType: meProjectTypeForModule(currentModuleName, currentModuleType),
         projectClassMembers: project.projectClassMembers(),
     }).find((item) => item.name.toLowerCase() === memberName.toLowerCase());
     return member?.definitions ?? [];
@@ -382,6 +400,8 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
                 document.offsetAt(wordRange.end),
                 project,
                 modules,
+                moduleName,
+                current?.type,
             )
             : [];
         if (memberDefinitions.length > 0) {
@@ -644,20 +664,22 @@ function registerVbaDiagnostics(
         // Project-wide procedure names enable the bare-call "Sub or Function not
         // defined" rule; project signatures enable deterministic cross-module
         // arity/type checks. Only available for workbook-backed docs.
+        const moduleName = moduleNameFromDocument(document);
+        let moduleKind: ModuleSymbolKind | undefined;
         let knownProcedures: ReadonlySet<string> | undefined;
         let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
         let projectClassMembers: ReturnType<ProjectIndex['projectClassMembers']> | undefined;
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
-                const moduleName = moduleNameFromDocument(document);
                 const modules = await index.getAllModules(xlsmPath);
                 const current = modules.find(
                     (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
                 );
+                moduleKind = moduleKindFromType(current?.type);
                 const project = buildProjectIndex(modules, {
                     moduleName,
-                    moduleKind: moduleKindFromType(current?.type),
+                    moduleKind,
                     source: text,
                 });
                 knownProcedures = project.visibleProcedureNames(moduleName);
@@ -692,7 +714,8 @@ function registerVbaDiagnostics(
         let semantic: VbaDiagnostic[] = [];
         try {
             semantic = analyzeModule(text, {
-                moduleName: moduleNameFromDocument(document),
+                moduleName,
+                moduleKind,
                 severities,
                 knownProcedures,
                 projectProcedures,

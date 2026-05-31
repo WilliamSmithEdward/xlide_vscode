@@ -412,16 +412,18 @@ into a pure analyzer layer and a thin VS Code provider:
   workbook class-member surface from `ProjectIndex.projectClassMembers()`, so
   variables declared as workbook classes (for example `Dim p As Person`) can
   offer public/default-public source members at `p.` without guessing from
-  names. Source-backed workbook members carry inline `'''` documentation through
-  to completion, hover, and member-call signature help, and carry declaration
-  spans for source-backed member go-to-definition.
+  names. The same context also resolves `Me.` to the current class/document
+  module's source-backed member surface, merging with a known host surface when
+  the caller supplies one. Source-backed workbook members carry inline `'''`
+  documentation through to completion, hover, and member-call signature help,
+  and carry declaration spans for source-backed member go-to-definition.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it builds the project context
-  from the workbook's module list (worksheet code names and the `Me` type for
-  the current document module) via the Python bridge and renders the resolved
-  members. For workbook class members, open XLIDE module documents are read from
-  their live editor text first, so unsaved changes in an open `Person` class are
-  reflected the next time completion is requested elsewhere; saved module text
+  from the workbook's module list (worksheet code names plus the host/source
+  `Me` context for the current object module) via the Python bridge and renders
+  the resolved members. For workbook class members, open XLIDE module documents
+  are read from their live editor text first, so unsaved changes in an open
+  `Person` class are reflected the next time completion is requested elsewhere; saved module text
   is read through the bridge when no live editor text exists. In a declaration
   type position (after `As` / `As New`) it instead
   offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
@@ -577,7 +579,8 @@ Diagnostic severity policy:
   signatures, and validates parenthesized object member calls when the shared
   member-completion binder resolves a known source-backed or host/reference
   signature such as `Application.SheetCalculate(Sh As Object)` or
-  `Range(Cell1, [Cell2])`. It honours `Optional` (lowers the minimum) and
+  `Range(Cell1, [Cell2])`; current class `Me.Member(...)` calls use that same
+  path. It honours `Optional` (lowers the minimum) and
   `ParamArray` (removes the maximum), validates named-argument names against the
   parameters, and skips unresolved or ambiguous callees. The same known member
   signatures also feed argument type diagnostics when parameter types are
@@ -611,10 +614,13 @@ Diagnostic severity policy:
   no setter; focused oracle evidence rejects this as `Can't assign to read-only
   property`. `member-not-found` is another source-backed class-member rule: it
   fires only when a receiver resolves to an unambiguous and exhaustive
-  `ProjectIndex.projectClassMembers()` surface and the member name is absent.
-  Plain class modules are source-exhaustive; document modules, UserForms, and
-  host object-model receivers stay silent until their host/designer catalogues
-  are complete enough to prove absence. Focused oracle evidence rejects unknown
+  `ProjectIndex.projectClassMembers()` surface, or a promoted exhaustive host
+  surface, and the member name is absent. Plain class modules are
+  source-exhaustive, including current-class `Me.Member` references;
+  document modules and UserForms stay silent until their host/designer
+  catalogues are complete enough to prove absence, except for known workbook
+  host references such as `ThisWorkbook`/`Me` inside `ThisWorkbook`. Focused
+  oracle evidence rejects unknown
   class property assignment and unknown class method calls with
   `Method or data member not found`, while a known-property control compiles.
   `unexpected-declaration-token` is

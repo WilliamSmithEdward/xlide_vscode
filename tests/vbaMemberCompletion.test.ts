@@ -270,6 +270,29 @@ describe('member completion - code names and Me', () => {
 		expect(got).toContain('Save');
 	});
 
+	it('merges Me document source members with its host surface', () => {
+		const src = 'Sub Test()\n    Me.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Me.'), {
+			meType: 'Excel.Workbook',
+			meProjectType: 'ThisWorkbook',
+			projectClassMembers: [
+				{
+					name: 'ThisWorkbook',
+					kind: 'document',
+					moduleName: 'ThisWorkbook',
+					exhaustive: false,
+					members: [
+						{ name: 'Hello', kind: 'method', moduleName: 'ThisWorkbook' },
+					],
+				},
+			],
+		});
+		expect(got.map((member) => member.name)).toContain('Hello');
+		expect(got.map((member) => member.name)).toContain('AcceptAllChanges');
+		expect(got.find((member) => member.name === 'Hello')?.surfaceExhaustive).toBe(true);
+		expect(got.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive).toBe(true);
+	});
+
 	it('returns nothing for Me when module type is unknown', () => {
 		const src = 'Sub Test()\n    Me.\nEnd Sub\n';
 		expect(names(src, 'Me.', {})).toEqual([]);
@@ -414,6 +437,13 @@ describe('member completion - workbook classes', () => {
 	it('offers members for a variable declared as a project class', () => {
 		const src = 'Sub Test()\n    Dim p As Person\n    p.\nEnd Sub\n';
 		const got = names(src, 'p.', { projectClassMembers });
+		expect(got).toContain('Name');
+		expect(got).toContain('Save');
+	});
+
+	it('offers source-backed current class members through Me', () => {
+		const src = 'Sub Test()\n    Me.\nEnd Sub\n';
+		const got = names(src, 'Me.', { meProjectType: 'Person', projectClassMembers });
 		expect(got).toContain('Name');
 		expect(got).toContain('Save');
 	});

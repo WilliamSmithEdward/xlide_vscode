@@ -47,6 +47,8 @@ export interface MemberCompletionContext {
 	codeNames?: Record<string, string>;
 	/** Qualified host type that `Me` resolves to in the current module. */
 	meType?: string;
+	/** Project object type that `Me` resolves to in the current class/document module. */
+	meProjectType?: string;
 	/** Source-declared workbook class/UserForm/document members, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Host object model to resolve against. Defaults to the Excel model. */
@@ -409,7 +411,11 @@ function resolveRoot(
 	const lower = root.toLowerCase();
 
 	if (lower === 'me') {
-		return ctx.meType;
+		const projectKey = projectKeyForTypeName(ctx.meProjectType, ctx);
+		if (ctx.meType) {
+			return projectKey ? combinedTypeKey(projectKey, ctx.meType) : ctx.meType;
+		}
+		return projectKey ? projectTypeKey(projectKey) : undefined;
 	}
 	const projectKey = projectClassMembersByName(ctx).has(lower) ? lower : undefined;
 	const asGlobal = resolveHostGlobal(root, model);
@@ -578,12 +584,23 @@ function resolveDeclaredObjectType(
 	if (host) {
 		return host;
 	}
-	const key = simpleTypeName(declaredType)?.toLowerCase();
-	if (key && projectClassMembersByName(ctx).has(key)) {
+	const key = projectKeyForTypeName(declaredType, ctx);
+	if (key) {
 		const codeNameHost = ctx.codeNames?.[key];
 		return codeNameHost ? combinedTypeKey(key, codeNameHost) : projectTypeKey(key);
 	}
 	return undefined;
+}
+
+function projectKeyForTypeName(
+	typeName: string | undefined,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	if (!typeName) {
+		return undefined;
+	}
+	const key = simpleTypeName(typeName)?.toLowerCase();
+	return key && projectClassMembersByName(ctx).has(key) ? key : undefined;
 }
 
 function simpleTypeName(typeText: string): string | undefined {

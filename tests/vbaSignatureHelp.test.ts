@@ -164,6 +164,14 @@ describe('signature help - project class members', () => {
 		]);
 	});
 
+	it('uses source-backed current class method signatures through Me', () => {
+		const info = help('Sub T()\nMe.Save(|\nEnd Sub', {
+			meProjectType: 'Person',
+			projectClassMembers,
+		});
+		expect(info?.label).toBe('Save(Caption As String, [Loud As Boolean])');
+	});
+
 	it('tracks active parameters and return types for project class functions', () => {
 		const info = help('Sub T()\nDim p As Person\nSet p = p.Manager(1, |\nEnd Sub', {
 			projectClassMembers,

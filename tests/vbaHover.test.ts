@@ -106,6 +106,23 @@ describe('hover - host symbols', () => {
 		expect(info?.details[0]).toMatch(/Excel host (property|method)/);
 	});
 
+	it('describes a source-backed current class member after Me', () => {
+		const src = 'Sub T()\n    Me.Save\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('Save') + 2, {
+			meProjectType: 'Person',
+			projectClassMembers: [
+				{
+					name: 'Person',
+					kind: 'class',
+					moduleName: 'Person',
+					members: [{ name: 'Save', kind: 'method', moduleName: 'Person' }],
+				},
+			],
+		});
+		expect(info?.signature).toBe('Person.Save()');
+		expect(info?.details).toContain('Person method');
+	});
+
 	it('includes generated reference docs on promoted host member hovers', () => {
 		const src = 'Sub T()\n    Application.Calculate\nEnd Sub\n';
 		const info = resolveHover(src, src.indexOf('Calculate') + 2, {});

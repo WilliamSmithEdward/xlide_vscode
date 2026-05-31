@@ -109,7 +109,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Project symbol graph + name resolution | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.3 (scope) / 4.2 (visibility) | Verified |
 | Project visible procedure-name surface | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 5.3 / 4.2 (visibility) | Verified |
 | Project visible type-name surface | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.2.3.1.4 / 5.2.3.3 / 5.2.3.4 / 4.2 | Verified |
-| Project class member-completion surface + inline docs | src/analyzer/symbols/projectIndex.ts + src/analyzer/completion/memberAccess.ts + src/analyzer/hover/resolveHover.ts | tests/vbaSymbolGraph.test.ts + tests/vbaMemberCompletion.test.ts + tests/vbaDocComments.test.ts | 4.2 / 5.3 / 5.6.9 | Partial |
+| Project class member-completion surface + inline docs | src/analyzer/symbols/projectIndex.ts + src/analyzer/completion/memberAccess.ts + src/analyzer/hover/resolveHover.ts | tests/vbaSymbolGraph.test.ts + tests/vbaMemberCompletion.test.ts + tests/vbaDocComments.test.ts + tests/vbaHover.test.ts + tests/vbaSignatureHelp.test.ts | 4.2 / 5.3 / 5.6.9 | Partial |
 | Project type semantic tokens | src/analyzer/semantic/typeSemanticTokens.ts | tests/vbaSemanticTokens.test.ts | 5.2.3.1.4 / 5.2.3.3 / 5.2.3.4 / 5.6.9 (`New`) | Verified |
 | Duplicate-procedure detection | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.3.1 | Verified |
 | Type-position completion (after As / As New) | src/analyzer/completion/typeCompletion.ts | tests/vbaTypeCompletion.test.ts | 5.2.3.1.4 (type-spec) | Verified |
@@ -152,7 +152,7 @@ from the MS-VBAL core-language grammar. Tracked rows:
 | Excel collection types (Workbooks/Worksheets/Sheets) + globals | src/analyzer/host/excelObjectModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30 | Verified |
 | Member-access chain resolution | src/analyzer/completion/memberAccess.ts | tests/vbaMemberCompletion.test.ts | 5.6 (member access) plus host metadata return/default-member facts and simple `Set` assignment refinement for completion | Verified |
 | Worksheet code-name resolution (Sheet1) | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts | Workbook project structure (listModules) | Verified |
-| `Me` resolution by module kind | src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts | Module context | Verified |
+| `Me` resolution by module kind and current source object module | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts + tests/vbaHover.test.ts + tests/vbaSignatureHelp.test.ts + tests/vbaDiagnostics.test.ts | Module context | Verified |
 | Typed local/param/module variable resolution | src/analyzer/completion/memberAccess.ts | tests/vbaMemberCompletion.test.ts | 5.2.3 / 5.3 (declarations) | Verified |
 | VS Code completion provider (trigger `.`) | src/vbaMemberCompletion.ts | (manual) | n/a | Verified |
 
