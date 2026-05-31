@@ -15,10 +15,9 @@
 // resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
 // declaration - the unambiguous VBE "Sub or Function not defined" error.
-// In-scope names that resolve to variables/constants/types are handled by the
-// non-callable-call rule. Broader flow-sensitive rules (undeclared variable,
-// arbitrary-expression unknown call) still need a full expression binder and
-// remain intentionally omitted to avoid false positives.
+// Broader flow-sensitive rules (undeclared variable, arbitrary-expression
+// unknown call) still need a full expression binder and remain intentionally
+// omitted to avoid false positives.
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
@@ -472,10 +471,9 @@ function checkUnknownCallStatement(
 }
 
 /**
- * Rule: a call-statement-shaped line must resolve to something callable. If the
- * bare target resolves to a parameter/local/module variable, constant, type, or
- * enum member in the current scope, the code is deterministically invalid; it is
- * not an unknown cross-module call.
+ * Rule: call statements must target a callable declaration. VBE Compile rejects
+ * a bare non-callable statement (`testStr`), argument-bearing form
+ * (`testStr "hello"`), and explicit `Call testStr` as call-shaped statements.
  */
 function checkNonCallableCallStatement(
 	source: string,
@@ -498,19 +496,19 @@ function checkNonCallableCallStatement(
 			}
 		}
 		forEachStatement(member.body, (stmt) => {
-			const hit = callStatementTarget(source, stmt.span);
-			if (!hit) {
+			const call = extractCall(source, stmt.span);
+			if (!call) {
 				return;
 			}
-			const lower = hit.name.toLowerCase();
+			const lower = call.name.toLowerCase();
 			const target = localNonCallables.get(lower) ?? moduleNonCallables.get(lower);
 			if (!target) {
 				return;
 			}
 			push(
 				'nonCallableCallStatement',
-				`Cannot call '${hit.name}' because it resolves to ${symbolKindLabel(target)}, not a Sub or Function.`,
-				hit.span,
+				`Cannot call '${call.name}' because it resolves to ${symbolKindLabel(target)}, not a Sub or Function.`,
+				call.nameSpan,
 			);
 		});
 	}
@@ -817,6 +815,8 @@ interface CallArguments {
 	name: string;
 	/** Absolute span of the callee identifier. */
 	nameSpan: Span;
+	/** True for the explicit `Call name...` form. */
+	explicitCall?: boolean;
 	/**
 	 * Top-level, comma-separated argument groups. An empty list means no
 	 * arguments were supplied; an empty inner array is an omitted positional
@@ -968,7 +968,14 @@ function extractCall(source: string, span: Span): CallArguments | undefined {
 	}
 
 	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, sliceStart);
-	return { name: hit.name, nameSpan: hit.span, slots: split.slots, slotSpans: split.spans, sliceStart };
+	return {
+		name: hit.name,
+		nameSpan: hit.span,
+		explicitCall,
+		slots: split.slots,
+		slotSpans: split.spans,
+		sliceStart,
+	};
 }
 
 interface ArgSplit {

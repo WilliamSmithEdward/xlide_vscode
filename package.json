@@ -772,7 +772,8 @@
     "vsix": "npm run package && node -e \"const {execSync}=require('child_process'),{version}=require('./package.json');require('fs').mkdirSync('dist',{recursive:true});execSync('npx vsce package --out dist/xlide-'+version+'.vsix',{stdio:'inherit'})\"",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:oracle:vbe": "python syntax_corpus/oracle/run_excel_vbe_oracle.py"
   },
   "devDependencies": {
     "@types/node": "20.x",

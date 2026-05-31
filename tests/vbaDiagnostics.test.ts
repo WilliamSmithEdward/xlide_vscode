@@ -310,8 +310,17 @@ describe('analyzeModule - unknown call statement', () => {
 });
 
 describe('analyzeModule - non-callable call statements', () => {
-	it('flags a bare local variable used as a statement', () => {
+	it('flags a bare local variable statement rejected by VBE Compile', () => {
 		const src = 'Sub Main()\n    Dim testStr As String\n    testStr\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'non-callable-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('testStr');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('local variable');
+	});
+
+	it('flags a local variable used with call arguments', () => {
+		const src = 'Sub Main()\n    Dim testStr As String\n    testStr "hello"\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'non-callable-call');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('testStr');
@@ -327,15 +336,8 @@ describe('analyzeModule - non-callable call statements', () => {
 		expect(hits[0].message).toContain('parameter');
 	});
 
-	it('flags a module variable used as a call target', () => {
-		const src = 'Private total As Long\nSub Main()\n    total\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'non-callable-call');
-		expect(hits).toHaveLength(1);
-		expect(hits[0].message).toContain('module variable');
-	});
-
 	it('does not flag callable procedures or runtime statements', () => {
-		const src = 'Sub Main()\n    Helper\n    Beep\nEnd Sub\nSub Helper()\nEnd Sub\n';
+		const src = 'Sub Main()\n    Helper "ok"\n    Beep\nEnd Sub\nSub Helper(ByVal s As String)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'non-callable-call')).toHaveLength(0);
 	});
 });

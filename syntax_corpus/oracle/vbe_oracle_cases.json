@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "missing_trailing_required_argument",
+      "description": "A trailing comma omits the required second positional argument. VBE Compile rejects this as a syntax error.",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n"
+    },
+    {
+      "id": "missing_leading_required_argument",
+      "description": "A leading comma omits the required first positional argument. VBE Compile rejects this as Argument not optional.",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total2 As Double\n    total2 = InvoiceTotal(, 0.08)\nEnd Sub\n"
+    },
+    {
+      "id": "missing_trailing_optional_argument",
+      "description": "A trailing comma omits an Optional argument. This is initially observe-only until the VBE oracle records behavior.",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double = 0.08) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n"
+    },
+    {
+      "id": "bare_variable_statement",
+      "description": "A bare local variable statement is rejected by VBE Compile as Expected Sub, Function, or Property.",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr\nEnd Sub\n"
+    },
+    {
+      "id": "local_string_with_argument_statement",
+      "description": "A local String variable followed by an argument-looking string literal.",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr \"hello\"\nEnd Sub\n"
+    },
+    {
+      "id": "number_to_string_assignment",
+      "description": "VBA can coerce a numeric literal into a String variable.",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = 123\nEnd Sub\n"
+    },
+    {
+      "id": "normal_function_call",
+      "description": "Baseline valid same-module function call.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total2 As Double\n    total2 = InvoiceTotal(100, 0.08)\nEnd Sub\n"
+    }
+  ]
+}
+

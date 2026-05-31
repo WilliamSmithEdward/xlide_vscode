@@ -254,6 +254,15 @@ npm run test:oracle:vbe
 
 This should be separate from the normal test command.
 
+Initial implementation:
+
+- `syntax_corpus/oracle/vbe_oracle_cases.json` stores empirical fixtures.
+- `syntax_corpus/oracle/run_excel_vbe_oracle.py` coordinates per-case timeouts.
+- `syntax_corpus/oracle/excel_vbe_oracle_worker.ps1` owns the Excel COM calls.
+- `expected: "observe"` records behavior without asserting it yet.
+- The runner is observational by default; pass `--strict` to fail on expectation
+  mismatches once a local Excel/VBE automation path is stable.
+
 ### Oracle Flow
 
 ```text

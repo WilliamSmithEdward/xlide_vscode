@@ -143,8 +143,9 @@ Landed first:
 - Same-module expression calls are checked for required argument count.
 - Empty positional slots are rejected when the corresponding parameter is
   required.
-- Call-statement-shaped lines that resolve to variables, parameters, constants,
-  types, or enum members are rejected as non-callable.
+- Argument-bearing or explicit call statements that resolve to variables,
+  parameters, constants, types, or enum members are rejected as non-callable;
+  bare variable statements are not rejected because VBE Compile accepts them.
 - Provably nonnumeric string literals passed to numeric parameters are flagged.
 - Numeric literals and numeric strings remain accepted for numeric parameters.
 - String formats whose VBA coercion depends on runtime value, locale, or deeper

@@ -13,10 +13,9 @@
 // lone-identifier `DoStartup`, the parenless `MsgBox "hi"`, or `Call Foo`) whose
 // name resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
-// declaration. A separate `nonCallableCallStatement` rule handles names that do
-// resolve in scope but resolve to data/type declarations instead of callables.
-// The broader undeclared-variable / arbitrary-expression unknown-call cases
-// still need a full expression binder and remain unimplemented.
+// declaration. The broader undeclared-variable / arbitrary-expression
+// unknown-call cases still need a full expression binder and remain
+// unimplemented.
 //
 // Pure data: no `vscode` dependency. The VS Code layer maps `severity` onto
 // `vscode.DiagnosticSeverity` and `code`/`source` onto the diagnostic.
