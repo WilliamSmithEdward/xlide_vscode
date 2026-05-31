@@ -400,7 +400,11 @@ into a pure analyzer layer and a thin VS Code provider:
   chain, and returns the filtered members. When a typed variable proves a more
   specific member surface after assignment from a mixed collection (for example
   `Dim ws As Worksheet: Set ws = Sheets(1)`), the declared type wins over the
-  collection's merged item surface. It also accepts a source-backed
+  collection's merged item surface. For generic `Object`/`Variant` variables,
+  the resolver can refine completion from the latest preceding simple `Set`
+  assignment to a known object expression, so `Set obj = Worksheets(1)` narrows
+  `obj.` to worksheet members while `Set obj = Sheets(1)` keeps the merged
+  worksheet/chart surface. It also accepts a source-backed
   workbook class-member surface from `ProjectIndex.projectClassMembers()`, so
   variables declared as workbook classes (for example `Dim p As Person`) can
   offer public/default-public source members at `p.` without guessing from

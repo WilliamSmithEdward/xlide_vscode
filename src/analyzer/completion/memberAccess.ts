@@ -15,6 +15,7 @@ import {
 	BodyNode,
 	ModuleNode,
 	ProcedureNode,
+	StatementNode,
 	VariableGroupNode,
 } from '../parser/nodes';
 import type {
@@ -88,6 +89,11 @@ interface MemberSurface {
 interface ReceiverChainSegment {
 	name: string;
 	hasArguments: boolean;
+}
+
+interface ReceiverChain {
+	segments: ReceiverChainSegment[];
+	startIndex: number;
 }
 
 interface ResolvedMemberReturn {
@@ -206,6 +212,38 @@ function receiverTypeFromTokens(
 	ctx: MemberCompletionContext,
 ): string | undefined {
 	const chain = collectReceiverChain(tokens, dotIndex - 1);
+	return receiverTypeFromChain(chain, source, offset, ctx);
+}
+
+function receiverTypeFromExpressionTokens(
+	tokens: VbaToken[],
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	if (tokens.length === 0) {
+		return undefined;
+	}
+	const chain = collectReceiverChainWithStart(tokens, tokens.length - 1);
+	if (!chain) {
+		return undefined;
+	}
+	const prefix = tokens.slice(0, chain.startIndex);
+	if (
+		prefix.length > 0 &&
+		!(prefix.length === 1 && prefix[0].rawText.toLowerCase() === 'new')
+	) {
+		return undefined;
+	}
+	return receiverTypeFromChain(chain.segments, source, offset, ctx);
+}
+
+function receiverTypeFromChain(
+	chain: ReceiverChainSegment[],
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): string | undefined {
 	if (chain.length === 0) {
 		return undefined;
 	}
@@ -240,28 +278,37 @@ function collectReceiverChain(
 	tokens: VbaToken[],
 	endIndex: number,
 ): ReceiverChainSegment[] {
+	return collectReceiverChainWithStart(tokens, endIndex)?.segments ?? [];
+}
+
+function collectReceiverChainWithStart(
+	tokens: VbaToken[],
+	endIndex: number,
+): ReceiverChain | undefined {
 	const segments: ReceiverChainSegment[] = [];
 	let i = endIndex;
 	let pendingHasArguments = false;
+	let startIndex = -1;
 	for (;;) {
 		// A statement boundary ends the receiver expression; anything to the left
 		// belongs to a different statement and must not join this chain.
 		if (i >= 0 && isBoundary(tokens[i])) {
-			return [];
+			return undefined;
 		}
 		// Skip a trailing call/index argument list: ... ident ( args ) .
 		if (i >= 0 && tokens[i].rawText === ')') {
 			const open = matchParenLeft(tokens, i);
 			if (open < 0) {
-				return [];
+				return undefined;
 			}
 			pendingHasArguments = true;
 			i = open - 1;
 			continue;
 		}
 		if (i < 0 || !isIdentLike(tokens[i])) {
-			return [];
+			return undefined;
 		}
+		startIndex = i;
 		segments.unshift({
 			name: word(tokens[i]),
 			hasArguments: pendingHasArguments,
@@ -274,7 +321,7 @@ function collectReceiverChain(
 		}
 		break;
 	}
-	return segments;
+	return { segments, startIndex };
 }
 
 /** Returns the index of the '(' matching the ')' at `closeIndex`, or -1. */
@@ -318,9 +365,15 @@ function resolveRoot(
 	}
 	const declaredType = findDeclaredType(source, offset, root);
 	if (declaredType) {
-		return resolveDeclaredObjectType(declaredType, ctx, model);
+		const declaredObjectType = resolveDeclaredObjectType(declaredType, ctx, model);
+		if (declaredObjectType) {
+			return declaredObjectType;
+		}
+		if (!isGenericObjectDeclaration(declaredType)) {
+			return undefined;
+		}
 	}
-	return undefined;
+	return findSetAssignedObjectType(source, offset, root, ctx);
 }
 
 function memberSurfaceForType(
@@ -591,6 +644,110 @@ function projectClassMembersByName(
 		out.set(key, type);
 	}
 	return out;
+}
+
+function isGenericObjectDeclaration(declaredType: string): boolean {
+	const lower = simpleTypeName(declaredType)?.toLowerCase();
+	return lower === 'object' || lower === 'variant';
+}
+
+function findSetAssignedObjectType(
+	source: string,
+	offset: number,
+	name: string,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	const module: ModuleNode = parseModule(source);
+	const lower = name.toLowerCase();
+	const enclosing = module.members.find(
+		(mem): mem is ProcedureNode =>
+			mem.kind === 'Procedure' &&
+			offset >= mem.span.start &&
+			offset <= mem.span.end,
+	);
+
+	if (enclosing) {
+		const hit = latestSetAssignmentInBody(enclosing.body, source, offset, lower);
+		if (hit) {
+			return receiverTypeFromExpressionTokens(hit.valueTokens, source, hit.offset, ctx);
+		}
+	}
+
+	let latest: SetAssignment | undefined;
+	for (const member of module.members) {
+		if (member.kind !== 'Statement' || member.span.end > offset) {
+			continue;
+		}
+		const hit = setAssignment(source, member);
+		if (hit?.name.toLowerCase() === lower) {
+			latest = hit;
+		}
+	}
+	return latest
+		? receiverTypeFromExpressionTokens(latest.valueTokens, source, latest.offset, ctx)
+		: undefined;
+}
+
+interface SetAssignment {
+	name: string;
+	valueTokens: VbaToken[];
+	offset: number;
+}
+
+function latestSetAssignmentInBody(
+	body: BodyNode[],
+	source: string,
+	offset: number,
+	lowerName: string,
+): SetAssignment | undefined {
+	let latest: SetAssignment | undefined;
+	for (const node of body) {
+		if (node.kind === 'Statement') {
+			if (node.span.end > offset) {
+				continue;
+			}
+			const hit = setAssignment(source, node);
+			if (hit?.name.toLowerCase() === lowerName) {
+				latest = hit;
+			}
+		} else if ('body' in node && Array.isArray(node.body)) {
+			const hit = latestSetAssignmentInBody(node.body, source, offset, lowerName);
+			if (hit) {
+				latest = hit;
+			}
+		}
+	}
+	return latest;
+}
+
+function setAssignment(source: string, stmt: StatementNode): SetAssignment | undefined {
+	const tokens = tokenize(source.slice(stmt.span.start, stmt.span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	let i = 0;
+	if (
+		tokens.length >= 2 &&
+		(tokens[0].kind === 'identifier' || tokens[0].kind === 'keyword') &&
+		tokens[1].rawText === ':'
+	) {
+		i = 2;
+	}
+	if (tokens[i]?.rawText.toLowerCase() !== 'set') {
+		return undefined;
+	}
+	const nameToken = tokens[i + 1];
+	if (!nameToken || nameToken.kind !== 'identifier') {
+		return undefined;
+	}
+	const equals = tokens[i + 2];
+	if (!equals || equals.kind !== 'operator' || equals.rawText !== '=') {
+		return undefined;
+	}
+	return {
+		name: nameToken.rawText,
+		valueTokens: tokens.slice(i + 3),
+		offset: stmt.span.start,
+	};
 }
 
 /**

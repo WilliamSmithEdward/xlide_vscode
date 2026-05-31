@@ -309,6 +309,58 @@ describe('member completion - declared variables', () => {
 		expect(got).not.toContain('Range');
 	});
 
+	it('refines Object variables from simple Set assignments to known object expressions', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim obj As Object\n' +
+			'    Set obj = Workbooks(1).Worksheets(1)\n' +
+			'    obj.\n' +
+			'End Sub\n';
+		const got = names(src, 'obj.');
+		expect(got).toContain('Range');
+		expect(got).toContain('Cells');
+		expect(got).not.toContain('ChartType');
+	});
+
+	it('keeps Object variables assigned from Sheets(index) on the merged item surface', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim obj As Object\n' +
+			'    Set obj = Workbooks(1).Sheets(1)\n' +
+			'    obj.\n' +
+			'End Sub\n';
+		const got = names(src, 'obj.');
+		expect(got).toContain('Range');
+		expect(got).toContain('Cells');
+		expect(got).toContain('ChartType');
+	});
+
+	it('refines Variant variables from Set assignments and supports downstream chains', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim obj As Variant\n' +
+			'    Set obj = Workbooks(1).Sheets(1)\n' +
+			'    obj.Range("A1").\n' +
+			'End Sub\n';
+		const got = names(src, 'obj.Range("A1").');
+		expect(got).toContain('Value');
+		expect(got).toContain('Offset');
+	});
+
+	it('uses the latest preceding Set assignment for generic object variables', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim obj As Object\n' +
+			'    Set obj = Workbooks(1).Worksheets(1)\n' +
+			'    Set obj = ActiveWorkbook\n' +
+			'    obj.\n' +
+			'End Sub\n';
+		const got = names(src, 'obj.');
+		expect(got).toContain('Save');
+		expect(got).toContain('Worksheets');
+		expect(got).not.toContain('Range');
+	});
+
 	it('resolves a parameter typed As Range', () => {
 		const src = 'Sub Test(rng As Range)\n    rng.\nEnd Sub\n';
 		const got = names(src, 'rng.');

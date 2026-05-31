@@ -292,7 +292,9 @@ Definition of done:
 
 Purpose: validate Excel/VBA object use where receiver type is known.
 
-- [ ] Track `Set` assignments to known object types.
+- [x] Track simple preceding `Set` assignments to known object expressions for
+  member completion, refining generic `Object`/`Variant` receivers while keeping
+  declared host/project object types authoritative.
 - [x] Build the first deterministic workbook class-member model from source:
   public/default-public methods, properties, and public fields/constants, with
   return types, setter/write types, mutability, visibility, and inline XML
