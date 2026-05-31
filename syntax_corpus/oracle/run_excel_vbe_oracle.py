@@ -152,35 +152,38 @@ def run_case(case: dict[str, Any], timeout: int) -> dict[str, Any]:
                 "hresult": None,
             }
 
-        stdout = completed.stdout.strip()
-        if not stdout:
-            dialog_result = read_dialog_result(case, dialog_path)
-            if dialog_result:
-                return dialog_result
-            return {
-                "caseId": case.get("id"),
-                "outcome": "worker_error",
-                "stage": "worker",
-                "message": completed.stderr.strip() or f"PowerShell exited {completed.returncode}",
-                "hresult": None,
-            }
         try:
-            result = json.loads(stdout.splitlines()[-1])
-        except json.JSONDecodeError:
-            dialog_result = read_dialog_result(case, dialog_path)
-            if dialog_result:
-                return dialog_result
-            return {
-                "caseId": case.get("id"),
-                "outcome": "worker_error",
-                "stage": "worker",
-                "message": stdout,
-                "stderr": completed.stderr.strip(),
-                "hresult": None,
-            }
-        if completed.stderr.strip():
-            result["stderr"] = completed.stderr.strip()
-        return result
+            stdout = completed.stdout.strip()
+            if not stdout:
+                dialog_result = read_dialog_result(case, dialog_path)
+                if dialog_result:
+                    return dialog_result
+                return {
+                    "caseId": case.get("id"),
+                    "outcome": "worker_error",
+                    "stage": "worker",
+                    "message": completed.stderr.strip() or f"PowerShell exited {completed.returncode}",
+                    "hresult": None,
+                }
+            try:
+                result = json.loads(stdout.splitlines()[-1])
+            except json.JSONDecodeError:
+                dialog_result = read_dialog_result(case, dialog_path)
+                if dialog_result:
+                    return dialog_result
+                return {
+                    "caseId": case.get("id"),
+                    "outcome": "worker_error",
+                    "stage": "worker",
+                    "message": stdout,
+                    "stderr": completed.stderr.strip(),
+                    "hresult": None,
+                }
+            if completed.stderr.strip():
+                result["stderr"] = completed.stderr.strip()
+            return result
+        finally:
+            kill_recorded_excel(pid_path)
 
 
 def main(argv: list[str]) -> int:
