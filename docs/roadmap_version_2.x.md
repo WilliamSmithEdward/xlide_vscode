@@ -92,9 +92,9 @@ truth.
   - observed but not asserted
   - pending verification
 - [x] Add an oracle-result update workflow for promoted corpus cases.
-- [ ] Review current syntax corpus for cases that predate the oracle and mark
+- [x] Review current syntax corpus for cases that predate the oracle and mark
   them pending until verified.
-- [ ] Add focused oracle fixtures for newly debated syntax edges only.
+- [x] Add focused oracle fixtures for newly debated syntax edges only.
 
 Definition of done:
 
@@ -111,16 +111,18 @@ Purpose: finish the conservative first slice before broadening inference.
 - [x] Named argument mapping before validation.
 - [x] Runtime function participation from curated metadata.
 - [x] High-confidence nonnumeric string literal mismatch diagnostics.
-- [ ] Add fixture coverage for every current compatibility edge:
-  - numeric literal to numeric parameter
-  - numeric string to numeric parameter
-  - nonnumeric string to numeric parameter
-  - Variant suppressing hard mismatch
-  - named argument order
-  - omitted required argument
-  - omitted optional argument behavior
-- [ ] Separate compile-equivalent argument errors from runtime-risk type
+- [x] Add fixture coverage for every current compatibility edge:
+  - [x] numeric literal to numeric parameter
+  - [x] numeric string to numeric parameter
+  - [x] nonnumeric string to numeric parameter
+  - [x] Variant suppressing hard mismatch
+  - [x] named argument order
+  - [x] omitted required argument
+  - [x] omitted optional argument behavior
+- [x] Separate compile-equivalent argument errors from runtime-risk type
   warnings in tests and metadata.
+- [x] Split object argument mismatches into a compile-equivalent red diagnostic
+  after focused oracle verification.
 
 Definition of done:
 
@@ -134,17 +136,19 @@ Purpose: infer simple expression result types without guessing.
 
 First vertical slice:
 
-- [ ] Same-module function call return type.
-- [ ] Nested same-module call return type.
-- [ ] Curated runtime conversion function return types:
-  - `CStr`
-  - `CDbl`
-  - `CCur`
-  - `CLng`
-  - `CBool`
-- [ ] Arithmetic result family inference for obvious numeric expressions.
-- [ ] String concatenation result inference for `&`.
-- [ ] Unknown or `Variant` expression operands suppress hard diagnostics.
+- [x] Same-module function call return type.
+- [x] Nested same-module call return type.
+- [x] Curated runtime conversion function return types:
+  - [x] `CStr`
+  - [x] `CDbl`
+  - [x] `CCur`
+  - [x] `CLng`
+  - [x] `CBool`
+- [x] Arithmetic result family inference for obvious numeric expressions.
+- [x] String concatenation result inference for `&`.
+- [x] Unknown or `Variant` expression operands suppress hard diagnostics.
+- [x] Assignment type mismatch warning after expression proof for scalar
+  assignments.
 
 Out of scope until proven:
 
@@ -209,11 +213,8 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Audit existing corpus cases that influenced current diagnostics and mark
-   whether they are oracle-verified.
-2. Start Phase 2 with same-module return type inference for nested calls.
-3. Add assignment type mismatch as warning/error only after the expression
-   return type model can prove the source and target types.
+1. Start the project-wide binder vertical slice for public procedures across
+   standard modules.
 
 ## Files To Keep In Sync
 
@@ -224,6 +225,7 @@ Definition of done:
 - `src/analyzer/diagnostics/ruleMetadata.ts`
 - `syntax_corpus/README.md`
 - `syntax_corpus/corpus_provenance.json`
+- `syntax_corpus/diagnostic_influence_audit.json`
 - `syntax_corpus/oracle/README.md`
 - `syntax_corpus/oracle/run_excel_vbe_oracle.py`
 - `syntax_corpus/oracle/vbe_oracle_cases.json`

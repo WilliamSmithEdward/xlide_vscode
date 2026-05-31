@@ -140,6 +140,12 @@ Landed first:
 - Same-module procedure parameter/return types are collected from parsed source.
 - Literal arguments, declared local/module variables, and nested call returns can
   produce simple inferred types.
+- Obvious arithmetic expressions composed only of proven numeric operands infer
+  as numeric; expressions with `Variant`, unknown, or string operands remain
+  unknown.
+- String concatenation expressions using `&` infer as `String` only when every
+  operand has a known scalar type; `Variant`, unknown, and object-like operands
+  keep the expression unknown.
 - Same-module expression calls are checked for required argument count.
 - Empty positional slots are rejected when the corresponding parameter is
   required.
@@ -151,8 +157,11 @@ Landed first:
 - Numeric literals and numeric strings remain accepted for numeric parameters.
 - String formats whose VBA coercion depends on runtime value, locale, or deeper
   conversion semantics remain unknown until modeled explicitly.
-- `argument-type-mismatch` is error-severity only when XLIDE has deterministic
-  proof that the supplied argument cannot satisfy the parameter type.
+- `argument-type-mismatch` is warning-severity when XLIDE has deterministic
+  proof that the supplied argument is a runtime type risk but VBE Compile still
+  accepts the code.
+- Object argument mismatches use a separate compile-equivalent error diagnostic
+  after focused Excel/VBE oracle verification.
 - Named arguments map to the named parameter before type validation.
 - Curated VBA runtime functions participate when their parameter type is known.
 - Runtime parameter types are never inferred from parameter names.

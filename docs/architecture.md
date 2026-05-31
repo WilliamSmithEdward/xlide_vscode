@@ -526,6 +526,15 @@ Diagnostic severity policy:
   slots; it honours `Optional` (lowers the minimum) and `ParamArray` (removes
   the maximum), validates named-argument names against the parameters, and skips
   host/runtime/cross-module callees plus any duplicated/ambiguous name. The
+  `argument-type-mismatch` and `assignment-type-mismatch` rules are
+  warning-severity runtime-risk diagnostics: focused Excel/VBE oracle cases
+  confirm representative nonnumeric string coercion examples compile, so these
+  are not VBE compile-equivalent errors. `argument-object-type-mismatch` is
+  split out as a red compile-equivalent diagnostic after an oracle case confirmed
+  `String` to `Object` is rejected by VBE Compile. These rules use only declared
+  parameter/local types, curated runtime return metadata, same-module return
+  types, and deterministic literal/expression inference; unknown and `Variant`
+  operands suppress diagnostics.
   `unknown-call` rule runs only when the caller
   passes `knownProcedures` (the project-wide procedure-name set from
   `ProjectIndex.procedureNames()`); without it that rule is skipped so a single

@@ -611,7 +611,7 @@ describe('analyzeModule - argument type validation', () => {
 		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].severity).toBe('error');
+		expect(hits[0].severity).toBe('warning');
 		expect(hits[0].message).toContain('Subtotal');
 		expect(hits[0].message).toContain('Currency');
 	});
@@ -634,6 +634,17 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Sub TestInvoiceTotal()\n' +
 			'    Dim label As String\n' +
 			'    total = InvoiceTotal(label)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+	});
+
+	it('does not warn on Variant arguments whose runtime value is unknown', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    Dim value As Variant\n' +
+			'    total = InvoiceTotal(value)\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
 	});
@@ -667,6 +678,176 @@ describe('analyzeModule - argument type validation', () => {
 	it('does not warn when a type is unknown or Variant-like', () => {
 		const src = 'Sub T()\n    x = Format("blah", "0.00")\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+	});
+
+	it('uses same-module function return types as argument types', () => {
+		const src =
+			'Public Function MakeLabel() As String\n' +
+			'End Function\n' +
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject MakeLabel()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('MakeLabel');
+		expect(hits[0].message).toContain('MakeLabel(...) As String');
+	});
+
+	it('uses nested same-module function return types as argument types', () => {
+		const src =
+			'Public Function MakeLabel() As String\n' +
+			'End Function\n' +
+			'Public Function EchoLabel(ByVal value As String) As String\n' +
+			'End Function\n' +
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject EchoLabel(MakeLabel())\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('EchoLabel');
+		expect(hits[0].message).toContain('EchoLabel(...) As String');
+	});
+
+	it('uses curated runtime conversion function return types as argument types', () => {
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject CStr(123)\n' +
+			'    NeedsObject CDbl("1")\n' +
+			'    NeedsObject CCur(1)\n' +
+			'    NeedsObject CLng(1)\n' +
+			'    NeedsObject CBool("True")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(5);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'CStr',
+			'CDbl',
+			'CCur',
+			'CLng',
+			'CBool',
+		]);
+	});
+
+	it('uses obvious numeric arithmetic expression return types as argument types', () => {
+		const src =
+			'Public Function TaxRate() As Double\n' +
+			'End Function\n' +
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim subtotal As Currency\n' +
+			'    Dim fee As Double\n' +
+			'    NeedsObject subtotal + fee * TaxRate()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('subtotal + fee * TaxRate()');
+		expect(hits[0].message).toContain('numeric expression');
+	});
+
+	it('does not infer arithmetic expressions with unknown, Variant, or string operands', () => {
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim amount As Double\n' +
+			'    Dim flexible As Variant\n' +
+			'    Dim label As String\n' +
+			'    NeedsObject amount + flexible\n' +
+			'    NeedsObject amount + UnknownValue\n' +
+			'    NeedsObject amount + label\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		expect(byCode(diagnostics, 'argument-type-mismatch')).toHaveLength(0);
+		expect(byCode(diagnostics, 'argument-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('uses string concatenation expression return types as argument types', () => {
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim prefix As String\n' +
+			'    Dim amount As Double\n' +
+			'    NeedsObject prefix & amount & CStr(123)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('prefix & amount & CStr(123)');
+		expect(hits[0].message).toContain('string concatenation expression');
+	});
+
+	it('does not infer string concatenation expressions with unknown or Variant operands', () => {
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim prefix As String\n' +
+			'    Dim flexible As Variant\n' +
+			'    NeedsObject prefix & flexible\n' +
+			'    NeedsObject prefix & UnknownValue\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		expect(byCode(diagnostics, 'argument-type-mismatch')).toHaveLength(0);
+		expect(byCode(diagnostics, 'argument-object-type-mismatch')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - assignment type validation', () => {
+	it('warns on a nonnumeric string literal assigned to a numeric variable', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim total As Double\n' +
+			'    total = "blah"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('warning');
+		expect(spanText(src, hits[0])).toBe('"blah"');
+		expect(hits[0].message).toContain('total');
+		expect(hits[0].message).toContain('Double');
+	});
+
+	it('warns on a non-Boolean string literal assigned to a Boolean variable', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim enabled As Boolean\n' +
+			'    enabled = "maybe"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"maybe"');
+		expect(hits[0].message).toContain('Boolean');
+	});
+
+	it('accepts VBA scalar coercions and unknown assignment values', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim total As Double\n' +
+			'    Dim label As String\n' +
+			'    Dim flexible As Variant\n' +
+			'    total = "100"\n' +
+			'    label = 123\n' +
+			'    total = flexible\n' +
+			'    total = UnknownValue\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+	});
+
+	it('leaves object assignment rules to the object/type binder roadmap', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim item As Object\n' +
+			'    item = "blah"\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 });
 

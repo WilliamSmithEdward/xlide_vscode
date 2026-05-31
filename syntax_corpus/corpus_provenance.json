@@ -28,6 +28,11 @@
       "notes": "Boundary-case corpus with mixed syntax, editor, and host behavior. Verify generated cases before promotion."
     },
     {
+      "path": "diagnostic_influence_audit.json",
+      "provenance": "pending-verification",
+      "notes": "Machine-readable audit mapping active diagnostics to spec, oracle, or pending corpus evidence. Entries contain mixed case-level provenance."
+    },
+    {
       "path": "xlide_vba_legacy_visible_corpus_edges.md",
       "provenance": "pending-verification",
       "notes": "Visible editor edge notes retained for coverage planning; not authoritative without case-level evidence."

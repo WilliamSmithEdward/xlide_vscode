@@ -44,10 +44,34 @@
     {
       "id": "number_to_string_assignment",
       "description": "VBA can coerce a numeric literal into a String variable.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = 123\nEnd Sub\n"
+    },
+    {
+      "id": "nonnumeric_string_to_double_assignment",
+      "description": "A nonnumeric string literal assigned to a Double variable; this should guide warning severity rather than compile-equivalent error severity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim total As Double\n    total = \"blah\"\nEnd Sub\n"
+    },
+    {
+      "id": "nonnumeric_string_to_currency_argument",
+      "description": "A nonnumeric string literal passed to a Currency parameter; this should guide warning severity rather than compile-equivalent error severity.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Currency\n    total = InvoiceTotal(\"blah\", 0.08)\nEnd Sub\n"
+    },
+    {
+      "id": "string_literal_to_object_argument",
+      "description": "A string literal passed to an Object parameter; this calibrates whether object argument mismatches are compile-equivalent.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub NeedsObject(ByVal item As Object)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsObject \"hello\"\nEnd Sub\n"
     },
     {
       "id": "normal_function_call",
@@ -56,6 +80,54 @@
       "expected": "accepted",
       "mode": "compile",
       "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total2 As Double\n    total2 = InvoiceTotal(100, 0.08)\nEnd Sub\n"
+    },
+    {
+      "id": "expression_call_without_parentheses_in_assignment",
+      "description": "A function call used in an assignment expression without parentheses around arguments.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    total = InvoiceTotal 100, 0.08\nEnd Sub\n"
+    },
+    {
+      "id": "explicit_call_missing_argument_parentheses",
+      "description": "A Call statement with arguments but without the required parentheses.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Call MsgBox \"hello\"\nEnd Sub\n"
+    },
+    {
+      "id": "if_statement_missing_then",
+      "description": "A single-line If statement whose condition is not followed by Then.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    If 1 = 1\n        MsgBox \"hello\"\n    End If\nEnd Sub\n"
+    },
+    {
+      "id": "case_statement_outside_select",
+      "description": "A Case statement appears without an enclosing Select Case block.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Case 1\n        MsgBox \"hello\"\nEnd Sub\n"
+    },
+    {
+      "id": "leading_member_access_outside_with",
+      "description": "A statement begins with member access syntax outside a With block.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    .Value = 1\nEnd Sub\n"
+    },
+    {
+      "id": "exit_do_outside_loop",
+      "description": "Exit Do appears outside a Do loop.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Exit Do\nEnd Sub\n"
     }
   ]
 }

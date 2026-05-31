@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "notes": [
+    "This file tracks whether current active diagnostics are driven by corpus material, MS-VBAL/spec evidence, or oracle observations.",
+    "Legacy Markdown corpus files are pending-verification and must not be used as sole evidence for hard diagnostics.",
+    "Observed-only oracle cases may guide discovery, but they do not justify hard analyzer behavior until promoted."
+  ],
+  "diagnostics": [
+    {
+      "code": "unterminated-string",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 3.3.4",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "duplicate-procedure",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "duplicate-declaration",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2 / 5.3",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "duplicate-module-variable",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.3",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "const-assignment",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.3.1",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "option-explicit-missing",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus XLIDE style policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "invalid-proc-header",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "unbalanced-parens",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 3.3.1",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "argument-count",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "missing_trailing_required_argument",
+        "missing_leading_required_argument",
+        "normal_function_call"
+      ],
+      "observeOnlyOracleCases": [
+        "missing_trailing_optional_argument"
+      ],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "argument-type-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle for severity plus deterministic XLIDE literal, return-type, numeric-expression, and string-concatenation compatibility model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "nonnumeric_string_to_currency_argument"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is a warning, not a VBE compile-equivalent error: the focused oracle case compiles successfully."
+    },
+    {
+      "code": "argument-object-type-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE object-parameter compatibility model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "string_literal_to_object_argument"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch."
+    },
+    {
+      "code": "assignment-type-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle for severity plus deterministic XLIDE scalar assignment compatibility model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "number_to_string_assignment",
+        "nonnumeric_string_to_double_assignment"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is a warning, not a VBE compile-equivalent error: focused oracle cases compile successfully."
+    },
+    {
+      "code": "unknown-call",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus project symbol graph",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "non-callable-call",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle case for bare variable statement",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "bare_variable_statement"
+      ],
+      "observeOnlyOracleCases": [
+        "local_string_with_argument_statement"
+      ],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The argument-bearing local-variable call shape is observed-only until promoted; the active rule remains justified by call-statement target resolution."
+    },
+    {
+      "code": "dim-initializer",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.3.1",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "call-requires-parens",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [
+        "explicit_call_missing_argument_parentheses"
+      ],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "expression-call-requires-parens",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.6.9",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [
+        "expression_call_without_parentheses_in_assignment"
+      ],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "required-param-after-optional",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1.5",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "paramarray-not-last",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1.6",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "exit-wrong-proc",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.1.3",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "option-after-declaration",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.1",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "if-missing-then",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [
+        "if_statement_missing_then"
+      ],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "case-outside-select",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.2.4",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [
+        "case_statement_outside_select"
+      ],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "member-access-outside-with",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.2.6",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [
+        "leading_member_access_outside_with"
+      ],
+      "pendingLegacyCorpusFiles": []
+    },
+    {
+      "code": "exit-outside-block",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.1.3",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [
+        "exit_do_outside_loop"
+      ],
+      "pendingLegacyCorpusFiles": []
+    }
+  ]
+}

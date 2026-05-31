@@ -165,6 +165,7 @@ function runRules(
 	checkNonCallableCallStatement(source, mod, symbols, push);
 	checkArgumentCount(source, mod, push);
 	checkArgumentTypes(source, mod, symbols, push);
+	checkAssignmentTypes(source, mod, symbols, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
 	}
@@ -355,7 +356,7 @@ function forEachStatement(
 function bareAssignmentTarget(
 	source: string,
 	span: Span,
-): { name: string; span: Span } | undefined {
+): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
 	const toks = tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
@@ -389,6 +390,7 @@ function bareAssignmentTarget(
 	return {
 		name: nameTok.rawText,
 		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
+		valueTokens: toks.slice(i + 2),
 	};
 }
 
@@ -1166,6 +1168,49 @@ function checkArgumentTypes(
 	}
 }
 
+function checkAssignmentTypes(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	push: PushFn,
+): void {
+	const moduleSignatures = buildModuleTypeSignatures(mod);
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const env = typeEnvironmentFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			const assignment = bareAssignmentTarget(source, stmt.span);
+			if (!assignment) {
+				return;
+			}
+			const expected = env.get(assignment.name.toLowerCase());
+			if (!expected || normalizeType(expected) === 'object') {
+				return;
+			}
+			const actual = inferArgumentType(
+				assignment.valueTokens,
+				stmt.span.start,
+				env,
+				moduleSignatures,
+			);
+			if (!actual) {
+				return;
+			}
+			const reason = incompatibilityReason(expected, actual);
+			if (!reason) {
+				return;
+			}
+			push(
+				'assignmentTypeMismatch',
+				`Assignment to '${assignment.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
+				actual.span,
+			);
+		});
+	}
+}
+
 function buildModuleTypeSignatures(mod: ModuleNode): Map<string, CallableTypeSignature> {
 	const out = new Map<string, CallableTypeSignature>();
 	for (const member of mod.members) {
@@ -1286,8 +1331,12 @@ function validateArgumentTypes(
 		if (!reason) {
 			continue;
 		}
+		const rule =
+			normalizeType(expected) === 'object'
+				? 'argumentObjectTypeMismatch'
+				: 'argumentTypeMismatch';
 		push(
-			'argumentTypeMismatch',
+			rule,
 			`Argument '${param.name}' of '${sig.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
 			actual.span,
 		);
@@ -1406,33 +1455,74 @@ function inferArgumentType(
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 ): InferredArgumentType | undefined {
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	return inferExpressionType(toks, sliceStart, env, moduleSignatures);
+}
+
+function inferExpressionType(
+	toks: VbaToken[],
+	sliceStart: number,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): InferredArgumentType | undefined {
+	const first = toks[0];
+	if (!first) {
+		return undefined;
+	}
+	const unwrapped = unwrapOuterParens(toks);
+	if (unwrapped !== toks) {
+		return inferExpressionType(unwrapped, sliceStart, env, moduleSignatures);
+	}
+	const concatenation = inferStringConcatenationExpressionType(
+		toks,
+		sliceStart,
+		env,
+		moduleSignatures,
+	);
+	if (concatenation) {
+		return concatenation;
+	}
+	const arithmetic = inferArithmeticExpressionType(toks, sliceStart, env, moduleSignatures);
+	if (arithmetic) {
+		return arithmetic;
+	}
+	return inferAtomicExpressionType(toks, sliceStart, env, moduleSignatures);
+}
+
+function inferAtomicExpressionType(
+	toks: VbaToken[],
+	sliceStart: number,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): InferredArgumentType | undefined {
 	const first = toks[0];
 	if (!first) {
 		return undefined;
 	}
 	const span = { start: sliceStart + first.start, end: sliceStart + first.end };
-	switch (first.kind) {
-		case 'stringLiteral': {
-			const value = stringLiteralValue(first.rawText);
-			return { type: 'String', label: `String literal ${first.rawText}`, span, stringValue: value };
-		}
-		case 'integerLiteral':
-		case 'floatLiteral':
-			return { type: 'Double', label: 'numeric literal', span };
-		case 'dateLiteral':
-			return { type: 'Date', label: 'Date literal', span };
-		case 'keyword': {
-			const word = first.rawText.toLowerCase();
-			if (word === 'true' || word === 'false') {
-				return { type: 'Boolean', label: 'Boolean literal', span };
+	if (toks.length === 1) {
+		switch (first.kind) {
+			case 'stringLiteral': {
+				const value = stringLiteralValue(first.rawText);
+				return { type: 'String', label: `String literal ${first.rawText}`, span, stringValue: value };
 			}
-			if (word === 'nothing') {
-				return { type: 'Nothing', label: 'Nothing', span };
+			case 'integerLiteral':
+			case 'floatLiteral':
+				return { type: 'Double', label: 'numeric literal', span };
+			case 'dateLiteral':
+				return { type: 'Date', label: 'Date literal', span };
+			case 'keyword': {
+				const word = first.rawText.toLowerCase();
+				if (word === 'true' || word === 'false') {
+					return { type: 'Boolean', label: 'Boolean literal', span };
+				}
+				if (word === 'nothing') {
+					return { type: 'Nothing', label: 'Nothing', span };
+				}
+				break;
 			}
-			break;
+			default:
+				break;
 		}
-		default:
-			break;
 	}
 	const name = tokenName(first);
 	if (name && toks.length === 1) {
@@ -1441,11 +1531,127 @@ function inferArgumentType(
 	}
 	if (name && toks[1]?.rawText === '(') {
 		const sig = callableSignatureFor(name, moduleSignatures);
-		if (sig?.returnType) {
+		if (sig?.returnType && matchParenFrom(toks, 1) === toks.length - 1) {
 			return { type: sig.returnType, label: `${name}(...) As ${sig.returnType}`, span };
 		}
 	}
 	return undefined;
+}
+
+function unwrapOuterParens(toks: VbaToken[]): VbaToken[] {
+	if (toks.length < 2 || toks[0].rawText !== '(') {
+		return toks;
+	}
+	const close = matchParenFrom(toks, 0);
+	return close === toks.length - 1 ? toks.slice(1, -1) : toks;
+}
+
+function inferArithmeticExpressionType(
+	toks: VbaToken[],
+	sliceStart: number,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): InferredArgumentType | undefined {
+	const parts = splitTopLevelArithmeticOperands(toks);
+	if (parts.length < 2) {
+		return undefined;
+	}
+	for (const part of parts) {
+		const inferred = inferExpressionType(part, sliceStart, env, moduleSignatures);
+		const normalized = normalizeType(inferred?.type);
+		if (!normalized || !isNumericType(normalized)) {
+			return undefined;
+		}
+	}
+	return {
+		type: 'Double',
+		label: 'numeric expression',
+		span: spanForTokens(toks, sliceStart),
+	};
+}
+
+function inferStringConcatenationExpressionType(
+	toks: VbaToken[],
+	sliceStart: number,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): InferredArgumentType | undefined {
+	const parts = splitTopLevelOperands(toks, '&');
+	if (parts.length < 2) {
+		return undefined;
+	}
+	for (const part of parts) {
+		const inferred = inferExpressionType(part, sliceStart, env, moduleSignatures);
+		const normalized = normalizeType(inferred?.type);
+		if (!normalized || !isStringConcatenationOperandType(normalized)) {
+			return undefined;
+		}
+	}
+	return {
+		type: 'String',
+		label: 'string concatenation expression',
+		span: spanForTokens(toks, sliceStart),
+	};
+}
+
+function splitTopLevelArithmeticOperands(toks: VbaToken[]): VbaToken[][] {
+	const parts = splitTopLevelOperands(toks, '+', '-', '*', '/', '\\', '^');
+	if (parts.length < 2) {
+		return [];
+	}
+	return parts;
+}
+
+function splitTopLevelOperands(toks: VbaToken[], ...operators: string[]): VbaToken[][] {
+	const allowed = new Set(operators);
+	const parts: VbaToken[][] = [];
+	let start = 0;
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+			continue;
+		}
+		if (raw === ')' || raw === ']') {
+			depth--;
+			continue;
+		}
+		if (depth !== 0) {
+			continue;
+		}
+		if (toks[i].kind !== 'operator' || !allowed.has(toks[i].rawText)) {
+			if (toks[i].kind === 'operator') {
+				return [];
+			}
+			continue;
+		}
+		if (i === start || i === toks.length - 1) {
+			return [];
+		}
+		parts.push(toks.slice(start, i));
+		start = i + 1;
+	}
+	if (parts.length === 0) {
+		return [];
+	}
+	parts.push(toks.slice(start));
+	return parts;
+}
+
+function isStringConcatenationOperandType(type: string): boolean {
+	return (
+		type === 'string' ||
+		type === 'boolean' ||
+		type === 'date' ||
+		isNumericType(type)
+	);
+}
+
+function spanForTokens(toks: VbaToken[], sliceStart: number): Span {
+	const first = toks[0];
+	const last = toks[toks.length - 1];
+	return { start: sliceStart + first.start, end: sliceStart + last.end };
 }
 
 function incompatibilityReason(

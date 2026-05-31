@@ -33,6 +33,11 @@ The per-case value is the source of truth when it exists. File-level provenance
 is only a coarse audit marker for Markdown planning corpora and legacy fixture
 collections.
 
+`diagnostic_influence_audit.json` maps every active diagnostic code to its
+current evidence source. It distinguishes diagnostics backed by asserted oracle
+cases from diagnostics that are spec-derived and diagnostics that only mention
+observe-only oracle cases for future discovery.
+
 When promoting a Markdown example into an executable fixture, copy the case into
 a machine-readable fixture file and assign one of the provenance states above.
 Hard error expectations require `spec-derived` or `vbe-oracle-verified`
