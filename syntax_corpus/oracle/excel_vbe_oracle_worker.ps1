@@ -12,7 +12,10 @@ param(
     [string]$DialogPath = "",
 
     [Parameter(Mandatory = $false)]
-    [int]$DialogWatchSeconds = 60
+    [int]$DialogWatchSeconds = 60,
+
+    [Parameter(Mandatory = $false)]
+    [int]$DialogHoldSeconds = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,11 +38,12 @@ public static class XlideVbeDialogWatcher {
     private const int WM_COMMAND = 0x0111;
     private const int BM_CLICK = 0x00F5;
     private const int IDOK = 1;
-    private const int VBE_RESET_COMMAND_ID = 228;
+    private const uint SMTO_ABORTIFHUNG = 0x0002;
+    private const int SW_SHOW = 5;
+    private const int SW_RESTORE = 9;
     private const byte VK_MENU = 0x12;
     private const byte VK_D = 0x44;
     private const byte VK_L = 0x4C;
-    private const byte VK_R = 0x52;
     private const uint KEYEVENTF_KEYUP = 0x0002;
     private static Thread watcherThread;
     private static volatile bool stopRequested;
@@ -76,13 +80,45 @@ public static class XlideVbeDialogWatcher {
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SendMessageTimeout(
+        IntPtr hWnd,
+        uint Msg,
+        IntPtr wParam,
+        IntPtr lParam,
+        uint fuFlags,
+        uint uTimeout,
+        out IntPtr lpdwResult
+    );
+
+    [DllImport("user32.dll")]
+    private static extern int GetDlgCtrlID(IntPtr hWnd);
+
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
     private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
-    public static void Start(uint excelProcessId, string resultPath, string stagePath, int maxSeconds) {
+    public static void Start(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds) {
         Stop();
         if (excelProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
             return;
@@ -90,16 +126,25 @@ public static class XlideVbeDialogWatcher {
 
         stopRequested = false;
         watcherThread = new Thread(delegate() {
-            Watch(excelProcessId, resultPath, stagePath, maxSeconds);
+            Watch(excelProcessId, resultPath, stagePath, maxSeconds, holdSeconds);
         });
         watcherThread.IsBackground = true;
         watcherThread.Start();
     }
 
+    public static bool FocusExcelWindow(IntPtr excelHwnd) {
+        return FocusWindow(excelHwnd);
+    }
+
+    public static bool FocusVbeWindow(uint excelProcessId) {
+        IntPtr vbeHwnd = FindVbeMainWindow(excelProcessId);
+        return FocusWindow(vbeHwnd);
+    }
+
     public static void Stop() {
         stopRequested = true;
         if (watcherThread != null && watcherThread.IsAlive) {
-            watcherThread.Join(1000);
+            watcherThread.Join(5000);
         }
         watcherThread = null;
     }
@@ -110,19 +155,62 @@ public static class XlideVbeDialogWatcher {
             return false;
         }
 
-        SetForegroundWindow(vbeHwnd);
-        Thread.Sleep(300);
+        FocusWindow(vbeHwnd);
         AltTap(VK_D);
         Tap(VK_L);
         return true;
     }
 
-    private static void Watch(uint excelProcessId, string resultPath, string stagePath, int maxSeconds) {
+    private static bool FocusWindow(IntPtr hWnd) {
+        if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) {
+            return false;
+        }
+
+        if (IsIconic(hWnd)) {
+            ShowWindow(hWnd, SW_RESTORE);
+        }
+        else {
+            ShowWindow(hWnd, SW_SHOW);
+        }
+
+        IntPtr foreground = GetForegroundWindow();
+        uint foregroundProcessId;
+        uint foregroundThreadId = foreground == IntPtr.Zero
+            ? 0
+            : GetWindowThreadProcessId(foreground, out foregroundProcessId);
+        uint targetProcessId;
+        uint targetThreadId = GetWindowThreadProcessId(hWnd, out targetProcessId);
+        uint currentThreadId = GetCurrentThreadId();
+        bool attachedForeground = false;
+        bool attachedTarget = false;
+        try {
+            if (foregroundThreadId != 0 && foregroundThreadId != currentThreadId) {
+                attachedForeground = AttachThreadInput(currentThreadId, foregroundThreadId, true);
+            }
+            if (targetThreadId != 0 && targetThreadId != currentThreadId) {
+                attachedTarget = AttachThreadInput(currentThreadId, targetThreadId, true);
+            }
+            BringWindowToTop(hWnd);
+            SetForegroundWindow(hWnd);
+        }
+        finally {
+            if (attachedTarget) {
+                AttachThreadInput(currentThreadId, targetThreadId, false);
+            }
+            if (attachedForeground) {
+                AttachThreadInput(currentThreadId, foregroundThreadId, false);
+            }
+        }
+
+        Thread.Sleep(250);
+        return GetForegroundWindow() == hWnd;
+    }
+
+    private static void Watch(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds) {
         DateTime deadline = DateTime.UtcNow.AddSeconds(Math.Max(1, maxSeconds));
         while (!stopRequested && DateTime.UtcNow < deadline) {
             DialogInfo dialog = FindVbeDialog(excelProcessId);
             if (dialog != null) {
-                WriteDialogResult(resultPath, dialog);
                 if (!String.IsNullOrEmpty(stagePath)) {
                     try {
                         string stage = dialog.Kind == "vbe_compile_dialog" ? "compile_dialog" : "vbe_dialog";
@@ -131,9 +219,24 @@ public static class XlideVbeDialogWatcher {
                     catch {
                     }
                 }
-                DismissDialogAndReset(dialog.Handle, excelProcessId);
-                return;
+                HoldDialogForInspection(dialog.Handle, holdSeconds);
+                if (DismissDialog(dialog.Handle)) {
+                    WriteDialogResult(resultPath, dialog);
+                    return;
+                }
             }
+            Thread.Sleep(100);
+        }
+    }
+
+    private static void HoldDialogForInspection(IntPtr hWnd, int holdSeconds) {
+        int seconds = Math.Max(0, holdSeconds);
+        if (seconds <= 0) {
+            return;
+        }
+        FocusWindow(hWnd);
+        DateTime deadline = DateTime.UtcNow.AddSeconds(seconds);
+        while (!stopRequested && DateTime.UtcNow < deadline && IsWindow(hWnd)) {
             Thread.Sleep(100);
         }
     }
@@ -231,18 +334,35 @@ public static class XlideVbeDialogWatcher {
         return builder.ToString();
     }
 
-    private static void DismissDialogAndReset(IntPtr hWnd, uint excelProcessId) {
-        if (!ClickDialogButton(hWnd, "OK", "End")) {
-            PostMessage(hWnd, WM_COMMAND, new IntPtr(IDOK), IntPtr.Zero);
-        }
-        Thread.Sleep(500);
-        if (IsWindow(hWnd)) {
-            PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-        }
-        ResetVbe(excelProcessId);
+    private static bool DismissDialog(IntPtr hWnd) {
+        bool closed = DismissDialog(hWnd, 5000);
+        return closed;
     }
 
-    private static bool ClickDialogButton(IntPtr parent, params string[] captions) {
+    private static bool DismissDialog(IntPtr hWnd, int maxMilliseconds) {
+        DateTime deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(1, maxMilliseconds));
+        while (DateTime.UtcNow < deadline) {
+            if (!IsWindow(hWnd) || !IsWindowVisible(hWnd)) {
+                return true;
+            }
+
+            IntPtr button = FindDialogButton(hWnd, "OK", "End");
+            if (button != IntPtr.Zero) {
+                int controlId = GetDlgCtrlID(button);
+                if (controlId == 0) {
+                    controlId = IDOK;
+                }
+                SendDialogCommand(hWnd, controlId, button);
+                SendButtonClick(button);
+            }
+            SendDialogCommand(hWnd, IDOK, IntPtr.Zero);
+            SendWindowClose(hWnd);
+            Thread.Sleep(100);
+        }
+        return !IsWindow(hWnd) || !IsWindowVisible(hWnd);
+    }
+
+    private static IntPtr FindDialogButton(IntPtr parent, params string[] captions) {
         IntPtr found = IntPtr.Zero;
         EnumChildWindows(parent, delegate(IntPtr hWnd, IntPtr lParam) {
             string text = GetText(hWnd).Trim().Replace("&", "");
@@ -254,37 +374,48 @@ public static class XlideVbeDialogWatcher {
             }
             return true;
         }, IntPtr.Zero);
-        if (found == IntPtr.Zero) {
-            return false;
-        }
-        SendMessage(found, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
-        return true;
+        return found;
     }
 
-    private static void ResetVbe(uint excelProcessId) {
-        IntPtr vbeHwnd = FindVbeMainWindow(excelProcessId);
-        for (int attempt = 0; attempt < 4; attempt++) {
-            EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
-                uint windowProcessId;
-                GetWindowThreadProcessId(hWnd, out windowProcessId);
-                if (windowProcessId != excelProcessId || !IsWindowVisible(hWnd)) {
-                    return true;
-                }
+    private static void SendDialogCommand(IntPtr parent, int controlId, IntPtr control) {
+        IntPtr ignored;
+        SendMessageTimeout(
+            parent,
+            WM_COMMAND,
+            new IntPtr(controlId),
+            control,
+            SMTO_ABORTIFHUNG,
+            500,
+            out ignored
+        );
+        PostMessage(parent, WM_COMMAND, new IntPtr(controlId), control);
+    }
 
-                string className = GetClass(hWnd);
-                if (className == "wndclass_desked_gsk") {
-                    PostMessage(hWnd, WM_COMMAND, new IntPtr(VBE_RESET_COMMAND_ID), IntPtr.Zero);
-                }
-                return true;
-            }, IntPtr.Zero);
-            if (vbeHwnd != IntPtr.Zero) {
-                SetForegroundWindow(vbeHwnd);
-                Thread.Sleep(100);
-                AltTap(VK_D);
-                Tap(VK_R);
-            }
-            Thread.Sleep(250);
-        }
+    private static void SendButtonClick(IntPtr button) {
+        IntPtr ignored;
+        SendMessageTimeout(
+            button,
+            BM_CLICK,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            SMTO_ABORTIFHUNG,
+            500,
+            out ignored
+        );
+    }
+
+    private static void SendWindowClose(IntPtr hWnd) {
+        IntPtr ignored;
+        SendMessageTimeout(
+            hWnd,
+            WM_CLOSE,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            SMTO_ABORTIFHUNG,
+            500,
+            out ignored
+        );
+        PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
     }
 
     private static void AltTap(byte vk) {
@@ -497,10 +628,12 @@ try {
     $excelPid = 0
     [void][XlideUser32]::GetWindowThreadProcessId([IntPtr]$excel.Hwnd, [ref]$excelPid)
     Set-Content -LiteralPath $PidPath -Value $excelPid -Encoding ascii
+    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
 
     Set-Stage "create_workbook"
     $workbook = $excel.Workbooks.Add()
     [void]$workbook.Activate()
+    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
 
     Set-Stage "add_module"
     $vbProject = $workbook.VBProject
@@ -508,6 +641,7 @@ try {
     $component.Name = "XlideOracleModule"
     $codeModule = $component.CodeModule
     $codeModule.AddFromString([string]$case.source)
+    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
 
     if ($case.PSObject.Properties.Name -contains "mode" -and $case.mode) {
         $mode = [string]$case.mode
@@ -521,10 +655,12 @@ try {
         [void]$component.Activate()
         $codeModule.CodePane.Show()
         $codeModule.CodePane.SetSelection(1, 1, 1, 1)
+        [void][XlideVbeDialogWatcher]::FocusVbeWindow($excelPid)
         Start-Sleep -Milliseconds 250
 
-        [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds)
+        [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
         try {
+            [void][XlideVbeDialogWatcher]::FocusVbeWindow($excelPid)
             if (-not [XlideVbeDialogWatcher]::InvokeVbeCompile($excelPid)) {
                 throw "Could not locate the VBE main window for the disposable Excel process."
             }
@@ -553,10 +689,11 @@ try {
             $entryPoint
         )
         $lastError = $null
-        [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds)
+        [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
         try {
             foreach ($macro in $macroNames) {
                 try {
+                    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
                     [void]$excel.Run($macro)
                     $lastError = $null
                     break
@@ -580,6 +717,7 @@ try {
             Set-DialogOutcome $dialog $false
         }
     }
+
     elseif ($mode -ne "run") {
         throw "Unsupported oracle mode: $mode"
     }

@@ -365,6 +365,11 @@ describe('analyzeModule - unknown call statement', () => {
 		expect(byCode(analyzeModule(src, known), 'unknown-call')).toHaveLength(0);
 	});
 
+	it('does not report unknown-call for a dangling member-access dot', () => {
+		const src = 'Sub Main()\n    aadf.\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+
 	it('ignores a line label', () => {
 		const src = 'Sub Main()\n    GoTo done\ndone:\nEnd Sub\n';
 		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
@@ -442,6 +447,58 @@ describe('analyzeModule - non-callable call statements', () => {
 	it('does not flag callable procedures or runtime statements', () => {
 		const src = 'Sub Main()\n    Helper "ok"\n    Beep\nEnd Sub\nSub Helper(ByVal s As String)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'non-callable-call')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - scalar member access', () => {
+	it('flags a trailing dot on a local String variable', () => {
+		const src = 'Sub Main()\n    Dim value As String\n    value.\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'scalar-member-access');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('value.');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('String');
+		expect(hits[0].message).toContain('Syntax error');
+	});
+
+	it('flags named member access on a local Integer variable', () => {
+		const src = 'Sub Main()\n    Dim value As Integer\n    value.Length\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'scalar-member-access');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('value.');
+		expect(hits[0].message).toContain('Integer');
+		expect(hits[0].message).toContain('Invalid qualifier');
+	});
+
+	it('flags scalar parameters and module variables', () => {
+		const src =
+			'Private moduleName As String\n' +
+			'Sub Main(ByVal count As Long)\n' +
+			'    moduleName.Length\n' +
+			'    count.Value\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'scalar-member-access');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['moduleName.', 'count.']);
+	});
+
+	it('treats colon-separated declaration and member access statements independently', () => {
+		const src = 'Sub Main()\n    Dim value As String: value.Length\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'scalar-member-access');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('value.');
+	});
+
+	it('does not flag Variant, Object, or unknown receiver types', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim flexible As Variant\n' +
+			'    Dim item As Object\n' +
+			'    Dim person As Person\n' +
+			'    flexible.\n' +
+			'    item.\n' +
+			'    person.\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'scalar-member-access')).toHaveLength(0);
 	});
 });
 

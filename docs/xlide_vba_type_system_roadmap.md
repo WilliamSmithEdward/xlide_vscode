@@ -185,6 +185,10 @@ Landed first:
   can report ambiguity deterministically instead of picking by module order.
 - `Set` assignment to a known intrinsic scalar variable is a compile-equivalent
   error. Unknown object-like target types remain deferred to the object binder.
+- Member access on a declared intrinsic scalar receiver is a red diagnostic:
+  named members such as `s.Length` are VBE Compile `Invalid qualifier` errors,
+  while trailing dots such as `s.` are VBE Compile `Syntax error`s. Unknown,
+  `Variant`, class, object, and UDT receivers stay silent.
 - Named arguments map to the named parameter before type validation.
 - Curated VBA runtime functions participate when their parameter type is known.
 - Runtime parameter types are never inferred from parameter names.

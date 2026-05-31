@@ -167,6 +167,10 @@ Purpose: finish the conservative first slice before broadening inference.
   `docs/vba_runtime_type_mismatch_oracle_matrix.md`.
 - [x] Add compile-equivalent diagnostics for runtime functions used as `As` type
   names and `Set` assignments to known intrinsic scalar variables.
+- [x] Add scalar member-access diagnostics for declared intrinsic scalar
+  receivers (`String`, numeric, `Boolean`, `Date`) after focused oracle
+  verification: named scalar members are VBE Compile `Invalid qualifier`
+  errors, and trailing scalar dots are VBE Compile `Syntax error`s.
 
 Definition of done:
 

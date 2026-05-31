@@ -19,6 +19,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 DEFAULT_CASES = ROOT / "vbe_oracle_cases.json"
 WORKER = ROOT / "excel_vbe_oracle_worker.ps1"
+EVIDENCE_OUTCOMES = {"accepted", "rejected"}
+DEFAULT_TIMEOUT_RETRIES = 2
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
@@ -34,6 +36,8 @@ def load_cases_document(path: Path) -> dict[str, Any]:
 
 
 def expected_matches(expected: str | None, outcome: str) -> bool:
+    if outcome not in EVIDENCE_OUTCOMES:
+        return False
     return expected in (None, "", "observe") or expected == outcome
 
 
@@ -143,28 +147,11 @@ def read_dialog_result(case: dict[str, Any], dialog_path: Path) -> dict[str, Any
     }
 
 
-def stage_dialog_fallback(case: dict[str, Any], stage: str, timeout: int) -> dict[str, Any] | None:
-    if stage == "compile_dialog":
-        return {
-            "caseId": case.get("id"),
-            "outcome": "rejected",
-            "stage": "compile_dialog",
-            "message": f"VBE compile dialog observed; worker timed out after {timeout} seconds before returning dialog text",
-            "hresult": None,
-        }
-    if stage == "vbe_dialog":
-        mode = str(case.get("mode", "compile"))
-        return {
-            "caseId": case.get("id"),
-            "outcome": "rejected" if mode == "run" else "accepted",
-            "stage": "runtime_dialog" if mode == "run" else "vbe_dialog_after_compile",
-            "message": f"VBE non-compile dialog observed; worker timed out after {timeout} seconds before returning dialog text",
-            "hresult": None,
-        }
-    return None
-
-
 def run_case(case: dict[str, Any], timeout: int) -> dict[str, Any]:
+    return run_case_once(case, timeout, 0)
+
+
+def run_case_once(case: dict[str, Any], timeout: int, dialog_hold_seconds: int) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="xlide-vbe-oracle-") as tmp:
         tmp_dir = Path(tmp)
         case_path = tmp_dir / "case.json"
@@ -173,7 +160,10 @@ def run_case(case: dict[str, Any], timeout: int) -> dict[str, Any]:
         dialog_path = tmp_dir / "vbe_dialog.json"
         case_path.write_text(json.dumps(case), encoding="utf-8")
 
-        dialog_watch_seconds = max(1, min(3, timeout - 3))
+        if dialog_hold_seconds > 0:
+            dialog_watch_seconds = max(1, timeout - dialog_hold_seconds - 5)
+        else:
+            dialog_watch_seconds = max(1, min(8, max(1, timeout - 3)))
 
         cmd = [
             "powershell.exe",
@@ -192,6 +182,8 @@ def run_case(case: dict[str, Any], timeout: int) -> dict[str, Any]:
             str(dialog_path),
             "-DialogWatchSeconds",
             str(dialog_watch_seconds),
+            "-DialogHoldSeconds",
+            str(dialog_hold_seconds),
         ]
         try:
             completed = subprocess.run(
@@ -206,14 +198,6 @@ def run_case(case: dict[str, Any], timeout: int) -> dict[str, Any]:
                 stage = stage_path.read_text(encoding="ascii").strip() or "timeout"
             except OSError:
                 stage = "timeout"
-            dialog_result = read_dialog_result(case, dialog_path)
-            if dialog_result:
-                kill_recorded_excel(pid_path)
-                return dialog_result
-            stage_result = stage_dialog_fallback(case, stage, timeout)
-            if stage_result:
-                kill_recorded_excel(pid_path)
-                return stage_result
             kill_recorded_excel(pid_path)
             return {
                 "caseId": case.get("id"),
@@ -257,11 +241,66 @@ def run_case(case: dict[str, Any], timeout: int) -> dict[str, Any]:
             kill_recorded_excel(pid_path)
 
 
+def run_case_with_retries(
+    case: dict[str, Any],
+    timeout: int,
+    timeout_retries: int,
+    dialog_hold_seconds: int,
+) -> dict[str, Any]:
+    attempts = max(1, timeout_retries + 1)
+    timeout_results: list[dict[str, Any]] = []
+    for attempt in range(1, attempts + 1):
+        hold_seconds = dialog_hold_seconds if attempt == 1 else 0
+        result = run_case_once(case, timeout, hold_seconds)
+        result["attempt"] = attempt
+        if result.get("outcome") != "timeout":
+            if timeout_results:
+                result["attempts"] = attempt
+                result["previousTimeouts"] = timeout_results
+            return result
+        timeout_results.append(result)
+
+    last = timeout_results[-1]
+    return {
+        "caseId": case.get("id"),
+        "outcome": "oracle_failure",
+        "stage": last.get("stage", "timeout"),
+        "message": (
+            f"Oracle timed out after {attempts} attempt(s) at {timeout} seconds each. "
+            "Treat this as an oracle harness failure and investigate before running "
+            "additional oracle cases."
+        ),
+        "hresult": None,
+        "attempts": attempts,
+        "timeoutSeconds": timeout,
+        "previousTimeouts": timeout_results,
+    }
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--case", dest="case_ids", action="append", default=[])
     parser.add_argument("--timeout", type=int, default=20)
+    parser.add_argument(
+        "--timeout-retries",
+        type=int,
+        default=DEFAULT_TIMEOUT_RETRIES,
+        help=(
+            "Retry a case this many times when the worker times out. Exhausted "
+            "timeouts abort the oracle run as an infrastructure failure."
+        ),
+    )
+    parser.add_argument(
+        "--dialog-hold-seconds",
+        type=int,
+        default=0,
+        help=(
+            "Developer debugging aid: when a VBE dialog is detected, keep it "
+            "visible for this many seconds before dismissing it. Applies only "
+            "to the first attempt of a case."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     parser.add_argument(
         "--strict",
@@ -279,6 +318,15 @@ def main(argv: list[str]) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.timeout <= 0:
+        print("--timeout must be greater than zero", file=sys.stderr)
+        return 2
+    if args.timeout_retries < 0:
+        print("--timeout-retries cannot be negative", file=sys.stderr)
+        return 2
+    if args.dialog_hold_seconds < 0:
+        print("--dialog-hold-seconds cannot be negative", file=sys.stderr)
+        return 2
     if args.promote_observed and not args.case_ids:
         print("--promote-observed requires at least one --case", file=sys.stderr)
         return 2
@@ -299,17 +347,30 @@ def main(argv: list[str]) -> int:
 
     results: list[dict[str, Any]] = []
     failures = 0
+    oracle_failures = 0
     for case in cases:
-        result = run_case(case, args.timeout)
+        result = run_case_with_retries(
+            case,
+            args.timeout,
+            args.timeout_retries,
+            args.dialog_hold_seconds,
+        )
         expected = str(case.get("expected", "observe"))
         result["expected"] = expected
         result["matched"] = expected_matches(expected, str(result.get("outcome", "")))
         result["description"] = case.get("description", "")
-        if not result["matched"]:
+        if result.get("outcome") == "oracle_failure":
+            oracle_failures += 1
+        elif not result["matched"]:
             failures += 1
         results.append(result)
+        if result.get("outcome") == "oracle_failure":
+            break
 
     if args.promote_observed:
+        if oracle_failures:
+            print("Cannot promote while oracle infrastructure failures exist.", file=sys.stderr)
+            return 1
         if failures:
             print("Cannot promote while expectation failures exist.", file=sys.stderr)
             return 1
@@ -323,19 +384,33 @@ def main(argv: list[str]) -> int:
         print(f"Promoted {promoted} oracle case(s) in {args.cases}", file=sys.stderr)
 
     if args.json:
-        print(json.dumps({"results": results, "failureCount": failures}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "results": results,
+                    "failureCount": failures,
+                    "oracleFailureCount": oracle_failures,
+                },
+                indent=2,
+            )
+        )
     else:
         for result in results:
-            marker = "PASS" if result["matched"] else "FAIL"
+            marker = "ORACLE-FAIL" if result.get("outcome") == "oracle_failure" else ("PASS" if result["matched"] else "FAIL")
             print(
                 f"{marker} {result['caseId']}: outcome={result['outcome']} "
                 f"expected={result['expected']} stage={result.get('stage', '')}"
             )
+            if result.get("attempts"):
+                print(f"  attempts={result['attempts']}")
             if result.get("message"):
                 print(f"  {result['message']}")
-        print(f"\n{len(results)} oracle case(s), {failures} expectation failure(s).")
+        print(
+            f"\n{len(results)} oracle case(s), {failures} expectation failure(s), "
+            f"{oracle_failures} oracle infrastructure failure(s)."
+        )
 
-    return 1 if args.strict and failures else 0
+    return 1 if oracle_failures or (args.strict and failures) else 0
 
 
 if __name__ == "__main__":

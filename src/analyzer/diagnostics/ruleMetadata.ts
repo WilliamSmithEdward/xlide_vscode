@@ -269,6 +269,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.3',
 		confidence: 'high',
 	},
+	scalarMemberAccess: {
+		code: 'scalar-member-access',
+		title: 'Member access on scalar variable',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE oracle: Invalid qualifier / Syntax error',
+		confidence: 'high',
+	},
 	callRequiresParens: {
 		code: 'call-requires-parens',
 		title: 'Call statement requires parentheses around arguments',

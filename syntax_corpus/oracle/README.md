@@ -17,6 +17,8 @@ Useful filters:
 ```powershell
 python syntax_corpus/oracle/run_excel_vbe_oracle.py --case missing_trailing_required_argument
 python syntax_corpus/oracle/run_excel_vbe_oracle.py --timeout 30 --json
+python syntax_corpus/oracle/run_excel_vbe_oracle.py --timeout-retries 2
+python syntax_corpus/oracle/run_excel_vbe_oracle.py --case string_scalar_member_access_compile --dialog-hold-seconds 20
 python syntax_corpus/oracle/run_excel_vbe_oracle.py --strict
 ```
 
@@ -42,7 +44,12 @@ fixtures whose `expected` value is already asserted, and writes only
 The runner starts an unsaved disposable Excel workbook per case. Keeping the
 workbook in memory avoids local macro-security policy blocking generated test
 macros. If a case hangs, the Python coordinator times out the worker and attempts
-to kill only the Excel process that the worker recorded.
+to kill only the Excel process that the worker recorded. Timeout is not VBA
+evidence: it is treated as oracle infrastructure health. The coordinator retries
+the same case up to `--timeout-retries`; if every attempt times out, it aborts
+the remaining run as `outcome: "oracle_failure"` and exits non-zero even without
+`--strict`. Investigate the harness/Excel modal state before running additional
+oracle cases.
 
 By default the runner is observational and exits successfully even when a
 fixture expectation differs from the observed result. Use `--strict` when the
@@ -59,6 +66,19 @@ UI path (`Alt+D`, then `L`). A `Compile error:` dialog is treated as compile
 rejection. If no compile dialog appears before the popup watch period ends, the
 case is recorded as compile-accepted.
 
+The worker keeps Excel visible and explicitly restores/focuses the disposable
+Excel/VBE windows before UI-sensitive actions. This is important when the
+developer is alt-tabbed into another application while the oracle runs. Dialog
+detection is still owned by Win32 window enumeration for the recorded Excel
+process; timeouts remain only a fallback and never satisfy an expected or
+observe-only fixture result.
+
+For harness debugging, `--dialog-hold-seconds N` keeps the first detected VBE
+dialog visible for `N` seconds before dismissal so a developer can inspect or
+screenshot it. This option is not evidence-changing; it only delays cleanup.
+Use a `--timeout` comfortably larger than the hold window so the worker has time
+to detect the dialog and clean up afterward.
+
 `run` mode is for focused runtime-behavior probes only. Runtime fixtures must
 name an `entryPoint`. The worker starts the same Win32 dialog watcher before
 running the macro; a `Microsoft Visual Basic` dialog with `Run-time error` text
@@ -70,12 +90,13 @@ During compile fixtures, the worker starts a Win32 dialog watcher before invokin
 VBE Compile. A dialog owned by the disposable Excel process with title
 `Microsoft Visual Basic for Applications`, class `#32770`, and child text
 containing `Compile error:` is recorded as `outcome: "rejected"`; the watcher
-captures the dialog text and dismisses it with the OK command. After any VBE
-dialog is dismissed, the watcher posts VBE's Reset command (`CommandBar` id 228)
-and the Debug > Reset accelerator (`Alt+D`, then `R`) to the disposable VBE main
-window so Excel does not remain paused on the highlighted source line. Timeouts
-remain a fallback for hangs or unrelated modal prompts, not the primary rejection
-signal.
+captures the dialog text, dismisses it with direct Win32 button/window commands,
+verifies the dialog is no longer visible, and only then writes the oracle result
+file. It does not reopen the Debug menu after dismissal; the disposable Excel
+instance is closed immediately afterward. Timeouts remain a fallback for hangs
+or unrelated modal prompts, not the primary rejection signal. A timeout never
+means accepted or rejected; after the retry budget is exhausted, it means the
+oracle itself needs attention.
 
 Use `expected: "observe"` when the case exists to collect behavior but the repo
 does not yet assert a specific result.

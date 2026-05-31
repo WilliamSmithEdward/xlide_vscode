@@ -237,6 +237,22 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "scalar-member-access",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar variable type environment",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "string_scalar_member_access_compile",
+        "integer_scalar_trailing_dot_compile",
+        "string_scalar_named_member_compile",
+        "integer_scalar_named_member_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Named member access on declared intrinsic scalar variables is rejected by VBE Compile as Invalid qualifier. Bare trailing-dot scalar statements are rejected by VBE Compile as Syntax error after explicit focus retesting. Only known intrinsic scalar receivers are flagged; Variant, Object, class, UDT, and unknown receiver types stay silent while they may be incomplete member-access completion contexts.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "call-requires-parens",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.2.1",

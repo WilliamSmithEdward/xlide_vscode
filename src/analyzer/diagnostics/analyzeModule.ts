@@ -176,6 +176,7 @@ function runRules(
 	checkSetAssignments(source, mod, symbols, push);
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
+	checkScalarMemberAccess(source, mod, symbols, push);
 	checkNonCallableCallStatement(source, mod, symbols, push);
 	checkArgumentCount(source, mod, opts.projectProcedures, push);
 	checkArgumentTypes(source, mod, symbols, opts.projectProcedures, push);
@@ -1397,6 +1398,60 @@ function checkSetAssignments(
 			);
 		});
 	}
+}
+
+function checkScalarMemberAccess(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	push: PushFn,
+): void {
+		for (const member of mod.members) {
+			if (member.kind !== 'Procedure') {
+				continue;
+			}
+			const env = typeEnvironmentFor(symbols, member);
+			forEachStatement(member.body, (stmt) => {
+				for (const hit of scalarMemberAccesses(source, stmt.span, env)) {
+					push(
+						'scalarMemberAccess',
+						`Member access on '${hit.name}' is invalid because it is declared as ${hit.asType}. This is a VBE compile error: ${hit.vbeError}.`,
+						hit.span,
+					);
+				}
+			});
+		}
+}
+
+function scalarMemberAccesses(
+	source: string,
+	span: Span,
+	env: ReadonlyMap<string, string>,
+): Array<{ name: string; asType: string; span: Span; vbeError: string }> {
+	const toks = statementTokens(source, span);
+	const out: Array<{ name: string; asType: string; span: Span; vbeError: string }> = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		if (toks[i + 1].rawText !== '.') {
+			continue;
+		}
+		const name = tokenName(toks[i]);
+		if (!name) {
+			continue;
+		}
+		const asType = env.get(name.toLowerCase());
+		const normalized = normalizeType(asType);
+		if (!asType || !normalized || !isKnownScalarType(normalized)) {
+			continue;
+		}
+		const memberName = toks[i + 2] ? tokenName(toks[i + 2]) : undefined;
+		out.push({
+			name,
+			asType,
+			vbeError: memberName ? 'Invalid qualifier' : 'Syntax error',
+			span: { start: span.start + toks[i].start, end: span.start + toks[i + 1].end },
+		});
+	}
+	return out;
 }
 
 function setAssignmentTarget(

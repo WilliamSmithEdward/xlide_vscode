@@ -565,7 +565,12 @@ Diagnostic severity policy:
   `ProjectIndex.visibleTypeNames()` for project-defined type names, but the
   broad unknown-type diagnostic remains intentionally unshipped.
   `set-requires-object` fires only when `Set` targets a known intrinsic scalar
-  variable.
+  variable. `scalar-member-access` fires only when the receiver is a declared
+  intrinsic scalar (`String`, numeric, `Boolean`, or `Date`); focused oracle
+  cases show named scalar members are VBE Compile errors (`Invalid qualifier`),
+  while a trailing scalar dot is a VBE Compile `Syntax error` after explicit
+  focus retesting. Unknown, `Variant`, object-like, project class, and UDT
+  receivers stay silent until the binder can prove more.
   `unknown-call` rule runs only when the caller
   passes `knownProcedures` (the current module's visibility-filtered procedure
   names from `ProjectIndex.visibleProcedureNames(moduleName)`); without it that

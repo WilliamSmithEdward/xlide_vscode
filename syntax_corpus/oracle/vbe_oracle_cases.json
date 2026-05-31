@@ -408,6 +408,56 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid",
       "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left(\"abcdef\", \"2\")\nEnd Sub\n"
+    },
+    {
+      "id": "colon_separated_dim_statements_compile",
+      "description": "Compile control: colon separates multiple Dim statements on one physical line.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String: Dim value2 As String: Dim value3 As String\n    value = \"a\": value2 = \"b\": value3 = value & value2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "string_scalar_member_access_compile",
+      "description": "Compile probe for a trailing member-access dot on a String variable; explicit VBE focus retest rejects this as Syntax error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value.\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "integer_scalar_trailing_dot_compile",
+      "description": "Compile probe for a trailing member-access dot on an Integer variable; explicit VBE focus retest rejects this as Syntax error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value.\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "string_scalar_named_member_compile",
+      "description": "Compile probe for a named member access on a String variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value.Length\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "integer_scalar_named_member_compile",
+      "description": "Compile probe for a named member access on an Integer variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value.Length\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
