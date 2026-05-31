@@ -18,6 +18,7 @@ import {
 	type VbaProjectTypeKind,
 	type VbaProjectTypeName,
 	type VbaProjectClassMember,
+	type VbaProjectClassMemberDefinition,
 	type VbaProjectClassMembers,
 	type VbaSymbol,
 	type VbaProcedureParam,
@@ -175,6 +176,14 @@ function projectObjectMemberWriteType(symbol: VbaSymbol): string | undefined {
 		default:
 			return undefined;
 	}
+}
+
+function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMemberDefinition {
+	return {
+		moduleName: symbol.moduleName,
+		nameSpan: symbol.nameSpan,
+		fullSpan: symbol.fullSpan,
+	};
 }
 
 function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
@@ -709,6 +718,10 @@ export class ProjectIndex {
 				if (!existing.doc && symbol.doc) {
 					existing.doc = symbol.doc;
 				}
+				existing.definitions = [
+					...(existing.definitions ?? []),
+					projectObjectMemberDefinition(symbol),
+				];
 				continue;
 			}
 			byName.set(key, {
@@ -721,6 +734,7 @@ export class ProjectIndex {
 				moduleName: mod.moduleName,
 				visibility: symbol.visibility,
 				doc: symbol.doc,
+				definitions: [projectObjectMemberDefinition(symbol)],
 			});
 		}
 		return [...byName.values()];

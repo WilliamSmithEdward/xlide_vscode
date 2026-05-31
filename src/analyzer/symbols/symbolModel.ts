@@ -116,6 +116,15 @@ export interface VbaProjectTypeName {
 	visibility?: SymbolVisibility;
 }
 
+/** Source declaration location for a project object member. */
+export interface VbaProjectClassMemberDefinition {
+	moduleName: string;
+	/** Span of the declared member identifier itself. */
+	nameSpan: Span;
+	/** Full span of the declaration. */
+	fullSpan: Span;
+}
+
 /** A source-declared member of a project object module. */
 export interface VbaProjectClassMember {
 	name: string;
@@ -132,6 +141,8 @@ export interface VbaProjectClassMember {
 	visibility?: SymbolVisibility;
 	/** Inline `'''` XML documentation comment attached to the member declaration. */
 	doc?: VbaDoc;
+	/** Source declaration locations for go-to-definition. */
+	definitions?: VbaProjectClassMemberDefinition[];
 }
 
 /** Public member surface for a workbook-defined object type. */

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	ProjectIndex,
 	resolveMemberCompletions,
 	resolveHostGlobal,
 	resolveHostAlias,
@@ -427,6 +428,27 @@ describe('member completion - workbook classes', () => {
 		expect(age?.writable).toBe(true);
 		expect(age?.writeType).toBe('Integer');
 		expect(age?.surfaceExhaustive).toBe(true);
+	});
+
+	it('carries source definition locations for project class members', () => {
+		const person =
+			'Public Sub Save()\n' +
+			'End Sub\n';
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: person,
+		});
+		const src = 'Sub Test()\n    Dim p As Person\n    p.Sav\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'p.Sav'), {
+			projectClassMembers: index.projectClassMembers(),
+		});
+		const save = got.find((member) => member.name === 'Save');
+		expect(save?.definitions).toHaveLength(1);
+		const def = save?.definitions?.[0];
+		expect(def?.moduleName).toBe('Person');
+		expect(def ? person.slice(def.nameSpan.start, def.nameSpan.end) : '').toBe('Save');
 	});
 
 	it('chains through project class members that return a project class', () => {

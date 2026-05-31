@@ -306,7 +306,7 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | Provider | Behavior |
 |---|---|
 | `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
-| `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves the identifier with scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations) |
+| `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder before falling back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations) |
 | `ReferenceProvider` | Computes the identifier's binding scope (`ProjectIndex.referenceScope`), then runs a word-boundary search (skipping strings/comments) restricted to that scope — a procedure-local stays in its procedure, a `Private` member in its module, an exported symbol across the project minus privately-shadowing modules/locals; honors VS Code's include-declaration toggle |
 | `RenameProvider` | Uses the same `referenceScope` to rewrite only the in-scope occurrences; `prepareRename`/`provideRenameEdits` refuse identifiers that do not resolve to a known declaration; VS Code applies the `WorkspaceEdit` and Ctrl+S persists each module through the virtual filesystem |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
@@ -413,7 +413,8 @@ into a pure analyzer layer and a thin VS Code provider:
   variables declared as workbook classes (for example `Dim p As Person`) can
   offer public/default-public source members at `p.` without guessing from
   names. Source-backed workbook members carry inline `'''` documentation through
-  to completion, hover, and member-call signature help.
+  to completion, hover, and member-call signature help, and carry declaration
+  spans for source-backed member go-to-definition.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it builds the project context
   from the workbook's module list (worksheet code names and the `Me` type for
@@ -571,13 +572,16 @@ Diagnostic severity policy:
   statement boundary (a newline or a depth-0 `:`), and flags a dangling `(` or
   an unmatched `)` - parentheses inside strings/comments/date-literals and
   `[bracketed]` names are distinct token kinds so they never miscount.
-  `checkArgumentCount` powers `argument-count`: it validates a call statement
-  against the parameter list of a Sub/Function defined in the *same* module (the
-  only place the AST gives a ground-truth signature), reusing `extractCall`
-  (built on `callStatementTarget`) to pull the callee and its top-level argument
-  slots; it honours `Optional` (lowers the minimum) and `ParamArray` (removes
-  the maximum), validates named-argument names against the parameters, and skips
-  host/runtime/cross-module callees plus any duplicated/ambiguous name. The
+  `checkArgumentCount` powers `argument-count`: it validates call statements
+  and expression calls against same-module and unique exported project
+  signatures, and validates parenthesized object member calls when the shared
+  member-completion binder resolves a known source-backed or host/reference
+  signature such as `Application.SheetCalculate(Sh As Object)` or
+  `Range(Cell1, [Cell2])`. It honours `Optional` (lowers the minimum) and
+  `ParamArray` (removes the maximum), validates named-argument names against the
+  parameters, and skips unresolved or ambiguous callees. The same known member
+  signatures also feed argument type diagnostics when parameter types are
+  explicit. The
   `argument-type-mismatch` and `assignment-type-mismatch` rules are red
   deterministic-runtime-error diagnostics when XLIDE can prove a literal cannot
   be coerced: focused Excel/VBE compile oracle cases confirm representative
@@ -586,11 +590,12 @@ Diagnostic severity policy:
   compile-equivalent diagnostic after an oracle case confirmed `String` to
   `Object` is rejected by VBE Compile. These rules use only declared
   parameter/local types, curated runtime return metadata, same-module return
-  types, and deterministic literal/expression inference; unknown and `Variant`
-  operands suppress diagnostics. For workbook-backed modules, the provider also
-  passes a project-wide map of exported standard-module `Sub`/`Function`
-  signatures, so argument count/type checks can cross module boundaries when the
-  target is unambiguous. Ambiguous bare exported names stay silent, while
+  types, known source-backed or host/reference member signatures, and
+  deterministic literal/expression inference; unknown and `Variant` operands
+  suppress diagnostics. For workbook-backed modules, the provider also passes a
+  project-wide map of exported standard-module `Sub`/`Function` signatures, so
+  argument count/type checks can cross module boundaries when the target is
+  unambiguous. Ambiguous bare exported names stay silent, while
   `ModuleName.ProcedureName` resolves through the named standard module only;
   non-standard member cases stay silent until the binder can prove the target.
   `string-arithmetic-coercion` is a related red
@@ -674,7 +679,8 @@ single module:
   `visibleProcedureNames` (same-module procedures plus exported standard-module
   procedures callable as bare identifiers from a given module),
   `visibleTypeNames` (class/document/UserForm module names plus visible
-  `Type`/`Enum` declarations for future `As` binding), and
+  `Type`/`Enum` declarations for future `As` binding), `projectClassMembers`
+  (source-backed member surfaces with signatures, docs, and definition spans), and
   `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit
   `Public`/`Global` and default-`Public` procedures are exported;
   `Private`/`Dim`/`Friend` and unmodified module variables stay module-private.

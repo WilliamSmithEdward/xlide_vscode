@@ -15,9 +15,11 @@ import {
     ProjectIndex,
     ProjectTypeSemanticTokenType,
     ReferenceScope,
+    resolveMemberCompletions,
     resolveProjectTypeSemanticTokens,
     SeverityOverrides,
     VbaDiagnostic,
+    type VbaProjectClassMemberDefinition,
     VbaSymbol as AstSymbol,
 } from './analyzer';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
@@ -196,6 +198,18 @@ function buildProjectIndex(
     return index;
 }
 
+function codeNamesForModules(modules: VbaModuleSymbols[]): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const mod of modules) {
+        if (mod.type !== 'document') { continue; }
+        out[mod.moduleName.toLowerCase()] =
+            mod.moduleName.toLowerCase() === 'thisworkbook'
+                ? 'Excel.Workbook'
+                : 'Excel.Worksheet';
+    }
+    return out;
+}
+
 /** Byte offsets where each line begins, for occurrence -> offset mapping. */
 function lineStartOffsets(source: string): number[] {
     const starts = [0];
@@ -231,6 +245,52 @@ function astSymbolToLocation(
             offsetToPosition(mod.source, symbol.nameSpan.end),
         ),
     );
+}
+
+function projectMemberDefinitionToLocation(
+    xlsmPath: string,
+    byModule: Map<string, VbaModuleSymbols>,
+    definition: VbaProjectClassMemberDefinition,
+): vscode.Location | undefined {
+    const mod = byModule.get(definition.moduleName.toLowerCase());
+    if (!mod) { return undefined; }
+    return new vscode.Location(
+        encodeModuleUri(xlsmPath, mod.moduleName),
+        new vscode.Range(
+            offsetToPosition(mod.source, definition.nameSpan.start),
+            offsetToPosition(mod.source, definition.nameSpan.end),
+        ),
+    );
+}
+
+function moduleMapWithLiveDocument(
+    modules: VbaModuleSymbols[],
+    moduleName: string,
+    source: string,
+    type?: string,
+): Map<string, VbaModuleSymbols> {
+    const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
+    byModule.set(moduleName.toLowerCase(), {
+        moduleName,
+        type,
+        source,
+        symbols: parseVbaModule(source),
+    });
+    return byModule;
+}
+
+function sourceMemberDefinitionsAt(
+    source: string,
+    memberName: string,
+    memberEndOffset: number,
+    project: ProjectIndex,
+    modules: VbaModuleSymbols[],
+): readonly VbaProjectClassMemberDefinition[] {
+    const member = resolveMemberCompletions(source, memberEndOffset, {
+        codeNames: codeNamesForModules(modules),
+        projectClassMembers: project.projectClassMembers(),
+    }).find((item) => item.name.toLowerCase() === memberName.toLowerCase());
+    return member?.definitions ?? [];
 }
 
 /**
@@ -302,10 +362,36 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
         const line = document.lineAt(position.line).text;
         const qualifier = detectQualifier(line, wordRange.start.character);
 
+        const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
-        const project = buildProjectIndex(modules);
-        const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
+        const current = modules.find(
+            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
+        );
+        const project = buildProjectIndex(modules, {
+            moduleName,
+            moduleKind: moduleKindFromType(current?.type),
+            source,
+        });
+        const byModule = moduleMapWithLiveDocument(modules, moduleName, source, current?.type);
+
+        const memberDefinitions = qualifier
+            ? sourceMemberDefinitionsAt(
+                source,
+                word,
+                document.offsetAt(wordRange.end),
+                project,
+                modules,
+            )
+            : [];
+        if (memberDefinitions.length > 0) {
+            const locations = memberDefinitions
+                .map((definition) =>
+                    projectMemberDefinitionToLocation(xlsmPath, byModule, definition),
+                )
+                .filter((loc): loc is vscode.Location => Boolean(loc));
+            return locations.length > 0 ? locations : undefined;
+        }
 
         const defs = qualifier
             ? project.resolveQualifiedDefinition(unquoteModule(qualifier), word)

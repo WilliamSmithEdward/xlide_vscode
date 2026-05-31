@@ -882,6 +882,86 @@ describe('analyzeModule - argument count', () => {
 			),
 		).toHaveLength(0);
 	});
+
+	it('flags missing required arguments on generated host member calls', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Application.SheetCalculate()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('SheetCalculate');
+		expect(hits[0].message).toContain('expected 1 argument');
+		expect(hits[0].message).toContain('got 0');
+	});
+
+	it('flags extra arguments on generated host member calls', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Application.Calculate(1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Calculate');
+		expect(hits[0].message).toContain('expected 0 arguments');
+		expect(hits[0].message).toContain('got 1');
+	});
+
+	it('flags missing required arguments on host members with fallback signatures', () => {
+		const src =
+			'Sub Main()\n' +
+			'    ActiveSheet.Range()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Range');
+		expect(hits[0].message).toContain('expected between 1 and 2 arguments');
+		expect(hits[0].message).toContain('got 0');
+	});
+
+	it('does not treat collection indexing as member-call arity', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Workbooks(1).Sheets(1).Range()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Range');
+		expect(hits[0].message).toContain('got 0');
+	});
+
+	it('accepts correct host member argument counts', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Application.Calculate()\n' +
+			'    Application.SheetCalculate(ActiveSheet)\n' +
+			'    ActiveSheet.Range("A1")\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('flags missing required arguments on source-backed class member calls', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Dim p As Person\n' +
+			'    p.Save()\n' +
+			'End Sub\n';
+		const person =
+			'Public Sub Save(ByVal Caption As String)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'argument-count',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('Save');
+		expect(hits[0].message).toContain('expected 1 argument');
+		expect(hits[0].message).toContain('got 0');
+	});
 });
 
 describe('analyzeModule - argument type validation', () => {
@@ -1074,6 +1154,41 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].severity).toBe('error');
 		expect(spanText(src, hits[0])).toBe('MakeLabel');
 		expect(hits[0].message).toContain('MakeLabel(...) As String');
+	});
+
+	it('uses generated host member signatures for argument types', () => {
+		const src =
+			'Sub T()\n' +
+			'    Application.SheetCalculate("bad")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"bad"');
+		expect(hits[0].message).toContain('Sh');
+		expect(hits[0].message).toContain('Object');
+	});
+
+	it('uses source-backed class member signatures for argument types', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Dim p As Person\n' +
+			'    p.NeedsObject("bad")\n' +
+			'End Sub\n';
+		const person =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'argument-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('"bad"');
+		expect(hits[0].message).toContain('item');
+		expect(hits[0].message).toContain('Object');
 	});
 
 	it('uses nested same-module function return types as argument types', () => {

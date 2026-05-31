@@ -100,6 +100,7 @@ export {
 	VbaSymbolKind,
 	VbaProcedureParam,
 	VbaProcedureSignature,
+	VbaProjectClassMemberDefinition,
 	VbaProjectClassMember,
 	VbaProjectClassMembers,
 	VbaProjectTypeKind,

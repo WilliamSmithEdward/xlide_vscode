@@ -351,7 +351,7 @@ ${markdownTable(
 ## Notes
 
 - Runtime extension code does not read \`reference/\`; promoted metadata is checked in under \`src/\`.
-- Promoted members preserve available signatures and documentation summaries/parameter notes for language-service surfaces.
+- Promoted members preserve available signatures and documentation summaries/parameter notes for language-service surfaces and signature-backed arity/type diagnostics.
 - Completion may use partial metadata, but hard \`member-not-found\` diagnostics require a promoted exhaustive surface.
 - Promotion remains type-by-type so each host surface can get representative tests and oracle controls before red diagnostics rely on absence.
 `;

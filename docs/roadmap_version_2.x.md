@@ -92,6 +92,11 @@ heuristic diagnostics.
   from `reference/excel/json/Workbook.json`, so `ThisWorkbook.DoesntExist`
   participates in the unified hard `member-not-found` rule while the extension
   still does not read `reference/` at runtime.
+- Known source-backed and host/reference member signatures now feed
+  `argument-count` and argument-type diagnostics for parenthesized member calls
+  such as `Application.SheetCalculate()` and `ActiveSheet.Range()`.
+- Source-backed workbook class member resolution now feeds go-to-definition for
+  `object.Member` references.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -338,6 +343,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   `Workbooks(1).Worksheets(1).Range("A1").`; indexed `Sheets` routes through a
   merged worksheet/chart item surface for completion without treating
   non-exhaustive host surfaces as absence proof.
+- [x] Reuse the shared member-completion binder for parenthesized object member
+  arity/type diagnostics when a source-backed or host/reference signature is
+  known.
 - [ ] Oracle-verify late-bound member access for `Object` and `Variant`
   receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
   resolves the member only at runtime; decide separately whether an optional
@@ -361,7 +369,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
 - [x] Feed workbook class-member resolution into signature help for
   source-backed method/function members, including inline XML summary and
   parameter docs.
-- [ ] Feed workbook class-member resolution into go-to-definition and
+- [x] Feed workbook class-member resolution into go-to-definition and
   member-call diagnostics.
 - [ ] Extend external metadata files as an explicit object/member metadata
   source for referenced libraries, add-ins, team APIs, and host extensions that
@@ -398,9 +406,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   whether assignments are writable/read-only, which value type is accepted, and
   which diagnostics are allowed from that evidence.
 - [ ] Require every new curated host/object metadata expansion to add coverage
-  for completion, hover/signature docs where applicable, assignment validation,
-  `member-not-found` behavior, and no-diagnostic controls for incomplete or
-  non-exhaustive surfaces.
+  for completion, hover/signature docs where applicable, member-call arity/type,
+  assignment validation, `member-not-found` behavior, and no-diagnostic
+  controls for incomplete or non-exhaustive surfaces.
 - [ ] Define deterministic precedence:
   source symbols win for workbook-owned members; inline docs enrich source;
   external metadata describes explicitly declared external/extension members;
@@ -439,8 +447,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
-  member-call signatures; diagnostics and go-to-definition still need the same
-  consolidation.
+  member-call signatures; diagnostics now consume it for known member-call
+  arity/type checks, and go-to-definition now consumes it for source-backed
+  members.
 
 Definition of done:
 

@@ -192,8 +192,23 @@ function runRules(
 	checkScalarMemberAccess(source, mod, symbols, push);
 	checkMemberNotFound(source, mod, opts.projectClassMembers, opts.hostModel, push);
 	checkNonCallableCallStatement(source, mod, symbols, push);
-	checkArgumentCount(source, mod, opts.projectProcedures, push);
-	checkArgumentTypes(source, mod, symbols, opts.projectProcedures, push);
+	checkArgumentCount(
+		source,
+		mod,
+		opts.projectProcedures,
+		opts.projectClassMembers,
+		opts.hostModel,
+		push,
+	);
+	checkArgumentTypes(
+		source,
+		mod,
+		symbols,
+		opts.projectProcedures,
+		opts.projectClassMembers,
+		opts.hostModel,
+		push,
+	);
 	checkAssignmentTypes(source, mod, symbols, opts.projectClassMembers, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
@@ -481,9 +496,11 @@ function resolveExactMemberCompletion(
 	memberName: string,
 	memberEndOffset: number,
 	projectClassMembers: readonly VbaProjectClassMembers[],
+	hostModel?: HostObjectModel,
 ): MemberCompletion | undefined {
 	return resolveMemberCompletions(source, memberEndOffset, {
 		projectClassMembers,
+		model: hostModel,
 	}).find((member) => member.name.toLowerCase() === memberName.toLowerCase());
 }
 
@@ -1019,20 +1036,21 @@ interface CallArguments {
  * procedure's parameter list accepts. Same-module procedures come directly from
  * this module's AST. Cross-module checks use the ProjectIndex signature map:
  * bare exported names are checked only when unique, and module-qualified calls
- * resolve through the named standard module only. Host/object member calls and
- * ambiguous names stay silent to remain false-positive-free. Property accessors
- * are skipped because their invocation syntax and Let/Set/Get pairing require
- * the object/member binder.
+ * resolve through the named standard module only. Parenthesized object member
+ * calls are checked only when the shared member-completion binder resolves a
+ * known source or host/reference signature. Ambiguous or unresolved targets stay
+ * silent to remain false-positive-free.
  *
  * The inspected forms are the parenless call statement (`Foo 1, 2`), the
  * explicit `Call Foo(1, 2)`, and parenthesized current-module calls inside
- * expressions (`x = Foo(1, 2)`). Host/runtime calls are still skipped unless a
- * later binder can prove the callee target.
+ * expressions (`x = Foo(1, 2)`) or member access (`Application.Calculate()`).
  */
 function checkArgumentCount(
 	source: string,
 	mod: ModuleNode,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): void {
 	const procsByName = new Map<string, ProcedureNode[]>();
@@ -1051,10 +1069,6 @@ function checkArgumentCount(
 			procsByName.set(key, [member]);
 		}
 	}
-	if (procsByName.size === 0 && !projectProcedures) {
-		return;
-	}
-
 	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
 	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
 	for (const member of mod.members) {
@@ -1075,6 +1089,14 @@ function checkArgumentCount(
 					continue;
 				}
 				validateCallableArity(call, procsByName, projectSignatures, push);
+			}
+			for (const memberCall of memberExpressionCalls(
+				source,
+				stmt.span,
+				projectClassMembers ?? [],
+				hostModel,
+			)) {
+				validateArity(memberCall.signature, memberCall.call, push);
 			}
 		});
 	}
@@ -1455,6 +1477,8 @@ function checkArgumentTypes(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): void {
 	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
@@ -1466,6 +1490,20 @@ function checkArgumentTypes(
 		forEachStatement(member.body, (stmt) => {
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
 				validateArgumentTypes(call, env, moduleSignatures, push);
+			}
+			for (const memberCall of memberExpressionCalls(
+				source,
+				stmt.span,
+				projectClassMembers ?? [],
+				hostModel,
+			)) {
+				validateArgumentTypesForSignature(
+					memberCall.signature,
+					memberCall.call,
+					env,
+					moduleSignatures,
+					push,
+				);
 			}
 			const statementCall = extractCall(source, stmt.span);
 			const qualifiedStatementCall = statementCall
@@ -1863,6 +1901,54 @@ function expressionCalls(
 	return out;
 }
 
+interface BoundMemberCall {
+	call: CallArguments;
+	signature: CallableTypeSignature;
+}
+
+function memberExpressionCalls(
+	source: string,
+	span: Span,
+	projectClassMembers: readonly VbaProjectClassMembers[],
+	hostModel: HostObjectModel | undefined,
+): BoundMemberCall[] {
+	const toks = statementTokens(source, span);
+	const out: BoundMemberCall[] = [];
+	for (let i = 2; i < toks.length - 1; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || toks[i - 1]?.rawText !== '.' || toks[i + 1]?.rawText !== '(') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0) {
+			continue;
+		}
+		const member = resolveExactMemberCompletion(
+			source,
+			name,
+			span.start + toks[i].end,
+			projectClassMembers,
+			hostModel,
+		);
+		if (!member?.signature) {
+			continue;
+		}
+		const inner = toks.slice(i + 2, close);
+		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
+		out.push({
+			signature: parseRuntimeDisplaySignature(member.name, member.signature),
+			call: {
+				name: member.name,
+				nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+				slots: split.slots,
+				slotSpans: split.spans,
+				sliceStart: span.start,
+			},
+		});
+	}
+	return out;
+}
+
 function validateArgumentTypes(
 	call: CallArguments,
 	env: ReadonlyMap<string, string>,
@@ -1871,6 +1957,19 @@ function validateArgumentTypes(
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures);
 	if (!sig || sig.params.length === 0) {
+		return;
+	}
+	validateArgumentTypesForSignature(sig, call, env, moduleSignatures, push);
+}
+
+function validateArgumentTypesForSignature(
+	sig: CallableTypeSignature,
+	call: CallArguments,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	push: PushFn,
+): void {
+	if (sig.params.length === 0) {
 		return;
 	}
 	const paramsByName = new Map(

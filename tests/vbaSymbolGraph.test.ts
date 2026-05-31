@@ -547,24 +547,25 @@ describe('ProjectIndex visible type names', () => {
 describe('ProjectIndex project class members', () => {
 	it('exposes source-declared public/default-public class members', () => {
 		const index = new ProjectIndex();
+		const source = [
+			'Public Name As String',
+			'Private Secret As String',
+			"''' <summary>Age in whole years.</summary>",
+			'Public Property Get Age() As Long',
+			'End Property',
+			'Public Property Let Age(ByVal value As Long)',
+			'End Property',
+			'Sub Save()',
+			'End Sub',
+			'Private Sub Hidden()',
+			'End Sub',
+			'Public Function Manager() As Person',
+			'End Function',
+		].join('\n');
 		index.setModule({
 			moduleName: 'Person',
 			moduleKind: 'class',
-			source: [
-				'Public Name As String',
-				'Private Secret As String',
-				"''' <summary>Age in whole years.</summary>",
-				'Public Property Get Age() As Long',
-				'End Property',
-				'Public Property Let Age(ByVal value As Long)',
-				'End Property',
-				'Sub Save()',
-				'End Sub',
-				'Private Sub Hidden()',
-				'End Sub',
-				'Public Function Manager() As Person',
-				'End Function',
-			].join('\n'),
+			source,
 		});
 		const person = index.projectClassMembers().find((t) => t.name === 'Person');
 		expect(person?.exhaustive).toBe(true);
@@ -578,9 +579,15 @@ describe('ProjectIndex project class members', () => {
 		expect(age?.doc?.summary).toBe('Age in whole years.');
 		expect(age?.writable).toBe(true);
 		expect(age?.writeType).toBe('Long');
+		expect(
+			age?.definitions?.map((def) => source.slice(def.nameSpan.start, def.nameSpan.end)),
+		).toEqual(['Age', 'Age']);
 		const save = person?.members.find((m) => m.name === 'Save');
 		expect(save?.writable).toBeUndefined();
 		expect(save?.signature).toBe('Save()');
+		expect(
+			save?.definitions?.map((def) => source.slice(def.nameSpan.start, def.nameSpan.end)),
+		).toEqual(['Save']);
 		expect(person?.members.find((m) => m.name === 'Manager')?.signature).toBe(
 			'Manager() As Person',
 		);

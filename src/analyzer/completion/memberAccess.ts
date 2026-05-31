@@ -32,7 +32,10 @@ import {
 } from '../host/hostModel';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaDoc } from '../docs/docModel';
-import type { VbaProjectClassMembers } from '../symbols/symbolModel';
+import type {
+	VbaProjectClassMemberDefinition,
+	VbaProjectClassMembers,
+} from '../symbols/symbolModel';
 
 /** Project/module facts the resolver needs that come from outside the source. */
 export interface MemberCompletionContext {
@@ -70,6 +73,8 @@ export interface MemberCompletion {
 	documentation?: string;
 	/** Raw documentation model, used by signature help for parameter notes. */
 	doc?: VbaDoc;
+	/** Source declaration locations, when this completion comes from workbook code. */
+	definitions?: readonly VbaProjectClassMemberDefinition[];
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -85,6 +90,7 @@ type CompletionMemberSource = Pick<
 > & {
 	writable?: boolean;
 	writeType?: string;
+	definitions?: readonly VbaProjectClassMemberDefinition[];
 };
 
 interface MemberSurface {
@@ -178,6 +184,7 @@ export function resolveMemberCompletions(
 				? renderDocMarkdown(mem.doc)
 				: undefined,
 			doc: mem.doc,
+			definitions: mem.definitions,
 		}));
 }
 
