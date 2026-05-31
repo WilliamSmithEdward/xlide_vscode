@@ -20,6 +20,12 @@ export interface VbaDocParam {
 	name: string;
 	/** Rendered description text (entities decoded, whitespace collapsed). */
 	text: string;
+	/** Optional type hint from `type="..."` documentation metadata. */
+	type?: string;
+	/** Optional unit hint from `unit="..."` documentation metadata. */
+	unit?: string;
+	/** Optional value/category hint from `value="..."` documentation metadata. */
+	value?: string;
 }
 
 /**
@@ -34,6 +40,12 @@ export interface VbaDoc {
 	params: VbaDocParam[];
 	/** `<returns>` - description of a function's return value. */
 	returns?: string;
+	/** Optional return type hint from `<returns type="...">`. */
+	returnsType?: string;
+	/** Optional return unit hint from `<returns unit="...">`. */
+	returnsUnit?: string;
+	/** Optional return value/category hint from `<returns value="...">`. */
+	returnsValue?: string;
 	/** `<remarks>` - extended notes shown below the summary. */
 	remarks?: string;
 	/** `<example>` - a usage example, rendered as a VBA code block. */
@@ -54,6 +66,9 @@ export function hasDocContent(doc: VbaDoc | undefined): doc is VbaDoc {
 		!!doc &&
 		(!!doc.summary ||
 			!!doc.returns ||
+			!!doc.returnsType ||
+			!!doc.returnsUnit ||
+			!!doc.returnsValue ||
 			!!doc.remarks ||
 			!!doc.example ||
 			doc.params.length > 0)
@@ -71,11 +86,11 @@ export function renderDocMarkdown(doc: VbaDoc): string {
 		parts.push(doc.summary);
 	}
 	if (doc.params.length > 0) {
-		const lines = doc.params.map((p) => `- \`${p.name}\`: ${p.text}`);
+		const lines = doc.params.map((p) => `- \`${p.name}\`${renderHintSuffix(p)}: ${p.text}`);
 		parts.push(['**Parameters:**', ...lines].join('  \n'));
 	}
 	if (doc.returns) {
-		parts.push(`**Returns:** ${doc.returns}`);
+		parts.push(`**Returns${renderReturnHintSuffix(doc)}:** ${doc.returns}`);
 	}
 	if (doc.remarks) {
 		parts.push(`**Remarks:** ${doc.remarks}`);
@@ -84,6 +99,43 @@ export function renderDocMarkdown(doc: VbaDoc): string {
 		parts.push(`**Example:**\n\n\`\`\`vba\n${doc.example}\n\`\`\``);
 	}
 	return parts.join('\n\n');
+}
+
+/** Renders one parameter's doc for signature-help parameter details. */
+export function renderParamDocMarkdown(param: VbaDocParam): string {
+	const hints = renderHintList(param);
+	if (hints.length === 0) {
+		return param.text;
+	}
+	return `${hints.join(', ')}\n\n${param.text}`;
+}
+
+function renderHintSuffix(param: Pick<VbaDocParam, 'type' | 'unit' | 'value'>): string {
+	const hints = renderHintList(param);
+	return hints.length > 0 ? ` (${hints.join(', ')})` : '';
+}
+
+function renderReturnHintSuffix(doc: VbaDoc): string {
+	const hints = renderHintList({
+		type: doc.returnsType,
+		unit: doc.returnsUnit,
+		value: doc.returnsValue,
+	});
+	return hints.length > 0 ? ` (${hints.join(', ')})` : '';
+}
+
+function renderHintList(param: Pick<VbaDocParam, 'type' | 'unit' | 'value'>): string[] {
+	const hints: string[] = [];
+	if (param.type) {
+		hints.push(`As ${param.type}`);
+	}
+	if (param.unit) {
+		hints.push(`unit: ${param.unit}`);
+	}
+	if (param.value) {
+		hints.push(`value: ${param.value}`);
+	}
+	return hints;
 }
 
 /**

@@ -32,6 +32,34 @@ describe('parseDocBody', () => {
 		expect(doc.source).toBe('inline');
 	});
 
+	it('parses optional type, unit, and value hints', () => {
+		const doc = parseDocBody(
+			[
+				'<summary>Computes the invoice total.</summary>',
+				'<param name="Subtotal" type="Currency" unit="money">Pre-tax amount.</param>',
+				'<param name="TaxRate" type="Double" unit="decimal" value="0 to 1">Tax rate.</param>',
+				'<returns type="Currency" unit="money">Invoice total.</returns>',
+			].join('\n'),
+			'inline',
+		);
+		expect(doc.params[0]).toEqual({
+			name: 'Subtotal',
+			text: 'Pre-tax amount.',
+			type: 'Currency',
+			unit: 'money',
+		});
+		expect(doc.params[1]).toEqual({
+			name: 'TaxRate',
+			text: 'Tax rate.',
+			type: 'Double',
+			unit: 'decimal',
+			value: '0 to 1',
+		});
+		expect(doc.returns).toBe('Invoice total.');
+		expect(doc.returnsType).toBe('Currency');
+		expect(doc.returnsUnit).toBe('money');
+	});
+
 	it('treats untagged text as the summary', () => {
 		const doc = parseDocBody('Just a plain note.', 'inline');
 		expect(doc.summary).toBe('Just a plain note.');
@@ -253,5 +281,19 @@ describe('renderDocMarkdown', () => {
 		expect(md).toContain('`X`: px');
 		expect(md).toContain('**Returns:** R');
 		expect(md).toContain('**Remarks:** M');
+	});
+
+	it('renders optional type and unit hints', () => {
+		const doc = parseDocBody(
+			[
+				'<summary>S</summary>',
+				'<param name="Amount" type="Currency" unit="money">px</param>',
+				'<returns type="Currency" unit="money">R</returns>',
+			].join('\n'),
+			'inline',
+		);
+		const md = renderDocMarkdown(doc);
+		expect(md).toContain('`Amount` (As Currency, unit: money): px');
+		expect(md).toContain('**Returns (As Currency, unit: money):** R');
 	});
 });

@@ -309,6 +309,37 @@ describe('analyzeModule - unknown call statement', () => {
 	});
 });
 
+describe('analyzeModule - non-callable call statements', () => {
+	it('flags a bare local variable used as a statement', () => {
+		const src = 'Sub Main()\n    Dim testStr As String\n    testStr\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'non-callable-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('testStr');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('local variable');
+	});
+
+	it('flags an explicit Call to a parameter', () => {
+		const src = 'Sub Main(ByVal testStr As String)\n    Call testStr\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'non-callable-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('testStr');
+		expect(hits[0].message).toContain('parameter');
+	});
+
+	it('flags a module variable used as a call target', () => {
+		const src = 'Private total As Long\nSub Main()\n    total\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'non-callable-call');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('module variable');
+	});
+
+	it('does not flag callable procedures or runtime statements', () => {
+		const src = 'Sub Main()\n    Helper\n    Beep\nEnd Sub\nSub Helper()\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'non-callable-call')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - invalid procedure header', () => {
 	it('flags a procedure name that contains a space', () => {
 		const src = 'Sub My Sub\nEnd Sub\n';
@@ -443,6 +474,42 @@ describe('analyzeModule - argument count', () => {
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(1);
 	});
 
+	it('flags an omitted required argument in an expression call', () => {
+		const src =
+			'Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Sub Main()\n' +
+			'    total2 = InvoiceTotal(total, )\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('TaxRate');
+		expect(hits[0].message).toContain('Argument not optional');
+	});
+
+	it('flags an omitted leading required argument in an expression call', () => {
+		const src =
+			'Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Sub Main()\n' +
+			'    total2 = InvoiceTotal(, 0.08)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('Subtotal');
+	});
+
+	it('accepts an omitted Optional argument in an expression call', () => {
+		const src =
+			'Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Sub Main()\n' +
+			'    total2 = InvoiceTotal(total, )\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
 	it('accepts a correct argument count', () => {
 		const src =
 			'Sub Main()\n' +
@@ -509,6 +576,76 @@ describe('analyzeModule - argument count', () => {
 			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n' +
 			'Sub Greet(ByVal a As String)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - argument type validation', () => {
+	it('flags a nonnumeric string literal passed to a same-module numeric parameter', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = InvoiceTotal("blah", 0.08)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"blah"');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('Subtotal');
+		expect(hits[0].message).toContain('Currency');
+	});
+
+	it('accepts numeric literals and numeric string literals for numeric parameters', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    a = InvoiceTotal(100, 0.08)\n' +
+			'    b = InvoiceTotal("100", 0.08)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+	});
+
+	it('does not warn on string variables whose runtime value is unknown', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    Dim label As String\n' +
+			'    total = InvoiceTotal(label)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+	});
+
+	it('maps named arguments to the named parameter type', () => {
+		const src =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = InvoiceTotal(TaxRate:=0.08, Subtotal:="blah")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"blah"');
+		expect(hits[0].message).toContain('Subtotal');
+	});
+
+	it('validates selected native VBA runtime parameter types', () => {
+		const src = 'Sub T()\n    x = Left("abcdef", "bad")\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"bad"');
+		expect(hits[0].message).toContain('Length');
+	});
+
+	it('does not infer runtime parameter types from display names', () => {
+		const src = 'Sub T()\n    Randomize "bad"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+	});
+
+	it('does not warn when a type is unknown or Variant-like', () => {
+		const src = 'Sub T()\n    x = Format("blah", "0.00")\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
 	});
 });
 

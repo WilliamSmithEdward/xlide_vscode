@@ -14,15 +14,16 @@
 // form, the parenless-argument form (`MsgBox "hi"`), or `Call name` - whose name
 // resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
-// declaration - the unambiguous VBE "Sub or Function not defined" error. Broader
-// flow-sensitive rules (undeclared variable, arbitrary-expression unknown call)
-// still need a full expression binder and remain intentionally omitted to avoid
-// false positives.
+// declaration - the unambiguous VBE "Sub or Function not defined" error.
+// In-scope names that resolve to variables/constants/types are handled by the
+// non-callable-call rule. Broader flow-sensitive rules (undeclared variable,
+// arbitrary-expression unknown call) still need a full expression binder and
+// remain intentionally omitted to avoid false positives.
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
-import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
+import { resolveRuntimeFunction, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
 import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
 import type {
 	BodyNode,
@@ -162,7 +163,9 @@ function runRules(
 	checkExpressionCallParens(source, mod, push);
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
+	checkNonCallableCallStatement(source, mod, symbols, push);
 	checkArgumentCount(source, mod, push);
+	checkArgumentTypes(source, mod, symbols, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
 	}
@@ -469,6 +472,106 @@ function checkUnknownCallStatement(
 }
 
 /**
+ * Rule: a call-statement-shaped line must resolve to something callable. If the
+ * bare target resolves to a parameter/local/module variable, constant, type, or
+ * enum member in the current scope, the code is deterministically invalid; it is
+ * not an unknown cross-module call.
+ */
+function checkNonCallableCallStatement(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	push: PushFn,
+): void {
+	const moduleNonCallables = moduleNonCallableSymbols(symbols);
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const procSym = (symbols.root.children ?? []).find(
+			(s) => isProcedureKind(s.kind) && s.fullSpan.start === member.span.start,
+		);
+		const localNonCallables = new Map<string, VbaSymbol>();
+		for (const child of procSym?.children ?? []) {
+			if (isNonCallableSymbol(child)) {
+				localNonCallables.set(child.name.toLowerCase(), child);
+			}
+		}
+		forEachStatement(member.body, (stmt) => {
+			const hit = callStatementTarget(source, stmt.span);
+			if (!hit) {
+				return;
+			}
+			const lower = hit.name.toLowerCase();
+			const target = localNonCallables.get(lower) ?? moduleNonCallables.get(lower);
+			if (!target) {
+				return;
+			}
+			push(
+				'nonCallableCallStatement',
+				`Cannot call '${hit.name}' because it resolves to ${symbolKindLabel(target)}, not a Sub or Function.`,
+				hit.span,
+			);
+		});
+	}
+}
+
+function moduleNonCallableSymbols(symbols: ReturnType<typeof buildModuleSymbols>): Map<string, VbaSymbol> {
+	const out = new Map<string, VbaSymbol>();
+	const callableNames = new Set(
+		(symbols.root.children ?? [])
+			.filter((sym) => isProcedureKind(sym.kind) || sym.kind === 'declare')
+			.map((sym) => sym.name.toLowerCase()),
+	);
+	for (const sym of symbols.root.children ?? []) {
+		if (isNonCallableSymbol(sym) && !callableNames.has(sym.name.toLowerCase())) {
+			out.set(sym.name.toLowerCase(), sym);
+		}
+		if (sym.kind === 'enum') {
+			for (const child of sym.children ?? []) {
+				if (!callableNames.has(child.name.toLowerCase())) {
+					out.set(child.name.toLowerCase(), child);
+				}
+			}
+		}
+	}
+	return out;
+}
+
+function isNonCallableSymbol(sym: VbaSymbol): boolean {
+	return (
+		sym.kind === 'parameter' ||
+		sym.kind === 'localVariable' ||
+		sym.kind === 'moduleVariable' ||
+		sym.kind === 'constant' ||
+		sym.kind === 'enum' ||
+		sym.kind === 'enumMember' ||
+		sym.kind === 'type'
+	);
+}
+
+function symbolKindLabel(sym: VbaSymbol): string {
+	switch (sym.kind) {
+		case 'parameter':
+			return 'a parameter';
+		case 'localVariable':
+			return 'a local variable';
+		case 'moduleVariable':
+			return 'a module variable';
+		case 'constant':
+			return 'a constant';
+		case 'enum':
+			return 'an enum type';
+		case 'enumMember':
+			return 'an enum member';
+		case 'type':
+			return 'a user-defined type';
+		default:
+			return 'a non-callable declaration';
+	}
+}
+
+/**
  * If the statement spanning `span` is a *call statement* whose callee is a bare
  * (non-member) identifier, returns that identifier and its absolute span;
  * otherwise undefined. Three forms qualify:
@@ -720,6 +823,8 @@ interface CallArguments {
 	 * argument (`Foo 1, , 3`).
 	 */
 	slots: VbaToken[][];
+	/** Absolute spans for each argument slot; empty slots use the separator span. */
+	slotSpans?: Span[];
 	/** Absolute offset of the statement slice the slot tokens are relative to. */
 	sliceStart: number;
 }
@@ -734,11 +839,10 @@ interface CallArguments {
  * accessors are skipped (they are not invoked through call-statement syntax) and
  * any name that is ambiguous in the module (duplicate/overloaded) is skipped.
  *
- * Only the unambiguous call-statement forms that {@link callStatementTarget}
- * already resolves are inspected: the parenless `Foo 1, 2` and the explicit
- * `Call Foo(1, 2)`. Expression-embedded calls (`x = Foo(1, 2)`) and the
- * parenthesized bare form `Foo(1, 2)` are not validated (the latter is
- * indistinguishable from `Cells(1, 1)` indexing without a binder).
+ * The inspected forms are the parenless call statement (`Foo 1, 2`), the
+ * explicit `Call Foo(1, 2)`, and parenthesized current-module calls inside
+ * expressions (`x = Foo(1, 2)`). Host/runtime calls are still skipped unless a
+ * later binder can prove the callee target.
  */
 function checkArgumentCount(
 	source: string,
@@ -765,24 +869,42 @@ function checkArgumentCount(
 		return;
 	}
 
+	const moduleSignatures = buildModuleTypeSignatures(mod);
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		forEachStatement(member.body, (stmt) => {
-			const call = extractCall(source, stmt.span);
-			if (!call) {
-				return;
+			const statementCall = extractCall(source, stmt.span);
+			if (statementCall) {
+				validateSameModuleArity(statementCall, procsByName, push);
 			}
-			const candidates = procsByName.get(call.name.toLowerCase());
-			// Skip unknown names (owned by unknown-call) and ambiguous ones (e.g. a
-			// duplicate definition) where the target signature is not unique.
-			if (!candidates || candidates.length !== 1) {
-				return;
+			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
+				if (sameCallTarget(call, statementCall)) {
+					continue;
+				}
+				validateSameModuleArity(call, procsByName, push);
 			}
-			validateArity(candidates[0], call, push);
 		});
 	}
+}
+
+function validateSameModuleArity(
+	call: CallArguments,
+	procsByName: ReadonlyMap<string, ProcedureNode[]>,
+	push: PushFn,
+): void {
+	const candidates = procsByName.get(call.name.toLowerCase());
+	// Skip unknown names (owned by unknown-call) and ambiguous ones (e.g. a
+	// duplicate definition) where the target signature is not unique.
+	if (!candidates || candidates.length !== 1) {
+		return;
+	}
+	validateArity(candidates[0], call, push);
+}
+
+function sameCallTarget(a: CallArguments, b: CallArguments | undefined): boolean {
+	return !!b && a.nameSpan.start === b.nameSpan.start && a.nameSpan.end === b.nameSpan.end;
 }
 
 /**
@@ -845,14 +967,25 @@ function extractCall(source: string, span: Span): CallArguments | undefined {
 		argToks = toks.slice(calleeIdx + 1);
 	}
 
-	const slots = argToks.length === 0 ? [] : splitArgSlots(argToks);
-	return { name: hit.name, nameSpan: hit.span, slots, sliceStart };
+	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, sliceStart);
+	return { name: hit.name, nameSpan: hit.span, slots: split.slots, slotSpans: split.spans, sliceStart };
+}
+
+interface ArgSplit {
+	slots: VbaToken[][];
+	spans: Span[];
 }
 
 /** Splits an argument token run into top-level (depth-0) comma-separated slots. */
-function splitArgSlots(toks: VbaToken[]): VbaToken[][] {
+function splitArgSlots(toks: VbaToken[], sliceStart: number): ArgSplit {
 	const slots: VbaToken[][] = [[]];
+	const spans: Span[] = [];
 	let depth = 0;
+	let emptyMarker: VbaToken | undefined;
+	const finishSlot = (): void => {
+		const slot = slots[slots.length - 1];
+		spans.push(argumentSlotSpan(slot, emptyMarker, sliceStart));
+	};
 	for (const t of toks) {
 		if (t.kind === 'punctuation' && t.rawText === '(') {
 			depth++;
@@ -860,12 +993,33 @@ function splitArgSlots(toks: VbaToken[]): VbaToken[][] {
 			depth--;
 		}
 		if (t.kind === 'punctuation' && t.rawText === ',' && depth === 0) {
+			finishSlot();
 			slots.push([]);
+			emptyMarker = t;
 		} else {
 			slots[slots.length - 1].push(t);
+			emptyMarker = undefined;
 		}
 	}
-	return slots;
+	finishSlot();
+	return { slots, spans };
+}
+
+function emptyArgSplit(): ArgSplit {
+	return { slots: [], spans: [] };
+}
+
+function argumentSlotSpan(slot: VbaToken[], emptyMarker: VbaToken | undefined, sliceStart: number): Span {
+	if (slot.length > 0) {
+		return {
+			start: sliceStart + slot[0].start,
+			end: sliceStart + slot[slot.length - 1].end,
+		};
+	}
+	if (emptyMarker) {
+		return { start: sliceStart + emptyMarker.start, end: sliceStart + emptyMarker.end };
+	}
+	return { start: sliceStart, end: sliceStart };
 }
 
 /** True if a slot is a named argument (`name := value`). */
@@ -933,6 +1087,18 @@ function validateArity(
 		return; // positional count is not validated alongside named arguments
 	}
 
+	for (let i = 0; i < Math.min(call.slots.length, params.length); i++) {
+		const param = params[i];
+		if (call.slots[i].length === 0 && !param.optional && !param.paramArray) {
+			const name = stripHeaderBrackets(param.name);
+			push(
+				'argumentCount',
+				`Argument not optional: '${name}' is required by '${proc.name}'.`,
+				call.slotSpans?.[i] ?? call.nameSpan,
+			);
+		}
+	}
+
 	const n = call.slots.length;
 	if (n < required || n > max) {
 		push(
@@ -941,6 +1107,423 @@ function validateArity(
 			call.nameSpan,
 		);
 	}
+}
+
+interface CallableParamType {
+	name: string;
+	type?: string;
+	optional: boolean;
+	paramArray: boolean;
+}
+
+interface CallableTypeSignature {
+	name: string;
+	params: CallableParamType[];
+	returnType?: string;
+}
+
+interface InferredArgumentType {
+	type: string;
+	label: string;
+	span: Span;
+	stringValue?: string;
+}
+
+/**
+ * Rule: when both a callable parameter type and an argument type are known, flag
+ * high-confidence mismatches. This first slice is deliberately conservative:
+ * unknowns and Variant are accepted, and VBA's normal coercions are allowed
+ * unless a literal is clearly incompatible (for example `"blah"` for Currency).
+ */
+function checkArgumentTypes(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	push: PushFn,
+): void {
+	const moduleSignatures = buildModuleTypeSignatures(mod);
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const env = typeEnvironmentFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
+				validateArgumentTypes(call, env, moduleSignatures, push);
+			}
+			const statementCall = extractCall(source, stmt.span);
+			if (statementCall) {
+				validateArgumentTypes(statementCall, env, moduleSignatures, push);
+			}
+		});
+	}
+}
+
+function buildModuleTypeSignatures(mod: ModuleNode): Map<string, CallableTypeSignature> {
+	const out = new Map<string, CallableTypeSignature>();
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const params = member.params.map((p) => ({
+			name: stripHeaderBrackets(p.name),
+			type: p.asType,
+			optional: p.optional,
+			paramArray: p.paramArray,
+		}));
+		out.set(member.name.toLowerCase(), {
+			name: member.name,
+			params,
+			returnType: member.returnType,
+		});
+	}
+	return out;
+}
+
+function typeEnvironmentFor(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+): Map<string, string> {
+	const out = new Map<string, string>();
+	for (const sym of symbols.root.children ?? []) {
+		if (sym.asType && !isProcedureKind(sym.kind)) {
+			out.set(sym.name.toLowerCase(), sym.asType);
+		}
+	}
+	const procSym = (symbols.root.children ?? []).find(
+		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
+	);
+	for (const child of procSym?.children ?? []) {
+		if (child.asType) {
+			out.set(child.name.toLowerCase(), child.asType);
+		}
+	}
+	return out;
+}
+
+function expressionCalls(
+	source: string,
+	span: Span,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): CallArguments[] {
+	const toks = statementTokens(source, span);
+	const out: CallArguments[] = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || toks[i + 1].rawText !== '(') {
+			continue;
+		}
+		if (i > 0 && toks[i - 1].rawText === '.') {
+			continue; // host/member calls need receiver binding before checking
+		}
+		if (!callableSignatureFor(name, moduleSignatures)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0) {
+			continue;
+		}
+		const inner = toks.slice(i + 2, close);
+		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
+		out.push({
+			name,
+			nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+			slots: split.slots,
+			slotSpans: split.spans,
+			sliceStart: span.start,
+		});
+	}
+	return out;
+}
+
+function validateArgumentTypes(
+	call: CallArguments,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	push: PushFn,
+): void {
+	const sig = callableSignatureFor(call.name, moduleSignatures);
+	if (!sig || sig.params.length === 0) {
+		return;
+	}
+	const paramsByName = new Map(
+		sig.params.map((p) => [stripHeaderBrackets(p.name).toLowerCase(), p]),
+	);
+	let positionalIndex = 0;
+	for (let i = 0; i < call.slots.length; i++) {
+		const named = namedArgumentSlot(call.slots[i]);
+		let param: CallableParamType | undefined;
+		let valueSlot = call.slots[i];
+		if (named) {
+			param = paramsByName.get(named.name.toLowerCase());
+			valueSlot = named.value;
+		} else {
+			param = sig.params[Math.min(positionalIndex, sig.params.length - 1)];
+			if (!param || (positionalIndex >= sig.params.length && !param.paramArray)) {
+				continue;
+			}
+			positionalIndex++;
+		}
+		if (!param) {
+			continue;
+		}
+		const expected = param.type;
+		if (!expected) {
+			continue;
+		}
+		const actual = inferArgumentType(valueSlot, call.sliceStart, env, moduleSignatures);
+		if (!actual) {
+			continue;
+		}
+		const reason = incompatibilityReason(expected, actual);
+		if (!reason) {
+			continue;
+		}
+		push(
+			'argumentTypeMismatch',
+			`Argument '${param.name}' of '${sig.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
+			actual.span,
+		);
+	}
+}
+
+function namedArgumentSlot(slot: VbaToken[]): { name: string; value: VbaToken[] } | undefined {
+	if (!isNamedSlot(slot)) {
+		return undefined;
+	}
+	return {
+		name: stripHeaderBrackets(slot[0].rawText),
+		value: slot.slice(2),
+	};
+}
+
+function callableSignatureFor(
+	name: string,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): CallableTypeSignature | undefined {
+	const user = moduleSignatures.get(name.toLowerCase());
+	if (user) {
+		return user;
+	}
+	const runtime = resolveRuntimeFunction(name);
+	if (!runtime) {
+		return undefined;
+	}
+	return runtimeTypeSignature(runtime);
+}
+
+function runtimeTypeSignature(runtime: VbaRuntimeFunction): CallableTypeSignature {
+	if (runtime.params) {
+		return {
+			name: runtime.name,
+			params: runtime.params.map((p) => ({
+				name: p.name,
+				type: p.type,
+				optional: p.optional ?? false,
+				paramArray: p.paramArray ?? false,
+			})),
+			returnType: runtime.returns,
+		};
+	}
+	return parseRuntimeDisplaySignature(runtime.name, runtime.signature, runtime.returns);
+}
+
+function parseRuntimeDisplaySignature(
+	name: string,
+	signature: string,
+	returnType?: string,
+): CallableTypeSignature {
+	const inner = runtimeSignatureParameterText(signature);
+	if (inner === undefined) {
+		return { name, params: [], returnType };
+	}
+	const params = splitSignatureTopLevel(inner)
+		.map(parseRuntimeParamType)
+		.filter((p): p is CallableParamType => p !== undefined);
+	return { name, params, returnType };
+}
+
+function runtimeSignatureParameterText(signature: string): string | undefined {
+	const open = signature.indexOf('(');
+	const close = signature.lastIndexOf(')');
+	if (open < 0 || close < open) {
+		return undefined;
+	}
+	return signature.slice(open + 1, close);
+}
+
+function parseRuntimeParamType(raw: string): CallableParamType | undefined {
+	let text = raw.trim();
+	if (!text) {
+		return undefined;
+	}
+	const optional = text.startsWith('[') && text.endsWith(']');
+	text = text.replace(/^\[/, '').replace(/\]$/, '').trim();
+	text = text.replace(/\s*=\s*.*$/, '').trim();
+	const as = /\bAs\s+([A-Za-z_][A-Za-z0-9_]*(?:\(\))?)/i.exec(text);
+	const first = /[A-Za-z_][A-Za-z0-9_]*/.exec(text)?.[0];
+	if (!first) {
+		return undefined;
+	}
+	return {
+		name: first,
+		type: as?.[1],
+		optional,
+		paramArray: false,
+	};
+}
+
+function splitSignatureTopLevel(text: string): string[] {
+	const out: string[] = [];
+	let depth = 0;
+	let start = 0;
+	for (let i = 0; i < text.length; i++) {
+		const c = text[i];
+		if (c === '(' || c === '[') {
+			depth++;
+		} else if (c === ')' || c === ']') {
+			depth--;
+		} else if (c === ',' && depth === 0) {
+			out.push(text.slice(start, i));
+			start = i + 1;
+		}
+	}
+	out.push(text.slice(start));
+	return out;
+}
+
+function inferArgumentType(
+	slot: VbaToken[],
+	sliceStart: number,
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): InferredArgumentType | undefined {
+	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	const first = toks[0];
+	if (!first) {
+		return undefined;
+	}
+	const span = { start: sliceStart + first.start, end: sliceStart + first.end };
+	switch (first.kind) {
+		case 'stringLiteral': {
+			const value = stringLiteralValue(first.rawText);
+			return { type: 'String', label: `String literal ${first.rawText}`, span, stringValue: value };
+		}
+		case 'integerLiteral':
+		case 'floatLiteral':
+			return { type: 'Double', label: 'numeric literal', span };
+		case 'dateLiteral':
+			return { type: 'Date', label: 'Date literal', span };
+		case 'keyword': {
+			const word = first.rawText.toLowerCase();
+			if (word === 'true' || word === 'false') {
+				return { type: 'Boolean', label: 'Boolean literal', span };
+			}
+			if (word === 'nothing') {
+				return { type: 'Nothing', label: 'Nothing', span };
+			}
+			break;
+		}
+		default:
+			break;
+	}
+	const name = tokenName(first);
+	if (name && toks.length === 1) {
+		const type = env.get(name.toLowerCase());
+		return type ? { type, label: `${name} As ${type}`, span } : undefined;
+	}
+	if (name && toks[1]?.rawText === '(') {
+		const sig = callableSignatureFor(name, moduleSignatures);
+		if (sig?.returnType) {
+			return { type: sig.returnType, label: `${name}(...) As ${sig.returnType}`, span };
+		}
+	}
+	return undefined;
+}
+
+function incompatibilityReason(
+	expectedRaw: string,
+	actual: InferredArgumentType,
+): string | undefined {
+	const expected = normalizeType(expectedRaw);
+	const actualType = normalizeType(actual.type);
+	if (!expected || !actualType || expected === 'variant' || actualType === 'variant') {
+		return undefined;
+	}
+	if (expected === 'object') {
+		return actualType === 'nothing' || actualType === 'object'
+			? undefined
+			: 'An object parameter requires an object value.';
+	}
+	if (isNumericType(expected)) {
+		if (isNumericType(actualType) || actualType === 'boolean') {
+			return undefined;
+		}
+		if (actualType === 'string') {
+			return actual.stringValue !== undefined && isProvablyNonNumericString(actual.stringValue)
+				? 'This string literal cannot be converted to a numeric value.'
+				: undefined;
+		}
+		return undefined;
+	}
+	if (expected === 'boolean') {
+		if (actualType === 'boolean' || isNumericType(actualType)) {
+			return undefined;
+		}
+		if (actualType === 'string') {
+			return actual.stringValue !== undefined && isBooleanString(actual.stringValue)
+				? undefined
+				: 'This string literal cannot be converted to Boolean.';
+		}
+		return undefined;
+	}
+	if (expected === 'string') {
+		return undefined; // VBA can stringify scalar values; do not warn.
+	}
+	return undefined;
+}
+
+function normalizeType(type: string | undefined): string | undefined {
+	if (!type) {
+		return undefined;
+	}
+	return type
+		.replace(/\(\)$/, '')
+		.replace(/^vb/i, '')
+		.trim()
+		.toLowerCase();
+}
+
+function isNumericType(type: string): boolean {
+	return new Set([
+		'byte',
+		'integer',
+		'long',
+		'longlong',
+		'longptr',
+		'single',
+		'double',
+		'currency',
+		'decimal',
+	]).has(type);
+}
+
+// One-way proof only: strings with digits are left unknown until VBA conversion
+// semantics are modeled explicitly.
+function isProvablyNonNumericString(value: string): boolean {
+	const trimmed = value.trim();
+	return trimmed.length > 0 && !/[0-9]/.test(trimmed);
+}
+
+function stringLiteralValue(raw: string): string {
+	return raw
+		.replace(/^"/, '')
+		.replace(/"$/, '')
+		.replace(/""/g, '"');
+}
+
+function isBooleanString(value: string): boolean {
+	return /^(true|false|0|-?1)$/i.test(value.trim());
 }
 
 /**

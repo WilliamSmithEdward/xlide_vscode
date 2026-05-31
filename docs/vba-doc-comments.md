@@ -19,9 +19,9 @@ declaration - exactly like C# `///` comments in Visual Studio.
 
 ```vba
 ''' <summary>Calculates the invoice total after tax.</summary>
-''' <param name="Subtotal">The pre-tax invoice amount.</param>
-''' <param name="TaxRate">The tax rate as a decimal value, such as 0.0825.</param>
-''' <returns>The subtotal plus calculated tax.</returns>
+''' <param name="Subtotal" type="Currency" unit="money">The pre-tax invoice amount.</param>
+''' <param name="TaxRate" type="Double" unit="decimal">The tax rate as a decimal value, such as 0.0825.</param>
+''' <returns type="Currency" unit="money">The subtotal plus calculated tax.</returns>
 Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency
     InvoiceTotal = Subtotal + (Subtotal * TaxRate)
 End Function
@@ -62,6 +62,10 @@ Notes:
   whose line layout is preserved for the code block.
 - Parsing is lenient: a partially written or slightly malformed block still
   yields whatever text it can.
+- `<param>` and `<returns>` may include optional `type`, `unit`, and `value`
+  attributes. Source declarations remain the type source of truth; these hints
+  enrich hovers/call tips and help external metadata describe APIs XLIDE cannot
+  parse directly.
 
 ---
 

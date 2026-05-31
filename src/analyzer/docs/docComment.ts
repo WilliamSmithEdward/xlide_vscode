@@ -35,20 +35,53 @@ function dedent(text: string): string {
 
 /** Extracts the inner text of the first `<tag>...</tag>` in `body`, if present. */
 function firstTag(body: string, tag: string): string | undefined {
+	const m = firstTagMatch(body, tag);
+	return m?.body;
+}
+
+function firstTagMatch(body: string, tag: string): { attrs: string; body: string } | undefined {
 	const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i');
 	const m = re.exec(body);
-	return m ? m[1] : undefined;
+	if (!m) {
+		return undefined;
+	}
+	const open = new RegExp(`<${tag}([^>]*)>`, 'i').exec(m[0]);
+	return { attrs: open?.[1] ?? '', body: m[1] };
+}
+
+function attrsOf(raw: string): Map<string, string> {
+	const out = new Map<string, string>();
+	const re = /([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"/g;
+	let m: RegExpExecArray | null;
+	while ((m = re.exec(raw)) !== null) {
+		out.set(m[1].toLowerCase(), decodeEntities(m[2]).trim());
+	}
+	return out;
 }
 
 /** Extracts every `<param name="...">...</param>` entry, in document order. */
 function extractParams(body: string): VbaDocParam[] {
 	const out: VbaDocParam[] = [];
-	const re = /<param\s+name\s*=\s*"([^"]*)"\s*>([\s\S]*?)<\/param>/gi;
+	const re = /<param\b([^>]*)>([\s\S]*?)<\/param>/gi;
 	let m: RegExpExecArray | null;
 	while ((m = re.exec(body)) !== null) {
-		const name = decodeEntities(m[1]).trim();
+		const attrs = attrsOf(m[1]);
+		const name = attrs.get('name') ?? '';
 		if (name) {
-			out.push({ name, text: collapse(m[2]) });
+			const param: VbaDocParam = { name, text: collapse(m[2]) };
+			const type = attrs.get('type');
+			const unit = attrs.get('unit');
+			const value = attrs.get('value');
+			if (type) {
+				param.type = type;
+			}
+			if (unit) {
+				param.unit = unit;
+			}
+			if (value) {
+				param.value = value;
+			}
+			out.push(param);
 		}
 	}
 	return out;
@@ -76,9 +109,22 @@ export function parseDocBody(body: string, source: VbaDocSource): VbaDoc {
 		doc.summary = collapse(summary);
 	}
 	doc.params = extractParams(body);
-	const returns = firstTag(body, 'returns');
+	const returns = firstTagMatch(body, 'returns');
 	if (returns !== undefined) {
-		doc.returns = collapse(returns);
+		doc.returns = collapse(returns.body);
+		const attrs = attrsOf(returns.attrs);
+		const type = attrs.get('type');
+		const unit = attrs.get('unit');
+		const value = attrs.get('value');
+		if (type) {
+			doc.returnsType = type;
+		}
+		if (unit) {
+			doc.returnsUnit = unit;
+		}
+		if (value) {
+			doc.returnsValue = value;
+		}
 	}
 	const remarks = firstTag(body, 'remarks');
 	if (remarks !== undefined) {

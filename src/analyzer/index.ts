@@ -71,6 +71,7 @@ export {
 export {
 	hasDocContent,
 	renderDocMarkdown,
+	renderParamDocMarkdown,
 	renderSignatureDocMarkdown,
 	VbaDoc,
 	VbaDocParam,

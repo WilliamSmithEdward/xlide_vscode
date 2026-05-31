@@ -13,10 +13,10 @@
 // lone-identifier `DoStartup`, the parenless `MsgBox "hi"`, or `Call Foo`) whose
 // name resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
-// declaration. That is the unambiguous VBE "Sub or Function not defined"
-// compile error, so it stays high-confidence and low-noise. The broader
-// undeclared-variable / arbitrary-expression unknown-call cases still need a
-// full expression binder and remain unimplemented.
+// declaration. A separate `nonCallableCallStatement` rule handles names that do
+// resolve in scope but resolve to data/type declarations instead of callables.
+// The broader undeclared-variable / arbitrary-expression unknown-call cases
+// still need a full expression binder and remain unimplemented.
 //
 // Pure data: no `vscode` dependency. The VS Code layer maps `severity` onto
 // `vscode.DiagnosticSeverity` and `code`/`source` onto the diagnostic.
@@ -116,6 +116,14 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
 	},
+	argumentTypeMismatch: {
+		code: 'argument-type-mismatch',
+		title: 'Argument type mismatch',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1 / runtime type coercion',
+		confidence: 'high',
+	},
 	unknownCallStatement: {
 		code: 'unknown-call',
 		title: 'Sub or Function not defined',
@@ -123,6 +131,14 @@ export const DIAGNOSTIC_RULES = {
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.1',
 		requiresWholeProject: true,
+		confidence: 'high',
+	},
+	nonCallableCallStatement: {
+		code: 'non-callable-call',
+		title: 'Identifier is not callable',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
 	},
 	dimInitializer: {

@@ -27,7 +27,7 @@ import { resolveHostMemberSignature } from '../host/hostModel';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { extractLeadingDoc } from '../docs/docComment';
 import { DocRegistry } from '../docs/docRegistry';
-import { VbaDoc, hasDocContent, renderSignatureDocMarkdown } from '../docs/docModel';
+import { VbaDoc, hasDocContent, renderParamDocMarkdown, renderSignatureDocMarkdown } from '../docs/docModel';
 
 /** A single parameter slot within a signature label. */
 export interface SignatureParameter {
@@ -428,7 +428,7 @@ function paramDocFor(doc: VbaDoc | undefined, paramLabel: string): string | unde
 	}
 	const lower = name.toLowerCase();
 	const match = doc.params.find((p) => p.name.toLowerCase() === lower);
-	return match ? match.text : undefined;
+	return match ? renderParamDocMarkdown(match) : undefined;
 }
 
 /** Extracts the parameter name from a signature parameter slot text. */

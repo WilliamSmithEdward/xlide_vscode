@@ -26,14 +26,33 @@ export interface VbaRuntimeFunction {
 	kind: 'function' | 'statement';
 	/** Provenance marker - always verified against Microsoft VBA docs. */
 	source: 'verified';
+	/** Explicitly curated parameter types. Missing entries are treated unknown. */
+	params?: readonly VbaRuntimeParam[];
 }
 
-function fn(name: string, signature: string, returns?: string): VbaRuntimeFunction {
-	return { name, signature, returns, kind: 'function', source: 'verified' };
+/** Explicit metadata for one runtime parameter. Never inferred from names. */
+export interface VbaRuntimeParam {
+	name: string;
+	type?: string;
+	optional?: boolean;
+	paramArray?: boolean;
 }
 
-function stmt(name: string, signature: string): VbaRuntimeFunction {
-	return { name, signature, kind: 'statement', source: 'verified' };
+function fn(
+	name: string,
+	signature: string,
+	returns?: string,
+	params?: readonly VbaRuntimeParam[],
+): VbaRuntimeFunction {
+	return { name, signature, returns, kind: 'function', source: 'verified', params };
+}
+
+function stmt(
+	name: string,
+	signature: string,
+	params?: readonly VbaRuntimeParam[],
+): VbaRuntimeFunction {
+	return { name, signature, kind: 'statement', source: 'verified', params };
 }
 
 /** The verified built-in VBA runtime functions and statements. */
@@ -59,7 +78,10 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- String functions ---------------------------------------------------
 	fn('Len', 'Len(Expression) As Long', 'Long'),
-	fn('Left', 'Left(String, Length) As String', 'String'),
+	fn('Left', 'Left(String, Length) As String', 'String', [
+		{ name: 'String', type: 'String' },
+		{ name: 'Length', type: 'Long' },
+	]),
 	fn('Right', 'Right(String, Length) As String', 'String'),
 	fn('Mid', 'Mid(String, Start, [Length]) As String', 'String'),
 	fn('Trim', 'Trim(String) As String', 'String'),
