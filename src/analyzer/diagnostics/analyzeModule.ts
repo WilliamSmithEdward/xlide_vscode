@@ -41,7 +41,7 @@ import type {
 	VbaProcedureSignature,
 	VbaSymbol,
 } from '../symbols/symbolModel';
-import { isProcedureKind } from '../symbols/symbolModel';
+import { isProcedureKind, qualifiedProcedureKey } from '../symbols/symbolModel';
 import {
 	DIAGNOSTIC_RULES,
 	DiagnosticRuleName,
@@ -829,6 +829,10 @@ function checkUnbalancedParens(source: string, push: PushFn): void {
 interface CallArguments {
 	/** Callee identifier text. */
 	name: string;
+	/** Optional module qualifier for `ModuleName.MemberName` calls. */
+	qualifier?: string;
+	/** Lowercased signature lookup key; defaults to lowercased `name`. */
+	lookupKey?: string;
 	/** Absolute span of the callee identifier. */
 	nameSpan: Span;
 	/** True for the explicit `Call name...` form. */
@@ -846,14 +850,14 @@ interface CallArguments {
 }
 
 /**
- * Rule: a call to a Sub/Function defined in *this* module must supply an
- * argument count the procedure's parameter list accepts. We validate only
- * current-module Sub/Function procedures because that is the only place we have
- * the ground-truth parameter list from the AST - host members and runtime
- * functions (partial/variadic metadata) and cross-module procedures (names only)
- * are deliberately not arity-checked, to stay false-positive-free. Property
- * accessors are skipped (they are not invoked through call-statement syntax) and
- * any name that is ambiguous in the module (duplicate/overloaded) is skipped.
+ * Rule: a call to a known Sub/Function must supply an argument count the
+ * procedure's parameter list accepts. Same-module procedures come directly from
+ * this module's AST. Cross-module checks use the ProjectIndex signature map:
+ * bare exported names are checked only when unique, and module-qualified calls
+ * resolve through the named standard module only. Host/object member calls and
+ * ambiguous names stay silent to remain false-positive-free. Property accessors
+ * are skipped because their invocation syntax and Let/Set/Get pairing require
+ * the object/member binder.
  *
  * The inspected forms are the parenless call statement (`Foo 1, 2`), the
  * explicit `Call Foo(1, 2)`, and parenthesized current-module calls inside
@@ -894,11 +898,15 @@ function checkArgumentCount(
 		}
 		forEachStatement(member.body, (stmt) => {
 			const statementCall = extractCall(source, stmt.span);
-			if (statementCall) {
-				validateCallableArity(statementCall, procsByName, projectSignatures, push);
+			const qualifiedStatementCall = statementCall
+				? undefined
+				: extractQualifiedCall(source, stmt.span, moduleSignatures);
+			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
+			if (effectiveStatementCall) {
+				validateCallableArity(effectiveStatementCall, procsByName, projectSignatures, push);
 			}
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
-				if (sameCallTarget(call, statementCall)) {
+				if (sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
 				validateCallableArity(call, procsByName, projectSignatures, push);
@@ -913,8 +921,8 @@ function validateCallableArity(
 	projectSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	push: PushFn,
 ): void {
-	const lower = call.name.toLowerCase();
-	const candidates = procsByName.get(call.name.toLowerCase());
+	const lower = call.lookupKey ?? call.name.toLowerCase();
+	const candidates = call.qualifier ? undefined : procsByName.get(call.name.toLowerCase());
 	if (candidates) {
 		// Skip ambiguous same-module targets where the signature is not unique.
 		if (candidates.length === 1) {
@@ -996,6 +1004,112 @@ function extractCall(source: string, span: Span): CallArguments | undefined {
 	return {
 		name: hit.name,
 		nameSpan: hit.span,
+		explicitCall,
+		slots: split.slots,
+		slotSpans: split.spans,
+		sliceStart,
+	};
+}
+
+/**
+ * Extracts a module-qualified call statement (`ModuleName.Procedure ...`) only
+ * when the project signature map proves that `ModuleName.Procedure` is an
+ * exported project procedure. This keeps host/object member calls out of the
+ * arity/type validator.
+ */
+function extractQualifiedCall(
+	source: string,
+	span: Span,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): CallArguments | undefined {
+	const sliceStart = span.start;
+	const toks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	if (toks.length === 0) {
+		return undefined;
+	}
+
+	let qualifierIdx = 0;
+	const explicitCall = toks[0].rawText.toLowerCase() === 'call';
+	if (explicitCall) {
+		qualifierIdx = 1;
+	}
+	const qualifier = tokenName(toks[qualifierIdx]);
+	const dot = toks[qualifierIdx + 1];
+	const callee = toks[qualifierIdx + 2];
+	const name = callee ? tokenName(callee) : undefined;
+	if (!qualifier || dot?.rawText !== '.' || !name) {
+		return undefined;
+	}
+	const lookupKey = qualifiedProcedureKey(qualifier, name);
+	if (!moduleSignatures.has(lookupKey)) {
+		return undefined;
+	}
+
+	const next = toks[qualifierIdx + 3];
+	let argToks: VbaToken[];
+	if (explicitCall) {
+		if (next && next.kind === 'punctuation' && next.rawText === '(') {
+			let depth = 0;
+			let closed = false;
+			const inner: VbaToken[] = [];
+			for (let k = qualifierIdx + 3; k < toks.length; k++) {
+				const t = toks[k];
+				if (t.kind === 'punctuation' && t.rawText === '(') {
+					depth++;
+					if (depth === 1) {
+						continue;
+					}
+				} else if (t.kind === 'punctuation' && t.rawText === ')') {
+					depth--;
+					if (depth === 0) {
+						closed = true;
+						break;
+					}
+				}
+				if (depth >= 1) {
+					inner.push(t);
+				}
+			}
+			if (!closed) {
+				return undefined;
+			}
+			argToks = inner;
+		} else {
+			argToks = [];
+		}
+	} else {
+		if (next?.rawText === '(') {
+			return undefined; // expressionCalls handles parenthesized forms.
+		}
+		if (next) {
+			const gap = source.slice(span.start + callee.end, span.start + next.start);
+			if (!/\s/.test(gap)) {
+				return undefined;
+			}
+		}
+		argToks = toks.slice(qualifierIdx + 3);
+	}
+
+	let depth = 0;
+	for (let k = qualifierIdx + 3; k < toks.length; k++) {
+		const raw = toks[k].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+		} else if (raw === ')' || raw === ']') {
+			depth--;
+		} else if (depth === 0 && raw === '=') {
+			return undefined;
+		}
+	}
+
+	const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, sliceStart);
+	return {
+		name,
+		qualifier,
+		lookupKey,
+		nameSpan: { start: span.start + callee.start, end: span.start + callee.end },
 		explicitCall,
 		slots: split.slots,
 		slotSpans: split.spans,
@@ -1189,8 +1303,12 @@ function checkArgumentTypes(
 				validateArgumentTypes(call, env, moduleSignatures, push);
 			}
 			const statementCall = extractCall(source, stmt.span);
-			if (statementCall) {
-				validateArgumentTypes(statementCall, env, moduleSignatures, push);
+			const qualifiedStatementCall = statementCall
+				? undefined
+				: extractQualifiedCall(source, stmt.span, moduleSignatures);
+			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
+			if (effectiveStatementCall) {
+				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, push);
 			}
 		});
 	}
@@ -1409,10 +1527,22 @@ function expressionCalls(
 		if (!name || toks[i + 1].rawText !== '(') {
 			continue;
 		}
-		if (i > 0 && toks[i - 1].rawText === '.') {
+		const qualifier =
+			i >= 2 && toks[i - 1].rawText === '.'
+				? tokenName(toks[i - 2])
+				: undefined;
+		const lookupKey = qualifier ? qualifiedProcedureKey(qualifier, name) : undefined;
+		if (qualifier && !moduleSignatures.has(lookupKey!)) {
 			continue; // host/member calls need receiver binding before checking
 		}
-		if (!callableSignatureFor(name, moduleSignatures)) {
+		if (!qualifier && i > 0 && toks[i - 1].rawText === '.') {
+			continue;
+		}
+		if (
+			lookupKey
+				? !moduleSignatures.has(lookupKey)
+				: !callableSignatureFor(name, moduleSignatures)
+		) {
 			continue;
 		}
 		const close = matchParenFrom(toks, i + 1);
@@ -1423,6 +1553,8 @@ function expressionCalls(
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
 		out.push({
 			name,
+			qualifier,
+			lookupKey,
 			nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
 			slots: split.slots,
 			slotSpans: split.spans,
@@ -1438,7 +1570,7 @@ function validateArgumentTypes(
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	push: PushFn,
 ): void {
-	const sig = callableSignatureFor(call.name, moduleSignatures);
+	const sig = callableSignatureForCall(call, moduleSignatures);
 	if (!sig || sig.params.length === 0) {
 		return;
 	}
@@ -1498,6 +1630,16 @@ function validateArgumentTypes(
 			actual.span,
 		);
 	}
+}
+
+function callableSignatureForCall(
+	call: CallArguments,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): CallableTypeSignature | undefined {
+	if (call.lookupKey) {
+		return moduleSignatures.get(call.lookupKey);
+	}
+	return callableSignatureFor(call.name, moduleSignatures);
 }
 
 function namedArgumentSlot(slot: VbaToken[]): { name: string; value: VbaToken[] } | undefined {
@@ -1690,6 +1832,20 @@ function inferAtomicExpressionType(
 		const sig = callableSignatureFor(name, moduleSignatures);
 		if (sig?.returnType && matchParenFrom(toks, 1) === toks.length - 1) {
 			return { type: sig.returnType, label: `${name}(...) As ${sig.returnType}`, span };
+		}
+	}
+	if (name && toks[1]?.rawText === '.') {
+		const member = tokenName(toks[2]);
+		if (member && toks[3]?.rawText === '(' && matchParenFrom(toks, 3) === toks.length - 1) {
+			const lookupKey = qualifiedProcedureKey(name, member);
+			const sig = moduleSignatures.get(lookupKey);
+			if (sig?.returnType) {
+				return {
+					type: sig.returnType,
+					label: `${name}.${member}(...) As ${sig.returnType}`,
+					span: { start: sliceStart + toks[2].start, end: sliceStart + toks[2].end },
+				};
+			}
 		}
 	}
 	return undefined;

@@ -336,6 +336,7 @@ describe('ProjectIndex procedure signatures', () => {
 		expect(invoice).toHaveLength(1);
 		expect(invoice?.[0].moduleName).toBe('Helpers');
 		expect(invoice?.[0].returnType).toBe('Currency');
+		expect(signatures.get('helpers.invoicetotal')).toEqual(invoice);
 		expect(invoice?.[0].params).toEqual([
 			{
 				name: 'Subtotal',
@@ -367,6 +368,19 @@ describe('ProjectIndex procedure signatures', () => {
 			source: 'Public Sub DoWork(ByVal value As Long)\nEnd Sub\n',
 		});
 		expect(index.procedureSignatures().get('dowork')).toHaveLength(2);
+		expect(index.procedureSignatures().get('first.dowork')).toHaveLength(1);
+		expect(index.procedureSignatures().get('second.dowork')).toHaveLength(1);
+	});
+
+	it('does not expose class-module members through standard-module procedure signatures', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Customer',
+			moduleKind: 'class',
+			source: 'Public Sub Save(ByVal caption As String)\nEnd Sub\n',
+		});
+		expect(index.procedureSignatures().get('save')).toBeUndefined();
+		expect(index.procedureSignatures().get('customer.save')).toBeUndefined();
 	});
 });
 

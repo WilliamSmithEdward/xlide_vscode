@@ -674,6 +674,83 @@ describe('analyzeModule - argument count', () => {
 			),
 		).toHaveLength(0);
 	});
+
+	it('uses a module-qualified project signature even when the bare name is ambiguous', () => {
+		const caller =
+			'Public Sub Main()\n' +
+			'    Helpers.PrintTotal 100\n' +
+			'End Sub\n';
+		const helpers =
+			'Public Sub PrintTotal(ByVal amount As Currency, ByVal caption As String)\n' +
+			'End Sub\n';
+		const alternate = 'Public Sub PrintTotal(ByVal amount As Currency)\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Helpers', source: helpers },
+					{ moduleName: 'Alternate', source: alternate },
+				]),
+			}),
+			'argument-count',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('PrintTotal');
+		expect(hits[0].message).toContain('expected 2 arguments');
+	});
+
+	it('keeps module-qualified project diagnostics stable under module order changes', () => {
+		const caller =
+			'Public Sub Main()\n' +
+			'    Helpers.PrintTotal 100\n' +
+			'End Sub\n';
+		const helpers =
+			'Public Sub PrintTotal(ByVal amount As Currency, ByVal caption As String)\n' +
+			'End Sub\n';
+		const alternate = 'Public Sub PrintTotal(ByVal amount As Currency)\nEnd Sub\n';
+		const ordered = projectProcedures([
+			{ moduleName: 'Caller', source: caller },
+			{ moduleName: 'Helpers', source: helpers },
+			{ moduleName: 'Alternate', source: alternate },
+		]);
+		const reversed = projectProcedures([
+			{ moduleName: 'Alternate', source: alternate },
+			{ moduleName: 'Helpers', source: helpers },
+			{ moduleName: 'Caller', source: caller },
+		]);
+		const messages = (projectProcedures: ReturnType<ProjectIndex['procedureSignatures']>) =>
+			byCode(
+				analyzeModule(caller, {
+					moduleName: 'Caller',
+					projectProcedures,
+				}),
+				'argument-count',
+			).map((hit) => `${spanText(caller, hit)}:${hit.message}`);
+		expect(messages(ordered)).toEqual(messages(reversed));
+	});
+
+	it('does not validate a module-qualified private project procedure', () => {
+		const caller =
+			'Public Sub Main()\n' +
+			'    Helpers.Hidden 100\n' +
+			'End Sub\n';
+		const helpers =
+			'Private Sub Hidden(ByVal amount As Currency, ByVal caption As String)\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(caller, {
+					moduleName: 'Caller',
+					projectProcedures: projectProcedures([
+						{ moduleName: 'Caller', source: caller },
+						{ moduleName: 'Helpers', source: helpers },
+					]),
+				}),
+				'argument-count',
+			),
+		).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - argument type validation', () => {
@@ -717,6 +794,30 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
+	it('uses module-qualified project signatures for argument types', () => {
+		const caller =
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = Invoices.InvoiceTotal("blah", 0.08)\n' +
+			'End Sub\n';
+		const invoices =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Invoices', source: invoices },
+				]),
+			}),
+			'argument-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('"blah"');
+		expect(hits[0].message).toContain('Subtotal');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
 	it('uses a unique exported project function return type in nested calls', () => {
 		const caller =
 			'Public Sub NeedsObject(ByVal item As Object)\n' +
@@ -738,6 +839,29 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(caller, hits[0])).toBe('MakeLabel');
 		expect(hits[0].message).toContain('MakeLabel(...) As String');
+	});
+
+	it('uses a module-qualified project function return type in nested calls', () => {
+		const caller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject Labels.MakeLabel()\n' +
+			'End Sub\n';
+		const labels = 'Public Function MakeLabel() As String\nEnd Function\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Labels', source: labels },
+				]),
+			}),
+			'argument-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('MakeLabel');
+		expect(hits[0].message).toContain('Labels.MakeLabel(...) As String');
 	});
 
 	it('accepts numeric literals and numeric string literals for numeric parameters', () => {

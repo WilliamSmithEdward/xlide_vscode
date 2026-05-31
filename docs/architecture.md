@@ -538,10 +538,12 @@ Diagnostic severity policy:
   parameter/local types, curated runtime return metadata, same-module return
   types, and deterministic literal/expression inference; unknown and `Variant`
   operands suppress diagnostics. For workbook-backed modules, the provider also
-  passes a project-wide map of unique exported standard-module `Sub`/`Function`
+  passes a project-wide map of exported standard-module `Sub`/`Function`
   signatures, so argument count/type checks can cross module boundaries when the
-  target is unambiguous; duplicate exported names and non-standard member cases
-  stay silent until the binder can prove the target. `string-arithmetic-coercion` is a related red
+  target is unambiguous. Ambiguous bare exported names stay silent, while
+  `ModuleName.ProcedureName` resolves through the named standard module only;
+  non-standard member cases stay silent until the binder can prove the target.
+  `string-arithmetic-coercion` is a related red
   deterministic-runtime-error diagnostic for numeric contexts containing a
   provably nonnumeric string literal in an arithmetic expression; focused oracle
   cases confirm the representative expression compiles but raises runtime error

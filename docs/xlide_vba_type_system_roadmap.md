@@ -197,7 +197,8 @@ Landed first:
   workbook project.
 - Landed first slice: unique exported standard-module `Sub`/`Function`
   signatures feed cross-module argument count and type diagnostics; ambiguous
-  duplicate exported signatures are skipped.
+  duplicate exported bare names are skipped, while module-qualified
+  `ModuleName.ProcedureName` calls resolve through the named standard module.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

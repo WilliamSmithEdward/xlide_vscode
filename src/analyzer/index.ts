@@ -84,6 +84,7 @@ export {
 	isProcedureKind,
 	ModuleSymbolKind,
 	ModuleSymbols,
+	qualifiedProcedureKey,
 	SymbolVisibility,
 	VbaSymbol,
 	VbaSymbolKind,

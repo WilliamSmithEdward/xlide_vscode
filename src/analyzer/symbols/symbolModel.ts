@@ -98,6 +98,11 @@ export interface VbaProcedureSignature {
 	returnType?: string;
 }
 
+/** Lowercased key used for module-qualified procedure lookups. */
+export function qualifiedProcedureKey(moduleName: string, name: string): string {
+	return `${moduleName.toLowerCase()}.${name.toLowerCase()}`;
+}
+
 /** The symbol view of a single module. */
 export interface ModuleSymbols {
 	moduleName: string;

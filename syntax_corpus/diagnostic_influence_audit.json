@@ -101,7 +101,7 @@
       ],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Same-module signatures come from the AST. Cross-module checks run only for unique exported standard-module Sub/Function signatures supplied by ProjectIndex; ambiguous exported names stay silent."
+      "notes": "Same-module signatures come from the AST. Cross-module checks run only for exported standard-module Sub/Function signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only."
     },
     {
       "code": "argument-type-mismatch",
@@ -117,7 +117,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully. Cross-module checks use only unique exported project Sub/Function signatures; ambiguous names stay silent.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully. Cross-module checks use exported standard-module project Sub/Function signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

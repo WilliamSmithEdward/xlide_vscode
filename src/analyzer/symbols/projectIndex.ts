@@ -12,6 +12,7 @@
 import { buildModuleSymbols } from './buildModuleSymbols';
 import {
 	isProcedureKind,
+	qualifiedProcedureKey,
 	type ModuleSymbolKind,
 	type ModuleSymbols,
 	type VbaSymbol,
@@ -62,20 +63,33 @@ export interface ReferenceScope {
 
 
 /**
- * A symbol declared at module level (procedure/variable/const/type/enum/declare)
- * is "exported" (visible to other modules) when it is explicitly Public/Global,
- * or when it is a procedure with no visibility keyword (procedures default to
- * Public in standard modules - MS-VBAL 5.3.1.1). Dim/Private/Friend/Static and
- * unmodified module variables/consts stay module-private.
+ * A symbol declared at module level is "exported" for cross-module lookup when
+ * it is explicitly Public/Global, or when it is an unmodified procedure in a
+ * standard module (procedures default to Public there - MS-VBAL 5.3.1.1).
+ * Dim/Private/Friend/Static and unmodified module variables/consts stay
+ * module-private.
  */
-function isExported(symbol: VbaSymbol): boolean {
+function isExported(symbol: VbaSymbol, moduleKind?: ModuleSymbolKind): boolean {
 	if (symbol.visibility === 'Public' || symbol.visibility === 'Global') {
 		return true;
 	}
 	if (symbol.visibility) {
 		return false;
 	}
-	return isProcedureKind(symbol.kind);
+	return moduleKind === 'standard' && isProcedureKind(symbol.kind);
+}
+
+function addProcedureSignature(
+	signatures: Map<string, VbaProcedureSignature[]>,
+	key: string,
+	sig: VbaProcedureSignature,
+): void {
+	const existing = signatures.get(key);
+	if (existing) {
+		existing.push(sig);
+	} else {
+		signatures.set(key, [sig]);
+	}
 }
 
 /** A project-wide symbol index built from a set of module sources. */
@@ -120,7 +134,12 @@ export class ProjectIndex {
 	}
 
 	/**
-	 * Exported Sub/Function signatures grouped by lowercased procedure name.
+	 * Exported standard-module Sub/Function signatures grouped by lowercased
+	 * procedure name, with additional `module.procedure` qualified keys. Bare
+	 * duplicate exported names intentionally remain grouped together so analyzer
+	 * callers can skip ambiguous unqualified calls; module-qualified calls can
+	 * still resolve deterministically through their qualified key.
+	 *
 	 * Properties are deliberately excluded from this first callable-signature
 	 * surface because their invocation syntax and Let/Set/Get pairing needs the
 	 * object/member binder.
@@ -131,7 +150,8 @@ export class ProjectIndex {
 			for (const symbol of mod.root.children ?? []) {
 				if (
 					(symbol.kind !== 'sub' && symbol.kind !== 'function') ||
-					!isExported(symbol)
+					mod.moduleKind !== 'standard' ||
+					!isExported(symbol, mod.moduleKind)
 				) {
 					continue;
 				}
@@ -151,13 +171,12 @@ export class ProjectIndex {
 					params,
 					returnType: symbol.asType,
 				};
-				const key = symbol.name.toLowerCase();
-				const existing = signatures.get(key);
-				if (existing) {
-					existing.push(sig);
-				} else {
-					signatures.set(key, [sig]);
-				}
+				addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
+				addProcedureSignature(
+					signatures,
+					qualifiedProcedureKey(symbol.moduleName, symbol.name),
+					sig,
+				);
 			}
 		}
 		return signatures;
@@ -239,7 +258,7 @@ export class ProjectIndex {
 				continue;
 			}
 			for (const symbol of this.moduleLevelMatches(mod, lower)) {
-				if (isExported(symbol)) {
+				if (isExported(symbol, mod.moduleKind)) {
 					exported.push(symbol);
 				}
 			}
@@ -260,7 +279,9 @@ export class ProjectIndex {
 		if (!mod) {
 			return [];
 		}
-		return this.moduleLevelMatches(mod, name.toLowerCase()).filter(isExported);
+		return this.moduleLevelMatches(mod, name.toLowerCase()).filter((symbol) =>
+			isExported(symbol, mod.moduleKind),
+		);
 	}
 
 	/**
@@ -300,8 +321,11 @@ export class ProjectIndex {
 
 			const moduleHits = this.moduleLevelMatches(home, lower);
 			if (moduleHits.length > 0) {
-				if (moduleHits.some(isExported)) {
-					return this.projectScope(lower, moduleHits.filter(isExported));
+				if (moduleHits.some((symbol) => isExported(symbol, home.moduleKind))) {
+					return this.projectScope(
+						lower,
+						moduleHits.filter((symbol) => isExported(symbol, home.moduleKind)),
+					);
 				}
 				return {
 					kind: 'module',
@@ -318,7 +342,7 @@ export class ProjectIndex {
 				continue;
 			}
 			for (const symbol of this.moduleLevelMatches(mod, lower)) {
-				if (isExported(symbol)) {
+				if (isExported(symbol, mod.moduleKind)) {
 					exported.push(symbol);
 				}
 			}
@@ -385,7 +409,8 @@ export class ProjectIndex {
 		for (const mod of this.modules.values()) {
 			const moduleHits = this.moduleLevelMatches(mod, lower);
 			const privatelyShadowed =
-				moduleHits.length > 0 && !moduleHits.some(isExported);
+				moduleHits.length > 0 &&
+				!moduleHits.some((symbol) => isExported(symbol, mod.moduleKind));
 			if (privatelyShadowed) {
 				continue;
 			}

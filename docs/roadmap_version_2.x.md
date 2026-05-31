@@ -205,15 +205,18 @@ Purpose: move from same-module checks to workbook-aware analysis.
 
 - [x] Resolve unique exported standard-module `Sub`/`Function` signatures for
   cross-module argument count and type diagnostics.
-- [ ] Resolve public procedures across standard modules for module-qualified
-  calls and ambiguous duplicate behavior.
+- [x] Resolve public procedures across standard modules for module-qualified
+  calls and ambiguous duplicate behavior in the first deterministic slice:
+  ambiguous bare exported names stay silent, while `ModuleName.ProcedureName`
+  resolves through the named standard module only.
 - [ ] Model module-level visibility and shadowing.
 - [ ] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
 - [ ] Resolve enums and enum members across modules.
 - [ ] Resolve UDT names across modules.
 - [ ] Add workbook-level fixture builder for project analysis tests.
-- [ ] Keep project diagnostics stable under module order changes.
+- [x] Keep current project-signature diagnostics stable under module order
+  changes.
 
 Definition of done:
 
