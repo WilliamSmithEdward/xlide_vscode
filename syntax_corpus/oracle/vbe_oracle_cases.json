@@ -420,6 +420,28 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "compile_then_run_valid_control",
+      "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = \"ok\"\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "compile_then_run_runtime_error_control",
+      "description": "Discovery control: compile accepts, then running the entry point raises a runtime Type mismatch.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value = \"bad\"\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
       "id": "string_scalar_member_access_compile",
       "description": "Compile probe for a trailing member-access dot on a String variable; explicit VBE focus retest rejects this as Syntax error.",
       "provenance": "vbe-oracle-verified",

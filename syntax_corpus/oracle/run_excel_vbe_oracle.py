@@ -41,14 +41,41 @@ def expected_matches(expected: str | None, outcome: str) -> bool:
     return expected in (None, "", "observe") or expected == outcome
 
 
+def is_oracle_infrastructure_failure(outcome: str) -> bool:
+    return outcome not in EVIDENCE_OUTCOMES
+
+
 def evidence_phase_for_case(case: dict[str, Any]) -> str:
     return "runtime" if str(case.get("mode", "compile")) == "run" else "compile"
+
+
+def evidence_phase_for_result(case: dict[str, Any], result: dict[str, Any]) -> str:
+    result_phase = str(result.get("evidencePhase") or "")
+    if result_phase in ("compile", "runtime"):
+        return result_phase
+    stage = str(result.get("stage") or "")
+    if stage in ("run", "runtime_dialog"):
+        return "runtime"
+    return evidence_phase_for_case(case)
 
 
 def diagnostic_meaning_for_case(case: dict[str, Any], expected: str) -> str:
     if expected == "observe":
         return "observation"
     phase = evidence_phase_for_case(case)
+    if phase == "runtime":
+        return "runtime-error" if expected == "rejected" else "runtime-valid"
+    return "compile-error" if expected == "rejected" else "compile-valid"
+
+
+def diagnostic_meaning_for_result(
+    case: dict[str, Any],
+    result: dict[str, Any],
+    expected: str,
+) -> str:
+    if expected == "observe":
+        return "observation"
+    phase = evidence_phase_for_result(case, result)
     if phase == "runtime":
         return "runtime-error" if expected == "rejected" else "runtime-valid"
     return "compile-error" if expected == "rejected" else "compile-valid"
@@ -96,8 +123,8 @@ def promote_observed_cases(
         expected = str(result["outcome"])
         case["expected"] = expected
         case["provenance"] = "vbe-oracle-verified"
-        case["evidencePhase"] = evidence_phase_for_case(case)
-        case["diagnosticMeaning"] = diagnostic_meaning_for_case(case, expected)
+        case["evidencePhase"] = evidence_phase_for_result(case, result)
+        case["diagnosticMeaning"] = diagnostic_meaning_for_result(case, result, expected)
         promoted += 1
 
     return promoted, []
@@ -148,7 +175,48 @@ def read_dialog_result(case: dict[str, Any], dialog_path: Path) -> dict[str, Any
 
 
 def run_case(case: dict[str, Any], timeout: int) -> dict[str, Any]:
-    return run_case_once(case, timeout, 0)
+    return run_case_attempt(case, timeout, 0)
+
+
+def case_with_mode(case: dict[str, Any], mode: str) -> dict[str, Any]:
+    copy = dict(case)
+    copy["mode"] = mode
+    return copy
+
+
+def run_case_attempt(
+    case: dict[str, Any],
+    timeout: int,
+    dialog_hold_seconds: int,
+) -> dict[str, Any]:
+    mode = str(case.get("mode", "compile"))
+    if mode != "compile_then_run":
+        return run_case_once(case, timeout, dialog_hold_seconds)
+
+    if not case.get("entryPoint"):
+        return {
+            "caseId": case.get("id"),
+            "outcome": "worker_error",
+            "stage": "setup",
+            "message": "compile_then_run oracle cases require entryPoint.",
+            "hresult": None,
+        }
+
+    compile_result = run_case_once(case_with_mode(case, "compile"), timeout, dialog_hold_seconds)
+    if compile_result.get("outcome") != "accepted":
+        compile_result["probeMode"] = "compile_then_run"
+        compile_result["evidencePhase"] = "compile"
+        return compile_result
+
+    run_result = run_case_once(case_with_mode(case, "run"), timeout, dialog_hold_seconds)
+    run_result["probeMode"] = "compile_then_run"
+    run_result["compileResult"] = {
+        "outcome": compile_result.get("outcome"),
+        "stage": compile_result.get("stage"),
+    }
+    if run_result.get("outcome") in EVIDENCE_OUTCOMES:
+        run_result["evidencePhase"] = "runtime"
+    return run_result
 
 
 def run_case_once(case: dict[str, Any], timeout: int, dialog_hold_seconds: int) -> dict[str, Any]:
@@ -251,7 +319,7 @@ def run_case_with_retries(
     timeout_results: list[dict[str, Any]] = []
     for attempt in range(1, attempts + 1):
         hold_seconds = dialog_hold_seconds if attempt == 1 else 0
-        result = run_case_once(case, timeout, hold_seconds)
+        result = run_case_attempt(case, timeout, hold_seconds)
         result["attempt"] = attempt
         if result.get("outcome") != "timeout":
             if timeout_results:
@@ -359,12 +427,13 @@ def main(argv: list[str]) -> int:
         result["expected"] = expected
         result["matched"] = expected_matches(expected, str(result.get("outcome", "")))
         result["description"] = case.get("description", "")
-        if result.get("outcome") == "oracle_failure":
+        outcome = str(result.get("outcome", ""))
+        if is_oracle_infrastructure_failure(outcome):
             oracle_failures += 1
         elif not result["matched"]:
             failures += 1
         results.append(result)
-        if result.get("outcome") == "oracle_failure":
+        if is_oracle_infrastructure_failure(outcome):
             break
 
     if args.promote_observed:
@@ -396,7 +465,7 @@ def main(argv: list[str]) -> int:
         )
     else:
         for result in results:
-            marker = "ORACLE-FAIL" if result.get("outcome") == "oracle_failure" else ("PASS" if result["matched"] else "FAIL")
+            marker = "ORACLE-FAIL" if is_oracle_infrastructure_failure(str(result.get("outcome", ""))) else ("PASS" if result["matched"] else "FAIL")
             print(
                 f"{marker} {result['caseId']}: outcome={result['outcome']} "
                 f"expected={result['expected']} stage={result.get('stage', '')}"

@@ -51,6 +51,20 @@ the remaining run as `outcome: "oracle_failure"` and exits non-zero even without
 `--strict`. Investigate the harness/Excel modal state before running additional
 oracle cases.
 
+Only `accepted` and `rejected` are evidence outcomes. Any other worker outcome
+(`timeout`, `worker_error`, setup failure, malformed output, and similar) is an
+oracle infrastructure failure, aborts the remaining run, and exits non-zero.
+If the compile command cannot be invoked, or any COM operation fails before a
+VBE dialog is captured, the case is not treated as a VBA rejection.
+
+For extension development, `ORACLE-FAIL` is a stop-the-line signal for the AI
+agent. Do not continue adding or promoting oracle cases after it appears. First
+perform a deep application inspection: check for lingering Excel/VBE processes,
+modal dialogs, worker stage output, command-bar invocation, dialog detection and
+dismissal, timeout/retry behavior, recent harness edits, and whether the failure
+is reproducible with a single focused case. Resume oracle-backed development
+only after the harness failure has a concrete explanation or fix.
+
 By default the runner is observational and exits successfully even when a
 fixture expectation differs from the observed result. Use `--strict` when the
 local Excel/VBE automation path is stable enough to enforce expectations.
@@ -60,18 +74,39 @@ local Excel/VBE automation path is stable enough to enforce expectations.
 Fixtures record empirical VBE behavior. They should be used to verify edge cases
 and update deterministic analyzer rules, not to add guessed behavior.
 
-The default fixture mode is `compile`. Compile fixtures insert the fixture source,
-focus the disposable module in VBE, then invoke VBE's Debug > Compile VBAProject
-UI path (`Alt+D`, then `L`). A `Compile error:` dialog is treated as compile
-rejection. If no compile dialog appears before the popup watch period ends, the
-case is recorded as compile-accepted.
+The default fixture mode is `compile`. Compile fixtures insert the fixture
+source, show the disposable module in VBE, then invoke the exact
+`Compile <project-name>` VBE command bar control through COM. The worker does
+not use keyboard accelerators for compile invocation. A `Compile error:` dialog
+is treated as compile rejection. If no compile dialog appears before the popup
+watch period ends, the case is recorded as compile-accepted.
 
-The worker keeps Excel visible and explicitly restores/focuses the disposable
-Excel/VBE windows before UI-sensitive actions. This is important when the
-developer is alt-tabbed into another application while the oracle runs. Dialog
-detection is still owned by Win32 window enumeration for the recorded Excel
-process; timeouts remain only a fallback and never satisfy an expected or
-observe-only fixture result.
+Use `mode: "compile_then_run"` for discovery cases where the failure phase is
+not known yet. The coordinator invokes compile first. If compile rejects, the
+case records compile rejection and does not run. If compile accepts, the
+coordinator runs the declared `entryPoint` and records runtime acceptance or
+runtime rejection. This is the preferred mode for new runtime-behavior
+investigation; convert to a narrower `compile` or `run` fixture only when the
+phase being asserted is already known.
+
+`compile_then_run` is a discovery workflow, not the default long-term assertion
+format. After a discovery case produces evidence, narrow the promoted fixture to
+the phase actually being asserted:
+
+- Compile rejects: convert to `mode: "compile"`, `expected: "rejected"`,
+  `evidencePhase: "compile"`, `diagnosticMeaning: "compile-error"`.
+- Compile accepts and runtime behavior matters: convert to `mode: "run"` with
+  `expected: "accepted"` or `"rejected"` from the runtime result,
+  `evidencePhase: "runtime"`, and the matching runtime diagnostic meaning.
+- Compile accepts and runtime behavior does not matter: use `mode: "compile"`
+  with `expected: "accepted"` and `diagnosticMeaning: "compile-valid"`.
+- Keep `compile_then_run` only for intentional harness controls or unresolved
+  discovery probes that need to keep proving the full two-phase path.
+
+The worker keeps Excel visible but does not require foreground focus for normal
+compile or run evidence. Dialog detection is owned by Win32 window enumeration
+for the recorded Excel process; timeouts remain only a fallback and never
+satisfy an expected or observe-only fixture result.
 
 For harness debugging, `--dialog-hold-seconds N` keeps the first detected VBE
 dialog visible for `N` seconds before dismissal so a developer can inspect or
@@ -110,8 +145,10 @@ Every oracle case must also declare `provenance`:
 Every oracle case must declare the phase it proves and the meaning of that
 observation:
 
-- `evidencePhase: "compile"` for Debug > Compile evidence.
+- `evidencePhase: "compile"` for VBE Compile command evidence.
 - `evidencePhase: "runtime"` for `excel.Run` evidence.
+- `mode: "compile_then_run"` may produce either compile or runtime evidence
+  depending on where Excel/VBE rejects the snippet.
 - `diagnosticMeaning: "compile-error"` when VBE Compile rejects the source.
 - `diagnosticMeaning: "runtime-error"` when the source compiles but running the
   entry point raises a deterministic VBE runtime dialog.

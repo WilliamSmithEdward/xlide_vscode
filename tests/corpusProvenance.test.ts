@@ -25,7 +25,7 @@ interface OracleCase {
 	id: string;
 	expected: 'accepted' | 'rejected' | 'observe';
 	provenance: Provenance;
-	mode?: 'compile' | 'run';
+	mode?: 'compile' | 'run' | 'compile_then_run';
 	evidencePhase: 'compile' | 'runtime';
 	diagnosticMeaning:
 		| 'compile-error'
@@ -118,9 +118,13 @@ describe('syntax corpus provenance', () => {
 		for (const fixture of oracle.cases) {
 			expect(fixture.id.trim().length).toBeGreaterThan(0);
 			expect(allowed.has(fixture.provenance)).toBe(true);
-			expect(fixture.evidencePhase).toBe(
-				fixture.mode === 'run' ? 'runtime' : 'compile',
-			);
+			if (fixture.mode === 'compile_then_run') {
+				expect(['compile', 'runtime']).toContain(fixture.evidencePhase);
+			} else {
+				expect(fixture.evidencePhase).toBe(
+					fixture.mode === 'run' ? 'runtime' : 'compile',
+				);
+			}
 
 			if (fixture.expected === 'observe') {
 				expect(fixture.provenance).toBe('observed-not-asserted');

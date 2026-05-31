@@ -41,10 +41,6 @@ public static class XlideVbeDialogWatcher {
     private const uint SMTO_ABORTIFHUNG = 0x0002;
     private const int SW_SHOW = 5;
     private const int SW_RESTORE = 9;
-    private const byte VK_MENU = 0x12;
-    private const byte VK_D = 0x44;
-    private const byte VK_L = 0x4C;
-    private const uint KEYEVENTF_KEYUP = 0x0002;
     private static Thread watcherThread;
     private static volatile bool stopRequested;
 
@@ -115,9 +111,6 @@ public static class XlideVbeDialogWatcher {
     [DllImport("kernel32.dll")]
     private static extern uint GetCurrentThreadId();
 
-    [DllImport("user32.dll")]
-    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-
     public static void Start(uint excelProcessId, string resultPath, string stagePath, int maxSeconds, int holdSeconds) {
         Stop();
         if (excelProcessId == 0 || String.IsNullOrEmpty(resultPath)) {
@@ -132,33 +125,12 @@ public static class XlideVbeDialogWatcher {
         watcherThread.Start();
     }
 
-    public static bool FocusExcelWindow(IntPtr excelHwnd) {
-        return FocusWindow(excelHwnd);
-    }
-
-    public static bool FocusVbeWindow(uint excelProcessId) {
-        IntPtr vbeHwnd = FindVbeMainWindow(excelProcessId);
-        return FocusWindow(vbeHwnd);
-    }
-
     public static void Stop() {
         stopRequested = true;
         if (watcherThread != null && watcherThread.IsAlive) {
             watcherThread.Join(5000);
         }
         watcherThread = null;
-    }
-
-    public static bool InvokeVbeCompile(uint excelProcessId) {
-        IntPtr vbeHwnd = FindVbeMainWindow(excelProcessId);
-        if (vbeHwnd == IntPtr.Zero) {
-            return false;
-        }
-
-        FocusWindow(vbeHwnd);
-        AltTap(VK_D);
-        Tap(VK_L);
-        return true;
     }
 
     private static bool FocusWindow(IntPtr hWnd) {
@@ -418,21 +390,6 @@ public static class XlideVbeDialogWatcher {
         PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
     }
 
-    private static void AltTap(byte vk) {
-        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-        Thread.Sleep(50);
-        Tap(vk);
-        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-        Thread.Sleep(150);
-    }
-
-    private static void Tap(byte vk) {
-        keybd_event(vk, 0, 0, UIntPtr.Zero);
-        Thread.Sleep(50);
-        keybd_event(vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-        Thread.Sleep(100);
-    }
-
     private static void WriteDialogResult(string resultPath, DialogInfo dialog) {
         StringBuilder json = new StringBuilder();
         json.Append("{");
@@ -597,6 +554,44 @@ function Wait-ForDialogResult {
     return $null
 }
 
+function Normalize-CommandCaption($Caption) {
+    return ([string]$Caption).Replace('&', '').Trim()
+}
+
+function Find-VbeCommandControl($Controls, [string]$Caption) {
+    foreach ($control in @($Controls)) {
+        $normalized = Normalize-CommandCaption $control.Caption
+        if ($normalized -eq $Caption) {
+            return $control
+        }
+        try {
+            if ($control.Controls -and $control.Controls.Count -gt 0) {
+                $nested = Find-VbeCommandControl $control.Controls $Caption
+                if ($null -ne $nested) {
+                    return $nested
+                }
+            }
+        }
+        catch {
+        }
+    }
+    return $null
+}
+
+function Invoke-VbeCompileCommand($Excel) {
+    $vbe = $Excel.VBE
+    $projectName = [string]$vbe.ActiveVBProject.Name
+    $caption = "Compile $projectName"
+    foreach ($bar in @($vbe.CommandBars)) {
+        $control = Find-VbeCommandControl $bar.Controls $caption
+        if ($null -ne $control) {
+            $control.Execute()
+            return
+        }
+    }
+    throw "Could not find exact VBE command '$caption'. Oracle compile command was not invoked."
+}
+
 $case = Get-Content -LiteralPath $CasePath -Raw | ConvertFrom-Json
 $excel = $null
 $workbook = $null
@@ -628,12 +623,10 @@ try {
     $excelPid = 0
     [void][XlideUser32]::GetWindowThreadProcessId([IntPtr]$excel.Hwnd, [ref]$excelPid)
     Set-Content -LiteralPath $PidPath -Value $excelPid -Encoding ascii
-    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
 
     Set-Stage "create_workbook"
     $workbook = $excel.Workbooks.Add()
     [void]$workbook.Activate()
-    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
 
     Set-Stage "add_module"
     $vbProject = $workbook.VBProject
@@ -641,7 +634,6 @@ try {
     $component.Name = "XlideOracleModule"
     $codeModule = $component.CodeModule
     $codeModule.AddFromString([string]$case.source)
-    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
 
     if ($case.PSObject.Properties.Name -contains "mode" -and $case.mode) {
         $mode = [string]$case.mode
@@ -655,15 +647,11 @@ try {
         [void]$component.Activate()
         $codeModule.CodePane.Show()
         $codeModule.CodePane.SetSelection(1, 1, 1, 1)
-        [void][XlideVbeDialogWatcher]::FocusVbeWindow($excelPid)
         Start-Sleep -Milliseconds 250
 
         [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds, $DialogHoldSeconds)
         try {
-            [void][XlideVbeDialogWatcher]::FocusVbeWindow($excelPid)
-            if (-not [XlideVbeDialogWatcher]::InvokeVbeCompile($excelPid)) {
-                throw "Could not locate the VBE main window for the disposable Excel process."
-            }
+            Invoke-VbeCompileCommand $excel
             $dialog = Wait-ForDialogResult
         }
         finally {
@@ -693,7 +681,6 @@ try {
         try {
             foreach ($macro in $macroNames) {
                 try {
-                    [void][XlideVbeDialogWatcher]::FocusExcelWindow([IntPtr]$excel.Hwnd)
                     [void]$excel.Run($macro)
                     $lastError = $null
                     break
@@ -733,7 +720,7 @@ catch {
         Set-DialogOutcome $dialog ($mode -eq "compile")
     }
     else {
-        $result.outcome = "rejected"
+        $result.outcome = "worker_error"
         $result.stage = $stage
         $result.message = $_.Exception.Message
         $result.hresult = $_.Exception.HResult
