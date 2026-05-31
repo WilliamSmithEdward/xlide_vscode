@@ -484,7 +484,7 @@ function registerVbaDiagnostics(
                 const { xlsmPath } = decodeModuleUri(document.uri);
                 const modules = await index.getAllModules(xlsmPath);
                 const project = buildProjectIndex(modules);
-                knownProcedures = project.procedureNames();
+                knownProcedures = project.visibleProcedureNames(moduleNameOf(document));
                 projectProcedures = project.procedureSignatures();
             } catch {
                 knownProcedures = undefined;

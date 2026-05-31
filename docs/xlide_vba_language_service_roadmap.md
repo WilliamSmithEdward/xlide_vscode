@@ -734,8 +734,8 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   modules.
 > - `unknown-call` ("Sub or Function not defined") - a call statement whose
 >   callee is a bare (non-member) identifier and resolves to nothing: no project
->   procedure (the provider passes the project-wide name set from
->   `ProjectIndex.procedureNames()` as `knownProcedures`), no runtime
+>   procedure visible as a bare call from the current module (the provider passes
+>   `ProjectIndex.visibleProcedureNames(moduleName)` as `knownProcedures`), no runtime
 >   function/statement, no host global or `Application` member, and no in-scope
 >   declaration. `callStatementTarget` accepts the three unambiguous forms - a
 >   lone identifier, a parenless call with arguments (`msrbox ""`), and an

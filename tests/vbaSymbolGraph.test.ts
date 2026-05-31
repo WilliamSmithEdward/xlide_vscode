@@ -384,6 +384,48 @@ describe('ProjectIndex procedure signatures', () => {
 	});
 });
 
+describe('ProjectIndex visible procedure names', () => {
+	it('includes same-module procedures and exported standard-module procedures', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source: 'Private Sub LocalOnly()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Helpers',
+			moduleKind: 'standard',
+			source:
+				'Sub DefaultPublic()\nEnd Sub\n' +
+				'Public Sub ExplicitPublic()\nEnd Sub\n' +
+				'Private Sub Hidden()\nEnd Sub\n',
+		});
+
+		const names = [...index.visibleProcedureNames('Caller')].sort();
+		expect(names).toEqual(['defaultpublic', 'explicitpublic', 'localonly']);
+	});
+
+	it('does not expose object-module members as bare cross-module procedures', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source: '',
+		});
+		index.setModule({
+			moduleName: 'Customer',
+			moduleKind: 'class',
+			source: 'Public Sub Save()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Sheet1',
+			moduleKind: 'document',
+			source: 'Public Sub ActivateSheet()\nEnd Sub\n',
+		});
+		expect(index.visibleProcedureNames('Caller')).toEqual(new Set<string>());
+	});
+});
+
 describe('ProjectIndex visible type names', () => {
 	it('includes object modules and visible project Type/Enum declarations', () => {
 		const index = new ProjectIndex();

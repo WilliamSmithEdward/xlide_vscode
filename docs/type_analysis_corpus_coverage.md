@@ -55,7 +55,7 @@ view of that backlog.
 | Native VBA runtime metadata breadth | Partial | Curated metadata and `Left` coercion oracle | More functions with typed params and returns, statements vs functions, shadowing | Primary docs for signatures, oracle for behavior disputes |
 | External `.vbref.xml` metadata types | Partial | Docs type-hint strategy exists | Metadata-driven callable signatures, precedence vs source, stale metadata behavior | Unit tests, no oracle unless VBA behavior is involved |
 | Inline doc-comment type hints | Partial | Docs and language-service tests | Type hints as signature gap-fillers, no override of concrete source types | Unit tests; hard diagnostics only with deterministic source/metadata |
-| Cross-module procedure calls | Partial | Project signature tests for unique exported standard-module `Sub`/`Function` calls, module-qualified standard-module calls, ambiguous bare-name no-diagnostic controls, module-order stability | Broader private/module visibility, shadowing, class/document procedures, workbook fixture builder | Workbook-level fixture builder plus analyzer tests |
+| Cross-module procedure calls | Partial | Project signature tests for unique exported standard-module `Sub`/`Function` calls, module-qualified standard-module calls, ambiguous bare-name no-diagnostic controls, module-order stability, visibility-filtered bare procedure names | Broader module variable/type visibility, shadowing, class/document member binding, workbook fixture builder | Workbook-level fixture builder plus analyzer tests |
 | Realtime incomplete expressions | Missing | General diagnostics tests | Suppression while typing partial calls, partial strings, partial operators | Editor/provider tests and targeted analyzer tests |
 
 ## Immediate Corpus Backlog

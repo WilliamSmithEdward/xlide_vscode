@@ -76,10 +76,10 @@ export interface AnalyzeModuleOptions {
 	/** Optional per-rule severity overrides (e.g. Option Explicit severity). */
 	severities?: SeverityOverrides;
 	/**
-	 * Lowercased names of every procedure across the whole project (from the
-	 * ProjectIndex). Required for the unknown-call statement rule; when omitted,
-	 * that cross-module rule does not run (so single-module analysis never
-	 * false-positives on a call to a procedure in another module).
+	 * Lowercased procedure names callable as bare identifiers from the current
+	 * module (from ProjectIndex.visibleProcedureNames). Required for the
+	 * unknown-call statement rule; when omitted, that cross-module rule does not
+	 * run so single-module analysis never false-positives on another module.
 	 */
 	knownProcedures?: ReadonlySet<string>;
 	/**

@@ -164,6 +164,33 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * Lowercased procedure names callable as bare identifiers from `moduleName`.
+	 * Same-module procedures are always visible to their own module. Cross-module
+	 * bare calls are limited to exported procedures in standard modules; class,
+	 * document, and UserForm members require object/module-qualified binding that
+	 * the unknown-call rule deliberately does not guess.
+	 */
+	visibleProcedureNames(moduleName: string): Set<string> {
+		const currentLower = moduleName.toLowerCase();
+		const names = new Set<string>();
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			for (const symbol of mod.root.children ?? []) {
+				if (!isProcedureKind(symbol.kind)) {
+					continue;
+				}
+				if (
+					sameModule ||
+					(mod.moduleKind === 'standard' && isExported(symbol, mod.moduleKind))
+				) {
+					names.add(symbol.name.toLowerCase());
+				}
+			}
+		}
+		return names;
+	}
+
+	/**
 	 * Exported standard-module Sub/Function signatures grouped by lowercased
 	 * procedure name, with additional `module.procedure` qualified keys. Bare
 	 * duplicate exported names intentionally remain grouped together so analyzer

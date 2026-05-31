@@ -30,6 +30,25 @@ function projectProcedures(
 	return project.procedureSignatures();
 }
 
+function visibleProjectProcedures(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+	currentModule: string,
+): ReadonlySet<string> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.visibleProcedureNames(currentModule);
+}
+
 describe('analyzeModule - unterminated string', () => {
 	it('flags a string with no closing quote', () => {
 		const src = 'Sub T()\n    MsgBox "hello\nEnd Sub\n';
@@ -271,6 +290,42 @@ describe('analyzeModule - unknown call statement', () => {
 		const src = 'Sub Main()\n    DoWork\nEnd Sub\n';
 		const known = { knownProcedures: new Set(['dowork']) };
 		expect(byCode(analyzeModule(src, known), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('uses project visibility for calls to other standard modules', () => {
+		const caller = 'Sub Main()\n    DoWork\n    Secret\nEnd Sub\n';
+		const helpers =
+			'Public Sub DoWork()\nEnd Sub\n' +
+			'Private Sub Secret()\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				knownProcedures: visibleProjectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Helpers', source: helpers },
+				], 'Caller'),
+			}),
+			'unknown-call',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('Secret');
+	});
+
+	it('does not treat class-module methods as bare cross-module procedures', () => {
+		const caller = 'Sub Main()\n    Save\nEnd Sub\n';
+		const customer = 'Public Sub Save()\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				knownProcedures: visibleProjectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Customer', moduleKind: 'class', source: customer },
+				], 'Caller'),
+			}),
+			'unknown-call',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('Save');
 	});
 
 	it('does not flag a call to a Sub defined in the same module', () => {

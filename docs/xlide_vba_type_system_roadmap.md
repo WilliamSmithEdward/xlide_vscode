@@ -204,6 +204,10 @@ Landed first:
   signatures feed cross-module argument count and type diagnostics; ambiguous
   duplicate exported bare names are skipped, while module-qualified
   `ModuleName.ProcedureName` calls resolve through the named standard module.
+- Landed visibility slice: bare cross-module procedure names are filtered to
+  same-module procedures plus exported standard-module procedures, so private
+  procedures in other modules and object-module members do not hide
+  `unknown-call`.
 - Landed type-name binder groundwork: `ProjectIndex.visibleTypeNames()` exposes
   visible project-defined type names to the future `As` type resolver.
 - Support document modules, userforms, and class modules.

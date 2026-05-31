@@ -319,8 +319,8 @@ the cache stays in sync with user edits.
 
 **Workbook-wide lint (command + agent tool)** — `src/vbaWorkbookLint.ts`
 (`lintWorkbook`) is the shared core that loads every module from the workbook via
-the Python bridge, builds a `ProjectIndex` so the unknown-call rule has the full
-set of `knownProcedures`, then runs both diagnostic passes
+the Python bridge, builds a `ProjectIndex` so the unknown-call rule has the
+current module's visibility-filtered procedure names, then runs both diagnostic passes
 (`lintVbaSource` + `analyzeModule`) per module and flattens their results into
 1-based `{moduleName, moduleType, line, column, endColumn, severity, code,
 message}` problems, sorted by module/line/column. The
@@ -557,9 +557,9 @@ Diagnostic severity policy:
   `set-requires-object` fires only when `Set` targets a known intrinsic scalar
   variable.
   `unknown-call` rule runs only when the caller
-  passes `knownProcedures` (the project-wide procedure-name set from
-  `ProjectIndex.procedureNames()`); without it that rule is skipped so a single
-  module is never analysed in isolation. The whole analyzer is wrapped in
+  passes `knownProcedures` (the current module's visibility-filtered procedure
+  names from `ProjectIndex.visibleProcedureNames(moduleName)`); without it that
+  rule is skipped so a single module is never analysed in isolation. The whole analyzer is wrapped in
   try/catch so a parse hiccup returns `[]` and never breaks editing, and accepts
   `severities` overrides (including `'off'`) per rule.
 
@@ -568,10 +568,11 @@ This engine is merged with the structural block-balance linter
 family) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`: both
 run on open and debounced (300 ms) on every edit, on real `.vba` files and on
 virtual `xlide-vba` module documents, with no save. Everything is computed from
-the live editor text; the only cross-module input is the project procedure-name
-set, which the provider reads from the `VbaSymbolIndex` cache (`getAllModules`,
-a Python round-trip only on the first, uncached load) and passes to
-`analyzeModule` as `knownProcedures` for the bare-call rule.
+the live editor text; the only cross-module input is the current module's
+visibility-filtered procedure-name set, which the provider reads from the
+`VbaSymbolIndex` cache (`getAllModules`, a Python round-trip only on the first,
+uncached load) and passes to `analyzeModule` as `knownProcedures` for the
+bare-call rule.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
 
@@ -594,6 +595,8 @@ single module:
   declarations in other modules), `resolveQualifiedDefinition` (the exported
   member of a named module, for `Module.Member` references), `referenceScope`
   (the binding scope of a name for scope-restricted reference/rename search),
+  `visibleProcedureNames` (same-module procedures plus exported standard-module
+  procedures callable as bare identifiers from a given module),
   `visibleTypeNames` (class/document/UserForm module names plus visible
   `Type`/`Enum` declarations for future `As` binding), and
   `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit

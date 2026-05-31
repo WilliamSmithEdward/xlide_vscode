@@ -14,7 +14,8 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Project-backed unknown-call uses ProjectIndex.visibleProcedureNames(moduleName), so only same-module procedures and exported standard-module procedures are treated as bare callable names. Private procedures in other modules and object-module members do not suppress the diagnostic."
     },
     {
       "code": "duplicate-procedure",

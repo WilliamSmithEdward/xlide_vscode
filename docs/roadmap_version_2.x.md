@@ -53,6 +53,9 @@ heuristic diagnostics.
 - `ProjectIndex` exposes deterministic visible project type names for the
   current module: object module names plus visible `Type` and `Enum`
   declarations, preserving duplicates for future ambiguity handling.
+- `unknown-call` now consumes current-module-visible procedure names, so a
+  `Private Sub` in another standard module or a public class member no longer
+  suppresses a bare-call diagnostic.
 - Runtime metadata is curated explicitly; parameter types are not inferred from
   parameter names.
 - Inline documentation comments support descriptive metadata plus optional
@@ -212,10 +215,13 @@ Purpose: move from same-module checks to workbook-aware analysis.
   calls and ambiguous duplicate behavior in the first deterministic slice:
   ambiguous bare exported names stay silent, while `ModuleName.ProcedureName`
   resolves through the named standard module only.
+- [x] Model procedure visibility for bare cross-module calls: same-module
+  procedures are visible, exported standard-module procedures are visible, and
+  private/object-module procedures are not treated as bare global callees.
 - [x] Expose visible project-defined type names from `ProjectIndex` as binder
   groundwork: current-module `Type`/`Enum`, cross-module non-`Private`
   `Type`/`Enum`, and class/document/UserForm module names.
-- [ ] Model module-level visibility and shadowing.
+- [ ] Model broader module-level variable/type visibility and shadowing.
 - [ ] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
 - [ ] Resolve enums and enum members across modules.
