@@ -44,6 +44,35 @@ describe('host model resolution', () => {
 		expect(resolveMemberReturnType('Excel.Range', 'Parent')).toBe('Excel.Worksheet');
 		expect(resolveMemberReturnType('Excel.Workbook', 'Application')).toBe('Excel.Application');
 	});
+
+	it('resolves chaining into the broadened object model', () => {
+		// Range formatting objects.
+		expect(resolveMemberReturnType('Excel.Range', 'Font')).toBe('Excel.Font');
+		expect(resolveMemberReturnType('Excel.Range', 'Interior')).toBe('Excel.Interior');
+		expect(resolveMemberReturnType('Excel.Range', 'Borders')).toBe('Excel.Borders');
+		expect(resolveMemberReturnType('Excel.Borders', 'Item')).toBe('Excel.Border');
+		// Tables / list objects.
+		expect(resolveMemberReturnType('Excel.Worksheet', 'ListObjects')).toBe('Excel.ListObjects');
+		expect(resolveMemberReturnType('Excel.ListObjects', 'Add')).toBe('Excel.ListObject');
+		expect(resolveMemberReturnType('Excel.ListObject', 'Range')).toBe('Excel.Range');
+		expect(resolveMemberReturnType('Excel.ListObject', 'ListColumns')).toBe('Excel.ListColumns');
+		// Windows / names / charts.
+		expect(resolveMemberReturnType('Excel.Application', 'ActiveWindow')).toBe('Excel.Window');
+		expect(resolveMemberReturnType('Excel.Workbook', 'Names')).toBe('Excel.Names');
+		expect(resolveMemberReturnType('Excel.Names', 'Add')).toBe('Excel.Name');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Shapes')).toBe('Excel.Shapes');
+		// WorksheetFunction is reachable from Application.
+		expect(resolveMemberReturnType('Excel.Application', 'WorksheetFunction')).toBe(
+			'Excel.WorksheetFunction',
+		);
+	});
+
+	it('exposes the broadened types as host aliases', () => {
+		expect(resolveHostAlias('Font')).toBe('Excel.Font');
+		expect(resolveHostAlias('listobject')).toBe('Excel.ListObject');
+		expect(resolveHostAlias('Window')).toBe('Excel.Window');
+		expect(resolveHostAlias('WorksheetFunction')).toBe('Excel.WorksheetFunction');
+	});
 });
 
 describe('member completion - collections', () => {

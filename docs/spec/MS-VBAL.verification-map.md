@@ -216,13 +216,25 @@ family) in `registerVbaDiagnostics`.
 | `duplicate-module-variable` | Module-level variable redeclared | 5.2.3 (module variable declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `const-assignment` | Assignment to a declared `Const` | 5.4.3.1 (Const cannot be assigned) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `option-explicit-missing` | Code module omits `Option Explicit` (configurable) | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `unknown-call` | Call statement whose callee is a bare (non-member) identifier - lone identifier, parenless args (`MsgBox "hi"`), or `Call Foo` - that resolves to no project procedure, runtime function, host global, `Application` member, or in-scope name | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `invalid-proc-header` | A `Sub`/`Function`/`Property` header where a token other than `(` (or `As` for a `Function`/`Property Get`) follows the procedure name (e.g. `Sub My Sub`) | 5.3.1 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `unbalanced-parens` | A `(` left open at a statement boundary, or a `)` with no matching `(`, within one logical statement | 3.3.1 (special tokens) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `argument-count` | A call statement to a same-module Sub/Function supplies too few/too many arguments (Optional/ParamArray aware), or a named argument names no parameter | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 
 Deliberately deferred (not shipped): `undeclared-variable` (variable used
-without declaration under Option Explicit) and `unknown-call` (unknown
-procedure call). Both require a full expression binder plus a complete host
-catalogue; without them they would emit false positives, which the project's
-no-false-positive rule forbids. They will ship only once they can be proven
-safe. "Invalid line continuation" is also deferred for the same reason.
+without declaration under Option Explicit) and the broad arbitrary-expression
+form of `unknown-call`. The `unknown-call` rule now ships for the three
+unambiguous call forms - a lone identifier, a parenless call with arguments
+(`msrbox ""`), and an explicit `Call` - while the implicit-host-member form
+`Cells(1, 1)` / `Range("A1")` and any statement containing a top-level `=`
+(assignment) are excluded. Argument-count validation (`argument-count`) is
+likewise limited to same-module Sub/Function calls, where the AST supplies a
+ground-truth parameter list; cross-module/host/runtime arity and per-argument
+type checking stay deferred. The remaining deferred cases require a full
+expression binder plus a complete host catalogue; without them they would emit
+false positives, which the project's no-false-positive rule forbids. They will
+ship only once they can be proven safe. "Invalid line continuation" is also
+deferred for the same reason.
 
 Verification rule: a new diagnostic rule must (1) carry an MS-VBAL
 `specReference` in `ruleMetadata.ts`, (2) be high-confidence, and (3) have

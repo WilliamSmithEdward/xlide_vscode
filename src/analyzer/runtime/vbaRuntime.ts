@@ -149,9 +149,69 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- Selection / colour -------------------------------------------------
 	fn('RGB', 'RGB(Red, Green, Blue) As Long', 'Long'),
+	fn('QBColor', 'QBColor(Color) As Long', 'Long'),
 	fn('IIf', 'IIf(Expression, TruePart, FalsePart) As Variant', 'Variant'),
 	fn('Choose', 'Choose(Index, ArgList) As Variant', 'Variant'),
 	fn('Switch', 'Switch(ArgList) As Variant', 'Variant'),
+	fn('IsMissing', 'IsMissing(ArgName) As Boolean', 'Boolean'),
+	fn('CallByName', 'CallByName(Object, ProcName As String, CallType As VbCallType, [Args]) As Variant', 'Variant'),
+
+	// -- Additional string functions ---------------------------------------
+	fn('StrReverse', 'StrReverse(Expression) As String', 'String'),
+	fn('LenB', 'LenB(Expression) As Long', 'Long'),
+	fn('Str', 'Str(Number) As String', 'String'),
+	fn('Filter', 'Filter(SourceArray, Match, [Include As Boolean = True], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()'),
+	fn('FormatCurrency', 'FormatCurrency(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),
+	fn('FormatNumber', 'FormatNumber(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),
+	fn('FormatPercent', 'FormatPercent(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),
+	fn('FormatDateTime', 'FormatDateTime(Date, [NamedFormat As VbDateTimeFormat = vbGeneralDate]) As String', 'String'),
+
+	// -- Conversion helpers -------------------------------------------------
+	fn('CVErr', 'CVErr(ErrorNumber) As Variant', 'Variant'),
+
+	// -- Interaction / registry --------------------------------------------
+	fn('Command', 'Command() As String', 'String'),
+	fn('Partition', 'Partition(Number, Start, Stop, Interval) As String', 'String'),
+	fn('GetSetting', 'GetSetting(AppName, Section, Key, [Default]) As String', 'String'),
+	fn('GetAllSettings', 'GetAllSettings(AppName, Section) As Variant', 'Variant'),
+	stmt('SaveSetting', 'SaveSetting AppName, Section, Key, Setting'),
+	stmt('DeleteSetting', 'DeleteSetting AppName, [Section], [Key]'),
+	stmt('AppActivate', 'AppActivate Title, [Wait As Boolean]'),
+	stmt('SendKeys', 'SendKeys String, [Wait]'),
+
+	// -- File system --------------------------------------------------------
+	fn('Dir', 'Dir([PathName], [Attributes As VbFileAttribute = vbNormal]) As String', 'String'),
+	fn('FreeFile', 'FreeFile([RangeNumber]) As Integer', 'Integer'),
+	fn('EOF', 'EOF(FileNumber) As Boolean', 'Boolean'),
+	fn('LOF', 'LOF(FileNumber) As Long', 'Long'),
+	fn('Loc', 'Loc(FileNumber) As Long', 'Long'),
+	fn('Seek', 'Seek(FileNumber) As Long', 'Long'),
+	fn('FileLen', 'FileLen(PathName) As Long', 'Long'),
+	fn('FileDateTime', 'FileDateTime(PathName) As Date', 'Date'),
+	fn('GetAttr', 'GetAttr(PathName) As VbFileAttribute', 'VbFileAttribute'),
+	fn('CurDir', 'CurDir([Drive]) As String', 'String'),
+	stmt('ChDir', 'ChDir Path'),
+	stmt('ChDrive', 'ChDrive Drive'),
+	stmt('MkDir', 'MkDir Path'),
+	stmt('RmDir', 'RmDir Path'),
+	stmt('Kill', 'Kill PathName'),
+	stmt('FileCopy', 'FileCopy Source, Destination'),
+	stmt('SetAttr', 'SetAttr PathName, Attributes As VbFileAttribute'),
+
+	// -- Financial ----------------------------------------------------------
+	fn('PV', 'PV(Rate, NPer, Pmt, [FV = 0], [Type = 0]) As Double', 'Double'),
+	fn('FV', 'FV(Rate, NPer, Pmt, [PV = 0], [Type = 0]) As Double', 'Double'),
+	fn('Pmt', 'Pmt(Rate, NPer, PV, [FV = 0], [Type = 0]) As Double', 'Double'),
+	fn('IPmt', 'IPmt(Rate, Per, NPer, PV, [FV = 0], [Type = 0]) As Double', 'Double'),
+	fn('PPmt', 'PPmt(Rate, Per, NPer, PV, [FV = 0], [Type = 0]) As Double', 'Double'),
+	fn('NPer', 'NPer(Rate, Pmt, PV, [FV = 0], [Type = 0]) As Double', 'Double'),
+	fn('Rate', 'Rate(NPer, Pmt, PV, [FV = 0], [Type = 0], [Guess = 0.1]) As Double', 'Double'),
+	fn('NPV', 'NPV(Rate, ValueArray()) As Double', 'Double'),
+	fn('IRR', 'IRR(ValueArray(), [Guess = 0.1]) As Double', 'Double'),
+	fn('MIRR', 'MIRR(ValueArray(), FinanceRate, ReinvestRate) As Double', 'Double'),
+	fn('SLN', 'SLN(Cost, Salvage, Life) As Double', 'Double'),
+	fn('SYD', 'SYD(Cost, Salvage, Life, Period) As Double', 'Double'),
+	fn('DDB', 'DDB(Cost, Salvage, Life, Period, [Factor = 2]) As Double', 'Double'),
 ];
 
 const BY_LOWER = new Map<string, VbaRuntimeFunction>(

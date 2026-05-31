@@ -15,3 +15,6 @@ __pycache__/
 # OS
 Thumbs.db
 .DS_Store
+
+# Reference corpus (transcription source only - never bundled/generated)
+reference/

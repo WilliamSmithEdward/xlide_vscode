@@ -8,6 +8,16 @@
 // complete host catalogue to avoid false positives (undeclared-variable,
 // unknown-call) are deliberately NOT implemented here. See the roadmap.
 //
+// The one cross-module rule that is enabled - `unknownCallStatement` - fires
+// only on a *call statement* whose callee is a bare (non-member) identifier (the
+// lone-identifier `DoStartup`, the parenless `MsgBox "hi"`, or `Call Foo`) whose
+// name resolves to no procedure anywhere in the project, no VBA runtime
+// function/statement, no host global or Application member, and no in-scope
+// declaration. That is the unambiguous VBE "Sub or Function not defined"
+// compile error, so it stays high-confidence and low-noise. The broader
+// undeclared-variable / arbitrary-expression unknown-call cases still need a
+// full expression binder and remain unimplemented.
+//
 // Pure data: no `vscode` dependency. The VS Code layer maps `severity` onto
 // `vscode.DiagnosticSeverity` and `code`/`source` onto the diagnostic.
 
@@ -80,6 +90,39 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'warning',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.4.1.1',
+		confidence: 'high',
+	},
+	invalidProcedureHeader: {
+		code: 'invalid-proc-header',
+		title: 'Invalid procedure declaration',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1',
+		confidence: 'high',
+	},
+	unbalancedParens: {
+		code: 'unbalanced-parens',
+		title: 'Unbalanced parentheses',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 3.3.1',
+		confidence: 'high',
+	},
+	argumentCount: {
+		code: 'argument-count',
+		title: 'Wrong number of arguments',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1',
+		confidence: 'high',
+	},
+	unknownCallStatement: {
+		code: 'unknown-call',
+		title: 'Sub or Function not defined',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1',
+		requiresWholeProject: true,
 		confidence: 'high',
 	},
 } satisfies Record<string, DiagnosticRuleMetadata>;

@@ -720,7 +720,7 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 > `xlide-vba` module documents. Settings: `xlide.diagnostics.enabled`
 > (default true) and `xlide.diagnostics.optionExplicit`
 > (off/hint/information/warning/error, default warning); both re-run open
-> documents on change. Covered by `tests/vbaDiagnostics.test.ts` (27 tests).
+> documents on change. Covered by `tests/vbaDiagnostics.test.ts` (36 tests).
 >
 > Shipped semantic rules (all high-confidence, spec-referenced in
 > `ruleMetadata.ts` and `docs/spec/MS-VBAL.verification-map.md`):
@@ -732,12 +732,42 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   `index(...)`, `Set`, comparisons).
 > - `option-explicit-missing` - configurable; silent on empty/attribute-only
 >   modules.
+> - `unknown-call` ("Sub or Function not defined") - a call statement whose
+>   callee is a bare (non-member) identifier and resolves to nothing: no project
+>   procedure (the provider passes the project-wide name set from
+>   `ProjectIndex.procedureNames()` as `knownProcedures`), no runtime
+>   function/statement, no host global or `Application` member, and no in-scope
+>   declaration. `callStatementTarget` accepts the three unambiguous forms - a
+>   lone identifier, a parenless call with arguments (`msrbox ""`), and an
+>   explicit `Call name`. Assignments (any top-level `=`), member calls, line
+>   labels, and the implicit-host-member form `Cells(1, 1)` / `Range("A1")` are
+>   deliberately not touched. The rule is skipped entirely when
+>   `knownProcedures` is absent so a module is never analysed in isolation.
+> - `invalid-proc-header` ("Invalid procedure declaration") - a malformed
+>   `Sub`/`Function`/`Property` header where a token other than `(` (or `As` for
+>   a `Function`/`Property Get`) follows the procedure name, e.g. `Sub My Sub`
+>   or `Function Calc Total()`. Valid parameterless subs, parameterised subs,
+>   return-typed functions, and `Property Get ... As` headers stay clean.
+> - `unbalanced-parens` - a `(` left open at a statement boundary or a `)` with
+>   no matching `(`, within one logical statement. Token-stream depth scan that
+>   resets at each statement boundary (newline / depth-0 `:`); parentheses in
+>   strings, comments, date literals and `[bracketed]` names are distinct token
+>   kinds so they never miscount. At most one diagnostic per statement.
+> - `argument-count` ("Wrong number of arguments") - a call statement to a
+>   Sub/Function defined in the *same module* that supplies too few/too many
+>   arguments, `Optional`/`ParamArray` aware, or a named argument that names no
+>   parameter. Validates only the parenless `Foo 1, 2` and explicit
+>   `Call Foo(1, 2)` forms against the current module's AST signatures;
+>   host/runtime/cross-module callees, property accessors, and ambiguous names
+>   are skipped (no ground-truth signature), and per-argument type checking
+>   stays deferred.
 >
 > Deliberately deferred (would require an expression binder + a complete host
 > catalogue, and per the project's no-false-positive rule must not ship until
 > they can be proven safe): `undeclared-variable` (variable used but not
-> declared under Option Explicit) and `unknown-call` (unknown procedure call).
-> "Invalid line continuation" is also deferred (false-positive risk).
+> declared under Option Explicit) and the broad arbitrary-expression form of
+> `unknown-call`. "Invalid line continuation" is also deferred (false-positive
+> risk).
 
 ### Goal
 

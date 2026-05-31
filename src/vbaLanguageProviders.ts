@@ -431,7 +431,10 @@ function isVbaDocument(document: vscode.TextDocument): boolean {
  * edit so problems surface while typing, the way a real IDE does. No save and
  * no Python round-trip required - everything is computed from the editor text.
  */
-function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
+function registerVbaDiagnostics(
+    context: vscode.ExtensionContext,
+    index: VbaSymbolIndex,
+): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
     const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -457,6 +460,10 @@ function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
     };
 
     const run = (document: vscode.TextDocument): void => {
+        void runAsync(document);
+    };
+
+    const runAsync = async (document: vscode.TextDocument): Promise<void> => {
         if (!isVbaDocument(document)) { return; }
         const config = vscode.workspace.getConfiguration('xlide');
         if (config.get<boolean>('diagnostics.enabled', true) === false) {
@@ -465,6 +472,19 @@ function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
         }
         const text = document.getText();
         const diagnostics: vscode.Diagnostic[] = [];
+
+        // Project-wide procedure names enable the bare-call "Sub or Function not
+        // defined" rule. Only available for workbook-backed (xlide-vba) docs.
+        let knownProcedures: ReadonlySet<string> | undefined;
+        if (document.uri.scheme === XLIDE_SCHEME) {
+            try {
+                const { xlsmPath } = decodeModuleUri(document.uri);
+                const modules = await index.getAllModules(xlsmPath);
+                knownProcedures = buildProjectIndex(modules).procedureNames();
+            } catch {
+                knownProcedures = undefined;
+            }
+        }
 
         // Structural block-balance (precise per-line spans).
         for (const p of lintVbaSource(text)) {
@@ -490,6 +510,7 @@ function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
             semantic = analyzeModule(text, {
                 moduleName: moduleNameOf(document),
                 severities,
+                knownProcedures,
             });
         } catch {
             semantic = [];
@@ -603,7 +624,7 @@ export function registerVbaLanguageProviders(
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
 
-    registerVbaDiagnostics(context);
+    registerVbaDiagnostics(context, index);
     registerVbaAutoBlock(context);
     registerVbaMemberCompletion(context, bridge, VBA_SELECTOR);
 

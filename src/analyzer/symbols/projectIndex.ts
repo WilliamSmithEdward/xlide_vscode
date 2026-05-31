@@ -101,6 +101,23 @@ export class ProjectIndex {
 		return [...this.modules.values()].map((m) => m.moduleName);
 	}
 
+	/**
+	 * Lowercased names of every procedure (Sub/Function/Property) across all
+	 * indexed modules. Used by the unknown-call diagnostic to decide whether a
+	 * bare call statement names a procedure that exists anywhere in the project.
+	 */
+	procedureNames(): Set<string> {
+		const names = new Set<string>();
+		for (const mod of this.modules.values()) {
+			for (const symbol of mod.all) {
+				if (isProcedureKind(symbol.kind)) {
+					names.add(symbol.name.toLowerCase());
+				}
+			}
+		}
+		return names;
+	}
+
 	/** The {@link ModuleSymbols} for a module, or undefined. */
 	getModule(moduleName: string): ModuleSymbols | undefined {
 		return this.modules.get(moduleName.toLowerCase());

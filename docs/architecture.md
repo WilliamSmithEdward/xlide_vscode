@@ -336,12 +336,20 @@ feature that distinguishes XLIDE from a generic VBA syntax extension. It is spli
 into a pure analyzer layer and a thin VS Code provider:
 
 - `src/analyzer/host/excelObjectModel.ts` is a curated, verified subset of the
-  Excel automation object model (Application/Workbook/Worksheet/Range), with each
-  type's properties and methods transcribed from the official Office VBA
-  object-model reference (`learn.microsoft.com/office/vba/api/excel.*`). It also
-  holds the host-global table (`ThisWorkbook` -> `Excel.Workbook`, `Application`
-  -> `Excel.Application`, ...) and the `As`-type alias table. LLM-generated
-  member lists are never used; this is host metadata, not VBA grammar.
+  Excel automation object model (Application/Workbook/Worksheet/Range plus the
+  commonly used Window, Name(s), Comment(s), ListObject/Row/Column(s),
+  PivotTable(s), Chart(s)/ChartObject(s), Shape(s), Font, Interior, Border(s),
+  Areas, Hyperlink(s), WorksheetFunction, Style(s), PageSetup and Validation
+  types), with each type's properties and methods transcribed from the official
+  Office VBA object-model reference (`learn.microsoft.com/office/vba/api/excel.*`)
+  and cross-checked against the Excel COM type library. Return types are wired so
+  member-access chaining flows into these types (e.g. `Range.Font.`,
+  `ws.ListObjects(1).Range.`). It also holds the host-global table
+  (`ThisWorkbook` -> `Excel.Workbook`, `Application` -> `Excel.Application`, ...)
+  and the `As`-type alias table. The reference corpus under `reference/` is used
+  only as a transcription source; none of it is bundled or generated into the
+  extension. LLM-generated member lists are never used; this is host metadata,
+  not VBA grammar.
 - `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
   metadata (`resolveHostGlobal`, `resolveHostAlias`, `getHostMembers`,
   `resolveMemberReturnType`).
@@ -423,27 +431,64 @@ high-confidence semantic problems directly from module text:
 - `src/analyzer/diagnostics/ruleMetadata.ts` is the typed rule catalogue
   (`DIAGNOSTIC_RULES`): each rule carries a stable `code`, `title`,
   `defaultSeverity`, `source: 'XLIDE'`, an MS-VBAL `specReference`, and a
-  `confidence`. Only high-confidence rules ship. `undeclared-variable` and
-  `unknown-call` are deliberately absent — they would need an expression binder
-  plus a complete host catalogue and would otherwise produce false positives,
-  which the project's no-false-positive rule forbids.
+  `confidence`. Only high-confidence rules ship. The broad `undeclared-variable`
+  rule and the arbitrary-expression `unknown-call` rule are deliberately absent —
+  they would need an expression binder plus a complete host catalogue and would
+  otherwise produce false positives, which the project's no-false-positive rule
+  forbids. The one cross-module rule that does ship, `unknown-call`
+  (`unknownCallStatement`), is restricted to the unambiguous call forms where the
+  callee is a bare (non-member) identifier (see below).
 - `src/analyzer/diagnostics/analyzeModule.ts` exposes
   `analyzeModule(source, opts)` returning `VbaDiagnostic[]` (code, message,
   severity, offset `span`). It reuses the lexer, parser, and symbol graph and
   implements the rules: unterminated string (odd-quote-count, escape-aware),
   duplicate procedure (Property Get/Let/Set may share a name), duplicate
   declaration in a flat procedure scope, duplicate module-level variable,
-  assignment to a `Const` (bare `name =` only — excludes `.member`, indexing,
-  `Set`, and comparisons), and a configurable `Option Explicit`-missing
-  reminder (silent on empty/attribute-only modules). It is wrapped in try/catch
-  so a parse hiccup returns `[]` and never breaks editing, and accepts
+  assignment to a `Const` (bare `name =` only - excludes `.member`, indexing,
+  `Set`, and comparisons), a configurable `Option Explicit`-missing
+  reminder (silent on empty/attribute-only modules), an `unknown-call`
+  ("Sub or Function not defined") rule, an `invalid-proc-header`
+  ("Invalid procedure declaration") rule, an `unbalanced-parens` rule, and an
+  `argument-count` ("Wrong number of arguments") rule. `callStatementTarget`
+  powers `unknown-call`: it accepts the three call forms whose callee is a bare
+  (non-member) identifier - a lone identifier, a parenless call with arguments
+  (`MsgBox "hi"`), and an explicit `Call name` - and flags the callee when the
+  name resolves to no project procedure, runtime function/statement, host
+  global, `Application` member, or in-scope declaration. It excludes member
+  calls (`.`), labels (`:`), assignments (any top-level `=`), and the
+  implicit-host-member form `Cells(1, 1)` / `Range("A1")` (a non-`Call`
+  identifier immediately followed by `(`). `checkProcedureHeader` powers
+  `invalid-proc-header`: after the procedure name in a `Sub`/`Function`/
+  `Property` header, the only legal next token is `(` (or `As` for a
+  `Function`/`Property Get`); any other token (e.g. the second word in
+  `Sub My Sub`) is flagged. `checkUnbalancedParens` powers `unbalanced-parens`:
+  it scans the module token stream tracking `(`/`)` depth, resets at each
+  statement boundary (a newline or a depth-0 `:`), and flags a dangling `(` or
+  an unmatched `)` - parentheses inside strings/comments/date-literals and
+  `[bracketed]` names are distinct token kinds so they never miscount.
+  `checkArgumentCount` powers `argument-count`: it validates a call statement
+  against the parameter list of a Sub/Function defined in the *same* module (the
+  only place the AST gives a ground-truth signature), reusing `extractCall`
+  (built on `callStatementTarget`) to pull the callee and its top-level argument
+  slots; it honours `Optional` (lowers the minimum) and `ParamArray` (removes
+  the maximum), validates named-argument names against the parameters, and skips
+  host/runtime/cross-module callees plus any duplicated/ambiguous name. The
+  `unknown-call` rule runs only when the caller
+  passes `knownProcedures` (the project-wide procedure-name set from
+  `ProjectIndex.procedureNames()`); without it that rule is skipped so a single
+  module is never analysed in isolation. The whole analyzer is wrapped in
+  try/catch so a parse hiccup returns `[]` and never breaks editing, and accepts
   `severities` overrides (including `'off'`) per rule.
 
 This engine is merged with the structural block-balance linter
 (`src/vbaLinter.ts`, which owns the "Missing End .../unexpected terminator"
 family) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`: both
 run on open and debounced (300 ms) on every edit, on real `.vba` files and on
-virtual `xlide-vba` module documents, with no save and no Python round-trip.
+virtual `xlide-vba` module documents, with no save. Everything is computed from
+the live editor text; the only cross-module input is the project procedure-name
+set, which the provider reads from the `VbaSymbolIndex` cache (`getAllModules`,
+a Python round-trip only on the first, uncached load) and passes to
+`analyzeModule` as `knownProcedures` for the bare-call rule.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
 

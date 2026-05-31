@@ -30,6 +30,18 @@ describe('VBA runtime metadata', () => {
 			expect(resolveRuntimeFunction(name)).toBeUndefined();
 		}
 	});
+
+	it('includes verified gap-filled built-ins from the VBA library', () => {
+		expect(resolveRuntimeFunction('StrReverse')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('FormatCurrency')?.kind).toBe('function');
+		expect(resolveRuntimeFunction('Dir')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('FreeFile')?.returns).toBe('Integer');
+		expect(resolveRuntimeFunction('Pmt')?.returns).toBe('Double');
+		expect(resolveRuntimeFunction('CallByName')?.name).toBe('CallByName');
+		// File-system commands are statements, not value-returning functions.
+		expect(resolveRuntimeFunction('Kill')?.kind).toBe('statement');
+		expect(resolveRuntimeFunction('MkDir')?.kind).toBe('statement');
+	});
 });
 
 describe('identifier completion - runtime built-ins', () => {

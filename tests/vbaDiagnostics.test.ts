@@ -207,3 +207,308 @@ describe('analyzeModule - general contract', () => {
 		expect(analyzeModule(src)).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - unknown call statement', () => {
+	const opts = { knownProcedures: new Set<string>() };
+
+	it('flags a bare identifier that resolves to nothing', () => {
+		const src = 'Sub Main()\n    asdfjalsdkfjas\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('asdfjalsdkfjas');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('does not flag a call to a procedure in another module', () => {
+		const src = 'Sub Main()\n    DoWork\nEnd Sub\n';
+		const known = { knownProcedures: new Set(['dowork']) };
+		expect(byCode(analyzeModule(src, known), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('does not flag a call to a Sub defined in the same module', () => {
+		const src = 'Sub Main()\n    Helper\nEnd Sub\nSub Helper()\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('does not flag VBA runtime functions/statements used bare', () => {
+		const src = 'Sub Main()\n    DoEvents\n    Beep\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('does not flag a host global / Application member used bare', () => {
+		const src = 'Sub Main()\n    Calculate\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('does not flag an in-scope local variable used bare', () => {
+		const src = 'Sub Main()\n    Dim total As Long\n    total\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('does not run at all when knownProcedures is omitted', () => {
+		const src = 'Sub Main()\n    asdfjalsdkfjas\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('ignores assignments, member calls, and known arg-bearing calls', () => {
+		const src =
+			'Sub Main()\n' +
+			'    x = 1\n' +
+			'    Debug.Print x\n' +
+			'    MsgBox "hi"\n' +
+			'    Foo 1, 2\n' +
+			'End Sub\n';
+		const known = { knownProcedures: new Set(['foo']) };
+		expect(byCode(analyzeModule(src, known), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('ignores a line label', () => {
+		const src = 'Sub Main()\n    GoTo done\ndone:\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('flags an unknown parenless call with arguments', () => {
+		const src = 'Sub Main()\n    msrbox ""\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('msrbox');
+	});
+
+	it('flags an unknown call with multiple arguments', () => {
+		const src = 'Sub Main()\n    Frobnicate 1, 2, 3\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Frobnicate');
+	});
+
+	it('flags an unknown explicit Call statement', () => {
+		const src = 'Sub Main()\n    Call DoesNotExist(1)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('DoesNotExist');
+	});
+
+	it('does not flag a known procedure called with arguments', () => {
+		const src = 'Sub Main()\n    DoWork 1, 2\nEnd Sub\n';
+		const known = { knownProcedures: new Set(['dowork']) };
+		expect(byCode(analyzeModule(src, known), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('does not flag a runtime function called with arguments', () => {
+		const src = 'Sub Main()\n    Debug.Print Left("abc", 1)\n    MsgBox "hi", vbOKOnly\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+
+	it('does not flag a bare host member used with parentheses', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Cells(1, 1).Select\n' +
+			'    Range("A1").Value = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src, opts), 'unknown-call')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - invalid procedure header', () => {
+	it('flags a procedure name that contains a space', () => {
+		const src = 'Sub My Sub\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-proc-header');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Sub');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags a junk token after a Function name', () => {
+		const src = 'Function Calc Total() As Long\nEnd Function\n';
+		const hits = byCode(analyzeModule(src), 'invalid-proc-header');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Total');
+	});
+
+	it('does not flag a valid parameterless Sub', () => {
+		const src = 'Sub Run\n    Beep\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-proc-header')).toHaveLength(0);
+	});
+
+	it('does not flag a valid Sub with parameters', () => {
+		const src = 'Sub Greet(ByVal who As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-proc-header')).toHaveLength(0);
+	});
+
+	it('does not flag a Function with a return type', () => {
+		const src = 'Function Total() As Long\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'invalid-proc-header')).toHaveLength(0);
+	});
+
+	it('does not flag a Property Get with a return type', () => {
+		const src = 'Property Get Name() As String\nEnd Property\n';
+		expect(byCode(analyzeModule(src), 'invalid-proc-header')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - unbalanced parentheses', () => {
+	it('flags a missing closing parenthesis', () => {
+		const src = 'Sub T()\n    x = (1 + 2\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unbalanced-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('(');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags an unexpected closing parenthesis', () => {
+		const src = 'Sub T()\n    x = 1 + 2)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unbalanced-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe(')');
+	});
+
+	it('reports at most one diagnostic per statement', () => {
+		const src = 'Sub T()\n    x = ((1 + 2)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'unbalanced-parens')).toHaveLength(1);
+	});
+
+	it('does not flag balanced and nested parentheses', () => {
+		const src =
+			'Sub T()\n' +
+			'    x = (1 + (2 * 3))\n' +
+			'    Debug.Print Left("ab", 1)\n' +
+			'    Cells(1, 1).Value = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'unbalanced-parens')).toHaveLength(0);
+	});
+
+	it('does not count parentheses inside strings or comments', () => {
+		const src =
+			'Sub T()\n' +
+			'    x = "a (b c"  \' a ) in a comment\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'unbalanced-parens')).toHaveLength(0);
+	});
+
+	it('balances across a line continuation', () => {
+		const src = 'Sub T()\n    x = (1 + _\n        2)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'unbalanced-parens')).toHaveLength(0);
+	});
+
+	it('treats a colon-separated statement independently', () => {
+		const src = 'Sub T()\n    a = (1 + 2) : b = 3)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unbalanced-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe(')');
+	});
+});
+
+describe('analyzeModule - argument count', () => {
+	it('flags too few arguments to a same-module Sub', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet "Ann"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Greet');
+		expect(hits[0].message).toContain('expected 2 arguments');
+		expect(hits[0].message).toContain('got 1');
+	});
+
+	it('flags too many arguments to a same-module Sub', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet "Ann", "Bob", "Cat"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('got 3');
+	});
+
+	it('flags a lone-identifier call that omits required arguments', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('got 0');
+	});
+
+	it('validates an explicit Call statement', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Call Greet("Ann", "Bob", "Cat")\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(1);
+	});
+
+	it('accepts a correct argument count', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet "Ann", "Bob"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('honours Optional parameters', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet "Ann"\n' +
+			'    Greet "Ann", "Bob"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, Optional ByVal b As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('honours ParamArray (no upper bound)', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Log "a", "b", "c", "d"\n' +
+			'End Sub\n' +
+			'Sub Log(ParamArray items() As Variant)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('validates named-argument names but not the count', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet who:="Ann"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('who');
+		expect(hits[0].message).toContain('Named argument not found');
+	});
+
+	it('accepts a valid named argument', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet a:="Ann"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, Optional ByVal b As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('does not arity-check calls to unknown or cross-module procedures', () => {
+		const src =
+			'Sub Main()\n' +
+			'    SomethingElse 1, 2, 3\n' +
+			'    MsgBox "hi", vbOKOnly, "title", 0, 0\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('does not arity-check an ambiguous (duplicated) procedure name', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Greet "Ann"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n' +
+			'Sub Greet(ByVal a As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+});
+

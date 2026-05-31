@@ -55,7 +55,7 @@ export interface SignatureHelpContext extends MemberCompletionContext {
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** Statement-leading keywords that must never be treated as parenless calls. */
-const STATEMENT_KEYWORDS = new Set([
+export const STATEMENT_KEYWORDS = new Set([
 	'dim', 'set', 'let', 'const', 'redim', 'static', 'global', 'public',
 	'private', 'friend', 'if', 'elseif', 'else', 'then', 'for', 'next', 'do',
 	'loop', 'while', 'wend', 'with', 'select', 'case', 'end', 'exit', 'on',
