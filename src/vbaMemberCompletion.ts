@@ -25,7 +25,9 @@ import {
 	resolveHover,
 	resolveIdentifierCompletions,
 	resolveMemberCompletions,
+	resolveSignatureHelp,
 	resolveTypeCompletions,
+	SignatureHelpContext,
 	TypeCompletion,
 	TypeCompletionContext,
 } from './analyzer';
@@ -71,7 +73,10 @@ function codeNamesFor(entries: ModuleEntry[]): Record<string, string> {
 }
 
 class VbaMemberCompletionProvider
-	implements vscode.CompletionItemProvider, vscode.HoverProvider
+	implements
+		vscode.CompletionItemProvider,
+		vscode.HoverProvider,
+		vscode.SignatureHelpProvider
 {
 	private readonly _cache = new Map<string, CachedModules>();
 	private readonly _typeCache = new Map<string, CachedProjectTypes>();
@@ -134,6 +139,31 @@ class VbaMemberCompletionProvider
 			document.positionAt(info.span.end),
 		);
 		return new vscode.Hover(md, range);
+	}
+
+	async provideSignatureHelp(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+	): Promise<vscode.SignatureHelp | undefined> {
+		const source = document.getText();
+		const offset = document.offsetAt(position);
+		const ctx: SignatureHelpContext = {
+			...(await this._buildContext(document)),
+			moduleSource: source,
+		};
+		const info = resolveSignatureHelp(source, offset, ctx);
+		if (!info) {
+			return undefined;
+		}
+		const sig = new vscode.SignatureInformation(info.label);
+		sig.parameters = info.parameters.map(
+			(p) => new vscode.ParameterInformation(p.label),
+		);
+		const help = new vscode.SignatureHelp();
+		help.signatures = [sig];
+		help.activeSignature = 0;
+		help.activeParameter = info.activeParameter;
+		return help;
 	}
 
 	private async _buildHoverContext(
@@ -448,6 +478,13 @@ export function registerVbaMemberCompletion(
 			' ',
 		),
 		vscode.languages.registerHoverProvider(selector, provider),
+		vscode.languages.registerSignatureHelpProvider(
+			selector,
+			provider,
+			'(',
+			',',
+			' ',
+		),
 		vscode.workspace.onDidSaveTextDocument((doc) => {
 			if (doc.uri.scheme !== XLIDE_SCHEME) {
 				return;

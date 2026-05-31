@@ -392,6 +392,58 @@ originally suggested) for compile-time checking. `resolveRuntimeFunction(name)`
 resolves case-insensitively; `VBA_RUNTIME_FUNCTIONS` is the full list consumed
 by hover and identifier completion.
 
+**Signature help (parameter info)** — `src/analyzer/signature/signatureHelp.ts`
+computes the VBE call tip from module text alone. `resolveSignatureHelp(source,
+offset, ctx)` returns a `SignatureInfo` (the signature `label`, ordered
+`parameters`, and the `activeParameter` index) or `undefined`. It tokenizes the
+prefix up to the caret, maintains a paren-frame stack to find the innermost
+enclosing *call* paren (a `(` directly preceded by an identifier; grouping/index
+parens are skipped), counting top-level commas for the active parameter; when no
+call paren is open it falls back to a conservative *parenless call statement*
+detector (`Workbooks.Open "file", `) that bails on statement keywords, file-I/O
+starters, and top-level `=` assignments. The callee's signature is sourced, in
+order, from: host-member signatures (`resolveHostMemberSignature`, backed by the
+verified `EXCEL_OBJECT_MODEL.memberSignatures` table — e.g. the full
+`Workbooks.Open(...)`), user `Sub`/`Function`/`Property` procedures (built from
+the parsed AST so `Optional`/`ParamArray`/default detail renders in VBE bracket
+form), then `resolveRuntimeFunction`. The whole resolver is wrapped in try/catch
+so it never disrupts editing, and signatures are never invented — an unknown
+callee yields no tip. Host-member receiver types are resolved by reusing
+`resolveReceiverTypeAt` from the member-completion layer, so chained receivers
+(`ActiveSheet.Range("A1").Offset(`) work. Verified host signatures live beside
+the object model in `excelObjectModel.ts`; `resolveHostMemberSignature` in
+`hostModel.ts` looks them up case-insensitively.
+
+**Active diagnostics engine** — `src/analyzer/diagnostics/` computes
+high-confidence semantic problems directly from module text:
+
+- `src/analyzer/diagnostics/ruleMetadata.ts` is the typed rule catalogue
+  (`DIAGNOSTIC_RULES`): each rule carries a stable `code`, `title`,
+  `defaultSeverity`, `source: 'XLIDE'`, an MS-VBAL `specReference`, and a
+  `confidence`. Only high-confidence rules ship. `undeclared-variable` and
+  `unknown-call` are deliberately absent — they would need an expression binder
+  plus a complete host catalogue and would otherwise produce false positives,
+  which the project's no-false-positive rule forbids.
+- `src/analyzer/diagnostics/analyzeModule.ts` exposes
+  `analyzeModule(source, opts)` returning `VbaDiagnostic[]` (code, message,
+  severity, offset `span`). It reuses the lexer, parser, and symbol graph and
+  implements the rules: unterminated string (odd-quote-count, escape-aware),
+  duplicate procedure (Property Get/Let/Set may share a name), duplicate
+  declaration in a flat procedure scope, duplicate module-level variable,
+  assignment to a `Const` (bare `name =` only — excludes `.member`, indexing,
+  `Set`, and comparisons), and a configurable `Option Explicit`-missing
+  reminder (silent on empty/attribute-only modules). It is wrapped in try/catch
+  so a parse hiccup returns `[]` and never breaks editing, and accepts
+  `severities` overrides (including `'off'`) per rule.
+
+This engine is merged with the structural block-balance linter
+(`src/vbaLinter.ts`, which owns the "Missing End .../unexpected terminator"
+family) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`: both
+run on open and debounced (300 ms) on every edit, on real `.vba` files and on
+virtual `xlide-vba` module documents, with no save and no Python round-trip.
+Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
+gate it and re-run open documents on change.
+
 **Project-wide symbol graph** — `src/analyzer/symbols/` projects the parser AST
 into a host-agnostic symbol model so XLIDE can offer document symbols, workspace
 symbols, and go-to-definition over the whole workbook project rather than a
@@ -450,7 +502,10 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLinter.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New host object-model member/type | `src/analyzer/host/excelObjectModel.ts` (member transcribed + source-verified), `tests/vbaMemberCompletion.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
+| New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New active diagnostic rule | `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (rule + MS-VBAL `specReference`), `tests/vbaDiagnostics.test.ts`, `src/vbaLanguageProviders.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
+| New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
 | Live Share RPC surface change | `src/liveShare.ts`, `docs/architecture.md` |

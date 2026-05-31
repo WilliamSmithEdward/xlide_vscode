@@ -8,6 +8,12 @@ import {
     detectProcOpener,
     isProcClosedAhead,
 } from './vbaLinter';
+import {
+    analyzeModule,
+    DiagnosticSeverity as RuleSeverity,
+    SeverityOverrides,
+    VbaDiagnostic,
+} from './analyzer';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
@@ -309,17 +315,50 @@ function isVbaDocument(document: vscode.TextDocument): boolean {
 }
 
 /**
- * Live structural linting: reports unbalanced Sub/Function/If/For/... blocks as
- * diagnostics. Lints on open and (debounced) on every edit so problems surface
- * while typing, the way a real IDE does.
+ * Live diagnostics: structural block-balance (lintVbaSource) plus the analyzer's
+ * high-confidence semantic rules (analyzeModule) - unterminated strings,
+ * duplicate procedures/declarations, assignment to a constant, and a
+ * configurable Option Explicit reminder. Runs on open and (debounced) on every
+ * edit so problems surface while typing, the way a real IDE does. No save and
+ * no Python round-trip required - everything is computed from the editor text.
  */
 function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
     const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
+    const severityToVscode = (s: RuleSeverity): vscode.DiagnosticSeverity => {
+        switch (s) {
+            case 'error': return vscode.DiagnosticSeverity.Error;
+            case 'warning': return vscode.DiagnosticSeverity.Warning;
+            case 'information': return vscode.DiagnosticSeverity.Information;
+            case 'hint': return vscode.DiagnosticSeverity.Hint;
+        }
+    };
+
+    const moduleNameOf = (document: vscode.TextDocument): string => {
+        if (document.uri.scheme === XLIDE_SCHEME) {
+            try {
+                return decodeModuleUri(document.uri).moduleName;
+            } catch {
+                /* fall through */
+            }
+        }
+        const base = document.uri.path.split('/').pop() ?? 'Module';
+        return base.replace(/\.[^.]+$/, '') || 'Module';
+    };
+
     const run = (document: vscode.TextDocument): void => {
         if (!isVbaDocument(document)) { return; }
-        const diagnostics = lintVbaSource(document.getText()).map((p) => {
+        const config = vscode.workspace.getConfiguration('xlide');
+        if (config.get<boolean>('diagnostics.enabled', true) === false) {
+            collection.delete(document.uri);
+            return;
+        }
+        const text = document.getText();
+        const diagnostics: vscode.Diagnostic[] = [];
+
+        // Structural block-balance (precise per-line spans).
+        for (const p of lintVbaSource(text)) {
             const diag = new vscode.Diagnostic(
                 new vscode.Range(p.line, p.startCol, p.line, p.endCol),
                 p.message,
@@ -328,8 +367,38 @@ function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
                     : vscode.DiagnosticSeverity.Warning,
             );
             diag.source = 'XLIDE';
-            return diag;
-        });
+            diagnostics.push(diag);
+        }
+
+        // Semantic rules (offset spans -> ranges).
+        const optionExplicit = config.get<string>('diagnostics.optionExplicit', 'warning');
+        const severities: SeverityOverrides = {
+            optionExplicitMissing:
+                optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
+        };
+        let semantic: VbaDiagnostic[] = [];
+        try {
+            semantic = analyzeModule(text, {
+                moduleName: moduleNameOf(document),
+                severities,
+            });
+        } catch {
+            semantic = [];
+        }
+        for (const d of semantic) {
+            const diag = new vscode.Diagnostic(
+                new vscode.Range(
+                    document.positionAt(d.span.start),
+                    document.positionAt(d.span.end),
+                ),
+                d.message,
+                severityToVscode(d.severity),
+            );
+            diag.source = 'XLIDE';
+            diag.code = d.code;
+            diagnostics.push(diag);
+        }
+
         collection.set(document.uri, diagnostics);
     };
 
@@ -353,6 +422,11 @@ function registerVbaDiagnostics(context: vscode.ExtensionContext): void {
             const t = timers.get(key);
             if (t) { clearTimeout(t); timers.delete(key); }
             collection.delete(doc.uri);
+        }),
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration('xlide.diagnostics')) {
+                vscode.workspace.textDocuments.forEach(run);
+            }
         }),
     );
     vscode.workspace.textDocuments.forEach(run);

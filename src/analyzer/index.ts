@@ -30,6 +30,7 @@ export {
 	HostGlobal,
 	resolveHostAlias,
 	resolveHostGlobal,
+	resolveHostMemberSignature,
 	resolveMemberReturnType,
 } from './host/hostModel';
 export {
@@ -62,6 +63,12 @@ export {
 	VbaRuntimeFunction,
 } from './runtime/vbaRuntime';
 export {
+	resolveSignatureHelp,
+	SignatureHelpContext,
+	SignatureInfo,
+	SignatureParameter,
+} from './signature/signatureHelp';
+export {
 	isProcedureKind,
 	ModuleSymbolKind,
 	ModuleSymbols,
@@ -71,3 +78,15 @@ export {
 } from './symbols/symbolModel';
 export { buildModuleSymbols } from './symbols/buildModuleSymbols';
 export { ModuleInput, ProjectIndex } from './symbols/projectIndex';
+export {
+	analyzeModule,
+	AnalyzeModuleOptions,
+	SeverityOverrides,
+	VbaDiagnostic,
+} from './diagnostics/analyzeModule';
+export {
+	DIAGNOSTIC_RULES,
+	DiagnosticRuleMetadata,
+	DiagnosticRuleName,
+	DiagnosticSeverity,
+} from './diagnostics/ruleMetadata';

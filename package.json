@@ -33,6 +33,23 @@
           "type": "boolean",
           "default": true,
           "description": "Windows only: when opening a workbook or running a macro, try to attach to a running Excel instance and reuse an already-open workbook before opening it again."
+        },
+        "xlide.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show live VBA diagnostics (structural block-balance plus high-confidence semantic checks: unterminated strings, duplicate declarations, assignment to a constant, and the Option Explicit reminder)."
+        },
+        "xlide.diagnostics.optionExplicit": {
+          "type": "string",
+          "enum": [
+            "off",
+            "hint",
+            "information",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "Severity for the reminder shown when a code module omits 'Option Explicit'. Set to 'off' to disable just this check."
         }
       }
     },

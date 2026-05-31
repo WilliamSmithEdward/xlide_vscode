@@ -144,6 +144,7 @@ from the MS-VBAL core-language grammar. Tracked rows:
 |---|---|---|---|---|
 | Host global -> type resolution table | src/analyzer/host/hostModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object model docs | Verified |
 | Excel object-model member metadata | src/analyzer/host/excelObjectModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30 | Verified |
+| Excel collection types (Workbooks/Worksheets/Sheets) + globals | src/analyzer/host/excelObjectModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30 | Verified |
 | Member-access chain resolution | src/analyzer/completion/memberAccess.ts | tests/vbaMemberCompletion.test.ts | 5.6 (member access) | Verified |
 | Worksheet code-name resolution (Sheet1) | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts | Workbook project structure (listModules) | Verified |
 | `Me` resolution by module kind | src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts | Module context | Verified |
@@ -173,3 +174,56 @@ Verification rule: built-in signatures must be transcribed from the Microsoft
 VBA language reference or MS-VBAL, never invented. Names that collide with
 intrinsic data types (`Date`, `Time`, `String`, `Error`) are deliberately
 omitted to avoid type/function ambiguity in `As` positions.
+
+---
+
+## Addendum - Signature Help (Parameter Info)
+
+Phase 7/9 adds the VBE call tip: when the caret is inside a call's argument
+list, `src/analyzer/signature/signatureHelp.ts` returns the callee's signature
+and the active-parameter index. The signature comes from one of three verified
+sources (host members, user procedures, runtime built-ins); no signature is ever
+invented, so an unknown callee yields no tip.
+
+| Feature | Implementation File | Fixture | Source | Status |
+|---|---|---|---|---|
+| Caret-to-active-call resolution (paren + parenless) | src/analyzer/signature/signatureHelp.ts | tests/vbaSignatureHelp.test.ts | MS-VBAL 5.4.2 (call statements) | Verified |
+| Host-member call signatures (`Workbooks.Open`, `Range.Offset`, ...) | src/analyzer/host/excelObjectModel.ts (`memberSignatures`) | tests/vbaSignatureHelp.test.ts | Office VBA object-model reference (learn.microsoft.com) | Verified |
+| User procedure signatures (from AST) | src/analyzer/signature/signatureHelp.ts | tests/vbaSignatureHelp.test.ts | n/a (built from parsed `ProcedureNode`) | Verified |
+| Runtime built-in signatures | src/analyzer/runtime/vbaRuntime.ts | tests/vbaSignatureHelp.test.ts | learn.microsoft.com/office/vba/language + MS-VBAL | Verified |
+
+Verification rule: host-member signatures are transcribed from the Office VBA
+object-model reference. Where a method has a large variadic tail (e.g.
+`Application.Run` takes Arg1..Arg30) only the leading commonly-used parameters
+are listed rather than inventing a synthetic `...` token.
+
+---
+
+## Addendum - Active Diagnostics
+
+Phase 5 adds live semantic diagnostics computed from module text by
+`src/analyzer/diagnostics/analyzeModule.ts` (rule catalogue in
+`ruleMetadata.ts`). Each rule is high-confidence and cites the MS-VBAL section
+it enforces; the engine is merged with the structural block-balance linter
+(`src/vbaLinter.ts`, which covers the "Missing End .../unexpected terminator"
+family) in `registerVbaDiagnostics`.
+
+| Rule code | Meaning | MS-VBAL | Implementation File | Fixture | Status |
+|---|---|---|---|---|---|
+| `unterminated-string` | String literal with no closing quote | 3.3.4 (string literal token) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `duplicate-procedure` | Two procedures share a name (Get/Let/Set excepted) | 5.3 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `duplicate-declaration` | Param/local redeclared in one procedure scope | 5.2 / 5.3 (declared names) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `duplicate-module-variable` | Module-level variable redeclared | 5.2.3 (module variable declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `const-assignment` | Assignment to a declared `Const` | 5.4.3.1 (Const cannot be assigned) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `option-explicit-missing` | Code module omits `Option Explicit` (configurable) | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+
+Deliberately deferred (not shipped): `undeclared-variable` (variable used
+without declaration under Option Explicit) and `unknown-call` (unknown
+procedure call). Both require a full expression binder plus a complete host
+catalogue; without them they would emit false positives, which the project's
+no-false-positive rule forbids. They will ship only once they can be proven
+safe. "Invalid line continuation" is also deferred for the same reason.
+
+Verification rule: a new diagnostic rule must (1) carry an MS-VBAL
+`specReference` in `ruleMetadata.ts`, (2) be high-confidence, and (3) have
+positive and negative fixtures in `tests/vbaDiagnostics.test.ts`.

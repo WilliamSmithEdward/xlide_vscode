@@ -1,0 +1,161 @@
+import { describe, it, expect } from 'vitest';
+import { resolveSignatureHelp, SignatureHelpContext } from '../src/analyzer';
+
+/** Resolves signature help with the caret at the `|` marker in `src`. */
+function help(src: string, ctx: SignatureHelpContext = {}) {
+	const offset = src.indexOf('|');
+	if (offset < 0) {
+		throw new Error('caret marker | not found');
+	}
+	const source = src.slice(0, offset) + src.slice(offset + 1);
+	return resolveSignatureHelp(source, offset, ctx);
+}
+
+describe('signature help - host members', () => {
+	it('offers Workbooks.Open with the active parameter at the start', () => {
+		const info = help('Sub T()\nWorkbooks.Open(|\nEnd Sub');
+		expect(info).toBeDefined();
+		expect(info?.label.startsWith('Open(Filename As String')).toBe(true);
+		expect(info?.label.endsWith(') As Workbook')).toBe(true);
+		expect(info?.parameters[0].label).toBe('Filename As String');
+		expect(info?.activeParameter).toBe(0);
+	});
+
+	it('advances the active parameter across commas', () => {
+		const info = help('Sub T()\nWorkbooks.Open("a.xlsx", True, |\nEnd Sub');
+		expect(info?.activeParameter).toBe(2);
+		expect(info?.parameters[2].label).toBe('[ReadOnly]');
+	});
+
+	it('clamps the active parameter to the last for excess commas', () => {
+		const many = '1,'.repeat(40);
+		const info = help(`Sub T()\nWorkbooks.Open(${many}|\nEnd Sub`);
+		expect(info).toBeDefined();
+		const last = (info?.parameters.length ?? 0) - 1;
+		expect(info?.activeParameter).toBe(last);
+	});
+
+	it('supports the parenless call statement form', () => {
+		const info = help('Sub T()\nWorkbooks.Open |\nEnd Sub');
+		expect(info?.label.startsWith('Open(Filename As String')).toBe(true);
+		expect(info?.activeParameter).toBe(0);
+	});
+
+	it('tracks parameters in a parenless call statement', () => {
+		const info = help('Sub T()\nWorkbooks.Open "a.xlsx", |\nEnd Sub');
+		expect(info?.activeParameter).toBe(1);
+	});
+
+	it('resolves a member on a chained receiver', () => {
+		const src = 'Sub T()\nActiveSheet.Range("A1").Offset(|\nEnd Sub';
+		const info = help(src);
+		expect(info?.label.startsWith('Offset(')).toBe(true);
+		expect(info?.parameters[0].label).toBe('[RowOffset]');
+	});
+
+	it('returns undefined for a member without a signature', () => {
+		// Workbook.Name is a property with no transcribed signature.
+		const info = help('Sub T()\nThisWorkbook.Activate(|\nEnd Sub');
+		expect(info).toBeUndefined();
+	});
+});
+
+describe('signature help - runtime built-ins', () => {
+	it('offers MsgBox', () => {
+		const info = help('Sub T()\nx = MsgBox(|\nEnd Sub');
+		expect(info?.label.startsWith('MsgBox(Prompt')).toBe(true);
+		expect(info?.parameters[0].label).toBe('Prompt');
+		expect(info?.activeParameter).toBe(0);
+	});
+
+	it('advances MsgBox to the Buttons parameter', () => {
+		const info = help('Sub T()\nx = MsgBox("hi", |\nEnd Sub');
+		expect(info?.activeParameter).toBe(1);
+		expect(info?.parameters[1].label).toBe('[Buttons As VbMsgBoxStyle = vbOKOnly]');
+	});
+
+	it('offers Left with two parameters', () => {
+		const info = help('Sub T()\ns = Left(|\nEnd Sub');
+		expect(info?.label).toBe('Left(String, Length) As String');
+		expect(info?.parameters.map((p) => p.label)).toEqual(['String', 'Length']);
+	});
+});
+
+describe('signature help - user procedures', () => {
+	const src = [
+		'Sub Greet(ByVal Name As String, Optional Loud As Boolean = False)',
+		'End Sub',
+		'Sub Caller()',
+		'Greet(|',
+		'End Sub',
+	].join('\n');
+
+	it('builds a signature from the parsed procedure', () => {
+		const info = help(src);
+		expect(info?.label).toBe(
+			'Greet(Name As String, [Loud As Boolean = False])',
+		);
+	});
+
+	it('exposes both parameters with optional bracketed', () => {
+		const info = help(src);
+		expect(info?.parameters.map((p) => p.label)).toEqual([
+			'Name As String',
+			'[Loud As Boolean = False]',
+		]);
+	});
+
+	it('tracks the active parameter for a user procedure', () => {
+		const after = src.replace('Greet(|', 'Greet "x", |');
+		const info = help(after);
+		expect(info?.activeParameter).toBe(1);
+	});
+
+	it('renders a Function return type', () => {
+		const fn = [
+			'Function Add(A As Long, B As Long) As Long',
+			'End Function',
+			'Sub C()',
+			'x = Add(|',
+			'End Sub',
+		].join('\n');
+		const info = help(fn);
+		expect(info?.label).toBe('Add(A As Long, B As Long) As Long');
+	});
+});
+
+describe('signature help - negative cases', () => {
+	it('returns undefined for a grouping paren', () => {
+		const info = help('Sub T()\nx = (1 + |\nEnd Sub');
+		expect(info).toBeUndefined();
+	});
+
+	it('returns undefined for an unknown callee', () => {
+		const info = help('Sub T()\nNoSuchThing(|\nEnd Sub');
+		expect(info).toBeUndefined();
+	});
+
+	it('returns undefined for an assignment, not a call', () => {
+		const info = help('Sub T()\nx = |\nEnd Sub');
+		expect(info).toBeUndefined();
+	});
+
+	it('does not fire for a file Open statement', () => {
+		const info = help('Sub T()\nOpen "f" For Input As #1\nx = |\nEnd Sub');
+		expect(info).toBeUndefined();
+	});
+});
+
+describe('signature help - default parameter (ByVal omitted)', () => {
+	it('marks a ByRef-less plain parameter without prefix', () => {
+		const src = [
+			'Sub P(A As Long)',
+			'End Sub',
+			'Sub C()',
+			'P(|',
+			'End Sub',
+		].join('\n');
+		const info = help(src);
+		expect(info?.parameters[0].label).toBe('A As Long');
+	});
+});

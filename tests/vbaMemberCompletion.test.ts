@@ -38,11 +38,57 @@ describe('host model resolution', () => {
 	});
 
 	it('resolves chainable member return types', () => {
-		expect(resolveMemberReturnType('Excel.Workbook', 'Worksheets')).toBeUndefined();
+		expect(resolveMemberReturnType('Excel.Workbook', 'Worksheets')).toBe('Excel.Worksheets');
 		expect(resolveMemberReturnType('Excel.Worksheet', 'Range')).toBe('Excel.Range');
 		expect(resolveMemberReturnType('Excel.Range', 'Offset')).toBe('Excel.Range');
 		expect(resolveMemberReturnType('Excel.Range', 'Parent')).toBe('Excel.Worksheet');
 		expect(resolveMemberReturnType('Excel.Workbook', 'Application')).toBe('Excel.Application');
+	});
+});
+
+describe('member completion - collections', () => {
+	it('offers Workbooks collection members after the Workbooks global', () => {
+		const src = 'Sub Test()\n    Workbooks.\nEnd Sub\n';
+		const got = names(src, 'Workbooks.');
+		expect(got).toContain('Add');
+		expect(got).toContain('Open');
+		expect(got).toContain('Item');
+		expect(got).toContain('Count');
+		expect(got).toContain('Close');
+	});
+
+	it('resolves the Workbooks global case-insensitively', () => {
+		const src = 'Sub Test()\n    workbooks.\nEnd Sub\n';
+		const got = names(src, 'workbooks.');
+		expect(got).toContain('Add');
+		expect(got).toContain('Count');
+	});
+
+	it('offers Worksheets collection members after the Worksheets global', () => {
+		const src = 'Sub Test()\n    Worksheets.\nEnd Sub\n';
+		const got = names(src, 'Worksheets.');
+		expect(got).toContain('Add');
+		expect(got).toContain('Item');
+		expect(got).toContain('Count');
+	});
+
+	it('chains a Workbook collection through to its element type', () => {
+		// Workbooks.Item returns a Workbook -> Workbook members follow.
+		const src = 'Sub Test()\n    Workbooks.Item(1).\nEnd Sub\n';
+		const got = names(src, 'Workbooks.Item(1).');
+		expect(got).toContain('Worksheets');
+		expect(got).toContain('Save');
+	});
+
+	it('chains ThisWorkbook.Worksheets to the Worksheets collection', () => {
+		const src = 'Sub Test()\n    ThisWorkbook.Worksheets.\nEnd Sub\n';
+		const got = names(src, 'ThisWorkbook.Worksheets.');
+		expect(got).toContain('Add');
+		expect(got).toContain('Count');
+	});
+
+	it('does not chain Sheets.Item because it is a mixed Object collection', () => {
+		expect(resolveMemberReturnType('Excel.Sheets', 'Item')).toBeUndefined();
 	});
 });
 

@@ -42,6 +42,19 @@ export function resolveHostGlobal(
 	return undefined;
 }
 
+/**
+ * Returns the verified call signature for a callable member of a host type,
+ * or undefined when no signature has been transcribed for it. Case-insensitive
+ * on the member name.
+ */
+export function resolveHostMemberSignature(
+	qualified: string,
+	member: string,
+	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+): string | undefined {
+	return model.memberSignatures?.[qualified]?.[member.toLowerCase()];
+}
+
 /** A host-injected global identifier and the qualified type it denotes. */
 export interface HostGlobal {
 	name: string;

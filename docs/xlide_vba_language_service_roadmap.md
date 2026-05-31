@@ -705,6 +705,36 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 
 ## Phase 5: Active Diagnostics
 
+> Status: IN PROGRESS (core shipped). A pure, vscode-free analyzer engine
+> `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (barrel-exported
+> as `analyzeModule`, `DIAGNOSTIC_RULES`) computes high-confidence semantic
+> diagnostics directly from editor text - no save, no Python round-trip. It is
+> merged with the existing structural block-balance linter (`lintVbaSource`,
+> which already covers every "Missing End .../Unexpected block terminator"
+> case) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`, runs
+> on open and debounced (300 ms) on every edit, and works on virtual
+> `xlide-vba` module documents. Settings: `xlide.diagnostics.enabled`
+> (default true) and `xlide.diagnostics.optionExplicit`
+> (off/hint/information/warning/error, default warning); both re-run open
+> documents on change. Covered by `tests/vbaDiagnostics.test.ts` (27 tests).
+>
+> Shipped semantic rules (all high-confidence, spec-referenced in
+> `ruleMetadata.ts` and `docs/spec/MS-VBAL.verification-map.md`):
+> - `unterminated-string` - odd-quote-count detection, handles `""` escapes.
+> - `duplicate-procedure` - allows Property Get/Let/Set to share a name.
+> - `duplicate-declaration` - param/local collisions, flat procedure scope.
+> - `duplicate-module-variable` - module-level redeclaration.
+> - `const-assignment` - bare `name =` to a Const (excludes `.member`,
+>   `index(...)`, `Set`, comparisons).
+> - `option-explicit-missing` - configurable; silent on empty/attribute-only
+>   modules.
+>
+> Deliberately deferred (would require an expression binder + a complete host
+> catalogue, and per the project's no-false-positive rule must not ship until
+> they can be proven safe): `undeclared-variable` (variable used but not
+> declared under Option Explicit) and `unknown-call` (unknown procedure call).
+> "Invalid line continuation" is also deferred (false-positive risk).
+
 ### Goal
 
 Ship useful, high-confidence active linting.
@@ -849,9 +879,15 @@ Implement completions for:
 > user declarations from the module symbol graph: procedure signatures,
 > variables/parameters/constants with `As` type, enums/members, types/fields),
 > wired through the `HoverProvider` in `src/vbaMemberCompletion.ts` and covered by
-> `tests/vbaHover.test.ts`. Go to Definition, References, and Signature Help are
-> still pending (the interim regex providers in `src/vbaLanguageProviders.ts`
-> remain until the AST `ProjectIndex` is wired into live providers).
+> `tests/vbaHover.test.ts`. Signature Help is DONE -
+> `src/analyzer/signature/signatureHelp.ts` (pure) returns the active call tip
+> for host members (verified `Workbooks.Open`, `Range.Offset`, ...), user
+> procedures (from the AST), and runtime built-ins, wired through the
+> `SignatureHelpProvider` in `src/vbaMemberCompletion.ts` (triggers `(` `,`
+> space) and covered by `tests/vbaSignatureHelp.test.ts`. Go to Definition and
+> References are still pending (the interim regex providers in
+> `src/vbaLanguageProviders.ts` remain until the AST `ProjectIndex` is wired into
+> live providers).
 
 ### Goal
 
@@ -898,6 +934,11 @@ Support conservatively:
 - Cross-module references once resolver is stable.
 
 ### Signature Help
+
+> Status: DONE. `src/analyzer/signature/signatureHelp.ts` resolves the active
+> call tip from module text (paren and parenless call statements), sourcing the
+> signature from verified host-member signatures, user-procedure AST, or runtime
+> built-ins, with the active parameter tracked across commas.
 
 Support:
 
@@ -1061,9 +1102,11 @@ Implemented in `src/analyzer/runtime/vbaRuntime.ts`.
   gated by `includeRuntime` (default true).
 - **Verification.** Signatures transcribed from
   learn.microsoft.com/office/vba/language and MS-VBAL; never LLM-invented.
-- **Still pending for this phase:** signature help (parameter info popup) for
-  the verified set.
-- Tests: `tests/vbaRuntime.test.ts` + runtime cases in `tests/vbaHover.test.ts`.
+- **Signature help.** DONE - the verified runtime signatures (and host-member
+  and user-procedure signatures) now drive the parameter-info call tip via
+  `src/analyzer/signature/signatureHelp.ts`; see Phase 7 Signature Help.
+- Tests: `tests/vbaRuntime.test.ts` + runtime cases in `tests/vbaHover.test.ts`
+  + `tests/vbaSignatureHelp.test.ts`.
 
 ---
 

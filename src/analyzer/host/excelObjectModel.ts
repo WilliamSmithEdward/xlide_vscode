@@ -36,12 +36,22 @@ export interface HostObjectModel {
 	aliases: Record<string, string>;
 	/** Host-injected global identifier (canonical casing) -> qualified type. */
 	globals: Record<string, string>;
+	/**
+	 * Verified call signatures for callable members, keyed by qualified type
+	 * then lowercased member name. Used by signature help (parameter info).
+	 * Only members whose parameter list is transcribed from the Office VBA
+	 * reference appear here; absence simply means no call tip is offered.
+	 */
+	memberSignatures?: Record<string, Record<string, string>>;
 }
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
 const RANGE = 'Excel.Range';
 const APPLICATION = 'Excel.Application';
+const WORKBOOKS = 'Excel.Workbooks';
+const WORKSHEETS = 'Excel.Worksheets';
+const SHEETS = 'Excel.Sheets';
 
 function p(name: string, returns?: string): HostMember {
 	return { name, kind: 'property', returns };
@@ -57,6 +67,9 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		worksheet: WORKSHEET,
 		range: RANGE,
 		application: APPLICATION,
+		workbooks: WORKBOOKS,
+		worksheets: WORKSHEETS,
+		sheets: SHEETS,
 	},
 	globals: {
 		ThisWorkbook: WORKBOOK,
@@ -67,6 +80,9 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		Application: APPLICATION,
 		Cells: RANGE,
 		Range: RANGE,
+		Workbooks: WORKBOOKS,
+		Worksheets: WORKSHEETS,
+		Sheets: SHEETS,
 	},
 	types: {
 		[APPLICATION]: {
@@ -100,7 +116,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('Rows', RANGE),
 				p('ScreenUpdating'),
 				p('Selection'),
-				p('Sheets'),
+				p('Sheets', SHEETS),
 				p('StatusBar'),
 				p('ThisWorkbook', WORKBOOK),
 				p('UserName'),
@@ -109,9 +125,9 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('Visible'),
 				p('Width'),
 				p('Windows'),
-				p('Workbooks'),
+				p('Workbooks', WORKBOOKS),
 				p('WorksheetFunction'),
-				p('Worksheets'),
+				p('Worksheets', WORKSHEETS),
 				m('Calculate'),
 				m('ConvertFormula'),
 				m('Evaluate'),
@@ -152,11 +168,11 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('PivotTables'),
 				p('ReadOnly'),
 				p('Saved'),
-				p('Sheets'),
+				p('Sheets', SHEETS),
 				p('Styles'),
 				p('VBProject'),
 				p('Windows'),
-				p('Worksheets'),
+				p('Worksheets', WORKSHEETS),
 				m('Activate'),
 				m('Close'),
 				m('FollowHyperlink'),
@@ -298,6 +314,143 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('TextToColumns'),
 				m('UnMerge'),
 			],
+		},
+		[WORKBOOKS]: {
+			displayName: 'Workbooks',
+			members: [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Creator'),
+				p('Item', WORKBOOK),
+				p('Parent', APPLICATION),
+				m('Add', WORKBOOK),
+				m('Close'),
+				m('Open', WORKBOOK),
+				m('OpenDatabase', WORKBOOK),
+				m('OpenText'),
+				m('OpenXML', WORKBOOK),
+			],
+		},
+		[WORKSHEETS]: {
+			displayName: 'Worksheets',
+			members: [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Creator'),
+				p('Item', WORKSHEET),
+				p('Parent', WORKBOOK),
+				p('Visible'),
+				m('Add', WORKSHEET),
+				m('Add2', WORKSHEET),
+				m('Copy'),
+				m('Delete'),
+				m('FillAcrossSheets'),
+				m('Move'),
+				m('PrintOut'),
+				m('PrintPreview'),
+				m('Select'),
+			],
+		},
+		[SHEETS]: {
+			displayName: 'Sheets',
+			members: [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Creator'),
+				p('Item'),
+				p('Parent', WORKBOOK),
+				p('Visible'),
+				m('Add'),
+				m('Copy'),
+				m('Delete'),
+				m('FillAcrossSheets'),
+				m('Move'),
+				m('PrintOut'),
+				m('PrintPreview'),
+				m('Select'),
+			],
+		},
+	},
+	// Verified call signatures transcribed from the Office VBA object-model
+	// reference (learn.microsoft.com). Parameter lists are reproduced exactly;
+	// where a method accepts a large variadic tail (e.g. Application.Run takes
+	// Arg1..Arg30) only the leading, commonly-used parameters are listed rather
+	// than inventing a synthetic "..." token.
+	memberSignatures: {
+		[WORKBOOKS]: {
+			open:
+				'Open(Filename As String, [UpdateLinks], [ReadOnly], [Format], ' +
+				'[Password], [WriteResPassword], [IgnoreReadOnlyRecommended], ' +
+				'[Origin], [Delimiter], [Editable], [Notify], [Converter], ' +
+				'[AddToMru], [Local], [CorruptLoad]) As Workbook',
+			add: 'Add([Template]) As Workbook',
+			item: 'Item(Index) As Workbook',
+		},
+		[WORKSHEETS]: {
+			add: 'Add([Before], [After], [Count], [Type]) As Worksheet',
+			item: 'Item(Index) As Worksheet',
+		},
+		[SHEETS]: {
+			add: 'Add([Before], [After], [Count], [Type])',
+			item: 'Item(Index)',
+		},
+		[WORKBOOK]: {
+			close: 'Close([SaveChanges], [Filename], [RouteWorkbook])',
+			saveas:
+				'SaveAs([Filename], [FileFormat], [Password], [WriteResPassword], ' +
+				'[ReadOnlyRecommended], [CreateBackup], ' +
+				'[AccessMode As XlSaveAsAccessMode = xlNoChange], ' +
+				'[ConflictResolution], [AddToMru], [TextCodepage], ' +
+				'[TextVisualLayout], [Local])',
+			protect: 'Protect([Password], [Structure], [Windows])',
+			unprotect: 'Unprotect([Password])',
+			printout:
+				'PrintOut([From], [To], [Copies], [Preview], [ActivePrinter], ' +
+				'[PrintToFile], [Collate], [PrToFileName], [IgnorePrintAreas])',
+		},
+		[WORKSHEET]: {
+			range: 'Range(Cell1, [Cell2]) As Range',
+			cells: 'Cells([RowIndex], [ColumnIndex]) As Range',
+			protect:
+				'Protect([Password], [DrawingObjects], [Contents], [Scenarios], ' +
+				'[UserInterfaceOnly], [AllowFormattingCells], ' +
+				'[AllowFormattingColumns], [AllowFormattingRows], ' +
+				'[AllowInsertingColumns], [AllowInsertingRows], ' +
+				'[AllowInsertingHyperlinks], [AllowDeletingColumns], ' +
+				'[AllowDeletingRows], [AllowSorting], [AllowFiltering], ' +
+				'[AllowUsingPivotTables])',
+			unprotect: 'Unprotect([Password])',
+			copy: 'Copy([Before], [After])',
+			move: 'Move([Before], [After])',
+		},
+		[RANGE]: {
+			range: 'Range(Cell1, [Cell2]) As Range',
+			cells: 'Cells([RowIndex], [ColumnIndex]) As Range',
+			offset: 'Offset([RowOffset], [ColumnOffset]) As Range',
+			resize: 'Resize([RowSize], [ColumnSize]) As Range',
+			find:
+				'Find(What, [After], [LookIn], [LookAt], [SearchOrder], ' +
+				'[SearchDirection], [MatchCase], [MatchByte], [SearchFormat]) As Range',
+			specialcells: 'SpecialCells(Type As XlCellType, [Value]) As Range',
+			autofilter:
+				'AutoFilter([Field], [Criteria1], [Operator As XlAutoFilterOperator = xlAnd], ' +
+				'[Criteria2], [VisibleDropDown])',
+			pastespecial:
+				'PasteSpecial([Paste As XlPasteType = xlPasteAll], ' +
+				'[Operation As XlPasteSpecialOperation = xlPasteSpecialOperationNone], ' +
+				'[SkipBlanks], [Transpose])',
+		},
+		[APPLICATION]: {
+			inputbox:
+				'InputBox(Prompt, [Title], [Default], [Left], [Top], [HelpFile], ' +
+				'[HelpContextID], [Type]) As Variant',
+			intersect:
+				'Intersect(Arg1 As Range, Arg2 As Range, [Arg3], [Arg4]) As Range',
+			union: 'Union(Arg1 As Range, Arg2 As Range, [Arg3], [Arg4]) As Range',
+			ontime:
+				'OnTime(EarliestTime, Procedure As String, [LatestTime], [Schedule])',
+			goto: 'Goto([Reference], [Scroll])',
+			wait: 'Wait(Time) As Boolean',
 		},
 	},
 };
