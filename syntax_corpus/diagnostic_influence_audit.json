@@ -211,6 +211,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "unexpected-declaration-token",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.2.3.1 plus asserted Excel/VBE oracle case for a trailing identifier after an As type name",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "dim_as_type_trailing_identifier_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The active rule only fires after XLIDE parses a complete declaration type name and then sees an additional same-statement token outside valid declaration separators/defaults. Fixed-length string syntax remains out of scope until its full grammar is verified.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "invalid-as-type-name",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL reserved-name/type-identifier distinction",

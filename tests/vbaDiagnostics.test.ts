@@ -1336,6 +1336,50 @@ describe('analyzeModule - declaration initializer', () => {
 	});
 });
 
+describe('analyzeModule - unexpected declaration tokens', () => {
+	it('flags a bare identifier after a complete local As type', () => {
+		const src = 'Sub T()\n    Dim s1 As String thisshoulderror\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unexpected-declaration-token');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('thisshoulderror');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('will fail to compile');
+	});
+
+	it('flags trailing tokens in module declarations, parameters, and Type fields', () => {
+		const src =
+			'Private moduleName As String junk\n' +
+			'Private Type Customer\n' +
+			'    Name As String extra\n' +
+			'End Type\n' +
+			'Sub T(ByVal label As String trailing)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unexpected-declaration-token');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'junk',
+			'extra',
+			'trailing',
+		]);
+	});
+
+	it('accepts normal declaration separators and parameter defaults', () => {
+		const src =
+			'Private moduleName As String\n' +
+			'Sub T(Optional ByVal label As String = "ok")\n' +
+			'    Dim first As String, second As Long: Dim third As Variant\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
+
+	it('does not guess inside fixed-length string declarations or qualified type names', () => {
+		const src =
+			'Private fixedName As String * 10\n' +
+			'Sub T()\n' +
+			'    Dim workbook As Excel.Workbook\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - Call requires parentheses', () => {
 	it('flags an unparenthesised Call argument list', () => {
 		const src = 'Sub T()\n    Call MsgBox "hello"\nEnd Sub\n';

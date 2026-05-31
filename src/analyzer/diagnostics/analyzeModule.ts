@@ -28,9 +28,11 @@ import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
 import type {
 	BodyNode,
 	ModuleNode,
+	ParameterNode,
 	ProcedureNode,
 	Span,
 	StatementNode,
+	TypeFieldNode,
 	VariableDeclNode,
 	VariableGroupNode,
 } from '../parser/nodes';
@@ -170,6 +172,7 @@ function runRules(
 	checkParameterOrder(mod, push);
 	checkUnbalancedParens(source, push);
 	checkDimInitializer(source, mod, push);
+	checkUnexpectedDeclarationTokens(source, mod, push);
 	checkInvalidAsTypeNames(source, mod, push);
 	checkCallParens(source, mod, push);
 	checkExpressionCallParens(source, mod, push);
@@ -2231,6 +2234,74 @@ function checkDimInitializer(
 	}
 }
 
+/**
+ * Rule: once a declaration's `As <type>` clause is complete, another token in
+ * the same logical statement must be introduced by real declaration syntax
+ * (`=`, `,`, `:`/newline, etc.). A bare identifier after a complete type name,
+ * as in `Dim s As String junk`, is VBE Compile `Syntax error`.
+ *
+ * This rule is intentionally narrow. It validates the token shape around the
+ * `As` clause only; broad unknown type-name resolution belongs to the
+ * project-wide binder, and fixed-length string forms are left alone until their
+ * full grammar is verified.
+ */
+function checkUnexpectedDeclarationTokens(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	const inspect = (span: Span, allowEquals: boolean): void => {
+		const hit = unexpectedTokenAfterDeclarationType(source, span, allowEquals);
+		if (!hit) {
+			return;
+		}
+		push(
+			'unexpectedDeclarationToken',
+			`Unexpected token '${hit.text}' after a complete declaration type; this will fail to compile as a syntax error.`,
+			hit.span,
+		);
+	};
+
+	const inspectGroup = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			inspect(decl.span, true);
+		}
+	};
+
+	for (const member of mod.members) {
+		if (member.kind === 'VariableGroup') {
+			inspectGroup(member);
+			continue;
+		}
+		if (member.kind === 'Type') {
+			for (const field of member.fields) {
+				inspectTypeField(field, inspect);
+			}
+			continue;
+		}
+		if (member.kind === 'Procedure') {
+			for (const param of member.params) {
+				inspectParameter(param, inspect);
+			}
+			forEachVariableGroup(member.body, inspectGroup);
+		}
+	}
+}
+
+function inspectTypeField(
+	field: TypeFieldNode,
+	inspect: (span: Span, allowEquals: boolean) => void,
+): void {
+	inspect(field.span, false);
+}
+
+function inspectParameter(
+	param: ParameterNode,
+	inspect: (span: Span, allowEquals: boolean) => void,
+): void {
+	inspect(param.span, true);
+}
+
 /** Walks every VariableGroupNode in a body, descending into nested blocks. */
 function forEachVariableGroup(
 	body: BodyNode[],
@@ -2243,6 +2314,83 @@ function forEachVariableGroup(
 			forEachVariableGroup((node as { body: BodyNode[] }).body, visit);
 		}
 	}
+}
+
+function unexpectedTokenAfterDeclarationType(
+	source: string,
+	span: Span,
+	allowEquals: boolean,
+): { text: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	const asIndex = toks.findIndex((t) => tokenText(t) === 'as');
+	if (asIndex < 0) {
+		return undefined;
+	}
+
+	let i = asIndex + 1;
+	if (tokenText(toks[i]) === 'new') {
+		i++;
+	}
+
+	const typeStart = i;
+	i = consumeDeclarationTypeName(toks, i);
+	if (i === typeStart) {
+		return undefined;
+	}
+
+	// Fixed-length string syntax (`As String * 10`) has its own backlog item;
+	// do not infer trailing-token errors inside that grammar until verified.
+	if (isUnqualifiedStringType(toks, typeStart, i) && toks[i]?.rawText === '*') {
+		return undefined;
+	}
+
+	const next = toks[i];
+	if (!next) {
+		return undefined;
+	}
+	if (allowEquals && next.kind === 'operator' && next.rawText === '=') {
+		return undefined;
+	}
+
+	return {
+		text: next.rawText,
+		span: absoluteSpan(span, next),
+	};
+}
+
+function consumeDeclarationTypeName(toks: VbaToken[], start: number): number {
+	if (!isDeclarationTypeNameToken(toks[start])) {
+		return start;
+	}
+	let i = start + 1;
+	for (;;) {
+		if (toks[i]?.rawText !== '.') {
+			return i;
+		}
+		if (!isDeclarationTypeNameToken(toks[i + 1])) {
+			return start;
+		}
+		i += 2;
+	}
+}
+
+function isDeclarationTypeNameToken(tok: VbaToken | undefined): boolean {
+	if (!tok) {
+		return false;
+	}
+	return (
+		tok.kind === 'identifier' ||
+		tok.kind === 'keyword' ||
+		tok.kind === 'bracketedIdentifier'
+	);
+}
+
+function isUnqualifiedStringType(
+	toks: VbaToken[],
+	start: number,
+	end: number,
+): boolean {
+	return end === start + 1 && tokenText(toks[start]) === 'string';
 }
 
 function checkInvalidAsTypeNames(source: string, mod: ModuleNode, push: PushFn): void {

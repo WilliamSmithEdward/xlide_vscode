@@ -247,6 +247,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.1',
 		confidence: 'high',
 	},
+	unexpectedDeclarationToken: {
+		code: 'unexpected-declaration-token',
+		title: 'Unexpected token after declaration type',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3.1 / VBE oracle: Syntax error',
+		confidence: 'high',
+	},
 	invalidAsTypeName: {
 		code: 'invalid-as-type-name',
 		title: 'Invalid As type name',

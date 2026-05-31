@@ -420,6 +420,16 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "dim_as_type_trailing_identifier_compile",
+      "description": "A variable declaration has an extra identifier after a complete As type name.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s1 As String thisshoulderror\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "compile_then_run_valid_control",
       "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
       "provenance": "vbe-oracle-verified",

@@ -557,7 +557,12 @@ Diagnostic severity policy:
   deterministic-runtime-error diagnostic for numeric contexts containing a
   provably nonnumeric string literal in an arithmetic expression; focused oracle
   cases confirm the representative expression compiles but raises runtime error
-  13 when executed. `invalid-as-type-name` is
+  13 when executed. `unexpected-declaration-token` is a compile-equivalent
+  declaration diagnostic for extra same-statement tokens after a complete
+  `As` type name, such as `Dim s As String junk`; the representative `Dim`
+  shape is backed by focused VBE oracle evidence, and fixed-length string
+  syntax remains out of scope until its full grammar is verified.
+  `invalid-as-type-name` is
   currently limited to reserved runtime functions such as `Int` used as `As`
   type names; broad unknown type names wait for the project-wide binder and
   external-reference story so cross-module classes/UDTs and referenced types are

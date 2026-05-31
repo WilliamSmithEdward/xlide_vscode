@@ -171,6 +171,9 @@ Purpose: finish the conservative first slice before broadening inference.
   receivers (`String`, numeric, `Boolean`, `Date`) after focused oracle
   verification: named scalar members are VBE Compile `Invalid qualifier`
   errors, and trailing scalar dots are VBE Compile `Syntax error`s.
+- [x] Add compile-equivalent diagnostics for extra same-statement tokens after
+  complete declaration type names, such as `Dim s As String junk`, after focused
+  oracle verification of the representative `Dim` case.
 
 Definition of done:
 
