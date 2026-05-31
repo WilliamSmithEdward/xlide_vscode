@@ -379,9 +379,11 @@ into a pure analyzer layer and a thin VS Code provider:
   development context only: production extension code must not read it from disk
   at runtime, and `reference/**` is excluded from the packaged extension. When a
   reference dump is promoted into runtime behavior, the promotion must generate
-  or update checked-in metadata under `src/` with explicit provenance, such as
-  the dump-backed `Excel.Workbook` member surface in
-  `src/analyzer/host/excelReferenceMembers.ts`. The Excel generator also writes
+  or update checked-in metadata under `src/` with explicit provenance. The Excel
+  generator currently emits `Application`, `Workbook`, `Worksheet`, `Range`,
+  `Workbooks`, `Worksheets`, and `Sheets` into
+  `src/analyzer/host/excelReferenceMembers.ts`; only `Excel.Workbook` is marked
+  exhaustive for hard unknown-member diagnostics. The generator also writes
   `docs/excel_reference_coverage.md` so promotion gaps stay visible.
   LLM-generated member lists are never used; this is host metadata, not VBA
   grammar.
@@ -390,8 +392,10 @@ into a pure analyzer layer and a thin VS Code provider:
   `resolveMemberReturnType`).
 - `src/analyzer/completion/memberAccess.ts` tokenizes the source up to the
   cursor, detects a member-access dot, walks the receiver chain (handling call
-  parentheses for chaining like `ws.Range("A1").Offset(1, 0).`), resolves the
-  root (`Me`, a host global, a worksheet code name, or a typed local/module
+  parentheses and collection-default `Item` paths for chains like
+  `ThisWorkbook.Worksheets(1).Range("A1").` and merged worksheet/chart
+  `Workbooks(1).Sheets(1).Range("A1").`), resolves the root (`Me`, a host
+  global, a worksheet code name, or a typed local/module
   variable found by parsing the module), follows member return types through the
   chain, and returns the filtered members. It also accepts a source-backed
   workbook class-member surface from `ProjectIndex.projectClassMembers()`, so

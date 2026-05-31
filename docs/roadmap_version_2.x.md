@@ -321,6 +321,15 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   `reference/excel/json`, emits promoted runtime metadata under
   `src/analyzer/host/excelReferenceMembers.ts`, and writes the deterministic
   coverage report at `docs/excel_reference_coverage.md`.
+- [x] Promote generated non-exhaustive core Excel surfaces for completion and
+  chaining: `Application`, `Worksheet`, `Range`, `Workbooks`, `Worksheets`, and
+  `Sheets` now merge dump-backed member names with curated return metadata, while
+  `Excel.Workbook` remains the only exhaustive host surface for hard diagnostics.
+- [x] Resolve collection-default `Item` calls in simple receiver chains, covering
+  patterns such as `ThisWorkbook.Worksheets(1).Range("A1").` and
+  `Workbooks(1).Worksheets(1).Range("A1").`; indexed `Sheets` routes through a
+  merged worksheet/chart item surface for completion without treating
+  non-exhaustive host surfaces as absence proof.
 - [ ] Oracle-verify late-bound member access for `Object` and `Variant`
   receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
   resolves the member only at runtime; decide separately whether an optional
@@ -385,7 +394,8 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   source symbols win for workbook-owned members; inline docs enrich source;
   external metadata describes explicitly declared external/extension members;
   curated host/runtime metadata remains the built-in fallback.
-- [ ] Resolve curated Excel object model receiver chains.
+- [ ] Resolve the remaining curated Excel object model receiver chains beyond
+  simple return-type and collection-default `Item` paths.
 - [ ] Promote dump-backed exhaustive Excel object types into hard
   `member-not-found` only type-by-type, after coverage reports and representative
   oracle controls prove the surface is complete enough for red diagnostics.

@@ -8,7 +8,15 @@ const coveragePath = path.join(root, 'docs', 'excel_reference_coverage.md');
 
 // Keep runtime promotion explicit. The generator scans the full Excel corpus for
 // coverage, but only these types become checked-in host metadata.
-const promotedTypes = ['Workbook'];
+const promotedTypes = [
+	'Application',
+	'Workbook',
+	'Worksheet',
+	'Range',
+	'Workbooks',
+	'Worksheets',
+	'Sheets',
+];
 
 const primitiveTypes = new Set([
 	'Boolean',

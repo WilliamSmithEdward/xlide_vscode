@@ -44,6 +44,9 @@ describe('host model resolution', () => {
 		expect(resolveMemberReturnType('Excel.Range', 'Offset')).toBe('Excel.Range');
 		expect(resolveMemberReturnType('Excel.Range', 'Parent')).toBe('Excel.Worksheet');
 		expect(resolveMemberReturnType('Excel.Workbook', 'Application')).toBe('Excel.Application');
+		expect(resolveMemberReturnType('Excel.Application', 'Worksheets')).toBe('Excel.Worksheets');
+		expect(resolveMemberReturnType('Excel.Workbooks', 'Item')).toBe('Excel.Workbook');
+		expect(resolveMemberReturnType('Excel.Worksheets', 'Item')).toBe('Excel.Worksheet');
 	});
 
 	it('resolves chaining into the broadened object model', () => {
@@ -117,7 +120,7 @@ describe('member completion - collections', () => {
 		expect(got).toContain('Count');
 	});
 
-	it('does not chain Sheets.Item because it is a mixed Object collection', () => {
+	it('keeps Sheets.Item ambiguous for single-return queries', () => {
 		expect(resolveMemberReturnType('Excel.Sheets', 'Item')).toBeUndefined();
 	});
 });
@@ -174,6 +177,26 @@ describe('member completion - host globals', () => {
 		const accept = got.find((member) => member.name === 'AcceptAllChanges');
 		expect(accept?.owner).toBe('Excel.Workbook');
 		expect(accept?.surfaceExhaustive).toBe(true);
+	});
+
+	it('includes generated members on promoted non-exhaustive host surfaces', () => {
+		const appSrc = 'Sub Test()\n    Application.After\nEnd Sub\n';
+		const app = resolveMemberCompletions(appSrc, dotOffset(appSrc, 'Application.After'));
+		const afterCalculate = app.find((member) => member.name === 'AfterCalculate');
+		expect(afterCalculate?.owner).toBe('Excel.Application');
+		expect(afterCalculate?.surfaceExhaustive).toBe(false);
+
+		const rangeSrc = 'Sub Test(rng As Range)\n    rng.Spilling\nEnd Sub\n';
+		const range = resolveMemberCompletions(rangeSrc, dotOffset(rangeSrc, 'rng.Spilling'));
+		const spillingToRange = range.find((member) => member.name === 'SpillingToRange');
+		expect(spillingToRange?.owner).toBe('Excel.Range');
+		expect(spillingToRange?.surfaceExhaustive).toBe(false);
+
+		const sheetSrc = 'Sub Test(ws As Worksheet)\n    ws.Named\nEnd Sub\n';
+		const sheet = resolveMemberCompletions(sheetSrc, dotOffset(sheetSrc, 'ws.Named'));
+		const namedSheetViews = sheet.find((member) => member.name === 'NamedSheetViews');
+		expect(namedSheetViews?.owner).toBe('Excel.Worksheet');
+		expect(namedSheetViews?.surfaceExhaustive).toBe(false);
 	});
 
 	it('uses the dump-backed Workbook surface for ActiveWorkbook and Workbook variables', () => {
@@ -401,6 +424,40 @@ describe('member completion - chaining', () => {
 		expect(got).toContain('Resize');
 	});
 
+	it('walks through collection default Item for Worksheets(index).Range', () => {
+		const src = 'Sub Test()\n    ThisWorkbook.Worksheets(1).Range("A1").\nEnd Sub\n';
+		const got = names(src, 'ThisWorkbook.Worksheets(1).Range("A1").');
+		expect(got).toContain('Value');
+		expect(got).toContain('Offset');
+	});
+
+	it('walks through global Workbooks(index).Worksheets(index).Range', () => {
+		const src = 'Sub Test()\n    Workbooks(1).Worksheets(1).Range("A1").\nEnd Sub\n';
+		const got = names(src, 'Workbooks(1).Worksheets(1).Range("A1").');
+		expect(got).toContain('Value');
+		expect(got).toContain('Resize');
+	});
+
+	it('walks through indexed Sheets into merged sheet object members', () => {
+		const sheetSrc = 'Sub Test()\n    Workbooks(1).Sheets(1).\nEnd Sub\n';
+		const sheetMembers = names(sheetSrc, 'Workbooks(1).Sheets(1).');
+		expect(sheetMembers).toContain('Range');
+		expect(sheetMembers).toContain('Cells');
+		expect(sheetMembers).toContain('ChartType');
+
+		const src = 'Sub Test()\n    Workbooks(1).Sheets(1).Range("A1").\nEnd Sub\n';
+		const got = names(src, 'Workbooks(1).Sheets(1).Range("A1").');
+		expect(got).toContain('Value');
+		expect(got).toContain('Offset');
+	});
+
+	it('walks through explicit Sheets.Item into worksheet members', () => {
+		const src = 'Sub Test()\n    Workbooks(1).Sheets.Item(1).Range("A1").\nEnd Sub\n';
+		const got = names(src, 'Workbooks(1).Sheets.Item(1).Range("A1").');
+		expect(got).toContain('Value');
+		expect(got).toContain('Resize');
+	});
+
 	it('resolves Range.Worksheet back to a worksheet', () => {
 		const src = 'Sub Test(rng As Range)\n    rng.Worksheet.\nEnd Sub\n';
 		const got = names(src, 'rng.Worksheet.');
@@ -427,7 +484,15 @@ describe('member completion - negative cases', () => {
 	});
 
 	it('host member lists are non-empty and well-formed', () => {
-		for (const type of ['Excel.Application', 'Excel.Workbook', 'Excel.Worksheet', 'Excel.Range']) {
+		for (const type of [
+			'Excel.Application',
+			'Excel.Workbook',
+			'Excel.Worksheet',
+			'Excel.Range',
+			'Excel.Workbooks',
+			'Excel.Worksheets',
+			'Excel.Sheets',
+		]) {
 			const members = getHostMembers(type);
 			expect(members.length).toBeGreaterThan(0);
 			for (const mem of members) {
@@ -437,7 +502,7 @@ describe('member completion - negative cases', () => {
 		}
 	});
 
-	it('marks non-dump-backed curated host member surfaces as non-exhaustive', () => {
+	it('marks promoted non-Workbook host member surfaces as non-exhaustive', () => {
 		const src = 'Sub Test()\n    Application.Work\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'Application.Work'));
 		const workbooks = got.find((member) => member.name === 'Workbooks');

@@ -13,6 +13,7 @@
 // MS-VBAL language resolution. LLM-generated member lists are never used here.
 
 import {
+	EXCEL_REFERENCE_MEMBER_SETS,
 	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
 } from './excelReferenceMembers';
@@ -24,6 +25,8 @@ export interface HostMember {
 	kind: HostMemberKind;
 	/** Qualified host type this member returns, when stable (for chaining). */
 	returns?: string;
+	/** Candidate host types this member may return, when the object model is mixed. */
+	returnsAnyOf?: readonly string[];
 }
 
 export interface HostType {
@@ -101,6 +104,9 @@ const VALIDATION = 'Excel.Validation';
 function p(name: string, returns?: string): HostMember {
 	return { name, kind: 'property', returns };
 }
+function pAny(name: string, returnsAnyOf: readonly string[]): HostMember {
+	return { name, kind: 'property', returnsAnyOf };
+}
 function m(name: string, returns?: string): HostMember {
 	return { name, kind: 'method', returns };
 }
@@ -122,8 +128,12 @@ function mergeHostMembers(
 	return out;
 }
 
+function referenceMembers(displayName: string): readonly HostMember[] {
+	return EXCEL_REFERENCE_MEMBER_SETS[displayName] ?? [];
+}
+
 export const EXCEL_OBJECT_MODEL: HostObjectModel = {
-	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
+	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel reference metadata with Workbook exhaustive dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
 	aliases: {
 		workbook: WORKBOOK,
 		worksheet: WORKSHEET,
@@ -181,7 +191,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 	types: {
 		[APPLICATION]: {
 			displayName: 'Application',
-			members: [
+			members: mergeHostMembers([
 				p('ActiveCell', RANGE),
 				p('ActiveChart', CHART),
 				p('ActiveSheet', WORKSHEET),
@@ -238,7 +248,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Union', RANGE),
 				m('Volatile'),
 				m('Wait'),
-			],
+			], referenceMembers('Application')),
 		},
 		[WORKBOOK]: {
 			displayName: 'Workbook',
@@ -284,7 +294,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[WORKSHEET]: {
 			displayName: 'Worksheet',
-			members: [
+			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('AutoFilter'),
 				p('Cells', RANGE),
@@ -330,11 +340,11 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Select'),
 				m('ShowAllData'),
 				m('Unprotect'),
-			],
+			], referenceMembers('Worksheet')),
 		},
 		[RANGE]: {
 			displayName: 'Range',
-			members: [
+			members: mergeHostMembers([
 				p('Address'),
 				p('Application', APPLICATION),
 				p('Areas', AREAS),
@@ -410,11 +420,11 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('SpecialCells', RANGE),
 				m('TextToColumns'),
 				m('UnMerge'),
-			],
+			], referenceMembers('Range')),
 		},
 		[WORKBOOKS]: {
 			displayName: 'Workbooks',
-			members: [
+			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Creator'),
@@ -426,11 +436,11 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('OpenDatabase', WORKBOOK),
 				m('OpenText'),
 				m('OpenXML', WORKBOOK),
-			],
+			], referenceMembers('Workbooks')),
 		},
 		[WORKSHEETS]: {
 			displayName: 'Worksheets',
-			members: [
+			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Creator'),
@@ -446,15 +456,16 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('PrintOut'),
 				m('PrintPreview'),
 				m('Select'),
-			],
+			], referenceMembers('Worksheets')),
 		},
 		[SHEETS]: {
 			displayName: 'Sheets',
-			members: [
+			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Creator'),
-				p('Item'),
+				// Sheets can contain worksheets or chart sheets; completion merges both.
+				pAny('Item', [WORKSHEET, CHART]),
 				p('Parent', WORKBOOK),
 				p('Visible'),
 				m('Add'),
@@ -465,7 +476,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('PrintOut'),
 				m('PrintPreview'),
 				m('Select'),
-			],
+			], referenceMembers('Sheets')),
 		},
 		[WINDOW]: {
 			displayName: 'Window',

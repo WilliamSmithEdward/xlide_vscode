@@ -27,7 +27,6 @@ import {
 	getHostType,
 	resolveHostAlias,
 	resolveHostGlobal,
-	resolveMemberReturnType,
 } from '../host/hostModel';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaDoc } from '../docs/docModel';
@@ -71,6 +70,8 @@ const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PROJECT_TYPE_PREFIX = 'project:';
 const COMBINED_TYPE_PREFIX = 'combined:';
 const COMBINED_TYPE_SEPARATOR = '|';
+const UNION_TYPE_PREFIX = 'union:';
+const UNION_TYPE_SEPARATOR = '|';
 
 type CompletionMemberSource = Pick<HostMember, 'name' | 'kind' | 'returns'> & {
 	writable?: boolean;
@@ -82,6 +83,16 @@ interface MemberSurface {
 	owner: string;
 	members: readonly CompletionMemberSource[];
 	exhaustive: boolean;
+}
+
+interface ReceiverChainSegment {
+	name: string;
+	hasArguments: boolean;
+}
+
+interface ResolvedMemberReturn {
+	type: string;
+	kind: HostMemberKind;
 }
 
 function word(token: VbaToken): string {
@@ -198,26 +209,40 @@ function receiverTypeFromTokens(
 	if (chain.length === 0) {
 		return undefined;
 	}
-	const rootType = resolveRoot(chain[0], source, offset, ctx);
+	const root = chain[0];
+	const rootType = resolveRoot(root.name, source, offset, ctx);
 	if (!rootType) {
 		return undefined;
 	}
-	let currentType: string | undefined = rootType;
+	let currentType = applyDefaultMemberReturnType(rootType, root.hasArguments, ctx);
 	for (let s = 1; s < chain.length && currentType; s += 1) {
-		currentType = resolveAnyMemberReturnType(currentType, chain[s], ctx);
+		const segment = chain[s];
+		const resolved = resolveAnyMemberReturnType(currentType, segment.name, ctx);
+		if (!resolved) {
+			return undefined;
+		}
+		currentType = applyDefaultMemberReturnType(
+			resolved.type,
+			segment.hasArguments && resolved.kind !== 'method',
+			ctx,
+		);
 	}
 	return currentType;
 }
 
 /**
  * Walks left from `endIndex` collecting a dotted receiver chain of identifiers,
- * skipping balanced call/index parentheses. Returns the chain left-to-right,
- * e.g. ["ws", "Range", "Offset"] for `ws.Range("A1").Offset(1, 0)`. Returns an
- * empty array if the expression is not a simple member-access chain.
+ * skipping balanced call/index parentheses. Returns segments left-to-right,
+ * e.g. ws, Range(args), Offset(args) for `ws.Range("A1").Offset(1, 0)`. Returns
+ * an empty array if the expression is not a simple member-access chain.
  */
-function collectReceiverChain(tokens: VbaToken[], endIndex: number): string[] {
-	const segments: string[] = [];
+function collectReceiverChain(
+	tokens: VbaToken[],
+	endIndex: number,
+): ReceiverChainSegment[] {
+	const segments: ReceiverChainSegment[] = [];
 	let i = endIndex;
+	let pendingHasArguments = false;
 	for (;;) {
 		// A statement boundary ends the receiver expression; anything to the left
 		// belongs to a different statement and must not join this chain.
@@ -230,13 +255,18 @@ function collectReceiverChain(tokens: VbaToken[], endIndex: number): string[] {
 			if (open < 0) {
 				return [];
 			}
+			pendingHasArguments = true;
 			i = open - 1;
 			continue;
 		}
 		if (i < 0 || !isIdentLike(tokens[i])) {
 			return [];
 		}
-		segments.unshift(word(tokens[i]));
+		segments.unshift({
+			name: word(tokens[i]),
+			hasArguments: pendingHasArguments,
+		});
+		pendingHasArguments = false;
 		i -= 1;
 		if (i >= 0 && tokens[i].rawText === '.') {
 			i -= 1;
@@ -297,6 +327,20 @@ function memberSurfaceForType(
 	typeName: string,
 	ctx: MemberCompletionContext,
 ): MemberSurface | undefined {
+	const union = parseUnionTypeKey(typeName);
+	if (union) {
+		const surfaces = union
+			.map((item) => memberSurfaceForType(item, ctx))
+			.filter((item): item is MemberSurface => Boolean(item));
+		if (surfaces.length === 0) {
+			return undefined;
+		}
+		return {
+			owner: union.map(displayTypeName).join(' | '),
+			members: mergeCompletionMembers(...surfaces.map((surface) => surface.members)),
+			exhaustive: surfaces.every((surface) => surface.exhaustive),
+		};
+	}
 	const combined = parseCombinedTypeKey(typeName);
 	if (combined) {
 		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
@@ -339,7 +383,20 @@ function resolveAnyMemberReturnType(
 	ownerType: string,
 	memberName: string,
 	ctx: MemberCompletionContext,
-): string | undefined {
+): ResolvedMemberReturn | undefined {
+	const union = parseUnionTypeKey(ownerType);
+	if (union) {
+		const resolved = union
+			.map((item) => resolveAnyMemberReturnType(item, memberName, ctx))
+			.filter((item): item is ResolvedMemberReturn => Boolean(item));
+		if (resolved.length === 0) {
+			return undefined;
+		}
+		return {
+			type: typeKeyFor(resolved.map((item) => item.type)),
+			kind: resolved.every((item) => item.kind === 'method') ? 'method' : 'property',
+		};
+	}
 	const combined = parseCombinedTypeKey(ownerType);
 	if (combined) {
 		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
@@ -347,12 +404,13 @@ function resolveAnyMemberReturnType(
 			(m) => m.name.toLowerCase() === memberName.toLowerCase(),
 		);
 		if (projectMember?.returns) {
-			return resolveDeclaredObjectType(projectMember.returns, ctx, ctx.model);
+			const type = resolveDeclaredObjectType(projectMember.returns, ctx, ctx.model);
+			return type ? { type, kind: projectMember.kind } : undefined;
 		}
-		return resolveMemberReturnType(combined.hostType, memberName, ctx.model);
+		return hostMemberReturn(combined.hostType, memberName, ctx.model);
 	}
 	if (!ownerType.startsWith(PROJECT_TYPE_PREFIX)) {
-		return resolveMemberReturnType(ownerType, memberName, ctx.model);
+		return hostMemberReturn(ownerType, memberName, ctx.model);
 	}
 	const projectType = projectClassMembersByName(ctx).get(
 		ownerType.slice(PROJECT_TYPE_PREFIX.length),
@@ -360,9 +418,45 @@ function resolveAnyMemberReturnType(
 	const member = projectType?.members.find(
 		(m) => m.name.toLowerCase() === memberName.toLowerCase(),
 	);
-	return member?.returns
-		? resolveDeclaredObjectType(member.returns, ctx, ctx.model)
-		: undefined;
+	if (!member?.returns) {
+		return undefined;
+	}
+	const type = resolveDeclaredObjectType(member.returns, ctx, ctx.model);
+	return type ? { type, kind: member.kind } : undefined;
+}
+
+function applyDefaultMemberReturnType(
+	typeName: string | undefined,
+	hasArguments: boolean,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	if (!typeName || !hasArguments) {
+		return typeName;
+	}
+	const union = parseUnionTypeKey(typeName);
+	if (union) {
+		return typeKeyFor(
+			union.map((item) => hostMemberReturn(item, 'Item', ctx.model)?.type ?? item),
+		);
+	}
+	return hostMemberReturn(typeName, 'Item', ctx.model)?.type ?? typeName;
+}
+
+function hostMemberReturn(
+	ownerType: string,
+	memberName: string,
+	model: HostObjectModel | undefined,
+): ResolvedMemberReturn | undefined {
+	const member = getHostMembers(ownerType, model).find(
+		(m) => m.name.toLowerCase() === memberName.toLowerCase(),
+	);
+	if (member?.returns) {
+		return { type: member.returns, kind: member.kind };
+	}
+	if (member?.returnsAnyOf?.length) {
+		return { type: typeKeyFor(member.returnsAnyOf), kind: member.kind };
+	}
+	return undefined;
 }
 
 function resolveDeclaredObjectType(
@@ -415,19 +509,54 @@ function parseCombinedTypeKey(
 	};
 }
 
+function parseUnionTypeKey(typeName: string): string[] | undefined {
+	if (!typeName.startsWith(UNION_TYPE_PREFIX)) {
+		return undefined;
+	}
+	const parts = typeName
+		.slice(UNION_TYPE_PREFIX.length)
+		.split(UNION_TYPE_SEPARATOR)
+		.filter((item) => item.length > 0);
+	return parts.length > 0 ? parts : undefined;
+}
+
+function typeKeyFor(types: readonly string[]): string {
+	const out: string[] = [];
+	const seen = new Set<string>();
+	for (const type of types) {
+		for (const item of parseUnionTypeKey(type) ?? [type]) {
+			const key = item.toLowerCase();
+			if (seen.has(key)) {
+				continue;
+			}
+			seen.add(key);
+			out.push(item);
+		}
+	}
+	return out.length === 1
+		? out[0]
+		: `${UNION_TYPE_PREFIX}${out.join(UNION_TYPE_SEPARATOR)}`;
+}
+
+function displayTypeName(typeName: string): string {
+	const dot = typeName.lastIndexOf('.');
+	return dot >= 0 ? typeName.slice(dot + 1) : typeName;
+}
+
 function mergeCompletionMembers(
-	sourceMembers: readonly CompletionMemberSource[],
-	hostMembers: readonly CompletionMemberSource[],
+	...memberGroups: readonly (readonly CompletionMemberSource[])[]
 ): CompletionMemberSource[] {
 	const out: CompletionMemberSource[] = [];
 	const seen = new Set<string>();
-	for (const member of [...sourceMembers, ...hostMembers]) {
-		const key = member.name.toLowerCase();
-		if (seen.has(key)) {
-			continue;
+	for (const members of memberGroups) {
+		for (const member of members) {
+			const key = member.name.toLowerCase();
+			if (seen.has(key)) {
+				continue;
+			}
+			seen.add(key);
+			out.push(member);
 		}
-		seen.add(key);
-		out.push(member);
 	}
 	return out;
 }
