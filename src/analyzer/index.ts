@@ -77,7 +77,13 @@ export {
 	VbaSymbolKind,
 } from './symbols/symbolModel';
 export { buildModuleSymbols } from './symbols/buildModuleSymbols';
-export { ModuleInput, ProjectIndex } from './symbols/projectIndex';
+export {
+	ModuleInput,
+	ProjectIndex,
+	ReferenceScope,
+	ReferenceScopeKind,
+	ShadowedSpan,
+} from './symbols/projectIndex';
 export {
 	analyzeModule,
 	AnalyzeModuleOptions,

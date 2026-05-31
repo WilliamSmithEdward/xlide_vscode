@@ -318,3 +318,146 @@ describe('ProjectIndex duplicate procedure detection', () => {
 		expect(index.duplicateProcedures('Module1')).toEqual([]);
 	});
 });
+
+describe('ProjectIndex resolveQualifiedDefinition', () => {
+	const index = new ProjectIndex();
+	index.setModule({
+		moduleName: 'Module1',
+		moduleKind: 'standard',
+		source: 'Public Sub DoWork()\nEnd Sub\nPrivate Sub Hidden()\nEnd Sub\n',
+	});
+	index.setModule({
+		moduleName: 'Module2',
+		moduleKind: 'standard',
+		source: 'Public Sub DoWork()\nEnd Sub\n',
+	});
+
+	it('resolves an exported member of the named module only', () => {
+		const hits = index.resolveQualifiedDefinition('Module1', 'DoWork');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].moduleName).toBe('Module1');
+	});
+
+	it('does not resolve a Private member through a qualifier', () => {
+		expect(index.resolveQualifiedDefinition('Module1', 'Hidden')).toEqual([]);
+	});
+
+	it('returns an empty array for an unknown qualifier module', () => {
+		expect(index.resolveQualifiedDefinition('Nope', 'DoWork')).toEqual([]);
+	});
+});
+
+describe('ProjectIndex referenceScope', () => {
+	it('limits a local variable to its enclosing procedure', () => {
+		const index = new ProjectIndex();
+		const src = [
+			'Sub A()',
+			'    Dim total As Long',
+			'    total = 1',
+			'End Sub',
+			'Sub B()',
+			'    Dim total As Long',
+			'    total = 2',
+			'End Sub',
+		].join('\n');
+		index.setModule({ moduleName: 'Module1', moduleKind: 'standard', source: src });
+
+		const offset = src.indexOf('total = 1');
+		const scope = index.referenceScope('Module1', 'total', offset);
+		expect(scope.kind).toBe('local');
+		expect(scope.searchModules).toEqual(['Module1']);
+		expect(scope.procedureSpan).toBeDefined();
+		// The procedure span covers Sub A but not Sub B.
+		expect(scope.procedureSpan!.start).toBeLessThan(src.indexOf('total = 1'));
+		expect(scope.procedureSpan!.end).toBeLessThan(src.indexOf('Sub B'));
+		expect(scope.definitions).toHaveLength(1);
+		expect(scope.definitions[0].containerName).toBe('A');
+	});
+
+	it('limits a Private module variable to its own module', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Private mState As Long\nSub A()\n    mState = 1\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Module2',
+			moduleKind: 'standard',
+			source: 'Sub B()\n    Dim mState As Long\nEnd Sub\n',
+		});
+		const scope = index.referenceScope('Module1', 'mState', 0);
+		expect(scope.kind).toBe('module');
+		expect(scope.searchModules).toEqual(['Module1']);
+	});
+
+	it('spans every module for an exported procedure', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Public Sub Shared()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Module2',
+			moduleKind: 'standard',
+			source: 'Sub Caller()\n    Shared\nEnd Sub\n',
+		});
+		const scope = index.referenceScope('Module2', 'Shared', 0);
+		expect(scope.kind).toBe('project');
+		expect(scope.searchModules.sort()).toEqual(['Module1', 'Module2']);
+	});
+
+	it('excludes a module that re-declares the name privately', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Public gValue As Long\n',
+		});
+		index.setModule({
+			moduleName: 'Module2',
+			moduleKind: 'standard',
+			source: 'Private gValue As Long\n',
+		});
+		index.setModule({
+			moduleName: 'Module3',
+			moduleKind: 'standard',
+			source: 'Sub Use()\n    gValue = 1\nEnd Sub\n',
+		});
+		const scope = index.referenceScope('Module1', 'gValue', 0);
+		expect(scope.kind).toBe('project');
+		expect(scope.searchModules).toContain('Module1');
+		expect(scope.searchModules).toContain('Module3');
+		expect(scope.searchModules).not.toContain('Module2');
+	});
+
+	it('records procedure spans that shadow an exported name with a local', () => {
+		const index = new ProjectIndex();
+		const src = [
+			'Public gValue As Long',
+			'Sub Shadower()',
+			'    Dim gValue As Long',
+			'    gValue = 1',
+			'End Sub',
+		].join('\n');
+		index.setModule({ moduleName: 'Module1', moduleKind: 'standard', source: src });
+		const scope = index.referenceScope('Module1', 'gValue', 0);
+		expect(scope.kind).toBe('project');
+		expect(scope.shadowedSpans).toHaveLength(1);
+		expect(scope.shadowedSpans[0].moduleName).toBe('Module1');
+	});
+
+	it('keeps an unresolved name inside the home module', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Sub A()\n    Range("A1").Select\nEnd Sub\n',
+		});
+		const scope = index.referenceScope('Module1', 'Range', 0);
+		expect(scope.kind).toBe('module');
+		expect(scope.searchModules).toEqual(['Module1']);
+		expect(scope.definitions).toEqual([]);
+	});
+});

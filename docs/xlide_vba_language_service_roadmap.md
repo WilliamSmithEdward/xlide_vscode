@@ -621,11 +621,15 @@ Recovery rules:
 > go-to-definition name resolution (locals/params -> same-module -> exported
 > cross-module), and duplicate-procedure detection. Cross-module visibility
 > follows MS-VBAL (default-Public procedures exported; Private/Dim/Friend module
-> members stay private). Covered by `tests/vbaSymbolGraph.test.ts` (21 tests).
-> Verification-map rows added. Remaining: wiring the AST index into the live VS
-> Code Document/Workspace symbol + definition providers (currently served by the
-> interim regex index in `src/vbaSymbolIndex.ts`), and richer block/UDT/class
-> member scope resolution.
+> members stay private). Covered by `tests/vbaSymbolGraph.test.ts` (30 tests).
+> Verification-map rows added. The AST index now drives the live Go to
+> Definition, Find All References, and Rename providers in
+> `src/vbaLanguageProviders.ts` via `resolveDefinition`,
+> `resolveQualifiedDefinition`, and `referenceScope` (scope-restricted
+> occurrence search). Remaining: wiring the AST index into the live VS Code
+> Document/Workspace symbol providers (still served by the interim regex index
+> in `src/vbaSymbolIndex.ts`), and richer block/UDT/class member scope
+> resolution.
 
 ### Goal
 
@@ -884,10 +888,15 @@ Implement completions for:
 > for host members (verified `Workbooks.Open`, `Range.Offset`, ...), user
 > procedures (from the AST), and runtime built-ins, wired through the
 > `SignatureHelpProvider` in `src/vbaMemberCompletion.ts` (triggers `(` `,`
-> space) and covered by `tests/vbaSignatureHelp.test.ts`. Go to Definition and
-> References are still pending (the interim regex providers in
-> `src/vbaLanguageProviders.ts` remain until the AST `ProjectIndex` is wired into
-> live providers).
+> space) and covered by `tests/vbaSignatureHelp.test.ts`. Go to Definition,
+> Find All References, and Rename are DONE - the live providers in
+> `src/vbaLanguageProviders.ts` now build an AST `ProjectIndex`
+> (`src/analyzer/symbols/projectIndex.ts`) per query: definitions use
+> scope-aware `resolveDefinition`/`resolveQualifiedDefinition`; references and
+> rename use `referenceScope` to restrict the textual occurrence search to the
+> binding scope (local procedure, owning module, or whole project minus
+> privately-shadowing modules and locals). Covered by the new `referenceScope`
+> and `resolveQualifiedDefinition` cases in `tests/vbaSymbolGraph.test.ts`.
 
 ### Goal
 

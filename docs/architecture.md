@@ -295,14 +295,17 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | Provider | Behavior |
 |---|---|
 | `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
-| `DefinitionProvider` | Resolves an identifier across all modules in the workbook; honors `Module.Member` qualifiers and `Private` visibility |
-| `ReferenceProvider` | Word-boundary search across all modules, skipping string literals and apostrophe comments |
-| `RenameProvider` | `prepareRename` checks the identifier is a known procedure; `provideRenameEdits` returns a `WorkspaceEdit` that rewrites every module; VS Code applies the edit and Ctrl+S persists each module through the virtual filesystem |
+| `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves the identifier with scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations) |
+| `ReferenceProvider` | Computes the identifier's binding scope (`ProjectIndex.referenceScope`), then runs a word-boundary search (skipping strings/comments) restricted to that scope — a procedure-local stays in its procedure, a `Private` member in its module, an exported symbol across the project minus privately-shadowing modules/locals; honors VS Code's include-declaration toggle |
+| `RenameProvider` | Uses the same `referenceScope` to rewrite only the in-scope occurrences; `prepareRename`/`provideRenameEdits` refuse identifiers that do not resolve to a known declaration; VS Code applies the `WorkspaceEdit` and Ctrl+S persists each module through the virtual filesystem |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
 | Smart enter (auto-block) | Pressing Enter after a `Sub`/`Function`/`Property` header auto-inserts the matching `End ...` below and leaves the caret on the indented body line |
 
-The `ReferenceProvider` excludes the procedure declaration token itself, so
-"Find All References" returns only call sites, not the definition.
+The `DefinitionProvider`, `ReferenceProvider`, and `RenameProvider` build a fresh
+`ProjectIndex` (`src/analyzer/symbols/projectIndex.ts`) from the cached module
+sources on each query; offset-based symbol spans are converted to editor ranges
+in `vbaLanguageProviders.ts`. `VbaSymbolIndex` still backs the
+`DocumentSymbolProvider` outline and the workbook-scoped source cache.
 
 **Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
 is unit-tested directly (`tests/vbaLinter.test.ts`). It strips strings/comments,
@@ -460,10 +463,14 @@ single module:
 - `src/analyzer/symbols/projectIndex.ts` is the `ProjectIndex` that aggregates
   modules and answers `documentSymbols`, `workspaceSymbols`, conservative
   `resolveDefinition` (locals/params -> same-module declarations -> exported
-  declarations in other modules), and `duplicateProcedures`. Cross-module
-  visibility follows MS-VBAL: explicit `Public`/`Global` and default-`Public`
-  procedures are exported; `Private`/`Dim`/`Friend` and unmodified module
-  variables stay module-private.
+  declarations in other modules), `resolveQualifiedDefinition` (the exported
+  member of a named module, for `Module.Member` references), `referenceScope`
+  (the binding scope of a name for scope-restricted reference/rename search),
+  and `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit
+  `Public`/`Global` and default-`Public` procedures are exported;
+  `Private`/`Dim`/`Friend` and unmodified module variables stay module-private.
+  This index now drives the live `DefinitionProvider`, `ReferenceProvider`, and
+  `RenameProvider` (see "Symbol intelligence").
 
 ---
 
@@ -505,6 +512,7 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaLanguageProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
 | New active diagnostic rule | `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (rule + MS-VBAL `specReference`), `tests/vbaDiagnostics.test.ts`, `src/vbaLanguageProviders.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |

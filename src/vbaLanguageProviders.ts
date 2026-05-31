@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XLIDE_SCHEME, decodeModuleUri, encodeModuleUri } from './xlideFileSystem';
-import { VbaSymbol, VbaSymbolIndex, parseVbaModule } from './vbaSymbolIndex';
+import { VbaSymbol, VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
 import {
     lintVbaSource,
     stripVba,
@@ -11,8 +11,12 @@ import {
 import {
     analyzeModule,
     DiagnosticSeverity as RuleSeverity,
+    ModuleSymbolKind,
+    ProjectIndex,
+    ReferenceScope,
     SeverityOverrides,
     VbaDiagnostic,
+    VbaSymbol as AstSymbol,
 } from './analyzer';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 
@@ -152,11 +156,112 @@ function stripStringsAndComment(line: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// AST project index (Phase 4 wiring): scope-aware definition/references/rename
+// ---------------------------------------------------------------------------
+
+/** Maps a host module type string to the analyzer's ModuleSymbolKind. */
+function moduleKindFromType(type?: string): ModuleSymbolKind {
+    switch (type) {
+        case 'class': return 'class';
+        case 'document': return 'document';
+        case 'userform': return 'userform';
+        default: return 'standard';
+    }
+}
+
+/** Builds a fresh AST ProjectIndex from the cached module sources. */
+function buildProjectIndex(modules: VbaModuleSymbols[]): ProjectIndex {
+    const index = new ProjectIndex();
+    for (const mod of modules) {
+        index.setModule({
+            moduleName: mod.moduleName,
+            moduleKind: moduleKindFromType(mod.type),
+            source: mod.source,
+        });
+    }
+    return index;
+}
+
+/** Byte offsets where each line begins, for occurrence -> offset mapping. */
+function lineStartOffsets(source: string): number[] {
+    const starts = [0];
+    for (let i = 0; i < source.length; i++) {
+        if (source[i] === '\n') { starts.push(i + 1); }
+    }
+    return starts;
+}
+
+/** Converts a 0-based character offset in `source` to a VS Code position. */
+function offsetToPosition(source: string, offset: number): vscode.Position {
+    let line = 0;
+    let lineStart = 0;
+    const limit = Math.min(offset, source.length);
+    for (let i = 0; i < limit; i++) {
+        if (source[i] === '\n') { line++; lineStart = i + 1; }
+    }
+    return new vscode.Position(line, offset - lineStart);
+}
+
+/** Translates an AST symbol's nameSpan to a Location in its owning module. */
+function astSymbolToLocation(
+    xlsmPath: string,
+    byModule: Map<string, VbaModuleSymbols>,
+    symbol: AstSymbol,
+): vscode.Location | undefined {
+    const mod = byModule.get(symbol.moduleName.toLowerCase());
+    if (!mod) { return undefined; }
+    return new vscode.Location(
+        encodeModuleUri(xlsmPath, mod.moduleName),
+        new vscode.Range(
+            offsetToPosition(mod.source, symbol.nameSpan.start),
+            offsetToPosition(mod.source, symbol.nameSpan.end),
+        ),
+    );
+}
+
+/**
+ * Collects the in-scope textual occurrences of `word` for a resolved reference
+ * scope, honoring local-procedure restriction and shadowing exclusions.
+ */
+function occurrencesInScope(
+    xlsmPath: string,
+    byModule: Map<string, VbaModuleSymbols>,
+    scope: ReferenceScope,
+    word: string,
+): vscode.Location[] {
+    const out: vscode.Location[] = [];
+    for (const moduleName of scope.searchModules) {
+        const mod = byModule.get(moduleName.toLowerCase());
+        if (!mod) { continue; }
+        const starts = lineStartOffsets(mod.source);
+        const exclusions = scope.shadowedSpans
+            .filter((s) => s.moduleName.toLowerCase() === moduleName.toLowerCase())
+            .map((s) => s.span);
+        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
+        for (const occ of findIdentifierOccurrences(mod.source, word)) {
+            const offset = (starts[occ.line] ?? 0) + occ.column;
+            if (scope.kind === 'local' && scope.procedureSpan) {
+                if (offset < scope.procedureSpan.start || offset > scope.procedureSpan.end) {
+                    continue;
+                }
+            }
+            if (exclusions.some((sp) => offset >= sp.start && offset <= sp.end)) {
+                continue;
+            }
+            out.push(new vscode.Location(
+                uri,
+                new vscode.Range(occ.line, occ.column, occ.line, occ.column + word.length),
+            ));
+        }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
 // Provider implementations
 // ---------------------------------------------------------------------------
 
-class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
-    provideDocumentSymbols(document: vscode.TextDocument): vscode.DocumentSymbol[] {
+class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider {    provideDocumentSymbols(document: vscode.TextDocument): vscode.DocumentSymbol[] {
         const symbols = parseVbaModule(document.getText());
         return symbols.map((s) => new vscode.DocumentSymbol(
             s.name,
@@ -183,26 +288,21 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
         const line = document.lineAt(position.line).text;
         const qualifier = detectQualifier(line, wordRange.start.character);
 
-        const { xlsmPath, moduleName: currentModule } = decodeModuleUri(document.uri);
-        const matches: vscode.Location[] = [];
-
+        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
-        for (const mod of modules) {
-            if (qualifier && unquoteModule(qualifier).toLowerCase() !== mod.moduleName.toLowerCase()) {
-                continue;
-            }
-            for (const sym of mod.symbols) {
-                if (sym.name.toLowerCase() !== word.toLowerCase()) { continue; }
-                if (!qualifier && !sym.isPublic && mod.moduleName !== currentModule) {
-                    continue;
-                }
-                matches.push(new vscode.Location(
-                    encodeModuleUri(xlsmPath, mod.moduleName),
-                    selectionRange(sym),
-                ));
-            }
+        const project = buildProjectIndex(modules);
+        const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
+
+        const defs = qualifier
+            ? project.resolveQualifiedDefinition(unquoteModule(qualifier), word)
+            : project.resolveDefinition(moduleName, word, document.offsetAt(position));
+
+        const locations: vscode.Location[] = [];
+        for (const sym of defs) {
+            const loc = astSymbolToLocation(xlsmPath, byModule, sym);
+            if (loc) { locations.push(loc); }
         }
-        return matches.length > 0 ? matches : undefined;
+        return locations.length > 0 ? locations : undefined;
     }
 }
 
@@ -212,43 +312,47 @@ class VbaReferenceProvider implements vscode.ReferenceProvider {
     async provideReferences(
         document: vscode.TextDocument,
         position: vscode.Position,
+        context: vscode.ReferenceContext,
     ): Promise<vscode.Location[] | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
         const wordRange = document.getWordRangeAtPosition(position, IDENTIFIER_RE);
         if (!wordRange) { return undefined; }
         const word = document.getText(wordRange);
 
-        const { xlsmPath } = decodeModuleUri(document.uri);
+        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
-        const lowerWord = word.toLowerCase();
-        const locations: vscode.Location[] = [];
-        for (const mod of modules) {
-            const uri = encodeModuleUri(xlsmPath, mod.moduleName);
-            // Declaration sites (the Sub/Function/Property name token itself) are
-            // not "references" to the procedure, so skip them. Their positions
-            // come from the parsed symbol table.
-            const declKeys = new Set(
-                mod.symbols
-                    .filter((s) => s.name.toLowerCase() === lowerWord)
-                    .map((s) => `${s.line}:${s.column}`),
-            );
-            for (const occ of findIdentifierOccurrences(mod.source, word)) {
-                if (declKeys.has(`${occ.line}:${occ.column}`)) { continue; }
-                locations.push(new vscode.Location(
-                    uri,
-                    new vscode.Range(occ.line, occ.column, occ.line, occ.column + word.length),
-                ));
-            }
+        const project = buildProjectIndex(modules);
+        const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
+
+        const scope = project.referenceScope(
+            moduleName,
+            word,
+            document.offsetAt(position),
+        );
+        const locations = occurrencesInScope(xlsmPath, byModule, scope, word);
+
+        if (context.includeDeclaration) {
+            return locations;
         }
-        return locations;
+        // Drop the declaration identifier(s) themselves from the result set.
+        const declKeys = new Set(
+            scope.definitions.map(
+                (d) => `${d.moduleName.toLowerCase()}:${d.nameSpan.start}`,
+            ),
+        );
+        return locations.filter((loc) => {
+            const mod = decodeModuleUri(loc.uri).moduleName.toLowerCase();
+            const m = byModule.get(mod);
+            if (!m) { return true; }
+            const offset = (lineStartOffsets(m.source)[loc.range.start.line] ?? 0)
+                + loc.range.start.character;
+            return !declKeys.has(`${mod}:${offset}`);
+        });
     }
 }
 
 class VbaRenameProvider implements vscode.RenameProvider {
-    constructor(
-        private readonly _index: VbaSymbolIndex,
-        private readonly _bridge: PythonBridge,
-    ) {}
+    constructor(private readonly _index: VbaSymbolIndex) {}
 
     async prepareRename(
         document: vscode.TextDocument,
@@ -261,13 +365,16 @@ class VbaRenameProvider implements vscode.RenameProvider {
         if (!wordRange) { throw new Error('No symbol at cursor.'); }
         const word = document.getText(wordRange);
 
-        const { xlsmPath } = decodeModuleUri(document.uri);
+        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
-        const found = modules.some((m) =>
-            m.symbols.some((s) => s.name.toLowerCase() === word.toLowerCase()),
+        const project = buildProjectIndex(modules);
+        const scope = project.referenceScope(
+            moduleName,
+            word,
+            document.offsetAt(position),
         );
-        if (!found) {
-            throw new Error(`'${word}' is not a known VBA procedure in this workbook.`);
+        if (scope.definitions.length === 0) {
+            throw new Error(`'${word}' is not a renameable VBA symbol in this workbook.`);
         }
         return { range: wordRange, placeholder: word };
     }
@@ -278,7 +385,7 @@ class VbaRenameProvider implements vscode.RenameProvider {
         newName: string,
     ): Promise<vscode.WorkspaceEdit | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
-        if (!IDENTIFIER_RE.test(newName) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(newName)) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(newName)) {
             throw new Error(`'${newName}' is not a valid VBA identifier.`);
         }
         const wordRange = document.getWordRangeAtPosition(position, IDENTIFIER_RE);
@@ -286,21 +393,23 @@ class VbaRenameProvider implements vscode.RenameProvider {
         const oldName = document.getText(wordRange);
         if (oldName.toLowerCase() === newName.toLowerCase()) { return undefined; }
 
-        const { xlsmPath } = decodeModuleUri(document.uri);
+        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
+        const project = buildProjectIndex(modules);
+        const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
+
+        const scope = project.referenceScope(
+            moduleName,
+            oldName,
+            document.offsetAt(position),
+        );
+        if (scope.definitions.length === 0) {
+            throw new Error(`'${oldName}' is not a renameable VBA symbol in this workbook.`);
+        }
 
         const edit = new vscode.WorkspaceEdit();
-        for (const mod of modules) {
-            const occs = findIdentifierOccurrences(mod.source, oldName);
-            if (occs.length === 0) { continue; }
-            const uri = encodeModuleUri(xlsmPath, mod.moduleName);
-            for (const occ of occs) {
-                edit.replace(
-                    uri,
-                    new vscode.Range(occ.line, occ.column, occ.line, occ.column + oldName.length),
-                    newName,
-                );
-            }
+        for (const loc of occurrencesInScope(xlsmPath, byModule, scope, oldName)) {
+            edit.replace(loc.uri, loc.range, newName);
         }
         return edit;
     }
@@ -515,7 +624,7 @@ export function registerVbaLanguageProviders(
         ),
         vscode.languages.registerRenameProvider(
             VBA_SELECTOR,
-            new VbaRenameProvider(index, bridge),
+            new VbaRenameProvider(index),
         ),
         // Keep the index consistent with saves to virtual VBA documents.
         vscode.workspace.onDidSaveTextDocument((doc) => {

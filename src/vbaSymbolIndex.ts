@@ -26,6 +26,8 @@ export interface VbaModuleSymbols {
     symbols: VbaSymbol[];
     /** Cached module source used to build the symbols. */
     source: string;
+    /** Host module type from listModules (standard/class/document/userform). */
+    type?: string;
 }
 
 interface CachedWorkbook {
@@ -184,7 +186,9 @@ export class VbaSymbolIndex implements vscode.Disposable {
         const out: VbaModuleSymbols[] = [];
         for (const entry of moduleList) {
             try {
-                out.push(await this.getModule(xlsmPath, entry.name));
+                const mod = await this.getModule(xlsmPath, entry.name);
+                mod.type = entry.type;
+                out.push(mod);
             } catch {
                 // Skip modules that fail to read; index is best-effort.
             }
