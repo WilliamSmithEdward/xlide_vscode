@@ -147,8 +147,8 @@ from the MS-VBAL core-language grammar. Tracked rows:
 | Feature | Implementation File | Fixture | Source | Status |
 |---|---|---|---|---|
 | Host global -> type resolution table | src/analyzer/host/hostModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object model docs | Verified |
-| Excel object-model member metadata | src/analyzer/host/excelObjectModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30; `Excel.Workbook` generated from `reference/excel/json/Workbook.json` | Verified |
-| Exhaustive `Excel.Workbook` member surface | src/analyzer/host/excelWorkbookReferenceMembers.ts | tests/vbaMemberCompletion.test.ts + tests/vbaDiagnostics.test.ts | `reference/excel/json/Workbook.json` plus VBE oracle `thisworkbook_unknown_member_compile` | Verified |
+| Excel object-model member metadata | src/analyzer/host/excelObjectModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30; promoted reference metadata generated from `reference/excel/json` | Verified |
+| Exhaustive `Excel.Workbook` member surface | src/analyzer/host/excelReferenceMembers.ts | tests/vbaMemberCompletion.test.ts + tests/vbaDiagnostics.test.ts + docs/excel_reference_coverage.md | `reference/excel/json/Workbook.json` plus VBE oracle `thisworkbook_unknown_member_compile` | Verified |
 | Excel collection types (Workbooks/Worksheets/Sheets) + globals | src/analyzer/host/excelObjectModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30 | Verified |
 | Member-access chain resolution | src/analyzer/completion/memberAccess.ts | tests/vbaMemberCompletion.test.ts | 5.6 (member access) | Verified |
 | Worksheet code-name resolution (Sheet1) | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts | Workbook project structure (listModules) | Verified |

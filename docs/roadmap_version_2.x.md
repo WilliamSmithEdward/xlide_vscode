@@ -316,6 +316,11 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   metadata generated from `reference/excel/json/Workbook.json`, enabling
   hard `member-not-found` for `ThisWorkbook.<missing>` through the same
   object-member rule contract.
+- [x] Replace the one-off Workbook promotion script with a generalized Excel
+  reference generator: `npm run generate:reference:excel` now scans
+  `reference/excel/json`, emits promoted runtime metadata under
+  `src/analyzer/host/excelReferenceMembers.ts`, and writes the deterministic
+  coverage report at `docs/excel_reference_coverage.md`.
 - [ ] Oracle-verify late-bound member access for `Object` and `Variant`
   receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
   resolves the member only at runtime; decide separately whether an optional
@@ -350,6 +355,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   as `reference/excel/`, `reference/vba/`, `reference/office/`,
   `reference/msforms/`, `reference/vbide/`, and related COM/library dumps:
   - ingest the `reference/` dump corpus into a normalized metadata format
+    (Excel has the first generator slice)
   - keep `reference/` as development context only; production extension code
     must not read it at runtime, and promoted metadata must be generated or
     checked in under `src/` with provenance
@@ -359,6 +365,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
     available
   - add oracle spot checks for behavior that a reference dump cannot answer
   - produce coverage reports by host type so gaps are visible
+    (Excel has the first report)
   - mark a host type `exhaustive` only after its dump-backed surface is complete
     enough to prove member absence for that type/version
 - [ ] Keep generated/reference metadata separate from source-backed workbook

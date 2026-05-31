@@ -15,7 +15,7 @@
 import {
 	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
-} from './excelWorkbookReferenceMembers';
+} from './excelReferenceMembers';
 
 export type HostMemberKind = 'property' | 'method' | 'event';
 

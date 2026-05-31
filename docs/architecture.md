@@ -380,8 +380,11 @@ into a pure analyzer layer and a thin VS Code provider:
   at runtime, and `reference/**` is excluded from the packaged extension. When a
   reference dump is promoted into runtime behavior, the promotion must generate
   or update checked-in metadata under `src/` with explicit provenance, such as
-  the dump-backed `Excel.Workbook` member surface. LLM-generated member lists
-  are never used; this is host metadata, not VBA grammar.
+  the dump-backed `Excel.Workbook` member surface in
+  `src/analyzer/host/excelReferenceMembers.ts`. The Excel generator also writes
+  `docs/excel_reference_coverage.md` so promotion gaps stay visible.
+  LLM-generated member lists are never used; this is host metadata, not VBA
+  grammar.
 - `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
   metadata (`resolveHostGlobal`, `resolveHostAlias`, `getHostMembers`,
   `resolveMemberReturnType`).
