@@ -436,6 +436,10 @@ into a pure analyzer layer and a thin VS Code provider:
   Runtime completion details show the verified signature, and the documentation
   panel includes the runtime kind plus curated parameter types where available.
   Curated runtime calls are intentionally not duplicated as VS Code snippets.
+  Accepting callable completions inserts canonical casing plus `()`, with the
+  cursor inside the call, and typing a boundary after a known identifier applies
+  VBE-style canonical casing for keywords, runtime functions, and resolved host
+  members.
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`
   (`resolveHover`), a pure resolver that describes the identifier under the

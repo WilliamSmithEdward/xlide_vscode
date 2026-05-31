@@ -26,6 +26,7 @@ import type {
 import {
 	getHostMembers,
 	getHostType,
+	resolveHostMemberSignature,
 	resolveHostAlias,
 	resolveHostGlobal,
 } from '../host/hostModel';
@@ -55,6 +56,8 @@ export interface MemberCompletion {
 	kind: HostMemberKind;
 	/** Qualified type the member returns, when chainable. */
 	returns?: string;
+	/** Verified call signature, when the host metadata has one. */
+	signature?: string;
 	/** True when source proves assignment to the member is allowed. */
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */
@@ -162,6 +165,7 @@ export function resolveMemberCompletions(
 			name: mem.name,
 			kind: mem.kind,
 			returns: mem.returns,
+			signature: signatureForMember(currentType, mem.name, ctx),
 			writable: mem.writable,
 			writeType: mem.writeType,
 			owner: surface.owner,
@@ -170,6 +174,29 @@ export function resolveMemberCompletions(
 				? renderDocMarkdown(mem.doc)
 				: undefined,
 		}));
+}
+
+function signatureForMember(
+	typeName: string,
+	memberName: string,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	const union = parseUnionTypeKey(typeName);
+	if (union) {
+		const signatures = union
+			.map((type) => signatureForMember(type, memberName, ctx))
+			.filter((signature): signature is string => Boolean(signature));
+		const distinct = new Set(signatures);
+		return distinct.size === 1 ? signatures[0] : undefined;
+	}
+	const combined = parseCombinedTypeKey(typeName);
+	if (combined) {
+		return resolveHostMemberSignature(combined.hostType, memberName, ctx.model);
+	}
+	if (typeName.startsWith(PROJECT_TYPE_PREFIX)) {
+		return undefined;
+	}
+	return resolveHostMemberSignature(typeName, memberName, ctx.model);
 }
 
 /**

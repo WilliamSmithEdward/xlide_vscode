@@ -516,6 +516,16 @@ describe('member completion - chaining', () => {
 		expect(got).toContain('Resize');
 	});
 
+	it('carries verified call signatures for callable member completions', () => {
+		const src = 'Sub Test()\n    Workbooks(1).Worksheets(1).Ran\nEnd Sub\n';
+		const got = resolveMemberCompletions(
+			src,
+			dotOffset(src, 'Workbooks(1).Worksheets(1).Ran'),
+		);
+		const range = got.find((m) => m.name === 'Range');
+		expect(range?.signature).toBe('Range(Cell1, [Cell2]) As Range');
+	});
+
 	it('walks through indexed Sheets into merged sheet object members', () => {
 		const sheetSrc = 'Sub Test()\n    Workbooks(1).Sheets(1).\nEnd Sub\n';
 		const sheetMembers = names(sheetSrc, 'Workbooks(1).Sheets(1).');

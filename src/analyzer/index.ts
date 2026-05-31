@@ -40,6 +40,11 @@ export {
 	resolveReceiverTypeAt,
 } from './completion/memberAccess';
 export {
+	CanonicalCaseContext,
+	CanonicalCaseEdit,
+	resolveCanonicalCaseEdit,
+} from './completion/canonicalCasing';
+export {
 	ProjectTypeName,
 	resolveTypeCompletions,
 	TypeCompletion,

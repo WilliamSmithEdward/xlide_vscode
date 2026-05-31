@@ -1,0 +1,30 @@
+import { describe, it, expect } from 'vitest';
+import { resolveCanonicalCaseEdit } from '../src/analyzer';
+
+function editAtMarker(src: string) {
+	const offset = src.indexOf('|');
+	if (offset < 0) {
+		throw new Error('Missing | marker');
+	}
+	return resolveCanonicalCaseEdit(src.replace('|', ''), offset);
+}
+
+describe('canonical casing edits', () => {
+	it('canonicalizes host member names after a boundary', () => {
+		const edit = editAtMarker(
+			'Sub T()\n    Workbooks(1).Worksheets(1).Range("A1").value| = 1\nEnd Sub\n',
+		);
+		expect(edit?.text).toBe('Value');
+	});
+
+	it('canonicalizes runtime functions before an argument list', () => {
+		const edit = editAtMarker('Sub T()\n    x = left|("test", 3)\nEnd Sub\n');
+		expect(edit?.text).toBe('Left');
+	});
+
+	it('canonicalizes keywords without touching comments or strings', () => {
+		expect(editAtMarker('sub| T()\nEnd Sub\n')?.text).toBe('Sub');
+		expect(editAtMarker('Sub T()\n    MsgBox "left|("\nEnd Sub\n')).toBeUndefined();
+		expect(editAtMarker("Sub T()\n    ' left|(\nEnd Sub\n")).toBeUndefined();
+	});
+});

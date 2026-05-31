@@ -24,6 +24,7 @@ import {
 	ModuleSymbolKind,
 	ProjectIndex,
 	ProjectTypeName,
+	resolveCanonicalCaseEdit,
 	resolveHover,
 	resolveIdentifierCompletions,
 	resolveMemberCompletions,
@@ -83,6 +84,7 @@ class VbaMemberCompletionProvider
 {
 	private readonly _cache = new Map<string, CachedModules>();
 	private readonly _typeCache = new Map<string, CachedProjectTypes>();
+	private _applyingCanonicalCase = false;
 
 	constructor(
 		private readonly _bridge: PythonBridge,
@@ -107,22 +109,62 @@ class VbaMemberCompletionProvider
 	): Promise<vscode.CompletionItem[]> {
 		const source = document.getText();
 		const offset = document.offsetAt(position);
+		const range = this._completionRange(document, position);
 
 		const memberCtx = await this._buildContext(document);
 		const members = resolveMemberCompletions(source, offset, memberCtx);
 		if (members.length > 0) {
-			return members.map((mem) => this._toItem(mem));
+			return members.map((mem) => this._toItem(mem, range));
 		}
 
 		const typeCtx = await this._buildTypeContext(document, source);
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
-			return types.map((t) => this._toTypeItem(t));
+			return types.map((t) => this._toTypeItem(t, range));
 		}
 
 		const identCtx = await this._buildIdentifierContext(document);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
-		return idents.map((id) => this._toIdentItem(id));
+		return idents.map((id) => this._toIdentItem(id, range));
+	}
+
+	async applyCanonicalCase(
+		document: vscode.TextDocument,
+		candidateEnd: vscode.Position,
+	): Promise<void> {
+		if (this._applyingCanonicalCase) {
+			return;
+		}
+		const editor = vscode.window.activeTextEditor;
+		if (!editor || editor.document !== document) {
+			return;
+		}
+		const source = document.getText();
+		const offset = document.offsetAt(candidateEnd);
+		const edit = resolveCanonicalCaseEdit(source, offset, {
+			member: await this._buildContext(document),
+			identifier: await this._buildIdentifierContext(document),
+		});
+		if (!edit) {
+			return;
+		}
+		const range = new vscode.Range(
+			document.positionAt(edit.start),
+			document.positionAt(edit.end),
+		);
+		if (document.getText(range) === edit.text) {
+			return;
+		}
+
+		this._applyingCanonicalCase = true;
+		try {
+			await editor.edit((builder) => builder.replace(range, edit.text), {
+				undoStopBefore: false,
+				undoStopAfter: false,
+			});
+		} finally {
+			this._applyingCanonicalCase = false;
+		}
 	}
 
 	async provideHover(
@@ -490,7 +532,7 @@ class VbaMemberCompletionProvider
 		}
 	}
 
-	private _toItem(mem: MemberCompletion): vscode.CompletionItem {
+	private _toItem(mem: MemberCompletion, range: vscode.Range): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(
 			mem.name,
 			mem.kind === 'method'
@@ -507,12 +549,14 @@ class VbaMemberCompletionProvider
 		if (mem.documentation) {
 			item.documentation = new vscode.MarkdownString(mem.documentation);
 		}
+		this._applyCompletionInsert(item, mem.name, range, mem.kind === 'method' || Boolean(mem.signature));
 		return item;
 	}
 
-	private _toTypeItem(t: TypeCompletion): vscode.CompletionItem {
+	private _toTypeItem(t: TypeCompletion, range: vscode.Range): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(t.name, this._typeItemKind(t));
 		item.detail = t.detail;
+		this._applyCompletionInsert(item, t.name, range, false);
 		return item;
 	}
 
@@ -528,13 +572,54 @@ class VbaMemberCompletionProvider
 		}
 	}
 
-	private _toIdentItem(id: IdentifierCompletion): vscode.CompletionItem {
+	private _toIdentItem(id: IdentifierCompletion, range: vscode.Range): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(id.name, this._identItemKind(id));
 		item.detail = id.detail;
 		if (id.documentation) {
 			item.documentation = new vscode.MarkdownString(id.documentation);
 		}
+		this._applyCompletionInsert(
+			item,
+			id.name,
+			range,
+			id.kind === 'runtime' || id.kind === 'procedure',
+		);
 		return item;
+	}
+
+	private _applyCompletionInsert(
+		item: vscode.CompletionItem,
+		name: string,
+		range: vscode.Range,
+		callable: boolean,
+	): void {
+		item.range = range;
+		item.filterText = name;
+		if (!callable) {
+			item.insertText = name;
+			return;
+		}
+		item.insertText = new vscode.SnippetString(`${name}($0)`);
+		item.command = {
+			command: 'editor.action.triggerParameterHints',
+			title: 'Trigger Parameter Hints',
+		};
+	}
+
+	private _completionRange(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+	): vscode.Range {
+		const line = document.lineAt(position.line).text;
+		let start = position.character;
+		while (start > 0 && /[A-Za-z0-9_]/.test(line[start - 1])) {
+			start -= 1;
+		}
+		let end = position.character;
+		while (end < line.length && /[A-Za-z0-9_]/.test(line[end])) {
+			end += 1;
+		}
+		return new vscode.Range(position.line, start, position.line, end);
 	}
 
 	private _identItemKind(id: IdentifierCompletion): vscode.CompletionItemKind {
@@ -579,6 +664,16 @@ export function registerVbaMemberCompletion(
 			'.',
 			' ',
 		),
+		vscode.workspace.onDidChangeTextDocument((event) => {
+			if (!isVbaDocument(event.document) || event.contentChanges.length !== 1) {
+				return;
+			}
+			const change = event.contentChanges[0];
+			if (!change.range.isEmpty || !isCanonicalCaseBoundary(change.text)) {
+				return;
+			}
+			void provider.applyCanonicalCase(event.document, change.range.start);
+		}),
 		vscode.languages.registerHoverProvider(selector, provider),
 		vscode.languages.registerSignatureHelpProvider(
 			selector,
@@ -598,5 +693,17 @@ export function registerVbaMemberCompletion(
 				// Ignore URIs we cannot decode.
 			}
 		}),
+	);
+}
+
+function isVbaDocument(document: vscode.TextDocument): boolean {
+	return document.languageId === 'vba' || document.uri.scheme === XLIDE_SCHEME;
+}
+
+function isCanonicalCaseBoundary(text: string): boolean {
+	return (
+		/^[ \t]$/.test(text) ||
+		/^\r?\n[ \t]*$/.test(text) ||
+		['(', ')', '.', ',', '=', ':', '+', '-', '*', '/', '\\', '&', '<', '>'].includes(text)
 	);
 }
