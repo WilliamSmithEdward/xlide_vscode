@@ -106,6 +106,13 @@ describe('hover - host symbols', () => {
 		expect(info?.details[0]).toMatch(/Excel host (property|method)/);
 	});
 
+	it('includes generated reference docs on promoted host member hovers', () => {
+		const src = 'Sub T()\n    Application.Calculate\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('Calculate') + 2, {});
+		expect(info?.signature).toBe('Application.Calculate()');
+		expect(info?.documentation).toContain('Calculates all open workbooks');
+	});
+
 	it('describes a worksheet code name', () => {
 		const src = 'Sub T()\n    Sheet1.Range("A1")\nEnd Sub\n';
 		const info = resolveHover(src, src.indexOf('Sheet1') + 2, {

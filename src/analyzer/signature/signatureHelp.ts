@@ -7,7 +7,8 @@
 //
 // Three signature sources are consulted, in order of specificity:
 //   1. Host members  (e.g. Workbooks.Open) - verified Office object-model
-//      signatures from excelObjectModel.ts (resolveHostMemberSignature).
+//      signatures from generated HostMember metadata or excelObjectModel.ts
+//      fallbacks (via member completion / resolveHostMemberSignature).
 //   2. User procedures (Sub/Function/Property) in the current module - built
 //      from the parsed AST so ByVal/Optional/ParamArray detail is exact.
 //   3. Built-in runtime functions (MsgBox, Left, ...) - the verified signature
@@ -22,8 +23,8 @@ import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { parseModule } from '../parser/parseModule';
 import { ParameterNode, ProcedureNode } from '../parser/nodes';
-import { resolveReceiverTypeAt, MemberCompletionContext } from '../completion/memberAccess';
-import { resolveHostMemberSignature } from '../host/hostModel';
+import { resolveMemberCompletions, MemberCompletionContext } from '../completion/memberAccess';
+import { getHostType } from '../host/hostModel';
 import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { extractLeadingDoc } from '../docs/docComment';
 import { DocRegistry } from '../docs/docRegistry';
@@ -324,17 +325,23 @@ function signatureForCallee(
 	ctx: SignatureHelpContext,
 ): string | undefined {
 	if (site.isMember) {
-		const recvType = resolveReceiverTypeAt(source, site.calleeEndOffset, ctx);
-		if (!recvType) {
-			return undefined;
-		}
-		return resolveHostMemberSignature(recvType, site.calleeName, ctx.model);
+		return memberCompletionForCallee(site, source, ctx)?.signature;
 	}
 	const proc = findUserProc(ctx.moduleSource ?? source, site.calleeName);
 	if (proc) {
 		return userProcSignature(proc);
 	}
 	return resolveRuntimeFunction(site.calleeName)?.signature;
+}
+
+function memberCompletionForCallee(
+	site: CallSite,
+	source: string,
+	ctx: SignatureHelpContext,
+) {
+	return resolveMemberCompletions(source, site.calleeEndOffset, ctx).find(
+		(member) => member.name.toLowerCase() === site.calleeName.toLowerCase(),
+	);
 }
 
 /**
@@ -404,6 +411,17 @@ function docForCallee(
 	source: string,
 	ctx: SignatureHelpContext,
 ): VbaDoc | undefined {
+	if (site.isMember) {
+		const member = memberCompletionForCallee(site, source, ctx);
+		const external = member
+			? externalDocForMember(ctx, site.calleeName, member.owner)
+			: ctx.docRegistry?.lookup(site.calleeName);
+		if (!member) {
+			return external;
+		}
+		const hostMember = !!getHostType(member.owner, ctx.model);
+		return hostMember ? external ?? member.doc : member.doc ?? external;
+	}
 	if (!site.isMember) {
 		const moduleSource = ctx.moduleSource ?? source;
 		const proc = findUserProc(moduleSource, site.calleeName);
@@ -415,6 +433,20 @@ function docForCallee(
 		}
 	}
 	return ctx.docRegistry?.lookup(site.calleeName);
+}
+
+function externalDocForMember(
+	ctx: SignatureHelpContext,
+	name: string,
+	owner: string,
+): VbaDoc | undefined {
+	const qualifier = getHostType(owner, ctx.model)?.displayName ?? displayTypeName(owner);
+	return ctx.docRegistry?.lookup(name, qualifier) ?? ctx.docRegistry?.lookup(name);
+}
+
+function displayTypeName(typeName: string): string {
+	const dot = typeName.lastIndexOf('.');
+	return dot >= 0 ? typeName.slice(dot + 1) : typeName;
 }
 
 /** Returns the `<param>` note matching a signature parameter substring, if any. */

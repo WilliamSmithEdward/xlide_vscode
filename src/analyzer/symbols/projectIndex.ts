@@ -20,6 +20,7 @@ import {
 	type VbaProjectClassMember,
 	type VbaProjectClassMembers,
 	type VbaSymbol,
+	type VbaProcedureParam,
 	type VbaProcedureSignature,
 } from './symbolModel';
 import type { Span } from '../parser/nodes';
@@ -181,6 +182,45 @@ function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
 	return params[params.length - 1];
 }
 
+function procedureParams(symbol: VbaSymbol): VbaProcedureParam[] {
+	return (symbol.children ?? [])
+		.filter((child) => child.kind === 'parameter')
+		.map((child) => ({
+			name: child.name,
+			type: child.asType,
+			optional: child.optional ?? false,
+			paramArray: child.paramArray ?? false,
+			isArray: child.isArray ?? false,
+		}));
+}
+
+function formatProcedureParam(param: VbaProcedureParam): string {
+	let label = param.name;
+	if (param.isArray) {
+		label += '()';
+	}
+	if (param.type) {
+		label += ` As ${param.type}`;
+	}
+	if (param.paramArray) {
+		label = `ParamArray ${label}`;
+	}
+	return param.optional ? `[${label}]` : label;
+}
+
+function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
+	if (
+		symbol.kind !== 'sub' &&
+		symbol.kind !== 'function' &&
+		symbol.kind !== 'propertyGet'
+	) {
+		return undefined;
+	}
+	const params = procedureParams(symbol).map(formatProcedureParam).join(', ');
+	const returns = symbol.asType ? ` As ${symbol.asType}` : '';
+	return `${symbol.name}(${params})${returns}`;
+}
+
 /** A project-wide symbol index built from a set of module sources. */
 export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
@@ -271,15 +311,7 @@ export class ProjectIndex {
 				) {
 					continue;
 				}
-				const params = (symbol.children ?? [])
-					.filter((child) => child.kind === 'parameter')
-					.map((child) => ({
-						name: child.name,
-						type: child.asType,
-						optional: child.optional ?? false,
-						paramArray: child.paramArray ?? false,
-						isArray: child.isArray ?? false,
-					}));
+				const params = procedureParams(symbol);
 				const sig: VbaProcedureSignature = {
 					name: symbol.name,
 					moduleName: symbol.moduleName,
@@ -671,6 +703,9 @@ export class ProjectIndex {
 				if (!existing.writeType) {
 					existing.writeType = projectObjectMemberWriteType(symbol);
 				}
+				if (!existing.signature) {
+					existing.signature = projectObjectMemberSignature(symbol);
+				}
 				if (!existing.doc && symbol.doc) {
 					existing.doc = symbol.doc;
 				}
@@ -680,6 +715,7 @@ export class ProjectIndex {
 				name: symbol.name,
 				kind,
 				returns: symbol.asType,
+				signature: projectObjectMemberSignature(symbol),
 				writable: projectObjectMemberWritable(symbol),
 				writeType: projectObjectMemberWriteType(symbol),
 				moduleName: mod.moduleName,

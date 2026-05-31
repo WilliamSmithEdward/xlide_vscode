@@ -323,9 +323,13 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   `reference/excel/json`, emits promoted runtime metadata under
   `src/analyzer/host/excelReferenceMembers.ts`, and writes the deterministic
   coverage report at `docs/excel_reference_coverage.md`.
+- [x] Preserve generated Excel reference member signatures and documentation in
+  the promoted host metadata, enriching overlapping curated members through the
+  shared completion/hover/signature-help member surface.
 - [x] Promote generated non-exhaustive core Excel surfaces for completion and
   chaining: `Application`, `Worksheet`, `Range`, `Workbooks`, `Worksheets`, and
-  `Sheets` now merge dump-backed member names with curated return metadata.
+  `Sheets` now merge dump-backed member names, signatures, and documentation
+  with curated return/chaining metadata.
 - [x] Promote generated `Excel.Worksheet` to an exhaustive host diagnostic
   surface, so unknown members on `ActiveSheet` and declared `Worksheet`
   variables participate in hard `member-not-found` diagnostics.
@@ -354,8 +358,11 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   claim class-level docs.
 - [ ] Extend the source member model to events, richer signatures, declaration
   spans, and document/UserForm designer-backed members.
-- [ ] Feed workbook class-member resolution into signature help,
-  go-to-definition, and member-call diagnostics.
+- [x] Feed workbook class-member resolution into signature help for
+  source-backed method/function members, including inline XML summary and
+  parameter docs.
+- [ ] Feed workbook class-member resolution into go-to-definition and
+  member-call diagnostics.
 - [ ] Extend external metadata files as an explicit object/member metadata
   source for referenced libraries, add-ins, team APIs, and host extensions that
   XLIDE cannot parse from workbook source.
@@ -381,7 +388,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
     (Excel has the first report)
   - mark a host type `exhaustive` only after its dump-backed surface is complete
     enough to prove member absence for that type/version
-- [ ] Keep generated/reference metadata separate from source-backed workbook
+- [x] Keep generated/reference metadata separate from source-backed workbook
   symbols, then merge through the unified object-member contract. Source stays
   authoritative for workbook-owned classes/modules; dump-backed metadata becomes
   authoritative only for the exact referenced host/library surface it describes.
@@ -431,7 +438,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   fields, and local/module variables) and `New Person` expressions.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
-  symbol/type model.
+  symbol/type model. Signature help now reuses the member-completion route for
+  member-call signatures; diagnostics and go-to-definition still need the same
+  consolidation.
 
 Definition of done:
 

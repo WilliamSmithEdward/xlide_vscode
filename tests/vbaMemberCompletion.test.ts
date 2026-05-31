@@ -526,6 +526,25 @@ describe('member completion - chaining', () => {
 		expect(range?.signature).toBe('Range(Cell1, [Cell2]) As Range');
 	});
 
+	it('carries generated reference signatures and docs for promoted host members', () => {
+		const src = 'Sub Test()\n    Application.Calc\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Application.Calc'));
+		const calculate = got.find((m) => m.name === 'Calculate');
+		expect(calculate?.signature).toBe('Calculate()');
+		expect(calculate?.documentation).toContain('Calculates all open workbooks');
+		expect(calculate?.doc?.source).toBe('external');
+	});
+
+	it('uses generated reference metadata ahead of fallback signatures', () => {
+		const src = 'Sub Test()\n    Workbooks.Op\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Workbooks.Op'));
+		const open = got.find((m) => m.name === 'Open');
+		expect(open?.signature).toContain('[ReadOnly As Variant]');
+		expect(open?.doc?.params.find((p) => p.name === 'ReadOnly')?.text).toContain(
+			'read-only mode',
+		);
+	});
+
 	it('walks through indexed Sheets into merged sheet object members', () => {
 		const sheetSrc = 'Sub Test()\n    Workbooks(1).Sheets(1).\nEnd Sub\n';
 		const sheetMembers = names(sheetSrc, 'Workbooks(1).Sheets(1).');

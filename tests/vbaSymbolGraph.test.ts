@@ -580,6 +580,10 @@ describe('ProjectIndex project class members', () => {
 		expect(age?.writeType).toBe('Long');
 		const save = person?.members.find((m) => m.name === 'Save');
 		expect(save?.writable).toBeUndefined();
+		expect(save?.signature).toBe('Save()');
+		expect(person?.members.find((m) => m.name === 'Manager')?.signature).toBe(
+			'Manager() As Person',
+		);
 	});
 
 	it('marks Property Get-only members and constants as read-only', () => {

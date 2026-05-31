@@ -17,6 +17,7 @@ import {
 	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
 } from './excelReferenceMembers';
+import type { VbaDoc } from '../docs/docModel';
 
 export type HostMemberKind = 'property' | 'method' | 'event';
 
@@ -27,6 +28,10 @@ export interface HostMember {
 	returns?: string;
 	/** Candidate host types this member may return, when the object model is mixed. */
 	returnsAnyOf?: readonly string[];
+	/** Verified call signature from reference metadata, when available. */
+	signature?: string;
+	/** Reference documentation rendered in completion, hover, and call tips. */
+	doc?: VbaDoc;
 }
 
 export interface HostType {
@@ -116,16 +121,26 @@ function mergeHostMembers(
 	reference: readonly HostMember[],
 ): HostMember[] {
 	const out: HostMember[] = [];
-	const seen = new Set<string>();
+	const byName = new Map<string, HostMember>();
 	for (const member of [...primary, ...reference]) {
 		const key = member.name.toLowerCase();
-		if (seen.has(key)) {
+		const existing = byName.get(key);
+		if (existing) {
+			enrichHostMember(existing, member);
 			continue;
 		}
-		seen.add(key);
-		out.push(member);
+		const copy = { ...member };
+		byName.set(key, copy);
+		out.push(copy);
 	}
 	return out;
+}
+
+function enrichHostMember(target: HostMember, source: HostMember): void {
+	target.returns ??= source.returns;
+	target.returnsAnyOf ??= source.returnsAnyOf;
+	target.signature ??= source.signature;
+	target.doc ??= source.doc;
 }
 
 function referenceMembers(displayName: string): readonly HostMember[] {

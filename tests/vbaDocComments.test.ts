@@ -203,6 +203,20 @@ describe('hover documentation', () => {
 		expect(info?.documentation).toContain('Team note about MsgBox.');
 	});
 
+	it('lets external metadata override generated host hover docs', () => {
+		const reg = new DocRegistry();
+		reg.add(
+			parseMetadataFile(
+				'<member name="Application.Calculate"><summary>Team calc note.</summary></member>',
+			),
+		);
+		const src = 'Sub A()\n    Application.Calculate\nEnd Sub\n';
+		const offset = src.indexOf('Calculate') + 1;
+		const info = resolveHover(src, offset, { docRegistry: reg });
+		expect(info?.documentation).toContain('Team calc note.');
+		expect(info?.documentation).not.toContain('Calculates all open workbooks');
+	});
+
 	it('prefers the inline doc over an external entry', () => {
 		const reg = new DocRegistry();
 		reg.add(
@@ -271,6 +285,26 @@ describe('signature help documentation', () => {
 		expect(info?.documentation).toContain('Adds two numbers.');
 		expect(info?.parameters[0].documentation).toBe('First addend.');
 		expect(info?.parameters[1].documentation).toBe('Second addend.');
+	});
+
+	it('lets external metadata override generated host signature docs', () => {
+		const reg = new DocRegistry();
+		reg.add(
+			parseMetadataFile(
+				[
+					'<member name="Workbooks.Open">',
+					'  <summary>Team open note.</summary>',
+					'  <param name="Filename">Team path note.</param>',
+					'</member>',
+				].join('\n'),
+			),
+		);
+		const src = 'Sub A()\n    Workbooks.Open(\nEnd Sub\n';
+		const offset = src.indexOf('Open(') + 'Open('.length;
+		const info = resolveSignatureHelp(src, offset, { docRegistry: reg });
+		expect(info?.label.startsWith('Open(Filename As String')).toBe(true);
+		expect(info?.documentation).toContain('Team open note.');
+		expect(info?.parameters[0].documentation).toBe('Team path note.');
 	});
 
 	it('synthesizes a signature from external metadata when none is known', () => {

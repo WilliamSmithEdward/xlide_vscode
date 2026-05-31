@@ -382,10 +382,13 @@ into a pure analyzer layer and a thin VS Code provider:
   or update checked-in metadata under `src/` with explicit provenance. The Excel
   generator currently emits `Application`, `Workbook`, `Worksheet`, `Range`,
   `Workbooks`, `Worksheets`, and `Sheets` into
-  `src/analyzer/host/excelReferenceMembers.ts`; `Excel.Workbook` and
-  `Excel.Worksheet` are marked exhaustive for hard unknown-member diagnostics.
-  The generator also writes `docs/excel_reference_coverage.md` so promotion gaps
-  stay visible.
+  `src/analyzer/host/excelReferenceMembers.ts`, including available member
+  signatures and reference documentation; `Excel.Workbook` and `Excel.Worksheet`
+  are marked exhaustive for hard unknown-member diagnostics. Hand-curated host
+  members merge with matching generated entries so completion, hover, and
+  signature help use the same enriched member surface instead of a parallel
+  fallback path. The generator also writes `docs/excel_reference_coverage.md` so
+  promotion gaps stay visible.
   LLM-generated member lists are never used; this is host metadata, not VBA
   grammar.
 - `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
@@ -410,7 +413,7 @@ into a pure analyzer layer and a thin VS Code provider:
   variables declared as workbook classes (for example `Dim p As Person`) can
   offer public/default-public source members at `p.` without guessing from
   names. Source-backed workbook members carry inline `'''` documentation through
-  to completion and hover.
+  to completion, hover, and member-call signature help.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it builds the project context
   from the workbook's module list (worksheet code names and the `Me` type for
@@ -443,9 +446,9 @@ into a pure analyzer layer and a thin VS Code provider:
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`
   (`resolveHover`), a pure resolver that describes the identifier under the
-  cursor: `receiver.member` host or source-backed workbook members (reusing the
-  same member-access resolver as completion), host globals, worksheet code
-  names, user declarations from the live module symbol graph (procedure
+  cursor: `receiver.member` host/reference or source-backed workbook members
+  (reusing the same member-access resolver as completion), host globals,
+  worksheet code names, user declarations from the live module symbol graph (procedure
   signatures with parameters and return type, variables/parameters/constants
   with their `As` type, enums and members, user types and fields), and built-in
   VBA runtime functions, annotated with the declaring module and visibility.
@@ -475,18 +478,17 @@ enclosing *call* paren (a `(` directly preceded by an identifier; grouping/index
 parens are skipped), counting top-level commas for the active parameter; when no
 call paren is open it falls back to a conservative *parenless call statement*
 detector (`Workbooks.Open "file", `) that bails on statement keywords, file-I/O
-starters, and top-level `=` assignments. The callee's signature is sourced, in
-order, from: host-member signatures (`resolveHostMemberSignature`, backed by the
-verified `EXCEL_OBJECT_MODEL.memberSignatures` table — e.g. the full
-`Workbooks.Open(...)`), user `Sub`/`Function`/`Property` procedures (built from
-the parsed AST so `Optional`/`ParamArray`/default detail renders in VBE bracket
-form), then `resolveRuntimeFunction`. The whole resolver is wrapped in try/catch
-so it never disrupts editing, and signatures are never invented — an unknown
-callee yields no tip. Host-member receiver types are resolved by reusing
-`resolveReceiverTypeAt` from the member-completion layer, so chained receivers
-(`ActiveSheet.Range("A1").Offset(`) work. Verified host signatures live beside
-the object model in `excelObjectModel.ts`; `resolveHostMemberSignature` in
-`hostModel.ts` looks them up case-insensitively.
+starters, and top-level `=` assignments. Member-call signatures are resolved
+through the same member-completion route used for `object.` completion, so host
+members and source-backed project class members share receiver binding,
+return-type chains, and inline XML docs. Bare-call signatures are sourced from
+same-module user `Sub`/`Function`/`Property` procedures (built from the parsed
+AST so `Optional`/`ParamArray`/default detail renders in VBE bracket form), then
+`resolveRuntimeFunction`. The whole resolver is wrapped in try/catch so it never
+disrupts editing, and signatures are never invented — an unknown callee yields
+no tip. Verified host signatures live beside the object model in
+`excelObjectModel.ts`; source-backed class member signatures are emitted by
+`ProjectIndex.projectClassMembers()`.
 
 **Developer documentation (XML doc-comments + external metadata)** —
 `src/analyzer/docs/` adds Visual-Studio-style IntelliSense documentation. A
@@ -501,11 +503,13 @@ body); `externalDoc.ts` parses metadata files; `docRegistry.ts` resolves a name
 (with optional qualifier) to a `VbaDoc`. Inline docs are attached to symbols in
 `buildModuleSymbols.ts` (a backward scan over contiguous `'''` lines above each
 member), including class-module properties and methods; the project
-class-member surface carries those docs into `object.` completion and member
-hover. Hover (`resolveHover`) and signature help (`resolveSignatureHelp`) now
-carry a `documentation?` field (and per-parameter docs for call tips), with the
-precedence **inline comment > external metadata > curated library** — i.e.
-developer-defined metadata overrides the built-in library. The vscode side
+class-member surface carries those docs into `object.` completion, member hover,
+and source-backed member-call signature help. Generated host reference metadata
+also carries `VbaDoc` summaries and parameter notes into completion, hover, and
+host member-call signature help. Hover (`resolveHover`) and signature help
+(`resolveSignatureHelp`) now carry a `documentation?` field (and per-parameter
+docs for call tips), with the precedence **source inline comment > developer
+external metadata > built-in host/reference metadata**. The vscode side
 (`src/vbaDocMetadata.ts`, `DocMetadataLoader`) discovers metadata files anywhere
 in the workspace via the `xlide.docs.metadataGlob` setting (default
 `**/*.vbref.xml`), parses them into a live `DocRegistry`, and reloads on file

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveSignatureHelp, SignatureHelpContext } from '../src/analyzer';
+import { ProjectIndex, resolveSignatureHelp, SignatureHelpContext } from '../src/analyzer';
 
 /** Resolves signature help with the caret at the `|` marker in `src`. */
 function help(src: string, ctx: SignatureHelpContext = {}) {
@@ -24,7 +24,7 @@ describe('signature help - host members', () => {
 	it('advances the active parameter across commas', () => {
 		const info = help('Sub T()\nWorkbooks.Open("a.xlsx", True, |\nEnd Sub');
 		expect(info?.activeParameter).toBe(2);
-		expect(info?.parameters[2].label).toBe('[ReadOnly]');
+		expect(info?.parameters[2].label).toBe('[ReadOnly As Variant]');
 	});
 
 	it('clamps the active parameter to the last for excess commas', () => {
@@ -53,9 +53,22 @@ describe('signature help - host members', () => {
 		expect(info?.parameters[0].label).toBe('[RowOffset]');
 	});
 
+	it('includes generated reference docs for host member call tips', () => {
+		const info = help('Sub T()\nWorkbooks.Open(|\nEnd Sub');
+		expect(info?.documentation).toContain('Opens a workbook');
+		expect(info?.parameters[0].documentation).toContain('file name');
+	});
+
+	it('offers generated no-argument host method signatures', () => {
+		const info = help('Sub T()\nApplication.Calculate(|\nEnd Sub');
+		expect(info?.label).toBe('Calculate()');
+		expect(info?.documentation).toContain('Calculates all open workbooks');
+		expect(info?.parameters).toEqual([]);
+	});
+
 	it('returns undefined for a member without a signature', () => {
 		// Workbook.Name is a property with no transcribed signature.
-		const info = help('Sub T()\nThisWorkbook.Activate(|\nEnd Sub');
+		const info = help('Sub T()\nThisWorkbook.Name(|\nEnd Sub');
 		expect(info).toBeUndefined();
 	});
 });
@@ -121,6 +134,50 @@ describe('signature help - user procedures', () => {
 		].join('\n');
 		const info = help(fn);
 		expect(info?.label).toBe('Add(A As Long, B As Long) As Long');
+	});
+});
+
+describe('signature help - project class members', () => {
+	const index = new ProjectIndex();
+	index.setModule({
+		moduleName: 'Person',
+		moduleKind: 'class',
+		source: [
+			"''' <summary>Saves the person.</summary>",
+			"''' <param name=\"Caption\">Caption text.</param>",
+			'Public Sub Save(ByVal Caption As String, Optional Loud As Boolean)',
+			'End Sub',
+			'Public Function Manager(ByVal Depth As Long) As Person',
+			'End Function',
+		].join('\n'),
+	});
+	const projectClassMembers = index.projectClassMembers();
+
+	it('uses source-backed project class method signatures', () => {
+		const info = help('Sub T()\nDim p As Person\np.Save(|\nEnd Sub', {
+			projectClassMembers,
+		});
+		expect(info?.label).toBe('Save(Caption As String, [Loud As Boolean])');
+		expect(info?.parameters.map((p) => p.label)).toEqual([
+			'Caption As String',
+			'[Loud As Boolean]',
+		]);
+	});
+
+	it('tracks active parameters and return types for project class functions', () => {
+		const info = help('Sub T()\nDim p As Person\nSet p = p.Manager(1, |\nEnd Sub', {
+			projectClassMembers,
+		});
+		expect(info?.label).toBe('Manager(Depth As Long) As Person');
+		expect(info?.activeParameter).toBe(0);
+	});
+
+	it('carries inline XML docs into project class member signature help', () => {
+		const info = help('Sub T()\nDim p As Person\np.Save(|\nEnd Sub', {
+			projectClassMembers,
+		});
+		expect(info?.documentation).toContain('Saves the person.');
+		expect(info?.parameters[0].documentation).toBe('Caption text.');
 	});
 });
 

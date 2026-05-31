@@ -533,24 +533,34 @@ class VbaMemberCompletionProvider
 	}
 
 	private _toItem(mem: MemberCompletion, range: vscode.Range): vscode.CompletionItem {
-		const item = new vscode.CompletionItem(
-			mem.name,
-			mem.kind === 'method'
-				? vscode.CompletionItemKind.Method
-				: vscode.CompletionItemKind.Property,
-		);
+		const item = new vscode.CompletionItem(mem.name, this._memberItemKind(mem));
 		const ownerName = getHostType(mem.owner)?.displayName ?? mem.owner;
-		const kindLabel = mem.kind === 'method' ? 'method' : 'property';
-		item.detail = `${ownerName} ${kindLabel}`;
-		if (mem.returns) {
+		const kindLabel = mem.kind;
+		if (mem.signature) {
+			item.detail = `${ownerName}.${mem.signature}`;
+		} else {
+			item.detail = `${ownerName} ${kindLabel}`;
+		}
+		if (!mem.signature && mem.returns) {
 			const returnName = getHostType(mem.returns)?.displayName ?? mem.returns;
 			item.detail += ` -> ${returnName}`;
 		}
 		if (mem.documentation) {
 			item.documentation = new vscode.MarkdownString(mem.documentation);
 		}
-		this._applyCompletionInsert(item, mem.name, range, mem.kind === 'method' || Boolean(mem.signature));
+		this._applyCompletionInsert(item, mem.name, range, mem.kind === 'method');
 		return item;
+	}
+
+	private _memberItemKind(mem: MemberCompletion): vscode.CompletionItemKind {
+		switch (mem.kind) {
+			case 'method':
+				return vscode.CompletionItemKind.Method;
+			case 'event':
+				return vscode.CompletionItemKind.Event;
+			default:
+				return vscode.CompletionItemKind.Property;
+		}
 	}
 
 	private _toTypeItem(t: TypeCompletion, range: vscode.Range): vscode.CompletionItem {

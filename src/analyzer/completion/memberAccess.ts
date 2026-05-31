@@ -66,8 +66,10 @@ export interface MemberCompletion {
 	owner: string;
 	/** True when the owner member surface is complete enough to prove absence. */
 	surfaceExhaustive?: boolean;
-	/** Markdown documentation rendered from source-backed XML doc comments. */
+	/** Markdown documentation rendered from source or host reference metadata. */
 	documentation?: string;
+	/** Raw documentation model, used by signature help for parameter notes. */
+	doc?: VbaDoc;
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -77,10 +79,12 @@ const COMBINED_TYPE_SEPARATOR = '|';
 const UNION_TYPE_PREFIX = 'union:';
 const UNION_TYPE_SEPARATOR = '|';
 
-type CompletionMemberSource = Pick<HostMember, 'name' | 'kind' | 'returns'> & {
+type CompletionMemberSource = Pick<
+	HostMember,
+	'name' | 'kind' | 'returns' | 'signature' | 'doc'
+> & {
 	writable?: boolean;
 	writeType?: string;
-	doc?: VbaDoc;
 };
 
 interface MemberSurface {
@@ -165,7 +169,7 @@ export function resolveMemberCompletions(
 			name: mem.name,
 			kind: mem.kind,
 			returns: mem.returns,
-			signature: signatureForMember(currentType, mem.name, ctx),
+			signature: mem.signature ?? signatureForMember(currentType, mem.name, ctx),
 			writable: mem.writable,
 			writeType: mem.writeType,
 			owner: surface.owner,
@@ -173,6 +177,7 @@ export function resolveMemberCompletions(
 			documentation: hasDocContent(mem.doc)
 				? renderDocMarkdown(mem.doc)
 				: undefined,
+			doc: mem.doc,
 		}));
 }
 
@@ -191,12 +196,30 @@ function signatureForMember(
 	}
 	const combined = parseCombinedTypeKey(typeName);
 	if (combined) {
-		return resolveHostMemberSignature(combined.hostType, memberName, ctx.model);
+		return (
+			projectMemberSignature(combined.projectKey, memberName, ctx) ??
+			resolveHostMemberSignature(combined.hostType, memberName, ctx.model)
+		);
 	}
 	if (typeName.startsWith(PROJECT_TYPE_PREFIX)) {
-		return undefined;
+		return projectMemberSignature(
+			typeName.slice(PROJECT_TYPE_PREFIX.length),
+			memberName,
+			ctx,
+		);
 	}
 	return resolveHostMemberSignature(typeName, memberName, ctx.model);
+}
+
+function projectMemberSignature(
+	projectKey: string,
+	memberName: string,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	const projectType = projectClassMembersByName(ctx).get(projectKey);
+	return projectType?.members.find(
+		(member) => member.name.toLowerCase() === memberName.toLowerCase(),
+	)?.signature;
 }
 
 /**

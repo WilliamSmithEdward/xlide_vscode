@@ -122,6 +122,8 @@ export interface VbaProjectClassMember {
 	kind: 'property' | 'method' | 'event';
 	/** Declared return/object type when the source provides one. */
 	returns?: string;
+	/** Source-backed callable signature for methods and argument-taking properties. */
+	signature?: string;
 	/** True when source proves assignment to the member is allowed. */
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */

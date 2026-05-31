@@ -160,15 +160,19 @@ function buildMemberHover(
 	const ret = member.returns ? ` As ${displayType(member.returns)}` : '';
 	const call = member.kind === 'method' ? '()' : '';
 	const hostType = !!getHostType(member.owner, ctx.model);
+	const signature = member.signature
+		? `${ownerName}.${member.signature}`
+		: `${ownerName}.${member.name}${call}${ret}`;
+	const externalDoc = externalDocMarkdown(ctx, member.name, ownerName);
 	return {
-		signature: `${ownerName}.${member.name}${call}${ret}`,
+		signature,
 		details: [
 			hostType ? `Excel host ${member.kind}` : `${ownerName} ${member.kind}`,
 		],
 		span,
-		documentation:
-			member.documentation ??
-			externalDocMarkdown(ctx, member.name, ownerName),
+		documentation: hostType
+			? externalDoc ?? member.documentation
+			: member.documentation ?? externalDoc,
 	};
 }
 

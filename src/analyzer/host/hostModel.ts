@@ -44,15 +44,21 @@ export function resolveHostGlobal(
 
 /**
  * Returns the verified call signature for a callable member of a host type,
- * or undefined when no signature has been transcribed for it. Case-insensitive
- * on the member name.
+ * first from generated member metadata, then from the curated fallback table.
+ * Returns undefined when no signature is known. Case-insensitive on the member
+ * name.
  */
 export function resolveHostMemberSignature(
 	qualified: string,
 	member: string,
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): string | undefined {
-	return model.memberSignatures?.[qualified]?.[member.toLowerCase()];
+	const lower = member.toLowerCase();
+	return (
+		model.types[qualified]?.members.find((candidate) =>
+			candidate.name.toLowerCase() === lower
+		)?.signature ?? model.memberSignatures?.[qualified]?.[lower]
+	);
 }
 
 /** A host-injected global identifier and the qualified type it denotes. */

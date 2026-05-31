@@ -80,12 +80,55 @@ function memberReturn(raw, kind) {
 	return kind === 'method' ? raw.returns : raw.type ?? raw.returns;
 }
 
+function cleanText(value) {
+	if (typeof value !== 'string') {
+		return undefined;
+	}
+	const text = value.replace(/\s+/g, ' ').trim();
+	return text.length > 0 ? text : undefined;
+}
+
+function memberDoc(raw) {
+	const summary = cleanText(raw.description);
+	const remarks = cleanText(raw.remarks);
+	const params = (raw.parameters ?? [])
+		.map((param) => {
+			if (!param) {
+				return undefined;
+			}
+			const text = cleanText(param.description);
+			if (!param?.name || !text) {
+				return undefined;
+			}
+			const type = cleanText(param.type);
+			return {
+				name: param.name,
+				text,
+				...(type ? { type } : {}),
+			};
+		})
+		.filter(Boolean);
+	if (!summary && !remarks && params.length === 0) {
+		return undefined;
+	}
+	return {
+		...(summary ? { summary } : {}),
+		params,
+		...(remarks ? { remarks } : {}),
+		source: 'external',
+	};
+}
+
 function memberFrom(raw, kind) {
 	const qualifiedReturn = excelQualifiedReturn(memberReturn(raw, kind));
+	const signature = cleanText(raw.signature);
+	const doc = memberDoc(raw);
 	return {
 		name: raw.name,
 		kind,
 		...(qualifiedReturn ? { returns: qualifiedReturn } : {}),
+		...(signature ? { signature } : {}),
+		...(doc ? { doc } : {}),
 	};
 }
 
@@ -126,6 +169,12 @@ function renderMember(member) {
 	];
 	if (member.returns) {
 		parts.push(`returns: ${JSON.stringify(member.returns)}`);
+	}
+	if (member.signature) {
+		parts.push(`signature: ${JSON.stringify(member.signature)}`);
+	}
+	if (member.doc) {
+		parts.push(`doc: ${JSON.stringify(member.doc)}`);
 	}
 	return `\t\t{ ${parts.join(', ')} },`;
 }
@@ -302,6 +351,7 @@ ${markdownTable(
 ## Notes
 
 - Runtime extension code does not read \`reference/\`; promoted metadata is checked in under \`src/\`.
+- Promoted members preserve available signatures and documentation summaries/parameter notes for language-service surfaces.
 - Completion may use partial metadata, but hard \`member-not-found\` diagnostics require a promoted exhaustive surface.
 - Promotion remains type-by-type so each host surface can get representative tests and oracle controls before red diagnostics rely on absence.
 `;
