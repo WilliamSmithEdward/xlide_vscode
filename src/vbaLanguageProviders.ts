@@ -8,6 +8,7 @@ import {
     detectProcOpener,
     isProcClosedAhead,
 } from './vbaLinter';
+import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -421,6 +422,7 @@ export function registerVbaLanguageProviders(
 
     registerVbaDiagnostics(context);
     registerVbaAutoBlock(context);
+    registerVbaMemberCompletion(context, bridge, VBA_SELECTOR);
 
     context.subscriptions.push(
         index,

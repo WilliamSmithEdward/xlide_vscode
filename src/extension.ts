@@ -261,6 +261,10 @@ export function activate(context: vscode.ExtensionContext): void {
             });
         }
 
+        // Recommend disabling AI inline (ghost-text) completions for VBA, which
+        // can hide XLIDE's IntelliSense suggestion menu. One-time, opt-in.
+        recommendDisableInlineSuggest(context, out);
+
         // Item 7: Auto-expand the first workbook on activation so modules are visible.
         void explorer.warmXlsmCache().then(firstNode => {
             if (firstNode) {
@@ -333,3 +337,51 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void { /* nothing async needed */ }
+
+/**
+ * One-time recommendation to disable AI inline (ghost-text) completions for VBA
+ * files, which can visually obscure XLIDE's IntelliSense suggestion menu. Only
+ * shown when inline suggestions are still effectively enabled for VBA and the
+ * user has not been asked before.
+ */
+function recommendDisableInlineSuggest(
+    context: vscode.ExtensionContext,
+    out: vscode.OutputChannel,
+): void {
+    if (context.globalState.get('xlide.inlineSuggestRecommended')) {
+        return;
+    }
+
+    const config = vscode.workspace.getConfiguration('editor', { languageId: 'vba' });
+    const inspected = config.inspect<boolean>('inlineSuggest.enabled');
+    const vbaOverride =
+        inspected?.globalLanguageValue ??
+        inspected?.workspaceLanguageValue ??
+        inspected?.workspaceFolderLanguageValue;
+    if (vbaOverride === false) {
+        return; // Already disabled for VBA; nothing to recommend.
+    }
+    if (config.get<boolean>('inlineSuggest.enabled', true) === false) {
+        return; // Inline suggestions are off everywhere; no conflict to resolve.
+    }
+
+    void context.globalState.update('xlide.inlineSuggestRecommended', true);
+    void vscode.window.showInformationMessage(
+        'XLIDE provides VBA IntelliSense. AI inline completions (gray ghost text) can hide its ' +
+        'suggestion menu. Disable inline completions for VBA files?',
+        'Disable for VBA',
+        'Keep',
+    ).then(choice => {
+        if (choice !== 'Disable for VBA') {
+            return;
+        }
+        vscode.workspace
+            .getConfiguration('editor', { languageId: 'vba' })
+            .update('inlineSuggest.enabled', false, vscode.ConfigurationTarget.Global, true)
+            .then(
+                () => out.appendLine('Disabled editor.inlineSuggest.enabled for [vba].'),
+                (err: Error) => out.appendLine(`Could not update setting: ${err.message}`),
+            );
+    });
+}
+

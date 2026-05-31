@@ -1,0 +1,320 @@
+import { describe, it, expect } from 'vitest';
+import {
+	buildModuleSymbols,
+	ProjectIndex,
+	type VbaSymbol,
+} from '../src/analyzer';
+
+/** Offset of the first character of the first occurrence of `marker`. */
+function offsetOf(src: string, marker: string): number {
+	const idx = src.indexOf(marker);
+	if (idx < 0) {
+		throw new Error(`marker not found: ${marker}`);
+	}
+	return idx;
+}
+
+/** The text of a symbol's nameSpan inside `src` (proves the span is right). */
+function nameText(src: string, symbol: VbaSymbol): string {
+	return src.slice(symbol.nameSpan.start, symbol.nameSpan.end);
+}
+
+describe('buildModuleSymbols', () => {
+	it('extracts procedures with parameters and locals', () => {
+		const src = [
+			'Option Explicit',
+			'',
+			'Public Sub DoWork(ByVal count As Long, name As String)',
+			'    Dim total As Long',
+			'    Dim ws As Worksheet',
+			'    If count > 0 Then',
+			'        Dim inner As String',
+			'    End If',
+			'End Sub',
+		].join('\n');
+		const mod = buildModuleSymbols('Module1', 'standard', src);
+
+		const proc = mod.root.children?.find((c) => c.name === 'DoWork');
+		expect(proc).toBeDefined();
+		expect(proc?.kind).toBe('sub');
+		expect(proc?.visibility).toBe('Public');
+
+		const childNames = (proc?.children ?? []).map((c) => c.name);
+		expect(childNames).toEqual(['count', 'name', 'total', 'ws', 'inner']);
+
+		const count = proc?.children?.find((c) => c.name === 'count');
+		expect(count?.kind).toBe('parameter');
+		expect(count?.asType).toBe('Long');
+
+		const ws = proc?.children?.find((c) => c.name === 'ws');
+		expect(ws?.kind).toBe('localVariable');
+		expect(ws?.asType).toBe('Worksheet');
+
+		// block-nested local is captured
+		const inner = proc?.children?.find((c) => c.name === 'inner');
+		expect(inner?.kind).toBe('localVariable');
+	});
+
+	it('points nameSpan at the declared identifier, not the whole declaration', () => {
+		const src = 'Public Sub DoWork()\nEnd Sub\n';
+		const mod = buildModuleSymbols('Module1', 'standard', src);
+		const proc = mod.root.children?.[0] as VbaSymbol;
+		expect(nameText(src, proc)).toBe('DoWork');
+	});
+
+	it('extracts module variables and constants with visibility', () => {
+		const src = [
+			'Private mState As Long',
+			'Public Const MaxItems As Long = 10',
+			'Dim untyped',
+		].join('\n');
+		const mod = buildModuleSymbols('Module1', 'standard', src);
+
+		const state = mod.all.find((s) => s.name === 'mState');
+		expect(state?.kind).toBe('moduleVariable');
+		expect(state?.visibility).toBe('Private');
+		expect(state?.asType).toBe('Long');
+
+		const max = mod.all.find((s) => s.name === 'MaxItems');
+		expect(max?.kind).toBe('constant');
+		expect(max?.visibility).toBe('Public');
+
+		const untyped = mod.all.find((s) => s.name === 'untyped');
+		expect(untyped?.kind).toBe('moduleVariable');
+		expect(untyped?.visibility).toBe('Dim');
+	});
+
+	it('extracts Type with fields and Enum with members', () => {
+		const src = [
+			'Public Type TPoint',
+			'    X As Double',
+			'    Y As Double',
+			'End Type',
+			'',
+			'Public Enum Color',
+			'    Red',
+			'    Green',
+			'End Enum',
+		].join('\n');
+		const mod = buildModuleSymbols('Module1', 'standard', src);
+
+		const type = mod.root.children?.find((c) => c.name === 'TPoint');
+		expect(type?.kind).toBe('type');
+		expect((type?.children ?? []).map((c) => c.name)).toEqual(['X', 'Y']);
+		expect(type?.children?.[0].kind).toBe('typeField');
+		expect(type?.children?.[0].asType).toBe('Double');
+
+		const en = mod.root.children?.find((c) => c.name === 'Color');
+		expect(en?.kind).toBe('enum');
+		expect((en?.children ?? []).map((c) => c.name)).toEqual(['Red', 'Green']);
+		expect(en?.children?.[0].kind).toBe('enumMember');
+	});
+
+	it('distinguishes the five procedure kinds', () => {
+		const src = [
+			'Sub S()',
+			'End Sub',
+			'Function F() As Long',
+			'End Function',
+			'Property Get P() As Long',
+			'End Property',
+			'Property Let P(v As Long)',
+			'End Property',
+			'Property Set Q(v As Object)',
+			'End Property',
+		].join('\n');
+		const mod = buildModuleSymbols('Module1', 'standard', src);
+		const kinds = (mod.root.children ?? []).map((c) => `${c.name}:${c.kind}`);
+		expect(kinds).toEqual([
+			'S:sub',
+			'F:function',
+			'P:propertyGet',
+			'P:propertyLet',
+			'Q:propertySet',
+		]);
+	});
+
+	it('records the module root kind', () => {
+		const mod = buildModuleSymbols('Sheet1', 'document', 'Sub A()\nEnd Sub\n');
+		expect(mod.moduleKind).toBe('document');
+		expect(mod.root.kind).toBe('module');
+		expect(mod.root.name).toBe('Sheet1');
+	});
+});
+
+describe('ProjectIndex document and workspace symbols', () => {
+	it('returns hierarchical document symbols per module', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Public Sub A(x As Long)\n    Dim y As Long\nEnd Sub\n',
+		});
+		const root = index.documentSymbols('Module1');
+		expect(root?.name).toBe('Module1');
+		const proc = root?.children?.[0];
+		expect(proc?.name).toBe('A');
+		expect((proc?.children ?? []).map((c) => c.name)).toEqual(['x', 'y']);
+	});
+
+	it('filters workspace symbols by case-insensitive substring', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Public Sub Alpha()\nEnd Sub\nPublic Sub Beta()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Module2',
+			moduleKind: 'standard',
+			source: 'Public Function AlphaHelper() As Long\nEnd Function\n',
+		});
+		const names = index.workspaceSymbols('alpha').map((s) => s.name).sort();
+		expect(names).toEqual(['Alpha', 'AlphaHelper']);
+	});
+
+	it('lists indexed module names and supports removal', () => {
+		const index = new ProjectIndex();
+		index.setModule({ moduleName: 'A', moduleKind: 'standard', source: '' });
+		index.setModule({ moduleName: 'B', moduleKind: 'class', source: '' });
+		expect(index.moduleNames().sort()).toEqual(['A', 'B']);
+		index.removeModule('A');
+		expect(index.moduleNames()).toEqual(['B']);
+	});
+});
+
+describe('ProjectIndex name resolution (go-to-definition)', () => {
+	const index = new ProjectIndex();
+	const mod1 = [
+		'Public gShared As Long',
+		'Private mPrivate As Long',
+		'',
+		'Public Sub Caller()',
+		'    Dim local As Long',
+		'    local = Helper(gShared)',
+		'End Sub',
+		'',
+		'Public Function Helper(value As Long) As Long',
+		'    Helper = value',
+		'End Function',
+	].join('\n');
+	const mod2 = [
+		'Public Sub OtherEntry()',
+		'End Sub',
+		'',
+		'Private Sub Secret()',
+		'End Sub',
+	].join('\n');
+	index.setModule({ moduleName: 'Module1', moduleKind: 'standard', source: mod1 });
+	index.setModule({ moduleName: 'Module2', moduleKind: 'standard', source: mod2 });
+
+	it('resolves a local variable to its declaration in the enclosing procedure', () => {
+		const useOffset = mod1.lastIndexOf('local');
+		const hits = index.resolveDefinition('Module1', 'local', useOffset);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].kind).toBe('localVariable');
+		expect(hits[0].containerName).toBe('Caller');
+	});
+
+	it('resolves a parameter ahead of a same-named module symbol', () => {
+		const useOffset = mod1.lastIndexOf('value');
+		const hits = index.resolveDefinition('Module1', 'value', useOffset);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].kind).toBe('parameter');
+		expect(hits[0].containerName).toBe('Helper');
+	});
+
+	it('resolves a module-level variable used inside a procedure', () => {
+		const useOffset = mod1.indexOf('gShared)');
+		const hits = index.resolveDefinition('Module1', 'gShared', useOffset);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].kind).toBe('moduleVariable');
+	});
+
+	it('resolves a call to a procedure in the same module', () => {
+		const useOffset = mod1.indexOf('Helper(gShared');
+		const hits = index.resolveDefinition('Module1', 'Helper', useOffset);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].kind).toBe('function');
+		expect(hits[0].moduleName).toBe('Module1');
+	});
+
+	it('resolves a public procedure declared in another module', () => {
+		const hits = index.resolveDefinition('Module1', 'OtherEntry', 0);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].moduleName).toBe('Module2');
+		expect(hits[0].kind).toBe('sub');
+	});
+
+	it('does not resolve a Private procedure across modules', () => {
+		const hits = index.resolveDefinition('Module1', 'Secret', 0);
+		expect(hits).toHaveLength(0);
+	});
+
+	it('does not resolve a Private module variable across modules', () => {
+		const hits = index.resolveDefinition('Module2', 'mPrivate', 0);
+		expect(hits).toHaveLength(0);
+	});
+
+	it('returns an empty array for unknown identifiers', () => {
+		expect(index.resolveDefinition('Module1', 'Nonexistent', 0)).toEqual([]);
+	});
+});
+
+describe('ProjectIndex property and enum resolution', () => {
+	it('resolves both Property Get and Let sharing a name', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Class1',
+			moduleKind: 'class',
+			source: [
+				'Public Property Get Value() As Long',
+				'End Property',
+				'Public Property Let Value(v As Long)',
+				'End Property',
+			].join('\n'),
+		});
+		const hits = index.resolveDefinition('Class1', 'Value', 0);
+		expect(hits.map((h) => h.kind).sort()).toEqual([
+			'propertyGet',
+			'propertyLet',
+		]);
+	});
+
+	it('resolves an enum member by its bare name at module scope', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Public Enum Color\n    Red\n    Green\nEnd Enum\n',
+		});
+		const hits = index.resolveDefinition('Module1', 'Green', 0);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].kind).toBe('enumMember');
+		expect(hits[0].containerName).toBe('Color');
+	});
+});
+
+describe('ProjectIndex duplicate procedure detection', () => {
+	it('flags procedures declared twice in the same module', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Sub A()\nEnd Sub\nSub A()\nEnd Sub\nSub B()\nEnd Sub\n',
+		});
+		const dupes = index.duplicateProcedures('Module1');
+		expect(dupes).toHaveLength(2);
+		expect(dupes.every((d) => d.name === 'A')).toBe(true);
+	});
+
+	it('reports no duplicates for unique procedure names', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Module1',
+			moduleKind: 'standard',
+			source: 'Sub A()\nEnd Sub\nSub B()\nEnd Sub\n',
+		});
+		expect(index.duplicateProcedures('Module1')).toEqual([]);
+	});
+});

@@ -208,6 +208,10 @@ docs/
 
 ## Phase 0: Spec Acquisition and Verification Map
 
+> Status: DONE. Spec stored at `docs/[MS-VBAL].pdf` (v20250520); version recorded
+> in `docs/spec/MS-VBAL.version.md`; verification map at
+> `docs/spec/MS-VBAL.verification-map.md`.
+
 ### Goal
 
 Establish `MS-VBAL.pdf` as the canonical verification source before implementing grammar behavior.
@@ -239,6 +243,11 @@ Establish `MS-VBAL.pdf` as the canonical verification source before implementing
 ---
 
 ## Phase 1: Lexer / Tokenizer
+
+> Status: DONE (core). Implemented in `src/analyzer/lexer/{tokenize,trivia,
+> tokenKinds}.ts`, fixtures in `tests/vbaLexer.test.ts`. Round-trippable and
+> spec-cited. Date-token inner grammar, non-Latin codepage ranges, and directive
+> block parsing remain Partial (see verification map).
 
 ### Goal
 
@@ -309,6 +318,12 @@ interface VbaToken {
 ---
 
 ## Phase 2: Canonical Keyword Table
+
+> Status: DONE. Implemented in `src/analyzer/lexer/keywordTable.ts`, fixtures in
+> `tests/vbaKeywordTable.test.ts`. The seed table below was completed and
+> corrected against MS-VBAL 3.3.5.2 (added missing reserved-names such as
+> `CVErr`, `DoEvents`, `Abs`, `Fix`, `LenB`, special-forms, etc.) and split into
+> spec reserved identifiers vs VBE-convention contextual keywords.
 
 ### Goal
 
@@ -517,6 +532,16 @@ On Error Resume Next
 
 ## Phase 3: Parser and AST
 
+> Status: DONE (structural). Implemented in `src/analyzer/parser/{nodes,
+> parserState,parseModule}.ts`, fixtures in `tests/vbaParser.test.ts` (26
+> tests), verification rows in `docs/spec/MS-VBAL.verification-map.md`. Builds a
+> `ModuleNode` AST (attributes, options, declarations, `Type`/`Enum`,
+> procedures + parameters, nested block statements) with absolute source spans;
+> never throws on malformed input; emits block-mismatch diagnostics. Deferred:
+> full expression AST (calls/member-access/operators, section 5.6) and `If`
+> branch modeling — captured as raw `Statement` nodes for now and tracked as
+> Pending in the verification map.
+
 ### Goal
 
 Build an error-tolerant parser that understands the top-level structure of VBA modules and enough statement/expression structure to power diagnostics and IntelliSense.
@@ -590,6 +615,18 @@ Recovery rules:
 
 ## Phase 4: Project-Wide Symbol Graph
 
+> Status: DONE (structural). Implemented in `src/analyzer/symbols/{symbolModel,
+> buildModuleSymbols,projectIndex}.ts`: a pure AST -> symbol projection plus a
+> `ProjectIndex` that answers document symbols, workspace symbols, conservative
+> go-to-definition name resolution (locals/params -> same-module -> exported
+> cross-module), and duplicate-procedure detection. Cross-module visibility
+> follows MS-VBAL (default-Public procedures exported; Private/Dim/Friend module
+> members stay private). Covered by `tests/vbaSymbolGraph.test.ts` (21 tests).
+> Verification-map rows added. Remaining: wiring the AST index into the live VS
+> Code Document/Workspace symbol + definition providers (currently served by the
+> interim regex index in `src/vbaSymbolIndex.ts`), and richer block/UDT/class
+> member scope resolution.
+
 ### Goal
 
 Build a workbook/project-aware symbol index.
@@ -619,6 +656,15 @@ Index:
 - UDT field.
 - Event.
 - Declare statement.
+
+> Second-pass note (per addendum): in addition to the pure MS-VBAL language
+> symbols above, maintain a separate **host-context symbol layer** for globals
+> the host injects rather than the user declaring them — `ThisWorkbook`,
+> `Application`, `ActiveWorkbook`, `ActiveSheet`, worksheet code names
+> (`Sheet1`), and `Me` (resolved by module kind). These resolve to host
+> object-model types (Phase 10), must never override core-language resolution,
+> and worksheet code names must come from the actual workbook project structure,
+> not the visible sheet tab name.
 
 ### Scope Model
 
@@ -727,6 +773,21 @@ Do not ship low-confidence diagnostics by default.
 
 ## Phase 6: IntelliSense and Completions
 
+> Status: IN PROGRESS. Member access after `.` (host-context member completion,
+> see addendum), type completion after `As` / `As New`, and bare-identifier
+> completion (host globals + worksheet/document code names + in-scope
+> declarations) are implemented:
+> `src/analyzer/completion/{memberAccess,typeCompletion,identifierCompletion}.ts`
+> (pure) wired through `src/vbaMemberCompletion.ts`. Type completion offers VBA
+> built-in types, Excel host types, and project-defined types (current-module
+> `Type`/`Enum` + class/UserForm module names). Identifier completion offers
+> host-injected globals, code names, and the enclosing procedure's
+> params/locals plus module-level vars/consts/procs/enums/types; it is
+> suppressed after `.`, after `As`, and in declaration-name positions. Covered
+> by `tests/vba{MemberCompletion,TypeCompletion,IdentifierCompletion}.test.ts`.
+> Remaining: keyword/snippet completion at statement start, after access
+> modifiers, after `Option`/`On Error`, and signature help (Phase 7).
+
 ### Goal
 
 Make the editor feel alive before perfecting all language semantics.
@@ -781,6 +842,16 @@ Implement completions for:
 ---
 
 ## Phase 7: Hover, Definition, References, and Signature Help
+
+> Status: IN PROGRESS. Hover is DONE - `src/analyzer/hover/resolveHover.ts`
+> (pure) describes the identifier under the cursor (host members via the
+> exported `resolveReceiverTypeAt`, host globals, worksheet code names, and live
+> user declarations from the module symbol graph: procedure signatures,
+> variables/parameters/constants with `As` type, enums/members, types/fields),
+> wired through the `HoverProvider` in `src/vbaMemberCompletion.ts` and covered by
+> `tests/vbaHover.test.ts`. Go to Definition, References, and Signature Help are
+> still pending (the interim regex providers in `src/vbaLanguageProviders.ts`
+> remain until the AST `ProjectIndex` is wired into live providers).
 
 ### Goal
 
@@ -962,9 +1033,50 @@ Do not invent signatures from memory.
 - Signature help works for at least a small verified set.
 - Metadata entries include source status.
 
+### Status: IN PROGRESS (hover + completion shipped)
+
+Implemented in `src/analyzer/runtime/vbaRuntime.ts`.
+
+- **Deviation from the JSON suggestion above.** The metadata lives in a typed
+  TS module, not `src/analyzer/metadata/vbaRuntime.json`. This matches the
+  existing host-model precedent (`src/analyzer/host/excelObjectModel.ts` is a TS
+  module, not JSON) and gives compile-time checking of every entry. The
+  `VbaRuntimeFunction` interface carries `name`, `signature`, optional
+  `returns`, a `kind` of `function | statement`, and `source: 'verified'`.
+- **Coverage.** ~85 verified intrinsic functions/statements: interaction
+  (`MsgBox`, `InputBox`, `Shell`, `CreateObject`...), strings (`Left`, `Mid`,
+  `Replace`, `InStr`, `Split`, `Format`...), conversions (`CLng`, `CStr`,
+  `CDate`...), math (`Abs`, `Round`, `Sqr`...), date/time (`Now`, `DateAdd`,
+  `Year`...), arrays/inspection (`Array`, `UBound`, `IsNumeric`, `TypeName`...),
+  and `RGB`/`IIf`/`Choose`/`Switch`.
+- **Deliberate omissions.** Names that collide with intrinsic data types or are
+  otherwise context-ambiguous (`Date`, `Time`, `String`, `Error`) are excluded
+  so hovering a type in an `As` position is never mistaken for a function call.
+- **Hover.** `resolveHover` resolves built-ins *after* user symbols, host
+  globals, and code names, so a user declaration of the same name correctly
+  shadows the built-in. Returns the signature plus a `VBA runtime function` /
+  `VBA runtime statement` detail line.
+- **Completion.** `resolveIdentifierCompletions` offers built-ins at bare-
+  identifier positions (new `runtime` completion kind, `Function` icon),
+  gated by `includeRuntime` (default true).
+- **Verification.** Signatures transcribed from
+  learn.microsoft.com/office/vba/language and MS-VBAL; never LLM-invented.
+- **Still pending for this phase:** signature help (parameter info popup) for
+  the verified set.
+- Tests: `tests/vbaRuntime.test.ts` + runtime cases in `tests/vbaHover.test.ts`.
+
 ---
 
 ## Phase 10: Host Object Model Metadata
+
+> Second-pass note: the **Addendum: Host-Context Member Completion** (end of this
+> document) is the concrete first milestone of this phase. It additionally
+> requires a *host-context symbol layer* (see Phase 4) that resolves host-
+> injected globals such as `ThisWorkbook`, `Application`, `ActiveSheet`,
+> `Sheet1` (worksheet code name), and `Me` to their object-model types before
+> member completion can run. Treat the addendum's resolution table and Excel
+> member metadata as the deliverables that satisfy this phase's acceptance
+> criteria.
 
 ### Goal
 
@@ -1242,3 +1354,200 @@ The VBA language-service layer is ready for a first public preview when:
 - Tests cover all shipped features.
 - No automatic formatting feature can corrupt user code.
 - All behavior that is not spec-verified is explicitly labeled experimental or disabled by default.
+
+## Addendum: Host-Context Member Completion
+
+> Status: DONE (first milestone). Implemented as a pure analyzer host layer
+> (`src/analyzer/host/excelObjectModel.ts` verified member metadata +
+> `src/analyzer/host/hostModel.ts` resolver +
+> `src/analyzer/completion/memberAccess.ts` receiver-chain resolution) and a VS
+> Code provider (`src/vbaMemberCompletion.ts`, trigger `.`). Covered by
+> `tests/vbaMemberCompletion.test.ts` (23 tests). Resolves host globals,
+> worksheet code names, `Me` by module kind, typed local/param/module variables,
+> and member-access chains through return types. Member metadata is transcribed
+> from the official Office VBA object-model reference (verified 2026-05-30), not
+> LLM memory. Remaining work for later milestones: collection element typing
+> (e.g. `Worksheets(1).`), UserForm/control members, and class-module `Me`
+> members.
+>
+> Second-pass reconciliation: this addendum is not a standalone phase. It spans
+> and refines several existing phases:
+> - **Phase 4** gains a host-context symbol layer (host-injected globals +
+>   worksheet code names + `Me`), kept separate from MS-VBAL language symbols.
+> - **Phase 10** owns the Excel object-model member metadata and the
+>   global -> type resolution table it describes below.
+> - **Phases 6/7** wire the actual `.`-triggered completion / member listing UI.
+> - **Phase 3 (done)** must be extended with member-access expression parsing
+>   (currently Pending in the verification map) before `obj.member` can be
+>   resolved positionally.
+> Verification rule is unchanged: core VBA grammar is verified against MS-VBAL;
+> host members are verified against Office VBA object-model docs, generated COM
+> type-library metadata, or recorded VBE behavior fixtures — never LLM memory.
+> Progress is tracked in the "Addendum - Host-Context Member Completion" table in
+> `docs/spec/MS-VBAL.verification-map.md`.
+
+The VBA language service must support member-completion popups for host-provided global objects, not only user-declared variables.
+
+This is required for Excel VBA scenarios such as:
+
+```vba
+ThisWorkbook.
+Application.
+ActiveWorkbook.
+ActiveSheet.
+Sheet1.
+Me.
+```
+
+These identifiers are not all ordinary local declarations. Some are injected by the host environment or generated from the workbook/project structure. The analyzer must therefore maintain a host-context symbol layer in addition to the pure VBA language symbol graph.
+
+### Required behavior
+
+When the user types:
+
+```vba
+ThisWorkbook.
+```
+
+The extension must open a completion popup showing verified members of the Excel `Workbook` object.
+
+Example expected completions include, subject to verification:
+
+```text
+Worksheets
+Sheets
+Save
+SaveAs
+Close
+Name
+FullName
+Path
+VBProject
+```
+
+The type resolution rule is:
+
+```text
+ThisWorkbook -> Excel.Workbook -> Workbook members
+```
+
+When the user types:
+
+```vba
+Application.
+```
+
+The completion popup must resolve:
+
+```text
+Application -> Excel.Application -> Application members
+```
+
+When the user types:
+
+```vba
+ActiveSheet.
+```
+
+The completion popup must resolve to the best known type. In Excel this is usually a worksheet-like object, but it may represent different sheet types. If the type is ambiguous, completions must either show the common verified members or mark the result as ambiguous internally.
+
+When the user types:
+
+```vba
+Sheet1.
+```
+
+The completion popup must resolve `Sheet1` from the workbook’s VBA project components, using the component’s code name, not merely the visible worksheet tab name.
+
+When the user types:
+
+```vba
+Me.
+```
+
+The completion popup must resolve based on the current module context:
+
+```text
+Worksheet module -> worksheet members
+ThisWorkbook module -> workbook members
+UserForm module -> form/control members
+Class module -> class members
+```
+
+### Verification requirement
+
+All host object members must be verified against authoritative sources.
+
+The VBA language grammar and semantics must still be verified against `MS-VBAL.pdf`.
+
+Excel object model members must be verified against one of the following:
+
+```text
+1. Microsoft Office VBA object model documentation
+2. Generated metadata from local COM type libraries
+3. Empirical VBE behavior tests, recorded in fixtures
+```
+
+LLM-generated member lists must never be treated as authoritative.
+
+### Metadata requirement
+
+The implementation should maintain a host metadata table similar to:
+
+```json
+{
+  "Excel.ThisWorkbook": {
+    "resolvesTo": "Excel.Workbook"
+  },
+  "Excel.Application": {
+    "resolvesTo": "Excel.Application"
+  },
+  "Excel.ActiveWorkbook": {
+    "resolvesTo": "Excel.Workbook"
+  },
+  "Excel.ActiveSheet": {
+    "resolvesTo": "Excel.SheetLike"
+  }
+}
+```
+
+Workbook-specific symbols must be derived from the actual project structure whenever possible.
+
+For example:
+
+```text
+Component code name: Sheet1
+Visible sheet name: Customers
+Resolved symbol: Sheet1
+Resolved type: Excel.Worksheet
+```
+
+### Acceptance criteria
+
+The following must work before host-context completion is considered complete for the first milestone:
+
+```vba
+Sub Test()
+    ThisWorkbook.
+End Sub
+```
+
+Typing after the dot must show a completion popup.
+
+The popup must include verified `Workbook` members.
+
+The popup must use proper capitalization.
+
+The popup must not invent unverified members.
+
+The analyzer must distinguish between:
+
+```text
+ThisWorkbook
+ActiveWorkbook
+Workbook variables declared by the user
+Worksheet code names such as Sheet1
+The current object represented by Me
+```
+
+This feature is required because workbook-aware IntelliSense is one of XLIDE’s core advantages over generic VBA syntax extensions.

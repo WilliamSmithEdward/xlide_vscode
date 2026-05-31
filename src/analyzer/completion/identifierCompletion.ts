@@ -1,0 +1,253 @@
+// Identifier completion resolver.
+//
+// At a statement/expression position where a bare identifier is being typed
+// (not after a member-access `.` and not in an `As <type>` position), this
+// offers the "existing objects" available to reference here: host-injected
+// globals (ThisWorkbook, ActiveSheet, Application, ...), worksheet/document
+// code names, and the user's own in-scope declarations (parameters, locals,
+// module-level variables/constants, procedures, enums, types).
+//
+// Pure analyzer code: depends only on the lexer, the symbol builder, and the
+// host model. See docs/xlide_vba_language_service_roadmap.md (Phase 6).
+
+import { tokenize } from '../lexer/tokenize';
+import { VbaToken } from '../lexer/tokenKinds';
+import { HostObjectModel } from '../host/excelObjectModel';
+import { getHostGlobals, getHostType } from '../host/hostModel';
+import { VBA_RUNTIME_FUNCTIONS } from '../runtime/vbaRuntime';
+import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
+import { ModuleSymbolKind, VbaSymbol, isProcedureKind } from '../symbols/symbolModel';
+
+/** Origin of an identifier completion (drives the icon shown in the editor). */
+export type IdentifierCompletionKind =
+	| 'global'
+	| 'codeName'
+	| 'variable'
+	| 'parameter'
+	| 'constant'
+	| 'procedure'
+	| 'enum'
+	| 'enumMember'
+	| 'type'
+	| 'runtime';
+
+/** A single identifier-completion result. */
+export interface IdentifierCompletion {
+	name: string;
+	kind: IdentifierCompletionKind;
+	detail: string;
+}
+
+/** Project/module facts the identifier resolver needs from outside the source. */
+export interface IdentifierCompletionContext {
+	/** Canonical worksheet/document code names of the workbook project. */
+	codeNames?: string[];
+	/** Name of the module being edited (for in-scope symbol resolution). */
+	moduleName?: string;
+	/** Workbook-project role of the module being edited. */
+	moduleKind?: ModuleSymbolKind;
+	/** Include host-injected globals (default true). */
+	includeGlobals?: boolean;
+	/** Include built-in VBA runtime functions (default true). */
+	includeRuntime?: boolean;
+	/** Host object model to resolve against. Defaults to the Excel model. */
+	model?: HostObjectModel;
+}
+
+const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function isIdentLike(token: VbaToken): boolean {
+	return (
+		(token.kind === 'identifier' || token.kind === 'keyword') &&
+		IDENT_RE.test(token.rawText)
+	);
+}
+
+/**
+ * Keywords after which the user is naming a NEW declaration rather than
+ * referencing an existing object; suggesting existing identifiers there is
+ * wrong (MS-VBAL 5.2/5.3 declarations).
+ */
+const DECLARATION_INTRODUCERS = new Set([
+	'dim',
+	'const',
+	'redim',
+	'static',
+	'public',
+	'private',
+	'friend',
+	'global',
+	'withevents',
+	'sub',
+	'function',
+	'property',
+	'type',
+	'enum',
+	'declare',
+]);
+
+/**
+ * Resolves the identifier completions available at `offset`. Returns an empty
+ * array when the cursor is in a member-access position (after `.`), a type
+ * position (after `As`/`New`), a declaration-name position, or inside a string.
+ */
+export function resolveIdentifierCompletions(
+	source: string,
+	offset: number,
+	ctx: IdentifierCompletionContext = {},
+): IdentifierCompletion[] {
+	const prefixText = source.slice(0, Math.max(0, offset));
+	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+
+	// Identify the partial identifier being typed (if any) and the token that
+	// immediately precedes it.
+	let last = tokens.length - 1;
+	let partial = '';
+	if (last >= 0 && isIdentLike(tokens[last])) {
+		partial = tokens[last].rawText;
+		last -= 1;
+	} else if (last >= 0 && tokens[last].kind === 'newline') {
+		// Statement start: offer everything.
+		last -= 1;
+	} else if (last >= 0 && !isIdentLike(tokens[last])) {
+		// After an operator/paren/comma/etc. - a fresh expression position.
+		// Leave `last` pointing at that token for the context check below.
+	}
+
+	const before = last >= 0 ? tokens[last] : undefined;
+	if (before) {
+		if (before.rawText === '.') {
+			return []; // member-access position
+		}
+		if (isIdentLike(before)) {
+			const lower = before.rawText.toLowerCase();
+			if (lower === 'as' || lower === 'new') {
+				return []; // type position
+			}
+			if (DECLARATION_INTRODUCERS.has(lower)) {
+				return []; // naming a new declaration
+			}
+		}
+	}
+
+	const lowerPartial = partial.toLowerCase();
+	const out: IdentifierCompletion[] = [];
+	const seen = new Set<string>();
+	const add = (name: string, kind: IdentifierCompletionKind, detail: string): void => {
+		if (!name || !IDENT_RE.test(name)) {
+			return;
+		}
+		const key = name.toLowerCase();
+		if (seen.has(key) || !key.startsWith(lowerPartial)) {
+			return;
+		}
+		seen.add(key);
+		out.push({ name, kind, detail });
+	};
+
+	addInScopeSymbols(source, offset, ctx, add);
+
+	for (const name of ctx.codeNames ?? []) {
+		add(name, 'codeName', 'Worksheet object');
+	}
+
+	if (ctx.includeGlobals !== false) {
+		for (const g of getHostGlobals(ctx.model)) {
+			const display = getHostType(g.type, ctx.model)?.displayName ?? g.type;
+			add(g.name, 'global', `${display} object`);
+		}
+	}
+
+	if (ctx.includeRuntime !== false) {
+		for (const f of VBA_RUNTIME_FUNCTIONS) {
+			add(f.name, 'runtime', `VBA ${f.kind}`);
+		}
+	}
+
+	return out;
+}
+
+type AddFn = (name: string, kind: IdentifierCompletionKind, detail: string) => void;
+
+/** Adds in-scope declared symbols (params/locals of the enclosing procedure plus
+ *  module-level declarations) for the module being edited. */
+function addInScopeSymbols(
+	source: string,
+	offset: number,
+	ctx: IdentifierCompletionContext,
+	add: AddFn,
+): void {
+	let mod;
+	try {
+		mod = buildModuleSymbols(
+			ctx.moduleName ?? 'Module',
+			ctx.moduleKind ?? 'standard',
+			source,
+		);
+	} catch {
+		return;
+	}
+
+	const enclosing = mod.all.find(
+		(s) =>
+			isProcedureKind(s.kind) &&
+			offset >= s.fullSpan.start &&
+			offset <= s.fullSpan.end,
+	);
+
+	if (enclosing) {
+		for (const child of enclosing.children ?? []) {
+			addSymbol(child, add);
+		}
+	}
+
+	for (const child of mod.root.children ?? []) {
+		addSymbol(child, add);
+		// Enum members are referenceable by their bare name.
+		if (child.kind === 'enum') {
+			for (const member of child.children ?? []) {
+				add(member.name, 'enumMember', `${child.name} member`);
+			}
+		}
+	}
+}
+
+function addSymbol(symbol: VbaSymbol, add: AddFn): void {
+	switch (symbol.kind) {
+		case 'parameter':
+			add(symbol.name, 'parameter', detailWithType('parameter', symbol.asType));
+			return;
+		case 'localVariable':
+			add(symbol.name, 'variable', detailWithType('local variable', symbol.asType));
+			return;
+		case 'moduleVariable':
+			add(symbol.name, 'variable', detailWithType('module variable', symbol.asType));
+			return;
+		case 'constant':
+			add(symbol.name, 'constant', detailWithType('constant', symbol.asType));
+			return;
+		case 'sub':
+			add(symbol.name, 'procedure', 'Sub');
+			return;
+		case 'function':
+			add(symbol.name, 'procedure', detailWithType('Function', symbol.asType));
+			return;
+		case 'propertyGet':
+		case 'propertyLet':
+		case 'propertySet':
+			add(symbol.name, 'procedure', 'Property');
+			return;
+		case 'enum':
+			add(symbol.name, 'enum', 'Enum');
+			return;
+		case 'type':
+			add(symbol.name, 'type', 'Type');
+			return;
+		default:
+			return;
+	}
+}
+
+function detailWithType(base: string, asType?: string): string {
+	return asType ? `${base} As ${asType}` : base;
+}

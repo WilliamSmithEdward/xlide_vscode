@@ -36,6 +36,17 @@ xlide_vscode/
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of parsed VBA symbols
     vbaLanguageProviders.ts  Document/definition/reference/rename providers, diagnostics, and smart-enter for the vba language
     vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource) and smart-enter helpers (no vscode dependency)
+    analyzer/
+      lexer/
+        keywordTable.ts MS-VBAL 3.3.5.2 reserved-identifier + contextual keyword tables with canonical casing
+        tokenKinds.ts   TokenKind/Trivia/VbaToken types and WSC helpers (MS-VBAL 3.3)
+        trivia.ts       Leading whitespace / line-continuation scanner (MS-VBAL 3.2.2)
+        tokenize.ts     Loss-aware, round-trippable VBA tokenizer (MS-VBAL 3.3.1-3.3.5, 3.4)
+      parser/
+        nodes.ts        AST node types + spans + ParseDiagnostic (MS-VBAL 4.2/5.x)
+        parserState.ts  Logical-statement splitter + statement cursor (MS-VBAL 3.3.1 EOS)
+        parseModule.ts  Error-tolerant module parser -> ModuleNode AST (MS-VBAL 5.x)
+      index.ts          Public, vscode-free analyzer surface (lexer + parser)
 
   python/
     server.py           JSON-RPC 2.0 dispatcher (stdin -> stdout, newline-delimited)
@@ -302,6 +313,106 @@ smart-enter feature.
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 
+**VBA analyzer (ground-up language service)** — `src/analyzer/` is a pure,
+`vscode`-free TypeScript library being built per
+`docs/xlide_vba_language_service_roadmap.md`, verified against
+`docs/[MS-VBAL].pdf` (v20250520). Phase 1 (lexer), Phase 2 (canonical keyword
+table), and Phase 3 (error-tolerant parser/AST) are in place:
+`analyzer/lexer/tokenize.ts` is a loss-aware, round-trippable tokenizer,
+`analyzer/lexer/keywordTable.ts` is the spec-verified reserved-identifier +
+contextual-keyword table with canonical casing, and
+`analyzer/parser/parseModule.ts` builds a `ModuleNode` AST (attributes, options,
+declarations, Type/Enum, procedures + parameters, and nested block statements)
+that never throws on malformed input and emits block-mismatch diagnostics. Every
+rule cites an MS-VBAL section; coverage and deviations are tracked in
+`docs/spec/MS-VBAL.verification-map.md`. This layer will eventually replace the
+interim regex linter in `src/vbaLinter.ts`.
+
+**Host-context member completion** — built on top of the analyzer, this is the
+feature that distinguishes XLIDE from a generic VBA syntax extension. It is split
+into a pure analyzer layer and a thin VS Code provider:
+
+- `src/analyzer/host/excelObjectModel.ts` is a curated, verified subset of the
+  Excel automation object model (Application/Workbook/Worksheet/Range), with each
+  type's properties and methods transcribed from the official Office VBA
+  object-model reference (`learn.microsoft.com/office/vba/api/excel.*`). It also
+  holds the host-global table (`ThisWorkbook` -> `Excel.Workbook`, `Application`
+  -> `Excel.Application`, ...) and the `As`-type alias table. LLM-generated
+  member lists are never used; this is host metadata, not VBA grammar.
+- `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
+  metadata (`resolveHostGlobal`, `resolveHostAlias`, `getHostMembers`,
+  `resolveMemberReturnType`).
+- `src/analyzer/completion/memberAccess.ts` tokenizes the source up to the
+  cursor, detects a member-access dot, walks the receiver chain (handling call
+  parentheses for chaining like `ws.Range("A1").Offset(1, 0).`), resolves the
+  root (`Me`, a host global, a worksheet code name, or a typed local/module
+  variable found by parsing the module), follows member return types through the
+  chain, and returns the filtered members.
+- `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
+  characters `.` and space). For member access it builds the project context
+  from the workbook's module list (worksheet code names and the `Me` type for
+  the current document module) via the Python bridge and renders the resolved
+  members. In a declaration type position (after `As` / `As New`) it instead
+  offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
+  (`resolveTypeCompletions`): VBA built-in data types, the Excel host types, and
+  project-defined types — user `Type`s/`Enum`s in the current module, public
+  (non-`Private`) `Type`s/`Enum`s read from the workbook's other modules (via the
+  bridge `readModule` call, cached per workbook with a short TTL), plus
+  class/UserForm module names from the workbook. When the cursor is on a bare
+  identifier (statement/expression position, not after `.` or `As`) it offers
+  identifier completions via `src/analyzer/completion/identifierCompletion.ts`
+  (`resolveIdentifierCompletions`): host-injected globals (`ThisWorkbook`,
+  `ActiveSheet`, `Application`, ...), worksheet/document code names, the
+  user's in-scope declarations (parameters, locals, module variables/constants,
+  procedures, enums and their members, user types), and built-in VBA runtime
+  functions (`MsgBox`, `Left`, `CLng`, `RGB`, ...) from the runtime metadata.
+- The same `src/vbaMemberCompletion.ts` class also registers a VS Code
+  `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`
+  (`resolveHover`), a pure resolver that describes the identifier under the
+  cursor: `receiver.member` host members (reusing the exported
+  `resolveReceiverTypeAt` from `memberAccess.ts`), host globals, worksheet code
+  names, user declarations from the live module symbol graph (procedure
+  signatures with parameters and return type, variables/parameters/constants
+  with their `As` type, enums and members, user types and fields), and built-in
+  VBA runtime functions, annotated with the declaring module and visibility.
+  Unknown members are never guessed. Built-ins resolve last so a user
+  declaration of the same name shadows the built-in.
+
+**Built-in VBA runtime metadata** — `src/analyzer/runtime/vbaRuntime.ts` is a
+curated, verified subset of the intrinsic VBA runtime library (~85 functions and
+statements: `MsgBox`, `InputBox`, the `C*` conversions, string/date/math
+helpers, `Array`, `UBound`, `RGB`, ...). Each `VbaRuntimeFunction` carries a
+canonical `signature`, optional `returns`, a `kind` of `function | statement`,
+and `source: 'verified'`. Signatures are transcribed from
+learn.microsoft.com/office/vba/language and MS-VBAL, never LLM-invented. Names
+that collide with intrinsic data types (`Date`, `Time`, `String`, `Error`) are
+deliberately omitted so a type in an `As` position is never read as a function.
+Like the host model, this is a typed TS module (not the JSON file the roadmap
+originally suggested) for compile-time checking. `resolveRuntimeFunction(name)`
+resolves case-insensitively; `VBA_RUNTIME_FUNCTIONS` is the full list consumed
+by hover and identifier completion.
+
+**Project-wide symbol graph** — `src/analyzer/symbols/` projects the parser AST
+into a host-agnostic symbol model so XLIDE can offer document symbols, workspace
+symbols, and go-to-definition over the whole workbook project rather than a
+single module:
+
+- `src/analyzer/symbols/symbolModel.ts` defines the `VbaSymbol` shape (name,
+  kind, `nameSpan` for the identifier, `fullSpan` for the declaration,
+  visibility, `asType`, and nested children).
+- `src/analyzer/symbols/buildModuleSymbols.ts` walks one `ModuleNode` and emits
+  a hierarchical module symbol (procedures with parameter/local children,
+  `Type` with fields, `Enum` with members, module variables/consts, `Declare`s).
+  Identifier spans are located with the real lexer, so a `nameSpan` never lands
+  inside a comment or string.
+- `src/analyzer/symbols/projectIndex.ts` is the `ProjectIndex` that aggregates
+  modules and answers `documentSymbols`, `workspaceSymbols`, conservative
+  `resolveDefinition` (locals/params -> same-module declarations -> exported
+  declarations in other modules), and `duplicateProcedures`. Cross-module
+  visibility follows MS-VBAL: explicit `Public`/`Global` and default-`Public`
+  procedures are exported; `Private`/`Dim`/`Friend` and unmodified module
+  variables stay module-private.
+
 ---
 
 ## Key design decisions
@@ -337,4 +448,9 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New Python source file | `python/xlide/__init__.py` (if re-exported), `docs/architecture.md` |
 | Dependency added/removed | `python/requirements.txt`, `README.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLinter.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
+| New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New host object-model member/type | `src/analyzer/host/excelObjectModel.ts` (member transcribed + source-verified), `tests/vbaMemberCompletion.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
+| New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | Live Share RPC surface change | `src/liveShare.ts`, `docs/architecture.md` |
