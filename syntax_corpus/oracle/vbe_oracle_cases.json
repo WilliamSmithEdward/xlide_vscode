@@ -564,6 +564,16 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "thisworkbook_unknown_member_compile",
+      "description": "The built-in ThisWorkbook receiver uses a member name that does not exist on the workbook object or source document module.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    ThisWorkbook.DoesntExist\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "compile_then_run_valid_control",
       "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
       "provenance": "vbe-oracle-verified",

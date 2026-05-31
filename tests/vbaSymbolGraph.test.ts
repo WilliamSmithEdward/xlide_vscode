@@ -567,6 +567,7 @@ describe('ProjectIndex project class members', () => {
 			].join('\n'),
 		});
 		const person = index.projectClassMembers().find((t) => t.name === 'Person');
+		expect(person?.exhaustive).toBe(true);
 		expect(person?.members.map((m) => `${m.name}:${m.kind}:${m.returns ?? ''}`)).toEqual([
 			'Name:property:String',
 			'Age:property:Long',
@@ -595,6 +596,23 @@ describe('ProjectIndex project class members', () => {
 		const person = index.projectClassMembers().find((t) => t.name === 'Person');
 		expect(person?.members.find((m) => m.name === 'Age')?.writable).toBe(false);
 		expect(person?.members.find((m) => m.name === 'Species')?.writable).toBe(false);
+	});
+
+	it('marks document and UserForm source member surfaces as non-exhaustive', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'ThisWorkbook',
+			moduleKind: 'document',
+			source: 'Public Sub Hello()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'UserForm1',
+			moduleKind: 'userform',
+			source: 'Public Sub ShowStatus()\nEnd Sub\n',
+		});
+		const members = index.projectClassMembers();
+		expect(members.find((t) => t.name === 'ThisWorkbook')?.exhaustive).toBe(false);
+		expect(members.find((t) => t.name === 'UserForm1')?.exhaustive).toBe(false);
 	});
 });
 

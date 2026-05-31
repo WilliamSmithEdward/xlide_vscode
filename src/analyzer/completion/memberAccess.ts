@@ -24,6 +24,7 @@ import type {
 } from '../host/excelObjectModel';
 import {
 	getHostMembers,
+	getHostType,
 	resolveHostAlias,
 	resolveHostGlobal,
 	resolveMemberReturnType,
@@ -60,6 +61,8 @@ export interface MemberCompletion {
 	writeType?: string;
 	/** Qualified type the member belongs to (for detail text). */
 	owner: string;
+	/** True when the owner member surface is complete enough to prove absence. */
+	surfaceExhaustive?: boolean;
 	/** Markdown documentation rendered from source-backed XML doc comments. */
 	documentation?: string;
 }
@@ -72,6 +75,12 @@ type CompletionMemberSource = Pick<HostMember, 'name' | 'kind' | 'returns'> & {
 	writeType?: string;
 	doc?: VbaDoc;
 };
+
+interface MemberSurface {
+	owner: string;
+	members: readonly CompletionMemberSource[];
+	exhaustive: boolean;
+}
 
 function word(token: VbaToken): string {
 	return token.rawText;
@@ -137,6 +146,7 @@ export function resolveMemberCompletions(
 			writable: mem.writable,
 			writeType: mem.writeType,
 			owner: surface.owner,
+			surfaceExhaustive: surface.exhaustive,
 			documentation: hasDocContent(mem.doc)
 				? renderDocMarkdown(mem.doc)
 				: undefined,
@@ -283,16 +293,25 @@ function resolveRoot(
 function memberSurfaceForType(
 	typeName: string,
 	ctx: MemberCompletionContext,
-): { owner: string; members: readonly CompletionMemberSource[] } | undefined {
+): MemberSurface | undefined {
 	if (typeName.startsWith(PROJECT_TYPE_PREFIX)) {
 		const projectType = projectClassMembersByName(ctx).get(
 			typeName.slice(PROJECT_TYPE_PREFIX.length),
 		);
 		return projectType
-			? { owner: projectType.name, members: projectType.members }
+			? {
+				owner: projectType.name,
+				members: projectType.members,
+				exhaustive: projectType.exhaustive ?? projectType.kind === 'class',
+			}
 			: undefined;
 	}
-	return { owner: typeName, members: getHostMembers(typeName, ctx.model) };
+	const hostType = getHostType(typeName, ctx.model);
+	return {
+		owner: typeName,
+		members: getHostMembers(typeName, ctx.model),
+		exhaustive: hostType?.exhaustive === true,
+	};
 }
 
 function resolveAnyMemberReturnType(

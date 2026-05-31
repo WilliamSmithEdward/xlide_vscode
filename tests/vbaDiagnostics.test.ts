@@ -4,6 +4,7 @@ import {
 	VbaDiagnostic,
 	DIAGNOSTIC_RULES,
 	ProjectIndex,
+	type HostObjectModel,
 } from '../src/analyzer';
 
 /** Returns the diagnostics whose code matches `code`. */
@@ -1389,6 +1390,67 @@ describe('analyzeModule - assignment type validation', () => {
 		]).map((type) => ({ ...type, name: 'Person' }));
 		expect(
 			byCode(analyzeModule(src, { projectClassMembers: ambiguous }), 'member-not-found'),
+		).toHaveLength(0);
+	});
+
+	it('does not use source-only document module members to prove absence', () => {
+		const workbook =
+			'Public Sub Hello()\n' +
+			'End Sub\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim wb As ThisWorkbook\n' +
+			'    wb.DoesntExist\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: workbook },
+			]),
+		});
+		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
+	});
+
+	it('uses an exhaustive host object model to prove a missing member', () => {
+		const model: HostObjectModel = {
+			source: 'test fixture',
+			aliases: {},
+			globals: { Thing: 'Test.Thing' },
+			types: {
+				'Test.Thing': {
+					displayName: 'Thing',
+					exhaustive: true,
+					members: [{ name: 'Known', kind: 'method' }],
+				},
+			},
+		};
+		const src =
+			'Public Sub T()\n' +
+			'    Thing.Missing\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src, { hostModel: model }), 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Missing');
+		expect(hits[0].message).toContain('Test.Thing.Missing');
+	});
+
+	it('does not use a curated non-exhaustive host object model to prove absence', () => {
+		const model: HostObjectModel = {
+			source: 'test fixture',
+			aliases: {},
+			globals: { Thing: 'Test.Thing' },
+			types: {
+				'Test.Thing': {
+					displayName: 'Thing',
+					members: [{ name: 'Known', kind: 'method' }],
+				},
+			},
+		};
+		const src =
+			'Public Sub T()\n' +
+			'    Thing.Missing\n' +
+			'End Sub\n';
+		expect(
+			byCode(analyzeModule(src, { hostModel: model }), 'member-not-found'),
 		).toHaveLength(0);
 	});
 });

@@ -23,6 +23,7 @@ import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { RESERVED_TYPE_IDENTIFIERS } from '../lexer/keywordTable';
 import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
+import type { HostObjectModel } from '../host/excelObjectModel';
 import { resolveRuntimeFunction, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
 import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
 import type {
@@ -97,6 +98,8 @@ export interface AnalyzeModuleOptions {
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
 	/** Source-declared workbook class/UserForm/document members visible to this module. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
+	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
+	hostModel?: HostObjectModel;
 }
 
 /** Counts double-quote characters; an odd count means the string is unterminated. */
@@ -187,7 +190,7 @@ function runRules(
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
 	checkScalarMemberAccess(source, mod, symbols, push);
-	checkProjectMemberNotFound(source, mod, opts.projectClassMembers, push);
+	checkMemberNotFound(source, mod, opts.projectClassMembers, opts.hostModel, push);
 	checkNonCallableCallStatement(source, mod, symbols, push);
 	checkArgumentCount(source, mod, opts.projectProcedures, push);
 	checkArgumentTypes(source, mod, symbols, opts.projectProcedures, push);
@@ -484,25 +487,24 @@ function resolveExactMemberCompletion(
 	}).find((member) => member.name.toLowerCase() === memberName.toLowerCase());
 }
 
-function checkProjectMemberNotFound(
+function checkMemberNotFound(
 	source: string,
 	mod: ModuleNode,
 	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): void {
-	if (!projectClassMembers || projectClassMembers.length === 0) {
-		return;
-	}
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		forEachStatement(member.body, (stmt) => {
 			for (const ref of memberAccessReferences(source, stmt.span)) {
-				const surface = resolveProjectClassMemberSurface(
+				const surface = resolveExhaustiveMemberSurface(
 					source,
 					ref.dotEndOffset,
-					projectClassMembers,
+					projectClassMembers ?? [],
+					hostModel,
 				);
 				if (!surface) {
 					continue;
@@ -551,23 +553,21 @@ function memberAccessReferences(
 	return out;
 }
 
-function resolveProjectClassMemberSurface(
+function resolveExhaustiveMemberSurface(
 	source: string,
 	dotEndOffset: number,
 	projectClassMembers: readonly VbaProjectClassMembers[],
+	hostModel: HostObjectModel | undefined,
 ): { owner: string; members: MemberCompletion[] } | undefined {
 	const members = resolveMemberCompletions(source, dotEndOffset, {
 		projectClassMembers,
+		model: hostModel,
 	});
 	if (members.length === 0) {
 		return undefined;
 	}
 	const owner = members[0].owner;
-	if (
-		!projectClassMembers.some(
-			(type) => type.name.toLowerCase() === owner.toLowerCase(),
-		)
-	) {
+	if (!members[0].surfaceExhaustive) {
 		return undefined;
 	}
 	return { owner, members };

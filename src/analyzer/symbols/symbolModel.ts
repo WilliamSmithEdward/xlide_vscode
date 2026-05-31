@@ -137,6 +137,12 @@ export interface VbaProjectClassMembers {
 	name: string;
 	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform'>;
 	moduleName: string;
+	/**
+	 * True when the member list is complete enough to prove absence. Plain class
+	 * modules are source-exhaustive; document modules and UserForms also expose
+	 * host/designer members, so their source-only surface is not exhaustive yet.
+	 */
+	exhaustive?: boolean;
 	members: VbaProjectClassMember[];
 }
 

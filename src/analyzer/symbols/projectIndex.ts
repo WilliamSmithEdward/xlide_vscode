@@ -361,6 +361,7 @@ export class ProjectIndex {
 				name: mod.moduleName,
 				kind,
 				moduleName: mod.moduleName,
+				exhaustive: kind === 'class',
 				members,
 			});
 		}

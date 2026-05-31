@@ -84,6 +84,10 @@ heuristic diagnostics.
 - Source-backed workbook class receiver/member binding now reports
   `member-not-found` when an unambiguous project class member surface proves the
   member is absent.
+- Object member surfaces now carry an explicit exhaustiveness contract. Hard
+  absence diagnostics require an exhaustive receiver surface; source-only
+  document modules, UserForms, and curated host objects stay silent until their
+  host/designer metadata is complete enough to prove absence.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -300,6 +304,10 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   13, and assignment to a read-only property is a compile-equivalent error.
 - [x] Add oracle-backed `member-not-found` diagnostics for unambiguous
   source-backed workbook class receivers.
+- [x] Add the first unified object-member exhaustiveness contract: source-backed
+  class module surfaces can prove absence; document modules, UserForms, and
+  curated host object surfaces cannot produce hard `member-not-found` until
+  their full host/designer surface is modeled.
 - [ ] Oracle-verify late-bound member access for `Object` and `Variant`
   receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
   resolves the member only at runtime; decide separately whether an optional

@@ -5,6 +5,7 @@ import {
 	resolveHostAlias,
 	resolveMemberReturnType,
 	getHostMembers,
+	type HostObjectModel,
 } from '../src/analyzer';
 
 /** Offset just after the dot in the first occurrence of `marker` in `src`. */
@@ -292,6 +293,7 @@ describe('member completion - workbook classes', () => {
 		expect(age?.documentation).toContain('Age in whole years.');
 		expect(age?.writable).toBe(true);
 		expect(age?.writeType).toBe('Integer');
+		expect(age?.surfaceExhaustive).toBe(true);
 	});
 
 	it('chains through project class members that return a project class', () => {
@@ -309,6 +311,25 @@ describe('member completion - workbook classes', () => {
 				{ ...projectClassMembers[0], moduleName: 'OtherPerson' },
 			],
 		})).toEqual([]);
+	});
+
+	it('marks source-only document module member surfaces as non-exhaustive', () => {
+		const src = 'Sub Test()\n    Dim wb As ThisWorkbook\n    wb.H\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'wb.H'), {
+			projectClassMembers: [
+				{
+					name: 'ThisWorkbook',
+					kind: 'document',
+					moduleName: 'ThisWorkbook',
+					exhaustive: false,
+					members: [
+						{ name: 'Hello', kind: 'method', moduleName: 'ThisWorkbook' },
+					],
+				},
+			],
+		});
+		expect(got.map((member) => member.name)).toContain('Hello');
+		expect(got[0]?.surfaceExhaustive).toBe(false);
 	});
 });
 
@@ -361,5 +382,32 @@ describe('member completion - negative cases', () => {
 				expect(['property', 'method', 'event']).toContain(mem.kind);
 			}
 		}
+	});
+
+	it('marks curated host member surfaces as non-exhaustive', () => {
+		const src = 'Sub Test()\n    ThisWorkbook.Sav\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'ThisWorkbook.Sav'));
+		const save = got.find((member) => member.name === 'Save');
+		expect(save?.owner).toBe('Excel.Workbook');
+		expect(save?.surfaceExhaustive).toBe(false);
+	});
+
+	it('can mark a verified exhaustive host member surface', () => {
+		const model: HostObjectModel = {
+			source: 'test fixture',
+			aliases: {},
+			globals: { Thing: 'Test.Thing' },
+			types: {
+				'Test.Thing': {
+					displayName: 'Thing',
+					exhaustive: true,
+					members: [{ name: 'Known', kind: 'method' }],
+				},
+			},
+		};
+		const src = 'Sub Test()\n    Thing.K\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Thing.K'), { model });
+		expect(got[0]?.name).toBe('Known');
+		expect(got[0]?.surfaceExhaustive).toBe(true);
 	});
 });

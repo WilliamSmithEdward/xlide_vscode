@@ -24,6 +24,11 @@ export interface HostMember {
 export interface HostType {
 	/** Bare display name, e.g. "Worksheet". */
 	displayName: string;
+	/**
+	 * True only when `members` is complete enough to prove a member is absent.
+	 * Curated subsets must leave this false/undefined.
+	 */
+	exhaustive?: boolean;
 	members: HostMember[];
 }
 
