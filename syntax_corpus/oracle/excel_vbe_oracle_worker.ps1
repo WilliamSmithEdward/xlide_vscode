@@ -496,7 +496,7 @@ function Write-ResultJson($Value) {
     $Value | ConvertTo-Json -Depth 12 -Compress
 }
 
-function Release-ComObject($Value) {
+function Remove-ComObjectReference($Value) {
     if ($null -ne $Value -and [Runtime.InteropServices.Marshal]::IsComObject($Value)) {
         [void][Runtime.InteropServices.Marshal]::ReleaseComObject($Value)
     }
@@ -554,13 +554,13 @@ function Wait-ForDialogResult {
     return $null
 }
 
-function Normalize-CommandCaption($Caption) {
+function ConvertTo-NormalizedCommandCaption($Caption) {
     return ([string]$Caption).Replace('&', '').Trim()
 }
 
 function Find-VbeCommandControl($Controls, [string]$Caption) {
     foreach ($control in @($Controls)) {
-        $normalized = Normalize-CommandCaption $control.Caption
+        $normalized = ConvertTo-NormalizedCommandCaption $control.Caption
         if ($normalized -eq $Caption) {
             return $control
         }
@@ -735,11 +735,11 @@ finally {
         try { $excel.Quit() } catch { }
     }
 
-    Release-ComObject $codeModule
-    Release-ComObject $component
-    Release-ComObject $vbProject
-    Release-ComObject $workbook
-    Release-ComObject $excel
+    Remove-ComObjectReference $codeModule
+    Remove-ComObjectReference $component
+    Remove-ComObjectReference $vbProject
+    Remove-ComObjectReference $workbook
+    Remove-ComObjectReference $excel
 
     if ($workbookPath -and (Test-Path -LiteralPath $workbookPath)) {
         try { Remove-Item -LiteralPath $workbookPath -Force } catch { }
