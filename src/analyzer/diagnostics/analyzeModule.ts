@@ -160,6 +160,7 @@ function runRules(
 	checkDimInitializer(source, mod, push);
 	checkCallParens(source, mod, push);
 	checkExitStatements(source, mod, push);
+	checkStatementContext(source, mod, push);
 	checkArgumentCount(source, mod, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
@@ -1262,6 +1263,146 @@ function exitTarget(
 		word,
 		span: { start: span.start + toks[0].start, end: span.start + toks[1].end },
 	};
+}
+
+interface StatementContext {
+	forDepth: number;
+	doDepth: number;
+	withDepth: number;
+	selectDepth: number;
+}
+
+/**
+ * Rules that depend on where a statement appears in the block tree:
+ * `If` requires `Then`, `Case` belongs to `Select Case`, a leading `.member`
+ * requires `With`, and loop exits require their matching loop.
+ */
+function checkStatementContext(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	const root: StatementContext = {
+		forDepth: 0,
+		doDepth: 0,
+		withDepth: 0,
+		selectDepth: 0,
+	};
+
+	for (const member of mod.members) {
+		if (member.kind === 'Statement') {
+			checkContextStatement(source, member, root, push);
+		} else if (member.kind === 'Procedure') {
+			checkContextBody(source, member.body, root, push);
+		}
+	}
+}
+
+function checkContextBody(
+	source: string,
+	body: BodyNode[],
+	ctx: StatementContext,
+	push: PushFn,
+): void {
+	for (const node of body) {
+		switch (node.kind) {
+			case 'Statement':
+				checkContextStatement(source, node, ctx, push);
+				break;
+			case 'ForBlock':
+				checkContextBody(source, node.body, { ...ctx, forDepth: ctx.forDepth + 1 }, push);
+				break;
+			case 'DoBlock':
+				checkContextBody(source, node.body, { ...ctx, doDepth: ctx.doDepth + 1 }, push);
+				break;
+			case 'WithBlock':
+				checkContextBody(source, node.body, { ...ctx, withDepth: ctx.withDepth + 1 }, push);
+				break;
+			case 'SelectBlock':
+				checkContextBody(source, node.body, { ...ctx, selectDepth: ctx.selectDepth + 1 }, push);
+				break;
+			case 'IfBlock':
+			case 'WhileBlock':
+				checkContextBody(source, node.body, ctx, push);
+				break;
+			case 'VariableGroup':
+				break;
+		}
+	}
+}
+
+function checkContextStatement(
+	source: string,
+	stmt: StatementNode,
+	ctx: StatementContext,
+	push: PushFn,
+): void {
+	const toks = statementTokens(source, stmt.span);
+	const first = toks[0];
+	if (!first) {
+		return;
+	}
+	const w0 = tokenText(first);
+
+	if (w0 === 'if' && !toks.some((t) => tokenText(t) === 'then')) {
+		push(
+			'ifMissingThen',
+			"If statement is missing 'Then'.",
+			absoluteSpan(stmt.span, first),
+		);
+	}
+
+	if (w0 === 'case' && ctx.selectDepth === 0) {
+		push(
+			'caseOutsideSelect',
+			"'Case' can only appear inside a 'Select Case' block.",
+			absoluteSpan(stmt.span, first),
+		);
+	}
+
+	if (first.rawText === '.' && ctx.withDepth === 0) {
+		push(
+			'memberAccessOutsideWith',
+			"A statement that starts with '.' must be inside a With block.",
+			absoluteSpan(stmt.span, first),
+		);
+	}
+
+	if (w0 === 'exit') {
+		const target = toks[1];
+		const targetWord = tokenText(target);
+		if (target && targetWord === 'for' && ctx.forDepth === 0) {
+			push(
+				'exitOutsideBlock',
+				"'Exit For' can only appear inside a For loop.",
+				exitPhraseSpan(stmt.span, first, target),
+			);
+		} else if (target && targetWord === 'do' && ctx.doDepth === 0) {
+			push(
+				'exitOutsideBlock',
+				"'Exit Do' can only appear inside a Do loop.",
+				exitPhraseSpan(stmt.span, first, target),
+			);
+		}
+	}
+}
+
+function statementTokens(source: string, span: Span): VbaToken[] {
+	return tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+}
+
+function tokenText(token: VbaToken | undefined): string {
+	return (token?.canonicalText ?? token?.rawText ?? '').toLowerCase();
+}
+
+function absoluteSpan(base: Span, token: VbaToken): Span {
+	return { start: base.start + token.start, end: base.start + token.end };
+}
+
+function exitPhraseSpan(base: Span, first: VbaToken, target: VbaToken): Span {
+	return { start: base.start + first.start, end: base.start + target.end };
 }
 
 /**

@@ -19,6 +19,8 @@ Model API.
 No COM automation, no Office installation, no win32com -- works on Windows,
 macOS, Linux, and remote containers.
 
+Nothing else is needed to get the extension up and running. The remaining documentation here is for further development of the XLIDE extension development purposes only.
+
 ---
 
 ## Development setup

@@ -99,6 +99,32 @@ describe('lintVbaSource', () => {
         const src = 'Public Type TPoint\n    X As Long\nEnd Type\nEnum Color\n    Red\nEnd Enum\n';
         expect(lintVbaSource(src)).toEqual([]);
     });
+
+    it('balances conditional compilation #If blocks', () => {
+        const src = [
+            '#If VBA7 Then',
+            'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)',
+            '#Else',
+            'Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)',
+            '#End If',
+            '',
+        ].join('\n');
+        expect(lintVbaSource(src)).toEqual([]);
+    });
+
+    it('flags a conditional compilation block missing #End If', () => {
+        const src = '#If VBA7 Then\nDeclare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
+        const problems = lintVbaSource(src);
+        expect(problems).toHaveLength(1);
+        expect(problems[0].message).toContain("Missing '#End If'");
+    });
+
+    it('flags stray conditional compilation branch and closer directives', () => {
+        const problems = lintVbaSource('#Else\n#End If\n');
+        expect(problems).toHaveLength(2);
+        expect(problems[0].message).toContain("has no matching '#If'");
+        expect(problems[1].message).toContain("has no matching '#If'");
+    });
 });
 
 describe('stripVba', () => {

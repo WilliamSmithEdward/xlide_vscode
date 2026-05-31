@@ -651,6 +651,78 @@ describe('analyzeModule - Exit statement matches procedure', () => {
 	});
 });
 
+describe('analyzeModule - statement context', () => {
+	it('flags an If statement missing Then', () => {
+		const src = 'Sub T()\n    If x > 0\n        x = 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'if-missing-then');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('If');
+	});
+
+	it('accepts multiline and single-line If statements with Then', () => {
+		const src =
+			'Sub T()\n' +
+			'    If x > 0 Then\n        x = 1\n    End If\n' +
+			'    If x > 1 Then x = 2\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'if-missing-then')).toHaveLength(0);
+	});
+
+	it('flags Case outside Select Case', () => {
+		const src = 'Sub T()\n    Case 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'case-outside-select');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Case');
+	});
+
+	it('accepts Case inside Select Case', () => {
+		const src =
+			'Sub T()\n' +
+			'    Select Case x\n' +
+			'        Case 1, 2\n' +
+			'            x = 3\n' +
+			'        Case Else\n' +
+			'            x = 4\n' +
+			'    End Select\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'case-outside-select')).toHaveLength(0);
+	});
+
+	it('flags leading-dot member access outside With', () => {
+		const src = 'Sub T()\n    .Value = 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-access-outside-with');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('.');
+	});
+
+	it('accepts leading-dot member access inside With', () => {
+		const src =
+			'Sub T()\n' +
+			'    With Range("A1")\n' +
+			'        .Value = 1\n' +
+			'    End With\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'member-access-outside-with')).toHaveLength(0);
+	});
+
+	it('flags Exit For and Exit Do outside matching loops', () => {
+		const src = 'Sub T()\n    Exit For\n    Exit Do\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'exit-outside-block');
+		expect(hits).toHaveLength(2);
+		expect(spanText(src, hits[0])).toBe('Exit For');
+		expect(spanText(src, hits[1])).toBe('Exit Do');
+	});
+
+	it('accepts Exit For and Exit Do inside matching loops', () => {
+		const src =
+			'Sub T()\n' +
+			'    For i = 1 To 3\n        Exit For\n    Next i\n' +
+			'    Do\n        Exit Do\n    Loop\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'exit-outside-block')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - Option placement', () => {
 	it('flags an Option after a declaration', () => {
 		const src = 'Private m_Count As Long\nOption Explicit\n';

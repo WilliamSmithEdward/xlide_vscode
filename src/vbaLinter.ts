@@ -24,7 +24,7 @@ interface LogicalLine {
 type BlockKind =
     | 'Sub' | 'Function' | 'Property'
     | 'If' | 'With' | 'Select' | 'Type' | 'Enum'
-    | 'For' | 'Do' | 'While';
+    | 'For' | 'Do' | 'While' | 'PreprocessorIf';
 
 interface OpenBlock {
     kind: BlockKind;
@@ -47,6 +47,7 @@ const CLOSE_PHRASE: Record<BlockKind, string> = {
     For: 'Next',
     Do: 'Loop',
     While: 'Wend',
+    PreprocessorIf: '#End If',
 };
 
 /** The opener keyword shown when a stray closer has no match. */
@@ -62,6 +63,7 @@ const OPEN_WORD: Record<BlockKind, string> = {
     For: 'For',
     Do: 'Do',
     While: 'While',
+    PreprocessorIf: '#If',
 };
 
 /**
@@ -125,6 +127,7 @@ function toLogicalLines(source: string): { stripped: string[]; logical: LogicalL
 
 /** Detects a block closer on a stripped, trimmed logical line. */
 function matchCloser(t: string): BlockKind | undefined {
+    if (/^#\s*End\s*If\b/i.test(t) || /^#\s*EndIf\b/i.test(t)) { return 'PreprocessorIf'; }
     const end = /^End\s+(Sub|Function|Property|If|With|Select|Type|Enum)\b/i.exec(t);
     if (end) {
         const w = end[1].toLowerCase();
@@ -145,6 +148,7 @@ function matchCloser(t: string): BlockKind | undefined {
 /** Detects a block opener on a stripped, trimmed logical line. */
 function matchOpener(t: string): OpenBlock | undefined {
     let m: RegExpExecArray | null;
+    if (/^#\s*If\b/i.test(t)) { return { kind: 'PreprocessorIf', line: 0, label: '#If' }; }
     m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\s+([A-Za-z_]\w*)/i.exec(t);
     if (m) {
         const kind = (/^sub$/i.test(m[1]) ? 'Sub' : 'Function') as BlockKind;
@@ -214,6 +218,18 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
         const t = ll.text.trim();
         if (!t) { continue; }
 
+        const preprocessorBranch = /^(#\s*ElseIf|#\s*Else)\b/i.exec(t);
+        if (preprocessorBranch) {
+            if (!stack.some((b) => b.kind === 'PreprocessorIf')) {
+                problems.push(fullLineProblem(
+                    physical, ll.line,
+                    `'${preprocessorBranch[1].replace(/\s+/g, ' ')}' has no matching '#If'.`,
+                    'error',
+                ));
+            }
+            continue;
+        }
+
         if (/^Next\b/i.test(t)) {
             const rest = t.replace(/^Next\b/i, '').trim();
             const count = rest === '' ? 1 : rest.split(',').length;
@@ -223,7 +239,11 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
 
         const closer = matchCloser(t);
         if (closer) {
-            const word = /^End\b/i.test(t) ? `End ${closer === 'Select' ? 'Select' : closer}` : t.split(/\s+/)[0];
+            const word = closer === 'PreprocessorIf'
+                ? '#End If'
+                : /^End\b/i.test(t)
+                    ? `End ${closer === 'Select' ? 'Select' : closer}`
+                    : t.split(/\s+/)[0];
             closeOne(closer, ll.line, word);
             continue;
         }

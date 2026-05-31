@@ -173,6 +173,38 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.1',
 		confidence: 'high',
 	},
+	ifMissingThen: {
+		code: 'if-missing-then',
+		title: 'If statement is missing Then',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1',
+		confidence: 'high',
+	},
+	caseOutsideSelect: {
+		code: 'case-outside-select',
+		title: 'Case statement outside Select Case',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.4',
+		confidence: 'high',
+	},
+	memberAccessOutsideWith: {
+		code: 'member-access-outside-with',
+		title: 'Leading member access outside With block',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.6',
+		confidence: 'high',
+	},
+	exitOutsideBlock: {
+		code: 'exit-outside-block',
+		title: 'Loop exit statement outside matching loop',
+		defaultSeverity: 'error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.1.3',
+		confidence: 'high',
+	},
 } satisfies Record<string, DiagnosticRuleMetadata>;
 
 /** Stable rule-name keys of {@link DIAGNOSTIC_RULES}. */
