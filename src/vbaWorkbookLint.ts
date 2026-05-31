@@ -139,10 +139,13 @@ export async function lintWorkbook(
         }
     }
     let knownProcedures: ReadonlySet<string> | undefined;
+    let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
     try {
         knownProcedures = project.procedureNames();
+        projectProcedures = project.procedureSignatures();
     } catch {
         knownProcedures = undefined;
+        projectProcedures = undefined;
     }
 
     const config = vscode.workspace.getConfiguration('xlide');
@@ -182,6 +185,7 @@ export async function lintWorkbook(
                 moduleKind: moduleKindFromType(mod.type),
                 severities,
                 knownProcedures,
+                projectProcedures,
             });
         } catch {
             semantic = [];

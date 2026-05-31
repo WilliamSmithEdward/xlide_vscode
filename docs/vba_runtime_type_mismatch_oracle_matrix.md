@@ -11,7 +11,8 @@ evidence for red XLIDE diagnostics whose `vbeCompileEquivalent` value is false.
 If XLIDE can prove a string literal cannot be coerced to the required numeric or
 Boolean scalar type, the code may compile but will raise runtime error 13 when
 executed. Numeric strings, Boolean strings, stringification, and `&`
-concatenation should remain accepted controls.
+concatenation should remain accepted controls. String-plus-string with `+`
+should also remain accepted if both operands are string values.
 
 ## Method
 
@@ -43,11 +44,12 @@ concatenation should remain accepted controls.
 | `number_to_string_assignment_runtime` | String assignment from numeric literal `123` | Accepted |
 | `numeric_plus_numeric_string_runtime` | Numeric arithmetic with `"2"` | Accepted |
 | `string_concat_nonnumeric_string_runtime` | `&` concatenation with `"string"` | Accepted |
+| `string_plus_string_literals_runtime` | `+` between two string literals assigned to `String` | Accepted |
 
 ## Conclusion
 
 The evidence supports red deterministic-runtime diagnostics for nonnumeric string
 literals in numeric/Boolean assignment, numeric/Boolean argument coercion, and
 numeric arithmetic expressions. The rule remains narrow: numeric strings,
-Boolean strings, ordinary stringification, unknown values, `Variant`, and
-host-dependent coercions are not hard errors.
+Boolean strings, ordinary stringification, string-plus-string with `+`, unknown
+values, `Variant`, and host-dependent coercions are not hard errors.

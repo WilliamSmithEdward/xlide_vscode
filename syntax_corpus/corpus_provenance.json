@@ -38,6 +38,11 @@
       "notes": "Visible editor edge notes retained for coverage planning; not authoritative without case-level evidence."
     },
     {
+      "path": "xlide_vba_realtime_linting_final_corpus_addendum.md",
+      "provenance": "pending-verification",
+      "notes": "Final hardening addendum retained as planning material; promote individual cases only after MS-VBAL or oracle verification."
+    },
+    {
       "path": "xlide_vba_visible_linting_corpus_recommendations.md",
       "provenance": "pending-verification",
       "notes": "Recommendations document, not an executable source of truth."

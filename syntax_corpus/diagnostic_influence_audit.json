@@ -89,7 +89,7 @@
     {
       "code": "argument-count",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases plus deterministic project signature graph",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "missing_trailing_required_argument",
@@ -100,12 +100,13 @@
         "missing_trailing_optional_argument"
       ],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Same-module signatures come from the AST. Cross-module checks run only for unique exported standard-module Sub/Function signatures supplied by ProjectIndex; ambiguous exported names stay silent."
     },
     {
       "code": "argument-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, and string-concatenation compatibility model",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, string-concatenation, and project signature model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "nonnumeric_string_to_currency_argument",
@@ -116,7 +117,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully. Cross-module checks use only unique exported project Sub/Function signatures; ambiguous names stay silent.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -165,11 +166,12 @@
         "numeric_plus_nonnumeric_string_parenthesized_runtime",
         "numeric_multiply_nonnumeric_string_runtime",
         "numeric_plus_numeric_string_runtime",
-        "string_concat_nonnumeric_string_runtime"
+        "string_concat_nonnumeric_string_runtime",
+        "string_plus_string_literals_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: the focused compile oracle case compiles successfully, while runtime oracle probes for nonnumeric string arithmetic deterministically raise runtime error 13. Operand-order, grouping, and multiplication variants reject; numeric-string and &-concatenation controls run successfully.",
+      "notes": "This is an error but not VBE compile-equivalent: the focused compile oracle case compiles successfully, while runtime oracle probes for nonnumeric string arithmetic deterministically raise runtime error 13. Operand-order, grouping, and multiplication variants reject; numeric-string, &-concatenation, and string-plus-string + controls run successfully.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

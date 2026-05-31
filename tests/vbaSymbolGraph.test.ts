@@ -319,6 +319,57 @@ describe('ProjectIndex duplicate procedure detection', () => {
 	});
 });
 
+describe('ProjectIndex procedure signatures', () => {
+	it('collects exported Sub and Function signatures for project diagnostics', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Helpers',
+			moduleKind: 'standard',
+			source:
+				'Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double) As Currency\n' +
+				'End Function\n' +
+				'Private Sub Hidden(ByVal value As String)\nEnd Sub\n',
+		});
+		const signatures = index.procedureSignatures();
+		expect(signatures.get('hidden')).toBeUndefined();
+		const invoice = signatures.get('invoicetotal');
+		expect(invoice).toHaveLength(1);
+		expect(invoice?.[0].moduleName).toBe('Helpers');
+		expect(invoice?.[0].returnType).toBe('Currency');
+		expect(invoice?.[0].params).toEqual([
+			{
+				name: 'Subtotal',
+				type: 'Currency',
+				optional: false,
+				paramArray: false,
+				isArray: false,
+			},
+			{
+				name: 'TaxRate',
+				type: 'Double',
+				optional: true,
+				paramArray: false,
+				isArray: false,
+			},
+		]);
+	});
+
+	it('keeps duplicate exported signatures grouped for ambiguity checks', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'First',
+			moduleKind: 'standard',
+			source: 'Public Sub DoWork(ByVal value As Long)\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Second',
+			moduleKind: 'standard',
+			source: 'Public Sub DoWork(ByVal value As Long)\nEnd Sub\n',
+		});
+		expect(index.procedureSignatures().get('dowork')).toHaveLength(2);
+	});
+});
+
 describe('ProjectIndex resolveQualifiedDefinition', () => {
 	const index = new ProjectIndex();
 	index.setModule({

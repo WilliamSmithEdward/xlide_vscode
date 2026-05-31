@@ -537,7 +537,11 @@ Diagnostic severity policy:
   `Object` is rejected by VBE Compile. These rules use only declared
   parameter/local types, curated runtime return metadata, same-module return
   types, and deterministic literal/expression inference; unknown and `Variant`
-  operands suppress diagnostics. `string-arithmetic-coercion` is a related red
+  operands suppress diagnostics. For workbook-backed modules, the provider also
+  passes a project-wide map of unique exported standard-module `Sub`/`Function`
+  signatures, so argument count/type checks can cross module boundaries when the
+  target is unambiguous; duplicate exported names and non-standard member cases
+  stay silent until the binder can prove the target. `string-arithmetic-coercion` is a related red
   deterministic-runtime-error diagnostic for numeric contexts containing a
   provably nonnumeric string literal in an arithmetic expression; focused oracle
   cases confirm the representative expression compiles but raises runtime error

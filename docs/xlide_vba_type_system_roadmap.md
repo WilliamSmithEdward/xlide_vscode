@@ -195,6 +195,9 @@ Landed first:
 
 - Resolve public procedures, classes, enums, UDTs, and module members across the
   workbook project.
+- Landed first slice: unique exported standard-module `Sub`/`Function`
+  signatures feed cross-module argument count and type diagnostics; ambiguous
+  duplicate exported signatures are skipped.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

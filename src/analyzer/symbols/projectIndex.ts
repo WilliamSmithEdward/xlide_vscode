@@ -15,6 +15,7 @@ import {
 	type ModuleSymbolKind,
 	type ModuleSymbols,
 	type VbaSymbol,
+	type VbaProcedureSignature,
 } from './symbolModel';
 import type { Span } from '../parser/nodes';
 
@@ -116,6 +117,50 @@ export class ProjectIndex {
 			}
 		}
 		return names;
+	}
+
+	/**
+	 * Exported Sub/Function signatures grouped by lowercased procedure name.
+	 * Properties are deliberately excluded from this first callable-signature
+	 * surface because their invocation syntax and Let/Set/Get pairing needs the
+	 * object/member binder.
+	 */
+	procedureSignatures(): Map<string, VbaProcedureSignature[]> {
+		const signatures = new Map<string, VbaProcedureSignature[]>();
+		for (const mod of this.modules.values()) {
+			for (const symbol of mod.root.children ?? []) {
+				if (
+					(symbol.kind !== 'sub' && symbol.kind !== 'function') ||
+					!isExported(symbol)
+				) {
+					continue;
+				}
+				const params = (symbol.children ?? [])
+					.filter((child) => child.kind === 'parameter')
+					.map((child) => ({
+						name: child.name,
+						type: child.asType,
+						optional: child.optional ?? false,
+						paramArray: child.paramArray ?? false,
+						isArray: child.isArray ?? false,
+					}));
+				const sig: VbaProcedureSignature = {
+					name: symbol.name,
+					moduleName: symbol.moduleName,
+					kind: symbol.kind,
+					params,
+					returnType: symbol.asType,
+				};
+				const key = symbol.name.toLowerCase();
+				const existing = signatures.get(key);
+				if (existing) {
+					existing.push(sig);
+				} else {
+					signatures.set(key, [sig]);
+				}
+			}
+		}
+		return signatures;
 	}
 
 	/** The {@link ModuleSymbols} for a module, or undefined. */

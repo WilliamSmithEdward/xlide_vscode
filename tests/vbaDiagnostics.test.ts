@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { analyzeModule, VbaDiagnostic, DIAGNOSTIC_RULES } from '../src/analyzer';
+import {
+	analyzeModule,
+	VbaDiagnostic,
+	DIAGNOSTIC_RULES,
+	ProjectIndex,
+} from '../src/analyzer';
 
 /** Returns the diagnostics whose code matches `code`. */
 function byCode(diags: VbaDiagnostic[], code: string): VbaDiagnostic[] {
@@ -9,6 +14,20 @@ function byCode(diags: VbaDiagnostic[], code: string): VbaDiagnostic[] {
 /** Resolves the source substring a diagnostic span covers. */
 function spanText(source: string, d: VbaDiagnostic): string {
 	return source.slice(d.span.start, d.span.end);
+}
+
+function projectProcedures(
+	modules: Array<{ moduleName: string; source: string }>,
+): ReturnType<ProjectIndex['procedureSignatures']> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: 'standard',
+			source: mod.source,
+		});
+	}
+	return project.procedureSignatures();
 }
 
 describe('analyzeModule - unterminated string', () => {
@@ -608,6 +627,53 @@ describe('analyzeModule - argument count', () => {
 			'Sub Greet(ByVal a As String)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
+
+	it('uses a unique exported project signature for cross-module argument count', () => {
+		const caller =
+			'Public Sub Main()\n' +
+			'    PrintTotal 100\n' +
+			'End Sub\n';
+		const helper =
+			'Public Sub PrintTotal(ByVal amount As Currency, ByVal caption As String)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Helpers', source: helper },
+				]),
+			}),
+			'argument-count',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('PrintTotal');
+		expect(hits[0].message).toContain('expected 2 arguments');
+	});
+
+	it('does not arity-check ambiguous exported project signatures', () => {
+		const caller =
+			'Public Sub Main()\n' +
+			'    PrintTotal 100\n' +
+			'End Sub\n';
+		const first = 'Public Sub PrintTotal(ByVal amount As Currency)\nEnd Sub\n';
+		const second =
+			'Public Sub PrintTotal(ByVal amount As Currency, ByVal caption As String)\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(caller, {
+					moduleName: 'Caller',
+					projectProcedures: projectProcedures([
+						{ moduleName: 'Caller', source: caller },
+						{ moduleName: 'First', source: first },
+						{ moduleName: 'Second', source: second },
+					]),
+				}),
+				'argument-count',
+			),
+		).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - argument type validation', () => {
@@ -625,6 +691,53 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('Subtotal');
 		expect(hits[0].message).toContain('Currency');
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
+	it('uses a unique exported project signature for cross-module argument types', () => {
+		const caller =
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = InvoiceTotal("blah", 0.08)\n' +
+			'End Sub\n';
+		const invoices =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Invoices', source: invoices },
+				]),
+			}),
+			'argument-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('"blah"');
+		expect(hits[0].message).toContain('Subtotal');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
+	it('uses a unique exported project function return type in nested calls', () => {
+		const caller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject MakeLabel()\n' +
+			'End Sub\n';
+		const labels = 'Public Function MakeLabel() As String\nEnd Function\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Labels', source: labels },
+				]),
+			}),
+			'argument-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('MakeLabel');
+		expect(hits[0].message).toContain('MakeLabel(...) As String');
 	});
 
 	it('accepts numeric literals and numeric string literals for numeric parameters', () => {
@@ -889,6 +1002,16 @@ describe('analyzeModule - string arithmetic coercion', () => {
 			'    n = 1 + UnknownValue\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'string-arithmetic-coercion')).toHaveLength(0);
+	});
+
+	it('accepts plus between string literals assigned to a String variable', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim shouldErrorTest1 As String\n' +
+			'    shouldErrorTest1 = "string" + "string"\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'string-arithmetic-coercion')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 });
 

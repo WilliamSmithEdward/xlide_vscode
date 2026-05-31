@@ -36,7 +36,11 @@ import type {
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
-import type { ModuleSymbolKind, VbaSymbol } from '../symbols/symbolModel';
+import type {
+	ModuleSymbolKind,
+	VbaProcedureSignature,
+	VbaSymbol,
+} from '../symbols/symbolModel';
 import { isProcedureKind } from '../symbols/symbolModel';
 import {
 	DIAGNOSTIC_RULES,
@@ -78,6 +82,12 @@ export interface AnalyzeModuleOptions {
 	 * false-positives on a call to a procedure in another module).
 	 */
 	knownProcedures?: ReadonlySet<string>;
+	/**
+	 * Exported Sub/Function signatures across the workbook project, grouped by
+	 * lowercased procedure name. When omitted, type and arity validation remain
+	 * single-module only.
+	 */
+	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
 }
 
 /** Counts double-quote characters; an odd count means the string is unterminated. */
@@ -167,8 +177,8 @@ function runRules(
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
 	checkNonCallableCallStatement(source, mod, symbols, push);
-	checkArgumentCount(source, mod, push);
-	checkArgumentTypes(source, mod, symbols, push);
+	checkArgumentCount(source, mod, opts.projectProcedures, push);
+	checkArgumentTypes(source, mod, symbols, opts.projectProcedures, push);
 	checkAssignmentTypes(source, mod, symbols, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
@@ -853,6 +863,7 @@ interface CallArguments {
 function checkArgumentCount(
 	source: string,
 	mod: ModuleNode,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	push: PushFn,
 ): void {
 	const procsByName = new Map<string, ProcedureNode[]>();
@@ -871,11 +882,12 @@ function checkArgumentCount(
 			procsByName.set(key, [member]);
 		}
 	}
-	if (procsByName.size === 0) {
+	if (procsByName.size === 0 && !projectProcedures) {
 		return;
 	}
 
-	const moduleSignatures = buildModuleTypeSignatures(mod);
+	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
+	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -883,30 +895,37 @@ function checkArgumentCount(
 		forEachStatement(member.body, (stmt) => {
 			const statementCall = extractCall(source, stmt.span);
 			if (statementCall) {
-				validateSameModuleArity(statementCall, procsByName, push);
+				validateCallableArity(statementCall, procsByName, projectSignatures, push);
 			}
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
 				if (sameCallTarget(call, statementCall)) {
 					continue;
 				}
-				validateSameModuleArity(call, procsByName, push);
+				validateCallableArity(call, procsByName, projectSignatures, push);
 			}
 		});
 	}
 }
 
-function validateSameModuleArity(
+function validateCallableArity(
 	call: CallArguments,
 	procsByName: ReadonlyMap<string, ProcedureNode[]>,
+	projectSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	push: PushFn,
 ): void {
+	const lower = call.name.toLowerCase();
 	const candidates = procsByName.get(call.name.toLowerCase());
-	// Skip unknown names (owned by unknown-call) and ambiguous ones (e.g. a
-	// duplicate definition) where the target signature is not unique.
-	if (!candidates || candidates.length !== 1) {
+	if (candidates) {
+		// Skip ambiguous same-module targets where the signature is not unique.
+		if (candidates.length === 1) {
+			validateArity(procedureTypeSignature(candidates[0]), call, push);
+		}
 		return;
 	}
-	validateArity(candidates[0], call, push);
+	const projectSignature = projectSignatures.get(lower);
+	if (projectSignature) {
+		validateArity(projectSignature, call, push);
+	}
 }
 
 function sameCallTarget(a: CallArguments, b: CallArguments | undefined): boolean {
@@ -1064,11 +1083,11 @@ function describeArity(required: number, max: number): string {
  * the required minimum and the maximum implied by `Optional`/`ParamArray`.
  */
 function validateArity(
-	proc: ProcedureNode,
+	sig: CallableTypeSignature,
 	call: CallArguments,
 	push: PushFn,
 ): void {
-	const params = proc.params;
+	const params = sig.params;
 	let required = params.length;
 	for (let k = 0; k < params.length; k++) {
 		if (params[k].optional || params[k].paramArray) {
@@ -1089,7 +1108,7 @@ function validateArity(
 			if (!paramNames.has(raw.toLowerCase())) {
 				push(
 					'argumentCount',
-					`Named argument not found: '${raw}' is not a parameter of '${proc.name}'.`,
+					`Named argument not found: '${raw}' is not a parameter of '${sig.name}'.`,
 					{
 						start: call.sliceStart + slot[0].start,
 						end: call.sliceStart + slot[0].end,
@@ -1106,7 +1125,7 @@ function validateArity(
 			const name = stripHeaderBrackets(param.name);
 			push(
 				'argumentCount',
-				`Argument not optional: '${name}' is required by '${proc.name}'.`,
+				`Argument not optional: '${name}' is required by '${sig.name}'.`,
 				call.slotSpans?.[i] ?? call.nameSpan,
 			);
 		}
@@ -1116,7 +1135,7 @@ function validateArity(
 	if (n < required || n > max) {
 		push(
 			'argumentCount',
-			`Wrong number of arguments to '${proc.name}': expected ${describeArity(required, max)}, but got ${n}.`,
+			`Wrong number of arguments to '${sig.name}': expected ${describeArity(required, max)}, but got ${n}.`,
 			call.nameSpan,
 		);
 	}
@@ -1156,9 +1175,10 @@ function checkArgumentTypes(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	push: PushFn,
 ): void {
-	const moduleSignatures = buildModuleTypeSignatures(mod);
+	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1299,16 +1319,58 @@ function buildModuleTypeSignatures(mod: ModuleNode): Map<string, CallableTypeSig
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const params = member.params.map((p) => ({
+		out.set(member.name.toLowerCase(), procedureTypeSignature(member));
+	}
+	return out;
+}
+
+function procedureTypeSignature(member: ProcedureNode): CallableTypeSignature {
+	return {
+		name: member.name,
+		params: member.params.map((p) => ({
 			name: stripHeaderBrackets(p.name),
 			type: p.asType,
 			optional: p.optional,
 			paramArray: p.paramArray,
-		}));
-		out.set(member.name.toLowerCase(), {
-			name: member.name,
-			params,
-			returnType: member.returnType,
+		})),
+		returnType: member.returnType,
+	};
+}
+
+function callableTypeSignaturesFor(
+	mod: ModuleNode,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+): Map<string, CallableTypeSignature> {
+	const out = buildModuleTypeSignatures(mod);
+	for (const [lower, sig] of uniqueProjectTypeSignatures(projectProcedures)) {
+		if (!out.has(lower)) {
+			out.set(lower, sig);
+		}
+	}
+	return out;
+}
+
+function uniqueProjectTypeSignatures(
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+): Map<string, CallableTypeSignature> {
+	const out = new Map<string, CallableTypeSignature>();
+	if (!projectProcedures) {
+		return out;
+	}
+	for (const [lower, candidates] of projectProcedures) {
+		if (candidates.length !== 1) {
+			continue;
+		}
+		const candidate = candidates[0];
+		out.set(lower, {
+			name: candidate.name,
+			params: candidate.params.map((p) => ({
+				name: p.name,
+				type: p.type,
+				optional: p.optional,
+				paramArray: p.paramArray,
+			})),
+			returnType: candidate.returnType,
 		});
 	}
 	return out;

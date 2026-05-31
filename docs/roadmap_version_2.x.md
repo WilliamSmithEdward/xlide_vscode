@@ -113,6 +113,11 @@ truth.
 - [x] Add focused oracle fixtures for newly debated syntax edges only.
 - [x] Add a type-analysis corpus coverage matrix for pending, partial, missing,
   and verified type-analysis areas.
+- [ ] Complete full `syntax_corpus` digestion into managed backlog categories
+  (syntax, realtime recovery, type analysis, host behavior, completion context,
+  UserForm/designer symbols, limits, and legacy edges). Treat every Markdown
+  case as raw material until promoted through spec, oracle, or deterministic
+  XLIDE-owned evidence.
 
 Definition of done:
 
@@ -197,7 +202,10 @@ Definition of done:
 
 Purpose: move from same-module checks to workbook-aware analysis.
 
-- [ ] Resolve public procedures across standard modules.
+- [x] Resolve unique exported standard-module `Sub`/`Function` signatures for
+  cross-module argument count and type diagnostics.
+- [ ] Resolve public procedures across standard modules for module-qualified
+  calls and ambiguous duplicate behavior.
 - [ ] Model module-level visibility and shadowing.
 - [ ] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
@@ -244,9 +252,12 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Use `docs/type_analysis_corpus_coverage.md` to choose the next verified
+1. Digest the remaining pending Markdown corpus files into managed backlog
+   categories, including
+   `syntax_corpus/xlide_vba_realtime_linting_final_corpus_addendum.md`.
+2. Use `docs/type_analysis_corpus_coverage.md` to choose the next verified
    corpus additions for the project-wide binder.
-2. Start the project-wide binder vertical slice for public procedures across
+3. Start the project-wide binder vertical slice for public procedures across
    standard modules.
 
 ## Files To Keep In Sync

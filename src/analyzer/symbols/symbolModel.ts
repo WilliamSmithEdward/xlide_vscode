@@ -64,10 +64,38 @@ export interface VbaSymbol {
 	visibility?: SymbolVisibility;
 	/** Declared `As` type, when present. */
 	asType?: string;
+	/** True when a parameter is declared Optional. */
+	optional?: boolean;
+	/** True when a parameter is declared ParamArray. */
+	paramArray?: boolean;
+	/** True when a parameter is explicitly ByVal. */
+	byVal?: boolean;
+	/** True when a parameter is explicitly or implicitly ByRef. */
+	byRef?: boolean;
+	/** True when the declaration is an array. */
+	isArray?: boolean;
 	/** Nested symbols (procedure params/locals, enum members, UDT fields). */
 	children?: VbaSymbol[];
 	/** Inline `'''` XML documentation comment attached to the declaration. */
 	doc?: VbaDoc;
+}
+
+/** Parameter shape used by project-wide callable signature diagnostics. */
+export interface VbaProcedureParam {
+	name: string;
+	type?: string;
+	optional: boolean;
+	paramArray: boolean;
+	isArray: boolean;
+}
+
+/** Exported callable signature collected from the project symbol graph. */
+export interface VbaProcedureSignature {
+	name: string;
+	moduleName: string;
+	kind: Extract<VbaSymbolKind, 'sub' | 'function'>;
+	params: VbaProcedureParam[];
+	returnType?: string;
 }
 
 /** The symbol view of a single module. */

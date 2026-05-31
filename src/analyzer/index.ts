@@ -87,6 +87,8 @@ export {
 	SymbolVisibility,
 	VbaSymbol,
 	VbaSymbolKind,
+	VbaProcedureParam,
+	VbaProcedureSignature,
 } from './symbols/symbolModel';
 export { buildModuleSymbols } from './symbols/buildModuleSymbols';
 export {

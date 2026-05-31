@@ -311,6 +311,17 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim s As String\n    s = 1 & \"string\"\nEnd Sub\n"
     },
     {
+      "id": "string_plus_string_literals_runtime",
+      "description": "Runtime control: using + between two string literals assigned to a String variable isolates string-plus-string behavior from numeric coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim shouldErrorTest1 As String\n    shouldErrorTest1 = \"string\" + \"string\"\nEnd Sub\n"
+    },
+    {
       "id": "nonnumeric_string_to_currency_argument_runtime",
       "description": "Runtime probe: passing a nonnumeric string literal to a Currency parameter isolates call-boundary scalar coercion.",
       "provenance": "vbe-oracle-verified",

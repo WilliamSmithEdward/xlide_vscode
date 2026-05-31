@@ -475,15 +475,20 @@ function registerVbaDiagnostics(
         const diagnostics: vscode.Diagnostic[] = [];
 
         // Project-wide procedure names enable the bare-call "Sub or Function not
-        // defined" rule. Only available for workbook-backed (xlide-vba) docs.
+        // defined" rule; project signatures enable deterministic cross-module
+        // arity/type checks. Only available for workbook-backed docs.
         let knownProcedures: ReadonlySet<string> | undefined;
+        let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
                 const modules = await index.getAllModules(xlsmPath);
-                knownProcedures = buildProjectIndex(modules).procedureNames();
+                const project = buildProjectIndex(modules);
+                knownProcedures = project.procedureNames();
+                projectProcedures = project.procedureSignatures();
             } catch {
                 knownProcedures = undefined;
+                projectProcedures = undefined;
             }
         }
 
@@ -512,6 +517,7 @@ function registerVbaDiagnostics(
                 moduleName: moduleNameOf(document),
                 severities,
                 knownProcedures,
+                projectProcedures,
             });
         } catch {
             semantic = [];

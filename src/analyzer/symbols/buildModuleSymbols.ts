@@ -158,6 +158,11 @@ function buildProcedure(
 			moduleName,
 			containerName: proc.name,
 			asType: param.asType,
+			optional: param.optional,
+			paramArray: param.paramArray,
+			byVal: param.byVal,
+			byRef: param.byRef || (!param.byVal && !param.paramArray),
+			isArray: param.isArray,
 		};
 		children.push(paramSymbol);
 		flat.push(paramSymbol);
