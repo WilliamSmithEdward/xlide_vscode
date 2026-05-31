@@ -1481,6 +1481,32 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits[0].message).toContain('Excel.Workbook.doesnotexist');
 	});
 
+	it('uses the exhaustive Worksheet host surface for ActiveSheet', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    ActiveSheet.asdf\n' +
+			'    ActiveSheet.Range("A1")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('asdf');
+		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+	});
+
+	it('uses the exhaustive Worksheet host surface for declared Worksheet variables', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Set ws = ActiveSheet\n' +
+			'    ws.asdf\n' +
+			'    ws.Range("A1")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('asdf');
+		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+	});
+
 	it('uses an exhaustive host object model to prove a missing member', () => {
 		const model: HostObjectModel = {
 			source: 'test fixture',

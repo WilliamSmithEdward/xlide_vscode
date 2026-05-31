@@ -133,7 +133,7 @@ function referenceMembers(displayName: string): readonly HostMember[] {
 }
 
 export const EXCEL_OBJECT_MODEL: HostObjectModel = {
-	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel reference metadata with Workbook exhaustive dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
+	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel reference metadata with Workbook/Worksheet exhaustive dumps; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
 	aliases: {
 		workbook: WORKBOOK,
 		worksheet: WORKSHEET,
@@ -294,6 +294,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[WORKSHEET]: {
 			displayName: 'Worksheet',
+			exhaustive: true,
 			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('AutoFilter'),

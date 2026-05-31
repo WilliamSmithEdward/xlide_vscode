@@ -42,6 +42,7 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeFunction('Kill')?.kind).toBe('statement');
 		expect(resolveRuntimeFunction('MkDir')?.kind).toBe('statement');
 	});
+
 });
 
 describe('identifier completion - runtime built-ins', () => {
@@ -65,6 +66,20 @@ describe('identifier completion - runtime built-ins', () => {
 		}).map((c) => c.name);
 		expect(names).toContain('MsgBox');
 		expect(names).not.toContain('Array');
+	});
+
+	it('shows verified signatures and parameter metadata for runtime completions', () => {
+		const typed = 'Sub T()\n    Le\nEnd Sub\n';
+		const off = typed.indexOf('Le') + 2;
+		const got = resolveIdentifierCompletions(typed, off, {
+			moduleName: 'M',
+		});
+		const left = got.find((item) => item.name === 'Left');
+		expect(left?.detail).toBe('Left(String, Length) As String');
+		expect(left?.documentation).toContain('**VBA runtime function**');
+		expect(left?.documentation).toContain('```vba\nLeft(String, Length) As String\n```');
+		expect(left?.documentation).toContain('`String` As `String`');
+		expect(left?.documentation).toContain('`Length` As `Long`');
 	});
 
 	it('can be disabled via includeRuntime', () => {

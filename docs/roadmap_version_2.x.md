@@ -325,8 +325,10 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   coverage report at `docs/excel_reference_coverage.md`.
 - [x] Promote generated non-exhaustive core Excel surfaces for completion and
   chaining: `Application`, `Worksheet`, `Range`, `Workbooks`, `Worksheets`, and
-  `Sheets` now merge dump-backed member names with curated return metadata, while
-  `Excel.Workbook` remains the only exhaustive host surface for hard diagnostics.
+  `Sheets` now merge dump-backed member names with curated return metadata.
+- [x] Promote generated `Excel.Worksheet` to an exhaustive host diagnostic
+  surface, so unknown members on `ActiveSheet` and declared `Worksheet`
+  variables participate in hard `member-not-found` diagnostics.
 - [x] Resolve collection-default `Item` calls in simple receiver chains, covering
   patterns such as `ThisWorkbook.Worksheets(1).Range("A1").` and
   `Workbooks(1).Worksheets(1).Range("A1").`; indexed `Sheets` routes through a

@@ -189,13 +189,6 @@
     ],
     "description": "Option Explicit header"
   },
-  "MsgBox": {
-    "prefix": "msgbox",
-    "body": [
-      "MsgBox \"${1:Message}\"$0"
-    ],
-    "description": "MsgBox"
-  },
   "Debug.Print": {
     "prefix": "dp",
     "body": [

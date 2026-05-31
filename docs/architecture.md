@@ -382,9 +382,10 @@ into a pure analyzer layer and a thin VS Code provider:
   or update checked-in metadata under `src/` with explicit provenance. The Excel
   generator currently emits `Application`, `Workbook`, `Worksheet`, `Range`,
   `Workbooks`, `Worksheets`, and `Sheets` into
-  `src/analyzer/host/excelReferenceMembers.ts`; only `Excel.Workbook` is marked
-  exhaustive for hard unknown-member diagnostics. The generator also writes
-  `docs/excel_reference_coverage.md` so promotion gaps stay visible.
+  `src/analyzer/host/excelReferenceMembers.ts`; `Excel.Workbook` and
+  `Excel.Worksheet` are marked exhaustive for hard unknown-member diagnostics.
+  The generator also writes `docs/excel_reference_coverage.md` so promotion gaps
+  stay visible.
   LLM-generated member lists are never used; this is host metadata, not VBA
   grammar.
 - `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
@@ -432,6 +433,9 @@ into a pure analyzer layer and a thin VS Code provider:
   user's in-scope declarations (parameters, locals, module variables/constants,
   procedures, enums and their members, user types), and built-in VBA runtime
   functions (`MsgBox`, `Left`, `CLng`, `RGB`, ...) from the runtime metadata.
+  Runtime completion details show the verified signature, and the documentation
+  panel includes the runtime kind plus curated parameter types where available.
+  Curated runtime calls are intentionally not duplicated as VS Code snippets.
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`
   (`resolveHover`), a pure resolver that describes the identifier under the

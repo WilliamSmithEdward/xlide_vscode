@@ -14,7 +14,11 @@ import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { HostObjectModel } from '../host/excelObjectModel';
 import { getHostGlobals, getHostType } from '../host/hostModel';
-import { VBA_RUNTIME_FUNCTIONS } from '../runtime/vbaRuntime';
+import {
+	VBA_RUNTIME_FUNCTIONS,
+	type VbaRuntimeFunction,
+	type VbaRuntimeParam,
+} from '../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { ModuleSymbolKind, VbaSymbol, isProcedureKind } from '../symbols/symbolModel';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
@@ -167,7 +171,7 @@ export function resolveIdentifierCompletions(
 
 	if (ctx.includeRuntime !== false) {
 		for (const f of VBA_RUNTIME_FUNCTIONS) {
-			add(f.name, 'runtime', `VBA ${f.kind}`);
+			add(f.name, 'runtime', f.signature, runtimeDocumentation(f));
 		}
 	}
 
@@ -265,4 +269,28 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 
 function detailWithType(base: string, asType?: string): string {
 	return asType ? `${base} As ${asType}` : base;
+}
+
+function runtimeDocumentation(fn: VbaRuntimeFunction): string {
+	const lines = [
+		`**VBA runtime ${fn.kind}**`,
+		'',
+		'```vba',
+		fn.signature,
+		'```',
+	];
+	if (fn.params?.length) {
+		lines.push('', '**Parameters**');
+		for (const param of fn.params) {
+			lines.push(`- ${runtimeParamDocumentation(param)}`);
+		}
+	}
+	lines.push('', 'Source: verified Microsoft VBA runtime metadata.');
+	return lines.join('\n');
+}
+
+function runtimeParamDocumentation(param: VbaRuntimeParam): string {
+	const name = param.optional ? `[${param.name}]` : param.name;
+	const suffix = param.paramArray ? ' ParamArray' : '';
+	return param.type ? `\`${name}\` As \`${param.type}\`${suffix}` : `\`${name}\`${suffix}`;
 }

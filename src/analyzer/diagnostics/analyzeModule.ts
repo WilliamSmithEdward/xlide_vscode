@@ -494,9 +494,6 @@ function checkMemberNotFound(
 	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): void {
-	if ((!projectClassMembers || projectClassMembers.length === 0) && !hostModel) {
-		return;
-	}
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;

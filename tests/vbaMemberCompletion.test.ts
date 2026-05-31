@@ -196,7 +196,7 @@ describe('member completion - host globals', () => {
 		const sheet = resolveMemberCompletions(sheetSrc, dotOffset(sheetSrc, 'ws.Named'));
 		const namedSheetViews = sheet.find((member) => member.name === 'NamedSheetViews');
 		expect(namedSheetViews?.owner).toBe('Excel.Worksheet');
-		expect(namedSheetViews?.surfaceExhaustive).toBe(false);
+		expect(namedSheetViews?.surfaceExhaustive).toBe(true);
 	});
 
 	it('uses the dump-backed Workbook surface for ActiveWorkbook and Workbook variables', () => {
@@ -586,6 +586,14 @@ describe('member completion - negative cases', () => {
 		const workbooks = got.find((member) => member.name === 'Workbooks');
 		expect(workbooks?.owner).toBe('Excel.Application');
 		expect(workbooks?.surfaceExhaustive).toBe(false);
+	});
+
+	it('marks generated Worksheet host member surfaces as exhaustive', () => {
+		const src = 'Sub Test()\n    ActiveSheet.Named\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'ActiveSheet.Named'));
+		const namedSheetViews = got.find((member) => member.name === 'NamedSheetViews');
+		expect(namedSheetViews?.owner).toBe('Excel.Worksheet');
+		expect(namedSheetViews?.surfaceExhaustive).toBe(true);
 	});
 
 	it('marks dump-backed Workbook host member surfaces as exhaustive', () => {
