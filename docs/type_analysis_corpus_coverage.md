@@ -52,7 +52,7 @@ view of that backlog.
 | Enums | Pending | Legacy corpus mentions enums | Enum declaration, enum member values, enum-to-integer compatibility, unknown enum names | Spec plus binder tests |
 | UDTs | Pending | Legacy corpus mentions UDTs | UDT declarations, member access, object members in UDTs, cross-module UDT names | Spec plus compile oracle for edge cases |
 | Classes and document modules | Partial | `ProjectIndex.visibleTypeNames()`, `ProjectIndex.projectClassMembers()`, member-completion tests for `Dim p As Person: p.`, inline-doc completion/hover tests for `p.Age`, property assignment diagnostics for typed writable and read-only properties, `member-not-found` diagnostics for source-backed class receivers, semantic-token tests for `As Person` and `New Person` | Class-level/module-level docs, class instances beyond current member-assignment slice, late-bound `Object`/`Variant` receiver behavior, public class fields/constants oracle coverage, default members and `VB_UserMemId = 0` attributes, events, Friend visibility, `Property Set` object assignment, document/UserForm designer members, signature/go-to-definition | Project fixture builder and binder tests; oracle only when VBA behavior affects diagnostics |
-| Excel object model receiver chains | Pending | Legacy host-pattern corpus | `Workbook.Worksheets().Range`, member existence, property vs method calls | Curated host metadata plus integration tests |
+| Excel object model receiver chains | Pending | Legacy host-pattern corpus | `Workbook.Worksheets().Range`, member existence, property vs method calls, exhaustive-vs-curated surface policy, consistent object-access diagnostics across host/source/external metadata | Curated host metadata plus integration tests; hard diagnostics only after exhaustive provenance or oracle-backed controls |
 | Native VBA runtime metadata breadth | Partial | Curated metadata and `Left` coercion oracle | More functions with typed params and returns, statements vs functions, shadowing | Primary docs for signatures, oracle for behavior disputes |
 | External `.vbref.xml` metadata types | Partial | Docs type-hint strategy exists | Metadata-driven callable signatures, precedence vs source, stale metadata behavior | Unit tests, no oracle unless VBA behavior is involved |
 | Inline doc-comment type hints | Partial | Docs and language-service tests | Type hints as signature gap-fillers, no override of concrete source types | Unit tests; hard diagnostics only with deterministic source/metadata |
@@ -88,6 +88,10 @@ These are the highest-value additions before the next major binder slice:
    `Variant` receivers, public class fields/constants as writable/read-only
    members, and default members declared through exported
    `VB_UserMemId = 0` attributes before these cases drive hard diagnostics.
+10. **Unified object-member rule matrix**: for every added curated object
+    surface, record completion coverage, member-not-found policy,
+    writable/read-only assignment behavior, type mismatch behavior, doc display,
+    and no-diagnostic controls for incomplete metadata.
 
 ## Adequacy Assessment
 

@@ -37,6 +37,14 @@ heuristic diagnostics.
   go-to-definition, diagnostics, tests, or sidebar views expose a documented
   symbol without showing or preserving its documentation where that surface can
   reasonably display it, that is a tracked gap, not an acceptable final state.
+- Curated object/member metadata must not become a one-off exception path. Any
+  added curation must be tracked with provenance and tests, and object-access
+  business rules must apply consistently across source-backed classes, document
+  modules, UserForms, curated host objects, and external metadata.
+- Hard object member diagnostics require an exhaustive member surface for the
+  receiver. Curated subsets can power completion, hover, and soft guidance, but
+  they cannot prove `member-not-found` unless the curated source explicitly
+  declares and verifies exhaustiveness for that type.
 - The Excel/VBE oracle is a discovery, debugging, and corpus-coverage tool, not
   a routine per-change test.
 - The syntax corpus is evidence, not authority. Corpus cases may be incomplete
@@ -319,6 +327,15 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   XLIDE cannot parse from workbook source.
 - [ ] Ensure external object metadata can provide member names, kinds,
   signatures, parameter docs/types, return types, examples, and provenance.
+- [ ] Define a unified object-member rule contract used by source-backed
+  classes, document modules, UserForms, curated host objects, and external
+  metadata. The contract must identify whether a member surface is exhaustive,
+  whether assignments are writable/read-only, which value type is accepted, and
+  which diagnostics are allowed from that evidence.
+- [ ] Require every new curated host/object metadata expansion to add coverage
+  for completion, hover/signature docs where applicable, assignment validation,
+  `member-not-found` behavior, and no-diagnostic controls for incomplete or
+  non-exhaustive surfaces.
 - [ ] Define deterministic precedence:
   source symbols win for workbook-owned members; inline docs enrich source;
   external metadata describes explicitly declared external/extension members;
