@@ -22,15 +22,49 @@ Use them as validation layers around a deterministic, fixture-driven linter test
 
 ```text
 Spec corpus
-   ↓
-Pure linter engine tests
-   ↓
+   |
+Fixture runner
+   |
+Pure lint facade tests
+   |
 VS Code diagnostic integration tests
-   ↓
+   |
 Optional Excel COM / VBE oracle tests
 ```
 
 The core linter must be testable without launching VS Code, Excel, or COM.
+
+---
+
+## Current XLIDE Shape
+
+XLIDE already has the right separation for this strategy. Do not rewrite it into
+one large parser/linter module.
+
+Current pure pieces:
+
+- `src/vbaLinter.ts` owns fast structural block-balance diagnostics and
+  smart-enter helpers.
+- `src/analyzer/diagnostics/analyzeModule.ts` owns high-confidence semantic and
+  syntax-adjacent diagnostics over one module.
+- `src/analyzer/diagnostics/ruleMetadata.ts` owns the diagnostic rule catalogue.
+- `src/vbaWorkbookLint.ts` flattens module diagnostics across a workbook for the
+  command and agent-tool path.
+- `src/vbaLanguageProviders.ts` adapts pure diagnostics to VS Code ranges,
+  severities, debounce, and `DiagnosticCollection`.
+
+The next test layer should add a small pure facade, not collapse these modules:
+
+```ts
+export function lintVbaModule(
+  source: string,
+  options: VbaLintOptions
+): NormalizedVbaDiagnostic[];
+```
+
+That facade should merge `lintVbaSource(source)` and `analyzeModule(source,
+options)`, normalize locations, apply mode-specific filtering, and keep the VS
+Code adapter thin.
 
 ---
 
@@ -67,6 +101,8 @@ This layer should test:
 
 ### Example Engine Shape
 
+This is a facade over the existing pure modules, not a replacement for them.
+
 ```ts
 export type LintMode = "realtime" | "strict";
 
@@ -74,12 +110,17 @@ export interface VbaLintOptions {
   mode: LintMode;
   moduleKind: "standard" | "class" | "form" | "worksheet" | "workbook";
   host: "excel";
-  optionExplicit?: boolean;
+  settings?: {
+    optionExplicit?: "off" | "hint" | "information" | "warning" | "error";
+  };
+  knownProcedures?: ReadonlySet<string>;
 }
 
-export interface VbaDiagnostic {
+export interface NormalizedVbaDiagnostic {
   code: string;
-  severity: "error" | "warning" | "info";
+  severity: "error" | "warning" | "information" | "hint";
+  category: DiagnosticCategory;
+  vbeCompileEquivalent: boolean;
   message: string;
   range: {
     startLine: number;
@@ -90,13 +131,16 @@ export interface VbaDiagnostic {
   source: "xlide-vba";
 }
 
-export function lintVbaSource(
+export function lintVbaModule(
   source: string,
   options: VbaLintOptions
-): VbaDiagnostic[] {
+): NormalizedVbaDiagnostic[] {
   return [];
 }
 ```
+
+The existing `lintVbaSource` name should remain reserved for the current
+structural block-balance function unless that API is intentionally migrated.
 
 ### Why This Layer Comes First
 
@@ -118,6 +162,10 @@ Does the editor surface the right diagnostic in the right place?
 
 This layer verifies extension behavior, not VBA correctness.
 
+Keep this layer intentionally small at first. It should be a smoke/integration
+suite that proves the VS Code adapter is wired correctly; the full grammar and
+semantic matrix belongs in Layer 1.
+
 ### What This Layer Tests
 
 This layer should test:
@@ -135,7 +183,7 @@ This layer should test:
 
 ### Recommended Test Command
 
-Expose an internal command for deterministic tests:
+Expose an internal or development-only command for deterministic tests:
 
 ```text
 xlide.lintDocument
@@ -178,6 +226,10 @@ Would real Excel/VBE accept or reject this code?
 This is a compatibility audit layer.
 
 It should be optional, Windows-only, and not required for normal CI.
+
+Important product boundary: XLIDE should remain no-COM/no-Office at runtime.
+Oracle tests are a developer validation tool only; they must never become a
+runtime dependency or a prerequisite for normal local development.
 
 ### Why It Should Be Optional
 
@@ -258,6 +310,36 @@ style
 
 This matters because not every diagnostic maps to a VBE compile failure.
 
+In XLIDE, these fields should live in
+`src/analyzer/diagnostics/ruleMetadata.ts` alongside the existing rule code,
+title, severity, MS-VBAL reference, and confidence:
+
+```ts
+export type DiagnosticCategory =
+  | "syntax"
+  | "lexer"
+  | "parser"
+  | "realtime-recovery"
+  | "declaration"
+  | "semantic"
+  | "project-symbol"
+  | "module-kind"
+  | "excel-host"
+  | "style";
+
+export interface DiagnosticRuleMetadata {
+  code: string;
+  title: string;
+  defaultSeverity: DiagnosticSeverity;
+  category: DiagnosticCategory;
+  vbeCompileEquivalent: boolean;
+  source: "XLIDE";
+  specReference?: string;
+  requiresWholeProject?: boolean;
+  confidence: "high" | "medium" | "low";
+}
+```
+
 ---
 
 ## VBE Equivalence Flag
@@ -305,6 +387,9 @@ Markdown is useful for documentation, but JSON/JSONC is better for automated reg
   "moduleKind": "standard",
   "host": "excel",
   "mode": "strict",
+  "settings": {
+    "optionExplicit": "off"
+  },
   "code": "Public Sub Test()\n    Debug.Print \"hello\" & _ <| ' bad trailing comment |>\nEnd Sub",
   "expected": [
     {
@@ -323,6 +408,34 @@ The marker syntax is only for tests:
 ```
 
 The test harness should strip markers before linting, then use those marker ranges for expected diagnostic locations.
+
+### Fixture Defaults
+
+Fixtures should be explicit about diagnostics that are intentionally enabled.
+For example, if a fixture is testing one syntax error and omits `Option
+Explicit`, either add `Option Explicit` to the code or set:
+
+```json
+{
+  "settings": {
+    "optionExplicit": "off"
+  }
+}
+```
+
+This avoids noisy fixture failures where a style/configurable warning masks the
+rule under test.
+
+If a fixture intentionally allows extra non-error diagnostics, say so directly:
+
+```json
+{
+  "allowExtraDiagnostics": ["option-explicit-missing"]
+}
+```
+
+The default should be strict comparison on stable fields: code, severity, range,
+category, and mode behavior.
 
 ---
 
@@ -356,6 +469,11 @@ This distinction is essential.
 Realtime linting should preserve typing flow.
 
 Strict validation should preserve correctness.
+
+In the current codebase, mode should initially be implemented in the pure facade
+by filtering or downgrading diagnostics from `lintVbaSource` and `analyzeModule`.
+Only move mode awareness deeper into the parser/analyzer when a rule genuinely
+needs different parse recovery behavior.
 
 ---
 
@@ -403,6 +521,11 @@ Project-level tests are required for:
 - project references
 - cross-module symbol lookup
 
+The first implementation can be modest: build a project fixture adapter that
+feeds module names, module kinds, and a project-wide procedure set into the pure
+facade. Deeper reference binding can be added later without changing the fixture
+shape.
+
 ---
 
 ## Normalized Diagnostic Comparison
@@ -434,16 +557,20 @@ Diagnostic codes should be stable.
 ```json
 {
   "scripts": {
-    "test": "npm run test:core && npm run test:vscode",
-    "test:core": "mocha \"out/test/**/*.test.js\"",
+    "test": "vitest run",
+    "test:core": "vitest run",
+    "test:fixtures": "vitest run tests/vbaLintFixtures.test.ts",
     "test:vscode": "vscode-test",
     "test:oracle:vbe": "node ./scripts/run-vbe-oracle.js",
-    "compile": "tsc -p ./"
+    "check-types": "tsc --noEmit",
+    "compile": "npm run check-types && node esbuild.js"
   }
 }
 ```
 
-The normal test command should not require Excel.
+The normal test command should not require Excel. It also does not need to run
+the VS Code integration suite until that suite is stable and fast enough for the
+local loop.
 
 ---
 
@@ -453,7 +580,7 @@ The normal test command should not require Excel.
 Pull request CI:
   - TypeScript compile
   - pure linter fixture tests
-  - selected VS Code integration tests
+  - selected VS Code integration tests, once stable
 
 Nightly or manual Windows CI:
   - pure linter fixture tests
@@ -474,16 +601,17 @@ Local oracle command:
 Recommended implementation order:
 
 ```text
-1. Define fixture format.
-2. Build marker stripper.
-3. Build pure linter test runner.
-4. Add 20 syntax fixtures.
-5. Add realtime-vs-strict expectations.
-6. Add diagnostic code registry.
-7. Wire linter result into VS Code diagnostics.
-8. Add VS Code integration tests.
-9. Add project-level fixture support.
-10. Add optional Excel COM / VBE oracle runner.
+1. Add category and VBE-equivalence fields to the diagnostic rule registry.
+2. Define the pure `lintVbaModule` facade and normalized diagnostic shape.
+3. Define fixture format.
+4. Build marker stripper.
+5. Build pure linter fixture runner.
+6. Add 20 syntax fixtures.
+7. Add realtime-vs-strict expectations.
+8. Wire facade output into VS Code diagnostics.
+9. Add VS Code integration smoke tests.
+10. Add project-level fixture support.
+11. Add optional Excel COM / VBE oracle runner.
 ```
 
 Do not start with Excel automation.
@@ -560,13 +688,15 @@ The linting test strategy is working when:
 
 ```text
 1. Every diagnostic has a stable code.
-2. Every fixture has an expected severity and range.
-3. Realtime and strict modes can disagree intentionally.
-4. VS Code tests prove diagnostics surface correctly.
-5. Excel COM oracle tests are optional, not mandatory.
-6. Project-level fixtures can model multiple modules.
-7. Excel-host warnings are not confused with syntax errors.
-8. New parser bugs can be reproduced by adding one fixture.
+2. Every diagnostic declares category and VBE compile equivalence.
+3. A pure facade returns normalized diagnostics without VS Code, Excel, or COM.
+4. Every fixture has an expected severity and range.
+5. Realtime and strict modes can disagree intentionally.
+6. VS Code tests prove diagnostics surface correctly.
+7. Excel COM oracle tests are optional, not mandatory.
+8. Project-level fixtures can model multiple modules.
+9. Excel-host warnings are not confused with syntax errors.
+10. New parser bugs can be reproduced by adding one fixture.
 ```
 
 At that point, the linter is not just a demo. It is a regression-tested language subsystem.
