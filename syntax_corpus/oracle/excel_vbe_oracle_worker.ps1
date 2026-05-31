@@ -441,7 +441,7 @@ $result = [ordered]@{
 try {
     Set-Stage "start_excel"
     $excel = New-Object -ComObject Excel.Application
-    $excel.Visible = $false
+    $excel.Visible = $true
     $excel.DisplayAlerts = $false
     $excel.EnableEvents = $false
     # msoAutomationSecurityLow. This applies only to the disposable Excel
@@ -469,7 +469,7 @@ try {
 
     if ($mode -eq "compile") {
         Set-Stage "compile"
-        $excel.Visible = $false
+        $excel.Visible = $true
         $excel.VBE.MainWindow.Visible = $true
 
         [void]$component.Activate()

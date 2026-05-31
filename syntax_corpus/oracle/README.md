@@ -27,10 +27,7 @@ python syntax_corpus/oracle/run_excel_vbe_oracle.py --strict
 - Trust access to the VBA project object model enabled
 - No unrelated modal Excel/VBE prompts blocking automation
 
-The runner starts an unsaved disposable Excel workbook per case and keeps the
-Excel workbook/application window hidden. The VBE main window is still shown
-while compile fixtures run, because the oracle intentionally uses VBE's real
-Compile UI and modal compile-error dialog as its primary signal. Keeping the
+The runner starts an unsaved disposable Excel workbook per case. Keeping the
 workbook in memory avoids local macro-security policy blocking generated test
 macros. If a case hangs, the Python coordinator times out the worker and attempts
 to kill only the Excel process that the worker recorded.
