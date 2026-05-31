@@ -22,8 +22,8 @@ The type system should eventually answer these questions:
 - Does this member exist on the receiver type?
 - Is `Set` required, forbidden, or optional here?
 - Is a value being assigned to something compatible?
-- Is this warning a VBE-equivalent compile error, a runtime risk, or an XLIDE
-  quality hint?
+- Is this diagnostic a VBE-equivalent compile error, a deterministic runtime
+  error, a runtime risk, or an XLIDE quality hint?
 
 Diagnostics must stay conservative. If XLIDE cannot prove a mismatch, it should
 prefer no diagnostic over a noisy one.
@@ -119,7 +119,8 @@ Each diagnostic should declare:
 - severity
 - confidence
 - VBE compile equivalence
-- whether it is compile-time, runtime-risk, or XLIDE guidance
+- whether it is compile-time, deterministic-runtime-error, runtime-risk, or
+  XLIDE guidance
 
 ---
 
@@ -146,6 +147,10 @@ Landed first:
 - String concatenation expressions using `&` infer as `String` only when every
   operand has a known scalar type; `Variant`, unknown, and object-like operands
   keep the expression unknown.
+- Nonnumeric string literals in numeric arithmetic expressions produce an error
+  when the expected context is numeric; focused oracle verification shows the
+  representative assignment compiles but deterministically raises runtime error
+  13 Type mismatch when executed.
 - Same-module expression calls are checked for required argument count.
 - Empty positional slots are rejected when the corresponding parameter is
   required.
@@ -153,15 +158,23 @@ Landed first:
   enum members are rejected as non-callable, including bare variable statements
   such as `testStr`; VBE Compile rejects these as `Expected Sub, Function, or
   Property`.
-- Provably nonnumeric string literals passed to numeric parameters are flagged.
+- Provably nonnumeric string literals passed to numeric parameters are flagged as
+  deterministic runtime errors after focused Excel/VBE runtime oracle evidence.
 - Numeric literals and numeric strings remain accepted for numeric parameters.
 - String formats whose VBA coercion depends on runtime value, locale, or deeper
   conversion semantics remain unknown until modeled explicitly.
-- `argument-type-mismatch` is warning-severity when XLIDE has deterministic
-  proof that the supplied argument is a runtime type risk but VBE Compile still
-  accepts the code.
+- `argument-type-mismatch` is error-severity only when XLIDE has deterministic
+  proof that the supplied argument will raise a runtime Type mismatch even
+  though VBE Compile accepts the code.
+- `assignment-type-mismatch` follows the same red runtime-error policy for
+  deterministic scalar assignment coercion failures.
 - Object argument mismatches use a separate compile-equivalent error diagnostic
   after focused Excel/VBE oracle verification.
+- Runtime functions such as `Int` used as `As` type names are compile-equivalent
+  errors. Broad unknown type names remain deferred until the project binder can
+  see workbook classes, UDTs, enums, and host object types.
+- `Set` assignment to a known intrinsic scalar variable is a compile-equivalent
+  error. Unknown object-like target types remain deferred to the object binder.
 - Named arguments map to the named parameter before type validation.
 - Curated VBA runtime functions participate when their parameter type is known.
 - Runtime parameter types are never inferred from parameter names.

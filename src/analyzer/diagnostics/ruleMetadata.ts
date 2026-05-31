@@ -37,6 +37,13 @@ export type DiagnosticCategory =
 	| 'excel-host'
 	| 'style';
 
+/** Why a rule is surfaced at its default severity. */
+export type DiagnosticEvidenceKind =
+	| 'compile-error'
+	| 'deterministic-runtime-error'
+	| 'runtime-risk'
+	| 'style-policy';
+
 /** Static description of a single diagnostic rule. */
 export interface DiagnosticRuleMetadata {
 	/** Stable identifier shown as the diagnostic code. */
@@ -49,6 +56,8 @@ export interface DiagnosticRuleMetadata {
 	category: DiagnosticCategory;
 	/** True when the diagnostic is expected to match a VBE compile failure. */
 	vbeCompileEquivalent: boolean;
+	/** Distinguishes compile-time errors from deterministic runtime errors. */
+	diagnosticKind: DiagnosticEvidenceKind;
 	/** Always 'XLIDE' - the diagnostic source label. */
 	source: 'XLIDE';
 	/** MS-VBAL section (or other authority) the rule enforces. */
@@ -67,6 +76,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'syntax',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 3.3.4',
 		confidence: 'high',
@@ -77,6 +87,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.3',
 		confidence: 'high',
@@ -87,6 +98,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2 / 5.3',
 		confidence: 'high',
@@ -97,6 +109,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.3',
 		confidence: 'high',
@@ -107,6 +120,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.3.1',
 		confidence: 'high',
@@ -117,6 +131,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'warning',
 		category: 'style',
 		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.4.1.1',
 		confidence: 'high',
@@ -127,6 +142,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.3.1',
 		confidence: 'high',
@@ -137,6 +153,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'syntax',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 3.3.1',
 		confidence: 'high',
@@ -147,6 +164,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
@@ -154,9 +172,10 @@ export const DIAGNOSTIC_RULES = {
 	argumentTypeMismatch: {
 		code: 'argument-type-mismatch',
 		title: 'Argument type mismatch',
-		defaultSeverity: 'warning',
+		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.3.1 / runtime type coercion',
 		confidence: 'high',
@@ -167,6 +186,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.3.1',
 		confidence: 'high',
@@ -174,11 +194,23 @@ export const DIAGNOSTIC_RULES = {
 	assignmentTypeMismatch: {
 		code: 'assignment-type-mismatch',
 		title: 'Assignment type mismatch',
-		defaultSeverity: 'warning',
+		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.3 / runtime type coercion',
+		confidence: 'high',
+	},
+	stringArithmeticCoercion: {
+		code: 'string-arithmetic-coercion',
+		title: 'Nonnumeric string in numeric expression',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 / runtime type coercion',
 		confidence: 'high',
 	},
 	unknownCallStatement: {
@@ -187,6 +219,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'project-symbol',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.1',
 		requiresWholeProject: true,
@@ -198,6 +231,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
@@ -208,8 +242,31 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.3.1',
+		confidence: 'high',
+	},
+	invalidAsTypeName: {
+		code: 'invalid-as-type-name',
+		title: 'Invalid As type name',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 3.3.5.2 / 5.2.3.1',
+		confidence: 'high',
+	},
+	setRequiresObject: {
+		code: 'set-requires-object',
+		title: 'Set assignment requires an object variable',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.3',
 		confidence: 'high',
 	},
 	callRequiresParens: {
@@ -218,6 +275,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'syntax',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
@@ -228,6 +286,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'syntax',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.6.9',
 		confidence: 'high',
@@ -238,6 +297,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.3.1.5',
 		confidence: 'high',
@@ -248,6 +308,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.3.1.6',
 		confidence: 'high',
@@ -258,6 +319,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.1.3',
 		confidence: 'high',
@@ -268,6 +330,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.1',
 		confidence: 'high',
@@ -278,6 +341,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'syntax',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
@@ -288,6 +352,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.4',
 		confidence: 'high',
@@ -298,6 +363,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.6',
 		confidence: 'high',
@@ -308,6 +374,7 @@ export const DIAGNOSTIC_RULES = {
 		defaultSeverity: 'error',
 		category: 'semantic',
 		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.1.3',
 		confidence: 'high',

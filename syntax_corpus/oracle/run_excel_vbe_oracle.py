@@ -37,6 +37,19 @@ def expected_matches(expected: str | None, outcome: str) -> bool:
     return expected in (None, "", "observe") or expected == outcome
 
 
+def evidence_phase_for_case(case: dict[str, Any]) -> str:
+    return "runtime" if str(case.get("mode", "compile")) == "run" else "compile"
+
+
+def diagnostic_meaning_for_case(case: dict[str, Any], expected: str) -> str:
+    if expected == "observe":
+        return "observation"
+    phase = evidence_phase_for_case(case)
+    if phase == "runtime":
+        return "runtime-error" if expected == "rejected" else "runtime-valid"
+    return "compile-error" if expected == "rejected" else "compile-valid"
+
+
 def promote_observed_cases(
     document: dict[str, Any],
     results: list[dict[str, Any]],
@@ -76,8 +89,11 @@ def promote_observed_cases(
     promoted = 0
     for case_id, result in result_by_id.items():
         case = cases_by_id[case_id]
-        case["expected"] = str(result["outcome"])
+        expected = str(result["outcome"])
+        case["expected"] = expected
         case["provenance"] = "vbe-oracle-verified"
+        case["evidencePhase"] = evidence_phase_for_case(case)
+        case["diagnosticMeaning"] = diagnostic_meaning_for_case(case, expected)
         promoted += 1
 
     return promoted, []
@@ -113,10 +129,14 @@ def read_dialog_result(case: dict[str, Any], dialog_path: Path) -> dict[str, Any
     except json.JSONDecodeError:
         return None
     message = str(dialog.get("message") or "VBE showed a compile error dialog.")
+    mode = str(case.get("mode", "compile"))
+    is_compile_dialog = dialog.get("kind") == "vbe_compile_dialog"
+    outcome = "rejected" if is_compile_dialog or mode == "run" else "accepted"
+    stage = "compile_dialog" if is_compile_dialog else ("runtime_dialog" if mode == "run" else "vbe_dialog_after_compile")
     return {
         "caseId": case.get("id"),
-        "outcome": "rejected" if dialog.get("kind") == "vbe_compile_dialog" else "accepted",
-        "stage": "compile_dialog" if dialog.get("kind") == "vbe_compile_dialog" else "vbe_dialog_after_compile",
+        "outcome": outcome,
+        "stage": stage,
         "message": message,
         "hresult": None,
         "dialog": dialog,
@@ -133,10 +153,11 @@ def stage_dialog_fallback(case: dict[str, Any], stage: str, timeout: int) -> dic
             "hresult": None,
         }
     if stage == "vbe_dialog":
+        mode = str(case.get("mode", "compile"))
         return {
             "caseId": case.get("id"),
-            "outcome": "accepted",
-            "stage": "vbe_dialog_after_compile",
+            "outcome": "rejected" if mode == "run" else "accepted",
+            "stage": "runtime_dialog" if mode == "run" else "vbe_dialog_after_compile",
             "message": f"VBE non-compile dialog observed; worker timed out after {timeout} seconds before returning dialog text",
             "hresult": None,
         }

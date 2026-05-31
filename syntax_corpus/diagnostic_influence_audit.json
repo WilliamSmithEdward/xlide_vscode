@@ -13,7 +13,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "duplicate-procedure",
@@ -22,7 +23,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "duplicate-declaration",
@@ -31,7 +33,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "duplicate-module-variable",
@@ -40,7 +43,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "const-assignment",
@@ -49,7 +53,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "option-explicit-missing",
@@ -58,7 +63,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "style-policy"
     },
     {
       "code": "invalid-proc-header",
@@ -67,7 +73,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "unbalanced-parens",
@@ -76,7 +83,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "argument-count",
@@ -91,19 +99,25 @@
       "observeOnlyOracleCases": [
         "missing_trailing_optional_argument"
       ],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "argument-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle for severity plus deterministic XLIDE literal, return-type, numeric-expression, and string-concatenation compatibility model",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE literal, return-type, numeric-expression, and string-concatenation compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "nonnumeric_string_to_currency_argument"
+        "nonnumeric_string_to_currency_argument",
+        "nonnumeric_string_to_currency_argument_runtime",
+        "numeric_string_to_currency_argument_runtime",
+        "left_length_nonnumeric_string_runtime",
+        "left_length_numeric_string_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a warning, not a VBE compile-equivalent error: the focused oracle case compiles successfully."
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully.",
+      "diagnosticKind": "deterministic-runtime-error"
     },
     {
       "code": "argument-object-type-mismatch",
@@ -115,20 +129,48 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch."
+      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch.",
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "assignment-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle for severity plus deterministic XLIDE scalar assignment compatibility model",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "number_to_string_assignment",
-        "nonnumeric_string_to_double_assignment"
+        "number_to_string_assignment_runtime",
+        "nonnumeric_string_to_double_assignment",
+        "nonnumeric_string_to_double_assignment_runtime",
+        "double_assignment_numeric_string_runtime",
+        "integer_assignment_nonnumeric_string_runtime",
+        "integer_assignment_numeric_string_runtime",
+        "boolean_assignment_nonboolean_string_runtime",
+        "boolean_assignment_true_string_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a warning, not a VBE compile-equivalent error: focused oracle cases compile successfully."
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean controls run successfully.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "string-arithmetic-coercion",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE numeric-expression compatibility model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "numeric_plus_nonnumeric_string_assignment",
+        "numeric_plus_nonnumeric_string_assignment_runtime",
+        "numeric_plus_nonnumeric_string_left_runtime",
+        "numeric_plus_nonnumeric_string_parenthesized_runtime",
+        "numeric_multiply_nonnumeric_string_runtime",
+        "numeric_plus_numeric_string_runtime",
+        "string_concat_nonnumeric_string_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is an error but not VBE compile-equivalent: the focused compile oracle case compiles successfully, while runtime oracle probes for nonnumeric string arithmetic deterministically raise runtime error 13. Operand-order, grouping, and multiplication variants reject; numeric-string and &-concatenation controls run successfully.",
+      "diagnosticKind": "deterministic-runtime-error"
     },
     {
       "code": "unknown-call",
@@ -137,7 +179,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "non-callable-call",
@@ -151,7 +194,8 @@
         "local_string_with_argument_statement"
       ],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The argument-bearing local-variable call shape is observed-only until promoted; the active rule remains justified by call-statement target resolution."
+      "notes": "The argument-bearing local-variable call shape is observed-only until promoted; the active rule remains justified by call-statement target resolution.",
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "dim-initializer",
@@ -160,7 +204,34 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "invalid-as-type-name",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL reserved-name/type-identifier distinction",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "runtime_function_as_type_name_int"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Broad unknown As-type diagnostics are deferred to the project-wide binder; this rule only flags reserved runtime functions that cannot be valid type names.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "set-requires-object",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable type environment",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "set_scalar_integer_assignment"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Only known intrinsic scalar targets are flagged; unknown host/class object types are deferred to the object binder.",
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "call-requires-parens",
@@ -171,7 +242,8 @@
       "observeOnlyOracleCases": [
         "explicit_call_missing_argument_parentheses"
       ],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "expression-call-requires-parens",
@@ -182,7 +254,8 @@
       "observeOnlyOracleCases": [
         "expression_call_without_parentheses_in_assignment"
       ],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "required-param-after-optional",
@@ -191,7 +264,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "paramarray-not-last",
@@ -200,7 +274,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "exit-wrong-proc",
@@ -209,7 +284,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "option-after-declaration",
@@ -218,7 +294,8 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "if-missing-then",
@@ -229,7 +306,8 @@
       "observeOnlyOracleCases": [
         "if_statement_missing_then"
       ],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "case-outside-select",
@@ -240,7 +318,8 @@
       "observeOnlyOracleCases": [
         "case_statement_outside_select"
       ],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "member-access-outside-with",
@@ -251,7 +330,8 @@
       "observeOnlyOracleCases": [
         "leading_member_access_outside_with"
       ],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     },
     {
       "code": "exit-outside-block",
@@ -262,7 +342,8 @@
       "observeOnlyOracleCases": [
         "exit_do_outside_loop"
       ],
-      "pendingLegacyCorpusFiles": []
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
     }
   ]
 }

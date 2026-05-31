@@ -27,6 +27,17 @@ Implementation should then proceed iteratively through production-quality
 vertical slices. Each slice should fit the larger roadmap and avoid throwaway
 MVP shortcuts or half measures.
 
+## Diagnostic Language
+
+Diagnostic text must match the certainty of the rule.
+
+- Red/error diagnostics use authoritative language: "is invalid", "will fail",
+  or "will raise" when the behavior is proven.
+- Yellow/warning diagnostics use advisory language: "may", "can", "risk",
+  "consider", or similar wording for guidance and soft risks.
+- Uncertain behavior should not be hidden behind hedged red text. Prefer no
+  diagnostic until the behavior is deterministic enough to state plainly.
+
 ## Excel/VBE Oracle Usage
 
 The Excel/VBE oracle is a discovery, debugging, and corpus-coverage tool. Use it

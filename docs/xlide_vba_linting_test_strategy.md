@@ -418,6 +418,27 @@ In practice, `vbeCompileEquivalent: true` diagnostics generally default to
 to `warning` or lower unless XLIDE has deterministic proof that the construct is
 invalid under its own non-VBE rule model.
 
+## Diagnostic Language Policy
+
+Diagnostic wording must be as deterministic as the rule that produced it.
+
+- **Error / red squiggly**: use authoritative language. Say the construct "is
+  invalid", "will fail", or "will raise" when XLIDE has compile-oracle,
+  runtime-oracle, spec, or deterministic local proof.
+- **Warning / yellow squiggly**: use advisory language. Say "may", "can",
+  "risk", "consider", or similar wording because the diagnostic represents
+  guidance, maintainability advice, or a soft risk.
+- **No diagnostic**: do not use message text to hedge around uncertainty. If
+  XLIDE cannot make the statement authoritatively enough for red or usefully
+  enough for yellow, emit nothing.
+
+Tests for red deterministic runtime diagnostics should pin authoritative
+phrasing when the exact behavior matters, for example:
+
+```text
+This will raise Run-time error '13': Type mismatch.
+```
+
 ---
 
 ## Fixture Format

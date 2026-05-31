@@ -29,8 +29,8 @@ python syntax_corpus/oracle/run_excel_vbe_oracle.py --case local_string_with_arg
 Promotion is deliberately narrow. It requires at least one `--case`, refuses
 fixtures whose `expected` value is already asserted, and writes only
 `accepted`/`rejected` outcomes back to `vbe_oracle_cases.json` with
-`provenance: "vbe-oracle-verified"`. Timeouts and worker errors remain
-unpromotable.
+`provenance: "vbe-oracle-verified"`, `evidencePhase`, and
+`diagnosticMeaning`. Timeouts and worker errors remain unpromotable.
 
 ## Requirements
 
@@ -57,9 +57,14 @@ The default fixture mode is `compile`. Compile fixtures insert the fixture sourc
 focus the disposable module in VBE, then invoke VBE's Debug > Compile VBAProject
 UI path (`Alt+D`, then `L`). A `Compile error:` dialog is treated as compile
 rejection. If no compile dialog appears before the popup watch period ends, the
-case is recorded as compile-accepted. `run` mode is reserved for future
-runtime-behavior probes and should be used sparingly because modal runtime errors
-are harder to automate safely.
+case is recorded as compile-accepted.
+
+`run` mode is for focused runtime-behavior probes only. Runtime fixtures must
+name an `entryPoint`. The worker starts the same Win32 dialog watcher before
+running the macro; a `Microsoft Visual Basic` dialog with `Run-time error` text
+is recorded as `outcome: "rejected"` and dismissed with the dialog's `End`
+button. Use runtime fixtures sparingly, only when a deterministic runtime error
+changes diagnostic severity or corpus truth.
 
 During compile fixtures, the worker starts a Win32 dialog watcher before invoking
 VBE Compile. A dialog owned by the disposable Excel process with title
@@ -78,8 +83,20 @@ does not yet assert a specific result.
 Every oracle case must also declare `provenance`:
 
 - `vbe-oracle-verified` for accepted/rejected expectations that are intended to
-  assert Excel/VBE compile behavior.
+  assert Excel/VBE behavior.
 - `observed-not-asserted` for `expected: "observe"` cases.
+
+Every oracle case must declare the phase it proves and the meaning of that
+observation:
+
+- `evidencePhase: "compile"` for Debug > Compile evidence.
+- `evidencePhase: "runtime"` for `excel.Run` evidence.
+- `diagnosticMeaning: "compile-error"` when VBE Compile rejects the source.
+- `diagnosticMeaning: "runtime-error"` when the source compiles but running the
+  entry point raises a deterministic VBE runtime dialog.
+- `diagnosticMeaning: "compile-valid"` or `"runtime-valid"` for controls that
+  prove accepted behavior.
+- `diagnosticMeaning: "observation"` for observe-only fixtures.
 
 Oracle provenance is case-level. The file-level entry in
 `syntax_corpus/corpus_provenance.json` only records that this fixture file is

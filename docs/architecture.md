@@ -472,8 +472,9 @@ high-confidence semantic problems directly from module text:
 
 - `src/analyzer/diagnostics/ruleMetadata.ts` is the typed rule catalogue
   (`DIAGNOSTIC_RULES`): each rule carries a stable `code`, `title`,
-  `defaultSeverity`, `category`, `vbeCompileEquivalent`, `source: 'XLIDE'`, an
-  MS-VBAL `specReference`, and a `confidence`. Only high-confidence rules ship.
+  `defaultSeverity`, `category`, `vbeCompileEquivalent`, `diagnosticKind`,
+  `source: 'XLIDE'`, an MS-VBAL `specReference`, and a `confidence`. Only
+  high-confidence rules ship.
   The broad `undeclared-variable`
   rule and the arbitrary-expression `unknown-call` rule are deliberately absent —
   they would need an expression binder plus a complete host catalogue and would
@@ -487,7 +488,8 @@ Diagnostic severity policy:
 | Diagnostic kind | Default surface | Rule metadata expectation |
 | --- | --- | --- |
 | Deterministic VBE compile failure | Error / red squiggly | `vbeCompileEquivalent: true` with a spec reference or oracle-verified behavior |
-| Deterministic XLIDE-invalid or runtime-risk rule | Error or warning, depending on blast radius | `vbeCompileEquivalent: false`, explicit `category`, and tests that prove the analyzer has enough information |
+| Deterministic runtime failure | Error / red squiggly | `vbeCompileEquivalent: false`, `diagnosticKind: "deterministic-runtime-error"`, and focused runtime-oracle evidence or equivalent deterministic proof |
+| Runtime risk or XLIDE-invalid guidance | Warning / yellow squiggly | `vbeCompileEquivalent: false`, explicit `category`, and tests that prove the analyzer has enough information |
 | XLIDE-only guidance or style | Warning / yellow squiggly or lower | `vbeCompileEquivalent: false` and non-compile category such as `style`, `excel-host`, or `project-symbol` |
 | Uncertain, incomplete while typing, host-dependent, or heuristic-only behavior | No diagnostic | No active rule until the behavior is spec-backed or oracle-verified |
 
@@ -526,15 +528,24 @@ Diagnostic severity policy:
   slots; it honours `Optional` (lowers the minimum) and `ParamArray` (removes
   the maximum), validates named-argument names against the parameters, and skips
   host/runtime/cross-module callees plus any duplicated/ambiguous name. The
-  `argument-type-mismatch` and `assignment-type-mismatch` rules are
-  warning-severity runtime-risk diagnostics: focused Excel/VBE oracle cases
-  confirm representative nonnumeric string coercion examples compile, so these
-  are not VBE compile-equivalent errors. `argument-object-type-mismatch` is
-  split out as a red compile-equivalent diagnostic after an oracle case confirmed
-  `String` to `Object` is rejected by VBE Compile. These rules use only declared
+  `argument-type-mismatch` and `assignment-type-mismatch` rules are red
+  deterministic-runtime-error diagnostics when XLIDE can prove a literal cannot
+  be coerced: focused Excel/VBE compile oracle cases confirm representative
+  examples compile, and focused runtime oracle probes confirm they then raise
+  runtime error 13. `argument-object-type-mismatch` is split out as a red
+  compile-equivalent diagnostic after an oracle case confirmed `String` to
+  `Object` is rejected by VBE Compile. These rules use only declared
   parameter/local types, curated runtime return metadata, same-module return
   types, and deterministic literal/expression inference; unknown and `Variant`
-  operands suppress diagnostics.
+  operands suppress diagnostics. `string-arithmetic-coercion` is a related red
+  deterministic-runtime-error diagnostic for numeric contexts containing a
+  provably nonnumeric string literal in an arithmetic expression; focused oracle
+  cases confirm the representative expression compiles but raises runtime error
+  13 when executed. `invalid-as-type-name` is
+  currently limited to reserved runtime functions such as `Int` used as `As`
+  type names; broad unknown type names wait for the project-wide binder so
+  cross-module classes/UDTs are not flagged prematurely. `set-requires-object`
+  fires only when `Set` targets a known intrinsic scalar variable.
   `unknown-call` rule runs only when the caller
   passes `knownProcedures` (the project-wide procedure-name set from
   `ProjectIndex.procedureNames()`); without it that rule is skipped so a single

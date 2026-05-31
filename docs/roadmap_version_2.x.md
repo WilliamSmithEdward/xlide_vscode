@@ -23,12 +23,20 @@ heuristic diagnostics.
   invalid.
 - Yellow/warning means XLIDE guidance, maintainability advice, or a soft risk
   that may still compile.
+- Diagnostic language must match severity. Red/error diagnostics use
+  authoritative wording such as "will fail", "will raise", or "is invalid" when
+  the behavior is proven. Yellow/warning diagnostics use non-authoritative
+  wording such as "may", "can", "risk", or "consider" because they represent
+  guidance or uncertainty.
 - For complicated work, create or update a roadmap before implementation.
 - The Excel/VBE oracle is a discovery, debugging, and corpus-coverage tool, not
   a routine per-change test.
 - The syntax corpus is evidence, not authority. Corpus cases may be incomplete
   or wrong and should be verified against the oracle when they drive analyzer
   behavior.
+- Deterministic runtime-error rules may be red even when
+  `vbeCompileEquivalent` is false, but only with focused runtime oracle evidence
+  or an equally deterministic local proof.
 
 ## Current Baseline
 
@@ -36,7 +44,8 @@ heuristic diagnostics.
 
 - Realtime diagnostics are split between structural linting and analyzer rules.
 - Active diagnostics are catalogued in `src/analyzer/diagnostics/ruleMetadata.ts`.
-- Rule metadata includes category and VBE compile-equivalence fields.
+- Rule metadata includes category, VBE compile-equivalence, and diagnostic-kind
+  fields so compile-time and deterministic-runtime red squiggles stay separate.
 - Same-module callable signatures are parsed for parameters and return types.
 - High-confidence argument count and type mismatch diagnostics exist.
 - Non-callable call statements are flagged, including bare variable statements
@@ -66,7 +75,10 @@ Purpose: make every diagnostic self-describing and severity-safe.
 
 - [x] Add `category` to every rule.
 - [x] Add `vbeCompileEquivalent` to every rule.
+- [x] Add `diagnosticKind` to every rule.
 - [x] Document red/yellow/no-diagnostic severity policy.
+- [x] Document diagnostic language policy: red is authoritative, yellow is
+  advisory.
 - [x] Add tests that assert every rule declares category and VBE equivalence.
 - [x] Add a short diagnostic policy table to architecture docs.
 - [ ] Use category/equivalence fields when reporting workbook lint summaries.
@@ -74,8 +86,10 @@ Purpose: make every diagnostic self-describing and severity-safe.
 Definition of done:
 
 - Every emitted diagnostic can be classified as VBE compile-equivalent,
-  runtime-risk, XLIDE guidance, or project/model-specific.
-- New diagnostics cannot be added without category and VBE equivalence metadata.
+  deterministic runtime error, runtime-risk, XLIDE guidance, or
+  project/model-specific.
+- New diagnostics cannot be added without category, VBE equivalence, and
+  diagnostic-kind metadata.
 
 ## Workstream B: Syntax Corpus and Oracle Coverage
 
@@ -119,10 +133,21 @@ Purpose: finish the conservative first slice before broadening inference.
   - [x] named argument order
   - [x] omitted required argument
   - [x] omitted optional argument behavior
-- [x] Separate compile-equivalent argument errors from runtime-risk type
-  warnings in tests and metadata.
+- [x] Separate compile-equivalent argument errors from deterministic runtime
+  errors in tests and metadata.
 - [x] Split object argument mismatches into a compile-equivalent red diagnostic
   after focused oracle verification.
+- [x] Add red deterministic-runtime-error diagnostic for nonnumeric string
+  literals in numeric arithmetic expressions after focused oracle verification
+  showed VBE Compile accepts the representative case but execution raises
+  runtime error 13.
+- [x] Promote deterministic nonnumeric string-to-number/Boolean assignment and
+  argument coercion failures to red runtime-error diagnostics after focused
+  runtime oracle verification.
+- [x] Record the runtime type mismatch experiment matrix in
+  `docs/vba_runtime_type_mismatch_oracle_matrix.md`.
+- [x] Add compile-equivalent diagnostics for runtime functions used as `As` type
+  names and `Set` assignments to known intrinsic scalar variables.
 
 Definition of done:
 
@@ -147,8 +172,8 @@ First vertical slice:
 - [x] Arithmetic result family inference for obvious numeric expressions.
 - [x] String concatenation result inference for `&`.
 - [x] Unknown or `Variant` expression operands suppress hard diagnostics.
-- [x] Assignment type mismatch warning after expression proof for scalar
-  assignments.
+- [x] Assignment type mismatch diagnostics after deterministic expression proof
+  for scalar assignments.
 
 Out of scope until proven:
 
@@ -170,6 +195,8 @@ Purpose: move from same-module checks to workbook-aware analysis.
 
 - [ ] Resolve public procedures across standard modules.
 - [ ] Model module-level visibility and shadowing.
+- [ ] Resolve `As` type names against project classes, UDTs, enums, and host
+  object types before flagging broad unknown type names.
 - [ ] Resolve enums and enum members across modules.
 - [ ] Resolve UDT names across modules.
 - [ ] Add workbook-level fixture builder for project analysis tests.

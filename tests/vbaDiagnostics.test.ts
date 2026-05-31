@@ -176,7 +176,7 @@ describe('analyzeModule - Option Explicit', () => {
 });
 
 describe('analyzeModule - general contract', () => {
-	it('every diagnostic rule declares category and VBE compile equivalence', () => {
+	it('every diagnostic rule declares category, VBE equivalence, and evidence kind', () => {
 		const categories = new Set([
 			'syntax',
 			'lexer',
@@ -189,9 +189,19 @@ describe('analyzeModule - general contract', () => {
 			'excel-host',
 			'style',
 		]);
+		const evidenceKinds = new Set([
+			'compile-error',
+			'deterministic-runtime-error',
+			'runtime-risk',
+			'style-policy',
+		]);
 		for (const [name, rule] of Object.entries(DIAGNOSTIC_RULES)) {
 			expect(categories.has(rule.category), name).toBe(true);
 			expect(typeof rule.vbeCompileEquivalent, name).toBe('boolean');
+			expect(evidenceKinds.has(rule.diagnosticKind), name).toBe(true);
+			if (rule.vbeCompileEquivalent) {
+				expect(rule.diagnosticKind, name).toBe('compile-error');
+			}
 		}
 	});
 
@@ -611,9 +621,10 @@ describe('analyzeModule - argument type validation', () => {
 		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].severity).toBe('warning');
+		expect(hits[0].severity).toBe('error');
 		expect(hits[0].message).toContain('Subtotal');
 		expect(hits[0].message).toContain('Currency');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
 	it('accepts numeric literals and numeric string literals for numeric parameters', () => {
@@ -668,6 +679,7 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('"bad"');
 		expect(hits[0].message).toContain('Length');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
 	it('does not infer runtime parameter types from display names', () => {
@@ -801,7 +813,7 @@ describe('analyzeModule - argument type validation', () => {
 });
 
 describe('analyzeModule - assignment type validation', () => {
-	it('warns on a nonnumeric string literal assigned to a numeric variable', () => {
+	it('errors on a nonnumeric string literal assigned to a numeric variable', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim total As Double\n' +
@@ -809,13 +821,14 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
 		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('warning');
+		expect(hits[0].severity).toBe('error');
 		expect(spanText(src, hits[0])).toBe('"blah"');
 		expect(hits[0].message).toContain('total');
 		expect(hits[0].message).toContain('Double');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
-	it('warns on a non-Boolean string literal assigned to a Boolean variable', () => {
+	it('errors on a non-Boolean string literal assigned to a Boolean variable', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim enabled As Boolean\n' +
@@ -825,6 +838,7 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('"maybe"');
 		expect(hits[0].message).toContain('Boolean');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
 	it('accepts VBA scalar coercions and unknown assignment values', () => {
@@ -848,6 +862,83 @@ describe('analyzeModule - assignment type validation', () => {
 			'    item = "blah"\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - string arithmetic coercion', () => {
+	it('errors on a nonnumeric string literal inside a numeric assignment expression', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim shouldErrorTest1 As Integer\n' +
+			'    shouldErrorTest1 = 1 + "string"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'string-arithmetic-coercion');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('"string"');
+		expect(hits[0].message).toContain('shouldErrorTest1');
+		expect(hits[0].message).toContain('Integer');
+		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
+	it('does not warn on numeric strings or unknown arithmetic operands', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim n As Integer\n' +
+			'    n = 1 + "2"\n' +
+			'    n = 1 + UnknownValue\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'string-arithmetic-coercion')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - As type name validation', () => {
+	it('flags runtime functions used as declaration type names', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim shouldErrorTest3 As Int\n' +
+			'    shouldErrorTest3 = 2\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-as-type-name');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Int');
+	});
+
+	it('defers broad unknown type names to the project-wide binder', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim shouldErrorTest2 As Intege\n' +
+			'    shouldErrorTest2 = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-as-type-name')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - Set assignment validation', () => {
+	it('flags Set assignment to a known scalar variable', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim shouldErrorTest5 As Integer\n' +
+			'    Set shouldErrorTest5 = 2\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'set-requires-object');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('shouldErrorTest5');
+	});
+
+	it('does not flag Set assignment to Object, Variant, or unknown object types', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim item As Object\n' +
+			'    Dim flexible As Variant\n' +
+			'    Dim sheet As Worksheet\n' +
+			'    Set item = Nothing\n' +
+			'    Set flexible = Nothing\n' +
+			'    Set sheet = Nothing\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'set-requires-object')).toHaveLength(0);
 	});
 });
 

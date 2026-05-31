@@ -7,7 +7,9 @@
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
-      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n"
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "missing_leading_required_argument",
@@ -15,7 +17,9 @@
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
-      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total2 As Double\n    total2 = InvoiceTotal(, 0.08)\nEnd Sub\n"
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total2 As Double\n    total2 = InvoiceTotal(, 0.08)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "missing_trailing_optional_argument",
@@ -23,7 +27,9 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double = 0.08) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n"
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double = 0.08) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "bare_variable_statement",
@@ -31,7 +37,9 @@
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "local_string_with_argument_statement",
@@ -39,7 +47,9 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr \"hello\"\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr \"hello\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "number_to_string_assignment",
@@ -47,7 +57,9 @@
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = 123\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = 123\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "nonnumeric_string_to_double_assignment",
@@ -55,7 +67,9 @@
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    Dim total As Double\n    total = \"blah\"\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    Dim total As Double\n    total = \"blah\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "nonnumeric_string_to_currency_argument",
@@ -63,7 +77,9 @@
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
-      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Currency\n    total = InvoiceTotal(\"blah\", 0.08)\nEnd Sub\n"
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Currency\n    total = InvoiceTotal(\"blah\", 0.08)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "string_literal_to_object_argument",
@@ -71,7 +87,70 @@
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
-      "source": "Public Sub NeedsObject(ByVal item As Object)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsObject \"hello\"\nEnd Sub\n"
+      "source": "Public Sub NeedsObject(ByVal item As Object)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsObject \"hello\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "numeric_plus_nonnumeric_string_assignment",
+      "description": "A numeric expression uses + with a nonnumeric string literal and is assigned to an Integer.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim shouldErrorTest1 As Integer\n    shouldErrorTest1 = 1 + \"string\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "numeric_plus_nonnumeric_string_assignment_runtime",
+      "description": "Running a numeric expression that adds a nonnumeric string literal raises runtime error 13 Type mismatch.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim shouldErrorTest1 As Integer\n    shouldErrorTest1 = 1 + \"string\"\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "unknown_as_type_name_intege",
+      "description": "A declaration uses an unknown As type name that looks like a misspelled intrinsic type.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim shouldErrorTest2 As Intege\n    shouldErrorTest2 = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "runtime_function_as_type_name_int",
+      "description": "A declaration uses Int as an As type name even though Int is a runtime function, not a type.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim shouldErrorTest3 As Int\n    shouldErrorTest3 = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_variable_as_type_name",
+      "description": "A declaration uses a local variable name as an As type name.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    Dim shouldErrorTest4 As testStr\n    shouldErrorTest4 = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "set_scalar_integer_assignment",
+      "description": "A Set assignment targets a scalar Integer variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim shouldErrorTest5 As Integer\n    Set shouldErrorTest5 = 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "normal_function_call",
@@ -79,7 +158,9 @@
       "provenance": "vbe-oracle-verified",
       "expected": "accepted",
       "mode": "compile",
-      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total2 As Double\n    total2 = InvoiceTotal(100, 0.08)\nEnd Sub\n"
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total2 As Double\n    total2 = InvoiceTotal(100, 0.08)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "expression_call_without_parentheses_in_assignment",
@@ -87,7 +168,9 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    total = InvoiceTotal 100, 0.08\nEnd Sub\n"
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    total = InvoiceTotal 100, 0.08\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "explicit_call_missing_argument_parentheses",
@@ -95,7 +178,9 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    Call MsgBox \"hello\"\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    Call MsgBox \"hello\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "if_statement_missing_then",
@@ -103,7 +188,9 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    If 1 = 1\n        MsgBox \"hello\"\n    End If\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    If 1 = 1\n        MsgBox \"hello\"\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "case_statement_outside_select",
@@ -111,7 +198,9 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    Case 1\n        MsgBox \"hello\"\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    Case 1\n        MsgBox \"hello\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "leading_member_access_outside_with",
@@ -119,7 +208,9 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    .Value = 1\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    .Value = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     },
     {
       "id": "exit_do_outside_loop",
@@ -127,8 +218,185 @@
       "provenance": "observed-not-asserted",
       "expected": "observe",
       "mode": "compile",
-      "source": "Public Sub XlideOracleEntry()\n    Exit Do\nEnd Sub\n"
+      "source": "Public Sub XlideOracleEntry()\n    Exit Do\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "integer_assignment_nonnumeric_string_runtime",
+      "description": "Runtime probe: assigning a nonnumeric string literal directly to an Integer variable isolates scalar assignment coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Integer\n    n = \"string\"\nEnd Sub\n"
+    },
+    {
+      "id": "integer_assignment_numeric_string_runtime",
+      "description": "Runtime control: assigning a numeric string literal directly to an Integer variable should exercise successful VBA numeric coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Integer\n    n = \"2\"\nEnd Sub\n"
+    },
+    {
+      "id": "number_to_string_assignment_runtime",
+      "description": "Runtime control: assigning a numeric literal to a String variable should exercise successful VBA string coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String\n    s = 123\nEnd Sub\n"
+    },
+    {
+      "id": "numeric_plus_nonnumeric_string_left_runtime",
+      "description": "Runtime probe: reversing operands in nonnumeric string addition isolates operand order from the Type mismatch behavior.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Integer\n    n = \"string\" + 1\nEnd Sub\n"
+    },
+    {
+      "id": "numeric_plus_nonnumeric_string_parenthesized_runtime",
+      "description": "Runtime probe: parenthesized nonnumeric string addition isolates grouping syntax from the Type mismatch behavior.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Integer\n    n = (1 + \"string\")\nEnd Sub\n"
+    },
+    {
+      "id": "numeric_multiply_nonnumeric_string_runtime",
+      "description": "Runtime probe: multiplying by a nonnumeric string literal isolates whether the failure is specific to plus or to numeric arithmetic coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Integer\n    n = 1 * \"string\"\nEnd Sub\n"
+    },
+    {
+      "id": "numeric_plus_numeric_string_runtime",
+      "description": "Runtime control: adding a numeric string literal isolates successful string-to-number coercion for arithmetic.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Integer\n    n = 1 + \"2\"\nEnd Sub\n"
+    },
+    {
+      "id": "string_concat_nonnumeric_string_runtime",
+      "description": "Runtime control: using & instead of numeric arithmetic isolates string concatenation from numeric Type mismatch behavior.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String\n    s = 1 & \"string\"\nEnd Sub\n"
+    },
+    {
+      "id": "nonnumeric_string_to_currency_argument_runtime",
+      "description": "Runtime probe: passing a nonnumeric string literal to a Currency parameter isolates call-boundary scalar coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Currency\n    total = InvoiceTotal(\"blah\", 0.08)\nEnd Sub\n"
+    },
+    {
+      "id": "boolean_assignment_nonboolean_string_runtime",
+      "description": "Runtime probe: assigning a non-Boolean string literal to a Boolean variable isolates Boolean scalar coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim enabled As Boolean\n    enabled = \"maybe\"\nEnd Sub\n"
+    },
+    {
+      "id": "nonnumeric_string_to_double_assignment_runtime",
+      "description": "Runtime probe: assigning a nonnumeric string literal directly to a Double variable isolates floating-point scalar coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim total As Double\n    total = \"blah\"\nEnd Sub\n"
+    },
+    {
+      "id": "double_assignment_numeric_string_runtime",
+      "description": "Runtime control: assigning a numeric string literal directly to a Double variable should exercise successful floating-point coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim total As Double\n    total = \"2.5\"\nEnd Sub\n"
+    },
+    {
+      "id": "numeric_string_to_currency_argument_runtime",
+      "description": "Runtime control: passing a numeric string literal to a Currency parameter should exercise successful call-boundary numeric coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Currency\n    total = InvoiceTotal(\"100\", 0.08)\nEnd Sub\n"
+    },
+    {
+      "id": "boolean_assignment_true_string_runtime",
+      "description": "Runtime control: assigning a Boolean string literal to a Boolean variable should exercise successful Boolean coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim enabled As Boolean\n    enabled = \"True\"\nEnd Sub\n"
+    },
+    {
+      "id": "left_length_nonnumeric_string_runtime",
+      "description": "Runtime probe: passing a nonnumeric string literal to the native Left Length parameter isolates curated runtime-function argument coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left(\"abcdef\", \"bad\")\nEnd Sub\n"
+    },
+    {
+      "id": "left_length_numeric_string_runtime",
+      "description": "Runtime control: passing a numeric string literal to the native Left Length parameter should exercise successful argument coercion.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left(\"abcdef\", \"2\")\nEnd Sub\n"
     }
   ]
 }
-

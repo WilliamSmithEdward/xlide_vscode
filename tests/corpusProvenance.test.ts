@@ -25,6 +25,14 @@ interface OracleCase {
 	id: string;
 	expected: 'accepted' | 'rejected' | 'observe';
 	provenance: Provenance;
+	mode?: 'compile' | 'run';
+	evidencePhase: 'compile' | 'runtime';
+	diagnosticMeaning:
+		| 'compile-error'
+		| 'compile-valid'
+		| 'runtime-error'
+		| 'runtime-valid'
+		| 'observation';
 }
 
 interface OracleCasesFile {
@@ -35,6 +43,11 @@ interface OracleCasesFile {
 interface DiagnosticInfluenceEntry {
 	code: string;
 	status: Provenance;
+	diagnosticKind:
+		| 'compile-error'
+		| 'deterministic-runtime-error'
+		| 'runtime-risk'
+		| 'style-policy';
 	sourceOfTruth: string;
 	corpusInfluence: 'none' | 'oracle-backed';
 	assertedOracleCases: string[];
@@ -105,11 +118,24 @@ describe('syntax corpus provenance', () => {
 		for (const fixture of oracle.cases) {
 			expect(fixture.id.trim().length).toBeGreaterThan(0);
 			expect(allowed.has(fixture.provenance)).toBe(true);
+			expect(fixture.evidencePhase).toBe(
+				fixture.mode === 'run' ? 'runtime' : 'compile',
+			);
 
 			if (fixture.expected === 'observe') {
 				expect(fixture.provenance).toBe('observed-not-asserted');
+				expect(fixture.diagnosticMeaning).toBe('observation');
 			} else {
 				expect(fixture.provenance).toBe('vbe-oracle-verified');
+				if (fixture.evidencePhase === 'runtime') {
+					expect(fixture.diagnosticMeaning).toBe(
+						fixture.expected === 'rejected' ? 'runtime-error' : 'runtime-valid',
+					);
+				} else {
+					expect(fixture.diagnosticMeaning).toBe(
+						fixture.expected === 'rejected' ? 'compile-error' : 'compile-valid',
+					);
+				}
 			}
 		}
 	});
@@ -124,14 +150,19 @@ describe('syntax corpus provenance', () => {
 		const allowed = new Set(allowedProvenance);
 		const oracleById = new Map(oracle.cases.map((fixture) => [fixture.id, fixture]));
 		const auditedCodes = audit.diagnostics.map((entry) => entry.code);
-		const ruleCodes = Object.values(DIAGNOSTIC_RULES).map((rule) => rule.code);
+		const ruleByCode = new Map(
+			Object.values(DIAGNOSTIC_RULES).map((rule) => [rule.code, rule]),
+		);
+		const ruleCodes = [...ruleByCode.keys()];
 
 		expect(audit.version).toBe(1);
 		expect(new Set(auditedCodes).size).toBe(auditedCodes.length);
 		expect([...auditedCodes].sort()).toEqual([...ruleCodes].sort());
 
 		for (const entry of audit.diagnostics) {
+			const rule = ruleByCode.get(entry.code);
 			expect(allowed.has(entry.status)).toBe(true);
+			expect(entry.diagnosticKind).toBe(rule?.diagnosticKind);
 			expect(entry.sourceOfTruth.trim().length).toBeGreaterThan(0);
 			expect(Array.isArray(entry.assertedOracleCases)).toBe(true);
 			expect(Array.isArray(entry.observeOnlyOracleCases)).toBe(true);
@@ -146,6 +177,17 @@ describe('syntax corpus provenance', () => {
 				expect(fixture).toBeDefined();
 				expect(fixture?.expected).not.toBe('observe');
 				expect(fixture?.provenance).toBe('vbe-oracle-verified');
+			}
+
+			if (entry.diagnosticKind === 'deterministic-runtime-error') {
+				const assertedFixtures = entry.assertedOracleCases
+					.map((caseId) => oracleById.get(caseId))
+					.filter((fixture): fixture is OracleCase => fixture !== undefined);
+				expect(
+					assertedFixtures.some(
+						(fixture) => fixture.diagnosticMeaning === 'runtime-error',
+					),
+				).toBe(true);
 			}
 
 			for (const caseId of entry.observeOnlyOracleCases) {

@@ -21,6 +21,7 @@
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { RESERVED_TYPE_IDENTIFIERS } from '../lexer/keywordTable';
 import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
 import { resolveRuntimeFunction, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
 import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
@@ -30,6 +31,7 @@ import type {
 	ProcedureNode,
 	Span,
 	StatementNode,
+	VariableDeclNode,
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
@@ -158,8 +160,10 @@ function runRules(
 	checkParameterOrder(mod, push);
 	checkUnbalancedParens(source, push);
 	checkDimInitializer(source, mod, push);
+	checkInvalidAsTypeNames(source, mod, push);
 	checkCallParens(source, mod, push);
 	checkExpressionCallParens(source, mod, push);
+	checkSetAssignments(source, mod, symbols, push);
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
 	checkNonCallableCallStatement(source, mod, symbols, push);
@@ -1138,6 +1142,10 @@ interface InferredArgumentType {
 	stringValue?: string;
 }
 
+const VALID_INTRINSIC_AS_TYPES = new Set(
+	[...RESERVED_TYPE_IDENTIFIERS, 'Object'].map((name) => name.toLowerCase()),
+);
+
 /**
  * Rule: when both a callable parameter type and an argument type are known, flag
  * high-confidence mismatches. This first slice is deliberately conservative:
@@ -1189,6 +1197,19 @@ function checkAssignmentTypes(
 			if (!expected || normalizeType(expected) === 'object') {
 				return;
 			}
+			const stringArithmetic = nonnumericStringArithmeticOperand(
+				expected,
+				assignment.valueTokens,
+				stmt.span.start,
+			);
+			if (stringArithmetic) {
+				push(
+					'stringArithmeticCoercion',
+					`Assignment to '${assignment.name}' expects ${expected}, but this numeric expression contains ${stringArithmetic.label}. This will raise Run-time error '13': Type mismatch.`,
+					stringArithmetic.span,
+				);
+				return;
+			}
 			const actual = inferArgumentType(
 				assignment.valueTokens,
 				stmt.span.start,
@@ -1209,6 +1230,67 @@ function checkAssignmentTypes(
 			);
 		});
 	}
+}
+
+function checkSetAssignments(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	push: PushFn,
+): void {
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const env = typeEnvironmentFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			const target = setAssignmentTarget(source, stmt.span);
+			if (!target) {
+				return;
+			}
+			const targetType = normalizeType(env.get(target.name.toLowerCase()));
+			if (!targetType || !isKnownScalarType(targetType)) {
+				return;
+			}
+			push(
+				'setRequiresObject',
+				`Set assignment requires an object variable, but '${target.name}' is declared as ${env.get(target.name.toLowerCase())}.`,
+				target.span,
+			);
+		});
+	}
+}
+
+function setAssignmentTarget(
+	source: string,
+	span: Span,
+): { name: string; span: Span } | undefined {
+	const toks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	let i = 0;
+	if (
+		toks.length >= 2 &&
+		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
+		toks[1].rawText === ':'
+	) {
+		i = 2;
+	}
+	if (tokenText(toks[i]) !== 'set') {
+		return undefined;
+	}
+	const nameTok = toks[i + 1];
+	if (!nameTok || nameTok.kind !== 'identifier') {
+		return undefined;
+	}
+	const equals = toks[i + 2];
+	if (!equals || equals.kind !== 'operator' || equals.rawText !== '=') {
+		return undefined;
+	}
+	return {
+		name: nameTok.rawText,
+		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
+	};
 }
 
 function buildModuleTypeSignatures(mod: ModuleNode): Map<string, CallableTypeSignature> {
@@ -1321,6 +1403,19 @@ function validateArgumentTypes(
 		}
 		const expected = param.type;
 		if (!expected) {
+			continue;
+		}
+		const stringArithmetic = nonnumericStringArithmeticOperand(
+			expected,
+			valueSlot,
+			call.sliceStart,
+		);
+		if (stringArithmetic) {
+			push(
+				'stringArithmeticCoercion',
+				`Argument '${param.name}' of '${sig.name}' expects ${expected}, but this numeric expression contains ${stringArithmetic.label}. This will raise Run-time error '13': Type mismatch.`,
+				stringArithmetic.span,
+			);
 			continue;
 		}
 		const actual = inferArgumentType(valueSlot, call.sliceStart, env, moduleSignatures);
@@ -1570,6 +1665,52 @@ function inferArithmeticExpressionType(
 	};
 }
 
+function nonnumericStringArithmeticOperand(
+	expectedRaw: string,
+	slot: VbaToken[],
+	sliceStart: number,
+): InferredArgumentType | undefined {
+	const expected = normalizeType(expectedRaw);
+	if (!expected || !isNumericType(expected)) {
+		return undefined;
+	}
+	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	return findNonnumericStringInArithmeticExpression(toks, sliceStart);
+}
+
+function findNonnumericStringInArithmeticExpression(
+	toks: VbaToken[],
+	sliceStart: number,
+): InferredArgumentType | undefined {
+	const unwrapped = unwrapOuterParens(toks);
+	if (unwrapped !== toks) {
+		return findNonnumericStringInArithmeticExpression(unwrapped, sliceStart);
+	}
+	const parts = splitTopLevelArithmeticOperands(toks);
+	if (parts.length < 2) {
+		return undefined;
+	}
+	for (const part of parts) {
+		const nested = findNonnumericStringInArithmeticExpression(part, sliceStart);
+		if (nested) {
+			return nested;
+		}
+		const operand = unwrapOuterParens(part);
+		if (operand.length === 1 && operand[0].kind === 'stringLiteral') {
+			const value = stringLiteralValue(operand[0].rawText);
+			if (isProvablyNonNumericString(value)) {
+				return {
+					type: 'String',
+					label: `nonnumeric string literal ${operand[0].rawText}`,
+					span: { start: sliceStart + operand[0].start, end: sliceStart + operand[0].end },
+					stringValue: value,
+				};
+			}
+		}
+	}
+	return undefined;
+}
+
 function inferStringConcatenationExpressionType(
 	toks: VbaToken[],
 	sliceStart: number,
@@ -1674,7 +1815,7 @@ function incompatibilityReason(
 		}
 		if (actualType === 'string') {
 			return actual.stringValue !== undefined && isProvablyNonNumericString(actual.stringValue)
-				? 'This string literal cannot be converted to a numeric value.'
+				? "This string literal cannot be converted to a numeric value. This will raise Run-time error '13': Type mismatch."
 				: undefined;
 		}
 		return undefined;
@@ -1686,7 +1827,7 @@ function incompatibilityReason(
 		if (actualType === 'string') {
 			return actual.stringValue !== undefined && isBooleanString(actual.stringValue)
 				? undefined
-				: 'This string literal cannot be converted to Boolean.';
+				: "This string literal cannot be converted to Boolean. This will raise Run-time error '13': Type mismatch.";
 		}
 		return undefined;
 	}
@@ -1719,6 +1860,10 @@ function isNumericType(type: string): boolean {
 		'currency',
 		'decimal',
 	]).has(type);
+}
+
+function isKnownScalarType(type: string): boolean {
+	return type === 'string' || type === 'boolean' || type === 'date' || isNumericType(type);
 }
 
 // One-way proof only: strings with digits are left unknown until VBA conversion
@@ -1825,6 +1970,66 @@ function forEachVariableGroup(
 			forEachVariableGroup((node as { body: BodyNode[] }).body, visit);
 		}
 	}
+}
+
+function checkInvalidAsTypeNames(source: string, mod: ModuleNode, push: PushFn): void {
+	const inspect = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			const typeName = simpleUnbracketedTypeName(decl.asType);
+			if (!typeName || VALID_INTRINSIC_AS_TYPES.has(typeName.toLowerCase())) {
+				continue;
+			}
+			if (!resolveRuntimeFunction(typeName)) {
+				continue;
+			}
+			push(
+				'invalidAsTypeName',
+				`'${typeName}' is a VBA runtime function, not a valid As type name.`,
+				asTypeNameSpan(source, decl, typeName) ?? decl.span,
+			);
+		}
+	};
+	for (const member of mod.members) {
+		if (member.kind === 'VariableGroup') {
+			inspect(member);
+		} else if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, inspect);
+		}
+	}
+}
+
+function simpleUnbracketedTypeName(asType: string | undefined): string | undefined {
+	const text = asType?.trim();
+	if (!text || text.startsWith('[')) {
+		return undefined;
+	}
+	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(text) ? text : undefined;
+}
+
+function asTypeNameSpan(
+	source: string,
+	decl: VariableDeclNode,
+	typeName: string,
+): Span | undefined {
+	const toks = tokenize(source.slice(decl.span.start, decl.span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	const asIndex = toks.findIndex((t) => tokenText(t) === 'as');
+	if (asIndex < 0) {
+		return undefined;
+	}
+	let typeIndex = asIndex + 1;
+	if (tokenText(toks[typeIndex]) === 'new') {
+		typeIndex++;
+	}
+	const typeToken = toks[typeIndex];
+	if (!typeToken || tokenName(typeToken)?.toLowerCase() !== typeName.toLowerCase()) {
+		return undefined;
+	}
+	return {
+		start: decl.span.start + typeToken.start,
+		end: decl.span.start + typeToken.end,
+	};
 }
 
 /**

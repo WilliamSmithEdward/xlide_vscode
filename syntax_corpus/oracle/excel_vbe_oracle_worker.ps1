@@ -33,6 +33,7 @@ public static class XlideUser32 {
 public static class XlideVbeDialogWatcher {
     private const int WM_CLOSE = 0x0010;
     private const int WM_COMMAND = 0x0111;
+    private const int BM_CLICK = 0x00F5;
     private const int IDOK = 1;
     private const int VBE_RESET_COMMAND_ID = 228;
     private const byte VK_MENU = 0x12;
@@ -71,6 +72,9 @@ public static class XlideVbeDialogWatcher {
 
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -149,15 +153,32 @@ public static class XlideVbeDialogWatcher {
 
             string title = GetText(hWnd);
             string className = GetClass(hWnd);
-            if (title != "Microsoft Visual Basic for Applications" || className != "#32770") {
+            if (className != "#32770" || !IsVbeDialogTitle(title)) {
                 return true;
             }
 
             List<string> childTexts = GetChildTexts(hWnd);
+            if (!LooksLikeVbeDialog(childTexts)) {
+                return true;
+            }
             found = new DialogInfo(hWnd, title, className, childTexts);
             return false;
         }, IntPtr.Zero);
         return found;
+    }
+
+    private static bool IsVbeDialogTitle(string title) {
+        return title == "Microsoft Visual Basic for Applications" || title == "Microsoft Visual Basic";
+    }
+
+    private static bool LooksLikeVbeDialog(List<string> texts) {
+        for (int i = 0; i < texts.Count; i++) {
+            string text = texts[i];
+            if (text.Contains("Compile error:") || text.Contains("Run-time error")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static IntPtr FindVbeMainWindow(uint excelProcessId) {
@@ -211,12 +232,33 @@ public static class XlideVbeDialogWatcher {
     }
 
     private static void DismissDialogAndReset(IntPtr hWnd, uint excelProcessId) {
-        PostMessage(hWnd, WM_COMMAND, new IntPtr(IDOK), IntPtr.Zero);
+        if (!ClickDialogButton(hWnd, "OK", "End")) {
+            PostMessage(hWnd, WM_COMMAND, new IntPtr(IDOK), IntPtr.Zero);
+        }
         Thread.Sleep(500);
         if (IsWindow(hWnd)) {
             PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
         }
         ResetVbe(excelProcessId);
+    }
+
+    private static bool ClickDialogButton(IntPtr parent, params string[] captions) {
+        IntPtr found = IntPtr.Zero;
+        EnumChildWindows(parent, delegate(IntPtr hWnd, IntPtr lParam) {
+            string text = GetText(hWnd).Trim().Replace("&", "");
+            for (int i = 0; i < captions.Length; i++) {
+                if (String.Equals(text, captions[i], StringComparison.OrdinalIgnoreCase)) {
+                    found = hWnd;
+                    return false;
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+        if (found == IntPtr.Zero) {
+            return false;
+        }
+        SendMessage(found, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
+        return true;
     }
 
     private static void ResetVbe(uint excelProcessId) {
@@ -330,6 +372,9 @@ public static class XlideVbeDialogWatcher {
                 if (texts[i].Contains("Compile error:")) {
                     return "vbe_compile_dialog";
                 }
+                if (texts[i].Contains("Run-time error")) {
+                    return "vbe_runtime_dialog";
+                }
             }
             return "vbe_dialog";
         }
@@ -338,7 +383,8 @@ public static class XlideVbeDialogWatcher {
             List<string> messageParts = new List<string>();
             for (int i = 0; i < texts.Count; i++) {
                 string text = texts[i];
-                if (text == "OK" || text == "Help") {
+                string normalized = text.Replace("&", "");
+                if (normalized == "OK" || normalized == "Help" || normalized == "Continue" || normalized == "End" || normalized == "Debug") {
                     continue;
                 }
                 bool alreadyAdded = false;
@@ -399,7 +445,7 @@ function Set-DialogOutcome($Dialog, [bool]$CompileOnly) {
     }
     else {
         $result.outcome = "rejected"
-        $result.stage = "vbe_dialog"
+        $result.stage = "runtime_dialog"
     }
     $result.message = [string]$Dialog.message
     $result.hresult = $null
@@ -507,21 +553,31 @@ try {
             $entryPoint
         )
         $lastError = $null
-        foreach ($macro in $macroNames) {
-            try {
-                [void]$excel.Run($macro)
-                $lastError = $null
-                break
-            }
-            catch {
-                $lastError = $_
-                if ($_.Exception.Message -notmatch "Cannot run the macro") {
-                    throw
+        [XlideVbeDialogWatcher]::Start($excelPid, $DialogPath, $StagePath, $DialogWatchSeconds)
+        try {
+            foreach ($macro in $macroNames) {
+                try {
+                    [void]$excel.Run($macro)
+                    $lastError = $null
+                    break
+                }
+                catch {
+                    $lastError = $_
+                    if ($_.Exception.Message -notmatch "Cannot run the macro") {
+                        throw
+                    }
                 }
             }
+            if ($null -ne $lastError) {
+                throw $lastError
+            }
         }
-        if ($null -ne $lastError) {
-            throw $lastError
+        finally {
+            $dialog = Wait-ForDialogResult
+            [XlideVbeDialogWatcher]::Stop()
+        }
+        if ($null -ne $dialog) {
+            Set-DialogOutcome $dialog $false
         }
     }
     elseif ($mode -ne "run") {

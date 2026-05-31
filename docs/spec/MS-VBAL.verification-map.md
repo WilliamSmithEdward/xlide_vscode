@@ -220,10 +220,13 @@ family) in `registerVbaDiagnostics`.
 | `invalid-proc-header` | A `Sub`/`Function`/`Property` header where a token other than `(` (or `As` for a `Function`/`Property Get`) follows the procedure name (e.g. `Sub My Sub`) | 5.3.1 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `unbalanced-parens` | A `(` left open at a statement boundary, or a `)` with no matching `(`, within one logical statement | 3.3.1 (special tokens) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `argument-count` | A call statement to a same-module Sub/Function supplies too few/too many arguments (Optional/ParamArray aware), or a named argument names no parameter | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
-| `argument-type-mismatch` | A same-module or curated runtime call receives an argument whose inferred type is a provable runtime type risk; warning severity because focused VBE oracle cases compile successfully | 5.3.1 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
+| `argument-type-mismatch` | A same-module or curated runtime call receives an argument whose inferred type is a provable deterministic runtime type error; focused oracle cases compile successfully but runtime probes raise error 13 for nonnumeric string-to-numeric coercion while numeric-string controls run | 5.3.1 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `argument-object-type-mismatch` | A same-module or curated runtime call receives a scalar argument where an object parameter is required; error severity because a focused VBE oracle case rejects it at compile time | 5.3.1 | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
-| `assignment-type-mismatch` | A scalar assignment receives a value whose inferred type is a provable runtime type risk; warning severity because focused VBE oracle cases compile successfully | 5.4.3 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
+| `assignment-type-mismatch` | A scalar assignment receives a value whose inferred type is a provable deterministic runtime type error; focused oracle cases compile successfully but runtime probes raise error 13 for nonnumeric string-to-numeric/Boolean coercion while valid coercion controls run | 5.4.3 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
+| `string-arithmetic-coercion` | A numeric context contains an arithmetic expression with a provably nonnumeric string literal; error severity because focused VBE oracle cases show it compiles but deterministically raises runtime error 13 | 5.6 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `dim-initializer` | A variable declaration includes a VB.NET-style inline initializer (`Dim x As Long = 1`), which VBA does not allow; `Const` is exempt | 5.2.3.1 (variable declaration) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `invalid-as-type-name` | A declaration uses a reserved runtime function name such as `Int` as an `As` type name | 3.3.5.2 / 5.2.3.1 | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
+| `set-requires-object` | A `Set` assignment targets a known intrinsic scalar variable | 5.4.3 | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `call-requires-parens` | A `Call` statement supplies arguments without enclosing parentheses (`Call MsgBox "hi"`) | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `required-param-after-optional` | A required parameter follows an `Optional` parameter in a procedure header | 5.3.1.5 (parameter list) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `paramarray-not-last` | A `ParamArray` parameter is not the final parameter | 5.3.1.6 (ParamArray) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
@@ -238,9 +241,10 @@ unambiguous call forms - a lone identifier, a parenless call with arguments
 `Cells(1, 1)` / `Range("A1")` and any statement containing a top-level `=`
 (assignment) are excluded. Argument-count validation (`argument-count`) is
 likewise limited to same-module Sub/Function calls, where the AST supplies a
-ground-truth parameter list. Runtime-risk argument and assignment type warnings
-ship only where the local expression model can infer both sides deterministically;
-cross-module/host arity and broad object/member type checking stay deferred. The
+ground-truth parameter list. Argument and assignment type diagnostics ship only
+where the local expression model can infer both sides deterministically and the
+behavior is backed by compile/runtime oracle evidence; cross-module/host arity
+and broad object/member type checking stay deferred. The
 remaining deferred cases require a full
 expression binder plus a complete host catalogue; without them they would emit
 false positives, which the project's no-false-positive rule forbids. They will
