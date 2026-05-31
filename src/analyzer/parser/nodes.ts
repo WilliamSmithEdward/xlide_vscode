@@ -110,6 +110,7 @@ export interface VariableDeclNode extends NodeBase {
 	kind: 'VariableDecl';
 	name: string;
 	asType?: string;
+	defaultRaw?: string;
 	isArray: boolean;
 	isNew: boolean;
 }

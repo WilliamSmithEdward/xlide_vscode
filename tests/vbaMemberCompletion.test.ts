@@ -460,6 +460,27 @@ describe('member completion - workbook classes', () => {
 		expect(age?.surfaceExhaustive).toBe(true);
 	});
 
+	it('offers public class fields and excludes invalid public constants', () => {
+		const person =
+			'Public Age As Integer\n' +
+			'Public Const Species As String = "Human"\n';
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: person,
+		});
+		const src = 'Sub Test()\n    Dim p As Person\n    p.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'p.'), {
+			projectClassMembers: index.projectClassMembers(),
+		});
+		const age = got.find((member) => member.name === 'Age');
+		const species = got.find((member) => member.name === 'Species');
+		expect(age?.writable).toBe(true);
+		expect(age?.writeType).toBe('Integer');
+		expect(species).toBeUndefined();
+	});
+
 	it('carries source definition locations for project class members', () => {
 		const person =
 			'Public Sub Save()\n' +

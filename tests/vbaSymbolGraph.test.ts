@@ -78,6 +78,8 @@ describe('buildModuleSymbols', () => {
 		const max = mod.all.find((s) => s.name === 'MaxItems');
 		expect(max?.kind).toBe('constant');
 		expect(max?.visibility).toBe('Public');
+		expect(max?.asType).toBe('Long');
+		expect(max?.defaultRaw).toBe('10');
 
 		const untyped = mod.all.find((s) => s.name === 'untyped');
 		expect(untyped?.kind).toBe('moduleVariable');
@@ -593,7 +595,7 @@ describe('ProjectIndex project class members', () => {
 		);
 	});
 
-	it('marks Property Get-only members and constants as read-only', () => {
+	it('marks Property Get-only members as read-only and excludes public constants', () => {
 		const index = new ProjectIndex();
 		index.setModule({
 			moduleName: 'Person',
@@ -606,7 +608,7 @@ describe('ProjectIndex project class members', () => {
 		});
 		const person = index.projectClassMembers().find((t) => t.name === 'Person');
 		expect(person?.members.find((m) => m.name === 'Age')?.writable).toBe(false);
-		expect(person?.members.find((m) => m.name === 'Species')?.writable).toBe(false);
+		expect(person?.members.find((m) => m.name === 'Species')).toBeUndefined();
 	});
 
 	it('marks document and UserForm source member surfaces as non-exhaustive', () => {

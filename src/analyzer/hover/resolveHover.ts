@@ -326,7 +326,9 @@ function buildSymbolHover(
 		// Variables, parameters, and constants.
 		const prefix = symbol.kind === 'constant' ? 'Const ' : '';
 		const as = symbol.asType ? ` As ${symbol.asType}` : '';
-		signature = `${prefix}${symbol.name}${as}`;
+		const initializer =
+			symbol.kind === 'constant' && symbol.defaultRaw ? ` = ${symbol.defaultRaw}` : '';
+		signature = `${prefix}${symbol.name}${as}${initializer}`;
 		if (symbol.kind === 'parameter' || symbol.kind === 'localVariable') {
 			if (symbol.containerName) {
 				const role = symbol.kind === 'parameter' ? 'Parameter' : 'Local';

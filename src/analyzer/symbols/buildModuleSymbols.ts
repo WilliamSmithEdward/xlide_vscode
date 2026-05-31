@@ -122,6 +122,7 @@ function collectLocals(
 					containerName,
 					visibility: toVisibility(node.modifier),
 					asType: decl.asType,
+					defaultRaw: decl.defaultRaw,
 				});
 			}
 		} else if ('body' in node && Array.isArray(node.body)) {
@@ -261,6 +262,7 @@ function buildModuleVariables(
 			moduleName,
 			visibility: toVisibility(group.modifier),
 			asType: decl.asType,
+			defaultRaw: decl.defaultRaw,
 			doc,
 		};
 		rootChildren.push(symbol);

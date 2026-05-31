@@ -411,12 +411,14 @@ into a pure analyzer layer and a thin VS Code provider:
   worksheet/chart surface. It also accepts a source-backed
   workbook class-member surface from `ProjectIndex.projectClassMembers()`, so
   variables declared as workbook classes (for example `Dim p As Person`) can
-  offer public/default-public source members at `p.` without guessing from
-  names. The same context also resolves `Me.` to the current class/document
-  module's source-backed member surface, merging with a known host surface when
-  the caller supplies one. Source-backed workbook members carry inline `'''`
-  documentation through to completion, hover, and member-call signature help,
-  and carry declaration spans for source-backed member go-to-definition.
+  offer public/default-public source members and public fields at `p.` without
+  guessing from names. Public constants are not exposed as object members because
+  VBE rejects them in class/document/UserForm modules. The same context also
+  resolves `Me.` to the current class/document module's source-backed member
+  surface, merging with a known host surface when the caller supplies one.
+  Source-backed workbook members carry inline `'''` documentation through to
+  completion, hover, and member-call signature help, and carry declaration spans
+  for source-backed member go-to-definition.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it builds the project context
   from the workbook's module list (worksheet code names plus the host/source
@@ -605,11 +607,12 @@ Diagnostic severity policy:
   deterministic-runtime-error diagnostic for numeric contexts containing a
   provably nonnumeric string literal in an arithmetic expression; focused oracle
   cases confirm the representative expression compiles but raises runtime error
-  13 when executed. Source-backed workbook class members feed the same
-  assignment validator for member assignments such as `p.Age = "blah"` when the
-  receiver and setter type are known; focused multi-module oracle cases confirm
-  the nonnumeric string case raises runtime error 13 and the numeric-string
-  control succeeds. `readonly-member-assignment` is a compile-equivalent
+  13 when executed. Source-backed workbook class members and public fields feed
+  the same assignment validator for member assignments such as
+  `p.Age = "blah"` when the receiver and setter/write type are known; focused
+  multi-module oracle cases confirm the nonnumeric string case raises runtime
+  error 13 and the numeric-string control succeeds. `readonly-member-assignment`
+  is a compile-equivalent
   diagnostic for source-backed project class properties whose member surface has
   no setter; focused oracle evidence rejects this as `Can't assign to read-only
   property`. `member-not-found` is another source-backed class-member rule: it
@@ -622,7 +625,8 @@ Diagnostic severity policy:
   host references such as `ThisWorkbook`/`Me` inside `ThisWorkbook`. Focused
   oracle evidence rejects unknown
   class property assignment and unknown class method calls with
-  `Method or data member not found`, while a known-property control compiles.
+  `Method or data member not found`, while known property and public-field
+  controls compile.
   `unexpected-declaration-token` is
   a compile-equivalent
   declaration diagnostic for extra same-statement tokens after a complete

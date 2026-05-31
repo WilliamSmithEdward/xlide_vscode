@@ -135,6 +135,8 @@ describe('parseModule - declarations (MS-VBAL 5.2.3 / 5.2.4)', () => {
 		const group = m.members[0] as VariableGroupNode;
 		expect(group.isConst).toBe(true);
 		expect(group.declarations[0].name).toBe('Pi');
+		expect(group.declarations[0].asType).toBe('Double');
+		expect(group.declarations[0].defaultRaw).toBe('3.14159');
 	});
 
 	it('flags WithEvents and New declarations', () => {

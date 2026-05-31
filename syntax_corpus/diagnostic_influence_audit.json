@@ -150,11 +150,13 @@
         "boolean_assignment_nonboolean_string_runtime",
         "boolean_assignment_true_string_runtime",
         "class_property_integer_nonnumeric_string_runtime",
-        "class_property_integer_numeric_string_runtime"
+        "class_property_integer_numeric_string_runtime",
+        "class_public_field_integer_nonnumeric_string_runtime",
+        "class_public_field_integer_numeric_string_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean/property controls run successfully.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean/property/public-field controls run successfully.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -167,7 +169,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter.",
+      "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter. Public constants are not object members in VBE; public constant declarations in object modules fail at the declaration.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -178,11 +180,12 @@
       "assertedOracleCases": [
         "class_unknown_property_assignment_compile",
         "class_unknown_method_call_compile",
-        "class_known_property_assignment_compile"
+        "class_known_property_assignment_compile",
+        "class_public_field_assignment_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Host/object-model and ambiguous receiver cases remain silent.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Host/object-model and ambiguous receiver cases remain silent.",
       "diagnosticKind": "compile-error"
     },
     {

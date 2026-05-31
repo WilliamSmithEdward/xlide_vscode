@@ -476,6 +476,52 @@
       "diagnosticMeaning": "runtime-valid"
     },
     {
+      "id": "class_public_field_integer_nonnumeric_string_runtime",
+      "description": "A public Integer class field receives a provably nonnumeric string literal through member assignment.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Age As Integer\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = \"blah\"\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "class_public_field_integer_numeric_string_runtime",
+      "description": "Runtime control: a public Integer class field receives a numeric string literal through member assignment.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Age As Integer\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = \"2\"\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
       "id": "class_readonly_property_assignment_compile",
       "description": "A class property with only Property Get is assigned through member syntax.",
       "provenance": "vbe-oracle-verified",
@@ -492,6 +538,28 @@
           "type": "standard",
           "entry": true,
           "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = 2\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "class_public_constant_declaration_compile",
+      "description": "A public constant declaration in a class module is rejected before it can become an object member.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Const Species As String = \"Human\"\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Species = \"Robot\"\nEnd Sub\n"
         }
       ],
       "evidencePhase": "compile",
@@ -552,6 +620,28 @@
           "name": "Person",
           "type": "class",
           "source": "Private mAge As Integer\n\nPublic Property Get Age() As Integer\n    Age = mAge\nEnd Property\n\nPublic Property Let Age(ByVal value As Integer)\n    mAge = value\nEnd Property\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim p As Person\n    Set p = New Person\n    p.Age = 2\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "class_public_field_assignment_compile",
+      "description": "Compile control: a workbook class receiver is assigned through a known public field.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Person",
+          "type": "class",
+          "source": "Public Age As Integer\n"
         },
         {
           "name": "XlideOracleModule",

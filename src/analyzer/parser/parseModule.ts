@@ -245,7 +245,7 @@ class Parser {
 			withEvents = true;
 			i++;
 		}
-		const declarations = this.parseDeclaratorList(tokens, i);
+		const declarations = this.parseDeclaratorList(tokens, i, isConst);
 		return {
 			kind: 'VariableGroup',
 			modifier,
@@ -257,19 +257,23 @@ class Parser {
 	}
 
 	/** Parse a comma-separated declarator list: name[()][As type][= value], ... */
-	private parseDeclaratorList(tokens: VbaToken[], from: number): VariableDeclNode[] {
+	private parseDeclaratorList(
+		tokens: VbaToken[],
+		from: number,
+		isConst: boolean,
+	): VariableDeclNode[] {
 		const groups = this.splitTopLevelCommas(tokens, from, tokens.length);
 		const declarations: VariableDeclNode[] = [];
 		for (const group of groups) {
 			if (group.length === 0) {
 				continue;
 			}
-			declarations.push(this.parseDeclarator(group));
+			declarations.push(this.parseDeclarator(group, isConst));
 		}
 		return declarations;
 	}
 
-	private parseDeclarator(group: VbaToken[]): VariableDeclNode {
+	private parseDeclarator(group: VbaToken[], isConst: boolean): VariableDeclNode {
 		let i = 0;
 		const nameToken = group[i];
 		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
@@ -287,7 +291,12 @@ class Parser {
 				isNew = true;
 				i++;
 			}
-			asType = this.captureType(group, i);
+			asType = this.captureType(group, i, isConst ? '=' : undefined);
+		}
+		let defaultRaw: string | undefined;
+		const eq = group.findIndex((t) => t.rawText === '=');
+		if (eq >= 0 && eq + 1 < group.length) {
+			defaultRaw = this.source.slice(group[eq + 1].start, group[group.length - 1].end);
 		}
 		const first = group[0];
 		const last = group[group.length - 1];
@@ -295,6 +304,7 @@ class Parser {
 			kind: 'VariableDecl',
 			name,
 			asType,
+			defaultRaw,
 			isArray,
 			isNew,
 			span: { start: first.start, end: last.end },

@@ -75,8 +75,8 @@ heuristic diagnostics.
   grammar.
 - Workbook class member completion has a first deterministic source-backed
   slice: variables declared as project classes can offer public/default-public
-  class members at `object.`, including chaining through class members whose
-  return type is another known project class.
+  class members and public fields at `object.`, including chaining through
+  class members whose return type is another known project class.
 - Source-backed workbook class property assignments now participate in
   deterministic assignment validation when XLIDE knows the receiver member and
   setter type. Read-only property assignment is compile-equivalent red; typed
@@ -222,6 +222,11 @@ Purpose: finish the conservative first slice before broadening inference.
   - assignment/truncation behavior
   - interaction with scalar member access and declaration trailing-token rules
   - type-declaration suffix interactions such as `$`
+- [ ] Add module-kind-sensitive diagnostics for object-module public
+  declarations VBE rejects, including `Public Const`, public fixed-length
+  strings, public arrays, public UDTs, and public `Declare` statements. Use
+  module metadata before emitting hard errors because standard modules have
+  different rules.
 
 Definition of done:
 
@@ -301,9 +306,10 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   member completion, refining generic `Object`/`Variant` receivers while keeping
   declared host/project object types authoritative.
 - [x] Build the first deterministic workbook class-member model from source:
-  public/default-public methods, properties, and public fields/constants, with
-  return types, setter/write types, mutability, visibility, and inline XML
-  documentation.
+  public/default-public methods and properties plus public fields, with return
+  types, setter/write types, mutability, visibility, and inline XML
+  documentation. Public constants are excluded from object-module member
+  surfaces because VBE rejects them before they can become members.
 - [x] Feed workbook class-member resolution into `object.` completion and
   return-type chaining for variables declared as project classes, such as
   `Dim p As Person: p.`.
@@ -350,11 +356,13 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
   resolves the member only at runtime; decide separately whether an optional
   yellow `XLIDE(late-bound-invocation)` guidance rule belongs behind a setting.
-- [ ] Oracle-verify public class module variables as object members:
-  `Public Age As Integer` should be indexed as a valid writable member, public
-  constants should be read-only, and assignment/type diagnostics should consume
-  those member facts. The source member model already includes public fields and
-  constants, but this needs explicit oracle-backed regression coverage.
+- [x] Oracle-verify public class module variables as object members:
+  `Public Age As Integer` is indexed as a valid writable member, assignment/type
+  diagnostics consume that writable field fact, and VBE oracle controls confirm
+  nonnumeric string assignment raises runtime error 13 while compatible
+  assignments compile/run. Public constants are not modeled as read-only object
+  members because VBE rejects `Public Const` in object modules at declaration
+  time.
 - [ ] Explore VBA default members, including exported attributes such as
   `Attribute Value.VB_UserMemId = 0`, before inferring direct object usage like
   `textValue = p`. Define deterministic attribute extraction and source mapping

@@ -130,7 +130,7 @@ function isVisibleProjectObjectMember(symbol: VbaSymbol): boolean {
 	if (isProcedureKind(symbol.kind)) {
 		return symbol.visibility !== 'Private';
 	}
-	if (symbol.kind === 'moduleVariable' || symbol.kind === 'constant') {
+	if (symbol.kind === 'moduleVariable') {
 		return symbol.visibility === 'Public' || symbol.visibility === 'Global';
 	}
 	return false;
@@ -145,7 +145,6 @@ function projectObjectMemberKind(symbol: VbaSymbol): VbaProjectClassMember['kind
 		case 'propertyLet':
 		case 'propertySet':
 		case 'moduleVariable':
-		case 'constant':
 			return 'property';
 		default:
 			return undefined;
@@ -159,7 +158,6 @@ function projectObjectMemberWritable(symbol: VbaSymbol): boolean | undefined {
 		case 'moduleVariable':
 			return true;
 		case 'propertyGet':
-		case 'constant':
 			return false;
 		default:
 			return undefined;
@@ -387,8 +385,10 @@ export class ProjectIndex {
 	 * Public/default-public members of workbook-defined object modules. This is
 	 * the source-backed surface used by member completion for variables declared
 	 * `As Person` where `Person` is a class/UserForm/document module. Private
-	 * members are deliberately hidden. Public fields/constants are represented as
-	 * properties; Property Get/Let/Set declarations collapse to one property item.
+	 * members are deliberately hidden. Public fields are represented as properties;
+	 * Property Get/Let/Set declarations collapse to one property item. Public
+	 * constants are intentionally excluded because VBE rejects them in object
+	 * modules.
 	 */
 	projectClassMembers(): VbaProjectClassMembers[] {
 		const out: VbaProjectClassMembers[] = [];

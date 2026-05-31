@@ -1423,6 +1423,46 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'readonly-member-assignment')).toHaveLength(0);
 	});
 
+	it('checks assignment types for public class fields', () => {
+		const person = 'Public Age As Integer\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = "blah"\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'assignment-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"blah"');
+		expect(hits[0].message).toContain('p.Age');
+		expect(hits[0].message).toContain('Integer');
+	});
+
+	it('accepts compatible assignments to public class fields', () => {
+		const person = 'Public Age As Integer\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = "2"\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+			]),
+		});
+		expect(byCode(diagnostics, 'assignment-type-mismatch')).toHaveLength(0);
+		expect(byCode(diagnostics, 'readonly-member-assignment')).toHaveLength(0);
+		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
+	});
+
 	it('errors on assignment to a read-only class property', () => {
 		const person =
 			'Private mAge As Integer\n' +
