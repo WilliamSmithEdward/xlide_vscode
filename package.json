@@ -172,6 +172,12 @@
         "icon": "$(check)"
       },
       {
+        "command": "xlide.lintWorkbook",
+        "title": "Lint All Modules in Workbook",
+        "category": "XLIDE",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "xlide.newWorkbook",
         "title": "New Macro-Enabled Workbook",
         "category": "XLIDE",
@@ -251,27 +257,32 @@
         {
           "command": "xlide.validateWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "3_workbook@3"
+          "group": "4_lint@1"
+        },
+        {
+          "command": "xlide.lintWorkbook",
+          "when": "view == xlide.explorer && viewItem == xlsm",
+          "group": "4_lint@2"
         },
         {
           "command": "xlide.exportModulesToFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "4_transfer@1"
+          "group": "5_transfer@1"
         },
         {
           "command": "xlide.importModulesFromFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "4_transfer@2"
+          "group": "5_transfer@2"
         },
         {
           "command": "xlide.changeRepoFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "5_settings@1"
+          "group": "6_settings@1"
         },
         {
           "command": "xlide.configureExportMode",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "5_settings@2"
+          "group": "6_settings@2"
         }
       ]
     },
@@ -353,6 +364,25 @@
             "filePath": {
               "type": "string",
               "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            }
+          },
+          "required": [
+            "filePath"
+          ]
+        }
+      },
+      {
+        "name": "xlide_lintWorkbook",
+        "displayName": "Lint VBA Workbook",
+        "modelDescription": "Lints every VBA module in a workbook using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT LINT PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the workbook's VBA passes lint. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire workbook. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this linter checks.",
+        "toolReferenceName": "xlideLintWorkbook",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file to lint"
             }
           },
           "required": [

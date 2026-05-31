@@ -1,6 +1,22 @@
 # XLIDE Agent Instructions
 
-XLIDE is a VS Code extension for editing Excel VBA and cell data. The agent has 15 tools for reading and writing workbooks.
+XLIDE is a VS Code extension for editing Excel VBA and cell data. The agent has 16 tools for reading and writing workbooks.
+
+---
+
+## Headline capabilities
+
+Two XLIDE features are first-class and you should use them proactively:
+
+### 1. Real-time VBA syntax + lint verification
+XLIDE ships a pure, false-positive-free VBA analyzer (the same engine that powers the live editor diagnostics). **After every `xlide_writeModule` (or any batch of VBA edits), call `xlide_lintWorkbook` to verify lint passes before you report success.** It returns a structured JSON report of every error/warning with `moduleName`, `line`, `column`, `severity`, `code`, and `message`. An empty `problems` array means the workbook's VBA is clean. Rules cover block balance, unterminated strings, duplicate declarations, `Const` assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, `Sub`/`Function`-not-defined and more - each carrying an MS-VBAL spec reference. Treat a non-empty report as a build failure and fix it.
+
+### 2. Custom XML tooltips / definitions / metadata for VBA
+XLIDE supports Visual-Studio-style documentation that drives hovers and call tips. You can author it two ways, and **developer-defined metadata overrides the built-in library**:
+- **Inline `'''` XML doc-comments** directly above any `Sub`/`Function`/`Property`/`Type`/`Enum`/`Declare`/module-variable, using `<summary>`, `<param name="...">`, `<returns>`, `<remarks>`, `<example>` (a plain `''' text` line is treated as the summary). When you write or generate VBA, add these doc-comments so the symbols get rich tooltips.
+- **External `*.vbref.xml` metadata files** placed anywhere in the workspace (glob configurable via `xlide.docs.metadataGlob`), documenting `<member name="Module.Symbol">` (or bare `Symbol`) entries with the same XML vocabulary - ideal for documenting host members or sharing docs across a team, and `<signature>` can give a call tip to a procedure that cannot otherwise be resolved.
+
+The full standard lives in `docs/vba-doc-comments.md`.
 
 ---
 
@@ -15,6 +31,9 @@ Call `xlide_getWorkbookInfo` once per workbook. It returns sheets (name + used d
 ### Step 3 — Operate
 Use the targeted tool for the task (see tool reference below). Prefer specific tools over `xlide_runOpenpyxl` when a specific tool exists.
 
+### Step 4 — Verify VBA edits
+After writing or editing any VBA, call `xlide_lintWorkbook` and resolve any reported problems before finishing.
+
 ---
 
 ## Tool Reference
@@ -28,6 +47,7 @@ Use the targeted tool for the task (see tool reference below). Prefer specific t
 | `xlide_listSubs` | Need procedures in a specific module |
 | `xlide_listSheets` | Need only sheet names and dimensions |
 | `xlide_readModule` | Read VBA source of a module |
+| `xlide_lintWorkbook` | **Verify VBA syntax/lint across the whole workbook** - run after editing modules; returns per-problem `moduleName`/`line`/`column`/`severity`/`code`/`message` |
 | `xlide_readCells` | Read computed cell values (formulas already evaluated) |
 | `xlide_readFormulas` | Read raw formula strings (e.g. `=SUM(A1:A10)`) — use when reproducing or auditing spreadsheet logic |
 

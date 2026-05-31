@@ -14,6 +14,7 @@ import {
     writeWorkbookRepoConfig,
     setWorkbookExportMode,
 } from './moduleDump';
+import { lintWorkbook, type WorkbookLintProblem } from './vbaWorkbookLint';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -29,6 +30,70 @@ export function registerCommands(
     function log(msg: string): void {
         out.appendLine(msg);
         out.show(true);
+    }
+
+    // Builds a clickable Output-channel link to a module location. The link uses
+    // the xlide-vba scheme with a triple-slash (empty authority) so the Output
+    // panel's link detector recognises it, and an "#L<line>,<col>" fragment so
+    // clicking reveals the exact problem location in the opened module.
+    function moduleLocationLink(
+        filePath: string,
+        moduleName: string,
+        line: number,
+        column: number,
+    ): string {
+        const loc = encodeModuleUri(filePath, moduleName).with({
+            fragment: `L${line},${column}`,
+        });
+        return loc.toString().replace(/^xlide-vba:\/(?!\/)/, 'xlide-vba://');
+    }
+
+    // Prints a formatted, scannable lint report with clickable per-problem
+    // links. Leaves generous blank space above the report so it is easy to find
+    // when the user is popped to the Output view.
+    function printLintReport(
+        filePath: string,
+        moduleCount: number,
+        problems: WorkbookLintProblem[],
+        errorCount: number,
+        warningCount: number,
+    ): void {
+        const name = path.basename(filePath);
+        out.appendLine('');
+        out.appendLine('');
+        out.appendLine('');
+        out.appendLine('========================================================================');
+        out.appendLine(`  XLIDE Lint - ${name}`);
+        out.appendLine(`  ${new Date().toLocaleString()}`);
+        out.appendLine('========================================================================');
+        out.appendLine('');
+
+        if (problems.length === 0) {
+            out.appendLine(`  No problems found across ${moduleCount} module(s). Lint passed.`);
+            out.appendLine('');
+            return;
+        }
+
+        out.appendLine(
+            `  ${problems.length} problem(s) in ${moduleCount} module(s): ` +
+            `${errorCount} error(s), ${warningCount} warning(s).`,
+        );
+        out.appendLine('  (Click a location link to jump to the problem.)');
+        out.appendLine('');
+
+        let currentModule = '';
+        for (const p of problems) {
+            if (p.moduleName !== currentModule) {
+                currentModule = p.moduleName;
+                out.appendLine(`  ${currentModule} (${p.moduleType})`);
+            }
+            const sev = p.severity.toUpperCase().padEnd(11);
+            const code = p.code ? ` [${p.code}]` : '';
+            const link = moduleLocationLink(filePath, p.moduleName, p.line, p.column);
+            out.appendLine(`    ${sev} ${p.message}${code}`);
+            out.appendLine(`                ${link}`);
+        }
+        out.appendLine('');
     }
 
     function shouldAttachToRunningExcel(): boolean {
@@ -828,6 +893,45 @@ export function registerCommands(
                         const msg = err instanceof Error ? err.message : String(err);
                         log(`[validate] FAILED: ${msg}`);
                         vscode.window.showErrorMessage(`XLIDE: Validation failed: ${msg}`);
+                    }
+                },
+            );
+        }),
+
+        // Lint every VBA module in the workbook and print a clickable report
+        vscode.commands.registerCommand('xlide.lintWorkbook', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) {
+                vscode.window.showWarningMessage('XLIDE: No workbook selected to lint.');
+                return;
+            }
+            const name = path.basename(filePath);
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: `XLIDE: Linting "${name}"...`, cancellable: false },
+                async () => {
+                    try {
+                        const result = await lintWorkbook(bridge, filePath);
+                        printLintReport(
+                            filePath,
+                            result.moduleCount,
+                            result.problems,
+                            result.errorCount,
+                            result.warningCount,
+                        );
+                        out.show(true);
+                        if (result.problems.length === 0) {
+                            void vscode.window.showInformationMessage(
+                                `XLIDE: "${name}" passed lint (no problems across ${result.moduleCount} module(s)).`,
+                            );
+                        } else {
+                            void vscode.window.showWarningMessage(
+                                `XLIDE: "${name}" has ${result.errorCount} error(s) and ${result.warningCount} warning(s). See XLIDE Output.`,
+                            );
+                        }
+                    } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        log(`[lint] FAILED: ${msg}`);
+                        vscode.window.showErrorMessage(`XLIDE: Lint failed: ${msg}`);
                     }
                 },
             );

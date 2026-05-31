@@ -36,6 +36,7 @@ xlide_vscode/
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of parsed VBA symbols
     vbaLanguageProviders.ts  Document/definition/reference/rename providers, diagnostics, and smart-enter for the vba language
     vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource) and smart-enter helpers (no vscode dependency)
+    vbaWorkbookLint.ts  Shared workbook-wide lint core (lintWorkbook) reused by the Lint-All command and the xlide_lintWorkbook agent tool; flattens lintVbaSource + analyzeModule into 1-based {moduleName,line,column,severity,code,message} problems
     analyzer/
       lexer/
         keywordTable.ts MS-VBAL 3.3.5.2 reserved-identifier + contextual keyword tables with canonical casing
@@ -316,6 +317,24 @@ smart-enter feature.
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 
+**Workbook-wide lint (command + agent tool)** — `src/vbaWorkbookLint.ts`
+(`lintWorkbook`) is the shared core that loads every module from the workbook via
+the Python bridge, builds a `ProjectIndex` so the unknown-call rule has the full
+set of `knownProcedures`, then runs both diagnostic passes
+(`lintVbaSource` + `analyzeModule`) per module and flattens their results into
+1-based `{moduleName, moduleType, line, column, endColumn, severity, code,
+message}` problems, sorted by module/line/column. The
+`xlide.lintWorkbook` command (`src/commands.ts`, right-click "Lint All Modules in
+Workbook" on a workbook tree node) prints a formatted, blank-line-padded report
+to the XLIDE Output channel, switches focus to Output, and shows a summary
+notification. Each problem carries a clickable location link built from
+`encodeModuleUri(...).with({fragment: 'L<line>,<col>'})` and normalized to the
+detectable `xlide-vba://...#L<line>,<col>` triple-slash (empty-authority) form so
+the monaco LinkComputer linkifies it and the opener's `extractSelection` reveals
+the exact line. The same core is exposed to AI agents as the `xlide_lintWorkbook`
+LM tool (`src/agentTools.ts`), returning the structured JSON report so an agent
+can verify lint passes in real time after editing modules.
+
 **VBA analyzer (ground-up language service)** — `src/analyzer/` is a pure,
 `vscode`-free TypeScript library being built per
 `docs/xlide_vba_language_service_roadmap.md`, verified against
@@ -572,6 +591,8 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 |---|---|
 | New JSON-RPC method | `python/server.py`, `python/xlide/vba_io.py` or `excel_io.py`, `src/agentTools.ts` + `package.json` if exposed as LM tool, `docs/architecture.md` |
 | New VS Code command | `src/commands.ts`, `package.json` (`contributes.commands`, `menus`), `docs/architecture.md` |
+| New AI agent (LM) tool | `package.json` (`contributes.languageModelTools`), `src/agentTools.ts` (registration), `.github/copilot-instructions.md` (tool reference + workflow), `docs/architecture.md` |
+| New workbook-wide lint behavior | `src/vbaWorkbookLint.ts` (shared core), `src/commands.ts` (`xlide.lintWorkbook` report formatting + clickable links), `src/agentTools.ts` (`xlide_lintWorkbook`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
 | New Python source file | `python/xlide/__init__.py` (if re-exported), `docs/architecture.md` |
 | Dependency added/removed | `python/requirements.txt`, `README.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLinter.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |

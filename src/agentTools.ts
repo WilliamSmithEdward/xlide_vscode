@@ -7,6 +7,7 @@ import {
     exportWorkbookModules,
     setWorkbookExportMode,
 } from './moduleDump';
+import { lintWorkbook } from './vbaWorkbookLint';
 
 // --------------------------------------------------------------------------
 // Input types matching the inputSchema in package.json
@@ -21,6 +22,7 @@ interface DeleteModuleInput { filePath: string; moduleName: string; }
 interface ListSheetsInput  { filePath: string; }
 interface GetWorkbookInfoInput { filePath: string; }
 interface ValidateWorkbookInput { filePath: string; }
+interface LintWorkbookInput { filePath: string; }
 interface CreateWorkbookInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
@@ -218,6 +220,16 @@ export function registerAgentTools(
                     'validateWorkbook',
                     { path: options.input.filePath },
                 );
+                return textResult(JSON.stringify(result, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_lintWorkbook
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<LintWorkbookInput>('xlide_lintWorkbook', {
+            async invoke(options, _token) {
+                const result = await lintWorkbook(bridge, options.input.filePath);
                 return textResult(JSON.stringify(result, null, 2));
             },
         }),

@@ -18,14 +18,7 @@ non-space characters are `'''` (three apostrophes), placed **directly above** a
 declaration - exactly like C# `///` comments in Visual Studio.
 
 ```vba
-''' <summary>Returns the tax owed for a pre-tax amount.</summary>
-''' <param name="Amount">The pre-tax amount, in dollars.</param>
-''' <param name="Rate">The tax rate as a fraction (0.07 = 7%).</param>
-''' <returns>The tax owed, in dollars, rounded to the cent.</returns>
-''' <remarks>Uses banker's rounding.</remarks>
-Public Function ComputeTax(ByVal Amount As Double, ByVal Rate As Double) As Double
-    ComputeTax = Amount * Rate
-End Function
+ 
 ```
 
 Rules:
