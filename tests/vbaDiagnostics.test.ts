@@ -87,6 +87,25 @@ function visibleProjectIdentifiers(
 	return project.visibleIdentifierNames(currentModule);
 }
 
+function visibleProjectTypes(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+	currentModule: string,
+): ReturnType<ProjectIndex['visibleTypeNames']> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.visibleTypeNames(currentModule);
+}
+
 describe('analyzeModule - unterminated string', () => {
 	it('flags a string with no closing quote', () => {
 		const src = 'Sub T()\n    MsgBox "hello\nEnd Sub\n';
@@ -2231,6 +2250,69 @@ describe('analyzeModule - As type name validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(hits[0].severity).toBe('error');
 		expect(spanText(src, hits[0])).toBe('Int');
+	});
+
+	it('uses project and host type resolution across type-name positions', () => {
+		const src =
+			'Public Type Payload\n' +
+			'    Owner As Person\n' +
+			'End Type\n' +
+			'\n' +
+			'Public Function Make(ByVal state As Status, ByVal sheet As Worksheet) As Person\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    If TypeOf p Is Person Then Debug.Print "ok"\n' +
+			'    Set Make = p\n' +
+			'End Function\n';
+		const modules = [
+			{ moduleName: 'Consumer', source: src },
+			{ moduleName: 'Person', moduleKind: 'class' as const, source: '' },
+			{ moduleName: 'Types', source: 'Public Enum Status\n    Active\nEnd Enum\n' },
+		];
+
+		expect(byCode(analyzeModule(src, {
+			moduleName: 'Consumer',
+			projectTypes: visibleProjectTypes(modules, 'Consumer'),
+		}), 'invalid-as-type-name')).toHaveLength(0);
+	});
+
+	it('flags runtime functions used in shared type-name positions', () => {
+		const src =
+			'Public Type Bag\n' +
+			'    Field As Left\n' +
+			'End Type\n' +
+			'\n' +
+			'Public Function Make(ByVal item As Int) As Right\n' +
+			'    Dim value As Mid\n' +
+			'    Set value = New Left\n' +
+			'    If TypeOf value Is Right Then Debug.Print "bad"\n' +
+			'End Function\n';
+
+		const hits = byCode(analyzeModule(src), 'invalid-as-type-name');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'Left',
+			'Int',
+			'Right',
+			'Mid',
+			'Left',
+			'Right',
+		]);
+	});
+
+	it('lets a project type shadow a runtime function name', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim value As Int\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Module1', source: src },
+			{ moduleName: 'Int', moduleKind: 'class' as const, source: '' },
+		];
+
+		expect(byCode(analyzeModule(src, {
+			moduleName: 'Module1',
+			projectTypes: visibleProjectTypes(modules, 'Module1'),
+		}), 'invalid-as-type-name')).toHaveLength(0);
 	});
 
 	it('defers broad unknown type names to the project-wide binder', () => {

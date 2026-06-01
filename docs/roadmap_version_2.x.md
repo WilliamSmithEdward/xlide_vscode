@@ -116,6 +116,10 @@ heuristic diagnostics.
 - Project type-name resolution now feeds go-to-definition and references for
   `As Person`/`New Person`; class modules resolve to their module top, while
   reference search lists actual type-use tokens rather than the implementation.
+- Type-name diagnostics now use the same project/host/primitive resolver and
+  shared type-position scanner, so valid workbook/Excel types stay quiet while
+  runtime-function names such as `Int` are flagged in `As`, `New`, return,
+  parameter, UDT field, `TypeOf ... Is`, and `Implements` positions.
 - Source-backed workbook class member references now resolve through the same
   member binder before textual fallback, so same-named members in different
   classes do not share a reference set.
@@ -561,9 +565,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   member-call signatures; diagnostics now consume it for known member-call
   arity/type checks, and go-to-definition/references/rename now consume it for
   source-backed members, including current-object `Me.Member` references.
-  Type-name completion, hover, semantic coloring, go-to-definition, and
-  references now share one type resolver; type-name diagnostics remain the next
-  binder slice.
+  Type-name completion, hover, semantic coloring, go-to-definition, references,
+  and runtime-function misuse diagnostics now share one type resolver and
+  type-position scanner.
 
 Definition of done:
 
@@ -931,10 +935,9 @@ Definition of done:
 1. Use `syntax_corpus/managed_backlog.md` and
    `docs/type_analysis_corpus_coverage.md` to choose the next verified
    corpus additions for the project-wide binder.
-2. Extend the project-wide binder from type-name visibility into an `As`
-   type-name resolver that can distinguish known project/host types, known
-   non-type declarations, ambiguous type names, and still-unknown external
-   reference names without guessing.
+2. Continue extending type-name diagnostics with oracle-backed hard errors for
+   known non-type declarations and ambiguous names while still deferring
+   unknown external reference names.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
 4. Keep the VBA test runner and lint-suppression directives as planned

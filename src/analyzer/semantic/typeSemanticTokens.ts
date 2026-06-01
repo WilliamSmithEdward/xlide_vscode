@@ -37,7 +37,10 @@ export interface ResolvedTypeReference extends TypeCompletion {
 	span: Span;
 }
 
-type TypeNameHit = { name: string; span: Span };
+export interface TypeNameReference {
+	name: string;
+	span: Span;
+}
 
 function tokenTypeForCompletionKind(kind: TypeCompletionKind): TypeSemanticTokenType {
 	switch (kind) {
@@ -194,7 +197,7 @@ function returnTypeNameSpan(source: string, proc: ProcedureNode): { name: string
 function collectVariableGroup(
 	source: string,
 	group: VariableGroupNode,
-	out: TypeNameHit[],
+	out: TypeNameReference[],
 ): void {
 	for (const decl of group.declarations) {
 		collectVariableDecl(source, decl, out);
@@ -204,7 +207,7 @@ function collectVariableGroup(
 function collectVariableDecl(
 	source: string,
 	decl: VariableDeclNode,
-	out: TypeNameHit[],
+	out: TypeNameReference[],
 ): void {
 	if (!decl.asType) {
 		return;
@@ -215,7 +218,7 @@ function collectVariableDecl(
 function collectTypeField(
 	source: string,
 	field: TypeFieldNode,
-	out: TypeNameHit[],
+	out: TypeNameReference[],
 ): void {
 	if (!field.asType) {
 		return;
@@ -226,7 +229,7 @@ function collectTypeField(
 function collectParameter(
 	source: string,
 	param: ParameterNode,
-	out: TypeNameHit[],
+	out: TypeNameReference[],
 ): void {
 	if (!param.asType) {
 		return;
@@ -237,7 +240,7 @@ function collectParameter(
 function collectBody(
 	source: string,
 	body: BodyNode[],
-	out: TypeNameHit[],
+	out: TypeNameReference[],
 ): void {
 	for (const node of body) {
 		if (node.kind === 'VariableGroup') {
@@ -253,7 +256,7 @@ function collectBody(
 function collectStatement(
 	source: string,
 	stmt: StatementNode,
-	out: TypeNameHit[],
+	out: TypeNameReference[],
 ): void {
 	for (const hit of typeNameSpansAfterNew(source, stmt.span)) {
 		out.push(hit);
@@ -263,7 +266,7 @@ function collectStatement(
 	}
 }
 
-function collectImplements(source: string, out: TypeNameHit[]): void {
+function collectImplements(source: string, out: TypeNameReference[]): void {
 	let lineStart = 0;
 	while (lineStart <= source.length) {
 		let lineEnd = source.indexOf('\n', lineStart);
@@ -298,7 +301,7 @@ function collectImplements(source: string, out: TypeNameHit[]): void {
 function collectProcedure(
 	source: string,
 	proc: ProcedureNode,
-	out: TypeNameHit[],
+	out: TypeNameReference[],
 ): void {
 	for (const param of proc.params) {
 		collectParameter(source, param, out);
@@ -312,8 +315,8 @@ function collectProcedure(
 function collectModule(
 	source: string,
 	mod: ModuleNode,
-): TypeNameHit[] {
-	const out: TypeNameHit[] = [];
+): TypeNameReference[] {
+	const out: TypeNameReference[] = [];
 	collectImplements(source, out);
 	for (const member of mod.members) {
 		if (member.kind === 'VariableGroup') {
@@ -329,7 +332,10 @@ function collectModule(
 	return out.sort((a, b) => a.span.start - b.span.start || a.span.end - b.span.end);
 }
 
-function pushTypeHit(out: TypeNameHit[], hit: TypeNameHit | undefined): void {
+function pushTypeHit(
+	out: TypeNameReference[],
+	hit: TypeNameReference | undefined,
+): void {
 	if (hit) {
 		out.push(hit);
 	}
@@ -337,7 +343,7 @@ function pushTypeHit(out: TypeNameHit[], hit: TypeNameHit | undefined): void {
 
 function semanticTokenForHit(
 	ctx: TypeCompletionContext,
-	hit: TypeNameHit,
+	hit: TypeNameReference,
 ): TypeSemanticToken | undefined {
 	const resolved = resolveTypeName(hit.name, ctx);
 	if (!resolved) {
@@ -350,7 +356,7 @@ function semanticTokenForHit(
 	};
 }
 
-function collectTypeNameHits(source: string): TypeNameHit[] {
+export function collectTypeNameReferences(source: string): TypeNameReference[] {
 	return collectModule(source, parseModule(source));
 }
 
@@ -358,7 +364,7 @@ export function resolveTypeSemanticTokens(
 	source: string,
 	ctx: TypeCompletionContext = {},
 ): TypeSemanticToken[] {
-	return collectTypeNameHits(source)
+	return collectTypeNameReferences(source)
 		.map((hit) => semanticTokenForHit(ctx, hit))
 		.filter((token): token is TypeSemanticToken => Boolean(token));
 }
@@ -368,7 +374,7 @@ export function resolveTypeReferenceAt(
 	offset: number,
 	ctx: TypeCompletionContext = {},
 ): ResolvedTypeReference | undefined {
-	const hit = collectTypeNameHits(source).find(
+	const hit = collectTypeNameReferences(source).find(
 		(candidate) => offset >= candidate.span.start && offset <= candidate.span.end,
 	);
 	if (!hit) {

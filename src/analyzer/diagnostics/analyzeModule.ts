@@ -23,7 +23,6 @@
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
-import { RESERVED_TYPE_IDENTIFIERS } from '../lexer/keywordTable';
 import { getHostMembers, resolveHostAlias, resolveHostGlobal } from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import { resolveRuntimeFunction, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
@@ -36,7 +35,6 @@ import type {
 	Span,
 	StatementNode,
 	TypeFieldNode,
-	VariableDeclNode,
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
@@ -53,11 +51,13 @@ import {
 	type MemberCompletion,
 	type MemberCompletionContext,
 } from '../completion/memberAccess';
+import { resolveTypeName, type ProjectTypeName } from '../completion/typeCompletion';
 import {
 	eventHandlerDocumentTypeForContext,
 	eventHandlerProcedureForName,
 	type EventHandlerDocumentType,
 } from '../completion/eventHandlers';
+import { collectTypeNameReferences } from '../semantic/typeSemanticTokens';
 import {
 	DIAGNOSTIC_RULES,
 	DiagnosticRuleName,
@@ -115,6 +115,8 @@ export interface AnalyzeModuleOptions {
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
 	/** Source-declared workbook class/UserForm/document members visible to this module. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
+	/** Source-declared workbook type names visible to this module. */
+	projectTypes?: readonly ProjectTypeName[];
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
 }
@@ -204,7 +206,7 @@ function runRules(
 	checkUnexpectedDeclarationTokens(source, mod, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, push);
-	checkInvalidAsTypeNames(source, mod, push);
+	checkInvalidAsTypeNames(source, opts, push);
 	checkCallParens(source, mod, push);
 	checkExpressionCallParens(source, mod, push);
 	checkSetAssignments(source, mod, symbols, memberCtx, push);
@@ -1518,10 +1520,6 @@ interface InferredArgumentType {
 	span: Span;
 	stringValue?: string;
 }
-
-const VALID_INTRINSIC_AS_TYPES = new Set(
-	[...RESERVED_TYPE_IDENTIFIERS, 'Object'].map((name) => name.toLowerCase()),
-);
 
 /**
  * Rule: when both a callable parameter type and an argument type are known, flag
@@ -3193,64 +3191,28 @@ function isUnqualifiedStringType(
 	return end === start + 1 && tokenText(toks[start]) === 'string';
 }
 
-function checkInvalidAsTypeNames(source: string, mod: ModuleNode, push: PushFn): void {
-	const inspect = (group: VariableGroupNode): void => {
-		for (const decl of group.declarations) {
-			const typeName = simpleUnbracketedTypeName(decl.asType);
-			if (!typeName || VALID_INTRINSIC_AS_TYPES.has(typeName.toLowerCase())) {
-				continue;
-			}
-			if (!resolveRuntimeFunction(typeName)) {
-				continue;
-			}
-			push(
-				'invalidAsTypeName',
-				`'${typeName}' is a VBA runtime function, not a valid As type name.`,
-				asTypeNameSpan(source, decl, typeName) ?? decl.span,
-			);
-		}
-	};
-	for (const member of mod.members) {
-		if (member.kind === 'VariableGroup') {
-			inspect(member);
-		} else if (member.kind === 'Procedure') {
-			forEachVariableGroup(member.body, inspect);
-		}
-	}
-}
-
-function simpleUnbracketedTypeName(asType: string | undefined): string | undefined {
-	const text = asType?.trim();
-	if (!text || text.startsWith('[')) {
-		return undefined;
-	}
-	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(text) ? text : undefined;
-}
-
-function asTypeNameSpan(
+function checkInvalidAsTypeNames(
 	source: string,
-	decl: VariableDeclNode,
-	typeName: string,
-): Span | undefined {
-	const toks = tokenize(source.slice(decl.span.start, decl.span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-	const asIndex = toks.findIndex((t) => tokenText(t) === 'as');
-	if (asIndex < 0) {
-		return undefined;
+	opts: AnalyzeModuleOptions,
+	push: PushFn,
+): void {
+	for (const ref of collectTypeNameReferences(source)) {
+		const resolved = resolveTypeName(ref.name, {
+			projectTypes: opts.projectTypes,
+			model: opts.hostModel,
+		});
+		if (resolved) {
+			continue;
+		}
+		if (!resolveRuntimeFunction(ref.name)) {
+			continue;
+		}
+		push(
+			'invalidAsTypeName',
+			`'${ref.name}' is a VBA runtime function, not a valid As type name.`,
+			ref.span,
+		);
 	}
-	let typeIndex = asIndex + 1;
-	if (tokenText(toks[typeIndex]) === 'new') {
-		typeIndex++;
-	}
-	const typeToken = toks[typeIndex];
-	if (!typeToken || tokenName(typeToken)?.toLowerCase() !== typeName.toLowerCase()) {
-		return undefined;
-	}
-	return {
-		start: decl.span.start + typeToken.start,
-		end: decl.span.start + typeToken.end,
-	};
 }
 
 function declaredNameSpan(source: string, span: Span, name: string): Span {

@@ -987,6 +987,7 @@ function registerVbaDiagnostics(
         let knownIdentifiers: ReadonlySet<string> | undefined;
         let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
         let projectClassMembers: ReturnType<ProjectIndex['projectClassMembers']> | undefined;
+        let projectTypes: ReturnType<ProjectIndex['visibleTypeNames']> | undefined;
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
@@ -1005,11 +1006,13 @@ function registerVbaDiagnostics(
                 knownIdentifiers = project.visibleIdentifierNames(moduleName);
                 projectProcedures = project.procedureSignatures();
                 projectClassMembers = project.projectClassMembers();
+                projectTypes = project.visibleTypeNames(moduleName);
             } catch {
                 knownProcedures = undefined;
                 knownIdentifiers = undefined;
                 projectProcedures = undefined;
                 projectClassMembers = undefined;
+                projectTypes = undefined;
             }
         }
 
@@ -1043,6 +1046,7 @@ function registerVbaDiagnostics(
                 knownIdentifiers,
                 projectProcedures,
                 projectClassMembers,
+                projectTypes,
             });
         } catch {
             semantic = [];

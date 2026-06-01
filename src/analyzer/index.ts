@@ -67,9 +67,11 @@ export {
 	resolveEventHandlerCompletions,
 } from './completion/eventHandlers';
 export {
+	collectTypeNameReferences,
 	ResolvedTypeReference,
 	resolveTypeReferenceAt,
 	resolveTypeSemanticTokens,
+	TypeNameReference,
 	TypeSemanticToken,
 	TypeSemanticTokenType,
 } from './semantic/typeSemanticTokens';
