@@ -879,6 +879,8 @@ prove the edit is safe.
   - [x] remove invalid empty parentheses from standalone zero-argument calls
   - [x] rewrite runtime calls such as `Call DoEvents()` to bare statement syntax
   - [x] add missing block closer
+  - [x] move misplaced `Option` statements before declarations
+  - [x] split local `Dim` initializers into declaration plus assignment
   - [x] add `Set` when the assignment target is known object type
   - [x] remove `Set` when the assignment target is known scalar type
   - [ ] add missing required argument placeholder only when explicitly requested

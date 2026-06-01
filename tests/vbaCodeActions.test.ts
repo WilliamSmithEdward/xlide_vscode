@@ -379,12 +379,80 @@ describe('resolveDiagnosticCodeActions', () => {
 		);
 	});
 
+	it('moves misplaced Option statements before declarations', () => {
+		const source = 'Sub T()\nEnd Sub\nOption Explicit\n';
+		const diag = firstDiagnostic(source, 'option-after-declaration');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe('Move Option statement before declarations');
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Option Explicit\nSub T()\nEnd Sub\n',
+		);
+	});
+
+	it('moves misplaced Option statements after exported module attributes', () => {
+		const source = 'Attribute VB_Name = "Module1"\n\nSub T()\nEnd Sub\nOption Compare Text\n';
+		const diag = firstDiagnostic(source, 'option-after-declaration');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Attribute VB_Name = "Module1"\nOption Compare Text\n\nSub T()\nEnd Sub\n',
+		);
+	});
+
 	it('does not add a duplicate Option Explicit for stale diagnostics', () => {
 		const source = 'Option Explicit\nSub T()\nEnd Sub\n';
 		const actions = resolveDiagnosticCodeActions(source, {
 			code: 'option-explicit-missing',
 			span: { start: 0, end: 0 },
 		});
+
+		expect(actions).toHaveLength(0);
+	});
+
+	it('splits local declaration initializers into declaration plus assignment', () => {
+		const source = 'Sub T()\n    Dim count As Long = 2\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'dim-initializer');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe('Split declaration initializer');
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub T()\n    Dim count As Long\n    count = 2\nEnd Sub\n',
+		);
+	});
+
+	it('splits local typeless declaration initializers', () => {
+		const source = 'Sub T()\n    Dim value = Left$("test", 1)\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'dim-initializer');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub T()\n    Dim value\n    value = Left$("test", 1)\nEnd Sub\n',
+		);
+	});
+
+	it('does not split module-level declaration initializers', () => {
+		const source = 'Dim count As Long = 2\nSub T()\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'dim-initializer');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(0);
+	});
+
+	it('does not split multi-declaration initializer lines', () => {
+		const source = 'Sub T()\n    Dim a As Long = 1, b As Long\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'dim-initializer');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
 
 		expect(actions).toHaveLength(0);
 	});

@@ -55,6 +55,10 @@ export function resolveDiagnosticCodeActions(
 			return invalidExplicitCallTargetActions(source, diagnostic.span);
 		case 'missing-block-closer':
 			return missingBlockCloserActions(source, diagnostic);
+		case 'dim-initializer':
+			return dimInitializerActions(source, diagnostic.span);
+		case 'option-after-declaration':
+			return optionAfterDeclarationActions(source, diagnostic.span);
 		case 'option-explicit-missing':
 			return optionExplicitMissingActions(source);
 		case 'set-required':
@@ -279,6 +283,90 @@ function optionExplicitMissingActions(source: string): VbaDiagnosticCodeAction[]
 	}];
 }
 
+function optionAfterDeclarationActions(
+	source: string,
+	span: Span,
+): VbaDiagnosticCodeAction[] {
+	const line = physicalLineSpan(source, span.start);
+	const physicalLine = readPhysicalLine(source, line.start);
+	const optionText = physicalLine.text.trim();
+	if (!/^Option\b/i.test(optionText)) {
+		return [];
+	}
+
+	const insertAt = optionExplicitInsertOffset(source);
+	if (line.start <= insertAt || insertAt >= physicalLine.next) {
+		return [];
+	}
+
+	const eol = detectEol(source);
+	return [{
+		title: 'Move Option statement before declarations',
+		kind: 'quickfix',
+		isPreferred: true,
+		edits: [
+			{
+				span: { start: line.start, end: physicalLine.next },
+				newText: '',
+			},
+			{
+				span: { start: insertAt, end: insertAt },
+				newText: `${optionText}${eol}`,
+			},
+		],
+	}];
+}
+
+function dimInitializerActions(
+	source: string,
+	span: Span,
+): VbaDiagnosticCodeAction[] {
+	const line = physicalLineSpan(source, span.start);
+	if (!isInsideProcedureBefore(source, line.start)) {
+		return [];
+	}
+
+	const lineText = source.slice(line.start, line.end);
+	const toks = tokenize(lineText);
+	if (toks.length < 4 || toks[0].rawText.toLowerCase() !== 'dim') {
+		return [];
+	}
+	if (toks.some((tok) => tok.kind === 'comment')) {
+		return [];
+	}
+
+	const eqIdx = toks.findIndex((tok) => line.start + tok.start === span.start && tok.rawText === '=');
+	if (eqIdx < 2) {
+		return [];
+	}
+	if (hasUnsafeDeclarationDelimiter(toks, eqIdx)) {
+		return [];
+	}
+
+	const name = declarationAssignmentTarget(toks[1]);
+	const rhs = source.slice(line.start + toks[eqIdx].end, line.end).trim();
+	if (!name || !rhs) {
+		return [];
+	}
+
+	let replaceStart = span.start;
+	while (replaceStart > line.start && (source[replaceStart - 1] === ' ' || source[replaceStart - 1] === '\t')) {
+		replaceStart--;
+	}
+
+	const eol = detectEol(source);
+	const indent = leadingWhitespace(lineText);
+	return [{
+		title: 'Split declaration initializer',
+		kind: 'quickfix',
+		isPreferred: true,
+		edits: [{
+			span: { start: replaceStart, end: line.end },
+			newText: `${eol}${indent}${name} = ${rhs}`,
+		}],
+	}];
+}
+
 function trailingEmptyParens(source: string, span: Span): Span | undefined {
 	const slice = source.slice(span.start, span.end);
 	const hit = /\([ \t]*\)[ \t]*$/.exec(slice);
@@ -408,6 +496,47 @@ function lineStartOffset(source: string, line: number | undefined): number | und
 
 function leadingWhitespace(text: string): string {
 	return /^[ \t]*/.exec(text)?.[0] ?? '';
+}
+
+function declarationAssignmentTarget(tok: ReturnType<typeof tokenize>[number] | undefined): string | undefined {
+	if (!tok || (tok.kind !== 'identifier' && tok.kind !== 'bracketedIdentifier')) {
+		return undefined;
+	}
+	return tok.rawText;
+}
+
+function hasUnsafeDeclarationDelimiter(toks: ReturnType<typeof tokenize>, eqIdx: number): boolean {
+	let parenDepth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const text = toks[i].rawText;
+		if (text === '(') {
+			parenDepth++;
+		} else if (text === ')') {
+			parenDepth = Math.max(0, parenDepth - 1);
+		} else if (text === ':' || (text === ',' && (i < eqIdx || parenDepth === 0))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function isInsideProcedureBefore(source: string, offset: number): boolean {
+	let inside = false;
+	let current = source.charCodeAt(0) === 0xfeff ? 1 : 0;
+	while (current < offset) {
+		const line = readPhysicalLine(source, current);
+		const text = line.text.trim();
+		if (/^(?:Public|Private|Friend|Static)?\s*(?:Sub|Function|Property\s+(?:Get|Let|Set))\b/i.test(text)) {
+			inside = true;
+		} else if (/^End\s+(?:Sub|Function|Property)\b/i.test(text)) {
+			inside = false;
+		}
+		if (line.next <= current) {
+			break;
+		}
+		current = line.next;
+	}
+	return inside;
 }
 
 function readPhysicalLine(
