@@ -59,6 +59,19 @@ describe('signature help - host members', () => {
 		expect(info?.parameters[0].label).toBe('Filename As String');
 	});
 
+	it('supports parenless leading-dot member calls inside With', () => {
+		const info = help('Sub T()\nWith Workbooks\n    .Open "a.xlsx", |\nEnd With\nEnd Sub');
+		expect(info?.label.startsWith('Open(Filename As String')).toBe(true);
+		expect(info?.activeParameter).toBe(1);
+		expect(info?.parameters[1].label).toBe('[UpdateLinks As Variant]');
+	});
+
+	it('supports parenless chained leading-dot member calls inside With', () => {
+		const info = help('Sub T()\nWith Range("A1")\n    .Offset |\nEnd With\nEnd Sub');
+		expect(info?.label.startsWith('Offset(')).toBe(true);
+		expect(info?.parameters[0].label).toBe('[RowOffset]');
+	});
+
 	it('includes generated reference docs for host member call tips', () => {
 		const info = help('Sub T()\nWorkbooks.Open(|\nEnd Sub');
 		expect(info?.documentation).toContain('Opens a workbook');
@@ -296,6 +309,14 @@ describe('signature help - project class members', () => {
 		});
 		expect(info?.documentation).toContain('Saves the person.');
 		expect(info?.parameters[0].documentation).toBe('Caption text.');
+	});
+
+	it('supports parenless source-backed class member calls inside With', () => {
+		const info = help('Sub T()\nDim p As Person\nWith p\n    .Save "ok", |\nEnd With\nEnd Sub', {
+			projectClassMembers,
+		});
+		expect(info?.label).toBe('Save(Caption As String, [Loud As Boolean])');
+		expect(info?.activeParameter).toBe(1);
 	});
 });
 

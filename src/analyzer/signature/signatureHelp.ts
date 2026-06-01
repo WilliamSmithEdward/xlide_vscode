@@ -181,27 +181,15 @@ function findParenlessCall(
 	if (isExplicitCall) {
 		idx = 1;
 	}
-	if (idx >= stmt.length || !isIdentLike(stmt[idx])) {
+	const calleeSite = parenlessCalleeSite(stmt, idx, source);
+	if (!calleeSite) {
 		return undefined;
 	}
-	if (STATEMENT_KEYWORDS.has(stmt[idx].rawText.toLowerCase())) {
+	const callee = stmt[calleeSite.calleeIndex];
+	if (!calleeSite.isMember && STATEMENT_KEYWORDS.has(callee.rawText.toLowerCase())) {
 		return undefined;
 	}
-	// Collect the dotted callee chain.
-	let j = idx;
-	for (;;) {
-		if (!isIdentLike(stmt[j])) {
-			return undefined;
-		}
-		if (j + 1 < stmt.length && stmt[j + 1].rawText === '.') {
-			j += 2;
-			continue;
-		}
-		break;
-	}
-	const callee = stmt[j];
-	const isMember = j - 1 >= idx && stmt[j - 1].rawText === '.';
-	const afterTokens = stmt.slice(j + 1);
+	const afterTokens = stmt.slice(calleeSite.calleeIndex + 1);
 	const gap = source.slice(callee.end, offset);
 	const argsStarted = afterTokens.length > 0 || /\s/.test(gap);
 	if (!argsStarted) {
@@ -226,11 +214,73 @@ function findParenlessCall(
 	}
 	return {
 		calleeName: callee.rawText,
-		isMember,
+		isMember: calleeSite.isMember,
 		isExplicitCall,
 		calleeEndOffset: callee.end,
 		activeParameter: commaCount,
 	};
+}
+
+function parenlessCalleeSite(
+	stmt: readonly VbaToken[],
+	startIndex: number,
+	source: string,
+): { calleeIndex: number; isMember: boolean } | undefined {
+	if (startIndex >= stmt.length) {
+		return undefined;
+	}
+	let i = startIndex;
+	let isMember = false;
+	if (stmt[i].rawText === '.') {
+		isMember = true;
+		i += 1;
+	}
+	if (!stmt[i] || !isIdentLike(stmt[i])) {
+		return undefined;
+	}
+	let calleeIndex = i;
+	for (;;) {
+		const paren = stmt[i + 1];
+		if (paren?.rawText === '(' && noWhitespaceBetween(source, stmt[i], paren)) {
+			const close = matchParenFrom(stmt, i + 1);
+			if (close < 0 || stmt[close + 1]?.rawText !== '.') {
+				break;
+			}
+			i = close + 1;
+		}
+		if (stmt[i + 1]?.rawText !== '.') {
+			break;
+		}
+		const nextNameIndex = i + 2;
+		const nextName = stmt[nextNameIndex];
+		if (!nextName || !isIdentLike(nextName)) {
+			return undefined;
+		}
+		isMember = true;
+		i = nextNameIndex;
+		calleeIndex = i;
+	}
+	return { calleeIndex, isMember };
+}
+
+function noWhitespaceBetween(source: string, left: VbaToken, right: VbaToken): boolean {
+	return !/\s/.test(source.slice(left.end, right.start));
+}
+
+function matchParenFrom(tokens: readonly VbaToken[], open: number): number {
+	let depth = 0;
+	for (let i = open; i < tokens.length; i += 1) {
+		const raw = tokens[i].rawText;
+		if (raw === '(') {
+			depth += 1;
+		} else if (raw === ')') {
+			depth -= 1;
+			if (depth === 0) {
+				return i;
+			}
+		}
+	}
+	return -1;
 }
 
 function isExplicitCallTarget(tokens: readonly VbaToken[], calleeIndex: number): boolean {

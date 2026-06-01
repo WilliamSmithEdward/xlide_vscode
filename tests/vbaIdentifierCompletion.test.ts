@@ -252,6 +252,16 @@ describe('callable completion insertion contexts', () => {
 			false,
 		);
 	});
+
+	it('does not add parens for standalone leading-dot member call statements', () => {
+		const src = 'Sub T()\n    With p\n        .Sav\n    End With\nEnd Sub\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, '.Sav'))).toBe(false);
+	});
+
+	it('adds parens for leading-dot member completions in expression contexts', () => {
+		const src = 'Sub T()\n    With rng\n        Set next = .Off\n    End With\nEnd Sub\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, '.Off'))).toBe(true);
+	});
 });
 
 describe('identifier completion - suppressed positions', () => {

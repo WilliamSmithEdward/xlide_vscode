@@ -894,8 +894,9 @@ Do not ship low-confidence diagnostics by default.
 > compatibility metadata, so invalid targets such as `DoEvents` are not offered
 > after `Call`. The shared member-access resolver also resolves leading-dot
 > chains inside an active `With ... End With` block against the `With` receiver;
-> completion, hover, signature help, canonical casing, and diagnostics now use
-> that same path. Resolved
+> completion, hover, signature help (including parenless `.Method arg, ...`
+> call tips), canonical casing, call-completion parenthesis insertion, and
+> diagnostics now use that same path. Resolved
 > type names (project, host, and primitive) also get semantic tokens and
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
 > `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by
