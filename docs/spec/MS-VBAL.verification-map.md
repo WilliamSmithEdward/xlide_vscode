@@ -62,6 +62,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | future-reserved | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | 3.3.5.2 | Verified |
 | reserved-for-implementation-use | src/analyzer/lexer/keywordTable.ts | (none yet) | 3.3.5.2 | Partial |
 | Contextual keywords (VBE casing) | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | n/a (VBE convention) | Verified |
+| Safe canonical casing edits (keyword/type/member/runtime) | src/analyzer/completion/canonicalCasing.ts + src/vbaMemberCompletion.ts | tests/vbaCanonicalCasing.test.ts | n/a (VBE convention) | Verified |
 
 ### Documented deviations
 
@@ -113,7 +114,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Project class member-completion surface + inline docs | src/analyzer/symbols/projectIndex.ts + src/analyzer/completion/memberAccess.ts + src/analyzer/hover/resolveHover.ts | tests/vbaSymbolGraph.test.ts + tests/vbaMemberCompletion.test.ts + tests/vbaDocComments.test.ts + tests/vbaHover.test.ts + tests/vbaSignatureHelp.test.ts | 4.2 / 5.3 / 5.6.9 | Partial |
 | Type-name semantic tokens + hover (primitive/host/project) | src/analyzer/semantic/typeSemanticTokens.ts + src/analyzer/hover/resolveHover.ts | tests/vbaSemanticTokens.test.ts + tests/vbaHover.test.ts | 5.2.3.1.4 / 5.2.3.3 / 5.2.3.4 / 5.6.9 (`New`) | Verified |
 | Duplicate-procedure detection | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.3.1 | Verified |
-| Type-position completion (after As / As New) | src/analyzer/completion/typeCompletion.ts | tests/vbaTypeCompletion.test.ts | 5.2.3.1.4 (type-spec) | Verified |
+| Type-name completion (after As / As New / expression New) | src/analyzer/completion/typeCompletion.ts | tests/vbaTypeCompletion.test.ts | 5.2.3.1.4 (type-spec) / 5.6.9 (`New`) | Verified |
 | Identifier completion (globals/code names/in-scope decls) | src/analyzer/completion/identifierCompletion.ts | tests/vbaIdentifierCompletion.test.ts | 5.6.10 (simple-name-expression) | Verified |
 
 ### Documented deviations / scope

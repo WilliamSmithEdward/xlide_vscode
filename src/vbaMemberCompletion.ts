@@ -169,33 +169,36 @@ class VbaMemberCompletionProvider
 	async applyCanonicalCase(
 		document: vscode.TextDocument,
 		candidateEnd: vscode.Position,
+		editorHint?: vscode.TextEditor,
 	): Promise<void> {
 		if (this._applyingCanonicalCase) {
 			return;
 		}
-		const editor = vscode.window.activeTextEditor;
-		if (!editor || editor.document !== document) {
-			return;
-		}
-		const source = document.getText();
-		const offset = document.offsetAt(candidateEnd);
-		const edit = resolveCanonicalCaseEdit(source, offset, {
-			member: await this._buildContext(document),
-			identifier: await this._buildIdentifierContext(document),
-		});
-		if (!edit) {
-			return;
-		}
-		const range = new vscode.Range(
-			document.positionAt(edit.start),
-			document.positionAt(edit.end),
-		);
-		if (document.getText(range) === edit.text) {
-			return;
-		}
-
 		this._applyingCanonicalCase = true;
 		try {
+			const editor = editorHint?.document === document
+				? editorHint
+				: vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);
+			if (!editor || editor.document !== document) {
+				return;
+			}
+			const source = document.getText();
+			const offset = document.offsetAt(candidateEnd);
+			const edit = resolveCanonicalCaseEdit(source, offset, {
+				member: await this._buildContext(document),
+				identifier: await this._buildIdentifierContext(document),
+				type: await this._buildTypeContext(document, source),
+			});
+			if (!edit) {
+				return;
+			}
+			const range = new vscode.Range(
+				document.positionAt(edit.start),
+				document.positionAt(edit.end),
+			);
+			if (document.getText(range) === edit.text) {
+				return;
+			}
 			await editor.edit((builder) => builder.replace(range, edit.text), {
 				undoStopBefore: false,
 				undoStopAfter: false,
@@ -758,6 +761,19 @@ export function registerVbaMemberCompletion(
 	docs?: DocRegistry,
 ): void {
 	const provider = new VbaMemberCompletionProvider(bridge, docs);
+	let lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
+	const flushCanonicalCandidate = (): void => {
+		const candidate = lastCanonicalCandidate;
+		if (!candidate || !isVbaDocument(candidate.editor.document)) {
+			return;
+		}
+		void provider.applyCanonicalCase(
+			candidate.editor.document,
+			candidate.position,
+			candidate.editor,
+		);
+	};
+
 	context.subscriptions.push(
 		vscode.languages.registerCompletionItemProvider(
 			selector,
@@ -774,6 +790,26 @@ export function registerVbaMemberCompletion(
 				return;
 			}
 			void provider.applyCanonicalCase(event.document, change.range.start);
+		}),
+		vscode.window.onDidChangeTextEditorSelection((event) => {
+			const previous = lastCanonicalCandidate;
+			if (previous?.editor === event.textEditor) {
+				void provider.applyCanonicalCase(
+					previous.editor.document,
+					previous.position,
+					previous.editor,
+				);
+			}
+			lastCanonicalCandidate = canonicalCandidateFromEditor(event.textEditor);
+		}),
+		vscode.window.onDidChangeActiveTextEditor((editor) => {
+			flushCanonicalCandidate();
+			lastCanonicalCandidate = canonicalCandidateFromEditor(editor);
+		}),
+		vscode.window.onDidChangeWindowState((state) => {
+			if (!state.focused) {
+				flushCanonicalCandidate();
+			}
 		}),
 		vscode.languages.registerHoverProvider(selector, provider),
 		vscode.languages.registerSignatureHelpProvider(
@@ -795,6 +831,15 @@ export function registerVbaMemberCompletion(
 			}
 		}),
 	);
+}
+
+function canonicalCandidateFromEditor(
+	editor: vscode.TextEditor | undefined,
+): { editor: vscode.TextEditor; position: vscode.Position } | undefined {
+	if (!editor || !isVbaDocument(editor.document)) {
+		return undefined;
+	}
+	return { editor, position: editor.selection.active };
 }
 
 function isVbaDocument(document: vscode.TextDocument): boolean {

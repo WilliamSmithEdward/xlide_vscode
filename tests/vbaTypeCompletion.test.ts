@@ -33,6 +33,38 @@ describe('type-position detection', () => {
 		expect(result).toContain('Object');
 	});
 
+	it('offers creatable project types after expression-level "New"', () => {
+		const result = resolveTypeCompletions(
+			'Sub T()\n    Set p = New Pe\nEnd Sub\n',
+			endOf('Sub T()\n    Set p = New Pe\nEnd Sub\n', 'New Pe'),
+			{
+				projectTypes: [
+					{ name: 'Person', kind: 'class' },
+					{ name: 'CustomerForm', kind: 'userform' },
+					{ name: 'Sheet1', kind: 'document' },
+					{ name: 'Status', kind: 'enum' },
+					{ name: 'TPoint', kind: 'userType' },
+				],
+			},
+		);
+		expect(result.map((t) => t.name)).toEqual(['Person']);
+	});
+
+	it('does not offer non-creatable types after expression-level "New"', () => {
+		const result = names('Sub T()\n    Set p = New ', 'New ', {
+			projectTypes: [
+				{ name: 'Person', kind: 'class' },
+				{ name: 'CustomerForm', kind: 'userform' },
+				{ name: 'Sheet1', kind: 'document' },
+				{ name: 'Status', kind: 'enum' },
+				{ name: 'TPoint', kind: 'userType' },
+			],
+		});
+		expect(result).toEqual(['Person', 'CustomerForm']);
+		expect(result).not.toContain('Long');
+		expect(result).not.toContain('Worksheet');
+	});
+
 	it('filters by the partial type text typed', () => {
 		const result = names('Dim x As Lo', 'As Lo');
 		expect(result).toContain('Long');

@@ -8,10 +8,15 @@ import {
 	resolveMemberCompletions,
 	type MemberCompletionContext,
 } from './memberAccess';
+import {
+	resolveTypeCompletions,
+	type TypeCompletionContext,
+} from './typeCompletion';
 
 export interface CanonicalCaseContext {
 	member?: MemberCompletionContext;
 	identifier?: IdentifierCompletionContext;
+	type?: TypeCompletionContext;
 }
 
 export interface CanonicalCaseEdit {
@@ -39,6 +44,7 @@ export function resolveCanonicalCaseEdit(
 
 	const canonical =
 		token.canonicalText ??
+		canonicalFromTypeCompletion(source, span.end, word, ctx.type) ??
 		canonicalFromMemberCompletion(source, span.end, word, ctx.member) ??
 		canonicalFromIdentifierCompletion(source, span.end, word, ctx.identifier);
 	if (!canonical || canonical === word) {
@@ -89,6 +95,17 @@ function canonicalFromIdentifierCompletion(
 	ctx: IdentifierCompletionContext = {},
 ): string | undefined {
 	return resolveIdentifierCompletions(source, offset, ctx).find(
+		(item) => item.name.toLowerCase() === word.toLowerCase(),
+	)?.name;
+}
+
+function canonicalFromTypeCompletion(
+	source: string,
+	offset: number,
+	word: string,
+	ctx: TypeCompletionContext = {},
+): string | undefined {
+	return resolveTypeCompletions(source, offset, ctx).find(
 		(item) => item.name.toLowerCase() === word.toLowerCase(),
 	)?.name;
 }

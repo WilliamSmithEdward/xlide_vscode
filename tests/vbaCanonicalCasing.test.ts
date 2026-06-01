@@ -22,6 +22,17 @@ describe('canonical casing edits', () => {
 		expect(edit?.text).toBe('Left');
 	});
 
+	it('canonicalizes type names in declaration and New expression positions', () => {
+		const ctx: CanonicalCaseContext = {
+			type: {
+				projectTypes: [{ name: 'Person', kind: 'class' }],
+			},
+		};
+		expect(editAtMarker('Sub T()\n    Dim p As person|\nEnd Sub\n', ctx)?.text).toBe('Person');
+		expect(editAtMarker('Sub T()\n    Set p = New person|\nEnd Sub\n', ctx)?.text).toBe('Person');
+		expect(editAtMarker('Sub T()\n    Dim amount As currency|\nEnd Sub\n', ctx)?.text).toBe('Currency');
+	});
+
 	it('canonicalizes source-backed current class members through Me', () => {
 		const edit = editAtMarker('Sub T()\n    Me.save|\nEnd Sub\n', {
 			member: {

@@ -454,7 +454,7 @@ into a pure analyzer layer and a thin VS Code provider:
   the wrong module receive non-red `event-handler-module-scope` guidance because
   Excel will not wire them as events there, even though they may compile as
   ordinary procedures. In a declaration
-  type position (after `As` / `As New`) it instead
+  type position (after `As` / `As New`) or expression-level `New` position it instead
   offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
   (`resolveTypeCompletions`): VBA built-in data types, the Excel host types, and
   project-defined types — user `Type`s/`Enum`s in the current module, public
@@ -471,9 +471,12 @@ into a pure analyzer layer and a thin VS Code provider:
   Runtime completion details show the verified signature, and the documentation
   panel includes the runtime kind plus curated parameter types where available.
   Curated runtime calls are intentionally not duplicated as VS Code snippets.
+  Expression-level `New` completion is narrower and offers only creatable
+  project classes/UserForms until host/external creatability metadata exists.
   Accepting callable completions inserts canonical casing plus `()`, with the
-  cursor inside the call, and typing a boundary after a known identifier applies
-  VBE-style canonical casing for keywords, runtime functions, and resolved host
+  cursor inside the call. Typing a boundary after a known identifier, moving the
+  cursor away from the identifier, or leaving the editor applies VBE-style
+  canonical casing for keywords, type names, runtime functions, and resolved host
   members.
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`

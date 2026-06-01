@@ -1,12 +1,13 @@
 // Type-position completion (Phase 6: IntelliSense and Completions).
 //
 // Offers a list of known type names when the cursor is in a declaration type
-// position, i.e. immediately after `As` (or `As New`). Sources of candidate
-// types, in priority order of how the UI groups them:
-//   1. VBA built-in data types (MS-VBAL 5.2.3.1.4 type-spec / 7.x data types).
-//   2. Excel host object-model types (Workbook/Worksheet/Range/Application).
-//   3. Project-defined types passed in by the caller (user `Type`s, `Enum`s,
-//      class/UserForm module names).
+// position, i.e. immediately after `As` (or `As New`), or after an expression
+// `New`. Sources of candidate types, in priority order of how the UI groups
+// them:
+//   1. Project-defined types passed in by the caller (class/document/UserForm
+//      module names, user `Type`s, and `Enum`s).
+//   2. VBA built-in data types (MS-VBAL 5.2.3.1.4 type-spec / 7.x data types).
+//   3. Excel host object-model types (Workbook/Worksheet/Range/Application).
 //
 // This module is pure (lexer + host model only); no `vscode` dependency, so it
 // is unit-tested directly. The VS Code provider supplies the project type names.
@@ -97,9 +98,10 @@ function isWordToken(tok: VbaToken): boolean {
 
 /**
  * Returns the partial type text being typed if the cursor (end of `slice`) is in
- * a type position (after `As` or `As New`), or undefined when it is not.
+ * a type position (after `As`, `As New`, or expression `New`), or undefined
+ * when it is not.
  */
-function detectTypePosition(slice: string): { prefix: string } | undefined {
+function detectTypePosition(slice: string): { prefix: string; mode: 'declaration' | 'newExpression' } | undefined {
 	const tokens = meaningfulTokens(slice);
 	if (tokens.length === 0) {
 		return undefined;
@@ -120,16 +122,19 @@ function detectTypePosition(slice: string): { prefix: string } | undefined {
 		return undefined;
 	}
 
-	// Optional `New` between `As` and the cursor.
+	// Optional `New` between `As` and the cursor, or expression-level `New`.
 	if (tokens[i].kind === 'keyword' && tokens[i].rawText.toLowerCase() === 'new') {
 		i--;
+		if (i < 0 || tokens[i].rawText.toLowerCase() !== 'as') {
+			return { prefix, mode: 'newExpression' };
+		}
 	}
 	if (i < 0) {
 		return undefined;
 	}
 
 	if (tokens[i].rawText.toLowerCase() === 'as') {
-		return { prefix };
+		return { prefix, mode: 'declaration' };
 	}
 	return undefined;
 }
@@ -213,6 +218,10 @@ export function typeCompletionCandidates(
 	return out;
 }
 
+function isNewExpressionCandidate(candidate: TypeCompletion): boolean {
+	return candidate.kind === 'class' || candidate.kind === 'userform';
+}
+
 export function resolveTypeName(
 	name: string,
 	ctx: TypeCompletionContext = {},
@@ -241,7 +250,7 @@ export function resolveTypeCompletions(
 	}
 	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
 	const prefix = pos.prefix.toLowerCase();
-	return typeCompletionCandidates({ ...ctx, model }).filter((candidate) => (
-		!prefix || candidate.name.toLowerCase().startsWith(prefix)
-	));
+	return typeCompletionCandidates({ ...ctx, model })
+		.filter((candidate) => pos.mode === 'declaration' || isNewExpressionCandidate(candidate))
+		.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix));
 }

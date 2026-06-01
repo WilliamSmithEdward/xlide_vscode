@@ -838,7 +838,7 @@ Do not ship low-confidence diagnostics by default.
 ## Phase 6: IntelliSense and Completions
 
 > Status: IN PROGRESS. Member access after `.` (host-context member completion,
-> see addendum), type completion after `As` / `As New`, and bare-identifier
+> see addendum), type completion after `As` / `As New` / expression `New`, and bare-identifier
 > completion (host globals + worksheet/document code names + in-scope
 > declarations) are implemented:
 > `src/analyzer/completion/{memberAccess,typeCompletion,identifierCompletion}.ts`

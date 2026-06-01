@@ -76,7 +76,9 @@ heuristic diagnostics.
 - Type names now share one resolver for completion, hover, and VS Code semantic
   tokens in declaration type positions and `New` expressions. Resolved VBA
   primitive types, Excel host types, classes, document modules, UserForms, UDTs,
-  and enums can be colored without hardcoding project names into static grammar.
+  and enums can be colored without hardcoding project names into static grammar;
+  expression-level `New` completion offers known creatable project classes and
+  UserForms.
 - Workbook class member completion has a first deterministic source-backed
   slice: variables declared as project classes can offer public/default-public
   class members and public fields at `object.`, including chaining through
@@ -526,6 +528,10 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   parameters, UDT fields, and local/module variables) and `New Person`
   expressions. Primitive, host, and project names all flow through the same
   resolver used by type completion.
+- [x] Apply safe canonical casing when typing a boundary after an identifier,
+  moving the cursor away, or leaving the editor, so `person` in `As Person` /
+  `New Person` and known members/runtime names normalize even when completion is
+  dismissed.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
