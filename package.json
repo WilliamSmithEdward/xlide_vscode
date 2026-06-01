@@ -178,6 +178,12 @@
         "icon": "$(checklist)"
       },
       {
+        "command": "xlide.lintCurrentModule",
+        "title": "Lint Current Module",
+        "category": "XLIDE",
+        "icon": "$(check)"
+      },
+      {
         "command": "xlide.newWorkbook",
         "title": "New Macro-Enabled Workbook",
         "category": "XLIDE",
@@ -283,6 +289,13 @@
           "command": "xlide.configureExportMode",
           "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "6_settings@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "xlide.lintCurrentModule",
+          "when": "editorLangId == vba && resourceScheme == xlide-vba",
+          "group": "xlide@1"
         }
       ]
     },

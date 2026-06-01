@@ -11,7 +11,6 @@
 import * as vscode from 'vscode';
 import type { PythonBridge } from './pythonBridge';
 import {
-    analyzeModule,
     diagnosticMetadataForCode,
     DiagnosticCategory,
     DiagnosticEvidenceKind,
@@ -19,11 +18,10 @@ import {
     EventHandlerDocumentType,
     ModuleSymbolKind,
     ProjectIndex,
-    scanLintSuppressions,
     SeverityOverrides,
-    VbaDiagnostic,
 } from './analyzer';
-import { lineStartOffsets, lintVbaSource } from './vbaLinter';
+import { lineStartOffsets } from './vbaLinter';
+import { lintVbaModuleSource, type VbaModuleLintDiagnostic } from './vbaModuleLint';
 
 export type WorkbookLintSeverity = 'error' | 'warning' | 'information' | 'hint';
 export type WorkbookLintSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -134,7 +132,7 @@ function incrementCount<K extends string>(
     counts[key] = (counts[key] ?? 0) + 1;
 }
 
-function summarizeProblems(
+export function summarizeWorkbookLintProblems(
     problems: readonly WorkbookLintProblem[],
     suppressedCount: number,
 ): WorkbookLintSummary {
@@ -160,6 +158,30 @@ function summarizeProblems(
         nonVbeCompileEquivalentCount,
         suppressedCount,
     };
+}
+
+export function workbookProblemsForModule(
+    moduleName: string,
+    moduleType: string,
+    source: string,
+    diagnostics: readonly VbaModuleLintDiagnostic[],
+): WorkbookLintProblem[] {
+    const starts = lineStartOffsets(source);
+    return diagnostics.map((diagnostic) => {
+        const start = offsetToLineColumn(starts, diagnostic.span.start);
+        const end = offsetToLineColumn(starts, diagnostic.span.end);
+        return {
+            moduleName,
+            moduleType,
+            line: start.line,
+            column: start.column,
+            endColumn: end.line === start.line ? end.column : start.column + 1,
+            severity: severityFromRule(diagnostic.severity),
+            code: diagnostic.code,
+            ...metadataFieldsForCode(diagnostic.code),
+            message: diagnostic.message,
+        };
+    });
 }
 
 /** Loads every module's source from the workbook (best-effort per module). */
@@ -238,55 +260,6 @@ export async function lintWorkbook(
     let suppressedCount = 0;
 
     for (const mod of modules) {
-        const starts = lineStartOffsets(mod.source);
-        const suppressions = scanLintSuppressions(mod.source);
-        let moduleSuppressedCount = 0;
-
-        for (const d of suppressions.diagnostics) {
-            const start = offsetToLineColumn(starts, d.span.start);
-            const end = offsetToLineColumn(starts, d.span.end);
-            problems.push({
-                moduleName: mod.name,
-                moduleType: mod.type,
-                line: start.line,
-                column: start.column,
-                endColumn: end.line === start.line ? end.column : start.column + 1,
-                severity: severityFromRule(d.severity),
-                code: d.code,
-                ...metadataFieldsForCode(d.code),
-                message: d.message,
-            });
-        }
-
-        // Structural block-balance pass (already line/column based, 0-based).
-        try {
-            for (const p of lintVbaSource(mod.source)) {
-                const span = {
-                    start: (starts[p.line] ?? 0) + p.startCol,
-                    end: (starts[p.line] ?? 0) + p.endCol,
-                };
-                if (suppressions.isDiagnosticSuppressed(p.code, span)) {
-                    moduleSuppressedCount++;
-                    continue;
-                }
-                problems.push({
-                    moduleName: mod.name,
-                    moduleType: mod.type,
-                    line: p.line + 1,
-                    column: p.startCol + 1,
-                    endColumn: p.endCol + 1,
-                    severity: p.severity,
-                    code: p.code,
-                    ...metadataFieldsForCode(p.code),
-                    message: p.message,
-                });
-            }
-        } catch {
-            // Structural linter is defensive; ignore any failure.
-        }
-
-        // Semantic rule pass (offset spans -> line/column).
-        let semantic: VbaDiagnostic[];
         let knownProcedures: ReadonlySet<string> | undefined;
         let knownIdentifiers: ReadonlySet<string> | undefined;
         let knownNonTypeNames: ReadonlySet<string> | undefined;
@@ -305,42 +278,26 @@ export async function lintWorkbook(
             projectTypes = undefined;
             projectClassMembers = undefined;
         }
-        try {
-            semantic = analyzeModule(mod.source, {
-                moduleName: mod.name,
-                moduleKind: moduleKindFromType(mod.type),
-                documentType: mod.documentType,
-                severities,
-                knownProcedures,
-                knownIdentifiers,
-                knownNonTypeNames,
-                projectProcedures,
-                projectClassMembers,
-                projectTypes,
-            });
-        } catch {
-            semantic = [];
-        }
-        for (const d of semantic) {
-            const start = offsetToLineColumn(starts, d.span.start);
-            if (suppressions.isDiagnosticSuppressed(d.code, d.span)) {
-                moduleSuppressedCount++;
-                continue;
-            }
-            const end = offsetToLineColumn(starts, d.span.end);
-            problems.push({
-                moduleName: mod.name,
-                moduleType: mod.type,
-                line: start.line,
-                column: start.column,
-                endColumn: end.line === start.line ? end.column : start.column + 1,
-                severity: severityFromRule(d.severity),
-                code: d.code,
-                ...metadataFieldsForCode(d.code),
-                message: d.message,
-            });
-        }
-        suppressedCount += moduleSuppressedCount;
+        const moduleLint = lintVbaModuleSource({
+            source: mod.source,
+            moduleName: mod.name,
+            moduleKind: moduleKindFromType(mod.type),
+            documentType: mod.documentType,
+            severities,
+            knownProcedures,
+            knownIdentifiers,
+            knownNonTypeNames,
+            projectProcedures,
+            projectClassMembers,
+            projectTypes,
+        });
+        problems.push(...workbookProblemsForModule(
+            mod.name,
+            mod.type,
+            mod.source,
+            moduleLint.diagnostics,
+        ));
+        suppressedCount += moduleLint.suppressedCount;
     }
 
     problems.sort((a, b) => {
@@ -353,7 +310,7 @@ export async function lintWorkbook(
 
     const errorCount = problems.filter((p) => p.severity === 'error').length;
     const warningCount = problems.filter((p) => p.severity === 'warning').length;
-    const summary = summarizeProblems(problems, suppressedCount);
+    const summary = summarizeWorkbookLintProblems(problems, suppressedCount);
 
     return {
         filePath,

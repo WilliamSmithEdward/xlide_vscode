@@ -1,0 +1,66 @@
+import { describe, expect, it } from 'vitest';
+import { lintVbaModuleSource } from '../src/vbaModuleLint';
+
+describe('lintVbaModuleSource', () => {
+	it('merges directive, structural, and semantic diagnostics through one suppression-aware core', () => {
+		const source =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			"    ' @xlide-lint-disable-next-line undeclared-variable\n" +
+			'    hiddenMissing = 1\n' +
+			'    visibleMissing = 2\n' +
+			'End Sub\n' +
+			"' @xlide-lint-disable-next-line not-a-rule\n" +
+			'Sub Broken()\n';
+
+		const result = lintVbaModuleSource({
+			source,
+			moduleName: 'Module1',
+			knownIdentifiers: new Set<string>(),
+		});
+
+		expect(result.suppressedCount).toBe(1);
+		expect(result.diagnostics.map((diag) => diag.code)).toEqual([
+			'lint-suppression-directive',
+			'missing-block-closer',
+			'undeclared-variable',
+		]);
+		expect(result.diagnostics.find((diag) => diag.code === 'undeclared-variable')?.message)
+			.toContain('visibleMissing');
+	});
+
+	it('honors project procedure context supplied by callers', () => {
+		const source = 'Option Explicit\nSub T()\n    KnownProc 1\n    MissingProc 2\nEnd Sub\n';
+
+		const result = lintVbaModuleSource({
+			source,
+			moduleName: 'Module1',
+			knownProcedures: new Set(['knownproc']),
+		});
+
+		expect(result.diagnostics.map((diag) => diag.code)).toEqual(['unknown-call']);
+		expect(result.diagnostics[0].message).toContain('MissingProc');
+	});
+
+	it('keeps hard diagnostics suppressed inside member ranges', () => {
+		const source =
+			'Option Explicit\n' +
+			"' @xlide-lint-disable-next-member undeclared-variable\n" +
+			'Sub Hidden()\n' +
+			'    hiddenMissing = 1\n' +
+			'End Sub\n' +
+			'Sub Visible()\n' +
+			'    visibleMissing = 2\n' +
+			'End Sub\n';
+
+		const result = lintVbaModuleSource({
+			source,
+			moduleName: 'Module1',
+			knownIdentifiers: new Set<string>(),
+		});
+
+		expect(result.suppressedCount).toBe(1);
+		expect(result.diagnostics).toHaveLength(1);
+		expect(result.diagnostics[0].message).toContain('visibleMissing');
+	});
+});

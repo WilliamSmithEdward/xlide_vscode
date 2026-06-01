@@ -16,19 +16,27 @@ import {
 } from './moduleExport';
 import {
     lintWorkbook,
+    summarizeWorkbookLintProblems,
+    workbookProblemsForModule,
     type WorkbookLintProblem,
     type WorkbookLintSummary,
 } from './vbaWorkbookLint';
+import { lintVbaModuleSource } from './vbaModuleLint';
 import { VBA_IDENTIFIER_NAME_RE } from './vbaLinter';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
     buildVbaProjectIndex,
+    moduleKindFromType,
     projectClassModuleDefinition,
 } from './vbaNavigation';
 import {
     projectClassReferenceEdit,
     renameProjectClassModule,
 } from './vbaClassRename';
+import type {
+    DiagnosticSeverity as RuleSeverity,
+    SeverityOverrides,
+} from './analyzer';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -324,6 +332,97 @@ export function registerCommands(
             }
         }
         return filePath;
+    }
+
+    function diagnosticSeverityOverridesFromConfig(): SeverityOverrides {
+        const optionExplicit = vscode.workspace
+            .getConfiguration('xlide')
+            .get<string>('diagnostics.optionExplicit', 'warning');
+        return {
+            optionExplicitMissing:
+                optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
+        };
+    }
+
+    async function lintActiveModule(): Promise<void> {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME) {
+            vscode.window.showWarningMessage('XLIDE: Open a workbook VBA module to lint the current module.');
+            return;
+        }
+
+        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        const source = editor.document.getText();
+        const modules = await vbaIndex.getAllModules(xlsmPath);
+        const current = modules.find(
+            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
+        );
+        const moduleKind = moduleKindFromType(current?.type);
+        const moduleType = current?.type ?? 'standard';
+        const project = buildVbaProjectIndex(modules, {
+            moduleName,
+            moduleKind,
+            source,
+        });
+
+        let projectProcedures: ReturnType<typeof project.procedureSignatures> | undefined;
+        let knownProcedures: ReadonlySet<string> | undefined;
+        let knownIdentifiers: ReadonlySet<string> | undefined;
+        let knownNonTypeNames: ReadonlySet<string> | undefined;
+        let projectTypes: ReturnType<typeof project.visibleTypeNames> | undefined;
+        let projectClassMembers: ReturnType<typeof project.projectMemberSurfaces> | undefined;
+        try {
+            projectProcedures = project.procedureSignatures();
+            knownProcedures = project.visibleProcedureNames(moduleName);
+            knownIdentifiers = project.visibleIdentifierNames(moduleName);
+            knownNonTypeNames = project.visibleNonTypeNames(moduleName);
+            projectTypes = project.visibleTypeNames(moduleName);
+            projectClassMembers = project.projectMemberSurfaces(moduleName);
+        } catch {
+            projectProcedures = undefined;
+            knownProcedures = undefined;
+            knownIdentifiers = undefined;
+            knownNonTypeNames = undefined;
+            projectTypes = undefined;
+            projectClassMembers = undefined;
+        }
+
+        const result = lintVbaModuleSource({
+            source,
+            moduleName,
+            moduleKind,
+            documentType: current?.documentType,
+            severities: diagnosticSeverityOverridesFromConfig(),
+            knownProcedures,
+            knownIdentifiers,
+            knownNonTypeNames,
+            projectProcedures,
+            projectClassMembers,
+            projectTypes,
+        });
+        const problems = workbookProblemsForModule(
+            moduleName,
+            moduleType,
+            source,
+            result.diagnostics,
+        ).sort((a, b) => {
+            if (a.line !== b.line) { return a.line - b.line; }
+            return a.column - b.column;
+        });
+        const errorCount = problems.filter((p) => p.severity === 'error').length;
+        const warningCount = problems.filter((p) => p.severity === 'warning').length;
+        const summary = summarizeWorkbookLintProblems(problems, result.suppressedCount);
+
+        printLintReport(xlsmPath, 1, problems, errorCount, warningCount, summary);
+        if (problems.length === 0) {
+            vscode.window.showInformationMessage(
+                `XLIDE: "${moduleName}" passed lint (no unsuppressed problems).`,
+            );
+        } else {
+            vscode.window.showWarningMessage(
+                `XLIDE: "${moduleName}" has ${errorCount} error(s) and ${warningCount} warning(s). See XLIDE Output.`,
+            );
+        }
     }
 
     async function showClassModuleReferences(node: XlideNode): Promise<void> {
@@ -1070,6 +1169,17 @@ export function registerCommands(
                     }
                 },
             );
+        }),
+
+        // Lint the active VBA module using the same source text the editor shows.
+        vscode.commands.registerCommand('xlide.lintCurrentModule', async () => {
+            try {
+                await lintActiveModule();
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[lintCurrentModule] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to lint current module: ${message}`);
+            }
         }),
 
         // Lint every VBA module in the workbook and print a clickable report

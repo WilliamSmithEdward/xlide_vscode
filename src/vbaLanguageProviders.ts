@@ -15,7 +15,6 @@ import {
     VBA_IDENTIFIER_RE,
 } from './vbaLinter';
 import {
-    analyzeModule,
     diagnosticSourceForCode,
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
@@ -27,16 +26,15 @@ import {
     ReferenceScope,
     resolveDiagnosticCodeActions,
     resolveMemberCompletions,
-    scanLintSuppressions,
     resolveTypeReferenceAt,
     resolveTypeSemanticTokens,
     SeverityOverrides,
     TypeSemanticTokenType,
-    VbaDiagnostic,
     type VbaProjectClassMember,
     type VbaProjectClassMemberDefinition,
     VbaSymbol as AstSymbol,
 } from './analyzer';
+import { lintVbaModuleSource } from './vbaModuleLint';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 import { DocMetadataLoader } from './vbaDocMetadata';
 import {
@@ -52,6 +50,8 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME },
     { language: 'vba' },
 ];
+const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
+const XLIDE_LINT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('lintCurrentModule');
 
 function symbolKindToVscode(kind: VbaSymbol['kind']): vscode.SymbolKind {
     switch (kind) {
@@ -915,8 +915,6 @@ function registerVbaDiagnostics(
         }
         const text = document.getText();
         const diagnostics: vscode.Diagnostic[] = [];
-        const suppressions = scanLintSuppressions(text);
-        const lineStarts = lineStartOffsets(text);
 
         // Project-wide names enable cross-module call and Option Explicit checks;
         // project signatures enable deterministic cross-module arity/type checks.
@@ -960,80 +958,37 @@ function registerVbaDiagnostics(
             }
         }
 
-        // Structural block-balance (precise per-line spans).
-        for (const p of lintVbaSource(text)) {
-            const start = (lineStarts[p.line] ?? 0) + p.startCol;
-            const end = (lineStarts[p.line] ?? 0) + p.endCol;
-            if (suppressions.isDiagnosticSuppressed(p.code, { start, end })) {
-                continue;
-            }
-            const diag = new vscode.Diagnostic(
-                new vscode.Range(p.line, p.startCol, p.line, p.endCol),
-                p.message,
-                p.severity === 'error'
-                    ? vscode.DiagnosticSeverity.Error
-                    : vscode.DiagnosticSeverity.Warning,
-            );
-            if (p.code) {
-                diag.source = diagnosticSourceForCode(p.code);
-                diag.code = p.code;
-            } else {
-                diag.source = diagnosticSourceForCode(undefined);
-            }
-            diagnostics.push(diag);
-        }
-
-        // Semantic rules (offset spans -> ranges).
         const optionExplicit = config.get<string>('diagnostics.optionExplicit', 'warning');
         const severities: SeverityOverrides = {
             optionExplicitMissing:
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
         };
-        let semantic: VbaDiagnostic[] = [];
-        try {
-            semantic = analyzeModule(text, {
-                moduleName,
-                moduleKind,
-                documentType,
-                severities,
-                knownProcedures,
-                knownIdentifiers,
-                projectProcedures,
-                projectClassMembers,
-                projectTypes,
-                knownNonTypeNames,
-            });
-        } catch {
-            semantic = [];
-        }
-        for (const d of semantic) {
-            if (suppressions.isDiagnosticSuppressed(d.code, d.span)) {
-                continue;
+        const moduleLint = lintVbaModuleSource({
+            source: text,
+            moduleName,
+            moduleKind,
+            documentType,
+            severities,
+            knownProcedures,
+            knownIdentifiers,
+            projectProcedures,
+            projectClassMembers,
+            projectTypes,
+            knownNonTypeNames,
+        });
+        for (const d of moduleLint.diagnostics) {
+            const diag = new vscode.Diagnostic(
+                new vscode.Range(
+                    document.positionAt(d.span.start),
+                    document.positionAt(d.span.end),
+                ),
+                d.message,
+                severityToVscode(d.severity),
+            );
+            diag.source = diagnosticSourceForCode(d.code);
+            if (d.code) {
+                diag.code = d.code;
             }
-            const diag = new vscode.Diagnostic(
-                new vscode.Range(
-                    document.positionAt(d.span.start),
-                    document.positionAt(d.span.end),
-                ),
-                d.message,
-                severityToVscode(d.severity),
-            );
-            diag.source = diagnosticSourceForCode(d.code);
-            diag.code = d.code;
-            diagnostics.push(diag);
-        }
-
-        for (const d of suppressions.diagnostics) {
-            const diag = new vscode.Diagnostic(
-                new vscode.Range(
-                    document.positionAt(d.span.start),
-                    document.positionAt(d.span.end),
-                ),
-                d.message,
-                severityToVscode(d.severity),
-            );
-            diag.source = diagnosticSourceForCode(d.code);
-            diag.code = d.code;
             diagnostics.push(diag);
         }
 
@@ -1078,16 +1033,28 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
         _token: vscode.CancellationToken,
     ): vscode.ProviderResult<vscode.CodeAction[]> {
         if (!isVbaDocument(document)) { return []; }
-        if (
-            context.only &&
-            !context.only.contains(vscode.CodeActionKind.QuickFix) &&
-            !vscode.CodeActionKind.QuickFix.contains(context.only)
-        ) {
+        const wantsQuickFix = codeActionKindRequested(context.only, vscode.CodeActionKind.QuickFix);
+        const wantsSource = codeActionKindRequested(context.only, XLIDE_LINT_CURRENT_MODULE_ACTION_KIND);
+        if (!wantsQuickFix && !wantsSource) {
             return [];
         }
 
         const source = document.getText();
         const actions: vscode.CodeAction[] = [];
+        if (wantsSource && document.uri.scheme === XLIDE_SCHEME) {
+            const action = new vscode.CodeAction(
+                'XLIDE: Lint Current Module',
+                XLIDE_LINT_CURRENT_MODULE_ACTION_KIND,
+            );
+            action.command = {
+                command: 'xlide.lintCurrentModule',
+                title: 'Lint Current Module',
+            };
+            actions.push(action);
+        }
+        if (!wantsQuickFix) {
+            return actions;
+        }
         let lintProblems: ReturnType<typeof lintVbaSource> | undefined;
         for (const diagnostic of context.diagnostics) {
             if (!isXlideDiagnosticSource(diagnostic.source)) { continue; }
@@ -1131,6 +1098,13 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
         }
         return actions;
     }
+}
+
+function codeActionKindRequested(
+    only: vscode.CodeActionKind | undefined,
+    kind: vscode.CodeActionKind,
+): boolean {
+    return !only || only.contains(kind) || kind.contains(only);
 }
 
 function matchingLintProblem(
@@ -1297,7 +1271,7 @@ export function registerVbaLanguageProviders(
         vscode.languages.registerCodeActionsProvider(
             VBA_SELECTOR,
             new VbaCodeActionProvider(),
-            { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
+            { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, XLIDE_LINT_CURRENT_MODULE_ACTION_KIND] },
         ),
         vscode.languages.registerDocumentSemanticTokensProvider(
             VBA_SELECTOR,

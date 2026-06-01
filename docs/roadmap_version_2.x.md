@@ -647,6 +647,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [x] Route workbook lint summaries through the shared diagnostic metadata
   catalogue, including structural block-balance codes, so command output and
   agent JSON report category/equivalence without local bucketing.
+- [x] Route live diagnostics, current-module lint, and workbook lint through a
+  shared module lint core so structural diagnostics, semantic diagnostics, and
+  lint suppression directives cannot drift by surface.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
@@ -934,9 +937,9 @@ prove the edit is safe.
   - [ ] create procedure stub for unresolved calls only when the target location is
     explicit
 - [ ] Add source actions:
-  - lint current module
-  - export/sync current module
-  - run current test when test runner exists
+  - [x] lint current module
+  - [ ] export/sync current module
+  - [ ] run current test when test runner exists
 - [ ] Add tests for every generated edit, including formatting and range
   stability.
 - [x] Avoid quick fixes for uncertain, host-dependent, or incomplete-code cases
@@ -1064,6 +1067,7 @@ Definition of done:
 - `docs/xlide_external_member_metadata.md`
 - `docs/xlide_sidebar_panel.md`
 - `docs/xlide_development_principles.md`
+- `src/vbaModuleLint.ts`
 - `src/analyzer/diagnostics/ruleMetadata.ts`
 - `syntax_corpus/README.md`
 - `syntax_corpus/corpus_provenance.json`

@@ -36,7 +36,8 @@ xlide_vscode/
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of parsed VBA symbols
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
     vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource) and smart-enter helpers (no vscode dependency)
-    vbaWorkbookLint.ts  Shared workbook-wide lint core (lintWorkbook) reused by the Lint-All command and the xlide_lintWorkbook agent tool; flattens lintVbaSource + analyzeModule into 1-based problems with diagnostic metadata and summary counts
+    vbaModuleLint.ts    Shared module lint core used by live diagnostics, current-module lint, and workbook lint; merges structural lint, semantic analysis, and lint suppression directives
+    vbaWorkbookLint.ts  Workbook-wide lint/report core (lintWorkbook) reused by commands and the xlide_lintWorkbook agent tool; flattens vbaModuleLint results into 1-based problems with diagnostic metadata and summary counts
     analyzer/
       lexer/
         keywordTable.ts MS-VBAL 3.3.5.2 reserved-identifier + contextual keyword tables with canonical casing
@@ -325,8 +326,8 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations, including enum members exported by their containing `Enum`) |
 | `ReferenceProvider` | Uses semantic binding before textual search: source-backed `object.Member` references are matched by their resolved class-member definition spans, project type-name tokens are matched through `resolveTypeDefinitions`, and ordinary identifiers still use `ProjectIndex.referenceScope` plus word-boundary search restricted to the binding scope; honors VS Code's include-declaration toggle |
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
-| `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, and add/remove `Set` for proven object/scalar assignments |
-| Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
+| `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, add/remove `Set` for proven object/scalar assignments, and expose an XLIDE source action for linting the current workbook-backed module |
+| Diagnostics | Debounced `vbaModuleLint` results merge structural block-balance, semantic analysis, and suppression directives before rendering VS Code diagnostics |
 | Smart enter (auto-block) | Pressing Enter after a safe block opener auto-inserts the matching closer below and leaves the caret on the indented body line one real tab deeper than the opener; supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion |
 | Loop iterator sync | Editing the iterator token in a simple `For` / `For Each` opener or its matching `Next name` updates the paired token, using the same string/comment stripping and conservative block matching as structural linting |
 
@@ -372,16 +373,17 @@ The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 
 **Workbook-wide lint (command + agent tool)** — `src/vbaWorkbookLint.ts`
-(`lintWorkbook`) is the shared core that loads every module from the workbook via
-the Python bridge, builds a `ProjectIndex` so cross-module rules have the
-  current module's visibility-filtered procedure/Declare and bare identifier names, then runs both diagnostic passes
-(`lintVbaSource` + `analyzeModule`) per module and flattens their results into
-1-based `{moduleName, moduleType, line, column, endColumn, severity, code,
-message, category, vbeCompileEquivalent, diagnosticKind}` problems, sorted by
-module/line/column. Semantic analyzer rules and structural block-balance codes
-resolve through the shared diagnostic metadata catalogue before the workbook
-summary is counted, so the command report and `xlide_lintWorkbook` agent JSON do
-not maintain separate rule buckets. The
+(`lintWorkbook`) loads every module from the workbook via the Python bridge,
+builds a `ProjectIndex` so cross-module rules have the current module's
+visibility-filtered procedure/Declare and bare identifier names, then delegates
+each module to `src/vbaModuleLint.ts`. That shared module core merges
+`lintVbaSource`, `analyzeModule`, and lint suppression directives before
+workbook lint flattens results into 1-based `{moduleName, moduleType, line,
+column, endColumn, severity, code, message, category, vbeCompileEquivalent,
+diagnosticKind}` problems, sorted by module/line/column. Semantic analyzer rules
+and structural block-balance codes resolve through the shared diagnostic
+metadata catalogue before the workbook summary is counted, so the command report
+and `xlide_lintWorkbook` agent JSON do not maintain separate rule buckets. The
 `xlide.lintWorkbook` command (`src/commands.ts`, right-click "Lint All Modules in
 Workbook" on a workbook tree node) prints a formatted, blank-line-padded report
 to the XLIDE Output channel without switching focus, and shows a summary
@@ -832,22 +834,23 @@ Diagnostic severity policy:
   try/catch so a parse hiccup returns `[]` and never breaks editing, and accepts
   `severities` overrides (including `'off'`) per rule.
 
-This engine is merged with the structural block-balance linter
-(`src/vbaLinter.ts`, which owns the "Missing End .../unexpected terminator"
-family) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`: both
-run on open and debounced (300 ms) on every edit, on real `.vba` files and on
-virtual `xlide-vba` module documents, with no save. Everything is computed from
-the live editor text plus deterministic project context. For workbook-backed
-documents the provider overlays the current live module text into a fresh
-`ProjectIndex`, then passes visibility-filtered procedure names, visible bare
-identifier names, cross-module standard-module signatures, and source-backed
-project class-member surfaces into `analyzeModule`.
+`src/vbaModuleLint.ts` merges this engine with the structural block-balance
+linter (`src/vbaLinter.ts`, which owns the "Missing End .../unexpected
+terminator" family) and lint suppression directives. `registerVbaDiagnostics` in
+`src/vbaLanguageProviders.ts` runs that shared module core on open and debounced
+(300 ms) on every edit, on real `.vba` files and on virtual `xlide-vba` module
+documents, with no save. Everything is computed from the live editor text plus
+deterministic project context. For workbook-backed documents the provider
+overlays the current live module text into a fresh `ProjectIndex`, then passes
+visibility-filtered procedure names, visible bare identifier names, cross-module
+standard-module signatures, and source-backed project class-member surfaces into
+`lintVbaModuleSource`.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
 Before diagnostics are displayed, `src/analyzer/diagnostics/lintSuppressions.ts`
 scans tokenized apostrophe comments for explicit `@xlide-lint` directives and
 applies the same lexical file, member, line, next-line, and paired block filter
-to live diagnostics and `src/vbaWorkbookLint.ts`. Directive diagnostics, such as
+inside `vbaModuleLint`. Directive diagnostics, such as
 malformed code lists, unknown diagnostic codes, late `disable-file`, invalid
 `disable-next-member` placement, or stray/unbalanced/mismatched block pairs, are
 added back as `XLIDE/style` warnings and are not suppressed by suppression
@@ -953,7 +956,7 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New JSON-RPC method | `python/server.py`, `python/xlide/vba_io.py` or `excel_io.py`, `src/agentTools.ts` + `package.json` if exposed as LM tool, `docs/architecture.md` |
 | New VS Code command | `src/commands.ts`, `package.json` (`contributes.commands`, `menus`), `docs/architecture.md` |
 | New AI agent (LM) tool | `package.json` (`contributes.languageModelTools`), `src/agentTools.ts` (registration), `.github/copilot-instructions.md` (tool reference + workflow), `docs/architecture.md` |
-| New workbook-wide lint behavior | `src/vbaWorkbookLint.ts` (shared core), `src/commands.ts` (`xlide.lintWorkbook` report formatting + clickable links), `src/agentTools.ts` (`xlide_lintWorkbook`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
+| New workbook-wide lint behavior | `src/vbaModuleLint.ts` (shared module core), `src/vbaWorkbookLint.ts` (workbook report core), `src/commands.ts` (`xlide.lintWorkbook` report formatting + clickable links), `src/agentTools.ts` (`xlide_lintWorkbook`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
 | New Python source file | `python/xlide/__init__.py` (if re-exported), `docs/architecture.md` |
 | Dependency added/removed | `python/requirements.txt`, `README.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLinter.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
@@ -966,6 +969,7 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaLanguageProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
 | New active diagnostic rule | `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (rule + MS-VBAL `specReference`), `tests/vbaDiagnostics.test.ts`, `src/vbaLanguageProviders.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New analyzer quick fix | `src/analyzer/codeActions/diagnosticCodeActions.ts`, `src/vbaLanguageProviders.ts` (`CodeActionProvider` adapter only when needed), `tests/vbaCodeActions.test.ts`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
+| New editor source action | `src/vbaLanguageProviders.ts`, `src/commands.ts`, `package.json` (`contributes.commands`/menus), focused tests when a pure helper is added, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New lint suppression directive behavior | `src/analyzer/diagnostics/lintSuppressions.ts`, `src/vbaLanguageProviders.ts`, `src/vbaWorkbookLint.ts`, `src/commands.ts`, `tests/vbaLintSuppressions.test.ts`, `docs/xlide_vba_lint_suppression_comments.md`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
