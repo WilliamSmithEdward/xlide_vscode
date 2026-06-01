@@ -294,6 +294,17 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "event-handler-module-scope",
+      "status": "spec-derived",
+      "sourceOfTruth": "Excel document-module event binding model plus XLIDE guidance policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Information-only guidance for known workbook/worksheet event-handler-shaped Sub declarations outside the matching document module. The procedure may still compile as an ordinary procedure, so this is not a compile-equivalent red diagnostic.",
+      "diagnosticKind": "style-policy"
+    },
+    {
       "code": "invalid-as-type-name",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL reserved-name/type-identifier distinction",

@@ -13,6 +13,7 @@ import { PythonBridge } from './pythonBridge';
 import {
     analyzeModule,
     DiagnosticSeverity as RuleSeverity,
+    EventHandlerDocumentType,
     ModuleSymbolKind,
     ProjectIndex,
     SeverityOverrides,
@@ -50,6 +51,7 @@ export interface WorkbookLintResult {
 interface RawModule {
     name: string;
     type: string;
+    documentType?: EventHandlerDocumentType;
     source: string;
 }
 
@@ -94,7 +96,11 @@ async function loadWorkbookModules(
     bridge: PythonBridge,
     filePath: string,
 ): Promise<RawModule[]> {
-    const list = await bridge.call<Array<{ name: string; type: string }>>(
+    const list = await bridge.call<Array<{
+        name: string;
+        type: string;
+        documentType?: EventHandlerDocumentType;
+    }>>(
         'listModules',
         { path: filePath },
     );
@@ -105,7 +111,12 @@ async function loadWorkbookModules(
                 'readModule',
                 { path: filePath, module: entry.name },
             );
-            out.push({ name: entry.name, type: entry.type, source: result.source });
+            out.push({
+                name: entry.name,
+                type: entry.type,
+                documentType: entry.documentType,
+                source: result.source,
+            });
         } catch {
             // Skip modules that fail to read; lint is best-effort.
         }
@@ -192,6 +203,7 @@ export async function lintWorkbook(
             semantic = analyzeModule(mod.source, {
                 moduleName: mod.name,
                 moduleKind: moduleKindFromType(mod.type),
+                documentType: mod.documentType,
                 severities,
                 knownProcedures,
                 knownIdentifiers,

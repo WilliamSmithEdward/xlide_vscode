@@ -304,6 +304,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'VBE oracle: public object-module member restrictions',
 		confidence: 'high',
 	},
+	eventHandlerWrongModule: {
+		code: 'event-handler-module-scope',
+		title: 'Event handler is not wired in this module',
+		defaultSeverity: 'information',
+		category: 'module-kind',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'Excel document-module event binding',
+		confidence: 'high',
+	},
 	invalidAsTypeName: {
 		code: 'invalid-as-type-name',
 		title: 'Invalid As type name',

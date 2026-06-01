@@ -18,6 +18,7 @@ import {
 	EventHandlerCompletion,
 	EventHandlerCompletionContext,
 	EventHandlerDocumentType,
+	eventHandlerDocumentTypeForContext,
 	getHostType,
 	HoverContext,
 	IdentifierCompletion,
@@ -100,16 +101,11 @@ function documentTypeFor(entry: ModuleEntry | undefined): EventHandlerDocumentTy
 	if (!entry || entry.type !== 'document') {
 		return undefined;
 	}
-	if (entry.documentType) {
-		return entry.documentType;
-	}
-	if (entry.name.toLowerCase() === 'thisworkbook') {
-		return 'workbook';
-	}
-	if (/^chart\d*$/i.test(entry.name)) {
-		return 'chart';
-	}
-	return 'worksheet';
+	return eventHandlerDocumentTypeForContext({
+		moduleName: entry.name,
+		moduleKind: 'document',
+		documentType: entry.documentType,
+	});
 }
 
 class VbaMemberCompletionProvider

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
+import type { EventHandlerDocumentType } from './analyzer/completion/eventHandlers';
 
 export type VbaSymbolKind =
     | 'Sub' | 'Function' | 'PropertyGet' | 'PropertyLet' | 'PropertySet'
@@ -28,6 +29,8 @@ export interface VbaModuleSymbols {
     source: string;
     /** Host module type from listModules (standard/class/document/userform). */
     type?: string;
+    /** Excel document subtype from listModules when the bridge can prove it. */
+    documentType?: EventHandlerDocumentType;
 }
 
 interface CachedWorkbook {
@@ -179,7 +182,11 @@ export class VbaSymbolIndex implements vscode.Disposable {
 
     /** Returns the parsed symbols for every module in the workbook. */
     async getAllModules(xlsmPath: string): Promise<VbaModuleSymbols[]> {
-        const moduleList = await this._bridge.call<Array<{ name: string; type: string }>>(
+        const moduleList = await this._bridge.call<Array<{
+            name: string;
+            type: string;
+            documentType?: EventHandlerDocumentType;
+        }>>(
             'listModules',
             { path: xlsmPath },
         );
@@ -188,6 +195,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             try {
                 const mod = await this.getModule(xlsmPath, entry.name);
                 mod.type = entry.type;
+                mod.documentType = entry.documentType;
                 out.push(mod);
             } catch {
                 // Skip modules that fail to read; index is best-effort.

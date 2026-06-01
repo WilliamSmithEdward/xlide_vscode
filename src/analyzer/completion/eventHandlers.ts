@@ -32,6 +32,14 @@ interface EventHandlerDefinition {
 	description: string;
 }
 
+export interface EventHandlerProcedureMatch {
+	name: string;
+	signature: string;
+	owner: EventHandlerDefinition['owner'];
+	documentType: EventHandlerDocumentType;
+	description: string;
+}
+
 interface LineCompletionContext {
 	currentWord: string;
 	insertMode: 'fullProcedure' | 'declarationTail';
@@ -172,7 +180,7 @@ export function resolveEventHandlerCompletions(
 		return [];
 	}
 
-	const documentType = ctx.documentType ?? inferDocumentType(ctx.moduleName);
+	const documentType = eventHandlerDocumentTypeForContext(ctx);
 	const definitions = definitionsForDocumentType(documentType);
 	if (definitions.length === 0) {
 		return [];
@@ -197,6 +205,37 @@ export function resolveEventHandlerCompletions(
 		.map((def) => toCompletion(def, line.insertMode));
 }
 
+export function eventHandlerDocumentTypeForContext(
+	ctx: EventHandlerCompletionContext,
+): EventHandlerDocumentType | undefined {
+	if (ctx.moduleKind !== 'document') {
+		return undefined;
+	}
+	return ctx.documentType ?? inferDocumentType(ctx.moduleName);
+}
+
+export function eventHandlerProcedureForName(
+	name: string,
+): EventHandlerProcedureMatch | undefined {
+	const definition = ALL_EVENT_DEFINITIONS.find(
+		(def) => def.name.toLowerCase() === name.toLowerCase(),
+	);
+	if (!definition) {
+		return undefined;
+	}
+	const documentType = documentTypeForOwner(definition.owner);
+	if (!documentType) {
+		return undefined;
+	}
+	return {
+		name: definition.name,
+		signature: `${definition.name}(${definition.params})`,
+		owner: definition.owner,
+		documentType,
+		description: definition.description,
+	};
+}
+
 function definitionsForDocumentType(
 	documentType: EventHandlerDocumentType | undefined,
 ): readonly EventHandlerDefinition[] {
@@ -207,6 +246,24 @@ function definitionsForDocumentType(
 			return WORKSHEET_EVENTS;
 		default:
 			return [];
+	}
+}
+
+const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
+	...WORKBOOK_EVENTS,
+	...WORKSHEET_EVENTS,
+];
+
+function documentTypeForOwner(
+	owner: EventHandlerDefinition['owner'],
+): EventHandlerDocumentType | undefined {
+	switch (owner) {
+		case 'Workbook':
+			return 'workbook';
+		case 'Worksheet':
+			return 'worksheet';
+		case 'Chart':
+			return 'chart';
 	}
 }
 

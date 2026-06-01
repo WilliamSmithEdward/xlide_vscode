@@ -11,6 +11,8 @@ import {
 import {
     analyzeModule,
     DiagnosticSeverity as RuleSeverity,
+    EventHandlerDocumentType,
+    eventHandlerDocumentTypeForContext,
     ModuleSymbolKind,
     ProjectIndex,
     ProjectTypeSemanticTokenType,
@@ -201,11 +203,9 @@ function buildProjectIndex(
 function codeNamesForModules(modules: VbaModuleSymbols[]): Record<string, string> {
     const out: Record<string, string> = {};
     for (const mod of modules) {
-        if (mod.type !== 'document') { continue; }
-        out[mod.moduleName.toLowerCase()] =
-            mod.moduleName.toLowerCase() === 'thisworkbook'
-                ? 'Excel.Workbook'
-                : 'Excel.Worksheet';
+        const hostType = documentHostTypeForModule(mod.moduleName, mod.type, mod.documentType);
+        if (!hostType) { continue; }
+        out[mod.moduleName.toLowerCase()] = hostType;
     }
     return out;
 }
@@ -217,11 +217,33 @@ function meProjectTypeForModule(moduleName: string, type?: string): string | und
         : undefined;
 }
 
-function meHostTypeForModule(moduleName: string, type?: string): string | undefined {
-    if (moduleKindFromType(type) !== 'document') { return undefined; }
-    return moduleName.toLowerCase() === 'thisworkbook'
-        ? 'Excel.Workbook'
-        : 'Excel.Worksheet';
+function meHostTypeForModule(
+    moduleName: string,
+    type?: string,
+    documentType?: EventHandlerDocumentType,
+): string | undefined {
+    return documentHostTypeForModule(moduleName, type, documentType);
+}
+
+function documentHostTypeForModule(
+    moduleName: string,
+    type?: string,
+    documentType?: EventHandlerDocumentType,
+): string | undefined {
+    switch (eventHandlerDocumentTypeForContext({
+        moduleName,
+        moduleKind: moduleKindFromType(type),
+        documentType,
+    })) {
+        case 'workbook':
+            return 'Excel.Workbook';
+        case 'chart':
+            return 'Excel.Chart';
+        case 'worksheet':
+            return 'Excel.Worksheet';
+        default:
+            return undefined;
+    }
 }
 
 /** Byte offsets where each line begins, for occurrence -> offset mapping. */
@@ -282,11 +304,13 @@ function moduleMapWithLiveDocument(
     moduleName: string,
     source: string,
     type?: string,
+    documentType?: EventHandlerDocumentType,
 ): Map<string, VbaModuleSymbols> {
     const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
     byModule.set(moduleName.toLowerCase(), {
         moduleName,
         type,
+        documentType,
         source,
         symbols: parseVbaModule(source),
     });
@@ -301,10 +325,11 @@ function sourceMemberDefinitionsAt(
     modules: VbaModuleSymbols[],
     currentModuleName: string,
     currentModuleType?: string,
+    currentDocumentType?: EventHandlerDocumentType,
 ): readonly VbaProjectClassMemberDefinition[] {
     const member = resolveMemberCompletions(source, memberEndOffset, {
         codeNames: codeNamesForModules(modules),
-        meType: meHostTypeForModule(currentModuleName, currentModuleType),
+        meType: meHostTypeForModule(currentModuleName, currentModuleType, currentDocumentType),
         meProjectType: meProjectTypeForModule(currentModuleName, currentModuleType),
         projectClassMembers: project.projectClassMembers(),
     }).find((item) => item.name.toLowerCase() === memberName.toLowerCase());
@@ -391,7 +416,13 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
             moduleKind: moduleKindFromType(current?.type),
             source,
         });
-        const byModule = moduleMapWithLiveDocument(modules, moduleName, source, current?.type);
+        const byModule = moduleMapWithLiveDocument(
+            modules,
+            moduleName,
+            source,
+            current?.type,
+            current?.documentType,
+        );
 
         const memberDefinitions = qualifier
             ? sourceMemberDefinitionsAt(
@@ -402,6 +433,7 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
                 modules,
                 moduleName,
                 current?.type,
+                current?.documentType,
             )
             : [];
         if (memberDefinitions.length > 0) {
@@ -666,6 +698,7 @@ function registerVbaDiagnostics(
         // Only available for workbook-backed docs.
         const moduleName = moduleNameFromDocument(document);
         let moduleKind: ModuleSymbolKind | undefined;
+        let documentType: EventHandlerDocumentType | undefined;
         let knownProcedures: ReadonlySet<string> | undefined;
         let knownIdentifiers: ReadonlySet<string> | undefined;
         let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
@@ -678,6 +711,7 @@ function registerVbaDiagnostics(
                     (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
                 );
                 moduleKind = moduleKindFromType(current?.type);
+                documentType = current?.documentType;
                 const project = buildProjectIndex(modules, {
                     moduleName,
                     moduleKind,
@@ -719,6 +753,7 @@ function registerVbaDiagnostics(
             semantic = analyzeModule(text, {
                 moduleName,
                 moduleKind,
+                documentType,
                 severities,
                 knownProcedures,
                 knownIdentifiers,

@@ -432,13 +432,14 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   - Event names do not appear in `object.` member completion, hover, signature
     help, or callable member diagnostics; those surfaces expose object
     properties/methods only.
+  - Event-handler-shaped procedures in the wrong module now receive non-red
+    `event-handler-module-scope` guidance: they may compile as ordinary
+    procedures, but Excel will not wire them as events from that module.
 - [ ] Extend document-module event handler authoring beyond the first
   workbook/worksheet slice:
   - Chart document modules offer chart handlers from the chart event surface.
   - UserForm modules offer form/control event handlers only when designer-backed
     metadata can prove the control/event surface.
-  - Wrong-module handlers should get non-red guidance because they may compile
-    as ordinary private procedures while not being wired as event handlers.
 - [ ] Extend the source member model to declared `Event` members, richer
   signatures, declaration spans, `WithEvents` bindings, and document/UserForm
   designer-backed members.

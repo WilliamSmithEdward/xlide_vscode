@@ -61,6 +61,9 @@ export {
 	EventHandlerCompletion,
 	EventHandlerCompletionContext,
 	EventHandlerDocumentType,
+	EventHandlerProcedureMatch,
+	eventHandlerDocumentTypeForContext,
+	eventHandlerProcedureForName,
 	resolveEventHandlerCompletions,
 } from './completion/eventHandlers';
 export {

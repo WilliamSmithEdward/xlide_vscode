@@ -450,7 +450,10 @@ into a pure analyzer layer and a thin VS Code provider:
   surfaces have curated metadata. Existing handlers are not re-suggested, and
   accepting an event completion inserts either the full `Private Sub ... End
   Sub` stub or only the declaration tail after an existing `Private Sub`
-  prefix. In a declaration
+  prefix. Known workbook/worksheet event-handler-shaped `Sub` declarations in
+  the wrong module receive non-red `event-handler-module-scope` guidance because
+  Excel will not wire them as events there, even though they may compile as
+  ordinary procedures. In a declaration
   type position (after `As` / `As New`) it instead
   offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
   (`resolveTypeCompletions`): VBA built-in data types, the Excel host types, and
@@ -675,6 +678,11 @@ Diagnostic severity policy:
   fixed-length strings, user-defined Types, and Declare statements. Each branch
   is backed by focused VBE oracle evidence, while standard modules and non-Public
   declarations stay outside the rule.
+  `event-handler-module-scope` is an information diagnostic for known
+  workbook/worksheet event handler names declared outside the matching document
+  module. It uses the same module-scoped event metadata as completion, and it is
+  deliberately non-red because Excel treats those declarations as ordinary
+  procedures rather than wired event handlers.
   `invalid-as-type-name` is
   currently limited to reserved runtime functions such as `Int` used as `As`
   type names; broad unknown type names wait for the project-wide binder and

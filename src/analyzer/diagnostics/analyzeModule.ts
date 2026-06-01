@@ -54,6 +54,11 @@ import {
 	type MemberCompletionContext,
 } from '../completion/memberAccess';
 import {
+	eventHandlerDocumentTypeForContext,
+	eventHandlerProcedureForName,
+	type EventHandlerDocumentType,
+} from '../completion/eventHandlers';
+import {
 	DIAGNOSTIC_RULES,
 	DiagnosticRuleName,
 	DiagnosticSeverity,
@@ -84,6 +89,8 @@ export interface AnalyzeModuleOptions {
 	moduleName?: string;
 	/** Workbook-project role of the module. */
 	moduleKind?: ModuleSymbolKind;
+	/** Workbook/document subtype for Excel document modules when known. */
+	documentType?: EventHandlerDocumentType;
 	/** Optional per-rule severity overrides (e.g. Option Explicit severity). */
 	severities?: SeverityOverrides;
 	/**
@@ -196,6 +203,7 @@ function runRules(
 	checkDimInitializer(source, mod, push);
 	checkUnexpectedDeclarationTokens(source, mod, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, push);
+	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, push);
 	checkInvalidAsTypeNames(source, mod, push);
 	checkCallParens(source, mod, push);
 	checkExpressionCallParens(source, mod, push);
@@ -2841,6 +2849,57 @@ function checkObjectModulePublicMembers(
 		if (member.kind === 'Declare' && isPublicModifier(member.visibility)) {
 			report('Declare statements', declaredNameSpan(source, member.span, member.name));
 		}
+	}
+}
+
+function checkEventHandlerModuleScope(
+	source: string,
+	mod: ModuleNode,
+	moduleName: string,
+	moduleKind: ModuleSymbolKind,
+	documentType: EventHandlerDocumentType | undefined,
+	push: PushFn,
+): void {
+	const actualDocumentType = eventHandlerDocumentTypeForContext({
+		moduleName,
+		moduleKind,
+		documentType,
+	});
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure' || member.procKind !== 'Sub') {
+			continue;
+		}
+		const event = eventHandlerProcedureForName(member.name);
+		if (!event) {
+			continue;
+		}
+		if (actualDocumentType === event.documentType) {
+			continue;
+		}
+		const moduleDescription =
+			moduleKind === 'document'
+				? `${describeEventDocumentType(actualDocumentType)} document module`
+				: `${moduleKind} module`;
+		push(
+			'eventHandlerWrongModule',
+			`'${event.name}' matches a ${event.owner} event handler, but this ${moduleDescription} is not where Excel wires that event. It will behave like an ordinary procedure here.`,
+			declaredNameSpan(source, member.span, member.name),
+		);
+	}
+}
+
+function describeEventDocumentType(
+	documentType: EventHandlerDocumentType | undefined,
+): string {
+	switch (documentType) {
+		case 'workbook':
+			return 'workbook';
+		case 'worksheet':
+			return 'worksheet';
+		case 'chart':
+			return 'chart';
+		default:
+			return 'unknown';
 	}
 }
 

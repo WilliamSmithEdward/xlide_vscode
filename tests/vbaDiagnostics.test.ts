@@ -2151,6 +2151,72 @@ describe('analyzeModule - object module public declaration restrictions', () => 
 	});
 });
 
+describe('analyzeModule - event handler module scope guidance', () => {
+	it('guides when a workbook handler is declared in a standard module', () => {
+		const src = 'Option Explicit\nPrivate Sub Workbook_Open()\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'Module1', moduleKind: 'standard' }),
+			'event-handler-module-scope',
+		);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('information');
+		expect(spanText(src, hits[0])).toBe('Workbook_Open');
+		expect(hits[0].message).toContain('not where Excel wires that event');
+	});
+
+	it('does not guide for workbook handlers in ThisWorkbook', () => {
+		const src = 'Option Explicit\nPrivate Sub Workbook_Open()\nEnd Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, { moduleName: 'ThisWorkbook', moduleKind: 'document' }),
+				'event-handler-module-scope',
+			),
+		).toHaveLength(0);
+	});
+
+	it('does not guide for worksheet handlers in worksheet document modules', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Sub Worksheet_Change(ByVal Target As Range)\nEnd Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, { moduleName: 'Sheet1', moduleKind: 'document' }),
+				'event-handler-module-scope',
+			),
+		).toHaveLength(0);
+	});
+
+	it('guides when a worksheet handler is declared in ThisWorkbook', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Sub Worksheet_Change(ByVal Target As Range)\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'ThisWorkbook', moduleKind: 'document' }),
+			'event-handler-module-scope',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Worksheet_Change');
+		expect(hits[0].message).toContain('workbook document module');
+	});
+
+	it('uses proven chart document subtype before giving guidance', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Sub Worksheet_Calculate()\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				moduleName: 'RevenueChart',
+				moduleKind: 'document',
+				documentType: 'chart',
+			}),
+			'event-handler-module-scope',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Worksheet_Calculate');
+		expect(hits[0].message).toContain('chart document module');
+	});
+});
+
 describe('analyzeModule - Call requires parentheses', () => {
 	it('flags an unparenthesised Call argument list', () => {
 		const src = 'Sub T()\n    Call MsgBox "hello"\nEnd Sub\n';
