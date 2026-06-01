@@ -14,8 +14,10 @@ import {
     EventHandlerDocumentType,
     eventHandlerDocumentTypeForContext,
     ModuleSymbolKind,
+    normalizeDiagnosticCode,
     ProjectIndex,
     ReferenceScope,
+    resolveDiagnosticCodeActions,
     resolveMemberCompletions,
     resolveTypeReferenceAt,
     resolveTypeSemanticTokens,
@@ -1105,6 +1107,59 @@ function registerVbaDiagnostics(
     vscode.workspace.textDocuments.forEach(run);
 }
 
+class VbaCodeActionProvider implements vscode.CodeActionProvider {
+    public provideCodeActions(
+        document: vscode.TextDocument,
+        _range: vscode.Range,
+        context: vscode.CodeActionContext,
+        _token: vscode.CancellationToken,
+    ): vscode.ProviderResult<vscode.CodeAction[]> {
+        if (!isVbaDocument(document)) { return []; }
+        if (
+            context.only &&
+            !context.only.contains(vscode.CodeActionKind.QuickFix) &&
+            !vscode.CodeActionKind.QuickFix.contains(context.only)
+        ) {
+            return [];
+        }
+
+        const source = document.getText();
+        const actions: vscode.CodeAction[] = [];
+        for (const diagnostic of context.diagnostics) {
+            if (diagnostic.source !== 'XLIDE') { continue; }
+            const code = normalizeDiagnosticCode(diagnostic.code);
+            if (!code) { continue; }
+            const fixes = resolveDiagnosticCodeActions(source, {
+                code,
+                message: diagnostic.message,
+                span: {
+                    start: document.offsetAt(diagnostic.range.start),
+                    end: document.offsetAt(diagnostic.range.end),
+                },
+            });
+            for (const fix of fixes) {
+                const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);
+                action.diagnostics = [diagnostic];
+                action.isPreferred = fix.isPreferred;
+                const edit = new vscode.WorkspaceEdit();
+                for (const textEdit of fix.edits) {
+                    edit.replace(
+                        document.uri,
+                        new vscode.Range(
+                            document.positionAt(textEdit.span.start),
+                            document.positionAt(textEdit.span.end),
+                        ),
+                        textEdit.newText,
+                    );
+                }
+                action.edit = edit;
+                actions.push(action);
+            }
+        }
+        return actions;
+    }
+}
+
 /**
  * VBA-IDE-style smart Enter: typing a `Sub`/`Function`/`Property` header and
  * pressing Enter auto-inserts the matching `End ...` below, leaving the cursor
@@ -1191,6 +1246,11 @@ export function registerVbaLanguageProviders(
         vscode.languages.registerRenameProvider(
             VBA_SELECTOR,
             new VbaRenameProvider(index),
+        ),
+        vscode.languages.registerCodeActionsProvider(
+            VBA_SELECTOR,
+            new VbaCodeActionProvider(),
+            { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
         ),
         vscode.languages.registerDocumentSemanticTokensProvider(
             VBA_SELECTOR,

@@ -870,15 +870,18 @@ Definition of done:
 Purpose: turn deterministic diagnostics into useful repairs where XLIDE can
 prove the edit is safe.
 
-- [ ] Add code-action infrastructure for analyzer diagnostics.
+- [x] Add code-action infrastructure for analyzer diagnostics.
 - [ ] Add deterministic quick fixes for:
-  - add missing block closer
-  - insert required `Call` parentheses
-  - add `Set` when the assignment target is known object type
-  - remove `Set` when the assignment target is known scalar type
-  - add missing required argument placeholder only when explicitly requested
-  - add lint suppression comment for a selected diagnostic
-  - create procedure stub for unresolved calls only when the target location is
+  - [x] add missing `Option Explicit`
+  - [x] insert required `Call` parentheses
+  - [x] remove invalid empty parentheses from standalone zero-argument calls
+  - [x] rewrite runtime calls such as `Call DoEvents()` to bare statement syntax
+  - [ ] add missing block closer
+  - [ ] add `Set` when the assignment target is known object type
+  - [ ] remove `Set` when the assignment target is known scalar type
+  - [ ] add missing required argument placeholder only when explicitly requested
+  - [ ] add lint suppression comment for a selected diagnostic
+  - [ ] create procedure stub for unresolved calls only when the target location is
     explicit
 - [ ] Add source actions:
   - lint current module
@@ -886,7 +889,9 @@ prove the edit is safe.
   - run current test when test runner exists
 - [ ] Add tests for every generated edit, including formatting and range
   stability.
-- [ ] Avoid quick fixes for uncertain, host-dependent, or incomplete-code cases.
+- [x] Avoid quick fixes for uncertain, host-dependent, or incomplete-code cases
+  in the first shipped quick-fix slice; the resolver returns no action unless
+  the diagnostic span proves a mechanical edit.
 
 Definition of done:
 

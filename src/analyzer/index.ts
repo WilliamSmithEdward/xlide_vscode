@@ -173,6 +173,13 @@ export {
 	VbaDiagnostic,
 } from './diagnostics/analyzeModule';
 export {
+	normalizeDiagnosticCode,
+	resolveDiagnosticCodeActions,
+	VbaDiagnosticCodeAction,
+	VbaDiagnosticCodeActionInput,
+	VbaTextEdit,
+} from './codeActions/diagnosticCodeActions';
+export {
 	DIAGNOSTIC_RULES,
 	DiagnosticCategory,
 	DiagnosticRuleMetadata,
