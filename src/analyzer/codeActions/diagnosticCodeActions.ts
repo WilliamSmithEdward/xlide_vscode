@@ -1,5 +1,6 @@
 import type { Span } from '../parser/nodes';
 import { tokenize } from '../lexer/tokenize';
+import { leadingWhitespace } from '../../vbaLinter';
 
 export interface VbaDiagnosticCodeActionInput {
 	code: string;
@@ -492,10 +493,6 @@ function lineStartOffset(source: string, line: number | undefined): number | und
 		offset = next;
 	}
 	return offset <= source.length ? offset : undefined;
-}
-
-function leadingWhitespace(text: string): string {
-	return /^[ \t]*/.exec(text)?.[0] ?? '';
 }
 
 function declarationAssignmentTarget(tok: ReturnType<typeof tokenize>[number] | undefined): string | undefined {

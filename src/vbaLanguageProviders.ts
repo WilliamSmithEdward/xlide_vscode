@@ -6,9 +6,13 @@ import {
     lintVbaSource,
     stripVba,
     detectSmartBlockOpener,
+    findIdentifierOccurrences,
     isSmartBlockClosedAhead,
+    lineStartOffsets,
     resolveLoopIteratorSyncEdit,
     smartBlockBodyText,
+    VBA_IDENTIFIER_NAME_RE,
+    VBA_IDENTIFIER_RE,
 } from './vbaLinter';
 import {
     analyzeModule,
@@ -45,9 +49,6 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME },
     { language: 'vba' },
 ];
-
-const IDENTIFIER_RE = /[A-Za-z_][A-Za-z0-9_]*/;
-const WORD_RE_GLOBAL = /[A-Za-z_][A-Za-z0-9_]*/g;
 
 function symbolKindToVscode(kind: VbaSymbol['kind']): vscode.SymbolKind {
     switch (kind) {
@@ -118,63 +119,6 @@ function detectQualifier(line: string, wordStart: number): string | undefined {
     return m?.[1];
 }
 
-/**
- * Finds all whole-word occurrences of `name` in `source`, ignoring
- * matches inside string literals and line comments.
- */
-function findIdentifierOccurrences(
-    source: string,
-    name: string,
-): Array<{ line: number; column: number }> {
-    const lines = source.split(/\r\n|\r|\n/);
-    const lower = name.toLowerCase();
-    const out: Array<{ line: number; column: number }> = [];
-    for (let i = 0; i < lines.length; i++) {
-        const raw = lines[i];
-        const stripped = stripStringsAndComment(raw);
-        WORD_RE_GLOBAL.lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = WORD_RE_GLOBAL.exec(stripped)) !== null) {
-            if (m[0].toLowerCase() === lower) {
-                out.push({ line: i, column: m.index });
-            }
-        }
-    }
-    return out;
-}
-
-/** Replace string contents and trailing comment with spaces so columns stay aligned. */
-function stripStringsAndComment(line: string): string {
-    const chars = line.split('');
-    let inString = false;
-    for (let i = 0; i < chars.length; i++) {
-        const c = chars[i];
-        if (inString) {
-            if (c === '"') {
-                if (chars[i + 1] === '"') {
-                    chars[i] = ' ';
-                    chars[i + 1] = ' ';
-                    i++;
-                    continue;
-                }
-                inString = false;
-                continue;
-            }
-            chars[i] = ' ';
-            continue;
-        }
-        if (c === '"') {
-            inString = true;
-            continue;
-        }
-        if (c === "'") {
-            for (let j = i; j < chars.length; j++) { chars[j] = ' '; }
-            break;
-        }
-    }
-    return chars.join('');
-}
-
 // ---------------------------------------------------------------------------
 // AST project index (Phase 4 wiring): scope-aware definition/references/rename
 // ---------------------------------------------------------------------------
@@ -223,15 +167,6 @@ function documentHostTypeForModule(
         default:
             return undefined;
     }
-}
-
-/** Byte offsets where each line begins, for occurrence -> offset mapping. */
-function lineStartOffsets(source: string): number[] {
-    const starts = [0];
-    for (let i = 0; i < source.length; i++) {
-        if (source[i] === '\n') { starts.push(i + 1); }
-    }
-    return starts;
 }
 
 /** Translates an AST symbol's nameSpan to a Location in its owning module. */
@@ -357,14 +292,12 @@ function projectMemberReferenceLocations(
     }
 
     for (const mod of byModule.values()) {
-        const starts = lineStartOffsets(mod.source);
         const uri = encodeModuleUri(xlsmPath, mod.moduleName);
         for (const occ of findIdentifierOccurrences(mod.source, memberName)) {
-            const offset = (starts[occ.line] ?? 0) + occ.column;
             const resolved = sourceMemberDefinitionsAt(
                 mod.source,
                 memberName,
-                offset + memberName.length,
+                occ.offset + memberName.length,
                 project,
                 modules,
                 mod.moduleName,
@@ -414,11 +347,9 @@ function projectMemberRenameLocations(
     for (const definition of definitions) {
         const mod = byModule.get(definition.moduleName.toLowerCase());
         if (!mod) { continue; }
-        const starts = lineStartOffsets(mod.source);
         const uri = encodeModuleUri(xlsmPath, mod.moduleName);
         for (const occ of findIdentifierOccurrences(mod.source, memberName)) {
-            const offset = (starts[occ.line] ?? 0) + occ.column;
-            if (offset < definition.fullSpan.start || offset > definition.fullSpan.end) {
+            if (occ.offset < definition.fullSpan.start || occ.offset > definition.fullSpan.end) {
                 continue;
             }
             push(new vscode.Location(
@@ -457,19 +388,17 @@ function occurrencesInScope(
     for (const moduleName of scope.searchModules) {
         const mod = byModule.get(moduleName.toLowerCase());
         if (!mod) { continue; }
-        const starts = lineStartOffsets(mod.source);
         const exclusions = scope.shadowedSpans
             .filter((s) => s.moduleName.toLowerCase() === moduleName.toLowerCase())
             .map((s) => s.span);
         const uri = encodeModuleUri(xlsmPath, mod.moduleName);
         for (const occ of findIdentifierOccurrences(mod.source, word)) {
-            const offset = (starts[occ.line] ?? 0) + occ.column;
             if (scope.kind === 'local' && scope.procedureSpan) {
-                if (offset < scope.procedureSpan.start || offset > scope.procedureSpan.end) {
+                if (occ.offset < scope.procedureSpan.start || occ.offset > scope.procedureSpan.end) {
                     continue;
                 }
             }
-            if (exclusions.some((sp) => offset >= sp.start && offset <= sp.end)) {
+            if (exclusions.some((sp) => occ.offset >= sp.start && occ.offset <= sp.end)) {
                 continue;
             }
             out.push(new vscode.Location(
@@ -506,7 +435,7 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
     ): Promise<vscode.Location[] | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
 
-        const wordRange = document.getWordRangeAtPosition(position, IDENTIFIER_RE);
+        const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { return undefined; }
         const word = document.getText(wordRange);
         const line = document.lineAt(position.line).text;
@@ -589,7 +518,7 @@ class VbaReferenceProvider implements vscode.ReferenceProvider {
         context: vscode.ReferenceContext,
     ): Promise<vscode.Location[] | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
-        const wordRange = document.getWordRangeAtPosition(position, IDENTIFIER_RE);
+        const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
@@ -723,7 +652,7 @@ class VbaRenameProvider implements vscode.RenameProvider {
         if (document.uri.scheme !== XLIDE_SCHEME) {
             throw new Error('Rename is only supported in XLIDE VBA modules.');
         }
-        const wordRange = document.getWordRangeAtPosition(position, IDENTIFIER_RE);
+        const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { throw new Error('No symbol at cursor.'); }
         const word = document.getText(wordRange);
 
@@ -778,10 +707,10 @@ class VbaRenameProvider implements vscode.RenameProvider {
         newName: string,
     ): Promise<vscode.WorkspaceEdit | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(newName)) {
+        if (!VBA_IDENTIFIER_NAME_RE.test(newName)) {
             throw new Error(`'${newName}' is not a valid VBA identifier.`);
         }
-        const wordRange = document.getWordRangeAtPosition(position, IDENTIFIER_RE);
+        const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { return undefined; }
         const oldName = document.getText(wordRange);
         if (oldName.toLowerCase() === newName.toLowerCase()) { return undefined; }

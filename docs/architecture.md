@@ -301,6 +301,11 @@ apostrophe line comment, brackets, indent rules, and procedure-based folding.
 Because VS Code language configuration is static JSON, tests keep its block
 indent/folding regexes aligned with the shared smart-block rules in
 `src/vbaLinter.ts` instead of letting it become a second behavioral source.
+The same dependency-free module also owns shared VBA source-text helpers such as
+identifier validation, comment/string-safe identifier occurrence search, line
+start offsets, and leading-whitespace detection. Providers, workbook lint,
+code actions, and tree/module commands should reuse those helpers rather than
+carrying local regex copies.
 
 **Symbol intelligence** — `src/vbaSymbolIndex.ts` keeps a workbook-scoped cache
 of parsed module symbols. Modules are parsed with a lightweight regex pass

@@ -19,7 +19,7 @@ import {
     SeverityOverrides,
     VbaDiagnostic,
 } from './analyzer';
-import { lintVbaSource } from './vbaLinter';
+import { lineStartOffsets, lintVbaSource } from './vbaLinter';
 
 export type WorkbookLintSeverity = 'error' | 'warning' | 'information' | 'hint';
 
@@ -62,15 +62,6 @@ function moduleKindFromType(type?: string): ModuleSymbolKind {
         case 'userform': return 'userform';
         default: return 'standard';
     }
-}
-
-/** Precomputes the byte offset at which each line starts. */
-function lineStartOffsets(source: string): number[] {
-    const starts = [0];
-    for (let i = 0; i < source.length; i++) {
-        if (source[i] === '\n') { starts.push(i + 1); }
-    }
-    return starts;
 }
 
 /** Converts a 0-based character offset to a 1-based {line, column} pair. */

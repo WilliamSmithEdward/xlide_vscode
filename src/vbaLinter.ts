@@ -40,12 +40,24 @@ export interface VbaSmartBlockOpener {
 }
 
 export const VBA_BLOCK_INDENT_UNIT = '\t';
+export const VBA_IDENTIFIER_PATTERN = '[A-Za-z_][A-Za-z0-9_]*';
+export const VBA_IDENTIFIER_RE = /[A-Za-z_][A-Za-z0-9_]*/;
+export const VBA_IDENTIFIER_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+const VBA_IDENTIFIER_WORD_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
 
 export interface VbaLoopIteratorSyncEdit {
     /** Absolute source span to replace. */
     span: { start: number; end: number };
     /** Iterator text copied from the edited side of the loop pair. */
     newText: string;
+}
+
+export interface VbaIdentifierOccurrence {
+    line: number;
+    column: number;
+    offset: number;
+    text: string;
 }
 
 interface SmartOpenBlock {
@@ -153,6 +165,50 @@ export function stripVba(line: string): string {
     const rem = /^(\s*)Rem\b/i.exec(out);
     if (rem) {
         out = out.slice(0, rem[1].length) + ' '.repeat(out.length - rem[1].length);
+    }
+    return out;
+}
+
+/** Precomputes the absolute offset at which each physical line starts. */
+export function lineStartOffsets(source: string): number[] {
+    const starts = [0];
+    for (let i = 0; i < source.length; i++) {
+        if (source[i] === '\n') { starts.push(i + 1); }
+    }
+    return starts;
+}
+
+/** Returns the leading spaces/tabs for a source line or snippet of text. */
+export function leadingWhitespace(text: string): string {
+    return /^[ \t]*/.exec(text)?.[0] ?? '';
+}
+
+/**
+ * Finds whole-word identifier occurrences while ignoring strings and comments.
+ * Offsets are absolute source offsets so callers do not recompute line starts.
+ */
+export function findIdentifierOccurrences(
+    source: string,
+    name: string,
+): VbaIdentifierOccurrence[] {
+    const lines = source.split(/\r\n|\r|\n/);
+    const starts = lineStartOffsets(source);
+    const lower = name.toLowerCase();
+    const out: VbaIdentifierOccurrence[] = [];
+    for (let i = 0; i < lines.length; i++) {
+        const stripped = stripVba(lines[i]);
+        VBA_IDENTIFIER_WORD_RE.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = VBA_IDENTIFIER_WORD_RE.exec(stripped)) !== null) {
+            if (m[0].toLowerCase() === lower) {
+                out.push({
+                    line: i,
+                    column: m.index,
+                    offset: (starts[i] ?? 0) + m.index,
+                    text: m[0],
+                });
+            }
+        }
     }
     return out;
 }
@@ -638,10 +694,6 @@ function findMatchingOpenerLine(lines: PhysicalLine[], nextIndex: number): LoopO
 
 function offsetTouchesSpan(offset: number, span: { start: number; end: number }): boolean {
     return offset >= span.start && offset <= span.end;
-}
-
-function leadingWhitespace(text: string): string {
-    return /^[ \t]*/.exec(text)?.[0] ?? '';
 }
 
 function isCompleteSmartBlockOpener(t: string, kind: BlockKind): boolean {

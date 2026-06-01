@@ -15,6 +15,7 @@ import {
     setWorkbookExportMode,
 } from './moduleExport';
 import { lintWorkbook, type WorkbookLintProblem } from './vbaWorkbookLint';
+import { VBA_IDENTIFIER_NAME_RE } from './vbaLinter';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
     buildVbaProjectIndex,
@@ -438,7 +439,7 @@ export function registerCommands(
                 prompt: 'New class module name',
                 placeHolder: 'MyClass',
                 validateInput: (v) =>
-                    /^\w+$/.test(v) ? undefined : 'Module names must be alphanumeric',
+                    VBA_IDENTIFIER_NAME_RE.test(v) ? undefined : 'Class module names must be valid VBA identifiers',
             });
             if (!name) { return; }
 
@@ -465,7 +466,7 @@ export function registerCommands(
             if (!node?.moduleName) { return; }
             const validateInput = (v: string): string | undefined => {
                 if (node.moduleType === 'class') {
-                    return /^[A-Za-z_][A-Za-z0-9_]*$/.test(v)
+                    return VBA_IDENTIFIER_NAME_RE.test(v)
                         ? undefined
                         : 'Class module names must be valid VBA identifiers';
                 }

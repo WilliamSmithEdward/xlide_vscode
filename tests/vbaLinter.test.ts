@@ -3,7 +3,10 @@ import {
     lintVbaSource,
     stripVba,
     detectSmartBlockOpener,
+    findIdentifierOccurrences,
     isSmartBlockClosedAhead,
+    lineStartOffsets,
+    leadingWhitespace,
     openSmartBlockClosersBefore,
     resolveLoopIteratorSyncEdit,
     smartBlockBodyIndent,
@@ -150,6 +153,39 @@ describe('stripVba', () => {
     it('blanks a Rem comment', () => {
         const out = stripVba('    Rem this is a note');
         expect(out.trim()).toBe('');
+    });
+});
+
+describe('shared VBA source text helpers', () => {
+    it('computes physical line starts for LF and CRLF sources', () => {
+        expect(lineStartOffsets('a\nbb\nccc')).toEqual([0, 2, 5]);
+        expect(lineStartOffsets('a\r\nbb\r\nccc')).toEqual([0, 3, 7]);
+    });
+
+    it('extracts leading spaces and tabs through one shared rule', () => {
+        expect(leadingWhitespace('  \tValue = 1')).toBe('  \t');
+        expect(leadingWhitespace('Value = 1')).toBe('');
+    });
+
+    it('finds identifier occurrences outside comments and strings with absolute offsets', () => {
+        const src = [
+            'Sub T()',
+            '    Dim value As String',
+            '    Debug.Print value, "value"',
+            "    ' value in comment",
+            'End Sub',
+            '',
+        ].join('\n');
+
+        expect(findIdentifierOccurrences(src, 'value')).toEqual([
+            { line: 1, column: 8, offset: src.indexOf('value'), text: 'value' },
+            {
+                line: 2,
+                column: 16,
+                offset: src.indexOf('value,'),
+                text: 'value',
+            },
+        ]);
     });
 });
 

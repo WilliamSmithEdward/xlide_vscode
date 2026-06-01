@@ -12,6 +12,7 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XLIDE_SCHEME, decodeModuleUri } from './xlideFileSystem';
+import { leadingWhitespace } from './vbaLinter';
 import {
 	DocRegistry,
 	EventHandlerCompletion,
@@ -50,10 +51,6 @@ const CHART = 'Excel.Chart';
 const MODULE_CACHE_TTL_MS = 5000;
 const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
-
-function leadingWhitespace(text: string): string {
-	return /^[ \t]*/.exec(text)?.[0] ?? '';
-}
 
 interface ModuleEntry {
 	name: string;
