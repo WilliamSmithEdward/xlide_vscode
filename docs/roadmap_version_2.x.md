@@ -378,8 +378,22 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   so XLIDE must use an explicit documented convention such as a module-header
   `'''` block or external metadata before class-name type completion/hover can
   claim class-level docs.
-- [ ] Extend the source member model to events, richer signatures, declaration
-  spans, and document/UserForm designer-backed members.
+- [ ] Add first-class document-module event handler authoring. Event metadata
+  should be scoped by module type and drive completion/insertions from one
+  source of truth, not a parallel snippet list:
+  - `ThisWorkbook` modules offer workbook handlers such as
+    `Private Sub Workbook_Open()` and workbook event signatures.
+  - Worksheet document modules offer worksheet handlers such as
+    `Private Sub Worksheet_Change(ByVal Target As Range)` and
+    `Worksheet_SelectionChange(ByVal Target As Range)`.
+  - Chart document modules offer chart handlers from the chart event surface.
+  - UserForm modules offer form/control event handlers only when designer-backed
+    metadata can prove the control/event surface.
+  - Wrong-module handlers should get non-red guidance because they may compile
+    as ordinary private procedures while not being wired as event handlers.
+- [ ] Extend the source member model to declared `Event` members, richer
+  signatures, declaration spans, `WithEvents` bindings, and document/UserForm
+  designer-backed members.
 - [x] Feed workbook class-member resolution into signature help for
   source-backed method/function members, including inline XML summary and
   parameter docs.
