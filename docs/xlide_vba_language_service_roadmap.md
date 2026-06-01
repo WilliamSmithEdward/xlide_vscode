@@ -764,10 +764,10 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >
 > Deliberately deferred (would require an expression binder + a complete host
 > catalogue, and per the project's no-false-positive rule must not ship until
-> they can be proven safe): `undeclared-variable` (variable used but not
-> declared under Option Explicit) and the broad arbitrary-expression form of
-> `unknown-call`. "Invalid line continuation" is also deferred (false-positive
-> risk).
+> they can be proven safe): broad `undeclared-variable` read/indexed-target
+> references beyond the shipped project-backed bare assignment/`Set` target
+> slice, and the broad arbitrary-expression form of `unknown-call`. "Invalid
+> line continuation" is also deferred (false-positive risk).
 
 ### Goal
 

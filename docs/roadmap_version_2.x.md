@@ -69,6 +69,10 @@ heuristic diagnostics.
 - `ProjectIndex` exposes deterministic visible project type names for the
   current module: object module names plus visible `Type` and `Enum`
   declarations, preserving duplicates for future ambiguity handling.
+- `ProjectIndex` exposes deterministic bare identifier names for the current
+  module, so Option Explicit diagnostics can distinguish undeclared assignment
+  targets from same-module declarations, exported standard-module globals, enum
+  members, and document/UserForm code names.
 - Project-defined type names now get VS Code semantic tokens in declaration
   type positions and `New` expressions, so resolved classes, document modules,
   UserForms, UDTs, and enums can be colored without hardcoding them into static
@@ -102,6 +106,10 @@ heuristic diagnostics.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
+- `undeclared-variable` now covers the project-backed bare assignment/`Set`
+  target slice under `Option Explicit`, including
+  `notDeclared = ThisWorkbook.CanCheckIn()`, while missing `Option Explicit`
+  continues to allow implicit Variant assignment.
 - Runtime metadata is curated explicitly; parameter types are not inferred from
   parameter names.
 - Inline documentation comments support descriptive metadata plus optional
@@ -293,7 +301,12 @@ Purpose: move from same-module checks to workbook-aware analysis.
 - [x] Expose visible project-defined type names from `ProjectIndex` as binder
   groundwork: current-module `Type`/`Enum`, cross-module non-`Private`
   `Type`/`Enum`, and class/document/UserForm module names.
-- [ ] Model broader module-level variable/type visibility and shadowing.
+- [x] Expose visible bare identifier names from `ProjectIndex` for
+  project-backed `Option Explicit` assignment-target diagnostics: same-module
+  declarations, exported standard-module globals, visible enum members, and
+  document/UserForm code names.
+- [ ] Model broader identifier reference visibility and shadowing for read uses,
+  indexed assignment targets, built-in constants, and arbitrary expressions.
 - [ ] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
 - [ ] Resolve enums and enum members across modules.

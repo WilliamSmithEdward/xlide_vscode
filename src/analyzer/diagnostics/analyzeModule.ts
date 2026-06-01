@@ -15,9 +15,11 @@
 // resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
 // declaration - the unambiguous VBE "Sub or Function not defined" error.
-// Broader flow-sensitive rules (undeclared variable, arbitrary-expression
-// unknown call) still need a full expression binder and remain intentionally
-// omitted to avoid false positives.
+// The `undeclared-variable` rule follows the same conservative pattern: it only
+// checks project-backed bare assignment targets under Option Explicit. Broader
+// flow-sensitive read references and arbitrary-expression unknown calls still
+// need a full expression binder and remain intentionally omitted to avoid false
+// positives.
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
@@ -91,6 +93,13 @@ export interface AnalyzeModuleOptions {
 	 * run so single-module analysis never false-positives on another module.
 	 */
 	knownProcedures?: ReadonlySet<string>;
+	/**
+	 * Lowercased bare identifiers visible from the current module (from
+	 * ProjectIndex.visibleIdentifierNames). Required for the Option Explicit
+	 * undeclared-assignment rule so single-module analysis never guesses about
+	 * exported globals in other modules.
+	 */
+	knownIdentifiers?: ReadonlySet<string>;
 	/**
 	 * Exported Sub/Function signatures across the workbook project, grouped by
 	 * lowercased procedure name. When omitted, type and arity validation remain
@@ -179,6 +188,7 @@ function runRules(
 	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
 	checkConstAssignment(source, mod, symbols, push);
 	checkOptionExplicit(source, mod, push);
+	checkUndeclaredVariables(source, mod, symbols, opts.knownIdentifiers, push);
 	checkOptionPlacement(mod, push);
 	checkProcedureHeader(source, mod, push);
 	checkParameterOrder(mod, push);
@@ -2567,6 +2577,89 @@ function checkOptionExplicit(
 		'Option Explicit is not specified; variables can be used without being declared. Add "Option Explicit" to the top of the module.',
 		{ start: 0, end },
 	);
+}
+
+/**
+ * Rule: with `Option Explicit`, a variable must be declared before it can be
+ * assigned. This first high-confidence slice covers bare assignment targets
+ * (`name = ...`, `Let name = ...`, and `Set name = ...`) once the caller has
+ * supplied the project-visible identifier set.
+ */
+function checkUndeclaredVariables(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	knownIdentifiers: ReadonlySet<string> | undefined,
+	push: PushFn,
+): void {
+	if (!hasOptionExplicit(mod) || !knownIdentifiers) {
+		return;
+	}
+
+	const moduleNames = moduleLevelIdentifierNames(symbols);
+	const appType = resolveHostGlobal('Application');
+	const appMembers = new Set(
+		(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
+	);
+	const isKnown = (name: string, locals: ReadonlySet<string>): boolean => {
+		const lower = name.toLowerCase();
+		return (
+			locals.has(lower) ||
+			moduleNames.has(lower) ||
+			knownIdentifiers.has(lower) ||
+			appMembers.has(lower) ||
+			resolveHostGlobal(name) !== undefined ||
+			resolveRuntimeFunction(name) !== undefined
+		);
+	};
+
+	for (const member of mod.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const procSym = (symbols.root.children ?? []).find(
+			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
+		);
+		const locals = new Set<string>();
+		for (const child of procSym?.children ?? []) {
+			locals.add(child.name.toLowerCase());
+		}
+		forEachStatement(member.body, (stmt) => {
+			const scalarTarget = bareAssignmentTarget(source, stmt.span);
+			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, stmt.span);
+			const target = scalarTarget ?? objectTarget;
+			if (!target || isKnown(target.name, locals)) {
+				return;
+			}
+			push(
+				'undeclaredVariable',
+				`Variable not defined: '${target.name}'. Declare it before assigning to it, or remove Option Explicit.`,
+				target.span,
+			);
+		});
+	}
+}
+
+function hasOptionExplicit(mod: ModuleNode): boolean {
+	return mod.members.some(
+		(member) =>
+			member.kind === 'Option' && /^explicit\b/i.test(member.optionText.trim()),
+	);
+}
+
+function moduleLevelIdentifierNames(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): Set<string> {
+	const names = new Set<string>();
+	for (const sym of symbols.root.children ?? []) {
+		names.add(sym.name.toLowerCase());
+		if (sym.kind === 'enum') {
+			for (const child of sym.children ?? []) {
+				names.add(child.name.toLowerCase());
+			}
+		}
+	}
+	return names;
 }
 
 /**

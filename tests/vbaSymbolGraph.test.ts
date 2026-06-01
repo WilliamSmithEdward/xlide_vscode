@@ -428,6 +428,70 @@ describe('ProjectIndex visible procedure names', () => {
 	});
 });
 
+describe('ProjectIndex visible identifier names', () => {
+	it('includes same-module names, exported standard-module globals, and visible enum members', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source:
+				'Private localState As Long\n' +
+				'Private Enum LocalMode\n    LocalOnly\nEnd Enum\n',
+		});
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source:
+				'Public sharedValue As Long\n' +
+				'Private hiddenValue As Long\n' +
+				'Public Enum SharedMode\n    SharedOnly\nEnd Enum\n',
+		});
+		index.setModule({
+			moduleName: 'Sheet1',
+			moduleKind: 'document',
+			source: 'Public Sub Change()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'UserForm1',
+			moduleKind: 'userform',
+			source: '',
+		});
+
+		const names = [...index.visibleIdentifierNames('Caller')].sort();
+		expect(names).toEqual([
+			'localmode',
+			'localonly',
+			'localstate',
+			'sharedmode',
+			'sharedonly',
+			'sharedvalue',
+			'sheet1',
+			'userform1',
+		]);
+	});
+
+	it('does not expose private standard-module variables or object members as bare globals', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source: '',
+		});
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source: 'Private hiddenValue As Long\n',
+		});
+		index.setModule({
+			moduleName: 'Customer',
+			moduleKind: 'class',
+			source: 'Public Sub Save()\nEnd Sub\n',
+		});
+
+		expect(index.visibleIdentifierNames('Caller')).toEqual(new Set<string>());
+	});
+});
+
 describe('ProjectIndex visible type names', () => {
 	it('includes object modules and visible project Type/Enum declarations', () => {
 		const index = new ProjectIndex();

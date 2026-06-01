@@ -6,17 +6,17 @@
 // equivalence, the MS-VBAL section it enforces, and a confidence level. Only
 // *high-confidence*, deterministic rules are enabled - rules that would need an
 // expression-level binder or a complete host catalogue to avoid false positives
-// (undeclared-variable, unknown-call) are deliberately NOT implemented here. See
-// the roadmap.
+// remain deliberately out of scope until the binder can prove them.
 //
-// The one cross-module rule that is enabled - `unknownCallStatement` - fires
+// The cross-module call rule that is enabled - `unknownCallStatement` - fires
 // only on a *call statement* whose callee is a bare (non-member) identifier (the
 // lone-identifier `DoStartup`, the parenless `MsgBox "hi"`, or `Call Foo`) whose
 // name resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
-// declaration. The broader undeclared-variable / arbitrary-expression
-// unknown-call cases still need a full expression binder and remain
-// unimplemented.
+// declaration. The `undeclaredVariable` rule follows the same shape: it only
+// fires for assignment targets when project-visible identifiers are available.
+// Broader arbitrary-expression reference cases still need a full expression
+// binder and remain unimplemented.
 //
 // Pure data: no `vscode` dependency. The VS Code layer maps `severity` onto
 // `vscode.DiagnosticSeverity` and `code`/`source` onto the diagnostic.
@@ -134,6 +134,18 @@ export const DIAGNOSTIC_RULES = {
 		diagnosticKind: 'style-policy',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.4.1.1',
+		confidence: 'high',
+	},
+	undeclaredVariable: {
+		code: 'undeclared-variable',
+		title: 'Variable not defined',
+		defaultSeverity: 'error',
+		category: 'project-symbol',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.4.1.1',
+		requiresWholeProject: true,
 		confidence: 'high',
 	},
 	invalidProcedureHeader: {

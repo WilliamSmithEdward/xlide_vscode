@@ -326,6 +326,36 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * Lowercased bare identifiers visible from `moduleName`. Used by diagnostics
+	 * that must know whether an identifier is declared under `Option Explicit`.
+	 * Same-module declarations are visible regardless of visibility; other
+	 * standard modules contribute exported declarations and exported enum members.
+	 * Document/UserForm code names are also available as global object variables.
+	 */
+	visibleIdentifierNames(moduleName: string): Set<string> {
+		const currentLower = moduleName.toLowerCase();
+		const names = new Set<string>();
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			if (mod.moduleKind === 'document' || mod.moduleKind === 'userform') {
+				names.add(mod.moduleName.toLowerCase());
+			}
+			for (const symbol of mod.root.children ?? []) {
+				if (!this.isBareIdentifierVisible(symbol, mod, sameModule)) {
+					continue;
+				}
+				names.add(symbol.name.toLowerCase());
+				if (symbol.kind === 'enum') {
+					for (const member of symbol.children ?? []) {
+						names.add(member.name.toLowerCase());
+					}
+				}
+			}
+		}
+		return names;
+	}
+
+	/**
 	 * Exported standard-module Sub/Function signatures grouped by lowercased
 	 * procedure name, with additional `module.procedure` qualified keys. Bare
 	 * duplicate exported names intentionally remain grouped together so analyzer
@@ -695,6 +725,23 @@ export class ProjectIndex {
 			}
 		}
 		return spans;
+	}
+
+	private isBareIdentifierVisible(
+		symbol: VbaSymbol,
+		mod: ModuleSymbols,
+		sameModule: boolean,
+	): boolean {
+		if (sameModule) {
+			return true;
+		}
+		if (mod.moduleKind !== 'standard') {
+			return false;
+		}
+		if (symbol.kind === 'enum' || symbol.kind === 'type') {
+			return isTypeExported(symbol);
+		}
+		return isExported(symbol, mod.moduleKind);
 	}
 
 	/** Module-level declarations (incl. enum members) matching a lowercased name. */

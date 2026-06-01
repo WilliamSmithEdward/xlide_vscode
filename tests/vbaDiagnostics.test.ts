@@ -68,6 +68,25 @@ function visibleProjectProcedures(
 	return project.visibleProcedureNames(currentModule);
 }
 
+function visibleProjectIdentifiers(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+	currentModule: string,
+): ReadonlySet<string> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.visibleIdentifierNames(currentModule);
+}
+
 describe('analyzeModule - unterminated string', () => {
 	it('flags a string with no closing quote', () => {
 		const src = 'Sub T()\n    MsgBox "hello\nEnd Sub\n';
@@ -220,6 +239,78 @@ describe('analyzeModule - Option Explicit', () => {
 			'option-explicit-missing',
 		);
 		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags an undeclared bare assignment target when Option Explicit is present', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    notDeclared = ThisWorkbook.CanCheckIn()\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
+			'undeclared-variable',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('notDeclared');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('allows implicit Variant assignment when Option Explicit is absent', () => {
+		const src = 'Sub T()\n    notDeclared = ThisWorkbook.CanCheckIn()\nEnd Sub\n';
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
+	it('accepts declared local, module, parameter, and Function-return assignment targets', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private moduleValue As Long\n' +
+			'Function T(ByVal arg As Long) As Long\n' +
+			'    Dim localValue As Long\n' +
+			'    localValue = 1\n' +
+			'    moduleValue = localValue\n' +
+			'    arg = moduleValue\n' +
+			'    T = arg\n' +
+			'End Function\n';
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
+	it('flags an undeclared Set assignment target under Option Explicit', () => {
+		const src = 'Option Explicit\nSub T()\n    Set notDeclared = ActiveSheet\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
+			'undeclared-variable',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('notDeclared');
+	});
+
+	it('does not treat member or indexed assignment targets as bare undeclared variables yet', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Range("A1").Value = 1\n' +
+			'    arr(1) = 2\n' +
+			'End Sub\n';
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
+	it('accepts exported standard-module globals visible through the project index', () => {
+		const src = 'Option Explicit\nSub T()\n    sharedValue = 1\nEnd Sub\n';
+		const knownIdentifiers = visibleProjectIdentifiers(
+			[
+				{ moduleName: 'Caller', source: src },
+				{ moduleName: 'Globals', source: 'Public sharedValue As Long\n' },
+			],
+			'Caller',
+		);
+		expect(byCode(analyzeModule(src, { knownIdentifiers }), 'undeclared-variable')).toHaveLength(0);
 	});
 
 	it('can be switched off', () => {

@@ -782,6 +782,36 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "option_explicit_undeclared_assignment_compile",
+      "description": "Option Explicit rejects assignment to a bare identifier that is not declared.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Sub XlideOracleEntry()\n    notDeclared = ThisWorkbook.CanCheckIn()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "implicit_variant_assignment_without_option_explicit_compile",
+      "description": "Compile control: without Option Explicit, assignment to a new bare identifier creates an implicit Variant.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    notDeclared = ThisWorkbook.CanCheckIn()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "option_explicit_declared_assignment_compile",
+      "description": "Compile control: Option Explicit accepts assignment to a declared local variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Sub XlideOracleEntry()\n    Dim declaredValue As Boolean\n    declaredValue = ThisWorkbook.CanCheckIn()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "explicit_call_member_parentheses_compile",
       "description": "Compile control: an object member call uses parentheses with the Call keyword.",
       "provenance": "vbe-oracle-verified",

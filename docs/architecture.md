@@ -329,8 +329,8 @@ the cache stays in sync with user edits.
 
 **Workbook-wide lint (command + agent tool)** — `src/vbaWorkbookLint.ts`
 (`lintWorkbook`) is the shared core that loads every module from the workbook via
-the Python bridge, builds a `ProjectIndex` so the unknown-call rule has the
-current module's visibility-filtered procedure names, then runs both diagnostic passes
+the Python bridge, builds a `ProjectIndex` so cross-module rules have the
+current module's visibility-filtered procedure and bare identifier names, then runs both diagnostic passes
 (`lintVbaSource` + `analyzeModule`) per module and flattens their results into
 1-based `{moduleName, moduleType, line, column, endColumn, severity, code,
 message}` problems, sorted by module/line/column. The
@@ -538,11 +538,11 @@ high-confidence semantic problems directly from module text:
   `defaultSeverity`, `category`, `vbeCompileEquivalent`, `diagnosticKind`,
   `source: 'XLIDE'`, an MS-VBAL `specReference`, and a `confidence`. Only
   high-confidence rules ship.
-  The broad `undeclared-variable`
-  rule and the arbitrary-expression `unknown-call` rule are deliberately absent —
-  they would need an expression binder plus a complete host catalogue and would
-  otherwise produce false positives, which the project's no-false-positive rule
-  forbids. The one cross-module rule that does ship, `unknown-call`
+  The `undeclared-variable` rule ships only for project-backed bare assignment
+  and `Set` targets under `Option Explicit`; broader read references and indexed
+  targets remain deferred until the expression binder can prove them without
+  false positives. The arbitrary-expression `unknown-call` rule is deliberately
+  absent for the same reason. The one cross-module call rule that does ship, `unknown-call`
   (`unknownCallStatement`), is restricted to the unambiguous call forms where the
   callee is a bare (non-member) identifier (see below).
 
@@ -671,7 +671,14 @@ Diagnostic severity policy:
   while a trailing scalar dot is a VBE Compile `Syntax error` after explicit
   focus retesting. Unknown, `Variant`, object-like, project class, and UDT
   receivers stay silent until the binder can prove more.
-  `unknown-call` rule runs only when the caller
+  `undeclared-variable` runs only when `Option Explicit` is present and the
+  caller passes `knownIdentifiers` from
+  `ProjectIndex.visibleIdentifierNames(moduleName)`, so bare assignment targets
+  such as `notDeclared = ThisWorkbook.CanCheckIn()` become compile-equivalent
+  `Variable not defined` diagnostics while public standard-module globals and
+  document/UserForm code names suppress false positives. Indexed assignment
+  targets and arbitrary read uses are intentionally silent until the binder
+  supports that broader reference shape. `unknown-call` runs only when the caller
   passes `knownProcedures` (the current module's visibility-filtered procedure
   names from `ProjectIndex.visibleProcedureNames(moduleName)`); without it that
   rule is skipped so a single module is never analysed in isolation. The whole analyzer is wrapped in
@@ -685,9 +692,9 @@ run on open and debounced (300 ms) on every edit, on real `.vba` files and on
 virtual `xlide-vba` module documents, with no save. Everything is computed from
 the live editor text plus deterministic project context. For workbook-backed
 documents the provider overlays the current live module text into a fresh
-`ProjectIndex`, then passes visibility-filtered procedure names,
-cross-module standard-module signatures, and source-backed project class-member
-surfaces into `analyzeModule`.
+`ProjectIndex`, then passes visibility-filtered procedure names, visible bare
+identifier names, cross-module standard-module signatures, and source-backed
+project class-member surfaces into `analyzeModule`.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
 
@@ -714,6 +721,9 @@ single module:
   (the binding scope of a name for scope-restricted reference/rename search),
   `visibleProcedureNames` (same-module procedures plus exported standard-module
   procedures callable as bare identifiers from a given module),
+  `visibleIdentifierNames` (same-module declarations, exported standard-module
+  globals/types/enums and enum members, plus document/UserForm code names for
+  Option Explicit diagnostics),
   `visibleTypeNames` (class/document/UserForm module names plus visible
   `Type`/`Enum` declarations for future `As` binding), `projectClassMembers`
   (source-backed member surfaces with signatures, docs, definition spans, and

@@ -124,8 +124,8 @@ export async function lintWorkbook(
 ): Promise<WorkbookLintResult> {
     const modules = await loadWorkbookModules(bridge, filePath);
 
-    // Project-wide procedure names enable the bare-call "Sub or Function not
-    // defined" rule across modules, filtered per caller by VBA visibility.
+    // Project-wide names enable cross-module call and Option Explicit checks,
+    // filtered per caller by VBA visibility.
     const project = new ProjectIndex();
     for (const mod of modules) {
         try {
@@ -180,10 +180,13 @@ export async function lintWorkbook(
         // Semantic rule pass (offset spans -> line/column).
         let semantic: VbaDiagnostic[];
         let knownProcedures: ReadonlySet<string> | undefined;
+        let knownIdentifiers: ReadonlySet<string> | undefined;
         try {
             knownProcedures = project.visibleProcedureNames(mod.name);
+            knownIdentifiers = project.visibleIdentifierNames(mod.name);
         } catch {
             knownProcedures = undefined;
+            knownIdentifiers = undefined;
         }
         try {
             semantic = analyzeModule(mod.source, {
@@ -191,6 +194,7 @@ export async function lintWorkbook(
                 moduleKind: moduleKindFromType(mod.type),
                 severities,
                 knownProcedures,
+                knownIdentifiers,
                 projectProcedures,
                 projectClassMembers,
             });

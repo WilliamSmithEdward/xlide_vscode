@@ -68,6 +68,23 @@
       "diagnosticKind": "style-policy"
     },
     {
+      "code": "undeclared-variable",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus Excel/VBE compile oracle",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "option_explicit_undeclared_assignment_compile",
+        "implicit_variant_assignment_without_option_explicit_compile",
+        "option_explicit_declared_assignment_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "syntax_corpus/excel_vba_linting_final_hardening_cases.md"
+      ],
+      "notes": "Active rule covers project-backed bare assignment and Set targets under Option Explicit. Broader read references and indexed targets remain deferred until the expression binder has enough built-in constant/global coverage to avoid false positives.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "invalid-proc-header",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3.1",
