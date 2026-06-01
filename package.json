@@ -221,7 +221,7 @@
         },
         {
           "command": "xlide.findReferences",
-          "when": "view == xlide.explorer && viewItem == sub",
+          "when": "view == xlide.explorer && viewItem =~ /^(sub|module-class)$/",
           "group": "1_navigate@1"
         },
         {

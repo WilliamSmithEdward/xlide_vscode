@@ -128,6 +128,10 @@ export interface VbaProjectTypeName {
 	kind: VbaProjectTypeKind;
 	/** Module where the type name is declared or represented. */
 	moduleName: string;
+	/** Span of the type identifier, or the module start for object modules. */
+	nameSpan?: Span;
+	/** Full declaration span, or the module span for object modules. */
+	fullSpan?: Span;
 	/** Visibility on Type/Enum declarations when present. */
 	visibility?: SymbolVisibility;
 	/** Inline `'''` documentation attached to the type/module declaration. */

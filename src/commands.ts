@@ -287,6 +287,17 @@ export function registerCommands(
         return filePath;
     }
 
+    async function showClassModuleReferences(node: XlideNode): Promise<void> {
+        if (!node.moduleName || !node.filePath || node.isRemote) { return; }
+        const originUri = encodeModuleUri(node.filePath, node.moduleName);
+        const originDoc = await vscode.workspace.openTextDocument(originUri);
+        await vscode.languages.setTextDocumentLanguage(originDoc, 'vba');
+        const editor = await vscode.window.showTextDocument(originDoc, { preview: false });
+        const origin = new vscode.Position(0, 0);
+        editor.selection = new vscode.Selection(origin, origin);
+        await vscode.commands.executeCommand('references-view.findReferences', originUri, origin);
+    }
+
     return [
         vscode.commands.registerCommand('xlide.refreshExplorer', () => {
             explorer.refresh();
@@ -317,9 +328,14 @@ export function registerCommands(
             await vscode.languages.setTextDocumentLanguage(doc, 'vba');
         }),
 
-        // Find all references to the procedure represented by a tree node
+        // Find all references to the procedure or class represented by a tree node
         vscode.commands.registerCommand('xlide.findReferences', async (node: XlideNode) => {
-            if (!node?.moduleName || node.kind !== 'sub') { return; }
+            if (!node?.moduleName) { return; }
+            if (node.kind === 'module' && node.moduleType === 'class') {
+                await showClassModuleReferences(node);
+                return;
+            }
+            if (node.kind !== 'sub') { return; }
             const uri = node.isRemote && node.remoteId
                 ? encodeRemoteModuleUri(node.remoteId, node.moduleName)
                 : encodeModuleUri(node.filePath, node.moduleName);

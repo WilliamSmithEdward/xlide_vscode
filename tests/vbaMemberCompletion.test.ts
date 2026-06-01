@@ -572,6 +572,39 @@ describe('member completion - workbook classes', () => {
 		expect(def ? person.slice(def.nameSpan.start, def.nameSpan.end) : '').toBe('Save');
 	});
 
+	it('keeps same-named project class member definitions tied to the receiver type', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: 'Public Property Get FirstName() As String\nEnd Property\n',
+		});
+		index.setModule({
+			moduleName: 'Class1',
+			moduleKind: 'class',
+			source: 'Public Property Get FirstName() As String\nEnd Property\n',
+		});
+		const src = [
+			'Sub Test()',
+			'    Dim p As Person',
+			'    Dim c As Class1',
+			'    p.First',
+			'    c.First',
+			'End Sub',
+		].join('\n');
+		const projectClassMembers = index.projectClassMembers();
+
+		const personFirst = resolveMemberCompletions(src, dotOffset(src, 'p.First'), {
+			projectClassMembers,
+		}).find((member) => member.name === 'FirstName');
+		const classFirst = resolveMemberCompletions(src, dotOffset(src, 'c.First'), {
+			projectClassMembers,
+		}).find((member) => member.name === 'FirstName');
+
+		expect(personFirst?.definitions?.map((definition) => definition.moduleName)).toEqual(['Person']);
+		expect(classFirst?.definitions?.map((definition) => definition.moduleName)).toEqual(['Class1']);
+	});
+
 	it('chains through project class members that return a project class', () => {
 		const src = 'Sub Test()\n    Dim p As Person\n    p.Manager.\nEnd Sub\n';
 		const got = names(src, 'p.Manager.', { projectClassMembers });

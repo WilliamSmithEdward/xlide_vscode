@@ -443,6 +443,8 @@ export class ProjectIndex {
 					name: mod.moduleName,
 					kind: moduleTypeKind,
 					moduleName: mod.moduleName,
+					nameSpan: mod.root.nameSpan,
+					fullSpan: mod.root.fullSpan,
 					doc: mod.root.doc,
 				});
 			}
@@ -459,12 +461,26 @@ export class ProjectIndex {
 					name: symbol.name,
 					kind,
 					moduleName: mod.moduleName,
+					nameSpan: symbol.nameSpan,
+					fullSpan: symbol.fullSpan,
 					visibility: symbol.visibility,
 					doc: symbol.doc,
 				});
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * Source-backed type-name definitions visible from `moduleName`. Object-module
+	 * class/document/UserForm names resolve to the top of their module; Type/Enum
+	 * declarations resolve to the declaration identifier.
+	 */
+	resolveTypeDefinitions(moduleName: string, name: string): VbaProjectTypeName[] {
+		const lower = name.toLowerCase();
+		return this.visibleTypeNames(moduleName).filter(
+			(typeName) => typeName.name.toLowerCase() === lower,
+		);
 	}
 
 	/**

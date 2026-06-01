@@ -641,6 +641,41 @@ describe('ProjectIndex visible type names', () => {
 		expect(byName.get('Person')?.doc?.summary).toBe('Represents a person.');
 		expect(byName.get('Status')?.doc?.summary).toBe('Shared status values.');
 	});
+
+	it('resolves source locations for visible project type names', () => {
+		const index = new ProjectIndex();
+		const typeSource = [
+			'Public Type Status',
+			'    Value As Long',
+			'End Type',
+		].join('\n');
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: 'Option Explicit\n',
+		});
+		index.setModule({
+			moduleName: 'Types',
+			moduleKind: 'standard',
+			source: typeSource,
+		});
+		index.setModule({
+			moduleName: 'Consumer',
+			moduleKind: 'standard',
+			source: '',
+		});
+
+		const person = index.resolveTypeDefinitions('Consumer', 'Person');
+		expect(person).toHaveLength(1);
+		expect(person[0].moduleName).toBe('Person');
+		expect(person[0].nameSpan).toEqual({ start: 0, end: 0 });
+
+		const status = index.resolveTypeDefinitions('Consumer', 'Status');
+		expect(status).toHaveLength(1);
+		expect(status[0].moduleName).toBe('Types');
+		expect(status[0].nameSpan).toBeDefined();
+		expect(typeSource.slice(status[0].nameSpan!.start, status[0].nameSpan!.end)).toBe('Status');
+	});
 });
 
 describe('ProjectIndex project class members', () => {

@@ -312,16 +312,17 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | Provider | Behavior |
 |---|---|
 | `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
-| `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder before falling back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations) |
-| `ReferenceProvider` | Computes the identifier's binding scope (`ProjectIndex.referenceScope`), then runs a word-boundary search (skipping strings/comments) restricted to that scope — a procedure-local stays in its procedure, a `Private` member in its module, an exported symbol across the project minus privately-shadowing modules/locals; honors VS Code's include-declaration toggle |
+| `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations) |
+| `ReferenceProvider` | Uses semantic binding before textual search: source-backed `object.Member` references are matched by their resolved class-member definition spans, project type-name tokens are matched through `resolveTypeDefinitions`, and ordinary identifiers still use `ProjectIndex.referenceScope` plus word-boundary search restricted to the binding scope; honors VS Code's include-declaration toggle |
 | `RenameProvider` | Uses the same `referenceScope` to rewrite only the in-scope occurrences; `prepareRename`/`provideRenameEdits` refuse identifiers that do not resolve to a known declaration; VS Code applies the `WorkspaceEdit` and Ctrl+S persists each module through the virtual filesystem |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
 | Smart enter (auto-block) | Pressing Enter after a `Sub`/`Function`/`Property` header auto-inserts the matching `End ...` below and leaves the caret on the indented body line |
 
 The `DefinitionProvider`, `ReferenceProvider`, and `RenameProvider` build a fresh
 `ProjectIndex` (`src/analyzer/symbols/projectIndex.ts`) from the cached module
-sources on each query; offset-based symbol spans are converted to editor ranges
-in `vbaLanguageProviders.ts`. `VbaSymbolIndex` still backs the
+sources on each query, with the live editor text overlaid for the current
+module. Offset-based symbol spans are converted to editor ranges in the shared
+`vbaNavigation.ts` helpers and provider wiring. `VbaSymbolIndex` still backs the
 `DocumentSymbolProvider` outline and the workbook-scoped source cache.
 
 **Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
@@ -772,7 +773,9 @@ single module:
   globals/types/enums and enum members, plus document/UserForm code names for
   Option Explicit diagnostics),
   `visibleTypeNames` (class/document/UserForm module names plus visible
-  `Type`/`Enum` declarations for future `As` binding), `projectClassMembers`
+  `Type`/`Enum` declarations for `As`/`New` binding), `resolveTypeDefinitions`
+  (visible project type-name definitions with object modules resolving to the
+  module start), `projectClassMembers`
   (source-backed member surfaces with signatures, docs, definition spans,
   module-level `Implements` names, and default-member facts from
   `VB_UserMemId = 0` attributes), and
@@ -840,7 +843,7 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaLanguageProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
+| New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaLanguageProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
 | New active diagnostic rule | `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (rule + MS-VBAL `specReference`), `tests/vbaDiagnostics.test.ts`, `src/vbaLanguageProviders.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
