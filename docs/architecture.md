@@ -608,8 +608,10 @@ Diagnostic severity policy:
   an unmatched `)` - parentheses inside strings/comments/date-literals and
   `[bracketed]` names are distinct token kinds so they never miscount.
   `checkArgumentCount` powers `argument-count`: it validates call statements
-  and expression calls against same-module and unique exported project
-  signatures, and validates valid parenthesized object member-call contexts when
+  and expression calls against same-module, unique exported project, and
+  verified runtime signatures with explicit parameter lists (for example
+  `MsgBox()` is flagged because `Prompt` is required), and validates valid
+  parenthesized object member-call contexts when
   the shared member-completion binder resolves a known source-backed or
   host/reference signature such as `Set wb = Workbooks.Open(...)`, explicit
   `Call` statements, or `Range(Cell1, [Cell2])`; current class

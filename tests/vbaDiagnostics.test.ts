@@ -737,6 +737,23 @@ describe('analyzeModule - argument count', () => {
 		expect(hits[0].message).toContain('got 0');
 	});
 
+	it('flags a runtime function call that omits required arguments', () => {
+		const src = 'Sub Main()\n    MsgBox()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('MsgBox');
+		expect(hits[0].message).toContain('expected between 1 and 5 arguments');
+		expect(hits[0].message).toContain('got 0');
+	});
+
+	it('flags a parenless runtime function statement that omits required arguments', () => {
+		const src = 'Sub Main()\n    MsgBox\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('MsgBox');
+		expect(hits[0].message).toContain('got 0');
+	});
+
 	it('validates an explicit Call statement', () => {
 		const src =
 			'Sub Main()\n' +
@@ -837,6 +854,11 @@ describe('analyzeModule - argument count', () => {
 			'    SomethingElse 1, 2, 3\n' +
 			'    MsgBox "hi", vbOKOnly, "title", 0, 0\n' +
 			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('does not arity-check runtime statements whose curated signature has no parameter list', () => {
+		const src = 'Sub Main()\n    Randomize 1\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 

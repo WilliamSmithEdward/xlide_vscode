@@ -227,7 +227,7 @@ family) in `registerVbaDiagnostics`.
 | `unknown-call` | Call statement whose callee is a bare (non-member) identifier - lone identifier, parenless args (`MsgBox "hi"`), or `Call Foo` - that resolves to no project procedure, runtime function, host global, `Application` member, or in-scope name | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `invalid-proc-header` | A `Sub`/`Function`/`Property` header where a token other than `(` (or `As` for a `Function`/`Property Get`) follows the procedure name (e.g. `Sub My Sub`) | 5.3.1 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `unbalanced-parens` | A `(` left open at a statement boundary, or a `)` with no matching `(`, within one logical statement | 3.3.1 (special tokens) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
-| `argument-count` | A call statement to a same-module, unique exported project, or module-qualified exported standard-module Sub/Function supplies too few/too many arguments (Optional/ParamArray aware), a named argument names no parameter, or a valid parenthesized source-backed/host member-call context violates a known member signature | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `argument-count` | A call statement to a same-module, unique exported project, module-qualified exported standard-module Sub/Function, or verified runtime function with an explicit parameter-list signature supplies too few/too many arguments (Optional/ParamArray aware), a named argument names no parameter, or a valid parenthesized source-backed/host member-call context violates a known member signature | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `argument-type-mismatch` | A same-module, unique exported project, module-qualified exported standard-module, curated runtime, or known source-backed/host member call receives an argument whose inferred type is a provable deterministic runtime type error; focused oracle cases compile successfully but runtime probes raise error 13 for nonnumeric string-to-numeric coercion while numeric-string controls run | 5.3.1 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `argument-object-type-mismatch` | A same-module, curated runtime, source-backed member, or host/reference member call receives a scalar argument where an object parameter is required; error severity because a focused VBE oracle case rejects it at compile time | 5.3.1 | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `assignment-type-mismatch` | A scalar assignment, including a source-backed writable workbook class property or public field, receives a value whose inferred type is a provable deterministic runtime type error; focused oracle cases compile successfully but runtime probes raise error 13 for nonnumeric string-to-numeric/Boolean/property/public-field coercion while valid coercion controls run | 5.4.3 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
@@ -258,10 +258,11 @@ unambiguous call forms - a lone identifier, a parenless call with arguments
 (assignment) are excluded. Empty-parentheses standalone member/property calls
 without `Call` are handled first by `call-statement-forbids-parens`.
 Argument-count validation (`argument-count`) is likewise limited to
-same-module and deterministic project signature calls plus valid
-parenthesized member-call contexts whose source/host metadata provides a known
-signature: ambiguous bare exported project names stay silent, while
-module-qualified standard-module calls resolve through the named module only.
+same-module, deterministic project signature calls, verified runtime signatures
+with explicit parameter lists, and valid parenthesized member-call contexts
+whose source/host metadata provides a known signature: ambiguous bare exported
+project names stay silent, while module-qualified standard-module calls resolve
+through the named module only.
 Argument and assignment type diagnostics ship only where the local expression
 model can infer both sides deterministically and the behavior is backed by
 compile/runtime oracle evidence; broad object/member type checking beyond known

@@ -101,6 +101,10 @@ heuristic diagnostics.
   call contexts such as `Set wb = Workbooks.Open(...)`, explicit `Call`
   statements, and non-empty statement forms like
   `ActiveSheet.Range("A1")`.
+- Verified runtime signatures with explicit parameter lists now feed
+  `argument-count` too, so calls such as `MsgBox()` are flagged for omitting the
+  required `Prompt` while unparenthesized runtime statement signatures remain
+  outside arity diagnostics until they have structured metadata.
 - Source-backed workbook class member resolution now feeds go-to-definition for
   `object.Member` and current-object `Me.Member` references.
 - `unknown-call` now consumes current-module-visible procedure names, so a

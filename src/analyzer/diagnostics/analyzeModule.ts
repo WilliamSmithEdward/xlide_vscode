@@ -1161,6 +1161,14 @@ function validateCallableArity(
 	const projectSignature = projectSignatures.get(lower);
 	if (projectSignature) {
 		validateArity(projectSignature, call, push);
+		return;
+	}
+	if (!call.qualifier) {
+		const runtime = resolveRuntimeFunction(call.name);
+		const runtimeSignature = runtime ? runtimeAritySignature(runtime) : undefined;
+		if (runtimeSignature) {
+			validateArity(runtimeSignature, call, push);
+		}
 	}
 }
 
@@ -2119,6 +2127,13 @@ function runtimeTypeSignature(runtime: VbaRuntimeFunction): CallableTypeSignatur
 		};
 	}
 	return parseRuntimeDisplaySignature(runtime.name, runtime.signature, runtime.returns);
+}
+
+function runtimeAritySignature(runtime: VbaRuntimeFunction): CallableTypeSignature | undefined {
+	if (runtime.params || runtimeSignatureParameterText(runtime.signature) !== undefined) {
+		return runtimeTypeSignature(runtime);
+	}
+	return undefined;
 }
 
 function parseRuntimeDisplaySignature(
