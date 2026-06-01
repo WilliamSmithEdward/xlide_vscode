@@ -47,10 +47,16 @@ export function resolveDiagnosticCodeActions(
 			return callRequiresParensActions(source, diagnostic.span);
 		case 'call-statement-forbids-parens':
 			return callStatementForbidsParensActions(source, diagnostic.span);
+		case 'expression-call-requires-parens':
+			return expressionCallRequiresParensActions(source, diagnostic.span);
 		case 'invalid-explicit-call-target':
 			return invalidExplicitCallTargetActions(source, diagnostic.span);
 		case 'option-explicit-missing':
 			return optionExplicitMissingActions(source);
+		case 'set-required':
+			return setRequiredActions(source, diagnostic.span);
+		case 'set-requires-object':
+			return setRequiresObjectActions(source, diagnostic.span);
 		default:
 			return [];
 	}
@@ -80,6 +86,40 @@ function callRequiresParensActions(
 	}
 	return [{
 		title: 'Add parentheses to Call argument list',
+		kind: 'quickfix',
+		isPreferred: true,
+		edits: [
+			{ span: { start: calleeEnd, end: argStart }, newText: '(' },
+			{ span: { start: argEnd, end: argEnd }, newText: ')' },
+		],
+	}];
+}
+
+function expressionCallRequiresParensActions(
+	source: string,
+	span: Span,
+): VbaDiagnosticCodeAction[] {
+	const line = physicalLineSpan(source, span.start);
+	const toks = tokenize(source.slice(line.start, line.end));
+	const calleeIdx = tokenIndexAtAbsoluteStart(toks, line, span.start);
+	if (calleeIdx < 1 || toks[calleeIdx - 1].rawText !== '=') {
+		return [];
+	}
+	const arg = toks[calleeIdx + 1];
+	if (!arg || arg.kind === 'comment') {
+		return [];
+	}
+	const calleeEnd = line.start + toks[calleeIdx].end;
+	const argStart = line.start + arg.start;
+	if (!/^[ \t]+$/.test(source.slice(calleeEnd, argStart))) {
+		return [];
+	}
+	const argEnd = callArgumentListEnd(source, line, toks, calleeIdx + 1);
+	if (argEnd === undefined || argEnd <= argStart) {
+		return [];
+	}
+	return [{
+		title: 'Add parentheses to function call arguments',
 		kind: 'quickfix',
 		isPreferred: true,
 		edits: [
@@ -142,6 +182,57 @@ function invalidExplicitCallTargetActions(
 	}];
 }
 
+function setRequiredActions(
+	source: string,
+	span: Span,
+): VbaDiagnosticCodeAction[] {
+	const line = physicalLineSpan(source, span.start);
+	const statementStart = firstNonWhitespaceOffset(source, line);
+	if (statementStart === undefined || source.slice(statementStart, span.start).includes(':')) {
+		return [];
+	}
+	const letPrefix = /^Let[ \t]+/i.exec(source.slice(statementStart, span.start));
+	const edit = letPrefix
+		? {
+			span: { start: statementStart, end: statementStart + letPrefix[0].length },
+			newText: 'Set ',
+		}
+		: {
+			span: { start: statementStart, end: statementStart },
+			newText: 'Set ',
+		};
+	return [{
+		title: letPrefix ? 'Replace Let with Set' : 'Add Set to object assignment',
+		kind: 'quickfix',
+		isPreferred: true,
+		edits: [edit],
+	}];
+}
+
+function setRequiresObjectActions(
+	source: string,
+	span: Span,
+): VbaDiagnosticCodeAction[] {
+	const line = physicalLineSpan(source, span.start);
+	const statementStart = firstNonWhitespaceOffset(source, line);
+	if (statementStart === undefined || source.slice(statementStart, span.start).includes(':')) {
+		return [];
+	}
+	const setPrefix = /^Set[ \t]+/i.exec(source.slice(statementStart, span.start));
+	if (!setPrefix) {
+		return [];
+	}
+	return [{
+		title: 'Remove Set from scalar assignment',
+		kind: 'quickfix',
+		isPreferred: true,
+		edits: [{
+			span: { start: statementStart, end: statementStart + setPrefix[0].length },
+			newText: '',
+		}],
+	}];
+}
+
 function optionExplicitMissingActions(source: string): VbaDiagnosticCodeAction[] {
 	if (/\bOption\s+Explicit\b/i.test(source)) {
 		return [];
@@ -193,6 +284,14 @@ function callArgumentListEnd(
 	return end;
 }
 
+function tokenIndexAtAbsoluteStart(
+	toks: ReturnType<typeof tokenize>,
+	line: Span,
+	start: number,
+): number {
+	return toks.findIndex((tok) => line.start + tok.start === start);
+}
+
 function optionExplicitInsertOffset(source: string): number {
 	let offset = source.charCodeAt(0) === 0xfeff ? 1 : 0;
 	while (offset < source.length) {
@@ -215,6 +314,14 @@ function physicalLineSpan(source: string, offset: number): Span {
 		end++;
 	}
 	return { start, end };
+}
+
+function firstNonWhitespaceOffset(source: string, line: Span): number | undefined {
+	let offset = line.start;
+	while (offset < line.end && (source[offset] === ' ' || source[offset] === '\t')) {
+		offset++;
+	}
+	return offset < line.end ? offset : undefined;
 }
 
 function readPhysicalLine(

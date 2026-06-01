@@ -874,11 +874,13 @@ prove the edit is safe.
 - [ ] Add deterministic quick fixes for:
   - [x] add missing `Option Explicit`
   - [x] insert required `Call` parentheses
+  - [x] add expression-call parentheses when a parenless function call is the
+    whole assignment RHS
   - [x] remove invalid empty parentheses from standalone zero-argument calls
   - [x] rewrite runtime calls such as `Call DoEvents()` to bare statement syntax
   - [ ] add missing block closer
-  - [ ] add `Set` when the assignment target is known object type
-  - [ ] remove `Set` when the assignment target is known scalar type
+  - [x] add `Set` when the assignment target is known object type
+  - [x] remove `Set` when the assignment target is known scalar type
   - [ ] add missing required argument placeholder only when explicitly requested
   - [ ] add lint suppression comment for a selected diagnostic
   - [ ] create procedure stub for unresolved calls only when the target location is

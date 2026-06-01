@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	analyzeModule,
+	ProjectIndex,
 	resolveDiagnosticCodeActions,
+	type AnalyzeModuleOptions,
 	type VbaDiagnostic,
 	type VbaTextEdit,
 } from '../src/analyzer';
@@ -10,8 +12,12 @@ function byCode(diags: readonly VbaDiagnostic[], code: string): VbaDiagnostic[] 
 	return diags.filter((diag) => diag.code === code);
 }
 
-function firstDiagnostic(source: string, code: string): VbaDiagnostic {
-	const diag = byCode(analyzeModule(source), code)[0];
+function firstDiagnostic(
+	source: string,
+	code: string,
+	opts?: AnalyzeModuleOptions,
+): VbaDiagnostic {
+	const diag = byCode(analyzeModule(source, opts), code)[0];
 	expect(diag).toBeTruthy();
 	return diag;
 }
@@ -24,6 +30,24 @@ function applyEdits(source: string, edits: readonly VbaTextEdit[]): string {
 				next.slice(0, edit.span.start) + edit.newText + next.slice(edit.span.end),
 			source,
 		);
+}
+
+function projectClassMembers(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+): ReturnType<ProjectIndex['projectClassMembers']> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.projectClassMembers();
 }
 
 describe('resolveDiagnosticCodeActions', () => {
@@ -110,6 +134,145 @@ describe('resolveDiagnosticCodeActions', () => {
 		expect(actions).toHaveLength(1);
 		expect(applyEdits(source, actions[0].edits)).toBe(
 			"Sub T()\n    DoEvents ' keep pumping messages\nEnd Sub\n",
+		);
+	});
+
+	it('adds parentheses to a parenless function call used as an assignment expression', () => {
+		const source =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = InvoiceTotal 100, 0.08\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'expression-call-requires-parens');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe('Add parentheses to function call arguments');
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'    total = InvoiceTotal(100, 0.08)\n',
+		);
+	});
+
+	it('does not wrap a parenless expression call when the argument boundary is ambiguous', () => {
+		const source = 'Sub T()\n    total = 1 + InvoiceTotal 100, 0.08\nEnd Sub\n';
+		const start = source.indexOf('InvoiceTotal');
+		const actions = resolveDiagnosticCodeActions(source, {
+			code: 'expression-call-requires-parens',
+			span: { start, end: start + 'InvoiceTotal'.length },
+		});
+
+		expect(actions).toHaveLength(0);
+	});
+
+	it('adds Set to a proven object assignment', () => {
+		const source =
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    ws = ActiveSheet\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'set-required');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe('Add Set to object assignment');
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Set ws = ActiveSheet\n' +
+			'End Sub\n',
+		);
+	});
+
+	it('replaces Let with Set for a proven object assignment', () => {
+		const source =
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Let ws = ActiveSheet\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'set-required');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe('Replace Let with Set');
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Set ws = ActiveSheet\n' +
+			'End Sub\n',
+		);
+	});
+
+	it('removes Set from a proven scalar assignment', () => {
+		const source =
+			'Public Sub T()\n' +
+			'    Dim count As Integer\n' +
+			'    Set count = 2\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'set-requires-object');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe('Remove Set from scalar assignment');
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Public Sub T()\n' +
+			'    Dim count As Integer\n' +
+			'    count = 2\n' +
+			'End Sub\n',
+		);
+	});
+
+	it('adds Set to a proven object-valued member assignment', () => {
+		const source =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Child = New Person\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'set-required', {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: 'Public Child As Person\n' },
+			]),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    Set p.Child = New Person\n' +
+			'End Sub\n',
+		);
+	});
+
+	it('removes Set from a proven scalar member assignment', () => {
+		const source =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    Set p.Age = 2\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'set-requires-object', {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: 'Public Age As Integer\n' },
+			]),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = 2\n' +
+			'End Sub\n',
 		);
 	});
 
