@@ -460,7 +460,10 @@ into a pure analyzer layer and a thin VS Code provider:
   project-defined types — user `Type`s/`Enum`s in the current module, public
   (non-`Private`) `Type`s/`Enum`s read from the workbook's other modules (via the
   bridge `readModule` call, cached per workbook with a short TTL), plus
-  class/document/UserForm module names from the workbook. When the cursor is on a bare
+  class/document/UserForm module names from the workbook. Project-defined type
+  candidates carry inline `'''` docs from `Type`/`Enum` declarations and from
+  object-module header docs, so `As Person` and `New Person` completion/hover
+  can show the same documentation model as member surfaces. When the cursor is on a bare
   identifier (statement/expression position, not after `.` or `As`) it offers
   identifier completions via `src/analyzer/completion/identifierCompletion.ts`
   (`resolveIdentifierCompletions`): host-injected globals (`ThisWorkbook`,
@@ -539,8 +542,12 @@ Markdown renderers; `docComment.ts` parses inline blocks (and the shared XML
 body); `externalDoc.ts` parses metadata files; `docRegistry.ts` resolves a name
 (with optional qualifier) to a `VbaDoc`. Inline docs are attached to symbols in
 `buildModuleSymbols.ts` (a backward scan over contiguous `'''` lines above each
-member), including class-module properties and methods; the project
-class-member surface carries those docs into `object.` completion, member hover,
+member), including class-module properties and methods. Because VBA has no
+source-level class declaration line, object-module docs use a documented header
+convention: a contiguous `'''` block immediately above the first `Option`
+directive attaches to the module root. `ProjectIndex.visibleTypeNames()` carries
+module/type docs into type-name completion and hover, while the project
+class-member surface carries member docs into `object.` completion, member hover,
 and source-backed member-call signature help. Generated host reference metadata
 also carries `VbaDoc` summaries and parameter notes into completion, hover, and
 host member-call signature help. Hover (`resolveHover`) and signature help

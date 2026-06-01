@@ -14,6 +14,7 @@ import type {
 	BodyNode,
 	EnumNode,
 	ModuleNode,
+	ModuleMember,
 	ProcedureNode,
 	ProcKind,
 	Span,
@@ -22,6 +23,7 @@ import type {
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { extractLeadingDoc } from '../docs/docComment';
+import type { VbaDoc } from '../docs/docModel';
 import type {
 	ModuleSymbolKind,
 	ModuleSymbols,
@@ -113,6 +115,17 @@ function attachMemberAttributes(
 			symbol.attributes = [...(symbol.attributes ?? []), attr];
 		}
 	}
+}
+
+function extractModuleDoc(source: string, module: ModuleNode): VbaDoc | undefined {
+	const firstNonAttribute = module.members.find(
+		(member): member is Exclude<ModuleMember, AttributeNode> => member.kind !== 'Attribute',
+	);
+	// VBA has no source-level `Class Person` declaration. XLIDE treats a `'''`
+	// block directly above the first Option directive as module/class docs.
+	return firstNonAttribute?.kind === 'Option'
+		? extractLeadingDoc(source, firstNonAttribute.span.start)
+		: undefined;
 }
 
 /**
@@ -393,6 +406,7 @@ export function buildModuleSymbols(
 		fullSpan: module.span,
 		moduleName,
 		children: rootChildren,
+		doc: extractModuleDoc(source, module),
 		attributes: moduleAttributes,
 	};
 

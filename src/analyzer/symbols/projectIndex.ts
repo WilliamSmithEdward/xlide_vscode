@@ -418,6 +418,7 @@ export class ProjectIndex {
 					name: mod.moduleName,
 					kind: moduleTypeKind,
 					moduleName: mod.moduleName,
+					doc: mod.root.doc,
 				});
 			}
 
@@ -434,6 +435,7 @@ export class ProjectIndex {
 					kind,
 					moduleName: mod.moduleName,
 					visibility: symbol.visibility,
+					doc: symbol.doc,
 				});
 			}
 		}
@@ -461,6 +463,7 @@ export class ProjectIndex {
 				name: mod.moduleName,
 				kind,
 				moduleName: mod.moduleName,
+				doc: mod.root.doc,
 				exhaustive: kind === 'class',
 				members,
 			});

@@ -130,6 +130,8 @@ export interface VbaProjectTypeName {
 	moduleName: string;
 	/** Visibility on Type/Enum declarations when present. */
 	visibility?: SymbolVisibility;
+	/** Inline `'''` documentation attached to the type/module declaration. */
+	doc?: VbaDoc;
 }
 
 /** Source declaration location for a project object member. */
@@ -170,6 +172,8 @@ export interface VbaProjectClassMembers {
 	name: string;
 	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform'>;
 	moduleName: string;
+	/** Inline `'''` documentation attached to the object module header. */
+	doc?: VbaDoc;
 	/**
 	 * True when the member list is complete enough to prove absence. Plain class
 	 * modules are source-exhaustive; document modules and UserForms also expose

@@ -424,11 +424,25 @@ class VbaMemberCompletionProvider
 	): Promise<TypeCompletionContext> {
 		const projectTypes: ProjectTypeName[] = [];
 		const seen = new Set<string>();
-		const push = (name: string, kind: ProjectTypeName['kind']): void => {
+		const push = (
+			name: string,
+			kind: ProjectTypeName['kind'],
+			doc?: ProjectTypeName['doc'],
+		): void => {
 			const key = name.toLowerCase();
-			if (name && !seen.has(key)) {
+			if (!name) {
+				return;
+			}
+			if (!seen.has(key)) {
 				seen.add(key);
-				projectTypes.push({ name, kind });
+				projectTypes.push({ name, kind, doc });
+				return;
+			}
+			if (doc) {
+				const existing = projectTypes.find((item) => item.name.toLowerCase() === key);
+				if (existing && !existing.doc) {
+					existing.doc = doc;
+				}
 			}
 		};
 
@@ -455,7 +469,7 @@ class VbaMemberCompletionProvider
 					currentName.toLowerCase(),
 				);
 				for (const t of crossModule) {
-					push(t.name, t.kind);
+					push(t.name, t.kind, t.doc);
 				}
 			} catch {
 				// Fall back to a primitives + host-types only context.
@@ -466,11 +480,14 @@ class VbaMemberCompletionProvider
 		// Read live from the editor so unsaved declarations are offered too.
 		try {
 			const mod = buildModuleSymbols(currentName, currentKind, source);
+			if (currentKind === 'class' || currentKind === 'document' || currentKind === 'userform') {
+				push(currentName, currentKind, mod.root.doc);
+			}
 			for (const child of mod.root.children ?? []) {
 				if (child.kind === 'type') {
-					push(child.name, 'userType');
+					push(child.name, 'userType', child.doc);
 				} else if (child.kind === 'enum') {
-					push(child.name, 'enum');
+					push(child.name, 'enum', child.doc);
 				}
 			}
 		} catch {
@@ -481,9 +498,10 @@ class VbaMemberCompletionProvider
 	}
 
 	/**
-	 * Collects Public (non-`Private`) `Type` and `Enum` names declared across the
-	 * workbook's modules, excluding the current module (handled live). Reads each
-	 * module's saved source via the bridge and caches the result per workbook.
+	 * Collects workbook object-module docs plus Public (non-`Private`) `Type`
+	 * and `Enum` names declared across the workbook's modules, excluding the
+	 * current module (handled live). Reads each module's source via the live
+	 * editor/bridge path and caches the result per workbook.
 	 */
 	private async _loadCrossModuleTypes(
 		xlsmPath: string,
@@ -501,30 +519,24 @@ class VbaMemberCompletionProvider
 			if (entry.name.toLowerCase() === currentLower) {
 				continue; // Current module is resolved from the live document.
 			}
-			let source: string;
-			try {
-				const res = await this._bridge.call<{ source: string }>('readModule', {
-					path: xlsmPath,
-					module: entry.name,
-				});
-				source = res.source;
-			} catch {
+			const source = await this._moduleSource(xlsmPath, entry);
+			if (source === undefined) {
 				continue; // Skip modules we cannot read.
 			}
 			try {
-				const mod = buildModuleSymbols(
-					entry.name,
-					this._moduleKind(entry.type),
-					source,
-				);
+				const kind = this._moduleKind(entry.type);
+				const mod = buildModuleSymbols(entry.name, kind, source);
+				if (kind === 'class' || kind === 'document' || kind === 'userform') {
+					types.push({ name: entry.name, kind, doc: mod.root.doc });
+				}
 				for (const child of mod.root.children ?? []) {
 					if (child.visibility === 'Private') {
 						continue;
 					}
 					if (child.kind === 'type') {
-						types.push({ name: child.name, kind: 'userType' });
+						types.push({ name: child.name, kind: 'userType', doc: child.doc });
 					} else if (child.kind === 'enum') {
-						types.push({ name: child.name, kind: 'enum' });
+						types.push({ name: child.name, kind: 'enum', doc: child.doc });
 					}
 				}
 			} catch {
@@ -640,6 +652,9 @@ class VbaMemberCompletionProvider
 	private _toTypeItem(t: TypeCompletion, range: vscode.Range): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(t.name, this._typeItemKind(t));
 		item.detail = t.detail;
+		if (t.documentation) {
+			item.documentation = new vscode.MarkdownString(t.documentation);
+		}
 		this._applyCompletionInsert(item, t.name, range, false);
 		return item;
 	}

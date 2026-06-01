@@ -207,7 +207,7 @@ describe('hover - type names', () => {
 			'End Sub\n';
 		const person = resolveHover(src, src.indexOf('Person') + 2, {
 			moduleName: 'M',
-			projectTypes: [{ name: 'Person', kind: 'class', moduleName: 'Person' }],
+			projectTypes: [{ name: 'Person', kind: 'class' }],
 		});
 		expect(person?.signature).toBe('Class Person');
 		expect(person?.details).toContain('Class');
@@ -219,13 +219,33 @@ describe('hover - type names', () => {
 		expect(worksheet?.details).toContain('Excel host type');
 	});
 
+	it('shows documentation for documented project type names', () => {
+		const src = 'Sub T()\n    Set p = New Person\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('Person') + 2, {
+			moduleName: 'M',
+			projectTypes: [
+				{
+					name: 'Person',
+					kind: 'class',
+					doc: {
+						summary: 'Represents a person.',
+						params: [],
+						source: 'inline',
+					},
+				},
+			],
+		});
+		expect(info?.signature).toBe('Class Person');
+		expect(info?.documentation).toContain('Represents a person.');
+	});
+
 	it('keeps colliding project type hovers generic', () => {
 		const src = 'Sub T()\n    Dim state As Status\nEnd Sub\n';
 		const info = resolveHover(src, src.indexOf('Status') + 2, {
 			moduleName: 'M',
 			projectTypes: [
-				{ name: 'Status', kind: 'class', moduleName: 'StatusClass' },
-				{ name: 'Status', kind: 'enum', moduleName: 'SharedTypes' },
+				{ name: 'Status', kind: 'class' },
+				{ name: 'Status', kind: 'enum' },
 			],
 		});
 		expect(info?.signature).toBe('Status');

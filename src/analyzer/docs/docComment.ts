@@ -3,10 +3,12 @@
 // A documentation comment is a run of contiguous lines whose first non-space
 // characters are `'''` (three apostrophes), sitting directly above a procedure,
 // type, enum, Declare, or module-level variable declaration - mirroring the
-// Visual Studio C# `///` convention. The body is a fragment of XML using the
-// tag vocabulary in docModel.ts (<summary>, <param>, <returns>, <remarks>,
-// <example>). Parsing is intentionally lenient (regex-based, no XML dependency)
-// so a partially written or slightly malformed block still yields useful text.
+// Visual Studio C# `///` convention. Object-module docs use the same block above
+// the first Option directive because VBA has no source-level class declaration.
+// The body is a fragment of XML using the tag vocabulary in docModel.ts
+// (<summary>, <param>, <returns>, <remarks>, <example>). Parsing is
+// intentionally lenient (regex-based, no XML dependency) so a partially written
+// or slightly malformed block still yields useful text.
 //
 // Pure analyzer code: no `vscode` dependency. See docs/vba-doc-comments.md.
 

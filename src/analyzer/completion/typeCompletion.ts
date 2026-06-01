@@ -19,6 +19,11 @@ import {
 	type HostObjectModel,
 } from '../host/excelObjectModel';
 import type { VbaProjectTypeKind } from '../symbols/symbolModel';
+import {
+	hasDocContent,
+	renderDocMarkdown,
+	type VbaDoc,
+} from '../docs/docModel';
 
 /** Where a candidate type name comes from (drives the UI icon/grouping). */
 export type TypeCompletionKind =
@@ -37,12 +42,15 @@ export interface TypeCompletion {
 	kind: TypeCompletionKind;
 	/** Short human-readable origin, e.g. "VBA type" or "Excel type". */
 	detail: string;
+	/** Markdown documentation from inline or external metadata, when available. */
+	documentation?: string;
 }
 
 /** A project-defined type the caller knows about (class/document/UserForm, Type, or Enum). */
 export interface ProjectTypeName {
 	name: string;
 	kind: VbaProjectTypeKind;
+	doc?: VbaDoc;
 }
 
 export interface TypeCompletionContext {
@@ -160,7 +168,7 @@ const PROJECT_KIND_DETAIL: Record<VbaProjectTypeKind, string> = {
 };
 
 function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCompletion[] {
-	const grouped = new Map<string, { name: string; kinds: Set<VbaProjectTypeKind> }>();
+	const grouped = new Map<string, { name: string; kinds: Set<VbaProjectTypeKind>; doc?: VbaDoc }>();
 	for (const projectType of projectTypes) {
 		const key = projectType.name.toLowerCase();
 		const group = grouped.get(key) ?? {
@@ -168,6 +176,9 @@ function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCo
 			kinds: new Set<VbaProjectTypeKind>(),
 		};
 		group.kinds.add(projectType.kind);
+		if (!group.doc && hasDocContent(projectType.doc)) {
+			group.doc = projectType.doc;
+		}
 		grouped.set(key, group);
 	}
 	return [...grouped.values()].map((group) => {
@@ -183,6 +194,7 @@ function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCo
 			name: group.name,
 			kind,
 			detail: PROJECT_KIND_DETAIL[kind],
+			documentation: group.doc ? renderDocMarkdown(group.doc) : undefined,
 		};
 	});
 }
@@ -193,18 +205,23 @@ export function typeCompletionCandidates(
 	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
 	const seen = new Set<string>();
 	const out: TypeCompletion[] = [];
-	const add = (name: string, kind: TypeCompletionKind, detail: string): void => {
+	const add = (
+		name: string,
+		kind: TypeCompletionKind,
+		detail: string,
+		documentation?: string,
+	): void => {
 		const key = name.toLowerCase();
 		if (seen.has(key)) {
 			return;
 		}
 		seen.add(key);
-		out.push({ name, kind, detail });
+		out.push({ name, kind, detail, documentation });
 	};
 
 	// 1. Project-defined types take precedence (can shadow a built-in name).
 	for (const t of projectTypeCandidates(ctx.projectTypes ?? [])) {
-		add(t.name, t.kind, t.detail);
+		add(t.name, t.kind, t.detail, t.documentation);
 	}
 	// 2. VBA built-in data types.
 	for (const name of VBA_PRIMITIVE_TYPES) {

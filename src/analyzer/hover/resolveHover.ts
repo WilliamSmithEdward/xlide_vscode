@@ -175,6 +175,7 @@ function buildTypeHover(typeRef: ResolvedTypeReference): HoverInfo {
 		signature,
 		details: [typeDetail(typeRef)],
 		span: typeRef.span,
+		documentation: typeRef.documentation,
 	};
 }
 

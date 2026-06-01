@@ -119,7 +119,9 @@ heuristic diagnostics.
 - Runtime metadata is curated explicitly; parameter types are not inferred from
   parameter names.
 - Inline documentation comments support descriptive metadata plus optional
-  `type`, `unit`, and `value` hints.
+  `type`, `unit`, and `value` hints; object-module/class docs use a single
+  documented module-header convention: a `'''` block directly above the first
+  `Option` directive.
 - Excel/VBE oracle harness exists under `syntax_corpus/oracle/`.
 - The wider unverified type-analysis backlog is tracked in
   `docs/type_analysis_corpus_coverage.md`.
@@ -411,11 +413,12 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   a `defaultMember` fact for `VB_UserMemId = 0`; direct object-expression
   inference remains deferred until an import-capable VBE oracle path can verify
   the runtime/compile behavior.
-- [ ] Define and implement deterministic class/module-level documentation for
+- [x] Define and implement deterministic class/module-level documentation for
   workbook object modules. VBA has no source-level `Class Person` declaration,
-  so XLIDE must use an explicit documented convention such as a module-header
-  `'''` block or external metadata before class-name type completion/hover can
-  claim class-level docs.
+  so XLIDE uses one explicit convention: a module-header `'''` block directly
+  above the first `Option` directive. `ProjectIndex.visibleTypeNames()` and
+  `projectClassMembers()` preserve those docs so class-name type completion and
+  hover show the same documentation as source-backed member surfaces.
 - [x] Add first-class document-module event handler authoring for workbook and
   worksheet document modules. `src/analyzer/completion/eventHandlers.ts`
   scopes the metadata by module type and drives completion/insertions from one

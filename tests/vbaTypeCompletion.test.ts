@@ -164,6 +164,26 @@ describe('project-defined types', () => {
 		expect(byName.get('Customer')?.detail).toBe('Class');
 		expect(byName.get('Color')?.detail).toBe('Enum');
 	});
+
+	it('includes rendered documentation for documented project types', () => {
+		const result = resolveTypeCompletions('Dim x As ', endOf('Dim x As ', 'As '), {
+			projectTypes: [
+				{
+					name: 'Person',
+					kind: 'class',
+					doc: {
+						summary: 'Represents a person.',
+						remarks: 'Stored in the workbook domain model.',
+						params: [],
+						source: 'inline',
+					},
+				},
+			],
+		});
+		const person = result.find((t) => t.name === 'Person');
+		expect(person?.documentation).toContain('Represents a person.');
+		expect(person?.documentation).toContain('Stored in the workbook domain model.');
+	});
 });
 
 describe('verified candidate set', () => {

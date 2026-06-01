@@ -1,10 +1,10 @@
 # XLIDE VBA Documentation Comments and Metadata
 
 XLIDE gives your VBA code Visual-Studio-style IntelliSense documentation. You
-describe a procedure, type, enum, `Declare`, or module-level variable once -
-either with an inline `'''` comment directly above it, or in an external
-metadata file - and that description appears in **hovers** and **call tips**
-(signature help) throughout the project.
+describe a module/class, procedure, type, enum, `Declare`, or module-level
+variable once - either with an inline `'''` comment directly above it, or in an
+external metadata file - and that description appears in **completion details**,
+**hovers**, and **call tips** (signature help) throughout the project.
 
 Both authoring paths share **one XML vocabulary**, so anything you can write
 above a declaration you can also write in a metadata file, and vice versa.
@@ -54,6 +54,21 @@ Rules:
 
 Documentable declarations: `Sub`, `Function`, `Property Get/Let/Set`, `Type`,
 `Enum`, `Declare`, and module-level `Dim`/`Public`/`Private`/`Const` variables.
+
+Object modules do not have a source-level `Class Person` declaration in VBA, so
+XLIDE uses one explicit module-header convention for class/document/UserForm
+docs: put the `'''` block directly above the first `Option` directive.
+
+```vba
+''' <summary>Represents a person in the workbook domain.</summary>
+Option Explicit
+
+Public Property Get Name() As String
+End Property
+```
+
+That summary appears when completing or hovering the project type name, such as
+`Dim p As Person` or `Set p = New Person`.
 
 ---
 

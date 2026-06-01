@@ -142,6 +142,16 @@ describe('buildModuleSymbols', () => {
 		expect(mod.root.kind).toBe('module');
 		expect(mod.root.name).toBe('Sheet1');
 	});
+
+	it('attaches a leading doc block before Option as module documentation', () => {
+		const mod = buildModuleSymbols(
+			'Person',
+			'class',
+			"''' <summary>Represents a person.</summary>\nOption Explicit\nPublic Sub Save()\nEnd Sub\n",
+		);
+		expect(mod.root.doc?.summary).toBe('Represents a person.');
+		expect(mod.root.children?.find((child) => child.name === 'Save')?.doc).toBeUndefined();
+	});
 });
 
 describe('ProjectIndex document and workspace symbols', () => {
@@ -608,6 +618,29 @@ describe('ProjectIndex visible type names', () => {
 		expect(duplicates).toHaveLength(2);
 		expect(duplicates.map((t) => t.kind).sort()).toEqual(['class', 'userType']);
 	});
+
+	it('carries module and type docs into visible type names', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: "''' <summary>Represents a person.</summary>\nOption Explicit\n",
+		});
+		index.setModule({
+			moduleName: 'Types',
+			moduleKind: 'standard',
+			source: [
+				"''' <summary>Shared status values.</summary>",
+				'Public Enum Status',
+				'    Active',
+				'End Enum',
+			].join('\n'),
+		});
+
+		const byName = new Map(index.visibleTypeNames('Consumer').map((t) => [t.name, t]));
+		expect(byName.get('Person')?.doc?.summary).toBe('Represents a person.');
+		expect(byName.get('Status')?.doc?.summary).toBe('Shared status values.');
+	});
 });
 
 describe('ProjectIndex project class members', () => {
@@ -634,6 +667,7 @@ describe('ProjectIndex project class members', () => {
 			source,
 		});
 		const person = index.projectClassMembers().find((t) => t.name === 'Person');
+		expect(person?.doc).toBeUndefined();
 		expect(person?.exhaustive).toBe(true);
 		expect(person?.members.map((m) => `${m.name}:${m.kind}:${m.returns ?? ''}`)).toEqual([
 			'Name:property:String',
@@ -657,6 +691,23 @@ describe('ProjectIndex project class members', () => {
 		expect(person?.members.find((m) => m.name === 'Manager')?.signature).toBe(
 			'Manager() As Person',
 		);
+	});
+
+	it('carries module docs into project class member surfaces', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: [
+				"''' <summary>Represents a person.</summary>",
+				'Option Explicit',
+				'Public Sub Save()',
+				'End Sub',
+			].join('\n'),
+		});
+
+		const person = index.projectClassMembers().find((t) => t.name === 'Person');
+		expect(person?.doc?.summary).toBe('Represents a person.');
 	});
 
 	it('marks Property Get-only members as read-only and excludes public constants', () => {
