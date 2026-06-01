@@ -28,14 +28,14 @@ view of that backlog.
 | Area | Status | Current Seeds | Gaps To Add | Verification Path |
 | --- | --- | --- | --- | --- |
 | Same-module procedure parameter types | Verified for current slice | `tests/vbaDiagnostics.test.ts`, oracle `normal_function_call` | More procedure kinds and properties | Parser tests plus oracle only for disputed behavior |
-| Same-module function return types | Partial | Nested return-type tests | Return values through variables, property returns, typed functions across modules | Unit tests first; oracle for disputed compile/runtime behavior |
+| Same-module function return types | Partial | Nested return-type tests plus Function/Property Get return-name assignment diagnostics | Typed functions across modules, return values through alias/default-member expressions | Unit tests first; oracle for disputed compile/runtime behavior |
 | Scalar assignment coercion | Partial | Runtime oracle matrix for numeric, Boolean, String controls | Date, Currency edge formats, Decimal, Byte bounds, overflow vs type mismatch | Focused runtime oracle cases |
 | Scalar argument coercion | Partial | Currency parameter, native `Left` length, numeric-string controls | Boolean arguments, Date arguments, more native signatures, ByRef arguments | Runtime oracle and curated metadata tests |
 | Nonnumeric string arithmetic | Verified for current slice | Runtime oracle `1 + "string"`, reversed operands, grouping, multiplication, string-plus-string `+` valid control | Division, integer division, exponentiation, `Mod`, comparisons, variables with constant values | Runtime oracle for each new operator family |
 | String concatenation operators | Partial | Runtime-valid controls `1 & "string"` and `"string" + "string"` plus inference tests | Object operands, arrays, `Null`, `Empty`, unknown/Variant behavior, variables with known String type under `+` | Runtime oracle where behavior affects diagnostics |
 | Unknown and `Variant` suppression | Partial | Unit tests for arguments, assignments, arithmetic, concatenation; oracle-backed `Option Explicit` bare assignment target controls, including missing-`Option Explicit` implicit Variant assignment | `Empty`, `Null`, `Nothing`, broad read-reference undeclared-variable cases, indexed assignment targets, built-in constants/globals needed before broader identifier scanning | Unit tests plus oracle if runtime behavior drives red/yellow policy |
 | Object argument mismatch | Partial | Oracle `string_literal_to_object_argument`, same-module return tests | Passing `Nothing`, object variables, class instances, host objects | Compile oracle and project binder tests |
-| `Set` object assignment rules | Partial | Oracle `set_scalar_integer_assignment`, unit tests for missing `Set` on known object variables and source-backed object members, `Set` used against scalar variables/members, incompatible project object RHS types, scalar RHS object assignment, and explicit `Implements` compatibility | Host object RHS compatibility matrix, non-project interface edge cases, property Get return assignment, broader Property Let/Set declaration consistency | Compile oracle and binder tests |
+| `Set` object assignment rules | Partial | Oracle `set_scalar_integer_assignment`, unit tests for missing `Set` on known object variables, Function/Property Get return names, and source-backed object members, `Set` used against scalar variables/members, incompatible project object RHS types, scalar RHS object assignment, and explicit `Implements` compatibility | Host object RHS compatibility matrix, non-project interface edge cases, broader Property Let/Set declaration consistency | Compile oracle and binder tests |
 | Scalar member access | Verified for current slice | Oracle `string_scalar_named_member_compile`, `integer_scalar_named_member_compile`, trailing-dot compile controls, unit tests | Array element receivers, fixed-length strings, parenthesized scalar expressions, default properties | Focused oracle for new receiver forms, unit tests for declared-variable binder |
 | Invalid `As` type names | Partial | Oracle `As Int`; `ProjectIndex.visibleTypeNames()` for project classes/document/userform modules and visible UDT/Enum names; broad unknown deferred | Host/reference type catalog, known non-type declarations in type position, misspellings, ambiguity handling | Project binder tests plus compile oracle for disputed names |
 | Broad numeric family | Pending | Some `Integer`, `Double`, `Currency`, `Long` examples | Byte, LongLong, LongPtr, Single, Decimal, fixed-width overflow, type-declaration suffixes | Runtime oracle for coercion/overflow; parser tests for suffixes |
@@ -46,7 +46,7 @@ view of that backlog.
 | ParamArray typing | Pending | Legacy corpus examples, arity tests | Non-Variant ParamArray, ParamArray not last, argument element inference | Spec first, oracle for VBE messages |
 | ByRef compatibility | Missing | None systematic | ByRef exactness vs coercion, literals to ByRef, parenthesized ByRef expressions | Compile/runtime oracle required |
 | Named arguments | Partial | Unit tests for named argument mapping | Named/positional mixing, duplicate named args, optional named omissions | Compile oracle for call syntax; unit tests for binder mapping |
-| Return assignment inside Function | Missing | None systematic | Function name assignment type compatibility, object return requires `Set`, Property Get return assignment | Compile/runtime oracle and binder tests |
+| Return assignment inside Function | Partial | Unit tests for scalar Function return assignment, object Function return requiring `Set`, incompatible object return assignment, compatible object return assignment, and Property Get object return assignment | Property Let/Set declaration consistency, object return values through default members, host object return compatibility | Compile/runtime oracle and binder tests |
 | Comparisons | Missing | Roadmap only | Numeric/string/Date/Object comparisons, `Like`, `Is`, `Is Not` | Needs operator matrix and oracle for edge behavior |
 | Arrays | Pending | Legacy corpus mentions arrays and `Array()` | Dynamic/fixed arrays, indexed element type, array parameter compatibility, `ParamArray` elements | Parser/binder tests and oracle for compile errors |
 | Enums | Pending | Legacy corpus mentions enums | Enum declaration, enum member values, enum-to-integer compatibility, unknown enum names | Spec plus binder tests |
@@ -73,8 +73,8 @@ These are the highest-value additions before the next major binder slice:
    expressions, and object references.
 4. **Date coercion matrix**: accepted literals, rejected strings, and
    locale-sensitive cases marked as no-diagnostic until deterministic.
-5. **Object assignment matrix**: `Set` required, `Set` forbidden, object return
-   assignment, and Property Get/Let/Set.
+5. **Object assignment matrix**: host object RHS compatibility, non-project
+   interfaces, default-member object returns, and broader Property Get/Let/Set.
 6. **Fixed-length string matrix**: verify `As String * n` declaration grammar,
    allowed module contexts, length boundaries, assignment/truncation behavior,
    interaction with member access, and type-declaration suffixes before any

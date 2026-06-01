@@ -1500,6 +1500,85 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
+	it('checks scalar Function return assignment types', () => {
+		const src =
+			'Public Function Total() As Double\n' +
+			'    Total = "blah"\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"blah"');
+		expect(hits[0].message).toContain('Total');
+		expect(hits[0].message).toContain('Double');
+	});
+
+	it('requires Set for object Function return assignments', () => {
+		const src =
+			'Public Function MakePerson() As Person\n' +
+			'    MakePerson = New Person\n' +
+			'End Function\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: '' },
+				]),
+			}),
+			'set-required',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('MakePerson');
+	});
+
+	it('checks object Function return assignment compatibility', () => {
+		const src =
+			'Public Function MakePerson() As Person\n' +
+			'    Set MakePerson = New Class1\n' +
+			'End Function\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: '' },
+					{ moduleName: 'Class1', moduleKind: 'class', source: '' },
+				]),
+			}),
+			'assignment-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Class1');
+		expect(hits[0].message).toContain('MakePerson');
+	});
+
+	it('accepts compatible object Function return assignment', () => {
+		const src =
+			'Public Function MakePerson() As Person\n' +
+			'    Set MakePerson = New Person\n' +
+			'End Function\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: '' },
+			]),
+		});
+		expect(byCode(diagnostics, 'set-required')).toHaveLength(0);
+		expect(byCode(diagnostics, 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('checks Property Get return assignments like Function returns', () => {
+		const src =
+			'Public Property Get Child() As Person\n' +
+			'    Child = New Person\n' +
+			'End Property\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: '' },
+				]),
+			}),
+			'set-required',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Child');
+	});
+
 	it('flags Set assignment between incompatible project class types', () => {
 		const src =
 			'Public Sub T()\n' +

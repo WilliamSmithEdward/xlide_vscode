@@ -89,7 +89,8 @@ heuristic diagnostics.
   writable property assignment can be deterministic-runtime red; known object
   variables and object-valued source-backed members now require `Set`, and
   deterministic `Set` assignments reject incompatible project object types while
-  respecting explicit `Implements` declarations.
+  respecting explicit `Implements` declarations. `Function` and `Property Get`
+  return names now participate in the same assignment rules.
 - Source-backed workbook class receiver/member binding now reports
   `member-not-found` when an unambiguous project class member surface proves the
   member is absent.
@@ -513,7 +514,8 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   members (`Property Set` and public fields) now require `Set`; `Set` on
   source-backed scalar members reuses the existing stable
   `set-requires-object` code instead of adding a parallel spelling; incompatible
-  known object RHS types now use `assignment-object-type-mismatch`.
+  known object RHS types now use `assignment-object-type-mismatch`. Function and
+  Property Get return names now use the same scalar/object assignment path.
 - [ ] Add downstream developer documentation/how-to for object member
   completion and external object metadata before shipping this workflow.
 

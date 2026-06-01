@@ -1969,12 +1969,22 @@ function typeEnvironmentFor(
 	const procSym = (symbols.root.children ?? []).find(
 		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
 	);
+	const returnType = returnAssignmentTypeFor(proc);
+	if (returnType) {
+		out.set(proc.name.toLowerCase(), returnType);
+	}
 	for (const child of procSym?.children ?? []) {
 		if (child.asType) {
 			out.set(child.name.toLowerCase(), child.asType);
 		}
 	}
 	return out;
+}
+
+function returnAssignmentTypeFor(proc: ProcedureNode): string | undefined {
+	return (proc.procKind === 'Function' || proc.procKind === 'PropertyGet')
+		? proc.returnType
+		: undefined;
 }
 
 function expressionCalls(

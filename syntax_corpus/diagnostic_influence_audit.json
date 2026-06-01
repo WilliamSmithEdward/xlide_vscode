@@ -173,7 +173,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean/property/public-field controls run successfully.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean/property/public-field controls run successfully. Function and Property Get return-name assignments use the same deterministic scalar path.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -184,7 +184,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable/member targets and deterministic RHS types are flagged. Same project class, Nothing, generic Object, Variant/unknown types, and explicit Implements compatibility remain accepted.",
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. Same project class, Nothing, generic Object, Variant/unknown types, and explicit Implements compatibility remain accepted.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -336,7 +336,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variables and unambiguous source-backed object-valued members are flagged. Variant, unknown, and ambiguous project-member targets remain silent until the binder can prove the target shape.",
+      "notes": "Only known object variables, Function/Property Get return names, and unambiguous source-backed object-valued members are flagged. Variant, unknown, and ambiguous project-member targets remain silent until the binder can prove the target shape.",
       "diagnosticKind": "compile-error"
     },
     {
