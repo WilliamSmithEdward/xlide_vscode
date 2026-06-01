@@ -36,6 +36,20 @@ describe('parseModule - module header (MS-VBAL 4.2)', () => {
 		}
 	});
 
+	it('keeps dotted member Attribute names intact', () => {
+		const source = 'Attribute Value.VB_UserMemId = 0\n';
+		const m = parseModule(source);
+		const attr = m.members[0];
+		expect(attr.kind).toBe('Attribute');
+		if (attr.kind === 'Attribute') {
+			expect(attr.name).toBe('Value.VB_UserMemId');
+			expect(source.slice(attr.nameSpan.start, attr.nameSpan.end)).toBe(
+				'Value.VB_UserMemId',
+			);
+			expect(attr.valueRaw).toBe('0');
+		}
+	});
+
 	it('detects a class module from VB_Exposed attribute', () => {
 		const m = parseModule(
 			'Attribute VB_Name = "Class1"\nAttribute VB_Exposed = False\n',

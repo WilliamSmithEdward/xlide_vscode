@@ -611,6 +611,40 @@ describe('ProjectIndex project class members', () => {
 		expect(person?.members.find((m) => m.name === 'Species')).toBeUndefined();
 	});
 
+	it('marks exported VB_UserMemId zero members as default', () => {
+		const index = new ProjectIndex();
+		const source = [
+			'Public Property Get Value() As String',
+			'End Property',
+			'Attribute Value.VB_UserMemId = 0',
+			'Public Property Let Value(ByVal value As String)',
+			'End Property',
+			'Public Property Get Caption() As String',
+			'End Property',
+			'Attribute Caption.VB_UserMemId = -4',
+		].join('\n');
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source,
+		});
+		const person = index.projectClassMembers().find((t) => t.name === 'Person');
+		const value = person?.members.find((m) => m.name === 'Value');
+		const caption = person?.members.find((m) => m.name === 'Caption');
+		expect(value?.defaultMember).toBe(true);
+		expect(caption?.defaultMember).toBeUndefined();
+		expect(
+			value?.attributes?.map(
+				(attr) => `${attr.targetName}.${attr.name}=${attr.valueRaw}`,
+			),
+		).toEqual(['Value.VB_UserMemId=0']);
+		expect(
+			value?.attributes?.map((attr) =>
+				source.slice(attr.nameSpan.start, attr.nameSpan.end),
+			),
+		).toEqual(['Value.VB_UserMemId']);
+	});
+
 	it('marks document and UserForm source member surfaces as non-exhaustive', () => {
 		const index = new ProjectIndex();
 		index.setModule({

@@ -420,7 +420,10 @@ into a pure analyzer layer and a thin VS Code provider:
   surface, merging with a known host surface when the caller supplies one.
   Source-backed workbook members carry inline `'''` documentation through to
   completion, hover, and member-call signature help, and carry declaration spans
-  for source-backed member go-to-definition.
+  for source-backed member go-to-definition. Exported member attributes such as
+  `Attribute Value.VB_UserMemId = 0` are attached to the same source-backed
+  member surface and mark `defaultMember`, but direct object-expression
+  inference is not enabled until that behavior has separate oracle coverage.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it builds the project context
   from the workbook's module list (worksheet code names plus the host/source
@@ -685,12 +688,14 @@ single module:
 
 - `src/analyzer/symbols/symbolModel.ts` defines the `VbaSymbol` shape (name,
   kind, `nameSpan` for the identifier, `fullSpan` for the declaration,
-  visibility, `asType`, and nested children).
+  visibility, `asType`, exported `Attribute` metadata, and nested children).
 - `src/analyzer/symbols/buildModuleSymbols.ts` walks one `ModuleNode` and emits
   a hierarchical module symbol (procedures with parameter/local children,
   `Type` with fields, `Enum` with members, module variables/consts, `Declare`s).
   Identifier spans are located with the real lexer, so a `nameSpan` never lands
-  inside a comment or string.
+  inside a comment or string. Dotted exported attribute lines are mapped by the
+  target before the dot, so `Attribute Value.VB_UserMemId = 0` attaches to the
+  `Value` member while retaining the attribute source span.
 - `src/analyzer/symbols/projectIndex.ts` is the `ProjectIndex` that aggregates
   modules and answers `documentSymbols`, `workspaceSymbols`, conservative
   `resolveDefinition` (locals/params -> same-module declarations -> exported
@@ -701,7 +706,8 @@ single module:
   procedures callable as bare identifiers from a given module),
   `visibleTypeNames` (class/document/UserForm module names plus visible
   `Type`/`Enum` declarations for future `As` binding), `projectClassMembers`
-  (source-backed member surfaces with signatures, docs, and definition spans), and
+  (source-backed member surfaces with signatures, docs, definition spans, and
+  default-member facts from `VB_UserMemId = 0` attributes), and
   `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit
   `Public`/`Global` and default-`Public` procedures are exported;
   `Private`/`Dim`/`Friend` and unmodified module variables stay module-private.

@@ -10,6 +10,7 @@
 
 import { tokenize } from '../lexer/tokenize';
 import type {
+	AttributeNode,
 	BodyNode,
 	EnumNode,
 	ModuleNode,
@@ -26,6 +27,7 @@ import type {
 	ModuleSymbols,
 	SymbolVisibility,
 	VbaSymbol,
+	VbaSymbolAttribute,
 	VbaSymbolKind,
 } from './symbolModel';
 
@@ -74,6 +76,43 @@ function procVisibility(modifiers: string[]): SymbolVisibility | undefined {
 		}
 	}
 	return undefined;
+}
+
+function symbolAttribute(node: AttributeNode): VbaSymbolAttribute {
+	const dot = node.name.indexOf('.');
+	if (dot > 0 && dot + 1 < node.name.length) {
+		return {
+			name: node.name.slice(dot + 1),
+			targetName: node.name.slice(0, dot),
+			valueRaw: node.valueRaw,
+			nameSpan: node.nameSpan,
+			fullSpan: node.span,
+		};
+	}
+	return {
+		name: node.name,
+		valueRaw: node.valueRaw,
+		nameSpan: node.nameSpan,
+		fullSpan: node.span,
+	};
+}
+
+function attachMemberAttributes(
+	symbols: VbaSymbol[],
+	attributes: readonly VbaSymbolAttribute[],
+): void {
+	for (const attr of attributes) {
+		if (!attr.targetName) {
+			continue;
+		}
+		const lowerTarget = attr.targetName.toLowerCase();
+		for (const symbol of symbols) {
+			if (symbol.name.toLowerCase() !== lowerTarget) {
+				continue;
+			}
+			symbol.attributes = [...(symbol.attributes ?? []), attr];
+		}
+	}
 }
 
 /**
@@ -286,9 +325,20 @@ export function buildModuleSymbols(
 	const module: ModuleNode = parseModule(source);
 	const rootChildren: VbaSymbol[] = [];
 	const flat: VbaSymbol[] = [];
+	const moduleAttributes: VbaSymbolAttribute[] = [];
+	const memberAttributes: VbaSymbolAttribute[] = [];
 
 	for (const member of module.members) {
 		switch (member.kind) {
+			case 'Attribute': {
+				const attr = symbolAttribute(member);
+				if (attr.targetName) {
+					memberAttributes.push(attr);
+				} else {
+					moduleAttributes.push(attr);
+				}
+				break;
+			}
 			case 'Procedure': {
 				const proc = buildProcedure(member, source, moduleName, flat);
 				proc.doc = extractLeadingDoc(source, member.span.start);
@@ -333,6 +383,8 @@ export function buildModuleSymbols(
 		}
 	}
 
+	attachMemberAttributes(rootChildren, memberAttributes);
+
 	const moduleSymbolKind: VbaSymbolKind = 'module';
 	const root: VbaSymbol = {
 		name: moduleName,
@@ -341,6 +393,7 @@ export function buildModuleSymbols(
 		fullSpan: module.span,
 		moduleName,
 		children: rootChildren,
+		attributes: moduleAttributes,
 	};
 
 	return { moduleName, moduleKind, root, all: flat };

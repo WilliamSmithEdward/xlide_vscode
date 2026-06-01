@@ -80,6 +80,20 @@ export interface VbaSymbol {
 	children?: VbaSymbol[];
 	/** Inline `'''` XML documentation comment attached to the declaration. */
 	doc?: VbaDoc;
+	/** Exported VBA attribute lines attached to this symbol, when source provides them. */
+	attributes?: VbaSymbolAttribute[];
+}
+
+/** Exported VBA attribute attached to a module or member declaration. */
+export interface VbaSymbolAttribute {
+	name: string;
+	valueRaw: string;
+	/** Member target before the dot in `Attribute Value.VB_UserMemId = 0`, if present. */
+	targetName?: string;
+	/** Span of the attribute name or dotted target/name. */
+	nameSpan: Span;
+	/** Full span of the attribute line. */
+	fullSpan: Span;
 }
 
 /** Parameter shape used by project-wide callable signature diagnostics. */
@@ -145,6 +159,10 @@ export interface VbaProjectClassMember {
 	doc?: VbaDoc;
 	/** Source declaration locations for go-to-definition. */
 	definitions?: VbaProjectClassMemberDefinition[];
+	/** True when exported source marks this member as the VBA default member. */
+	defaultMember?: boolean;
+	/** Exported attribute lines attached to the member declaration. */
+	attributes?: VbaSymbolAttribute[];
 }
 
 /** Public member surface for a workbook-defined object type. */

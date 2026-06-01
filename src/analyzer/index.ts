@@ -105,6 +105,7 @@ export {
 	VbaProjectClassMembers,
 	VbaProjectTypeKind,
 	VbaProjectTypeName,
+	VbaSymbolAttribute,
 } from './symbols/symbolModel';
 export { buildModuleSymbols } from './symbols/buildModuleSymbols';
 export {

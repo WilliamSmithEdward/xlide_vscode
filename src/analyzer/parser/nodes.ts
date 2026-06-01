@@ -73,7 +73,10 @@ export interface ModuleNode extends NodeBase {
 /** Attribute name/value line, e.g. Attribute VB_Name = "Module1" (MS-VBAL 4.2). */
 export interface AttributeNode extends NodeBase {
 	kind: 'Attribute';
+	/** Raw attribute target/name text after `Attribute`, e.g. `VB_Name` or `Value.VB_UserMemId`. */
 	name: string;
+	/** Span of the raw attribute target/name text. */
+	nameSpan: Span;
 	/** Raw value text (right of '='), unparsed. */
 	valueRaw: string;
 }

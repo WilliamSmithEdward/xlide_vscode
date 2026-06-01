@@ -366,10 +366,13 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   assignments compile/run. Public constants are not modeled as read-only object
   members because VBE rejects `Public Const` in object modules at declaration
   time.
-- [ ] Explore VBA default members, including exported attributes such as
+- [x] Explore VBA default members, including exported attributes such as
   `Attribute Value.VB_UserMemId = 0`, before inferring direct object usage like
-  `textValue = p`. Define deterministic attribute extraction and source mapping
-  before adding diagnostics or type inference.
+  `textValue = p`. The parser keeps dotted attribute names, the symbol graph
+  attaches member attributes with source spans, and project class members expose
+  a `defaultMember` fact for `VB_UserMemId = 0`; direct object-expression
+  inference remains deferred until an import-capable VBE oracle path can verify
+  the runtime/compile behavior.
 - [ ] Define and implement deterministic class/module-level documentation for
   workbook object modules. VBA has no source-level `Class Person` declaration,
   so XLIDE must use an explicit documented convention such as a module-header

@@ -481,6 +481,27 @@ describe('member completion - workbook classes', () => {
 		expect(species).toBeUndefined();
 	});
 
+	it('carries default-member attributes for source-backed project class members', () => {
+		const person = [
+			'Public Property Get Value() As String',
+			'End Property',
+			'Attribute Value.VB_UserMemId = 0',
+		].join('\n');
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: person,
+		});
+		const src = 'Sub Test()\n    Dim p As Person\n    p.Val\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'p.Val'), {
+			projectClassMembers: index.projectClassMembers(),
+		});
+		const value = got.find((member) => member.name === 'Value');
+		expect(value?.defaultMember).toBe(true);
+		expect(value?.attributes?.[0]?.name).toBe('VB_UserMemId');
+	});
+
 	it('carries source definition locations for project class members', () => {
 		const person =
 			'Public Sub Save()\n' +

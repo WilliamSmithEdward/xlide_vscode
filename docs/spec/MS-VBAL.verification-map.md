@@ -75,7 +75,8 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   and excluded from `isReservedIdentifier`.
 - **reserved-for-implementation-use (Partial):** the attribute names
   (`Attribute`, `VB_Name`, ...) are listed but handled via the attribute-line
-  path, not the general keyword-casing map; no fixtures yet.
+  path, not the general keyword-casing map; dotted member attribute parsing has
+  focused parser fixtures.
 
 ## Phase 3 - Parser / AST
 
@@ -83,7 +84,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 |---|---|---|---|---|
 | Logical-statement splitting (EOS) | src/analyzer/parser/parserState.ts | tests/vbaParser.test.ts | 3.3.1 | Verified |
 | Module structure | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 4.2 | Verified |
-| Attribute lines | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 4.2 | Verified |
+| Attribute lines, including dotted member attributes | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 4.2 | Verified |
 | Option directives | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.1 | Verified |
 | Module variable declarations | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3 | Verified |
 | Const declarations | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.4 | Verified |
@@ -105,8 +106,8 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Block-mismatch diagnostics | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4 | Verified |
 | Error recovery (never throws) | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 3.3.1 (recovery) | Verified |
 | Expression AST (calls/member/ops) | src/analyzer/completion/memberAccess.ts (member-access chains only) | tests/vbaMemberCompletion.test.ts | 5.6 | Partial |
-| Module symbol extraction (procs/vars/types/enums) | src/analyzer/symbols/buildModuleSymbols.ts | tests/vbaSymbolGraph.test.ts | 5.2.3 / 5.2.4 / 5.3 | Verified |
-| Project symbol graph + name resolution | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.3 (scope) / 4.2 (visibility) | Verified |
+| Module symbol extraction (procs/vars/types/enums/member attributes) | src/analyzer/symbols/buildModuleSymbols.ts | tests/vbaSymbolGraph.test.ts | 5.2.3 / 5.2.4 / 5.3 / 4.2 | Verified |
+| Project symbol graph + name resolution | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.3 (scope) / 4.2 (visibility/default-member attributes) | Verified |
 | Project visible procedure-name surface | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 5.3 / 4.2 (visibility) | Verified |
 | Project visible type-name surface | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts | 5.2.3.1.4 / 5.2.3.3 / 5.2.3.4 / 4.2 | Verified |
 | Project class member-completion surface + inline docs | src/analyzer/symbols/projectIndex.ts + src/analyzer/completion/memberAccess.ts + src/analyzer/hover/resolveHover.ts | tests/vbaSymbolGraph.test.ts + tests/vbaMemberCompletion.test.ts + tests/vbaDocComments.test.ts + tests/vbaHover.test.ts + tests/vbaSignatureHelp.test.ts | 4.2 / 5.3 / 5.6.9 | Partial |

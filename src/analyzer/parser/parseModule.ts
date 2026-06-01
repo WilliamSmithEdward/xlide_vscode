@@ -179,9 +179,17 @@ class Parser {
 	}
 
 	private parseAttribute(stmt: LogicalStatement, tokens: VbaToken[]): AttributeNode {
-		const nameToken = tokens[1];
 		const eqIndex = tokens.findIndex((t) => t.rawText === '=');
-		const name = nameToken ? nameToken.rawText : '';
+		const nameStart = tokens[1];
+		const nameEndIndex = eqIndex > 1 ? eqIndex - 1 : tokens.length - 1;
+		const nameEnd = nameEndIndex >= 1 ? tokens[nameEndIndex] : undefined;
+		const name =
+			nameStart && nameEnd
+				? tokens
+					.slice(1, eqIndex > 1 ? eqIndex : tokens.length)
+					.map((t) => t.rawText)
+					.join('')
+				: '';
 		const valueRaw =
 			eqIndex >= 0 && eqIndex + 1 < tokens.length
 				? this.source.slice(tokens[eqIndex + 1].start, tokens[tokens.length - 1].end)
@@ -189,6 +197,9 @@ class Parser {
 		return {
 			kind: 'Attribute',
 			name,
+			nameSpan: nameStart && nameEnd
+				? { start: nameStart.start, end: nameEnd.end }
+				: { start: stmt.start, end: stmt.start },
 			valueRaw,
 			span: { start: stmt.start, end: stmt.end },
 		};

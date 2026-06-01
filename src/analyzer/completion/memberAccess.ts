@@ -35,6 +35,7 @@ import type { VbaDoc } from '../docs/docModel';
 import type {
 	VbaProjectClassMemberDefinition,
 	VbaProjectClassMembers,
+	VbaSymbolAttribute,
 } from '../symbols/symbolModel';
 
 /** Project/module facts the resolver needs that come from outside the source. */
@@ -83,6 +84,10 @@ export interface MemberCompletion {
 	doc?: VbaDoc;
 	/** Source declaration locations, when this completion comes from workbook code. */
 	definitions?: readonly VbaProjectClassMemberDefinition[];
+	/** True when exported source marks this member as the VBA default member. */
+	defaultMember?: boolean;
+	/** Exported attribute lines attached to this member. */
+	attributes?: readonly VbaSymbolAttribute[];
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -99,6 +104,8 @@ type CompletionMemberSource = Pick<
 	writable?: boolean;
 	writeType?: string;
 	definitions?: readonly VbaProjectClassMemberDefinition[];
+	defaultMember?: boolean;
+	attributes?: readonly VbaSymbolAttribute[];
 };
 
 interface MemberSurface {
@@ -193,6 +200,8 @@ export function resolveMemberCompletions(
 				: undefined,
 			doc: mem.doc,
 			definitions: mem.definitions,
+			defaultMember: mem.defaultMember,
+			attributes: mem.attributes,
 		}));
 }
 

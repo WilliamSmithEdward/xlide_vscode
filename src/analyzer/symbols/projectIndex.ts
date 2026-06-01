@@ -21,6 +21,7 @@ import {
 	type VbaProjectClassMemberDefinition,
 	type VbaProjectClassMembers,
 	type VbaSymbol,
+	type VbaSymbolAttribute,
 	type VbaProcedureParam,
 	type VbaProcedureSignature,
 } from './symbolModel';
@@ -182,6 +183,34 @@ function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMember
 		nameSpan: symbol.nameSpan,
 		fullSpan: symbol.fullSpan,
 	};
+}
+
+function isDefaultMemberAttribute(attr: VbaSymbolAttribute): boolean {
+	return attr.name.toLowerCase() === 'vb_usermemid' && attr.valueRaw.trim() === '0';
+}
+
+function isDefaultProjectObjectMember(symbol: VbaSymbol): boolean {
+	return (symbol.attributes ?? []).some(isDefaultMemberAttribute);
+}
+
+function mergeMemberAttributes(
+	existing: readonly VbaSymbolAttribute[] | undefined,
+	incoming: readonly VbaSymbolAttribute[] | undefined,
+): VbaSymbolAttribute[] | undefined {
+	if (!incoming || incoming.length === 0) {
+		return existing ? [...existing] : undefined;
+	}
+	const out = [...(existing ?? [])];
+	const seen = new Set(out.map((attr) => `${attr.fullSpan.start}:${attr.fullSpan.end}`));
+	for (const attr of incoming) {
+		const key = `${attr.fullSpan.start}:${attr.fullSpan.end}`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		out.push(attr);
+	}
+	return out;
 }
 
 function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
@@ -718,6 +747,10 @@ export class ProjectIndex {
 				if (!existing.doc && symbol.doc) {
 					existing.doc = symbol.doc;
 				}
+				if (isDefaultProjectObjectMember(symbol)) {
+					existing.defaultMember = true;
+				}
+				existing.attributes = mergeMemberAttributes(existing.attributes, symbol.attributes);
 				existing.definitions = [
 					...(existing.definitions ?? []),
 					projectObjectMemberDefinition(symbol),
@@ -735,6 +768,8 @@ export class ProjectIndex {
 				visibility: symbol.visibility,
 				doc: symbol.doc,
 				definitions: [projectObjectMemberDefinition(symbol)],
+				defaultMember: isDefaultProjectObjectMember(symbol) || undefined,
+				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}
 		return [...byName.values()];
