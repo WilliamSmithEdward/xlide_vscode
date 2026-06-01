@@ -192,12 +192,18 @@ export async function lintWorkbook(
         let semantic: VbaDiagnostic[];
         let knownProcedures: ReadonlySet<string> | undefined;
         let knownIdentifiers: ReadonlySet<string> | undefined;
+        let knownNonTypeNames: ReadonlySet<string> | undefined;
+        let projectTypes: ReturnType<ProjectIndex['visibleTypeNames']> | undefined;
         try {
             knownProcedures = project.visibleProcedureNames(mod.name);
             knownIdentifiers = project.visibleIdentifierNames(mod.name);
+            knownNonTypeNames = project.visibleNonTypeNames(mod.name);
+            projectTypes = project.visibleTypeNames(mod.name);
         } catch {
             knownProcedures = undefined;
             knownIdentifiers = undefined;
+            knownNonTypeNames = undefined;
+            projectTypes = undefined;
         }
         try {
             semantic = analyzeModule(mod.source, {
@@ -207,8 +213,10 @@ export async function lintWorkbook(
                 severities,
                 knownProcedures,
                 knownIdentifiers,
+                knownNonTypeNames,
                 projectProcedures,
                 projectClassMembers,
+                projectTypes,
             });
         } catch {
             semantic = [];

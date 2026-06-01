@@ -168,21 +168,28 @@ const PROJECT_KIND_DETAIL: Record<VbaProjectTypeKind, string> = {
 };
 
 function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCompletion[] {
-	const grouped = new Map<string, { name: string; kinds: Set<VbaProjectTypeKind>; doc?: VbaDoc }>();
+	const grouped = new Map<string, {
+		name: string;
+		kinds: Set<VbaProjectTypeKind>;
+		count: number;
+		doc?: VbaDoc;
+	}>();
 	for (const projectType of projectTypes) {
 		const key = projectType.name.toLowerCase();
 		const group = grouped.get(key) ?? {
 			name: projectType.name,
 			kinds: new Set<VbaProjectTypeKind>(),
+			count: 0,
 		};
 		group.kinds.add(projectType.kind);
+		group.count++;
 		if (!group.doc && hasDocContent(projectType.doc)) {
 			group.doc = projectType.doc;
 		}
 		grouped.set(key, group);
 	}
 	return [...grouped.values()].map((group) => {
-		if (group.kinds.size !== 1) {
+		if (group.count !== 1) {
 			return {
 				name: group.name,
 				kind: 'ambiguous',

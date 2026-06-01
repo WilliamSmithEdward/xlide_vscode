@@ -381,6 +381,35 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * Lowercased visible declaration names that are known not to be type names.
+	 * Used by type-position diagnostics after the type resolver has failed, so
+	 * project/primitive/host type names still take precedence over value names.
+	 */
+	visibleNonTypeNames(moduleName: string): Set<string> {
+		const currentLower = moduleName.toLowerCase();
+		const names = new Set<string>();
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			for (const symbol of mod.root.children ?? []) {
+				if (!this.isBareIdentifierVisible(symbol, mod, sameModule)) {
+					continue;
+				}
+				if (symbol.kind === 'enum') {
+					for (const member of symbol.children ?? []) {
+						names.add(member.name.toLowerCase());
+					}
+					continue;
+				}
+				if (projectTypeKind(symbol)) {
+					continue;
+				}
+				names.add(symbol.name.toLowerCase());
+			}
+		}
+		return names;
+	}
+
+	/**
 	 * Exported standard-module Sub/Function signatures grouped by lowercased
 	 * procedure name, with additional `module.procedure` qualified keys. Bare
 	 * duplicate exported names intentionally remain grouped together so analyzer
@@ -428,9 +457,9 @@ export class ProjectIndex {
 	 * non-Private `Type`/`Enum` declarations. Class, document, and UserForm module
 	 * names are represented as type names because they are object modules.
 	 *
-	 * Duplicates are preserved deliberately so future binder code can detect
-	 * ambiguity instead of silently picking whichever module happened to be read
-	 * first.
+	 * Duplicates are preserved deliberately so the shared type resolver and
+	 * diagnostics can report ambiguity instead of silently picking whichever
+	 * module happened to be read first.
 	 */
 	visibleTypeNames(moduleName: string): VbaProjectTypeName[] {
 		const currentLower = moduleName.toLowerCase();

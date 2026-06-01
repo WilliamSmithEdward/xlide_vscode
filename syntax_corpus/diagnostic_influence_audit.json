@@ -347,7 +347,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Broad unknown As-type diagnostics are deferred to the project-wide binder; this rule only flags reserved runtime functions that cannot be valid type names.",
+      "notes": "Broad unknown type-name diagnostics are deferred to the project-wide binder and external-reference story. The active rule uses the shared type-position scanner/resolver and only flags unresolved reserved/runtime names, visible project declarations known not to be types, and ambiguous visible project type names.",
       "diagnosticKind": "compile-error"
     },
     {

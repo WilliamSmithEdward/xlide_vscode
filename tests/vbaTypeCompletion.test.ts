@@ -154,6 +154,18 @@ describe('project-defined types', () => {
 		expect(status?.detail).toBe('Ambiguous project type');
 	});
 
+	it('keeps duplicate project type names generic even when their kind matches', () => {
+		const result = resolveTypeCompletions('Dim x As ', endOf('Dim x As ', 'As '), {
+			projectTypes: [
+				{ name: 'Payload', kind: 'userType' },
+				{ name: 'Payload', kind: 'userType' },
+			],
+		});
+		const payload = result.find((t) => t.name === 'Payload');
+		expect(payload?.kind).toBe('ambiguous');
+		expect(payload?.detail).toBe('Ambiguous project type');
+	});
+
 	it('tags each candidate with an origin detail', () => {
 		const result = resolveTypeCompletions('Dim x As ', endOf('Dim x As ', 'As '), {
 			projectTypes,

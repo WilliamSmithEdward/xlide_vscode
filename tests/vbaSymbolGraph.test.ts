@@ -502,6 +502,52 @@ describe('ProjectIndex visible identifier names', () => {
 	});
 });
 
+describe('ProjectIndex visible non-type names', () => {
+	it('includes visible procedures, globals, and enum members but excludes type names', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source:
+				'Private localValue As Long\n' +
+				'Private Type LocalRecord\n    Value As Long\nEnd Type\n' +
+				'Private Enum LocalMode\n    LocalOnly\nEnd Enum\n' +
+				'Private Sub LocalProc()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source:
+				'Public sharedValue As Long\n' +
+				'Public Sub SharedSub()\nEnd Sub\n' +
+				'Public Enum SharedMode\n    SharedOnly\nEnd Enum\n' +
+				'Public Type SharedRecord\n    Value As Long\nEnd Type\n' +
+				'Private hiddenValue As Long\n' +
+				'Private Sub HiddenSub()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: 'Public Sub Save()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Sheet1',
+			moduleKind: 'document',
+			source: '',
+		});
+
+		const names = [...index.visibleNonTypeNames('Caller')].sort();
+		expect(names).toEqual([
+			'localonly',
+			'localproc',
+			'localvalue',
+			'sharedonly',
+			'sharedsub',
+			'sharedvalue',
+		]);
+	});
+});
+
 describe('ProjectIndex visible type names', () => {
 	it('includes object modules and visible project Type/Enum declarations', () => {
 		const index = new ProjectIndex();
@@ -585,7 +631,7 @@ describe('ProjectIndex visible type names', () => {
 		expect(index.visibleTypeNames('Caller').map((t) => t.name)).toEqual([]);
 	});
 
-	it('preserves duplicate visible type names for future ambiguity handling', () => {
+	it('preserves duplicate visible type names for ambiguity diagnostics', () => {
 		const index = new ProjectIndex();
 		index.setModule({
 			moduleName: 'First',

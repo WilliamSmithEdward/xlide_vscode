@@ -361,7 +361,7 @@ export const DIAGNOSTIC_RULES = {
 	},
 	invalidAsTypeName: {
 		code: 'invalid-as-type-name',
-		title: 'Invalid As type name',
+		title: 'Invalid type name',
 		defaultSeverity: 'error',
 		category: 'declaration',
 		vbeCompileEquivalent: true,

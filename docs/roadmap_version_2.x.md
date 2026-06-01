@@ -68,7 +68,7 @@ heuristic diagnostics.
   that VBE Compile rejects.
 - `ProjectIndex` exposes deterministic visible project type names for the
   current module: object module names plus visible `Type` and `Enum`
-  declarations, preserving duplicates for future ambiguity handling.
+  declarations, preserving duplicates for ambiguity diagnostics.
 - `ProjectIndex` exposes deterministic bare identifier names for the current
   module, so Option Explicit diagnostics can distinguish undeclared assignment
   targets from same-module declarations, exported standard-module globals, enum
@@ -118,7 +118,8 @@ heuristic diagnostics.
   reference search lists actual type-use tokens rather than the implementation.
 - Type-name diagnostics now use the same project/host/primitive resolver and
   shared type-position scanner, so valid workbook/Excel types stay quiet while
-  runtime-function names such as `Int` are flagged in `As`, `New`, return,
+  invalid reserved/runtime names, visible project non-type declarations, and
+  ambiguous visible project type names are flagged in `As`, `New`, return,
   parameter, UDT field, `TypeOf ... Is`, and `Implements` positions.
 - Source-backed workbook class member references now resolve through the same
   member binder before textual fallback, so same-named members in different
@@ -946,9 +947,9 @@ Definition of done:
 1. Use `syntax_corpus/managed_backlog.md` and
    `docs/type_analysis_corpus_coverage.md` to choose the next verified
    corpus additions for the project-wide binder.
-2. Continue extending type-name diagnostics with oracle-backed hard errors for
-   known non-type declarations and ambiguous names while still deferring
-   unknown external reference names.
+2. Continue extending type-name diagnostics only where the binder can prove the
+   shape, such as verified `New` creatability and qualified reference-library
+   type names; keep broad unknown external reference names deferred.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
 4. Keep the VBA test runner and lint-suppression directives as planned

@@ -709,13 +709,14 @@ Diagnostic severity policy:
   `invalid-declaration-name` flags unbracketed MS-VBAL reserved identifiers in
   declaration-name positions while accepting bracketed `FOREIGN-NAME` forms such
   as `[In]`.
-  `invalid-as-type-name` is
-  currently limited to reserved runtime functions such as `Int` used as `As`
-  type names; broad unknown type names wait for the project-wide binder and
-  external-reference story so cross-module classes/UDTs and referenced types are
-  not flagged prematurely. The binder groundwork now includes
-  `ProjectIndex.visibleTypeNames()` for project-defined type names, but the
-  broad unknown-type diagnostic remains intentionally unshipped.
+  `invalid-as-type-name` uses the shared type-position scanner and resolver
+  for `As`, return, parameter, UDT field, `New`, `TypeOf ... Is`, and
+  `Implements` positions. Resolved project/primitive/host types stay quiet;
+  unresolved reserved identifiers, runtime functions, visible project
+  declarations that are known not to be types, and ambiguous visible project
+  type names are compile-equivalent errors. Broad unknown type names still wait
+  for the external-reference story so referenced-library classes are not
+  flagged prematurely.
   `set-required` fires when a plain assignment targets a known object variable,
   `Function`/`Property Get` return name, or source-backed object-valued member
   (`Property Set` or public field) that requires `Set`; `set-requires-object`
@@ -782,9 +783,11 @@ single module:
   globals/types/enums and enum members, plus document/UserForm code names for
   Option Explicit diagnostics),
   `visibleTypeNames` (class/document/UserForm module names plus visible
-  `Type`/`Enum` declarations for `As`/`New` binding), `resolveTypeDefinitions`
-  (visible project type-name definitions with object modules resolving to the
-  module start because the object type name is the VB component name),
+  `Type`/`Enum` declarations for `As`/`New` binding), `visibleNonTypeNames`
+  (visible declarations that are known not to be type names, used only after
+  type resolution fails), `resolveTypeDefinitions` (visible project type-name
+  definitions with object modules resolving to the module start because the
+  object type name is the VB component name),
   `projectClassMembers`
   (source-backed member surfaces with signatures, docs, definition spans,
   module-level `Implements` names, and default-member facts from
@@ -806,8 +809,9 @@ through the shared type resolver used by completion and hover: project-visible
 names from `ProjectIndex.visibleTypeNames()`, VBA
 primitive types, and Excel host object types. Semantic tokens mark primitives as
 `type`, host/project object types as `class`, enums as `enum`, and UDTs as
-`struct`; colliding project-visible names fall back to generic `type` until a
-later binder slice can prove the intended declaration. The VS Code provider in
+`struct`; colliding project-visible names fall back to generic `type` for
+coloring/hover and are flagged by diagnostics as ambiguous type-name errors.
+The VS Code provider in
 `src/vbaLanguageProviders.ts` overlays the live editor text for the current
 module before resolving visible types, so `Dim customer As Person`, `Dim ws As
 Worksheet`, and `Dim amount As Currency` color as soon as their type is known.

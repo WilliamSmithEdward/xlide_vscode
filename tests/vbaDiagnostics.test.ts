@@ -106,6 +106,25 @@ function visibleProjectTypes(
 	return project.visibleTypeNames(currentModule);
 }
 
+function visibleProjectNonTypeNames(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+	currentModule: string,
+): ReadonlySet<string> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.visibleNonTypeNames(currentModule);
+}
+
 describe('analyzeModule - unterminated string', () => {
 	it('flags a string with no closing quote', () => {
 		const src = 'Sub T()\n    MsgBox "hello\nEnd Sub\n';
@@ -2399,6 +2418,117 @@ describe('analyzeModule - As type name validation', () => {
 			moduleName: 'Module1',
 			projectTypes: visibleProjectTypes(modules, 'Module1'),
 		}), 'invalid-as-type-name')).toHaveLength(0);
+	});
+
+	it('flags reserved identifiers used in shared type-name positions', () => {
+		const src =
+			'Implements Return\n' +
+			'Public Sub T()\n' +
+			'    Dim value As Dim\n' +
+			'    Set value = New For\n' +
+			'    If TypeOf value Is In Then Debug.Print "bad"\n' +
+			'End Sub\n';
+
+		const hits = byCode(analyzeModule(src), 'invalid-as-type-name');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'Return',
+			'Dim',
+			'For',
+			'In',
+		]);
+	});
+
+	it('flags visible project declarations that are known not to be types', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a As DoWork\n' +
+			'    Dim b As SharedValue\n' +
+			'    Dim c As Active\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Consumer', source: src },
+			{
+				moduleName: 'Helpers',
+				source:
+					'Public Sub DoWork()\nEnd Sub\n' +
+					'Public SharedValue As Long\n' +
+					'Public Enum Status\n    Active\nEnd Enum\n',
+			},
+		];
+
+		const hits = byCode(analyzeModule(src, {
+			moduleName: 'Consumer',
+			projectTypes: visibleProjectTypes(modules, 'Consumer'),
+			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
+		}), 'invalid-as-type-name');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'DoWork',
+			'SharedValue',
+			'Active',
+		]);
+	});
+
+	it('lets a project type shadow a visible non-type declaration name', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim value As Person\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Consumer', source: src },
+			{ moduleName: 'Person', moduleKind: 'class' as const, source: '' },
+			{ moduleName: 'Helpers', source: 'Public Sub Person()\nEnd Sub\n' },
+		];
+
+		expect(byCode(analyzeModule(src, {
+			moduleName: 'Consumer',
+			projectTypes: visibleProjectTypes(modules, 'Consumer'),
+			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
+		}), 'invalid-as-type-name')).toHaveLength(0);
+	});
+
+	it('flags ambiguous visible project type names', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim state As Status\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Consumer', source: src },
+			{ moduleName: 'Status', moduleKind: 'class' as const, source: '' },
+			{ moduleName: 'Types', source: 'Public Enum Status\n    Active\nEnd Enum\n' },
+		];
+
+		const hits = byCode(analyzeModule(src, {
+			moduleName: 'Consumer',
+			projectTypes: visibleProjectTypes(modules, 'Consumer'),
+			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
+		}), 'invalid-as-type-name');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Status');
+		expect(hits[0].message).toContain('ambiguous');
+	});
+
+	it('flags duplicate visible project type names even when their kind matches', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim item As Payload\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Consumer', source: src },
+			{ moduleName: 'TypesA', source: 'Public Type Payload\n    Id As Long\nEnd Type\n' },
+			{ moduleName: 'TypesB', source: 'Public Type Payload\n    Name As String\nEnd Type\n' },
+		];
+
+		const hits = byCode(analyzeModule(src, {
+			moduleName: 'Consumer',
+			projectTypes: visibleProjectTypes(modules, 'Consumer'),
+			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
+		}), 'invalid-as-type-name');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Payload');
+		expect(hits[0].message).toContain('ambiguous');
 	});
 
 	it('defers broad unknown type names to the project-wide binder', () => {

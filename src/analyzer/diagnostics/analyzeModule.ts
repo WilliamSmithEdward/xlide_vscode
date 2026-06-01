@@ -118,6 +118,8 @@ export interface AnalyzeModuleOptions {
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Source-declared workbook type names visible to this module. */
 	projectTypes?: readonly ProjectTypeName[];
+	/** Lowercased visible declaration names known not to be type names. */
+	knownNonTypeNames?: ReadonlySet<string>;
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
 }
@@ -3395,17 +3397,41 @@ function checkInvalidAsTypeNames(
 			projectTypes: opts.projectTypes,
 			model: opts.hostModel,
 		});
+		if (resolved?.kind === 'ambiguous') {
+			push(
+				'invalidAsTypeName',
+				`'${ref.name}' is ambiguous because multiple visible project types use that name.`,
+				ref.span,
+			);
+			continue;
+		}
 		if (resolved) {
 			continue;
 		}
-		if (!resolveRuntimeFunction(ref.name)) {
+		if (isReservedIdentifier(ref.name)) {
+			push(
+				'invalidAsTypeName',
+				`'${ref.name}' is a reserved VBA identifier, not a valid type name.`,
+				ref.span,
+			);
 			continue;
 		}
-		push(
-			'invalidAsTypeName',
-			`'${ref.name}' is a VBA runtime function, not a valid As type name.`,
-			ref.span,
-		);
+		if (resolveRuntimeFunction(ref.name)) {
+			push(
+				'invalidAsTypeName',
+				`'${ref.name}' is a VBA runtime function, not a valid type name.`,
+				ref.span,
+			);
+			continue;
+		}
+		if (opts.knownNonTypeNames?.has(ref.name.toLowerCase())) {
+			push(
+				'invalidAsTypeName',
+				`'${ref.name}' resolves to a project declaration, but that declaration is not a type.`,
+				ref.span,
+			);
+			continue;
+		}
 	}
 }
 
