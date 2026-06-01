@@ -88,6 +88,7 @@ export {
 	KeywordCompletion,
 	KeywordCompletionKind,
 	KeywordCompletionResult,
+	materializeKeywordSnippet,
 	resolveKeywordCompletions,
 } from './completion/keywordCompletion';
 export {

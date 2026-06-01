@@ -7,7 +7,7 @@
 
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
-import { splitLogicalStatements, codeTokens, tokenWord } from '../parser/parserState';
+import { openSmartBlockClosersBefore, VBA_BLOCK_INDENT_UNIT } from '../../vbaLinter';
 
 export type KeywordCompletionKind = 'keyword' | 'snippet';
 
@@ -47,34 +47,48 @@ interface KeywordSpec {
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+const I = VBA_BLOCK_INDENT_UNIT;
+
+const SUB_SNIPPET = snippet('Sub', blockText('Sub ${1:Name}()', I + '$0', 'End Sub'), 'Procedure block');
+const FUNCTION_SNIPPET = snippet('Function', blockText('Function ${1:Name}() As ${2:Variant}', I + '$0', 'End Function'), 'Function block', undefined, ['func']);
+const PROPERTY_GET_SNIPPET = snippet('Property Get', blockText('Property Get ${1:Name}() As ${2:Variant}', I + '$0', 'End Property'), 'Property Get block', undefined, ['propget']);
+const PROPERTY_LET_SNIPPET = snippet('Property Let', blockText('Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})', I + '$0', 'End Property'), 'Property Let block', undefined, ['proplet']);
+const PROPERTY_SET_SNIPPET = snippet('Property Set', blockText('Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})', I + '$0', 'End Property'), 'Property Set block', undefined, ['propset']);
+
 const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
-	snippet('If', 'If ${1:condition} Then\n    $0\nEnd If', 'If...Then block'),
-	snippet('If Else', 'If ${1:condition} Then\n    $2\nElse\n    $0\nEnd If', 'If...Else block', undefined, ['ifelse']),
-	snippet('With', 'With ${1:object}\n    .$0\nEnd With', 'With...End With block'),
-	snippet('For', 'For ${1:i} = ${2:1} To ${3:10}\n    $0\nNext ${1:i}', 'For...Next block'),
-	snippet('For Each', 'For Each ${1:item} In ${2:collection}\n    $0\nNext ${1:item}', 'For Each...Next block'),
-	snippet('Do While', 'Do While ${1:condition}\n    $0\nLoop', 'Do While...Loop block'),
-	snippet('Do Until', 'Do Until ${1:condition}\n    $0\nLoop', 'Do Until...Loop block'),
-	snippet('Do Loop Until', 'Do\n    $0\nLoop Until ${1:condition}', 'Do...Loop Until block', undefined, ['dountil']),
-	snippet('While', 'While ${1:condition}\n    $0\nWend', 'While...Wend block'),
-	snippet('Select Case', 'Select Case ${1:expression}\n    Case ${2:value}\n        $0\nEnd Select', 'Select Case block'),
-	snippet('Sub', 'Sub ${1:Name}()\n    $0\nEnd Sub', 'Procedure block'),
-	snippet('Function', 'Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Function block', undefined, ['func']),
-	snippet('Property Get', 'Property Get ${1:Name}() As ${2:Variant}\n    $0\nEnd Property', 'Property Get block', undefined, ['propget']),
-	snippet('Property Let', 'Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})\n    $0\nEnd Property', 'Property Let block', undefined, ['proplet']),
-	snippet('Property Set', 'Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})\n    $0\nEnd Property', 'Property Set block', undefined, ['propset']),
-	snippet('Type', 'Type ${1:Name}\n    ${2:Field} As ${3:Variant}\nEnd Type', 'User-defined type block'),
-	snippet('Enum', 'Enum ${1:Name}\n    ${2:Value1} = ${3:0}\nEnd Enum', 'Enum block'),
-	snippet('Private Sub', 'Private Sub ${1:Name}()\n    $0\nEnd Sub', 'Private procedure block'),
-	snippet('Public Sub', 'Public Sub ${1:Name}()\n    $0\nEnd Sub', 'Public procedure block'),
-	snippet('Private Function', 'Private Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Private function block'),
-	snippet('Public Function', 'Public Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Public function block'),
+	snippet('If', blockText('If ${1:condition} Then', I + '$0', 'End If'), 'If...Then block'),
+	snippet('If Else', blockText('If ${1:condition} Then', I + '$2', 'Else', I + '$0', 'End If'), 'If...Else block', undefined, ['ifelse']),
+	snippet('With', blockText('With ${1:object}', I + '.$0', 'End With'), 'With...End With block'),
+	snippet('For', blockText('For ${1:i} = ${2:1} To ${3:10}', I + '$0', 'Next ${1/(.*)/$1/}'), 'For...Next block'),
+	snippet('For Each', blockText('For Each ${1:item} In ${2:collection}', I + '$0', 'Next ${1/(.*)/$1/}'), 'For Each...Next block'),
+	snippet('Do While', blockText('Do While ${1:condition}', I + '$0', 'Loop'), 'Do While...Loop block'),
+	snippet('Do Until', blockText('Do Until ${1:condition}', I + '$0', 'Loop'), 'Do Until...Loop block'),
+	snippet('Do Loop Until', blockText('Do', I + '$0', 'Loop Until ${1:condition}'), 'Do...Loop Until block', undefined, ['dountil']),
+	snippet('While', blockText('While ${1:condition}', I + '$0', 'Wend'), 'While...Wend block'),
+	snippet('Select Case', blockText('Select Case ${1:expression}', I + 'Case ${2:value}', I + I + '$0', 'End Select'), 'Select Case block'),
+	SUB_SNIPPET,
+	FUNCTION_SNIPPET,
+	PROPERTY_GET_SNIPPET,
+	PROPERTY_LET_SNIPPET,
+	PROPERTY_SET_SNIPPET,
+	snippet('Type', blockText('Type ${1:Name}', I + '${2:Field} As ${3:Variant}', 'End Type'), 'User-defined type block'),
+	snippet('Enum', blockText('Enum ${1:Name}', I + '${2:Value1} = ${3:0}', 'End Enum'), 'Enum block'),
+	snippet('Private Sub', blockText('Private Sub ${1:Name}()', I + '$0', 'End Sub'), 'Private procedure block'),
+	snippet('Public Sub', blockText('Public Sub ${1:Name}()', I + '$0', 'End Sub'), 'Public procedure block'),
+	snippet('Private Function', blockText('Private Function ${1:Name}() As ${2:Variant}', I + '$0', 'End Function'), 'Private function block'),
+	snippet('Public Function', blockText('Public Function ${1:Name}() As ${2:Variant}', I + '$0', 'End Function'), 'Public function block'),
 	snippet('Option Explicit', 'Option Explicit', 'Option statement'),
 	snippet('On Error Resume Next', 'On Error Resume Next', 'Error-handling statement'),
 	snippet('On Error GoTo 0', 'On Error GoTo 0', 'Error-handling statement'),
 	snippet(
 		'On Error GoTo Handler',
-		'On Error GoTo ${1:ErrHandler}\n    $0\n    Exit ${2|Sub,Function,Property|}\n${1:ErrHandler}:\n    MsgBox "Error " & Err.Number & ": " & Err.Description',
+		blockText(
+			'On Error GoTo ${1:ErrHandler}',
+			I + '$0',
+			I + 'Exit ${2|Sub,Function,Property|}',
+			'${1:ErrHandler}:',
+			I + 'MsgBox "Error " & Err.Number & ": " & Err.Description',
+		),
 		'Error handler block',
 		undefined,
 		['onerror'],
@@ -83,11 +97,11 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 ];
 
 const MODIFIER_SNIPPETS: readonly KeywordSpec[] = [
-	snippet('Sub', 'Sub ${1:Name}()\n    $0\nEnd Sub', 'Procedure block'),
-	snippet('Function', 'Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Function block', undefined, ['func']),
-	snippet('Property Get', 'Property Get ${1:Name}() As ${2:Variant}\n    $0\nEnd Property', 'Property Get block', undefined, ['propget']),
-	snippet('Property Let', 'Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})\n    $0\nEnd Property', 'Property Let block', undefined, ['proplet']),
-	snippet('Property Set', 'Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})\n    $0\nEnd Property', 'Property Set block', undefined, ['propset']),
+	SUB_SNIPPET,
+	FUNCTION_SNIPPET,
+	PROPERTY_GET_SNIPPET,
+	PROPERTY_LET_SNIPPET,
+	PROPERTY_SET_SNIPPET,
 	keyword('Const', 'Constant declaration'),
 	keyword('Dim', 'Variable declaration'),
 ];
@@ -117,7 +131,7 @@ const ON_ERROR_SNIPPETS: readonly KeywordSpec[] = [
 ];
 
 const DIRECTIVE_SNIPPETS: readonly KeywordSpec[] = [
-	snippet('#If', '#If ${1:condition} Then\n    $0\n#End If', 'Conditional compilation block'),
+	snippet('#If', blockText('#If ${1:condition} Then', I + '$0', '#End If'), 'Conditional compilation block'),
 	snippet('#Const', '#Const ${1:name} = ${2:value}', 'Conditional compilation constant'),
 	keyword('#ElseIf', 'Conditional compilation branch'),
 	keyword('#Else', 'Conditional compilation branch'),
@@ -161,6 +175,16 @@ export function resolveKeywordCompletions(
 		return complete(close ? [close, ...STATEMENT_SNIPPETS] : STATEMENT_SNIPPETS, ctx.partial, false);
 	}
 	return { items: [], exclusive: false };
+}
+
+export function materializeKeywordSnippet(
+	insertText: string,
+	baseIndent: string,
+): string {
+	if (!baseIndent) {
+		return insertText;
+	}
+	return insertText.replace(/\n(?!$)/g, `\n${baseIndent}`);
 }
 
 function completionContext(source: string, offset: number): CompletionContext | undefined {
@@ -285,112 +309,7 @@ function closingCompletion(source: string, statementStart: number): KeywordSpec 
 }
 
 function openBlockClosers(source: string, statementStart: number): string[] {
-	const tokens = tokenize(source.slice(0, Math.max(0, statementStart))).filter(
-		(token) => token.kind !== 'comment',
-	);
-	const statements = splitLogicalStatements(tokens);
-	const stack: string[] = [];
-	for (const statement of statements) {
-		const code = codeTokens(statement);
-		if (code.length === 0) {
-			continue;
-		}
-		const closer = closerForStatement(code);
-		if (closer) {
-			popCloser(stack, closer);
-			continue;
-		}
-		const opener = openerForStatement(code);
-		if (opener) {
-			stack.push(opener);
-		}
-	}
-	return stack;
-}
-
-function openerForStatement(tokens: readonly VbaToken[]): string | undefined {
-	const w0 = tokenWord(tokens[0]);
-	const w1 = tokenWord(tokens[1]);
-	if (w0 === 'sub') {
-		return 'End Sub';
-	}
-	if (w0 === 'function') {
-		return 'End Function';
-	}
-	if (w0 === 'property') {
-		return 'End Property';
-	}
-	if (w0 === 'type') {
-		return 'End Type';
-	}
-	if (w0 === 'enum') {
-		return 'End Enum';
-	}
-	if (w0 === 'if' && tokenWord(tokens[tokens.length - 1]) === 'then') {
-		return 'End If';
-	}
-	if (w0 === 'for') {
-		return 'Next';
-	}
-	if (w0 === 'do') {
-		return 'Loop';
-	}
-	if (w0 === 'while') {
-		return 'Wend';
-	}
-	if (w0 === 'with') {
-		return 'End With';
-	}
-	if (w0 === 'select' && w1 === 'case') {
-		return 'End Select';
-	}
-	return undefined;
-}
-
-function closerForStatement(tokens: readonly VbaToken[]): string | undefined {
-	const w0 = tokenWord(tokens[0]);
-	const w1 = tokenWord(tokens[1]);
-	if (w0 === 'end') {
-		switch (w1) {
-			case 'sub':
-				return 'End Sub';
-			case 'function':
-				return 'End Function';
-			case 'property':
-				return 'End Property';
-			case 'if':
-				return 'End If';
-			case 'select':
-				return 'End Select';
-			case 'with':
-				return 'End With';
-			case 'type':
-				return 'End Type';
-			case 'enum':
-				return 'End Enum';
-			default:
-				return undefined;
-		}
-	}
-	if (w0 === 'next') {
-		return 'Next';
-	}
-	if (w0 === 'loop') {
-		return 'Loop';
-	}
-	if (w0 === 'wend') {
-		return 'Wend';
-	}
-	return undefined;
-}
-
-function popCloser(stack: string[], closer: string): void {
-	for (let i = stack.length - 1; i >= 0; i -= 1) {
-		if (stack[i] === closer) {
-			stack.splice(i, 1);
-			return;
-		}
-	}
+	return openSmartBlockClosersBefore(source, statementStart);
 }
 
 function word(token: VbaToken | undefined): string {
@@ -410,6 +329,10 @@ function isIdentLike(token: VbaToken): boolean {
 
 function keyword(label: string, detail: string, sortText?: string): KeywordSpec {
 	return { label, insertText: label, detail, sortText, kind: 'keyword' };
+}
+
+function blockText(...lines: string[]): string {
+	return lines.join('\n');
 }
 
 function snippet(

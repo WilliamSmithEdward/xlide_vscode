@@ -4,6 +4,10 @@ import {
     stripVba,
     detectSmartBlockOpener,
     isSmartBlockClosedAhead,
+    openSmartBlockClosersBefore,
+    resolveLoopIteratorSyncEdit,
+    smartBlockBodyIndent,
+    smartBlockBodyText,
     detectProcOpener,
     isProcClosedAhead,
 } from '../src/vbaLinter';
@@ -248,5 +252,159 @@ describe('isSmartBlockClosedAhead', () => {
     it('does not scan past another procedure opener', () => {
         const lines = ['With Range("A1")', 'Sub Other()', 'End With'];
         expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'End With', bodyPrefix: '.' })).toBe(false);
+    });
+});
+
+describe('openSmartBlockClosersBefore', () => {
+    it('returns open closers from outermost to innermost', () => {
+        const src = 'Sub T()\n    With rng\n        If ready Then\n            \n';
+        expect(openSmartBlockClosersBefore(src, src.length)).toEqual([
+            'End Sub',
+            'End With',
+            'End If',
+        ]);
+    });
+
+    it('tracks For and For Each iterator names for close suggestions', () => {
+        const src = 'Sub T()\n    For i = 1 To 3\n        For Each cell In Selection\n';
+        expect(openSmartBlockClosersBefore(src, src.length).slice(-2)).toEqual([
+            'Next i',
+            'Next cell',
+        ]);
+    });
+
+    it('closes matched blocks before reporting the active closer', () => {
+        const src = 'Sub T()\n    With rng\n    End With\n    \n';
+        expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub']);
+    });
+
+    it('does not treat one-line statements as open smart blocks', () => {
+        const src = 'Sub T()\n    If ready Then value = 1\n    \n';
+        expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub']);
+    });
+});
+
+describe('resolveLoopIteratorSyncEdit', () => {
+    const applySync = (source: string, offset: number): string | undefined => {
+        const edit = resolveLoopIteratorSyncEdit(source, offset);
+        return edit
+            ? source.slice(0, edit.span.start) + edit.newText + source.slice(edit.span.end)
+            : undefined;
+    };
+
+    it('updates a matching Next variable when the For iterator changes', () => {
+        const src = [
+            'Sub T()',
+            '    For idx = 1 To 10',
+            '        Debug.Print idx',
+            '    Next i',
+            'End Sub',
+            '',
+        ].join('\n');
+        const out = applySync(src, src.indexOf('idx =') + 'idx'.length);
+        expect(out).toContain('    Next idx');
+    });
+
+    it('updates a matching For iterator when the Next variable changes', () => {
+        const src = [
+            'Sub T()',
+            '    For i = 1 To 10',
+            '        Debug.Print i',
+            '    Next idx',
+            'End Sub',
+            '',
+        ].join('\n');
+        const out = applySync(src, src.indexOf('idx') + 'idx'.length);
+        expect(out).toContain('    For idx = 1 To 10');
+    });
+
+    it('supports For Each iterator pairs', () => {
+        const src = [
+            'Sub T()',
+            '    For Each cell In Selection',
+            '        Debug.Print cell.Value',
+            '    Next item',
+            'End Sub',
+            '',
+        ].join('\n');
+        const out = applySync(src, src.indexOf('cell In') + 'cell'.length);
+        expect(out).toContain('    Next cell');
+    });
+
+    it('matches nested loop pairs without touching the outer loop', () => {
+        const src = [
+            'Sub T()',
+            '    For i = 1 To 10',
+            '        For innerIndex = 1 To 3',
+            '            Debug.Print innerIndex',
+            '        Next j',
+            '    Next i',
+            'End Sub',
+            '',
+        ].join('\n');
+        const out = applySync(src, src.indexOf('innerIndex =') + 'innerIndex'.length);
+        expect(out).toContain('        Next innerIndex');
+        expect(out).toContain('    Next i');
+    });
+
+    it('skips bare and multi-variable Next statements', () => {
+        const bare = 'Sub T()\n    For idx = 1 To 3\n    Next\nEnd Sub\n';
+        expect(resolveLoopIteratorSyncEdit(bare, bare.indexOf('idx =') + 'idx'.length)).toBeUndefined();
+
+        const multi = [
+            'Sub T()',
+            '    For idx = 1 To 3',
+            '        For j = 1 To 3',
+            '        Next j, i',
+            'End Sub',
+            '',
+        ].join('\n');
+        expect(resolveLoopIteratorSyncEdit(multi, multi.indexOf('idx =') + 'idx'.length)).toBeUndefined();
+    });
+
+    it('does not edit when the pair already matches or the edit is outside the iterator token', () => {
+        const matched = 'Sub T()\n    For i = 1 To 3\n    Next i\nEnd Sub\n';
+        expect(resolveLoopIteratorSyncEdit(matched, matched.indexOf('i =') + 1)).toBeUndefined();
+
+        const outside = 'Sub T()\n    For Each item In collection\n    Next item\nEnd Sub\n';
+        expect(resolveLoopIteratorSyncEdit(outside, outside.indexOf('collection') + 3)).toBeUndefined();
+    });
+});
+
+describe('smartBlockBodyIndent', () => {
+    it('indents the body one real tab deeper than the opener when VS Code did not', () => {
+        expect(smartBlockBodyIndent('    With ActiveSheet', '    ')).toBe('    \t');
+    });
+
+    it('indents If block bodies with the same shared block unit', () => {
+        expect(smartBlockBodyIndent('    If ready Then', '    ')).toBe('    \t');
+    });
+
+    it('keeps an already deeper body indent when it uses the shared block unit', () => {
+        expect(smartBlockBodyIndent('    With ActiveSheet', '    \t\t')).toBe('    \t\t');
+    });
+
+    it('normalizes VS Code space auto-indent to the shared block unit', () => {
+        expect(smartBlockBodyIndent('\tWhile True', '    ')).toBe('\t\t');
+        expect(smartBlockBodyIndent('    While True', '        ')).toBe('    \t');
+    });
+
+    it('uses the configured indent unit', () => {
+        expect(smartBlockBodyIndent('\tWith ActiveSheet', '\t', '\t')).toBe('\t\t');
+        expect(smartBlockBodyIndent('    With ActiveSheet', '    ', '    ')).toBe('        ');
+    });
+});
+
+describe('smartBlockBodyText', () => {
+    it('keeps For Each body lines indented when the matching Next already exists', () => {
+        expect(smartBlockBodyText('    For Each item In collection', '    ', {})).toBe('    \t');
+    });
+
+    it('keeps If body lines indented when End If already exists', () => {
+        expect(smartBlockBodyText('    If ready Then', '    ', {})).toBe('    \t');
+    });
+
+    it('adds the With leading-dot after the body indent', () => {
+        expect(smartBlockBodyText('    With ActiveSheet', '    ', { bodyPrefix: '.' })).toBe('    \t.');
     });
 });

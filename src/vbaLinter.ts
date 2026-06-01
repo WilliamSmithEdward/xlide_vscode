@@ -39,6 +39,20 @@ export interface VbaSmartBlockOpener {
     bodyPrefix?: string;
 }
 
+export const VBA_BLOCK_INDENT_UNIT = '\t';
+
+export interface VbaLoopIteratorSyncEdit {
+    /** Absolute source span to replace. */
+    span: { start: number; end: number };
+    /** Iterator text copied from the edited side of the loop pair. */
+    newText: string;
+}
+
+interface SmartOpenBlock {
+    kind: BlockKind;
+    closer: string;
+}
+
 interface OpenBlock {
     kind: BlockKind;
     /** 0-based physical line of the opener. */
@@ -46,6 +60,30 @@ interface OpenBlock {
     /** Friendly descriptor, e.g. "Sub Foo" or "If". */
     label: string;
 }
+
+interface PhysicalLine {
+    text: string;
+    start: number;
+    end: number;
+}
+
+interface LoopIteratorToken {
+    name: string;
+    span: { start: number; end: number };
+}
+
+interface LoopOpenerLine {
+    kind: 'opener';
+    iterator: LoopIteratorToken;
+}
+
+interface LoopNextLine {
+    kind: 'next';
+    closeCount: number;
+    iterator?: LoopIteratorToken;
+}
+
+type LoopLineInfo = LoopOpenerLine | LoopNextLine;
 
 /** The closing phrase expected for each block kind. */
 const CLOSE_PHRASE: Record<BlockKind, string> = {
@@ -328,6 +366,127 @@ export function detectSmartBlockOpener(strippedLine: string): VbaSmartBlockOpene
 }
 
 /**
+ * Returns the still-open smart-block closers before an offset, ordered from
+ * outermost to innermost. Used by keyword completion so close suggestions and
+ * Smart Enter share the same block-opening rules.
+ */
+export function openSmartBlockClosersBefore(
+    source: string,
+    offset = source.length,
+): string[] {
+    const safeOffset = Math.max(0, Math.min(offset, source.length));
+    const { logical } = toLogicalLines(source.slice(0, safeOffset));
+    const stack: SmartOpenBlock[] = [];
+
+    const closeOne = (kind: BlockKind): void => {
+        let idx = -1;
+        for (let k = stack.length - 1; k >= 0; k--) {
+            if (stack[k].kind === kind) {
+                idx = k;
+                break;
+            }
+        }
+        if (idx >= 0) {
+            stack.length = idx;
+        }
+    };
+
+    for (const ll of logical) {
+        const t = ll.text.trim();
+        if (!t) { continue; }
+        if (/^(#\s*ElseIf|#\s*Else)\b/i.test(t)) { continue; }
+
+        if (/^Next\b/i.test(t)) {
+            const rest = t.replace(/^Next\b/i, '').trim();
+            const count = rest === '' ? 1 : rest.split(',').length;
+            for (let n = 0; n < count; n++) { closeOne('For'); }
+            continue;
+        }
+
+        const closer = matchCloser(t);
+        if (closer) {
+            closeOne(closer);
+            continue;
+        }
+
+        const opener = detectSmartBlockOpener(t);
+        const matched = opener ? matchOpener(t) : undefined;
+        if (opener && matched) {
+            stack.push({ kind: matched.kind, closer: opener.endKeyword });
+        }
+    }
+
+    return stack.map((open) => open.closer);
+}
+
+/**
+ * When the edit position is on a simple `For` / `For Each` iterator or its
+ * matching `Next name`, returns the paired iterator replacement.
+ */
+export function resolveLoopIteratorSyncEdit(
+    source: string,
+    offset: number,
+): VbaLoopIteratorSyncEdit | undefined {
+    const lines = physicalLines(source);
+    if (lines.length === 0) { return undefined; }
+
+    const safeOffset = Math.max(0, Math.min(offset, source.length));
+    const lineIndex = physicalLineAtOffset(lines, safeOffset);
+    const line = lines[lineIndex];
+    const info = parseLoopLine(line);
+    if (!info?.iterator || !offsetTouchesSpan(safeOffset, info.iterator.span)) {
+        return undefined;
+    }
+
+    const counterpart = info.kind === 'opener'
+        ? findMatchingNextLine(lines, lineIndex)
+        : findMatchingOpenerLine(lines, lineIndex);
+    if (!counterpart?.iterator) {
+        return undefined;
+    }
+    if (counterpart.iterator.name === info.iterator.name) {
+        return undefined;
+    }
+
+    return {
+        span: counterpart.iterator.span,
+        newText: info.iterator.name,
+    };
+}
+
+/**
+ * Computes the body-line indentation Smart Enter should own after a block
+ * opener. If the editor already produced a deeper indent, keep it; otherwise
+ * move one configured indentation unit deeper than the opener.
+ */
+export function smartBlockBodyIndent(
+    openerLine: string,
+    currentBodyLine = '',
+    indentUnit = VBA_BLOCK_INDENT_UNIT,
+): string {
+    const openerIndent = leadingWhitespace(openerLine);
+    const currentIndent = leadingWhitespace(currentBodyLine);
+    const expectedIndent = openerIndent + indentUnit;
+    if (currentIndent.startsWith(expectedIndent)) {
+        return currentIndent;
+    }
+    return expectedIndent;
+}
+
+/**
+ * Body-line text Smart Enter should leave after a block opener. For `With`,
+ * this includes the seeded leading dot after the computed indentation.
+ */
+export function smartBlockBodyText(
+    openerLine: string,
+    currentBodyLine: string,
+    opener: Pick<VbaSmartBlockOpener, 'bodyPrefix'>,
+    indentUnit = VBA_BLOCK_INDENT_UNIT,
+): string {
+    return smartBlockBodyIndent(openerLine, currentBodyLine, indentUnit) + (opener.bodyPrefix ?? '');
+}
+
+/**
  * Back-compat wrapper for tests/providers that only care about procedure
  * headers. New smart-enter callers should use `detectSmartBlockOpener`.
  */
@@ -372,6 +531,117 @@ export function isProcClosedAhead(
 
 function forIteratorName(t: string): string | undefined {
     return /^For\s+(?:Each\s+)?([A-Za-z_]\w*)\b/i.exec(t)?.[1];
+}
+
+function physicalLines(source: string): PhysicalLine[] {
+    const lines: PhysicalLine[] = [];
+    let start = 0;
+    for (let i = 0; i < source.length; i++) {
+        if (source[i] !== '\n') { continue; }
+        const end = i > start && source[i - 1] === '\r' ? i - 1 : i;
+        lines.push({ text: source.slice(start, end), start, end });
+        start = i + 1;
+    }
+    lines.push({ text: source.slice(start), start, end: source.length });
+    return lines;
+}
+
+function physicalLineAtOffset(lines: PhysicalLine[], offset: number): number {
+    for (let i = 0; i < lines.length; i++) {
+        if (offset >= lines[i].start && offset <= lines[i].end) {
+            return i;
+        }
+    }
+    return lines.length - 1;
+}
+
+function parseLoopLine(line: PhysicalLine): LoopLineInfo | undefined {
+    const stripped = stripVba(line.text);
+
+    let m = /^(\s*)For\s+Each\s+([A-Za-z_]\w*)\s+In\b/i.exec(stripped);
+    if (m) {
+        return { kind: 'opener', iterator: tokenFromMatch(line.start, m, 2) };
+    }
+
+    m = /^(\s*)For\s+([A-Za-z_]\w*)\s*=/i.exec(stripped);
+    if (m) {
+        return { kind: 'opener', iterator: tokenFromMatch(line.start, m, 2) };
+    }
+
+    const next = /^(\s*)Next\b(.*)$/i.exec(stripped);
+    if (!next) {
+        return undefined;
+    }
+
+    const closeCount = nextCloseCount(next[2].trim());
+    m = /^(\s*)Next\s+([A-Za-z_]\w*)\s*$/i.exec(stripped);
+    return {
+        kind: 'next',
+        closeCount,
+        iterator: m ? tokenFromMatch(line.start, m, 2) : undefined,
+    };
+}
+
+function tokenFromMatch(lineStart: number, match: RegExpExecArray, groupIndex: number): LoopIteratorToken {
+    const name = match[groupIndex];
+    const col = match[0].indexOf(name);
+    return {
+        name,
+        span: { start: lineStart + col, end: lineStart + col + name.length },
+    };
+}
+
+function nextCloseCount(rest: string): number {
+    if (!rest) { return 1; }
+    return Math.max(1, rest.split(',').map((part) => part.trim()).filter(Boolean).length);
+}
+
+function findMatchingNextLine(lines: PhysicalLine[], openerIndex: number): LoopNextLine | undefined {
+    let depth = 0;
+    for (let i = openerIndex + 1; i < lines.length; i++) {
+        const info = parseLoopLine(lines[i]);
+        if (!info) { continue; }
+        if (info.kind === 'opener') {
+            depth++;
+            continue;
+        }
+
+        if (depth === 0) {
+            return info.closeCount === 1 ? info : undefined;
+        }
+
+        depth -= info.closeCount;
+        if (depth < 0) {
+            return undefined;
+        }
+    }
+    return undefined;
+}
+
+function findMatchingOpenerLine(lines: PhysicalLine[], nextIndex: number): LoopOpenerLine | undefined {
+    let depth = 0;
+    for (let i = nextIndex - 1; i >= 0; i--) {
+        const info = parseLoopLine(lines[i]);
+        if (!info) { continue; }
+        if (info.kind === 'next') {
+            depth += info.closeCount;
+            continue;
+        }
+
+        if (depth === 0) {
+            return info;
+        }
+        depth--;
+    }
+    return undefined;
+}
+
+function offsetTouchesSpan(offset: number, span: { start: number; end: number }): boolean {
+    return offset >= span.start && offset <= span.end;
+}
+
+function leadingWhitespace(text: string): string {
+    return /^[ \t]*/.exec(text)?.[0] ?? '';
 }
 
 function isCompleteSmartBlockOpener(t: string, kind: BlockKind): boolean {

@@ -317,7 +317,8 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
 | `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, and add/remove `Set` for proven object/scalar assignments |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
-| Smart enter (auto-block) | Pressing Enter after a safe block opener auto-inserts the matching closer below and leaves the caret on the indented body line; supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion |
+| Smart enter (auto-block) | Pressing Enter after a safe block opener auto-inserts the matching closer below and leaves the caret on the indented body line one real tab deeper than the opener; supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion |
+| Loop iterator sync | Editing the iterator token in a simple `For` / `For Each` opener or its matching `Next name` updates the paired token, using the same string/comment stripping and conservative block matching as structural linting |
 
 Language-service business rules are unified across surfaces. Unless a behavior is
 called out as a deliberate corner case, completion insert text, hover, signature
@@ -506,6 +507,18 @@ into a pure analyzer layer and a thin VS Code provider:
   panel includes the runtime kind plus curated parameter types where available;
   constant completion shows the owning enum/type and known value.
   Curated runtime calls are intentionally not duplicated as VS Code snippets.
+  Block keyword completions remain explicit full-block scaffolds for Tab-driven
+  shortcut gestures, while Smart Enter handles the line-by-line workflow after a
+  user-typed opener. Close-keyword suggestions still consume the same
+  smart-block stack as Smart Enter, so active closer labels such as `Next cell`
+  do not fork from the block model. Loop snippets use a transformed iterator
+  mirror on the `Next` line rather than a second linked placeholder, so leaving
+  the iterator field does not keep a cross-line placeholder selection alive.
+  After insertion, simple loop iterator edits are synchronized bidirectionally
+  between the opener and the matching `Next name`.
+  Keyword snippets and Smart Enter use the same literal-tab block indentation
+  unit, materialized with the current line's base indentation and
+  `keepWhitespace`, so all block archetypes preserve real tabs in their bodies.
   Expression-level `New` completion is narrower and offers only creatable
   project classes/UserForms until host/external creatability metadata exists.
   Accepting callable completions applies canonical casing and uses the shared

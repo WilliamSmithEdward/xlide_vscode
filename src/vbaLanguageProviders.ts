@@ -7,6 +7,8 @@ import {
     stripVba,
     detectSmartBlockOpener,
     isSmartBlockClosedAhead,
+    resolveLoopIteratorSyncEdit,
+    smartBlockBodyText,
 } from './vbaLinter';
 import {
     analyzeModule,
@@ -1213,22 +1215,29 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         if (bodyLineIndex >= doc.lineCount) { return; }
 
         const strippedLines = doc.getText().split(/\r\n|\r|\n/).map(stripVba);
-        if (isSmartBlockClosedAhead(strippedLines, openerLineIndex, opener)) { return; }
+        const closedAhead = isSmartBlockClosedAhead(strippedLines, openerLineIndex, opener);
 
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document !== doc) { return; }
 
         const indent = /^[ \t]*/.exec(openerLine)?.[0] ?? '';
         const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
-        const bodyIndentLen = doc.lineAt(bodyLineIndex).text.length;
-        const insertPos = new vscode.Position(bodyLineIndex, bodyIndentLen);
+        const bodyLine = doc.lineAt(bodyLineIndex).text;
+        if (!/^[ \t]*$/.test(bodyLine)) { return; }
+        const bodyText = smartBlockBodyText(openerLine, bodyLine, opener);
+        const bodyRange = new vscode.Range(
+            new vscode.Position(bodyLineIndex, 0),
+            new vscode.Position(bodyLineIndex, bodyLine.length),
+        );
 
         applying = true;
         try {
             await editor.edit(
-                (eb) => eb.insert(
-                    insertPos,
-                    `${opener.bodyPrefix ?? ''}${eol}${indent}${opener.endKeyword}`,
+                (eb) => eb.replace(
+                    bodyRange,
+                    closedAhead
+                        ? bodyText
+                        : `${bodyText}${eol}${indent}${opener.endKeyword}`,
                 ),
                 { undoStopBefore: false, undoStopAfter: true },
             );
@@ -1239,9 +1248,56 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         // Keep the caret on the indented body line, above the inserted End.
         const caret = new vscode.Position(
             bodyLineIndex,
-            bodyIndentLen + (opener.bodyPrefix?.length ?? 0),
+            bodyText.length,
         );
         editor.selection = new vscode.Selection(caret, caret);
+    });
+
+    context.subscriptions.push(sub);
+}
+
+/**
+ * Keeps simple loop iterator names paired across `For`/`For Each` and `Next`.
+ * This intentionally lives outside snippets so hand-written loops get the same
+ * behavior as completed loops.
+ */
+function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): void {
+    let applying = false;
+
+    const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
+        if (applying) { return; }
+        const doc = e.document;
+        if (!isVbaDocument(doc)) { return; }
+        if (e.contentChanges.length !== 1) { return; }
+
+        const change = e.contentChanges[0];
+        if (/[\r\n]/.test(change.text)) { return; }
+
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document !== doc) { return; }
+
+        const lineIndex = Math.min(change.range.start.line, doc.lineCount - 1);
+        const lineLength = doc.lineAt(lineIndex).text.length;
+        const character = Math.min(lineLength, change.range.start.character + change.text.length);
+        const offset = doc.offsetAt(new vscode.Position(lineIndex, character));
+        const syncEdit = resolveLoopIteratorSyncEdit(doc.getText(), offset);
+        if (!syncEdit) { return; }
+
+        applying = true;
+        try {
+            await editor.edit(
+                (eb) => eb.replace(
+                    new vscode.Range(
+                        doc.positionAt(syncEdit.span.start),
+                        doc.positionAt(syncEdit.span.end),
+                    ),
+                    syncEdit.newText,
+                ),
+                { undoStopBefore: false, undoStopAfter: false },
+            );
+        } finally {
+            applying = false;
+        }
     });
 
     context.subscriptions.push(sub);
@@ -1255,6 +1311,7 @@ export function registerVbaLanguageProviders(
 
     registerVbaDiagnostics(context, index);
     registerVbaAutoBlock(context);
+    registerVbaLoopIteratorSync(context);
     const docMetadata = new DocMetadataLoader();
     void docMetadata.start(context);
     registerVbaMemberCompletion(context, bridge, VBA_SELECTOR, docMetadata.registry);

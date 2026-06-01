@@ -169,7 +169,19 @@ heuristic diagnostics.
 - Smart Enter auto-blocks safe VBA block openers through the same structural
   block helper used by linting, including procedures, `If ... Then`, `With`,
   `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`; `With`
-  starts the body line with `.` for immediate member completion.
+  starts the body line one real tab deeper with `.` for immediate member
+  completion.
+- Block keyword completions remain full-block scaffolds for explicit Tab-driven
+  shortcuts, while Smart Enter handles the line-by-line opener workflow. Active
+  close-keyword suggestions consume the same smart-block stack as Smart Enter.
+  Loop snippets mirror the iterator into `Next` through a transform rather than
+  a second linked placeholder, so leaving the iterator field exits the
+  cross-line selection behavior cleanly. Keyword snippets preserve literal tab
+  indentation while still inheriting the current line's base indent; Smart
+  Enter uses the same literal-tab block unit for every block archetype.
+- Simple `For` / `For Each` iterator names now stay paired after insertion:
+  editing the iterator in the opener or matching `Next name` updates the other
+  side without relying on snippet mode.
 - Excel/VBE oracle harness exists under `syntax_corpus/oracle/`.
 - The wider unverified type-analysis backlog is tracked in
   `docs/type_analysis_corpus_coverage.md`.
@@ -611,6 +623,14 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [x] Share structural block knowledge between linting and Smart Enter so safe
   block openers auto-insert their matching closer instead of maintaining
   procedure-only editor logic.
+- [x] Use the same smart-block stack for close-keyword completion while keeping
+  full block snippets available for explicit completion shortcuts.
+- [x] Synchronize simple `For` / `For Each` iterator names between openers and
+  matching `Next name` statements after either side is edited.
+- [x] Conform Smart Enter and keyword snippet block archetypes to one
+  literal-tab indentation rule, so `While`, `Do`, `If`, `With`, procedure,
+  `Select Case`, `Type`, `Enum`, `#If`, `For`, and `For Each` bodies do not
+  drift into separate space/tab behavior.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for

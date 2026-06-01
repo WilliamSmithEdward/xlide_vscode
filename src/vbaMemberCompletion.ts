@@ -26,6 +26,7 @@ import {
 	MemberCompletion,
 	MemberCompletionContext,
 	ModuleSymbolKind,
+	materializeKeywordSnippet,
 	ProjectIndex,
 	VbaProcedureSignature,
 	callableCompletionShouldInsertParens,
@@ -49,6 +50,10 @@ const CHART = 'Excel.Chart';
 const MODULE_CACHE_TTL_MS = 5000;
 const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
+
+function leadingWhitespace(text: string): string {
+	return /^[ \t]*/.exec(text)?.[0] ?? '';
+}
 
 interface ModuleEntry {
 	name: string;
@@ -167,14 +172,14 @@ class VbaMemberCompletionProvider
 
 		const keywords = resolveKeywordCompletions(source, offset);
 		if (keywords.exclusive) {
-			return keywords.items.map((item) => this._toKeywordItem(item, range));
+			return keywords.items.map((item) => this._toKeywordItem(item, range, document));
 		}
 
 		const identCtx = await this._buildIdentifierContext(document);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
 		return [
 			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
-			...keywords.items.map((item) => this._toKeywordItem(item, range)),
+			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		];
 	}
 
@@ -794,7 +799,11 @@ class VbaMemberCompletionProvider
 		return item;
 	}
 
-	private _toKeywordItem(keyword: KeywordCompletion, range: vscode.Range): vscode.CompletionItem {
+	private _toKeywordItem(
+		keyword: KeywordCompletion,
+		range: vscode.Range,
+		document: vscode.TextDocument,
+	): vscode.CompletionItem {
 		const kind = keyword.kind === 'snippet'
 			? vscode.CompletionItemKind.Snippet
 			: vscode.CompletionItemKind.Keyword;
@@ -807,9 +816,13 @@ class VbaMemberCompletionProvider
 		item.filterText = keyword.filterText ?? keyword.label;
 		item.sortText = keyword.sortText ?? `9:${keyword.label}`;
 		item.insertText = keyword.kind === 'snippet'
-			? new vscode.SnippetString(keyword.insertText)
+			? new vscode.SnippetString(materializeKeywordSnippet(
+				keyword.insertText,
+				this._lineIndent(document, range.start.line),
+			))
 			: keyword.insertText;
 		if (keyword.kind === 'snippet') {
+			item.keepWhitespace = true;
 			item.command = {
 				command: KEYWORD_SNIPPET_ACCEPTED_COMMAND,
 				title: 'Track VBA Snippet',
@@ -855,6 +868,10 @@ class VbaMemberCompletionProvider
 			end += 1;
 		}
 		return new vscode.Range(position.line, start, position.line, end);
+	}
+
+	private _lineIndent(document: vscode.TextDocument, line: number): string {
+		return leadingWhitespace(document.lineAt(line).text);
 	}
 
 	private _identItemKind(id: IdentifierCompletion): vscode.CompletionItemKind {

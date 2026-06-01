@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveKeywordCompletions } from '../src/analyzer';
+import { materializeKeywordSnippet, resolveKeywordCompletions } from '../src/analyzer';
 
 function at(src: string, marker: string): number {
 	const idx = src.indexOf(marker);
@@ -21,8 +21,31 @@ describe('keyword completion - statement snippets', () => {
 		expect(result.items.map((item) => item.label)).toContain('If');
 		expect(result.items.map((item) => item.label)).toContain('With');
 		expect(result.items.find((item) => item.label === 'With')?.insertText).toBe(
-			'With ${1:object}\n    .$0\nEnd With',
+			'With ${1:object}\n\t.$0\nEnd With',
 		);
+	});
+
+	it('preserves literal tab indentation when materializing nested snippet bodies', () => {
+		const snippet = 'For ${1:i} = ${2:1} To ${3:10}\n\t$0\nNext ${1/(.*)/$1/}';
+
+		expect(materializeKeywordSnippet(snippet, '    ')).toBe(
+			'For ${1:i} = ${2:1} To ${3:10}\n    \t$0\n    Next ${1/(.*)/$1/}',
+		);
+	});
+
+	it('uses one literal tab body unit across block archetype snippets', () => {
+		const statementItems = resolveKeywordCompletions('Sub T()\n    wh\nEnd Sub\n', at('Sub T()\n    wh\nEnd Sub\n', '    wh')).items;
+		expect(statementItems.find((item) => item.label === 'While')?.insertText).toBe(
+			'While ${1:condition}\n\t$0\nWend',
+		);
+
+		const all = resolveKeywordCompletions('Sub T()\n    \nEnd Sub\n', at('Sub T()\n    \nEnd Sub\n', '    ')).items;
+		for (const label of ['If', 'With', 'For', 'For Each', 'Do While', 'Do Until', 'While', 'Select Case', 'Sub', 'Function', 'Type', 'Enum']) {
+			const item = all.find((candidate) => candidate.label === label);
+			expect(item?.kind, label).toBe('snippet');
+			expect(item?.insertText, label).toContain('\n\t');
+			expect(item?.insertText, label).not.toContain('\n    ');
+		}
 	});
 
 	it('filters statement snippets by typed prefix', () => {
@@ -55,15 +78,23 @@ describe('keyword completion - statement snippets', () => {
 		expect(result.items[0]?.sortText).toBe('000:close');
 	});
 
-	it('mirrors loop iterator placeholders in the generated Next statement', () => {
+	it('keeps full block shortcut snippets for explicit completion gestures', () => {
 		const src = 'Sub T()\n    For\nEnd Sub\n';
 		const result = resolveKeywordCompletions(src, at(src, '    For'));
 		expect(result.items.find((item) => item.label === 'For')?.insertText).toBe(
-			'For ${1:i} = ${2:1} To ${3:10}\n    $0\nNext ${1:i}',
+			'For ${1:i} = ${2:1} To ${3:10}\n\t$0\nNext ${1/(.*)/$1/}',
 		);
 		expect(result.items.find((item) => item.label === 'For Each')?.insertText).toBe(
-			'For Each ${1:item} In ${2:collection}\n    $0\nNext ${1:item}',
+			'For Each ${1:item} In ${2:collection}\n\t$0\nNext ${1/(.*)/$1/}',
 		);
+	});
+
+	it('suggests the active loop closer with the iterator from the opener', () => {
+		const src = 'Sub T()\n    For Each cell In Selection\n        \n';
+		const result = resolveKeywordCompletions(src, at(src, '        '));
+		expect(result.items[0]?.label).toBe('Next cell');
+		expect(result.items[0]?.insertText).toBe('Next cell');
+		expect(result.items[0]?.sortText).toBe('000:close');
 	});
 });
 
@@ -130,6 +161,9 @@ describe('keyword completion - narrow grammar contexts', () => {
 		const result = resolveKeywordCompletions(src, at(src, '#'));
 		expect(result.exclusive).toBe(true);
 		expect(result.items.map((item) => item.label)).toContain('#If');
+		expect(result.items.find((item) => item.label === '#If')?.insertText).toBe(
+			'#If ${1:condition} Then\n\t$0\n#End If',
+		);
 	});
 });
 

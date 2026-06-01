@@ -18,8 +18,8 @@
   ],
   "wordPattern": "[A-Za-z_][A-Za-z0-9_]*",
   "indentationRules": {
-    "increaseIndentPattern": "(?i)^[ \\t]*((?:Public|Private|Friend|Global|Static)[ \\t]+)*(Sub|Function)[ \\t]+\\w|^[ \\t]*((?:Public|Private|Friend)[ \\t]+)*(Property)[ \\t]+(Get|Let|Set)[ \\t]+\\w|^[ \\t]*If\\b(?!.*\\bThen[ \\t]*(?:'|$).*\\S).*\\bThen[ \\t]*(?:'.*)?$|^[ \\t]*(For|Do|While|With)\\b|^[ \\t]*Select[ \\t]+Case\\b|^[ \\t]*(Type|Enum)[ \\t]+\\w",
-    "decreaseIndentPattern": "(?i)^[ \\t]*(End[ \\t]+(Sub|Function|Property|If|With|Select|Type|Enum)|Next\\b|Loop\\b|Wend\\b|Else\\b|ElseIf\\b|Case\\b)"
+    "increaseIndentPattern": "^[ \\t]*(?:(?:[Pp][Uu][Bb][Ll][Ii][Cc]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]|[Ff][Rr][Ii][Ee][Nn][Dd]|[Gg][Ll][Oo][Bb][Aa][Ll]|[Ss][Tt][Aa][Tt][Ii][Cc])[ \\t]+)*(?:[Ss][Uu][Bb]|[Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn])[ \\t]+\\w|^[ \\t]*(?:(?:[Pp][Uu][Bb][Ll][Ii][Cc]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]|[Ff][Rr][Ii][Ee][Nn][Dd])[ \\t]+)*[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Yy][ \\t]+(?:[Gg][Ee][Tt]|[Ll][Ee][Tt]|[Ss][Ee][Tt])[ \\t]+\\w|^[ \\t]*[Ii][Ff]\\b(?!.*\\b[Tt][Hh][Ee][Nn][ \\t]*(?:'|$).*\\S).*\\b[Tt][Hh][Ee][Nn][ \\t]*(?:'.*)?$|^[ \\t]*(?:[Ff][Oo][Rr]|[Dd][Oo]|[Ww][Hh][Ii][Ll][Ee]|[Ww][Ii][Tt][Hh])\\b|^[ \\t]*[Ss][Ee][Ll][Ee][Cc][Tt][ \\t]+[Cc][Aa][Ss][Ee]\\b|^[ \\t]*(?:[Tt][Yy][Pp][Ee]|[Ee][Nn][Uu][Mm])[ \\t]+\\w",
+    "decreaseIndentPattern": "^[ \\t]*(?:[Ee][Nn][Dd][ \\t]+(?:[Ss][Uu][Bb]|[Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn]|[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Yy]|[Ii][Ff]|[Ww][Ii][Tt][Hh]|[Ss][Ee][Ll][Ee][Cc][Tt]|[Tt][Yy][Pp][Ee]|[Ee][Nn][Uu][Mm])|[Nn][Ee][Xx][Tt]\\b|[Ll][Oo][Oo][Pp]\\b|[Ww][Ee][Nn][Dd]\\b|[Ee][Ll][Ss][Ee]\\b|[Ee][Ll][Ss][Ee][Ii][Ff]\\b|[Cc][Aa][Ss][Ee]\\b)"
   },
   "folding": {
     "markers": {
@@ -29,31 +29,39 @@
   },
   "onEnterRules": [
     {
-      "beforeText": "(?i)^[ \t]*If\\b.*\\bThen[ \t]*(?:'.*)?$",
+      "beforeText": "^[ \t]*[Ii][Ff]\\b.*\\b[Tt][Hh][Ee][Nn][ \t]*(?:'.*)?$",
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": "(?i)^[ \t]*Else(If\\b.*\\bThen)?[ \t]*(?:'.*)?$",
+      "beforeText": "^[ \t]*[Ee][Ll][Ss][Ee](?:[Ii][Ff]\\b.*\\b[Tt][Hh][Ee][Nn])?[ \t]*(?:'.*)?$",
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": "(?i)^[ \t]*Case\\b.*$",
+      "beforeText": "^[ \t]*[Cc][Aa][Ss][Ee]\\b.*$",
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": "(?i)^[ \t]*(For|Do|While|With)\\b.*$",
+      "beforeText": "^[ \t]*(?:[Ff][Oo][Rr]|[Dd][Oo]|[Ww][Hh][Ii][Ll][Ee]|[Ww][Ii][Tt][Hh])\\b.*$",
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": "(?i)^[ \t]*Select[ \t]+Case\\b.*$",
+      "beforeText": "^[ \t]*[Ss][Ee][Ll][Ee][Cc][Tt][ \t]+[Cc][Aa][Ss][Ee]\\b.*$",
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": "(?i)^[ \t]*((?:Public|Private|Friend|Global|Static)[ \t]+)*(Sub|Function)[ \t]+\\w.*$",
+      "beforeText": "^[ \t]*(?:(?:[Pp][Uu][Bb][Ll][Ii][Cc]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]|[Ff][Rr][Ii][Ee][Nn][Dd]|[Gg][Ll][Oo][Bb][Aa][Ll]|[Ss][Tt][Aa][Tt][Ii][Cc])[ \t]+)*(?:[Ss][Uu][Bb]|[Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn])[ \t]+\\w.*$",
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": "(?i)^[ \t]*((?:Public|Private|Friend)[ \t]+)*Property[ \t]+(Get|Let|Set)[ \t]+\\w.*$",
+      "beforeText": "^[ \t]*(?:(?:[Pp][Uu][Bb][Ll][Ii][Cc]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]|[Ff][Rr][Ii][Ee][Nn][Dd])[ \t]+)*[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Yy][ \t]+(?:[Gg][Ee][Tt]|[Ll][Ee][Tt]|[Ss][Ee][Tt])[ \t]+\\w.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "^[ \t]*(?:[Tt][Yy][Pp][Ee]|[Ee][Nn][Uu][Mm])[ \t]+\\w.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "^[ \t]*#[ \t]*[Ii][Ff]\\b.*\\b[Tt][Hh][Ee][Nn][ \t]*(?:'.*)?$",
       "action": { "indent": "indent" }
     },
     {
