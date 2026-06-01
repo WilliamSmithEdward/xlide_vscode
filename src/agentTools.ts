@@ -6,7 +6,7 @@ import {
     type ExportMode,
     exportWorkbookModules,
     setWorkbookExportMode,
-} from './moduleDump';
+} from './moduleExport';
 import { lintWorkbook } from './vbaWorkbookLint';
 
 // --------------------------------------------------------------------------

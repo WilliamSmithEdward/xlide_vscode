@@ -29,7 +29,7 @@ xlide_vscode/
     xlideFileSystem.ts  XlideFileSystemProvider — virtual xlide-vba:// filesystem
     commands.ts         Command handlers: open/new/rename/delete, workbook open/run, export modules
     agentTools.ts       LanguageModelTool registrations for AI agent use
-    moduleDump.ts       Shared export/config logic for UI commands and AI tools
+    moduleExport.ts     Shared export/config logic for UI commands and AI tools
     liveShare.ts        LiveShareIntegration — host/guest Live Share bridge over the VSLS service API
     statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
@@ -197,7 +197,7 @@ On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in 
 
 ## Module export / import
 
-`moduleDump.ts` is the single source of truth for export/config behavior.
+`moduleExport.ts` is the single source of truth for export/config behavior.
 
 Both lanes call into this shared implementation:
 
@@ -214,8 +214,6 @@ Both lanes call into this shared implementation:
 **Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls`/`.frm` files from the configured (or user-chosen) folder and writes each back into the workbook via `writeModule`. A QuickPick lets the user select which files to import. Document modules and UserForms cannot be created from scratch — they are only importable if the module already exists in the workbook.
 
 **Change export folder** (`xlide.changeRepoFolder`) updates `exportFolder` in the workbook config without running an export.
-
-`xlide.dumpModulesToFolder` is a deprecated alias for `xlide.exportModulesToFolder` kept for backward compatibility.
 - A workbook-local config file is written beside the workbook:
 
 ```

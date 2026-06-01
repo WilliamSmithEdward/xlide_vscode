@@ -95,7 +95,7 @@ export class PythonBridge implements vscode.Disposable {
                         if (choice === 'Reload Window') {
                             void vscode.commands.executeCommand('workbench.action.reloadWindow');
                         } else if (choice === 'View XLIDE Output') {
-                            this._out.show(true);
+                            void vscode.commands.executeCommand('xlide.showOutput');
                         }
                     });
                 }

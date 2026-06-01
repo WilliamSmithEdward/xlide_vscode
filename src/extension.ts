@@ -10,7 +10,7 @@ import { registerVbaLanguageProviders } from './vbaLanguageProviders';
 import { LiveShareIntegration } from './liveShare';
 import { XlideStatusBar } from './statusBar';
 import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
-import { registerVbaSmartBackspace } from './vbaSmartBackspace';
+import { registerVbaEditorCommands } from './vbaEditorCommands';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -92,7 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // VBA language services: syntax-aware symbol index + providers.
     const vbaIndex = registerVbaLanguageProviders(context, bridge);
-    registerVbaSmartBackspace(context);
+    registerVbaEditorCommands(context);
 
     context.subscriptions.push(
         out,
@@ -192,10 +192,13 @@ export function activate(context: vscode.ExtensionContext): void {
                     ).then(a => { if (a === 'Reload Window') { void vscode.commands.executeCommand('workbench.action.reloadWindow'); } });
                 }
             } else if (pick.id === 'b') {
-                await vscode.window.showErrorMessage(
+                const choice = await vscode.window.showErrorMessage(
                     'XLIDE: Required Python packages are missing (pyOpenVBA, openpyxl). Click "Install Now" to install them automatically.',
                     'Install Now', 'View XLIDE Output', 'Dismiss',
                 );
+                if (choice === 'View XLIDE Output') {
+                    void vscode.commands.executeCommand('xlide.showOutput');
+                }
             } else if (pick.id === 'c') {
                 void vscode.window.showInformationMessage(
                     'XLIDE: Dependencies installed and bridge started. If any files failed to open, click Try Again in the editor tab.',
@@ -323,7 +326,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     vscode.window.showErrorMessage(`XLIDE setup failed: ${e.message}. See the XLIDE output channel for details.`);
                 });
             } else if (choice === 'View XLIDE Output') {
-                out.show(true);
+                void vscode.commands.executeCommand('xlide.showOutput');
             }
         } else {
             const choice = await vscode.window.showErrorMessage(
@@ -332,7 +335,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 'Set Python Path',
             );
             if (choice === 'View XLIDE Output') {
-                out.show(true);
+                void vscode.commands.executeCommand('xlide.showOutput');
             } else if (choice === 'Set Python Path') {
                 void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
             }

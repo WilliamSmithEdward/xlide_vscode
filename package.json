@@ -80,16 +80,6 @@
         "category": "XLIDE"
       },
       {
-        "command": "xlide.vba.smartBackspace",
-        "title": "VBA Smart Backspace",
-        "category": "XLIDE"
-      },
-      {
-        "command": "xlide.vba.smartTab",
-        "title": "VBA Smart Tab",
-        "category": "XLIDE"
-      },
-      {
         "command": "xlide.dev.smoke",
         "title": "Run Smoke Test",
         "category": "XLIDE"

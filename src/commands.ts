@@ -13,7 +13,7 @@ import {
     readWorkbookRepoConfig,
     writeWorkbookRepoConfig,
     setWorkbookExportMode,
-} from './moduleDump';
+} from './moduleExport';
 import { lintWorkbook, type WorkbookLintProblem } from './vbaWorkbookLint';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
@@ -593,8 +593,8 @@ export function registerCommands(
 
             try {
                 const existingConfig = await readWorkbookRepoConfig(filePath);
-                const exportMode = normalizeExportMode(existingConfig.exportMode ?? existingConfig.dumpMode);
-                const configuredFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
+                const exportMode = normalizeExportMode(existingConfig.exportMode);
+                const configuredFolder = existingConfig.exportFolder;
 
                 let exportFolder: string;
                 if (configuredFolder) {
@@ -641,11 +641,6 @@ export function registerCommands(
             }
         }),
 
-        // Backward-compatible alias for previous command id
-        vscode.commands.registerCommand('xlide.dumpModulesToFolder', async (node: XlideNode) => {
-            await vscode.commands.executeCommand('xlide.exportModulesToFolder', node);
-        }),
-
         // Import selected module files from the configured (or user-chosen) export folder
         vscode.commands.registerCommand('xlide.importModulesFromFolder', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
@@ -653,7 +648,7 @@ export function registerCommands(
 
             try {
                 const existingConfig = await readWorkbookRepoConfig(filePath);
-                const configuredFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
+                const configuredFolder = existingConfig.exportFolder;
 
                 let importFolder: string;
                 if (configuredFolder) {
@@ -856,7 +851,9 @@ export function registerCommands(
                         `XLIDE: Imported ${importedCount} module(s), ${errors.length} failed. See XLIDE Output for details.`,
                         'View Output',
                     ).then(choice => {
-                        if (choice === 'View Output') { out.show(true); }
+                        if (choice === 'View Output') {
+                            void vscode.commands.executeCommand('xlide.showOutput');
+                        }
                     });
                 } else {
                     vscode.window.showInformationMessage(
@@ -877,7 +874,7 @@ export function registerCommands(
 
             try {
                 const existingConfig = await readWorkbookRepoConfig(filePath);
-                const currentFolder = existingConfig.exportFolder ?? existingConfig.dumpFolder;
+                const currentFolder = existingConfig.exportFolder;
                 const selected = await vscode.window.showOpenDialog({
                     canSelectFiles: false,
                     canSelectFolders: true,
@@ -893,7 +890,6 @@ export function registerCommands(
                 await writeWorkbookRepoConfig(filePath, {
                     ...existingConfig,
                     exportFolder: newFolder,
-                    dumpFolder: undefined,
                 });
                 log(`[changeRepoFolder] Folder set to ${newFolder} for ${filePath}`);
                 vscode.window.showInformationMessage(
@@ -912,7 +908,7 @@ export function registerCommands(
 
             try {
                 const existingConfig = await readWorkbookRepoConfig(filePath);
-                const currentMode = normalizeExportMode(existingConfig.exportMode ?? existingConfig.dumpMode);
+                const currentMode = normalizeExportMode(existingConfig.exportMode);
                 const selection = await vscode.window.showQuickPick(
                     [
                         {
@@ -947,11 +943,6 @@ export function registerCommands(
                 log(`[exportModules] Configure mode error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to configure export mode: ${message}`);
             }
-        }),
-
-        // Backward-compatible alias for previous command id
-        vscode.commands.registerCommand('xlide.configureDumpMode', async (node: XlideNode) => {
-            await vscode.commands.executeCommand('xlide.configureExportMode', node);
         }),
 
         // DEV: smoke test — verifies listModules + readModule against a workspace workbook

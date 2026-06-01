@@ -10,12 +10,8 @@ interface ModuleInfo {
 type ExportMode = 'trueUp' | 'replaceExistingOnly';
 
 interface WorkbookRepoConfig {
-    // Preferred keys
     exportFolder?: string;
     exportMode?: ExportMode;
-    // Legacy keys kept for backward compatibility
-    dumpFolder?: string;
-    dumpMode?: ExportMode;
     managedFiles?: string[];
 }
 
@@ -74,14 +70,6 @@ function normalizeExportMode(mode: ExportMode | undefined): ExportMode {
     return mode === 'replaceExistingOnly' ? 'replaceExistingOnly' : 'trueUp';
 }
 
-function getConfiguredFolder(config: WorkbookRepoConfig): string | undefined {
-    return config.exportFolder ?? config.dumpFolder;
-}
-
-function getConfiguredMode(config: WorkbookRepoConfig): ExportMode {
-    return normalizeExportMode(config.exportMode ?? config.dumpMode);
-}
-
 async function readWorkbookRepoConfig(filePath: string): Promise<WorkbookRepoConfig> {
     const configPath = configPathForWorkbook(filePath);
     try {
@@ -101,7 +89,7 @@ async function writeWorkbookRepoConfig(filePath: string, config: WorkbookRepoCon
 async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promise<WorkbookRepoConfig> {
     const existing = await readWorkbookRepoConfig(filePath);
     const updated: WorkbookRepoConfig = {
-        exportFolder: getConfiguredFolder(existing),
+        exportFolder: existing.exportFolder,
         exportMode: normalizeExportMode(mode),
         managedFiles: getManagedFiles(existing),
     };
@@ -114,12 +102,12 @@ async function exportWorkbookModules(
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
     const existingConfig = await readWorkbookRepoConfig(params.filePath);
-    const exportFolder = params.exportFolder ?? getConfiguredFolder(existingConfig);
+    const exportFolder = params.exportFolder ?? existingConfig.exportFolder;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
     }
 
-    const exportMode = normalizeExportMode(params.exportMode ?? getConfiguredMode(existingConfig));
+    const exportMode = normalizeExportMode(params.exportMode ?? existingConfig.exportMode);
     await fs.promises.mkdir(exportFolder, { recursive: true });
 
     const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });

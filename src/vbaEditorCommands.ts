@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-export function registerVbaSmartBackspace(context: vscode.ExtensionContext): void {
+export function registerVbaEditorCommands(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('xlide.vba.smartBackspace', async () => {
 			const editor = vscode.window.activeTextEditor;
