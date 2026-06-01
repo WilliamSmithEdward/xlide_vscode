@@ -22,7 +22,33 @@ export function registerVbaSmartBackspace(context: vscode.ExtensionContext): voi
 			await clearEmptyContinuedComment(editor);
 			await vscode.commands.executeCommand('editor.action.indentLines');
 		}),
+		vscode.commands.registerCommand(
+			'xlide.vba.leaveSnippetAndCursorMove',
+			async (direction: CursorDirection) => {
+				const move = cursorMoveFor(direction);
+				if (!move) {
+					return;
+				}
+				await vscode.commands.executeCommand('leaveSnippet');
+				await vscode.commands.executeCommand('cursorMove', move);
+			},
+		),
 	);
+}
+
+type CursorDirection = 'up' | 'down' | 'left' | 'right';
+
+function cursorMoveFor(direction: CursorDirection): Record<string, unknown> | undefined {
+	switch (direction) {
+		case 'up':
+		case 'down':
+			return { to: direction, by: 'line', value: 1 };
+		case 'left':
+		case 'right':
+			return { to: direction, by: 'character', value: 1 };
+		default:
+			return undefined;
+	}
 }
 
 async function clearEmptyContinuedComment(editor: vscode.TextEditor): Promise<boolean> {

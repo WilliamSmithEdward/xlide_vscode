@@ -5,7 +5,7 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 ## Top 5 (implemented in this pass)
 
 - [x] **(1) Workbook-locked error UX** — detect "file in use by Excel" on `writeModule`/`readModule` and show a Retry action.
-- [x] **(2) VBA snippets** — `snippets/vba.json` for `sub`, `func`, `for`, `forEach`, `with`, `select`, `class`, `prop`.
+- [x] **(2) VBA snippets** — retired the static `snippets/vba.json` path; analyzer-owned, context-aware snippets now cover canonical VBA blocks and common aliases.
 - [x] **(3) Bridge auto-restart** — on unexpected Python child exit, mark the bridge as stopped so the next `call()` rejects cleanly with a clear, actionable error instead of hanging.
 - [x] **(4) VBA `onEnterRules` / auto-pair** — auto-insert `End Sub`/`End Function`/`End If`/`Next`/`Loop` etc. like the VBA IDE.
 - [x] **(5) Status bar items** — show `XLIDE: <workbook>` on the active module, plus `XLIDE (Live Share): N` for guests.

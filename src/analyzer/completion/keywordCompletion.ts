@@ -38,6 +38,7 @@ interface KeywordSpec {
 	label: string;
 	insertText?: string;
 	filterText?: string;
+	matchText?: readonly string[];
 	detail: string;
 	documentation?: string;
 	sortText?: string;
@@ -48,15 +49,22 @@ const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('If', 'If ${1:condition} Then\n    $0\nEnd If', 'If...Then block'),
-	snippet('With', 'With ${1:object}\n    $0\nEnd With', 'With...End With block'),
+	snippet('If Else', 'If ${1:condition} Then\n    $2\nElse\n    $0\nEnd If', 'If...Else block', undefined, ['ifelse']),
+	snippet('With', 'With ${1:object}\n    .$0\nEnd With', 'With...End With block'),
 	snippet('For', 'For ${1:i} = ${2:1} To ${3:10}\n    $0\nNext ${1:i}', 'For...Next block'),
 	snippet('For Each', 'For Each ${1:item} In ${2:collection}\n    $0\nNext ${1:item}', 'For Each...Next block'),
 	snippet('Do While', 'Do While ${1:condition}\n    $0\nLoop', 'Do While...Loop block'),
 	snippet('Do Until', 'Do Until ${1:condition}\n    $0\nLoop', 'Do Until...Loop block'),
+	snippet('Do Loop Until', 'Do\n    $0\nLoop Until ${1:condition}', 'Do...Loop Until block', undefined, ['dountil']),
 	snippet('While', 'While ${1:condition}\n    $0\nWend', 'While...Wend block'),
 	snippet('Select Case', 'Select Case ${1:expression}\n    Case ${2:value}\n        $0\nEnd Select', 'Select Case block'),
 	snippet('Sub', 'Sub ${1:Name}()\n    $0\nEnd Sub', 'Procedure block'),
-	snippet('Function', 'Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Function block'),
+	snippet('Function', 'Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Function block', undefined, ['func']),
+	snippet('Property Get', 'Property Get ${1:Name}() As ${2:Variant}\n    $0\nEnd Property', 'Property Get block', undefined, ['propget']),
+	snippet('Property Let', 'Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})\n    $0\nEnd Property', 'Property Let block', undefined, ['proplet']),
+	snippet('Property Set', 'Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})\n    $0\nEnd Property', 'Property Set block', undefined, ['propset']),
+	snippet('Type', 'Type ${1:Name}\n    ${2:Field} As ${3:Variant}\nEnd Type', 'User-defined type block'),
+	snippet('Enum', 'Enum ${1:Name}\n    ${2:Value1} = ${3:0}\nEnd Enum', 'Enum block'),
 	snippet('Private Sub', 'Private Sub ${1:Name}()\n    $0\nEnd Sub', 'Private procedure block'),
 	snippet('Public Sub', 'Public Sub ${1:Name}()\n    $0\nEnd Sub', 'Public procedure block'),
 	snippet('Private Function', 'Private Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Private function block'),
@@ -64,14 +72,22 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('Option Explicit', 'Option Explicit', 'Option statement'),
 	snippet('On Error Resume Next', 'On Error Resume Next', 'Error-handling statement'),
 	snippet('On Error GoTo 0', 'On Error GoTo 0', 'Error-handling statement'),
+	snippet(
+		'On Error GoTo Handler',
+		'On Error GoTo ${1:ErrHandler}\n    $0\n    Exit ${2|Sub,Function,Property|}\n${1:ErrHandler}:\n    MsgBox "Error " & Err.Number & ": " & Err.Description',
+		'Error handler block',
+		undefined,
+		['onerror'],
+	),
+	snippet('Debug.Print', 'Debug.Print ${1:value}$0', 'Debug.Print statement', undefined, ['dp']),
 ];
 
 const MODIFIER_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('Sub', 'Sub ${1:Name}()\n    $0\nEnd Sub', 'Procedure block'),
-	snippet('Function', 'Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Function block'),
-	snippet('Property Get', 'Property Get ${1:Name}() As ${2:Variant}\n    $0\nEnd Property', 'Property Get block'),
-	snippet('Property Let', 'Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})\n    $0\nEnd Property', 'Property Let block'),
-	snippet('Property Set', 'Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})\n    $0\nEnd Property', 'Property Set block'),
+	snippet('Function', 'Function ${1:Name}() As ${2:Variant}\n    $0\nEnd Function', 'Function block', undefined, ['func']),
+	snippet('Property Get', 'Property Get ${1:Name}() As ${2:Variant}\n    $0\nEnd Property', 'Property Get block', undefined, ['propget']),
+	snippet('Property Let', 'Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})\n    $0\nEnd Property', 'Property Let block', undefined, ['proplet']),
+	snippet('Property Set', 'Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})\n    $0\nEnd Property', 'Property Set block', undefined, ['propset']),
 	keyword('Const', 'Constant declaration'),
 	keyword('Dim', 'Variable declaration'),
 ];
@@ -199,8 +215,11 @@ function complete(
 	exclusive: boolean,
 ): KeywordCompletionResult {
 	const lower = partial.toLowerCase();
-	const items = specs
-		.filter((spec) => matchesPartial(spec, lower))
+	const explicitAliasMatches = specs.filter((spec) => exactAliasMatch(spec, lower));
+	const candidates = explicitAliasMatches.length > 0
+		? explicitAliasMatches
+		: specs.filter((spec) => matchesPartial(spec, lower));
+	const items = candidates
 		.map((spec, index) => ({
 			label: spec.label,
 			kind: spec.kind ?? 'keyword',
@@ -213,6 +232,10 @@ function complete(
 	return { items, exclusive };
 }
 
+function exactAliasMatch(spec: KeywordSpec, lowerPartial: string): boolean {
+	return (spec.matchText ?? []).some((alias) => alias.toLowerCase() === lowerPartial);
+}
+
 function matchesPartial(spec: KeywordSpec, lowerPartial: string): boolean {
 	if (!lowerPartial) {
 		return true;
@@ -222,6 +245,7 @@ function matchesPartial(spec: KeywordSpec, lowerPartial: string): boolean {
 		spec.label,
 		spec.filterText,
 		spec.insertText,
+		...(spec.matchText ?? []),
 	].filter((candidate): candidate is string => Boolean(candidate));
 	return candidates.some((candidate) => {
 		const lower = candidate.toLowerCase();
@@ -393,11 +417,13 @@ function snippet(
 	insertText: string,
 	detail: string,
 	sortText?: string,
+	matchText?: readonly string[],
 ): KeywordSpec {
 	return {
 		label,
 		insertText,
 		filterText: label,
+		matchText,
 		detail,
 		sortText,
 		kind: 'snippet',

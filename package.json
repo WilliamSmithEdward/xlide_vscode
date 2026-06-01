@@ -311,6 +311,30 @@
         "command": "xlide.vba.smartTab",
         "key": "tab",
         "when": "editorTextFocus && editorLangId == vba && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus"
+      },
+      {
+        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "key": "down",
+        "args": "down",
+        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
+      },
+      {
+        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "key": "up",
+        "args": "up",
+        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
+      },
+      {
+        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "key": "left",
+        "args": "left",
+        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
+      },
+      {
+        "command": "xlide.vba.leaveSnippetAndCursorMove",
+        "key": "right",
+        "args": "right",
+        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
       }
     ],
     "languages": [
@@ -333,12 +357,6 @@
         "language": "vba",
         "scopeName": "source.vba",
         "path": "./syntaxes/vba.tmLanguage.json"
-      }
-    ],
-    "snippets": [
-      {
-        "language": "vba",
-        "path": "./snippets/vba.json"
       }
     ],
     "languageModelTools": [

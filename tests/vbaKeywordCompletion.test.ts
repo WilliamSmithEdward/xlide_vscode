@@ -21,7 +21,7 @@ describe('keyword completion - statement snippets', () => {
 		expect(result.items.map((item) => item.label)).toContain('If');
 		expect(result.items.map((item) => item.label)).toContain('With');
 		expect(result.items.find((item) => item.label === 'With')?.insertText).toBe(
-			'With ${1:object}\n    $0\nEnd With',
+			'With ${1:object}\n    .$0\nEnd With',
 		);
 	});
 
@@ -33,6 +33,19 @@ describe('keyword completion - statement snippets', () => {
 	it('matches compound keyword snippets when typed without spaces', () => {
 		const src = 'Sub T()\n    forea\nEnd Sub\n';
 		expect(labels(src, '    forea')).toEqual(['For Each']);
+	});
+
+	it('matches retired static snippet aliases through analyzer snippets', () => {
+		expect(labels('Sub T()\n    ifelse\nEnd Sub\n', '    ifelse')).toEqual(['If Else']);
+		expect(labels('Sub T()\n    dountil\nEnd Sub\n', '    dountil')).toEqual(['Do Loop Until']);
+		expect(labels('Sub T()\n    propget\nEnd Sub\n', '    propget')).toEqual(['Property Get']);
+		expect(labels('Sub T()\n    dp\nEnd Sub\n', '    dp')).toEqual(['Debug.Print']);
+		expect(labels('Sub T()\n    onerror\nEnd Sub\n', '    onerror')).toEqual(['On Error GoTo Handler']);
+	});
+
+	it('owns former declaration snippets in the analyzer', () => {
+		expect(labels('Ty', 'Ty')).toEqual(['Type']);
+		expect(labels('En', 'En')).toEqual(['Enum']);
 	});
 
 	it('offers the active block closer first on a blank line', () => {
