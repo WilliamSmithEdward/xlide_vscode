@@ -58,6 +58,12 @@ export {
 	resolveIdentifierCompletions,
 } from './completion/identifierCompletion';
 export {
+	EventHandlerCompletion,
+	EventHandlerCompletionContext,
+	EventHandlerDocumentType,
+	resolveEventHandlerCompletions,
+} from './completion/eventHandlers';
+export {
 	ProjectTypeSemanticToken,
 	ProjectTypeSemanticTokenType,
 	resolveProjectTypeSemanticTokens,

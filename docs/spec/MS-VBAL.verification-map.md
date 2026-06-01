@@ -155,6 +155,7 @@ from the MS-VBAL core-language grammar. Tracked rows:
 | Worksheet code-name resolution (Sheet1) | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts | Workbook project structure (listModules) | Verified |
 | `Me` resolution by module kind and current source object module | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts + tests/vbaHover.test.ts + tests/vbaSignatureHelp.test.ts + tests/vbaDiagnostics.test.ts | Module context | Verified |
 | Typed local/param/module variable resolution | src/analyzer/completion/memberAccess.ts | tests/vbaMemberCompletion.test.ts | 5.2.3 / 5.3 (declarations) | Verified |
+| Document-module event-handler completion | src/analyzer/completion/eventHandlers.ts + src/vbaMemberCompletion.ts | tests/vbaEventHandlerCompletion.test.ts | Excel event signatures + workbook/document module context | Partial: workbook and worksheet handlers verified; chart/UserForm designer-backed handlers pending |
 | VS Code completion provider (trigger `.`) | src/vbaMemberCompletion.ts | (manual) | n/a | Verified |
 
 Verification rule for this addendum: VBA language grammar stays verified against

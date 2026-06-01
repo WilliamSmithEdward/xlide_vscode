@@ -274,6 +274,15 @@ describe('member completion - code names and Me', () => {
 		expect(got).toContain('Cells');
 	});
 
+	it('resolves a chart sheet code name from project context', () => {
+		const src = 'Sub Test()\n    Chart1.\nEnd Sub\n';
+		const ctx = { codeNames: { chart1: 'Excel.Chart' } };
+		const got = names(src, 'Chart1.', ctx);
+		expect(got).toContain('ChartType');
+		expect(got).toContain('SeriesCollection');
+		expect(got).not.toContain('Range');
+	});
+
 	it('does not merge a dangling dot on a previous line into the chain', () => {
 		// `wb.` on its own line must not combine with `Sheet3.` below it.
 		const src =

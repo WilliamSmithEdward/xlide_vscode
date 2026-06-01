@@ -123,8 +123,14 @@ Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `su
 Module type is inferred from the VBA source:
 - Starts with `VERSION 1.0 CLASS` → `class`
 - Contains `Attribute VB_PredeclaredId = True` → `document`
-- Name matches `ThisWorkbook` or `Sheet\d*` → `document`
+- Name matches `ThisWorkbook`, `Sheet\d*`, or `Chart\d*` → `document`
 - Anything else → `standard`
+
+When the hidden `VB_Base` attribute is available, `listModules` also returns an
+optional `documentType` for document modules (`workbook`, `worksheet`, or
+`chart`). The broad `type` field remains `document` so existing import/export
+behavior has one module-kind contract, while language-service features can use
+the subtype when they need workbook-vs-worksheet-vs-chart semantics.
 
 ---
 
@@ -157,7 +163,7 @@ Setting:
 
 | Method | Required params | Optional params | Returns |
 |---|---|---|---|
-| `listModules` | `path` | — | `[{name, type}]` |
+| `listModules` | `path` | — | `[{name, type, documentType?}]` |
 | `listSubs` | `path`, `module` | — | `[{name, kind, line}]` |
 | `readModule` | `path`, `module` | — | `{source}` |
 | `writeModule` | `path`, `module`, `source` | — | `{ok, signatureDropped}` |
@@ -387,7 +393,8 @@ into a pure analyzer layer and a thin VS Code provider:
   are marked exhaustive for hard unknown-member diagnostics. Reference events
   are counted in coverage but filtered out of object-member surfaces because VBE
   does not expose events as callable object methods/properties; document-module
-  event handler authoring uses separate module-scoped metadata. Hand-curated host
+  event handler authoring uses separate module-scoped metadata in
+  `src/analyzer/completion/eventHandlers.ts`. Hand-curated host
   members merge with matching generated entries so completion, hover, and
   signature help use the same enriched member surface instead of a parallel
   fallback path. The generator also writes `docs/excel_reference_coverage.md` so
@@ -429,12 +436,21 @@ into a pure analyzer layer and a thin VS Code provider:
   inference is not enabled until that behavior has separate oracle coverage.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it builds the project context
-  from the workbook's module list (worksheet code names plus the host/source
+  from the workbook's module list (document code names with workbook,
+  worksheet, or chart host type where known, plus the host/source
   `Me` context for the current object module) via the Python bridge and renders
   the resolved members. For workbook class members, open XLIDE module documents
   are read from their live editor text first, so unsaved changes in an open
   `Person` class are reflected the next time completion is requested elsewhere; saved module text
-  is read through the bridge when no live editor text exists. In a declaration
+  is read through the bridge when no live editor text exists. At module level in
+  document modules, it also offers event-procedure stubs from
+  `resolveEventHandlerCompletions`: `ThisWorkbook`/`documentType: workbook`
+  gets `Workbook_*` handlers, worksheet document modules get `Worksheet_*`
+  handlers, and chart/UserForm handler authoring stays out until those event
+  surfaces have curated metadata. Existing handlers are not re-suggested, and
+  accepting an event completion inserts either the full `Private Sub ... End
+  Sub` stub or only the declaration tail after an existing `Private Sub`
+  prefix. In a declaration
   type position (after `As` / `As New`) it instead
   offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
   (`resolveTypeCompletions`): VBA built-in data types, the Excel host types, and

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from xlide.vba_io import _split_vba_source, _module_type
+from xlide.vba_io import _split_vba_source, _document_type, _module_type
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +110,29 @@ class TestModuleType:
         # list_modules upgrades to 'class' after checking VBAModuleKind.
         src = 'Attribute VB_Base = "{CC27B1A4-1234-1234-1234-000000000000}"\n'
         assert _module_type("MyClass", src) == "standard"
+
+    def test_document_type_from_document_clsids(self):
+        assert (
+            _document_type(
+                "ThisWorkbook",
+                'Attribute VB_Base = "{00020819-0000-0000-C000-000000000046}"\n',
+            )
+            == "workbook"
+        )
+        assert (
+            _document_type(
+                "Sheet1",
+                'Attribute VB_Base = "{00020820-0000-0000-C000-000000000046}"\n',
+            )
+            == "worksheet"
+        )
+        assert (
+            _document_type(
+                "Chart1",
+                'Attribute VB_Base = "{00020821-0000-0000-C000-000000000046}"\n',
+            )
+            == "chart"
+        )
 
 
 # ---------------------------------------------------------------------------

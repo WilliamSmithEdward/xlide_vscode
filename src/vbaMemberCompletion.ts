@@ -15,6 +15,9 @@ import { XLIDE_SCHEME, decodeModuleUri } from './xlideFileSystem';
 import {
 	buildModuleSymbols,
 	DocRegistry,
+	EventHandlerCompletion,
+	EventHandlerCompletionContext,
+	EventHandlerDocumentType,
 	getHostType,
 	HoverContext,
 	IdentifierCompletion,
@@ -25,6 +28,7 @@ import {
 	ProjectIndex,
 	ProjectTypeName,
 	resolveCanonicalCaseEdit,
+	resolveEventHandlerCompletions,
 	resolveHover,
 	resolveIdentifierCompletions,
 	resolveMemberCompletions,
@@ -38,11 +42,13 @@ import {
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
+const CHART = 'Excel.Chart';
 const MODULE_CACHE_TTL_MS = 5000;
 
 interface ModuleEntry {
 	name: string;
 	type: string;
+	documentType?: EventHandlerDocumentType;
 }
 
 interface CachedModules {
@@ -60,7 +66,14 @@ function meTypeFor(entry: ModuleEntry | undefined): string | undefined {
 	if (!entry || entry.type !== 'document') {
 		return undefined;
 	}
-	return entry.name.toLowerCase() === 'thisworkbook' ? WORKBOOK : WORKSHEET;
+	switch (documentTypeFor(entry)) {
+		case 'workbook':
+			return WORKBOOK;
+		case 'chart':
+			return CHART;
+		default:
+			return WORKSHEET;
+	}
 }
 
 /** Maps `Me` to the source-backed current object module when applicable. */
@@ -78,10 +91,25 @@ function codeNamesFor(entries: ModuleEntry[]): Record<string, string> {
 		if (entry.type !== 'document') {
 			continue;
 		}
-		out[entry.name.toLowerCase()] =
-			entry.name.toLowerCase() === 'thisworkbook' ? WORKBOOK : WORKSHEET;
+		out[entry.name.toLowerCase()] = meTypeFor(entry) ?? WORKSHEET;
 	}
 	return out;
+}
+
+function documentTypeFor(entry: ModuleEntry | undefined): EventHandlerDocumentType | undefined {
+	if (!entry || entry.type !== 'document') {
+		return undefined;
+	}
+	if (entry.documentType) {
+		return entry.documentType;
+	}
+	if (entry.name.toLowerCase() === 'thisworkbook') {
+		return 'workbook';
+	}
+	if (/^chart\d*$/i.test(entry.name)) {
+		return 'chart';
+	}
+	return 'worksheet';
 }
 
 class VbaMemberCompletionProvider
@@ -129,6 +157,12 @@ class VbaMemberCompletionProvider
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
 			return types.map((t) => this._toTypeItem(t, range));
+		}
+
+		const eventCtx = await this._buildEventHandlerContext(document);
+		const events = resolveEventHandlerCompletions(source, offset, eventCtx);
+		if (events.length > 0) {
+			return events.map((event) => this._toEventHandlerItem(event, range));
 		}
 
 		const identCtx = await this._buildIdentifierContext(document);
@@ -500,6 +534,33 @@ class VbaMemberCompletionProvider
 	}
 
 	/**
+	 * Builds the event-handler completion context for the current module.
+	 * Event procedures are scoped by host document module type and intentionally
+	 * stay outside object-member completion.
+	 */
+	private async _buildEventHandlerContext(
+		document: vscode.TextDocument,
+	): Promise<EventHandlerCompletionContext> {
+		if (document.uri.scheme !== XLIDE_SCHEME) {
+			return {};
+		}
+		try {
+			const decoded = decodeModuleUri(document.uri);
+			const entries = await this._loadModules(decoded.xlsmPath);
+			const current = entries?.find(
+				(e) => e.name.toLowerCase() === decoded.moduleName.toLowerCase(),
+			);
+			return {
+				moduleName: decoded.moduleName,
+				moduleKind: current ? this._moduleKind(current.type) : 'standard',
+				documentType: documentTypeFor(current),
+			};
+		} catch {
+			return {};
+		}
+	}
+
+	/**
 	 * Builds the identifier-completion context: worksheet/document code names of
 	 * the workbook project plus the module currently being edited.
 	 */
@@ -590,6 +651,24 @@ class VbaMemberCompletionProvider
 			default:
 				return vscode.CompletionItemKind.Struct;
 		}
+	}
+
+	private _toEventHandlerItem(
+		event: EventHandlerCompletion,
+		range: vscode.Range,
+	): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(event.name, vscode.CompletionItemKind.Event);
+		item.detail = event.detail;
+		const documentation = new vscode.MarkdownString();
+		documentation.appendCodeblock(event.signature, 'vba');
+		documentation.appendMarkdown('\n\n');
+		documentation.appendMarkdown(event.documentation);
+		item.documentation = documentation;
+		item.range = range;
+		item.filterText = event.name;
+		item.sortText = `0:${event.name}`;
+		item.insertText = new vscode.SnippetString(event.insertText);
+		return item;
 	}
 
 	private _toIdentItem(id: IdentifierCompletion, range: vscode.Range): vscode.CompletionItem {

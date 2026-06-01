@@ -75,6 +75,32 @@ _DOCUMENT_CLSIDS = (_WORKBOOK_CLSID, _WORKSHEET_CLSID, _CHART_CLSID)
 _GUID_RE = re.compile(r"\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}")
 
 
+def _document_type(name: str, source: str) -> str | None:
+    """Infer Excel document-module subtype: workbook, worksheet, or chart."""
+    vb_base_match = re.search(
+        r'^\s*Attribute\s+VB_Base\s*=\s*"([^"]*)"',
+        source,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    vb_base = vb_base_match.group(1).upper() if vb_base_match else ""
+    if _WORKBOOK_CLSID in vb_base:
+        return "workbook"
+    if _WORKSHEET_CLSID in vb_base:
+        return "worksheet"
+    if _CHART_CLSID in vb_base:
+        return "chart"
+
+    if name == "ThisWorkbook":
+        return "workbook"
+    if re.match(r"^Chart\d*$", name, re.IGNORECASE):
+        return "chart"
+    if re.match(
+        r"^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$", name, re.IGNORECASE
+    ):
+        return "worksheet"
+    return None
+
+
 def _module_type(name: str, source: str) -> str:
     """Infer module type from source content and name.
 
@@ -122,7 +148,12 @@ def list_modules(*, path: str) -> list[dict[str, Any]]:
                 if mod_type == "standard":
                     # .kind says it's not a standard module — treat as class.
                     mod_type = "class"
-            result.append({"name": m.name, "type": mod_type})
+            entry = {"name": m.name, "type": mod_type}
+            if mod_type == "document":
+                document_type = _document_type(m.name, m.source)
+                if document_type:
+                    entry["documentType"] = document_type
+            result.append(entry)
         return result
 
 
