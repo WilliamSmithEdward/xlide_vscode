@@ -1,5 +1,5 @@
 // Pure, dependency-free VBA structural analysis used by the diagnostics
-// provider and the smart "auto End Sub" editing feature. Keeping this module
+// provider and the smart auto-block editing feature. Keeping this module
 // free of any `vscode` import means it can be unit-tested directly with vitest.
 
 export interface VbaLintProblem {
@@ -31,6 +31,13 @@ type BlockKind =
     | 'Sub' | 'Function' | 'Property'
     | 'If' | 'With' | 'Select' | 'Type' | 'Enum'
     | 'For' | 'Do' | 'While' | 'PreprocessorIf';
+
+export interface VbaSmartBlockOpener {
+    /** Closing statement smart-enter should insert. */
+    endKeyword: string;
+    /** Optional text to place on the indented body line before moving the caret. */
+    bodyPrefix?: string;
+}
 
 interface OpenBlock {
     kind: BlockKind;
@@ -293,39 +300,112 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
 }
 
 /**
- * If the stripped line opens a Sub/Function/Property, returns the matching
- * `End` keyword to auto-insert. Used by the smart-enter editing feature.
+ * If the stripped line opens a block that is safe to complete immediately after
+ * Enter, returns the closing statement and any body-line prefix.
+ */
+export function detectSmartBlockOpener(strippedLine: string): VbaSmartBlockOpener | undefined {
+    const t = strippedLine.trim();
+    if (!t || t.includes(':')) {
+        return undefined;
+    }
+
+    const opener = matchOpener(t);
+    if (!opener) {
+        return undefined;
+    }
+    if (!isCompleteSmartBlockOpener(t, opener.kind)) {
+        return undefined;
+    }
+
+    if (opener.kind === 'For') {
+        const iterator = forIteratorName(t);
+        return { endKeyword: iterator ? `Next ${iterator}` : 'Next' };
+    }
+    if (opener.kind === 'With') {
+        return { endKeyword: CLOSE_PHRASE[opener.kind], bodyPrefix: '.' };
+    }
+    return { endKeyword: CLOSE_PHRASE[opener.kind] };
+}
+
+/**
+ * Back-compat wrapper for tests/providers that only care about procedure
+ * headers. New smart-enter callers should use `detectSmartBlockOpener`.
  */
 export function detectProcOpener(strippedLine: string): { endKeyword: string } | undefined {
-    const t = strippedLine.trim();
-    if (/^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Sub\s+[A-Za-z_]\w*/i.test(t)) {
-        return { endKeyword: 'End Sub' };
-    }
-    if (/^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Function\s+[A-Za-z_]\w*/i.test(t)) {
-        return { endKeyword: 'End Function' };
-    }
-    if (/^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Property\s+(?:Get|Let|Set)\s+[A-Za-z_]\w*/i.test(t)) {
-        return { endKeyword: 'End Property' };
+    const opener = detectSmartBlockOpener(strippedLine);
+    if (
+        opener?.endKeyword === 'End Sub' ||
+        opener?.endKeyword === 'End Function' ||
+        opener?.endKeyword === 'End Property'
+    ) {
+        return { endKeyword: opener.endKeyword };
     }
     return undefined;
 }
 
 /**
- * Returns true if the procedure that opens at `openerIdx` already has its
- * matching `endKeyword` before the next procedure opener or end of file.
+ * Returns true if the smart-enter block opener already has a compatible closer
+ * before the next procedure opener or end of file.
  * `strippedLines` must already have strings/comments removed.
  */
-export function isProcClosedAhead(
-    strippedLines: string[], openerIdx: number, endKeyword: string,
+export function isSmartBlockClosedAhead(
+    strippedLines: string[], openerIdx: number, opener: VbaSmartBlockOpener,
 ): boolean {
-    const endRe = new RegExp('^' + endKeyword.replace(' ', '\\s+') + '\\b', 'i');
-    const otherOpenerRe =
-        /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(?:Sub|Function|Property)\b/i;
+    const endRe = closerRegex(opener.endKeyword);
     for (let i = openerIdx + 1; i < strippedLines.length; i++) {
         const t = strippedLines[i].trim();
         if (!t) { continue; }
         if (endRe.test(t)) { return true; }
-        if (otherOpenerRe.test(t)) { return false; }
+        if (isProcedureOpener(t)) { return false; }
     }
     return false;
+}
+
+/**
+ * Back-compat wrapper for procedure-only smart-enter callers.
+ */
+export function isProcClosedAhead(
+    strippedLines: string[], openerIdx: number, endKeyword: string,
+): boolean {
+    return isSmartBlockClosedAhead(strippedLines, openerIdx, { endKeyword });
+}
+
+function forIteratorName(t: string): string | undefined {
+    return /^For\s+(?:Each\s+)?([A-Za-z_]\w*)\b/i.exec(t)?.[1];
+}
+
+function isCompleteSmartBlockOpener(t: string, kind: BlockKind): boolean {
+    switch (kind) {
+        case 'With':
+            return /^With\s+\S/i.test(t);
+        case 'If':
+            return /^If\s+\S.+\bThen\s*$/i.test(t);
+        case 'For':
+            return (
+                /^For\s+Each\s+[A-Za-z_]\w*\s+In\s+\S/i.test(t) ||
+                /^For\s+[A-Za-z_]\w*\s*=.+\bTo\b.+/i.test(t)
+            );
+        case 'Select':
+            return /^Select\s+Case\s+\S/i.test(t);
+        case 'While':
+            return /^While\s+\S/i.test(t);
+        case 'PreprocessorIf':
+            return /^#\s*If\s+.+\bThen\s*$/i.test(t);
+        default:
+            return true;
+    }
+}
+
+function isProcedureOpener(t: string): boolean {
+    return /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(?:Sub|Function|Property)\b/i.test(t);
+}
+
+function closerRegex(endKeyword: string): RegExp {
+    if (/^Next\b/i.test(endKeyword)) {
+        return /^Next\b/i;
+    }
+    const escaped = endKeyword
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\s+/g, '\\s+');
+    return new RegExp(`^${escaped}\\b`, 'i');
 }

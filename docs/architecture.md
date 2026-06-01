@@ -317,7 +317,7 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
 | `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, and add/remove `Set` for proven object/scalar assignments |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
-| Smart enter (auto-block) | Pressing Enter after a `Sub`/`Function`/`Property` header auto-inserts the matching `End ...` below and leaves the caret on the indented body line |
+| Smart enter (auto-block) | Pressing Enter after a safe block opener auto-inserts the matching closer below and leaves the caret on the indented body line; supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion |
 
 Language-service business rules are unified across surfaces. Unless a behavior is
 called out as a deliberate corner case, completion insert text, hover, signature
@@ -341,7 +341,7 @@ joins `_` line continuations, then walks a block stack to detect imbalance.
 Missing-block diagnostics carry stable codes plus the expected closer and
 deterministic insertion line, so quick fixes can insert `End Sub`, `End If`,
 `Next`, and related closers without parsing diagnostic text. The same module
-exports `detectProcOpener`/`isProcClosedAhead` used by the smart-enter feature.
+exports smart-enter helpers used by the auto-block feature.
 
 **Conditional compilation model** — The core parser models `#Const`, `#If`,
 `#ElseIf`, `#Else`, and `#End If` as `ConditionalDirective` AST nodes at module

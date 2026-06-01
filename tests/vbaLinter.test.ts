@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
     lintVbaSource,
     stripVba,
+    detectSmartBlockOpener,
+    isSmartBlockClosedAhead,
     detectProcOpener,
     isProcClosedAhead,
 } from '../src/vbaLinter';
@@ -165,6 +167,58 @@ describe('detectProcOpener', () => {
     });
 });
 
+describe('detectSmartBlockOpener', () => {
+    it('detects procedure headers', () => {
+        expect(detectSmartBlockOpener('Public Function Bar() As Long')).toEqual({
+            endKeyword: 'End Function',
+        });
+    });
+
+    it('detects With blocks and seeds leading-dot body editing', () => {
+        expect(detectSmartBlockOpener('With Range("A1")')).toEqual({
+            endKeyword: 'End With',
+            bodyPrefix: '.',
+        });
+    });
+
+    it('detects multiline If blocks but ignores single-line If statements', () => {
+        expect(detectSmartBlockOpener('If ready Then')).toEqual({ endKeyword: 'End If' });
+        expect(detectSmartBlockOpener('If ready Then value = 1')).toBeUndefined();
+    });
+
+    it('detects For and For Each iterators for matching Next statements', () => {
+        expect(detectSmartBlockOpener('For i = 1 To 10')).toEqual({ endKeyword: 'Next i' });
+        expect(detectSmartBlockOpener('For Each cell In Selection')).toEqual({ endKeyword: 'Next cell' });
+    });
+
+    it('detects common structured block openers', () => {
+        expect(detectSmartBlockOpener('Select Case value')).toEqual({ endKeyword: 'End Select' });
+        expect(detectSmartBlockOpener('Do While ready')).toEqual({ endKeyword: 'Loop' });
+        expect(detectSmartBlockOpener('While ready')).toEqual({ endKeyword: 'Wend' });
+        expect(detectSmartBlockOpener('Private Type TPoint')).toEqual({ endKeyword: 'End Type' });
+        expect(detectSmartBlockOpener('Enum Color')).toEqual({ endKeyword: 'End Enum' });
+        expect(detectSmartBlockOpener('#If VBA7 Then')).toEqual({ endKeyword: '#End If' });
+    });
+
+    it('does not auto-block one-line colon statements', () => {
+        expect(detectSmartBlockOpener('If ready Then: value = 1')).toBeUndefined();
+        expect(detectSmartBlockOpener('For i = 1 To 3: Next i')).toBeUndefined();
+    });
+
+    it('ignores Declare Sub', () => {
+        expect(detectSmartBlockOpener('Declare Sub Sleep Lib "k" ()')).toBeUndefined();
+    });
+
+    it('waits for complete-looking non-procedure openers', () => {
+        expect(detectSmartBlockOpener('With')).toBeUndefined();
+        expect(detectSmartBlockOpener('For')).toBeUndefined();
+        expect(detectSmartBlockOpener('For i = 1')).toBeUndefined();
+        expect(detectSmartBlockOpener('Select Case')).toBeUndefined();
+        expect(detectSmartBlockOpener('While')).toBeUndefined();
+        expect(detectSmartBlockOpener('#If VBA7')).toBeUndefined();
+    });
+});
+
 describe('isProcClosedAhead', () => {
     it('returns true when End Sub follows', () => {
         const lines = ['Sub Foo()', '    x = 1', 'End Sub'];
@@ -177,5 +231,22 @@ describe('isProcClosedAhead', () => {
     it('returns false at end of file', () => {
         const lines = ['Sub Foo()', '    x = 1'];
         expect(isProcClosedAhead(lines, 0, 'End Sub')).toBe(false);
+    });
+});
+
+describe('isSmartBlockClosedAhead', () => {
+    it('returns true when a matching With closer follows', () => {
+        const lines = ['With Range("A1")', '    .Value = 1', 'End With'];
+        expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'End With', bodyPrefix: '.' })).toBe(true);
+    });
+
+    it('treats any Next statement as a For closer', () => {
+        const lines = ['For i = 1 To 3', '    Debug.Print i', 'Next'];
+        expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'Next i' })).toBe(true);
+    });
+
+    it('does not scan past another procedure opener', () => {
+        const lines = ['With Range("A1")', 'Sub Other()', 'End With'];
+        expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'End With', bodyPrefix: '.' })).toBe(false);
     });
 });

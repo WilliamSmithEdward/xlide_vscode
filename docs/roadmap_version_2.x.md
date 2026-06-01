@@ -166,6 +166,10 @@ heuristic diagnostics.
   comment marker, and Backspace clears empty auto-continued `''' ` or `' `
   markers in one keypress. Tab on those empty auto-continued comment markers
   escapes the marker and indents normally.
+- Smart Enter auto-blocks safe VBA block openers through the same structural
+  block helper used by linting, including procedures, `If ... Then`, `With`,
+  `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`; `With`
+  starts the body line with `.` for immediate member completion.
 - Excel/VBE oracle harness exists under `syntax_corpus/oracle/`.
 - The wider unverified type-analysis backlog is tracked in
   `docs/type_analysis_corpus_coverage.md`.
@@ -604,6 +608,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   moving the cursor away, or leaving the editor, so `person` in `As Person` /
   `New Person` and known members/runtime names normalize even when completion is
   dismissed.
+- [x] Share structural block knowledge between linting and Smart Enter so safe
+  block openers auto-insert their matching closer instead of maintaining
+  procedure-only editor logic.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for

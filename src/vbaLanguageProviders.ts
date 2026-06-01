@@ -5,8 +5,8 @@ import { VbaSymbol, VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './v
 import {
     lintVbaSource,
     stripVba,
-    detectProcOpener,
-    isProcClosedAhead,
+    detectSmartBlockOpener,
+    isSmartBlockClosedAhead,
 } from './vbaLinter';
 import {
     analyzeModule,
@@ -1185,9 +1185,10 @@ function matchingLintProblem(
 }
 
 /**
- * VBA-IDE-style smart Enter: typing a `Sub`/`Function`/`Property` header and
- * pressing Enter auto-inserts the matching `End ...` below, leaving the cursor
- * on the indented body line.
+ * VBA-IDE-style smart Enter: typing a block opener and pressing Enter
+ * auto-inserts the matching closer below, leaving the cursor on the indented
+ * body line. `With` also seeds the body line with `.` so member completion can
+ * start immediately.
  */
 function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
     let applying = false;
@@ -1205,14 +1206,14 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
 
         const openerLineIndex = change.range.start.line;
         const openerLine = doc.lineAt(openerLineIndex).text;
-        const opener = detectProcOpener(stripVba(openerLine));
+        const opener = detectSmartBlockOpener(stripVba(openerLine));
         if (!opener) { return; }
 
         const bodyLineIndex = openerLineIndex + 1;
         if (bodyLineIndex >= doc.lineCount) { return; }
 
         const strippedLines = doc.getText().split(/\r\n|\r|\n/).map(stripVba);
-        if (isProcClosedAhead(strippedLines, openerLineIndex, opener.endKeyword)) { return; }
+        if (isSmartBlockClosedAhead(strippedLines, openerLineIndex, opener)) { return; }
 
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document !== doc) { return; }
@@ -1225,7 +1226,10 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         applying = true;
         try {
             await editor.edit(
-                (eb) => eb.insert(insertPos, `${eol}${indent}${opener.endKeyword}`),
+                (eb) => eb.insert(
+                    insertPos,
+                    `${opener.bodyPrefix ?? ''}${eol}${indent}${opener.endKeyword}`,
+                ),
                 { undoStopBefore: false, undoStopAfter: true },
             );
         } finally {
@@ -1233,7 +1237,10 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         }
 
         // Keep the caret on the indented body line, above the inserted End.
-        const caret = new vscode.Position(bodyLineIndex, bodyIndentLen);
+        const caret = new vscode.Position(
+            bodyLineIndex,
+            bodyIndentLen + (opener.bodyPrefix?.length ?? 0),
+        );
         editor.selection = new vscode.Selection(caret, caret);
     });
 
