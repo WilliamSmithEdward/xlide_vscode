@@ -160,6 +160,47 @@ describe('parseModule - declarations (MS-VBAL 5.2.3 / 5.2.4)', () => {
 		expect(g0.withEvents).toBe(true);
 		expect(g1.declarations[0].isNew).toBe(true);
 	});
+
+	it('parses external Declare metadata', () => {
+		const m = parseModule(
+			'Public Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" (ByVal ClassName As String, ByVal WindowName As String) As LongPtr\n',
+		);
+		const decl = m.members[0];
+		expect(decl.kind).toBe('Declare');
+		if (decl.kind === 'Declare') {
+			expect(decl.name).toBe('FindWindow');
+			expect(decl.isFunction).toBe(true);
+			expect(decl.visibility).toBe('Public');
+			expect(decl.ptrSafe).toBe(true);
+			expect(decl.libName).toBe('user32');
+			expect(decl.aliasName).toBe('FindWindowA');
+			expect(decl.returnType).toBe('LongPtr');
+			expect(decl.params.map((p) => `${p.name}:${p.asType}:${p.byVal}`)).toEqual([
+				'ClassName:String:true',
+				'WindowName:String:true',
+			]);
+		}
+	});
+
+	it('parses continued external Declare parameter lists', () => {
+		const m = parseModule(
+			'Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _\n' +
+			'    Destination As Any, _\n' +
+			'    Source As Any, _\n' +
+			'    ByVal Length As LongPtr)\n',
+		);
+		const decl = m.members[0];
+		expect(decl.kind).toBe('Declare');
+		if (decl.kind === 'Declare') {
+			expect(decl.name).toBe('CopyMemory');
+			expect(decl.aliasName).toBe('RtlMoveMemory');
+			expect(decl.params.map((p) => `${p.name}:${p.asType}:${p.byVal}`)).toEqual([
+				'Destination:Any:false',
+				'Source:Any:false',
+				'Length:LongPtr:true',
+			]);
+		}
+	});
 });
 
 describe('parseModule - Type and Enum (MS-VBAL 5.2.3.3 / 5.2.3.4)', () => {

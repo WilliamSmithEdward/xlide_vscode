@@ -152,6 +152,25 @@ describe('buildModuleSymbols', () => {
 		expect(mod.root.doc?.summary).toBe('Represents a person.');
 		expect(mod.root.children?.find((child) => child.name === 'Save')?.doc).toBeUndefined();
 	});
+
+	it('extracts external Declare signatures with library metadata', () => {
+		const src =
+			"''' <summary>Finds a top-level window.</summary>\n" +
+			'Public Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" (ByVal ClassName As String, ByVal WindowName As String) As LongPtr\n';
+		const mod = buildModuleSymbols('NativeApi', 'standard', src);
+		const decl = mod.root.children?.find((child) => child.name === 'FindWindow');
+		expect(decl?.kind).toBe('declare');
+		expect(decl?.declareKind).toBe('Function');
+		expect(decl?.ptrSafe).toBe(true);
+		expect(decl?.libName).toBe('user32');
+		expect(decl?.aliasName).toBe('FindWindowA');
+		expect(decl?.asType).toBe('LongPtr');
+		expect(decl?.doc?.summary).toBe('Finds a top-level window.');
+		expect((decl?.children ?? []).map((child) => `${child.name}:${child.asType}:${child.byVal}`)).toEqual([
+			'ClassName:String:true',
+			'WindowName:String:true',
+		]);
+	});
 });
 
 describe('ProjectIndex document and workspace symbols', () => {
@@ -373,6 +392,39 @@ describe('ProjectIndex procedure signatures', () => {
 		]);
 	});
 
+	it('collects exported Declare signatures for project diagnostics', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'NativeApi',
+			moduleKind: 'standard',
+			source:
+				'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)\n',
+		});
+
+		const sleep = index.procedureSignatures().get('sleep');
+		expect(sleep).toHaveLength(1);
+		expect(sleep?.[0]).toMatchObject({
+			name: 'Sleep',
+			moduleName: 'NativeApi',
+			kind: 'sub',
+			external: true,
+			ptrSafe: true,
+			libName: 'kernel32',
+			signature: 'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+		});
+		expect(sleep?.[0].params).toEqual([
+			{
+				name: 'Milliseconds',
+				type: 'LongPtr',
+				optional: false,
+				paramArray: false,
+				isArray: false,
+				byVal: true,
+			},
+		]);
+		expect(index.procedureSignatures().get('nativeapi.sleep')).toEqual(sleep);
+	});
+
 	it('keeps duplicate exported signatures grouped for ambiguity checks', () => {
 		const index = new ProjectIndex();
 		index.setModule({
@@ -445,7 +497,7 @@ describe('ProjectIndex visible procedure names', () => {
 });
 
 describe('ProjectIndex visible procedure signatures', () => {
-	it('returns callable same-module and exported standard-module Sub/Function signatures', () => {
+	it('returns callable same-module and exported standard-module Sub/Function/Declare signatures', () => {
 		const index = new ProjectIndex();
 		index.setModule({
 			moduleName: 'Caller',
@@ -461,6 +513,7 @@ describe('ProjectIndex visible procedure signatures', () => {
 				'Sub DefaultPublic()\nEnd Sub\n' +
 				"''' <summary>Calculates the invoice total.</summary>\n" +
 				'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\nEnd Function\n' +
+				'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)\n' +
 				'Private Sub Hidden()\nEnd Sub\n',
 		});
 		index.setModule({
@@ -475,6 +528,7 @@ describe('ProjectIndex visible procedure signatures', () => {
 			'Caller.LocalTotal',
 			'Helpers.DefaultPublic',
 			'Helpers.InvoiceTotal',
+			'Helpers.Sleep',
 		]);
 		expect(got.find((sig) => sig.name === 'InvoiceTotal')?.returnType).toBe('Currency');
 		expect(got.find((sig) => sig.name === 'InvoiceTotal')?.params[0]).toEqual({
@@ -492,6 +546,7 @@ describe('ProjectIndex visible procedure signatures', () => {
 		);
 		expect(got.map((sig) => sig.name)).not.toContain('Hidden');
 		expect(got.map((sig) => sig.name)).not.toContain('Save');
+		expect(got.find((sig) => sig.name === 'Sleep')?.external).toBe(true);
 	});
 });
 

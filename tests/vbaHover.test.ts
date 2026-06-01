@@ -73,6 +73,55 @@ describe('hover - user symbols', () => {
 		expect(info?.documentation).toContain('Calculates the invoice total.');
 	});
 
+	it('describes external Declare callables from the current module', () => {
+		const src =
+			'Private Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long\n' +
+			'Sub Caller()\n    value = GetTickCount()\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('GetTickCount()') + 2, {
+			moduleName: 'NativeApi',
+		});
+
+		expect(info?.signature).toBe(
+			'Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long',
+		);
+		expect(info?.details).toContain('External declaration');
+		expect(info?.details).toContain('Lib: kernel32');
+	});
+
+	it('describes exported project Declare callables from other standard modules', () => {
+		const src = 'Sub Caller()\n    Sleep 100\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('Sleep') + 2, {
+			moduleName: 'Caller',
+			projectProcedures: [
+				{
+					name: 'Sleep',
+					moduleName: 'NativeApi',
+					kind: 'sub',
+					params: [
+						{
+							name: 'Milliseconds',
+							type: 'LongPtr',
+							optional: false,
+							paramArray: false,
+							isArray: false,
+							byVal: true,
+						},
+					],
+					external: true,
+					ptrSafe: true,
+					libName: 'kernel32',
+					visibility: 'Public',
+				},
+			],
+		});
+
+		expect(info?.signature).toBe(
+			'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+		);
+		expect(info?.details).toContain('External declaration');
+		expect(info?.details).toContain('Declared in Module: NativeApi');
+	});
+
 	it('describes a local variable from a usage inside the procedure', () => {
 		const src =
 			'Sub Test()\n' +

@@ -9,6 +9,7 @@
 //   - 4.2   Modules (procedural vs class module)
 //   - 5.2.3 Module variable declarations / 5.2.4 Const declarations
 //   - 5.2.3.3 User-defined Type / 5.2.3.4 Enum
+//   - 5.2.3.5 External Procedure Declarations (Declare)
 //   - 5.3   Procedure declarations (Sub/Function/Property)
 //   - 5.4   Local variable declarations (Dim/Static inside a procedure)
 
@@ -72,10 +73,18 @@ export interface VbaSymbol {
 	paramArray?: boolean;
 	/** True when a parameter is explicitly ByVal. */
 	byVal?: boolean;
-	/** True when a parameter is explicitly or implicitly ByRef. */
+	/** True when a parameter is explicitly ByRef. */
 	byRef?: boolean;
 	/** True when the declaration is an array. */
 	isArray?: boolean;
+	/** External Declare statements are Function or Sub callables. */
+	declareKind?: 'Function' | 'Sub';
+	/** True when an external Declare includes PtrSafe. */
+	ptrSafe?: boolean;
+	/** Library name from `Lib "..."` on an external Declare. */
+	libName?: string;
+	/** Alias name from `Alias "..."` on an external Declare. */
+	aliasName?: string;
 	/** Nested symbols (procedure params/locals, enum members, UDT fields). */
 	children?: VbaSymbol[];
 	/** Inline `'''` XML documentation comment attached to the declaration. */
@@ -104,6 +113,8 @@ export interface VbaProcedureParam {
 	paramArray: boolean;
 	isArray: boolean;
 	defaultRaw?: string;
+	byVal?: boolean;
+	byRef?: boolean;
 }
 
 /** Exported callable signature collected from the project symbol graph. */
@@ -116,13 +127,24 @@ export interface VbaProcedureSignature {
 	signature?: string;
 	visibility?: SymbolVisibility;
 	doc?: VbaDoc;
+	external?: boolean;
+	ptrSafe?: boolean;
+	libName?: string;
+	aliasName?: string;
 }
 
 export function procedureKindKeyword(kind: VbaProcedureSignature['kind']): string {
 	return kind === 'function' ? 'Function' : 'Sub';
 }
 
-export function formatProcedureParamLabel(param: VbaProcedureParam): string {
+function quoteVbaString(value: string): string {
+	return `"${value.replace(/"/g, '""')}"`;
+}
+
+export function formatProcedureParamLabel(
+	param: VbaProcedureParam,
+	options: { includePassing?: boolean } = {},
+): string {
 	let label = param.name;
 	if (param.isArray) {
 		label += '()';
@@ -136,14 +158,23 @@ export function formatProcedureParamLabel(param: VbaProcedureParam): string {
 	if (param.paramArray) {
 		label = `ParamArray ${label}`;
 	}
+	if (options.includePassing && !param.paramArray) {
+		if (param.byVal) {
+			label = `ByVal ${label}`;
+		} else if (param.byRef) {
+			label = `ByRef ${label}`;
+		}
+	}
 	return param.optional ? `[${label}]` : label;
 }
 
 export function procedureSignatureLabel(procedure: Pick<
 	VbaProcedureSignature,
-	'name' | 'kind' | 'params' | 'returnType'
+	'name' | 'kind' | 'params' | 'returnType' | 'external'
 >): string {
-	const params = procedure.params.map(formatProcedureParamLabel).join(', ');
+	const params = procedure.params
+		.map((param) => formatProcedureParamLabel(param, { includePassing: procedure.external }))
+		.join(', ');
 	const returns = procedure.kind === 'function' && procedure.returnType
 		? ` As ${procedure.returnType}`
 		: '';
@@ -151,8 +182,25 @@ export function procedureSignatureLabel(procedure: Pick<
 }
 
 export function procedureDeclarationSignature(
-	procedure: Pick<VbaProcedureSignature, 'name' | 'kind' | 'params' | 'returnType'>,
+	procedure: Pick<
+		VbaProcedureSignature,
+		'name' | 'kind' | 'params' | 'returnType' | 'external' | 'ptrSafe' | 'libName' | 'aliasName'
+	>,
 ): string {
+	if (procedure.external) {
+		const keyword = procedureKindKeyword(procedure.kind);
+		const ptrSafe = procedure.ptrSafe ? 'PtrSafe ' : '';
+		const lib = procedure.libName ? ` Lib ${quoteVbaString(procedure.libName)}` : '';
+		const alias = procedure.aliasName ? ` Alias ${quoteVbaString(procedure.aliasName)}` : '';
+		const externalTarget = lib || alias ? `${lib}${alias} ` : '';
+		const params = procedure.params
+			.map((param) => formatProcedureParamLabel(param, { includePassing: true }))
+			.join(', ');
+		const returns = procedure.kind === 'function' && procedure.returnType
+			? ` As ${procedure.returnType}`
+			: '';
+		return `Declare ${ptrSafe}${keyword} ${procedure.name}${externalTarget}(${params})${returns}`;
+	}
 	return `${procedureKindKeyword(procedure.kind)} ${procedureSignatureLabel(procedure)}`;
 }
 
@@ -236,6 +284,77 @@ export function qualifiedProcedureKey(moduleName: string, name: string): string 
 	return `${moduleName.toLowerCase()}.${name.toLowerCase()}`;
 }
 
+/** True for bare callables: Sub, Function, and external Declare statements. */
+export function isBareCallableKind(kind: VbaSymbolKind): boolean {
+	return kind === 'sub' || kind === 'function' || kind === 'declare';
+}
+
+/** Converts a symbol's parameter children into the shared callable parameter model. */
+export function procedureParamsFromSymbol(
+	symbol: VbaSymbol,
+	options: { includePassing?: boolean } = {},
+): VbaProcedureParam[] {
+	return (symbol.children ?? [])
+		.filter((child) => child.kind === 'parameter')
+		.map((child) => {
+			const param: VbaProcedureParam = {
+				name: child.name,
+				type: child.asType,
+				optional: child.optional ?? false,
+				paramArray: child.paramArray ?? false,
+				isArray: child.isArray ?? false,
+			};
+			if (child.defaultRaw !== undefined) {
+				param.defaultRaw = child.defaultRaw;
+			}
+			if (options.includePassing) {
+				if (child.byVal) {
+					param.byVal = true;
+				} else if (child.byRef) {
+					param.byRef = true;
+				}
+			}
+			return param;
+		});
+}
+
+/** Converts a Sub/Function/Declare symbol into the shared callable signature model. */
+export function procedureSignatureFromSymbol(
+	symbol: VbaSymbol,
+): VbaProcedureSignature | undefined {
+	if (!isBareCallableKind(symbol.kind)) {
+		return undefined;
+	}
+	const external = symbol.kind === 'declare';
+	const kind = callableKindForSymbol(symbol);
+	const signatureBase: VbaProcedureSignature = {
+		name: symbol.name,
+		moduleName: symbol.moduleName,
+		kind,
+		params: procedureParamsFromSymbol(symbol, { includePassing: external }),
+		returnType: symbol.asType,
+		visibility: symbol.visibility,
+		doc: symbol.doc,
+		external: external || undefined,
+		ptrSafe: symbol.ptrSafe,
+		libName: symbol.libName,
+		aliasName: symbol.aliasName,
+	};
+	return {
+		...signatureBase,
+		signature: external
+			? procedureDeclarationSignature(signatureBase)
+			: procedureSignatureLabel(signatureBase),
+	};
+}
+
+function callableKindForSymbol(symbol: VbaSymbol): Extract<VbaSymbolKind, 'sub' | 'function'> {
+	if (symbol.kind === 'declare') {
+		return symbol.declareKind === 'Function' ? 'function' : 'sub';
+	}
+	return symbol.kind as Extract<VbaSymbolKind, 'sub' | 'function'>;
+}
+
 /** The symbol view of a single module. */
 export interface ModuleSymbols {
 	moduleName: string;
@@ -246,7 +365,7 @@ export interface ModuleSymbols {
 	all: VbaSymbol[];
 }
 
-/** True for the five procedure symbol kinds. */
+/** True for the five source procedure body symbol kinds. */
 export function isProcedureKind(kind: VbaSymbolKind): boolean {
 	return (
 		kind === 'sub' ||

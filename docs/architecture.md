@@ -344,7 +344,7 @@ the cache stays in sync with user edits.
 **Workbook-wide lint (command + agent tool)** — `src/vbaWorkbookLint.ts`
 (`lintWorkbook`) is the shared core that loads every module from the workbook via
 the Python bridge, builds a `ProjectIndex` so cross-module rules have the
-current module's visibility-filtered procedure and bare identifier names, then runs both diagnostic passes
+  current module's visibility-filtered procedure/Declare and bare identifier names, then runs both diagnostic passes
 (`lintVbaSource` + `analyzeModule`) per module and flattens their results into
 1-based `{moduleName, moduleType, line, column, endColumn, severity, code,
 message}` problems, sorted by module/line/column. The
@@ -477,7 +477,7 @@ into a pure analyzer layer and a thin VS Code provider:
   (`resolveIdentifierCompletions`): host-injected globals (`ThisWorkbook`,
   `ActiveSheet`, `Application`, ...), worksheet/document code names, the
   user's in-scope declarations (parameters, locals, module variables/constants,
-  procedures, enums and their members, user types), built-in VBA runtime
+  procedures, external Declares, enums and their members, user types), built-in VBA runtime
   functions (`MsgBox`, `Left`, `CLng`, `RGB`, ...), and built-in constants
   (`vbOKOnly`, `xlUp`, ...) from runtime/host metadata once a constant-like
   prefix is typed.
@@ -628,7 +628,7 @@ Diagnostic severity policy:
   powers `unknown-call`: it accepts the three call forms whose callee is a bare
   (non-member) identifier - a lone identifier, a parenless call with arguments
   (`MsgBox "hi"`), and an explicit `Call name` - and flags the callee when the
-  name resolves to no project procedure, runtime function/statement, host
+  name resolves to no project procedure/Declare, runtime function/statement, host
   global, `Application` member, or in-scope declaration. It excludes member
   calls (`.`), labels (`:`), assignments (any top-level `=`), and the
   implicit-host-member form `Cells(1, 1)` / `Range("A1")` (a non-`Call`
@@ -637,7 +637,7 @@ Diagnostic severity policy:
   and VBE-oracle-verified standalone zero-argument calls cannot use empty
   parentheses unless they are prefixed with valid `Call` syntax or used in an expression.
   The rule uses the shared callable signature path for known same-module and
-  exported standard-module procedures such as `myFunction()`, verified
+  exported standard-module procedures/Declares such as `myFunction()`, verified
   zero-argument runtime calls such as `DoEvents()`, and member/property
   statements such as `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
   `ActiveSheet.Range()`. Required-argument calls such as `MsgBox()` stay on the
@@ -689,9 +689,9 @@ Diagnostic severity policy:
   host/reference member signatures, and deterministic literal/expression
   inference; unknown and `Variant` operands suppress diagnostics. For
   workbook-backed modules, the provider also passes a
-  project-wide map of exported standard-module `Sub`/`Function` signatures, so
-  argument count/type checks can cross module boundaries when the target is
-  unambiguous. Ambiguous bare exported names stay silent, while
+  project-wide map of exported standard-module `Sub`/`Function`/`Declare`
+  signatures, so argument count/type checks can cross module boundaries when
+  the target is unambiguous. Ambiguous bare exported names stay silent, while
   `ModuleName.ProcedureName` resolves through the named standard module only;
   non-standard member cases stay silent until the binder can prove the target.
   `string-arithmetic-coercion` is a related red
@@ -800,7 +800,8 @@ single module:
   visibility, `asType`, exported `Attribute` metadata, and nested children).
 - `src/analyzer/symbols/buildModuleSymbols.ts` walks one `ModuleNode` and emits
   a hierarchical module symbol (procedures with parameter/local children,
-  `Type` with fields, `Enum` with members, module variables/consts, `Declare`s).
+  `Type` with fields, `Enum` with members, module variables/consts, and
+  `Declare`s with PtrSafe/Lib/Alias/parameter/return metadata).
   Identifier spans are located with the real lexer, so a `nameSpan` never lands
   inside a comment or string. Dotted exported attribute lines are mapped by the
   target before the dot, so `Attribute Value.VB_UserMemId = 0` attaches to the
@@ -811,8 +812,9 @@ single module:
   declarations in other modules), `resolveQualifiedDefinition` (the exported
   member of a named module, for `Module.Member` references), `referenceScope`
   (the binding scope of a name for scope-restricted reference/rename search),
-  `visibleProcedureNames` (same-module procedures plus exported standard-module
-  procedures callable as bare identifiers from a given module),
+  `visibleProcedureNames` (same-module procedures/Declares plus exported
+  standard-module procedures/Declares callable as bare identifiers from a given
+  module),
   `visibleIdentifierNames` (same-module declarations, exported standard-module
   globals/types/enums and enum members, plus document/UserForm code names for
   Option Explicit diagnostics),

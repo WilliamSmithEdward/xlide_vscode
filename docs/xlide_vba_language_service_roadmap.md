@@ -878,11 +878,11 @@ Do not ship low-confidence diagnostics by default.
 > built-in types, Excel host types, and project-defined types (current-module
 > `Type`/`Enum` + class/UserForm module names). Identifier completion offers
 > host-injected globals, code names, and the enclosing procedure's
-> params/locals plus module-level vars/consts/procs/enums/types, exported
-> standard-module project `Sub`/`Function` names visible as bare calls, runtime
+> params/locals plus module-level vars/consts/procs/Declares/enums/types, exported
+> standard-module project `Sub`/`Function`/`Declare` names visible as bare calls, runtime
 > constants, and generated Excel enum constants; it is
 > suppressed after `.`, after `As`, and in declaration-name positions. Exported
-> project procedure completions carry full callable signatures, declaring-module
+> project procedure/Declare completions carry full callable signatures, declaring-module
 > detail, parameter defaults where known, and inline `'''` documentation for the
 > IntelliSense preview. Runtime completion uses the shared explicit-`Call`
 > compatibility metadata, so invalid targets such as `DoEvents` are not offered
@@ -899,9 +899,9 @@ Do not ship low-confidence diagnostics by default.
 > `Option`, `End`, `On Error`, access modifiers, and `#` conditional
 > compilation markers, with innermost-block-aware close suggestions. Remaining:
 > optional enter-time auto-block insertion after manually typed block headers.
-> Planned next slice: conditional-compilation-aware `Declare` / DLL import
-> IntelliSense and diagnostics for `VBA7`, `Win64`, `Win32`, `PtrSafe`,
-> `LongPtr`, and related 32/64-bit Office patterns.
+> Current next slice: branch-aware conditional compilation for `VBA7`,
+> `Win64`, `Win32`, `PtrSafe`, `LongPtr`, and related 32/64-bit Office patterns
+> on top of the shared `Declare` metadata now in place.
 
 ### Goal
 
@@ -967,7 +967,13 @@ Implement completions for:
 
 ### Conditional Compilation and External Declare Roadmap Slice
 
-Status: PLANNED.
+Status: IN PROGRESS. The first shared-metadata slice is implemented:
+`Declare` statements now parse visibility, `PtrSafe`, `Sub`/`Function`, name,
+`Lib`, `Alias`, parameters, and return type. That metadata is indexed as a
+bare-callable signature and feeds same-module/project completion, hover,
+signature help, argument-count diagnostics, and argument-type diagnostics.
+Remaining work is conditional-compilation branch modeling and the verified
+64-bit compatibility diagnostics.
 
 This slice covers the VBA `#` syntax used for 32/64-bit Office compatibility and
 Win32 API declarations. It belongs partly to parser/diagnostics and partly to
@@ -991,7 +997,7 @@ Required behavior:
   carefully because Microsoft's compiler-constants documentation says it is
   true in both 32-bit and 64-bit Windows development environments; prefer
   examples that test `Win64` before falling back to `Win32`.
-- Parse full external declaration metadata: visibility, `Declare`, `PtrSafe`,
+- [Done] Parse full external declaration metadata: visibility, `Declare`, `PtrSafe`,
   `Sub` / `Function`, procedure name, `Lib`, optional `Alias`, parameters, and
   return type.
 - Add low-noise diagnostics for verified cases only: missing `PtrSafe` in
@@ -1024,15 +1030,16 @@ Required behavior:
 > Status: IN PROGRESS. Hover is DONE - `src/analyzer/hover/resolveHover.ts`
 > (pure) describes the identifier under the cursor (host members via the
 > exported `resolveReceiverTypeAt`, host globals, worksheet code names, and live
-> user declarations from the module symbol graph (procedure signatures,
+> user declarations from the module symbol graph (procedure/Declare signatures,
 > variables/parameters/constants with `As` type, enums/members, types/fields),
-> exported standard-module project procedures visible as bare calls, and built-in constants,
+> exported standard-module project procedures/Declares visible as bare calls,
+> and built-in constants,
 > wired through the `HoverProvider` in `src/vbaMemberCompletion.ts` and covered by
 > `tests/vbaHover.test.ts`. Signature Help is DONE -
 > `src/analyzer/signature/signatureHelp.ts` (pure) returns the active call tip
 > for host members (verified `Workbooks.Open`, `Range.Offset`, ...), user
-> procedures (current-module AST plus exported standard-module project
-> `Sub`/`Function` signatures), and runtime built-ins, with explicit-`Call`
+> procedures and external Declares (current-module AST plus exported standard-module project
+> `Sub`/`Function`/`Declare` signatures), and runtime built-ins, with explicit-`Call`
 > runtime incompatibilities suppressed through the same shared metadata used by
 > completion and diagnostics, wired through the
 > `SignatureHelpProvider` in `src/vbaMemberCompletion.ts` (triggers `(` `,`

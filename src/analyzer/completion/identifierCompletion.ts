@@ -28,6 +28,7 @@ import {
 	VbaProcedureSignature,
 	VbaSymbol,
 	procedureDeclarationSignature,
+	procedureSignatureFromSymbol,
 	procedureKindKeyword,
 	isProcedureKind,
 } from '../symbols/symbolModel';
@@ -58,7 +59,7 @@ export interface IdentifierCompletion {
 export interface IdentifierCompletionContext {
 	/** Canonical worksheet/document code names of the workbook project. */
 	codeNames?: string[];
-	/** Exported project procedures visible as bare calls from this module. */
+	/** Exported project procedures/Declares visible as bare calls from this module. */
 	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Name of the module being edited (for in-scope symbol resolution). */
 	moduleName?: string;
@@ -320,8 +321,11 @@ function addProjectProcedures(
 function projectProcedureDocumentation(
 	procedure: VbaProcedureSignature,
 ): string {
+	const kind = procedure.external
+		? `Declare ${procedureKindKeyword(procedure.kind)}`
+		: procedureKindKeyword(procedure.kind);
 	const lines = [
-		`**Project ${procedureKindKeyword(procedure.kind)}**`,
+		`**Project ${kind}**`,
 		'',
 		'```vba',
 		procedureDeclarationSignature(procedure),
@@ -367,11 +371,22 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 			add(symbol.name, 'constant', detailWithType('constant', symbol.asType), documentation);
 			return;
 		case 'sub':
-			add(symbol.name, 'procedure', 'Sub', documentation);
-			return;
 		case 'function':
-			add(symbol.name, 'procedure', detailWithType('Function', symbol.asType), documentation);
+		case 'declare': {
+			const signature = procedureSignatureFromSymbol(symbol);
+			const fallback = symbol.kind === 'sub'
+				? 'Sub'
+				: symbol.kind === 'declare'
+					? 'Declare'
+					: detailWithType('Function', symbol.asType);
+			add(
+				symbol.name,
+				'procedure',
+				signature ? procedureDeclarationSignature(signature) : fallback,
+				documentation,
+			);
 			return;
+		}
 		case 'propertyGet':
 		case 'propertyLet':
 		case 'propertySet':

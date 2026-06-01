@@ -11,6 +11,7 @@
 
 import { buildModuleSymbols } from './buildModuleSymbols';
 import {
+	isBareCallableKind,
 	isProcedureKind,
 	qualifiedProcedureKey,
 	type ModuleSymbolKind,
@@ -22,10 +23,10 @@ import {
 	type VbaProjectClassMembers,
 	type VbaSymbol,
 	type VbaSymbolAttribute,
-	type VbaProcedureParam,
 	type VbaProcedureSignature,
 	formatProcedureParamLabel,
-	procedureSignatureLabel,
+	procedureParamsFromSymbol,
+	procedureSignatureFromSymbol,
 } from './symbolModel';
 import type { Span } from '../parser/nodes';
 
@@ -240,24 +241,6 @@ function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
 	return params[params.length - 1];
 }
 
-function procedureParams(symbol: VbaSymbol): VbaProcedureParam[] {
-	return (symbol.children ?? [])
-		.filter((child) => child.kind === 'parameter')
-		.map((child) => {
-			const param: VbaProcedureParam = {
-				name: child.name,
-				type: child.asType,
-				optional: child.optional ?? false,
-				paramArray: child.paramArray ?? false,
-				isArray: child.isArray ?? false,
-			};
-			if (child.defaultRaw !== undefined) {
-				param.defaultRaw = child.defaultRaw;
-			}
-			return param;
-		});
-}
-
 function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 	if (
 		symbol.kind !== 'sub' &&
@@ -266,26 +249,11 @@ function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 	) {
 		return undefined;
 	}
-	const params = procedureParams(symbol).map(formatProcedureParamLabel).join(', ');
+	const params = procedureParamsFromSymbol(symbol)
+		.map((param) => formatProcedureParamLabel(param))
+		.join(', ');
 	const returns = symbol.asType ? ` As ${symbol.asType}` : '';
 	return `${symbol.name}(${params})${returns}`;
-}
-
-function procedureSignatureFromSymbol(symbol: VbaSymbol): VbaProcedureSignature {
-	const params = procedureParams(symbol);
-	const signatureBase = {
-		name: symbol.name,
-		moduleName: symbol.moduleName,
-		kind: symbol.kind as Extract<VbaSymbol['kind'], 'sub' | 'function'>,
-		params,
-		returnType: symbol.asType,
-		visibility: symbol.visibility,
-		doc: symbol.doc,
-	};
-	return {
-		...signatureBase,
-		signature: procedureSignatureLabel(signatureBase),
-	};
 }
 
 /** A project-wide symbol index built from a set of module sources. */
@@ -318,7 +286,7 @@ export class ProjectIndex {
 	}
 
 	/**
-	 * Lowercased names of every procedure (Sub/Function/Property) across all
+	 * Lowercased names of every procedure/Declare callable across all
 	 * indexed modules. Used by the unknown-call diagnostic to decide whether a
 	 * bare call statement names a procedure that exists anywhere in the project.
 	 */
@@ -326,7 +294,7 @@ export class ProjectIndex {
 		const names = new Set<string>();
 		for (const mod of this.modules.values()) {
 			for (const symbol of mod.all) {
-				if (isProcedureKind(symbol.kind)) {
+				if (isBareCallableKind(symbol.kind) || isProcedureKind(symbol.kind)) {
 					names.add(symbol.name.toLowerCase());
 				}
 			}
@@ -347,7 +315,7 @@ export class ProjectIndex {
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
 			for (const symbol of mod.root.children ?? []) {
-				if (!isProcedureKind(symbol.kind)) {
+				if (!isBareCallableKind(symbol.kind)) {
 					continue;
 				}
 				if (
@@ -362,10 +330,10 @@ export class ProjectIndex {
 	}
 
 	/**
-	 * Visible bare-call Sub/Function signatures from `moduleName`. Same-module
-	 * procedures are visible to their own module. Other modules contribute only
-	 * exported standard-module procedures, matching the `visibleProcedureNames`
-	 * rule used by diagnostics.
+	 * Visible bare-call Sub/Function/Declare signatures from `moduleName`.
+	 * Same-module callables are visible to their own module. Other modules
+	 * contribute only exported standard-module callables, matching the
+	 * `visibleProcedureNames` rule used by diagnostics.
 	 */
 	visibleProcedureSignatures(moduleName: string): VbaProcedureSignature[] {
 		const currentLower = moduleName.toLowerCase();
@@ -373,7 +341,7 @@ export class ProjectIndex {
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
 			for (const symbol of mod.root.children ?? []) {
-				if (symbol.kind !== 'sub' && symbol.kind !== 'function') {
+				if (!isBareCallableKind(symbol.kind)) {
 					continue;
 				}
 				if (
@@ -382,7 +350,10 @@ export class ProjectIndex {
 				) {
 					continue;
 				}
-				out.push(procedureSignatureFromSymbol(symbol));
+				const signature = procedureSignatureFromSymbol(symbol);
+				if (signature) {
+					out.push(signature);
+				}
 			}
 		}
 		return out;
@@ -448,9 +419,9 @@ export class ProjectIndex {
 	}
 
 	/**
-	 * Exported standard-module Sub/Function signatures grouped by lowercased
-	 * procedure name, with additional `module.procedure` qualified keys. Bare
-	 * duplicate exported names intentionally remain grouped together so analyzer
+	 * Exported standard-module Sub/Function/Declare signatures grouped by
+	 * lowercased procedure name, with additional `module.procedure` qualified
+	 * keys. Bare duplicate exported names intentionally remain grouped together so analyzer
 	 * callers can skip ambiguous unqualified calls; module-qualified calls can
 	 * still resolve deterministically through their qualified key.
 	 *
@@ -463,19 +434,21 @@ export class ProjectIndex {
 		for (const mod of this.modules.values()) {
 			for (const symbol of mod.root.children ?? []) {
 				if (
-					(symbol.kind !== 'sub' && symbol.kind !== 'function') ||
+					!isBareCallableKind(symbol.kind) ||
 					mod.moduleKind !== 'standard' ||
 					!isExported(symbol, mod.moduleKind)
 				) {
 					continue;
 				}
 				const sig = procedureSignatureFromSymbol(symbol);
-				addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
-				addProcedureSignature(
-					signatures,
-					qualifiedProcedureKey(symbol.moduleName, symbol.name),
-					sig,
-				);
+				if (sig) {
+					addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
+					addProcedureSignature(
+						signatures,
+						qualifiedProcedureKey(symbol.moduleName, symbol.name),
+						sig,
+					);
+				}
 			}
 		}
 		return signatures;

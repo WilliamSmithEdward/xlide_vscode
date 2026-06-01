@@ -45,6 +45,7 @@ import type {
 	Span,
 	StatementNode,
 	TypeFieldNode,
+	DeclareNode,
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
@@ -118,7 +119,7 @@ export interface AnalyzeModuleOptions {
 	 */
 	knownIdentifiers?: ReadonlySet<string>;
 	/**
-	 * Exported Sub/Function signatures across the workbook project, grouped by
+	 * Exported Sub/Function/Declare signatures across the workbook project, grouped by
 	 * lowercased procedure name. When omitted, type and arity validation remain
 	 * single-module only.
 	 */
@@ -1240,7 +1241,7 @@ interface CallArguments {
 }
 
 /**
- * Rule: a call to a known Sub/Function must supply an argument count the
+ * Rule: a call to a known Sub/Function/Declare must supply an argument count the
  * procedure's parameter list accepts. Same-module procedures come directly from
  * this module's AST. Cross-module checks use the ProjectIndex signature map:
  * bare exported names are checked only when unique, and module-qualified calls
@@ -1260,22 +1261,7 @@ function checkArgumentCount(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
-	const procsByName = new Map<string, ProcedureNode[]>();
-	for (const member of mod.members) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
-		if (member.procKind !== 'Sub' && member.procKind !== 'Function') {
-			continue;
-		}
-		const key = member.name.toLowerCase();
-		const arr = procsByName.get(key);
-		if (arr) {
-			arr.push(member);
-		} else {
-			procsByName.set(key, [member]);
-		}
-	}
+	const sameModuleSignatures = sameModuleCallableSignatures(mod);
 	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
 	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
 	for (const member of mod.members) {
@@ -1289,13 +1275,18 @@ function checkArgumentCount(
 				: extractQualifiedCall(source, stmt.span, moduleSignatures);
 			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
 			if (effectiveStatementCall) {
-				validateCallableArity(effectiveStatementCall, procsByName, projectSignatures, push);
+				validateCallableArity(
+					effectiveStatementCall,
+					sameModuleSignatures,
+					projectSignatures,
+					push,
+				);
 			}
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
 				if (sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
-				validateCallableArity(call, procsByName, projectSignatures, push);
+				validateCallableArity(call, sameModuleSignatures, projectSignatures, push);
 			}
 			for (const memberCall of memberExpressionCalls(
 				source,
@@ -1317,16 +1308,18 @@ function checkArgumentCount(
 
 function validateCallableArity(
 	call: CallArguments,
-	procsByName: ReadonlyMap<string, ProcedureNode[]>,
+	sameModuleSignatures: ReadonlyMap<string, readonly CallableTypeSignature[]>,
 	projectSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	push: PushFn,
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
-	const candidates = call.qualifier ? undefined : procsByName.get(call.name.toLowerCase());
+	const candidates = call.qualifier
+		? undefined
+		: sameModuleSignatures.get(call.name.toLowerCase());
 	if (candidates) {
 		// Skip ambiguous same-module targets where the signature is not unique.
 		if (candidates.length === 1) {
-			validateArity(procedureTypeSignature(candidates[0]), call, push);
+			validateArity(candidates[0], call, push);
 		}
 		return;
 	}
@@ -2120,15 +2113,55 @@ function setAssignmentTarget(
 function buildModuleTypeSignatures(mod: ModuleNode): Map<string, CallableTypeSignature> {
 	const out = new Map<string, CallableTypeSignature>();
 	for (const member of mod.members) {
-		if (member.kind !== 'Procedure') {
+		if (member.kind === 'Procedure') {
+			out.set(member.name.toLowerCase(), procedureTypeSignature(member));
+		} else if (member.kind === 'Declare') {
+			out.set(member.name.toLowerCase(), declareTypeSignature(member));
+		}
+	}
+	return out;
+}
+
+function sameModuleCallableSignatures(mod: ModuleNode): Map<string, CallableTypeSignature[]> {
+	const out = new Map<string, CallableTypeSignature[]>();
+	for (const member of mod.members) {
+		let signature: CallableTypeSignature | undefined;
+		if (member.kind === 'Procedure') {
+			if (member.procKind !== 'Sub' && member.procKind !== 'Function') {
+				continue;
+			}
+			signature = procedureTypeSignature(member);
+		} else if (member.kind === 'Declare') {
+			signature = declareTypeSignature(member);
+		}
+		if (!signature) {
 			continue;
 		}
-		out.set(member.name.toLowerCase(), procedureTypeSignature(member));
+		const key = signature.name.toLowerCase();
+		const arr = out.get(key);
+		if (arr) {
+			arr.push(signature);
+		} else {
+			out.set(key, [signature]);
+		}
 	}
 	return out;
 }
 
 function procedureTypeSignature(member: ProcedureNode): CallableTypeSignature {
+	return {
+		name: member.name,
+		params: member.params.map((p) => ({
+			name: stripHeaderBrackets(p.name),
+			type: p.asType,
+			optional: p.optional,
+			paramArray: p.paramArray,
+		})),
+		returnType: member.returnType,
+	};
+}
+
+function declareTypeSignature(member: DeclareNode): CallableTypeSignature {
 	return {
 		name: member.name,
 		params: member.params.map((p) => ({

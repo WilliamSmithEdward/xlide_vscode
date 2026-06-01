@@ -229,11 +229,44 @@ class Parser {
 		);
 		const isFunction = kindIndex >= 0 && tokenWord(tokens[kindIndex]) === 'function';
 		const nameToken = kindIndex >= 0 ? tokens[kindIndex + 1] : undefined;
+		const nameIndex = nameToken ? kindIndex + 1 : -1;
+		const ptrSafe = kindIndex >= 0 && tokens
+			.slice(modIndex + 1, kindIndex)
+			.some((t) => tokenWord(t) === 'ptrsafe');
+		const libIndex = nameIndex >= 0
+			? tokens.findIndex((t, idx) => idx > nameIndex && tokenWord(t) === 'lib')
+			: -1;
+		const aliasIndex = nameIndex >= 0
+			? tokens.findIndex((t, idx) => idx > nameIndex && tokenWord(t) === 'alias')
+			: -1;
+		const libName = libIndex >= 0 ? this.stringLiteralText(tokens[libIndex + 1]) : undefined;
+		const aliasName = aliasIndex >= 0 ? this.stringLiteralText(tokens[aliasIndex + 1]) : undefined;
+
+		let params: ParameterNode[] = [];
+		let afterParen = nameIndex + 1;
+		const lparen = nameIndex >= 0
+			? tokens.findIndex((t, idx) => idx > nameIndex && t.rawText === '(')
+			: -1;
+		if (lparen >= 0) {
+			const parsed = this.parseParamList(tokens, lparen);
+			params = parsed.params;
+			afterParen = parsed.closeIndex + 1;
+		}
+
+		let returnType: string | undefined;
+		if (isFunction && tokens[afterParen] && tokenWord(tokens[afterParen]) === 'as') {
+			returnType = this.captureType(tokens, afterParen + 1);
+		}
 		return {
 			kind: 'Declare',
 			name: nameToken ? this.stripBrackets(nameToken.rawText) : '',
 			isFunction,
 			visibility,
+			ptrSafe,
+			libName,
+			aliasName,
+			params,
+			returnType,
 			span: { start: stmt.start, end: stmt.end },
 		};
 	}
@@ -890,6 +923,17 @@ class Parser {
 	private stripBrackets(raw: string): string {
 		if (raw.length >= 2 && raw.startsWith('[') && raw.endsWith(']')) {
 			return raw.slice(1, -1);
+		}
+		return raw;
+	}
+
+	private stringLiteralText(token: VbaToken | undefined): string | undefined {
+		if (!token || token.kind !== 'stringLiteral') {
+			return undefined;
+		}
+		const raw = token.rawText;
+		if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+			return raw.slice(1, -1).replace(/""/g, '"');
 		}
 		return raw;
 	}

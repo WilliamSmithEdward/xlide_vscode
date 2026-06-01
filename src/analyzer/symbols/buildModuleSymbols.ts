@@ -183,6 +183,41 @@ function collectLocals(
 	}
 }
 
+interface SymbolParameter {
+	name: string;
+	span: Span;
+	asType?: string;
+	optional: boolean;
+	paramArray: boolean;
+	byVal: boolean;
+	byRef: boolean;
+	isArray: boolean;
+	defaultRaw?: string;
+}
+
+function buildParameterSymbol(
+	param: SymbolParameter,
+	source: string,
+	moduleName: string,
+	containerName: string,
+): VbaSymbol {
+	return {
+		name: param.name,
+		kind: 'parameter',
+		nameSpan: locateName(source, param.span, param.name),
+		fullSpan: param.span,
+		moduleName,
+		containerName,
+		asType: param.asType,
+		optional: param.optional,
+		paramArray: param.paramArray,
+		byVal: param.byVal,
+		byRef: param.byRef,
+		isArray: param.isArray,
+		defaultRaw: param.defaultRaw,
+	};
+}
+
 /** Builds the symbol for one procedure, with parameter and local children. */
 function buildProcedure(
 	proc: ProcedureNode,
@@ -203,21 +238,7 @@ function buildProcedure(
 	};
 
 	for (const param of proc.params) {
-		const paramSymbol: VbaSymbol = {
-			name: param.name,
-			kind: 'parameter',
-			nameSpan: locateName(source, param.span, param.name),
-			fullSpan: param.span,
-			moduleName,
-			containerName: proc.name,
-			asType: param.asType,
-			optional: param.optional,
-			paramArray: param.paramArray,
-			byVal: param.byVal,
-			byRef: param.byRef || (!param.byVal && !param.paramArray),
-			isArray: param.isArray,
-			defaultRaw: param.defaultRaw,
-		};
+		const paramSymbol = buildParameterSymbol(param, source, moduleName, proc.name);
 		children.push(paramSymbol);
 		flat.push(paramSymbol);
 	}
@@ -227,6 +248,38 @@ function buildProcedure(
 	for (const local of locals) {
 		children.push(local);
 		flat.push(local);
+	}
+
+	return symbol;
+}
+
+/** Builds the symbol for one external Declare, with parameter children. */
+function buildDeclare(
+	declare: Extract<ModuleMember, { kind: 'Declare' }>,
+	source: string,
+	moduleName: string,
+	flat: VbaSymbol[],
+): VbaSymbol {
+	const children: VbaSymbol[] = [];
+	const symbol: VbaSymbol = {
+		name: declare.name,
+		kind: 'declare',
+		nameSpan: locateName(source, declare.span, declare.name),
+		fullSpan: declare.span,
+		moduleName,
+		visibility: toVisibility(declare.visibility),
+		asType: declare.returnType,
+		declareKind: declare.isFunction ? 'Function' : 'Sub',
+		ptrSafe: declare.ptrSafe,
+		libName: declare.libName,
+		aliasName: declare.aliasName,
+		children,
+	};
+
+	for (const param of declare.params) {
+		const paramSymbol = buildParameterSymbol(param, source, moduleName, declare.name);
+		children.push(paramSymbol);
+		flat.push(paramSymbol);
 	}
 
 	return symbol;
@@ -379,15 +432,8 @@ export function buildModuleSymbols(
 				break;
 			}
 			case 'Declare': {
-				const symbol: VbaSymbol = {
-					name: member.name,
-					kind: 'declare',
-					nameSpan: locateName(source, member.span, member.name),
-					fullSpan: member.span,
-					moduleName,
-					visibility: toVisibility(member.visibility),
-					doc: extractLeadingDoc(source, member.span.start),
-				};
+				const symbol = buildDeclare(member, source, moduleName, flat);
+				symbol.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(symbol);
 				flat.push(symbol);
 				break;

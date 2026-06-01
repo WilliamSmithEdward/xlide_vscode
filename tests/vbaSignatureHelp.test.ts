@@ -193,6 +193,52 @@ describe('signature help - user procedures', () => {
 		expect(info?.documentation).toContain('Calculates the invoice total.');
 		expect(info?.parameters[0].documentation).toBe('Pre-tax amount.');
 	});
+
+	it('uses current-module Declare signatures', () => {
+		const info = help(
+			[
+				'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+				'Sub Caller()',
+				'    Sleep |',
+				'End Sub',
+			].join('\n'),
+		);
+
+		expect(info?.label).toBe(
+			'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+		);
+		expect(info?.parameters[0].label).toBe('ByVal Milliseconds As LongPtr');
+	});
+
+	it('uses exported project Declare signatures', () => {
+		const info = help('Sub Caller()\n    Sleep |\nEnd Sub\n', {
+			projectProcedures: [
+				{
+					name: 'Sleep',
+					moduleName: 'NativeApi',
+					kind: 'sub',
+					params: [
+						{
+							name: 'Milliseconds',
+							type: 'LongPtr',
+							optional: false,
+							paramArray: false,
+							isArray: false,
+							byVal: true,
+						},
+					],
+					external: true,
+					ptrSafe: true,
+					libName: 'kernel32',
+				},
+			],
+		});
+
+		expect(info?.label).toBe(
+			'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+		);
+		expect(info?.parameters[0].label).toBe('ByVal Milliseconds As LongPtr');
+	});
 });
 
 describe('signature help - project class members', () => {

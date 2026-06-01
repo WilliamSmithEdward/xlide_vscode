@@ -9,7 +9,7 @@
 //   1. Host members  (e.g. Workbooks.Open) - verified Office object-model
 //      signatures from generated HostMember metadata or excelObjectModel.ts
 //      fallbacks (via member completion / resolveHostMemberSignature).
-//   2. User procedures (Sub/Function/Property) in the current module - built
+//   2. User procedures and external Declares in the current module - built
 //      from the parsed AST so ByVal/Optional/ParamArray detail is exact.
 //   3. Built-in runtime functions (MsgBox, Left, ...) - the verified signature
 //      strings in vbaRuntime.ts.
@@ -22,7 +22,7 @@
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { parseModule } from '../parser/parseModule';
-import { ParameterNode, ProcedureNode } from '../parser/nodes';
+import { DeclareNode, ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletions, MemberCompletionContext } from '../completion/memberAccess';
 import { getHostType } from '../host/hostModel';
 import { resolveRuntimeFunction, runtimeAllowsExplicitCall } from '../runtime/vbaRuntime';
@@ -30,7 +30,9 @@ import { extractLeadingDoc } from '../docs/docComment';
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderParamDocMarkdown, renderSignatureDocMarkdown } from '../docs/docModel';
 import {
+	procedureDeclarationSignature,
 	type VbaProcedureSignature,
+	type VbaProcedureParam,
 	procedureSignatureLabel,
 } from '../symbols/symbolModel';
 
@@ -62,7 +64,7 @@ export interface SignatureHelpContext extends MemberCompletionContext {
 	 * where the caret and the procedures live in the same module).
 	 */
 	moduleSource?: string;
-	/** Exported project procedures visible as bare calls from this module. */
+	/** Exported project procedures/Declares visible as bare calls from this module. */
 	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
@@ -272,11 +274,52 @@ function userProcSignature(proc: ProcedureNode): string {
 	return `${proc.name}(${params})${ret}`;
 }
 
+function declareParam(param: ParameterNode): VbaProcedureParam {
+	const out: VbaProcedureParam = {
+		name: param.name,
+		type: param.asType,
+		optional: param.optional,
+		paramArray: param.paramArray,
+		isArray: param.isArray,
+		defaultRaw: param.defaultRaw,
+	};
+	if (param.byVal) {
+		out.byVal = true;
+	} else if (param.byRef) {
+		out.byRef = true;
+	}
+	return out;
+}
+
+function userDeclareSignature(declare: DeclareNode): string {
+	return procedureDeclarationSignature({
+		name: declare.name,
+		kind: declare.isFunction ? 'function' : 'sub',
+		params: declare.params.map(declareParam),
+		returnType: declare.returnType,
+		external: true,
+		ptrSafe: declare.ptrSafe,
+		libName: declare.libName,
+		aliasName: declare.aliasName,
+	});
+}
+
 function findUserProc(source: string, name: string): ProcedureNode | undefined {
 	const lower = name.toLowerCase();
 	const module = parseModule(source);
 	for (const member of module.members) {
 		if (member.kind === 'Procedure' && member.name.toLowerCase() === lower) {
+			return member;
+		}
+	}
+	return undefined;
+}
+
+function findUserDeclare(source: string, name: string): DeclareNode | undefined {
+	const lower = name.toLowerCase();
+	const module = parseModule(source);
+	for (const member of module.members) {
+		if (member.kind === 'Declare' && member.name.toLowerCase() === lower) {
 			return member;
 		}
 	}
@@ -354,9 +397,17 @@ function signatureForCallee(
 	if (proc) {
 		return userProcSignature(proc);
 	}
+	const declare = findUserDeclare(ctx.moduleSource ?? source, site.calleeName);
+	if (declare) {
+		return userDeclareSignature(declare);
+	}
 	const projectProc = findProjectProcedure(ctx.projectProcedures, site.calleeName);
 	if (projectProc) {
-		return projectProc.signature ?? procedureSignatureLabel(projectProc);
+		return projectProc.signature ?? (
+			projectProc.external
+				? procedureDeclarationSignature(projectProc)
+				: procedureSignatureLabel(projectProc)
+		);
 	}
 	return resolveRuntimeFunction(site.calleeName)?.signature;
 }
@@ -465,6 +516,13 @@ function docForCallee(
 		const proc = findUserProc(moduleSource, site.calleeName);
 		if (proc) {
 			const inline = extractLeadingDoc(moduleSource, proc.span.start);
+			if (inline) {
+				return inline;
+			}
+		}
+		const declare = findUserDeclare(moduleSource, site.calleeName);
+		if (declare) {
+			const inline = extractLeadingDoc(moduleSource, declare.span.start);
 			if (inline) {
 				return inline;
 			}

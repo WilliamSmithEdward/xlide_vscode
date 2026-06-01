@@ -17,6 +17,7 @@ import {
 	VbaSymbol,
 	isProcedureKind,
 	procedureDeclarationSignature,
+	procedureSignatureFromSymbol,
 } from '../symbols/symbolModel';
 import { Span } from '../parser/nodes';
 import { HostObjectModel } from '../host/excelObjectModel';
@@ -65,7 +66,7 @@ export interface HoverContext {
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Project type names visible in declaration type positions. */
 	projectTypes?: readonly ProjectTypeName[];
-	/** Exported project procedures visible as bare calls from this module. */
+	/** Exported project procedures/Declares visible as bare calls from this module. */
 	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
@@ -349,12 +350,22 @@ function resolveProjectProcedureHover(
 		};
 	}
 	const procedure = matches[0];
+	const details = [
+		`Declared in Module: ${procedure.moduleName}`,
+		`Visibility: ${procedure.visibility ?? 'Public'}`,
+	];
+	if (procedure.external) {
+		details.push('External declaration');
+		if (procedure.libName) {
+			details.push(`Lib: ${procedure.libName}`);
+		}
+		if (procedure.aliasName) {
+			details.push(`Alias: ${procedure.aliasName}`);
+		}
+	}
 	const info: HoverInfo = {
 		signature: procedureDeclarationSignature(procedure),
-		details: [
-			`Declared in Module: ${procedure.moduleName}`,
-			`Visibility: ${procedure.visibility ?? 'Public'}`,
-		],
+		details,
 		span,
 	};
 	const doc: VbaDoc | undefined =
@@ -439,6 +450,18 @@ function buildSymbolHover(
 		signature = `${keyword} ${symbol.name}(${params})${ret}`;
 		details.push(`Declared in Module: ${moduleName}`);
 		details.push(`Visibility: ${symbol.visibility ?? 'Public'}`);
+	} else if (symbol.kind === 'declare') {
+		const callable = procedureSignatureFromSymbol(symbol);
+		signature = callable ? procedureDeclarationSignature(callable) : `Declare ${symbol.name}`;
+		details.push(`Declared in Module: ${moduleName}`);
+		details.push(`Visibility: ${symbol.visibility ?? 'Public'}`);
+		details.push('External declaration');
+		if (symbol.libName) {
+			details.push(`Lib: ${symbol.libName}`);
+		}
+		if (symbol.aliasName) {
+			details.push(`Alias: ${symbol.aliasName}`);
+		}
 	} else if (symbol.kind === 'enum') {
 		signature = `Enum ${symbol.name}`;
 		details.push(`Declared in Module: ${moduleName}`);

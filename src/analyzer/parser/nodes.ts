@@ -94,6 +94,11 @@ export interface DeclareNode extends NodeBase {
 	name: string;
 	isFunction: boolean;
 	visibility?: string;
+	ptrSafe: boolean;
+	libName?: string;
+	aliasName?: string;
+	params: ParameterNode[];
+	returnType?: string;
 }
 
 /** Access modifier on a declaration/procedure. */

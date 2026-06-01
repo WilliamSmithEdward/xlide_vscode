@@ -1082,6 +1082,40 @@ describe('analyzeModule - argument count', () => {
 		expect(hits[0].message).toContain('expected 2 arguments');
 	});
 
+	it('validates same-module Declare argument counts', () => {
+		const src =
+			'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)\n' +
+			'Sub Main()\n' +
+			'    Sleep\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Sleep');
+		expect(hits[0].message).toContain('expected 1 argument');
+	});
+
+	it('uses exported project Declare signatures for cross-module argument count', () => {
+		const caller =
+			'Public Sub Main()\n' +
+			'    Sleep\n' +
+			'End Sub\n';
+		const nativeApi =
+			'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'NativeApi', source: nativeApi },
+				]),
+			}),
+			'argument-count',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('Sleep');
+		expect(hits[0].message).toContain('expected 1 argument');
+	});
+
 	it('does not arity-check ambiguous exported project signatures', () => {
 		const caller =
 			'Public Sub Main()\n' +
@@ -1365,6 +1399,18 @@ describe('analyzeModule - argument type validation', () => {
 		expect(spanText(caller, hits[0])).toBe('"blah"');
 		expect(hits[0].message).toContain('Subtotal');
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
+	it('validates same-module Declare argument types', () => {
+		const src =
+			'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)\n' +
+			'Public Sub T()\n' +
+			'    Sleep "bad"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"bad"');
+		expect(hits[0].message).toContain('Milliseconds');
 	});
 
 	it('uses module-qualified project signatures for argument types', () => {

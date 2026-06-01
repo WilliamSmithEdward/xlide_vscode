@@ -108,6 +108,19 @@ describe('identifier completion - in-scope declarations', () => {
 		expect(got).toContain('Helper');
 	});
 
+	it('offers same-module Declare callables with full declaration details', () => {
+		const src =
+			'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)\n' +
+			'Sub Test()\n    Sle\nEnd Sub\n';
+		const got = resolveIdentifierCompletions(src, at(src, '    Sle'));
+		const item = got.find((c) => c.name === 'Sleep');
+
+		expect(item?.kind).toBe('procedure');
+		expect(item?.detail).toBe(
+			'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+		);
+	});
+
 	it('offers exported procedures from other standard modules', () => {
 		const src = 'Sub Test()\n    my\nEnd Sub\n';
 		const got = resolveIdentifierCompletions(src, at(src, '    my'), {
