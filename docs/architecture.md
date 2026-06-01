@@ -479,10 +479,9 @@ into a pure analyzer layer and a thin VS Code provider:
   type position (after `As` / `As New`) or expression-level `New` position it instead
   offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
   (`resolveTypeCompletions`): VBA built-in data types, the Excel host types, and
-  project-defined types — user `Type`s/`Enum`s in the current module, public
-  (non-`Private`) `Type`s/`Enum`s read from the workbook's other modules (via the
-  bridge `readModule` call, cached per workbook with a short TTL), plus
-  class/document/UserForm module names from the workbook. Project-defined type
+  project-defined types from `ProjectIndex.visibleTypeNames()` with the live
+  editor text overlaid for the current module: object-module names plus visible
+  `Type`/`Enum` declarations, preserving duplicate names as ambiguous. Project-defined type
   candidates carry inline `'''` docs from `Type`/`Enum` declarations and from
   object-module header docs, so `As Person` and `New Person` completion/hover
   can show the same documentation model as member surfaces. When the cursor is on a bare

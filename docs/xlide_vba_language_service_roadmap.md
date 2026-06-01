@@ -881,8 +881,10 @@ Do not ship low-confidence diagnostics by default.
 > declarations) are implemented:
 > `src/analyzer/completion/{memberAccess,typeCompletion,identifierCompletion}.ts`
 > (pure) wired through `src/vbaMemberCompletion.ts`. Type completion offers VBA
-> built-in types, Excel host types, and project-defined types (current-module
-> `Type`/`Enum` + class/UserForm module names). Identifier completion offers
+> built-in types, Excel host types, and project-defined types from
+> `ProjectIndex.visibleTypeNames()` (object-module names plus visible
+> `Type`/`Enum` declarations, with duplicate names preserved as ambiguous).
+> Identifier completion offers
 > host-injected globals, code names, and the enclosing procedure's
 > params/locals plus module-level vars/consts/procs/Declares/enums/types, exported
 > standard-module project `Sub`/`Function`/`Declare` names visible as bare calls, runtime

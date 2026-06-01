@@ -13,7 +13,6 @@ import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XLIDE_SCHEME, decodeModuleUri } from './xlideFileSystem';
 import {
-	buildModuleSymbols,
 	DocRegistry,
 	EventHandlerCompletion,
 	EventHandlerCompletionContext,
@@ -28,7 +27,6 @@ import {
 	MemberCompletionContext,
 	ModuleSymbolKind,
 	ProjectIndex,
-	ProjectTypeName,
 	VbaProcedureSignature,
 	callableCompletionShouldInsertParens,
 	resolveCanonicalCaseEdit,
@@ -60,11 +58,6 @@ interface ModuleEntry {
 
 interface CachedModules {
 	entries: ModuleEntry[];
-	loadedAt: number;
-}
-
-interface CachedProjectTypes {
-	types: ProjectTypeName[];
 	loadedAt: number;
 }
 
@@ -126,7 +119,6 @@ class VbaMemberCompletionProvider
 		vscode.SignatureHelpProvider
 {
 	private readonly _cache = new Map<string, CachedModules>();
-	private readonly _typeCache = new Map<string, CachedProjectTypes>();
 	private readonly _procedureCache = new Map<string, CachedProjectProcedures>();
 	private _applyingCanonicalCase = false;
 
@@ -139,12 +131,10 @@ class VbaMemberCompletionProvider
 	invalidate(xlsmPath?: string): void {
 		if (xlsmPath === undefined) {
 			this._cache.clear();
-			this._typeCache.clear();
 			this._procedureCache.clear();
 		} else {
 			const key = this._key(xlsmPath);
 			this._cache.delete(key);
-			this._typeCache.delete(key);
 			this._procedureCache.delete(key);
 		}
 	}
@@ -381,22 +371,9 @@ class VbaMemberCompletionProvider
 		xlsmPath: string,
 		entries: ModuleEntry[],
 	): Promise<VbaProjectClassMembers[]> {
-		const project = new ProjectIndex();
-		for (const entry of entries) {
-			const kind = this._moduleKind(entry.type);
-			if (kind !== 'class' && kind !== 'userform' && kind !== 'document') {
-				continue;
-			}
-			const source = await this._moduleSource(xlsmPath, entry);
-			if (source === undefined) {
-				continue;
-			}
-			project.setModule({
-				moduleName: entry.name,
-				moduleKind: kind,
-				source,
-			});
-		}
+		const project = await this._buildProjectIndexFromEntries(xlsmPath, entries, {
+			include: (kind) => kind === 'class' || kind === 'userform' || kind === 'document',
+		});
 		return project.projectClassMembers();
 	}
 
@@ -420,25 +397,68 @@ class VbaMemberCompletionProvider
 		if (cached && Date.now() - cached.loadedAt < MODULE_CACHE_TTL_MS) {
 			return cached.procedures;
 		}
-		const project = new ProjectIndex();
-		for (const entry of entries) {
-			const kind = this._moduleKind(entry.type);
-			if (kind !== 'standard') {
-				continue;
-			}
-			const source = await this._moduleSource(xlsmPath, entry);
-			if (source === undefined) {
-				continue;
-			}
-			project.setModule({
-				moduleName: entry.name,
-				moduleKind: kind,
-				source,
-			});
-		}
+		const project = await this._buildProjectIndexFromEntries(xlsmPath, entries, {
+			include: (kind) => kind === 'standard',
+		});
 		const procedures = project.visibleProcedureSignatures('__xlide_external_module__');
 		this._procedureCache.set(key, { procedures, loadedAt: Date.now() });
 		return procedures;
+	}
+
+	private async _buildProjectIndexFromEntries(
+		xlsmPath: string,
+		entries: ModuleEntry[],
+		options: {
+			liveOverride?: { moduleName: string; moduleKind: ModuleSymbolKind; source: string };
+			include?: (kind: ModuleSymbolKind) => boolean;
+		} = {},
+	): Promise<ProjectIndex> {
+		const project = new ProjectIndex();
+		let appliedOverride = false;
+		for (const entry of entries) {
+			const entryKind = this._moduleKind(entry.type);
+			const isOverride =
+				options.liveOverride &&
+				entry.name.toLowerCase() === options.liveOverride.moduleName.toLowerCase();
+			const moduleKind = isOverride ? options.liveOverride!.moduleKind : entryKind;
+			if (options.include && !options.include(moduleKind)) {
+				continue;
+			}
+			let source = isOverride
+				? options.liveOverride!.source
+				: await this._moduleSource(xlsmPath, entry);
+			if (source === undefined) {
+				if (moduleKind !== 'class' && moduleKind !== 'document' && moduleKind !== 'userform') {
+					continue;
+				}
+				// The object type name is the component name, so it remains useful
+				// even when the module body cannot be read for members/docs.
+				source = '';
+			}
+			try {
+				project.setModule({
+					moduleName: isOverride ? options.liveOverride!.moduleName : entry.name,
+					moduleKind,
+					source,
+				});
+				appliedOverride = appliedOverride || !!isOverride;
+			} catch {
+				// Keep IntelliSense alive if one workbook module is temporarily invalid.
+			}
+		}
+		const live = options.liveOverride;
+		if (
+			live &&
+			!appliedOverride &&
+			(!options.include || options.include(live.moduleKind))
+		) {
+			try {
+				project.setModule(live);
+			} catch {
+				// Same recovery rule as above for unsaved/incomplete live text.
+			}
+		}
+		return project;
 	}
 
 	private async _moduleSource(
@@ -485,138 +505,46 @@ class VbaMemberCompletionProvider
 		return undefined;
 	}
 
-	/**
-	 * Builds the type-completion context: user-defined types/enums declared in the
-	 * current module plus class/UserForm module names from the workbook project.
-	 */
 	private async _buildTypeContext(
 		document: vscode.TextDocument,
 		source: string,
 	): Promise<TypeCompletionContext> {
-		const projectTypes: ProjectTypeName[] = [];
-		const seen = new Set<string>();
-		const push = (
-			name: string,
-			kind: ProjectTypeName['kind'],
-			doc?: ProjectTypeName['doc'],
-		): void => {
-			const key = name.toLowerCase();
-			if (!name) {
-				return;
-			}
-			if (!seen.has(key)) {
-				seen.add(key);
-				projectTypes.push({ name, kind, doc });
-				return;
-			}
-			if (doc) {
-				const existing = projectTypes.find((item) => item.name.toLowerCase() === key);
-				if (existing && !existing.doc) {
-					existing.doc = doc;
-				}
-			}
-		};
-
-		let currentName = 'Module';
-		let currentKind: ModuleSymbolKind = 'standard';
-		if (document.uri.scheme === XLIDE_SCHEME) {
+		if (document.uri.scheme !== XLIDE_SCHEME) {
+			const project = new ProjectIndex();
 			try {
-				const decoded = decodeModuleUri(document.uri);
-				currentName = decoded.moduleName;
-				const entries = await this._loadModules(decoded.xlsmPath);
-				for (const entry of entries ?? []) {
-					const kind = this._moduleKind(entry.type);
-					if (kind === 'class' || kind === 'document' || kind === 'userform') {
-						push(entry.name, kind);
-					}
-					if (entry.name.toLowerCase() === currentName.toLowerCase()) {
-						currentKind = kind;
-					}
-				}
-				// Public Type/Enum declared in OTHER modules of the project.
-				const crossModule = await this._loadCrossModuleTypes(
-					decoded.xlsmPath,
-					entries ?? [],
-					currentName.toLowerCase(),
-				);
-				for (const t of crossModule) {
-					push(t.name, t.kind, t.doc);
-				}
+				project.setModule({
+					moduleName: 'Module',
+					moduleKind: 'standard',
+					source,
+				});
 			} catch {
-				// Fall back to a primitives + host-types only context.
+				return {};
 			}
+			return { projectTypes: project.visibleTypeNames('Module') };
 		}
 
-		// User-defined Type/Enum declarations in the module currently being edited.
-		// Read live from the editor so unsaved declarations are offered too.
 		try {
-			const mod = buildModuleSymbols(currentName, currentKind, source);
-			if (currentKind === 'class' || currentKind === 'document' || currentKind === 'userform') {
-				push(currentName, currentKind, mod.root.doc);
-			}
-			for (const child of mod.root.children ?? []) {
-				if (child.kind === 'type') {
-					push(child.name, 'userType', child.doc);
-				} else if (child.kind === 'enum') {
-					push(child.name, 'enum', child.doc);
-				}
-			}
+			const decoded = decodeModuleUri(document.uri);
+			const entries = await this._loadModules(decoded.xlsmPath);
+			const current = entries?.find(
+				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
+			);
+			const moduleKind = current ? this._moduleKind(current.type) : 'standard';
+			const project = await this._buildProjectIndexFromEntries(
+				decoded.xlsmPath,
+				entries ?? [],
+				{
+					liveOverride: {
+						moduleName: decoded.moduleName,
+						moduleKind,
+						source,
+					},
+				},
+			);
+			return { projectTypes: project.visibleTypeNames(decoded.moduleName) };
 		} catch {
-			// Ignore parse failures; primitives + host types still apply.
+			return {};
 		}
-
-		return { projectTypes };
-	}
-
-	/**
-	 * Collects workbook object-module docs plus Public (non-`Private`) `Type`
-	 * and `Enum` names declared across the workbook's modules, excluding the
-	 * current module (handled live). Reads each module's source via the live
-	 * editor/bridge path and caches the result per workbook.
-	 */
-	private async _loadCrossModuleTypes(
-		xlsmPath: string,
-		entries: ModuleEntry[],
-		currentLower: string,
-	): Promise<ProjectTypeName[]> {
-		const key = this._key(xlsmPath);
-		const cached = this._typeCache.get(key);
-		if (cached && Date.now() - cached.loadedAt < MODULE_CACHE_TTL_MS) {
-			return cached.types;
-		}
-
-		const types: ProjectTypeName[] = [];
-		for (const entry of entries) {
-			if (entry.name.toLowerCase() === currentLower) {
-				continue; // Current module is resolved from the live document.
-			}
-			const source = await this._moduleSource(xlsmPath, entry);
-			if (source === undefined) {
-				continue; // Skip modules we cannot read.
-			}
-			try {
-				const kind = this._moduleKind(entry.type);
-				const mod = buildModuleSymbols(entry.name, kind, source);
-				if (kind === 'class' || kind === 'document' || kind === 'userform') {
-					types.push({ name: entry.name, kind, doc: mod.root.doc });
-				}
-				for (const child of mod.root.children ?? []) {
-					if (child.visibility === 'Private') {
-						continue;
-					}
-					if (child.kind === 'type') {
-						types.push({ name: child.name, kind: 'userType', doc: child.doc });
-					} else if (child.kind === 'enum') {
-						types.push({ name: child.name, kind: 'enum', doc: child.doc });
-					}
-				}
-			} catch {
-				// Ignore parse failures for individual modules.
-			}
-		}
-
-		this._typeCache.set(key, { types, loadedAt: Date.now() });
-		return types;
 	}
 
 	/**

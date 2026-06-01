@@ -592,7 +592,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   source-backed members, including current-object `Me.Member` references.
   Type-name completion, hover, semantic coloring, go-to-definition, references,
   and runtime-function misuse diagnostics now share one type resolver and
-  type-position scanner. Call-site classification now lives in
+  type-position scanner; the VS Code completion provider now supplies project
+  type candidates from `ProjectIndex.visibleTypeNames()` instead of a parallel
+  type-name cache/builder. Call-site classification now lives in
   `src/analyzer/call/callContext.ts`, so signature help, completion parenthesis
   insertion, and bare-call diagnostics share the same
   parenthesized/parenless/explicit `Call` rules.

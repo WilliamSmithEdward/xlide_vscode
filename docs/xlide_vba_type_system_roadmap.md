@@ -181,8 +181,9 @@ Landed first:
 - The project binder now exposes visible project type names from
   `ProjectIndex.visibleTypeNames()`: class/document/UserForm module names,
   current-module `Type`/`Enum` declarations, and non-`Private` cross-module
-  `Type`/`Enum` declarations. It preserves duplicates so the future resolver
-  can report ambiguity deterministically instead of picking by module order.
+  `Type`/`Enum` declarations. It preserves duplicates so the shared resolver
+  reports ambiguity deterministically instead of picking by module order, and
+  the live completion provider now consumes this same project binder.
 - `Set` assignment to a known intrinsic scalar variable is a compile-equivalent
   error. Unknown object-like target types remain deferred to the object binder.
 - Member access on a declared intrinsic scalar receiver is a red diagnostic:
@@ -213,7 +214,7 @@ Landed first:
   procedures in other modules and object-module members do not hide
   `unknown-call`.
 - Landed type-name binder groundwork: `ProjectIndex.visibleTypeNames()` exposes
-  visible project-defined type names to the future `As` type resolver.
+  visible project-defined type names to the shared `As`/`New` type resolver.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 
