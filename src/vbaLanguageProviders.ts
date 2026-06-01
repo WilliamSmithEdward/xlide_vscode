@@ -1034,6 +1034,9 @@ function registerVbaDiagnostics(
                     : vscode.DiagnosticSeverity.Warning,
             );
             diag.source = 'XLIDE';
+            if (p.code) {
+                diag.code = p.code;
+            }
             diagnostics.push(diag);
         }
 
@@ -1125,13 +1128,22 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
 
         const source = document.getText();
         const actions: vscode.CodeAction[] = [];
+        let lintProblems: ReturnType<typeof lintVbaSource> | undefined;
         for (const diagnostic of context.diagnostics) {
             if (diagnostic.source !== 'XLIDE') { continue; }
             const code = normalizeDiagnosticCode(diagnostic.code);
             if (!code) { continue; }
+            const lintProblem = code === 'missing-block-closer'
+                ? matchingLintProblem(
+                    diagnostic,
+                    lintProblems ??= lintVbaSource(source),
+                )
+                : undefined;
             const fixes = resolveDiagnosticCodeActions(source, {
                 code,
                 message: diagnostic.message,
+                expectedClose: lintProblem?.expectedClose,
+                insertLine: lintProblem?.insertLine,
                 span: {
                     start: document.offsetAt(diagnostic.range.start),
                     end: document.offsetAt(diagnostic.range.end),
@@ -1158,6 +1170,18 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
         }
         return actions;
     }
+}
+
+function matchingLintProblem(
+    diagnostic: vscode.Diagnostic,
+    problems: ReturnType<typeof lintVbaSource>,
+): ReturnType<typeof lintVbaSource>[number] | undefined {
+    return problems.find((problem) =>
+        problem.code === normalizeDiagnosticCode(diagnostic.code) &&
+        problem.message === diagnostic.message &&
+        diagnostic.range.start.isEqual(new vscode.Position(problem.line, problem.startCol)) &&
+        diagnostic.range.end.isEqual(new vscode.Position(problem.line, problem.endCol)),
+    );
 }
 
 /**

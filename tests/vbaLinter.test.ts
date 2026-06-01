@@ -20,6 +20,9 @@ describe('lintVbaSource', () => {
         expect(problems[0].message).toContain("Missing 'End Sub'");
         expect(problems[0].message).toContain('Sub Foo');
         expect(problems[0].severity).toBe('error');
+        expect(problems[0].code).toBe('missing-block-closer');
+        expect(problems[0].expectedClose).toBe('End Sub');
+        expect(problems[0].insertLine).toBe(3);
     });
 
     it('flags a Function missing End Function', () => {
@@ -35,6 +38,7 @@ describe('lintVbaSource', () => {
         expect(problems).toHaveLength(1);
         expect(problems[0].line).toBe(1);
         expect(problems[0].message).toContain("'End If' has no matching 'If'");
+        expect(problems[0].code).toBe('unmatched-block-closer');
     });
 
     it('accepts a balanced multiline If', () => {
@@ -73,6 +77,9 @@ describe('lintVbaSource', () => {
         const problems = lintVbaSource(src);
         // The If is unclosed; End Sub closes the Sub leaving the If reported.
         expect(problems.some((p) => p.message.includes("Missing 'End If'"))).toBe(true);
+        const missingIf = problems.find((p) => p.expectedClose === 'End If');
+        expect(missingIf?.code).toBe('missing-block-closer');
+        expect(missingIf?.insertLine).toBe(3);
     });
 
     it('ignores block keywords inside strings and comments', () => {

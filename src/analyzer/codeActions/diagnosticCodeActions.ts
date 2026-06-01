@@ -5,6 +5,8 @@ export interface VbaDiagnosticCodeActionInput {
 	code: string;
 	message?: string;
 	span: Span;
+	expectedClose?: string;
+	insertLine?: number;
 }
 
 export interface VbaTextEdit {
@@ -51,6 +53,8 @@ export function resolveDiagnosticCodeActions(
 			return expressionCallRequiresParensActions(source, diagnostic.span);
 		case 'invalid-explicit-call-target':
 			return invalidExplicitCallTargetActions(source, diagnostic.span);
+		case 'missing-block-closer':
+			return missingBlockCloserActions(source, diagnostic);
 		case 'option-explicit-missing':
 			return optionExplicitMissingActions(source);
 		case 'set-required':
@@ -182,6 +186,31 @@ function invalidExplicitCallTargetActions(
 	}];
 }
 
+function missingBlockCloserActions(
+	source: string,
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
+	const expectedClose = diagnostic.expectedClose;
+	if (!expectedClose || !SAFE_BLOCK_CLOSERS.has(expectedClose)) {
+		return [];
+	}
+
+	const openerLine = physicalLineSpan(source, diagnostic.span.start);
+	const indent = leadingWhitespace(source.slice(openerLine.start, openerLine.end));
+	const eol = detectEol(source);
+	const insert = missingCloserInsert(source, diagnostic.insertLine, `${indent}${expectedClose}`, eol);
+	if (!insert) {
+		return [];
+	}
+
+	return [{
+		title: `Insert '${expectedClose}'`,
+		kind: 'quickfix',
+		isPreferred: true,
+		edits: [insert],
+	}];
+}
+
 function setRequiredActions(
 	source: string,
 	span: Span,
@@ -284,6 +313,21 @@ function callArgumentListEnd(
 	return end;
 }
 
+const SAFE_BLOCK_CLOSERS = new Set([
+	'End Sub',
+	'End Function',
+	'End Property',
+	'End If',
+	'End With',
+	'End Select',
+	'End Type',
+	'End Enum',
+	'Next',
+	'Loop',
+	'Wend',
+	'#End If',
+]);
+
 function tokenIndexAtAbsoluteStart(
 	toks: ReturnType<typeof tokenize>,
 	line: Span,
@@ -322,6 +366,48 @@ function firstNonWhitespaceOffset(source: string, line: Span): number | undefine
 		offset++;
 	}
 	return offset < line.end ? offset : undefined;
+}
+
+function missingCloserInsert(
+	source: string,
+	insertLine: number | undefined,
+	closeLine: string,
+	eol: string,
+): VbaTextEdit | undefined {
+	const lineStart = lineStartOffset(source, insertLine);
+	if (lineStart === undefined || lineStart === source.length) {
+		const prefix = source.length > 0 && !source.endsWith('\n') && !source.endsWith('\r') ? eol : '';
+		return {
+			span: { start: source.length, end: source.length },
+			newText: `${prefix}${closeLine}${eol}`,
+		};
+	}
+	return {
+		span: { start: lineStart, end: lineStart },
+		newText: `${closeLine}${eol}`,
+	};
+}
+
+function lineStartOffset(source: string, line: number | undefined): number | undefined {
+	if (line === undefined || line < 0) {
+		return undefined;
+	}
+	let offset = 0;
+	for (let current = 0; current < line; current++) {
+		if (offset >= source.length) {
+			return undefined;
+		}
+		const next = readPhysicalLine(source, offset).next;
+		if (next <= offset) {
+			return undefined;
+		}
+		offset = next;
+	}
+	return offset <= source.length ? offset : undefined;
+}
+
+function leadingWhitespace(text: string): string {
+	return /^[ \t]*/.exec(text)?.[0] ?? '';
 }
 
 function readPhysicalLine(

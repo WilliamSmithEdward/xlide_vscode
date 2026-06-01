@@ -315,7 +315,7 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations, including enum members exported by their containing `Enum`) |
 | `ReferenceProvider` | Uses semantic binding before textual search: source-backed `object.Member` references are matched by their resolved class-member definition spans, project type-name tokens are matched through `resolveTypeDefinitions`, and ordinary identifiers still use `ProjectIndex.referenceScope` plus word-boundary search restricted to the binding scope; honors VS Code's include-declaration toggle |
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
-| `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, and add/remove `Set` for proven object/scalar assignments |
+| `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, and add/remove `Set` for proven object/scalar assignments |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
 | Smart enter (auto-block) | Pressing Enter after a `Sub`/`Function`/`Property` header auto-inserts the matching `End ...` below and leaves the caret on the indented body line |
 
@@ -337,9 +337,11 @@ are applied for the workbook's project-defined class type tokens.
 
 **Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
 is unit-tested directly (`tests/vbaLinter.test.ts`). It strips strings/comments,
-joins `_` line continuations, then walks a block stack to detect imbalance. The
-same module exports `detectProcOpener`/`isProcClosedAhead` used by the
-smart-enter feature.
+joins `_` line continuations, then walks a block stack to detect imbalance.
+Missing-block diagnostics carry stable codes plus the expected closer and
+deterministic insertion line, so quick fixes can insert `End Sub`, `End If`,
+`Next`, and related closers without parsing diagnostic text. The same module
+exports `detectProcOpener`/`isProcClosedAhead` used by the smart-enter feature.
 
 **Conditional compilation model** — The core parser models `#Const`, `#If`,
 `#ElseIf`, `#Else`, and `#End If` as `ConditionalDirective` AST nodes at module

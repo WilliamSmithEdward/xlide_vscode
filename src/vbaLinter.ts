@@ -9,6 +9,12 @@ export interface VbaLintProblem {
     startCol: number;
     /** 0-based end column (exclusive). */
     endCol: number;
+    /** Stable diagnostic code for editor integrations. */
+    code?: 'missing-block-closer' | 'unmatched-block-closer';
+    /** Closing phrase that can repair a missing-block diagnostic. */
+    expectedClose?: string;
+    /** 0-based physical line before which the missing closer should be inserted. */
+    insertLine?: number;
     message: string;
     severity: 'error' | 'warning';
 }
@@ -171,10 +177,18 @@ function matchOpener(t: string): OpenBlock | undefined {
 
 function fullLineProblem(
     physical: string[], line: number, message: string, severity: 'error' | 'warning',
+    details: Pick<VbaLintProblem, 'code' | 'expectedClose' | 'insertLine'> = {},
 ): VbaLintProblem {
     const raw = physical[line] ?? '';
     const startCol = raw.length - raw.trimStart().length;
-    return { line, startCol, endCol: Math.max(raw.length, startCol + 1), message, severity };
+    return {
+        line,
+        startCol,
+        endCol: Math.max(raw.length, startCol + 1),
+        message,
+        severity,
+        ...details,
+    };
 }
 
 /**
@@ -199,6 +213,7 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
                 physical, line,
                 `'${closerWord}' has no matching '${OPEN_WORD[closerKind]}'.`,
                 'error',
+                { code: 'unmatched-block-closer' },
             ));
             return;
         }
@@ -209,6 +224,11 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
                 physical, open.line,
                 `Missing '${CLOSE_PHRASE[open.kind]}' for '${open.label}'.`,
                 'error',
+                {
+                    code: 'missing-block-closer',
+                    expectedClose: CLOSE_PHRASE[open.kind],
+                    insertLine: line,
+                },
             ));
         }
         stack.length = idx;
@@ -225,6 +245,7 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
                     physical, ll.line,
                     `'${preprocessorBranch[1].replace(/\s+/g, ' ')}' has no matching '#If'.`,
                     'error',
+                    { code: 'unmatched-block-closer' },
                 ));
             }
             continue;
@@ -259,6 +280,11 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
             physical, open.line,
             `Missing '${CLOSE_PHRASE[open.kind]}' for '${open.label}'.`,
             'error',
+            {
+                code: 'missing-block-closer',
+                expectedClose: CLOSE_PHRASE[open.kind],
+                insertLine: physical.length,
+            },
         ));
     }
 

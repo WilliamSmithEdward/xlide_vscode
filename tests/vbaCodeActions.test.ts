@@ -7,6 +7,7 @@ import {
 	type VbaDiagnostic,
 	type VbaTextEdit,
 } from '../src/analyzer';
+import { lintVbaSource, type VbaLintProblem } from '../src/vbaLinter';
 
 function byCode(diags: readonly VbaDiagnostic[], code: string): VbaDiagnostic[] {
 	return diags.filter((diag) => diag.code === code);
@@ -32,6 +33,32 @@ function applyEdits(source: string, edits: readonly VbaTextEdit[]): string {
 		);
 }
 
+function offsetAt(source: string, line: number, character: number): number {
+	let currentLine = 0;
+	for (let offset = 0; offset < source.length; offset++) {
+		if (currentLine === line) {
+			return offset + character;
+		}
+		if (source[offset] === '\n') {
+			currentLine++;
+		}
+	}
+	return source.length;
+}
+
+function lintAction(source: string, problem: VbaLintProblem) {
+	return resolveDiagnosticCodeActions(source, {
+		code: problem.code ?? '',
+		message: problem.message,
+		expectedClose: problem.expectedClose,
+		insertLine: problem.insertLine,
+		span: {
+			start: offsetAt(source, problem.line, problem.startCol),
+			end: offsetAt(source, problem.line, problem.endCol),
+		},
+	});
+}
+
 function projectClassMembers(
 	modules: Array<{
 		moduleName: string;
@@ -51,6 +78,57 @@ function projectClassMembers(
 }
 
 describe('resolveDiagnosticCodeActions', () => {
+	it('inserts a missing procedure closer at EOF', () => {
+		const source = 'Sub Foo()\n    MsgBox 1\n';
+		const problem = lintVbaSource(source)[0];
+
+		const actions = lintAction(source, problem);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe("Insert 'End Sub'");
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub Foo()\n    MsgBox 1\nEnd Sub\n',
+		);
+	});
+
+	it('inserts a missing procedure closer at EOF when the file has no final newline', () => {
+		const source = 'Sub Foo()\n    MsgBox 1';
+		const problem = lintVbaSource(source)[0];
+
+		const actions = lintAction(source, problem);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub Foo()\n    MsgBox 1\nEnd Sub\n',
+		);
+	});
+
+	it('inserts an unclosed inner block before a mismatched outer closer', () => {
+		const source = 'Sub Foo()\n    If x Then\n        y = 1\nEnd Sub\n';
+		const problem = lintVbaSource(source).find(
+			(candidate) => candidate.expectedClose === 'End If',
+		);
+		expect(problem).toBeTruthy();
+
+		const actions = lintAction(source, problem!);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe("Insert 'End If'");
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub Foo()\n    If x Then\n        y = 1\n    End If\nEnd Sub\n',
+		);
+	});
+
+	it('does not offer structural insertion for unmatched closers', () => {
+		const source = 'Sub Foo()\n    End If\nEnd Sub\n';
+		const problem = lintVbaSource(source)[0];
+
+		const actions = lintAction(source, problem);
+
+		expect(problem.code).toBe('unmatched-block-closer');
+		expect(actions).toHaveLength(0);
+	});
+
 	it('adds parentheses around an explicit Call argument list', () => {
 		const source = 'Sub T()\n    Call MsgBox "hello"\nEnd Sub\n';
 		const diag = firstDiagnostic(source, 'call-requires-parens');
