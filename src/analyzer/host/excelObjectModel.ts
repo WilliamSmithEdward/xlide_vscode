@@ -19,6 +19,9 @@ import {
 } from './excelReferenceMembers';
 import type { VbaDoc } from '../docs/docModel';
 
+// Events are retained as a distinct metadata kind for future handler-authoring
+// surfaces, but object access (`Workbook.EventName`) exposes only properties and
+// methods through hostModel.getHostMembers().
 export type HostMemberKind = 'property' | 'method' | 'event';
 
 export interface HostMember {

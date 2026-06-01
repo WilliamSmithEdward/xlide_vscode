@@ -752,6 +752,86 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "workbook_event_member_call_compile",
+      "description": "A Workbook event name is called as though it were an object method.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    ThisWorkbook.AfterSave True\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "implicit_member_call_parentheses_compile",
+      "description": "A standalone object member call uses parentheses without the Call keyword.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    ThisWorkbook.CanCheckIn()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "implicit_member_call_expression_parentheses_compile",
+      "description": "Compile control: a parenthesized object member call is used as an expression.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim ok As Boolean\n    ok = ThisWorkbook.CanCheckIn()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "explicit_call_member_parentheses_compile",
+      "description": "Compile control: an object member call uses parentheses with the Call keyword.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Call ThisWorkbook.CanCheckIn()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "standalone_member_call_with_args_compile",
+      "description": "Compile control: a standalone object member call uses a non-empty parenthesized argument list without Call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Application.DeleteCustomList(1)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "standalone_zero_arg_method_call_compile",
+      "description": "A standalone zero-argument object method call uses empty parentheses without Call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Application.Calculate()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "standalone_range_property_with_arg_compile",
+      "description": "Compile control: a standalone Range property access supplies its required argument with parentheses.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    ActiveSheet.Range(\"A1\")\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "standalone_range_property_empty_compile",
+      "description": "A standalone Range property access uses an empty parenthesized argument list.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    ActiveSheet.Range()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "late_bound_object_unknown_member_compile",
       "description": "Compile control: an Object variable uses an unknown member after a Set assignment to a known host object; VBE leaves it late-bound.",
       "provenance": "vbe-oracle-verified",

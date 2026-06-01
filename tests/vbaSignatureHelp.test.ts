@@ -71,6 +71,11 @@ describe('signature help - host members', () => {
 		const info = help('Sub T()\nThisWorkbook.Name(|\nEnd Sub');
 		expect(info).toBeUndefined();
 	});
+
+	it('does not offer call tips for host events', () => {
+		const info = help('Sub T()\nThisWorkbook.AfterSave(|\nEnd Sub');
+		expect(info).toBeUndefined();
+	});
 });
 
 describe('signature help - runtime built-ins', () => {

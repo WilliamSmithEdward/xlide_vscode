@@ -1961,6 +1961,9 @@ function memberExpressionCalls(
 			continue;
 		}
 		const inner = toks.slice(i + 2, close);
+		if (isImplicitParenthesizedMemberCallStatement(toks, i, close)) {
+			continue;
+		}
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
 		out.push({
 			signature: parseRuntimeDisplaySignature(member.name, member.signature),
@@ -2975,6 +2978,14 @@ function checkCallParens(source: string, mod: ModuleNode, push: PushFn): void {
 					at,
 				);
 			}
+			const implicit = implicitParenthesizedMemberCall(source, stmt.span);
+			if (implicit) {
+				push(
+					'callStatementForbidsParens',
+					'Standalone zero-argument member calls cannot use empty parentheses unless they are prefixed with Call or used in an expression.',
+					implicit.span,
+				);
+			}
 		});
 	}
 }
@@ -3110,7 +3121,7 @@ function tokenName(tok: VbaToken): string | undefined {
 	return undefined;
 }
 
-function topLevelOperatorIndex(toks: VbaToken[], operator: string): number {
+function topLevelOperatorIndex(toks: readonly VbaToken[], operator: string): number {
 	let depth = 0;
 	for (let i = 0; i < toks.length; i++) {
 		const raw = toks[i].rawText;
@@ -3177,8 +3188,87 @@ function unparenthesizedCallArg(source: string, span: Span): Span | undefined {
 	return undefined;
 }
 
+function implicitParenthesizedMemberCall(
+	source: string,
+	span: Span,
+): { name: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	for (let i = 2; i < toks.length - 1; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || toks[i - 1]?.rawText !== '.' || toks[i + 1]?.rawText !== '(') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0 || !isImplicitParenthesizedMemberCallStatement(toks, i, close)) {
+			continue;
+		}
+		return {
+			name,
+			span: { start: span.start + toks[i].start, end: span.start + toks[close].end },
+		};
+	}
+	return undefined;
+}
+
+function isImplicitParenthesizedMemberCallStatement(
+	toks: readonly VbaToken[],
+	memberIdx: number,
+	closeIdx: number,
+): boolean {
+	if (toks[0]?.rawText.toLowerCase() === 'call') {
+		return false;
+	}
+	if (
+		closeIdx !== toks.length - 1 ||
+		closeIdx !== memberIdx + 2 ||
+		topLevelOperatorIndex(toks, '=') >= 0
+	) {
+		return false;
+	}
+	return isCompleteMemberChainThroughCall(toks, memberIdx, closeIdx);
+}
+
+function isCompleteMemberChainThroughCall(
+	toks: readonly VbaToken[],
+	memberIdx: number,
+	closeIdx: number,
+): boolean {
+	const first = toks[0];
+	if (!first || !tokenName(first)) {
+		return false;
+	}
+	let i = 1;
+	while (i < toks.length) {
+		const raw = toks[i]?.rawText;
+		if (raw === '(') {
+			const close = matchParenFrom(toks, i);
+			if (close < 0 || close >= memberIdx) {
+				return false;
+			}
+			i = close + 1;
+			continue;
+		}
+		if (raw !== '.') {
+			return false;
+		}
+		const nameIdx = i + 1;
+		const nameTok = toks[nameIdx];
+		if (!nameTok || !tokenName(nameTok)) {
+			return false;
+		}
+		if (nameIdx === memberIdx) {
+			return (
+				toks[nameIdx + 1]?.rawText === '(' &&
+				matchParenFrom(toks, nameIdx + 1) === closeIdx
+			);
+		}
+		i = nameIdx + 1;
+	}
+	return false;
+}
+
 /** Index of the `)` matching the `(` at `open`, or -1 if unbalanced. */
-function matchParenFrom(toks: VbaToken[], open: number): number {
+function matchParenFrom(toks: readonly VbaToken[], open: number): number {
 	let depth = 0;
 	for (let k = open; k < toks.length; k++) {
 		const r = toks[k].rawText;

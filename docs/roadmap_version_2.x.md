@@ -93,8 +93,10 @@ heuristic diagnostics.
   participates in the unified hard `member-not-found` rule while the extension
   still does not read `reference/` at runtime.
 - Known source-backed and host/reference member signatures now feed
-  `argument-count` and argument-type diagnostics for parenthesized member calls
-  such as `Application.SheetCalculate()` and `ActiveSheet.Range()`.
+  `argument-count` and argument-type diagnostics for valid parenthesized member
+  call contexts such as `Set wb = Workbooks.Open(...)`, explicit `Call`
+  statements, and non-empty statement forms like
+  `ActiveSheet.Range("A1")`.
 - Source-backed workbook class member resolution now feeds go-to-definition for
   `object.Member` and current-object `Me.Member` references.
 - `unknown-call` now consumes current-module-visible procedure names, so a
@@ -169,6 +171,12 @@ truth.
   limits, and legacy edges). Treat every Markdown case as raw material until
   promoted through spec, oracle, or deterministic XLIDE-owned evidence. See
   `syntax_corpus/managed_backlog.md`.
+- [ ] Promote the `limits-boundaries` backlog into deterministic fixture
+  builders before adding hard diagnostics for continuation-count, physical and
+  logical line length, string literal/fixed-string size, identifier/module-name
+  length, argument-count, array-dimension, or Excel host limits. Basic `_` line
+  continuation tokenization/logical-line handling exists today; boundary
+  diagnostics remain pending until backed by spec or oracle evidence.
 
 Definition of done:
 
@@ -353,6 +361,17 @@ Purpose: validate Excel/VBA object use where receiver type is known.
 - [x] Reuse the shared member-completion binder for parenthesized object member
   arity/type diagnostics when a source-backed or host/reference signature is
   known.
+- [x] Split member-call signature validation from VBA call-statement syntax. VBE
+  rejects standalone zero-argument member/property statements such as
+  `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
+  `ActiveSheet.Range()` when they use empty parentheses without `Call`; the same
+  member call remains valid in expression context or with explicit `Call`, and
+  non-empty standalone forms such as `ActiveSheet.Range("A1")` stay on the
+  normal signature-validation path.
+- [x] Exclude host events from object-member surfaces. VBE rejects calls such as
+  `ThisWorkbook.AfterSave True` with `Method or data member not found`, so event
+  names are reserved for document-module handler authoring instead of appearing
+  as object methods/properties.
 - [x] Oracle-verify late-bound member access for `Object` and `Variant`
   receivers. VBE compile accepts unknown members on those receivers even after a
   simple `Set` assignment to a known host object, so hard member diagnostics opt
@@ -391,6 +410,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
     metadata can prove the control/event surface.
   - Wrong-module handlers should get non-red guidance because they may compile
     as ordinary private procedures while not being wired as event handlers.
+  - Event names must not appear in `object.` member completion, hover, signature
+    help, or callable member diagnostics; those surfaces expose object
+    properties/methods only.
 - [ ] Extend the source member model to declared `Event` members, richer
   signatures, declaration spans, `WithEvents` bindings, and document/UserForm
   designer-backed members.

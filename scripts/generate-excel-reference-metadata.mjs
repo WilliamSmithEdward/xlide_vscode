@@ -132,7 +132,8 @@ function memberFrom(raw, kind) {
 	};
 }
 
-function collectMembers(typeDump) {
+function collectMembers(typeDump, options = {}) {
+	const includeEvents = options.includeEvents === true;
 	const byName = new Map();
 	const duplicateNames = new Set();
 	const add = (raw, kind) => {
@@ -153,8 +154,10 @@ function collectMembers(typeDump) {
 	for (const item of typeDump.methods ?? []) {
 		add(item, 'method');
 	}
-	for (const item of typeDump.events ?? []) {
-		add(item, 'event');
+	if (includeEvents) {
+		for (const item of typeDump.events ?? []) {
+			add(item, 'event');
+		}
 	}
 	return {
 		members: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'en')),
@@ -204,7 +207,8 @@ function typeCoverage(entry) {
 	const events = dump.events?.length ?? 0;
 	const constants = dump.constants?.length ?? 0;
 	const totalMembers = properties + methods + events;
-	const { members, duplicateNames } = collectMembers(dump);
+	const { members, duplicateNames } = collectMembers(dump, { includeEvents: true });
+	const objectSurfaceMembers = collectMembers(dump).members.length;
 	const memberRows = [
 		...(dump.properties ?? []).map((item) => ({ item, kind: 'property' })),
 		...(dump.methods ?? []).map((item) => ({ item, kind: 'method' })),
@@ -234,6 +238,7 @@ function typeCoverage(entry) {
 		constants,
 		totalMembers,
 		uniqueMembers: members.length,
+		objectSurfaceMembers,
 		duplicateNames: duplicateNames.length,
 		membersWithReturnType,
 		membersWithQualifiedReturnType,
@@ -300,6 +305,7 @@ ${markdownTable(
 		['Raw enum constants', sumOf('constants')],
 		['Raw member rows', sumOf('totalMembers')],
 		['Unique object member names', sumOf('uniqueMembers')],
+		['Runtime object-surface members', sumOf('objectSurfaceMembers')],
 		['Member rows with signatures', sumOf('membersWithSignature')],
 		['Member rows with return/type data', sumOf('membersWithReturnType')],
 		['Parameters with type data', sumOf('typedParameters')],
@@ -312,6 +318,7 @@ ${markdownTable(
 	[
 		'Type',
 		'Members',
+		'Runtime object members',
 		'Properties',
 		'Methods',
 		'Events',
@@ -323,6 +330,7 @@ ${markdownTable(
 	promotedRows.map((row) => [
 		row.name,
 		row.uniqueMembers,
+		row.objectSurfaceMembers,
 		row.properties,
 		row.methods,
 		row.events,
@@ -336,11 +344,21 @@ ${markdownTable(
 ## Largest Object Surfaces
 
 ${markdownTable(
-	['Type', 'Kind', 'Members', 'Properties', 'Methods', 'Events', 'Signatures'],
+	[
+		'Type',
+		'Kind',
+		'Members',
+		'Runtime object members',
+		'Properties',
+		'Methods',
+		'Events',
+		'Signatures',
+	],
 	largestRows.map((row) => [
 		row.name,
 		row.kind,
 		row.uniqueMembers,
+		row.objectSurfaceMembers,
 		row.properties,
 		row.methods,
 		row.events,
@@ -352,6 +370,7 @@ ${markdownTable(
 
 - Runtime extension code does not read \`reference/\`; promoted metadata is checked in under \`src/\`.
 - Promoted members preserve available signatures and documentation summaries/parameter notes for language-service surfaces and signature-backed arity/type diagnostics.
+- Excel events are counted for coverage but are intentionally not emitted into object-member surfaces; VBE does not expose events as callable object methods/properties. Event handler authoring uses a separate module-scoped metadata path.
 - Completion may use partial metadata, but hard \`member-not-found\` diagnostics require a promoted exhaustive surface.
 - Promotion remains type-by-type so each host surface can get representative tests and oracle controls before red diagnostics rely on absence.
 `;

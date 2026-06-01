@@ -4,6 +4,7 @@ import {
 	resolveMemberCompletions,
 	resolveHostGlobal,
 	resolveHostAlias,
+	resolveHostMemberSignature,
 	resolveMemberReturnType,
 	getHostMembers,
 	type HostObjectModel,
@@ -124,6 +125,33 @@ describe('member completion - collections', () => {
 	it('keeps Sheets.Item ambiguous for single-return queries', () => {
 		expect(resolveMemberReturnType('Excel.Sheets', 'Item')).toBeUndefined();
 	});
+
+	it('excludes host events from object member surfaces', () => {
+		const workbook = getHostMembers('Excel.Workbook').map((member) => member.name);
+		const worksheet = getHostMembers('Excel.Worksheet').map((member) => member.name);
+		const application = getHostMembers('Excel.Application').map((member) => member.name);
+		expect(workbook).not.toContain('AfterSave');
+		expect(workbook).not.toContain('Open');
+		expect(worksheet).not.toContain('Change');
+		expect(application).not.toContain('SheetCalculate');
+		expect(resolveHostMemberSignature('Excel.Workbook', 'AfterSave')).toBeUndefined();
+		expect(resolveMemberReturnType('Excel.Workbook', 'AfterSave')).toBeUndefined();
+
+		const model: HostObjectModel = {
+			source: 'test fixture',
+			aliases: {},
+			globals: { Thing: 'Test.Thing' },
+			types: {
+				'Test.Thing': {
+					displayName: 'Thing',
+					members: [{ name: 'Changed', kind: 'event', signature: 'Changed()' }],
+				},
+			},
+			memberSignatures: { 'Test.Thing': { changed: 'Changed()' } },
+		};
+		expect(getHostMembers('Test.Thing', model)).toEqual([]);
+		expect(resolveHostMemberSignature('Test.Thing', 'Changed', model)).toBeUndefined();
+	});
 });
 
 describe('member completion - host globals', () => {
@@ -181,11 +209,11 @@ describe('member completion - host globals', () => {
 	});
 
 	it('includes generated members on promoted non-exhaustive host surfaces', () => {
-		const appSrc = 'Sub Test()\n    Application.After\nEnd Sub\n';
-		const app = resolveMemberCompletions(appSrc, dotOffset(appSrc, 'Application.After'));
-		const afterCalculate = app.find((member) => member.name === 'AfterCalculate');
-		expect(afterCalculate?.owner).toBe('Excel.Application');
-		expect(afterCalculate?.surfaceExhaustive).toBe(false);
+		const appSrc = 'Sub Test()\n    Application.Centi\nEnd Sub\n';
+		const app = resolveMemberCompletions(appSrc, dotOffset(appSrc, 'Application.Centi'));
+		const centimetersToPoints = app.find((member) => member.name === 'CentimetersToPoints');
+		expect(centimetersToPoints?.owner).toBe('Excel.Application');
+		expect(centimetersToPoints?.surfaceExhaustive).toBe(false);
 
 		const rangeSrc = 'Sub Test(rng As Range)\n    rng.Spilling\nEnd Sub\n';
 		const range = resolveMemberCompletions(rangeSrc, dotOffset(rangeSrc, 'rng.Spilling'));
@@ -198,6 +226,18 @@ describe('member completion - host globals', () => {
 		const namedSheetViews = sheet.find((member) => member.name === 'NamedSheetViews');
 		expect(namedSheetViews?.owner).toBe('Excel.Worksheet');
 		expect(namedSheetViews?.surfaceExhaustive).toBe(true);
+	});
+
+	it('does not offer Excel events as object member completions', () => {
+		expect(names('Sub Test()\n    ThisWorkbook.After\nEnd Sub\n', 'ThisWorkbook.After')).not.toContain(
+			'AfterSave',
+		);
+		expect(names('Sub Test()\n    Application.SheetCalc\nEnd Sub\n', 'Application.SheetCalc')).not.toContain(
+			'SheetCalculate',
+		);
+		expect(names('Sub Test()\n    ActiveSheet.Change\nEnd Sub\n', 'ActiveSheet.Change')).not.toContain(
+			'Change',
+		);
 	});
 
 	it('uses the dump-backed Workbook surface for ActiveWorkbook and Workbook variables', () => {
@@ -698,7 +738,7 @@ describe('member completion - negative cases', () => {
 			expect(members.length).toBeGreaterThan(0);
 			for (const mem of members) {
 				expect(mem.name).toMatch(/^[A-Za-z_][A-Za-z0-9_]*$/);
-				expect(['property', 'method', 'event']).toContain(mem.kind);
+				expect(['property', 'method']).toContain(mem.kind);
 			}
 		}
 	});

@@ -9,6 +9,10 @@ import {
 	HostType,
 } from './excelObjectModel';
 
+function isObjectAccessMember(member: HostMember): boolean {
+	return member.kind !== 'event';
+}
+
 /** Returns the type metadata for a qualified type name (e.g. "Excel.Range"). */
 export function getHostType(
 	qualified: string,
@@ -22,7 +26,7 @@ export function getHostMembers(
 	qualified: string,
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): HostMember[] {
-	return model.types[qualified]?.members ?? [];
+	return (model.types[qualified]?.members ?? []).filter(isObjectAccessMember);
 }
 
 /**
@@ -54,8 +58,14 @@ export function resolveHostMemberSignature(
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): string | undefined {
 	const lower = member.toLowerCase();
+	const rawMember = model.types[qualified]?.members.find(
+		(candidate) => candidate.name.toLowerCase() === lower,
+	);
+	if (rawMember?.kind === 'event') {
+		return undefined;
+	}
 	return (
-		model.types[qualified]?.members.find((candidate) =>
+		getHostMembers(qualified, model).find((candidate) =>
 			candidate.name.toLowerCase() === lower
 		)?.signature ?? model.memberSignatures?.[qualified]?.[lower]
 	);
@@ -111,7 +121,7 @@ export function resolveMemberReturnType(
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): string | undefined {
 	const lower = memberName.toLowerCase();
-	const member = model.types[qualified]?.members.find(
+	const member = getHostMembers(qualified, model).find(
 		(mem) => mem.name.toLowerCase() === lower,
 	);
 	return member?.returns;

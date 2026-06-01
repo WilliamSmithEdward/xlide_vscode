@@ -336,6 +336,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
 	},
+	callStatementForbidsParens: {
+		code: 'call-statement-forbids-parens',
+		title: 'Standalone zero-argument member call cannot use empty parentheses',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1',
+		confidence: 'high',
+	},
 	expressionCallRequiresParens: {
 		code: 'expression-call-requires-parens',
 		title: 'Function call in an expression requires parentheses around arguments',

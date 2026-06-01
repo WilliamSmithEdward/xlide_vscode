@@ -384,7 +384,10 @@ into a pure analyzer layer and a thin VS Code provider:
   `Workbooks`, `Worksheets`, and `Sheets` into
   `src/analyzer/host/excelReferenceMembers.ts`, including available member
   signatures and reference documentation; `Excel.Workbook` and `Excel.Worksheet`
-  are marked exhaustive for hard unknown-member diagnostics. Hand-curated host
+  are marked exhaustive for hard unknown-member diagnostics. Reference events
+  are counted in coverage but filtered out of object-member surfaces because VBE
+  does not expose events as callable object methods/properties; document-module
+  event handler authoring uses separate module-scoped metadata. Hand-curated host
   members merge with matching generated entries so completion, hover, and
   signature help use the same enriched member surface instead of a parallel
   fallback path. The generator also writes `docs/excel_reference_coverage.md` so
@@ -572,7 +575,14 @@ Diagnostic severity policy:
   global, `Application` member, or in-scope declaration. It excludes member
   calls (`.`), labels (`:`), assignments (any top-level `=`), and the
   implicit-host-member form `Cells(1, 1)` / `Range("A1")` (a non-`Call`
-  identifier immediately followed by `(`). `checkProcedureHeader` powers
+  identifier immediately followed by `(`). `checkCallParens` powers call syntax
+  diagnostics: explicit `Call` statements with arguments require parentheses,
+  and VBE-oracle-verified standalone zero-argument member/property statements
+  such as `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
+  `ActiveSheet.Range()` cannot use empty parentheses unless they are prefixed
+  with `Call` or used in an expression. Non-empty standalone member/property
+  calls such as `ActiveSheet.Range("A1")` are compile-accepted by VBE and stay
+  on the signature-validation path. `checkProcedureHeader` powers
   `invalid-proc-header`: after the procedure name in a `Sub`/`Function`/
   `Property` header, the only legal next token is `(` (or `As` for a
   `Function`/`Property Get`); any other token (e.g. the second word in
@@ -583,15 +593,15 @@ Diagnostic severity policy:
   `[bracketed]` names are distinct token kinds so they never miscount.
   `checkArgumentCount` powers `argument-count`: it validates call statements
   and expression calls against same-module and unique exported project
-  signatures, and validates parenthesized object member calls when the shared
-  member-completion binder resolves a known source-backed or host/reference
-  signature such as `Application.SheetCalculate(Sh As Object)` or
-  `Range(Cell1, [Cell2])`; current class `Me.Member(...)` calls use that same
-  path. It honours `Optional` (lowers the minimum) and
-  `ParamArray` (removes the maximum), validates named-argument names against the
-  parameters, and skips unresolved or ambiguous callees. The same known member
-  signatures also feed argument type diagnostics when parameter types are
-  explicit. The
+  signatures, and validates valid parenthesized object member-call contexts when
+  the shared member-completion binder resolves a known source-backed or
+  host/reference signature such as `Set wb = Workbooks.Open(...)`, explicit
+  `Call` statements, or `Range(Cell1, [Cell2])`; current class
+  `Me.Member(...)` calls use that same path. It honours `Optional` (lowers the
+  minimum) and `ParamArray` (removes the maximum), validates named-argument
+  names against the parameters, and skips unresolved or ambiguous callees. The
+  same known member signatures also feed argument type diagnostics when
+  parameter types are explicit. The
   `argument-type-mismatch` and `assignment-type-mismatch` rules are red
   deterministic-runtime-error diagnostics when XLIDE can prove a literal cannot
   be coerced: focused Excel/VBE compile oracle cases confirm representative

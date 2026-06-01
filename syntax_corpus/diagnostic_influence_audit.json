@@ -182,12 +182,13 @@
         "class_unknown_method_call_compile",
         "class_known_property_assignment_compile",
         "class_public_field_assignment_compile",
+        "workbook_event_member_call_compile",
         "late_bound_object_unknown_member_compile",
         "late_bound_variant_unknown_member_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -327,6 +328,25 @@
         "explicit_call_missing_argument_parentheses"
       ],
       "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "call-statement-forbids-parens",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases for standalone empty-parentheses member calls without Call",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "implicit_member_call_parentheses_compile",
+        "implicit_member_call_expression_parentheses_compile",
+        "explicit_call_member_parentheses_compile",
+        "standalone_member_call_with_args_compile",
+        "standalone_zero_arg_method_call_compile",
+        "standalone_range_property_with_arg_compile",
+        "standalone_range_property_empty_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "VBE rejects standalone zero-argument member/property statements such as ThisWorkbook.CanCheckIn(), Application.Calculate(), and ActiveSheet.Range() when they use empty parentheses without Call, while the same parenthesized member call is valid in expression context or with the explicit Call keyword. VBE also accepts non-empty standalone member/property forms such as Application.DeleteCustomList(1) and ActiveSheet.Range(\"A1\"), so the active rule is deliberately scoped to the empty-parentheses form.",
       "diagnosticKind": "compile-error"
     },
     {

@@ -886,19 +886,20 @@ describe('analyzeModule - argument count', () => {
 	it('flags missing required arguments on generated host member calls', () => {
 		const src =
 			'Sub Main()\n' +
-			'    Application.SheetCalculate()\n' +
+			'    Dim wb As Workbook\n' +
+			'    Set wb = Workbooks.Open()\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
 		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('SheetCalculate');
-		expect(hits[0].message).toContain('expected 1 argument');
+		expect(spanText(src, hits[0])).toBe('Open');
+		expect(hits[0].message).toContain('expected between 1 and 15 arguments');
 		expect(hits[0].message).toContain('got 0');
 	});
 
 	it('flags extra arguments on generated host member calls', () => {
 		const src =
 			'Sub Main()\n' +
-			'    Application.Calculate(1)\n' +
+			'    Call Application.Calculate(1)\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
 		expect(hits).toHaveLength(1);
@@ -910,7 +911,8 @@ describe('analyzeModule - argument count', () => {
 	it('flags missing required arguments on host members with fallback signatures', () => {
 		const src =
 			'Sub Main()\n' +
-			'    ActiveSheet.Range()\n' +
+			'    Dim r As Range\n' +
+			'    Set r = ActiveSheet.Range()\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
 		expect(hits).toHaveLength(1);
@@ -922,7 +924,8 @@ describe('analyzeModule - argument count', () => {
 	it('does not treat collection indexing as member-call arity', () => {
 		const src =
 			'Sub Main()\n' +
-			'    Workbooks(1).Sheets(1).Range()\n' +
+			'    Dim r As Range\n' +
+			'    Set r = Workbooks(1).Sheets(1).Range()\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
 		expect(hits).toHaveLength(1);
@@ -933,8 +936,10 @@ describe('analyzeModule - argument count', () => {
 	it('accepts correct host member argument counts', () => {
 		const src =
 			'Sub Main()\n' +
-			'    Application.Calculate()\n' +
-			'    Application.SheetCalculate(ActiveSheet)\n' +
+			'    Dim wb As Workbook\n' +
+			'    Application.Calculate\n' +
+			'    Call Application.Calculate()\n' +
+			'    Set wb = Workbooks.Open("Book1.xlsx")\n' +
 			'    ActiveSheet.Range("A1")\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
@@ -944,7 +949,7 @@ describe('analyzeModule - argument count', () => {
 		const caller =
 			'Sub Main()\n' +
 			'    Dim p As Person\n' +
-			'    p.Save()\n' +
+			'    Call p.Save()\n' +
 			'End Sub\n';
 		const person =
 			'Public Sub Save(ByVal Caption As String)\n' +
@@ -966,7 +971,7 @@ describe('analyzeModule - argument count', () => {
 	it('flags missing required arguments on current class Me member calls', () => {
 		const src =
 			'Public Sub Main()\n' +
-			'    Me.Save()\n' +
+			'    Call Me.Save()\n' +
 			'End Sub\n' +
 			'Public Sub Save(ByVal Caption As String)\n' +
 			'End Sub\n';
@@ -1178,16 +1183,16 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('MakeLabel(...) As String');
 	});
 
-	it('uses generated host member signatures for argument types', () => {
+	it('uses generated host member signatures for scalar argument types', () => {
 		const src =
 			'Sub T()\n' +
-			'    Application.SheetCalculate("bad")\n' +
+			'    Call Application.DeleteCustomList("bad")\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('Sh');
-		expect(hits[0].message).toContain('Object');
+		expect(hits[0].message).toContain('ListNum');
+		expect(hits[0].message).toContain('Long');
 	});
 
 	it('uses source-backed class member signatures for argument types', () => {
@@ -1626,6 +1631,17 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits[0].message).toContain('ThisWorkbook.doesnotexist');
 	});
 
+	it('does not treat Workbook events as callable object members', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    ThisWorkbook.AfterSave True\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('AfterSave');
+		expect(hits[0].message).toContain('Excel.Workbook.AfterSave');
+	});
+
 	it('accepts ThisWorkbook members from source and the exhaustive Workbook host surface', () => {
 		const workbook =
 			'Public Sub Hello()\n' +
@@ -2036,6 +2052,26 @@ describe('analyzeModule - Call requires parentheses', () => {
 		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(1);
 	});
 
+	it('flags a standalone zero-argument member call that uses empty parentheses without Call', () => {
+		const src = 'Sub T()\n    ThisWorkbook.CanCheckIn()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-forbids-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('CanCheckIn()');
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('flags a standalone zero-argument host method call with empty parentheses before arity checks', () => {
+		const src = 'Sub T()\n    Application.Calculate()\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(1);
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('validates non-empty standalone member call parentheses with known signatures', () => {
+		const src = 'Sub T()\n    Application.Calculate(1)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(1);
+	});
+
 	it('accepts Call with parentheses', () => {
 		const src = 'Sub T()\n    Call MsgBox("hello")\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(0);
@@ -2049,6 +2085,16 @@ describe('analyzeModule - Call requires parentheses', () => {
 	it('accepts a Call to a parenthesised member chain', () => {
 		const src = 'Sub T()\n    Call obj.Method(1, 2)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(0);
+	});
+
+	it('accepts parenthesized member calls with Call or in expression context', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim ok As Boolean\n' +
+			'    Call ThisWorkbook.CanCheckIn()\n' +
+			'    ok = ThisWorkbook.CanCheckIn()\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
 	it('does not flag a parenless non-Call statement', () => {
