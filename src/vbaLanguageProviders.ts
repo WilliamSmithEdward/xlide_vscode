@@ -15,11 +15,11 @@ import {
     eventHandlerDocumentTypeForContext,
     ModuleSymbolKind,
     ProjectIndex,
-    ProjectTypeSemanticTokenType,
     ReferenceScope,
     resolveMemberCompletions,
-    resolveProjectTypeSemanticTokens,
+    resolveTypeSemanticTokens,
     SeverityOverrides,
+    TypeSemanticTokenType,
     VbaDiagnostic,
     type VbaProjectClassMemberDefinition,
     VbaSymbol as AstSymbol,
@@ -587,22 +587,22 @@ function moduleNameFromDocument(document: vscode.TextDocument): string {
     return base.replace(/\.[^.]+$/, '') || 'Module';
 }
 
-const PROJECT_TYPE_TOKEN_TYPES: ProjectTypeSemanticTokenType[] = [
+const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
     'class',
     'enum',
     'struct',
     'type',
 ];
-const PROJECT_TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(PROJECT_TYPE_TOKEN_TYPES);
+const TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(TYPE_TOKEN_TYPES);
 
-class VbaProjectTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
+class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
     constructor(private readonly _index: VbaSymbolIndex) {}
 
     async provideDocumentSemanticTokens(
         document: vscode.TextDocument,
         token: vscode.CancellationToken,
     ): Promise<vscode.SemanticTokens> {
-        const builder = new vscode.SemanticTokensBuilder(PROJECT_TYPE_TOKEN_LEGEND);
+        const builder = new vscode.SemanticTokensBuilder(TYPE_TOKEN_LEGEND);
         if (!isVbaDocument(document)) { return builder.build(); }
 
         const source = document.getText();
@@ -615,7 +615,7 @@ class VbaProjectTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             projectTypes = [];
         }
 
-        for (const item of resolveProjectTypeSemanticTokens(source, projectTypes)) {
+        for (const item of resolveTypeSemanticTokens(source, { projectTypes })) {
             if (token.isCancellationRequested) { break; }
             builder.push(
                 new vscode.Range(
@@ -899,8 +899,8 @@ export function registerVbaLanguageProviders(
         ),
         vscode.languages.registerDocumentSemanticTokensProvider(
             VBA_SELECTOR,
-            new VbaProjectTypeSemanticTokensProvider(index),
-            PROJECT_TYPE_TOKEN_LEGEND,
+            new VbaTypeSemanticTokensProvider(index),
+            TYPE_TOKEN_LEGEND,
         ),
         // Keep the index consistent with saves to virtual VBA documents.
         vscode.workspace.onDidSaveTextDocument((doc) => {

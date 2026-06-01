@@ -180,13 +180,56 @@ describe('hover - built-in VBA runtime', () => {
 		expect(info?.details).toContain('Declared in Module: M');
 	});
 
-	it('does not treat an intrinsic type as a runtime function', () => {
-		// `String` is excluded from the runtime table so `As String` is never a hover.
+	it('describes an intrinsic type in an As clause as a type, not a runtime function', () => {
 		const src = 'Sub T()\n    Dim s As String\nEnd Sub\n';
 		const info = resolveHover(src, src.indexOf('As String') + 4, {
 			moduleName: 'M',
 		});
+		expect(info?.signature).toBe('String');
+		expect(info?.details).toContain('VBA primitive type');
+	});
+
+	it('does not describe an intrinsic type name outside a type position', () => {
+		const src = 'Sub T()\n    Debug.Print String\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('String') + 2, {
+			moduleName: 'M',
+		});
 		expect(info).toBeUndefined();
+	});
+});
+
+describe('hover - type names', () => {
+	it('describes project and host types in declaration type positions', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Dim ws As Worksheet\n' +
+			'End Sub\n';
+		const person = resolveHover(src, src.indexOf('Person') + 2, {
+			moduleName: 'M',
+			projectTypes: [{ name: 'Person', kind: 'class', moduleName: 'Person' }],
+		});
+		expect(person?.signature).toBe('Class Person');
+		expect(person?.details).toContain('Class');
+
+		const worksheet = resolveHover(src, src.indexOf('Worksheet') + 2, {
+			moduleName: 'M',
+		});
+		expect(worksheet?.signature).toBe('Worksheet');
+		expect(worksheet?.details).toContain('Excel host type');
+	});
+
+	it('keeps colliding project type hovers generic', () => {
+		const src = 'Sub T()\n    Dim state As Status\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('Status') + 2, {
+			moduleName: 'M',
+			projectTypes: [
+				{ name: 'Status', kind: 'class', moduleName: 'StatusClass' },
+				{ name: 'Status', kind: 'enum', moduleName: 'SharedTypes' },
+			],
+		});
+		expect(info?.signature).toBe('Status');
+		expect(info?.details).toContain('Ambiguous project type');
 	});
 });
 

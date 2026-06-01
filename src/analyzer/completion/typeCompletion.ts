@@ -17,14 +17,18 @@ import {
 	EXCEL_OBJECT_MODEL,
 	type HostObjectModel,
 } from '../host/excelObjectModel';
+import type { VbaProjectTypeKind } from '../symbols/symbolModel';
 
 /** Where a candidate type name comes from (drives the UI icon/grouping). */
 export type TypeCompletionKind =
 	| 'primitive'
 	| 'host'
 	| 'class'
+	| 'document'
+	| 'userform'
 	| 'enum'
-	| 'userType';
+	| 'userType'
+	| 'ambiguous';
 
 /** A single suggested type name. */
 export interface TypeCompletion {
@@ -34,15 +38,15 @@ export interface TypeCompletion {
 	detail: string;
 }
 
-/** A project-defined type the caller knows about (class, Type, or Enum). */
+/** A project-defined type the caller knows about (class/document/UserForm, Type, or Enum). */
 export interface ProjectTypeName {
 	name: string;
-	kind: 'class' | 'enum' | 'userType';
+	kind: VbaProjectTypeKind;
 }
 
 export interface TypeCompletionContext {
 	/** User-defined types/classes/enums visible to the current module. */
-	projectTypes?: ProjectTypeName[];
+	projectTypes?: readonly ProjectTypeName[];
 	/** Host object model to draw built-in object types from. */
 	model?: HostObjectModel;
 }
@@ -55,7 +59,7 @@ export interface TypeCompletionContext {
  * is intentionally omitted: it is not directly declarable in VBA (only reachable
  * via `Variant`/`CDec`), so suggesting it would mislead.
  */
-const VBA_PRIMITIVE_TYPES: readonly string[] = [
+export const VBA_PRIMITIVE_TYPES: readonly string[] = [
 	'Boolean',
 	'Byte',
 	'Currency',
@@ -131,7 +135,7 @@ function detectTypePosition(slice: string): { prefix: string } | undefined {
 }
 
 /** Short host type names (e.g. "Workbook") derived from the host model types. */
-function hostTypeNames(model: HostObjectModel): string[] {
+export function hostTypeNames(model: HostObjectModel): string[] {
 	const out: string[] = [];
 	for (const qualified of Object.keys(model.types)) {
 		const short = qualified.split('.').pop();
@@ -142,11 +146,82 @@ function hostTypeNames(model: HostObjectModel): string[] {
 	return out;
 }
 
-const PROJECT_KIND_DETAIL: Record<ProjectTypeName['kind'], string> = {
+const PROJECT_KIND_DETAIL: Record<VbaProjectTypeKind, string> = {
 	class: 'Class',
+	document: 'Document module',
+	userform: 'UserForm',
 	enum: 'Enum',
 	userType: 'User type',
 };
+
+function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCompletion[] {
+	const grouped = new Map<string, { name: string; kinds: Set<VbaProjectTypeKind> }>();
+	for (const projectType of projectTypes) {
+		const key = projectType.name.toLowerCase();
+		const group = grouped.get(key) ?? {
+			name: projectType.name,
+			kinds: new Set<VbaProjectTypeKind>(),
+		};
+		group.kinds.add(projectType.kind);
+		grouped.set(key, group);
+	}
+	return [...grouped.values()].map((group) => {
+		if (group.kinds.size !== 1) {
+			return {
+				name: group.name,
+				kind: 'ambiguous',
+				detail: 'Ambiguous project type',
+			};
+		}
+		const kind = [...group.kinds][0];
+		return {
+			name: group.name,
+			kind,
+			detail: PROJECT_KIND_DETAIL[kind],
+		};
+	});
+}
+
+export function typeCompletionCandidates(
+	ctx: TypeCompletionContext = {},
+): TypeCompletion[] {
+	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
+	const seen = new Set<string>();
+	const out: TypeCompletion[] = [];
+	const add = (name: string, kind: TypeCompletionKind, detail: string): void => {
+		const key = name.toLowerCase();
+		if (seen.has(key)) {
+			return;
+		}
+		seen.add(key);
+		out.push({ name, kind, detail });
+	};
+
+	// 1. Project-defined types take precedence (can shadow a built-in name).
+	for (const t of projectTypeCandidates(ctx.projectTypes ?? [])) {
+		add(t.name, t.kind, t.detail);
+	}
+	// 2. VBA built-in data types.
+	for (const name of VBA_PRIMITIVE_TYPES) {
+		add(name, 'primitive', 'VBA type');
+	}
+	// 3. Excel host object-model types.
+	for (const name of hostTypeNames(model)) {
+		add(name, 'host', 'Excel type');
+	}
+
+	return out;
+}
+
+export function resolveTypeName(
+	name: string,
+	ctx: TypeCompletionContext = {},
+): TypeCompletion | undefined {
+	const lower = name.toLowerCase();
+	return typeCompletionCandidates(ctx).find((candidate) => (
+		candidate.name.toLowerCase() === lower
+	));
+}
 
 /**
  * Resolves the type-name completions available at `offset` in `source`. Returns
@@ -166,33 +241,7 @@ export function resolveTypeCompletions(
 	}
 	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
 	const prefix = pos.prefix.toLowerCase();
-	const seen = new Set<string>();
-	const out: TypeCompletion[] = [];
-
-	const add = (name: string, kind: TypeCompletionKind, detail: string): void => {
-		const key = name.toLowerCase();
-		if (seen.has(key)) {
-			return;
-		}
-		if (prefix && !key.startsWith(prefix)) {
-			return;
-		}
-		seen.add(key);
-		out.push({ name, kind, detail });
-	};
-
-	// 1. Project-defined types take precedence (can shadow a built-in name).
-	for (const t of ctx.projectTypes ?? []) {
-		add(t.name, t.kind, PROJECT_KIND_DETAIL[t.kind]);
-	}
-	// 2. VBA built-in data types.
-	for (const name of VBA_PRIMITIVE_TYPES) {
-		add(name, 'primitive', 'VBA type');
-	}
-	// 3. Excel host object-model types.
-	for (const name of hostTypeNames(model)) {
-		add(name, 'host', 'Excel type');
-	}
-
-	return out;
+	return typeCompletionCandidates({ ...ctx, model }).filter((candidate) => (
+		!prefix || candidate.name.toLowerCase().startsWith(prefix)
+	));
 }

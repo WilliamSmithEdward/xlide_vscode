@@ -48,7 +48,7 @@ xlide_vscode/
         parserState.ts  Logical-statement splitter + statement cursor (MS-VBAL 3.3.1 EOS)
         parseModule.ts  Error-tolerant module parser -> ModuleNode AST (MS-VBAL 5.x)
       semantic/
-        typeSemanticTokens.ts  Pure resolver for project-defined type semantic tokens in declaration type positions
+        typeSemanticTokens.ts  Pure resolver for type-name semantic tokens and hover in declaration/New positions
       index.ts          Public, vscode-free analyzer surface (lexer + parser)
 
   python/
@@ -460,7 +460,7 @@ into a pure analyzer layer and a thin VS Code provider:
   project-defined types — user `Type`s/`Enum`s in the current module, public
   (non-`Private`) `Type`s/`Enum`s read from the workbook's other modules (via the
   bridge `readModule` call, cached per workbook with a short TTL), plus
-  class/UserForm module names from the workbook. When the cursor is on a bare
+  class/document/UserForm module names from the workbook. When the cursor is on a bare
   identifier (statement/expression position, not after `.` or `As`) it offers
   identifier completions via `src/analyzer/completion/identifierCompletion.ts`
   (`resolveIdentifierCompletions`): host-injected globals (`ThisWorkbook`,
@@ -480,7 +480,9 @@ into a pure analyzer layer and a thin VS Code provider:
   (`resolveHover`), a pure resolver that describes the identifier under the
   cursor: `receiver.member` host/reference or source-backed workbook members
   (reusing the same member-access resolver as completion), host globals,
-  worksheet code names, user declarations from the live module symbol graph (procedure
+  worksheet code names, type names in declaration/`New` positions (using the same
+  primitive/host/project resolver as type completion and semantic coloring), user
+  declarations from the live module symbol graph (procedure
   signatures with parameters and return type, variables/parameters/constants
   with their `As` type, enums and members, user types and fields), and built-in
   VBA runtime functions, annotated with the declaring module and visibility.
@@ -760,19 +762,21 @@ single module:
   This index now drives the live `DefinitionProvider`, `ReferenceProvider`, and
   `RenameProvider` (see "Symbol intelligence").
 
-**Project type semantic coloring** - TextMate grammar handles static VBA
-tokens only; workbook classes, document modules, UserForms, UDTs, and enums are
-dynamic project symbols. `src/analyzer/semantic/typeSemanticTokens.ts` therefore
-parses the live module, accepts the current module's
-`ProjectIndex.visibleTypeNames()` result, and emits semantic tokens only for
-resolved project-defined type names in actual type positions (`As Person`,
-parameter types, return types, module/local variables, UDT fields, and
-`New Person` expressions). The VS Code provider in
+**Type-name semantic coloring and hover** - TextMate grammar handles static VBA
+tokens only, while workbook classes, document modules, UserForms, UDTs, and enums
+are dynamic project symbols. `src/analyzer/semantic/typeSemanticTokens.ts`
+therefore parses the live module and resolves actual type-name positions (`As
+Person`, parameter types, return types, module/local variables, UDT fields, and
+`New Person` expressions) through the shared type resolver used by completion and
+hover: project-visible names from `ProjectIndex.visibleTypeNames()`, VBA
+primitive types, and Excel host object types. Semantic tokens mark primitives as
+`type`, host/project object types as `class`, enums as `enum`, and UDTs as
+`struct`; colliding project-visible names fall back to generic `type` until a
+later binder slice can prove the intended declaration. The VS Code provider in
 `src/vbaLanguageProviders.ts` overlays the live editor text for the current
-module before resolving visible types, so `Dim customer As Person` and
-`Set customer = New Person` can receive class coloring as soon as `Person`
-exists in the workbook project. Unresolved names and non-type positions are
-ignored.
+module before resolving visible types, so `Dim customer As Person`, `Dim ws As
+Worksheet`, and `Dim amount As Currency` color as soon as their type is known.
+Unresolved names and non-type positions are ignored.
 
 ---
 

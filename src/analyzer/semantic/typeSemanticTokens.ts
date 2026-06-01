@@ -1,9 +1,8 @@
-// Semantic tokens for project-defined type names.
+// Semantic tokens and lookup for type names.
 //
-// TextMate grammar can color only static tokens. Workbook classes, UserForms,
-// document modules, UDTs, and enums are dynamic project symbols, so this pure
-// resolver marks only parsed declaration type positions whose type name resolves
-// through the project binder.
+// TextMate grammar can color only static tokens. This pure resolver marks parsed
+// declaration type positions and `New` expressions after resolving the type
+// name against project, VBA primitive, and host object-model type metadata.
 
 import type {
 	BodyNode,
@@ -19,55 +18,42 @@ import type {
 import { parseModule } from '../parser/parseModule';
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
-import type { VbaProjectTypeName } from '../symbols/symbolModel';
+import {
+	resolveTypeName,
+	type TypeCompletion,
+	type TypeCompletionContext,
+	type TypeCompletionKind,
+} from '../completion/typeCompletion';
 
-export type ProjectTypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type';
+export type TypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type';
 
-export interface ProjectTypeSemanticToken {
+export interface TypeSemanticToken {
 	name: string;
-	tokenType: ProjectTypeSemanticTokenType;
+	tokenType: TypeSemanticTokenType;
 	span: Span;
 }
 
-type TypeCandidate = {
-	name: string;
-	tokenType: ProjectTypeSemanticTokenType;
-};
+export interface ResolvedTypeReference extends TypeCompletion {
+	span: Span;
+}
 
-function tokenTypeForProjectType(kind: VbaProjectTypeName['kind']): ProjectTypeSemanticTokenType {
+type TypeNameHit = { name: string; span: Span };
+
+function tokenTypeForCompletionKind(kind: TypeCompletionKind): TypeSemanticTokenType {
 	switch (kind) {
 		case 'class':
 		case 'document':
 		case 'userform':
+		case 'host':
 			return 'class';
 		case 'enum':
 			return 'enum';
 		case 'userType':
 			return 'struct';
+		case 'primitive':
+		case 'ambiguous':
+			return 'type';
 	}
-}
-
-function typeCandidatesByName(
-	projectTypes: readonly VbaProjectTypeName[],
-): ReadonlyMap<string, TypeCandidate> {
-	const grouped = new Map<string, Set<ProjectTypeSemanticTokenType>>();
-	const casing = new Map<string, string>();
-	for (const t of projectTypes) {
-		const key = t.name.toLowerCase();
-		casing.set(key, casing.get(key) ?? t.name);
-		const set = grouped.get(key) ?? new Set<ProjectTypeSemanticTokenType>();
-		set.add(tokenTypeForProjectType(t.kind));
-		grouped.set(key, set);
-	}
-
-	const out = new Map<string, TypeCandidate>();
-	for (const [key, types] of grouped) {
-		out.set(key, {
-			name: casing.get(key) ?? key,
-			tokenType: types.size === 1 ? [...types][0] : 'type',
-		});
-	}
-	return out;
 }
 
 function codeTokens(source: string, span: Span): VbaToken[] {
@@ -176,85 +162,61 @@ function returnTypeNameSpan(source: string, proc: ProcedureNode): { name: string
 	return undefined;
 }
 
-function pushIfProjectType(
-	out: ProjectTypeSemanticToken[],
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	hit: { name: string; span: Span } | undefined,
-): void {
-	if (!hit) {
-		return;
-	}
-	const resolved = candidates.get(hit.name.toLowerCase());
-	if (!resolved) {
-		return;
-	}
-	out.push({
-		name: hit.name,
-		tokenType: resolved.tokenType,
-		span: hit.span,
-	});
-}
-
 function collectVariableGroup(
 	source: string,
 	group: VariableGroupNode,
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	out: ProjectTypeSemanticToken[],
+	out: TypeNameHit[],
 ): void {
 	for (const decl of group.declarations) {
-		collectVariableDecl(source, decl, candidates, out);
+		collectVariableDecl(source, decl, out);
 	}
 }
 
 function collectVariableDecl(
 	source: string,
 	decl: VariableDeclNode,
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	out: ProjectTypeSemanticToken[],
+	out: TypeNameHit[],
 ): void {
 	if (!decl.asType) {
 		return;
 	}
-	pushIfProjectType(out, candidates, typeNameSpanAfterAs(source, decl.span));
+	pushTypeHit(out, typeNameSpanAfterAs(source, decl.span));
 }
 
 function collectTypeField(
 	source: string,
 	field: TypeFieldNode,
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	out: ProjectTypeSemanticToken[],
+	out: TypeNameHit[],
 ): void {
 	if (!field.asType) {
 		return;
 	}
-	pushIfProjectType(out, candidates, typeNameSpanAfterAs(source, field.span));
+	pushTypeHit(out, typeNameSpanAfterAs(source, field.span));
 }
 
 function collectParameter(
 	source: string,
 	param: ParameterNode,
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	out: ProjectTypeSemanticToken[],
+	out: TypeNameHit[],
 ): void {
 	if (!param.asType) {
 		return;
 	}
-	pushIfProjectType(out, candidates, typeNameSpanAfterAs(source, param.span));
+	pushTypeHit(out, typeNameSpanAfterAs(source, param.span));
 }
 
 function collectBody(
 	source: string,
 	body: BodyNode[],
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	out: ProjectTypeSemanticToken[],
+	out: TypeNameHit[],
 ): void {
 	for (const node of body) {
 		if (node.kind === 'VariableGroup') {
-			collectVariableGroup(source, node, candidates, out);
+			collectVariableGroup(source, node, out);
 		} else if (node.kind === 'Statement') {
-			collectStatement(source, node, candidates, out);
+			collectStatement(source, node, out);
 		} else if ('body' in node && Array.isArray(node.body)) {
-			collectBody(source, node.body, candidates, out);
+			collectBody(source, node.body, out);
 		}
 	}
 }
@@ -262,59 +224,94 @@ function collectBody(
 function collectStatement(
 	source: string,
 	stmt: StatementNode,
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	out: ProjectTypeSemanticToken[],
+	out: TypeNameHit[],
 ): void {
 	for (const hit of typeNameSpansAfterNew(source, stmt.span)) {
-		pushIfProjectType(out, candidates, hit);
+		out.push(hit);
 	}
 }
 
 function collectProcedure(
 	source: string,
 	proc: ProcedureNode,
-	candidates: ReadonlyMap<string, TypeCandidate>,
-	out: ProjectTypeSemanticToken[],
+	out: TypeNameHit[],
 ): void {
 	for (const param of proc.params) {
-		collectParameter(source, param, candidates, out);
+		collectParameter(source, param, out);
 	}
 	if (proc.returnType) {
-		pushIfProjectType(out, candidates, returnTypeNameSpan(source, proc));
+		pushTypeHit(out, returnTypeNameSpan(source, proc));
 	}
-	collectBody(source, proc.body, candidates, out);
+	collectBody(source, proc.body, out);
 }
 
 function collectModule(
 	source: string,
 	mod: ModuleNode,
-	candidates: ReadonlyMap<string, TypeCandidate>,
-): ProjectTypeSemanticToken[] {
-	const out: ProjectTypeSemanticToken[] = [];
+): TypeNameHit[] {
+	const out: TypeNameHit[] = [];
 	for (const member of mod.members) {
 		if (member.kind === 'VariableGroup') {
-			collectVariableGroup(source, member, candidates, out);
+			collectVariableGroup(source, member, out);
 		} else if (member.kind === 'Type') {
 			for (const field of member.fields) {
-				collectTypeField(source, field, candidates, out);
+				collectTypeField(source, field, out);
 			}
 		} else if (member.kind === 'Procedure') {
-			collectProcedure(source, member, candidates, out);
+			collectProcedure(source, member, out);
 		}
 	}
 	return out.sort((a, b) => a.span.start - b.span.start || a.span.end - b.span.end);
 }
 
-export function resolveProjectTypeSemanticTokens(
+function pushTypeHit(out: TypeNameHit[], hit: TypeNameHit | undefined): void {
+	if (hit) {
+		out.push(hit);
+	}
+}
+
+function semanticTokenForHit(
+	ctx: TypeCompletionContext,
+	hit: TypeNameHit,
+): TypeSemanticToken | undefined {
+	const resolved = resolveTypeName(hit.name, ctx);
+	if (!resolved) {
+		return undefined;
+	}
+	return {
+		name: hit.name,
+		tokenType: tokenTypeForCompletionKind(resolved.kind),
+		span: hit.span,
+	};
+}
+
+function collectTypeNameHits(source: string): TypeNameHit[] {
+	return collectModule(source, parseModule(source));
+}
+
+export function resolveTypeSemanticTokens(
 	source: string,
-	projectTypes: readonly VbaProjectTypeName[],
-): ProjectTypeSemanticToken[] {
-	if (projectTypes.length === 0) {
-		return [];
+	ctx: TypeCompletionContext = {},
+): TypeSemanticToken[] {
+	return collectTypeNameHits(source)
+		.map((hit) => semanticTokenForHit(ctx, hit))
+		.filter((token): token is TypeSemanticToken => Boolean(token));
+}
+
+export function resolveTypeReferenceAt(
+	source: string,
+	offset: number,
+	ctx: TypeCompletionContext = {},
+): ResolvedTypeReference | undefined {
+	const hit = collectTypeNameHits(source).find(
+		(candidate) => offset >= candidate.span.start && offset <= candidate.span.end,
+	);
+	if (!hit) {
+		return undefined;
 	}
-	const candidates = typeCandidatesByName(projectTypes);
-	if (candidates.size === 0) {
-		return [];
+	const resolved = resolveTypeName(hit.name, ctx);
+	if (!resolved) {
+		return undefined;
 	}
-	return collectModule(source, parseModule(source), candidates);
+	return { ...resolved, span: hit.span };
 }

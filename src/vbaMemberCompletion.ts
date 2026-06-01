@@ -268,8 +268,10 @@ class VbaMemberCompletionProvider
 	private async _buildHoverContext(
 		document: vscode.TextDocument,
 	): Promise<HoverContext> {
+		const source = document.getText();
+		const typeContext = await this._buildTypeContext(document, source);
 		if (document.uri.scheme !== XLIDE_SCHEME) {
-			return { docRegistry: this._docs };
+			return { ...typeContext, docRegistry: this._docs };
 		}
 		try {
 			const decoded = decodeModuleUri(document.uri);
@@ -283,13 +285,14 @@ class VbaMemberCompletionProvider
 				meProjectType: meProjectTypeFor(current),
 				moduleName: decoded.moduleName,
 				moduleKind: current ? this._moduleKind(current.type) : 'standard',
+				projectTypes: typeContext.projectTypes,
 				projectClassMembers: entries
 					? await this._loadProjectClassMembers(decoded.xlsmPath, entries)
 					: undefined,
 				docRegistry: this._docs,
 			};
 		} catch {
-			return { docRegistry: this._docs };
+			return { ...typeContext, docRegistry: this._docs };
 		}
 	}
 
@@ -434,11 +437,12 @@ class VbaMemberCompletionProvider
 				currentName = decoded.moduleName;
 				const entries = await this._loadModules(decoded.xlsmPath);
 				for (const entry of entries ?? []) {
-					if (entry.type === 'class' || entry.type === 'userform') {
-						push(entry.name, 'class');
+					const kind = this._moduleKind(entry.type);
+					if (kind === 'class' || kind === 'document' || kind === 'userform') {
+						push(entry.name, kind);
 					}
 					if (entry.name.toLowerCase() === currentName.toLowerCase()) {
-						currentKind = this._moduleKind(entry.type);
+						currentKind = kind;
 					}
 				}
 				// Public Type/Enum declared in OTHER modules of the project.
@@ -643,6 +647,8 @@ class VbaMemberCompletionProvider
 				return vscode.CompletionItemKind.Enum;
 			case 'host':
 			case 'class':
+			case 'document':
+			case 'userform':
 				return vscode.CompletionItemKind.Class;
 			default:
 				return vscode.CompletionItemKind.Struct;

@@ -73,10 +73,10 @@ heuristic diagnostics.
   module, so Option Explicit diagnostics can distinguish undeclared assignment
   targets from same-module declarations, exported standard-module globals, enum
   members, and document/UserForm code names.
-- Project-defined type names now get VS Code semantic tokens in declaration
-  type positions and `New` expressions, so resolved classes, document modules,
-  UserForms, UDTs, and enums can be colored without hardcoding them into static
-  grammar.
+- Type names now share one resolver for completion, hover, and VS Code semantic
+  tokens in declaration type positions and `New` expressions. Resolved VBA
+  primitive types, Excel host types, classes, document modules, UserForms, UDTs,
+  and enums can be colored without hardcoding project names into static grammar.
 - Workbook class member completion has a first deterministic source-backed
   slice: variables declared as project classes can offer public/default-public
   class members and public fields at `object.`, including chaining through
@@ -521,15 +521,19 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [ ] Suppress hard errors for incomplete expressions where VBE behavior is not
   yet deterministically knowable.
 - [ ] Make diagnostic ranges precise and stable.
-- [x] Emit semantic tokens for resolved project-defined type names in
-  declaration type positions (`As Person`, function returns, parameters, UDT
-  fields, and local/module variables) and `New Person` expressions.
+- [x] Emit semantic tokens and hover for resolved type names in declaration type
+  positions (`As Person`, `As Worksheet`, `As Currency`, function returns,
+  parameters, UDT fields, and local/module variables) and `New Person`
+  expressions. Primitive, host, and project names all flow through the same
+  resolver used by type completion.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
   arity/type checks, and go-to-definition now consumes it for source-backed
-  members, including current-object `Me.Member` references.
+  members, including current-object `Me.Member` references. Type-name
+  completion, hover, and semantic coloring now share one type resolver; type-name
+  diagnostics remain the next binder slice.
 
 Definition of done:
 

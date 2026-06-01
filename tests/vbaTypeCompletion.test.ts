@@ -110,6 +110,18 @@ describe('project-defined types', () => {
 		expect(longs[0].kind).toBe('class');
 	});
 
+	it('keeps colliding project type names generic', () => {
+		const result = resolveTypeCompletions('Dim x As ', endOf('Dim x As ', 'As '), {
+			projectTypes: [
+				{ name: 'Status', kind: 'class' },
+				{ name: 'Status', kind: 'enum' },
+			],
+		});
+		const status = result.find((t) => t.name === 'Status');
+		expect(status?.kind).toBe('ambiguous');
+		expect(status?.detail).toBe('Ambiguous project type');
+	});
+
 	it('tags each candidate with an origin detail', () => {
 		const result = resolveTypeCompletions('Dim x As ', endOf('Dim x As ', 'As '), {
 			projectTypes,

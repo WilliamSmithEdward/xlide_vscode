@@ -24,6 +24,11 @@ import {
 	MemberCompletion,
 	resolveMemberCompletions,
 } from '../completion/memberAccess';
+import type { ProjectTypeName } from '../completion/typeCompletion';
+import {
+	resolveTypeReferenceAt,
+	type ResolvedTypeReference,
+} from '../semantic/typeSemanticTokens';
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaProjectClassMembers } from '../symbols/symbolModel';
@@ -56,6 +61,8 @@ export interface HoverContext {
 	model?: HostObjectModel;
 	/** Source-declared workbook class/UserForm/document members, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
+	/** Project type names visible in declaration type positions. */
+	projectTypes?: readonly ProjectTypeName[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
 }
@@ -109,6 +116,16 @@ export function resolveHover(
 		return undefined;
 	}
 
+	// Type names in declarations and `New` expressions: primitives, host types,
+	// and project-defined classes/enums/UDTs share the type resolver.
+	const typeHover = resolveTypeReferenceAt(source, offset, {
+		projectTypes: ctx.projectTypes,
+		model: ctx.model,
+	});
+	if (typeHover) {
+		return buildTypeHover(typeHover);
+	}
+
 	// User symbol declared in the current module (live, no save required).
 	const userHover = resolveUserSymbol(source, offset, name, ctx, span);
 	if (userHover) {
@@ -150,6 +167,43 @@ export function resolveHover(
 	}
 
 	return undefined;
+}
+
+function buildTypeHover(typeRef: ResolvedTypeReference): HoverInfo {
+	const signature = typeSignature(typeRef);
+	return {
+		signature,
+		details: [typeDetail(typeRef)],
+		span: typeRef.span,
+	};
+}
+
+function typeSignature(typeRef: ResolvedTypeReference): string {
+	switch (typeRef.kind) {
+		case 'class':
+			return `Class ${typeRef.name}`;
+		case 'document':
+			return `Document module ${typeRef.name}`;
+		case 'userform':
+			return `UserForm ${typeRef.name}`;
+		case 'enum':
+			return `Enum ${typeRef.name}`;
+		case 'userType':
+			return `Type ${typeRef.name}`;
+		default:
+			return typeRef.name;
+	}
+}
+
+function typeDetail(typeRef: ResolvedTypeReference): string {
+	switch (typeRef.kind) {
+		case 'primitive':
+			return 'VBA primitive type';
+		case 'host':
+			return 'Excel host type';
+		default:
+			return typeRef.detail;
+	}
 }
 
 /** Builds a hover for a resolved host or project object member. */

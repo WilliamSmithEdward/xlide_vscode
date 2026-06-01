@@ -67,9 +67,11 @@ export {
 	resolveEventHandlerCompletions,
 } from './completion/eventHandlers';
 export {
-	ProjectTypeSemanticToken,
-	ProjectTypeSemanticTokenType,
-	resolveProjectTypeSemanticTokens,
+	ResolvedTypeReference,
+	resolveTypeReferenceAt,
+	resolveTypeSemanticTokens,
+	TypeSemanticToken,
+	TypeSemanticTokenType,
 } from './semantic/typeSemanticTokens';
 export {
 	HoverContext,

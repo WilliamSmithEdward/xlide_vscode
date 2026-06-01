@@ -848,8 +848,8 @@ Do not ship low-confidence diagnostics by default.
 > host-injected globals, code names, and the enclosing procedure's
 > params/locals plus module-level vars/consts/procs/enums/types; it is
 > suppressed after `.`, after `As`, and in declaration-name positions. Resolved
-> project-defined type names also get semantic tokens in declaration type
-> positions via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
+> type names (project, host, and primitive) also get semantic tokens and
+> type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
 > `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by
 > `tests/vba{MemberCompletion,TypeCompletion,IdentifierCompletion}.test.ts`.
 > Remaining: keyword/snippet completion at statement start, after access
@@ -1137,7 +1137,7 @@ Implemented in `src/analyzer/runtime/vbaRuntime.ts`.
   and `RGB`/`IIf`/`Choose`/`Switch`.
 - **Deliberate omissions.** Names that collide with intrinsic data types or are
   otherwise context-ambiguous (`Date`, `Time`, `String`, `Error`) are excluded
-  so hovering a type in an `As` position is never mistaken for a function call.
+  so type-position hover handles them as types instead of runtime calls.
 - **Hover.** `resolveHover` resolves built-ins *after* user symbols, host
   globals, and code names, so a user declaration of the same name correctly
   shadows the built-in. Returns the signature plus a `VBA runtime function` /

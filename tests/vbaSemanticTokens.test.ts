@@ -1,15 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import {
 	ProjectIndex,
-	resolveProjectTypeSemanticTokens,
+	resolveTypeSemanticTokens,
+	type TypeCompletionContext,
 	type VbaProjectTypeName,
 } from '../src/analyzer';
 
 function tokenTexts(
 	source: string,
-	projectTypes: readonly VbaProjectTypeName[],
+	ctx: TypeCompletionContext = {},
 ): Array<{ text: string; type: string }> {
-	return resolveProjectTypeSemanticTokens(source, projectTypes).map((t) => ({
+	return resolveTypeSemanticTokens(source, ctx).map((t) => ({
 		text: source.slice(t.span.start, t.span.end),
 		type: t.tokenType,
 	}));
@@ -24,7 +25,7 @@ describe('project type semantic tokens', () => {
 		const projectTypes: VbaProjectTypeName[] = [
 			{ name: 'Person', kind: 'class', moduleName: 'Person' },
 		];
-		expect(tokenTexts(source, projectTypes)).toEqual([
+		expect(tokenTexts(source, { projectTypes })).toEqual([
 			{ text: 'Person', type: 'class' },
 		]);
 	});
@@ -45,7 +46,7 @@ describe('project type semantic tokens', () => {
 			{ name: 'Color', kind: 'enum', moduleName: 'Types' },
 			{ name: 'Wrapper', kind: 'userType', moduleName: 'Types' },
 		];
-		expect(tokenTexts(source, projectTypes)).toEqual([
+		expect(tokenTexts(source, { projectTypes })).toEqual([
 			{ text: 'Person', type: 'class' },
 			{ text: 'Color', type: 'enum' },
 			{ text: 'Person', type: 'class' },
@@ -62,7 +63,7 @@ describe('project type semantic tokens', () => {
 		const projectTypes: VbaProjectTypeName[] = [
 			{ name: 'Person', kind: 'class', moduleName: 'Person' },
 		];
-		expect(tokenTexts(source, projectTypes)).toEqual([]);
+		expect(tokenTexts(source, { projectTypes })).toEqual([]);
 	});
 
 	it('marks project classes in New expressions', () => {
@@ -74,7 +75,7 @@ describe('project type semantic tokens', () => {
 		const projectTypes: VbaProjectTypeName[] = [
 			{ name: 'Person', kind: 'class', moduleName: 'Person' },
 		];
-		expect(tokenTexts(source, projectTypes)).toEqual([
+		expect(tokenTexts(source, { projectTypes })).toEqual([
 			{ text: 'Person', type: 'class' },
 			{ text: 'person', type: 'class' },
 		]);
@@ -103,9 +104,55 @@ describe('project type semantic tokens', () => {
 			source: 'Public Enum Status\n    Active\nEnd Enum\n',
 		});
 
-		expect(tokenTexts(source, index.visibleTypeNames('Caller'))).toEqual([
+		expect(tokenTexts(source, { projectTypes: index.visibleTypeNames('Caller') })).toEqual([
 			{ text: 'Person', type: 'class' },
 			{ text: 'Status', type: 'enum' },
 		]);
+	});
+});
+
+describe('type semantic tokens', () => {
+	it('marks primitive, host, and project types with distinct token categories', () => {
+		const source =
+			'Public Sub T()\n' +
+			'    Dim amount As Currency\n' +
+			'    Dim p As Person\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Dim state As Status\n' +
+			'    Dim point As TPoint\n' +
+			'End Sub\n';
+		const projectTypes: VbaProjectTypeName[] = [
+			{ name: 'Person', kind: 'class', moduleName: 'Person' },
+			{ name: 'Status', kind: 'enum', moduleName: 'Types' },
+			{ name: 'TPoint', kind: 'userType', moduleName: 'Types' },
+		];
+		expect(tokenTexts(source, { projectTypes })).toEqual([
+			{ text: 'Currency', type: 'type' },
+			{ text: 'Person', type: 'class' },
+			{ text: 'Worksheet', type: 'class' },
+			{ text: 'Status', type: 'enum' },
+			{ text: 'TPoint', type: 'struct' },
+		]);
+	});
+
+	it('lets project types shadow primitive names for coloring', () => {
+		const source = 'Public Sub T()\n    Dim value As Long\nEnd Sub\n';
+		expect(
+			tokenTexts(source, {
+				projectTypes: [{ name: 'Long', kind: 'class', moduleName: 'Long' }],
+			}),
+		).toEqual([{ text: 'Long', type: 'class' }]);
+	});
+
+	it('colors colliding project type names generically', () => {
+		const source = 'Public Sub T()\n    Dim value As Status\nEnd Sub\n';
+		expect(
+			tokenTexts(source, {
+				projectTypes: [
+					{ name: 'Status', kind: 'class', moduleName: 'StatusClass' },
+					{ name: 'Status', kind: 'enum', moduleName: 'SharedTypes' },
+				],
+			}),
+		).toEqual([{ text: 'Status', type: 'type' }]);
 	});
 });
