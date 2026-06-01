@@ -11,7 +11,6 @@
 // host model. See docs/xlide_vba_language_service_roadmap.md (Phase 6).
 
 import { tokenize } from '../lexer/tokenize';
-import { VbaToken } from '../lexer/tokenKinds';
 import { HostObjectModel } from '../host/excelObjectModel';
 import { getHostConstants, getHostGlobals, getHostType } from '../host/hostModel';
 import {
@@ -33,6 +32,12 @@ import {
 	isProcedureKind,
 } from '../symbols/symbolModel';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
+import {
+	isExplicitCallTargetCompletionContext,
+	isIdentLike,
+} from '../call/callContext';
+
+export { callableCompletionShouldInsertParens } from '../call/callContext';
 
 /** Origin of an identifier completion (drives the icon shown in the editor). */
 export type IdentifierCompletionKind =
@@ -74,13 +79,6 @@ export interface IdentifierCompletionContext {
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
-	);
-}
 
 /**
  * Keywords after which the user is naming a NEW declaration rather than
@@ -213,48 +211,6 @@ export function resolveIdentifierCompletions(
 	}
 
 	return out;
-}
-
-/**
- * Callable completions can use parentheses in expression and explicit `Call`
- * contexts, but VBA call statements like `mySub()` and `Application.Calculate()`
- * are syntax errors unless prefixed with `Call`.
- */
-export function callableCompletionShouldInsertParens(
-	source: string,
-	offset: number,
-): boolean {
-	const prefixText = source.slice(0, Math.max(0, offset));
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
-	if (tokens.length === 0) {
-		return false;
-	}
-
-	let last = tokens.length - 1;
-	if (last >= 0 && isIdentLike(tokens[last])) {
-		last -= 1;
-	}
-	if (last < 0) {
-		return false;
-	}
-
-	let boundary = last;
-	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
-		boundary -= 1;
-	}
-	const statement = tokens.slice(boundary + 1, last + 1);
-	if (statement.length === 0) {
-		return false;
-	}
-
-	const prev = statement[statement.length - 1].rawText.toLowerCase();
-	if (prev === 'call' || statement[0].rawText.toLowerCase() === 'call') {
-		return true;
-	}
-	if (statementContainsExpressionIntroducer(statement)) {
-		return true;
-	}
-	return isExpressionContinuationToken(prev);
 }
 
 type AddFn = (
@@ -405,86 +361,6 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 
 function detailWithType(base: string, asType?: string): string {
 	return asType ? `${base} As ${asType}` : base;
-}
-
-function isStatementBoundary(token: VbaToken): boolean {
-	return token.kind === 'newline' || token.rawText === ':';
-}
-
-function isExplicitCallTargetCompletionContext(tokens: readonly VbaToken[], last: number): boolean {
-	if (last < 0) {
-		return false;
-	}
-	let boundary = last;
-	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
-		boundary -= 1;
-	}
-	const statement = tokens.slice(boundary + 1, last + 1);
-	return statement.length === 1 && statement[0].rawText.toLowerCase() === 'call';
-}
-
-function statementContainsExpressionIntroducer(tokens: readonly VbaToken[]): boolean {
-	let depth = 0;
-	for (const token of tokens) {
-		if (token.rawText === '(') {
-			depth += 1;
-			continue;
-		}
-		if (token.rawText === ')') {
-			depth = Math.max(0, depth - 1);
-			continue;
-		}
-		if (depth > 0) {
-			continue;
-		}
-		const lower = token.rawText.toLowerCase();
-		if (token.rawText === '=') {
-			return true;
-		}
-		if (
-			lower === 'if' ||
-			lower === 'elseif' ||
-			lower === 'while' ||
-			lower === 'until' ||
-			lower === 'case' ||
-			lower === 'select' ||
-			lower === 'for' ||
-			lower === 'to' ||
-			lower === 'step'
-		) {
-			return true;
-		}
-	}
-	return false;
-}
-
-function isExpressionContinuationToken(lowerTokenText: string): boolean {
-	return (
-		lowerTokenText === '(' ||
-		lowerTokenText === ',' ||
-		lowerTokenText === '=' ||
-		lowerTokenText === '+' ||
-		lowerTokenText === '-' ||
-		lowerTokenText === '*' ||
-		lowerTokenText === '/' ||
-		lowerTokenText === '\\' ||
-		lowerTokenText === '&' ||
-		lowerTokenText === '<' ||
-		lowerTokenText === '>' ||
-		lowerTokenText === '<=' ||
-		lowerTokenText === '>=' ||
-		lowerTokenText === '<>' ||
-		lowerTokenText === '^' ||
-		lowerTokenText === 'and' ||
-		lowerTokenText === 'or' ||
-		lowerTokenText === 'xor' ||
-		lowerTokenText === 'eqv' ||
-		lowerTokenText === 'imp' ||
-		lowerTokenText === 'mod' ||
-		lowerTokenText === 'not' ||
-		lowerTokenText === 'like' ||
-		lowerTokenText === 'is'
-	);
 }
 
 function runtimeDocumentation(fn: VbaRuntimeFunction): string {

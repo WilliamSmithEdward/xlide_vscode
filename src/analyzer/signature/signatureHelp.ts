@@ -19,8 +19,6 @@
 // shows the call tip in both forms. Signatures are never invented: a callee
 // with no known signature simply yields no tip.
 
-import { tokenize } from '../lexer/tokenize';
-import { VbaToken } from '../lexer/tokenKinds';
 import { parseModule } from '../parser/parseModule';
 import { DeclareNode, ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletions, MemberCompletionContext } from '../completion/memberAccess';
@@ -35,6 +33,11 @@ import {
 	type VbaProcedureParam,
 	procedureSignatureLabel,
 } from '../symbols/symbolModel';
+import {
+	findActiveCallSite,
+	type VbaCallSite as CallSite,
+	STATEMENT_KEYWORDS,
+} from '../call/callContext';
 
 /** A single parameter slot within a signature label. */
 export interface SignatureParameter {
@@ -70,230 +73,7 @@ export interface SignatureHelpContext extends MemberCompletionContext {
 	docRegistry?: DocRegistry;
 }
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-/** Statement-leading keywords that must never be treated as parenless calls. */
-export const STATEMENT_KEYWORDS = new Set([
-	'dim', 'set', 'let', 'const', 'redim', 'static', 'global', 'public',
-	'private', 'friend', 'if', 'elseif', 'else', 'then', 'for', 'next', 'do',
-	'loop', 'while', 'wend', 'with', 'select', 'case', 'end', 'exit', 'on',
-	'goto', 'gosub', 'return', 'declare', 'type', 'enum', 'property', 'sub',
-	'function', 'option', 'get', 'resume', 'error', 'stop', 'open', 'close',
-	'print', 'write', 'input', 'line', 'name', 'kill', 'erase', 'lock',
-	'unlock', 'seek', 'put', 'mkdir', 'rmdir', 'chdir', 'chdrive', 'load',
-	'unload',
-]);
-
-function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
-	);
-}
-
-/** A located call whose argument list contains the caret. */
-interface CallSite {
-	calleeName: string;
-	/** True when the callee is `receiver.Member`. */
-	isMember: boolean;
-	/** True when the containing statement starts with the explicit `Call` keyword. */
-	isExplicitCall: boolean;
-	/** Absolute offset just past the callee identifier. */
-	calleeEndOffset: number;
-	/** Zero-based index of the argument the caret is in. */
-	activeParameter: number;
-}
-
-/**
- * Locates the innermost enclosing *parenthesized* call whose argument list the
- * caret sits in. Returns undefined when the caret is not inside any call paren
- * (a grouping paren or no paren).
- */
-function findParenCall(tokens: VbaToken[]): CallSite | undefined {
-	interface Frame {
-		isCall: boolean;
-		openIndex: number;
-		commaCount: number;
-	}
-	const stack: Frame[] = [];
-	for (let k = 0; k < tokens.length; k += 1) {
-		const t = tokens[k];
-		if (t.kind === 'newline' || t.rawText === ':') {
-			stack.length = 0;
-			continue;
-		}
-		const r = t.rawText;
-		if (r === '(') {
-			const prev = tokens[k - 1];
-			// A call paren is one preceded directly by an identifier-like token.
-			// A paren after ')' (default-member indexing) or an operator is a
-			// grouping/index paren and offers no signature.
-			const isCall = !!prev && isIdentLike(prev);
-			stack.push({ isCall, openIndex: k, commaCount: 0 });
-		} else if (r === ')') {
-			stack.pop();
-		} else if (r === ',' && stack.length > 0) {
-			stack[stack.length - 1].commaCount += 1;
-		}
-	}
-	for (let i = stack.length - 1; i >= 0; i -= 1) {
-		if (stack[i].isCall) {
-			const open = stack[i].openIndex;
-			const callee = tokens[open - 1];
-			const isMember = open - 2 >= 0 && tokens[open - 2].rawText === '.';
-			return {
-				calleeName: callee.rawText,
-				isMember,
-				isExplicitCall: isExplicitCallTarget(tokens, open - 1),
-				calleeEndOffset: callee.end,
-				activeParameter: stack[i].commaCount,
-			};
-		}
-	}
-	return undefined;
-}
-
-/**
- * Locates a parenless call statement -- e.g. `Workbooks.Open "file"` or
- * `MyMacro a, b` -- whose argument region the caret sits in. Conservative: only
- * fires when the statement begins with a non-keyword identifier chain followed
- * by whitespace (the argument separator) and contains no top-level `=` (which
- * would make it an assignment, not a call).
- */
-function findParenlessCall(
-	tokens: VbaToken[],
-	source: string,
-	offset: number,
-): CallSite | undefined {
-	let start = 0;
-	for (let k = tokens.length - 1; k >= 0; k -= 1) {
-		if (tokens[k].kind === 'newline' || tokens[k].rawText === ':') {
-			start = k + 1;
-			break;
-		}
-	}
-	const stmt = tokens.slice(start);
-	if (stmt.length === 0) {
-		return undefined;
-	}
-	let idx = 0;
-	const isExplicitCall = stmt[0].rawText.toLowerCase() === 'call';
-	if (isExplicitCall) {
-		idx = 1;
-	}
-	const calleeSite = parenlessCalleeSite(stmt, idx, source);
-	if (!calleeSite) {
-		return undefined;
-	}
-	const callee = stmt[calleeSite.calleeIndex];
-	if (!calleeSite.isMember && STATEMENT_KEYWORDS.has(callee.rawText.toLowerCase())) {
-		return undefined;
-	}
-	const afterTokens = stmt.slice(calleeSite.calleeIndex + 1);
-	const gap = source.slice(callee.end, offset);
-	const argsStarted = afterTokens.length > 0 || /\s/.test(gap);
-	if (!argsStarted) {
-		return undefined;
-	}
-	let depth = 0;
-	let commaCount = 0;
-	for (const t of afterTokens) {
-		const r = t.rawText;
-		if (r === '(' || r === '[') {
-			depth += 1;
-		} else if (r === ')' || r === ']') {
-			depth -= 1;
-		} else if (depth === 0) {
-			if (r === '=') {
-				return undefined; // assignment, not a call statement
-			}
-			if (r === ',') {
-				commaCount += 1;
-			}
-		}
-	}
-	return {
-		calleeName: callee.rawText,
-		isMember: calleeSite.isMember,
-		isExplicitCall,
-		calleeEndOffset: callee.end,
-		activeParameter: commaCount,
-	};
-}
-
-function parenlessCalleeSite(
-	stmt: readonly VbaToken[],
-	startIndex: number,
-	source: string,
-): { calleeIndex: number; isMember: boolean } | undefined {
-	if (startIndex >= stmt.length) {
-		return undefined;
-	}
-	let i = startIndex;
-	let isMember = false;
-	if (stmt[i].rawText === '.') {
-		isMember = true;
-		i += 1;
-	}
-	if (!stmt[i] || !isIdentLike(stmt[i])) {
-		return undefined;
-	}
-	let calleeIndex = i;
-	for (;;) {
-		const paren = stmt[i + 1];
-		if (paren?.rawText === '(' && noWhitespaceBetween(source, stmt[i], paren)) {
-			const close = matchParenFrom(stmt, i + 1);
-			if (close < 0 || stmt[close + 1]?.rawText !== '.') {
-				break;
-			}
-			i = close + 1;
-		}
-		if (stmt[i + 1]?.rawText !== '.') {
-			break;
-		}
-		const nextNameIndex = i + 2;
-		const nextName = stmt[nextNameIndex];
-		if (!nextName || !isIdentLike(nextName)) {
-			return undefined;
-		}
-		isMember = true;
-		i = nextNameIndex;
-		calleeIndex = i;
-	}
-	return { calleeIndex, isMember };
-}
-
-function noWhitespaceBetween(source: string, left: VbaToken, right: VbaToken): boolean {
-	return !/\s/.test(source.slice(left.end, right.start));
-}
-
-function matchParenFrom(tokens: readonly VbaToken[], open: number): number {
-	let depth = 0;
-	for (let i = open; i < tokens.length; i += 1) {
-		const raw = tokens[i].rawText;
-		if (raw === '(') {
-			depth += 1;
-		} else if (raw === ')') {
-			depth -= 1;
-			if (depth === 0) {
-				return i;
-			}
-		}
-	}
-	return -1;
-}
-
-function isExplicitCallTarget(tokens: readonly VbaToken[], calleeIndex: number): boolean {
-	let start = calleeIndex;
-	while (start > 0) {
-		const prev = tokens[start - 1];
-		if (prev.kind === 'newline' || prev.rawText === ':') {
-			break;
-		}
-		start--;
-	}
-	return tokens[start]?.rawText.toLowerCase() === 'call';
-}
+export { STATEMENT_KEYWORDS };
 
 function formatParam(p: ParameterNode): string {
 	// Matches the VBE call-tip convention: optional parameters are shown in
@@ -487,12 +267,7 @@ export function resolveSignatureHelp(
 		if (offset < 0) {
 			return undefined;
 		}
-		const prefix = source.slice(0, offset);
-		const tokens = tokenize(prefix).filter((t) => t.kind !== 'comment');
-		if (tokens.length === 0) {
-			return undefined;
-		}
-		const site = findParenCall(tokens) ?? findParenlessCall(tokens, source, offset);
+		const site = findActiveCallSite(source, offset);
 		if (!site) {
 			return undefined;
 		}

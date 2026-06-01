@@ -71,6 +71,13 @@ export {
 	TypeCompletionKind,
 } from './completion/typeCompletion';
 export {
+	bareCallStatementTarget,
+	findActiveCallSite,
+	BareCallStatementTarget,
+	VbaCallSite,
+	VbaTextSpan,
+} from './call/callContext';
+export {
 	IdentifierCompletion,
 	IdentifierCompletionContext,
 	IdentifierCompletionKind,

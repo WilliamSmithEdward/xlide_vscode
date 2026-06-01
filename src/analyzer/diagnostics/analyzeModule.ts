@@ -36,7 +36,7 @@ import {
 	runtimeAllowsExplicitCall,
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
-import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
+import { bareCallStatementTarget as callStatementTarget } from '../call/callContext';
 import type {
 	BodyNode,
 	ModuleMember,
@@ -882,100 +882,6 @@ function symbolKindLabel(sym: VbaSymbol): string {
 		default:
 			return 'a non-callable declaration';
 	}
-}
-
-/**
- * If the statement spanning `span` is a *call statement* whose callee is a bare
- * (non-member) identifier, returns that identifier and its absolute span;
- * otherwise undefined. Three forms qualify:
- *
- *   - a lone identifier (`DoStartup`),
- *   - a parenless call with arguments (`MsgBox "hi"`, `Foo 1, 2`), and
- *   - an explicit `Call` statement (`Call DoWork`, `Call Foo(1, 2)`).
- *
- * Disqualified (returns undefined): assignments (a top-level `=`), member calls
- * (a leading `receiver.`), line labels (`done:`), a statement keyword leader
- * (`Set`, `Open`, `Print`, ...), and the parenthesized/indexed form
- * `Name(...)...` for a non-`Call` statement - the latter is excluded because a
- * bare `Cells(1, 1)` or `Range("A1")` is an implicit Application member and must
- * never be flagged. `Call Name(...)` is still inspected because `Call` makes the
- * call unambiguous.
- */
-function callStatementTarget(
-	source: string,
-	span: Span,
-): { name: string; span: Span } | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-	if (toks.length === 0) {
-		return undefined;
-	}
-
-	let idx = 0;
-	const explicitCall = toks[0].rawText.toLowerCase() === 'call';
-	if (explicitCall) {
-		idx = 1;
-	}
-
-	const callee = toks[idx];
-	if (!callee || callee.kind !== 'identifier') {
-		return undefined;
-	}
-	if (STATEMENT_KEYWORDS.has(callee.rawText.toLowerCase())) {
-		return undefined;
-	}
-
-	const result = {
-		name: callee.rawText,
-		span: { start: span.start + callee.start, end: span.start + callee.end },
-	};
-
-	const next = toks[idx + 1];
-	if (!next) {
-		// A lone identifier (optionally `Call name`). For the non-Call form, an
-		// identifier immediately followed by `:` is a line label, not a call; the
-		// statement span excludes the colon, so peek past it in the full source.
-		if (!explicitCall) {
-			let j = span.start + callee.end;
-			while (j < source.length && (source[j] === ' ' || source[j] === '\t')) {
-				j++;
-			}
-			if (source[j] === ':') {
-				return undefined;
-			}
-		}
-		return result;
-	}
-
-	const r = next.rawText;
-	if (r === '.' || r === ':') {
-		return undefined; // member call or label/separator artifact
-	}
-	if (!explicitCall && r === '(') {
-		return undefined; // index/group/implicit host member - defer
-	}
-	if (!explicitCall) {
-		// The first argument must be separated from the callee by whitespace; this
-		// is what makes it a parenless call rather than e.g. `a=b` glued together.
-		const gap = source.slice(span.start + callee.end, span.start + next.start);
-		if (!/\s/.test(gap)) {
-			return undefined;
-		}
-	}
-	// A top-level `=` (outside any parentheses/brackets) makes this an assignment.
-	let depth = 0;
-	for (let k = idx + 1; k < toks.length; k++) {
-		const tr = toks[k].rawText;
-		if (tr === '(' || tr === '[') {
-			depth++;
-		} else if (tr === ')' || tr === ']') {
-			depth--;
-		} else if (depth === 0 && tr === '=') {
-			return undefined;
-		}
-	}
-	return result;
 }
 
 /** Access/storage modifiers that may lead a procedure declaration. */

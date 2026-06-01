@@ -755,8 +755,8 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   procedure visible as a bare call from the current module (the provider passes
 >   `ProjectIndex.visibleProcedureNames(moduleName)` as `knownProcedures`), no runtime
 >   function/statement, no host global or `Application` member, and no in-scope
->   declaration. `callStatementTarget` accepts the three unambiguous forms - a
->   lone identifier, a parenless call with arguments (`msrbox ""`), and an
+>   declaration. `bareCallStatementTarget` accepts the three unambiguous forms - a
+>   lone identifier, a parenless call with arguments (`MsgBox ""`), and an
 >   explicit `Call name`. Assignments (any top-level `=`), member calls, line
 >   labels, and the implicit-host-member form `Cells(1, 1)` / `Range("A1")` are
 >   deliberately not touched. The rule is skipped entirely when
@@ -896,7 +896,10 @@ Do not ship low-confidence diagnostics by default.
 > chains inside an active `With ... End With` block against the `With` receiver;
 > completion, hover, signature help (including parenless `.Method arg, ...`
 > call tips), canonical casing, call-completion parenthesis insertion, and
-> diagnostics now use that same path. Resolved
+> diagnostics now use that same path. Parenthesized calls, parenless calls, and
+> explicit `Call` contexts are now classified in
+> `src/analyzer/call/callContext.ts` so signature help, callable completion
+> insertion, and bare-call diagnostics share one rule set. Resolved
 > type names (project, host, and primitive) also get semantic tokens and
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
 > `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by

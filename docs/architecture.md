@@ -638,9 +638,10 @@ Diagnostic severity policy:
   reminder (silent on empty/attribute-only modules), an `unknown-call`
   ("Sub or Function not defined") rule, an `invalid-proc-header`
   ("Invalid procedure declaration") rule, an `unbalanced-parens` rule, and an
-  `argument-count` ("Wrong number of arguments") rule. `callStatementTarget`
-  powers `unknown-call`: it accepts the three call forms whose callee is a bare
-  (non-member) identifier - a lone identifier, a parenless call with arguments
+  `argument-count` ("Wrong number of arguments") rule. `bareCallStatementTarget`
+  in `src/analyzer/call/callContext.ts` powers `unknown-call`: it accepts the
+  three call forms whose callee is a bare (non-member) identifier - a lone
+  identifier, a parenless call with arguments
   (`MsgBox "hi"`), and an explicit `Call name` - and flags the callee when the
   name resolves to no project procedure/Declare, runtime function/statement, host
   global, `Application` member, or in-scope declaration. It excludes member
