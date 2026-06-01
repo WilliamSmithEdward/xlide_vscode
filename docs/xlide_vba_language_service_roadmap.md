@@ -639,7 +639,8 @@ Recovery rules:
 > go-to-definition name resolution (locals/params -> same-module -> exported
 > cross-module), and duplicate-procedure detection. Cross-module visibility
 > follows MS-VBAL (default-Public procedures exported; Private/Dim/Friend module
-> members stay private). Covered by `tests/vbaSymbolGraph.test.ts` (30 tests).
+> members stay private; enum members inherit the visibility of their containing
+> `Enum`). Covered by `tests/vbaSymbolGraph.test.ts` (59 tests).
 > Verification-map rows added. The AST index now drives the live Go to
 > Definition, Find All References, and Rename providers in
 > `src/vbaLanguageProviders.ts` via `resolveDefinition`,
@@ -887,7 +888,10 @@ Do not ship low-confidence diagnostics by default.
 > Identifier completion offers
 > host-injected globals, code names, and the enclosing procedure's
 > params/locals plus module-level vars/consts/procs/Declares/enums/types, exported
-> standard-module project `Sub`/`Function`/`Declare` names visible as bare calls, runtime
+> standard-module project declarations from
+> `ProjectIndex.visibleIdentifierSymbols()` (globals, enums, enum members,
+> types, and procedures) with procedure signatures still coming from the shared
+> project-signature surface, runtime
 > constants, and generated Excel enum constants; it is
 > suppressed after `.`, after `As`, and in declaration-name positions. Exported
 > project procedure/Declare completions carry full callable signatures, declaring-module
@@ -1076,8 +1080,11 @@ Required behavior:
 > scope-aware `resolveDefinition`/`resolveQualifiedDefinition`; references and
 > rename use `referenceScope` to restrict the textual occurrence search to the
 > binding scope (local procedure, owning module, or whole project minus
-> privately-shadowing modules and locals). Covered by the new `referenceScope`
-> and `resolveQualifiedDefinition` cases in `tests/vbaSymbolGraph.test.ts`.
+> privately-shadowing modules and locals). Exported enum members use the same
+> module-level binding rule here as Option Explicit visibility, while private
+> enum members shadow only their own module. Covered by the `referenceScope`,
+> `resolveDefinition`, and `resolveQualifiedDefinition` cases in
+> `tests/vbaSymbolGraph.test.ts`.
 
 ### Goal
 

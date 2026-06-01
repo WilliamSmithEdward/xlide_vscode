@@ -66,6 +66,8 @@ export interface IdentifierCompletionContext {
 	codeNames?: string[];
 	/** Exported project procedures/Declares visible as bare calls from this module. */
 	projectProcedures?: readonly VbaProcedureSignature[];
+	/** Source-backed project declarations visible as bare identifiers from this module. */
+	projectSymbols?: readonly VbaSymbol[];
 	/** Name of the module being edited (for in-scope symbol resolution). */
 	moduleName?: string;
 	/** Workbook-project role of the module being edited. */
@@ -175,6 +177,7 @@ export function resolveIdentifierCompletions(
 	}
 
 	addProjectProcedures(ctx.projectProcedures, add);
+	addProjectSymbols(ctx.projectSymbols, add);
 
 	if (ctx.includeGlobals !== false) {
 		for (const g of getHostGlobals(ctx.model)) {
@@ -258,7 +261,7 @@ function addInScopeSymbols(
 		// Enum members are referenceable by their bare name.
 		if (child.kind === 'enum') {
 			for (const member of child.children ?? []) {
-				add(member.name, 'enumMember', `${child.name} member`);
+				addSymbol(member, add);
 			}
 		}
 	}
@@ -271,6 +274,15 @@ function addProjectProcedures(
 	for (const procedure of procedures ?? []) {
 		const detail = `${procedureDeclarationSignature(procedure)} in ${procedure.moduleName}`;
 		add(procedure.name, 'procedure', detail, projectProcedureDocumentation(procedure));
+	}
+}
+
+function addProjectSymbols(
+	symbols: readonly VbaSymbol[] | undefined,
+	add: AddFn,
+): void {
+	for (const symbol of symbols ?? []) {
+		addSymbol(symbol, add);
 	}
 }
 
@@ -350,6 +362,14 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 			return;
 		case 'enum':
 			add(symbol.name, 'enum', 'Enum', documentation);
+			return;
+		case 'enumMember':
+			add(
+				symbol.name,
+				'enumMember',
+				symbol.containerName ? `${symbol.containerName} member` : 'Enum member',
+				documentation,
+			);
 			return;
 		case 'type':
 			add(symbol.name, 'type', 'Type', documentation);

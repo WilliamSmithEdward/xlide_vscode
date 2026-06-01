@@ -310,7 +310,7 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | Provider | Behavior |
 |---|---|
 | `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
-| `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations) |
+| `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations, including enum members exported by their containing `Enum`) |
 | `ReferenceProvider` | Uses semantic binding before textual search: source-backed `object.Member` references are matched by their resolved class-member definition spans, project type-name tokens are matched through `resolveTypeDefinitions`, and ordinary identifiers still use `ProjectIndex.referenceScope` plus word-boundary search restricted to the binding scope; honors VS Code's include-declaration toggle |
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
@@ -490,7 +490,9 @@ into a pure analyzer layer and a thin VS Code provider:
   (`resolveIdentifierCompletions`): host-injected globals (`ThisWorkbook`,
   `ActiveSheet`, `Application`, ...), worksheet/document code names, the
   user's in-scope declarations (parameters, locals, module variables/constants,
-  procedures, external Declares, enums and their members, user types), built-in VBA runtime
+  procedures, external Declares, enums and their members, user types), visible
+  cross-module project declarations from `ProjectIndex.visibleIdentifierSymbols()`,
+  built-in VBA runtime
   functions (`MsgBox`, `Left`, `CLng`, `RGB`, ...), and built-in constants
   (`vbOKOnly`, `xlUp`, ...) from runtime/host metadata once a constant-like
   prefix is typed.
@@ -823,7 +825,8 @@ single module:
 - `src/analyzer/symbols/projectIndex.ts` is the `ProjectIndex` that aggregates
   modules and answers `documentSymbols`, `workspaceSymbols`, conservative
   `resolveDefinition` (locals/params -> same-module declarations -> exported
-  declarations in other modules), `resolveQualifiedDefinition` (the exported
+  declarations in other modules, with enum members inheriting project
+  visibility from their containing `Enum`), `resolveQualifiedDefinition` (the exported
   member of a named module, for `Module.Member` references), `referenceScope`
   (the binding scope of a name for scope-restricted reference/rename search),
   `visibleProcedureNames` (same-module procedures/Declares plus exported
@@ -831,7 +834,9 @@ single module:
   module),
   `visibleIdentifierNames` (same-module declarations, exported standard-module
   globals/types/enums and enum members, plus document/UserForm code names for
-  Option Explicit diagnostics),
+  Option Explicit diagnostics), `visibleIdentifierSymbols` (the source-backed
+  declaration objects for the same visible bare-identifier surface, consumed by
+  identifier completion),
   `visibleTypeNames` (class/document/UserForm module names plus visible
   `Type`/`Enum` declarations for `As`/`New` binding), `visibleNonTypeNames`
   (visible declarations that are known not to be type names, used only after

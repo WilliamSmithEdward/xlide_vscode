@@ -344,6 +344,45 @@ describe('ProjectIndex property and enum resolution', () => {
 		expect(hits[0].kind).toBe('enumMember');
 		expect(hits[0].containerName).toBe('Color');
 	});
+
+	it('resolves exported enum members across standard modules', () => {
+		const index = new ProjectIndex();
+		const globals = 'Public Enum SharedMode\n    SharedOnly\nEnd Enum\n';
+		const caller = 'Sub Use()\n    value = SharedOnly\nEnd Sub\n';
+		index.setModule({ moduleName: 'Globals', moduleKind: 'standard', source: globals });
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: caller });
+
+		const hits = index.resolveDefinition(
+			'Caller',
+			'SharedOnly',
+			offsetOf(caller, 'SharedOnly'),
+		);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].kind).toBe('enumMember');
+		expect(hits[0].moduleName).toBe('Globals');
+		expect(hits[0].containerName).toBe('SharedMode');
+		expect(nameText(globals, hits[0])).toBe('SharedOnly');
+	});
+
+	it('keeps private enum members private to their module', () => {
+		const index = new ProjectIndex();
+		const globals = 'Private Enum HiddenMode\n    HiddenOnly\nEnd Enum\n';
+		const caller = 'Sub Use()\n    value = HiddenOnly\nEnd Sub\n';
+		index.setModule({ moduleName: 'Globals', moduleKind: 'standard', source: globals });
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: caller });
+
+		expect(
+			index.resolveDefinition('Caller', 'HiddenOnly', offsetOf(caller, 'HiddenOnly')),
+		).toEqual([]);
+
+		const localHits = index.resolveDefinition(
+			'Globals',
+			'HiddenOnly',
+			offsetOf(globals, 'HiddenOnly'),
+		);
+		expect(localHits).toHaveLength(1);
+		expect(localHits[0].kind).toBe('enumMember');
+	});
 });
 
 describe('ProjectIndex duplicate procedure detection', () => {
@@ -1029,7 +1068,15 @@ describe('ProjectIndex resolveQualifiedDefinition', () => {
 	index.setModule({
 		moduleName: 'Module1',
 		moduleKind: 'standard',
-		source: 'Public Sub DoWork()\nEnd Sub\nPrivate Sub Hidden()\nEnd Sub\n',
+		source: [
+			'Public Sub DoWork()',
+			'End Sub',
+			'Private Sub Hidden()',
+			'End Sub',
+			'Public Enum SharedMode',
+			'    SharedOnly',
+			'End Enum',
+		].join('\n'),
 	});
 	index.setModule({
 		moduleName: 'Module2',
@@ -1045,6 +1092,13 @@ describe('ProjectIndex resolveQualifiedDefinition', () => {
 
 	it('does not resolve a Private member through a qualifier', () => {
 		expect(index.resolveQualifiedDefinition('Module1', 'Hidden')).toEqual([]);
+	});
+
+	it('resolves an exported enum member through a module qualifier', () => {
+		const hits = index.resolveQualifiedDefinition('Module1', 'SharedOnly');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].kind).toBe('enumMember');
+		expect(hits[0].containerName).toBe('SharedMode');
 	});
 
 	it('returns an empty array for an unknown qualifier module', () => {
@@ -1111,6 +1165,33 @@ describe('ProjectIndex referenceScope', () => {
 		const scope = index.referenceScope('Module2', 'Shared', 0);
 		expect(scope.kind).toBe('project');
 		expect(scope.searchModules.sort()).toEqual(['Module1', 'Module2']);
+	});
+
+	it('spans visible modules for an exported enum member', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source: 'Public Enum SharedMode\n    SharedOnly\nEnd Enum\n',
+		});
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source: 'Sub Use()\n    value = SharedOnly\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Shadow',
+			moduleKind: 'standard',
+			source: 'Private Enum LocalMode\n    SharedOnly\nEnd Enum\n',
+		});
+
+		const scope = index.referenceScope('Caller', 'SharedOnly', 0);
+		expect(scope.kind).toBe('project');
+		expect(scope.definitions).toHaveLength(1);
+		expect(scope.definitions[0].kind).toBe('enumMember');
+		expect(scope.definitions[0].moduleName).toBe('Globals');
+		expect(scope.searchModules.sort()).toEqual(['Caller', 'Globals']);
+		expect(scope.searchModules).not.toContain('Shadow');
 	});
 
 	it('excludes a module that re-declares the name privately', () => {

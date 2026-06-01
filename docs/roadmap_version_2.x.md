@@ -73,6 +73,14 @@ heuristic diagnostics.
   module, so Option Explicit diagnostics can distinguish undeclared assignment
   targets from same-module declarations, exported standard-module globals, enum
   members, and document/UserForm code names.
+- Navigation/reference/rename scope uses the same project binding rule for
+  exported enum members as Option Explicit visibility: enum members inherit
+  visibility from their containing `Enum`, while `Private Enum` members stay
+  module-private and shadow exported names only inside their module.
+- Bare identifier completion now consumes source-backed visible project
+  declarations from `ProjectIndex.visibleIdentifierSymbols()`, so exported
+  standard-module globals, enums, enum members, types, and procedures use the
+  same cross-module visibility rule as diagnostics and navigation.
 - Type names now share one resolver for completion, hover, and VS Code semantic
   tokens in declaration type positions and `New` expressions. Resolved VBA
   primitive types, Excel host types, classes, document modules, UserForms, UDTs,
@@ -357,8 +365,13 @@ Purpose: move from same-module checks to workbook-aware analysis.
   behavior.
 - [x] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
-- [ ] Resolve enums and enum members across modules.
-- [ ] Resolve UDT names across modules.
+- [x] Resolve enums and enum members across modules: public/default-public
+  standard-module enum members now bind through `ProjectIndex` for go to
+  definition, qualified definition, references, and rename scope; private enum
+  members remain module-private.
+- [x] Resolve UDT names across modules through the shared project type resolver
+  used by completion, hover, semantic tokens, diagnostics, and type-definition
+  navigation.
 - [ ] Add workbook-level fixture builder for project analysis tests.
 - [x] Keep current project-signature diagnostics stable under module order
   changes.

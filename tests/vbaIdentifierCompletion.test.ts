@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	callableCompletionShouldInsertParens,
 	getHostGlobals,
+	ProjectIndex,
 	resolveIdentifierCompletions,
 	IdentifierCompletionContext,
 } from '../src/analyzer';
@@ -155,6 +156,42 @@ describe('identifier completion - in-scope declarations', () => {
 		);
 		expect(got.find((c) => c.name === 'myFunction')?.documentation).toContain(
 			'Returns a test value.',
+		);
+	});
+
+	it('offers exported project globals, enums, and enum members from other modules', () => {
+		const project = new ProjectIndex();
+		const src = 'Sub Test()\n    Sh\nEnd Sub\n';
+		project.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: src });
+		project.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source: [
+				'Public SharedValue As Long',
+				'Public Enum SharedMode',
+				'    SharedOnly',
+				'End Enum',
+				'Private Enum HiddenMode',
+				'    SharedHidden',
+				'End Enum',
+			].join('\n'),
+		});
+
+		const got = resolveIdentifierCompletions(src, at(src, '    Sh'), {
+			moduleName: 'Caller',
+			projectSymbols: project.visibleIdentifierSymbols('Caller').filter(
+				(symbol) => symbol.moduleName !== 'Caller',
+			),
+			includeGlobals: false,
+			includeRuntime: false,
+		});
+		const gotNames = got.map((item) => item.name);
+		expect(gotNames).toContain('SharedValue');
+		expect(gotNames).toContain('SharedMode');
+		expect(gotNames).toContain('SharedOnly');
+		expect(gotNames).not.toContain('SharedHidden');
+		expect(got.find((item) => item.name === 'SharedOnly')?.detail).toBe(
+			'SharedMode member',
 		);
 	});
 

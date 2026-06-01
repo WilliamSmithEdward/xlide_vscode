@@ -586,6 +586,7 @@ class VbaMemberCompletionProvider
 		}
 		try {
 			const decoded = decodeModuleUri(document.uri);
+			const source = document.getText();
 			const entries = await this._loadModules(decoded.xlsmPath);
 			const codeNames: string[] = [];
 			let moduleKind: ModuleSymbolKind = 'standard';
@@ -598,17 +599,31 @@ class VbaMemberCompletionProvider
 					moduleKind = this._moduleKind(entry.type);
 				}
 			}
+			let projectSymbols: IdentifierCompletionContext['projectSymbols'];
+			let projectProcedures: IdentifierCompletionContext['projectProcedures'];
+			if (entries) {
+				const project = await this._buildProjectIndexFromEntries(
+					decoded.xlsmPath,
+					entries,
+					{
+						liveOverride: {
+							moduleName: decoded.moduleName,
+							moduleKind,
+							source,
+						},
+					},
+				);
+				projectSymbols = project.visibleIdentifierSymbols(decoded.moduleName)
+					.filter((symbol) => symbol.moduleName.toLowerCase() !== currentLower);
+				projectProcedures = project.visibleProcedureSignatures(decoded.moduleName)
+					.filter((procedure) => procedure.moduleName.toLowerCase() !== currentLower);
+			}
 			return {
 				codeNames,
 				moduleName: decoded.moduleName,
 				moduleKind,
-				projectProcedures: entries
-					? await this._loadCrossModuleProcedureSignatures(
-						decoded.xlsmPath,
-						entries,
-						currentLower,
-					)
-					: undefined,
+				projectProcedures,
+				projectSymbols,
 			};
 		} catch {
 			return {};

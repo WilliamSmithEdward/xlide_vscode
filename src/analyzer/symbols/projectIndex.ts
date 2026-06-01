@@ -61,10 +61,11 @@ export interface ShadowedSpan {
  *                 limited to {@link procedureSpan} in the single search module.
  *   - `module`  - a module-private declaration (or an unresolved name); search
  *                 is limited to the owning module.
- *   - `project` - an exported (Public/Global, or default-Public procedure)
- *                 declaration; search spans every module except those that
- *                 re-declare the name privately at module level, and excludes
- *                 procedures whose locals shadow the name ({@link shadowedSpans}).
+ *   - `project` - an exported (Public/Global, default-Public procedure, or
+ *                 exported enum member) declaration; search spans every module
+ *                 except those that re-declare the name privately at module
+ *                 level, and excludes procedures whose locals shadow the name
+ *                 ({@link shadowedSpans}).
  */
 export interface ReferenceScope {
 	kind: ReferenceScopeKind;
@@ -78,13 +79,16 @@ export interface ReferenceScope {
 	shadowedSpans: ShadowedSpan[];
 }
 
+interface ModuleLevelBinding {
+	symbol: VbaSymbol;
+	exported: boolean;
+}
 
 /**
- * A symbol declared at module level is "exported" for cross-module lookup when
- * it is explicitly Public/Global, or when it is an unmodified procedure in a
- * standard module (procedures default to Public there - MS-VBAL 5.3.1.1).
- * Dim/Private/Friend/Static and unmodified module variables/consts stay
- * module-private.
+ * A top-level symbol is "exported" for cross-module lookup when it is explicitly
+ * Public/Global, or when it is an unmodified procedure in a standard module
+ * (procedures default to Public there - MS-VBAL 5.3.1.1). Dim/Private/Friend/
+ * Static and unmodified module variables/consts stay module-private.
  */
 function isExported(symbol: VbaSymbol, moduleKind?: ModuleSymbolKind): boolean {
 	if (symbol.visibility === 'Public' || symbol.visibility === 'Global') {
@@ -135,6 +139,13 @@ function projectTypeKind(symbol: VbaSymbol): VbaProjectTypeKind | undefined {
 
 function isTypeExported(symbol: VbaSymbol): boolean {
 	return symbol.visibility !== 'Private';
+}
+
+function isEnumMemberExported(
+	enumSymbol: VbaSymbol,
+	moduleKind?: ModuleSymbolKind,
+): boolean {
+	return moduleKind === 'standard' && isTypeExported(enumSymbol);
 }
 
 function isVisibleProjectObjectMember(symbol: VbaSymbol): boolean {
@@ -387,19 +398,27 @@ export class ProjectIndex {
 			if (mod.moduleKind === 'document' || mod.moduleKind === 'userform') {
 				names.add(mod.moduleName.toLowerCase());
 			}
-			for (const symbol of mod.root.children ?? []) {
-				if (!this.isBareIdentifierVisible(symbol, mod, sameModule)) {
-					continue;
-				}
+			for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
 				names.add(symbol.name.toLowerCase());
-				if (symbol.kind === 'enum') {
-					for (const member of symbol.children ?? []) {
-						names.add(member.name.toLowerCase());
-					}
-				}
 			}
 		}
 		return names;
+	}
+
+	/**
+	 * Source-backed module-level symbols visible as bare identifiers from
+	 * `moduleName`. Document/UserForm code names are intentionally not included
+	 * here because they are object-module globals rather than source
+	 * declarations; callers that need them should use the workbook module list.
+	 */
+	visibleIdentifierSymbols(moduleName: string): VbaSymbol[] {
+		const currentLower = moduleName.toLowerCase();
+		const out: VbaSymbol[] = [];
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			out.push(...this.visibleModuleLevelIdentifierSymbols(mod, sameModule));
+		}
+		return out;
 	}
 
 	/**
@@ -412,16 +431,7 @@ export class ProjectIndex {
 		const names = new Set<string>();
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			for (const symbol of mod.root.children ?? []) {
-				if (!this.isBareIdentifierVisible(symbol, mod, sameModule)) {
-					continue;
-				}
-				if (symbol.kind === 'enum') {
-					for (const member of symbol.children ?? []) {
-						names.add(member.name.toLowerCase());
-					}
-					continue;
-				}
+			for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
 				if (projectTypeKind(symbol)) {
 					continue;
 				}
@@ -634,11 +644,7 @@ export class ProjectIndex {
 			if (mod.moduleName.toLowerCase() === moduleName.toLowerCase()) {
 				continue;
 			}
-			for (const symbol of this.moduleLevelMatches(mod, lower)) {
-				if (isExported(symbol, mod.moduleKind)) {
-					exported.push(symbol);
-				}
-			}
+			exported.push(...this.exportedModuleLevelMatches(mod, lower));
 		}
 		return exported;
 	}
@@ -656,9 +662,7 @@ export class ProjectIndex {
 		if (!mod) {
 			return [];
 		}
-		return this.moduleLevelMatches(mod, name.toLowerCase()).filter((symbol) =>
-			isExported(symbol, mod.moduleKind),
-		);
+		return this.exportedModuleLevelMatches(mod, name.toLowerCase());
 	}
 
 	/**
@@ -698,11 +702,9 @@ export class ProjectIndex {
 
 			const moduleHits = this.moduleLevelMatches(home, lower);
 			if (moduleHits.length > 0) {
-				if (moduleHits.some((symbol) => isExported(symbol, home.moduleKind))) {
-					return this.projectScope(
-						lower,
-						moduleHits.filter((symbol) => isExported(symbol, home.moduleKind)),
-					);
+				const exportedHomeHits = this.exportedModuleLevelMatches(home, lower);
+				if (exportedHomeHits.length > 0) {
+					return this.projectScope(lower, exportedHomeHits);
 				}
 				return {
 					kind: 'module',
@@ -718,11 +720,7 @@ export class ProjectIndex {
 			if (home && mod.moduleName.toLowerCase() === moduleName.toLowerCase()) {
 				continue;
 			}
-			for (const symbol of this.moduleLevelMatches(mod, lower)) {
-				if (isExported(symbol, mod.moduleKind)) {
-					exported.push(symbol);
-				}
-			}
+			exported.push(...this.exportedModuleLevelMatches(mod, lower));
 		}
 		if (exported.length > 0) {
 			return this.projectScope(lower, exported);
@@ -784,10 +782,10 @@ export class ProjectIndex {
 		const searchModules: string[] = [];
 		const shadowedSpans: ShadowedSpan[] = [];
 		for (const mod of this.modules.values()) {
-			const moduleHits = this.moduleLevelMatches(mod, lower);
+			const moduleHits = this.moduleLevelBindings(mod, lower);
 			const privatelyShadowed =
 				moduleHits.length > 0 &&
-				!moduleHits.some((symbol) => isExported(symbol, mod.moduleKind));
+				!moduleHits.some((binding) => binding.exported);
 			if (privatelyShadowed) {
 				continue;
 			}
@@ -835,18 +833,51 @@ export class ProjectIndex {
 		return isExported(symbol, mod.moduleKind);
 	}
 
+	private visibleModuleLevelIdentifierSymbols(
+		mod: ModuleSymbols,
+		sameModule: boolean,
+	): VbaSymbol[] {
+		const out: VbaSymbol[] = [];
+		for (const symbol of mod.root.children ?? []) {
+			if (!this.isBareIdentifierVisible(symbol, mod, sameModule)) {
+				continue;
+			}
+			out.push(symbol);
+			if (symbol.kind === 'enum') {
+				out.push(...(symbol.children ?? []));
+			}
+		}
+		return out;
+	}
+
 	/** Module-level declarations (incl. enum members) matching a lowercased name. */
 	private moduleLevelMatches(mod: ModuleSymbols, lower: string): VbaSymbol[] {
-		const hits: VbaSymbol[] = [];
+		return this.moduleLevelBindings(mod, lower).map((binding) => binding.symbol);
+	}
+
+	/** Exported module-level declarations (incl. exported enum members). */
+	private exportedModuleLevelMatches(mod: ModuleSymbols, lower: string): VbaSymbol[] {
+		return this.moduleLevelBindings(mod, lower)
+			.filter((binding) => binding.exported)
+			.map((binding) => binding.symbol);
+	}
+
+	/**
+	 * Module-level declaration bindings with their project visibility. Enum
+	 * members inherit project visibility from the containing Enum declaration.
+	 */
+	private moduleLevelBindings(mod: ModuleSymbols, lower: string): ModuleLevelBinding[] {
+		const hits: ModuleLevelBinding[] = [];
 		for (const symbol of mod.root.children ?? []) {
 			if (symbol.name.toLowerCase() === lower) {
-				hits.push(symbol);
+				hits.push({ symbol, exported: isExported(symbol, mod.moduleKind) });
 			}
 			// Enum members are referenceable at module scope by their bare name.
 			if (symbol.kind === 'enum') {
+				const exported = isEnumMemberExported(symbol, mod.moduleKind);
 				for (const member of symbol.children ?? []) {
 					if (member.name.toLowerCase() === lower) {
-						hits.push(member);
+						hits.push({ symbol: member, exported });
 					}
 				}
 			}
