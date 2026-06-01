@@ -631,6 +631,10 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   literal-tab indentation rule, so `While`, `Do`, `If`, `With`, procedure,
   `Select Case`, `Type`, `Enum`, `#If`, `For`, and `For Each` bodies do not
   drift into separate space/tab behavior.
+- [x] Conform static VS Code language-configuration indentation/folding regexes
+  to the shared smart-block opener contract, including complete-opener gates
+  for `For`, `For Each`, `Do While`, `Do Until`, `While`, `With`,
+  `Select Case`, `If`, and `#If`.
 - [ ] Use metadata categories to tune Problems output and future filters.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for

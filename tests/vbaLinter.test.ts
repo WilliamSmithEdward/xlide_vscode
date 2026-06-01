@@ -197,7 +197,9 @@ describe('detectSmartBlockOpener', () => {
 
     it('detects common structured block openers', () => {
         expect(detectSmartBlockOpener('Select Case value')).toEqual({ endKeyword: 'End Select' });
+        expect(detectSmartBlockOpener('Do')).toEqual({ endKeyword: 'Loop' });
         expect(detectSmartBlockOpener('Do While ready')).toEqual({ endKeyword: 'Loop' });
+        expect(detectSmartBlockOpener('Do Until ready')).toEqual({ endKeyword: 'Loop' });
         expect(detectSmartBlockOpener('While ready')).toEqual({ endKeyword: 'Wend' });
         expect(detectSmartBlockOpener('Private Type TPoint')).toEqual({ endKeyword: 'End Type' });
         expect(detectSmartBlockOpener('Enum Color')).toEqual({ endKeyword: 'End Enum' });
@@ -217,6 +219,8 @@ describe('detectSmartBlockOpener', () => {
         expect(detectSmartBlockOpener('With')).toBeUndefined();
         expect(detectSmartBlockOpener('For')).toBeUndefined();
         expect(detectSmartBlockOpener('For i = 1')).toBeUndefined();
+        expect(detectSmartBlockOpener('Do While')).toBeUndefined();
+        expect(detectSmartBlockOpener('Do Until')).toBeUndefined();
         expect(detectSmartBlockOpener('Select Case')).toBeUndefined();
         expect(detectSmartBlockOpener('While')).toBeUndefined();
         expect(detectSmartBlockOpener('#If VBA7')).toBeUndefined();

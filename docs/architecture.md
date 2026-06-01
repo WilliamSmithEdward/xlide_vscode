@@ -298,6 +298,9 @@ procedure declarations (`Sub`, `Function`, `Property Get/Let/Set`), declarations
 and constants, control-flow keywords, and built-in functions.
 `language-configuration/vba-language-configuration.json` configures the
 apostrophe line comment, brackets, indent rules, and procedure-based folding.
+Because VS Code language configuration is static JSON, tests keep its block
+indent/folding regexes aligned with the shared smart-block rules in
+`src/vbaLinter.ts` instead of letting it become a second behavioral source.
 
 **Symbol intelligence** — `src/vbaSymbolIndex.ts` keeps a workbook-scoped cache
 of parsed module symbols. Modules are parsed with a lightweight regex pass

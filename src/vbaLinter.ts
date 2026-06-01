@@ -655,6 +655,8 @@ function isCompleteSmartBlockOpener(t: string, kind: BlockKind): boolean {
                 /^For\s+Each\s+[A-Za-z_]\w*\s+In\s+\S/i.test(t) ||
                 /^For\s+[A-Za-z_]\w*\s*=.+\bTo\b.+/i.test(t)
             );
+        case 'Do':
+            return /^Do\s*$/i.test(t) || /^Do\s+(?:While|Until)\s+\S/i.test(t);
         case 'Select':
             return /^Select\s+Case\s+\S/i.test(t);
         case 'While':
