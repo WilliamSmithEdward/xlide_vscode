@@ -15,18 +15,26 @@
 // resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
 // declaration - the unambiguous VBE "Sub or Function not defined" error.
-// The `undeclared-variable` rule follows the same conservative pattern: it only
-// checks project-backed bare assignment targets under Option Explicit. Broader
-// flow-sensitive read references and arbitrary-expression unknown calls still
-// need a full expression binder and remain intentionally omitted to avoid false
-// positives.
+// The `undeclared-variable` rule follows the same conservative pattern: it runs
+// only when the caller has supplied project-visible names, and it scans
+// statement-level reads while deliberately skipping unresolved external-style
+// calls and type-name positions to avoid false positives.
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isReservedIdentifier } from '../lexer/keywordTable';
-import { getHostMembers, resolveHostAlias, resolveHostGlobal } from '../host/hostModel';
+import {
+	getHostMembers,
+	resolveHostAlias,
+	resolveHostConstant,
+	resolveHostGlobal,
+} from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
-import { resolveRuntimeFunction, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
+import {
+	resolveRuntimeConstant,
+	resolveRuntimeFunction,
+	type VbaRuntimeFunction,
+} from '../runtime/vbaRuntime';
 import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
 import type {
 	BodyNode,
@@ -1294,6 +1302,13 @@ function checkArgumentCount(
 			)) {
 				validateArity(memberCall.signature, memberCall.call, push);
 			}
+			for (const memberCall of memberStatementCalls(
+				source,
+				stmt.span,
+				memberCtx,
+			)) {
+				validateArity(memberCall.signature, memberCall.call, push);
+			}
 		});
 	}
 }
@@ -1691,6 +1706,19 @@ function checkArgumentTypes(
 				validateArgumentTypes(call, env, moduleSignatures, push);
 			}
 			for (const memberCall of memberExpressionCalls(
+				source,
+				stmt.span,
+				memberCtx,
+			)) {
+				validateArgumentTypesForSignature(
+					memberCall.signature,
+					memberCall.call,
+					env,
+					moduleSignatures,
+					push,
+				);
+			}
+			for (const memberCall of memberStatementCalls(
 				source,
 				stmt.span,
 				memberCtx,
@@ -2277,6 +2305,118 @@ function memberExpressionCalls(
 		});
 	}
 	return out;
+}
+
+function memberStatementCalls(
+	source: string,
+	span: Span,
+	memberCtx: MemberCompletionContext,
+): BoundMemberCall[] {
+	const toks = statementTokens(source, span);
+	if (toks.length === 0 || topLevelOperatorIndex(toks, '=') >= 0) {
+		return [];
+	}
+	const explicitCall = tokenText(toks[0]) === 'call';
+	const chainStart = explicitCall ? 1 : 0;
+	if (!tokenName(toks[chainStart])) {
+		return [];
+	}
+	const out: BoundMemberCall[] = [];
+	for (let i = chainStart + 2; i < toks.length; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || toks[i - 1]?.rawText !== '.') {
+			continue;
+		}
+		if (!isMemberStatementChainThrough(toks, chainStart, i)) {
+			continue;
+		}
+		const next = toks[i + 1];
+		if (next?.rawText === '(') {
+			continue; // parenthesized member calls are handled by memberExpressionCalls
+		}
+		if (explicitCall && next) {
+			continue; // Call p.Save arg is a call-requires-parens syntax error
+		}
+		if (next) {
+			const gap = source.slice(span.start + toks[i].end, span.start + next.start);
+			if (!/\s/.test(gap) || !isMemberParenlessArgumentStart(next)) {
+				continue;
+			}
+		}
+		const member = resolveExactMemberCompletion(
+			source,
+			name,
+			span.start + toks[i].end,
+			memberCtx,
+		);
+		if (!member?.signature) {
+			continue;
+		}
+		const argToks = toks.slice(i + 1);
+		const split = argToks.length === 0 ? emptyArgSplit() : splitArgSlots(argToks, span.start);
+		out.push({
+			signature: parseRuntimeDisplaySignature(member.name, member.signature),
+			call: {
+				name: member.name,
+				nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+				explicitCall,
+				slots: split.slots,
+				slotSpans: split.spans,
+				sliceStart: span.start,
+			},
+		});
+		break;
+	}
+	return out;
+}
+
+function isMemberStatementChainThrough(
+	toks: readonly VbaToken[],
+	startIdx: number,
+	memberIdx: number,
+): boolean {
+	if (!tokenName(toks[startIdx])) {
+		return false;
+	}
+	let i = startIdx + 1;
+	while (i < toks.length) {
+		const raw = toks[i]?.rawText;
+		if (raw === '(') {
+			const close = matchParenFrom(toks, i);
+			if (close < 0 || close >= memberIdx) {
+				return false;
+			}
+			i = close + 1;
+			continue;
+		}
+		if (raw !== '.') {
+			return false;
+		}
+		const nameIdx = i + 1;
+		if (!tokenName(toks[nameIdx])) {
+			return false;
+		}
+		if (nameIdx === memberIdx) {
+			return true;
+		}
+		i = nameIdx + 1;
+	}
+	return false;
+}
+
+function isMemberParenlessArgumentStart(tok: VbaToken): boolean {
+	if (
+		tok.kind === 'identifier' ||
+		tok.kind === 'keyword' ||
+		tok.kind === 'bracketedIdentifier' ||
+		tok.kind === 'stringLiteral' ||
+		tok.kind === 'dateLiteral' ||
+		tok.kind === 'integerLiteral' ||
+		tok.kind === 'floatLiteral'
+	) {
+		return true;
+	}
+	return tok.rawText === ',' || tok.rawText === '+' || tok.rawText === '-';
 }
 
 function validateArgumentTypes(
@@ -2999,9 +3139,9 @@ function checkOptionExplicit(
 
 /**
  * Rule: with `Option Explicit`, a variable must be declared before it can be
- * assigned. This first high-confidence slice covers bare assignment targets
- * (`name = ...`, `Let name = ...`, and `Set name = ...`) once the caller has
- * supplied the project-visible identifier set.
+ * assigned or read. The rule only runs once the caller has supplied the
+ * project-visible identifier set, so cross-module globals and enum members do
+ * not false-positive.
  */
 function checkUndeclaredVariables(
 	source: string,
@@ -3027,6 +3167,8 @@ function checkUndeclaredVariables(
 			knownIdentifiers.has(lower) ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name) !== undefined ||
+			resolveHostConstant(name) !== undefined ||
+			resolveRuntimeConstant(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);
 	};
@@ -3042,20 +3184,222 @@ function checkUndeclaredVariables(
 		for (const child of procSym?.children ?? []) {
 			locals.add(child.name.toLowerCase());
 		}
-		forEachStatement(member.body, (stmt) => {
-			const scalarTarget = bareAssignmentTarget(source, stmt.span);
-			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, stmt.span);
+		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
+			const reported = new Set<string>();
+			const report = (name: string, span: Span, mode: 'assigning to it' | 'using it'): void => {
+				const key = `${span.start}:${span.end}`;
+				if (reported.has(key) || isKnown(name, locals)) {
+					return;
+				}
+				reported.add(key);
+				push(
+					'undeclaredVariable',
+					`Variable not defined: '${name}'. Declare it before ${mode}, or remove Option Explicit.`,
+					span,
+				);
+			};
+			const scalarTarget = bareAssignmentTarget(source, span);
+			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, span);
 			const target = scalarTarget ?? objectTarget;
-			if (!target || isKnown(target.name, locals)) {
-				return;
+			if (target) {
+				report(target.name, target.span, 'assigning to it');
 			}
-			push(
-				'undeclaredVariable',
-				`Variable not defined: '${target.name}'. Declare it before assigning to it, or remove Option Explicit.`,
-				target.span,
-			);
+			for (const ref of undeclaredReadReferences(source, span, (name) => isKnown(name, locals))) {
+				report(ref.name, ref.span, 'using it');
+			}
 		});
 	}
+}
+
+function forEachUndeclaredReferenceSpan(
+	source: string,
+	body: BodyNode[],
+	visit: (span: Span) => void,
+): void {
+	for (const node of body) {
+		if (node.kind === 'Statement') {
+			visit(node.span);
+		} else if ('body' in node && Array.isArray(node.body)) {
+			visit(blockHeaderLineSpan(source, node.span));
+			if (node.kind === 'DoBlock') {
+				const footer = blockFooterLineSpan(source, node.span);
+				if (footer.start > node.span.start) {
+					visit(footer);
+				}
+			}
+			forEachUndeclaredReferenceSpan(source, node.body, visit);
+		}
+	}
+}
+
+function blockHeaderLineSpan(source: string, span: Span): Span {
+	const nl = firstLineBreakAtOrAfter(source, span.start);
+	if (nl < 0 || nl > span.end) {
+		return span;
+	}
+	return { start: span.start, end: nl };
+}
+
+function blockFooterLineSpan(source: string, span: Span): Span {
+	let start = span.end;
+	while (start > span.start && source[start - 1] !== '\n' && source[start - 1] !== '\r') {
+		start--;
+	}
+	return { start, end: span.end };
+}
+
+function firstLineBreakAtOrAfter(source: string, start: number): number {
+	for (let i = start; i < source.length; i++) {
+		const ch = source[i];
+		if (ch === '\n' || ch === '\r') {
+			return i;
+		}
+	}
+	return -1;
+}
+
+function undeclaredReadReferences(
+	source: string,
+	span: Span,
+	isKnown: (name: string) => boolean,
+): Array<{ name: string; span: Span }> {
+	const toks = statementTokens(source, span);
+	const out: Array<{ name: string; span: Span }> = [];
+	const skip = undeclaredReferenceSkipIndexes(source, span, toks, isKnown);
+	for (let i = 0; i < toks.length; i++) {
+		if (skip.has(i) || !isPotentialVariableReferenceToken(toks[i])) {
+			continue;
+		}
+		if (toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		const name = tokenName(toks[i]);
+		if (!name || isKnown(name)) {
+			continue;
+		}
+		out.push({
+			name,
+			span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+		});
+	}
+	return out;
+}
+
+function undeclaredReferenceSkipIndexes(
+	source: string,
+	span: Span,
+	toks: readonly VbaToken[],
+	isKnown: (name: string) => boolean,
+): Set<number> {
+	const skip = new Set<number>();
+	if (toks.length === 0) {
+		return skip;
+	}
+	if (toks[1]?.rawText === ':' || isLineLabelOnlyStatement(source, span, toks)) {
+		skip.add(0); // line label declaration
+	}
+
+	const call = callStatementTarget(source, span);
+	if (call) {
+		const callIdx = toks.findIndex((tok) => span.start + tok.start === call.span.start);
+		if (callIdx >= 0) {
+			skip.add(callIdx);
+			if (!isKnown(call.name)) {
+				// Unknown call targets may be external procedures or unresolved call
+				// errors; do not also guess about their argument identifiers.
+				for (let i = callIdx + 1; i < toks.length; i++) {
+					skip.add(i);
+				}
+			}
+		}
+	}
+
+	const assignment = simpleAssignmentLhsIdentifierIndex(toks);
+	if (assignment >= 0) {
+		skip.add(assignment);
+	}
+
+	for (let i = 0; i < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		if (word === 'new' && isPotentialVariableReferenceToken(toks[i + 1])) {
+			skip.add(i + 1);
+		}
+		if (word === 'is' && hasEarlierTypeOf(toks, i) && isPotentialVariableReferenceToken(toks[i + 1])) {
+			skip.add(i + 1);
+		}
+		if (isLabelReferenceKeyword(word) && isPotentialVariableReferenceToken(toks[i + 1])) {
+			skip.add(i + 1);
+		}
+		if (word === 'raiseevent' && isPotentialVariableReferenceToken(toks[i + 1])) {
+			skip.add(i + 1);
+		}
+		if (word === 'addressof' && isPotentialVariableReferenceToken(toks[i + 1])) {
+			skip.add(i + 1);
+		}
+		if (isNamedArgumentLabel(toks, i)) {
+			skip.add(i);
+		}
+	}
+
+	return skip;
+}
+
+function simpleAssignmentLhsIdentifierIndex(toks: readonly VbaToken[]): number {
+	let start = 0;
+	if (toks[1]?.rawText === ':') {
+		start = 2;
+	}
+	if (tokenText(toks[start]) === 'let' || tokenText(toks[start]) === 'set') {
+		start++;
+	}
+	const eq = topLevelOperatorIndex(toks.slice(start), '=');
+	if (eq !== 1) {
+		return -1;
+	}
+	const nameTok = toks[start];
+	return nameTok && nameTok.kind === 'identifier' ? start : -1;
+}
+
+function isLineLabelOnlyStatement(
+	source: string,
+	span: Span,
+	toks: readonly VbaToken[],
+): boolean {
+	if (toks.length !== 1 || !isPotentialVariableReferenceToken(toks[0])) {
+		return false;
+	}
+	let j = span.start + toks[0].end;
+	while (j < source.length && (source[j] === ' ' || source[j] === '\t')) {
+		j++;
+	}
+	return source[j] === ':';
+}
+
+function isPotentialVariableReferenceToken(tok: VbaToken | undefined): boolean {
+	return tok?.kind === 'identifier' || tok?.kind === 'bracketedIdentifier';
+}
+
+function hasEarlierTypeOf(toks: readonly VbaToken[], before: number): boolean {
+	for (let i = 0; i < before; i++) {
+		if (tokenText(toks[i]) === 'typeof') {
+			return true;
+		}
+	}
+	return false;
+}
+
+function isLabelReferenceKeyword(word: string): boolean {
+	return word === 'goto' || word === 'gosub' || word === 'resume';
+}
+
+function isNamedArgumentLabel(toks: readonly VbaToken[], index: number): boolean {
+	if (!isPotentialVariableReferenceToken(toks[index])) {
+		return false;
+	}
+	if (toks[index + 1]?.rawText === ':=') {
+		return true;
+	}
+	return toks[index + 1]?.rawText === ':' && toks[index + 2]?.rawText === '=';
 }
 
 function hasOptionExplicit(mod: ModuleNode): boolean {

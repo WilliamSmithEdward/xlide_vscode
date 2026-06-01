@@ -182,6 +182,39 @@ function renderMember(member) {
 	return `\t\t{ ${parts.join(', ')} },`;
 }
 
+function constantFrom(raw, enumName) {
+	if (!raw?.name) {
+		return undefined;
+	}
+	return {
+		name: raw.name,
+		type: enumName,
+		...(raw.value !== undefined ? { value: raw.value } : {}),
+		source: 'external',
+	};
+}
+
+function collectConstants() {
+	const byName = new Map();
+	for (const { dump } of dumps.values()) {
+		for (const raw of dump.constants ?? []) {
+			const constant = constantFrom(raw, dump.name);
+			if (!constant) {
+				continue;
+			}
+			const key = constant.name.toLowerCase();
+			if (!byName.has(key)) {
+				byName.set(key, constant);
+			}
+		}
+	}
+	return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'en'));
+}
+
+function renderConstant(constant) {
+	return `\t${JSON.stringify(constant.name)}: ${JSON.stringify(constant)},`;
+}
+
 function provenanceFor(typeName) {
 	const entry = dumps.get(typeName);
 	if (!entry) {
@@ -251,6 +284,7 @@ function typeCoverage(entry) {
 const coverage = [...dumps.values()]
 	.map(typeCoverage)
 	.sort((a, b) => a.name.localeCompare(b.name, 'en'));
+const constants = collectConstants();
 
 function countWhere(predicate) {
 	return coverage.filter(predicate).length;
@@ -369,7 +403,7 @@ ${markdownTable(
 ## Notes
 
 - Runtime extension code does not read \`reference/\`; promoted metadata is checked in under \`src/\`.
-- Promoted members preserve available signatures and documentation summaries/parameter notes for language-service surfaces and signature-backed arity/type diagnostics.
+- Promoted members and enum constants preserve available signatures, documentation summaries/parameter notes, types, and values for language-service surfaces and diagnostics.
 - Excel events are counted for coverage but are intentionally not emitted into object-member surfaces; VBE does not expose events as callable object methods/properties. Event handler authoring uses a separate module-scoped metadata path.
 - Completion may use partial metadata, but hard \`member-not-found\` diagnostics require a promoted exhaustive surface.
 - Promotion remains type-by-type so each host surface can get representative tests and oracle controls before red diagnostics rely on absence.
@@ -381,12 +415,13 @@ function renderOutput() {
 		.map((typeName) => `\t${JSON.stringify(typeName)}: ${JSON.stringify(provenanceFor(typeName))},`)
 		.join('\n');
 	const memberSetEntries = promotedTypes.map(renderPromotedMemberSet).join('\n');
+	const constantEntries = constants.map(renderConstant).join('\n');
 	const workbookProvenance = provenanceFor('Workbook');
 
 	return `// Generated from reference/excel/json. Do not hand-edit member names here.
 // Regenerate from the repo-local reference dump with \`npm run generate:reference:excel\`.
 
-import type { HostMember } from './excelObjectModel';
+import type { HostConstant, HostMember } from './excelObjectModel';
 
 export const EXCEL_REFERENCE_PROMOTED_TYPES = ${JSON.stringify(promotedTypes)} as const;
 
@@ -396,6 +431,10 @@ ${provenanceEntries}
 
 export const EXCEL_REFERENCE_MEMBER_SETS: Record<string, readonly HostMember[]> = {
 ${memberSetEntries}
+};
+
+export const EXCEL_REFERENCE_ENUM_CONSTANTS: Record<string, HostConstant> = {
+${constantEntries}
 };
 
 export const EXCEL_WORKBOOK_REFERENCE_PROVENANCE = ${JSON.stringify(workbookProvenance)};

@@ -167,6 +167,25 @@ describe('hover - built-in VBA runtime', () => {
 		expect(cstr?.signature).toBe('CStr(Expression) As String');
 	});
 
+	it('describes built-in VBA and Excel constants', () => {
+		const src =
+			'Sub T()\n' +
+			'    MsgBox "hi", vbOKOnly\n' +
+			'    ActiveSheet.Range("A1").End(xlUp).Select\n' +
+			'End Sub\n';
+		const vb = resolveHover(src, src.indexOf('vbOKOnly') + 2, {
+			moduleName: 'M',
+		});
+		expect(vb?.signature).toBe('Const vbOKOnly As VbMsgBoxStyle = 0');
+		expect(vb?.details).toContain('VBA runtime constant');
+
+		const xl = resolveHover(src, src.indexOf('xlUp') + 2, {
+			moduleName: 'M',
+		});
+		expect(xl?.signature).toBe('Const xlUp As XlDirection = -4162');
+		expect(xl?.details).toContain('Excel constant');
+	});
+
 	it('lets a user symbol shadow a built-in of the same name', () => {
 		// A user Function named Format must win over the runtime Format().
 		const src =

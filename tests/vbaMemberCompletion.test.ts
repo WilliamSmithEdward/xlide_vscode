@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	ProjectIndex,
 	resolveMemberCompletions,
+	resolveHostConstant,
 	resolveHostGlobal,
 	resolveHostAlias,
 	resolveHostMemberSignature,
@@ -31,6 +32,12 @@ describe('host model resolution', () => {
 		expect(resolveHostGlobal('ActiveSheet')).toBe('Excel.Worksheet');
 		expect(resolveHostGlobal('ActiveWorkbook')).toBe('Excel.Workbook');
 		expect(resolveHostGlobal('NotAGlobal')).toBeUndefined();
+	});
+
+	it('resolves generated host enum constants case-insensitively', () => {
+		expect(resolveHostConstant('xlUp')?.type).toBe('XlDirection');
+		expect(resolveHostConstant('XLUP')?.name).toBe('xlUp');
+		expect(resolveHostConstant('notAConstant')).toBeUndefined();
 	});
 
 	it('resolves As-type aliases case-insensitively', () => {

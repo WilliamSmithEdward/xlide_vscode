@@ -81,7 +81,7 @@
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_linting_final_hardening_cases.md"
       ],
-      "notes": "Active rule covers project-backed bare assignment and Set targets under Option Explicit. Broader read references and indexed targets remain deferred until the expression binder has enough built-in constant/global coverage to avoid false positives.",
+      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -130,7 +130,7 @@
       ],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Same-module signatures come from the AST. Cross-module checks run only for exported standard-module Sub/Function signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only."
+      "notes": "Same-module signatures come from the AST. Cross-module checks run only for exported standard-module Sub/Function signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements."
     },
     {
       "code": "argument-type-mismatch",
@@ -146,7 +146,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully. Cross-module checks use exported standard-module project Sub/Function signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully. Cross-module checks use exported standard-module project Sub/Function signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

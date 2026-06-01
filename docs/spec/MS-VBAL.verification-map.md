@@ -150,6 +150,7 @@ from the MS-VBAL core-language grammar. Tracked rows:
 |---|---|---|---|---|
 | Host global -> type resolution table | src/analyzer/host/hostModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object model docs | Verified |
 | Excel object-model member metadata | src/analyzer/host/excelObjectModel.ts + src/analyzer/host/excelReferenceMembers.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30; promoted reference metadata generated from `reference/excel/json` for `Application`, `Workbook`, `Worksheet`, `Range`, `Workbooks`, `Worksheets`, and `Sheets` | Verified |
+| Excel enum constants (`xlUp`, ...) | src/analyzer/host/excelReferenceMembers.ts + src/analyzer/host/hostModel.ts | tests/vbaMemberCompletion.test.ts + tests/vbaRuntime.test.ts + tests/vbaHover.test.ts + tests/vbaDiagnostics.test.ts | generated from `reference/excel/json` enum dumps, tracked in docs/excel_reference_coverage.md | Verified |
 | Exhaustive `Excel.Workbook` member surface | src/analyzer/host/excelReferenceMembers.ts | tests/vbaMemberCompletion.test.ts + tests/vbaDiagnostics.test.ts + docs/excel_reference_coverage.md | `reference/excel/json/Workbook.json` plus VBE oracle `thisworkbook_unknown_member_compile` | Verified |
 | Excel collection types (Workbooks/Worksheets/Sheets) + globals | src/analyzer/host/excelObjectModel.ts | tests/vbaMemberCompletion.test.ts | Office VBA object-model reference (learn.microsoft.com), verified 2026-05-30 | Verified |
 | Member-access chain resolution | src/analyzer/completion/memberAccess.ts | tests/vbaMemberCompletion.test.ts | 5.6 (member access) plus host metadata return/default-member facts and simple `Set` assignment refinement for completion | Verified |
@@ -175,13 +176,15 @@ originally suggested, matching the host-model precedent for compile-time checkin
 | Feature | Implementation File | Fixture | Source | Status |
 |---|---|---|---|---|
 | Built-in runtime function/statement signatures | src/analyzer/runtime/vbaRuntime.ts | tests/vbaRuntime.test.ts | learn.microsoft.com/office/vba/language + MS-VBAL | Verified |
+| Built-in runtime constants (`vbOKOnly`, `vbCrLf`, ...) | src/analyzer/runtime/vbaRuntime.ts | tests/vbaRuntime.test.ts + tests/vbaHover.test.ts + tests/vbaDiagnostics.test.ts | learn.microsoft.com/office/vba/language + `reference/vba/json` | Verified |
 | Runtime hover resolution (after user/host/code-name) | src/analyzer/hover/resolveHover.ts | tests/vbaHover.test.ts | n/a | Verified |
-| Runtime identifier completion (`runtime` kind) | src/analyzer/completion/identifierCompletion.ts | tests/vbaRuntime.test.ts | n/a | Verified |
+| Runtime identifier completion (`runtime` function kind plus constant completions) | src/analyzer/completion/identifierCompletion.ts | tests/vbaRuntime.test.ts | n/a | Verified |
 
-Verification rule: built-in signatures must be transcribed from the Microsoft
-VBA language reference or MS-VBAL, never invented. Names that collide with
-intrinsic data types (`Date`, `Time`, `String`, `Error`) are deliberately
-omitted to avoid type/function ambiguity in `As` positions.
+Verification rule: built-in signatures and constants must be transcribed from
+the Microsoft VBA language reference, MS-VBAL, or checked-in reference dumps,
+never invented. Names that collide with intrinsic data types (`Date`, `Time`,
+`String`, `Error`) are deliberately omitted to avoid type/function ambiguity in
+`As` positions.
 
 ---
 
@@ -224,12 +227,12 @@ family) in `registerVbaDiagnostics`.
 | `duplicate-module-variable` | Module-level variable redeclared | 5.2.3 (module variable declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `const-assignment` | Assignment to a declared `Const` | 5.4.3.1 (Const cannot be assigned) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `option-explicit-missing` | Code module omits `Option Explicit` (configurable) | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
-| `undeclared-variable` | `Option Explicit` module assigns to a bare scalar or `Set` target that resolves to no local/module/project/runtime/host identifier; missing `Option Explicit` remains implicit Variant | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts + src/analyzer/symbols/projectIndex.ts | tests/vbaDiagnostics.test.ts + tests/vbaSymbolGraph.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
+| `undeclared-variable` | `Option Explicit` module writes to or reads an identifier in a high-confidence value position that resolves to no local/module/project/runtime/host identifier; covered positions include bare assignment/`Set` targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases, while type-name, label, named-argument, and unresolved external-call positions are skipped; runtime constants (`vbOKOnly`) and generated Excel enum constants (`xlUp`) suppress false positives; missing `Option Explicit` remains implicit Variant | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts + src/analyzer/symbols/projectIndex.ts | tests/vbaDiagnostics.test.ts + tests/vbaSymbolGraph.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `unknown-call` | Call statement whose callee is a bare (non-member) identifier - lone identifier, parenless args (`MsgBox "hi"`), or `Call Foo` - that resolves to no project procedure, runtime function, host global, `Application` member, or in-scope name | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `invalid-proc-header` | A `Sub`/`Function`/`Property` header where a token other than `(` (or `As` for a `Function`/`Property Get`) follows the procedure name (e.g. `Sub My Sub`) | 5.3.1 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `invalid-declaration-name` | An unbracketed reserved identifier such as `Dim` or `In` is used where a procedure, variable, parameter, Type, Enum, field, or enum-member declaration name must be an IDENTIFIER; bracketed FOREIGN-NAME forms are accepted | 3.3.5.2 (reserved identifiers) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `unbalanced-parens` | A `(` left open at a statement boundary, or a `)` with no matching `(`, within one logical statement | 3.3.1 (special tokens) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
-| `argument-count` | A call statement to a same-module, unique exported project, module-qualified exported standard-module Sub/Function, or verified runtime function with an explicit parameter-list signature supplies too few/too many arguments (Optional/ParamArray aware), a named argument names no parameter, or a valid parenthesized source-backed/host member-call context violates a known member signature | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `argument-count` | A call statement to a same-module, unique exported project, module-qualified exported standard-module Sub/Function, or verified runtime function with an explicit parameter-list signature supplies too few/too many arguments (Optional/ParamArray aware), a named argument names no parameter, or a valid source-backed/host member-call context, parenthesized or parenless, violates a known member signature | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `argument-type-mismatch` | A same-module, unique exported project, module-qualified exported standard-module, curated runtime, or known source-backed/host member call receives an argument whose inferred type is a provable deterministic runtime type error; focused oracle cases compile successfully but runtime probes raise error 13 for nonnumeric string-to-numeric coercion while numeric-string controls run | 5.3.1 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `argument-object-type-mismatch` | A same-module, curated runtime, source-backed member, or host/reference member call receives a scalar argument where an object parameter is required; error severity because a focused VBE oracle case rejects it at compile time | 5.3.1 | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `assignment-type-mismatch` | A scalar assignment, including a Function/Property Get return name or source-backed writable workbook class property/public field, receives a value whose inferred type is a provable deterministic runtime type error; focused oracle cases compile successfully but runtime probes raise error 13 for nonnumeric string-to-numeric/Boolean/property/public-field coercion while valid coercion controls run | 5.4.3 / runtime type coercion | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
@@ -253,11 +256,13 @@ family) in `registerVbaDiagnostics`.
 | `exit-wrong-proc` | An `Exit Sub`/`Exit Function`/`Exit Property` does not match the enclosing procedure kind (`Exit Do`/`Exit For` excluded) | 5.4.1.3 (Exit statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `option-after-declaration` | An `Option` statement appears after a declaration or procedure (only `Attribute` lines may precede it) | 5.2.1 (module options) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 
-Deliberately deferred (not shipped): broad read-reference and indexed-target
-forms of `undeclared-variable` plus the broad arbitrary-expression
-form of `unknown-call`. The `undeclared-variable` rule now ships for
-project-backed bare assignment/`Set` targets under `Option Explicit`. The
-`unknown-call` rule now ships for the three
+Deliberately deferred (not shipped): full flow-aware identifier binding,
+ambiguous external-reference behavior, and the broad arbitrary-expression form
+of `unknown-call`. The `undeclared-variable` rule now ships for project-backed
+`Option Explicit` write/read positions, including bare assignment/`Set` targets,
+RHS and call-argument reads, control-flow block headers, member receivers, and
+indexed bases, while skipping type-name, label, named-argument, and unresolved
+external-style call positions. The `unknown-call` rule now ships for the three
 unambiguous call forms - a lone identifier, a parenless call with arguments
 (`msrbox ""`), and an explicit `Call` - while the implicit-host-member form
 `Cells(1, 1)` / `Range("A1")` and any statement containing a top-level `=`
@@ -266,8 +271,8 @@ are handled first by `call-statement-forbids-parens` when the target is a known
 same-module/exported project procedure or a known member-call shape.
 Argument-count validation (`argument-count`) is likewise limited to
 same-module, deterministic project signature calls, verified runtime signatures
-with explicit parameter lists, and valid parenthesized member-call contexts
-whose source/host metadata provides a known signature: ambiguous bare exported
+with explicit parameter lists, and valid parenthesized or parenless member-call
+contexts whose source/host metadata provides a known signature: ambiguous bare exported
 project names stay silent, while module-qualified standard-module calls resolve
 through the named module only.
 Argument and assignment type diagnostics ship only where the local expression

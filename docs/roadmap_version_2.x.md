@@ -133,10 +133,10 @@ heuristic diagnostics.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
-- `undeclared-variable` now covers the project-backed bare assignment/`Set`
-  target slice under `Option Explicit`, including
-  `notDeclared = ThisWorkbook.CanCheckIn()`, while missing `Option Explicit`
-  continues to allow implicit Variant assignment.
+- `undeclared-variable` now covers project-backed `Option Explicit` write/read
+  positions: bare assignment/`Set` targets, RHS and call-argument reads,
+  control-flow block headers, member receivers, and indexed bases. Missing
+  `Option Explicit` continues to allow implicit Variant assignment.
 - `missing-return-assignment` warns when a `Function` or `Property Get` never
   assigns its return variable. This is intentionally a type-safety warning:
   VBA falls through to the default value rather than raising a VBE compile error.
@@ -345,9 +345,17 @@ Purpose: move from same-module checks to workbook-aware analysis.
   project-backed `Option Explicit` assignment-target diagnostics: same-module
   declarations, exported standard-module globals, visible enum members, and
   document/UserForm code names.
-- [ ] Model broader identifier reference visibility and shadowing for read uses,
-  indexed assignment targets, built-in constants, and arbitrary expressions.
-- [ ] Resolve `As` type names against project classes, UDTs, enums, and host
+- [x] Extend `undeclared-variable` to conservative read-reference coverage:
+  RHS and call-argument identifiers, block-header expressions, member receivers,
+  and indexed bases, while skipping type-name, label, named-argument, and
+  unresolved external-style call positions.
+- [x] Resolve built-in VBA runtime constants and generated Excel enum constants
+  in completion, hover, and project-backed `Option Explicit` diagnostics so
+  common names such as `vbOKOnly`, `vbFalse`, and `xlUp` do not false-positive.
+- [ ] Model full identifier shadowing and arbitrary-expression binding,
+  including external-reference constants/globals and ambiguous external-reference
+  behavior.
+- [x] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
 - [ ] Resolve enums and enum members across modules.
 - [ ] Resolve UDT names across modules.
@@ -399,6 +407,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
 - [x] Preserve generated Excel reference member signatures and documentation in
   the promoted host metadata, enriching overlapping curated members through the
   shared completion/hover/signature-help member surface.
+- [x] Generate Excel enum constants from `reference/excel/json` into the host
+  metadata and expose them through the shared host resolver for completion,
+  hover, and high-confidence diagnostics.
 - [x] Promote generated non-exhaustive core Excel surfaces for completion and
   chaining: `Application`, `Worksheet`, `Range`, `Workbooks`, `Worksheets`, and
   `Sheets` now merge dump-backed member names, signatures, and documentation
@@ -411,9 +422,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   `Workbooks(1).Worksheets(1).Range("A1").`; indexed `Sheets` routes through a
   merged worksheet/chart item surface for completion without treating
   non-exhaustive host surfaces as absence proof.
-- [x] Reuse the shared member-completion binder for parenthesized object member
-  arity/type diagnostics when a source-backed or host/reference signature is
-  known.
+- [x] Reuse the shared member-completion binder for object member arity/type
+  diagnostics when a source-backed or host/reference signature is known,
+  including parenthesized member calls and parenless member call statements.
 - [x] Split member-call signature validation from VBA call-statement syntax. VBE
   rejects standalone zero-argument calls such as `myFunction()`,
   `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
@@ -421,7 +432,8 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   call remains valid in expression context or with explicit `Call`. Known
   same-module and exported standard-module procedures use the project procedure
   surface, while non-empty standalone member/property forms such as
-  `ActiveSheet.Range("A1")` stay on the normal signature-validation path.
+  `ActiveSheet.Range("A1")` and parenless member call statements such as
+  `p.Save "ok"` stay on the normal signature-validation path.
 - [x] Exclude host events from object-member surfaces. VBE rejects calls such as
   `ThisWorkbook.AfterSave True` with `Method or data member not found`, so event
   names are reserved for document-module handler authoring instead of appearing

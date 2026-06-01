@@ -4,6 +4,7 @@
 
 import {
 	EXCEL_OBJECT_MODEL,
+	HostConstant,
 	HostMember,
 	HostObjectModel,
 	HostType,
@@ -11,6 +12,21 @@ import {
 
 function isObjectAccessMember(member: HostMember): boolean {
 	return member.kind !== 'event';
+}
+
+const HOST_CONSTANT_INDEX = new WeakMap<HostObjectModel, Map<string, HostConstant>>();
+
+function hostConstantIndex(model: HostObjectModel): Map<string, HostConstant> {
+	const cached = HOST_CONSTANT_INDEX.get(model);
+	if (cached) {
+		return cached;
+	}
+	const index = new Map<string, HostConstant>();
+	for (const [key, constant] of Object.entries(model.constants ?? {})) {
+		index.set(key.toLowerCase(), constant);
+	}
+	HOST_CONSTANT_INDEX.set(model, index);
+	return index;
 }
 
 /** Returns the type metadata for a qualified type name (e.g. "Excel.Range"). */
@@ -44,6 +60,14 @@ export function resolveHostGlobal(
 		}
 	}
 	return undefined;
+}
+
+/** Resolves a host enum constant such as `xlUp` or `xlCalculationAutomatic`. */
+export function resolveHostConstant(
+	name: string,
+	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+): HostConstant | undefined {
+	return hostConstantIndex(model).get(name.toLowerCase());
 }
 
 /**
@@ -82,6 +106,13 @@ export function getHostGlobals(
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): HostGlobal[] {
 	return Object.entries(model.globals).map(([name, type]) => ({ name, type }));
+}
+
+/** Returns all host enum constants (canonical casing) of the model. */
+export function getHostConstants(
+	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+): HostConstant[] {
+	return Object.values(model.constants ?? {});
 }
 
 /**

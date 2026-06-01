@@ -18,17 +18,20 @@ export { parseModule } from './parser/parseModule';
 export { splitLogicalStatements } from './parser/parserState';
 export {
 	EXCEL_OBJECT_MODEL,
+	HostConstant,
 	HostMember,
 	HostMemberKind,
 	HostObjectModel,
 	HostType,
 } from './host/excelObjectModel';
 export {
+	getHostConstants,
 	getHostGlobals,
 	getHostMembers,
 	getHostType,
 	HostGlobal,
 	resolveHostAlias,
+	resolveHostConstant,
 	resolveHostGlobal,
 	resolveHostMemberSignature,
 	resolveMemberReturnType,
@@ -81,8 +84,11 @@ export {
 	resolveHover,
 } from './hover/resolveHover';
 export {
+	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
+	VbaRuntimeConstant,
 	VbaRuntimeFunction,
 } from './runtime/vbaRuntime';
 export {

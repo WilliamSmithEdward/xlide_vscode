@@ -18,8 +18,8 @@ import {
 } from '../symbols/symbolModel';
 import { Span } from '../parser/nodes';
 import { HostObjectModel } from '../host/excelObjectModel';
-import { getHostType, resolveHostGlobal } from '../host/hostModel';
-import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
+import { getHostType, resolveHostConstant, resolveHostGlobal } from '../host/hostModel';
+import { resolveRuntimeConstant, resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import {
 	MemberCompletion,
 	resolveMemberCompletions,
@@ -155,6 +155,26 @@ export function resolveHover(
 		};
 	}
 
+	const runtimeConstant = resolveRuntimeConstant(name);
+	if (runtimeConstant) {
+		return {
+			signature: constantSignature(runtimeConstant),
+			details: ['VBA runtime constant'],
+			span,
+			documentation: externalDocMarkdown(ctx, name),
+		};
+	}
+
+	const hostConstant = resolveHostConstant(name, ctx.model);
+	if (hostConstant) {
+		return {
+			signature: constantSignature(hostConstant),
+			details: ['Excel constant'],
+			span,
+			documentation: externalDocMarkdown(ctx, name),
+		};
+	}
+
 	// Built-in VBA runtime function/statement (MsgBox, Left, CLng, RGB, ...).
 	const runtime = resolveRuntimeFunction(name);
 	if (runtime) {
@@ -167,6 +187,16 @@ export function resolveHover(
 	}
 
 	return undefined;
+}
+
+function constantSignature(constant: { name: string; type?: string; value?: string | number }): string {
+	const type = constant.type ? ` As ${constant.type}` : '';
+	const value = constant.value !== undefined ? ` = ${formatConstantValue(constant.value)}` : '';
+	return `Const ${constant.name}${type}${value}`;
+}
+
+function formatConstantValue(value: string | number): string {
+	return typeof value === 'string' ? JSON.stringify(value) : String(value);
 }
 
 function buildTypeHover(typeRef: ResolvedTypeReference): HoverInfo {

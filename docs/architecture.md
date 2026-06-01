@@ -473,10 +473,13 @@ into a pure analyzer layer and a thin VS Code provider:
   (`resolveIdentifierCompletions`): host-injected globals (`ThisWorkbook`,
   `ActiveSheet`, `Application`, ...), worksheet/document code names, the
   user's in-scope declarations (parameters, locals, module variables/constants,
-  procedures, enums and their members, user types), and built-in VBA runtime
-  functions (`MsgBox`, `Left`, `CLng`, `RGB`, ...) from the runtime metadata.
+  procedures, enums and their members, user types), built-in VBA runtime
+  functions (`MsgBox`, `Left`, `CLng`, `RGB`, ...), and built-in constants
+  (`vbOKOnly`, `xlUp`, ...) from runtime/host metadata once a constant-like
+  prefix is typed.
   Runtime completion details show the verified signature, and the documentation
-  panel includes the runtime kind plus curated parameter types where available.
+  panel includes the runtime kind plus curated parameter types where available;
+  constant completion shows the owning enum/type and known value.
   Curated runtime calls are intentionally not duplicated as VS Code snippets.
   Expression-level `New` completion is narrower and offers only creatable
   project classes/UserForms until host/external creatability metadata exists.
@@ -494,15 +497,17 @@ into a pure analyzer layer and a thin VS Code provider:
   primitive/host/project resolver as type completion and semantic coloring), user
   declarations from the live module symbol graph (procedure
   signatures with parameters and return type, variables/parameters/constants
-  with their `As` type, enums and members, user types and fields), and built-in
-  VBA runtime functions, annotated with the declaring module and visibility.
+  with their `As` type, enums and members, user types and fields), built-in
+  constants, and built-in VBA runtime functions, annotated with the declaring
+  module, visibility, or metadata source.
   Unknown members are never guessed. Built-ins resolve last so a user
   declaration of the same name shadows the built-in.
 
 **Built-in VBA runtime metadata** — `src/analyzer/runtime/vbaRuntime.ts` is a
 curated, verified subset of the intrinsic VBA runtime library (~85 functions and
 statements: `MsgBox`, `InputBox`, the `C*` conversions, string/date/math
-helpers, `Array`, `UBound`, `RGB`, ...). Each `VbaRuntimeFunction` carries a
+helpers, `Array`, `UBound`, `RGB`, ...), plus common runtime constants and enum
+members such as `vbOKOnly`, `vbCrLf`, and `vbFalse`. Each `VbaRuntimeFunction` carries a
 canonical `signature`, optional `returns`, a `kind` of `function | statement`,
 and `source: 'verified'`. Signatures are transcribed from
 learn.microsoft.com/office/vba/language and MS-VBAL, never LLM-invented. Names
@@ -510,8 +515,9 @@ that collide with intrinsic data types (`Date`, `Time`, `String`, `Error`) are
 deliberately omitted so a type in an `As` position is never read as a function.
 Like the host model, this is a typed TS module (not the JSON file the roadmap
 originally suggested) for compile-time checking. `resolveRuntimeFunction(name)`
-resolves case-insensitively; `VBA_RUNTIME_FUNCTIONS` is the full list consumed
-by hover and identifier completion.
+and `resolveRuntimeConstant(name)` resolve case-insensitively;
+`VBA_RUNTIME_FUNCTIONS` and `VBA_RUNTIME_CONSTANTS` are consumed by hover,
+identifier completion, and high-confidence diagnostics.
 
 **Signature help (parameter info)** — `src/analyzer/signature/signatureHelp.ts`
 computes the VBE call tip from module text alone. `resolveSignatureHelp(source,
@@ -576,11 +582,12 @@ high-confidence semantic problems directly from module text:
   `defaultSeverity`, `category`, `vbeCompileEquivalent`, `diagnosticKind`,
   `source: 'XLIDE'`, an MS-VBAL `specReference`, and a `confidence`. Only
   high-confidence rules ship.
-  The `undeclared-variable` rule ships only for project-backed bare assignment
-  and `Set` targets under `Option Explicit`; broader read references and indexed
-  targets remain deferred until the expression binder can prove them without
-  false positives. The arbitrary-expression `unknown-call` rule is deliberately
-  absent for the same reason. The one cross-module call rule that does ship, `unknown-call`
+  The `undeclared-variable` rule ships for project-backed `Option Explicit`
+  write/read positions: bare assignment and `Set` targets, assignment RHS and
+  call-argument reads, control-flow block headers, member receivers, and indexed
+  bases. It deliberately skips type-name, label, named-argument, and unresolved
+  external-style call positions to avoid false positives. The arbitrary-expression
+  `unknown-call` rule is deliberately absent for the same reason. The one cross-module call rule that does ship, `unknown-call`
   (`unknownCallStatement`), is restricted to the unambiguous call forms where the
   callee is a bare (non-member) identifier (see below).
 
@@ -621,7 +628,8 @@ Diagnostic severity policy:
   such as `myFunction()`, plus member/property statements such as
   `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
   `ActiveSheet.Range()`. Non-empty standalone member/property calls such as
-  `ActiveSheet.Range("A1")` are compile-accepted by VBE and stay on the
+  `ActiveSheet.Range("A1")` and parenless member call statements such as
+  `p.Save "ok"` are compile-accepted by VBE and stay on the
   signature-validation path. `checkProcedureHeader` powers
   `invalid-proc-header`: after the procedure name in a `Sub`/`Function`/
   `Property` header, the only legal next token is `(` (or `As` for a
@@ -635,10 +643,11 @@ Diagnostic severity policy:
   and expression calls against same-module, unique exported project, and
   verified runtime signatures with explicit parameter lists (for example
   `MsgBox()` is flagged because `Prompt` is required), and validates valid
-  parenthesized object member-call contexts when
-  the shared member-completion binder resolves a known source-backed or
-  host/reference signature such as `Set wb = Workbooks.Open(...)`, explicit
-  `Call` statements, or `Range(Cell1, [Cell2])`; current class
+  object member-call contexts when the shared member-completion binder resolves
+  a known source-backed or host/reference signature, including parenthesized
+  calls such as `Set wb = Workbooks.Open(...)` / `Range(Cell1, [Cell2])`,
+  explicit `Call` statements, and parenless call statements such as
+  `p.Save "ok"`; current class
   `Me.Member(...)` calls use that same path. It honours `Optional` (lowers the
   minimum) and `ParamArray` (removes the maximum), validates named-argument
   names against the parameters, and skips unresolved or ambiguous callees. The
@@ -733,12 +742,14 @@ Diagnostic severity policy:
   receivers stay silent until the binder can prove more.
   `undeclared-variable` runs only when `Option Explicit` is present and the
   caller passes `knownIdentifiers` from
-  `ProjectIndex.visibleIdentifierNames(moduleName)`, so bare assignment targets
-  such as `notDeclared = ThisWorkbook.CanCheckIn()` become compile-equivalent
-  `Variable not defined` diagnostics while public standard-module globals and
-  document/UserForm code names suppress false positives. Indexed assignment
-  targets and arbitrary read uses are intentionally silent until the binder
-  supports that broader reference shape. `unknown-call` runs only when the caller
+  `ProjectIndex.visibleIdentifierNames(moduleName)`, so unknown assignment
+  targets, read references, member receivers, indexed bases, and block-header
+  expressions become compile-equivalent `Variable not defined` diagnostics while
+  public standard-module globals, enum members, document/UserForm code names,
+  runtime functions/constants, host globals/enum constants, and `Application` members suppress false
+  positives. Type-name positions, labels, named-argument labels, and arguments
+  to unresolved external-style calls remain silent until the binder can prove
+  those broader reference shapes. `unknown-call` runs only when the caller
   passes `knownProcedures` (the current module's visibility-filtered procedure
   names from `ProjectIndex.visibleProcedureNames(moduleName)`); without it that
   rule is skipped so a single module is never analysed in isolation. The whole analyzer is wrapped in
@@ -857,9 +868,10 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | Dependency added/removed | `python/requirements.txt`, `README.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaLinter.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New host object-model member/type | `src/analyzer/host/excelObjectModel.ts` (member transcribed + source-verified), `tests/vbaMemberCompletion.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
+| New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` or generated `src/analyzer/host/excelReferenceMembers.ts` (metadata transcribed or generated with provenance), `tests/vbaMemberCompletion.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
+| New built-in VBA runtime constant | `src/analyzer/runtime/vbaRuntime.ts` (constant/type/value transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New symbol-graph kind/resolution rule | `src/analyzer/symbols/**`, `tests/vbaSymbolGraph.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaLanguageProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
 | New active diagnostic rule | `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (rule + MS-VBAL `specReference`), `tests/vbaDiagnostics.test.ts`, `src/vbaLanguageProviders.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |

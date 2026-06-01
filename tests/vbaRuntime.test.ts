@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
+	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
 	resolveIdentifierCompletions,
 } from '../src/analyzer';
@@ -43,6 +45,20 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeFunction('MkDir')?.kind).toBe('statement');
 	});
 
+	it('resolves built-in constants case-insensitively', () => {
+		expect(resolveRuntimeConstant('vbOKOnly')?.type).toBe('VbMsgBoxStyle');
+		expect(resolveRuntimeConstant('VBOKONLY')?.name).toBe('vbOKOnly');
+		expect(resolveRuntimeConstant('vbCrLf')?.type).toBe('String');
+		expect(resolveRuntimeConstant('notAConstant')).toBeUndefined();
+	});
+
+	it('every constant entry has a name and is marked verified', () => {
+		for (const constant of VBA_RUNTIME_CONSTANTS) {
+			expect(constant.name.length).toBeGreaterThan(0);
+			expect(constant.source).toBe('verified');
+		}
+	});
+
 });
 
 describe('identifier completion - runtime built-ins', () => {
@@ -80,6 +96,26 @@ describe('identifier completion - runtime built-ins', () => {
 		expect(left?.documentation).toContain('```vba\nLeft(String, Length) As String\n```');
 		expect(left?.documentation).toContain('`String` As `String`');
 		expect(left?.documentation).toContain('`Length` As `Long`');
+	});
+
+	it('offers runtime and host constants once a constant-like prefix is typed', () => {
+		const vb = 'Sub T()\n    vb\nEnd Sub\n';
+		const vbItems = resolveIdentifierCompletions(vb, vb.indexOf('vb') + 2, {
+			moduleName: 'M',
+		});
+		const vbOkOnly = vbItems.find((item) => item.name === 'vbOKOnly');
+		expect(vbOkOnly?.kind).toBe('constant');
+		expect(vbOkOnly?.detail).toBe('VBA constant As VbMsgBoxStyle');
+		expect(vbOkOnly?.documentation).toContain('Const vbOKOnly As VbMsgBoxStyle = 0');
+
+		const xl = 'Sub T()\n    xl\nEnd Sub\n';
+		const xlItems = resolveIdentifierCompletions(xl, xl.indexOf('xl') + 2, {
+			moduleName: 'M',
+		});
+		const xlUp = xlItems.find((item) => item.name === 'xlUp');
+		expect(xlUp?.kind).toBe('constant');
+		expect(xlUp?.detail).toBe('Excel constant As XlDirection');
+		expect(xlUp?.documentation).toContain('Const xlUp As XlDirection = -4162');
 	});
 
 	it('can be disabled via includeRuntime', () => {

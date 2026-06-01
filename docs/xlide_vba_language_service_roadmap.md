@@ -762,12 +762,15 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   are skipped (no ground-truth signature), and per-argument type checking
 >   stays deferred.
 >
-> Deliberately deferred (would require an expression binder + a complete host
+> Deliberately deferred (would require a fuller expression binder + broader host
 > catalogue, and per the project's no-false-positive rule must not ship until
-> they can be proven safe): broad `undeclared-variable` read/indexed-target
-> references beyond the shipped project-backed bare assignment/`Set` target
-> slice, and the broad arbitrary-expression form of `unknown-call`. "Invalid
-> line continuation" is also deferred (false-positive risk).
+> they can be proven safe): full flow-aware identifier binding, ambiguous
+> external-reference behavior, and the broad arbitrary-expression form of
+> `unknown-call`. The shipped `undeclared-variable` slice now covers
+> project-backed `Option Explicit` write/read positions such as assignment
+> targets, RHS/call-argument reads, control-flow headers, member receivers, and
+> indexed bases, while skipping type-name, label, named-argument, and unresolved
+> external-style call positions.
 
 ### Goal
 
@@ -846,7 +849,8 @@ Do not ship low-confidence diagnostics by default.
 > built-in types, Excel host types, and project-defined types (current-module
 > `Type`/`Enum` + class/UserForm module names). Identifier completion offers
 > host-injected globals, code names, and the enclosing procedure's
-> params/locals plus module-level vars/consts/procs/enums/types; it is
+> params/locals plus module-level vars/consts/procs/enums/types, runtime
+> constants, and generated Excel enum constants; it is
 > suppressed after `.`, after `As`, and in declaration-name positions. Resolved
 > type names (project, host, and primitive) also get semantic tokens and
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
@@ -872,8 +876,9 @@ Provide completions from:
 - Classes.
 - Enums and enum members.
 - UDTs and fields where known.
-- Built-in VBA runtime functions.
+- Built-in VBA runtime functions and constants.
 - Host object model metadata.
+- Generated host enum constants.
 - Workbook-defined class/document/UserForm members when the receiver type is
   known.
 - External object/member metadata for explicitly declared referenced APIs.
@@ -916,8 +921,9 @@ Implement completions for:
 > Status: IN PROGRESS. Hover is DONE - `src/analyzer/hover/resolveHover.ts`
 > (pure) describes the identifier under the cursor (host members via the
 > exported `resolveReceiverTypeAt`, host globals, worksheet code names, and live
-> user declarations from the module symbol graph: procedure signatures,
+> user declarations from the module symbol graph (procedure signatures,
 > variables/parameters/constants with `As` type, enums/members, types/fields),
+> and built-in constants,
 > wired through the `HoverProvider` in `src/vbaMemberCompletion.ts` and covered by
 > `tests/vbaHover.test.ts`. Signature Help is DONE -
 > `src/analyzer/signature/signatureHelp.ts` (pure) returns the active call tip
@@ -989,6 +995,7 @@ Support:
 
 - Project procedures/functions.
 - Built-in VBA runtime functions from metadata.
+- Built-in VBA and host enum constants from metadata.
 - Host object model methods from metadata.
 
 ### Acceptance Criteria
@@ -1138,10 +1145,13 @@ Implemented in `src/analyzer/runtime/vbaRuntime.ts`.
 - **Deliberate omissions.** Names that collide with intrinsic data types or are
   otherwise context-ambiguous (`Date`, `Time`, `String`, `Error`) are excluded
   so type-position hover handles them as types instead of runtime calls.
+- **Constants.** `VBA_RUNTIME_CONSTANTS` and generated Excel enum constants are
+  resolved case-insensitively for completion, hover, and high-confidence
+  `Option Explicit` diagnostics.
 - **Hover.** `resolveHover` resolves built-ins *after* user symbols, host
   globals, and code names, so a user declaration of the same name correctly
   shadows the built-in. Returns the signature plus a `VBA runtime function` /
-  `VBA runtime statement` detail line.
+  `VBA runtime statement` / constant detail line.
 - **Completion.** `resolveIdentifierCompletions` offers built-ins at bare-
   identifier positions (new `runtime` completion kind, `Function` icon),
   gated by `includeRuntime` (default true).

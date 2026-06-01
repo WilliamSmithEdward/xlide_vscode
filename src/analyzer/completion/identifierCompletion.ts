@@ -13,9 +13,11 @@
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { HostObjectModel } from '../host/excelObjectModel';
-import { getHostGlobals, getHostType } from '../host/hostModel';
+import { getHostConstants, getHostGlobals, getHostType } from '../host/hostModel';
 import {
+	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
+	type VbaRuntimeConstant,
 	type VbaRuntimeFunction,
 	type VbaRuntimeParam,
 } from '../runtime/vbaRuntime';
@@ -173,6 +175,24 @@ export function resolveIdentifierCompletions(
 		for (const f of VBA_RUNTIME_FUNCTIONS) {
 			add(f.name, 'runtime', f.signature, runtimeDocumentation(f));
 		}
+		if (lowerPartial.length >= 2) {
+			for (const constant of VBA_RUNTIME_CONSTANTS) {
+				add(
+					constant.name,
+					'constant',
+					constantDetail('VBA constant', constant.type),
+					runtimeConstantDocumentation(constant),
+				);
+			}
+			for (const constant of getHostConstants(ctx.model)) {
+				add(
+					constant.name,
+					'constant',
+					constantDetail('Excel constant', constant.type),
+					hostConstantDocumentation(constant),
+				);
+			}
+		}
 	}
 
 	return out;
@@ -299,6 +319,32 @@ function runtimeDocumentation(fn: VbaRuntimeFunction): string {
 	}
 	lines.push('', 'Source: verified Microsoft VBA runtime metadata.');
 	return lines.join('\n');
+}
+
+function constantDetail(base: string, type?: string): string {
+	return type ? `${base} As ${type}` : base;
+}
+
+function runtimeConstantDocumentation(constant: VbaRuntimeConstant): string {
+	const lines = [`**VBA runtime constant**`, '', '```vba', constantSignature(constant), '```'];
+	lines.push('', 'Source: verified Microsoft VBA runtime metadata.');
+	return lines.join('\n');
+}
+
+function hostConstantDocumentation(constant: { name: string; type?: string; value?: string | number }): string {
+	const lines = [`**Excel constant**`, '', '```vba', constantSignature(constant), '```'];
+	lines.push('', 'Source: generated Excel reference metadata.');
+	return lines.join('\n');
+}
+
+function constantSignature(constant: { name: string; type?: string; value?: string | number }): string {
+	const type = constant.type ? ` As ${constant.type}` : '';
+	const value = constant.value !== undefined ? ` = ${formatConstantValue(constant.value)}` : '';
+	return `Const ${constant.name}${type}${value}`;
+}
+
+function formatConstantValue(value: string | number): string {
+	return typeof value === 'string' ? JSON.stringify(value) : String(value);
 }
 
 function runtimeParamDocumentation(param: VbaRuntimeParam): string {

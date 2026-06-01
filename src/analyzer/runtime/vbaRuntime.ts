@@ -38,6 +38,14 @@ export interface VbaRuntimeParam {
 	paramArray?: boolean;
 }
 
+/** A built-in VBA runtime constant or enum member. */
+export interface VbaRuntimeConstant {
+	name: string;
+	type?: string;
+	value?: string | number;
+	source: 'verified';
+}
+
 function fn(
 	name: string,
 	signature: string,
@@ -53,6 +61,10 @@ function stmt(
 	params?: readonly VbaRuntimeParam[],
 ): VbaRuntimeFunction {
 	return { name, signature, kind: 'statement', source: 'verified', params };
+}
+
+function c(name: string, type?: string, value?: string | number): VbaRuntimeConstant {
+	return { name, type, value, source: 'verified' };
 }
 
 /** The verified built-in VBA runtime functions and statements. */
@@ -236,8 +248,157 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('DDB', 'DDB(Cost, Salvage, Life, Period, [Factor = 2]) As Double', 'Double'),
 ];
 
+/** The verified built-in VBA runtime constants and enum members. */
+export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
+	c('vbObjectError', 'Long', -2147221504),
+	c('vbNullString', 'String'),
+	c('vbNullChar', 'String'),
+	c('vbCrLf', 'String'),
+	c('vbNewLine', 'String'),
+	c('vbCr', 'String'),
+	c('vbLf', 'String'),
+	c('vbBack', 'String'),
+	c('vbFormFeed', 'String'),
+	c('vbTab', 'String'),
+	c('vbVerticalTab', 'String'),
+
+	c('vbOKOnly', 'VbMsgBoxStyle', 0),
+	c('vbOKCancel', 'VbMsgBoxStyle', 1),
+	c('vbAbortRetryIgnore', 'VbMsgBoxStyle', 2),
+	c('vbYesNoCancel', 'VbMsgBoxStyle', 3),
+	c('vbYesNo', 'VbMsgBoxStyle', 4),
+	c('vbRetryCancel', 'VbMsgBoxStyle', 5),
+	c('vbCritical', 'VbMsgBoxStyle', 16),
+	c('vbQuestion', 'VbMsgBoxStyle', 32),
+	c('vbExclamation', 'VbMsgBoxStyle', 48),
+	c('vbInformation', 'VbMsgBoxStyle', 64),
+	c('vbDefaultButton1', 'VbMsgBoxStyle', 0),
+	c('vbDefaultButton2', 'VbMsgBoxStyle', 256),
+	c('vbDefaultButton3', 'VbMsgBoxStyle', 512),
+	c('vbDefaultButton4', 'VbMsgBoxStyle', 768),
+	c('vbApplicationModal', 'VbMsgBoxStyle', 0),
+	c('vbSystemModal', 'VbMsgBoxStyle', 4096),
+	c('vbMsgBoxHelpButton', 'VbMsgBoxStyle', 16384),
+	c('vbMsgBoxRight', 'VbMsgBoxStyle', 524288),
+	c('vbMsgBoxRtlReading', 'VbMsgBoxStyle', 1048576),
+	c('vbMsgBoxSetForeground', 'VbMsgBoxStyle', 65536),
+
+	c('vbOK', 'VbMsgBoxResult', 1),
+	c('vbCancel', 'VbMsgBoxResult', 2),
+	c('vbAbort', 'VbMsgBoxResult', 3),
+	c('vbRetry', 'VbMsgBoxResult', 4),
+	c('vbIgnore', 'VbMsgBoxResult', 5),
+	c('vbYes', 'VbMsgBoxResult', 6),
+	c('vbNo', 'VbMsgBoxResult', 7),
+
+	c('vbBinaryCompare', 'VbCompareMethod', 0),
+	c('vbTextCompare', 'VbCompareMethod', 1),
+	c('vbDatabaseCompare', 'VbCompareMethod', 2),
+
+	c('vbUseDefault', 'VbTriState', -2),
+	c('vbTrue', 'VbTriState', -1),
+	c('vbFalse', 'VbTriState', 0),
+
+	c('vbGeneralDate', 'VbDateTimeFormat', 0),
+	c('vbLongDate', 'VbDateTimeFormat', 1),
+	c('vbShortDate', 'VbDateTimeFormat', 2),
+	c('vbLongTime', 'VbDateTimeFormat', 3),
+	c('vbShortTime', 'VbDateTimeFormat', 4),
+
+	c('vbUseSystemDayOfWeek', 'VbDayOfWeek', 0),
+	c('vbSunday', 'VbDayOfWeek', 1),
+	c('vbMonday', 'VbDayOfWeek', 2),
+	c('vbTuesday', 'VbDayOfWeek', 3),
+	c('vbWednesday', 'VbDayOfWeek', 4),
+	c('vbThursday', 'VbDayOfWeek', 5),
+	c('vbFriday', 'VbDayOfWeek', 6),
+	c('vbSaturday', 'VbDayOfWeek', 7),
+
+	c('vbUseSystem', 'VbFirstWeekOfYear', 0),
+	c('vbFirstJan1', 'VbFirstWeekOfYear', 1),
+	c('vbFirstFourDays', 'VbFirstWeekOfYear', 2),
+	c('vbFirstFullWeek', 'VbFirstWeekOfYear', 3),
+
+	c('vbHide', 'VbAppWinStyle', 0),
+	c('vbNormalFocus', 'VbAppWinStyle', 1),
+	c('vbMinimizedFocus', 'VbAppWinStyle', 2),
+	c('vbMaximizedFocus', 'VbAppWinStyle', 3),
+	c('vbNormalNoFocus', 'VbAppWinStyle', 4),
+	c('vbMinimizedNoFocus', 'VbAppWinStyle', 6),
+
+	c('vbNormal', 'VbFileAttribute', 0),
+	c('vbReadOnly', 'VbFileAttribute', 1),
+	c('vbHidden', 'VbFileAttribute', 2),
+	c('vbSystem', 'VbFileAttribute', 4),
+	c('vbVolume', 'VbFileAttribute', 8),
+	c('vbDirectory', 'VbFileAttribute', 16),
+	c('vbArchive', 'VbFileAttribute', 32),
+	c('vbAlias', 'VbFileAttribute', 64),
+
+	c('VbMethod', 'VbCallType', 1),
+	c('VbGet', 'VbCallType', 2),
+	c('VbLet', 'VbCallType', 4),
+	c('VbSet', 'VbCallType', 8),
+
+	c('vbEmpty', 'VbVarType', 0),
+	c('vbNull', 'VbVarType', 1),
+	c('vbInteger', 'VbVarType', 2),
+	c('vbLong', 'VbVarType', 3),
+	c('vbSingle', 'VbVarType', 4),
+	c('vbDouble', 'VbVarType', 5),
+	c('vbCurrency', 'VbVarType', 6),
+	c('vbDate', 'VbVarType', 7),
+	c('vbString', 'VbVarType', 8),
+	c('vbObject', 'VbVarType', 9),
+	c('vbError', 'VbVarType', 10),
+	c('vbBoolean', 'VbVarType', 11),
+	c('vbVariant', 'VbVarType', 12),
+	c('vbDataObject', 'VbVarType', 13),
+	c('vbDecimal', 'VbVarType', 14),
+	c('vbByte', 'VbVarType', 17),
+	c('vbUserDefinedType', 'VbVarType', 36),
+	c('vbArray', 'VbVarType', 8192),
+
+	c('vbUpperCase', 'VbStrConv', 1),
+	c('vbLowerCase', 'VbStrConv', 2),
+	c('vbProperCase', 'VbStrConv', 3),
+	c('vbWide', 'VbStrConv', 4),
+	c('vbNarrow', 'VbStrConv', 8),
+	c('vbKatakana', 'VbStrConv', 16),
+	c('vbHiragana', 'VbStrConv', 32),
+	c('vbUnicode', 'VbStrConv', 64),
+	c('vbFromUnicode', 'VbStrConv', 128),
+
+	c('vbIMENoOp', 'VbIMEStatus', 0),
+	c('vbIMEModeNoControl', 'VbIMEStatus', 0),
+	c('vbIMEOn', 'VbIMEStatus', 1),
+	c('vbIMEModeOn', 'VbIMEStatus', 1),
+	c('vbIMEOff', 'VbIMEStatus', 2),
+	c('vbIMEModeOff', 'VbIMEStatus', 2),
+	c('vbIMEDisable', 'VbIMEStatus', 3),
+	c('vbIMEModeDisable', 'VbIMEStatus', 3),
+	c('vbIMEHiragana', 'VbIMEStatus', 4),
+	c('vbIMEModeHiragana', 'VbIMEStatus', 4),
+	c('vbIMEKatakanaDbl', 'VbIMEStatus', 5),
+	c('vbIMEModeKatakana', 'VbIMEStatus', 5),
+	c('vbIMEKatakanaSng', 'VbIMEStatus', 6),
+	c('vbIMEModeKatakanaHalf', 'VbIMEStatus', 6),
+	c('vbIMEAlphaDbl', 'VbIMEStatus', 7),
+	c('vbIMEModeAlphaFull', 'VbIMEStatus', 7),
+	c('vbIMEAlphaSng', 'VbIMEStatus', 8),
+	c('vbIMEModeAlpha', 'VbIMEStatus', 8),
+	c('vbIMEModeHangulFull', 'VbIMEStatus', 9),
+	c('vbIMEModeHangul', 'VbIMEStatus', 10),
+
+	c('vbCalGreg', 'VbCalendar', 0),
+	c('vbCalHijri', 'VbCalendar', 1),
+];
+
 const BY_LOWER = new Map<string, VbaRuntimeFunction>(
 	VBA_RUNTIME_FUNCTIONS.map((f) => [f.name.toLowerCase(), f]),
+);
+const CONSTANTS_BY_LOWER = new Map<string, VbaRuntimeConstant>(
+	VBA_RUNTIME_CONSTANTS.map((constant) => [constant.name.toLowerCase(), constant]),
 );
 
 /** Resolves a built-in VBA runtime function/statement by name (case-insensitive). */
@@ -245,4 +406,11 @@ export function resolveRuntimeFunction(
 	name: string,
 ): VbaRuntimeFunction | undefined {
 	return BY_LOWER.get(name.toLowerCase());
+}
+
+/** Resolves a built-in VBA runtime constant by name (case-insensitive). */
+export function resolveRuntimeConstant(
+	name: string,
+): VbaRuntimeConstant | undefined {
+	return CONSTANTS_BY_LOWER.get(name.toLowerCase());
 }

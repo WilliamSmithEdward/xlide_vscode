@@ -13,6 +13,7 @@
 // MS-VBAL language resolution. LLM-generated member lists are never used here.
 
 import {
+	EXCEL_REFERENCE_ENUM_CONSTANTS,
 	EXCEL_REFERENCE_MEMBER_SETS,
 	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
@@ -37,6 +38,15 @@ export interface HostMember {
 	doc?: VbaDoc;
 }
 
+export interface HostConstant {
+	name: string;
+	/** Host enum type this constant belongs to, e.g. "XlDirection". */
+	type?: string;
+	value?: string | number;
+	source?: 'external' | 'verified';
+	doc?: VbaDoc;
+}
+
 export interface HostType {
 	/** Bare display name, e.g. "Worksheet". */
 	displayName: string;
@@ -57,6 +67,8 @@ export interface HostObjectModel {
 	aliases: Record<string, string>;
 	/** Host-injected global identifier (canonical casing) -> qualified type. */
 	globals: Record<string, string>;
+	/** Host enum constants, keyed by canonical name. */
+	constants?: Record<string, HostConstant>;
 	/**
 	 * Verified call signatures for callable members, keyed by qualified type
 	 * then lowercased member name. Used by signature help (parameter info).
@@ -206,6 +218,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		Worksheets: WORKSHEETS,
 		Sheets: SHEETS,
 	},
+	constants: EXCEL_REFERENCE_ENUM_CONSTANTS,
 	types: {
 		[APPLICATION]: {
 			displayName: 'Application',

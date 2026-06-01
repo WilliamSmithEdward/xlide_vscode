@@ -14,9 +14,9 @@
 // name resolves to no procedure anywhere in the project, no VBA runtime
 // function/statement, no host global or Application member, and no in-scope
 // declaration. The `undeclaredVariable` rule follows the same shape: it only
-// fires for assignment targets when project-visible identifiers are available.
-// Broader arbitrary-expression reference cases still need a full expression
-// binder and remain unimplemented.
+// fires when project-visible identifiers are available, and it scans
+// high-confidence write/read positions while skipping type-name, label,
+// named-argument, and unresolved external-call positions.
 //
 // Pure data: no `vscode` dependency. The VS Code layer maps `severity` onto
 // `vscode.DiagnosticSeverity` and `code`/`source` onto the diagnostic.

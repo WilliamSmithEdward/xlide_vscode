@@ -327,15 +327,118 @@ describe('analyzeModule - Option Explicit', () => {
 		expect(spanText(src, hits[0])).toBe('notDeclared');
 	});
 
-	it('does not treat member or indexed assignment targets as bare undeclared variables yet', () => {
+	it('accepts known member and indexed assignment receivers under Option Explicit', () => {
 		const src =
 			'Option Explicit\n' +
 			'Sub T()\n' +
 			'    Range("A1").Value = 1\n' +
-			'    arr(1) = 2\n' +
+			'    declaredArr(1) = 2\n' +
+			'End Sub\n';
+		const knownIdentifiers = new Set<string>(['declaredarr']);
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
+	it('flags undeclared identifiers read from assignment right-hand sides and call arguments', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Dim total As Long\n' +
+			'    total = missingValue + 1\n' +
+			'    MsgBox missingMessage\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
+			'undeclared-variable',
+		);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['missingValue', 'missingMessage']);
+	});
+
+	it('flags undeclared identifiers in control-flow expressions and loop targets', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    If missingCondition Then Beep\n' +
+			'    For i = 1 To maxCount\n' +
+			'    Next i\n' +
+			'    With missingObject\n' +
+			'        .Value = 1\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
+			'undeclared-variable',
+		);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'missingCondition',
+			'i',
+			'maxCount',
+			'missingObject',
+		]);
+	});
+
+	it('flags undeclared member receivers and indexed bases under Option Explicit', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    obj.Value = 1\n' +
+			'    arr(ix) = 2\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
+			'undeclared-variable',
+		);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['obj', 'arr', 'ix']);
+	});
+
+	it('accepts declared reads, exported globals, and exported enum members', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T(ByVal arg As Long)\n' +
+			'    Dim localValue As Long\n' +
+			'    localValue = arg + sharedValue + SharedOnly\n' +
+			'End Sub\n';
+		const knownIdentifiers = visibleProjectIdentifiers(
+			[
+				{ moduleName: 'Caller', source: src },
+				{
+					moduleName: 'Globals',
+					source:
+						'Public sharedValue As Long\n' +
+						'Public Enum SharedMode\n    SharedOnly\nEnd Enum\n',
+				},
+			],
+			'Caller',
+		);
+		expect(byCode(analyzeModule(src, { knownIdentifiers }), 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('accepts built-in VBA and Excel constants under Option Explicit', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    MsgBox "hi", vbOKOnly\n' +
+			'    Application.DisplayAlerts = vbFalse\n' +
+			'    ActiveSheet.Range("A1").End(xlUp).Select\n' +
 			'End Sub\n';
 		expect(
 			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
+	it('does not flag type names, labels, named-argument labels, or unknown external-style calls as reads', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'done:\n' +
+			'    Set p = New Person\n' +
+			'    If TypeOf p Is Person Then GoTo done\n' +
+			'    MsgBox Prompt:=p\n' +
+			'    MaybeExternal missingArg\n' +
+			'End Sub\n';
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>(['p']) }), 'undeclared-variable'),
 		).toHaveLength(0);
 	});
 
@@ -1164,6 +1267,41 @@ describe('analyzeModule - argument count', () => {
 		expect(hits[0].message).toContain('got 0');
 	});
 
+	it('validates parenless source-backed class member call statements', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Dim p As Person\n' +
+			'    p.Save\n' +
+			'    p.Save "ok"\n' +
+			'End Sub\n';
+		const person =
+			'Public Sub Save(ByVal Caption As String)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'argument-count',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('Save');
+		expect(hits[0].message).toContain('got 0');
+	});
+
+	it('validates parenless generated host member call statements', () => {
+		const src =
+			'Sub Main()\n' +
+			'    ActiveSheet.Range\n' +
+			'    ActiveSheet.Range "A1"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Range');
+		expect(hits[0].message).toContain('got 0');
+	});
+
 	it('flags missing required arguments on current class Me member calls', () => {
 		const src =
 			'Public Sub Main()\n' +
@@ -1412,6 +1550,29 @@ describe('analyzeModule - argument type validation', () => {
 		expect(spanText(caller, hits[0])).toBe('"bad"');
 		expect(hits[0].message).toContain('item');
 		expect(hits[0].message).toContain('Object');
+	});
+
+	it('uses parenless source-backed class member signatures for argument types', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Dim p As Person\n' +
+			'    p.Save "bad"\n' +
+			'End Sub\n';
+		const person =
+			'Public Sub Save(ByVal Count As Long)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'argument-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('"bad"');
+		expect(hits[0].message).toContain('Count');
+		expect(hits[0].message).toContain('Long');
 	});
 
 	it('uses nested same-module function return types as argument types', () => {
