@@ -24,7 +24,7 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { RESERVED_TYPE_IDENTIFIERS } from '../lexer/keywordTable';
-import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
+import { getHostMembers, resolveHostAlias, resolveHostGlobal } from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import { resolveRuntimeFunction, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
 import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
@@ -505,6 +505,7 @@ function memberAssignmentTarget(
 	label: string;
 	memberSpan: Span;
 	valueTokens: VbaToken[];
+	usesSet: boolean;
 } | undefined {
 	const toks = statementTokens(source, span);
 	let i = 0;
@@ -515,10 +516,8 @@ function memberAssignmentTarget(
 	) {
 		i = 2;
 	}
-	if (tokenText(toks[i]) === 'set') {
-		return undefined;
-	}
-	if (tokenText(toks[i]) === 'let') {
+	const usesSet = tokenText(toks[i]) === 'set';
+	if (usesSet || tokenText(toks[i]) === 'let') {
 		i++;
 	}
 	const eq = topLevelOperatorIndex(toks.slice(i), '=');
@@ -547,6 +546,7 @@ function memberAssignmentTarget(
 			end: span.start + memberTok.end,
 		},
 		valueTokens: toks.slice(equalsIndex + 1),
+		usesSet,
 	};
 }
 
@@ -1591,7 +1591,15 @@ function checkAssignmentTypes(
 				return;
 			}
 			const expected = env.get(assignment.name.toLowerCase());
-			if (!expected || normalizeType(expected) === 'object') {
+			if (!expected) {
+				return;
+			}
+			if (isKnownObjectAssignmentType(expected, memberCtx)) {
+				push(
+					'setRequired',
+					`Object assignment to '${assignment.name}' requires Set because it is declared as ${expected}.`,
+					assignment.span,
+				);
 				return;
 			}
 			const stringArithmetic = nonnumericStringArithmeticOperand(
@@ -1671,6 +1679,24 @@ function checkMemberAssignmentTypes(
 			return;
 		}
 		const expected = target.writeType ?? target.returns;
+		if (assignment.usesSet) {
+			if (expected && isKnownScalarType(normalizeType(expected) ?? '')) {
+				push(
+					'setRequiresObject',
+					`Set assignment requires an object-valued target, but '${assignment.label}' expects ${expected}.`,
+					assignment.memberSpan,
+				);
+			}
+			return;
+		}
+		if (isKnownObjectAssignmentType(expected, memberCtx)) {
+			push(
+				'setRequired',
+				`Object assignment to '${assignment.label}' requires Set because it expects ${expected}.`,
+				assignment.memberSpan,
+			);
+			return;
+		}
 		if (!expected || normalizeType(expected) === 'object') {
 			return;
 		}
@@ -2543,6 +2569,41 @@ function isNumericType(type: string): boolean {
 
 function isKnownScalarType(type: string): boolean {
 	return type === 'string' || type === 'boolean' || type === 'date' || isNumericType(type);
+}
+
+function isKnownObjectAssignmentType(
+	type: string | undefined,
+	memberCtx: MemberCompletionContext,
+): boolean {
+	if (!type) {
+		return false;
+	}
+	const normalized = normalizeType(type);
+	if (!normalized || normalized === 'variant') {
+		return false;
+	}
+	if (normalized === 'object') {
+		return true;
+	}
+	if (isKnownScalarType(normalized)) {
+		return false;
+	}
+	if (resolveHostAlias(type, memberCtx.model)) {
+		return true;
+	}
+	const simple = simpleTypeNameForAssignment(type);
+	if (!simple) {
+		return false;
+	}
+	const lower = simple.toLowerCase();
+	return (memberCtx.projectClassMembers ?? []).filter(
+		(projectType) => projectType.name.toLowerCase() === lower,
+	).length === 1;
+}
+
+function simpleTypeNameForAssignment(type: string): string | undefined {
+	const trimmed = type.replace(/\(\)$/, '').trim();
+	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed) ? trimmed : undefined;
 }
 
 // One-way proof only: strings with digits are left unknown until VBA conversion

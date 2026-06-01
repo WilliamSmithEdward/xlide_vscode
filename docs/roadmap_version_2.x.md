@@ -86,7 +86,8 @@ heuristic diagnostics.
 - Source-backed workbook class property assignments now participate in
   deterministic assignment validation when XLIDE knows the receiver member and
   setter type. Read-only property assignment is compile-equivalent red; typed
-  writable property assignment can be deterministic-runtime red.
+  writable property assignment can be deterministic-runtime red; known object
+  variables and object-valued source-backed members now require `Set`.
 - Source-backed workbook class receiver/member binding now reports
   `member-not-found` when an unambiguous project class member surface proves the
   member is absent.
@@ -505,9 +506,11 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   oracle controls prove the surface is complete enough for red diagnostics.
 - [x] Add `member-not-found` only when receiver type is known and source-backed
   workbook class member metadata is unambiguous.
-- [ ] Add `set-required` and `set-forbidden` for object member assignments only
-  where deterministic, including `Property Set` and object-valued public
-  fields.
+- [x] Add `set-required` and `set-forbidden`-family checks for deterministic
+  object assignments. Known object variables and source-backed object-valued
+  members (`Property Set` and public fields) now require `Set`; `Set` on
+  source-backed scalar members reuses the existing stable
+  `set-requires-object` code instead of adding a parallel spelling.
 - [ ] Add downstream developer documentation/how-to for object member
   completion and external object metadata before shipping this workflow.
 

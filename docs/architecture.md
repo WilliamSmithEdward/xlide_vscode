@@ -702,8 +702,12 @@ Diagnostic severity policy:
   not flagged prematurely. The binder groundwork now includes
   `ProjectIndex.visibleTypeNames()` for project-defined type names, but the
   broad unknown-type diagnostic remains intentionally unshipped.
-  `set-requires-object` fires only when `Set` targets a known intrinsic scalar
-  variable. `scalar-member-access` fires only when the receiver is a declared
+  `set-required` fires when a plain assignment targets a known object variable
+  or source-backed object-valued member (`Property Set` or public field) that
+  requires `Set`; `set-requires-object` fires when `Set` targets a known
+  intrinsic scalar variable or source-backed scalar member. Both rules stay
+  silent for `Variant`, unknown types, and ambiguous project members.
+  `scalar-member-access` fires only when the receiver is a declared
   intrinsic scalar (`String`, numeric, `Boolean`, or `Date`); focused oracle
   cases show named scalar members are VBE Compile errors (`Invalid qualifier`),
   while a trailing scalar dot is a VBE Compile `Syntax error` after explicit

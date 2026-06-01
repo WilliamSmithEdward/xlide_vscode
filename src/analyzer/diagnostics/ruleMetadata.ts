@@ -225,6 +225,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: "VBE oracle: Can't assign to read-only property",
 		confidence: 'high',
 	},
+	setRequired: {
+		code: 'set-required',
+		title: 'Object assignment requires Set',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.3 / Set statement',
+		confidence: 'high',
+	},
 	memberNotFound: {
 		code: 'member-not-found',
 		title: 'Object member not found',

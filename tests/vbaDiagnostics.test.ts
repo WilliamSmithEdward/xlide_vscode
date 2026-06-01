@@ -1478,12 +1478,25 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
-	it('leaves object assignment rules to the object/type binder roadmap', () => {
+	it('requires Set when assigning to a known object variable', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    ws = ActiveSheet\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'set-required');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('ws');
+		expect(hits[0].message).toContain('requires Set');
+	});
+
+	it('reports missing Set for Object variables without treating it as scalar coercion', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim item As Object\n' +
 			'    item = "blah"\n' +
 			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'set-required')).toHaveLength(1);
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
@@ -1579,6 +1592,89 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'assignment-type-mismatch')).toHaveLength(0);
 		expect(byCode(diagnostics, 'readonly-member-assignment')).toHaveLength(0);
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
+	});
+
+	it('requires Set for object-valued public class fields', () => {
+		const person = 'Public Child As Person\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Child = New Person\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'set-required',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Child');
+		expect(hits[0].message).toContain('p.Child');
+	});
+
+	it('accepts Set for object-valued public class fields', () => {
+		const person = 'Public Child As Person\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    Set p.Child = New Person\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+			]),
+		});
+		expect(byCode(diagnostics, 'set-required')).toHaveLength(0);
+		expect(byCode(diagnostics, 'set-requires-object')).toHaveLength(0);
+	});
+
+	it('requires Set for Property Set object members', () => {
+		const person =
+			'Private mChild As Person\n' +
+			'Public Property Set Child(ByVal value As Person)\n' +
+			'    Set mChild = value\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Child = New Person\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'set-required',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Child');
+	});
+
+	it('flags Set used against scalar source-backed members', () => {
+		const person = 'Public Age As Integer\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    Set p.Age = 2\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'set-requires-object',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Age');
+		expect(hits[0].message).toContain('Integer');
 	});
 
 	it('errors on assignment to a read-only class property', () => {
