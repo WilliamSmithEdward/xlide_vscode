@@ -211,7 +211,7 @@ Purpose: make every diagnostic self-describing and severity-safe.
   advisory.
 - [x] Add tests that assert every rule declares category and VBE equivalence.
 - [x] Add a short diagnostic policy table to architecture docs.
-- [ ] Use category/equivalence fields when reporting workbook lint summaries.
+- [x] Use category/equivalence fields when reporting workbook lint summaries.
 
 Definition of done:
 
@@ -641,6 +641,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   code actions, member completion, and class-module commands do not carry
   local duplicate regex pipelines.
 - [ ] Use metadata categories to tune Problems output and future filters.
+- [x] Route workbook lint summaries through the shared diagnostic metadata
+  catalogue, including structural block-balance codes, so command output and
+  agent JSON report category/equivalence without local bucketing.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call

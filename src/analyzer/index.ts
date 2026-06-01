@@ -182,7 +182,10 @@ export {
 } from './codeActions/diagnosticCodeActions';
 export {
 	DIAGNOSTIC_RULES,
+	STRUCTURAL_DIAGNOSTIC_RULES,
+	diagnosticMetadataForCode,
 	DiagnosticCategory,
+	DiagnosticEvidenceKind,
 	DiagnosticRuleMetadata,
 	DiagnosticRuleName,
 	DiagnosticSeverity,

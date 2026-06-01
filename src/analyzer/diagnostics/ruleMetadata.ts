@@ -548,5 +548,46 @@ export const DIAGNOSTIC_RULES = {
 	},
 } satisfies Record<string, DiagnosticRuleMetadata>;
 
+/** Structural diagnostics emitted by the dependency-free block-balance linter. */
+export const STRUCTURAL_DIAGNOSTIC_RULES = {
+	missingBlockCloser: {
+		code: 'missing-block-closer',
+		title: 'Missing block closer',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		confidence: 'high',
+	},
+	unmatchedBlockCloser: {
+		code: 'unmatched-block-closer',
+		title: 'Unmatched block closer',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		confidence: 'high',
+	},
+} satisfies Record<string, DiagnosticRuleMetadata>;
+
+const DIAGNOSTIC_METADATA_BY_CODE = new Map<string, DiagnosticRuleMetadata>(
+	[
+		...Object.values(DIAGNOSTIC_RULES),
+		...Object.values(STRUCTURAL_DIAGNOSTIC_RULES),
+	].map((rule) => [rule.code, rule]),
+);
+
+/** Returns metadata for semantic and structural diagnostic codes. */
+export function diagnosticMetadataForCode(
+	code: string | undefined,
+): DiagnosticRuleMetadata | undefined {
+	if (!code) {
+		return undefined;
+	}
+	return DIAGNOSTIC_METADATA_BY_CODE.get(code);
+}
+
 /** Stable rule-name keys of {@link DIAGNOSTIC_RULES}. */
 export type DiagnosticRuleName = keyof typeof DIAGNOSTIC_RULES;

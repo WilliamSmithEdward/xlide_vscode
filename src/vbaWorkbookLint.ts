@@ -9,9 +9,12 @@
 // pure analysis stays reusable and testable.
 
 import * as vscode from 'vscode';
-import { PythonBridge } from './pythonBridge';
+import type { PythonBridge } from './pythonBridge';
 import {
     analyzeModule,
+    diagnosticMetadataForCode,
+    DiagnosticCategory,
+    DiagnosticEvidenceKind,
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
     ModuleSymbolKind,
@@ -22,6 +25,8 @@ import {
 import { lineStartOffsets, lintVbaSource } from './vbaLinter';
 
 export type WorkbookLintSeverity = 'error' | 'warning' | 'information' | 'hint';
+export type WorkbookLintSummaryCategory = DiagnosticCategory | 'uncategorized';
+export type WorkbookLintSummaryKind = DiagnosticEvidenceKind | 'unknown';
 
 /** A single lint finding located within one module of a workbook. */
 export interface WorkbookLintProblem {
@@ -34,9 +39,27 @@ export interface WorkbookLintProblem {
     /** 1-based end column (exclusive) of the finding. */
     endColumn: number;
     severity: WorkbookLintSeverity;
-    /** Stable rule code (semantic rules only); undefined for structural ones. */
+    /** Stable rule code shared by structural and semantic diagnostics. */
     code?: string;
+    /** Human-readable title from the shared diagnostic metadata catalogue. */
+    ruleTitle?: string;
+    /** Broad diagnostic bucket used for summaries and future filtering. */
+    category?: DiagnosticCategory;
+    /** True when this problem should match a VBE compile failure. */
+    vbeCompileEquivalent?: boolean;
+    /** Evidence bucket for compile/runtime/style summary reporting. */
+    diagnosticKind?: DiagnosticEvidenceKind;
+    /** Optional authority or oracle note behind the diagnostic. */
+    specReference?: string;
     message: string;
+}
+
+/** Aggregate metadata summary for a workbook lint run. */
+export interface WorkbookLintSummary {
+    byCategory: Partial<Record<WorkbookLintSummaryCategory, number>>;
+    byDiagnosticKind: Partial<Record<WorkbookLintSummaryKind, number>>;
+    vbeCompileEquivalentCount: number;
+    nonVbeCompileEquivalentCount: number;
 }
 
 /** Aggregate result of linting an entire workbook. */
@@ -46,6 +69,7 @@ export interface WorkbookLintResult {
     problems: WorkbookLintProblem[];
     errorCount: number;
     warningCount: number;
+    summary: WorkbookLintSummary;
 }
 
 interface RawModule {
@@ -80,6 +104,56 @@ function offsetToLineColumn(
 
 function severityFromRule(s: RuleSeverity): WorkbookLintSeverity {
     return s;
+}
+
+function metadataFieldsForCode(
+    code: string | undefined,
+): Pick<
+    WorkbookLintProblem,
+    'ruleTitle' | 'category' | 'vbeCompileEquivalent' | 'diagnosticKind' | 'specReference'
+> {
+    const meta = diagnosticMetadataForCode(code);
+    if (!meta) {
+        return {};
+    }
+    return {
+        ruleTitle: meta.title,
+        category: meta.category,
+        vbeCompileEquivalent: meta.vbeCompileEquivalent,
+        diagnosticKind: meta.diagnosticKind,
+        specReference: meta.specReference,
+    };
+}
+
+function incrementCount<K extends string>(
+    counts: Partial<Record<K, number>>,
+    key: K,
+): void {
+    counts[key] = (counts[key] ?? 0) + 1;
+}
+
+function summarizeProblems(problems: readonly WorkbookLintProblem[]): WorkbookLintSummary {
+    const byCategory: Partial<Record<WorkbookLintSummaryCategory, number>> = {};
+    const byDiagnosticKind: Partial<Record<WorkbookLintSummaryKind, number>> = {};
+    let vbeCompileEquivalentCount = 0;
+    let nonVbeCompileEquivalentCount = 0;
+
+    for (const problem of problems) {
+        incrementCount(byCategory, problem.category ?? 'uncategorized');
+        incrementCount(byDiagnosticKind, problem.diagnosticKind ?? 'unknown');
+        if (problem.vbeCompileEquivalent) {
+            vbeCompileEquivalentCount++;
+        } else {
+            nonVbeCompileEquivalentCount++;
+        }
+    }
+
+    return {
+        byCategory,
+        byDiagnosticKind,
+        vbeCompileEquivalentCount,
+        nonVbeCompileEquivalentCount,
+    };
 }
 
 /** Loads every module's source from the workbook (best-effort per module). */
@@ -169,6 +243,8 @@ export async function lintWorkbook(
                     column: p.startCol + 1,
                     endColumn: p.endCol + 1,
                     severity: p.severity,
+                    code: p.code,
+                    ...metadataFieldsForCode(p.code),
                     message: p.message,
                 });
             }
@@ -223,6 +299,7 @@ export async function lintWorkbook(
                 endColumn: end.line === start.line ? end.column : start.column + 1,
                 severity: severityFromRule(d.severity),
                 code: d.code,
+                ...metadataFieldsForCode(d.code),
                 message: d.message,
             });
         }
@@ -238,6 +315,7 @@ export async function lintWorkbook(
 
     const errorCount = problems.filter((p) => p.severity === 'error').length;
     const warningCount = problems.filter((p) => p.severity === 'warning').length;
+    const summary = summarizeProblems(problems);
 
     return {
         filePath,
@@ -245,5 +323,6 @@ export async function lintWorkbook(
         problems,
         errorCount,
         warningCount,
+        summary,
     };
 }

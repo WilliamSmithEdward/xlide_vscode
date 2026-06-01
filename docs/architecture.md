@@ -36,7 +36,7 @@ xlide_vscode/
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of parsed VBA symbols
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
     vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource) and smart-enter helpers (no vscode dependency)
-    vbaWorkbookLint.ts  Shared workbook-wide lint core (lintWorkbook) reused by the Lint-All command and the xlide_lintWorkbook agent tool; flattens lintVbaSource + analyzeModule into 1-based {moduleName,line,column,severity,code,message} problems
+    vbaWorkbookLint.ts  Shared workbook-wide lint core (lintWorkbook) reused by the Lint-All command and the xlide_lintWorkbook agent tool; flattens lintVbaSource + analyzeModule into 1-based problems with diagnostic metadata and summary counts
     analyzer/
       lexer/
         keywordTable.ts MS-VBAL 3.3.5.2 reserved-identifier + contextual keyword tables with canonical casing
@@ -375,7 +375,11 @@ the Python bridge, builds a `ProjectIndex` so cross-module rules have the
   current module's visibility-filtered procedure/Declare and bare identifier names, then runs both diagnostic passes
 (`lintVbaSource` + `analyzeModule`) per module and flattens their results into
 1-based `{moduleName, moduleType, line, column, endColumn, severity, code,
-message}` problems, sorted by module/line/column. The
+message, category, vbeCompileEquivalent, diagnosticKind}` problems, sorted by
+module/line/column. Semantic analyzer rules and structural block-balance codes
+resolve through the shared diagnostic metadata catalogue before the workbook
+summary is counted, so the command report and `xlide_lintWorkbook` agent JSON do
+not maintain separate rule buckets. The
 `xlide.lintWorkbook` command (`src/commands.ts`, right-click "Lint All Modules in
 Workbook" on a workbook tree node) prints a formatted, blank-line-padded report
 to the XLIDE Output channel without switching focus, and shows a summary

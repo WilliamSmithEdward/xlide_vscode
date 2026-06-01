@@ -14,7 +14,11 @@ import {
     writeWorkbookRepoConfig,
     setWorkbookExportMode,
 } from './moduleExport';
-import { lintWorkbook, type WorkbookLintProblem } from './vbaWorkbookLint';
+import {
+    lintWorkbook,
+    type WorkbookLintProblem,
+    type WorkbookLintSummary,
+} from './vbaWorkbookLint';
 import { VBA_IDENTIFIER_NAME_RE } from './vbaLinter';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
@@ -67,6 +71,7 @@ export function registerCommands(
         problems: WorkbookLintProblem[],
         errorCount: number,
         warningCount: number,
+        summary: WorkbookLintSummary,
     ): void {
         const name = path.basename(filePath);
         out.appendLine('');
@@ -88,6 +93,12 @@ export function registerCommands(
             `  ${problems.length} problem(s) in ${moduleCount} module(s): ` +
             `${errorCount} error(s), ${warningCount} warning(s).`,
         );
+        out.appendLine(
+            `  VBE compile-equivalent: ${summary.vbeCompileEquivalentCount}; ` +
+            `XLIDE non-compile guidance/risk: ${summary.nonVbeCompileEquivalentCount}.`,
+        );
+        out.appendLine(`  Categories: ${formatSummaryCounts(summary.byCategory)}.`);
+        out.appendLine(`  Evidence: ${formatSummaryCounts(summary.byDiagnosticKind)}.`);
         out.appendLine('  (Click a location link to jump to the problem.)');
         out.appendLine('');
 
@@ -104,6 +115,18 @@ export function registerCommands(
             out.appendLine(`                ${link}`);
         }
         out.appendLine('');
+    }
+
+    function formatSummaryCounts<K extends string>(
+        counts: Partial<Record<K, number>>,
+    ): string {
+        const entries = Object.entries(counts)
+            .filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] > 0)
+            .sort(([a], [b]) => a.localeCompare(b));
+        if (entries.length === 0) {
+            return 'none';
+        }
+        return entries.map(([name, count]) => `${name} ${count}`).join(', ');
     }
 
     function shouldAttachToRunningExcel(): boolean {
@@ -1062,6 +1085,7 @@ export function registerCommands(
                             result.problems,
                             result.errorCount,
                             result.warningCount,
+                            result.summary,
                         );
                         if (result.problems.length === 0) {
                             void vscode.window.showInformationMessage(

@@ -3,6 +3,8 @@ import {
 	analyzeModule,
 	VbaDiagnostic,
 	DIAGNOSTIC_RULES,
+	STRUCTURAL_DIAGNOSTIC_RULES,
+	diagnosticMetadataForCode,
 	ProjectIndex,
 	type HostObjectModel,
 } from '../src/analyzer';
@@ -524,7 +526,10 @@ describe('analyzeModule - general contract', () => {
 			'runtime-risk',
 			'style-policy',
 		]);
-		for (const [name, rule] of Object.entries(DIAGNOSTIC_RULES)) {
+		for (const [name, rule] of Object.entries({
+			...DIAGNOSTIC_RULES,
+			...STRUCTURAL_DIAGNOSTIC_RULES,
+		})) {
 			expect(categories.has(rule.category), name).toBe(true);
 			expect(typeof rule.vbeCompileEquivalent, name).toBe('boolean');
 			expect(evidenceKinds.has(rule.diagnosticKind), name).toBe(true);
@@ -551,6 +556,21 @@ describe('analyzeModule - general contract', () => {
 		for (const d of analyzeModule(src)) {
 			expect(known.has(d.code)).toBe(true);
 		}
+	});
+
+	it('resolves metadata for semantic and structural diagnostic codes', () => {
+		expect(diagnosticMetadataForCode('undeclared-variable')).toMatchObject({
+			category: 'project-symbol',
+			vbeCompileEquivalent: true,
+			diagnosticKind: 'compile-error',
+		});
+		expect(diagnosticMetadataForCode('missing-block-closer')).toMatchObject({
+			title: STRUCTURAL_DIAGNOSTIC_RULES.missingBlockCloser.title,
+			category: 'syntax',
+			vbeCompileEquivalent: true,
+			diagnosticKind: 'compile-error',
+		});
+		expect(diagnosticMetadataForCode('not-a-real-rule')).toBeUndefined();
 	});
 
 	it('produces a clean module with no diagnostics', () => {
