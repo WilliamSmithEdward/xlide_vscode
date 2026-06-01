@@ -978,8 +978,13 @@ procedure scope, and `src/analyzer/conditional/conditionalCompilation.ts`
 collects them in source order, indexes `#Const` definitions, evaluates
 high-confidence compiler-constant expressions when a caller supplies the target
 compiler constants, and reports branch activity as `active` / `inactive` /
-`unknown`. Remaining work is wiring that branch activity into the symbol graph
-and enabling the verified 64-bit compatibility diagnostics.
+`unknown`. `createConditionalActivityTracker` is now wired into the shared
+module symbol graph, `ProjectIndex`, and active diagnostics, so completions,
+hover/signature surfaces that consume project signatures, call validation,
+duplicate-declaration checks, and type diagnostics all skip only branches proven
+inactive. A first low-noise Win64 diagnostic is enabled: active `Declare`
+statements missing `PtrSafe` are flagged only when supplied compiler constants
+prove `Win64`.
 
 This slice covers the VBA `#` syntax used for 32/64-bit Office compatibility and
 Win32 API declarations. It belongs partly to parser/diagnostics and partly to
@@ -1006,12 +1011,14 @@ Required behavior:
 - [Done] Parse full external declaration metadata: visibility, `Declare`, `PtrSafe`,
   `Sub` / `Function`, procedure name, `Lib`, optional `Alias`, parameters, and
   return type.
-- Add low-noise diagnostics for verified cases only: missing `PtrSafe` in
-  64-bit/VBA7 branches, obviously pointer-sized parameters/returns that should
-  use `LongPtr` or `LongLong`, malformed directive blocks, and duplicate
-  declarations only when they are active in the same conditional branch.
-- Make branch-aware analysis suppress false positives from mutually exclusive
-  32-bit and 64-bit declarations.
+- [Done first slice] Add low-noise diagnostics for verified cases only:
+  missing `PtrSafe` in active `Win64` branches, and duplicate declarations only
+  when they are active in the same conditional branch. Remaining compatibility
+  work: obviously pointer-sized parameters/returns that should use `LongPtr` or
+  `LongLong`, and malformed directive blocks.
+- [Done first slice] Make branch-aware analysis suppress false positives from
+  mutually exclusive 32-bit and 64-bit declarations across the shared symbol
+  graph and active diagnostics.
 - Provide snippets for common patterns such as `#If VBA7 Then ... #Else ...
   #End If` and `#If Win64 Then ... #Else ... #End If` with `Declare PtrSafe`
   templates.

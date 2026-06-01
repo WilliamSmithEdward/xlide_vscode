@@ -9,6 +9,11 @@
 // No `vscode` dependency: pure AST -> symbol projection, unit-tested directly.
 
 import { tokenize } from '../lexer/tokenize';
+import {
+	createConditionalActivityTracker,
+	type ConditionalActivityTracker,
+	type ConditionalCompilationEnvironment,
+} from '../conditional/conditionalCompilation';
 import type {
 	AttributeNode,
 	BodyNode,
@@ -32,6 +37,22 @@ import type {
 	VbaSymbolAttribute,
 	VbaSymbolKind,
 } from './symbolModel';
+
+export interface BuildModuleSymbolsOptions {
+	/**
+	 * Conditional-compilation constants for deterministic branch filtering. Branches
+	 * that remain unknown stay visible; only proven-inactive declarations are
+	 * removed from the shared symbol graph.
+	 */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
+}
+
+function isInactiveSymbolNode(
+	ctx: ConditionalActivityTracker | undefined,
+	node: { span: Span },
+): boolean {
+	return ctx?.isInactive(node.span) ?? false;
+}
 
 /** Maps a procedure AST kind to its symbol kind. */
 function procSymbolKind(procKind: ProcKind): VbaSymbolKind {
@@ -161,8 +182,12 @@ function collectLocals(
 	moduleName: string,
 	containerName: string,
 	out: VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
 ): void {
 	for (const node of body) {
+		if (isInactiveSymbolNode(activity, node)) {
+			continue;
+		}
 		if (node.kind === 'VariableGroup') {
 			for (const decl of node.declarations) {
 				out.push({
@@ -178,7 +203,7 @@ function collectLocals(
 				});
 			}
 		} else if ('body' in node && Array.isArray(node.body)) {
-			collectLocals(node.body, source, moduleName, containerName, out);
+			collectLocals(node.body, source, moduleName, containerName, out, activity);
 		}
 	}
 }
@@ -224,6 +249,7 @@ function buildProcedure(
 	source: string,
 	moduleName: string,
 	flat: VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
 ): VbaSymbol {
 	const children: VbaSymbol[] = [];
 	const symbol: VbaSymbol = {
@@ -244,7 +270,7 @@ function buildProcedure(
 	}
 
 	const locals: VbaSymbol[] = [];
-	collectLocals(proc.body, source, moduleName, proc.name, locals);
+	collectLocals(proc.body, source, moduleName, proc.name, locals, activity);
 	for (const local of locals) {
 		children.push(local);
 		flat.push(local);
@@ -388,14 +414,19 @@ export function buildModuleSymbols(
 	moduleName: string,
 	moduleKind: ModuleSymbolKind,
 	source: string,
+	options: BuildModuleSymbolsOptions = {},
 ): ModuleSymbols {
 	const module: ModuleNode = parseModule(source);
+	const activity = createConditionalActivityTracker(module, options.conditionalCompilation);
 	const rootChildren: VbaSymbol[] = [];
 	const flat: VbaSymbol[] = [];
 	const moduleAttributes: VbaSymbolAttribute[] = [];
 	const memberAttributes: VbaSymbolAttribute[] = [];
 
 	for (const member of module.members) {
+		if (isInactiveSymbolNode(activity, member)) {
+			continue;
+		}
 		switch (member.kind) {
 			case 'Attribute': {
 				const attr = symbolAttribute(member);
@@ -407,7 +438,7 @@ export function buildModuleSymbols(
 				break;
 			}
 			case 'Procedure': {
-				const proc = buildProcedure(member, source, moduleName, flat);
+				const proc = buildProcedure(member, source, moduleName, flat, activity);
 				proc.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(proc);
 				flat.push(proc);

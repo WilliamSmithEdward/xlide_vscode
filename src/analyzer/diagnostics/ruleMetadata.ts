@@ -114,6 +114,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3',
 		confidence: 'high',
 	},
+	declareMissingPtrSafe: {
+		code: 'declare-missing-ptrsafe',
+		title: 'Declare statement missing PtrSafe for 64-bit Office',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBA 7 Declare statement PtrSafe requirement for 64-bit Office',
+		confidence: 'high',
+	},
 	constAssignment: {
 		code: 'const-assignment',
 		title: 'Assignment to a constant',

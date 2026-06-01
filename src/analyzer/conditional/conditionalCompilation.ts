@@ -36,6 +36,46 @@ export interface ConditionalCompilationIndex {
 	constants: ConditionalConstDefinition[];
 }
 
+export interface ConditionalActivityTracker {
+	activityForSpan(span: Span): ConditionalActivity;
+	isInactive(span: Span): boolean;
+}
+
+export function createConditionalActivityTracker(
+	module: ModuleNode,
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalActivityTracker | undefined {
+	if (!moduleHasConditionalDirectives(module)) {
+		return undefined;
+	}
+	const cache = new Map<number, ConditionalActivity>();
+	const activityForSpan = (span: Span): ConditionalActivity => {
+		const cached = cache.get(span.start);
+		if (cached !== undefined) {
+			return cached;
+		}
+		const activity = conditionalActivityForSpan(module, span, env);
+		cache.set(span.start, activity);
+		return activity;
+	};
+	return {
+		activityForSpan,
+		isInactive: (span: Span): boolean => activityForSpan(span) === 'inactive',
+	};
+}
+
+export function moduleHasConditionalDirectives(module: ModuleNode): boolean {
+	for (const member of module.members) {
+		if (member.kind === 'ConditionalDirective') {
+			return true;
+		}
+		if (member.kind === 'Procedure' && bodyHasConditionalDirectives(member.body)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export function indexConditionalCompilation(
 	module: ModuleNode,
 	env: ConditionalCompilationEnvironment = {},
@@ -202,6 +242,18 @@ function collectBodyDirectives(
 			collectBodyDirectives(node.body, procedure, out);
 		}
 	}
+}
+
+function bodyHasConditionalDirectives(body: BodyNode[]): boolean {
+	for (const node of body) {
+		if (node.kind === 'ConditionalDirective') {
+			return true;
+		}
+		if ('body' in node && Array.isArray(node.body) && bodyHasConditionalDirectives(node.body)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function collectConditionalConstants(

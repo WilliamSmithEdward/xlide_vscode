@@ -88,7 +88,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Const declarations | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.4 | Verified |
 | WithEvents / New declarators | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3 | Verified |
 | Declare statements with PtrSafe/Lib/Alias/params/return metadata | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3.5 | Verified |
-| Conditional-compilation directives (`#Const`, `#If`, `#ElseIf`, `#Else`, `#End If`) | src/analyzer/parser/parseModule.ts + src/analyzer/conditional/conditionalCompilation.ts | tests/vbaParser.test.ts + tests/vbaConditionalCompilation.test.ts | 3.4 | Verified |
+| Conditional-compilation directives (`#Const`, `#If`, `#ElseIf`, `#Else`, `#End If`) and branch activity for symbols/diagnostics | src/analyzer/parser/parseModule.ts + src/analyzer/conditional/conditionalCompilation.ts + src/analyzer/symbols/buildModuleSymbols.ts + src/analyzer/diagnostics/analyzeModule.ts | tests/vbaParser.test.ts + tests/vbaConditionalCompilation.test.ts + tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 3.4 | Verified |
 | Type ... End Type | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3.3 | Verified |
 | Enum ... End Enum | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3.4 | Verified |
 | Sub / Function procedures | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.3.1 | Verified |
@@ -133,8 +133,10 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   compiler directives are parsed, and `src/analyzer/conditional/conditionalCompilation.ts`
   can classify simple `VBA7` / `Win64` / `Win32` / `Mac` / `#Const` branches as
   active, inactive, or unknown when the caller supplies compiler constants; it
-  leaves platform constants unknown by default. The symbol graph and active
-  diagnostics do not yet filter declarations by branch activity.
+  leaves platform constants unknown by default. The shared branch tracker now
+  filters only proven-inactive declarations/statements from the module symbol
+  graph, project signatures, and active diagnostics. Remaining work is malformed
+  directive-block diagnostics and broader pointer-sized API compatibility checks.
 - **Recovery boundaries:** the parser recovers at newline/colon statement
   boundaries (section 3.3.1 EOS) and at module-level starters (a new
   `Sub`/`Function`/`Property`/`Type`/`Enum`/`Declare`/`Attribute`), so a missing
@@ -227,6 +229,7 @@ family) in `registerVbaDiagnostics`.
 | `duplicate-declaration` | Param/local redeclared in one procedure scope | 5.2 / 5.3 (declared names) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `duplicate-module-variable` | Module-level variable redeclared | 5.2.3 (module variable declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `const-assignment` | Assignment to a declared `Const` | 5.4.3.1 (Const cannot be assigned) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `declare-missing-ptrsafe` | An active `Declare` statement lacks `PtrSafe` while supplied compiler constants prove `Win64`; unknown platform environments and inactive legacy branches remain silent | VBA 7 64-bit Office `PtrSafe` requirement | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `option-explicit-missing` | Code module omits `Option Explicit` (configurable) | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `undeclared-variable` | `Option Explicit` module writes to or reads an identifier in a high-confidence value position that resolves to no local/module/project/runtime/host identifier; covered positions include bare assignment/`Set` targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases, while type-name, label, named-argument, and unresolved external-call positions are skipped; runtime constants (`vbOKOnly`) and generated Excel enum constants (`xlUp`) suppress false positives; missing `Option Explicit` remains implicit Variant | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts + src/analyzer/symbols/projectIndex.ts | tests/vbaDiagnostics.test.ts + tests/vbaSymbolGraph.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `unknown-call` | Call statement whose callee is a bare (non-member) identifier - lone identifier, parenless args (`MsgBox "hi"`), or `Call Foo` - that resolves to no project procedure/Declare, runtime function, host global, `Application` member, or in-scope name | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |

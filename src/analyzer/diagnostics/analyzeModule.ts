@@ -39,24 +39,35 @@ import {
 import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
 import type {
 	BodyNode,
+	ModuleMember,
 	ModuleNode,
 	ParameterNode,
 	ProcedureNode,
 	Span,
 	StatementNode,
 	TypeFieldNode,
-	DeclareNode,
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
+import {
+	conditionalCompilerConstants,
+	createConditionalActivityTracker,
+	type ConditionalActivityTracker,
+	type ConditionalCompilationEnvironment,
+} from '../conditional/conditionalCompilation';
 import type {
 	ModuleSymbolKind,
 	VbaProjectClassMembers,
 	VbaProcedureSignature,
 	VbaSymbol,
 } from '../symbols/symbolModel';
-import { isProcedureKind, qualifiedProcedureKey } from '../symbols/symbolModel';
+import {
+	isBareCallableKind,
+	isProcedureKind,
+	procedureParamsFromSymbol,
+	qualifiedProcedureKey,
+} from '../symbols/symbolModel';
 import {
 	resolveMemberCompletions,
 	type MemberCompletion,
@@ -132,6 +143,11 @@ export interface AnalyzeModuleOptions {
 	knownNonTypeNames?: ReadonlySet<string>;
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
+	/**
+	 * Conditional-compilation constants for deterministic branch filtering. Branches
+	 * that remain unknown are still analyzed; only proven-inactive code is skipped.
+	 */
+	conditionalCompilation?: ConditionalCompilationEnvironment;
 }
 
 /** Counts double-quote characters; an odd count means the string is unterminated. */
@@ -201,40 +217,46 @@ function runRules(
 	};
 
 	const mod = parseModule(source);
-	const symbols = buildModuleSymbols(moduleName, moduleKind, source);
+	const symbols = buildModuleSymbols(moduleName, moduleKind, source, {
+		conditionalCompilation: opts.conditionalCompilation,
+	});
+	const activity = createConditionalActivityTracker(mod, opts.conditionalCompilation);
 	const memberCtx = diagnosticMemberCompletionContext(opts);
 
 	checkUnterminatedStrings(source, push);
 	checkDuplicateProcedures(symbols.root.children ?? [], push);
 	checkDuplicateDeclarations(symbols.root.children ?? [], push);
 	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
-	checkConstAssignment(source, mod, symbols, push);
-	checkOptionExplicit(source, mod, push);
-	checkUndeclaredVariables(source, mod, symbols, opts.knownIdentifiers, push);
-	checkOptionPlacement(mod, push);
-	checkProcedureHeader(source, mod, push);
-	checkReservedDeclarationNames(source, mod, push);
-	checkParameterOrder(mod, push);
+	checkConstAssignment(source, mod, symbols, activity, push);
+	checkOptionExplicit(source, mod, activity, push);
+	checkUndeclaredVariables(source, mod, symbols, activity, opts.knownIdentifiers, push);
+	checkOptionPlacement(mod, activity, push);
+	checkProcedureHeader(source, mod, activity, push);
+	checkReservedDeclarationNames(source, mod, activity, push);
+	checkParameterOrder(mod, activity, push);
 	checkUnbalancedParens(source, push);
-	checkInvalidExpressionSyntax(source, mod, push);
-	checkDimInitializer(source, mod, push);
-	checkUnexpectedDeclarationTokens(source, mod, push);
-	checkObjectModulePublicMembers(source, mod, moduleKind, push);
-	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, push);
-	checkInvalidAsTypeNames(source, opts, push);
-	checkCallParens(source, mod, opts.projectProcedures, push);
-	checkExpressionCallParens(source, mod, push);
-	checkSetAssignments(source, mod, symbols, memberCtx, push);
-	checkExitStatements(source, mod, push);
-	checkStatementContext(source, mod, push);
-	checkScalarMemberAccess(source, mod, symbols, push);
-	checkMemberNotFound(source, mod, memberCtx, push);
-	checkNonCallableCallStatement(source, mod, symbols, push);
+	checkInvalidExpressionSyntax(source, mod, activity, push);
+	checkDimInitializer(source, mod, activity, push);
+	checkUnexpectedDeclarationTokens(source, mod, activity, push);
+	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
+	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
+	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
+	checkInvalidAsTypeNames(source, activity, opts, push);
+	checkCallParens(source, mod, symbols, opts.projectProcedures, activity, push);
+	checkExpressionCallParens(source, mod, symbols, activity, push);
+	checkSetAssignments(source, mod, symbols, memberCtx, activity, push);
+	checkExitStatements(source, mod, activity, push);
+	checkStatementContext(source, mod, activity, push);
+	checkScalarMemberAccess(source, mod, symbols, activity, push);
+	checkMemberNotFound(source, mod, memberCtx, activity, push);
+	checkNonCallableCallStatement(source, mod, symbols, activity, push);
 	checkArgumentCount(
 		source,
 		mod,
+		symbols,
 		opts.projectProcedures,
 		memberCtx,
+		activity,
 		push,
 	);
 	checkArgumentTypes(
@@ -243,18 +265,36 @@ function runRules(
 		symbols,
 		opts.projectProcedures,
 		memberCtx,
+		activity,
 		push,
 	);
-	checkAssignmentTypes(source, mod, symbols, memberCtx, push);
-	checkMissingReturnAssignments(source, mod, push);
+	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
+	checkMissingReturnAssignments(source, mod, activity, push);
 	if (opts.knownProcedures) {
-		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
+		checkUnknownCallStatement(source, mod, symbols, activity, opts.knownProcedures, push);
 	}
 
 	return out;
 }
 
 type PushFn = (rule: DiagnosticRuleName, message: string, span: Span) => void;
+
+function isInactiveNode(
+	activity: ConditionalActivityTracker | undefined,
+	node: { span: Span },
+): boolean {
+	return activity?.isInactive(node.span) ?? false;
+}
+
+function activeModuleMembers(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): readonly ModuleMember[] {
+	if (!activity) {
+		return mod.members;
+	}
+	return mod.members.filter((member) => !isInactiveNode(activity, member));
+}
 
 function diagnosticMemberCompletionContext(
 	opts: AnalyzeModuleOptions,
@@ -417,6 +457,7 @@ function checkConstAssignment(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const moduleConsts = new Set<string>();
@@ -426,7 +467,7 @@ function checkConstAssignment(
 		}
 	}
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -458,12 +499,16 @@ function checkConstAssignment(
 function forEachStatement(
 	body: BodyNode[],
 	visit: (stmt: StatementNode) => void,
+	activity?: ConditionalActivityTracker,
 ): void {
 	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
 		if (node.kind === 'Statement') {
 			visit(node);
 		} else if ('body' in node && Array.isArray(node.body)) {
-			forEachStatement(node.body, visit);
+			forEachStatement(node.body, visit, activity);
 		}
 	}
 }
@@ -583,9 +628,10 @@ function checkMemberNotFound(
 	source: string,
 	mod: ModuleNode,
 	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -613,7 +659,7 @@ function checkMemberNotFound(
 					ref.memberSpan,
 				);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -679,6 +725,7 @@ function checkUnknownCallStatement(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
 	knownProcedures: ReadonlySet<string>,
 	push: PushFn,
 ): void {
@@ -713,7 +760,7 @@ function checkUnknownCallStatement(
 		);
 	};
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -733,7 +780,7 @@ function checkUnknownCallStatement(
 					hit.span,
 				);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -746,10 +793,11 @@ function checkNonCallableCallStatement(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const moduleNonCallables = moduleNonCallableSymbols(symbols);
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -777,7 +825,7 @@ function checkNonCallableCallStatement(
 				`Cannot call '${call.name}' because it resolves to ${symbolKindLabel(target)}, not a Sub or Function.`,
 				call.nameSpan,
 			);
-		});
+		}, activity);
 	}
 }
 
@@ -947,9 +995,10 @@ const PROC_MODIFIERS = new Set([
 function checkProcedureHeader(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -1011,6 +1060,7 @@ function stripHeaderBrackets(text: string): string {
 function checkReservedDeclarationNames(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const report = (kind: string, hit: NameTokenHit | undefined): void => {
@@ -1030,7 +1080,7 @@ function checkReservedDeclarationNames(
 		}
 	};
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
 			inspectVariableGroup(member);
 			continue;
@@ -1060,7 +1110,7 @@ function checkReservedDeclarationNames(
 		for (const param of member.params) {
 			report('parameter', declarationNameHit(source, param.span, param.name));
 		}
-		forEachVariableGroup(member.body, inspectVariableGroup);
+		forEachVariableGroup(member.body, inspectVariableGroup, activity);
 	}
 }
 
@@ -1257,14 +1307,16 @@ interface CallArguments {
 function checkArgumentCount(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const sameModuleSignatures = sameModuleCallableSignatures(mod);
+	const sameModuleSignatures = sameModuleCallableSignatures(symbols);
 	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
-	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
-	for (const member of mod.members) {
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -1302,7 +1354,7 @@ function checkArgumentCount(
 			)) {
 				validateArity(memberCall.signature, memberCall.call, push);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -1688,10 +1740,11 @@ function checkArgumentTypes(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
-	for (const member of mod.members) {
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -1734,7 +1787,7 @@ function checkArgumentTypes(
 			if (effectiveStatementCall) {
 				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, push);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -1743,10 +1796,11 @@ function checkAssignmentTypes(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleSignatures = buildModuleTypeSignatures(mod);
-	for (const member of mod.members) {
+	const moduleSignatures = buildModuleTypeSignatures(symbols);
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -1799,13 +1853,14 @@ function checkAssignmentTypes(
 				`Assignment to '${assignment.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
 				actual.span,
 			);
-		});
+		}, activity);
 		checkMemberAssignmentTypes(
 			source,
 			member,
 			env,
 			moduleSignatures,
 			memberCtx,
+			activity,
 			push,
 		);
 	}
@@ -1820,16 +1875,17 @@ function checkAssignmentTypes(
 function checkMissingReturnAssignments(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (
 			member.kind !== 'Procedure' ||
 			(member.procKind !== 'Function' && member.procKind !== 'PropertyGet')
 		) {
 			continue;
 		}
-		if (procedureHasReturnAssignment(source, member)) {
+		if (procedureHasReturnAssignment(source, member, activity)) {
 			continue;
 		}
 		const procLabel = member.procKind === 'PropertyGet' ? 'Property Get' : 'Function';
@@ -1842,7 +1898,11 @@ function checkMissingReturnAssignments(
 	}
 }
 
-function procedureHasReturnAssignment(source: string, proc: ProcedureNode): boolean {
+function procedureHasReturnAssignment(
+	source: string,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+): boolean {
 	const lower = proc.name.toLowerCase();
 	let found = false;
 	forEachStatement(proc.body, (stmt) => {
@@ -1858,7 +1918,7 @@ function procedureHasReturnAssignment(source: string, proc: ProcedureNode): bool
 		if (set?.name.toLowerCase() === lower) {
 			found = true;
 		}
-	});
+	}, activity);
 	return found;
 }
 
@@ -1868,6 +1928,7 @@ function checkMemberAssignmentTypes(
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	if (!memberCtx.projectClassMembers || memberCtx.projectClassMembers.length === 0) {
@@ -1967,7 +2028,7 @@ function checkMemberAssignmentTypes(
 			`Assignment to '${assignment.label}' expects ${expected}, but got ${actual.label}. ${reason}`,
 			actual.span,
 		);
-	});
+	}, activity);
 }
 
 function checkSetAssignments(
@@ -1975,10 +2036,11 @@ function checkSetAssignments(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleSignatures = buildModuleTypeSignatures(mod);
-	for (const member of mod.members) {
+	const moduleSignatures = buildModuleTypeSignatures(symbols);
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -2019,7 +2081,7 @@ function checkSetAssignments(
 				`Set assignment requires an object variable, but '${target.name}' is declared as ${expected}.`,
 				target.span,
 			);
-		});
+		}, activity);
 	}
 }
 
@@ -2027,9 +2089,10 @@ function checkScalarMemberAccess(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-		for (const member of mod.members) {
+		for (const member of activeModuleMembers(mod, activity)) {
 			if (member.kind !== 'Procedure') {
 				continue;
 			}
@@ -2042,7 +2105,7 @@ function checkScalarMemberAccess(
 						hit.span,
 					);
 				}
-			});
+			}, activity);
 		}
 }
 
@@ -2110,33 +2173,27 @@ function setAssignmentTarget(
 	};
 }
 
-function buildModuleTypeSignatures(mod: ModuleNode): Map<string, CallableTypeSignature> {
+function buildModuleTypeSignatures(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): Map<string, CallableTypeSignature> {
 	const out = new Map<string, CallableTypeSignature>();
-	for (const member of mod.members) {
-		if (member.kind === 'Procedure') {
-			out.set(member.name.toLowerCase(), procedureTypeSignature(member));
-		} else if (member.kind === 'Declare') {
-			out.set(member.name.toLowerCase(), declareTypeSignature(member));
+	for (const symbol of symbols.root.children ?? []) {
+		if (isProcedureKind(symbol.kind) || symbol.kind === 'declare') {
+			out.set(symbol.name.toLowerCase(), callableTypeSignatureFromSymbol(symbol));
 		}
 	}
 	return out;
 }
 
-function sameModuleCallableSignatures(mod: ModuleNode): Map<string, CallableTypeSignature[]> {
+function sameModuleCallableSignatures(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): Map<string, CallableTypeSignature[]> {
 	const out = new Map<string, CallableTypeSignature[]>();
-	for (const member of mod.members) {
-		let signature: CallableTypeSignature | undefined;
-		if (member.kind === 'Procedure') {
-			if (member.procKind !== 'Sub' && member.procKind !== 'Function') {
-				continue;
-			}
-			signature = procedureTypeSignature(member);
-		} else if (member.kind === 'Declare') {
-			signature = declareTypeSignature(member);
-		}
-		if (!signature) {
+	for (const symbol of symbols.root.children ?? []) {
+		if (!isBareCallableKind(symbol.kind)) {
 			continue;
 		}
+		const signature = callableTypeSignatureFromSymbol(symbol);
 		const key = signature.name.toLowerCase();
 		const arr = out.get(key);
 		if (arr) {
@@ -2148,37 +2205,24 @@ function sameModuleCallableSignatures(mod: ModuleNode): Map<string, CallableType
 	return out;
 }
 
-function procedureTypeSignature(member: ProcedureNode): CallableTypeSignature {
+function callableTypeSignatureFromSymbol(symbol: VbaSymbol): CallableTypeSignature {
 	return {
-		name: member.name,
-		params: member.params.map((p) => ({
+		name: symbol.name,
+		params: procedureParamsFromSymbol(symbol).map((p) => ({
 			name: stripHeaderBrackets(p.name),
-			type: p.asType,
+			type: p.type,
 			optional: p.optional,
 			paramArray: p.paramArray,
 		})),
-		returnType: member.returnType,
-	};
-}
-
-function declareTypeSignature(member: DeclareNode): CallableTypeSignature {
-	return {
-		name: member.name,
-		params: member.params.map((p) => ({
-			name: stripHeaderBrackets(p.name),
-			type: p.asType,
-			optional: p.optional,
-			paramArray: p.paramArray,
-		})),
-		returnType: member.returnType,
+		returnType: symbol.asType,
 	};
 }
 
 function callableTypeSignaturesFor(
-	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 ): Map<string, CallableTypeSignature> {
-	const out = buildModuleTypeSignatures(mod);
+	const out = buildModuleTypeSignatures(symbols);
 	for (const [lower, sig] of uniqueProjectTypeSignatures(projectProcedures)) {
 		if (!out.has(lower)) {
 			out.set(lower, sig);
@@ -3141,11 +3185,12 @@ function isBooleanString(value: string): boolean {
 function checkOptionExplicit(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	let hasExplicit = false;
 	let hasCode = false;
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Option' && /^explicit\b/i.test(member.optionText.trim())) {
 			hasExplicit = true;
 		}
@@ -3182,10 +3227,11 @@ function checkUndeclaredVariables(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
 	knownIdentifiers: ReadonlySet<string> | undefined,
 	push: PushFn,
 ): void {
-	if (!hasOptionExplicit(mod) || !knownIdentifiers) {
+	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
 	}
 
@@ -3208,7 +3254,7 @@ function checkUndeclaredVariables(
 		);
 	};
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -3242,7 +3288,7 @@ function checkUndeclaredVariables(
 			for (const ref of undeclaredReadReferences(source, span, (name) => isKnown(name, locals))) {
 				report(ref.name, ref.span, 'using it');
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -3250,8 +3296,12 @@ function forEachUndeclaredReferenceSpan(
 	source: string,
 	body: BodyNode[],
 	visit: (span: Span) => void,
+	activity?: ConditionalActivityTracker,
 ): void {
 	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
 		if (node.kind === 'Statement') {
 			visit(node.span);
 		} else if ('body' in node && Array.isArray(node.body)) {
@@ -3262,7 +3312,7 @@ function forEachUndeclaredReferenceSpan(
 					visit(footer);
 				}
 			}
-			forEachUndeclaredReferenceSpan(source, node.body, visit);
+			forEachUndeclaredReferenceSpan(source, node.body, visit, activity);
 		}
 	}
 }
@@ -3437,8 +3487,11 @@ function isNamedArgumentLabel(toks: readonly VbaToken[], index: number): boolean
 	return toks[index + 1]?.rawText === ':' && toks[index + 2]?.rawText === '=';
 }
 
-function hasOptionExplicit(mod: ModuleNode): boolean {
-	return mod.members.some(
+function hasOptionExplicit(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): boolean {
+	return activeModuleMembers(mod, activity).some(
 		(member) =>
 			member.kind === 'Option' && /^explicit\b/i.test(member.optionText.trim()),
 	);
@@ -3470,6 +3523,7 @@ function moduleLevelIdentifierNames(
 function checkDimInitializer(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const inspect = (group: VariableGroupNode): void => {
@@ -3485,11 +3539,11 @@ function checkDimInitializer(
 			);
 		}
 	};
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
 			inspect(member);
 		} else if (member.kind === 'Procedure') {
-			forEachVariableGroup(member.body, inspect);
+			forEachVariableGroup(member.body, inspect, activity);
 		}
 	}
 }
@@ -3508,6 +3562,7 @@ function checkDimInitializer(
 function checkUnexpectedDeclarationTokens(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const inspect = (span: Span, allowEquals: boolean): void => {
@@ -3528,7 +3583,7 @@ function checkUnexpectedDeclarationTokens(
 		}
 	};
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
 			inspectGroup(member);
 			continue;
@@ -3543,7 +3598,7 @@ function checkUnexpectedDeclarationTokens(
 			for (const param of member.params) {
 				inspectParameter(param, inspect);
 			}
-			forEachVariableGroup(member.body, inspectGroup);
+			forEachVariableGroup(member.body, inspectGroup, activity);
 		}
 	}
 }
@@ -3566,12 +3621,16 @@ function inspectParameter(
 function forEachVariableGroup(
 	body: BodyNode[],
 	visit: (group: VariableGroupNode) => void,
+	activity?: ConditionalActivityTracker,
 ): void {
 	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
 		if (node.kind === 'VariableGroup') {
 			visit(node);
 		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
-			forEachVariableGroup((node as { body: BodyNode[] }).body, visit);
+			forEachVariableGroup((node as { body: BodyNode[] }).body, visit, activity);
 		}
 	}
 }
@@ -3586,6 +3645,7 @@ function checkObjectModulePublicMembers(
 	source: string,
 	mod: ModuleNode,
 	moduleKind: ModuleSymbolKind,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	if (!isObjectModuleKind(moduleKind)) {
@@ -3600,7 +3660,7 @@ function checkObjectModulePublicMembers(
 		);
 	};
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup' && isPublicModifier(member.modifier)) {
 			for (const decl of member.declarations) {
 				const span = declaredNameSpan(source, decl.span, decl.name);
@@ -3626,12 +3686,45 @@ function checkObjectModulePublicMembers(
 	}
 }
 
+function checkDeclarePtrSafeForWin64(
+	source: string,
+	mod: ModuleNode,
+	conditionalCompilation: ConditionalCompilationEnvironment | undefined,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (!conditionalValueTruthy(conditionalCompilerConstants(conditionalCompilation).get('win64'))) {
+		return;
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Declare' || member.ptrSafe) {
+			continue;
+		}
+		push(
+			'declareMissingPtrSafe',
+			`Declare statement '${member.name}' must include PtrSafe when compiling for 64-bit Office.`,
+			declaredNameSpan(source, member.span, member.name),
+		);
+	}
+}
+
+function conditionalValueTruthy(value: unknown): boolean {
+	if (typeof value === 'boolean') {
+		return value;
+	}
+	if (typeof value === 'number') {
+		return value !== 0;
+	}
+	return typeof value === 'string' && value.length > 0;
+}
+
 function checkEventHandlerModuleScope(
 	source: string,
 	mod: ModuleNode,
 	moduleName: string,
 	moduleKind: ModuleSymbolKind,
 	documentType: EventHandlerDocumentType | undefined,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const actualDocumentType = eventHandlerDocumentTypeForContext({
@@ -3639,7 +3732,7 @@ function checkEventHandlerModuleScope(
 		moduleKind,
 		documentType,
 	});
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure' || member.procKind !== 'Sub') {
 			continue;
 		}
@@ -3768,10 +3861,14 @@ function isUnqualifiedStringType(
 
 function checkInvalidAsTypeNames(
 	source: string,
+	activity: ConditionalActivityTracker | undefined,
 	opts: AnalyzeModuleOptions,
 	push: PushFn,
 ): void {
 	for (const ref of collectTypeNameReferences(source)) {
+		if (activity?.isInactive(ref.span)) {
+			continue;
+		}
 		const resolved = resolveTypeName(ref.name, {
 			projectTypes: opts.projectTypes,
 			model: opts.hostModel,
@@ -3852,8 +3949,12 @@ function topLevelAssignOffset(source: string, span: Span): number | undefined {
  * `Optional` one, and `ParamArray` must be the final parameter. Both are read
  * straight off the parsed parameter flags, so they are deterministic.
  */
-function checkParameterOrder(mod: ModuleNode, push: PushFn): void {
-	for (const member of mod.members) {
+function checkParameterOrder(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -3896,11 +3997,13 @@ function checkParameterOrder(mod: ModuleNode, push: PushFn): void {
 function checkCallParens(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
-	for (const member of mod.members) {
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -3938,7 +4041,7 @@ function checkCallParens(
 					implicit.span,
 				);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -3972,9 +4075,10 @@ function invalidExplicitCallTarget(
 function checkInvalidExpressionSyntax(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -3987,7 +4091,7 @@ function checkInvalidExpressionSyntax(
 					hit.span,
 				);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -4060,19 +4164,21 @@ function isNonUnaryBinaryOperator(tok: VbaToken | undefined): boolean {
 function checkExpressionCallParens(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const moduleFunctions = new Set<string>();
-	for (const member of mod.members) {
+	for (const member of symbols.root.children ?? []) {
 		if (
-			member.kind === 'Procedure' &&
-			(member.procKind === 'Function' || member.procKind === 'PropertyGet')
+			member.kind === 'function' ||
+			member.kind === 'propertyGet'
 		) {
 			moduleFunctions.add(member.name.toLowerCase());
 		}
 	}
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -4085,7 +4191,7 @@ function checkExpressionCallParens(
 					hit.span,
 				);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -4387,9 +4493,10 @@ function matchParenFrom(toks: readonly VbaToken[], open: number): number {
 function checkExitStatements(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
@@ -4404,7 +4511,7 @@ function checkExitStatements(
 					hit.span,
 				);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -4473,6 +4580,7 @@ interface StatementContext {
 function checkStatementContext(
 	source: string,
 	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const root: StatementContext = {
@@ -4482,11 +4590,11 @@ function checkStatementContext(
 		selectDepth: 0,
 	};
 
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Statement') {
 			checkContextStatement(source, member, root, push);
 		} else if (member.kind === 'Procedure') {
-			checkContextBody(source, member.body, root, push);
+			checkContextBody(source, member.body, root, activity, push);
 		}
 	}
 }
@@ -4495,28 +4603,56 @@ function checkContextBody(
 	source: string,
 	body: BodyNode[],
 	ctx: StatementContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
 		switch (node.kind) {
 			case 'Statement':
 				checkContextStatement(source, node, ctx, push);
 				break;
 			case 'ForBlock':
-				checkContextBody(source, node.body, { ...ctx, forDepth: ctx.forDepth + 1 }, push);
+				checkContextBody(
+					source,
+					node.body,
+					{ ...ctx, forDepth: ctx.forDepth + 1 },
+					activity,
+					push,
+				);
 				break;
 			case 'DoBlock':
-				checkContextBody(source, node.body, { ...ctx, doDepth: ctx.doDepth + 1 }, push);
+				checkContextBody(
+					source,
+					node.body,
+					{ ...ctx, doDepth: ctx.doDepth + 1 },
+					activity,
+					push,
+				);
 				break;
 			case 'WithBlock':
-				checkContextBody(source, node.body, { ...ctx, withDepth: ctx.withDepth + 1 }, push);
+				checkContextBody(
+					source,
+					node.body,
+					{ ...ctx, withDepth: ctx.withDepth + 1 },
+					activity,
+					push,
+				);
 				break;
 			case 'SelectBlock':
-				checkContextBody(source, node.body, { ...ctx, selectDepth: ctx.selectDepth + 1 }, push);
+				checkContextBody(
+					source,
+					node.body,
+					{ ...ctx, selectDepth: ctx.selectDepth + 1 },
+					activity,
+					push,
+				);
 				break;
 			case 'IfBlock':
 			case 'WhileBlock':
-				checkContextBody(source, node.body, ctx, push);
+				checkContextBody(source, node.body, ctx, activity, push);
 				break;
 			case 'ConditionalDirective':
 			case 'VariableGroup':
@@ -4604,9 +4740,13 @@ function exitPhraseSpan(base: Span, first: VbaToken, target: VbaToken): Span {
  * `Attribute` lines may come before them in an exported module). Once a real
  * declaration has appeared, any later `Option` is misplaced.
  */
-function checkOptionPlacement(mod: ModuleNode, push: PushFn): void {
+function checkOptionPlacement(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
 	let declarationSeen = false;
-	for (const member of mod.members) {
+	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Attribute') {
 			continue;
 		}

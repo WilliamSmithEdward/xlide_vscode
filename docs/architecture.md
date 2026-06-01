@@ -345,8 +345,12 @@ shared, `vscode`-free helper for source-order directive collection, `#Const`
 indexing, high-confidence expression evaluation against supplied compiler
 constants (`VBA7`, `Win64`, `Win32`, `Mac`, etc.), and `active` / `inactive` /
 `unknown` branch activity. If the caller does not supply a compiler environment,
-platform constants remain unknown. Active diagnostics do not yet filter symbols
-by this branch model.
+platform constants remain unknown. `createConditionalActivityTracker` is the
+shared branch predicate used by `buildModuleSymbols`, `ProjectIndex`, and active
+diagnostics, so symbols, same-module/project call signatures, duplicate
+declaration checks, type/call validation, and Win64 `Declare PtrSafe`
+diagnostics all skip only branches proven inactive and leave unknown branches
+visible.
 
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.

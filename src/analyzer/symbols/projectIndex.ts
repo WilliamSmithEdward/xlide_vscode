@@ -9,7 +9,7 @@
 // (procedure scope) and 4.2 / 5.2.3.1 (module vs project visibility); see
 // docs/spec/MS-VBAL.verification-map.md.
 
-import { buildModuleSymbols } from './buildModuleSymbols';
+import { buildModuleSymbols, type BuildModuleSymbolsOptions } from './buildModuleSymbols';
 import {
 	isBareCallableKind,
 	isProcedureKind,
@@ -35,6 +35,13 @@ export interface ModuleInput {
 	moduleName: string;
 	moduleKind: ModuleSymbolKind;
 	source: string;
+	/** Optional per-module conditional-compilation environment. */
+	conditionalCompilation?: BuildModuleSymbolsOptions['conditionalCompilation'];
+}
+
+/** Project-wide symbol graph options shared by every indexed module. */
+export interface ProjectIndexOptions {
+	conditionalCompilation?: BuildModuleSymbolsOptions['conditionalCompilation'];
 }
 
 /** How widely an identifier reference binds across the project. */
@@ -261,12 +268,18 @@ export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
 	private readonly moduleSources = new Map<string, string>();
 
+	constructor(private readonly options: ProjectIndexOptions = {}) {}
+
 	/** Adds or replaces a module in the index. */
 	setModule(input: ModuleInput): void {
 		const symbols = buildModuleSymbols(
 			input.moduleName,
 			input.moduleKind,
 			input.source,
+			{
+				conditionalCompilation:
+					input.conditionalCompilation ?? this.options.conditionalCompilation,
+			},
 		);
 		const key = input.moduleName.toLowerCase();
 		this.modules.set(key, symbols);

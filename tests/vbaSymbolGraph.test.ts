@@ -171,6 +171,26 @@ describe('buildModuleSymbols', () => {
 			'WindowName:String:true',
 		]);
 	});
+
+	it('filters only proven-inactive conditional declarations from the module symbol graph', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n' +
+			'#Else\n' +
+			'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n' +
+			'#End If\n';
+
+		const unknown = buildModuleSymbols('NativeApi', 'standard', src);
+		expect(unknown.root.children?.filter((sym) => sym.name === 'Sleep')).toHaveLength(2);
+
+		const vba7 = buildModuleSymbols('NativeApi', 'standard', src, {
+			conditionalCompilation: { compilerConstants: { VBA7: true } },
+		});
+		const sleep = vba7.root.children?.filter((sym) => sym.name === 'Sleep') ?? [];
+		expect(sleep).toHaveLength(1);
+		expect(sleep[0].ptrSafe).toBe(true);
+		expect(sleep[0].children?.[0].asType).toBe('LongPtr');
+	});
 });
 
 describe('ProjectIndex document and workspace symbols', () => {
@@ -423,6 +443,27 @@ describe('ProjectIndex procedure signatures', () => {
 			},
 		]);
 		expect(index.procedureSignatures().get('nativeapi.sleep')).toEqual(sleep);
+	});
+
+	it('uses the same conditional branch filtering for project signatures', () => {
+		const index = new ProjectIndex({
+			conditionalCompilation: { compilerConstants: { VBA7: false } },
+		});
+		index.setModule({
+			moduleName: 'NativeApi',
+			moduleKind: 'standard',
+			source:
+				'#If VBA7 Then\n' +
+				'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n' +
+				'#Else\n' +
+				'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n' +
+				'#End If\n',
+		});
+
+		const sleep = index.procedureSignatures().get('sleep');
+		expect(sleep).toHaveLength(1);
+		expect(sleep?.[0].ptrSafe).toBe(false);
+		expect(sleep?.[0].params[0].type).toBe('Long');
 	});
 
 	it('keeps duplicate exported signatures grouped for ambiguity checks', () => {

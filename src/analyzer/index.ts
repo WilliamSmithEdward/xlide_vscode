@@ -21,9 +21,11 @@ export {
 	conditionalActivityAtOffset,
 	conditionalActivityForSpan,
 	conditionalCompilerConstants,
+	createConditionalActivityTracker,
 	evaluateConditionalExpression,
 	indexConditionalCompilation,
 	ConditionalActivity,
+	ConditionalActivityTracker,
 	ConditionalCompilationEnvironment,
 	ConditionalCompilationIndex,
 	ConditionalConstDefinition,
@@ -148,10 +150,11 @@ export {
 	VbaProjectTypeName,
 	VbaSymbolAttribute,
 } from './symbols/symbolModel';
-export { buildModuleSymbols } from './symbols/buildModuleSymbols';
+export { buildModuleSymbols, BuildModuleSymbolsOptions } from './symbols/buildModuleSymbols';
 export {
 	ModuleInput,
 	ProjectIndex,
+	ProjectIndexOptions,
 	ReferenceScope,
 	ReferenceScopeKind,
 	ShadowedSpan,

@@ -199,6 +199,27 @@ describe('analyzeModule - duplicate declarations in scope', () => {
 		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(1);
 	});
 
+	it('filters duplicate declarations in proven-inactive conditional branches', () => {
+		const src =
+			'Sub T()\n' +
+			'#If VBA7 Then\n' +
+			'    Dim value As LongPtr\n' +
+			'#Else\n' +
+			'    Dim value As Long\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(1);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: true } },
+				}),
+				'duplicate-declaration',
+			),
+		).toHaveLength(0);
+	});
+
 	it('does not flag distinct local names', () => {
 		const src = 'Sub T()\n    Dim x As Long\n    Dim y As Long\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(0);
@@ -1092,6 +1113,34 @@ describe('analyzeModule - argument count', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('Sleep');
 		expect(hits[0].message).toContain('expected 1 argument');
+	});
+
+	it('uses the active conditional Declare signature for same-module calls', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)\n' +
+			'#Else\n' +
+			'Private Declare Sub Sleep Lib "kernel32" ()\n' +
+			'#End If\n' +
+			'Sub Main()\n' +
+			'    Sleep\n' +
+			'End Sub\n';
+		const vba7Hits = byCode(
+			analyzeModule(src, {
+				conditionalCompilation: { compilerConstants: { VBA7: true } },
+			}),
+			'argument-count',
+		);
+		expect(vba7Hits).toHaveLength(1);
+		expect(spanText(src, vba7Hits[0])).toBe('Sleep');
+
+		const legacyHits = byCode(
+			analyzeModule(src, {
+				conditionalCompilation: { compilerConstants: { VBA7: false } },
+			}),
+			'argument-count',
+		);
+		expect(legacyHits).toHaveLength(0);
 	});
 
 	it('uses exported project Declare signatures for cross-module argument count', () => {
@@ -2905,6 +2954,49 @@ describe('analyzeModule - object module public declaration restrictions', () => 
 			byCode(
 				analyzeModule(src, { moduleName: 'Person', moduleKind: 'class' }),
 				'object-module-public-member',
+			),
+		).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - conditional Declare platform rules', () => {
+	it('requires PtrSafe only when the supplied compiler constants prove Win64', () => {
+		const src = 'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
+
+		const hits = byCode(
+			analyzeModule(src, {
+				conditionalCompilation: { compilerConstants: { Win64: true } },
+			}),
+			'declare-missing-ptrsafe',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Sleep');
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { Win64: false } },
+				}),
+				'declare-missing-ptrsafe',
+			),
+		).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'declare-missing-ptrsafe')).toHaveLength(0);
+	});
+
+	it('does not flag inactive legacy Declare branches under Win64', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n' +
+			'#Else\n' +
+			'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n' +
+			'#End If\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: true, Win64: true } },
+				}),
+				'declare-missing-ptrsafe',
 			),
 		).toHaveLength(0);
 	});
