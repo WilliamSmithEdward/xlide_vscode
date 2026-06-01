@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveHover, HoverContext } from '../src/analyzer';
+import { resolveHover, HoverContext, ProjectIndex } from '../src/analyzer';
 
 /** Offset of the first character of `marker` in `src`. */
 function at(src: string, marker: string, within = 0): number {
@@ -211,6 +211,22 @@ describe('hover - host symbols', () => {
 		});
 		expect(info?.signature).toBe('Person.Save()');
 		expect(info?.details).toContain('Person method');
+	});
+
+	it('describes a source-backed UDT field after a dot', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Types',
+			moduleKind: 'standard',
+			source: 'Public Type TPoint\n    X As Long\nEnd Type\n',
+		});
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+		const src = 'Sub T()\n    Dim p As TPoint\n    p.X\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('X') + 1, {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+		expect(info?.signature).toBe('TPoint.X As Long');
+		expect(info?.details).toContain('TPoint property');
 	});
 
 	it('includes generated reference docs on promoted host member hovers', () => {

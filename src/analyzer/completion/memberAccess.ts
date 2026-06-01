@@ -51,7 +51,7 @@ export interface MemberCompletionContext {
 	meType?: string;
 	/** Project object type that `Me` resolves to in the current class/document module. */
 	meProjectType?: string;
-	/** Source-declared workbook class/UserForm/document members, keyed by type. */
+	/** Source-declared workbook object members and visible UDT fields, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/**
 	 * True/default lets generic Object/Variant receivers narrow from preceding
@@ -149,7 +149,7 @@ function isBoundary(token: VbaToken): boolean {
 /**
  * Resolves the member completions available at `offset`. Returns an empty array
  * when the cursor is not in a member-access position or the receiver type
- * cannot be resolved to a known host type.
+ * cannot be resolved to a known host or source-backed project type.
  */
 export function resolveMemberCompletions(
 	source: string,

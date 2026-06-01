@@ -135,7 +135,7 @@ export interface AnalyzeModuleOptions {
 	 * single-module only.
 	 */
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
-	/** Source-declared workbook class/UserForm/document members visible to this module. */
+	/** Source-declared workbook object members and UDT fields visible to this module. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Source-declared workbook type names visible to this module. */
 	projectTypes?: readonly ProjectTypeName[];
@@ -3003,7 +3003,9 @@ function resolveKnownObjectAssignmentType(
 	}
 	const lower = simple.toLowerCase();
 	const matches = (memberCtx.projectClassMembers ?? []).filter(
-		(projectType) => projectType.name.toLowerCase() === lower,
+		(projectType) =>
+			projectType.kind !== 'userType' &&
+			projectType.name.toLowerCase() === lower,
 	);
 	if (matches.length !== 1) {
 		return undefined;

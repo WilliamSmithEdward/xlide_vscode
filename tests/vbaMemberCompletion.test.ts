@@ -756,6 +756,70 @@ describe('member completion - chaining', () => {
 	});
 });
 
+describe('member completion - user-defined types', () => {
+	function userTypeIndex(): ProjectIndex {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Types',
+			moduleKind: 'standard',
+			source: [
+				'Public Type TPoint',
+				'    X As Long',
+				'    Y As Long',
+				'End Type',
+				'Public Type TBox',
+				'    Corner As TPoint',
+				'End Type',
+				'Private Type THidden',
+				'    Secret As String',
+				'End Type',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+		return index;
+	}
+
+	it('offers fields for a variable declared as a visible UDT', () => {
+		const index = userTypeIndex();
+		const src = 'Sub Test()\n    Dim p As TPoint\n    p.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'p.'), {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+		expect(got.map((member) => member.name)).toEqual(['X', 'Y']);
+		expect(got.find((member) => member.name === 'X')?.writeType).toBe('Long');
+		expect(got.find((member) => member.name === 'X')?.surfaceExhaustive).toBe(true);
+	});
+
+	it('chains through nested UDT fields', () => {
+		const index = userTypeIndex();
+		const src = 'Sub Test()\n    Dim box As TBox\n    box.Corner.\nEnd Sub\n';
+		const got = names(src, 'box.Corner.', {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+		expect(got).toContain('X');
+		expect(got).toContain('Y');
+	});
+
+	it('resolves leading-dot fields inside With blocks', () => {
+		const index = userTypeIndex();
+		const src = 'Sub Test()\n    Dim p As TPoint\n    With p\n        .\n    End With\nEnd Sub\n';
+		const got = names(src, '        .', {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+		expect(got).toContain('X');
+		expect(got).toContain('Y');
+	});
+
+	it('does not expose private UDT fields outside their module', () => {
+		const index = userTypeIndex();
+		const src = 'Sub Test()\n    Dim hidden As THidden\n    hidden.\nEnd Sub\n';
+		const got = names(src, 'hidden.', {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+		expect(got).toEqual([]);
+	});
+});
+
 describe('member completion - With blocks', () => {
 	it('resolves a leading-dot member against the active With receiver', () => {
 		const src =

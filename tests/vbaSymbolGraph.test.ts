@@ -1061,6 +1061,44 @@ describe('ProjectIndex project class members', () => {
 		expect(members.find((t) => t.name === 'ThisWorkbook')?.exhaustive).toBe(false);
 		expect(members.find((t) => t.name === 'UserForm1')?.exhaustive).toBe(false);
 	});
+
+	it('exposes visible UDT fields as source-backed member surfaces', () => {
+		const index = new ProjectIndex();
+		const shared = [
+			"''' <summary>Shared point payload.</summary>",
+			'Public Type TPoint',
+			'    X As Long',
+			'    Label As String',
+			'End Type',
+			'Private Type THidden',
+			'    Secret As String',
+			'End Type',
+		].join('\n');
+		index.setModule({ moduleName: 'Types', moduleKind: 'standard', source: shared });
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+
+		const surfaces = index.projectMemberSurfaces('Caller');
+		const point = surfaces.find((surface) => surface.name === 'TPoint');
+		expect(point?.kind).toBe('userType');
+		expect(point?.moduleName).toBe('Types');
+		expect(point?.doc?.summary).toBe('Shared point payload.');
+		expect(point?.exhaustive).toBe(true);
+		expect(point?.members.map((member) => `${member.name}:${member.returns}`)).toEqual([
+			'X:Long',
+			'Label:String',
+		]);
+		expect(point?.members.every((member) => member.writable)).toBe(true);
+		expect(
+			point?.members.map((member) =>
+				shared.slice(
+					member.definitions?.[0]?.nameSpan.start ?? 0,
+					member.definitions?.[0]?.nameSpan.end ?? 0,
+				),
+			),
+		).toEqual(['X', 'Label']);
+		expect(surfaces.find((surface) => surface.name === 'THidden')).toBeUndefined();
+		expect(index.projectMemberSurfaces('Types').find((surface) => surface.name === 'THidden')).toBeDefined();
+	});
 });
 
 describe('ProjectIndex resolveQualifiedDefinition', () => {

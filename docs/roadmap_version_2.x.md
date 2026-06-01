@@ -39,8 +39,9 @@ heuristic diagnostics.
   reasonably display it, that is a tracked gap, not an acceptable final state.
 - Curated object/member metadata must not become a one-off exception path. Any
   added curation must be tracked with provenance and tests, and object-access
-  business rules must apply consistently across source-backed classes, document
-  modules, UserForms, curated host objects, and external metadata.
+  business rules must apply consistently across source-backed classes,
+  user-defined types, document modules, UserForms, curated host objects, and
+  external metadata.
 - Hard object member diagnostics require an exhaustive member surface for the
   receiver. Curated subsets can power completion, hover, and soft guidance, but
   they cannot prove `member-not-found` unless the curated source explicitly
@@ -81,6 +82,11 @@ heuristic diagnostics.
   declarations from `ProjectIndex.visibleIdentifierSymbols()`, so exported
   standard-module globals, enums, enum members, types, and procedures use the
   same cross-module visibility rule as diagnostics and navigation.
+- Source-backed member completion/hover/diagnostics/navigation now consume
+  `ProjectIndex.projectMemberSurfaces(moduleName)`, which combines object-module
+  members with visible UDT field surfaces. UDT fields are exhaustive, writable,
+  definition-backed members, so `Dim p As TPoint : p.` and `With p : .X` behave
+  like ordinary VBA member access.
 - Type names now share one resolver for completion, hover, and VS Code semantic
   tokens in declaration type positions and `New` expressions. Resolved VBA
   primitive types, Excel host types, classes, document modules, UserForms, UDTs,
@@ -467,7 +473,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
 - [x] Explore VBA default members, including exported attributes such as
   `Attribute Value.VB_UserMemId = 0`, before inferring direct object usage like
   `textValue = p`. The parser keeps dotted attribute names, the symbol graph
-  attaches member attributes with source spans, and project class members expose
+  attaches member attributes with source spans, and project member surfaces expose
   a `defaultMember` fact for `VB_UserMemId = 0`; direct object-expression
   inference remains deferred until an import-capable VBE oracle path can verify
   the runtime/compile behavior.
@@ -475,8 +481,9 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   workbook object modules. VBA has no source-level `Class Person` declaration,
   so XLIDE uses one explicit convention: a module-header `'''` block directly
   above the first `Option` directive. `ProjectIndex.visibleTypeNames()` and
-  `projectClassMembers()` preserve those docs so class-name type completion and
-  hover show the same documentation as source-backed member surfaces.
+  `projectMemberSurfaces(moduleName)` preserve those docs so class-name type
+  completion and hover show the same documentation as source-backed member
+  surfaces.
 - [x] Add first-class document-module event handler authoring for workbook and
   worksheet document modules. `src/analyzer/completion/eventHandlers.ts`
   scopes the metadata by module type and drives completion/insertions from one

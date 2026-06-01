@@ -790,7 +790,7 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   without valid `Call` syntax or expression context; required-argument calls
 >   stay on `argument-count`.
 > - `With` receiver member binding now uses the shared member-access resolver for
->   leading-dot diagnostics: unknown source-backed class members, read-only
+>   leading-dot diagnostics: unknown source-backed class/UDT members, read-only
 >   assignments, member assignment type checks, class/host member argument count
 >   checks, argument type checks, and standalone empty-parentheses call-statement
 >   checks all resolve `.Member` against the active `With` object.
@@ -898,11 +898,16 @@ Do not ship low-confidence diagnostics by default.
 > detail, parameter defaults where known, and inline `'''` documentation for the
 > IntelliSense preview. Runtime completion uses the shared explicit-`Call`
 > compatibility metadata, so invalid targets such as `DoEvents` are not offered
-> after `Call`. The shared member-access resolver also resolves leading-dot
-> chains inside an active `With ... End With` block against the `With` receiver;
-> completion, hover, signature help (including parenless `.Method arg, ...`
-> call tips), canonical casing, call-completion parenthesis insertion, and
-> diagnostics now use that same path. Parenthesized calls, parenless calls, and
+> after `Call`. Member completion/hover/diagnostics/navigation consume
+> `ProjectIndex.projectMemberSurfaces(moduleName)`: object-module members plus
+> visible UDT fields. UDT fields are exhaustive, writable, definition-backed
+> property-like members, so `Dim p As TPoint : p.` and `With p : .X` use the
+> same member resolver as workbook class members. The shared member-access
+> resolver also resolves leading-dot chains inside an active `With ... End With`
+> block against the `With` receiver; completion, hover, signature help
+> (including parenless `.Method arg, ...` call tips), canonical casing,
+> call-completion parenthesis insertion, and diagnostics now use that same path.
+> Parenthesized calls, parenless calls, and
 > explicit `Call` contexts are now classified in
 > `src/analyzer/call/callContext.ts` so signature help, callable completion
 > insertion, and bare-call diagnostics share one rule set. Resolved

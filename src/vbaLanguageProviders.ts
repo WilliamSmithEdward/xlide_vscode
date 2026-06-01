@@ -295,7 +295,7 @@ function sourceMemberDefinitionsAt(
         codeNames: codeNamesForModules(modules),
         meType: meHostTypeForModule(currentModuleName, currentModuleType, currentDocumentType),
         meProjectType: meProjectTypeForModule(currentModuleName, currentModuleType),
-        projectClassMembers: project.projectClassMembers(),
+        projectClassMembers: project.projectMemberSurfaces(currentModuleName),
     }).find((item) => item.name.toLowerCase() === memberName.toLowerCase());
     return member?.definitions ?? [];
 }
@@ -306,16 +306,19 @@ function projectClassMemberAtDefinition(
     memberName: string,
     offset: number,
 ): VbaProjectClassMember | undefined {
-    const type = project.projectClassMembers().find(
-        (candidate) => candidate.moduleName.toLowerCase() === moduleName.toLowerCase(),
-    );
-    if (!type) { return undefined; }
-    return type.members.find((member) =>
-        member.name.toLowerCase() === memberName.toLowerCase() &&
-        (member.definitions ?? []).some((definition) =>
-            offset >= definition.nameSpan.start && offset <= definition.nameSpan.end,
-        ),
-    );
+    for (const type of project.projectMemberSurfaces(moduleName)) {
+        if (type.moduleName.toLowerCase() !== moduleName.toLowerCase()) {
+            continue;
+        }
+        const member = type.members.find((candidate) =>
+            candidate.name.toLowerCase() === memberName.toLowerCase() &&
+            (candidate.definitions ?? []).some((definition) =>
+                offset >= definition.nameSpan.start && offset <= definition.nameSpan.end,
+            ),
+        );
+        if (member) { return member; }
+    }
+    return undefined;
 }
 
 function memberDefinitionKey(definition: VbaProjectClassMemberDefinition): string {
@@ -1006,7 +1009,7 @@ function registerVbaDiagnostics(
                 knownProcedures = project.visibleProcedureNames(moduleName);
                 knownIdentifiers = project.visibleIdentifierNames(moduleName);
                 projectProcedures = project.procedureSignatures();
-                projectClassMembers = project.projectClassMembers();
+                projectClassMembers = project.projectMemberSurfaces(moduleName);
                 projectTypes = project.visibleTypeNames(moduleName);
                 knownNonTypeNames = project.visibleNonTypeNames(moduleName);
             } catch {

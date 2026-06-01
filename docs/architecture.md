@@ -442,12 +442,13 @@ into a pure analyzer layer and a thin VS Code provider:
   `obj.` to worksheet members while `Set obj = Sheets(1)` keeps the merged
   worksheet/chart surface. Diagnostic callers can opt out of this refinement so
   late-bound `Object`/`Variant` receivers are not treated as hard absence proof;
-  editor completion leaves it enabled. It also accepts a source-backed
-  workbook class-member surface from `ProjectIndex.projectClassMembers()`, so
+  editor completion leaves it enabled. It also accepts source-backed workbook
+  member surfaces from `ProjectIndex.projectMemberSurfaces(moduleName)`, so
   variables declared as workbook classes (for example `Dim p As Person`) can
-  offer public/default-public source members and public fields at `p.` without
-  guessing from names. Public constants are not exposed as object members because
-  VBE rejects them in class/document/UserForm modules. The same context also
+  offer public/default-public source members and public fields at `p.`, and
+  variables declared as visible user-defined types can offer their fields at
+  `point.` without guessing from names. Public constants are not exposed as
+  object members because VBE rejects them in class/document/UserForm modules. The same context also
   resolves `Me.` to the current class/document module's source-backed member
   surface, merging with a known host surface when the caller supplies one.
   Source-backed workbook members carry inline `'''` documentation through to
@@ -555,7 +556,7 @@ call paren is open it falls back to a conservative *parenless call statement*
 detector (`Workbooks.Open "file", `) that bails on statement keywords, file-I/O
 starters, and top-level `=` assignments. Member-call signatures are resolved
 through the same member-completion route used for `object.` completion, so host
-members and source-backed project class members share receiver binding,
+members and source-backed project member surfaces share receiver binding,
 return-type chains, and inline XML docs. Bare-call signatures are sourced from
 same-module user `Sub`/`Function`/`Property` procedures (built from the parsed
 AST so `Optional`/`ParamArray`/default detail renders in VBE bracket form), then
@@ -564,8 +565,8 @@ targets suppress their call tip in that context using the same runtime metadata
 as completion and diagnostics. The whole resolver is wrapped in try/catch so it never
 disrupts editing, and signatures are never invented — an unknown callee yields
 no tip. Verified host signatures live beside the object model in
-`excelObjectModel.ts`; source-backed class member signatures are emitted by
-`ProjectIndex.projectClassMembers()`.
+`excelObjectModel.ts`; source-backed callable member signatures are emitted by
+`ProjectIndex.projectMemberSurfaces(moduleName)`.
 
 **Developer documentation (XML doc-comments + external metadata)** —
 `src/analyzer/docs/` adds Visual-Studio-style IntelliSense documentation. A
@@ -720,13 +721,14 @@ Diagnostic severity policy:
   multi-module oracle cases confirm the nonnumeric string case raises runtime
   error 13 and the numeric-string control succeeds. `readonly-member-assignment`
   is a compile-equivalent
-  diagnostic for source-backed project class properties whose member surface has
+  diagnostic for source-backed project properties whose member surface has
   no setter; focused oracle evidence rejects this as `Can't assign to read-only
-  property`. `member-not-found` is another source-backed class-member rule: it
+  property`. `member-not-found` is another source-backed member rule: it
   fires only when a receiver resolves to an unambiguous and exhaustive
-  `ProjectIndex.projectClassMembers()` surface, or a promoted exhaustive host
+  `ProjectIndex.projectMemberSurfaces(moduleName)` surface, or a promoted exhaustive host
   surface, and the member name is absent. Plain class modules are
-  source-exhaustive, including current-class `Me.Member` references;
+  source-exhaustive, visible UDT field surfaces are exhaustive, including
+  current-class `Me.Member` references;
   document modules and UserForms stay silent until their host/designer
   catalogues are complete enough to prove absence, except for known workbook
   host references such as `ThisWorkbook`/`Me` inside `ThisWorkbook`. Focused
@@ -843,10 +845,10 @@ single module:
   type resolution fails), `resolveTypeDefinitions` (visible project type-name
   definitions with object modules resolving to the module start because the
   object type name is the VB component name),
-  `projectClassMembers`
-  (source-backed member surfaces with signatures, docs, definition spans,
-  module-level `Implements` names, and default-member facts from
-  `VB_UserMemId = 0` attributes), and
+  `projectMemberSurfaces` (source-backed member surfaces for object modules
+  and visible UDT fields with signatures, docs, definition spans, module-level
+  `Implements` names, and default-member facts from `VB_UserMemId = 0`
+  attributes), and
   `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit
   `Public`/`Global` and default-`Public` procedures are exported;
   `Private`/`Dim`/`Friend` and unmodified module variables stay module-private.

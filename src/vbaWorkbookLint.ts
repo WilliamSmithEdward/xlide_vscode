@@ -150,13 +150,10 @@ export async function lintWorkbook(
         }
     }
     let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
-    let projectClassMembers: ReturnType<ProjectIndex['projectClassMembers']> | undefined;
     try {
         projectProcedures = project.procedureSignatures();
-        projectClassMembers = project.projectClassMembers();
     } catch {
         projectProcedures = undefined;
-        projectClassMembers = undefined;
     }
 
     const config = vscode.workspace.getConfiguration('xlide');
@@ -194,16 +191,19 @@ export async function lintWorkbook(
         let knownIdentifiers: ReadonlySet<string> | undefined;
         let knownNonTypeNames: ReadonlySet<string> | undefined;
         let projectTypes: ReturnType<ProjectIndex['visibleTypeNames']> | undefined;
+        let projectClassMembers: ReturnType<ProjectIndex['projectMemberSurfaces']> | undefined;
         try {
             knownProcedures = project.visibleProcedureNames(mod.name);
             knownIdentifiers = project.visibleIdentifierNames(mod.name);
             knownNonTypeNames = project.visibleNonTypeNames(mod.name);
             projectTypes = project.visibleTypeNames(mod.name);
+            projectClassMembers = project.projectMemberSurfaces(mod.name);
         } catch {
             knownProcedures = undefined;
             knownIdentifiers = undefined;
             knownNonTypeNames = undefined;
             projectTypes = undefined;
+            projectClassMembers = undefined;
         }
         try {
             semantic = analyzeModule(mod.source, {

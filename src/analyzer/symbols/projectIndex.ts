@@ -569,6 +569,18 @@ export class ProjectIndex {
 		return out;
 	}
 
+	/**
+	 * Source-backed member surfaces visible from `moduleName`: workbook object
+	 * modules plus visible `Type ... End Type` declarations. UDT fields are
+	 * exhaustive, writable property-like members.
+	 */
+	projectMemberSurfaces(moduleName: string): VbaProjectClassMembers[] {
+		return [
+			...this.projectClassMembers(),
+			...this.projectUserTypeMembers(moduleName),
+		];
+	}
+
 	/** The {@link ModuleSymbols} for a module, or undefined. */
 	getModule(moduleName: string): ModuleSymbols | undefined {
 		return this.modules.get(moduleName.toLowerCase());
@@ -942,5 +954,45 @@ export class ProjectIndex {
 			});
 		}
 		return [...byName.values()];
+	}
+
+	private projectUserTypeMembers(moduleName: string): VbaProjectClassMembers[] {
+		const currentLower = moduleName.toLowerCase();
+		const out: VbaProjectClassMembers[] = [];
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			for (const symbol of mod.root.children ?? []) {
+				if (symbol.kind !== 'type') {
+					continue;
+				}
+				if (!sameModule && !isTypeExported(symbol)) {
+					continue;
+				}
+				out.push({
+					name: symbol.name,
+					kind: 'userType',
+					moduleName: mod.moduleName,
+					doc: symbol.doc,
+					exhaustive: true,
+					members: this.userTypeFieldMembers(symbol),
+				});
+			}
+		}
+		return out;
+	}
+
+	private userTypeFieldMembers(symbol: VbaSymbol): VbaProjectClassMember[] {
+		return (symbol.children ?? [])
+			.filter((field) => field.kind === 'typeField')
+			.map((field) => ({
+				name: field.name,
+				kind: 'property' as const,
+				returns: field.asType,
+				writable: true,
+				writeType: field.asType,
+				moduleName: field.moduleName,
+				doc: field.doc,
+				definitions: [projectObjectMemberDefinition(field)],
+			}));
 	}
 }

@@ -237,7 +237,7 @@ export interface VbaProjectClassMemberDefinition {
 	fullSpan: Span;
 }
 
-/** A source-declared member of a project object module. */
+/** A source-declared member of a project object module or user-defined Type. */
 export interface VbaProjectClassMember {
 	name: string;
 	kind: 'property' | 'method' | 'event';
@@ -261,10 +261,10 @@ export interface VbaProjectClassMember {
 	attributes?: VbaSymbolAttribute[];
 }
 
-/** Public member surface for a workbook-defined object type. */
+/** Public member surface for a workbook-defined object type or user-defined Type. */
 export interface VbaProjectClassMembers {
 	name: string;
-	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform'>;
+	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform' | 'userType'>;
 	moduleName: string;
 	/** Interfaces named by module-level Implements statements. */
 	implements?: string[];

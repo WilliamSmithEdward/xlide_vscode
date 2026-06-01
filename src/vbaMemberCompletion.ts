@@ -303,7 +303,15 @@ class VbaMemberCompletionProvider
 				moduleKind: current ? this._moduleKind(current.type) : 'standard',
 				projectTypes: typeContext.projectTypes,
 				projectClassMembers: entries
-					? await this._loadProjectClassMembers(decoded.xlsmPath, entries)
+					? await this._loadProjectMemberSurfaces(
+						decoded.xlsmPath,
+						entries,
+						decoded.moduleName,
+						{
+							moduleKind: current ? this._moduleKind(current.type) : 'standard',
+							source,
+						},
+					)
 					: undefined,
 				projectProcedures: entries
 					? await this._loadCrossModuleProcedureSignatures(
@@ -338,9 +346,12 @@ class VbaMemberCompletionProvider
 		const current = entries.find(
 			(e) => e.name.toLowerCase() === decoded.moduleName.toLowerCase(),
 		);
-		const projectClassMembers = await this._loadProjectClassMembers(
+		const moduleKind = current ? this._moduleKind(current.type) : 'standard';
+		const projectClassMembers = await this._loadProjectMemberSurfaces(
 			decoded.xlsmPath,
 			entries,
+			decoded.moduleName,
+			{ moduleKind, source: document.getText() },
 		);
 		return {
 			codeNames: codeNamesFor(entries),
@@ -367,14 +378,26 @@ class VbaMemberCompletionProvider
 		}
 	}
 
-	private async _loadProjectClassMembers(
+	private async _loadProjectMemberSurfaces(
 		xlsmPath: string,
 		entries: ModuleEntry[],
+		moduleName: string,
+		liveOverride?: { moduleKind: ModuleSymbolKind; source: string },
 	): Promise<VbaProjectClassMembers[]> {
-		const project = await this._buildProjectIndexFromEntries(xlsmPath, entries, {
-			include: (kind) => kind === 'class' || kind === 'userform' || kind === 'document',
-		});
-		return project.projectClassMembers();
+		const project = await this._buildProjectIndexFromEntries(
+			xlsmPath,
+			entries,
+			liveOverride
+				? {
+					liveOverride: {
+						moduleName,
+						moduleKind: liveOverride.moduleKind,
+						source: liveOverride.source,
+					},
+				}
+				: {},
+		);
+		return project.projectMemberSurfaces(moduleName);
 	}
 
 	private async _loadCrossModuleProcedureSignatures(

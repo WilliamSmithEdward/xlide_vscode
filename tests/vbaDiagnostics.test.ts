@@ -49,6 +49,25 @@ function projectClassMembers(
 	return project.projectClassMembers();
 }
 
+function projectMemberSurfaces(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+	currentModule: string,
+): ReturnType<ProjectIndex['projectMemberSurfaces']> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.projectMemberSurfaces(currentModule);
+}
+
 function visibleProjectProcedures(
 	modules: Array<{
 		moduleName: string;
@@ -2067,6 +2086,34 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'assignment-type-mismatch')).toHaveLength(0);
 		expect(byCode(diagnostics, 'readonly-member-assignment')).toHaveLength(0);
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
+	});
+
+	it('uses visible UDT fields for missing-member and assignment type diagnostics', () => {
+		const types = 'Public Type TPoint\n    X As Long\nEnd Type\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As TPoint\n' +
+			'    p.X = "bad"\n' +
+			'    p.Missing = 1\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			moduleName: 'Caller',
+			projectClassMembers: projectMemberSurfaces(
+				[
+					{ moduleName: 'Caller', source: src },
+					{ moduleName: 'Types', source: types },
+				],
+				'Caller',
+			),
+		});
+		const typeHits = byCode(diagnostics, 'assignment-type-mismatch');
+		expect(typeHits).toHaveLength(1);
+		expect(spanText(src, typeHits[0])).toBe('"bad"');
+		expect(typeHits[0].message).toContain('p.X');
+		const memberHits = byCode(diagnostics, 'member-not-found');
+		expect(memberHits).toHaveLength(1);
+		expect(spanText(src, memberHits[0])).toBe('Missing');
+		expect(memberHits[0].message).toContain('TPoint.Missing');
 	});
 
 	it('requires Set for object-valued public class fields', () => {
