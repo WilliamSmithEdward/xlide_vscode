@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { materializeKeywordSnippet, resolveKeywordCompletions } from '../src/analyzer';
+import {
+	detectSmartBlockOpener,
+	VBA_BLOCK_INDENT_UNIT,
+	VBA_SMART_BLOCK_SNIPPETS,
+} from '../src/vbaLinter';
 
 function at(src: string, marker: string): number {
 	const idx = src.indexOf(marker);
@@ -21,22 +26,22 @@ describe('keyword completion - statement snippets', () => {
 		expect(result.items.map((item) => item.label)).toContain('If');
 		expect(result.items.map((item) => item.label)).toContain('With');
 		expect(result.items.find((item) => item.label === 'With')?.insertText).toBe(
-			'With ${1:object}\n\t.$0\nEnd With',
+			'With ${1:object}\n\n\t.$0\n\nEnd With',
 		);
 	});
 
 	it('preserves literal tab indentation when materializing nested snippet bodies', () => {
-		const snippet = 'For ${1:i} = ${2:1} To ${3:10}\n\t$0\nNext ${1/(.*)/$1/}';
+		const snippet = 'For ${1:i} = ${2:1} To ${3:10}\n\n\t$0\n\nNext ${1/(.*)/$1/}';
 
 		expect(materializeKeywordSnippet(snippet, '    ')).toBe(
-			'For ${1:i} = ${2:1} To ${3:10}\n    \t$0\n    Next ${1/(.*)/$1/}',
+			'For ${1:i} = ${2:1} To ${3:10}\n\n    \t$0\n\n    Next ${1/(.*)/$1/}',
 		);
 	});
 
 	it('uses one literal tab body unit across block archetype snippets', () => {
 		const statementItems = resolveKeywordCompletions('Sub T()\n    wh\nEnd Sub\n', at('Sub T()\n    wh\nEnd Sub\n', '    wh')).items;
 		expect(statementItems.find((item) => item.label === 'While')?.insertText).toBe(
-			'While ${1:condition}\n\t$0\nWend',
+			'While ${1:condition}\n\n\t$0\n\nWend',
 		);
 
 		const all = resolveKeywordCompletions('Sub T()\n    \nEnd Sub\n', at('Sub T()\n    \nEnd Sub\n', '    ')).items;
@@ -45,6 +50,35 @@ describe('keyword completion - statement snippets', () => {
 			expect(item?.kind, label).toBe('snippet');
 			expect(item?.insertText, label).toContain('\n\t');
 			expect(item?.insertText, label).not.toContain('\n    ');
+		}
+	});
+
+	it('projects statement block snippets from the shared smart-block catalogue', () => {
+		const result = resolveKeywordCompletions('Sub T()\n    \nEnd Sub\n', at('Sub T()\n    \nEnd Sub\n', '    '));
+		const labels = result.items.map((item) => item.label);
+		const expected = VBA_SMART_BLOCK_SNIPPETS
+			.filter((spec) => spec.contexts.includes('statement'))
+			.map((spec) => spec.label);
+
+		for (const label of expected) {
+			expect(labels, label).toContain(label);
+		}
+	});
+
+	it('keeps shared block snippets aligned with Smart Enter openers', () => {
+		for (const spec of VBA_SMART_BLOCK_SNIPPETS) {
+			if (!spec.smartEnterExample) {
+				continue;
+			}
+			const opener = detectSmartBlockOpener(spec.smartEnterExample);
+			expect(opener?.endKeyword, spec.label).toBe(spec.smartEnterCloser);
+			expect(spec.insertText, spec.label).toContain(`\n${VBA_BLOCK_INDENT_UNIT}`);
+			expect(spec.insertText, spec.label).not.toContain('\n    ');
+			if (opener?.bodyPrefix) {
+				expect(spec.insertText.split('\n')[2], spec.label).toContain(
+					VBA_BLOCK_INDENT_UNIT + opener.bodyPrefix,
+				);
+			}
 		}
 	});
 
@@ -82,10 +116,10 @@ describe('keyword completion - statement snippets', () => {
 		const src = 'Sub T()\n    For\nEnd Sub\n';
 		const result = resolveKeywordCompletions(src, at(src, '    For'));
 		expect(result.items.find((item) => item.label === 'For')?.insertText).toBe(
-			'For ${1:i} = ${2:1} To ${3:10}\n\t$0\nNext ${1/(.*)/$1/}',
+			'For ${1:i} = ${2:1} To ${3:10}\n\n\t$0\n\nNext ${1/(.*)/$1/}',
 		);
 		expect(result.items.find((item) => item.label === 'For Each')?.insertText).toBe(
-			'For Each ${1:item} In ${2:collection}\n\t$0\nNext ${1/(.*)/$1/}',
+			'For Each ${1:item} In ${2:collection}\n\n\t$0\n\nNext ${1/(.*)/$1/}',
 		);
 	});
 
@@ -162,7 +196,7 @@ describe('keyword completion - narrow grammar contexts', () => {
 		expect(result.exclusive).toBe(true);
 		expect(result.items.map((item) => item.label)).toContain('#If');
 		expect(result.items.find((item) => item.label === '#If')?.insertText).toBe(
-			'#If ${1:condition} Then\n\t$0\n#End If',
+			'#If ${1:condition} Then\n\n\t$0\n\n#End If',
 		);
 	});
 });

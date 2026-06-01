@@ -7,7 +7,12 @@
 
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
-import { openSmartBlockClosersBefore, VBA_BLOCK_INDENT_UNIT } from '../../vbaLinter';
+import {
+	openSmartBlockClosersBefore,
+	VBA_BLOCK_INDENT_UNIT,
+	vbaSmartBlockSnippetsFor,
+	type VbaSmartBlockSnippetSpec,
+} from '../../vbaLinter';
 
 export type KeywordCompletionKind = 'keyword' | 'snippet';
 
@@ -46,37 +51,10 @@ interface KeywordSpec {
 }
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
 const I = VBA_BLOCK_INDENT_UNIT;
 
-const SUB_SNIPPET = snippet('Sub', blockText('Sub ${1:Name}()', I + '$0', 'End Sub'), 'Procedure block');
-const FUNCTION_SNIPPET = snippet('Function', blockText('Function ${1:Name}() As ${2:Variant}', I + '$0', 'End Function'), 'Function block', undefined, ['func']);
-const PROPERTY_GET_SNIPPET = snippet('Property Get', blockText('Property Get ${1:Name}() As ${2:Variant}', I + '$0', 'End Property'), 'Property Get block', undefined, ['propget']);
-const PROPERTY_LET_SNIPPET = snippet('Property Let', blockText('Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})', I + '$0', 'End Property'), 'Property Let block', undefined, ['proplet']);
-const PROPERTY_SET_SNIPPET = snippet('Property Set', blockText('Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})', I + '$0', 'End Property'), 'Property Set block', undefined, ['propset']);
-
 const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
-	snippet('If', blockText('If ${1:condition} Then', I + '$0', 'End If'), 'If...Then block'),
-	snippet('If Else', blockText('If ${1:condition} Then', I + '$2', 'Else', I + '$0', 'End If'), 'If...Else block', undefined, ['ifelse']),
-	snippet('With', blockText('With ${1:object}', I + '.$0', 'End With'), 'With...End With block'),
-	snippet('For', blockText('For ${1:i} = ${2:1} To ${3:10}', I + '$0', 'Next ${1/(.*)/$1/}'), 'For...Next block'),
-	snippet('For Each', blockText('For Each ${1:item} In ${2:collection}', I + '$0', 'Next ${1/(.*)/$1/}'), 'For Each...Next block'),
-	snippet('Do While', blockText('Do While ${1:condition}', I + '$0', 'Loop'), 'Do While...Loop block'),
-	snippet('Do Until', blockText('Do Until ${1:condition}', I + '$0', 'Loop'), 'Do Until...Loop block'),
-	snippet('Do Loop Until', blockText('Do', I + '$0', 'Loop Until ${1:condition}'), 'Do...Loop Until block', undefined, ['dountil']),
-	snippet('While', blockText('While ${1:condition}', I + '$0', 'Wend'), 'While...Wend block'),
-	snippet('Select Case', blockText('Select Case ${1:expression}', I + 'Case ${2:value}', I + I + '$0', 'End Select'), 'Select Case block'),
-	SUB_SNIPPET,
-	FUNCTION_SNIPPET,
-	PROPERTY_GET_SNIPPET,
-	PROPERTY_LET_SNIPPET,
-	PROPERTY_SET_SNIPPET,
-	snippet('Type', blockText('Type ${1:Name}', I + '${2:Field} As ${3:Variant}', 'End Type'), 'User-defined type block'),
-	snippet('Enum', blockText('Enum ${1:Name}', I + '${2:Value1} = ${3:0}', 'End Enum'), 'Enum block'),
-	snippet('Private Sub', blockText('Private Sub ${1:Name}()', I + '$0', 'End Sub'), 'Private procedure block'),
-	snippet('Public Sub', blockText('Public Sub ${1:Name}()', I + '$0', 'End Sub'), 'Public procedure block'),
-	snippet('Private Function', blockText('Private Function ${1:Name}() As ${2:Variant}', I + '$0', 'End Function'), 'Private function block'),
-	snippet('Public Function', blockText('Public Function ${1:Name}() As ${2:Variant}', I + '$0', 'End Function'), 'Public function block'),
+	...vbaSmartBlockSnippetsFor('statement').map(keywordSpecFromSmartBlock),
 	snippet('Option Explicit', 'Option Explicit', 'Option statement'),
 	snippet('On Error Resume Next', 'On Error Resume Next', 'Error-handling statement'),
 	snippet('On Error GoTo 0', 'On Error GoTo 0', 'Error-handling statement'),
@@ -97,11 +75,7 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 ];
 
 const MODIFIER_SNIPPETS: readonly KeywordSpec[] = [
-	SUB_SNIPPET,
-	FUNCTION_SNIPPET,
-	PROPERTY_GET_SNIPPET,
-	PROPERTY_LET_SNIPPET,
-	PROPERTY_SET_SNIPPET,
+	...vbaSmartBlockSnippetsFor('modifier').map(keywordSpecFromSmartBlock),
 	keyword('Const', 'Constant declaration'),
 	keyword('Dim', 'Variable declaration'),
 ];
@@ -131,7 +105,7 @@ const ON_ERROR_SNIPPETS: readonly KeywordSpec[] = [
 ];
 
 const DIRECTIVE_SNIPPETS: readonly KeywordSpec[] = [
-	snippet('#If', blockText('#If ${1:condition} Then', I + '$0', '#End If'), 'Conditional compilation block'),
+	...vbaSmartBlockSnippetsFor('directive').map(keywordSpecFromSmartBlock),
 	snippet('#Const', '#Const ${1:name} = ${2:value}', 'Conditional compilation constant'),
 	keyword('#ElseIf', 'Conditional compilation branch'),
 	keyword('#Else', 'Conditional compilation branch'),
@@ -184,7 +158,7 @@ export function materializeKeywordSnippet(
 	if (!baseIndent) {
 		return insertText;
 	}
-	return insertText.replace(/\n(?!$)/g, `\n${baseIndent}`);
+	return insertText.replace(/\n(?!\n|$)/g, `\n${baseIndent}`);
 }
 
 function completionContext(source: string, offset: number): CompletionContext | undefined {
@@ -329,6 +303,16 @@ function isIdentLike(token: VbaToken): boolean {
 
 function keyword(label: string, detail: string, sortText?: string): KeywordSpec {
 	return { label, insertText: label, detail, sortText, kind: 'keyword' };
+}
+
+function keywordSpecFromSmartBlock(spec: VbaSmartBlockSnippetSpec): KeywordSpec {
+	return snippet(
+		spec.label,
+		spec.insertText,
+		spec.detail,
+		undefined,
+		spec.matchText,
+	);
 }
 
 function blockText(...lines: string[]): string {

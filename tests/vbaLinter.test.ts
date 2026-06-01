@@ -11,6 +11,8 @@ import {
     resolveLoopIteratorSyncEdit,
     smartBlockBodyIndent,
     smartBlockBodyText,
+    smartBlockInsertion,
+    withMemberContinuationText,
     detectProcOpener,
     isProcClosedAhead,
 } from '../src/vbaLinter';
@@ -446,5 +448,76 @@ describe('smartBlockBodyText', () => {
 
     it('adds the With leading-dot after the body indent', () => {
         expect(smartBlockBodyText('    With ActiveSheet', '    ', { bodyPrefix: '.' })).toBe('    \t.');
+    });
+});
+
+describe('smartBlockInsertion', () => {
+    it('builds the requested expanded CRLF body-line shape for If blocks', () => {
+        const opener = detectSmartBlockOpener('    If True Then');
+        expect(opener).toBeDefined();
+
+        expect(smartBlockInsertion('    If True Then', '    ', opener!, { eol: '\r\n' })).toEqual({
+            bodyText: '    \t',
+            bodyLineOffset: 1,
+            replacementText: '\r\n    \t\r\n\r\n    End If',
+        });
+    });
+
+    it('seeds With bodies with a leading dot before the closer line', () => {
+        const opener = detectSmartBlockOpener('\tWith ActiveSheet');
+        expect(opener).toBeDefined();
+
+        expect(smartBlockInsertion('\tWith ActiveSheet', '\t', opener!, { eol: '\n' })).toEqual({
+            bodyText: '\t\t.',
+            bodyLineOffset: 1,
+            replacementText: '\n\t\t.\n\n\tEnd With',
+        });
+    });
+
+    it('keeps existing-closer Enter compact while preserving body indentation', () => {
+        const opener = detectSmartBlockOpener('    For Each item In collection');
+        expect(opener).toBeDefined();
+
+        expect(smartBlockInsertion('    For Each item In collection', '        ', opener!, {
+            eol: '\r\n',
+            insertCloser: false,
+        })).toEqual({
+            bodyText: '    \t',
+            bodyLineOffset: 0,
+            replacementText: '    \t',
+        });
+    });
+});
+
+describe('withMemberContinuationText', () => {
+    it('continues leading-dot member lines inside an active With block', () => {
+        const src = [
+            'Sub T()',
+            '    With ActiveSheet',
+            '        .Range("A1")',
+            '',
+            '    End With',
+            'End Sub',
+        ].join('\n');
+
+        expect(withMemberContinuationText(src, 2)).toBe('        .');
+    });
+
+    it('uses the same indentation as the previous leading-dot line', () => {
+        const src = [
+            'Sub T()',
+            '\tWith ActiveSheet',
+            '\t\t.Range("A1")',
+            '',
+            '\tEnd With',
+            'End Sub',
+        ].join('\n');
+
+        expect(withMemberContinuationText(src, 2)).toBe('\t\t.');
+    });
+
+    it('does not seed dots outside active With blocks', () => {
+        expect(withMemberContinuationText('Sub T()\n    .Range("A1")\nEnd Sub\n', 1)).toBeUndefined();
+        expect(withMemberContinuationText('Sub T()\n    With x\n    End With\n    .Range("A1")\nEnd Sub\n', 3)).toBeUndefined();
     });
 });

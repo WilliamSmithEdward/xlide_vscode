@@ -39,10 +39,177 @@ export interface VbaSmartBlockOpener {
     bodyPrefix?: string;
 }
 
+export interface VbaSmartBlockInsertion {
+    /** Text that should occupy the editable body line after Enter. */
+    bodyText: string;
+    /** Number of lines after the editor-created line where `bodyText` lands. */
+    bodyLineOffset: number;
+    /** Replacement for the editor-created body line. */
+    replacementText: string;
+}
+
 export const VBA_BLOCK_INDENT_UNIT = '\t';
 export const VBA_IDENTIFIER_PATTERN = '[A-Za-z_][A-Za-z0-9_]*';
 export const VBA_IDENTIFIER_RE = /[A-Za-z_][A-Za-z0-9_]*/;
 export const VBA_IDENTIFIER_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+export type VbaSmartBlockSnippetContext = 'statement' | 'modifier' | 'directive';
+
+export interface VbaSmartBlockSnippetSpec {
+    label: string;
+    detail: string;
+    insertText: string;
+    contexts: readonly VbaSmartBlockSnippetContext[];
+    matchText?: readonly string[];
+    /**
+     * Concrete opener used by tests to keep snippet scaffolds aligned with
+     * Smart Enter and the static language configuration.
+     */
+    smartEnterExample?: string;
+    /** Expected Smart Enter closer for `smartEnterExample`. */
+    smartEnterCloser?: string;
+}
+
+const B = VBA_BLOCK_INDENT_UNIT;
+
+export const VBA_SMART_BLOCK_SNIPPETS: readonly VbaSmartBlockSnippetSpec[] = [
+    smartBlockSnippet('If', smartBlockText('If ${1:condition} Then', B + '$0', 'End If'), 'If...Then block', {
+        smartEnterExample: 'If ready Then',
+        smartEnterCloser: 'End If',
+    }),
+    smartBlockSnippet('If Else', blockText('If ${1:condition} Then', '', B + '$2', '', 'Else', '', B + '$0', '', 'End If'), 'If...Else block', {
+        matchText: ['ifelse'],
+        smartEnterExample: 'If ready Then',
+        smartEnterCloser: 'End If',
+    }),
+    smartBlockSnippet('With', smartBlockText('With ${1:object}', B + '.$0', 'End With'), 'With...End With block', {
+        smartEnterExample: 'With ActiveSheet',
+        smartEnterCloser: 'End With',
+    }),
+    smartBlockSnippet('For', smartBlockText('For ${1:i} = ${2:1} To ${3:10}', B + '$0', 'Next ${1/(.*)/$1/}'), 'For...Next block', {
+        smartEnterExample: 'For i = 1 To 10',
+        smartEnterCloser: 'Next i',
+    }),
+    smartBlockSnippet('For Each', smartBlockText('For Each ${1:item} In ${2:collection}', B + '$0', 'Next ${1/(.*)/$1/}'), 'For Each...Next block', {
+        smartEnterExample: 'For Each item In collection',
+        smartEnterCloser: 'Next item',
+    }),
+    smartBlockSnippet('Do While', smartBlockText('Do While ${1:condition}', B + '$0', 'Loop'), 'Do While...Loop block', {
+        smartEnterExample: 'Do While ready',
+        smartEnterCloser: 'Loop',
+    }),
+    smartBlockSnippet('Do Until', smartBlockText('Do Until ${1:condition}', B + '$0', 'Loop'), 'Do Until...Loop block', {
+        smartEnterExample: 'Do Until done',
+        smartEnterCloser: 'Loop',
+    }),
+    smartBlockSnippet('Do Loop Until', smartBlockText('Do', B + '$0', 'Loop Until ${1:condition}'), 'Do...Loop Until block', {
+        matchText: ['dountil'],
+        smartEnterExample: 'Do',
+        smartEnterCloser: 'Loop',
+    }),
+    smartBlockSnippet('While', smartBlockText('While ${1:condition}', B + '$0', 'Wend'), 'While...Wend block', {
+        smartEnterExample: 'While ready',
+        smartEnterCloser: 'Wend',
+    }),
+    smartBlockSnippet('Select Case', blockText('Select Case ${1:expression}', '', B + 'Case ${2:value}', '', B + B + '$0', '', 'End Select'), 'Select Case block', {
+        smartEnterExample: 'Select Case value',
+        smartEnterCloser: 'End Select',
+    }),
+    smartBlockSnippet('Sub', smartBlockText('Sub ${1:Name}()', B + '$0', 'End Sub'), 'Procedure block', {
+        contexts: ['statement', 'modifier'],
+        smartEnterExample: 'Sub Foo()',
+        smartEnterCloser: 'End Sub',
+    }),
+    smartBlockSnippet('Function', smartBlockText('Function ${1:Name}() As ${2:Variant}', B + '$0', 'End Function'), 'Function block', {
+        contexts: ['statement', 'modifier'],
+        matchText: ['func'],
+        smartEnterExample: 'Function Total() As Variant',
+        smartEnterCloser: 'End Function',
+    }),
+    smartBlockSnippet('Property Get', smartBlockText('Property Get ${1:Name}() As ${2:Variant}', B + '$0', 'End Property'), 'Property Get block', {
+        contexts: ['statement', 'modifier'],
+        matchText: ['propget'],
+        smartEnterExample: 'Property Get Name() As Variant',
+        smartEnterCloser: 'End Property',
+    }),
+    smartBlockSnippet('Property Let', smartBlockText('Property Let ${1:Name}(ByVal ${2:value} As ${3:Variant})', B + '$0', 'End Property'), 'Property Let block', {
+        contexts: ['statement', 'modifier'],
+        matchText: ['proplet'],
+        smartEnterExample: 'Property Let Name(ByVal value As Variant)',
+        smartEnterCloser: 'End Property',
+    }),
+    smartBlockSnippet('Property Set', smartBlockText('Property Set ${1:Name}(ByVal ${2:value} As ${3:Object})', B + '$0', 'End Property'), 'Property Set block', {
+        contexts: ['statement', 'modifier'],
+        matchText: ['propset'],
+        smartEnterExample: 'Property Set Name(ByVal value As Object)',
+        smartEnterCloser: 'End Property',
+    }),
+    smartBlockSnippet('Type', smartBlockText('Type ${1:Name}', B + '${2:Field} As ${3:Variant}', 'End Type'), 'User-defined type block', {
+        smartEnterExample: 'Type TPoint',
+        smartEnterCloser: 'End Type',
+    }),
+    smartBlockSnippet('Enum', smartBlockText('Enum ${1:Name}', B + '${2:Value1} = ${3:0}', 'End Enum'), 'Enum block', {
+        smartEnterExample: 'Enum Color',
+        smartEnterCloser: 'End Enum',
+    }),
+    smartBlockSnippet('Private Sub', smartBlockText('Private Sub ${1:Name}()', B + '$0', 'End Sub'), 'Private procedure block', {
+        smartEnterExample: 'Private Sub Foo()',
+        smartEnterCloser: 'End Sub',
+    }),
+    smartBlockSnippet('Public Sub', smartBlockText('Public Sub ${1:Name}()', B + '$0', 'End Sub'), 'Public procedure block', {
+        smartEnterExample: 'Public Sub Foo()',
+        smartEnterCloser: 'End Sub',
+    }),
+    smartBlockSnippet('Private Function', smartBlockText('Private Function ${1:Name}() As ${2:Variant}', B + '$0', 'End Function'), 'Private function block', {
+        smartEnterExample: 'Private Function Total() As Variant',
+        smartEnterCloser: 'End Function',
+    }),
+    smartBlockSnippet('Public Function', smartBlockText('Public Function ${1:Name}() As ${2:Variant}', B + '$0', 'End Function'), 'Public function block', {
+        smartEnterExample: 'Public Function Total() As Variant',
+        smartEnterCloser: 'End Function',
+    }),
+    smartBlockSnippet('#If', smartBlockText('#If ${1:condition} Then', B + '$0', '#End If'), 'Conditional compilation block', {
+        contexts: ['directive'],
+        smartEnterExample: '#If VBA7 Then',
+        smartEnterCloser: '#End If',
+    }),
+];
+
+export function vbaSmartBlockSnippetsFor(
+    context: VbaSmartBlockSnippetContext,
+): readonly VbaSmartBlockSnippetSpec[] {
+    return VBA_SMART_BLOCK_SNIPPETS.filter((spec) => spec.contexts.includes(context));
+}
+
+function smartBlockSnippet(
+    label: string,
+    insertText: string,
+    detail: string,
+    options: {
+        contexts?: readonly VbaSmartBlockSnippetContext[];
+        matchText?: readonly string[];
+        smartEnterExample?: string;
+        smartEnterCloser?: string;
+    } = {},
+): VbaSmartBlockSnippetSpec {
+    return {
+        label,
+        insertText,
+        detail,
+        contexts: options.contexts ?? ['statement'],
+        matchText: options.matchText,
+        smartEnterExample: options.smartEnterExample,
+        smartEnterCloser: options.smartEnterCloser,
+    };
+}
+
+function blockText(...lines: string[]): string {
+    return lines.join('\n');
+}
+
+function smartBlockText(opener: string, body: string, closer: string): string {
+    return blockText(opener, '', body, '', closer);
+}
 
 const VBA_IDENTIFIER_WORD_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
 
@@ -540,6 +707,68 @@ export function smartBlockBodyText(
     indentUnit = VBA_BLOCK_INDENT_UNIT,
 ): string {
     return smartBlockBodyIndent(openerLine, currentBodyLine, indentUnit) + (opener.bodyPrefix ?? '');
+}
+
+/**
+ * Builds the exact body-line replacement for Smart Enter. The normal shape is:
+ * opener line, spacer line, one indented editable body line, spacer line, then
+ * the closer on its own line.
+ */
+export function smartBlockInsertion(
+    openerLine: string,
+    currentBodyLine: string,
+    opener: VbaSmartBlockOpener,
+    options: {
+        eol?: string;
+        insertCloser?: boolean;
+        indentUnit?: string;
+    } = {},
+): VbaSmartBlockInsertion {
+    const bodyText = smartBlockBodyText(
+        openerLine,
+        currentBodyLine,
+        opener,
+        options.indentUnit,
+    );
+    const eol = options.eol ?? '\n';
+    if (options.insertCloser === false) {
+        return {
+            bodyText,
+            bodyLineOffset: 0,
+            replacementText: bodyText,
+        };
+    }
+    return {
+        bodyText,
+        bodyLineOffset: 1,
+        replacementText: `${eol}${bodyText}${eol}${eol}${leadingWhitespace(openerLine)}${opener.endKeyword}`,
+    };
+}
+
+/**
+ * When Enter is pressed after a leading-dot member line inside an active With
+ * block, the next line should keep the same indentation and seed another dot.
+ */
+export function withMemberContinuationText(
+    source: string,
+    previousLineIndex: number,
+): string | undefined {
+    const lines = source.split(/\r\n|\r|\n/);
+    const previousLine = lines[previousLineIndex];
+    if (previousLine === undefined) {
+        return undefined;
+    }
+    if (!/^[ \t]*\./.test(stripVba(previousLine))) {
+        return undefined;
+    }
+
+    const starts = lineStartOffsets(source);
+    const previousLineEnd = (starts[previousLineIndex] ?? 0) + previousLine.length;
+    if (!openSmartBlockClosersBefore(source, previousLineEnd).includes('End With')) {
+        return undefined;
+    }
+
+    return `${leadingWhitespace(previousLine)}.`;
 }
 
 /**

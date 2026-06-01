@@ -35,7 +35,7 @@ xlide_vscode/
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of parsed VBA symbols
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
-    vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource) and smart-enter helpers (no vscode dependency)
+    vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource), smart-enter helpers, and the shared smart-block snippet catalogue (no vscode dependency)
     vbaModuleLint.ts    Shared module lint core used by live diagnostics, current-module lint, and workbook lint; merges structural lint, semantic analysis, and lint suppression directives
     vbaWorkbookLint.ts  Workbook-wide lint/report core (lintWorkbook) reused by commands and the xlide_lintWorkbook agent tool; flattens vbaModuleLint results into 1-based problems with diagnostic metadata and summary counts
     analyzer/
@@ -304,6 +304,9 @@ apostrophe line comment, brackets, indent rules, and procedure-based folding.
 Because VS Code language configuration is static JSON, tests keep its block
 indent/folding regexes aligned with the shared smart-block rules in
 `src/vbaLinter.ts` instead of letting it become a second behavioral source.
+Block keyword snippets are also projected from the same `VBA_SMART_BLOCK_SNIPPETS`
+catalogue, so adding a block archetype requires updating one pure contract and
+then satisfying the completion, Smart Enter, and static JSON conformance tests.
 The same dependency-free module also owns shared VBA source-text helpers such as
 identifier validation, comment/string-safe identifier occurrence search, line
 start offsets, and leading-whitespace detection. Providers, workbook lint,
@@ -328,8 +331,14 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
 | `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, add/remove `Set` for proven object/scalar assignments, and expose an XLIDE source action for linting the current workbook-backed module |
 | Diagnostics | Debounced `vbaModuleLint` results merge structural block-balance, semantic analysis, and suppression directives before rendering VS Code diagnostics |
-| Smart enter (auto-block) | Pressing Enter after a safe block opener auto-inserts the matching closer below and leaves the caret on the indented body line one real tab deeper than the opener; supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion |
+| Smart enter (auto-block) | Pressing Enter after a safe block opener inserts the matching closer with an expanded layout: spacer line, one editable body line one real tab deeper than the opener, spacer line, then the closer at opener indentation; if a matching closer already exists ahead, Smart Enter only normalizes the newly created body line indentation; supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion. Pressing Enter after a leading-dot member line inside an active `With` block keeps the same indentation and seeds another leading `.` |
 | Loop iterator sync | Editing the iterator token in a simple `For` / `For Each` opener or its matching `Next name` updates the paired token, using the same string/comment stripping and conservative block matching as structural linting |
+
+The expanded Smart Enter layout is the default `comfy` block style. A future
+`compact` style may remove spacer lines, exposed as a VS Code extension setting
+contributed by `package.json` rather than `.xlide` project configuration. Both
+modes must be expressed in the same smart-block helper/catalogue so Enter
+auto-blocking and Tab snippets still share one behavior contract.
 
 Language-service business rules are unified across surfaces. Unless a behavior is
 called out as a deliberate corner case, completion insert text, hover, signature
@@ -523,7 +532,8 @@ into a pure analyzer layer and a thin VS Code provider:
   panel includes the runtime kind plus curated parameter types where available;
   constant completion shows the owning enum/type and known value.
   Curated runtime calls are intentionally not duplicated as VS Code snippets.
-  Block keyword completions remain explicit full-block scaffolds for Tab-driven
+  Block keyword completions are projected from `src/vbaLinter.ts`'s shared
+  `VBA_SMART_BLOCK_SNIPPETS` catalogue and remain explicit full-block scaffolds for Tab-driven
   shortcut gestures, while Smart Enter handles the line-by-line workflow after a
   user-typed opener. Close-keyword suggestions still consume the same
   smart-block stack as Smart Enter, so active closer labels such as `Next cell`

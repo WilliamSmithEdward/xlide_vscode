@@ -213,10 +213,17 @@ class VbaMemberCompletionProvider
 			if (document.getText(range) === edit.text) {
 				return;
 			}
-			await editor.edit((builder) => builder.replace(range, edit.text), {
+			const selections = editor.selections.map((selection) =>
+				new vscode.Selection(selection.anchor, selection.active),
+			);
+			const restoreSelection = vscode.window.activeTextEditor === editor;
+			const applied = await editor.edit((builder) => builder.replace(range, edit.text), {
 				undoStopBefore: false,
 				undoStopAfter: false,
 			});
+			if (applied && restoreSelection && vscode.window.activeTextEditor === editor) {
+				editor.selections = selections;
+			}
 		} finally {
 			this._applyingCanonicalCase = false;
 		}

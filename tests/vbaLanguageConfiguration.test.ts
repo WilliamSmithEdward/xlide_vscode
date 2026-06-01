@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
-import { detectSmartBlockOpener } from '../src/vbaLinter';
+import { detectSmartBlockOpener, VBA_SMART_BLOCK_SNIPPETS } from '../src/vbaLinter';
 
 interface VbaLanguageConfiguration {
 	indentationRules?: Record<string, string>;
@@ -39,23 +39,11 @@ describe('VBA language configuration', () => {
 	it('keeps static editor block indentation aligned with smart block openers', () => {
 		const config = loadConfig();
 		const increase = new RegExp(config.indentationRules?.increaseIndentPattern ?? '');
-		const cases = [
-			'sub foo()',
-			'public function total() as long',
-			'property get name() as string',
-			'if ready then',
-			'for i = 1 to 10',
-			'for each item in collection',
-			'do',
-			'do while ready',
-			'do until ready',
-			'while ready',
-			'with activesheet',
-			'select case value',
-			'type tpoint',
-			'enum color',
-			'#if vba7 then',
-		];
+		const cases = Array.from(new Set(
+			VBA_SMART_BLOCK_SNIPPETS
+				.map((spec) => spec.smartEnterExample)
+				.filter((line): line is string => Boolean(line)),
+		));
 
 		for (const line of cases) {
 			expect(detectSmartBlockOpener(line), line).toBeDefined();

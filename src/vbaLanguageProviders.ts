@@ -10,9 +10,10 @@ import {
     isSmartBlockClosedAhead,
     lineStartOffsets,
     resolveLoopIteratorSyncEdit,
-    smartBlockBodyText,
+    smartBlockInsertion,
     VBA_IDENTIFIER_NAME_RE,
     VBA_IDENTIFIER_RE,
+    withMemberContinuationText,
 } from './vbaLinter';
 import {
     diagnosticSourceForCode,
@@ -1142,7 +1143,10 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const openerLineIndex = change.range.start.line;
         const openerLine = doc.lineAt(openerLineIndex).text;
         const opener = detectSmartBlockOpener(stripVba(openerLine));
-        if (!opener) { return; }
+        if (!opener) {
+            await maybeContinueWithMemberLine(doc, openerLineIndex);
+            return;
+        }
 
         const bodyLineIndex = openerLineIndex + 1;
         if (bodyLineIndex >= doc.lineCount) { return; }
@@ -1153,11 +1157,13 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document !== doc) { return; }
 
-        const indent = /^[ \t]*/.exec(openerLine)?.[0] ?? '';
         const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
         const bodyLine = doc.lineAt(bodyLineIndex).text;
         if (!/^[ \t]*$/.test(bodyLine)) { return; }
-        const bodyText = smartBlockBodyText(openerLine, bodyLine, opener);
+        const smartBlock = smartBlockInsertion(openerLine, bodyLine, opener, {
+            eol,
+            insertCloser: !closedAhead,
+        });
         const bodyRange = new vscode.Range(
             new vscode.Position(bodyLineIndex, 0),
             new vscode.Position(bodyLineIndex, bodyLine.length),
@@ -1168,9 +1174,7 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             await editor.edit(
                 (eb) => eb.replace(
                     bodyRange,
-                    closedAhead
-                        ? bodyText
-                        : `${bodyText}${eol}${indent}${opener.endKeyword}`,
+                    smartBlock.replacementText,
                 ),
                 { undoStopBefore: false, undoStopAfter: true },
             );
@@ -1178,15 +1182,67 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             applying = false;
         }
 
-        // Keep the caret on the indented body line, above the inserted End.
-        const caret = new vscode.Position(
-            bodyLineIndex,
-            bodyText.length,
-        );
-        editor.selection = new vscode.Selection(caret, caret);
+        // Keep the caret on the indented body line, above the inserted End. The
+        // delayed pass wins same-Enter listener races such as canonical casing.
+        const placeCaret = (): void => {
+            if (vscode.window.activeTextEditor !== editor || editor.document !== doc) {
+                return;
+            }
+            const caretLineIndex = bodyLineIndex + smartBlock.bodyLineOffset;
+            if (caretLineIndex >= doc.lineCount || doc.lineAt(caretLineIndex).text !== smartBlock.bodyText) {
+                return;
+            }
+            const caret = new vscode.Position(
+                caretLineIndex,
+                smartBlock.bodyText.length,
+            );
+            editor.selection = new vscode.Selection(caret, caret);
+        };
+        placeCaret();
+        setTimeout(placeCaret, 0);
     });
 
     context.subscriptions.push(sub);
+}
+
+async function maybeContinueWithMemberLine(
+    doc: vscode.TextDocument,
+    previousLineIndex: number,
+): Promise<void> {
+    const bodyLineIndex = previousLineIndex + 1;
+    if (bodyLineIndex >= doc.lineCount) { return; }
+
+    const bodyLine = doc.lineAt(bodyLineIndex).text;
+    if (!/^[ \t]*$/.test(bodyLine)) { return; }
+
+    const lineText = withMemberContinuationText(doc.getText(), previousLineIndex);
+    if (!lineText) { return; }
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document !== doc) { return; }
+
+    const bodyRange = new vscode.Range(
+        new vscode.Position(bodyLineIndex, 0),
+        new vscode.Position(bodyLineIndex, bodyLine.length),
+    );
+    const applied = await editor.edit(
+        (eb) => eb.replace(bodyRange, lineText),
+        { undoStopBefore: false, undoStopAfter: true },
+    );
+    if (!applied) { return; }
+
+    const placeCaret = (): void => {
+        if (vscode.window.activeTextEditor !== editor || editor.document !== doc) {
+            return;
+        }
+        if (bodyLineIndex >= doc.lineCount || doc.lineAt(bodyLineIndex).text !== lineText) {
+            return;
+        }
+        const caret = new vscode.Position(bodyLineIndex, lineText.length);
+        editor.selection = new vscode.Selection(caret, caret);
+    };
+    placeCaret();
+    setTimeout(placeCaret, 0);
 }
 
 /**

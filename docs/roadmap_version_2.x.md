@@ -172,8 +172,9 @@ heuristic diagnostics.
 - Smart Enter auto-blocks safe VBA block openers through the same structural
   block helper used by linting, including procedures, `If ... Then`, `With`,
   `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`; `With`
-  starts the body line one real tab deeper with `.` for immediate member
-  completion.
+  uses the default comfy block layout: spacer line, one editable body line one
+  real tab deeper, spacer line, then the closer. `With` starts the editable body
+  line with `.` for immediate member completion.
 - Block keyword completions remain full-block scaffolds for explicit Tab-driven
   shortcuts, while Smart Enter handles the line-by-line opener workflow. Active
   close-keyword suggestions consume the same smart-block stack as Smart Enter.
@@ -634,6 +635,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   literal-tab indentation rule, so `While`, `Do`, `If`, `With`, procedure,
   `Select Case`, `Type`, `Enum`, `#If`, `For`, and `For Each` bodies do not
   drift into separate space/tab behavior.
+- [x] Project block keyword snippets from the shared `src/vbaLinter.ts`
+  smart-block catalogue, and test that snippets, Smart Enter, and static
+  language-configuration indentation stay aligned as one contract.
 - [x] Conform static VS Code language-configuration indentation/folding regexes
   to the shared smart-block opener contract, including complete-opener gates
   for `For`, `For Each`, `Do While`, `Do Until`, `While`, `With`,
@@ -889,6 +893,16 @@ the deterministic analyzer contract.
   - explicit command/session overrides for one-off operations
 - [ ] Make built-in defaults configurable by users and overrideable by
   workspace config without weakening diagnostic determinism.
+- [ ] Add a deterministic VS Code extension setting, contributed through
+  `package.json`, for editor block layout in Smart Enter and block snippets:
+  - default `comfy`: spacer line, editable indented body line, spacer line,
+    closer
+  - optional `compact`: editable indented body line immediately followed by the
+    closer
+  - both modes must flow through the shared smart-block catalogue/helper so Tab
+    snippets and Enter auto-blocking cannot diverge.
+  - this setting is user/workspace editor preference, not `.xlide` workbook or
+    project configuration.
 - [ ] Surface all configuration through the unified XLIDE sidebar menu
   collection, while preserving normal VS Code Settings integration for users
   who prefer native settings UI.
