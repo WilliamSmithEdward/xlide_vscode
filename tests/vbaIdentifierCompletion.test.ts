@@ -208,6 +208,16 @@ describe('callable completion insertion contexts', () => {
 		expect(callableCompletionShouldInsertParens(src, at(src, '    mySu'))).toBe(false);
 	});
 
+	it('does not carry expression context from the previous statement', () => {
+		const src =
+			'Sub mySub()\nEnd Sub\n' +
+			'Function T() As String\n' +
+			'    T = "hello world!"\n' +
+			'    mySub\n' +
+			'End Function\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, '    mySub'))).toBe(false);
+	});
+
 	it('adds parens for explicit Call statements', () => {
 		const src = 'Sub T()\n    Call mySu\nEnd Sub\n';
 		expect(callableCompletionShouldInsertParens(src, at(src, 'Call mySu'))).toBe(true);

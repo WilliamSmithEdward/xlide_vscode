@@ -90,7 +90,24 @@ The language service must be deterministic. The same project text must produce t
 
 Do not use fuzzy heuristics where a simple explicit rule can work.
 
-### 5. Separate VBA language from host object models
+### 5. Unified business rules across surfaces
+
+XLIDE must not have separate interpretations of the same VBA rule for different
+UI surfaces. Unless a behavior is explicitly documented as a corner case, the
+same semantic rule must drive completions, inserted text, hover, signature help,
+diagnostics, go-to-definition, find references, rename, tree actions, semantic
+coloring, formatter logic, snippets, and code actions.
+
+When adding or changing a rule, implement it in a shared analyzer/provider helper
+where practical and add regression coverage for every affected surface, rather
+than duplicating similar logic in separate UI paths.
+
+Prefer the broadest deterministic implementation that can remain low-noise. A
+targeted fix is acceptable only when the corresponding broad rule would require
+guessing, incomplete metadata, or user-visible false positives; when the broader
+rule becomes provable, consolidate the narrow path into it.
+
+### 6. Separate VBA language from host object models
 
 The core VBA language service must not confuse these layers:
 

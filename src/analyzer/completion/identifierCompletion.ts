@@ -228,9 +228,6 @@ export function callableCompletionShouldInsertParens(
 	if (last >= 0 && isIdentLike(tokens[last])) {
 		last -= 1;
 	}
-	while (last >= 0 && tokens[last].kind === 'newline') {
-		last -= 1;
-	}
 	if (last < 0) {
 		return false;
 	}

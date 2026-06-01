@@ -930,6 +930,7 @@ describe('analyzeModule - argument count', () => {
 		expect(spanText(src, hits[0])).toBe('MsgBox');
 		expect(hits[0].message).toContain('expected between 1 and 5 arguments');
 		expect(hits[0].message).toContain('got 0');
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
 	it('flags a parenless runtime function statement that omits required arguments', () => {
@@ -2982,6 +2983,27 @@ describe('analyzeModule - Call requires parentheses', () => {
 		expect(spanText(src, hits[0])).toBe('myFunction()');
 	});
 
+	it('leaves required-argument procedure empty calls to arity diagnostics', () => {
+		const src =
+			'Sub mySub()\n' +
+			'    Greet()\n' +
+			'End Sub\n' +
+			'\n' +
+			'Sub Greet(ByVal message As String)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Greet');
+	});
+
+	it('flags a standalone zero-argument runtime call with empty parentheses', () => {
+		const src = 'Sub T()\n    DoEvents()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-forbids-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('DoEvents()');
+	});
+
 	it('flags an unqualified same-class method call statement with empty parentheses', () => {
 		const src =
 			'Public Sub SaveAll()\n' +
@@ -3058,6 +3080,16 @@ describe('analyzeModule - Call requires parentheses', () => {
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
+	it('accepts zero-argument runtime calls with Call or in expression context', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim value As Integer\n' +
+			'    Call DoEvents()\n' +
+			'    value = DoEvents()\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
+	});
+
 	it('does not flag unknown bare empty-parentheses statements as project procedure calls', () => {
 		const src = 'Sub T()\n    MaybeExternal()\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
@@ -3107,6 +3139,34 @@ describe('analyzeModule - expression call requires parentheses', () => {
 			'    total = CurrentTotal + 1\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'expression-call-requires-parens')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - invalid expression syntax', () => {
+	it('flags an impossible operator sequence in a call argument expression', () => {
+		const src =
+			'Sub T()\n' +
+			'    MsgBox myFunctionTest***\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('***');
+	});
+
+	it('flags a statement that ends with a binary operator', () => {
+		const src = 'Sub T()\n    total = subtotal *\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('*');
+	});
+
+	it('does not flag valid arithmetic or string expressions', () => {
+		const src =
+			'Sub T()\n' +
+			'    total = subtotal * taxRate\n' +
+			'    message = prefix & suffix\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
 	});
 });
 

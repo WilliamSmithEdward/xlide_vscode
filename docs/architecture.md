@@ -316,6 +316,12 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
 | Smart enter (auto-block) | Pressing Enter after a `Sub`/`Function`/`Property` header auto-inserts the matching `End ...` below and leaves the caret on the indented body line |
 
+Language-service business rules are unified across surfaces. Unless a behavior is
+called out as a deliberate corner case, completion insert text, hover, signature
+help, diagnostics, navigation, rename, tree actions, semantic coloring, snippets,
+formatter logic, and code actions must all consume the same analyzer rules or
+provider helpers for the same VBA construct.
+
 The `DefinitionProvider`, `ReferenceProvider`, and `RenameProvider` build a fresh
 `ProjectIndex` (`src/analyzer/symbols/projectIndex.ts`) from the cached module
 sources on each query, with the live editor text overlaid for the current
@@ -481,8 +487,10 @@ into a pure analyzer layer and a thin VS Code provider:
   Curated runtime calls are intentionally not duplicated as VS Code snippets.
   Expression-level `New` completion is narrower and offers only creatable
   project classes/UserForms until host/external creatability metadata exists.
-  Accepting callable completions inserts canonical casing plus `()`, with the
-  cursor inside the call. Typing a boundary after a known identifier, moving the
+  Accepting callable completions applies canonical casing and uses the shared
+  VBA call-site rule: standalone call statements insert only the canonical name,
+  while expression contexts and explicit `Call` statements may insert `()` with
+  the cursor inside the call. Typing a boundary after a known identifier, moving the
   cursor away from the identifier, or leaving the editor applies VBE-style
   canonical casing for keywords, type names, runtime functions, and resolved host
   members.
@@ -622,10 +630,12 @@ Diagnostic severity policy:
   diagnostics: explicit `Call` statements with arguments require parentheses,
   and VBE-oracle-verified standalone zero-argument calls cannot use empty
   parentheses unless they are prefixed with `Call` or used in an expression.
-  The rule covers known same-module and exported standard-module procedures
-  such as `myFunction()`, plus member/property statements such as
-  `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
-  `ActiveSheet.Range()`. Non-empty standalone member/property calls such as
+  The rule uses the shared callable signature path for known same-module and
+  exported standard-module procedures such as `myFunction()`, verified
+  zero-argument runtime calls such as `DoEvents()`, and member/property
+  statements such as `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
+  `ActiveSheet.Range()`. Required-argument calls such as `MsgBox()` stay on the
+  `argument-count` path. Non-empty standalone member/property calls such as
   `ActiveSheet.Range("A1")` and parenless member call statements such as
   `p.Save "ok"` are compile-accepted by VBE and stay on the
   signature-validation path. `checkProcedureHeader` powers
@@ -637,6 +647,10 @@ Diagnostic severity policy:
   statement boundary (a newline or a depth-0 `:`), and flags a dangling `(` or
   an unmatched `)` - parentheses inside strings/comments/date-literals and
   `[bracketed]` names are distinct token kinds so they never miscount.
+  `checkInvalidExpressionSyntax` covers narrow, high-confidence expression
+  syntax errors such as consecutive non-unary binary operators (`***`) and
+  statements ending with a binary operator; broader incomplete-expression
+  recovery remains deferred to avoid noisy realtime diagnostics.
   `checkArgumentCount` powers `argument-count`: it validates call statements
   and expression calls against same-module, unique exported project, and
   verified runtime signatures with explicit parameter lists (for example

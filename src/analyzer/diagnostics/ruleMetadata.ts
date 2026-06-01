@@ -425,6 +425,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6.9',
 		confidence: 'high',
 	},
+	invalidExpressionSyntax: {
+		code: 'invalid-expression-syntax',
+		title: 'Invalid expression syntax',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 / VBE oracle: Syntax error',
+		confidence: 'high',
+	},
 	requiredParamAfterOptional: {
 		code: 'required-param-after-optional',
 		title: 'A required parameter cannot follow an Optional parameter',

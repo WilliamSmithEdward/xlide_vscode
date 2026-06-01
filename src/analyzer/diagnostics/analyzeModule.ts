@@ -214,6 +214,7 @@ function runRules(
 	checkReservedDeclarationNames(source, mod, push);
 	checkParameterOrder(mod, push);
 	checkUnbalancedParens(source, push);
+	checkInvalidExpressionSyntax(source, mod, push);
 	checkDimInitializer(source, mod, push);
 	checkUnexpectedDeclarationTokens(source, mod, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, push);
@@ -3864,7 +3865,7 @@ function checkCallParens(
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	push: PushFn,
 ): void {
-	const bareCallableNames = bareCallableProcedureNames(mod, projectProcedures);
+	const moduleSignatures = callableTypeSignaturesFor(mod, projectProcedures);
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -3878,7 +3879,7 @@ function checkCallParens(
 					at,
 				);
 			}
-			const bare = implicitParenthesizedBareProcedureCall(source, stmt.span, bareCallableNames);
+			const bare = implicitParenthesizedBareCallableCall(source, stmt.span, moduleSignatures);
 			if (bare) {
 				push(
 					'callStatementForbidsParens',
@@ -3898,27 +3899,87 @@ function checkCallParens(
 	}
 }
 
-function bareCallableProcedureNames(
+function checkInvalidExpressionSyntax(
+	source: string,
 	mod: ModuleNode,
-	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
-): Set<string> {
-	const names = new Set<string>();
+	push: PushFn,
+): void {
 	for (const member of mod.members) {
-		if (
-			member.kind === 'Procedure' &&
-			(member.procKind === 'Sub' || member.procKind === 'Function')
-		) {
-			names.add(member.name.toLowerCase());
+		if (member.kind !== 'Procedure') {
+			continue;
 		}
-	}
-	if (projectProcedures) {
-		for (const [key, signatures] of projectProcedures) {
-			if (!key.includes('.') && signatures.length > 0) {
-				names.add(key.toLowerCase());
+		forEachStatement(member.body, (stmt) => {
+			const hit = invalidOperatorSequence(source, stmt.span);
+			if (hit) {
+				push(
+					'invalidExpressionSyntax',
+					`Invalid operator sequence '${hit.text}'; this will fail to compile as a syntax error.`,
+					hit.span,
+				);
 			}
+		});
+	}
+}
+
+const NON_UNARY_BINARY_OPERATORS = new Set([
+	'*',
+	'/',
+	'\\',
+	'^',
+	'&',
+	'=',
+	'<',
+	'>',
+	'<=',
+	'>=',
+	'<>',
+	':=',
+	'like',
+	'is',
+	'and',
+	'or',
+	'xor',
+	'eqv',
+	'imp',
+	'mod',
+]);
+
+function invalidOperatorSequence(
+	source: string,
+	span: Span,
+): { text: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	for (let i = 0; i < toks.length; i++) {
+		if (!isNonUnaryBinaryOperator(toks[i])) {
+			continue;
+		}
+		let end = i;
+		while (isNonUnaryBinaryOperator(toks[end + 1])) {
+			end++;
+		}
+		if (end > i) {
+			const first = toks[i];
+			const last = toks[end];
+			return {
+				text: source.slice(span.start + first.start, span.start + last.end),
+				span: { start: span.start + first.start, end: span.start + last.end },
+			};
+		}
+		if (i === toks.length - 1) {
+			return {
+				text: toks[i].rawText,
+				span: absoluteSpan(span, toks[i]),
+			};
 		}
 	}
-	return names;
+	return undefined;
+}
+
+function isNonUnaryBinaryOperator(tok: VbaToken | undefined): boolean {
+	if (!tok || tok.kind !== 'operator') {
+		return false;
+	}
+	return NON_UNARY_BINARY_OPERATORS.has(tokenText(tok));
 }
 
 /**
@@ -4119,10 +4180,10 @@ function unparenthesizedCallArg(source: string, span: Span): Span | undefined {
 	return undefined;
 }
 
-function implicitParenthesizedBareProcedureCall(
+function implicitParenthesizedBareCallableCall(
 	source: string,
 	span: Span,
-	bareCallableNames: ReadonlySet<string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 ): { name: string; span: Span } | undefined {
 	const toks = statementTokens(source, span);
 	if (
@@ -4135,13 +4196,21 @@ function implicitParenthesizedBareProcedureCall(
 		return undefined;
 	}
 	const name = tokenName(toks[0]);
-	if (!name || !bareCallableNames.has(name.toLowerCase())) {
+	if (!name) {
+		return undefined;
+	}
+	const signature = callableSignatureFor(name, moduleSignatures);
+	if (!signature || !callableAcceptsZeroArguments(signature)) {
 		return undefined;
 	}
 	return {
 		name,
 		span: { start: span.start + toks[0].start, end: span.start + toks[2].end },
 	};
+}
+
+function callableAcceptsZeroArguments(sig: CallableTypeSignature): boolean {
+	return sig.params.every((param) => param.optional || param.paramArray);
 }
 
 function implicitParenthesizedMemberCall(
