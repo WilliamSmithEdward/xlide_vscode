@@ -615,12 +615,14 @@ Diagnostic severity policy:
   implicit-host-member form `Cells(1, 1)` / `Range("A1")` (a non-`Call`
   identifier immediately followed by `(`). `checkCallParens` powers call syntax
   diagnostics: explicit `Call` statements with arguments require parentheses,
-  and VBE-oracle-verified standalone zero-argument member/property statements
-  such as `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
-  `ActiveSheet.Range()` cannot use empty parentheses unless they are prefixed
-  with `Call` or used in an expression. Non-empty standalone member/property
-  calls such as `ActiveSheet.Range("A1")` are compile-accepted by VBE and stay
-  on the signature-validation path. `checkProcedureHeader` powers
+  and VBE-oracle-verified standalone zero-argument calls cannot use empty
+  parentheses unless they are prefixed with `Call` or used in an expression.
+  The rule covers known same-module and exported standard-module procedures
+  such as `myFunction()`, plus member/property statements such as
+  `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
+  `ActiveSheet.Range()`. Non-empty standalone member/property calls such as
+  `ActiveSheet.Range("A1")` are compile-accepted by VBE and stay on the
+  signature-validation path. `checkProcedureHeader` powers
   `invalid-proc-header`: after the procedure name in a `Sub`/`Function`/
   `Property` header, the only legal next token is `(` (or `As` for a
   `Function`/`Property Get`); any other token (e.g. the second word in

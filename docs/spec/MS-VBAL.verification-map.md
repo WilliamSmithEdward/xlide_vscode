@@ -247,7 +247,7 @@ family) in `registerVbaDiagnostics`.
 | `set-requires-object` | A `Set` assignment targets a known intrinsic scalar variable or source-backed scalar member | 5.4.3 | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `scalar-member-access` | A member-access dot targets a variable declared as a known intrinsic scalar (`String`, numeric, `Boolean`, `Date`); named scalar members are VBE Compile `Invalid qualifier` errors and trailing scalar dots are VBE Compile `Syntax error`s | 5.6.9 / VBE oracle Invalid qualifier and Syntax error | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `call-requires-parens` | A `Call` statement supplies arguments without enclosing parentheses (`Call MsgBox "hi"`) | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
-| `call-statement-forbids-parens` | A standalone zero-argument member/property statement uses empty parentheses without `Call` (`ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, `ActiveSheet.Range()`); expression context, explicit `Call`, and non-empty standalone member/property controls are VBE-oracle verified separately | 5.4.2.1 (call statement) / VBE oracle call syntax | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
+| `call-statement-forbids-parens` | A standalone zero-argument call statement uses empty parentheses without `Call`: known same-module/exported project procedures such as `myFunction()`, plus member/property statements such as `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and `ActiveSheet.Range()`. Expression context, explicit `Call`, and non-empty standalone member/property controls are VBE-oracle verified separately | 5.4.2.1 (call statement) / VBE oracle call syntax | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `required-param-after-optional` | A required parameter follows an `Optional` parameter in a procedure header | 5.3.1.5 (parameter list) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `paramarray-not-last` | A `ParamArray` parameter is not the final parameter | 5.3.1.6 (ParamArray) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `exit-wrong-proc` | An `Exit Sub`/`Exit Function`/`Exit Property` does not match the enclosing procedure kind (`Exit Do`/`Exit For` excluded) | 5.4.1.3 (Exit statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
@@ -261,8 +261,9 @@ project-backed bare assignment/`Set` targets under `Option Explicit`. The
 unambiguous call forms - a lone identifier, a parenless call with arguments
 (`msrbox ""`), and an explicit `Call` - while the implicit-host-member form
 `Cells(1, 1)` / `Range("A1")` and any statement containing a top-level `=`
-(assignment) are excluded. Empty-parentheses standalone member/property calls
-without `Call` are handled first by `call-statement-forbids-parens`.
+(assignment) are excluded. Empty-parentheses standalone calls without `Call`
+are handled first by `call-statement-forbids-parens` when the target is a known
+same-module/exported project procedure or a known member-call shape.
 Argument-count validation (`argument-count`) is likewise limited to
 same-module, deterministic project signature calls, verified runtime signatures
 with explicit parameter lists, and valid parenthesized member-call contexts

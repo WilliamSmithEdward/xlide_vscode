@@ -405,7 +405,7 @@ export const DIAGNOSTIC_RULES = {
 	},
 	callStatementForbidsParens: {
 		code: 'call-statement-forbids-parens',
-		title: 'Standalone zero-argument member call cannot use empty parentheses',
+		title: 'Standalone zero-argument call cannot use empty parentheses',
 		defaultSeverity: 'error',
 		category: 'syntax',
 		vbeCompileEquivalent: true,

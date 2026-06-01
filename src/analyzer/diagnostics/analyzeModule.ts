@@ -211,7 +211,7 @@ function runRules(
 	checkObjectModulePublicMembers(source, mod, moduleKind, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, push);
 	checkInvalidAsTypeNames(source, opts, push);
-	checkCallParens(source, mod, push);
+	checkCallParens(source, mod, opts.projectProcedures, push);
 	checkExpressionCallParens(source, mod, push);
 	checkSetAssignments(source, mod, symbols, memberCtx, push);
 	checkExitStatements(source, mod, push);
@@ -3514,7 +3514,13 @@ function checkParameterOrder(mod: ModuleNode, push: PushFn): void {
  * argument - the VBE "Expected: (" error. Unbalanced parentheses are left to the
  * dedicated rule.
  */
-function checkCallParens(source: string, mod: ModuleNode, push: PushFn): void {
+function checkCallParens(
+	source: string,
+	mod: ModuleNode,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	push: PushFn,
+): void {
+	const bareCallableNames = bareCallableProcedureNames(mod, projectProcedures);
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -3528,6 +3534,14 @@ function checkCallParens(source: string, mod: ModuleNode, push: PushFn): void {
 					at,
 				);
 			}
+			const bare = implicitParenthesizedBareProcedureCall(source, stmt.span, bareCallableNames);
+			if (bare) {
+				push(
+					'callStatementForbidsParens',
+					'Standalone zero-argument procedure calls cannot use empty parentheses unless they are prefixed with Call or used in an expression.',
+					bare.span,
+				);
+			}
 			const implicit = implicitParenthesizedMemberCall(source, stmt.span);
 			if (implicit) {
 				push(
@@ -3538,6 +3552,29 @@ function checkCallParens(source: string, mod: ModuleNode, push: PushFn): void {
 			}
 		});
 	}
+}
+
+function bareCallableProcedureNames(
+	mod: ModuleNode,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+): Set<string> {
+	const names = new Set<string>();
+	for (const member of mod.members) {
+		if (
+			member.kind === 'Procedure' &&
+			(member.procKind === 'Sub' || member.procKind === 'Function')
+		) {
+			names.add(member.name.toLowerCase());
+		}
+	}
+	if (projectProcedures) {
+		for (const [key, signatures] of projectProcedures) {
+			if (!key.includes('.') && signatures.length > 0) {
+				names.add(key.toLowerCase());
+			}
+		}
+	}
+	return names;
 }
 
 /**
@@ -3736,6 +3773,31 @@ function unparenthesizedCallArg(source: string, span: Span): Span | undefined {
 		return { start: span.start + stray.start, end: span.start + stray.end };
 	}
 	return undefined;
+}
+
+function implicitParenthesizedBareProcedureCall(
+	source: string,
+	span: Span,
+	bareCallableNames: ReadonlySet<string>,
+): { name: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	if (
+		toks.length !== 3 ||
+		toks[0]?.rawText.toLowerCase() === 'call' ||
+		toks[1]?.rawText !== '(' ||
+		toks[2]?.rawText !== ')' ||
+		topLevelOperatorIndex(toks, '=') >= 0
+	) {
+		return undefined;
+	}
+	const name = tokenName(toks[0]);
+	if (!name || !bareCallableNames.has(name.toLowerCase())) {
+		return undefined;
+	}
+	return {
+		name,
+		span: { start: span.start + toks[0].start, end: span.start + toks[2].end },
+	};
 }
 
 function implicitParenthesizedMemberCall(

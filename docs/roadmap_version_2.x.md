@@ -415,12 +415,13 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   arity/type diagnostics when a source-backed or host/reference signature is
   known.
 - [x] Split member-call signature validation from VBA call-statement syntax. VBE
-  rejects standalone zero-argument member/property statements such as
+  rejects standalone zero-argument calls such as `myFunction()`,
   `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and
   `ActiveSheet.Range()` when they use empty parentheses without `Call`; the same
-  member call remains valid in expression context or with explicit `Call`, and
-  non-empty standalone forms such as `ActiveSheet.Range("A1")` stay on the
-  normal signature-validation path.
+  call remains valid in expression context or with explicit `Call`. Known
+  same-module and exported standard-module procedures use the project procedure
+  surface, while non-empty standalone member/property forms such as
+  `ActiveSheet.Range("A1")` stay on the normal signature-validation path.
 - [x] Exclude host events from object-member surfaces. VBE rejects calls such as
   `ThisWorkbook.AfterSave True` with `Method or data member not found`, so event
   names are reserved for document-module handler authoring instead of appearing

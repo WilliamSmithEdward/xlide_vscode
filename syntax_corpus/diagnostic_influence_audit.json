@@ -405,7 +405,7 @@
     {
       "code": "call-statement-forbids-parens",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases for standalone empty-parentheses member calls without Call",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases for standalone empty-parentheses calls without Call",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "implicit_member_call_parentheses_compile",
@@ -418,7 +418,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "VBE rejects standalone zero-argument member/property statements such as ThisWorkbook.CanCheckIn(), Application.Calculate(), and ActiveSheet.Range() when they use empty parentheses without Call, while the same parenthesized member call is valid in expression context or with the explicit Call keyword. VBE also accepts non-empty standalone member/property forms such as Application.DeleteCustomList(1) and ActiveSheet.Range(\"A1\"), so the active rule is deliberately scoped to the empty-parentheses form.",
+      "notes": "VBE rejects standalone zero-argument calls such as myFunction(), ThisWorkbook.CanCheckIn(), Application.Calculate(), and ActiveSheet.Range() when they use empty parentheses without Call, while the same parenthesized call is valid in expression context or with the explicit Call keyword. Known same-module and exported standard-module procedures are resolved through the project procedure surface; unknown bare Foo() calls stay silent to avoid external-reference false positives. VBE also accepts non-empty standalone member/property forms such as Application.DeleteCustomList(1) and ActiveSheet.Range(\"A1\"), so the active member-call rule is deliberately scoped to the empty-parentheses form.",
       "diagnosticKind": "compile-error"
     },
     {

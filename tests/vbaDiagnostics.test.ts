@@ -2796,6 +2796,62 @@ describe('analyzeModule - Call requires parentheses', () => {
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
+	it('flags a standalone zero-argument class method call with empty parentheses', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    p.Save()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-forbids-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Save()');
+	});
+
+	it('flags a same-module zero-argument Function call statement with empty parentheses', () => {
+		const src =
+			'Sub mySub()\n' +
+			'    myFunction()\n' +
+			'End Sub\n' +
+			'\n' +
+			'Function myFunction() As String\n' +
+			'    myFunction = "hello world!"\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-forbids-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('myFunction()');
+	});
+
+	it('flags an unqualified same-class method call statement with empty parentheses', () => {
+		const src =
+			'Public Sub SaveAll()\n' +
+			'    Save()\n' +
+			'End Sub\n' +
+			'\n' +
+			'Public Sub Save()\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'Person', moduleKind: 'class' }),
+			'call-statement-forbids-parens',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Save()');
+	});
+
+	it('flags an exported cross-module zero-argument Function call statement with empty parentheses', () => {
+		const src =
+			'Sub mySub()\n' +
+			'    myFunction()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src, {
+			moduleName: 'Caller',
+			projectProcedures: projectProcedures([
+				{ moduleName: 'Helpers', source: 'Public Function myFunction() As String\nEnd Function\n' },
+			]),
+		}), 'call-statement-forbids-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('myFunction()');
+	});
+
 	it('validates non-empty standalone member call parentheses with known signatures', () => {
 		const src = 'Sub T()\n    Application.Calculate(1)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
@@ -2824,6 +2880,25 @@ describe('analyzeModule - Call requires parentheses', () => {
 			'    Call ThisWorkbook.CanCheckIn()\n' +
 			'    ok = ThisWorkbook.CanCheckIn()\n' +
 			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
+	});
+
+	it('accepts known Function calls with Call or in expression context', () => {
+		const src =
+			'Sub mySub()\n' +
+			'    Dim value As String\n' +
+			'    Call myFunction()\n' +
+			'    value = myFunction()\n' +
+			'End Sub\n' +
+			'\n' +
+			'Function myFunction() As String\n' +
+			'    myFunction = "hello world!"\n' +
+			'End Function\n';
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
+	});
+
+	it('does not flag unknown bare empty-parentheses statements as project procedure calls', () => {
+		const src = 'Sub T()\n    MaybeExternal()\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
