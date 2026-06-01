@@ -550,10 +550,11 @@ On Error Resume Next
 ## Phase 3: Parser and AST
 
 > Status: DONE (structural). Implemented in `src/analyzer/parser/{nodes,
-> parserState,parseModule}.ts`, fixtures in `tests/vbaParser.test.ts` (26
-> tests), verification rows in `docs/spec/MS-VBAL.verification-map.md`. Builds a
-> `ModuleNode` AST (attributes, options, declarations, `Type`/`Enum`,
-> procedures + parameters, nested block statements) with absolute source spans;
+> parserState,parseModule}.ts`, fixtures in `tests/vbaParser.test.ts`, verification
+> rows in `docs/spec/MS-VBAL.verification-map.md`. Builds a
+> `ModuleNode` AST (attributes, options, conditional-compilation directives,
+> declarations, `Type`/`Enum`, procedures + parameters, nested block statements)
+> with absolute source spans;
 > never throws on malformed input; emits block-mismatch diagnostics. Deferred:
 > full expression AST (calls/member-access/operators, section 5.6) and `If`
 > branch modeling — captured as raw `Statement` nodes for now and tracked as
@@ -967,13 +968,18 @@ Implement completions for:
 
 ### Conditional Compilation and External Declare Roadmap Slice
 
-Status: IN PROGRESS. The first shared-metadata slice is implemented:
-`Declare` statements now parse visibility, `PtrSafe`, `Sub`/`Function`, name,
-`Lib`, `Alias`, parameters, and return type. That metadata is indexed as a
+Status: IN PROGRESS. The shared metadata foundation is implemented: `Declare`
+statements now parse visibility, `PtrSafe`, `Sub`/`Function`, name, `Lib`,
+`Alias`, parameters, and return type. That metadata is indexed as a
 bare-callable signature and feeds same-module/project completion, hover,
 signature help, argument-count diagnostics, and argument-type diagnostics.
-Remaining work is conditional-compilation branch modeling and the verified
-64-bit compatibility diagnostics.
+Conditional-compilation directives now parse into the AST at module and
+procedure scope, and `src/analyzer/conditional/conditionalCompilation.ts`
+collects them in source order, indexes `#Const` definitions, evaluates
+high-confidence compiler-constant expressions when a caller supplies the target
+compiler constants, and reports branch activity as `active` / `inactive` /
+`unknown`. Remaining work is wiring that branch activity into the symbol graph
+and enabling the verified 64-bit compatibility diagnostics.
 
 This slice covers the VBA `#` syntax used for 32/64-bit Office compatibility and
 Win32 API declarations. It belongs partly to parser/diagnostics and partly to
@@ -990,9 +996,9 @@ Authoritative references:
 
 Required behavior:
 
-- Parse and index conditional-compilation directives: `#Const`, `#If`,
+- [Done] Parse and index conditional-compilation directives: `#Const`, `#If`,
   `#ElseIf`, `#Else`, and `#End If`.
-- Evaluate high-confidence directive expressions for known compiler constants:
+- [Done foundation] Evaluate high-confidence directive expressions for supplied compiler constants:
   `VBA7`, `Win64`, `Win32`, `Mac`, and project `#Const` values. Treat `Win32`
   carefully because Microsoft's compiler-constants documentation says it is
   true in both 32-bit and 64-bit Windows development environments; prefer

@@ -26,7 +26,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Identifiers (Latin) | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.3.5 | Verified |
 | Identifiers (non-Latin) | src/analyzer/lexer/tokenize.ts | (none yet) | 3.3.5.1 | Partial |
 | Bracketed / foreign names | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.3.5.3 | Verified |
-| Conditional-compilation directives | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.4 | Partial |
+| Conditional-compilation directive marker | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.4 | Verified |
 
 ### Documented deviations
 
@@ -38,9 +38,6 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   fully supported. Non-Latin forms (section 3.3.5.1, codepage 874/932/936/949/
   950/125x) are approximated by accepting any Unicode letter (`\p{L}`) rather
   than the exact legacy-codepage ranges. No fixtures yet.
-- **Conditional-compilation directives (Partial):** the `#` marker is tokenized
-  and the following `If` / `Else` / `ElseIf` / `Const` / `End` lex as keywords,
-  but directive blocks are not yet parsed (deferred to a later phase).
 - **Apostrophe comments:** stop at the physical line terminator (VBE behavior);
   the spec `comment-body` grammar permits embedded line-continuations, which the
   VBE does not honor.
@@ -91,6 +88,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Const declarations | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.4 | Verified |
 | WithEvents / New declarators | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3 | Verified |
 | Declare statements with PtrSafe/Lib/Alias/params/return metadata | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3.5 | Verified |
+| Conditional-compilation directives (`#Const`, `#If`, `#ElseIf`, `#Else`, `#End If`) | src/analyzer/parser/parseModule.ts + src/analyzer/conditional/conditionalCompilation.ts | tests/vbaParser.test.ts + tests/vbaConditionalCompilation.test.ts | 3.4 | Verified |
 | Type ... End Type | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3.3 | Verified |
 | Enum ... End Enum | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.2.3.4 | Verified |
 | Sub / Function procedures | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.3.1 | Verified |
@@ -131,9 +129,12 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 - **Single-line `If` detection:** an `If` opens a block only when `Then` is the
   final code token on the logical line (section 5.4.2.1); `If x Then y = 1`
   stays a single statement. Verified by fixture.
-- **Conditional compilation around Declare (Partial):** external declarations are
-  parsed and surfaced as callable metadata, but mutually exclusive `#If VBA7 /
-  Win64` branches are not yet evaluated by the parser or symbol graph.
+- **Conditional compilation around Declare (Partial):** external declarations and
+  compiler directives are parsed, and `src/analyzer/conditional/conditionalCompilation.ts`
+  can classify simple `VBA7` / `Win64` / `Win32` / `Mac` / `#Const` branches as
+  active, inactive, or unknown when the caller supplies compiler constants; it
+  leaves platform constants unknown by default. The symbol graph and active
+  diagnostics do not yet filter declarations by branch activity.
 - **Recovery boundaries:** the parser recovers at newline/colon statement
   boundaries (section 3.3.1 EOS) and at module-level starters (a new
   `Sub`/`Function`/`Property`/`Type`/`Enum`/`Declare`/`Attribute`), so a missing

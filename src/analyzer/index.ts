@@ -17,6 +17,20 @@ export * from './parser/nodes';
 export { parseModule } from './parser/parseModule';
 export { splitLogicalStatements } from './parser/parserState';
 export {
+	collectConditionalDirectives,
+	conditionalActivityAtOffset,
+	conditionalActivityForSpan,
+	conditionalCompilerConstants,
+	evaluateConditionalExpression,
+	indexConditionalCompilation,
+	ConditionalActivity,
+	ConditionalCompilationEnvironment,
+	ConditionalCompilationIndex,
+	ConditionalConstDefinition,
+	ConditionalDirectiveOccurrence,
+	ConditionalValue,
+} from './conditional/conditionalCompilation';
+export {
 	EXCEL_OBJECT_MODEL,
 	HostConstant,
 	HostMember,

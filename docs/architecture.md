@@ -338,6 +338,16 @@ joins `_` line continuations, then walks a block stack to detect imbalance. The
 same module exports `detectProcOpener`/`isProcClosedAhead` used by the
 smart-enter feature.
 
+**Conditional compilation model** — The core parser models `#Const`, `#If`,
+`#ElseIf`, `#Else`, and `#End If` as `ConditionalDirective` AST nodes at module
+and procedure scope. `src/analyzer/conditional/conditionalCompilation.ts` is the
+shared, `vscode`-free helper for source-order directive collection, `#Const`
+indexing, high-confidence expression evaluation against supplied compiler
+constants (`VBA7`, `Win64`, `Win32`, `Mac`, etc.), and `active` / `inactive` /
+`unknown` branch activity. If the caller does not supply a compiler environment,
+platform constants remain unknown. Active diagnostics do not yet filter symbols
+by this branch model.
+
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 

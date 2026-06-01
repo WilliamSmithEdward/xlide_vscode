@@ -6,6 +6,7 @@
 //   - 5.2.1 Option Directives
 //   - 5.2.3 Module Variable Declarations
 //   - 5.2.4 Const Declarations
+//   - 3.4   Conditional Compilation Directives
 //   - 5.2.2 Implicit / 5.3 Procedure declarations (Sub/Function/Property)
 //   - 5.2.3.3 User Defined Type (Type ... End Type)
 //   - 5.2.3.4 Enum Declarations (Enum ... End Enum)
@@ -38,6 +39,7 @@ export type NodeKind =
 	| 'Module'
 	| 'Attribute'
 	| 'Option'
+	| 'ConditionalDirective'
 	| 'Declare'
 	| 'VariableGroup'
 	| 'VariableDecl'
@@ -86,6 +88,30 @@ export interface OptionNode extends NodeBase {
 	kind: 'Option';
 	/** Canonical text after "Option", e.g. "Explicit", "Base 1", "Compare Text". */
 	optionText: string;
+}
+
+/** Conditional-compilation directive kind (MS-VBAL 3.4). */
+export type ConditionalDirectiveKind =
+	| 'Const'
+	| 'If'
+	| 'ElseIf'
+	| 'Else'
+	| 'EndIf'
+	| 'Unknown';
+
+/** `#Const`, `#If`, `#ElseIf`, `#Else`, or `#End If` directive (MS-VBAL 3.4). */
+export interface ConditionalDirectiveNode extends NodeBase {
+	kind: 'ConditionalDirective';
+	directiveKind: ConditionalDirectiveKind;
+	/** `#Const` compiler constant name. */
+	name?: string;
+	nameSpan?: Span;
+	/** Raw `#Const` value expression, preserving source spacing. */
+	valueRaw?: string;
+	valueSpan?: Span;
+	/** Raw `#If` / `#ElseIf` condition expression, without the trailing Then. */
+	conditionRaw?: string;
+	conditionSpan?: Span;
 }
 
 /** Declare statement for an external procedure (MS-VBAL 5.2.3.5). */
@@ -230,6 +256,7 @@ export interface SelectBlockNode extends NodeBase {
 /** Any node that can appear inside a procedure body. */
 export type BodyNode =
 	| StatementNode
+	| ConditionalDirectiveNode
 	| VariableGroupNode
 	| IfBlockNode
 	| ForBlockNode
@@ -242,6 +269,7 @@ export type BodyNode =
 export type ModuleMember =
 	| AttributeNode
 	| OptionNode
+	| ConditionalDirectiveNode
 	| DeclareNode
 	| VariableGroupNode
 	| TypeNode

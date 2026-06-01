@@ -3,6 +3,7 @@
 // Verified against MS-VBAL.pdf, v20250520 (Release: May 20, 2025):
 //   - 4.2     Modules
 //   - 5.2.1   Option <option-directive>
+//   - 3.4     Conditional Compilation Directives (#Const / #If / #ElseIf / #Else / #End If)
 //   - 5.2.3   Module Variable Declarations (Dim/Private/Public/Global/Static)
 //   - 5.2.3.3 User Defined Types (Type ... End Type)
 //   - 5.2.3.4 Enumerations (Enum ... End Enum)
@@ -33,6 +34,7 @@ import { tokenize } from '../lexer/tokenize';
 import {
 	AttributeNode,
 	BodyNode,
+	ConditionalDirectiveNode,
 	DeclareNode,
 	DoBlockNode,
 	EnumMemberNode,
@@ -142,6 +144,9 @@ class Parser {
 
 		if (this.isAttribute(tokens)) {
 			return this.parseAttribute(this.cursor.next()!, tokens);
+		}
+		if (this.isConditionalDirective(tokens)) {
+			return this.parseConditionalDirective(this.cursor.next()!, tokens);
 		}
 
 		const modIndex = this.leadingModifierCount(tokens);
@@ -268,6 +273,81 @@ class Parser {
 			params,
 			returnType,
 			span: { start: stmt.start, end: stmt.end },
+		};
+	}
+
+	private isConditionalDirective(tokens: VbaToken[]): boolean {
+		return tokens[0]?.kind === 'directive';
+	}
+
+	private parseConditionalDirective(
+		stmt: LogicalStatement,
+		tokens: VbaToken[],
+	): ConditionalDirectiveNode {
+		const directiveWord = tokenWord(tokens[1]);
+		const base = {
+			kind: 'ConditionalDirective' as const,
+			span: { start: stmt.start, end: stmt.end },
+		};
+		switch (directiveWord) {
+			case 'const': {
+				const nameToken = tokens[2];
+				const eqIndex = tokens.findIndex((t, idx) => idx > 2 && t.rawText === '=');
+				const value = eqIndex >= 0
+					? this.tokenRangeRaw(tokens, eqIndex + 1, tokens.length)
+					: {};
+				return {
+					...base,
+					directiveKind: 'Const',
+					name: nameToken ? this.stripBrackets(nameToken.rawText) : undefined,
+					nameSpan: nameToken ? { start: nameToken.start, end: nameToken.end } : undefined,
+					valueRaw: value.raw,
+					valueSpan: value.span,
+				};
+			}
+			case 'if': {
+				const condition = this.directiveCondition(tokens, 2);
+				return {
+					...base,
+					directiveKind: 'If',
+					conditionRaw: condition.raw,
+					conditionSpan: condition.span,
+				};
+			}
+			case 'elseif': {
+				const condition = this.directiveCondition(tokens, 2);
+				return {
+					...base,
+					directiveKind: 'ElseIf',
+					conditionRaw: condition.raw,
+					conditionSpan: condition.span,
+				};
+			}
+			case 'else':
+				return {
+					...base,
+					directiveKind: 'Else',
+				};
+			case 'end':
+				if (tokenWord(tokens[2]) === 'if') {
+					return {
+						...base,
+						directiveKind: 'EndIf',
+					};
+				}
+				break;
+			case 'endif':
+				return {
+					...base,
+					directiveKind: 'EndIf',
+				};
+		}
+		const unknown = this.tokenRangeRaw(tokens, 1, tokens.length);
+		return {
+			...base,
+			directiveKind: 'Unknown',
+			conditionRaw: unknown.raw,
+			conditionSpan: unknown.span,
 		};
 	}
 
@@ -655,6 +735,10 @@ class Parser {
 			return this.parseBlock(opener);
 		}
 		const tokens = codeTokens(stmt);
+		if (this.isConditionalDirective(tokens)) {
+			this.cursor.next();
+			return this.parseConditionalDirective(stmt, tokens);
+		}
 		const head = tokenWord(tokens[0]);
 		if (head === 'dim' || head === 'const' || head === 'static') {
 			this.cursor.next();
@@ -865,6 +949,35 @@ class Parser {
 		}
 		groups.push(current);
 		return groups;
+	}
+
+	private directiveCondition(
+		tokens: VbaToken[],
+		from: number,
+	): { raw?: string; span?: Span } {
+		const to = tokenWord(tokens[tokens.length - 1]) === 'then'
+			? tokens.length - 1
+			: tokens.length;
+		return this.tokenRangeRaw(tokens, from, to);
+	}
+
+	private tokenRangeRaw(
+		tokens: VbaToken[],
+		from: number,
+		to: number,
+	): { raw?: string; span?: Span } {
+		if (from < 0 || from >= to || from >= tokens.length) {
+			return {};
+		}
+		const startToken = tokens[from];
+		const endToken = tokens[Math.min(to, tokens.length) - 1];
+		if (!startToken || !endToken) {
+			return {};
+		}
+		return {
+			raw: this.source.slice(startToken.start, endToken.end),
+			span: { start: startToken.start, end: endToken.end },
+		};
 	}
 
 	/** Index just past the ')' matching the '(' at lparen. */

@@ -4518,6 +4518,7 @@ function checkContextBody(
 			case 'WhileBlock':
 				checkContextBody(source, node.body, ctx, push);
 				break;
+			case 'ConditionalDirective':
 			case 'VariableGroup':
 				break;
 		}

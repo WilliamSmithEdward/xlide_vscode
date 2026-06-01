@@ -1,0 +1,406 @@
+import { tokenize } from '../lexer/tokenize';
+import type { VbaToken } from '../lexer/tokenKinds';
+import type {
+	BodyNode,
+	ConditionalDirectiveNode,
+	ModuleNode,
+	ProcedureNode,
+	Span,
+} from '../parser/nodes';
+
+export type ConditionalValue = boolean | number | string;
+export type ConditionalActivity = 'active' | 'inactive' | 'unknown';
+
+export interface ConditionalCompilationEnvironment {
+	compilerConstants?: Readonly<Record<string, ConditionalValue>>;
+	projectConstants?: Readonly<Record<string, ConditionalValue>>;
+}
+
+export interface ConditionalDirectiveOccurrence {
+	directive: ConditionalDirectiveNode;
+	container:
+		| { kind: 'module' }
+		| { kind: 'procedure'; name: string; span: Span };
+}
+
+export interface ConditionalConstDefinition {
+	name: string;
+	nameSpan: Span;
+	valueRaw?: string;
+	value: ConditionalValue | undefined;
+	directive: ConditionalDirectiveNode;
+}
+
+export interface ConditionalCompilationIndex {
+	directives: ConditionalDirectiveOccurrence[];
+	constants: ConditionalConstDefinition[];
+}
+
+export function indexConditionalCompilation(
+	module: ModuleNode,
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalCompilationIndex {
+	const directives = collectConditionalDirectives(module);
+	const constants = collectConditionalConstants(directives, env);
+	return { directives, constants };
+}
+
+export function collectConditionalDirectives(
+	module: ModuleNode,
+): ConditionalDirectiveOccurrence[] {
+	const out: ConditionalDirectiveOccurrence[] = [];
+	for (const member of module.members) {
+		if (member.kind === 'ConditionalDirective') {
+			out.push({ directive: member, container: { kind: 'module' } });
+		} else if (member.kind === 'Procedure') {
+			collectBodyDirectives(member.body, member, out);
+		}
+	}
+	return out.sort((a, b) => a.directive.span.start - b.directive.span.start);
+}
+
+export function conditionalCompilerConstants(
+	env: ConditionalCompilationEnvironment = {},
+): Map<string, ConditionalValue> {
+	const constants = new Map<string, ConditionalValue>();
+	for (const [name, value] of Object.entries(env.compilerConstants ?? {})) {
+		constants.set(name.toLowerCase(), value);
+	}
+	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
+		constants.set(name.toLowerCase(), value);
+	}
+	return constants;
+}
+
+export function evaluateConditionalExpression(
+	expression: string | undefined,
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalValue | undefined {
+	if (!expression?.trim()) {
+		return undefined;
+	}
+	const parser = new ConditionalExpressionParser(
+		tokenize(expression).filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
+		conditionalCompilerConstants(env),
+	);
+	return parser.parse();
+}
+
+export function conditionalActivityAtOffset(
+	module: ModuleNode,
+	offset: number,
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalActivity {
+	const directives = collectConditionalDirectives(module);
+	const projectConstants = new Map<string, ConditionalValue>();
+	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
+		projectConstants.set(name.toLowerCase(), value);
+	}
+	const stack: ConditionalFrame[] = [];
+	let current: ConditionalActivity = 'active';
+
+	for (const { directive } of directives) {
+		if (directive.span.start >= offset) {
+			break;
+		}
+		switch (directive.directiveKind) {
+			case 'Const': {
+				if (current === 'active' && directive.name) {
+					const value = evaluateWithProjectConstants(
+						directive.valueRaw,
+						env,
+						projectConstants,
+					);
+					if (value !== undefined) {
+						projectConstants.set(directive.name.toLowerCase(), value);
+					}
+				}
+				break;
+			}
+			case 'If': {
+				const condition = conditionActivity(directive, env, projectConstants);
+				const frame: ConditionalFrame = {
+					parent: current,
+					current: combineActivity(current, condition),
+					seenTrue: condition === 'active',
+					seenUnknown: condition === 'unknown',
+				};
+				stack.push(frame);
+				current = frame.current;
+				break;
+			}
+			case 'ElseIf': {
+				const frame = stack[stack.length - 1];
+				if (!frame) {
+					break;
+				}
+				const condition = conditionActivity(directive, env, projectConstants);
+				if (frame.seenTrue) {
+					frame.current = 'inactive';
+				} else if (frame.seenUnknown && condition !== 'inactive') {
+					frame.current = combineActivity(frame.parent, 'unknown');
+				} else {
+					frame.current = combineActivity(frame.parent, condition);
+				}
+				frame.seenTrue ||= condition === 'active';
+				frame.seenUnknown ||= condition === 'unknown';
+				current = frame.current;
+				break;
+			}
+			case 'Else': {
+				const frame = stack[stack.length - 1];
+				if (!frame) {
+					break;
+				}
+				if (frame.seenTrue) {
+					frame.current = 'inactive';
+				} else if (frame.seenUnknown) {
+					frame.current = combineActivity(frame.parent, 'unknown');
+				} else {
+					frame.current = frame.parent;
+				}
+				frame.seenTrue = true;
+				current = frame.current;
+				break;
+			}
+			case 'EndIf': {
+				const frame = stack.pop();
+				current = frame?.parent ?? current;
+				break;
+			}
+			case 'Unknown':
+				break;
+		}
+	}
+	return current;
+}
+
+export function conditionalActivityForSpan(
+	module: ModuleNode,
+	span: Span,
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalActivity {
+	return conditionalActivityAtOffset(module, span.start, env);
+}
+
+function collectBodyDirectives(
+	body: BodyNode[],
+	procedure: ProcedureNode,
+	out: ConditionalDirectiveOccurrence[],
+): void {
+	for (const node of body) {
+		if (node.kind === 'ConditionalDirective') {
+			out.push({
+				directive: node,
+				container: {
+					kind: 'procedure',
+					name: procedure.name,
+					span: procedure.span,
+				},
+			});
+		} else if ('body' in node && Array.isArray(node.body)) {
+			collectBodyDirectives(node.body, procedure, out);
+		}
+	}
+}
+
+function collectConditionalConstants(
+	directives: readonly ConditionalDirectiveOccurrence[],
+	env: ConditionalCompilationEnvironment,
+): ConditionalConstDefinition[] {
+	const projectConstants = new Map<string, ConditionalValue>();
+	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
+		projectConstants.set(name.toLowerCase(), value);
+	}
+	const constants: ConditionalConstDefinition[] = [];
+	for (const { directive } of directives) {
+		if (directive.directiveKind !== 'Const' || !directive.name || !directive.nameSpan) {
+			continue;
+		}
+		const value = evaluateConditionalExpression(directive.valueRaw, {
+			...env,
+			projectConstants: Object.fromEntries(projectConstants),
+		});
+		if (value !== undefined) {
+			projectConstants.set(directive.name.toLowerCase(), value);
+		}
+		constants.push({
+			name: directive.name,
+			nameSpan: directive.nameSpan,
+			valueRaw: directive.valueRaw,
+			value,
+			directive,
+		});
+	}
+	return constants;
+}
+
+interface ConditionalFrame {
+	parent: ConditionalActivity;
+	current: ConditionalActivity;
+	seenTrue: boolean;
+	seenUnknown: boolean;
+}
+
+function conditionActivity(
+	directive: ConditionalDirectiveNode,
+	env: ConditionalCompilationEnvironment,
+	projectConstants: ReadonlyMap<string, ConditionalValue>,
+): ConditionalActivity {
+	const value = evaluateWithProjectConstants(directive.conditionRaw, env, projectConstants);
+	if (value === undefined) {
+		return 'unknown';
+	}
+	return truthy(value) ? 'active' : 'inactive';
+}
+
+function evaluateWithProjectConstants(
+	expression: string | undefined,
+	env: ConditionalCompilationEnvironment,
+	projectConstants: ReadonlyMap<string, ConditionalValue>,
+): ConditionalValue | undefined {
+	return evaluateConditionalExpression(expression, {
+		compilerConstants: env.compilerConstants,
+		projectConstants: Object.fromEntries(projectConstants),
+	});
+}
+
+function combineActivity(
+	parent: ConditionalActivity,
+	condition: ConditionalActivity,
+): ConditionalActivity {
+	if (parent === 'inactive' || condition === 'inactive') {
+		return 'inactive';
+	}
+	if (parent === 'unknown' || condition === 'unknown') {
+		return 'unknown';
+	}
+	return 'active';
+}
+
+function truthy(value: ConditionalValue): boolean {
+	if (typeof value === 'boolean') {
+		return value;
+	}
+	if (typeof value === 'number') {
+		return value !== 0;
+	}
+	return value.length > 0;
+}
+
+class ConditionalExpressionParser {
+	private index = 0;
+
+	constructor(
+		private readonly tokens: readonly VbaToken[],
+		private readonly constants: ReadonlyMap<string, ConditionalValue>,
+	) {}
+
+	parse(): ConditionalValue | undefined {
+		const value = this.parseOr();
+		return this.index >= this.tokens.length ? value : undefined;
+	}
+
+	private parseOr(): ConditionalValue | undefined {
+		let left = this.parseAnd();
+		while (this.matchWord('or')) {
+			const right = this.parseAnd();
+			if (left === undefined || right === undefined) {
+				return undefined;
+			}
+			left = truthy(left) || truthy(right);
+		}
+		return left;
+	}
+
+	private parseAnd(): ConditionalValue | undefined {
+		let left = this.parseComparison();
+		while (this.matchWord('and')) {
+			const right = this.parseComparison();
+			if (left === undefined || right === undefined) {
+				return undefined;
+			}
+			left = truthy(left) && truthy(right);
+		}
+		return left;
+	}
+
+	private parseComparison(): ConditionalValue | undefined {
+		const left = this.parseUnary();
+		const op = this.peek()?.rawText;
+		if (op !== '=' && op !== '<>') {
+			return left;
+		}
+		this.index++;
+		const right = this.parseUnary();
+		if (left === undefined || right === undefined) {
+			return undefined;
+		}
+		const same = normalizedComparisonValue(left) === normalizedComparisonValue(right);
+		return op === '=' ? same : !same;
+	}
+
+	private parseUnary(): ConditionalValue | undefined {
+		if (this.matchWord('not')) {
+			const value = this.parseUnary();
+			return value === undefined ? undefined : !truthy(value);
+		}
+		return this.parsePrimary();
+	}
+
+	private parsePrimary(): ConditionalValue | undefined {
+		const token = this.peek();
+		if (!token) {
+			return undefined;
+		}
+		if (token.rawText === '(') {
+			this.index++;
+			const value = this.parseOr();
+			if (this.peek()?.rawText !== ')') {
+				return undefined;
+			}
+			this.index++;
+			return value;
+		}
+		this.index++;
+		if (token.kind === 'integerLiteral' || token.kind === 'floatLiteral') {
+			const number = Number(token.rawText.replace(/[!#@%&^]$/, ''));
+			return Number.isFinite(number) ? number : undefined;
+		}
+		if (token.kind === 'stringLiteral') {
+			return token.rawText.slice(1, -1).replace(/""/g, '"');
+		}
+		const word = tokenWord(token);
+		if (word === 'true') {
+			return true;
+		}
+		if (word === 'false') {
+			return false;
+		}
+		return this.constants.get(word);
+	}
+
+	private matchWord(word: string): boolean {
+		if (tokenWord(this.peek()) !== word) {
+			return false;
+		}
+		this.index++;
+		return true;
+	}
+
+	private peek(): VbaToken | undefined {
+		return this.tokens[this.index];
+	}
+
+}
+
+function tokenWord(token: VbaToken | undefined): string {
+	return (token?.canonicalText ?? token?.rawText ?? '').toLowerCase();
+}
+
+function normalizedComparisonValue(value: ConditionalValue): string {
+	if (typeof value === 'boolean') {
+		return value ? 'true' : 'false';
+	}
+	return String(value).toLowerCase();
+}

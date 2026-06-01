@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseModule } from '../src/analyzer/parser/parseModule';
 import {
+	ConditionalDirectiveNode,
 	EnumNode,
 	ModuleMember,
 	ProcedureNode,
@@ -74,6 +75,69 @@ describe('parseModule - option directives (MS-VBAL 5.2.1)', () => {
 		if (opt.kind === 'Option') {
 			expect(opt.optionText).toBe('Compare Text');
 		}
+	});
+});
+
+describe('parseModule - conditional compilation directives (MS-VBAL 3.4)', () => {
+	it('parses #Const compiler constants at module level', () => {
+		const m = parseModule('#Const Win64Build = True\n');
+		const directive = m.members[0];
+		expect(directive.kind).toBe('ConditionalDirective');
+		if (directive.kind === 'ConditionalDirective') {
+			expect(directive.directiveKind).toBe('Const');
+			expect(directive.name).toBe('Win64Build');
+			expect(directive.valueRaw).toBe('True');
+		}
+	});
+
+	it('parses conditional Declare branches in source order', () => {
+		const m = parseModule(
+			'#If VBA7 Then\n' +
+			'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n' +
+			'#Else\n' +
+			'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n' +
+			'#End If\n',
+		);
+		expect(m.members.map((member) => member.kind)).toEqual([
+			'ConditionalDirective',
+			'Declare',
+			'ConditionalDirective',
+			'Declare',
+			'ConditionalDirective',
+		]);
+		const directives = m.members.filter(
+			(member): member is ConditionalDirectiveNode => member.kind === 'ConditionalDirective',
+		);
+		expect(directives.map((directive) => directive.directiveKind)).toEqual(['If', 'Else', 'EndIf']);
+		expect(directives[0].conditionRaw).toBe('VBA7');
+	});
+
+	it('parses #ElseIf and #EndIf spelling variants', () => {
+		const m = parseModule('#If VBA7 Then\n#ElseIf Win64 Then\n#EndIf\n');
+		const directives = m.members.filter(
+			(member): member is ConditionalDirectiveNode => member.kind === 'ConditionalDirective',
+		);
+		expect(directives.map((directive) => directive.directiveKind)).toEqual([
+			'If',
+			'ElseIf',
+			'EndIf',
+		]);
+		expect(directives[1].conditionRaw).toBe('Win64');
+	});
+
+	it('keeps procedure-scope directives in the procedure body', () => {
+		const proc = procedures(
+			'Sub T()\n' +
+			'    #If DEBUGGING Then\n' +
+			'    Debug.Print "on"\n' +
+			'    #End If\n' +
+			'End Sub\n',
+		)[0];
+		expect(proc.body.map((node) => node.kind)).toEqual([
+			'ConditionalDirective',
+			'Statement',
+			'ConditionalDirective',
+		]);
 	});
 });
 
