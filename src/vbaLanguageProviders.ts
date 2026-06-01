@@ -16,9 +16,11 @@ import {
 } from './vbaLinter';
 import {
     analyzeModule,
+    diagnosticSourceForCode,
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
     eventHandlerDocumentTypeForContext,
+    isXlideDiagnosticSource,
     ModuleSymbolKind,
     normalizeDiagnosticCode,
     ProjectIndex,
@@ -964,9 +966,11 @@ function registerVbaDiagnostics(
                     ? vscode.DiagnosticSeverity.Error
                     : vscode.DiagnosticSeverity.Warning,
             );
-            diag.source = 'XLIDE';
             if (p.code) {
+                diag.source = diagnosticSourceForCode(p.code);
                 diag.code = p.code;
+            } else {
+                diag.source = diagnosticSourceForCode(undefined);
             }
             diagnostics.push(diag);
         }
@@ -1003,7 +1007,7 @@ function registerVbaDiagnostics(
                 d.message,
                 severityToVscode(d.severity),
             );
-            diag.source = 'XLIDE';
+            diag.source = diagnosticSourceForCode(d.code);
             diag.code = d.code;
             diagnostics.push(diag);
         }
@@ -1061,7 +1065,7 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
         const actions: vscode.CodeAction[] = [];
         let lintProblems: ReturnType<typeof lintVbaSource> | undefined;
         for (const diagnostic of context.diagnostics) {
-            if (diagnostic.source !== 'XLIDE') { continue; }
+            if (!isXlideDiagnosticSource(diagnostic.source)) { continue; }
             const code = normalizeDiagnosticCode(diagnostic.code);
             if (!code) { continue; }
             const lintProblem = code === 'missing-block-closer'

@@ -63,6 +63,9 @@ heuristic diagnostics.
 - Active diagnostics are catalogued in `src/analyzer/diagnostics/ruleMetadata.ts`.
 - Rule metadata includes category, VBE compile-equivalence, and diagnostic-kind
   fields so compile-time and deterministic-runtime red squiggles stay separate.
+- Problems output uses metadata-derived XLIDE source labels such as
+  `XLIDE/VBE`, `XLIDE/runtime`, `XLIDE/risk`, and `XLIDE/style`, while the
+  diagnostic code remains the stable rule id used by quick fixes.
 - Same-module callable signatures are parsed for parameters and return types.
 - High-confidence argument count and type mismatch diagnostics exist.
 - Non-callable call statements are flagged, including bare variable statements
@@ -640,7 +643,7 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   line-start offsets, and leading whitespace) so providers, workbook lint,
   code actions, member completion, and class-module commands do not carry
   local duplicate regex pipelines.
-- [ ] Use metadata categories to tune Problems output and future filters.
+- [x] Use metadata categories to tune Problems output and future filters.
 - [x] Route workbook lint summaries through the shared diagnostic metadata
   catalogue, including structural block-balance codes, so command output and
   agent JSON report category/equivalence without local bucketing.

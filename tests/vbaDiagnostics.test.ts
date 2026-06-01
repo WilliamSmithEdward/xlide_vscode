@@ -5,6 +5,8 @@ import {
 	DIAGNOSTIC_RULES,
 	STRUCTURAL_DIAGNOSTIC_RULES,
 	diagnosticMetadataForCode,
+	diagnosticSourceForCode,
+	isXlideDiagnosticSource,
 	ProjectIndex,
 	type HostObjectModel,
 } from '../src/analyzer';
@@ -571,6 +573,18 @@ describe('analyzeModule - general contract', () => {
 			diagnosticKind: 'compile-error',
 		});
 		expect(diagnosticMetadataForCode('not-a-real-rule')).toBeUndefined();
+	});
+
+	it('uses metadata source labels for Problems filtering without changing rule codes', () => {
+		expect(diagnosticSourceForCode('missing-block-closer')).toBe('XLIDE/VBE');
+		expect(diagnosticSourceForCode('undeclared-variable')).toBe('XLIDE/VBE');
+		expect(diagnosticSourceForCode('string-arithmetic-coercion')).toBe('XLIDE/runtime');
+		expect(diagnosticSourceForCode('missing-return-assignment')).toBe('XLIDE/risk');
+		expect(diagnosticSourceForCode('option-explicit-missing')).toBe('XLIDE/style');
+		expect(diagnosticSourceForCode(undefined)).toBe('XLIDE');
+		expect(isXlideDiagnosticSource('XLIDE')).toBe(true);
+		expect(isXlideDiagnosticSource('XLIDE/VBE')).toBe(true);
+		expect(isXlideDiagnosticSource('typescript')).toBe(false);
 	});
 
 	it('produces a clean module with no diagnostics', () => {

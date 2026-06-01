@@ -639,7 +639,12 @@ high-confidence semantic problems directly from module text:
   (`DIAGNOSTIC_RULES`): each rule carries a stable `code`, `title`,
   `defaultSeverity`, `category`, `vbeCompileEquivalent`, `diagnosticKind`,
   `source: 'XLIDE'`, an MS-VBAL `specReference`, and a `confidence`. Only
-  high-confidence rules ship.
+  high-confidence rules ship. The same module also owns metadata for structural
+  block-balance diagnostics and the Problems source-label helper used by live
+  diagnostics: `XLIDE/VBE` for compile-equivalent findings, `XLIDE/runtime` for
+  deterministic runtime failures, `XLIDE/risk` for runtime-risk warnings, and
+  `XLIDE/style` for guidance/style rules. The diagnostic `code` remains the
+  stable rule id for quick fixes and future filtering.
   The `undeclared-variable` rule ships for project-backed `Option Explicit`
   write/read positions: bare assignment and `Set` targets, assignment RHS and
   call-argument reads, control-flow block headers, member receivers, and indexed

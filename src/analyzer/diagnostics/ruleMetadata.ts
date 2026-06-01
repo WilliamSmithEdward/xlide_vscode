@@ -579,6 +579,8 @@ const DIAGNOSTIC_METADATA_BY_CODE = new Map<string, DiagnosticRuleMetadata>(
 	].map((rule) => [rule.code, rule]),
 );
 
+export const XLIDE_DIAGNOSTIC_SOURCE = 'XLIDE';
+
 /** Returns metadata for semantic and structural diagnostic codes. */
 export function diagnosticMetadataForCode(
 	code: string | undefined,
@@ -587,6 +589,32 @@ export function diagnosticMetadataForCode(
 		return undefined;
 	}
 	return DIAGNOSTIC_METADATA_BY_CODE.get(code);
+}
+
+/** Problems-panel source label for a diagnostic code. */
+export function diagnosticSourceForCode(code: string | undefined): string {
+	const meta = diagnosticMetadataForCode(code);
+	if (!meta) {
+		return XLIDE_DIAGNOSTIC_SOURCE;
+	}
+	if (meta.vbeCompileEquivalent) {
+		return `${XLIDE_DIAGNOSTIC_SOURCE}/VBE`;
+	}
+	switch (meta.diagnosticKind) {
+		case 'deterministic-runtime-error':
+			return `${XLIDE_DIAGNOSTIC_SOURCE}/runtime`;
+		case 'runtime-risk':
+			return `${XLIDE_DIAGNOSTIC_SOURCE}/risk`;
+		case 'style-policy':
+			return `${XLIDE_DIAGNOSTIC_SOURCE}/style`;
+		case 'compile-error':
+			return XLIDE_DIAGNOSTIC_SOURCE;
+	}
+}
+
+/** True for canonical and metadata-expanded XLIDE diagnostic source labels. */
+export function isXlideDiagnosticSource(source: string | undefined): boolean {
+	return source === XLIDE_DIAGNOSTIC_SOURCE || source?.startsWith(`${XLIDE_DIAGNOSTIC_SOURCE}/`) === true;
 }
 
 /** Stable rule-name keys of {@link DIAGNOSTIC_RULES}. */

@@ -184,9 +184,12 @@ export {
 	DIAGNOSTIC_RULES,
 	STRUCTURAL_DIAGNOSTIC_RULES,
 	diagnosticMetadataForCode,
+	diagnosticSourceForCode,
 	DiagnosticCategory,
 	DiagnosticEvidenceKind,
 	DiagnosticRuleMetadata,
 	DiagnosticRuleName,
 	DiagnosticSeverity,
+	isXlideDiagnosticSource,
+	XLIDE_DIAGNOSTIC_SOURCE,
 } from './diagnostics/ruleMetadata';
