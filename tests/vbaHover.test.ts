@@ -189,6 +189,13 @@ describe('hover - host symbols', () => {
 		expect(info?.details[0]).toMatch(/Excel host (property|method)/);
 	});
 
+	it('describes a leading-dot host member inside With', () => {
+		const src = 'Sub T()\n    With Range("A1")\n        .Value\n    End With\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('Value') + 2, {});
+		expect(info?.signature.startsWith('Range.Value')).toBe(true);
+		expect(info?.details[0]).toMatch(/Excel host (property|method)/);
+	});
+
 	it('describes a source-backed current class member after Me', () => {
 		const src = 'Sub T()\n    Me.Save\nEnd Sub\n';
 		const info = resolveHover(src, src.indexOf('Save') + 2, {

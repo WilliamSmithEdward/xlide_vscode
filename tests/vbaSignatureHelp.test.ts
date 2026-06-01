@@ -53,6 +53,12 @@ describe('signature help - host members', () => {
 		expect(info?.parameters[0].label).toBe('[RowOffset]');
 	});
 
+	it('resolves a leading-dot member inside With', () => {
+		const info = help('Sub T()\nWith Workbooks\n    .Open(|\nEnd With\nEnd Sub');
+		expect(info?.label.startsWith('Open(Filename As String')).toBe(true);
+		expect(info?.parameters[0].label).toBe('Filename As String');
+	});
+
 	it('includes generated reference docs for host member call tips', () => {
 		const info = help('Sub T()\nWorkbooks.Open(|\nEnd Sub');
 		expect(info?.documentation).toContain('Opens a workbook');

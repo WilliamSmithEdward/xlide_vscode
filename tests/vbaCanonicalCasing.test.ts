@@ -17,6 +17,13 @@ describe('canonical casing edits', () => {
 		expect(edit?.text).toBe('Value');
 	});
 
+	it('canonicalizes leading-dot host member names inside With', () => {
+		const edit = editAtMarker(
+			'Sub T()\n    With Range("A1")\n        .value| = 1\n    End With\nEnd Sub\n',
+		);
+		expect(edit?.text).toBe('Value');
+	});
+
 	it('canonicalizes runtime functions before an argument list', () => {
 		const edit = editAtMarker('Sub T()\n    x = left|("test", 3)\nEnd Sub\n');
 		expect(edit?.text).toBe('Left');

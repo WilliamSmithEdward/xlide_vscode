@@ -3447,6 +3447,72 @@ describe('analyzeModule - statement context', () => {
 		expect(byCode(analyzeModule(src), 'member-access-outside-with')).toHaveLength(0);
 	});
 
+	it('uses the With receiver for unknown source-backed class members', () => {
+		const person = 'Public Sub Save()\nEnd Sub\n';
+		const src =
+			'Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    With p\n' +
+			'        .Delete\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'member-not-found',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Delete');
+		expect(hits[0].message).toContain('Person.Delete');
+	});
+
+	it('uses the With receiver for source-backed class member assignment rules', () => {
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n';
+		const src =
+			'Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    With p\n' +
+			'        .Age = 2\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'readonly-member-assignment',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Age');
+	});
+
+	it('uses the With receiver for source-backed class member call rules', () => {
+		const person = 'Public Sub Save(ByVal Count As Long)\nEnd Sub\n';
+		const src =
+			'Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    With p\n' +
+			'        .Save "bad"\n' +
+			'        .Save()\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+			]),
+		});
+		expect(byCode(diagnostics, 'argument-type-mismatch')).toHaveLength(1);
+		expect(byCode(diagnostics, 'call-statement-forbids-parens')).toHaveLength(1);
+	});
+
 	it('flags Exit For and Exit Do outside matching loops', () => {
 		const src = 'Sub T()\n    Exit For\n    Exit Do\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'exit-outside-block');

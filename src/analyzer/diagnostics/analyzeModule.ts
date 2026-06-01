@@ -242,7 +242,7 @@ function runRules(
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
 	checkInvalidAsTypeNames(source, activity, opts, push);
-	checkCallParens(source, mod, symbols, opts.projectProcedures, activity, push);
+	checkCallParens(source, mod, symbols, opts.projectProcedures, memberCtx, activity, push);
 	checkExpressionCallParens(source, mod, symbols, activity, push);
 	checkSetAssignments(source, mod, symbols, memberCtx, activity, push);
 	checkExitStatements(source, mod, activity, push);
@@ -589,7 +589,7 @@ function memberAssignmentTarget(
 	}
 	const equalsIndex = i + eq;
 	const lhs = toks.slice(i, equalsIndex);
-	if (lhs.length < 3) {
+	if (lhs.length < 2) {
 		return undefined;
 	}
 	const memberTok = lhs[lhs.length - 1];
@@ -669,7 +669,7 @@ function memberAccessReferences(
 ): { member: string; memberSpan: Span; dotEndOffset: number }[] {
 	const toks = statementTokens(source, span);
 	const out: { member: string; memberSpan: Span; dotEndOffset: number }[] = [];
-	for (let i = 1; i < toks.length - 1; i++) {
+	for (let i = 0; i < toks.length - 1; i++) {
 		if (toks[i].rawText !== '.') {
 			continue;
 		}
@@ -2349,7 +2349,7 @@ function memberExpressionCalls(
 ): BoundMemberCall[] {
 	const toks = statementTokens(source, span);
 	const out: BoundMemberCall[] = [];
-	for (let i = 2; i < toks.length - 1; i++) {
+	for (let i = 1; i < toks.length - 1; i++) {
 		const name = tokenName(toks[i]);
 		if (!name || toks[i - 1]?.rawText !== '.' || toks[i + 1]?.rawText !== '(') {
 			continue;
@@ -2397,11 +2397,12 @@ function memberStatementCalls(
 	}
 	const explicitCall = tokenText(toks[0]) === 'call';
 	const chainStart = explicitCall ? 1 : 0;
-	if (!tokenName(toks[chainStart])) {
+	if (!tokenName(toks[chainStart]) && toks[chainStart]?.rawText !== '.') {
 		return [];
 	}
 	const out: BoundMemberCall[] = [];
-	for (let i = chainStart + 2; i < toks.length; i++) {
+	const firstMemberIndex = toks[chainStart]?.rawText === '.' ? chainStart + 1 : chainStart + 2;
+	for (let i = firstMemberIndex; i < toks.length; i++) {
 		const name = tokenName(toks[i]);
 		if (!name || toks[i - 1]?.rawText !== '.') {
 			continue;
@@ -2454,6 +2455,15 @@ function isMemberStatementChainThrough(
 	startIdx: number,
 	memberIdx: number,
 ): boolean {
+	if (toks[startIdx]?.rawText === '.') {
+		if (!tokenName(toks[startIdx + 1])) {
+			return false;
+		}
+		if (startIdx + 1 === memberIdx) {
+			return true;
+		}
+		return isMemberStatementChainThrough(toks, startIdx + 1, memberIdx);
+	}
 	if (!tokenName(toks[startIdx])) {
 		return false;
 	}
@@ -3999,6 +4009,7 @@ function checkCallParens(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -4033,7 +4044,7 @@ function checkCallParens(
 					bare.span,
 				);
 			}
-			const implicit = implicitParenthesizedMemberCall(source, stmt.span);
+			const implicit = implicitParenthesizedMemberCall(source, stmt.span, memberCtx);
 			if (implicit) {
 				push(
 					'callStatementForbidsParens',
@@ -4392,15 +4403,22 @@ function callableAcceptsZeroArguments(sig: CallableTypeSignature): boolean {
 function implicitParenthesizedMemberCall(
 	source: string,
 	span: Span,
+	memberCtx: MemberCompletionContext,
 ): { name: string; span: Span } | undefined {
 	const toks = statementTokens(source, span);
-	for (let i = 2; i < toks.length - 1; i++) {
+	for (let i = 1; i < toks.length - 1; i++) {
 		const name = tokenName(toks[i]);
 		if (!name || toks[i - 1]?.rawText !== '.' || toks[i + 1]?.rawText !== '(') {
 			continue;
 		}
 		const close = matchParenFrom(toks, i + 1);
 		if (close < 0 || !isImplicitParenthesizedMemberCallStatement(toks, i, close)) {
+			continue;
+		}
+		if (
+			toks[0]?.rawText === '.' &&
+			!resolveExactMemberCompletion(source, name, span.start + toks[i].end, memberCtx)
+		) {
 			continue;
 		}
 		return {
@@ -4435,10 +4453,26 @@ function isCompleteMemberChainThroughCall(
 	closeIdx: number,
 ): boolean {
 	const first = toks[0];
-	if (!first || !tokenName(first)) {
+	if (!first) {
 		return false;
 	}
 	let i = 1;
+	if (first.rawText === '.') {
+		const nameIdx = 1;
+		const nameTok = toks[nameIdx];
+		if (!nameTok || !tokenName(nameTok)) {
+			return false;
+		}
+		if (nameIdx === memberIdx) {
+			return (
+				toks[nameIdx + 1]?.rawText === '(' &&
+				matchParenFrom(toks, nameIdx + 1) === closeIdx
+			);
+		}
+		i = nameIdx + 1;
+	} else if (!tokenName(first)) {
+		return false;
+	}
 	while (i < toks.length) {
 		const raw = toks[i]?.rawText;
 		if (raw === '(') {

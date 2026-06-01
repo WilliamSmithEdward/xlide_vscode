@@ -788,6 +788,11 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   `ThisWorkbook.CanCheckIn()` are rejected when they use empty parentheses
 >   without valid `Call` syntax or expression context; required-argument calls
 >   stay on `argument-count`.
+> - `With` receiver member binding now uses the shared member-access resolver for
+>   leading-dot diagnostics: unknown source-backed class members, read-only
+>   assignments, member assignment type checks, class/host member argument count
+>   checks, argument type checks, and standalone empty-parentheses call-statement
+>   checks all resolve `.Member` against the active `With` object.
 > - `invalid-expression-syntax` - narrow expression syntax coverage for
 >   impossible operator sequences (`***`) and statements ending in a binary
 >   operator.
@@ -887,8 +892,10 @@ Do not ship low-confidence diagnostics by default.
 > detail, parameter defaults where known, and inline `'''` documentation for the
 > IntelliSense preview. Runtime completion uses the shared explicit-`Call`
 > compatibility metadata, so invalid targets such as `DoEvents` are not offered
-> after `Call`. Member completion also resolves leading-dot chains inside an active
-> `With ... End With` block against the `With` receiver. Resolved
+> after `Call`. The shared member-access resolver also resolves leading-dot
+> chains inside an active `With ... End With` block against the `With` receiver;
+> completion, hover, signature help, canonical casing, and diagnostics now use
+> that same path. Resolved
 > type names (project, host, and primitive) also get semantic tokens and
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
 > `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by
