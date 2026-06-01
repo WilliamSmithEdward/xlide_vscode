@@ -1,6 +1,9 @@
 # XLIDE VBA Lint Suppression Comments
 
-Status: proposed roadmap contract, not implemented behavior.
+Status: partially implemented. The first enabled slice supports apostrophe-only
+`disable-file`, `disable-line`, and `disable-next-line` directives with optional
+diagnostic-code lists, directive diagnostics for malformed first-slice cases,
+and suppressed-count reporting. Member and arbitrary block scopes remain planned.
 
 Purpose: define a deterministic, VBA-compatible comment syntax for suppressing
 XLIDE lint diagnostics. These comments are ordinary VBA comments, so they do not
@@ -58,8 +61,8 @@ Reasons are optional free text after `--`.
 ' @xlide-lint-disable-next-member non-callable-call -- VBE macro shim
 ```
 
-Unknown diagnostic codes should not suppress anything. They should eventually
-produce a yellow directive diagnostic.
+Unknown diagnostic codes do not suppress anything and produce a yellow directive
+diagnostic.
 
 ## Module Suppression
 
@@ -189,10 +192,19 @@ Return
 
 ## Implementation Checklist
 
-1. Add a pure directive scanner that consumes tokenized comments.
-2. Normalize directive spans into file, member, line, and block scopes.
-3. Filter diagnostics after diagnostics are produced, preserving suppressed
+1. [x] Add a pure directive scanner that consumes tokenized comments.
+2. [ ] Normalize directive spans into file, member, line, and block scopes.
+   - [x] File, same-line, and next-line scopes.
+   - [ ] Member and arbitrary block scopes.
+3. [x] Filter diagnostics after diagnostics are produced, preserving suppressed
    counts for audit/reporting.
-4. Add directive diagnostics for malformed scopes, unknown codes, late
+4. [ ] Add directive diagnostics for malformed scopes, unknown codes, late
    `disable-file`, and unbalanced blocks.
-5. Add fixture tests for every scope and edge case before enabling the feature.
+   - [x] Malformed first-slice directives, unknown codes, and late
+     `disable-file`.
+   - [ ] Unbalanced block pairs.
+5. [ ] Add fixture tests for every scope and edge case before enabling the
+   feature.
+   - [x] First-slice file, line, next-line, code-list, ignored-comment,
+     structural, malformed, and unknown-code cases.
+   - [ ] Remaining member/block/nesting cases.

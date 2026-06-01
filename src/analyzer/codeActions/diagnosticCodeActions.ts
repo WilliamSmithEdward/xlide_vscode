@@ -1,6 +1,7 @@
 import type { Span } from '../parser/nodes';
 import { tokenize } from '../lexer/tokenize';
 import { leadingWhitespace } from '../../vbaLinter';
+import { LINT_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/lintSuppressions';
 
 export interface VbaDiagnosticCodeActionInput {
 	code: string;
@@ -8,6 +9,7 @@ export interface VbaDiagnosticCodeActionInput {
 	span: Span;
 	expectedClose?: string;
 	insertLine?: number;
+	includeSuppressionAction?: boolean;
 }
 
 export interface VbaTextEdit {
@@ -45,6 +47,20 @@ export function resolveDiagnosticCodeActions(
 	source: string,
 	diagnostic: VbaDiagnosticCodeActionInput,
 ): VbaDiagnosticCodeAction[] {
+	const actions = ruleSpecificDiagnosticCodeActions(source, diagnostic);
+	if (diagnostic.includeSuppressionAction) {
+		const suppression = suppressNextLineAction(source, diagnostic);
+		if (suppression) {
+			actions.push(suppression);
+		}
+	}
+	return actions;
+}
+
+function ruleSpecificDiagnosticCodeActions(
+	source: string,
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
 	switch (diagnostic.code) {
 		case 'call-requires-parens':
 			return callRequiresParensActions(source, diagnostic.span);
@@ -69,6 +85,27 @@ export function resolveDiagnosticCodeActions(
 		default:
 			return [];
 	}
+}
+
+function suppressNextLineAction(
+	source: string,
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction | undefined {
+	if (!diagnostic.code || diagnostic.code === LINT_SUPPRESSION_DIRECTIVE_CODE) {
+		return undefined;
+	}
+	const line = physicalLineSpan(source, diagnostic.span.start);
+	const indent = leadingWhitespace(source.slice(line.start, line.end));
+	const eol = detectEol(source);
+	return {
+		title: `Suppress '${diagnostic.code}' on next line`,
+		kind: 'quickfix',
+		isPreferred: false,
+		edits: [{
+			span: { start: line.start, end: line.start },
+			newText: `${indent}' @xlide-lint-disable-next-line ${diagnostic.code}${eol}`,
+		}],
+	};
 }
 
 function callRequiresParensActions(

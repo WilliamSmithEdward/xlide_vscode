@@ -193,3 +193,10 @@ export {
 	isXlideDiagnosticSource,
 	XLIDE_DIAGNOSTIC_SOURCE,
 } from './diagnostics/ruleMetadata';
+export {
+	filterDiagnosticsWithSuppressions,
+	LINT_SUPPRESSION_DIRECTIVE_CODE,
+	LintSuppressionAnalysis,
+	LintSuppressionFilterResult,
+	scanLintSuppressions,
+} from './diagnostics/lintSuppressions';

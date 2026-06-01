@@ -546,6 +546,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.1.3',
 		confidence: 'high',
 	},
+	lintSuppressionDirective: {
+		code: 'lint-suppression-directive',
+		title: 'Invalid XLIDE lint suppression directive',
+		defaultSeverity: 'warning',
+		category: 'style',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'docs/xlide_vba_lint_suppression_comments.md',
+		confidence: 'high',
+	},
 } satisfies Record<string, DiagnosticRuleMetadata>;
 
 /** Structural diagnostics emitted by the dependency-free block-balance linter. */

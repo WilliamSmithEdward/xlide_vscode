@@ -27,6 +27,7 @@ import {
     ReferenceScope,
     resolveDiagnosticCodeActions,
     resolveMemberCompletions,
+    scanLintSuppressions,
     resolveTypeReferenceAt,
     resolveTypeSemanticTokens,
     SeverityOverrides,
@@ -914,6 +915,7 @@ function registerVbaDiagnostics(
         }
         const text = document.getText();
         const diagnostics: vscode.Diagnostic[] = [];
+        const suppressions = scanLintSuppressions(text);
 
         // Project-wide names enable cross-module call and Option Explicit checks;
         // project signatures enable deterministic cross-module arity/type checks.
@@ -959,6 +961,9 @@ function registerVbaDiagnostics(
 
         // Structural block-balance (precise per-line spans).
         for (const p of lintVbaSource(text)) {
+            if (suppressions.isSuppressed(p.code, p.line)) {
+                continue;
+            }
             const diag = new vscode.Diagnostic(
                 new vscode.Range(p.line, p.startCol, p.line, p.endCol),
                 p.message,
@@ -999,6 +1004,23 @@ function registerVbaDiagnostics(
             semantic = [];
         }
         for (const d of semantic) {
+            if (suppressions.isSuppressed(d.code, document.positionAt(d.span.start).line)) {
+                continue;
+            }
+            const diag = new vscode.Diagnostic(
+                new vscode.Range(
+                    document.positionAt(d.span.start),
+                    document.positionAt(d.span.end),
+                ),
+                d.message,
+                severityToVscode(d.severity),
+            );
+            diag.source = diagnosticSourceForCode(d.code);
+            diag.code = d.code;
+            diagnostics.push(diag);
+        }
+
+        for (const d of suppressions.diagnostics) {
             const diag = new vscode.Diagnostic(
                 new vscode.Range(
                     document.positionAt(d.span.start),
@@ -1083,6 +1105,7 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
                     start: document.offsetAt(diagnostic.range.start),
                     end: document.offsetAt(diagnostic.range.end),
                 },
+                includeSuppressionAction: true,
             });
             for (const fix of fixes) {
                 const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);

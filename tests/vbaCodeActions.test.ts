@@ -264,6 +264,34 @@ describe('resolveDiagnosticCodeActions', () => {
 		);
 	});
 
+	it('offers an explicit next-line suppression action on the VS Code surface', () => {
+		const source =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    notDeclared = 1\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'undeclared-variable', {
+			knownIdentifiers: new Set<string>(),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, {
+			...diag,
+			includeSuppressionAction: true,
+		});
+
+		expect(actions.map((action) => action.title)).toContain(
+			"Suppress 'undeclared-variable' on next line",
+		);
+		const suppress = actions.find((action) => action.title.includes('Suppress'));
+		expect(applyEdits(source, suppress!.edits)).toBe(
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			"    ' @xlide-lint-disable-next-line undeclared-variable\n" +
+			'    notDeclared = 1\n' +
+			'End Sub\n',
+		);
+	});
+
 	it('replaces Let with Set for a proven object assignment', () => {
 		const source =
 			'Public Sub T()\n' +

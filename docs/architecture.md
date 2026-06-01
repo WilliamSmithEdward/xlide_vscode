@@ -49,6 +49,8 @@ xlide_vscode/
         parseModule.ts  Error-tolerant module parser -> ModuleNode AST (MS-VBAL 5.x)
       codeActions/
         diagnosticCodeActions.ts  Pure analyzer quick-fix resolver keyed by diagnostic rule code
+      diagnostics/
+        lintSuppressions.ts  Shared XLIDE lint suppression directive scanner/filter for live diagnostics and workbook lint
       semantic/
         typeSemanticTokens.ts  Pure resolver for type-name semantic tokens and hover in declaration/New positions
       index.ts          Public, vscode-free analyzer surface (lexer + parser)
@@ -842,6 +844,14 @@ identifier names, cross-module standard-module signatures, and source-backed
 project class-member surfaces into `analyzeModule`.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
+Before diagnostics are displayed, `src/analyzer/diagnostics/lintSuppressions.ts`
+scans tokenized apostrophe comments for explicit `@xlide-lint` directives and
+applies the same lexical file/line/next-line filter to live diagnostics and
+`src/vbaWorkbookLint.ts`. Directive diagnostics, such as malformed code lists,
+unknown diagnostic codes, or late `disable-file`, are added back as
+`XLIDE/style` warnings and are not suppressed by suppression directives.
+Workbook lint includes the suppressed diagnostic count in its summary so hidden
+problems remain auditable.
 
 **Project-wide symbol graph** — `src/analyzer/symbols/` projects the parser AST
 into a host-agnostic symbol model so XLIDE can offer document symbols, workspace
@@ -955,6 +965,7 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New definition/reference/rename scope rule | `src/analyzer/symbols/projectIndex.ts` (`resolveDefinition`/`resolveQualifiedDefinition`/`referenceScope`), `src/analyzer/index.ts` (barrel export), `src/vbaNavigation.ts` / `src/vbaLanguageProviders.ts` (provider wiring + span->range mapping), `tests/vbaSymbolGraph.test.ts`, `docs/architecture.md` |
 | New active diagnostic rule | `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (rule + MS-VBAL `specReference`), `tests/vbaDiagnostics.test.ts`, `src/vbaLanguageProviders.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New analyzer quick fix | `src/analyzer/codeActions/diagnosticCodeActions.ts`, `src/vbaLanguageProviders.ts` (`CodeActionProvider` adapter only when needed), `tests/vbaCodeActions.test.ts`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
+| New lint suppression directive behavior | `src/analyzer/diagnostics/lintSuppressions.ts`, `src/vbaLanguageProviders.ts`, `src/vbaWorkbookLint.ts`, `src/commands.ts`, `tests/vbaLintSuppressions.test.ts`, `docs/xlide_vba_lint_suppression_comments.md`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
 | New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/vbaDocComments.test.ts`, `docs/vba-doc-comments.md`, `docs/architecture.md` |

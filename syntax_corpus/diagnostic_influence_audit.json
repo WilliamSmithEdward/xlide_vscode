@@ -81,6 +81,17 @@
       "diagnosticKind": "style-policy"
     },
     {
+      "code": "lint-suppression-directive",
+      "status": "spec-derived",
+      "sourceOfTruth": "docs/xlide_vba_lint_suppression_comments.md plus XLIDE style policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Directive diagnostics report malformed XLIDE lint suppression comments, unknown diagnostic codes, and first-slice scope placement errors. They are not VBA compile behavior and are intentionally not suppressible by lint suppression directives.",
+      "diagnosticKind": "style-policy"
+    },
+    {
       "code": "undeclared-variable",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus Excel/VBE compile oracle",

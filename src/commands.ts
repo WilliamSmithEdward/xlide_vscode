@@ -84,7 +84,10 @@ export function registerCommands(
         out.appendLine('');
 
         if (problems.length === 0) {
-            out.appendLine(`  No problems found across ${moduleCount} module(s). Lint passed.`);
+            const suppressed = summary.suppressedCount > 0
+                ? ` ${summary.suppressedCount} diagnostic(s) suppressed by XLIDE lint directives.`
+                : '';
+            out.appendLine(`  No unsuppressed problems found across ${moduleCount} module(s). Lint passed.${suppressed}`);
             out.appendLine('');
             return;
         }
@@ -97,6 +100,9 @@ export function registerCommands(
             `  VBE compile-equivalent: ${summary.vbeCompileEquivalentCount}; ` +
             `XLIDE non-compile guidance/risk: ${summary.nonVbeCompileEquivalentCount}.`,
         );
+        if (summary.suppressedCount > 0) {
+            out.appendLine(`  Suppressed by XLIDE lint directives: ${summary.suppressedCount}.`);
+        }
         out.appendLine(`  Categories: ${formatSummaryCounts(summary.byCategory)}.`);
         out.appendLine(`  Evidence: ${formatSummaryCounts(summary.byDiagnosticKind)}.`);
         out.appendLine('  (Click a location link to jump to the problem.)');
