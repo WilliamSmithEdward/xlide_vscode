@@ -213,6 +213,26 @@ function mergeMemberAttributes(
 	return out;
 }
 
+function moduleImplements(source: string): string[] {
+	const out: string[] = [];
+	const seen = new Set<string>();
+	for (const line of source.split(/\r?\n/)) {
+		const match = /^\s*Implements\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\b/i.exec(
+			line,
+		);
+		if (!match) {
+			continue;
+		}
+		const name = match[1];
+		const lower = name.toLowerCase();
+		if (!seen.has(lower)) {
+			seen.add(lower);
+			out.push(name);
+		}
+	}
+	return out;
+}
+
 function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
 	const params = (symbol.children ?? []).filter((child) => child.kind === 'parameter');
 	return params[params.length - 1];
@@ -260,6 +280,7 @@ function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 /** A project-wide symbol index built from a set of module sources. */
 export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
+	private readonly moduleSources = new Map<string, string>();
 
 	/** Adds or replaces a module in the index. */
 	setModule(input: ModuleInput): void {
@@ -268,12 +289,16 @@ export class ProjectIndex {
 			input.moduleKind,
 			input.source,
 		);
-		this.modules.set(input.moduleName.toLowerCase(), symbols);
+		const key = input.moduleName.toLowerCase();
+		this.modules.set(key, symbols);
+		this.moduleSources.set(key, input.source);
 	}
 
 	/** Removes a module from the index. */
 	removeModule(moduleName: string): void {
-		this.modules.delete(moduleName.toLowerCase());
+		const key = moduleName.toLowerCase();
+		this.modules.delete(key);
+		this.moduleSources.delete(key);
 	}
 
 	/** All module names currently indexed (original casing). */
@@ -463,6 +488,7 @@ export class ProjectIndex {
 				name: mod.moduleName,
 				kind,
 				moduleName: mod.moduleName,
+				implements: moduleImplements(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? ''),
 				doc: mod.root.doc,
 				exhaustive: kind === 'class',
 				members,

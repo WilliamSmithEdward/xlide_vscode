@@ -214,6 +214,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.3 / runtime type coercion',
 		confidence: 'high',
 	},
+	assignmentObjectTypeMismatch: {
+		code: 'assignment-object-type-mismatch',
+		title: 'Object assignment type mismatch',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.3 / Set statement',
+		confidence: 'high',
+	},
 	readonlyMemberAssignment: {
 		code: 'readonly-member-assignment',
 		title: 'Assignment to a read-only member',

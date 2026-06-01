@@ -172,6 +172,8 @@ export interface VbaProjectClassMembers {
 	name: string;
 	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform'>;
 	moduleName: string;
+	/** Interfaces named by module-level Implements statements. */
+	implements?: string[];
 	/** Inline `'''` documentation attached to the object module header. */
 	doc?: VbaDoc;
 	/**

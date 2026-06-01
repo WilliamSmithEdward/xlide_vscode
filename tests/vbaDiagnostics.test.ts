@@ -1500,6 +1500,62 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
+	it('flags Set assignment between incompatible project class types', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    Set p = New Class1\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: '' },
+					{ moduleName: 'Class1', moduleKind: 'class', source: '' },
+				]),
+			}),
+			'assignment-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Class1');
+		expect(hits[0].message).toContain('Person');
+		expect(hits[0].message).toContain('New Class1');
+	});
+
+	it('accepts Set assignment to a project interface implemented by another class', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Class1\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: 'Public Sub Save()\nEnd Sub\n' },
+				{ moduleName: 'Class1', moduleKind: 'class', source: 'Implements Person\n' },
+			]),
+		});
+		expect(byCode(diagnostics, 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('flags scalar Set assignment to a project object variable', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = "bad"\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: '' },
+				]),
+			}),
+			'assignment-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"bad"');
+		expect(hits[0].message).toContain('object value');
+	});
+
 	it('errors on a nonnumeric string literal assigned to a typed class property', () => {
 		const person =
 			'Private mAge As Integer\n' +
@@ -1675,6 +1731,28 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('Age');
 		expect(hits[0].message).toContain('Integer');
+	});
+
+	it('flags Set assignment between incompatible source-backed object member types', () => {
+		const person = 'Public Child As Person\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    Set p.Child = New Class1\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+					{ moduleName: 'Class1', moduleKind: 'class', source: '' },
+				]),
+			}),
+			'assignment-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Class1');
+		expect(hits[0].message).toContain('p.Child');
 	});
 
 	it('errors on assignment to a read-only class property', () => {

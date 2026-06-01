@@ -207,7 +207,7 @@ function runRules(
 	checkInvalidAsTypeNames(source, mod, push);
 	checkCallParens(source, mod, push);
 	checkExpressionCallParens(source, mod, push);
-	checkSetAssignments(source, mod, symbols, push);
+	checkSetAssignments(source, mod, symbols, memberCtx, push);
 	checkExitStatements(source, mod, push);
 	checkStatementContext(source, mod, push);
 	checkScalarMemberAccess(source, mod, symbols, push);
@@ -1686,6 +1686,25 @@ function checkMemberAssignmentTypes(
 					`Set assignment requires an object-valued target, but '${assignment.label}' expects ${expected}.`,
 					assignment.memberSpan,
 				);
+				return;
+			}
+			const actual = inferArgumentType(
+				assignment.valueTokens,
+				stmt.span.start,
+				env,
+				moduleSignatures,
+			);
+			const reason = objectAssignmentIncompatibilityReason(
+				expected,
+				actual,
+				memberCtx,
+			);
+			if (reason) {
+				push(
+					'assignmentObjectTypeMismatch',
+					`Object assignment to '${assignment.label}' expects ${expected}, but got ${actual?.label}. ${reason}`,
+					actual?.span ?? assignment.memberSpan,
+				);
 			}
 			return;
 		}
@@ -1738,8 +1757,10 @@ function checkSetAssignments(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const moduleSignatures = buildModuleTypeSignatures(mod);
 	for (const member of mod.members) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1750,13 +1771,35 @@ function checkSetAssignments(
 			if (!target) {
 				return;
 			}
-			const targetType = normalizeType(env.get(target.name.toLowerCase()));
+			const expected = env.get(target.name.toLowerCase());
+			const targetType = normalizeType(expected);
 			if (!targetType || !isKnownScalarType(targetType)) {
+				if (!isKnownObjectAssignmentType(expected, memberCtx)) {
+					return;
+				}
+				const actual = inferArgumentType(
+					target.valueTokens,
+					stmt.span.start,
+					env,
+					moduleSignatures,
+				);
+				const reason = objectAssignmentIncompatibilityReason(
+					expected,
+					actual,
+					memberCtx,
+				);
+				if (reason) {
+					push(
+						'assignmentObjectTypeMismatch',
+						`Object assignment to '${target.name}' expects ${expected}, but got ${actual?.label}. ${reason}`,
+						actual?.span ?? target.span,
+					);
+				}
 				return;
 			}
 			push(
 				'setRequiresObject',
-				`Set assignment requires an object variable, but '${target.name}' is declared as ${env.get(target.name.toLowerCase())}.`,
+				`Set assignment requires an object variable, but '${target.name}' is declared as ${expected}.`,
 				target.span,
 			);
 		});
@@ -1820,7 +1863,7 @@ function scalarMemberAccesses(
 function setAssignmentTarget(
 	source: string,
 	span: Span,
-): { name: string; span: Span } | undefined {
+): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
 	const toks = tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
@@ -1846,6 +1889,7 @@ function setAssignmentTarget(
 	return {
 		name: nameTok.rawText,
 		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
+		valueTokens: toks.slice(i + 3),
 	};
 }
 
@@ -2315,6 +2359,16 @@ function inferAtomicExpressionType(
 		const type = env.get(name.toLowerCase());
 		return type ? { type, label: `${name} As ${type}`, span } : undefined;
 	}
+	if (tokenText(first) === 'new' && toks.length === 2) {
+		const typeName = tokenName(toks[1]);
+		if (typeName) {
+			return {
+				type: typeName,
+				label: `New ${typeName}`,
+				span: { start: sliceStart + toks[1].start, end: sliceStart + toks[1].end },
+			};
+		}
+	}
 	if (name && toks[1]?.rawText === '(') {
 		const sig = callableSignatureFor(name, moduleSignatures);
 		if (sig?.returnType && matchParenFrom(toks, 1) === toks.length - 1) {
@@ -2510,7 +2564,7 @@ function incompatibilityReason(
 		return undefined;
 	}
 	if (expected === 'object') {
-		return actualType === 'nothing' || actualType === 'object'
+		return actualType === 'nothing' || actualType === 'object' || !isKnownScalarType(actualType)
 			? undefined
 			: 'An object parameter requires an object value.';
 	}
@@ -2575,35 +2629,111 @@ function isKnownObjectAssignmentType(
 	type: string | undefined,
 	memberCtx: MemberCompletionContext,
 ): boolean {
+	return resolveKnownObjectAssignmentType(type, memberCtx) !== undefined;
+}
+
+type KnownObjectAssignmentType =
+	| { kind: 'generic'; display: string; key: 'object' }
+	| { kind: 'host'; display: string; key: string }
+	| { kind: 'project'; display: string; key: string; implements: readonly string[] };
+
+function resolveKnownObjectAssignmentType(
+	type: string | undefined,
+	memberCtx: MemberCompletionContext,
+): KnownObjectAssignmentType | undefined {
 	if (!type) {
-		return false;
+		return undefined;
 	}
 	const normalized = normalizeType(type);
 	if (!normalized || normalized === 'variant') {
-		return false;
+		return undefined;
 	}
 	if (normalized === 'object') {
-		return true;
+		return { kind: 'generic', display: type, key: 'object' };
 	}
 	if (isKnownScalarType(normalized)) {
-		return false;
+		return undefined;
 	}
-	if (resolveHostAlias(type, memberCtx.model)) {
-		return true;
+	const host = resolveHostAlias(type, memberCtx.model);
+	if (host) {
+		return { kind: 'host', display: type, key: host.toLowerCase() };
 	}
 	const simple = simpleTypeNameForAssignment(type);
 	if (!simple) {
-		return false;
+		return undefined;
 	}
 	const lower = simple.toLowerCase();
-	return (memberCtx.projectClassMembers ?? []).filter(
+	const matches = (memberCtx.projectClassMembers ?? []).filter(
 		(projectType) => projectType.name.toLowerCase() === lower,
-	).length === 1;
+	);
+	if (matches.length !== 1) {
+		return undefined;
+	}
+	return {
+		kind: 'project',
+		display: matches[0].name,
+		key: lower,
+		implements: matches[0].implements ?? [],
+	};
 }
 
 function simpleTypeNameForAssignment(type: string): string | undefined {
 	const trimmed = type.replace(/\(\)$/, '').trim();
 	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed) ? trimmed : undefined;
+}
+
+function objectAssignmentIncompatibilityReason(
+	expectedRaw: string | undefined,
+	actual: InferredArgumentType | undefined,
+	memberCtx: MemberCompletionContext,
+): string | undefined {
+	const expected = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	if (!expected || !actual) {
+		return undefined;
+	}
+	const actualType = normalizeType(actual.type);
+	if (!actualType || actualType === 'variant' || actualType === 'nothing') {
+		return undefined;
+	}
+	if (isKnownScalarType(actualType)) {
+		return 'An object assignment requires an object value.';
+	}
+	if (expected.kind === 'generic') {
+		return undefined;
+	}
+	const actualObject = resolveKnownObjectAssignmentType(actual.type, memberCtx);
+	if (!actualObject) {
+		return undefined;
+	}
+	if (actualObject.kind === 'generic') {
+		return undefined;
+	}
+	if (expected.key === actualObject.key) {
+		return undefined;
+	}
+	if (actualObject.kind === 'project' && implementsObjectType(actualObject, expected)) {
+		return undefined;
+	}
+	return `This object type is not compatible with ${expected.display}.`;
+}
+
+function implementsObjectType(
+	actual: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
+	expected: KnownObjectAssignmentType,
+): boolean {
+	const expectedNames = new Set([expected.key]);
+	const simple = simpleTypeNameForAssignment(expected.display);
+	if (simple) {
+		expectedNames.add(simple.toLowerCase());
+	}
+	const expectedLastSegment = expected.key.split('.').pop();
+	if (expectedLastSegment) {
+		expectedNames.add(expectedLastSegment);
+	}
+	return actual.implements.some((implemented) => {
+		const lower = implemented.toLowerCase();
+		return expectedNames.has(lower) || expectedNames.has(`excel.${lower}`);
+	});
 }
 
 // One-way proof only: strings with digits are left unknown until VBA conversion

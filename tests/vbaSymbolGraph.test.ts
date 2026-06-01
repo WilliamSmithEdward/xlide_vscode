@@ -710,6 +710,18 @@ describe('ProjectIndex project class members', () => {
 		expect(person?.doc?.summary).toBe('Represents a person.');
 	});
 
+	it('records module-level Implements statements on project class member surfaces', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Class1',
+			moduleKind: 'class',
+			source: ['Implements Person', 'Implements Excel.Worksheet'].join('\n'),
+		});
+
+		const class1 = index.projectClassMembers().find((t) => t.name === 'Class1');
+		expect(class1?.implements).toEqual(['Person', 'Excel.Worksheet']);
+	});
+
 	it('marks Property Get-only members as read-only and excludes public constants', () => {
 		const index = new ProjectIndex();
 		index.setModule({

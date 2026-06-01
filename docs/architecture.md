@@ -641,7 +641,10 @@ Diagnostic severity policy:
   examples compile, and focused runtime oracle probes confirm they then raise
   runtime error 13. `argument-object-type-mismatch` is split out as a red
   compile-equivalent diagnostic after an oracle case confirmed `String` to
-  `Object` is rejected by VBE Compile. These rules use only declared
+  `Object` is rejected by VBE Compile. `assignment-object-type-mismatch`
+  covers `Set` assignments where both sides have deterministic object types,
+  including project classes, source-backed object members, `Nothing`, and
+  explicit `Implements` compatibility. These rules use only declared
   parameter/local types, curated runtime return metadata, same-module return
   types, known source-backed or host/reference member signatures, and
   deterministic literal/expression inference; unknown and `Variant` operands
@@ -768,8 +771,9 @@ single module:
   Option Explicit diagnostics),
   `visibleTypeNames` (class/document/UserForm module names plus visible
   `Type`/`Enum` declarations for future `As` binding), `projectClassMembers`
-  (source-backed member surfaces with signatures, docs, definition spans, and
-  default-member facts from `VB_UserMemId = 0` attributes), and
+  (source-backed member surfaces with signatures, docs, definition spans,
+  module-level `Implements` names, and default-member facts from
+  `VB_UserMemId = 0` attributes), and
   `duplicateProcedures`. Cross-module visibility follows MS-VBAL: explicit
   `Public`/`Global` and default-`Public` procedures are exported;
   `Private`/`Dim`/`Friend` and unmodified module variables stay module-private.
