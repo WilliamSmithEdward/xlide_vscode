@@ -33,6 +33,7 @@ import type { HostObjectModel } from '../host/excelObjectModel';
 import {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	runtimeAllowsExplicitCall,
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
 import { STATEMENT_KEYWORDS } from '../signature/signatureHelp';
@@ -3871,6 +3872,15 @@ function checkCallParens(
 			continue;
 		}
 		forEachStatement(member.body, (stmt) => {
+			const invalidCallTarget = invalidExplicitCallTarget(source, stmt.span);
+			if (invalidCallTarget) {
+				push(
+					'invalidExplicitCallTarget',
+					`'${invalidCallTarget.name}' cannot be used as the target of an explicit Call statement.`,
+					invalidCallTarget.span,
+				);
+				return;
+			}
 			const at = unparenthesizedCallArg(source, stmt.span);
 			if (at) {
 				push(
@@ -3883,7 +3893,7 @@ function checkCallParens(
 			if (bare) {
 				push(
 					'callStatementForbidsParens',
-					'Standalone zero-argument procedure calls cannot use empty parentheses unless they are prefixed with Call or used in an expression.',
+					bareCallForbidsParensMessage(bare.name),
 					bare.span,
 				);
 			}
@@ -3897,6 +3907,33 @@ function checkCallParens(
 			}
 		});
 	}
+}
+
+function bareCallForbidsParensMessage(name: string): string {
+	const runtime = resolveRuntimeFunction(name);
+	if (runtime && !runtimeAllowsExplicitCall(runtime)) {
+		return `Standalone '${runtime.name}()' cannot use empty parentheses in statement context; use '${runtime.name}' as a statement or use it in an expression.`;
+	}
+	return 'Standalone zero-argument procedure calls cannot use empty parentheses unless they are prefixed with Call or used in an expression.';
+}
+
+function invalidExplicitCallTarget(
+	source: string,
+	span: Span,
+): { name: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	if (toks.length < 2 || tokenText(toks[0]) !== 'call') {
+		return undefined;
+	}
+	const name = tokenName(toks[1]);
+	if (!name) {
+		return undefined;
+	}
+	const runtime = resolveRuntimeFunction(name);
+	if (!runtime || runtimeAllowsExplicitCall(runtime)) {
+		return undefined;
+	}
+	return { name: runtime.name, span: absoluteSpan(span, toks[1]) };
 }
 
 function checkInvalidExpressionSyntax(

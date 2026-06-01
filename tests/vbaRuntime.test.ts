@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	runtimeAllowsExplicitCall,
 	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
 	resolveIdentifierCompletions,
@@ -45,6 +46,16 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeFunction('MkDir')?.kind).toBe('statement');
 	});
 
+	it('records runtime functions that cannot be explicit Call targets', () => {
+		const doEvents = resolveRuntimeFunction('DoEvents');
+		const msgBox = resolveRuntimeFunction('MsgBox');
+
+		expect(doEvents).toBeDefined();
+		expect(msgBox).toBeDefined();
+		expect(runtimeAllowsExplicitCall(doEvents!)).toBe(false);
+		expect(runtimeAllowsExplicitCall(msgBox!)).toBe(true);
+	});
+
 	it('resolves built-in constants case-insensitively', () => {
 		expect(resolveRuntimeConstant('vbOKOnly')?.type).toBe('VbMsgBoxStyle');
 		expect(resolveRuntimeConstant('VBOKONLY')?.name).toBe('vbOKOnly');
@@ -82,6 +93,22 @@ describe('identifier completion - runtime built-ins', () => {
 		}).map((c) => c.name);
 		expect(names).toContain('MsgBox');
 		expect(names).not.toContain('Array');
+	});
+
+	it('does not offer runtime functions that VBE rejects as explicit Call targets', () => {
+		const typed = 'Sub T()\n    Call DoE\nEnd Sub\n';
+		const off = typed.indexOf('DoE') + 3;
+		const names = resolveIdentifierCompletions(typed, off, {
+			moduleName: 'M',
+		}).map((c) => c.name);
+		expect(names).not.toContain('DoEvents');
+
+		const expression = 'Sub T()\n    value = DoE\nEnd Sub\n';
+		const expressionOff = expression.indexOf('DoE') + 3;
+		const expressionNames = resolveIdentifierCompletions(expression, expressionOff, {
+			moduleName: 'M',
+		}).map((c) => c.name);
+		expect(expressionNames).toContain('DoEvents');
 	});
 
 	it('shows verified signatures and parameter metadata for runtime completions', () => {

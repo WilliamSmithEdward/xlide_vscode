@@ -93,6 +93,7 @@ export {
 export {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	runtimeAllowsExplicitCall,
 	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
 	VbaRuntimeConstant,

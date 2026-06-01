@@ -25,7 +25,7 @@ import { parseModule } from '../parser/parseModule';
 import { ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletions, MemberCompletionContext } from '../completion/memberAccess';
 import { getHostType } from '../host/hostModel';
-import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
+import { resolveRuntimeFunction, runtimeAllowsExplicitCall } from '../runtime/vbaRuntime';
 import { extractLeadingDoc } from '../docs/docComment';
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderParamDocMarkdown, renderSignatureDocMarkdown } from '../docs/docModel';
@@ -94,6 +94,8 @@ interface CallSite {
 	calleeName: string;
 	/** True when the callee is `receiver.Member`. */
 	isMember: boolean;
+	/** True when the containing statement starts with the explicit `Call` keyword. */
+	isExplicitCall: boolean;
 	/** Absolute offset just past the callee identifier. */
 	calleeEndOffset: number;
 	/** Zero-based index of the argument the caret is in. */
@@ -140,6 +142,7 @@ function findParenCall(tokens: VbaToken[]): CallSite | undefined {
 			return {
 				calleeName: callee.rawText,
 				isMember,
+				isExplicitCall: isExplicitCallTarget(tokens, open - 1),
 				calleeEndOffset: callee.end,
 				activeParameter: stack[i].commaCount,
 			};
@@ -172,7 +175,8 @@ function findParenlessCall(
 		return undefined;
 	}
 	let idx = 0;
-	if (stmt[0].rawText.toLowerCase() === 'call') {
+	const isExplicitCall = stmt[0].rawText.toLowerCase() === 'call';
+	if (isExplicitCall) {
 		idx = 1;
 	}
 	if (idx >= stmt.length || !isIdentLike(stmt[idx])) {
@@ -221,9 +225,22 @@ function findParenlessCall(
 	return {
 		calleeName: callee.rawText,
 		isMember,
+		isExplicitCall,
 		calleeEndOffset: callee.end,
 		activeParameter: commaCount,
 	};
+}
+
+function isExplicitCallTarget(tokens: readonly VbaToken[], calleeIndex: number): boolean {
+	let start = calleeIndex;
+	while (start > 0) {
+		const prev = tokens[start - 1];
+		if (prev.kind === 'newline' || prev.rawText === ':') {
+			break;
+		}
+		start--;
+	}
+	return tokens[start]?.rawText.toLowerCase() === 'call';
 }
 
 function formatParam(p: ParameterNode): string {
@@ -378,6 +395,9 @@ export function resolveSignatureHelp(
 		if (!site) {
 			return undefined;
 		}
+		if (isForbiddenExplicitRuntimeCall(site)) {
+			return undefined;
+		}
 		const doc = docForCallee(site, source, ctx);
 		// External metadata can supply a signature for a callee the curated
 		// library cannot resolve (developer-defined overrides the library).
@@ -409,6 +429,14 @@ export function resolveSignatureHelp(
 	} catch {
 		return undefined;
 	}
+}
+
+function isForbiddenExplicitRuntimeCall(site: CallSite): boolean {
+	if (!site.isExplicitCall || site.isMember) {
+		return false;
+	}
+	const runtime = resolveRuntimeFunction(site.calleeName);
+	return !!runtime && !runtimeAllowsExplicitCall(runtime);
 }
 
 /**

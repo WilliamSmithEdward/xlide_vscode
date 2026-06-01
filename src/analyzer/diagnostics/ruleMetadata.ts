@@ -403,6 +403,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
 	},
+	invalidExplicitCallTarget: {
+		code: 'invalid-explicit-call-target',
+		title: 'Invalid explicit Call target',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE oracle: Syntax error',
+		confidence: 'high',
+	},
 	callStatementForbidsParens: {
 		code: 'call-statement-forbids-parens',
 		title: 'Standalone zero-argument call cannot use empty parentheses',

@@ -403,6 +403,22 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "invalid-explicit-call-target",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus verified runtime metadata for explicit Call compatibility",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "explicit_call_doevents_bare_compile",
+        "explicit_call_doevents_parentheses_compile",
+        "standalone_doevents_statement_compile",
+        "doevents_expression_call_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "VBE rejects DoEvents as an explicit Call target both with and without empty parentheses, but accepts bare DoEvents as a statement and DoEvents() in expression context. XLIDE records this as runtime-call metadata so diagnostics, identifier completion, and signature help share one rule.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "call-statement-forbids-parens",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle cases for standalone empty-parentheses calls without Call",
@@ -414,11 +430,13 @@
         "standalone_member_call_with_args_compile",
         "standalone_zero_arg_method_call_compile",
         "standalone_range_property_with_arg_compile",
-        "standalone_range_property_empty_compile"
+        "standalone_range_property_empty_compile",
+        "standalone_doevents_empty_parentheses_compile",
+        "doevents_expression_call_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "VBE rejects standalone zero-argument calls such as myFunction(), ThisWorkbook.CanCheckIn(), Application.Calculate(), and ActiveSheet.Range() when they use empty parentheses without Call, while the same parenthesized call is valid in expression context or with the explicit Call keyword. Known same-module and exported standard-module procedures are resolved through the project procedure surface; unknown bare Foo() calls stay silent to avoid external-reference false positives. VBE also accepts non-empty standalone member/property forms such as Application.DeleteCustomList(1) and ActiveSheet.Range(\"A1\"), so the active member-call rule is deliberately scoped to the empty-parentheses form.",
+      "notes": "VBE rejects standalone zero-argument calls such as myFunction(), DoEvents(), ThisWorkbook.CanCheckIn(), Application.Calculate(), and ActiveSheet.Range() when they use empty parentheses without Call, while the same parenthesized call is valid in expression context. Known same-module and exported standard-module procedures are resolved through the project procedure surface; unknown bare Foo() calls stay silent to avoid external-reference false positives. Explicit Call remains valid for ordinary procedures and member calls, but runtime entries can opt out through shared runtime metadata when oracle evidence proves a special form such as DoEvents. VBE also accepts non-empty standalone member/property forms such as Application.DeleteCustomList(1) and ActiveSheet.Range(\"A1\"), so the active member-call rule is deliberately scoped to the empty-parentheses form.",
       "diagnosticKind": "compile-error"
     },
     {

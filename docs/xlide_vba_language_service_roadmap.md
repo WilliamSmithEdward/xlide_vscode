@@ -737,7 +737,7 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 > `xlide-vba` module documents. Settings: `xlide.diagnostics.enabled`
 > (default true) and `xlide.diagnostics.optionExplicit`
 > (off/hint/information/warning/error, default warning); both re-run open
-> documents on change. Covered by `tests/vbaDiagnostics.test.ts` (36 tests).
+> documents on change. Covered by `tests/vbaDiagnostics.test.ts`.
 >
 > Shipped semantic rules (all high-confidence, spec-referenced in
 > `ruleMetadata.ts` and `docs/spec/MS-VBAL.verification-map.md`):
@@ -770,14 +770,26 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   resets at each statement boundary (newline / depth-0 `:`); parentheses in
 >   strings, comments, date literals and `[bracketed]` names are distinct token
 >   kinds so they never miscount. At most one diagnostic per statement.
-> - `argument-count` ("Wrong number of arguments") - a call statement to a
->   Sub/Function defined in the *same module* that supplies too few/too many
->   arguments, `Optional`/`ParamArray` aware, or a named argument that names no
->   parameter. Validates only the parenless `Foo 1, 2` and explicit
->   `Call Foo(1, 2)` forms against the current module's AST signatures;
->   host/runtime/cross-module callees, property accessors, and ambiguous names
->   are skipped (no ground-truth signature), and per-argument type checking
->   stays deferred.
+> - `argument-count` ("Wrong number of arguments") - same-module procedures,
+>   unique exported project procedures, module-qualified standard-module
+>   procedures, verified runtime functions, and known source-backed/host member
+>   calls share one callable-signature path. It handles parenthesized calls,
+>   explicit `Call`, and parenless call statements, honoring
+>   `Optional`/`ParamArray` and named arguments while skipping ambiguous names.
+> - `call-requires-parens` - explicit `Call` statements with arguments must wrap
+>   the argument list in parentheses.
+> - `invalid-explicit-call-target` - runtime entries can opt out of explicit
+>   `Call` through shared metadata. The current oracle-backed case is
+>   `DoEvents`: `Call DoEvents` and `Call DoEvents()` are rejected, while bare
+>   `DoEvents` and expression `DoEvents()` stay valid.
+> - `call-statement-forbids-parens` - standalone zero-argument calls such as
+>   `myFunction()`, `DoEvents()`, `Application.Calculate()`, and
+>   `ThisWorkbook.CanCheckIn()` are rejected when they use empty parentheses
+>   without valid `Call` syntax or expression context; required-argument calls
+>   stay on `argument-count`.
+> - `invalid-expression-syntax` - narrow expression syntax coverage for
+>   impossible operator sequences (`***`) and statements ending in a binary
+>   operator.
 >
 > Deliberately deferred (would require a fuller expression binder + broader host
 > catalogue, and per the project's no-false-positive rule must not ship until
@@ -872,7 +884,9 @@ Do not ship low-confidence diagnostics by default.
 > suppressed after `.`, after `As`, and in declaration-name positions. Exported
 > project procedure completions carry full callable signatures, declaring-module
 > detail, parameter defaults where known, and inline `'''` documentation for the
-> IntelliSense preview. Member completion also resolves leading-dot chains inside an active
+> IntelliSense preview. Runtime completion uses the shared explicit-`Call`
+> compatibility metadata, so invalid targets such as `DoEvents` are not offered
+> after `Call`. Member completion also resolves leading-dot chains inside an active
 > `With ... End With` block against the `With` receiver. Resolved
 > type names (project, host, and primitive) also get semantic tokens and
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
@@ -939,7 +953,8 @@ Implement completions for:
 - Insert text must not randomly alter nearby identifiers.
 - Callable insert text must respect VBA call-statement syntax: standalone
   procedure/method completions insert only the canonical name, while expression
-  and explicit `Call` contexts may insert `(...)`.
+  and explicit `Call` contexts may insert `(...)`; runtime entries that are not
+  valid explicit-`Call` targets must be filtered from that target context.
 - Multi-line snippets that repeat a logical name must use linked placeholders.
   Example: changing the iterator in a generated `For ... Next` block must also
   change the `Next` variable name.
@@ -1017,7 +1032,9 @@ Required behavior:
 > `src/analyzer/signature/signatureHelp.ts` (pure) returns the active call tip
 > for host members (verified `Workbooks.Open`, `Range.Offset`, ...), user
 > procedures (current-module AST plus exported standard-module project
-> `Sub`/`Function` signatures), and runtime built-ins, wired through the
+> `Sub`/`Function` signatures), and runtime built-ins, with explicit-`Call`
+> runtime incompatibilities suppressed through the same shared metadata used by
+> completion and diagnostics, wired through the
 > `SignatureHelpProvider` in `src/vbaMemberCompletion.ts` (triggers `(` `,`
 > space) and covered by `tests/vbaSignatureHelp.test.ts`. Go to Definition,
 > Find All References, and Rename are DONE - the live providers in
@@ -1078,7 +1095,9 @@ Support conservatively:
 > Status: DONE. `src/analyzer/signature/signatureHelp.ts` resolves the active
 > call tip from module text (paren and parenless call statements), sourcing the
 > signature from verified host-member signatures, user-procedure AST, or runtime
-> built-ins, with the active parameter tracked across commas.
+> built-ins, with the active parameter tracked across commas. Runtime entries
+> that are not legal explicit-`Call` targets do not surface call tips in that
+> invalid context.
 
 Support:
 
@@ -1224,7 +1243,8 @@ Implemented in `src/analyzer/runtime/vbaRuntime.ts`.
   existing host-model precedent (`src/analyzer/host/excelObjectModel.ts` is a TS
   module, not JSON) and gives compile-time checking of every entry. The
   `VbaRuntimeFunction` interface carries `name`, `signature`, optional
-  `returns`, a `kind` of `function | statement`, and `source: 'verified'`.
+  `returns`, a `kind` of `function | statement`, optional explicit-`Call`
+  compatibility metadata, and `source: 'verified'`.
 - **Coverage.** ~85 verified intrinsic functions/statements: interaction
   (`MsgBox`, `InputBox`, `Shell`, `CreateObject`...), strings (`Left`, `Mid`,
   `Replace`, `InStr`, `Split`, `Format`...), conversions (`CLng`, `CStr`,
@@ -1243,7 +1263,13 @@ Implemented in `src/analyzer/runtime/vbaRuntime.ts`.
   `VBA runtime statement` / constant detail line.
 - **Completion.** `resolveIdentifierCompletions` offers built-ins at bare-
   identifier positions (new `runtime` completion kind, `Function` icon),
-  gated by `includeRuntime` (default true).
+  gated by `includeRuntime` (default true), and filters runtime entries that are
+  VBE-oracle-verified as invalid explicit-`Call` targets when the cursor is at
+  `Call <target>`.
+- **Explicit Call compatibility.** `runtimeAllowsExplicitCall` centralizes
+  runtime-specific call-statement behavior. `DoEvents` currently opts out based
+  on focused VBE oracle cases: `Call DoEvents` and `Call DoEvents()` reject as
+  Syntax error, while bare `DoEvents` and expression `DoEvents()` compile.
 - **Verification.** Signatures transcribed from
   learn.microsoft.com/office/vba/language and MS-VBAL; never LLM-invented.
 - **Signature help.** DONE - the verified runtime signatures (and host-member

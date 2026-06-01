@@ -17,6 +17,7 @@ import { getHostConstants, getHostGlobals, getHostType } from '../host/hostModel
 import {
 	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
+	runtimeAllowsExplicitCall,
 	type VbaRuntimeConstant,
 	type VbaRuntimeFunction,
 	type VbaRuntimeParam,
@@ -148,6 +149,7 @@ export function resolveIdentifierCompletions(
 	}
 
 	const lowerPartial = partial.toLowerCase();
+	const explicitCallTargetContext = isExplicitCallTargetCompletionContext(tokens, last);
 	const out: IdentifierCompletion[] = [];
 	const seen = new Set<string>();
 	const add = (
@@ -184,6 +186,9 @@ export function resolveIdentifierCompletions(
 
 	if (ctx.includeRuntime !== false) {
 		for (const f of VBA_RUNTIME_FUNCTIONS) {
+			if (explicitCallTargetContext && !runtimeAllowsExplicitCall(f)) {
+				continue;
+			}
 			add(f.name, 'runtime', f.signature, runtimeDocumentation(f));
 		}
 		if (lowerPartial.length >= 2) {
@@ -389,6 +394,18 @@ function detailWithType(base: string, asType?: string): string {
 
 function isStatementBoundary(token: VbaToken): boolean {
 	return token.kind === 'newline' || token.rawText === ':';
+}
+
+function isExplicitCallTargetCompletionContext(tokens: readonly VbaToken[], last: number): boolean {
+	if (last < 0) {
+		return false;
+	}
+	let boundary = last;
+	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
+		boundary -= 1;
+	}
+	const statement = tokens.slice(boundary + 1, last + 1);
+	return statement.length === 1 && statement[0].rawText.toLowerCase() === 'call';
 }
 
 function statementContainsExpressionIntroducer(tokens: readonly VbaToken[]): boolean {

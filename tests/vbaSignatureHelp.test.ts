@@ -97,6 +97,13 @@ describe('signature help - runtime built-ins', () => {
 		expect(info?.label).toBe('Left(String, Length) As String');
 		expect(info?.parameters.map((p) => p.label)).toEqual(['String', 'Length']);
 	});
+
+	it('does not offer DoEvents when it is used as an invalid explicit Call target', () => {
+		expect(help('Sub T()\nCall DoEvents(|\nEnd Sub')).toBeUndefined();
+		expect(help('Sub T()\nvalue = DoEvents(|\nEnd Sub')?.label).toBe(
+			'DoEvents() As Integer',
+		);
+	});
 });
 
 describe('signature help - user procedures', () => {

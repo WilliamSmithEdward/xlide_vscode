@@ -183,6 +183,56 @@
       "diagnosticMeaning": "observation"
     },
     {
+      "id": "explicit_call_doevents_bare_compile",
+      "description": "DoEvents is a runtime function that VBE rejects as an explicit Call target without parentheses.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Call DoEvents\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "explicit_call_doevents_parentheses_compile",
+      "description": "DoEvents is a runtime function that VBE rejects as an explicit Call target even with empty parentheses.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Call DoEvents()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "standalone_doevents_statement_compile",
+      "description": "Compile control: DoEvents is valid as a standalone statement without Call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    DoEvents\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "standalone_doevents_empty_parentheses_compile",
+      "description": "A standalone DoEvents statement uses empty parentheses without Call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    DoEvents()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "doevents_expression_call_compile",
+      "description": "Compile control: DoEvents is valid as a parenthesized expression call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value = DoEvents()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "if_statement_missing_then",
       "description": "A single-line If statement whose condition is not followed by Then.",
       "provenance": "observed-not-asserted",

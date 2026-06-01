@@ -3002,6 +3002,21 @@ describe('analyzeModule - Call requires parentheses', () => {
 		const hits = byCode(analyzeModule(src), 'call-statement-forbids-parens');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('DoEvents()');
+		expect(hits[0].message).toContain("use 'DoEvents' as a statement");
+		expect(hits[0].message).not.toContain('prefixed with Call');
+	});
+
+	it('flags DoEvents as an invalid explicit Call target', () => {
+		const src =
+			'Sub T()\n' +
+			'    Call DoEvents\n' +
+			'    Call DoEvents()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-explicit-call-target');
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['DoEvents', 'DoEvents']);
+		expect(byCode(analyzeModule(src), 'call-requires-parens')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
 	it('flags an unqualified same-class method call statement with empty parentheses', () => {
@@ -3080,14 +3095,15 @@ describe('analyzeModule - Call requires parentheses', () => {
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
-	it('accepts zero-argument runtime calls with Call or in expression context', () => {
+	it('accepts zero-argument runtime calls as bare statements or in expression context', () => {
 		const src =
 			'Sub T()\n' +
 			'    Dim value As Integer\n' +
-			'    Call DoEvents()\n' +
+			'    DoEvents\n' +
 			'    value = DoEvents()\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'invalid-explicit-call-target')).toHaveLength(0);
 	});
 
 	it('does not flag unknown bare empty-parentheses statements as project procedure calls', () => {

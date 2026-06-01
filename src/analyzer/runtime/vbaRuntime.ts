@@ -28,6 +28,8 @@ export interface VbaRuntimeFunction {
 	source: 'verified';
 	/** Explicitly curated parameter types. Missing entries are treated unknown. */
 	params?: readonly VbaRuntimeParam[];
+	/** Explicit `Call` statement compatibility. Omitted means allowed. */
+	explicitCall?: 'allowed' | 'forbidden';
 }
 
 /** Explicit metadata for one runtime parameter. Never inferred from names. */
@@ -51,16 +53,18 @@ function fn(
 	signature: string,
 	returns?: string,
 	params?: readonly VbaRuntimeParam[],
+	options?: Pick<VbaRuntimeFunction, 'explicitCall'>,
 ): VbaRuntimeFunction {
-	return { name, signature, returns, kind: 'function', source: 'verified', params };
+	return { name, signature, returns, kind: 'function', source: 'verified', params, ...options };
 }
 
 function stmt(
 	name: string,
 	signature: string,
 	params?: readonly VbaRuntimeParam[],
+	options?: Pick<VbaRuntimeFunction, 'explicitCall'>,
 ): VbaRuntimeFunction {
-	return { name, signature, kind: 'statement', source: 'verified', params };
+	return { name, signature, kind: 'statement', source: 'verified', params, ...options };
 }
 
 function c(name: string, type?: string, value?: string | number): VbaRuntimeConstant {
@@ -82,7 +86,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	),
 	fn('Environ', 'Environ(Expression) As String', 'String'),
 	fn('Shell', 'Shell(PathName, [WindowStyle As VbAppWinStyle = vbMinimizedFocus]) As Double', 'Double'),
-	fn('DoEvents', 'DoEvents() As Integer', 'Integer'),
+	fn('DoEvents', 'DoEvents() As Integer', 'Integer', undefined, { explicitCall: 'forbidden' }),
 	fn('CreateObject', 'CreateObject(Class, [ServerName]) As Object', 'Object'),
 	fn('GetObject', 'GetObject([PathName], [Class]) As Object', 'Object'),
 	stmt('Beep', 'Beep'),
@@ -406,6 +410,11 @@ export function resolveRuntimeFunction(
 	name: string,
 ): VbaRuntimeFunction | undefined {
 	return BY_LOWER.get(name.toLowerCase());
+}
+
+/** Whether this runtime entry may be the target of an explicit `Call` statement. */
+export function runtimeAllowsExplicitCall(fn: VbaRuntimeFunction): boolean {
+	return fn.explicitCall !== 'forbidden';
 }
 
 /** Resolves a built-in VBA runtime constant by name (case-insensitive). */

@@ -490,7 +490,9 @@ into a pure analyzer layer and a thin VS Code provider:
   Accepting callable completions applies canonical casing and uses the shared
   VBA call-site rule: standalone call statements insert only the canonical name,
   while expression contexts and explicit `Call` statements may insert `()` with
-  the cursor inside the call. Typing a boundary after a known identifier, moving the
+  the cursor inside the call. Runtime entries that opt out of explicit `Call`
+  through verified metadata are filtered at the `Call <target>` position, so
+  invalid forms such as `Call DoEvents` are not offered there. Typing a boundary after a known identifier, moving the
   cursor away from the identifier, or leaving the editor applies VBE-style
   canonical casing for keywords, type names, runtime functions, and resolved host
   members.
@@ -515,13 +517,15 @@ statements: `MsgBox`, `InputBox`, the `C*` conversions, string/date/math
 helpers, `Array`, `UBound`, `RGB`, ...), plus common runtime constants and enum
 members such as `vbOKOnly`, `vbCrLf`, and `vbFalse`. Each `VbaRuntimeFunction` carries a
 canonical `signature`, optional `returns`, a `kind` of `function | statement`,
-and `source: 'verified'`. Signatures are transcribed from
+optional explicit-`Call` compatibility metadata, and `source: 'verified'`. Signatures are transcribed from
 learn.microsoft.com/office/vba/language and MS-VBAL, never LLM-invented. Names
 that collide with intrinsic data types (`Date`, `Time`, `String`, `Error`) are
 deliberately omitted so a type in an `As` position is never read as a function.
 Like the host model, this is a typed TS module (not the JSON file the roadmap
 originally suggested) for compile-time checking. `resolveRuntimeFunction(name)`
-and `resolveRuntimeConstant(name)` resolve case-insensitively;
+and `resolveRuntimeConstant(name)` resolve case-insensitively, while
+`runtimeAllowsExplicitCall(fn)` centralizes runtime-specific explicit `Call`
+behavior such as the VBE-oracle-verified `DoEvents` special case;
 `VBA_RUNTIME_FUNCTIONS` and `VBA_RUNTIME_CONSTANTS` are consumed by hover,
 identifier completion, and high-confidence diagnostics.
 
@@ -540,7 +544,9 @@ members and source-backed project class members share receiver binding,
 return-type chains, and inline XML docs. Bare-call signatures are sourced from
 same-module user `Sub`/`Function`/`Property` procedures (built from the parsed
 AST so `Optional`/`ParamArray`/default detail renders in VBE bracket form), then
-`resolveRuntimeFunction`. The whole resolver is wrapped in try/catch so it never
+`resolveRuntimeFunction`; runtime entries that are not valid explicit `Call`
+targets suppress their call tip in that context using the same runtime metadata
+as completion and diagnostics. The whole resolver is wrapped in try/catch so it never
 disrupts editing, and signatures are never invented — an unknown callee yields
 no tip. Verified host signatures live beside the object model in
 `excelObjectModel.ts`; source-backed class member signatures are emitted by
@@ -629,7 +635,7 @@ Diagnostic severity policy:
   identifier immediately followed by `(`). `checkCallParens` powers call syntax
   diagnostics: explicit `Call` statements with arguments require parentheses,
   and VBE-oracle-verified standalone zero-argument calls cannot use empty
-  parentheses unless they are prefixed with `Call` or used in an expression.
+  parentheses unless they are prefixed with valid `Call` syntax or used in an expression.
   The rule uses the shared callable signature path for known same-module and
   exported standard-module procedures such as `myFunction()`, verified
   zero-argument runtime calls such as `DoEvents()`, and member/property
@@ -638,7 +644,10 @@ Diagnostic severity policy:
   `argument-count` path. Non-empty standalone member/property calls such as
   `ActiveSheet.Range("A1")` and parenless member call statements such as
   `p.Save "ok"` are compile-accepted by VBE and stay on the
-  signature-validation path. `checkProcedureHeader` powers
+  signature-validation path. `invalid-explicit-call-target` uses the same
+  runtime metadata to reject VBE-oracle-verified special cases such as
+  `Call DoEvents` and `Call DoEvents()`, while allowing bare `DoEvents` and
+  expression `DoEvents()`. `checkProcedureHeader` powers
   `invalid-proc-header`: after the procedure name in a `Sub`/`Function`/
   `Property` header, the only legal next token is `(` (or `As` for a
   `Function`/`Property Get`); any other token (e.g. the second word in
