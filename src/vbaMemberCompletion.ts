@@ -23,6 +23,7 @@ import {
 	HoverContext,
 	IdentifierCompletion,
 	IdentifierCompletionContext,
+	KeywordCompletion,
 	MemberCompletion,
 	MemberCompletionContext,
 	ModuleSymbolKind,
@@ -34,6 +35,7 @@ import {
 	resolveEventHandlerCompletions,
 	resolveHover,
 	resolveIdentifierCompletions,
+	resolveKeywordCompletions,
 	resolveMemberCompletions,
 	resolveSignatureHelp,
 	resolveTypeCompletions,
@@ -47,6 +49,8 @@ const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
 const CHART = 'Excel.Chart';
 const MODULE_CACHE_TTL_MS = 5000;
+const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
+const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
 
 interface ModuleEntry {
 	name: string;
@@ -171,9 +175,17 @@ class VbaMemberCompletionProvider
 			return events.map((event) => this._toEventHandlerItem(event, range));
 		}
 
+		const keywords = resolveKeywordCompletions(source, offset);
+		if (keywords.exclusive) {
+			return keywords.items.map((item) => this._toKeywordItem(item, range));
+		}
+
 		const identCtx = await this._buildIdentifierContext(document);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
-		return idents.map((id) => this._toIdentItem(id, range, source, offset));
+		return [
+			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
+			...keywords.items.map((item) => this._toKeywordItem(item, range)),
+		];
 	}
 
 	async applyCanonicalCase(
@@ -816,6 +828,30 @@ class VbaMemberCompletionProvider
 		return item;
 	}
 
+	private _toKeywordItem(keyword: KeywordCompletion, range: vscode.Range): vscode.CompletionItem {
+		const kind = keyword.kind === 'snippet'
+			? vscode.CompletionItemKind.Snippet
+			: vscode.CompletionItemKind.Keyword;
+		const item = new vscode.CompletionItem(keyword.label, kind);
+		item.detail = keyword.detail;
+		if (keyword.documentation) {
+			item.documentation = new vscode.MarkdownString(keyword.documentation);
+		}
+		item.range = range;
+		item.filterText = keyword.filterText ?? keyword.label;
+		item.sortText = keyword.sortText ?? `9:${keyword.label}`;
+		item.insertText = keyword.kind === 'snippet'
+			? new vscode.SnippetString(keyword.insertText)
+			: keyword.insertText;
+		if (keyword.kind === 'snippet') {
+			item.command = {
+				command: KEYWORD_SNIPPET_ACCEPTED_COMMAND,
+				title: 'Track VBA Snippet',
+			};
+		}
+		return item;
+	}
+
 	private _applyCompletionInsert(
 		item: vscode.CompletionItem,
 		name: string,
@@ -843,6 +879,9 @@ class VbaMemberCompletionProvider
 		const line = document.lineAt(position.line).text;
 		let start = position.character;
 		while (start > 0 && /[A-Za-z0-9_]/.test(line[start - 1])) {
+			start -= 1;
+		}
+		if (start === position.character && start > 0 && line[start - 1] === '#') {
 			start -= 1;
 		}
 		let end = position.character;
@@ -888,6 +927,11 @@ export function registerVbaMemberCompletion(
 ): void {
 	const provider = new VbaMemberCompletionProvider(bridge, docs);
 	let lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
+	let activeKeywordSnippet:
+		| { editor: vscode.TextEditor; documentKey: string; textChangeSerialAtAccept: number }
+		| undefined;
+	let textChangeSerial = 0;
+	const lastTextChange = new Map<string, { at: number; serial: number }>();
 	const flushCanonicalCandidate = (): void => {
 		const candidate = lastCanonicalCandidate;
 		if (!candidate || !isVbaDocument(candidate.editor.document)) {
@@ -899,15 +943,64 @@ export function registerVbaMemberCompletion(
 			candidate.editor,
 		);
 	};
+	const markTextChange = (document: vscode.TextDocument): void => {
+		if (isVbaDocument(document)) {
+			textChangeSerial += 1;
+			lastTextChange.set(document.uri.toString(), {
+				at: Date.now(),
+				serial: textChangeSerial,
+			});
+		}
+	};
+	const maybeLeaveKeywordSnippet = (event: vscode.TextEditorSelectionChangeEvent): void => {
+		if (!activeKeywordSnippet || event.textEditor !== activeKeywordSnippet.editor) {
+			return;
+		}
+		if (!isVbaDocument(event.textEditor.document)) {
+			activeKeywordSnippet = undefined;
+			return;
+		}
+		if (
+			event.kind !== vscode.TextEditorSelectionChangeKind.Mouse &&
+			event.kind !== vscode.TextEditorSelectionChangeKind.Keyboard
+		) {
+			return;
+		}
+		if (event.kind === vscode.TextEditorSelectionChangeKind.Keyboard) {
+			const changed = lastTextChange.get(activeKeywordSnippet.documentKey);
+			if (
+				changed &&
+				changed.serial > activeKeywordSnippet.textChangeSerialAtAccept &&
+				Date.now() - changed.at <= KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS
+			) {
+				return;
+			}
+		}
+		activeKeywordSnippet = undefined;
+		void vscode.commands.executeCommand('leaveSnippet');
+	};
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand(KEYWORD_SNIPPET_ACCEPTED_COMMAND, () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || !isVbaDocument(editor.document)) {
+				return;
+			}
+			activeKeywordSnippet = {
+				editor,
+				documentKey: editor.document.uri.toString(),
+				textChangeSerialAtAccept: textChangeSerial,
+			};
+		}),
 		vscode.languages.registerCompletionItemProvider(
 			selector,
 			provider,
 			'.',
 			' ',
+			'#',
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {
+			markTextChange(event.document);
 			if (!isVbaDocument(event.document) || event.contentChanges.length !== 1) {
 				return;
 			}
@@ -918,6 +1011,7 @@ export function registerVbaMemberCompletion(
 			void provider.applyCanonicalCase(event.document, change.range.start);
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
+			maybeLeaveKeywordSnippet(event);
 			const previous = lastCanonicalCandidate;
 			if (previous?.editor === event.textEditor) {
 				void provider.applyCanonicalCase(
@@ -929,6 +1023,9 @@ export function registerVbaMemberCompletion(
 			lastCanonicalCandidate = canonicalCandidateFromEditor(event.textEditor);
 		}),
 		vscode.window.onDidChangeActiveTextEditor((editor) => {
+			if (activeKeywordSnippet && editor !== activeKeywordSnippet.editor) {
+				activeKeywordSnippet = undefined;
+			}
 			flushCanonicalCandidate();
 			lastCanonicalCandidate = canonicalCandidateFromEditor(editor);
 		}),

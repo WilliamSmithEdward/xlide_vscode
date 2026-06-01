@@ -62,6 +62,12 @@ export {
 	resolveIdentifierCompletions,
 } from './completion/identifierCompletion';
 export {
+	KeywordCompletion,
+	KeywordCompletionKind,
+	KeywordCompletionResult,
+	resolveKeywordCompletions,
+} from './completion/keywordCompletion';
+export {
 	EventHandlerCompletion,
 	EventHandlerCompletionContext,
 	EventHandlerDocumentType,

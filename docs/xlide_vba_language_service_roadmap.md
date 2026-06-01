@@ -861,9 +861,16 @@ Do not ship low-confidence diagnostics by default.
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
 > `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by
 > `tests/vba{MemberCompletion,TypeCompletion,IdentifierCompletion}.test.ts`.
-> Remaining: keyword/snippet completion at statement start, after access
-> modifiers, after `Option`/`On Error`, and editor auto-block insertion for
-> `With ... End With` and the other block constructs.
+> Keyword/snippet completion is now implemented by
+> `src/analyzer/completion/keywordCompletion.ts`: additive block snippets at
+> statement start (`If`, `With`, `For`, `For Each`, `Do`, `While`,
+> `Select Case`, procedure blocks), exclusive grammar completions after
+> `Option`, `End`, `On Error`, access modifiers, and `#` conditional
+> compilation markers, with innermost-block-aware close suggestions. Remaining:
+> optional enter-time auto-block insertion after manually typed block headers.
+> Planned next slice: conditional-compilation-aware `Declare` / DLL import
+> IntelliSense and diagnostics for `VBA7`, `Win64`, `Win32`, `PtrSafe`,
+> `LongPtr`, and related 32/64-bit Office patterns.
 
 ### Goal
 
@@ -904,6 +911,9 @@ Implement completions for:
 - Inside call argument lists for signature help.
 - After `Option` for `Explicit`, `Base`, `Compare`.
 - After `On Error` for `GoTo` and `Resume Next` patterns.
+- After `End` for the innermost open block's valid terminator.
+- After `#` for conditional compilation directives and, later, verified
+  32/64-bit external declaration templates.
 
 ### Completion Output Rules
 
@@ -913,8 +923,58 @@ Implement completions for:
 - Callable insert text must respect VBA call-statement syntax: standalone
   procedure/method completions insert only the canonical name, while expression
   and explicit `Call` contexts may insert `(...)`.
+- Multi-line snippets that repeat a logical name must use linked placeholders.
+  Example: changing the iterator in a generated `For ... Next` block must also
+  change the `Next` variable name.
+- VS Code snippet mode must not trap normal navigation. If a user clicks away
+  or uses keyboard navigation after accepting a VBA keyword snippet, XLIDE should
+  leave snippet mode instead of letting a later `Tab` / `Enter` unexpectedly
+  continue an old snippet session.
 - Sort symbols before broad snippets when context is specific.
 - Avoid suggesting invalid keywords in narrow contexts where parser state is known.
+
+### Conditional Compilation and External Declare Roadmap Slice
+
+Status: PLANNED.
+
+This slice covers the VBA `#` syntax used for 32/64-bit Office compatibility and
+Win32 API declarations. It belongs partly to parser/diagnostics and partly to
+completion, but the user-facing experience should be cohesive.
+
+Authoritative references:
+
+- Microsoft compiler constants:
+  <https://learn.microsoft.com/en-us/office/vba/language/concepts/getting-started/compiler-constants>
+- Microsoft conditional compilation overview:
+  <https://learn.microsoft.com/en-us/office/vba/language/concepts/getting-started/understanding-conditional-compilation>
+- Microsoft `PtrSafe` reference:
+  <https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/ptrsafe-keyword>
+
+Required behavior:
+
+- Parse and index conditional-compilation directives: `#Const`, `#If`,
+  `#ElseIf`, `#Else`, and `#End If`.
+- Evaluate high-confidence directive expressions for known compiler constants:
+  `VBA7`, `Win64`, `Win32`, `Mac`, and project `#Const` values. Treat `Win32`
+  carefully because Microsoft's compiler-constants documentation says it is
+  true in both 32-bit and 64-bit Windows development environments; prefer
+  examples that test `Win64` before falling back to `Win32`.
+- Parse full external declaration metadata: visibility, `Declare`, `PtrSafe`,
+  `Sub` / `Function`, procedure name, `Lib`, optional `Alias`, parameters, and
+  return type.
+- Add low-noise diagnostics for verified cases only: missing `PtrSafe` in
+  64-bit/VBA7 branches, obviously pointer-sized parameters/returns that should
+  use `LongPtr` or `LongLong`, malformed directive blocks, and duplicate
+  declarations only when they are active in the same conditional branch.
+- Make branch-aware analysis suppress false positives from mutually exclusive
+  32-bit and 64-bit declarations.
+- Provide snippets for common patterns such as `#If VBA7 Then ... #Else ...
+  #End If` and `#If Win64 Then ... #Else ... #End If` with `Declare PtrSafe`
+  templates.
+- Surface `Declare` hovers and signature help from parsed metadata, including
+  `Lib` / `Alias` details when present.
+- Record MS-VBAL and Microsoft Learn verification notes before enabling new
+  diagnostics by default.
 
 ### Acceptance Criteria
 

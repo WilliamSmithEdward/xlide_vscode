@@ -44,24 +44,6 @@
     ],
     "description": "Property Set"
   },
-  "For ... Next": {
-    "prefix": "for",
-    "body": [
-      "For ${1:i} = ${2:1} To ${3:n}",
-      "\t$0",
-      "Next ${1:i}"
-    ],
-    "description": "For ... Next loop"
-  },
-  "For Each ... Next": {
-    "prefix": "foreach",
-    "body": [
-      "For Each ${1:item} In ${2:collection}",
-      "\t$0",
-      "Next ${1:item}"
-    ],
-    "description": "For Each loop"
-  },
   "Do While ... Loop": {
     "prefix": "dowhile",
     "body": [
