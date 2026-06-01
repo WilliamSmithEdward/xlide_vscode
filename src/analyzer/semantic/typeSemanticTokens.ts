@@ -122,6 +122,35 @@ function typeNameSpansAfterNew(source: string, span: Span): { name: string; span
 	return out;
 }
 
+function typeNameSpansAfterTypeOfIs(source: string, span: Span): { name: string; span: Span }[] {
+	const toks = codeTokens(source, span);
+	const out: { name: string; span: Span }[] = [];
+	let sawTypeOf = false;
+	for (let i = 0; i < toks.length; i++) {
+		const lower = (toks[i].canonicalText ?? toks[i].rawText).toLowerCase();
+		if (lower === 'typeof') {
+			sawTypeOf = true;
+			continue;
+		}
+		if (!sawTypeOf || lower !== 'is') {
+			continue;
+		}
+		const name = tokenName(toks[i + 1]);
+		if (!name) {
+			continue;
+		}
+		out.push({
+			name,
+			span: {
+				start: span.start + toks[i + 1].start,
+				end: span.start + toks[i + 1].end,
+			},
+		});
+		sawTypeOf = false;
+	}
+	return out;
+}
+
 function headerSpanForProcedure(source: string, proc: ProcedureNode): Span {
 	const nl = source.indexOf('\n', proc.span.start);
 	return {
@@ -229,6 +258,41 @@ function collectStatement(
 	for (const hit of typeNameSpansAfterNew(source, stmt.span)) {
 		out.push(hit);
 	}
+	for (const hit of typeNameSpansAfterTypeOfIs(source, stmt.span)) {
+		out.push(hit);
+	}
+}
+
+function collectImplements(source: string, out: TypeNameHit[]): void {
+	let lineStart = 0;
+	while (lineStart <= source.length) {
+		let lineEnd = source.indexOf('\n', lineStart);
+		if (lineEnd < 0) {
+			lineEnd = source.length;
+		}
+		let line = source.slice(lineStart, lineEnd);
+		if (line.endsWith('\r')) {
+			line = line.slice(0, -1);
+		}
+		const code = line.replace(/'.*$/, '');
+		const match = /^\s*Implements\s+([A-Za-z_][A-Za-z0-9_]*)\b/i.exec(code);
+		if (match) {
+			const column = line.indexOf(match[1], match.index);
+			if (column >= 0) {
+				out.push({
+					name: match[1],
+					span: {
+						start: lineStart + column,
+						end: lineStart + column + match[1].length,
+					},
+				});
+			}
+		}
+		if (lineEnd === source.length) {
+			break;
+		}
+		lineStart = lineEnd + 1;
+	}
 }
 
 function collectProcedure(
@@ -250,6 +314,7 @@ function collectModule(
 	mod: ModuleNode,
 ): TypeNameHit[] {
 	const out: TypeNameHit[] = [];
+	collectImplements(source, out);
 	for (const member of mod.members) {
 		if (member.kind === 'VariableGroup') {
 			collectVariableGroup(source, member, out);

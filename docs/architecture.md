@@ -314,7 +314,7 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
 | `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations) |
 | `ReferenceProvider` | Uses semantic binding before textual search: source-backed `object.Member` references are matched by their resolved class-member definition spans, project type-name tokens are matched through `resolveTypeDefinitions`, and ordinary identifiers still use `ProjectIndex.referenceScope` plus word-boundary search restricted to the binding scope; honors VS Code's include-declaration toggle |
-| `RenameProvider` | Uses the same `referenceScope` to rewrite only the in-scope occurrences; `prepareRename`/`provideRenameEdits` refuse identifiers that do not resolve to a known declaration; VS Code applies the `WorkspaceEdit` and Ctrl+S persists each module through the virtual filesystem |
+| `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
 | Diagnostics | Debounced structural lint (`lintVbaSource`) flags unbalanced blocks — missing `End Sub`/`Next`/`Loop`/..., stray closers, and inner blocks left unclosed |
 | Smart enter (auto-block) | Pressing Enter after a `Sub`/`Function`/`Property` header auto-inserts the matching `End ...` below and leaves the caret on the indented body line |
 
@@ -324,6 +324,9 @@ sources on each query, with the live editor text overlaid for the current
 module. Offset-based symbol spans are converted to editor ranges in the shared
 `vbaNavigation.ts` helpers and provider wiring. `VbaSymbolIndex` still backs the
 `DocumentSymbolProvider` outline and the workbook-scoped source cache.
+Tree-level class module rename uses the same project type-reference helpers:
+the component name is changed through `renameModule`, and VS Code reference edits
+are applied for the workbook's project-defined class type tokens.
 
 **Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
 is unit-tested directly (`tests/vbaLinter.test.ts`). It strips strings/comments,
@@ -775,7 +778,8 @@ single module:
   `visibleTypeNames` (class/document/UserForm module names plus visible
   `Type`/`Enum` declarations for `As`/`New` binding), `resolveTypeDefinitions`
   (visible project type-name definitions with object modules resolving to the
-  module start), `projectClassMembers`
+  module start because the object type name is the VB component name),
+  `projectClassMembers`
   (source-backed member surfaces with signatures, docs, definition spans,
   module-level `Implements` names, and default-member facts from
   `VB_UserMemId = 0` attributes), and
@@ -790,8 +794,10 @@ tokens only, while workbook classes, document modules, UserForms, UDTs, and enum
 are dynamic project symbols. `src/analyzer/semantic/typeSemanticTokens.ts`
 therefore parses the live module and resolves actual type-name positions (`As
 Person`, parameter types, return types, module/local variables, UDT fields, and
-`New Person` expressions) through the shared type resolver used by completion and
-hover: project-visible names from `ProjectIndex.visibleTypeNames()`, VBA
+`New Person` expressions, `TypeOf value Is Person` tests, and module-level
+`Implements Person` statements)
+through the shared type resolver used by completion and hover: project-visible
+names from `ProjectIndex.visibleTypeNames()`, VBA
 primitive types, and Excel host object types. Semantic tokens mark primitives as
 `type`, host/project object types as `class`, enums as `enum`, and UDTs as
 `struct`; colliding project-visible names fall back to generic `type` until a

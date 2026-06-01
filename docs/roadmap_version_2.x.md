@@ -119,6 +119,12 @@ heuristic diagnostics.
 - Source-backed workbook class member references now resolve through the same
   member binder before textual fallback, so same-named members in different
   classes do not share a reference set.
+- Source-backed workbook class member rename now uses that same binder, including
+  declarations and function/property return-name occurrences. Project-defined
+  class component rename is tree-only because VBA derives the class name from
+  the class module/component name; the tree rename action calls pyOpenVBA
+  `renameModule` and updates bound `As`/`New`/
+  `TypeOf ... Is`/`Implements` references.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -553,7 +559,7 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
-  arity/type checks, and go-to-definition/references now consume it for
+  arity/type checks, and go-to-definition/references/rename now consume it for
   source-backed members, including current-object `Me.Member` references.
   Type-name completion, hover, semantic coloring, go-to-definition, and
   references now share one type resolver; type-name diagnostics remain the next

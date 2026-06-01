@@ -15,6 +15,15 @@ import {
     setWorkbookExportMode,
 } from './moduleDump';
 import { lintWorkbook, type WorkbookLintProblem } from './vbaWorkbookLint';
+import { VbaSymbolIndex } from './vbaSymbolIndex';
+import {
+    buildVbaProjectIndex,
+    projectClassModuleDefinition,
+} from './vbaNavigation';
+import {
+    projectClassReferenceEdit,
+    renameProjectClassModule,
+} from './vbaClassRename';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -26,6 +35,7 @@ export function registerCommands(
     explorer: XlsmExplorer,
     _fsProvider: XlideFileSystemProvider,
     out: vscode.OutputChannel,
+    vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
     function log(msg: string): void {
         out.appendLine(msg);
@@ -298,6 +308,33 @@ export function registerCommands(
         await vscode.commands.executeCommand('references-view.findReferences', originUri, origin);
     }
 
+    function sameWorkbook(a: string, b: string): boolean {
+        return process.platform === 'win32'
+            ? a.toLowerCase() === b.toLowerCase()
+            : a === b;
+    }
+
+    function applyOpenDocumentSources(
+        modules: Awaited<ReturnType<VbaSymbolIndex['getAllModules']>>,
+        xlsmPath: string,
+    ): Awaited<ReturnType<VbaSymbolIndex['getAllModules']>> {
+        const out = modules.map((mod) => ({ ...mod }));
+        const byName = new Map(out.map((mod) => [mod.moduleName.toLowerCase(), mod]));
+        for (const document of vscode.workspace.textDocuments) {
+            if (document.uri.scheme !== XLIDE_SCHEME) { continue; }
+            try {
+                const decoded = decodeModuleUri(document.uri);
+                if (!sameWorkbook(decoded.xlsmPath, xlsmPath)) { continue; }
+                const mod = byName.get(decoded.moduleName.toLowerCase());
+                if (!mod) { continue; }
+                mod.source = document.getText();
+            } catch {
+                // Ignore non-standard xlide-vba URIs.
+            }
+        }
+        return out;
+    }
+
     return [
         vscode.commands.registerCommand('xlide.refreshExplorer', () => {
             explorer.refresh();
@@ -427,27 +464,81 @@ export function registerCommands(
         // Rename a module
         vscode.commands.registerCommand('xlide.renameModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
+            const validateInput = (v: string): string | undefined => {
+                if (node.moduleType === 'class') {
+                    return /^[A-Za-z_][A-Za-z0-9_]*$/.test(v)
+                        ? undefined
+                        : 'Class module names must be valid VBA identifiers';
+                }
+                return /^\w+$/.test(v) ? undefined : 'Module names must be alphanumeric';
+            };
             const newName = await vscode.window.showInputBox({
                 prompt: `Rename "${node.moduleName}" to`,
                 value: node.moduleName,
-                validateInput: (v) =>
-                    /^\w+$/.test(v) ? undefined : 'Module names must be alphanumeric',
+                validateInput,
             });
             if (!newName || newName === node.moduleName) { return; }
 
+            let moduleRenamed = false;
             try {
-                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                    'renameModule',
-                    {
-                        path: node.filePath,
-                        module: node.moduleName,
+                if (node.moduleType === 'class') {
+                    const modules = applyOpenDocumentSources(
+                        await vbaIndex.getAllModules(node.filePath),
+                        node.filePath,
+                    );
+                    const project = buildVbaProjectIndex(modules);
+                    const byModule = new Map(modules.map((mod) => [mod.moduleName.toLowerCase(), mod]));
+                    const definition = projectClassModuleDefinition(
+                        project,
+                        node.moduleName,
+                        node.moduleName,
+                    );
+                    if (!definition) {
+                        throw new Error(`"${node.moduleName}" is not a project-defined class module.`);
+                    }
+                    const references = projectClassReferenceEdit(
+                        node.filePath,
+                        byModule,
+                        project,
+                        node.moduleName,
+                        definition,
                         newName,
-                    },
-                );
-                notifySignatureDropped(node.filePath, result.signatureDropped);
-                explorer.refresh();
+                    );
+                    await renameProjectClassModule(bridge, node.filePath, node.moduleName, newName);
+                    moduleRenamed = true;
+                    vbaIndex.invalidate(node.filePath);
+                    if (references.count > 0) {
+                        for (const uri of references.uris) {
+                            const doc = await vscode.workspace.openTextDocument(uri);
+                            await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+                        }
+                        const applied = await vscode.workspace.applyEdit(references.edit);
+                        if (!applied) {
+                            throw new Error('VS Code did not apply the class reference edits.');
+                        }
+                    }
+                } else {
+                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                        'renameModule',
+                        {
+                            path: node.filePath,
+                            module: node.moduleName,
+                            newName,
+                        },
+                    );
+                    moduleRenamed = true;
+                    notifySignatureDropped(node.filePath, result.signatureDropped);
+                    vbaIndex.invalidate(node.filePath);
+                }
             } catch (err) {
-                vscode.window.showErrorMessage(`XLIDE: Rename failed: ${err}`);
+                const prefix = moduleRenamed
+                    ? 'XLIDE: Module was renamed, but reference updates failed'
+                    : 'XLIDE: Rename failed';
+                vscode.window.showErrorMessage(`${prefix}: ${err}`);
+            } finally {
+                if (moduleRenamed) {
+                    explorer.refresh();
+                }
             }
         }),
 

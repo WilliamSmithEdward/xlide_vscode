@@ -71,6 +71,7 @@ describe('project type semantic tokens', () => {
 			'Public Sub T()\n' +
 			'    Dim p As Person\n' +
 			'    Set p = New person\n' +
+			'    If TypeOf p Is Person Then Debug.Print "ok"\n' +
 			'End Sub\n';
 		const projectTypes: VbaProjectTypeName[] = [
 			{ name: 'Person', kind: 'class', moduleName: 'Person' },
@@ -78,6 +79,17 @@ describe('project type semantic tokens', () => {
 		expect(tokenTexts(source, { projectTypes })).toEqual([
 			{ text: 'Person', type: 'class' },
 			{ text: 'person', type: 'class' },
+			{ text: 'Person', type: 'class' },
+		]);
+	});
+
+	it('marks project classes in Implements statements', () => {
+		const source = 'Implements Person\nImplements Excel.Worksheet\n';
+		const projectTypes: VbaProjectTypeName[] = [
+			{ name: 'Person', kind: 'class', moduleName: 'Person' },
+		];
+		expect(tokenTexts(source, { projectTypes })).toEqual([
+			{ text: 'Person', type: 'class' },
 		]);
 	});
 

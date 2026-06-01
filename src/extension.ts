@@ -89,6 +89,9 @@ export function activate(context: vscode.ExtensionContext): void {
         showCollapseAll: true,
     });
 
+    // VBA language services: syntax-aware symbol index + providers.
+    const vbaIndex = registerVbaLanguageProviders(context, bridge);
+
     context.subscriptions.push(
         out,
 
@@ -116,7 +119,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 pending = undefined;
                 explorer.setActiveModule(xlsmPath, moduleName);
                 const node = explorer.getModuleNode(xlsmPath, moduleName);
-                if (node) {
+                if (node && treeView.visible) {
                     void treeView.reveal(node, { select: true, focus: false, expand: true });
                 }
             };
@@ -211,7 +214,7 @@ export function activate(context: vscode.ExtensionContext): void {
             out.show(true);
         }),
 
-        ...registerCommands(context, bridge, explorer, fsProvider, out),
+        ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
         ...registerAgentTools(context, bridge, explorer, fsProvider),
 
         statusBar,
@@ -224,15 +227,12 @@ export function activate(context: vscode.ExtensionContext): void {
         out.appendLine(`Live Share init failed: ${err.message}`);
     });
 
-    // VBA language services: syntax-aware symbol index + providers
-    const vbaIndex = registerVbaLanguageProviders(context, bridge);
-
     // When the symbol index updates (e.g. after a rename or save), refresh
     // the matching module's sub list in the explorer so renamed procedures
     // appear immediately.
     context.subscriptions.push(
         vbaIndex.onDidChange(({ xlsmPath, moduleName }) => {
-            if (!xlsmPath) {
+            if (!xlsmPath || !moduleName) {
                 explorer.refresh();
             } else if (moduleName) {
                 explorer.refreshModuleSubs(xlsmPath, moduleName);
@@ -269,7 +269,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // Item 7: Auto-expand the first workbook on activation so modules are visible.
         void explorer.warmXlsmCache().then(firstNode => {
-            if (firstNode) {
+            if (firstNode && treeView.visible) {
                 void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
             }
         });

@@ -29,6 +29,7 @@ import {
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 import { DocMetadataLoader } from './vbaDocMetadata';
 import {
+    buildVbaProjectIndex as buildProjectIndex,
     moduleKindFromType,
     offsetToPosition,
     projectTypeDefinitionToLocation,
@@ -173,30 +174,6 @@ function stripStringsAndComment(line: string): string {
 // ---------------------------------------------------------------------------
 // AST project index (Phase 4 wiring): scope-aware definition/references/rename
 // ---------------------------------------------------------------------------
-
-/** Builds a fresh AST ProjectIndex from the cached module sources. */
-function buildProjectIndex(
-    modules: VbaModuleSymbols[],
-    liveOverride?: { moduleName: string; moduleKind: ModuleSymbolKind; source: string },
-): ProjectIndex {
-    const index = new ProjectIndex();
-    let appliedOverride = false;
-    for (const mod of modules) {
-        const isOverride =
-            liveOverride &&
-            mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
-        index.setModule({
-            moduleName: mod.moduleName,
-            moduleKind: isOverride ? liveOverride.moduleKind : moduleKindFromType(mod.type),
-            source: isOverride ? liveOverride.source : mod.source,
-        });
-        appliedOverride = appliedOverride || !!isOverride;
-    }
-    if (liveOverride && !appliedOverride) {
-        index.setModule(liveOverride);
-    }
-    return index;
-}
 
 function codeNamesForModules(modules: VbaModuleSymbols[]): Record<string, string> {
     const out: Record<string, string> = {};
@@ -396,6 +373,54 @@ function projectMemberReferenceLocations(
             ));
         }
     }
+    return out;
+}
+
+function projectMemberRenameLocations(
+    xlsmPath: string,
+    byModule: Map<string, VbaModuleSymbols>,
+    project: ProjectIndex,
+    modules: VbaModuleSymbols[],
+    memberName: string,
+    definitions: readonly VbaProjectClassMemberDefinition[],
+): vscode.Location[] {
+    const out = projectMemberReferenceLocations(
+        xlsmPath,
+        byModule,
+        project,
+        modules,
+        memberName,
+        definitions,
+        true,
+    );
+    const seen = new Set(out.map((loc) =>
+        `${loc.uri.toString()}:${loc.range.start.line}:${loc.range.start.character}`,
+    ));
+    const push = (location: vscode.Location): void => {
+        const key = `${location.uri.toString()}:${location.range.start.line}:${location.range.start.character}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            out.push(location);
+        }
+    };
+
+    for (const definition of definitions) {
+        const mod = byModule.get(definition.moduleName.toLowerCase());
+        if (!mod) { continue; }
+        const starts = lineStartOffsets(mod.source);
+        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
+        for (const occ of findIdentifierOccurrences(mod.source, memberName)) {
+            const offset = (starts[occ.line] ?? 0) + occ.column;
+            if (offset < definition.fullSpan.start || offset > definition.fullSpan.end) {
+                continue;
+            }
+            push(new vscode.Location(
+                uri,
+                new vscode.Range(occ.line, occ.column, occ.line, occ.column + memberName.length),
+            ));
+        }
+    }
+
     return out;
 }
 
@@ -695,9 +720,40 @@ class VbaRenameProvider implements vscode.RenameProvider {
         if (!wordRange) { throw new Error('No symbol at cursor.'); }
         const word = document.getText(wordRange);
 
+        const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
-        const project = buildProjectIndex(modules);
+        const current = modules.find(
+            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
+        );
+        const project = buildProjectIndex(modules, {
+            moduleName,
+            moduleKind: moduleKindFromType(current?.type),
+            source,
+        });
+
+        const memberDefinitions = sourceMemberDefinitionsAt(
+            source,
+            word,
+            document.offsetAt(wordRange.end),
+            project,
+            modules,
+            moduleName,
+            current?.type,
+            current?.documentType,
+        );
+        const memberAtDefinition = memberDefinitions.length > 0
+            ? undefined
+            : projectClassMemberAtDefinition(
+                project,
+                moduleName,
+                word,
+                document.offsetAt(position),
+            );
+        if (memberDefinitions.length > 0 || (memberAtDefinition?.definitions?.length ?? 0) > 0) {
+            return { range: wordRange, placeholder: word };
+        }
+
         const scope = project.referenceScope(
             moduleName,
             word,
@@ -723,10 +779,60 @@ class VbaRenameProvider implements vscode.RenameProvider {
         const oldName = document.getText(wordRange);
         if (oldName.toLowerCase() === newName.toLowerCase()) { return undefined; }
 
+        const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = await this._index.getAllModules(xlsmPath);
-        const project = buildProjectIndex(modules);
-        const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
+        const current = modules.find(
+            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
+        );
+        const project = buildProjectIndex(modules, {
+            moduleName,
+            moduleKind: moduleKindFromType(current?.type),
+            source,
+        });
+        const byModule = moduleMapWithLiveDocument(
+            modules,
+            moduleName,
+            source,
+            current?.type,
+            current?.documentType,
+        );
+
+        const memberDefinitions = sourceMemberDefinitionsAt(
+            source,
+            oldName,
+            document.offsetAt(wordRange.end),
+            project,
+            modules,
+            moduleName,
+            current?.type,
+            current?.documentType,
+        );
+        const memberAtDefinition = memberDefinitions.length > 0
+            ? undefined
+            : projectClassMemberAtDefinition(
+                project,
+                moduleName,
+                oldName,
+                document.offsetAt(position),
+            );
+        const targetMemberDefinitions = memberDefinitions.length > 0
+            ? memberDefinitions
+            : memberAtDefinition?.definitions ?? [];
+        if (targetMemberDefinitions.length > 0) {
+            const edit = new vscode.WorkspaceEdit();
+            for (const loc of projectMemberRenameLocations(
+                xlsmPath,
+                byModule,
+                project,
+                modules,
+                oldName,
+                targetMemberDefinitions,
+            )) {
+                edit.replace(loc.uri, loc.range, newName);
+            }
+            return edit;
+        }
 
         const scope = project.referenceScope(
             moduleName,
