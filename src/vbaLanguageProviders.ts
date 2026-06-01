@@ -916,6 +916,7 @@ function registerVbaDiagnostics(
         const text = document.getText();
         const diagnostics: vscode.Diagnostic[] = [];
         const suppressions = scanLintSuppressions(text);
+        const lineStarts = lineStartOffsets(text);
 
         // Project-wide names enable cross-module call and Option Explicit checks;
         // project signatures enable deterministic cross-module arity/type checks.
@@ -961,7 +962,9 @@ function registerVbaDiagnostics(
 
         // Structural block-balance (precise per-line spans).
         for (const p of lintVbaSource(text)) {
-            if (suppressions.isSuppressed(p.code, p.line)) {
+            const start = (lineStarts[p.line] ?? 0) + p.startCol;
+            const end = (lineStarts[p.line] ?? 0) + p.endCol;
+            if (suppressions.isDiagnosticSuppressed(p.code, { start, end })) {
                 continue;
             }
             const diag = new vscode.Diagnostic(
@@ -1004,7 +1007,7 @@ function registerVbaDiagnostics(
             semantic = [];
         }
         for (const d of semantic) {
-            if (suppressions.isSuppressed(d.code, document.positionAt(d.span.start).line)) {
+            if (suppressions.isDiagnosticSuppressed(d.code, d.span)) {
                 continue;
             }
             const diag = new vscode.Diagnostic(

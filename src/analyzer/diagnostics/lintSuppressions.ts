@@ -1,5 +1,6 @@
 import { tokenize } from '../lexer/tokenize';
-import type { Span } from '../parser/nodes';
+import type { ModuleMember, Span } from '../parser/nodes';
+import { parseModule } from '../parser/parseModule';
 import type { VbaDiagnostic } from './analyzeModule';
 import { diagnosticMetadataForCode, DIAGNOSTIC_RULES } from './ruleMetadata';
 
@@ -8,6 +9,7 @@ export const LINT_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.lintSuppressionD
 export interface LintSuppressionAnalysis {
 	diagnostics: readonly VbaDiagnostic[];
 	isSuppressed(code: string | undefined, zeroBasedLine: number): boolean;
+	isDiagnosticSuppressed(code: string | undefined, span: Span): boolean;
 }
 
 export interface LintSuppressionFilterResult<T> {
@@ -23,12 +25,31 @@ interface MutableSuppressions {
 	file?: SuppressionTarget;
 	linesAll: Set<number>;
 	linesByCode: Map<number, Set<string>>;
+	members: SuppressionRange[];
+	blocks: SuppressionRange[];
 	diagnostics: VbaDiagnostic[];
 }
 
 interface ParsedDirective {
-	action: 'disable-file' | 'disable-line' | 'disable-next-line';
+	action:
+		| 'disable-file'
+		| 'disable-line'
+		| 'disable-next-line'
+		| 'disable-next-member'
+		| 'disable-block'
+		| 'enable-block';
 	target: SuppressionTarget | undefined;
+}
+
+interface SuppressionRange {
+	span: Span;
+	target: SuppressionTarget;
+}
+
+interface OpenBlockSuppression {
+	start: number;
+	target: SuppressionTarget;
+	directiveSpan: Span;
 }
 
 interface LineTokenSummary {
@@ -38,18 +59,23 @@ interface LineTokenSummary {
 }
 
 /**
- * Parses the first enabled XLIDE lint suppression slice:
+ * Parses XLIDE lint suppression directives:
  * apostrophe comments only, no doc comments, no Rem comments, and physical-line
- * scopes only. The resulting predicate is intentionally shared by live
- * diagnostics, workbook lint, and tests so suppression semantics cannot drift by
- * surface.
+ * line directives. Member and block directives are lexical source ranges. The
+ * resulting predicate is intentionally shared by live diagnostics, workbook
+ * lint, and tests so suppression semantics cannot drift by surface.
  */
 export function scanLintSuppressions(source: string): LintSuppressionAnalysis {
 	const tokens = tokenize(source);
+	const lineStarts = lineStartOffsets(source);
 	const firstSourceLine = firstNonCommentNonAttributeLine(tokens);
+	const members = suppressibleMembers(source);
+	const openBlocks: OpenBlockSuppression[] = [];
 	const state: MutableSuppressions = {
 		linesAll: new Set<number>(),
 		linesByCode: new Map<number, Set<string>>(),
+		members: [],
+		blocks: [],
 		diagnostics: [],
 	};
 
@@ -76,46 +102,120 @@ export function scanLintSuppressions(source: string): LintSuppressionAnalysis {
 			state.file = mergeTargets(state.file, parsed.directive.target);
 			continue;
 		}
+		if (parsed.directive.action === 'disable-next-member') {
+			const member = nextDirectSuppressibleMember(tokens, members, token.end);
+			if (!member) {
+				state.diagnostics.push(directiveDiagnostic(
+					'@xlide-lint-disable-next-member must appear directly before a Sub, Function, Property, Type, or Enum declaration.',
+					{ start: token.start, end: token.end },
+				));
+				continue;
+			}
+			state.members.push({ span: member.span, target: parsed.directive.target });
+			continue;
+		}
+		if (parsed.directive.action === 'disable-block') {
+			openBlocks.push({
+				start: token.end,
+				target: parsed.directive.target,
+				directiveSpan: { start: token.start, end: token.end },
+			});
+			continue;
+		}
+		if (parsed.directive.action === 'enable-block') {
+			const open = openBlocks[openBlocks.length - 1];
+			if (!open) {
+				state.diagnostics.push(directiveDiagnostic(
+					'@xlide-lint-enable-block has no matching @xlide-lint-disable-block.',
+					{ start: token.start, end: token.end },
+				));
+				continue;
+			}
+			if (!targetsEqual(open.target, parsed.directive.target)) {
+				state.diagnostics.push(directiveDiagnostic(
+					'@xlide-lint-enable-block code list must match the innermost open @xlide-lint-disable-block.',
+					{ start: token.start, end: token.end },
+				));
+				continue;
+			}
+			openBlocks.pop();
+			state.blocks.push({
+				span: { start: open.start, end: token.start },
+				target: open.target,
+			});
+			continue;
+		}
 		const targetLine = parsed.directive.action === 'disable-line'
 			? token.line
 			: token.line + 1;
 		addLineSuppression(state, targetLine, parsed.directive.target);
 	}
 
+	for (const open of openBlocks) {
+		state.diagnostics.push(directiveDiagnostic(
+			'@xlide-lint-disable-block is missing a matching @xlide-lint-enable-block.',
+			open.directiveSpan,
+		));
+	}
+
 	return {
 		diagnostics: state.diagnostics,
 		isSuppressed(code, zeroBasedLine) {
-			if (zeroBasedLine < 0 || code === LINT_SUPPRESSION_DIRECTIVE_CODE) {
+			const lineStart = lineStarts[zeroBasedLine];
+			if (lineStart === undefined) {
 				return false;
 			}
-			const normalized = normalizeCode(code);
-			if (targetSuppresses(state.file, normalized)) {
-				return true;
-			}
-			if (state.linesAll.has(zeroBasedLine)) {
-				return true;
-			}
-			const lineCodes = state.linesByCode.get(zeroBasedLine);
-			if (lineCodes && normalized && lineCodes.has(normalized)) {
-				return true;
-			}
-			return false;
+			return diagnosticSuppressedAt(state, code, zeroBasedLine, {
+				start: lineStart,
+				end: lineStart,
+			});
+		},
+		isDiagnosticSuppressed(code, span) {
+			const line = lineForOffset(lineStarts, span.start);
+			return diagnosticSuppressedAt(state, code, line, span);
 		},
 	};
+}
+
+function diagnosticSuppressedAt(
+	state: MutableSuppressions,
+	code: string | undefined,
+	zeroBasedLine: number,
+	span: Span,
+): boolean {
+	if (zeroBasedLine < 0 || code === LINT_SUPPRESSION_DIRECTIVE_CODE) {
+		return false;
+	}
+	const normalized = normalizeCode(code);
+	if (targetSuppresses(state.file, normalized)) {
+		return true;
+	}
+	if (state.linesAll.has(zeroBasedLine)) {
+		return true;
+	}
+	const lineCodes = state.linesByCode.get(zeroBasedLine);
+	if (lineCodes && normalized && lineCodes.has(normalized)) {
+		return true;
+	}
+	if (state.members.some((range) => rangeSuppresses(range, normalized, span))) {
+		return true;
+	}
+	if (state.blocks.some((range) => rangeSuppresses(range, normalized, span))) {
+		return true;
+	}
+	return false;
 }
 
 export function filterDiagnosticsWithSuppressions<T extends { code?: string; span: Span }>(
 	source: string,
 	diagnostics: readonly T[],
 ): LintSuppressionFilterResult<T> {
-	const starts = lineStartOffsets(source);
 	const analysis = scanLintSuppressions(source);
 	const filtered: T[] = [];
 	let suppressedCount = 0;
 
 	for (const diagnostic of diagnostics) {
-		const line = lineForOffset(starts, diagnostic.span.start);
-		if (analysis.isSuppressed(diagnostic.code, line)) {
+		if (analysis.isDiagnosticSuppressed(diagnostic.code, diagnostic.span)) {
 			suppressedCount++;
 			continue;
 		}
@@ -143,11 +243,11 @@ function parseDirectiveComment(
 		return undefined;
 	}
 
-	const match = /^@xlide-lint-(disable-file|disable-line|disable-next-line)\b(.*)$/i.exec(body);
+	const match = /^@xlide-lint-(disable-file|disable-line|disable-next-line|disable-next-member|disable-block|enable-block)\b(.*)$/i.exec(body);
 	if (!match) {
 		return {
 			diagnostics: [directiveDiagnostic(
-				'Unknown XLIDE lint suppression directive. Supported directives are disable-file, disable-line, and disable-next-line.',
+				'Unknown XLIDE lint suppression directive. Supported directives are disable-file, disable-line, disable-next-line, disable-next-member, disable-block, and enable-block.',
 				span,
 			)],
 		};
@@ -275,6 +375,27 @@ function targetSuppresses(target: SuppressionTarget | undefined, code: string | 
 	return !!code && target.has(code);
 }
 
+function rangeSuppresses(range: SuppressionRange, code: string | undefined, span: Span): boolean {
+	return span.start >= range.span.start &&
+		span.start < range.span.end &&
+		targetSuppresses(range.target, code);
+}
+
+function targetsEqual(left: SuppressionTarget, right: SuppressionTarget): boolean {
+	if (left === 'all' || right === 'all') {
+		return left === right;
+	}
+	if (left.size !== right.size) {
+		return false;
+	}
+	for (const code of left) {
+		if (!right.has(code)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 function normalizeCode(code: string | undefined): string | undefined {
 	return code?.trim().toLowerCase();
 }
@@ -317,6 +438,30 @@ function firstNonCommentNonAttributeLine(
 		.sort((a, b) => a.line - b.line)
 		.find((line) => line.hasSourceToken && !line.isAttributeLine)
 		?.line;
+}
+
+function suppressibleMembers(source: string): Array<Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>> {
+	return parseModule(source).members
+		.filter((member): member is Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }> =>
+			member.kind === 'Procedure' || member.kind === 'Type' || member.kind === 'Enum',
+		)
+		.sort((a, b) => a.span.start - b.span.start);
+}
+
+function nextDirectSuppressibleMember(
+	tokens: ReturnType<typeof tokenize>,
+	members: readonly Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>[],
+	afterOffset: number,
+): Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }> | undefined {
+	const nextToken = tokens.find((token) =>
+		token.start >= afterOffset &&
+		token.kind !== 'comment' &&
+		token.kind !== 'newline',
+	);
+	if (!nextToken) {
+		return undefined;
+	}
+	return members.find((member) => member.span.start === nextToken.start);
 }
 
 function tokenText(token: ReturnType<typeof tokenize>[number]): string {

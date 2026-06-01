@@ -846,12 +846,13 @@ Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
 Before diagnostics are displayed, `src/analyzer/diagnostics/lintSuppressions.ts`
 scans tokenized apostrophe comments for explicit `@xlide-lint` directives and
-applies the same lexical file/line/next-line filter to live diagnostics and
-`src/vbaWorkbookLint.ts`. Directive diagnostics, such as malformed code lists,
-unknown diagnostic codes, or late `disable-file`, are added back as
-`XLIDE/style` warnings and are not suppressed by suppression directives.
-Workbook lint includes the suppressed diagnostic count in its summary so hidden
-problems remain auditable.
+applies the same lexical file, member, line, next-line, and paired block filter
+to live diagnostics and `src/vbaWorkbookLint.ts`. Directive diagnostics, such as
+malformed code lists, unknown diagnostic codes, late `disable-file`, invalid
+`disable-next-member` placement, or stray/unbalanced/mismatched block pairs, are
+added back as `XLIDE/style` warnings and are not suppressed by suppression
+directives. Workbook lint includes the suppressed diagnostic count in its
+summary so hidden problems remain auditable.
 
 **Project-wide symbol graph** — `src/analyzer/symbols/` projects the parser AST
 into a host-agnostic symbol model so XLIDE can offer document symbols, workspace

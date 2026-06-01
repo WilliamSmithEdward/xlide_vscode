@@ -261,7 +261,11 @@ export async function lintWorkbook(
         // Structural block-balance pass (already line/column based, 0-based).
         try {
             for (const p of lintVbaSource(mod.source)) {
-                if (suppressions.isSuppressed(p.code, p.line)) {
+                const span = {
+                    start: (starts[p.line] ?? 0) + p.startCol,
+                    end: (starts[p.line] ?? 0) + p.endCol,
+                };
+                if (suppressions.isDiagnosticSuppressed(p.code, span)) {
                     moduleSuppressedCount++;
                     continue;
                 }
@@ -319,7 +323,7 @@ export async function lintWorkbook(
         }
         for (const d of semantic) {
             const start = offsetToLineColumn(starts, d.span.start);
-            if (suppressions.isSuppressed(d.code, start.line - 1)) {
+            if (suppressions.isDiagnosticSuppressed(d.code, d.span)) {
                 moduleSuppressedCount++;
                 continue;
             }

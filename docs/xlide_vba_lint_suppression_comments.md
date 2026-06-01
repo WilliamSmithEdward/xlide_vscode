@@ -1,9 +1,9 @@
 # XLIDE VBA Lint Suppression Comments
 
-Status: partially implemented. The first enabled slice supports apostrophe-only
-`disable-file`, `disable-line`, and `disable-next-line` directives with optional
-diagnostic-code lists, directive diagnostics for malformed first-slice cases,
-and suppressed-count reporting. Member and arbitrary block scopes remain planned.
+Status: implemented. XLIDE supports apostrophe-only `disable-file`,
+`disable-next-member`, `disable-line`, `disable-next-line`, `disable-block`, and
+`enable-block` directives with optional diagnostic-code lists, directive
+diagnostics for malformed cases, and suppressed-count reporting.
 
 Purpose: define a deterministic, VBA-compatible comment syntax for suppressing
 XLIDE lint diagnostics. These comments are ordinary VBA comments, so they do not
@@ -142,9 +142,12 @@ Rules:
 - Block suppression starts after the `disable-block` directive line.
 - Block suppression ends before the matching `enable-block` directive line.
 - Block directives are lexical by source position, not by VBA control flow.
-- Unbalanced block directives should produce a directive diagnostic.
-- Nested blocks should be supported only after explicit tests define the stack
-  behavior.
+- `enable-block` closes the innermost open `disable-block`.
+- Nested blocks use explicit stack behavior.
+- The `enable-block` code list must match the innermost open `disable-block`
+  code list.
+- Unbalanced, stray, or mismatched block directives produce directive
+  diagnostics and do not guess a suppression range.
 
 ## Examples
 
@@ -193,18 +196,18 @@ Return
 ## Implementation Checklist
 
 1. [x] Add a pure directive scanner that consumes tokenized comments.
-2. [ ] Normalize directive spans into file, member, line, and block scopes.
+2. [x] Normalize directive spans into file, member, line, and block scopes.
    - [x] File, same-line, and next-line scopes.
-   - [ ] Member and arbitrary block scopes.
+   - [x] Member and arbitrary block scopes.
 3. [x] Filter diagnostics after diagnostics are produced, preserving suppressed
    counts for audit/reporting.
-4. [ ] Add directive diagnostics for malformed scopes, unknown codes, late
+4. [x] Add directive diagnostics for malformed scopes, unknown codes, late
    `disable-file`, and unbalanced blocks.
    - [x] Malformed first-slice directives, unknown codes, and late
      `disable-file`.
-   - [ ] Unbalanced block pairs.
-5. [ ] Add fixture tests for every scope and edge case before enabling the
+   - [x] Unbalanced, stray, and mismatched block pairs.
+5. [x] Add fixture tests for every scope and edge case before enabling the
    feature.
    - [x] First-slice file, line, next-line, code-list, ignored-comment,
      structural, malformed, and unknown-code cases.
-   - [ ] Remaining member/block/nesting cases.
+   - [x] Remaining member/block/nesting cases.

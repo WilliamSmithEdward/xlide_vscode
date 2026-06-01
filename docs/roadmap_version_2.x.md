@@ -754,20 +754,20 @@ XLIDE lint diagnostics without changing VBA execution behavior.
   `docs/xlide_vba_lint_suppression_comments.md`.
 - [x] Parse suppression directives only from explicit XLIDE comment directives.
 - [x] Support module-level suppression.
-- [ ] Support next-member suppression for `Sub`, `Function`, `Property`,
+- [x] Support next-member suppression for `Sub`, `Function`, `Property`,
   `Type`, and `Enum` blocks.
 - [x] Support line-level and next-line suppression.
-- [ ] Support paired arbitrary block suppression.
+- [x] Support paired arbitrary block suppression.
 - [x] Support optional diagnostic-code lists so developers can suppress one rule
   without hiding unrelated diagnostics.
 - [x] Add directive diagnostics for malformed first-slice directives, late
   `disable-file`, and unknown-code directives without guessing the user's
   intent.
-- [ ] Add directive diagnostics for unbalanced block directives.
+- [x] Add directive diagnostics for unbalanced block directives.
 - [x] Preserve a suppressed-diagnostic count so ignored problems can be audited.
 - [x] Add unit tests for file, line, next-line, code-list, ignored-comment,
   structural, malformed, and unknown-code first-slice cases.
-- [ ] Add unit tests for remaining next-member/block directive scopes, nesting
+- [x] Add unit tests for remaining next-member/block directive scopes, nesting
   edges, and unbalanced directive cases.
 
 Definition of done:
@@ -1045,10 +1045,9 @@ Definition of done:
    type names; keep broad unknown external reference names deferred.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
-4. Continue the remaining lint-suppression directive scopes (`disable-next-member`
-   and block pairs) after the first file/line/next-line slice, and keep the VBA
-   test runner as a planned workstream until its specs and fixture coverage are
-   ready.
+4. Keep the VBA test runner as a planned workstream until its specs and fixture
+   coverage are ready, and continue promoting small `CANARY_*` cases only when
+   they become relevant to analyzer behavior.
 5. Treat the XLIDE sidebar as the future product shell for lint, test, setup,
    sync, and workbook actions.
 6. Track safety, settings, code actions, performance, release polish, and
