@@ -80,6 +80,16 @@
         "category": "XLIDE"
       },
       {
+        "command": "xlide.vba.smartBackspace",
+        "title": "VBA Smart Backspace",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.vba.smartTab",
+        "title": "VBA Smart Tab",
+        "category": "XLIDE"
+      },
+      {
         "command": "xlide.dev.smoke",
         "title": "Run Smoke Test",
         "category": "XLIDE"
@@ -291,6 +301,16 @@
         "command": "xlide.runMacroAtCursor",
         "key": "F5",
         "when": "editorLangId == vba"
+      },
+      {
+        "command": "xlide.vba.smartBackspace",
+        "key": "backspace",
+        "when": "editorTextFocus && editorLangId == vba && !suggestWidgetVisible && !inSnippetMode"
+      },
+      {
+        "command": "xlide.vba.smartTab",
+        "key": "tab",
+        "when": "editorTextFocus && editorLangId == vba && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus"
       }
     ],
     "languages": [

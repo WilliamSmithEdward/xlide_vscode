@@ -39,7 +39,6 @@ export function registerCommands(
 ): vscode.Disposable[] {
     function log(msg: string): void {
         out.appendLine(msg);
-        out.show(true);
     }
 
     // Builds a clickable Output-channel link to a module location. The link uses
@@ -60,7 +59,7 @@ export function registerCommands(
 
     // Prints a formatted, scannable lint report with clickable per-problem
     // links. Leaves generous blank space above the report so it is easy to find
-    // when the user is popped to the Output view.
+    // when the user opens the Output view.
     function printLintReport(
         filePath: string,
         moduleCount: number,
@@ -1040,7 +1039,6 @@ export function registerCommands(
                         for (const issue of issues) {
                             log(`[validate]   - ${issue}`);
                         }
-                        out.show(true);
                         void vscode.window.showWarningMessage(
                             `XLIDE: "${name}" has ${issues.length} validation issue(s). See XLIDE Output for details.`,
                         );
@@ -1073,7 +1071,6 @@ export function registerCommands(
                             result.errorCount,
                             result.warningCount,
                         );
-                        out.show(true);
                         if (result.problems.length === 0) {
                             void vscode.window.showInformationMessage(
                                 `XLIDE: "${name}" passed lint (no problems across ${result.moduleCount} module(s)).`,

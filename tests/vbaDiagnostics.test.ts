@@ -668,6 +668,51 @@ describe('analyzeModule - invalid procedure header', () => {
 	});
 });
 
+describe('analyzeModule - reserved declaration names', () => {
+	it('flags reserved keywords used as procedure and variable names', () => {
+		const src =
+			'Function Dim() As String\n' +
+			'    Dim In As String\n' +
+			'    Dim = "ok"\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'invalid-declaration-name');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Dim', 'In']);
+		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
+	});
+
+	it('flags reserved keywords used as type, enum, field, member, and parameter names', () => {
+		const src =
+			'Public Type Type\n' +
+			'    For As String\n' +
+			'End Type\n' +
+			'Public Enum Enum\n' +
+			'    In\n' +
+			'End Enum\n' +
+			'Public Sub T(ByVal New As String)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-declaration-name');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'Type',
+			'For',
+			'Enum',
+			'In',
+			'New',
+		]);
+	});
+
+	it('allows bracketed reserved words as foreign names', () => {
+		const src =
+			'Function [Dim]() As String\n' +
+			'    Dim [In] As String\n' +
+			'    [Dim] = [In]\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - unbalanced parentheses', () => {
 	it('flags a missing closing parenthesis', () => {
 		const src = 'Sub T()\n    x = (1 + 2\nEnd Sub\n';
@@ -2199,6 +2244,47 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(
 			byCode(analyzeModule(src, { hostModel: model }), 'member-not-found'),
 		).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - missing Function return assignment', () => {
+	it('warns when a Function never assigns its return variable', () => {
+		const src =
+			'Public Function myFunction() As String\n' +
+			'\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'missing-return-assignment');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('warning');
+		expect(spanText(src, hits[0])).toBe('myFunction');
+		expect(hits[0].message).toContain('default value As String');
+	});
+
+	it('accepts scalar and object Function return assignments', () => {
+		const src =
+			'Public Function Label() As String\n' +
+			'    Label = "ready"\n' +
+			'End Function\n' +
+			'\n' +
+			'Public Function MakePerson() As Person\n' +
+			'    Set MakePerson = New Person\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
+	});
+
+	it('checks Property Get procedures and ignores Subs', () => {
+		const src =
+			'Public Property Get Name() As String\n' +
+			'End Property\n' +
+			'\n' +
+			'Public Sub Refresh()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'missing-return-assignment');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Name');
 	});
 });
 

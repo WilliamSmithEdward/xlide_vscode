@@ -122,6 +122,31 @@ describe('identifier completion - in-scope declarations', () => {
 		expect(item?.documentation).toContain('**Returns:** The subtotal plus calculated tax.');
 	});
 
+	it('treats the enclosing Function name as its return variable', () => {
+		const src =
+			'Function myFunction() As String\n' +
+			'    my\n' +
+			'End Function\n';
+		const got = resolveIdentifierCompletions(src, at(src, '    my'));
+		const item = got.find((c) => c.name === 'myFunction');
+
+		expect(item?.kind).toBe('variable');
+		expect(item?.detail).toBe('Function return As String');
+	});
+
+	it('still treats other Function names as callable procedures', () => {
+		const src =
+			'Function Helper() As String\n' +
+			'End Function\n' +
+			'Function myFunction() As String\n' +
+			'    Hel\n' +
+			'End Function\n';
+		const got = resolveIdentifierCompletions(src, at(src, '    Hel'));
+		const item = got.find((c) => c.name === 'Helper');
+
+		expect(item?.kind).toBe('procedure');
+	});
+
 	it('offers enum members by bare name', () => {
 		const src =
 			'Public Enum Color\n    Red\n    Green\nEnd Enum\n' +

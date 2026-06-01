@@ -215,6 +215,7 @@ function addInScopeSymbols(
 		for (const child of enclosing.children ?? []) {
 			addSymbol(child, add);
 		}
+		addReturnVariableSymbol(enclosing, add);
 	}
 
 	for (const child of mod.root.children ?? []) {
@@ -226,6 +227,17 @@ function addInScopeSymbols(
 			}
 		}
 	}
+}
+
+function addReturnVariableSymbol(symbol: VbaSymbol, add: AddFn): void {
+	if (symbol.kind !== 'function' && symbol.kind !== 'propertyGet') {
+		return;
+	}
+	const documentation = hasDocContent(symbol.doc)
+		? renderDocMarkdown(symbol.doc)
+		: undefined;
+	const base = symbol.kind === 'propertyGet' ? 'Property Get return' : 'Function return';
+	add(symbol.name, 'variable', detailWithType(base, symbol.asType), documentation);
 }
 
 function addSymbol(symbol: VbaSymbol, add: AddFn): void {

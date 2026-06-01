@@ -136,12 +136,21 @@ heuristic diagnostics.
   target slice under `Option Explicit`, including
   `notDeclared = ThisWorkbook.CanCheckIn()`, while missing `Option Explicit`
   continues to allow implicit Variant assignment.
+- `missing-return-assignment` warns when a `Function` or `Property Get` never
+  assigns its return variable. This is intentionally a type-safety warning:
+  VBA falls through to the default value rather than raising a VBE compile error.
+- `invalid-declaration-name` flags unbracketed reserved VBA identifiers such as
+  `Dim` or `In` when they are used as procedure, variable, parameter, `Type`,
+  `Enum`, field, or enum-member declaration names.
 - Runtime metadata is curated explicitly; parameter types are not inferred from
   parameter names.
 - Inline documentation comments support descriptive metadata plus optional
   `type`, `unit`, and `value` hints; object-module/class docs use a single
   documented module-header convention: a `'''` block directly above the first
-  `Option` directive.
+  `Option` directive. Pressing Enter on a `'''` line continues the documentation
+  comment marker, and Backspace clears empty auto-continued `''' ` or `' `
+  markers in one keypress. Tab on those empty auto-continued comment markers
+  escapes the marker and indents normally.
 - Excel/VBE oracle harness exists under `syntax_corpus/oracle/`.
 - The wider unverified type-analysis backlog is tracked in
   `docs/type_analysis_corpus_coverage.md`.
@@ -252,6 +261,8 @@ Purpose: finish the conservative first slice before broadening inference.
   `docs/vba_runtime_type_mismatch_oracle_matrix.md`.
 - [x] Add compile-equivalent diagnostics for runtime functions used as `As` type
   names and `Set` assignments to known intrinsic scalar variables.
+- [x] Add compile-equivalent diagnostics for unbracketed reserved identifiers in
+  declaration-name positions, while accepting bracketed foreign names.
 - [x] Add scalar member-access diagnostics for declared intrinsic scalar
   receivers (`String`, numeric, `Boolean`, `Date`) after focused oracle
   verification: named scalar members are VBE Compile `Invalid qualifier`

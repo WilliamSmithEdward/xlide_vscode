@@ -23,6 +23,7 @@
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { isReservedIdentifier } from '../lexer/keywordTable';
 import { getHostMembers, resolveHostAlias, resolveHostGlobal } from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import { resolveRuntimeFunction, type VbaRuntimeFunction } from '../runtime/vbaRuntime';
@@ -200,6 +201,7 @@ function runRules(
 	checkUndeclaredVariables(source, mod, symbols, opts.knownIdentifiers, push);
 	checkOptionPlacement(mod, push);
 	checkProcedureHeader(source, mod, push);
+	checkReservedDeclarationNames(source, mod, push);
 	checkParameterOrder(mod, push);
 	checkUnbalancedParens(source, push);
 	checkDimInitializer(source, mod, push);
@@ -231,6 +233,7 @@ function runRules(
 		push,
 	);
 	checkAssignmentTypes(source, mod, symbols, memberCtx, push);
+	checkMissingReturnAssignments(source, mod, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(source, mod, symbols, opts.knownProcedures, push);
 	}
@@ -992,6 +995,146 @@ function stripHeaderBrackets(text: string): string {
 		: text;
 }
 
+function checkReservedDeclarationNames(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	const report = (kind: string, hit: NameTokenHit | undefined): void => {
+		if (!hit || hit.bracketed || !isReservedIdentifier(hit.name)) {
+			return;
+		}
+		push(
+			'invalidDeclarationName',
+			`Reserved VBA keyword '${hit.name}' cannot be used as a ${kind} name.`,
+			hit.span,
+		);
+	};
+
+	const inspectVariableGroup = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			report('variable', declarationNameHit(source, decl.span, decl.name));
+		}
+	};
+
+	for (const member of mod.members) {
+		if (member.kind === 'VariableGroup') {
+			inspectVariableGroup(member);
+			continue;
+		}
+		if (member.kind === 'Type') {
+			report('user-defined type', typeOrEnumNameHit(source, member.span, 'type'));
+			for (const field of member.fields) {
+				report('type field', declarationNameHit(source, field.span, field.name));
+			}
+			continue;
+		}
+		if (member.kind === 'Enum') {
+			report('enum', typeOrEnumNameHit(source, member.span, 'enum'));
+			for (const enumMember of member.members) {
+				report('enum member', declarationNameHit(source, enumMember.span, enumMember.name));
+			}
+			continue;
+		}
+		if (member.kind === 'Declare') {
+			report('Declare procedure', declareNameHit(source, member.span));
+			continue;
+		}
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		report('procedure', procedureNameHit(source, member));
+		for (const param of member.params) {
+			report('parameter', declarationNameHit(source, param.span, param.name));
+		}
+		forEachVariableGroup(member.body, inspectVariableGroup);
+	}
+}
+
+interface NameTokenHit {
+	name: string;
+	span: Span;
+	bracketed: boolean;
+}
+
+function declarationNameHit(
+	source: string,
+	span: Span,
+	name: string,
+): NameTokenHit | undefined {
+	const lower = name.toLowerCase();
+	for (const tok of statementTokens(source, span)) {
+		const found = tokenName(tok);
+		if (found?.toLowerCase() === lower) {
+			return nameTokenHit(span, tok, found);
+		}
+	}
+	return undefined;
+}
+
+function procedureNameHit(source: string, proc: ProcedureNode): NameTokenHit | undefined {
+	const header = firstLineSpan(source, proc.span);
+	const toks = statementTokens(source, header);
+	let i = 0;
+	while (i < toks.length && PROC_MODIFIERS.has(tokenText(toks[i]))) {
+		i++;
+	}
+	const head = tokenText(toks[i]);
+	if (head === 'property') {
+		i += 2;
+	} else if (head === 'sub' || head === 'function') {
+		i++;
+	}
+	const tok = toks[i];
+	const name = tok ? tokenName(tok) : undefined;
+	return tok && name ? nameTokenHit(header, tok, name) : undefined;
+}
+
+function typeOrEnumNameHit(
+	source: string,
+	span: Span,
+	keyword: 'type' | 'enum',
+): NameTokenHit | undefined {
+	const header = firstLineSpan(source, span);
+	const toks = statementTokens(source, header);
+	let i = 0;
+	if (tokenText(toks[i]) === 'public' || tokenText(toks[i]) === 'private') {
+		i++;
+	}
+	if (tokenText(toks[i]) === keyword) {
+		i++;
+	}
+	const tok = toks[i];
+	const name = tok ? tokenName(tok) : undefined;
+	return tok && name ? nameTokenHit(header, tok, name) : undefined;
+}
+
+function declareNameHit(source: string, span: Span): NameTokenHit | undefined {
+	const toks = statementTokens(source, span);
+	const kindIndex = toks.findIndex(
+		(tok) => tokenText(tok) === 'sub' || tokenText(tok) === 'function',
+	);
+	const tok = kindIndex >= 0 ? toks[kindIndex + 1] : undefined;
+	const name = tok ? tokenName(tok) : undefined;
+	return tok && name ? nameTokenHit(span, tok, name) : undefined;
+}
+
+function firstLineSpan(source: string, span: Span): Span {
+	const nl = source.indexOf('\n', span.start);
+	return {
+		start: span.start,
+		end: nl === -1 ? span.end : Math.min(nl, span.end),
+	};
+}
+
+function nameTokenHit(base: Span, tok: VbaToken, name: string): NameTokenHit {
+	return {
+		name,
+		span: absoluteSpan(base, tok),
+		bracketed: tok.kind === 'bracketedIdentifier',
+	};
+}
+
 /**
  * Rule: every parenthesis must be matched within its logical statement. VBA has
  * no cross-statement parentheses (a `(` is closed before the line ends unless a
@@ -1641,6 +1784,57 @@ function checkAssignmentTypes(
 			push,
 		);
 	}
+}
+
+/**
+ * Rule: a Function/Property Get returns through its hidden return variable.
+ * Falling through without assigning that variable is legal VBA, but it silently
+ * returns the default value for the declared type, so XLIDE surfaces it as a
+ * type-safety warning rather than a VBE compile-error equivalent.
+ */
+function checkMissingReturnAssignments(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	for (const member of mod.members) {
+		if (
+			member.kind !== 'Procedure' ||
+			(member.procKind !== 'Function' && member.procKind !== 'PropertyGet')
+		) {
+			continue;
+		}
+		if (procedureHasReturnAssignment(source, member)) {
+			continue;
+		}
+		const procLabel = member.procKind === 'PropertyGet' ? 'Property Get' : 'Function';
+		const typeLabel = member.returnType ? ` As ${member.returnType}` : '';
+		push(
+			'missingReturnAssignment',
+			`${procLabel} '${member.name}' has no return assignment; VBA will return the default value${typeLabel}. Assign to '${member.name}' before exit if a value is intended.`,
+			declaredNameSpan(source, member.span, member.name),
+		);
+	}
+}
+
+function procedureHasReturnAssignment(source: string, proc: ProcedureNode): boolean {
+	const lower = proc.name.toLowerCase();
+	let found = false;
+	forEachStatement(proc.body, (stmt) => {
+		if (found) {
+			return;
+		}
+		const bare = bareAssignmentTarget(source, stmt.span);
+		if (bare?.name.toLowerCase() === lower) {
+			found = true;
+			return;
+		}
+		const set = setAssignmentTarget(source, stmt.span);
+		if (set?.name.toLowerCase() === lower) {
+			found = true;
+		}
+	});
+	return found;
 }
 
 function checkMemberAssignmentTypes(

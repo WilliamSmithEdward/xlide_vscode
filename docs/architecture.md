@@ -346,7 +346,7 @@ current module's visibility-filtered procedure and bare identifier names, then r
 message}` problems, sorted by module/line/column. The
 `xlide.lintWorkbook` command (`src/commands.ts`, right-click "Lint All Modules in
 Workbook" on a workbook tree node) prints a formatted, blank-line-padded report
-to the XLIDE Output channel, switches focus to Output, and shows a summary
+to the XLIDE Output channel without switching focus, and shows a summary
 notification. Each problem carries a clickable location link built from
 `encodeModuleUri(...).with({fragment: 'L<line>,<col>'})` and normalized to the
 detectable `xlide-vba://...#L<line>,<col>` triple-slash (empty-authority) form so
@@ -554,7 +554,10 @@ module/type docs into type-name completion and hover, while the project
 class-member surface carries member docs into `object.` completion, member hover,
 and source-backed member-call signature help. Generated host reference metadata
 also carries `VbaDoc` summaries and parameter notes into completion, hover, and
-host member-call signature help. Hover (`resolveHover`) and signature help
+host member-call signature help. The VBA language configuration continues
+`'''` lines when the user presses Enter inside a documentation block, and the
+VBA-scoped smart Backspace/Tab commands clear an empty auto-continued `''' ` or
+`' ` marker before deleting or indenting. Hover (`resolveHover`) and signature help
 (`resolveSignatureHelp`) now carry a `documentation?` field (and per-parameter
 docs for call tips), with the precedence **source inline comment > developer
 external metadata > built-in host/reference metadata**. The vscode side
@@ -703,6 +706,9 @@ Diagnostic severity policy:
   module. It uses the same module-scoped event metadata as completion, and it is
   deliberately non-red because Excel treats those declarations as ordinary
   procedures rather than wired event handlers.
+  `invalid-declaration-name` flags unbracketed MS-VBAL reserved identifiers in
+  declaration-name positions while accepting bracketed `FOREIGN-NAME` forms such
+  as `[In]`.
   `invalid-as-type-name` is
   currently limited to reserved runtime functions such as `Int` used as `As`
   type names; broad unknown type names wait for the project-wide binder and

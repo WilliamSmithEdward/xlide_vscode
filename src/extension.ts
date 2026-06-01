@@ -10,6 +10,7 @@ import { registerVbaLanguageProviders } from './vbaLanguageProviders';
 import { LiveShareIntegration } from './liveShare';
 import { XlideStatusBar } from './statusBar';
 import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
+import { registerVbaSmartBackspace } from './vbaSmartBackspace';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -91,6 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // VBA language services: syntax-aware symbol index + providers.
     const vbaIndex = registerVbaLanguageProviders(context, bridge);
+    registerVbaSmartBackspace(context);
 
     context.subscriptions.push(
         out,

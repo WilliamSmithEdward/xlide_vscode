@@ -95,6 +95,17 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "invalid-declaration-name",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 3.3.5.2 reserved identifiers are not IDENTIFIER tokens",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags unbracketed reserved identifiers in declaration-name positions. Bracketed FOREIGN-NAME forms remain accepted.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "unbalanced-parens",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 3.3.1",
@@ -175,6 +186,17 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean/property/public-field controls run successfully. Function and Property Get return-name assignments use the same deterministic scalar path.",
       "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "missing-return-assignment",
+      "status": "spec-derived",
+      "sourceOfTruth": "VBA Function/Property Get return-variable semantics plus XLIDE type-safety policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "VBA permits a Function or Property Get to fall through without assigning its return variable, which returns the default value for the declared type. XLIDE surfaces this as a warning, not a compile-equivalent error.",
+      "diagnosticKind": "runtime-risk"
     },
     {
       "code": "assignment-object-type-mismatch",
