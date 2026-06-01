@@ -225,6 +225,7 @@ function diagnosticMemberCompletionContext(
 ): MemberCompletionContext {
 	const ctx: MemberCompletionContext = {
 		projectClassMembers: opts.projectClassMembers,
+		allowSetAssignmentRefinement: false,
 		model: opts.hostModel,
 	};
 	const meProjectType = meProjectTypeFor(opts.moduleName, opts.moduleKind);

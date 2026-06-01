@@ -353,10 +353,12 @@ Purpose: validate Excel/VBA object use where receiver type is known.
 - [x] Reuse the shared member-completion binder for parenthesized object member
   arity/type diagnostics when a source-backed or host/reference signature is
   known.
-- [ ] Oracle-verify late-bound member access for `Object` and `Variant`
-  receivers. Hard `member-not-found` diagnostics must stay suppressed when VBA
-  resolves the member only at runtime; decide separately whether an optional
-  yellow `XLIDE(late-bound-invocation)` guidance rule belongs behind a setting.
+- [x] Oracle-verify late-bound member access for `Object` and `Variant`
+  receivers. VBE compile accepts unknown members on those receivers even after a
+  simple `Set` assignment to a known host object, so hard member diagnostics opt
+  out of completion-only `Set` refinement; a yellow
+  `XLIDE(late-bound-invocation)` guidance rule remains separate settings-gated
+  future work.
 - [x] Oracle-verify public class module variables as object members:
   `Public Age As Integer` is indexed as a valid writable member, assignment/type
   diagnostics consume that writable field fact, and VBE oracle controls confirm

@@ -408,7 +408,9 @@ into a pure analyzer layer and a thin VS Code provider:
   the resolver can refine completion from the latest preceding simple `Set`
   assignment to a known object expression, so `Set obj = Worksheets(1)` narrows
   `obj.` to worksheet members while `Set obj = Sheets(1)` keeps the merged
-  worksheet/chart surface. It also accepts a source-backed
+  worksheet/chart surface. Diagnostic callers can opt out of this refinement so
+  late-bound `Object`/`Variant` receivers are not treated as hard absence proof;
+  editor completion leaves it enabled. It also accepts a source-backed
   workbook class-member surface from `ProjectIndex.projectClassMembers()`, so
   variables declared as workbook classes (for example `Dim p As Person`) can
   offer public/default-public source members and public fields at `p.` without
@@ -626,7 +628,11 @@ Diagnostic severity policy:
   oracle evidence rejects unknown
   class property assignment and unknown class method calls with
   `Method or data member not found`, while known property and public-field
-  controls compile.
+  controls compile. The diagnostic context disables completion-only
+  `Set`-assignment refinement, so declared `Object`/`Variant` receivers remain
+  late-bound even after assignments such as `Set obj = ActiveSheet`; VBE oracle
+  compile controls accept unknown members there, and hard unknown-member,
+  member-call, and member-assignment diagnostics stay silent.
   `unexpected-declaration-token` is
   a compile-equivalent
   declaration diagnostic for extra same-statement tokens after a complete

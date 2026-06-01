@@ -51,6 +51,12 @@ export interface MemberCompletionContext {
 	meProjectType?: string;
 	/** Source-declared workbook class/UserForm/document members, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
+	/**
+	 * True/default lets generic Object/Variant receivers narrow from preceding
+	 * simple Set assignments. Hard diagnostics disable this because VBA still
+	 * compile-binds those receivers late.
+	 */
+	allowSetAssignmentRefinement?: boolean;
 	/** Host object model to resolve against. Defaults to the Excel model. */
 	model?: HostObjectModel;
 }
@@ -436,7 +442,9 @@ function resolveRoot(
 			return undefined;
 		}
 	}
-	return findSetAssignedObjectType(source, offset, root, ctx);
+	return ctx.allowSetAssignmentRefinement === false
+		? undefined
+		: findSetAssignedObjectType(source, offset, root, ctx);
 }
 
 function memberSurfaceForType(

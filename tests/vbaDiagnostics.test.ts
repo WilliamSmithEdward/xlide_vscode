@@ -1719,6 +1719,43 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
 	});
 
+	it('does not prove missing members from late-bound Object or Variant receivers', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Dim flexible As Variant\n' +
+			'    obj.asdf\n' +
+			'    flexible.asdf\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'member-not-found')).toHaveLength(0);
+	});
+
+	it('does not use Set-assignment refinement for hard late-bound member diagnostics', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Dim flexible As Variant\n' +
+			'    Set obj = ActiveSheet\n' +
+			'    Set flexible = Workbooks(1).Worksheets(1)\n' +
+			'    obj.asdf\n' +
+			'    flexible.asdf\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'member-not-found')).toHaveLength(0);
+	});
+
+	it('does not use Set-assignment refinement for hard late-bound member-call diagnostics', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Dim flexible As Variant\n' +
+			'    Set obj = ActiveSheet\n' +
+			'    Set flexible = Workbooks(1).Worksheets(1)\n' +
+			'    obj.Range()\n' +
+			'    flexible.Range()\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
 	it('uses an exhaustive host object model to prove a missing member', () => {
 		const model: HostObjectModel = {
 			source: 'test fixture',

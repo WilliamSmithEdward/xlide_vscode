@@ -181,11 +181,13 @@
         "class_unknown_property_assignment_compile",
         "class_unknown_method_call_compile",
         "class_known_property_assignment_compile",
-        "class_public_field_assignment_compile"
+        "class_public_field_assignment_compile",
+        "late_bound_object_unknown_member_compile",
+        "late_bound_variant_unknown_member_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Host/object-model and ambiguous receiver cases remain silent.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
       "diagnosticKind": "compile-error"
     },
     {

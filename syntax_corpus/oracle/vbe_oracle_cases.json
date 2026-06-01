@@ -752,6 +752,26 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "late_bound_object_unknown_member_compile",
+      "description": "Compile control: an Object variable uses an unknown member after a Set assignment to a known host object; VBE leaves it late-bound.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim obj As Object\n    Set obj = ActiveSheet\n    obj.DoesNotExist\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "late_bound_variant_unknown_member_compile",
+      "description": "Compile control: a Variant variable uses an unknown member after a Set assignment to a known host object; VBE leaves it late-bound.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Variant\n    Set value = ActiveSheet\n    value.DoesNotExist\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "compile_then_run_valid_control",
       "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
       "provenance": "vbe-oracle-verified",
