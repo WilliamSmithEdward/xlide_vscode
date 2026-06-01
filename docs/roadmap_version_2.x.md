@@ -614,6 +614,12 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 
 - [ ] Suppress hard errors for incomplete expressions where VBE behavior is not
   yet deterministically knowable.
+- [ ] Add a live-syntax state for incomplete member access, including trailing
+  receiver dots such as `ThisWorkbook.` and bare leading dots inside active
+  `With` blocks. While the cursor is in the incomplete edit, keep completion
+  active and suppress the hard syntax diagnostic; once the edit settles,
+  focus leaves the line, or workbook validation runs, promote the completed
+  invalid form through an oracle-backed diagnostic.
 - [ ] Make diagnostic ranges precise and stable.
 - [x] Emit semantic tokens and hover for resolved type names in declaration type
   positions (`As Person`, `As Worksheet`, `As Currency`, function returns,

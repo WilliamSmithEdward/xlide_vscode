@@ -989,6 +989,11 @@ End Sub
 
 Expected while typing: `incomplete`, with member-completion context from the With target.
 
+Promotion note: before adding a red final-code diagnostic, add a focused VBE
+oracle case for this exact completed form. If VBE rejects it, live syntax should
+only suppress the error while the cursor is in the incomplete member-access edit
+state; save/background validation should report it as syntax/compile invalid.
+
 ---
 
 # K. Conditional compilation and inactive branches
