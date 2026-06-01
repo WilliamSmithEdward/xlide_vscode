@@ -39,6 +39,40 @@ describe('hover - user symbols', () => {
 		expect(info?.details).toContain('Visibility: Private');
 	});
 
+	it('describes exported project procedures from other standard modules', () => {
+		const src = 'Sub Caller()\n    total = InvoiceTotal(100)\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('InvoiceTotal') + 2, {
+			moduleName: 'Caller',
+			projectProcedures: [
+				{
+					name: 'InvoiceTotal',
+					moduleName: 'Helpers',
+					kind: 'function',
+					params: [
+						{
+							name: 'Subtotal',
+							type: 'Currency',
+							optional: false,
+							paramArray: false,
+							isArray: false,
+						},
+					],
+					returnType: 'Currency',
+					visibility: 'Public',
+					doc: {
+						summary: 'Calculates the invoice total.',
+						params: [],
+						source: 'inline',
+					},
+				},
+			],
+		});
+		expect(info?.signature).toBe('Function InvoiceTotal(Subtotal As Currency) As Currency');
+		expect(info?.details).toContain('Declared in Module: Helpers');
+		expect(info?.details).toContain('Visibility: Public');
+		expect(info?.documentation).toContain('Calculates the invoice total.');
+	});
+
 	it('describes a local variable from a usage inside the procedure', () => {
 		const src =
 			'Sub Test()\n' +

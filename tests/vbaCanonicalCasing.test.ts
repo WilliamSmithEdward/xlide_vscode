@@ -22,6 +22,22 @@ describe('canonical casing edits', () => {
 		expect(edit?.text).toBe('Left');
 	});
 
+	it('canonicalizes exported project procedures', () => {
+		const edit = editAtMarker('Sub T()\n    mysub|\nEnd Sub\n', {
+			identifier: {
+				projectProcedures: [
+					{
+						name: 'mySub',
+						moduleName: 'Helpers',
+						kind: 'sub',
+						params: [],
+					},
+				],
+			},
+		});
+		expect(edit?.text).toBe('mySub');
+	});
+
 	it('canonicalizes type names in declaration and New expression positions', () => {
 		const ctx: CanonicalCaseContext = {
 			type: {

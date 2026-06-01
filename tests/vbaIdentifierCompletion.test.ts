@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	callableCompletionShouldInsertParens,
 	getHostGlobals,
 	resolveIdentifierCompletions,
 	IdentifierCompletionContext,
@@ -107,6 +108,43 @@ describe('identifier completion - in-scope declarations', () => {
 		expect(got).toContain('Helper');
 	});
 
+	it('offers exported procedures from other standard modules', () => {
+		const src = 'Sub Test()\n    my\nEnd Sub\n';
+		const got = resolveIdentifierCompletions(src, at(src, '    my'), {
+			moduleName: 'Module2',
+			projectProcedures: [
+				{
+					name: 'mySub',
+					moduleName: 'TestModule123',
+					kind: 'sub',
+					params: [],
+				},
+				{
+					name: 'myFunction',
+					moduleName: 'TestModule123',
+					kind: 'function',
+					params: [],
+					returnType: 'String',
+					doc: {
+						summary: 'Returns a test value.',
+						params: [],
+						source: 'inline',
+					},
+				},
+			],
+		});
+
+		expect(got.find((c) => c.name === 'mySub')?.detail).toBe(
+			'Sub mySub() in TestModule123',
+		);
+		expect(got.find((c) => c.name === 'myFunction')?.detail).toBe(
+			'Function myFunction() As String in TestModule123',
+		);
+		expect(got.find((c) => c.name === 'myFunction')?.documentation).toContain(
+			'Returns a test value.',
+		);
+	});
+
 	it('includes inline documentation for documented procedures', () => {
 		const src =
 			"''' <summary>Calculates the invoice total after tax.</summary>\n" +
@@ -161,6 +199,35 @@ describe('identifier completion - in-scope declarations', () => {
 			'Sub B()\n    o\nEnd Sub\n';
 		const got = names(src, 'Sub B()\n    o');
 		expect(got).not.toContain('onlyInA');
+	});
+});
+
+describe('callable completion insertion contexts', () => {
+	it('does not add parens for standalone VBA call statements', () => {
+		const src = 'Sub T()\n    mySu\nEnd Sub\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, '    mySu'))).toBe(false);
+	});
+
+	it('adds parens for explicit Call statements', () => {
+		const src = 'Sub T()\n    Call mySu\nEnd Sub\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, 'Call mySu'))).toBe(true);
+	});
+
+	it('adds parens for explicit Call member statements', () => {
+		const src = 'Sub T()\n    Call Application.Calc\nEnd Sub\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, 'Application.Calc'))).toBe(true);
+	});
+
+	it('adds parens for expression contexts', () => {
+		const src = 'Sub T()\n    value = Lef\nEnd Sub\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, '= Lef'))).toBe(true);
+	});
+
+	it('does not add parens for standalone member call statements', () => {
+		const src = 'Sub T()\n    Application.Calc\nEnd Sub\n';
+		expect(callableCompletionShouldInsertParens(src, at(src, 'Application.Calc'))).toBe(
+			false,
+		);
 	});
 });
 

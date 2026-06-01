@@ -13,8 +13,10 @@ import { VbaToken } from '../lexer/tokenKinds';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	ModuleSymbolKind,
+	VbaProcedureSignature,
 	VbaSymbol,
 	isProcedureKind,
+	procedureDeclarationSignature,
 } from '../symbols/symbolModel';
 import { Span } from '../parser/nodes';
 import { HostObjectModel } from '../host/excelObjectModel';
@@ -63,6 +65,8 @@ export interface HoverContext {
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Project type names visible in declaration type positions. */
 	projectTypes?: readonly ProjectTypeName[];
+	/** Exported project procedures visible as bare calls from this module. */
+	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
 }
@@ -130,6 +134,11 @@ export function resolveHover(
 	const userHover = resolveUserSymbol(source, offset, name, ctx, span);
 	if (userHover) {
 		return userHover;
+	}
+
+	const projectProcedureHover = resolveProjectProcedureHover(name, ctx, span);
+	if (projectProcedureHover) {
+		return projectProcedureHover;
 	}
 
 	// Host global identifier (e.g. ThisWorkbook, Application).
@@ -312,6 +321,44 @@ function resolveUserSymbol(
 	// fall back to a developer-defined external metadata entry.
 	const doc: VbaDoc | undefined =
 		symbol.doc ?? ctx.docRegistry?.lookup(symbol.name, moduleName);
+	if (hasDocContent(doc)) {
+		info.documentation = renderDocMarkdown(doc);
+	}
+	return info;
+}
+
+function resolveProjectProcedureHover(
+	name: string,
+	ctx: HoverContext,
+	span: Span,
+): HoverInfo | undefined {
+	const matches = (ctx.projectProcedures ?? []).filter(
+		(procedure) => procedure.name.toLowerCase() === name.toLowerCase(),
+	);
+	if (matches.length === 0) {
+		return undefined;
+	}
+	if (matches.length > 1) {
+		return {
+			signature: name,
+			details: [
+				'Ambiguous project procedure',
+				`Candidates: ${matches.map((procedure) => procedure.moduleName).join(', ')}`,
+			],
+			span,
+		};
+	}
+	const procedure = matches[0];
+	const info: HoverInfo = {
+		signature: procedureDeclarationSignature(procedure),
+		details: [
+			`Declared in Module: ${procedure.moduleName}`,
+			`Visibility: ${procedure.visibility ?? 'Public'}`,
+		],
+		span,
+	};
+	const doc: VbaDoc | undefined =
+		procedure.doc ?? ctx.docRegistry?.lookup(procedure.name, procedure.moduleName);
 	if (hasDocContent(doc)) {
 		info.documentation = renderDocMarkdown(doc);
 	}

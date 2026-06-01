@@ -338,7 +338,8 @@ describe('ProjectIndex procedure signatures', () => {
 			moduleName: 'Helpers',
 			moduleKind: 'standard',
 			source:
-				'Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double) As Currency\n' +
+				"''' <summary>Calculates the invoice total.</summary>\n" +
+				'Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double = 0.08) As Currency\n' +
 				'End Function\n' +
 				'Private Sub Hidden(ByVal value As String)\nEnd Sub\n',
 		});
@@ -348,6 +349,10 @@ describe('ProjectIndex procedure signatures', () => {
 		expect(invoice).toHaveLength(1);
 		expect(invoice?.[0].moduleName).toBe('Helpers');
 		expect(invoice?.[0].returnType).toBe('Currency');
+		expect(invoice?.[0].signature).toBe(
+			'InvoiceTotal(Subtotal As Currency, [TaxRate As Double = 0.08]) As Currency',
+		);
+		expect(invoice?.[0].doc?.summary).toBe('Calculates the invoice total.');
 		expect(signatures.get('helpers.invoicetotal')).toEqual(invoice);
 		expect(invoice?.[0].params).toEqual([
 			{
@@ -363,6 +368,7 @@ describe('ProjectIndex procedure signatures', () => {
 				optional: true,
 				paramArray: false,
 				isArray: false,
+				defaultRaw: '0.08',
 			},
 		]);
 	});
@@ -435,6 +441,57 @@ describe('ProjectIndex visible procedure names', () => {
 			source: 'Public Sub ActivateSheet()\nEnd Sub\n',
 		});
 		expect(index.visibleProcedureNames('Caller')).toEqual(new Set<string>());
+	});
+});
+
+describe('ProjectIndex visible procedure signatures', () => {
+	it('returns callable same-module and exported standard-module Sub/Function signatures', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source:
+				'Private Sub LocalOnly(ByVal label As String)\nEnd Sub\n' +
+				'Function LocalTotal() As Currency\nEnd Function\n',
+		});
+		index.setModule({
+			moduleName: 'Helpers',
+			moduleKind: 'standard',
+			source:
+				'Sub DefaultPublic()\nEnd Sub\n' +
+				"''' <summary>Calculates the invoice total.</summary>\n" +
+				'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\nEnd Function\n' +
+				'Private Sub Hidden()\nEnd Sub\n',
+		});
+		index.setModule({
+			moduleName: 'Customer',
+			moduleKind: 'class',
+			source: 'Public Sub Save()\nEnd Sub\n',
+		});
+
+		const got = index.visibleProcedureSignatures('Caller');
+		expect(got.map((sig) => `${sig.moduleName}.${sig.name}`).sort()).toEqual([
+			'Caller.LocalOnly',
+			'Caller.LocalTotal',
+			'Helpers.DefaultPublic',
+			'Helpers.InvoiceTotal',
+		]);
+		expect(got.find((sig) => sig.name === 'InvoiceTotal')?.returnType).toBe('Currency');
+		expect(got.find((sig) => sig.name === 'InvoiceTotal')?.params[0]).toEqual({
+			name: 'Subtotal',
+			type: 'Currency',
+			optional: false,
+			paramArray: false,
+			isArray: false,
+		});
+		expect(got.find((sig) => sig.name === 'InvoiceTotal')?.signature).toBe(
+			'InvoiceTotal(Subtotal As Currency) As Currency',
+		);
+		expect(got.find((sig) => sig.name === 'InvoiceTotal')?.doc?.summary).toBe(
+			'Calculates the invoice total.',
+		);
+		expect(got.map((sig) => sig.name)).not.toContain('Hidden');
+		expect(got.map((sig) => sig.name)).not.toContain('Save');
 	});
 });
 

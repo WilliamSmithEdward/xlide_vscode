@@ -849,15 +849,21 @@ Do not ship low-confidence diagnostics by default.
 > built-in types, Excel host types, and project-defined types (current-module
 > `Type`/`Enum` + class/UserForm module names). Identifier completion offers
 > host-injected globals, code names, and the enclosing procedure's
-> params/locals plus module-level vars/consts/procs/enums/types, runtime
+> params/locals plus module-level vars/consts/procs/enums/types, exported
+> standard-module project `Sub`/`Function` names visible as bare calls, runtime
 > constants, and generated Excel enum constants; it is
-> suppressed after `.`, after `As`, and in declaration-name positions. Resolved
+> suppressed after `.`, after `As`, and in declaration-name positions. Exported
+> project procedure completions carry full callable signatures, declaring-module
+> detail, parameter defaults where known, and inline `'''` documentation for the
+> IntelliSense preview. Member completion also resolves leading-dot chains inside an active
+> `With ... End With` block against the `With` receiver. Resolved
 > type names (project, host, and primitive) also get semantic tokens and
 > type-position hover via `src/analyzer/semantic/typeSemanticTokens.ts`, covered by
 > `tests/vbaSemanticTokens.test.ts`. The completion slices are covered by
 > `tests/vba{MemberCompletion,TypeCompletion,IdentifierCompletion}.test.ts`.
 > Remaining: keyword/snippet completion at statement start, after access
-> modifiers, after `Option`/`On Error`, and signature help (Phase 7).
+> modifiers, after `Option`/`On Error`, and editor auto-block insertion for
+> `With ... End With` and the other block constructs.
 
 ### Goal
 
@@ -893,6 +899,8 @@ Implement completions for:
 - After `As` for known types.
 - After `New` for creatable classes.
 - After `.` for known member access.
+- After leading `.` inside `With ... End With`, resolving against the active
+  `With` receiver.
 - Inside call argument lists for signature help.
 - After `Option` for `Explicit`, `Base`, `Compare`.
 - After `On Error` for `GoTo` and `Resume Next` patterns.
@@ -902,6 +910,9 @@ Implement completions for:
 - Keywords must use canonical capitalization.
 - Snippets must use canonical capitalization.
 - Insert text must not randomly alter nearby identifiers.
+- Callable insert text must respect VBA call-statement syntax: standalone
+  procedure/method completions insert only the canonical name, while expression
+  and explicit `Call` contexts may insert `(...)`.
 - Sort symbols before broad snippets when context is specific.
 - Avoid suggesting invalid keywords in narrow contexts where parser state is known.
 
@@ -923,12 +934,13 @@ Implement completions for:
 > exported `resolveReceiverTypeAt`, host globals, worksheet code names, and live
 > user declarations from the module symbol graph (procedure signatures,
 > variables/parameters/constants with `As` type, enums/members, types/fields),
-> and built-in constants,
+> exported standard-module project procedures visible as bare calls, and built-in constants,
 > wired through the `HoverProvider` in `src/vbaMemberCompletion.ts` and covered by
 > `tests/vbaHover.test.ts`. Signature Help is DONE -
 > `src/analyzer/signature/signatureHelp.ts` (pure) returns the active call tip
 > for host members (verified `Workbooks.Open`, `Range.Offset`, ...), user
-> procedures (from the AST), and runtime built-ins, wired through the
+> procedures (current-module AST plus exported standard-module project
+> `Sub`/`Function` signatures), and runtime built-ins, wired through the
 > `SignatureHelpProvider` in `src/vbaMemberCompletion.ts` (triggers `(` `,`
 > space) and covered by `tests/vbaSignatureHelp.test.ts`. Go to Definition,
 > Find All References, and Rename are DONE - the live providers in

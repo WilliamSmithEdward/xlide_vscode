@@ -24,6 +24,8 @@ import {
 	type VbaSymbolAttribute,
 	type VbaProcedureParam,
 	type VbaProcedureSignature,
+	formatProcedureParamLabel,
+	procedureSignatureLabel,
 } from './symbolModel';
 import type { Span } from '../parser/nodes';
 
@@ -241,27 +243,19 @@ function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
 function procedureParams(symbol: VbaSymbol): VbaProcedureParam[] {
 	return (symbol.children ?? [])
 		.filter((child) => child.kind === 'parameter')
-		.map((child) => ({
-			name: child.name,
-			type: child.asType,
-			optional: child.optional ?? false,
-			paramArray: child.paramArray ?? false,
-			isArray: child.isArray ?? false,
-		}));
-}
-
-function formatProcedureParam(param: VbaProcedureParam): string {
-	let label = param.name;
-	if (param.isArray) {
-		label += '()';
-	}
-	if (param.type) {
-		label += ` As ${param.type}`;
-	}
-	if (param.paramArray) {
-		label = `ParamArray ${label}`;
-	}
-	return param.optional ? `[${label}]` : label;
+		.map((child) => {
+			const param: VbaProcedureParam = {
+				name: child.name,
+				type: child.asType,
+				optional: child.optional ?? false,
+				paramArray: child.paramArray ?? false,
+				isArray: child.isArray ?? false,
+			};
+			if (child.defaultRaw !== undefined) {
+				param.defaultRaw = child.defaultRaw;
+			}
+			return param;
+		});
 }
 
 function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
@@ -272,9 +266,26 @@ function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 	) {
 		return undefined;
 	}
-	const params = procedureParams(symbol).map(formatProcedureParam).join(', ');
+	const params = procedureParams(symbol).map(formatProcedureParamLabel).join(', ');
 	const returns = symbol.asType ? ` As ${symbol.asType}` : '';
 	return `${symbol.name}(${params})${returns}`;
+}
+
+function procedureSignatureFromSymbol(symbol: VbaSymbol): VbaProcedureSignature {
+	const params = procedureParams(symbol);
+	const signatureBase = {
+		name: symbol.name,
+		moduleName: symbol.moduleName,
+		kind: symbol.kind as Extract<VbaSymbol['kind'], 'sub' | 'function'>,
+		params,
+		returnType: symbol.asType,
+		visibility: symbol.visibility,
+		doc: symbol.doc,
+	};
+	return {
+		...signatureBase,
+		signature: procedureSignatureLabel(signatureBase),
+	};
 }
 
 /** A project-wide symbol index built from a set of module sources. */
@@ -348,6 +359,33 @@ export class ProjectIndex {
 			}
 		}
 		return names;
+	}
+
+	/**
+	 * Visible bare-call Sub/Function signatures from `moduleName`. Same-module
+	 * procedures are visible to their own module. Other modules contribute only
+	 * exported standard-module procedures, matching the `visibleProcedureNames`
+	 * rule used by diagnostics.
+	 */
+	visibleProcedureSignatures(moduleName: string): VbaProcedureSignature[] {
+		const currentLower = moduleName.toLowerCase();
+		const out: VbaProcedureSignature[] = [];
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			for (const symbol of mod.root.children ?? []) {
+				if (symbol.kind !== 'sub' && symbol.kind !== 'function') {
+					continue;
+				}
+				if (
+					!sameModule &&
+					(mod.moduleKind !== 'standard' || !isExported(symbol, mod.moduleKind))
+				) {
+					continue;
+				}
+				out.push(procedureSignatureFromSymbol(symbol));
+			}
+		}
+		return out;
 	}
 
 	/**
@@ -431,14 +469,7 @@ export class ProjectIndex {
 				) {
 					continue;
 				}
-				const params = procedureParams(symbol);
-				const sig: VbaProcedureSignature = {
-					name: symbol.name,
-					moduleName: symbol.moduleName,
-					kind: symbol.kind,
-					params,
-					returnType: symbol.asType,
-				};
+				const sig = procedureSignatureFromSymbol(symbol);
 				addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
 				addProcedureSignature(
 					signatures,

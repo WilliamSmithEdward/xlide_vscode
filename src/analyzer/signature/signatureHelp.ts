@@ -29,6 +29,10 @@ import { resolveRuntimeFunction } from '../runtime/vbaRuntime';
 import { extractLeadingDoc } from '../docs/docComment';
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderParamDocMarkdown, renderSignatureDocMarkdown } from '../docs/docModel';
+import {
+	type VbaProcedureSignature,
+	procedureSignatureLabel,
+} from '../symbols/symbolModel';
 
 /** A single parameter slot within a signature label. */
 export interface SignatureParameter {
@@ -58,6 +62,8 @@ export interface SignatureHelpContext extends MemberCompletionContext {
 	 * where the caret and the procedures live in the same module).
 	 */
 	moduleSource?: string;
+	/** Exported project procedures visible as bare calls from this module. */
+	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
 }
@@ -331,6 +337,10 @@ function signatureForCallee(
 	if (proc) {
 		return userProcSignature(proc);
 	}
+	const projectProc = findProjectProcedure(ctx.projectProcedures, site.calleeName);
+	if (projectProc) {
+		return projectProc.signature ?? procedureSignatureLabel(projectProc);
+	}
 	return resolveRuntimeFunction(site.calleeName)?.signature;
 }
 
@@ -431,8 +441,22 @@ function docForCallee(
 				return inline;
 			}
 		}
+		const projectProc = findProjectProcedure(ctx.projectProcedures, site.calleeName);
+		if (projectProc) {
+			return projectProc.doc ?? ctx.docRegistry?.lookup(site.calleeName, projectProc.moduleName);
+		}
 	}
 	return ctx.docRegistry?.lookup(site.calleeName);
+}
+
+function findProjectProcedure(
+	procedures: readonly VbaProcedureSignature[] | undefined,
+	name: string,
+): VbaProcedureSignature | undefined {
+	const matches = (procedures ?? []).filter(
+		(procedure) => procedure.name.toLowerCase() === name.toLowerCase(),
+	);
+	return matches.length === 1 ? matches[0] : undefined;
 }
 
 function externalDocForMember(

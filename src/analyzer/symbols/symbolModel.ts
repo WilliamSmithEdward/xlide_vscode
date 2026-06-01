@@ -103,6 +103,7 @@ export interface VbaProcedureParam {
 	optional: boolean;
 	paramArray: boolean;
 	isArray: boolean;
+	defaultRaw?: string;
 }
 
 /** Exported callable signature collected from the project symbol graph. */
@@ -112,6 +113,47 @@ export interface VbaProcedureSignature {
 	kind: Extract<VbaSymbolKind, 'sub' | 'function'>;
 	params: VbaProcedureParam[];
 	returnType?: string;
+	signature?: string;
+	visibility?: SymbolVisibility;
+	doc?: VbaDoc;
+}
+
+export function procedureKindKeyword(kind: VbaProcedureSignature['kind']): string {
+	return kind === 'function' ? 'Function' : 'Sub';
+}
+
+export function formatProcedureParamLabel(param: VbaProcedureParam): string {
+	let label = param.name;
+	if (param.isArray) {
+		label += '()';
+	}
+	if (param.type) {
+		label += ` As ${param.type}`;
+	}
+	if (param.defaultRaw) {
+		label += ` = ${param.defaultRaw}`;
+	}
+	if (param.paramArray) {
+		label = `ParamArray ${label}`;
+	}
+	return param.optional ? `[${label}]` : label;
+}
+
+export function procedureSignatureLabel(procedure: Pick<
+	VbaProcedureSignature,
+	'name' | 'kind' | 'params' | 'returnType'
+>): string {
+	const params = procedure.params.map(formatProcedureParamLabel).join(', ');
+	const returns = procedure.kind === 'function' && procedure.returnType
+		? ` As ${procedure.returnType}`
+		: '';
+	return `${procedure.name}(${params})${returns}`;
+}
+
+export function procedureDeclarationSignature(
+	procedure: Pick<VbaProcedureSignature, 'name' | 'kind' | 'params' | 'returnType'>,
+): string {
+	return `${procedureKindKeyword(procedure.kind)} ${procedureSignatureLabel(procedure)}`;
 }
 
 /** Project-defined type-name categories visible in `As` type positions. */

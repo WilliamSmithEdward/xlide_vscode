@@ -28,6 +28,8 @@ import {
 	ModuleSymbolKind,
 	ProjectIndex,
 	ProjectTypeName,
+	VbaProcedureSignature,
+	callableCompletionShouldInsertParens,
 	resolveCanonicalCaseEdit,
 	resolveEventHandlerCompletions,
 	resolveHover,
@@ -59,6 +61,11 @@ interface CachedModules {
 
 interface CachedProjectTypes {
 	types: ProjectTypeName[];
+	loadedAt: number;
+}
+
+interface CachedProjectProcedures {
+	procedures: VbaProcedureSignature[];
 	loadedAt: number;
 }
 
@@ -116,6 +123,7 @@ class VbaMemberCompletionProvider
 {
 	private readonly _cache = new Map<string, CachedModules>();
 	private readonly _typeCache = new Map<string, CachedProjectTypes>();
+	private readonly _procedureCache = new Map<string, CachedProjectProcedures>();
 	private _applyingCanonicalCase = false;
 
 	constructor(
@@ -128,10 +136,12 @@ class VbaMemberCompletionProvider
 		if (xlsmPath === undefined) {
 			this._cache.clear();
 			this._typeCache.clear();
+			this._procedureCache.clear();
 		} else {
 			const key = this._key(xlsmPath);
 			this._cache.delete(key);
 			this._typeCache.delete(key);
+			this._procedureCache.delete(key);
 		}
 	}
 
@@ -146,7 +156,7 @@ class VbaMemberCompletionProvider
 		const memberCtx = await this._buildContext(document);
 		const members = resolveMemberCompletions(source, offset, memberCtx);
 		if (members.length > 0) {
-			return members.map((mem) => this._toItem(mem, range));
+			return members.map((mem) => this._toItem(mem, range, source, offset));
 		}
 
 		const typeCtx = await this._buildTypeContext(document, source);
@@ -163,7 +173,7 @@ class VbaMemberCompletionProvider
 
 		const identCtx = await this._buildIdentifierContext(document);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
-		return idents.map((id) => this._toIdentItem(id, range));
+		return idents.map((id) => this._toIdentItem(id, range, source, offset));
 	}
 
 	async applyCanonicalCase(
@@ -244,6 +254,7 @@ class VbaMemberCompletionProvider
 		const ctx: SignatureHelpContext = {
 			...(await this._buildContext(document)),
 			moduleSource: source,
+			projectProcedures: await this._buildProjectProcedureContext(document),
 			docRegistry: this._docs,
 		};
 		const info = resolveSignatureHelp(source, offset, ctx);
@@ -291,6 +302,13 @@ class VbaMemberCompletionProvider
 				projectTypes: typeContext.projectTypes,
 				projectClassMembers: entries
 					? await this._loadProjectClassMembers(decoded.xlsmPath, entries)
+					: undefined,
+				projectProcedures: entries
+					? await this._loadCrossModuleProcedureSignatures(
+						decoded.xlsmPath,
+						entries,
+						decoded.moduleName.toLowerCase(),
+					)
 					: undefined,
 				docRegistry: this._docs,
 			};
@@ -368,6 +386,47 @@ class VbaMemberCompletionProvider
 			});
 		}
 		return project.projectClassMembers();
+	}
+
+	private async _loadCrossModuleProcedureSignatures(
+		xlsmPath: string,
+		entries: ModuleEntry[],
+		currentLower: string,
+	): Promise<VbaProcedureSignature[]> {
+		const allProcedures = await this._loadProjectProcedureSignatures(xlsmPath, entries);
+		return allProcedures.filter(
+			(procedure) => procedure.moduleName.toLowerCase() !== currentLower,
+		);
+	}
+
+	private async _loadProjectProcedureSignatures(
+		xlsmPath: string,
+		entries: ModuleEntry[],
+	): Promise<VbaProcedureSignature[]> {
+		const key = this._key(xlsmPath);
+		const cached = this._procedureCache.get(key);
+		if (cached && Date.now() - cached.loadedAt < MODULE_CACHE_TTL_MS) {
+			return cached.procedures;
+		}
+		const project = new ProjectIndex();
+		for (const entry of entries) {
+			const kind = this._moduleKind(entry.type);
+			if (kind !== 'standard') {
+				continue;
+			}
+			const source = await this._moduleSource(xlsmPath, entry);
+			if (source === undefined) {
+				continue;
+			}
+			project.setModule({
+				moduleName: entry.name,
+				moduleKind: kind,
+				source,
+			});
+		}
+		const procedures = project.visibleProcedureSignatures('__xlide_external_module__');
+		this._procedureCache.set(key, { procedures, loadedAt: Date.now() });
+		return procedures;
 	}
 
 	private async _moduleSource(
@@ -590,17 +649,50 @@ class VbaMemberCompletionProvider
 			const entries = await this._loadModules(decoded.xlsmPath);
 			const codeNames: string[] = [];
 			let moduleKind: ModuleSymbolKind = 'standard';
+			const currentLower = decoded.moduleName.toLowerCase();
 			for (const entry of entries ?? []) {
 				if (entry.type === 'document') {
 					codeNames.push(entry.name);
 				}
-				if (entry.name.toLowerCase() === decoded.moduleName.toLowerCase()) {
+				if (entry.name.toLowerCase() === currentLower) {
 					moduleKind = this._moduleKind(entry.type);
 				}
 			}
-			return { codeNames, moduleName: decoded.moduleName, moduleKind };
+			return {
+				codeNames,
+				moduleName: decoded.moduleName,
+				moduleKind,
+				projectProcedures: entries
+					? await this._loadCrossModuleProcedureSignatures(
+						decoded.xlsmPath,
+						entries,
+						currentLower,
+					)
+					: undefined,
+			};
 		} catch {
 			return {};
+		}
+	}
+
+	private async _buildProjectProcedureContext(
+		document: vscode.TextDocument,
+	): Promise<VbaProcedureSignature[] | undefined> {
+		if (document.uri.scheme !== XLIDE_SCHEME) {
+			return undefined;
+		}
+		try {
+			const decoded = decodeModuleUri(document.uri);
+			const entries = await this._loadModules(decoded.xlsmPath);
+			return entries
+				? await this._loadCrossModuleProcedureSignatures(
+					decoded.xlsmPath,
+					entries,
+					decoded.moduleName.toLowerCase(),
+				)
+				: undefined;
+		} catch {
+			return undefined;
 		}
 	}
 
@@ -618,7 +710,12 @@ class VbaMemberCompletionProvider
 		}
 	}
 
-	private _toItem(mem: MemberCompletion, range: vscode.Range): vscode.CompletionItem {
+	private _toItem(
+		mem: MemberCompletion,
+		range: vscode.Range,
+		source: string,
+		offset: number,
+	): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(mem.name, this._memberItemKind(mem));
 		const ownerName = getHostType(mem.owner)?.displayName ?? mem.owner;
 		const kindLabel = mem.kind;
@@ -634,7 +731,13 @@ class VbaMemberCompletionProvider
 		if (mem.documentation) {
 			item.documentation = new vscode.MarkdownString(mem.documentation);
 		}
-		this._applyCompletionInsert(item, mem.name, range, mem.kind === 'method');
+		this._applyCompletionInsert(
+			item,
+			mem.name,
+			range,
+			mem.kind === 'method',
+			callableCompletionShouldInsertParens(source, offset),
+		);
 		return item;
 	}
 
@@ -691,17 +794,24 @@ class VbaMemberCompletionProvider
 		return item;
 	}
 
-	private _toIdentItem(id: IdentifierCompletion, range: vscode.Range): vscode.CompletionItem {
+	private _toIdentItem(
+		id: IdentifierCompletion,
+		range: vscode.Range,
+		source: string,
+		offset: number,
+	): vscode.CompletionItem {
 		const item = new vscode.CompletionItem(id.name, this._identItemKind(id));
 		item.detail = id.detail;
 		if (id.documentation) {
 			item.documentation = new vscode.MarkdownString(id.documentation);
 		}
+		const callable = id.kind === 'runtime' || id.kind === 'procedure';
 		this._applyCompletionInsert(
 			item,
 			id.name,
 			range,
-			id.kind === 'runtime' || id.kind === 'procedure',
+			callable,
+			callableCompletionShouldInsertParens(source, offset),
 		);
 		return item;
 	}
@@ -711,10 +821,11 @@ class VbaMemberCompletionProvider
 		name: string,
 		range: vscode.Range,
 		callable: boolean,
+		insertParens: boolean = callable,
 	): void {
 		item.range = range;
 		item.filterText = name;
-		if (!callable) {
+		if (!callable || !insertParens) {
 			item.insertText = name;
 			return;
 		}

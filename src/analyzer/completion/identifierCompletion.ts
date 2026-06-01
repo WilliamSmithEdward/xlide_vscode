@@ -22,7 +22,14 @@ import {
 	type VbaRuntimeParam,
 } from '../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
-import { ModuleSymbolKind, VbaSymbol, isProcedureKind } from '../symbols/symbolModel';
+import {
+	ModuleSymbolKind,
+	VbaProcedureSignature,
+	VbaSymbol,
+	procedureDeclarationSignature,
+	procedureKindKeyword,
+	isProcedureKind,
+} from '../symbols/symbolModel';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 
 /** Origin of an identifier completion (drives the icon shown in the editor). */
@@ -50,6 +57,8 @@ export interface IdentifierCompletion {
 export interface IdentifierCompletionContext {
 	/** Canonical worksheet/document code names of the workbook project. */
 	codeNames?: string[];
+	/** Exported project procedures visible as bare calls from this module. */
+	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Name of the module being edited (for in-scope symbol resolution). */
 	moduleName?: string;
 	/** Workbook-project role of the module being edited. */
@@ -164,6 +173,8 @@ export function resolveIdentifierCompletions(
 		add(name, 'codeName', 'Worksheet object');
 	}
 
+	addProjectProcedures(ctx.projectProcedures, add);
+
 	if (ctx.includeGlobals !== false) {
 		for (const g of getHostGlobals(ctx.model)) {
 			const display = getHostType(g.type, ctx.model)?.displayName ?? g.type;
@@ -196,6 +207,51 @@ export function resolveIdentifierCompletions(
 	}
 
 	return out;
+}
+
+/**
+ * Callable completions can use parentheses in expression and explicit `Call`
+ * contexts, but VBA call statements like `mySub()` and `Application.Calculate()`
+ * are syntax errors unless prefixed with `Call`.
+ */
+export function callableCompletionShouldInsertParens(
+	source: string,
+	offset: number,
+): boolean {
+	const prefixText = source.slice(0, Math.max(0, offset));
+	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	if (tokens.length === 0) {
+		return false;
+	}
+
+	let last = tokens.length - 1;
+	if (last >= 0 && isIdentLike(tokens[last])) {
+		last -= 1;
+	}
+	while (last >= 0 && tokens[last].kind === 'newline') {
+		last -= 1;
+	}
+	if (last < 0) {
+		return false;
+	}
+
+	let boundary = last;
+	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
+		boundary -= 1;
+	}
+	const statement = tokens.slice(boundary + 1, last + 1);
+	if (statement.length === 0) {
+		return false;
+	}
+
+	const prev = statement[statement.length - 1].rawText.toLowerCase();
+	if (prev === 'call' || statement[0].rawText.toLowerCase() === 'call') {
+		return true;
+	}
+	if (statementContainsExpressionIntroducer(statement)) {
+		return true;
+	}
+	return isExpressionContinuationToken(prev);
 }
 
 type AddFn = (
@@ -247,6 +303,37 @@ function addInScopeSymbols(
 			}
 		}
 	}
+}
+
+function addProjectProcedures(
+	procedures: readonly VbaProcedureSignature[] | undefined,
+	add: AddFn,
+): void {
+	for (const procedure of procedures ?? []) {
+		const detail = `${procedureDeclarationSignature(procedure)} in ${procedure.moduleName}`;
+		add(procedure.name, 'procedure', detail, projectProcedureDocumentation(procedure));
+	}
+}
+
+function projectProcedureDocumentation(
+	procedure: VbaProcedureSignature,
+): string {
+	const lines = [
+		`**Project ${procedureKindKeyword(procedure.kind)}**`,
+		'',
+		'```vba',
+		procedureDeclarationSignature(procedure),
+		'```',
+		'',
+		`Declared in module: \`${procedure.moduleName}\``,
+	];
+	const doc = hasDocContent(procedure.doc)
+		? renderDocMarkdown(procedure.doc)
+		: undefined;
+	if (doc) {
+		lines.push('', doc);
+	}
+	return lines.join('\n');
 }
 
 function addReturnVariableSymbol(symbol: VbaSymbol, add: AddFn): void {
@@ -301,6 +388,74 @@ function addSymbol(symbol: VbaSymbol, add: AddFn): void {
 
 function detailWithType(base: string, asType?: string): string {
 	return asType ? `${base} As ${asType}` : base;
+}
+
+function isStatementBoundary(token: VbaToken): boolean {
+	return token.kind === 'newline' || token.rawText === ':';
+}
+
+function statementContainsExpressionIntroducer(tokens: readonly VbaToken[]): boolean {
+	let depth = 0;
+	for (const token of tokens) {
+		if (token.rawText === '(') {
+			depth += 1;
+			continue;
+		}
+		if (token.rawText === ')') {
+			depth = Math.max(0, depth - 1);
+			continue;
+		}
+		if (depth > 0) {
+			continue;
+		}
+		const lower = token.rawText.toLowerCase();
+		if (token.rawText === '=') {
+			return true;
+		}
+		if (
+			lower === 'if' ||
+			lower === 'elseif' ||
+			lower === 'while' ||
+			lower === 'until' ||
+			lower === 'case' ||
+			lower === 'select' ||
+			lower === 'for' ||
+			lower === 'to' ||
+			lower === 'step'
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function isExpressionContinuationToken(lowerTokenText: string): boolean {
+	return (
+		lowerTokenText === '(' ||
+		lowerTokenText === ',' ||
+		lowerTokenText === '=' ||
+		lowerTokenText === '+' ||
+		lowerTokenText === '-' ||
+		lowerTokenText === '*' ||
+		lowerTokenText === '/' ||
+		lowerTokenText === '\\' ||
+		lowerTokenText === '&' ||
+		lowerTokenText === '<' ||
+		lowerTokenText === '>' ||
+		lowerTokenText === '<=' ||
+		lowerTokenText === '>=' ||
+		lowerTokenText === '<>' ||
+		lowerTokenText === '^' ||
+		lowerTokenText === 'and' ||
+		lowerTokenText === 'or' ||
+		lowerTokenText === 'xor' ||
+		lowerTokenText === 'eqv' ||
+		lowerTokenText === 'imp' ||
+		lowerTokenText === 'mod' ||
+		lowerTokenText === 'not' ||
+		lowerTokenText === 'like' ||
+		lowerTokenText === 'is'
+	);
 }
 
 function runtimeDocumentation(fn: VbaRuntimeFunction): string {

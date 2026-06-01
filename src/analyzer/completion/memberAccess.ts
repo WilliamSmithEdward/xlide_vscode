@@ -17,6 +17,7 @@ import {
 	ProcedureNode,
 	StatementNode,
 	VariableGroupNode,
+	WithBlockNode,
 } from '../parser/nodes';
 import type {
 	HostMember,
@@ -286,7 +287,42 @@ function receiverTypeFromTokens(
 	ctx: MemberCompletionContext,
 ): string | undefined {
 	const chain = collectReceiverChain(tokens, dotIndex - 1);
-	return receiverTypeFromChain(chain, source, offset, ctx);
+	const explicitReceiver = receiverTypeFromChain(chain, source, offset, ctx);
+	if (explicitReceiver) {
+		return explicitReceiver;
+	}
+	const implicitWithChain = collectImplicitWithChain(tokens, dotIndex - 1);
+	if (implicitWithChain === undefined) {
+		return undefined;
+	}
+	return receiverTypeFromImplicitWithChain(
+		withReceiverTypeAt(source, offset, ctx),
+		implicitWithChain,
+		ctx,
+	);
+}
+
+function receiverTypeFromImplicitWithChain(
+	withType: string | undefined,
+	chain: ReceiverChainSegment[],
+	ctx: MemberCompletionContext,
+): string | undefined {
+	let currentType = withType;
+	for (const segment of chain) {
+		if (!currentType) {
+			return undefined;
+		}
+		const resolved = resolveAnyMemberReturnType(currentType, segment.name, ctx);
+		if (!resolved) {
+			return undefined;
+		}
+		currentType = applyDefaultMemberReturnType(
+			resolved.type,
+			segment.hasArguments && resolved.kind !== 'method',
+			ctx,
+		);
+	}
+	return currentType;
 }
 
 function receiverTypeFromExpressionTokens(
@@ -398,6 +434,50 @@ function collectReceiverChainWithStart(
 	return { segments, startIndex };
 }
 
+function collectImplicitWithChain(
+	tokens: VbaToken[],
+	endIndex: number,
+): ReceiverChainSegment[] | undefined {
+	if (endIndex < 0 || isBoundary(tokens[endIndex])) {
+		return [];
+	}
+	const segments: ReceiverChainSegment[] = [];
+	let i = endIndex;
+	let pendingHasArguments = false;
+	for (;;) {
+		if (i >= 0 && isBoundary(tokens[i])) {
+			return undefined;
+		}
+		if (i >= 0 && tokens[i].rawText === ')') {
+			const open = matchParenLeft(tokens, i);
+			if (open < 0) {
+				return undefined;
+			}
+			pendingHasArguments = true;
+			i = open - 1;
+			continue;
+		}
+		if (i < 0 || !isIdentLike(tokens[i])) {
+			return undefined;
+		}
+		segments.unshift({
+			name: word(tokens[i]),
+			hasArguments: pendingHasArguments,
+		});
+		pendingHasArguments = false;
+		i -= 1;
+		if (i >= 0 && tokens[i].rawText === '.') {
+			const prior = i - 1;
+			if (prior < 0 || isBoundary(tokens[prior])) {
+				return segments;
+			}
+			i = prior;
+			continue;
+		}
+		return undefined;
+	}
+}
+
 /** Returns the index of the '(' matching the ')' at `closeIndex`, or -1. */
 function matchParenLeft(tokens: VbaToken[], closeIndex: number): number {
 	let depth = 0;
@@ -454,6 +534,97 @@ function resolveRoot(
 	return ctx.allowSetAssignmentRefinement === false
 		? undefined
 		: findSetAssignedObjectType(source, offset, root, ctx);
+}
+
+function withReceiverTypeAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	const block = innermostWithBlockAt(source, offset);
+	if (!block) {
+		return undefined;
+	}
+	const expressionTokens = withExpressionTokens(source, block);
+	return receiverTypeFromExpressionTokens(expressionTokens, source, block.span.start, ctx);
+}
+
+function innermostWithBlockAt(
+	source: string,
+	offset: number,
+): WithBlockNode | undefined {
+	const module: ModuleNode = parseModule(source);
+	for (const member of module.members) {
+		if (
+			member.kind !== 'Procedure' ||
+			offset < member.span.start ||
+			offset > member.span.end
+		) {
+			continue;
+		}
+		return innermostWithBlockInBody(member.body, offset);
+	}
+	return undefined;
+}
+
+function innermostWithBlockInBody(
+	body: BodyNode[],
+	offset: number,
+): WithBlockNode | undefined {
+	for (const node of body) {
+		if (!bodyNodeHasBody(node) || !bodyNodeMayContainOffset(node, offset)) {
+			continue;
+		}
+		const nested = innermostWithBlockInBody(node.body, offset);
+		if (nested) {
+			return nested;
+		}
+		if (node.kind === 'WithBlock') {
+			return node;
+		}
+	}
+	return undefined;
+}
+
+function bodyNodeHasBody(
+	node: BodyNode,
+): node is BodyNode & { body: BodyNode[] } {
+	return 'body' in node && Array.isArray(node.body);
+}
+
+function bodyNodeMayContainOffset(node: BodyNode & { body: BodyNode[] }, offset: number): boolean {
+	if (offset >= node.span.start && offset <= node.span.end) {
+		return true;
+	}
+	return node.body.some((child) => {
+		if (offset >= child.span.start && offset <= child.span.end) {
+			return true;
+		}
+		return bodyNodeHasBody(child) && bodyNodeMayContainOffset(child, offset);
+	});
+}
+
+function withExpressionTokens(source: string, block: WithBlockNode): VbaToken[] {
+	const tokens = tokenize(source).filter(
+		(t) =>
+			t.kind !== 'comment' &&
+			t.start >= block.span.start &&
+			t.end <= block.span.end,
+	);
+	const withIndex = tokens.findIndex(
+		(t) => t.rawText.toLowerCase() === 'with',
+	);
+	if (withIndex < 0) {
+		return [];
+	}
+	const out: VbaToken[] = [];
+	for (let i = withIndex + 1; i < tokens.length; i += 1) {
+		if (isBoundary(tokens[i])) {
+			break;
+		}
+		out.push(tokens[i]);
+	}
+	return out;
 }
 
 function memberSurfaceForType(

@@ -140,6 +140,52 @@ describe('signature help - user procedures', () => {
 		const info = help(fn);
 		expect(info?.label).toBe('Add(A As Long, B As Long) As Long');
 	});
+
+	it('uses exported project procedures from other standard modules', () => {
+		const info = help('Sub Caller()\n    InvoiceTotal(|\nEnd Sub\n', {
+			projectProcedures: [
+				{
+					name: 'InvoiceTotal',
+					moduleName: 'Helpers',
+					kind: 'function',
+					returnType: 'Currency',
+					params: [
+						{
+							name: 'Subtotal',
+							type: 'Currency',
+							optional: false,
+							paramArray: false,
+							isArray: false,
+						},
+						{
+							name: 'TaxRate',
+							type: 'Double',
+							optional: true,
+							paramArray: false,
+							isArray: false,
+							defaultRaw: '0.08',
+						},
+					],
+					doc: {
+						summary: 'Calculates the invoice total.',
+						params: [
+							{ name: 'Subtotal', text: 'Pre-tax amount.' },
+						],
+						source: 'inline',
+					},
+				},
+			],
+		});
+		expect(info?.label).toBe(
+			'InvoiceTotal(Subtotal As Currency, [TaxRate As Double = 0.08]) As Currency',
+		);
+		expect(info?.parameters.map((p) => p.label)).toEqual([
+			'Subtotal As Currency',
+			'[TaxRate As Double = 0.08]',
+		]);
+		expect(info?.documentation).toContain('Calculates the invoice total.');
+		expect(info?.parameters[0].documentation).toBe('Pre-tax amount.');
+	});
 });
 
 describe('signature help - project class members', () => {

@@ -216,6 +216,7 @@ function buildProcedure(
 			byVal: param.byVal,
 			byRef: param.byRef || (!param.byVal && !param.paramArray),
 			isArray: param.isArray,
+			defaultRaw: param.defaultRaw,
 		};
 		children.push(paramSymbol);
 		flat.push(paramSymbol);

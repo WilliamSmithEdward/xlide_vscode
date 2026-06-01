@@ -756,6 +756,42 @@ describe('member completion - chaining', () => {
 	});
 });
 
+describe('member completion - With blocks', () => {
+	it('resolves a leading-dot member against the active With receiver', () => {
+		const src =
+			'Sub Test(rng As Range)\n' +
+			'    With rng\n' +
+			'        .Va\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const got = names(src, '.Va');
+		expect(got).toContain('Value');
+		expect(got).toContain('Value2');
+	});
+
+	it('walks leading-dot chains from the active With receiver', () => {
+		const src =
+			'Sub Test(ws As Worksheet)\n' +
+			'    With ws\n' +
+			'        .Range("A1").\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const got = names(src, '.Range("A1").');
+		expect(got).toContain('Value');
+		expect(got).toContain('Offset');
+	});
+
+	it('keeps resolving inside an unfinished With block while editing', () => {
+		const src =
+			'Sub Test(rng As Range)\n' +
+			'    With rng\n' +
+			'        .Off\n' +
+			'End Sub\n';
+		const got = names(src, '.Off');
+		expect(got).toContain('Offset');
+	});
+});
+
 describe('member completion - negative cases', () => {
 	it('returns nothing when not in a member-access position', () => {
 		const src = 'Sub Test()\n    ThisWorkbook\nEnd Sub\n';

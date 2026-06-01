@@ -58,6 +58,7 @@ export {
 	IdentifierCompletion,
 	IdentifierCompletionContext,
 	IdentifierCompletionKind,
+	callableCompletionShouldInsertParens,
 	resolveIdentifierCompletions,
 } from './completion/identifierCompletion';
 export {
