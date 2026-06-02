@@ -74,7 +74,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Analysis diagnostic rule codes hidden from analysis tracking. The workbook analysis GUI can add rules to this list with the Untrack row action."
+          "description": "Analysis diagnostic rule codes hidden from analysis tracking. The workbook analysis GUI can update this list with row-level Track/Untrack actions."
         },
         "xlide.editor.blockLayout": {
           "type": "string",

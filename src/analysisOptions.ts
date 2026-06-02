@@ -27,16 +27,53 @@ export function untrackedAnalysisRulesFromConfig(): string[] {
     return normalizeAnalysisRuleCodes(configured);
 }
 
-export async function addUntrackedAnalysisRuleToConfig(code: string | undefined): Promise<string[]> {
+export interface AnalysisRuleTrackingUpdate {
+    code?: string;
+    tracked: boolean;
+    changed: boolean;
+    untrackedRules: string[];
+}
+
+export async function setAnalysisRuleTrackedInConfig(
+    code: string | undefined,
+    tracked: boolean,
+): Promise<AnalysisRuleTrackingUpdate> {
     const normalized = normalizeAnalysisRuleCode(code);
     if (!normalized) {
-        return untrackedAnalysisRulesFromConfig();
+        return {
+            tracked,
+            changed: false,
+            untrackedRules: untrackedAnalysisRulesFromConfig(),
+        };
     }
-    const next = normalizeAnalysisRuleCodes([...untrackedAnalysisRulesFromConfig(), normalized]);
-    await vscode.workspace
-        .getConfiguration('xlide')
-        .update('analysis.untrackedRules', next, vscode.ConfigurationTarget.Global);
-    return next;
+    const current = untrackedAnalysisRulesFromConfig();
+    const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
+    const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
+    if (changed) {
+        await vscode.workspace
+            .getConfiguration('xlide')
+            .update('analysis.untrackedRules', next, vscode.ConfigurationTarget.Global);
+    }
+    return {
+        code: normalized,
+        tracked,
+        changed,
+        untrackedRules: next,
+    };
+}
+
+export function setAnalysisRuleTrackedInList(
+    untrackedRules: readonly string[],
+    code: string | undefined,
+    tracked: boolean,
+): string[] {
+    const normalized = normalizeAnalysisRuleCode(code);
+    if (!normalized) {
+        return normalizeAnalysisRuleCodes(untrackedRules);
+    }
+    return tracked
+        ? normalizeAnalysisRuleCodes(untrackedRules.filter((entry) => normalizeAnalysisRuleCode(entry) !== normalized))
+        : normalizeAnalysisRuleCodes([...untrackedRules, normalized]);
 }
 
 export function isAnalysisRuleTracked(
