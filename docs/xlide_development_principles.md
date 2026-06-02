@@ -71,6 +71,9 @@ Use discernment when deciding where settings live.
 - Global VS Code XLIDE settings should validate through the shared global
   settings validator, and runtime fallback for malformed settings should use the
   same helper that reports the malformed value.
+- Contributed `xlide.*` VS Code settings must declare `scope: "machine"` in
+  `package.json`. Do not introduce workspace or folder-scoped XLIDE settings
+  unless there is an explicit, agreed reason to add a new scope.
 - Displayed configuration and runtime behavior must come from the same resolver.
   Do not create separate GUI-only, command-only, or compatibility-only settings
   paths for the same business rule.

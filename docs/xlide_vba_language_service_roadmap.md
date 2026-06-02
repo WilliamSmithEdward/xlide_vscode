@@ -739,7 +739,7 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 > on open and debounced (300 ms) on every edit, and works on virtual
 > `xlide-vba` module documents. Settings: `xlide.diagnostics.enabled`
 > (default true) and `xlide.diagnostics.optionExplicit`
-> (off/hint/information/warning/error, default warning); both re-run open
+> (off/information/warning/error, default warning); both re-run open
 > documents on change. Covered by `tests/vbaDiagnostics.test.ts`.
 >
 > Shipped semantic rules (all high-confidence, spec-referenced in
@@ -855,7 +855,7 @@ Every diagnostic rule should include:
 interface DiagnosticRuleMetadata {
   code: string;
   title: string;
-  defaultSeverity: "error" | "warning" | "information" | "hint";
+  defaultSeverity: "error" | "warning" | "information";
   source: "XLIDE";
   specReference?: string;
   requiresWholeProject?: boolean;
@@ -1553,7 +1553,10 @@ Implementation priority:
    `XLIDE/settings` diagnostics on VBA documents, while invalid
    `xlide.diagnostics.optionExplicit` values use the same `warning` fallback in
    live diagnostics, current-module analysis, and workbook analysis.
-6. [ ] Apply the same resolver pattern to the future test runner GUI and any
+6. [x] Declare contributed `xlide.*` VS Code settings as machine-scoped in
+   `package.json`, guarded by a package manifest test so workbook-specific
+   settings cannot drift into workspace/folder configuration.
+7. [ ] Apply the same resolver pattern to the future test runner GUI and any
    workbook diff/sync surface.
 
 Suggested initial settings:
@@ -1570,8 +1573,8 @@ Suggested initial settings:
 }
 ```
 
-These are global VS Code settings. Workbook-specific analysis and sync
-overrides belong in `<workbook>.xlide_settings.json`.
+These are machine-scoped global VS Code settings. Workbook-specific analysis
+and sync overrides belong in `<workbook>.xlide_settings.json`.
 
 ---
 

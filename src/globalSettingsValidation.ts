@@ -11,7 +11,7 @@ interface XlideGlobalSettingsProblem {
 
 type XlideGlobalSettingsSnapshot = Record<string, unknown>;
 
-const OPTION_EXPLICIT_VALUES = ['off', 'hint', 'information', 'warning', 'error'] as const;
+const OPTION_EXPLICIT_VALUES = ['off', 'information', 'warning', 'error'] as const;
 const BLOCK_LAYOUT_VALUES = ['comfy', 'compact'] as const;
 type XlideOptionExplicitSetting = typeof OPTION_EXPLICIT_VALUES[number];
 

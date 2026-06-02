@@ -42,7 +42,6 @@ export interface WorkbookAnalysisModuleGroup {
     errorCount: number;
     warningCount: number;
     informationCount: number;
-    hintCount: number;
     rows: WorkbookAnalysisResultRow[];
 }
 
@@ -82,7 +81,6 @@ export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult
                 errorCount: 0,
                 warningCount: 0,
                 informationCount: 0,
-                hintCount: 0,
                 rows: [],
             };
             groupsByModule.set(key, group);
@@ -98,9 +96,6 @@ export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult
                 break;
             case 'information':
                 group.informationCount += 1;
-                break;
-            case 'hint':
-                group.hintCount += 1;
                 break;
         }
     }

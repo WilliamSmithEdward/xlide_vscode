@@ -268,7 +268,7 @@ Both lanes call into these shared owners:
 **Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules and UserForm `.cls` code-behind modules can be updated when the workbook already has a same-named module, but they cannot be created directly from import; missing document/UserForm-code-behind rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. `.frm` designer files are ignored by import/export sync. Import mode defaults to `updateOnly` (`Import/Update (No Deletes)`). `trueUpStandardClass` (`Import/Update + Delete Missing`) performs the same create/update pass, then previews workbook-only standard/class modules as removable rows; document modules and UserForm code-behind modules are excluded from true-up removals.
 
 Import/export settings live in the preview GUI so folder and mode edits use the same planner and persistence path as apply.
-Workbook-specific settings are written beside the workbook; global/default settings live in VS Code configuration:
+Workbook-specific settings are written beside the workbook; global/default settings live in machine-scoped VS Code configuration:
 
 ```
 <workbook-filename>.xlide_settings.json
@@ -395,7 +395,8 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 
 The expanded Smart Enter layout is the default `comfy` block style. The
 `compact` style removes spacer lines and is exposed as the VS Code extension
-setting `xlide.editor.blockLayout`, contributed by `package.json` rather than
+setting `xlide.editor.blockLayout`, contributed by `package.json` with machine
+scope rather than
 workbook sidecar configuration. Both modes are expressed in the same
 smart-block helper/catalogue so Enter auto-blocking and Tab snippets share one
 behavior contract.
@@ -968,8 +969,9 @@ member access, trailing binary operators, and unmatched opening parentheses.
 Current-module analysis and workbook analysis do not pass that offset, so completed
 invalid source remains diagnostic-strict outside the active edit.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
-gate it and re-run open documents on change. `globalSettingsValidation.ts`
-validates contributed XLIDE VS Code settings and surfaces malformed values as
+gate it and re-run open documents on change. Contributed `xlide.*` VS Code
+settings are machine-scoped in `package.json`. `globalSettingsValidation.ts`
+validates those contributed settings and surfaces malformed values as
 `XLIDE/settings` diagnostics on VBA documents; invalid `optionExplicit` values
 fall back to the default `warning` severity through the same normalizer used by
 live diagnostics, current-module analysis, and workbook analysis.

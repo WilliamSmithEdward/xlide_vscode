@@ -1429,21 +1429,13 @@ export function registerCommands(
     function configurationSource(
         inspect: {
             globalValue?: unknown;
-            workspaceValue?: unknown;
-            workspaceFolderValue?: unknown;
         } | undefined,
     ): SupportBundleSetting['source'] {
         if (!inspect) {
             return 'unknown';
         }
-        if (inspect.workspaceFolderValue !== undefined) {
-            return 'workspaceFolder';
-        }
-        if (inspect.workspaceValue !== undefined) {
-            return 'workspace';
-        }
         if (inspect.globalValue !== undefined) {
-            return 'global';
+            return 'machine';
         }
         return 'default';
     }

@@ -22,7 +22,7 @@
 // `vscode.DiagnosticSeverity` and `code`/`source` onto the diagnostic.
 
 /** Severity of a diagnostic, independent of the VS Code enum. */
-export type DiagnosticSeverity = 'error' | 'warning' | 'information' | 'hint';
+export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 
 /** Analysis suppression scopes exposed by the workbook analysis UI. */
 export type DiagnosticSuppressionScope = 'block' | 'member' | 'module';

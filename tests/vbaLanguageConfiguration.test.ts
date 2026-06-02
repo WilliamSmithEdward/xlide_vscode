@@ -11,9 +11,15 @@ interface VbaLanguageConfiguration {
 interface PackageConfiguration {
 	contributes?: {
 		configuration?: {
-			properties?: Record<string, unknown>;
+			properties?: Record<string, PackageSetting>;
 		};
 	};
+}
+
+interface PackageSetting {
+	default?: unknown;
+	enum?: string[];
+	scope?: string;
 }
 
 function loadConfig(): VbaLanguageConfiguration {
@@ -94,9 +100,46 @@ describe('VBA language configuration', () => {
 			.contributes
 			?.configuration
 			?.properties
-			?.['xlide.editor.blockLayout'] as { enum?: string[]; default?: string } | undefined;
+			?.['xlide.editor.blockLayout'];
 
 		expect(setting?.default).toBe('comfy');
 		expect(setting?.enum).toEqual(['comfy', 'compact']);
+	});
+
+	it('keeps Option Explicit diagnostics on the shared severity vocabulary', () => {
+		const setting = loadPackage()
+			.contributes
+			?.configuration
+			?.properties
+			?.['xlide.diagnostics.optionExplicit'];
+
+		expect(setting?.default).toBe('warning');
+		expect(setting?.enum).toEqual(['off', 'information', 'warning', 'error']);
+	});
+
+	it('keeps contributed XLIDE settings machine-scoped', () => {
+		const settings = loadPackage()
+			.contributes
+			?.configuration
+			?.properties ?? {};
+		const xlideSettings = Object.entries(settings)
+			.filter(([key]) => key.startsWith('xlide.'))
+			.sort(([a], [b]) => a.localeCompare(b));
+
+		expect(xlideSettings.map(([key]) => key)).toEqual([
+			'xlide.analysis.untrackedRules',
+			'xlide.analysis.visibleSeverities',
+			'xlide.attachToRunningExcel',
+			'xlide.diagnostics.enabled',
+			'xlide.diagnostics.optionExplicit',
+			'xlide.docs.enabled',
+			'xlide.docs.metadataGlob',
+			'xlide.editor.blockLayout',
+			'xlide.pythonPath',
+		]);
+
+		for (const [key, setting] of xlideSettings) {
+			expect(setting.scope, key).toBe('machine');
+		}
 	});
 });

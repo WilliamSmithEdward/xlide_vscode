@@ -1014,9 +1014,10 @@ auditable, and recoverable for real user projects.
   allow per-workbook overrides for folder/export mode/related sync options, and
   persist selected workbook settings to a sidecar named
   `<workbook>.xlide_settings.json` (for example
-  `workbook.xlsm.xlide_settings.json`). Global/default settings live in VS Code
-  configuration; workbook-only choices live only in the workbook sidecar and
-  override global defaults where a setting supports fallback.
+  `workbook.xlsm.xlide_settings.json`). Global/default settings live in
+  machine-scoped VS Code configuration; workbook-only choices live only in the
+  workbook sidecar and override global defaults where a setting supports
+  fallback.
 - [x] Keep one supported workbook settings sidecar path:
   `<workbook>.xlide_settings.json`. Do not preserve legacy JSON names or
   compatibility shims. Route older folder/mode commands to the same workbook
@@ -1038,6 +1039,9 @@ the deterministic analyzer contract.
 - [x] Define the two supported XLIDE setting scopes: global/editor settings live
   in VS Code settings for the current machine or IDE profile; workbook-specific
   settings live only in `<workbook>.xlide_settings.json`.
+- [x] Declare every contributed `xlide.*` VS Code setting as machine-scoped in
+  `package.json`, with a manifest test that fails if a future setting omits the
+  scope or introduces an unreviewed contributed setting.
 - [ ] Implement a deterministic configuration resolver with explicit provenance
   for every effective setting:
   - built-in defaults declared in the extension schema

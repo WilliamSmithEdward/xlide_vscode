@@ -9,7 +9,7 @@ import type { XlideWriteAuditEntry } from './xlideWriteAudit';
 export interface SupportBundleSetting {
     key: string;
     value: unknown;
-    source: 'default' | 'global' | 'workspace' | 'workspaceFolder' | 'unknown';
+    source: 'default' | 'machine' | 'unknown';
 }
 
 export interface SupportBundleAnalysisSummary {

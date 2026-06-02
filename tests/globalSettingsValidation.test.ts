@@ -53,6 +53,13 @@ describe('globalSettingsValidation', () => {
         ]);
     });
 
+    it('does not expose hint as a diagnostic setting severity', () => {
+        expect(validateXlideGlobalSettingsValues({
+            ...validSettings,
+            'diagnostics.optionExplicit': 'hint',
+        }).map((problem) => problem.key)).toEqual(['xlide.diagnostics.optionExplicit']);
+    });
+
     it('normalizes invalid Option Explicit severity to the default runtime value', () => {
         expect(normalizeXlideOptionExplicitSetting('off')).toBe('off');
         expect(normalizeXlideOptionExplicitSetting('error')).toBe('error');

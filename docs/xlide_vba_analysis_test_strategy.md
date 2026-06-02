@@ -138,14 +138,14 @@ export interface VbaAnalysisOptions {
   moduleKind: "standard" | "class" | "form" | "worksheet" | "workbook";
   host: "excel";
   settings?: {
-    optionExplicit?: "off" | "hint" | "information" | "warning" | "error";
+    optionExplicit?: "off" | "information" | "warning" | "error";
   };
   knownProcedures?: ReadonlySet<string>;
 }
 
 export interface NormalizedVbaDiagnostic {
   code: string;
-  severity: "error" | "warning" | "information" | "hint";
+  severity: "error" | "warning" | "information";
   category: DiagnosticCategory;
   vbeCompileEquivalent: boolean;
   message: string;
@@ -736,7 +736,7 @@ XLIDE can and should provide diagnostics that VBE does not provide, including:
 - implicit Variant warnings
 - risky default member warnings
 - style warnings
-- dead code hints
+- dead code informational findings
 - incomplete realtime state handling
 - project hygiene warnings
 

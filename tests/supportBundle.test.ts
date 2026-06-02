@@ -30,9 +30,9 @@ function baseInput(overrides: Partial<SupportBundleInput> = {}): SupportBundleIn
 			folderCount: 1,
 		},
 		settings: [
-			{ key: 'xlide.pythonPath', value: 'C:\\Tools\\Python\\python.exe', source: 'workspace' },
+			{ key: 'xlide.pythonPath', value: 'C:\\Tools\\Python\\python.exe', source: 'machine' },
 			{ key: 'xlide.diagnostics.enabled', value: true, source: 'default' },
-			{ key: 'xlide.docs.enabled', value: false, source: 'global' },
+			{ key: 'xlide.docs.enabled', value: false, source: 'machine' },
 			{ key: 'xlide.editor.blockLayout', value: 'comfy', source: 'default' },
 		],
 		workbook: {
@@ -152,7 +152,7 @@ describe('support bundle', () => {
 		expect(text).toContain('XLIDE Diagnostics');
 		expect(text).toContain('xlide.setup | failed');
 		expect(text).toContain('errorCategory=python-backend');
-		expect(text).toContain('xlide.pythonPath (workspace): <redacted>.exe');
+		expect(text).toContain('xlide.pythonPath (machine): <redacted>.exe');
 		expect(text).toContain('Workbook source included: false');
 		expect(text).not.toContain('C:\\Users\\William');
 	});

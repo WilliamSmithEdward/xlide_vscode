@@ -36,7 +36,7 @@ import {
 } from './analysisSuppressionScopes';
 import { normalizeXlideOptionExplicitSetting } from './globalSettingsValidation';
 
-export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information' | 'hint';
+export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
 export type WorkbookAnalysisSummaryKind = DiagnosticEvidenceKind | 'unknown';
 export type { AnalysisSuppressionScope } from './analysisSuppressionScopes';

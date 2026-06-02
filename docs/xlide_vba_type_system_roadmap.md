@@ -23,7 +23,7 @@ The type system should eventually answer these questions:
 - Is `Set` required, forbidden, or optional here?
 - Is a value being assigned to something compatible?
 - Is this diagnostic a VBE-equivalent compile error, a deterministic runtime
-  error, a runtime risk, or an XLIDE quality hint?
+  error, a runtime risk, or XLIDE quality guidance?
 
 Diagnostics must stay conservative. If XLIDE cannot prove a mismatch, it should
 prefer no diagnostic over a noisy one.

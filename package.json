@@ -26,24 +26,27 @@
       "properties": {
         "xlide.pythonPath": {
           "type": "string",
+          "scope": "machine",
           "default": "",
           "description": "Path to the Python executable used to run the XLIDE backend. Leave empty to use 'python' (Windows) or 'python3' (Mac/Linux) from PATH."
         },
         "xlide.attachToRunningExcel": {
           "type": "boolean",
+          "scope": "machine",
           "default": true,
           "description": "Windows only: when opening a workbook or running a macro, try to attach to a running Excel instance and reuse an already-open workbook before opening it again."
         },
         "xlide.diagnostics.enabled": {
           "type": "boolean",
+          "scope": "machine",
           "default": true,
           "description": "Show live VBA diagnostics (structural block-balance plus high-confidence semantic checks: unterminated strings, duplicate declarations, assignment to a constant, and the Option Explicit reminder)."
         },
         "xlide.diagnostics.optionExplicit": {
           "type": "string",
+          "scope": "machine",
           "enum": [
             "off",
-            "hint",
             "information",
             "warning",
             "error"
@@ -53,6 +56,7 @@
         },
         "xlide.analysis.visibleSeverities": {
           "type": "array",
+          "scope": "machine",
           "items": {
             "type": "string",
             "enum": [
@@ -70,6 +74,7 @@
         },
         "xlide.analysis.untrackedRules": {
           "type": "array",
+          "scope": "machine",
           "items": {
             "type": "string"
           },
@@ -78,6 +83,7 @@
         },
         "xlide.editor.blockLayout": {
           "type": "string",
+          "scope": "machine",
           "enum": [
             "comfy",
             "compact"
@@ -87,11 +93,13 @@
         },
         "xlide.docs.enabled": {
           "type": "boolean",
+          "scope": "machine",
           "default": true,
           "description": "Enrich VBA hovers and call tips with developer-defined XML documentation: '''-comments above your procedures and external metadata files found in the workspace."
         },
         "xlide.docs.metadataGlob": {
           "type": "string",
+          "scope": "machine",
           "default": "**/*.vbref.xml",
           "description": "Glob (relative to each workspace folder) that locates external VBA documentation metadata files. These describe symbols using the same XML vocabulary as '''-comments and override the built-in curated library."
         }
