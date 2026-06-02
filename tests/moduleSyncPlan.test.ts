@@ -9,7 +9,6 @@ import {
 	buildSideBySideDiff,
 	editorPreviewSource,
 } from '../src/moduleSyncPlan';
-import { writeWorkbookRepoConfig } from '../src/moduleExport';
 
 interface FakeModule {
 	name: string;
@@ -72,7 +71,7 @@ describe('module sync plan', () => {
 		]), {
 			workbookPath: workbook,
 			exportFolder: repo,
-			exportMode: 'replaceExistingOnly',
+			exportMode: 'exportAll',
 		});
 
 		const byName = new Map(plan.items.map((item) => [item.moduleName, item]));
@@ -87,21 +86,16 @@ describe('module sync plan', () => {
 			selectable: true,
 		});
 		expect(byName.get('NewModule')).toMatchObject({
-			status: 'skipping-export',
-			checked: false,
-			selectable: false,
+			status: 'will-create',
+			checked: true,
+			selectable: true,
 		});
-		expect(byName.get('NewModule')?.warning).toContain('replaceExistingOnly');
+		expect(byName.get('NewModule')?.warning).toBeUndefined();
 	});
 
-	it('surfaces true-up stale managed files as removable preview rows', async () => {
+	it('surfaces true-up stale root module files as removable preview rows', async () => {
 		const { workbook, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Stale.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
-		await writeWorkbookRepoConfig(workbook, {
-			exportFolder: repo,
-			exportMode: 'trueUp',
-			managedFiles: ['Stale.bas'],
-		});
 
 		const plan = await buildExportModuleSyncPlan(fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
@@ -120,14 +114,38 @@ describe('module sync plan', () => {
 			existsInWorkbook: false,
 			existsInRepo: true,
 		});
-		expect(stale?.warning).toContain('no longer exists');
+		expect(stale?.warning).toContain('stale .bas/.cls repo module file');
 	});
 
-	it('warns and skips missing document modules while allowing existing document updates', async () => {
+	it('does not preview non-module or nested files as export deletions', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'Stale.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
+		fs.writeFileSync(path.join(repo, 'StaleClass.cls'), 'VERSION 1.0 CLASS\n', 'utf8');
+		fs.writeFileSync(path.join(repo, 'Notes.txt'), 'keep', 'utf8');
+		fs.writeFileSync(path.join(repo, 'UserForm1.frm'), 'keep', 'utf8');
+		fs.mkdirSync(path.join(repo, 'nested'));
+		fs.writeFileSync(path.join(repo, 'nested', 'Stale.cls'), 'keep', 'utf8');
+
+		const plan = await buildExportModuleSyncPlan(fakeBridge([
+			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
+		]), {
+			workbookPath: workbook,
+			exportFolder: repo,
+			exportMode: 'trueUp',
+		});
+
+		const staleRows = plan.items.filter((item) => item.status === 'will-remove').map((item) => item.relativeName);
+		expect(staleRows).toEqual(['Stale.bas', 'StaleClass.cls']);
+	});
+
+	it('warns and skips missing document/userform cls code-behind modules while allowing existing name-match updates', async () => {
 		const { workbook, repo } = tempWorkbook();
 		const sheetBase = 'Attribute VB_Base = "{00020820-0000-0000-C000-000000000046}"\n';
+		const formBase = 'Attribute VB_Base = "{00000000-0000-0000-0000-000000000001}{00000000-0000-0000-0000-000000000002}"\n';
 		fs.writeFileSync(path.join(repo, 'Sheet1.cls'), `${sheetBase}Private Sub Worksheet_Change()\nEnd Sub\n`, 'utf8');
 		fs.writeFileSync(path.join(repo, 'Sheet2.cls'), `${sheetBase}Private Sub Worksheet_Activate()\nEnd Sub\n`, 'utf8');
+		fs.writeFileSync(path.join(repo, 'UserForm1.cls'), `${formBase}Private Sub CommandButton1_Click()\nEnd Sub\n`, 'utf8');
+		fs.writeFileSync(path.join(repo, 'UserForm2.cls'), `${formBase}Private Sub CommandButton1_Click()\nEnd Sub\n`, 'utf8');
 
 		const plan = await buildImportModuleSyncPlan(fakeBridge([
 			{
@@ -135,6 +153,11 @@ describe('module sync plan', () => {
 				type: 'document',
 				documentType: 'worksheet',
 				source: `${sheetBase}Private Sub Worksheet_Change(ByVal Target As Range)\nEnd Sub\n`,
+			},
+			{
+				name: 'UserForm1',
+				type: 'userform',
+				source: `${formBase}Private Sub UserForm_Initialize()\nEnd Sub\n`,
 			},
 		]), {
 			workbookPath: workbook,
@@ -156,8 +179,23 @@ describe('module sync plan', () => {
 			unsupportedDirectCreation: true,
 		});
 		expect(byName.get('Sheet2')?.warning).toContain('cannot be created directly');
+		expect(byName.get('UserForm1')).toMatchObject({
+			status: 'will-update',
+			checked: true,
+			selectable: true,
+			unsupportedDirectCreation: false,
+		});
+		expect(byName.get('UserForm1')?.warning).toContain('code can be updated');
+		expect(byName.get('UserForm2')).toMatchObject({
+			status: 'skipping-import',
+			checked: false,
+			selectable: true,
+			unsupportedDirectCreation: true,
+		});
+		expect(byName.get('UserForm2')?.warning).toContain('cannot be created directly');
 		expect(plan.warnings).toEqual([
 			'Sheet2: skipping import unless the module already exists in the workbook.',
+			'UserForm2: skipping import unless the module already exists in the workbook.',
 		]);
 	});
 

@@ -483,7 +483,6 @@ export function registerAgentTools(
                     const summary = formatChangeSummary({
                         operation: 'Export modules',
                         changed: result.writtenFiles,
-                        skipped: result.skippedNewFiles,
                         removed: result.removedFiles,
                     });
                     recordXlideWriteAudit({
@@ -517,7 +516,7 @@ export function registerAgentTools(
                     confirmationMessages: {
                         title: 'Export VBA Modules',
                         message: new vscode.MarkdownString(
-                            `Export all modules for \`${filePath}\` using mode **${exportMode ?? 'trueUp'}**` +
+                            `Export all modules for \`${filePath}\` using mode **${exportMode ?? 'exportAll'}**` +
                             `${exportFolder ? ` to folder \`${exportFolder}\`` : ' using configured folder'}` +
                             `?\n\nThis writes files and updates workbookname.repo.json.`,
                         ),

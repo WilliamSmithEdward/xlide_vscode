@@ -55,12 +55,11 @@ function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
 }
 
 describe('moduleExport', () => {
-	it('exports one module and preserves existing managed files', async () => {
+	it('exports one module and writes only workbook sync settings to the sidecar', async () => {
 		const { workbook, exportFolder } = tempWorkbook();
 		await writeWorkbookRepoConfig(workbook, {
 			exportFolder,
 			exportMode: 'trueUp',
-			managedFiles: ['Other.bas'],
 		});
 		const bridge = fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Attribute VB_Name = "Module1"\nSub T()\nEnd Sub\n' },
@@ -77,25 +76,23 @@ describe('moduleExport', () => {
 			moduleType: 'standard',
 			relativeName: 'Module1.bas',
 			written: true,
-			skippedNew: false,
 			writtenFiles: ['Module1.bas'],
-			skippedNewFiles: [],
 		});
 		expect(fs.readFileSync(path.join(exportFolder, 'Module1.bas'), 'utf8')).toBe(
 			'Attribute VB_Name = "Module1"\nSub T()\nEnd Sub\n',
 		);
-		expect((await readWorkbookRepoConfig(workbook)).managedFiles).toEqual([
-			'Module1.bas',
-			'Other.bas',
-		]);
+		expect(await readWorkbookRepoConfig(workbook)).toEqual({
+			exportFolder,
+			exportMode: 'trueUp',
+		});
+		expect(JSON.parse(fs.readFileSync(configPathForWorkbook(workbook), 'utf8'))).not.toHaveProperty('managedFiles');
 	});
 
-	it('skips a new current-module file in replaceExistingOnly mode without dropping managed files', async () => {
+	it('normalizes legacy replaceExistingOnly mode to exportAll and creates new current-module files', async () => {
 		const { workbook, exportFolder } = tempWorkbook();
 		await writeWorkbookRepoConfig(workbook, {
 			exportFolder,
 			exportMode: 'replaceExistingOnly',
-			managedFiles: ['Existing.bas'],
 		});
 		const bridge = fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
@@ -107,14 +104,17 @@ describe('moduleExport', () => {
 		});
 
 		expect(result).toMatchObject({
+			exportMode: 'exportAll',
 			relativeName: 'Module1.bas',
-			written: false,
-			skippedNew: true,
-			writtenFiles: [],
-			skippedNewFiles: ['Module1.bas'],
+			written: true,
+			writtenFiles: ['Module1.bas'],
 		});
-		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(false);
-		expect((await readWorkbookRepoConfig(workbook)).managedFiles).toEqual(['Existing.bas']);
+		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(true);
+		expect(await readWorkbookRepoConfig(workbook)).toMatchObject({
+			exportFolder,
+			exportMode: 'exportAll',
+		});
+		expect(JSON.parse(fs.readFileSync(configPathForWorkbook(workbook), 'utf8'))).not.toHaveProperty('managedFiles');
 	});
 
 	it('keeps all-module true-up behavior on the shared module-file writer', async () => {
@@ -124,7 +124,6 @@ describe('moduleExport', () => {
 		await writeWorkbookRepoConfig(workbook, {
 			exportFolder,
 			exportMode: 'trueUp',
-			managedFiles: ['Stale.bas'],
 		});
 		const bridge = fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
@@ -136,19 +135,38 @@ describe('moduleExport', () => {
 		expect(result).toMatchObject({
 			writtenCount: 2,
 			removedCount: 1,
-			skippedNewCount: 0,
 			writtenFiles: ['Module1.bas', 'Person.cls'],
 			removedFiles: ['Stale.bas'],
-			skippedNewFiles: [],
 		});
 		expect(fs.existsSync(path.join(exportFolder, 'Stale.bas'))).toBe(false);
 		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(true);
 		expect(fs.existsSync(path.join(exportFolder, 'Person.cls'))).toBe(true);
-		expect((await readWorkbookRepoConfig(workbook)).managedFiles).toEqual([
-			'Module1.bas',
-			'Person.cls',
-		]);
+		expect(JSON.parse(fs.readFileSync(configPathForWorkbook(workbook), 'utf8'))).not.toHaveProperty('managedFiles');
 		expect(configPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.repo.json'));
+	});
+
+	it('only deletes root bas/cls module files during true-up', async () => {
+		const { workbook, exportFolder } = tempWorkbook();
+		fs.mkdirSync(exportFolder, { recursive: true });
+		fs.writeFileSync(path.join(exportFolder, 'Stale.bas'), 'old', 'utf8');
+		fs.writeFileSync(path.join(exportFolder, 'StaleClass.cls'), 'old', 'utf8');
+		fs.writeFileSync(path.join(exportFolder, 'Notes.txt'), 'keep', 'utf8');
+		fs.writeFileSync(path.join(exportFolder, 'UserForm1.frm'), 'keep', 'utf8');
+		fs.mkdirSync(path.join(exportFolder, 'nested'));
+		fs.writeFileSync(path.join(exportFolder, 'nested', 'StaleClass.cls'), 'keep', 'utf8');
+		await writeWorkbookRepoConfig(workbook, { exportFolder, exportMode: 'trueUp' });
+
+		const result = await exportWorkbookModules(fakeBridge([
+			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
+		]), { filePath: workbook });
+
+		expect(result.removedFiles).toEqual(['Stale.bas', 'StaleClass.cls']);
+		expect(fs.existsSync(path.join(exportFolder, 'Stale.bas'))).toBe(false);
+		expect(fs.existsSync(path.join(exportFolder, 'StaleClass.cls'))).toBe(false);
+		expect(fs.existsSync(path.join(exportFolder, 'Notes.txt'))).toBe(true);
+		expect(fs.existsSync(path.join(exportFolder, 'UserForm1.frm'))).toBe(true);
+		expect(fs.existsSync(path.join(exportFolder, 'nested', 'StaleClass.cls'))).toBe(true);
+		expect(JSON.parse(fs.readFileSync(configPathForWorkbook(workbook), 'utf8'))).not.toHaveProperty('managedFiles');
 	});
 
 	it('reads legacy sidecars and writes the new sidecar name on update', async () => {
@@ -165,21 +183,20 @@ describe('moduleExport', () => {
 
 		expect(await readWorkbookRepoConfig(workbook)).toMatchObject({
 			exportFolder,
-			exportMode: 'replaceExistingOnly',
-			managedFiles: ['Legacy.bas'],
+			exportMode: 'exportAll',
 		});
+		expect(await readWorkbookRepoConfig(workbook)).not.toHaveProperty('managedFiles');
 
 		await writeWorkbookRepoConfig(workbook, {
 			exportFolder,
 			exportMode: 'trueUp',
-			managedFiles: ['Module1.bas'],
 		});
 
 		expect(fs.existsSync(configPathForWorkbook(workbook))).toBe(true);
 		expect(await readWorkbookRepoConfig(workbook)).toMatchObject({
 			exportFolder,
 			exportMode: 'trueUp',
-			managedFiles: ['Module1.bas'],
 		});
+		expect(JSON.parse(fs.readFileSync(configPathForWorkbook(workbook), 'utf8'))).not.toHaveProperty('managedFiles');
 	});
 });

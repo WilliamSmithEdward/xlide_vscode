@@ -142,6 +142,9 @@ disabled states where appropriate:
 
 - `XLIDE: Lint Current Module`
 - `XLIDE: Lint Workbook`
+- `XLIDE: Lint All Modules` from the workbook node context menu in the XLIDE
+  workbook tree; this should route to the same workbook lint engine and active
+  workbook selection model as the sidebar action.
 - `XLIDE: Run Current VBA Test`
 - `XLIDE: Run All VBA Tests`
 - `XLIDE: Export/Sync Modules`
@@ -167,6 +170,10 @@ clear status and should reuse existing safe workbook handling.
 - Keep long-running actions cancelable where VS Code supports it.
 - Show progress for lint/test/sync operations.
 - Link result rows to modules and exact source lines.
+- Render workbook lint results in a dedicated native-feeling GUI/panel with
+  module grouping, severity filters, counts, suppressed-diagnostic visibility,
+  and copy/export actions. The Output channel should remain a support log, not
+  the main lint-results surface.
 - Keep all colors theme-driven.
 - Do not use custom decorative UI that fights VS Code styling.
 

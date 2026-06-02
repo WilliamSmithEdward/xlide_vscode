@@ -105,6 +105,22 @@ export function registerCommands(
         out.appendLine(msg);
     }
 
+    function showOutputFromNotification(choice: string | undefined): void {
+        if (choice === 'Show Output') {
+            out.show(true);
+        }
+    }
+
+    function showInformationWithOutput(message: string): void {
+        void vscode.window.showInformationMessage(message, 'Show Output')
+            .then(showOutputFromNotification);
+    }
+
+    function showWarningWithOutput(message: string): void {
+        void vscode.window.showWarningMessage(message, 'Show Output')
+            .then(showOutputFromNotification);
+    }
+
     function logChangeSummary(prefix: string, summary: XlideChangeSummary): string {
         const lines = formatChangeSummaryDetails(summary);
         for (const line of lines) {
@@ -490,7 +506,7 @@ export function registerCommands(
         settings: ModuleSyncSettings,
     ): Promise<ModuleSyncPlan> {
         log(`[exportModules] Target folder: ${settings.folderPath}`);
-        log(`[exportModules] Mode: ${settings.exportMode ?? 'trueUp'}`);
+        log(`[exportModules] Mode: ${settings.exportMode ?? 'exportAll'}`);
         return buildExportModuleSyncPlan(bridge, {
             workbookPath: filePath,
             exportFolder: settings.folderPath,
@@ -521,9 +537,6 @@ export function registerCommands(
             exportFolder: settings.folderPath,
             exportMode: normalizeExportMode(settings.exportMode ?? existingConfig.exportMode),
             importMode: normalizeImportMode(settings.importMode ?? existingConfig.importMode),
-            managedFiles: Array.isArray(existingConfig.managedFiles)
-                ? existingConfig.managedFiles.filter((item): item is string => typeof item === 'string')
-                : [],
         });
         return configPathForWorkbook(filePath);
     }
@@ -597,26 +610,17 @@ export function registerCommands(
         const changeSummary: XlideChangeSummary = {
             operation: 'Export current module',
             changed: result.writtenFiles,
-            skipped: result.skippedNewFiles,
         };
         const summaryText = logChangeSummary('exportCurrentModule', changeSummary);
         recordWriteAudit({
             command: 'xlide.exportCurrentModuleToFolder',
             operation: 'export-current-module',
-            outcome: result.skippedNew ? 'skipped' : 'succeeded',
+            outcome: 'succeeded',
             workbookPath: xlsmPath,
             moduleName,
             targetPath: target.exportFolder,
             summary: summaryText,
         });
-
-        if (result.skippedNew) {
-            log(`[exportCurrentModule] Skipped ${result.relativeName} because mode=replaceExistingOnly and the file does not exist`);
-            vscode.window.showWarningMessage(
-                `XLIDE: Skipped "${result.relativeName}" because export mode is replaceExistingOnly and the file does not exist.`,
-            );
-            return;
-        }
 
         log(`[exportCurrentModule] Config updated: ${result.configPath}`);
         vscode.window.showInformationMessage(
@@ -714,20 +718,10 @@ export function registerCommands(
         const skipped: string[] = [];
         const removed: string[] = [];
         const failed: string[] = [];
-        const successfulManaged = new Set<string>(
-            plan.items
-                .filter((item) => item.existsInWorkbook && item.status === 'unchanged')
-                .map((item) => item.relativeName),
-        );
 
         for (const item of selected) {
             if (item.status === 'unchanged') {
                 skipped.push(`${item.relativeName} (unchanged)`);
-                successfulManaged.add(item.relativeName);
-                continue;
-            }
-            if (item.status === 'skipping-export') {
-                skipped.push(item.relativeName);
                 continue;
             }
             if (item.status === 'will-remove') {
@@ -755,19 +749,28 @@ export function registerCommands(
                     exportFolder: plan.folderPath,
                     exportMode: plan.exportMode,
                 });
-                if (result.skippedNew) {
-                    skipped.push(result.relativeName);
-                } else {
-                    changed.push(...result.writtenFiles);
-                    successfulManaged.add(result.relativeName);
-                }
+                changed.push(...result.writtenFiles);
             } catch (err) {
                 failed.push(item.relativeName);
                 log(`[exportModules] Error exporting ${item.moduleName}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
 
-        await reconcileExportManagedFiles(plan, successfulManaged, removed);
+        try {
+            await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
+        } catch (err) {
+            failed.push('workbook repo config');
+            recordWriteAudit({
+                command: 'xlide.exportModulesToFolder',
+                operation: 'configure-module-sync',
+                outcome: 'failed',
+                workbookPath: plan.workbookPath,
+                targetPath: plan.folderPath,
+                summary: 'Sync settings: 0 changed, 1 failed',
+                error: err,
+            });
+            log(`[exportModules] Error updating workbook repo config: ${err instanceof Error ? err.message : String(err)}`);
+        }
         const summaryText = logChangeSummary('exportModules', {
             operation: 'Export modules',
             changed,
@@ -934,31 +937,6 @@ export function registerCommands(
         return plan.items.filter((item) => selected.has(item.id));
     }
 
-    async function reconcileExportManagedFiles(
-        plan: ModuleSyncPlan,
-        successfulManaged: ReadonlySet<string>,
-        removed: readonly string[],
-    ): Promise<void> {
-        const existing = await readWorkbookRepoConfig(plan.workbookPath);
-        const managedFiles = new Set(
-            Array.isArray(existing.managedFiles)
-                ? existing.managedFiles.filter((item): item is string => typeof item === 'string')
-                : [],
-        );
-        for (const relPath of successfulManaged) {
-            managedFiles.add(relPath);
-        }
-        for (const relPath of removed) {
-            managedFiles.delete(relPath);
-        }
-        await writeWorkbookRepoConfig(plan.workbookPath, {
-            ...existing,
-            exportFolder: plan.folderPath,
-            exportMode: plan.exportMode ?? normalizeExportMode(existing.exportMode),
-            managedFiles: Array.from(managedFiles).sort(),
-        });
-    }
-
     function isPathInside(baseDir: string, targetPath: string): boolean {
         const base = path.resolve(baseDir);
         const target = path.resolve(targetPath);
@@ -1026,11 +1004,11 @@ export function registerCommands(
 
         printLintReport(xlsmPath, 1, problems, errorCount, warningCount, summary);
         if (problems.length === 0) {
-            vscode.window.showInformationMessage(
+            showInformationWithOutput(
                 `XLIDE: "${moduleName}" passed lint (no unsuppressed problems).`,
             );
         } else {
-            vscode.window.showWarningMessage(
+            showWarningWithOutput(
                 `XLIDE: "${moduleName}" has ${errorCount} error(s) and ${warningCount} warning(s). See XLIDE Output.`,
             );
         }
@@ -1896,11 +1874,11 @@ export function registerCommands(
                             result.summary,
                         );
                         if (result.problems.length === 0) {
-                            void vscode.window.showInformationMessage(
+                            showInformationWithOutput(
                                 `XLIDE: "${name}" passed lint (no problems across ${result.moduleCount} module(s)).`,
                             );
                         } else {
-                            void vscode.window.showWarningMessage(
+                            showWarningWithOutput(
                                 `XLIDE: "${name}" has ${result.errorCount} error(s) and ${result.warningCount} warning(s). See XLIDE Output.`,
                             );
                         }

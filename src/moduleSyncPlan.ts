@@ -4,8 +4,8 @@ import type { PythonBridge } from './pythonBridge';
 import {
     type ExportMode,
     type ModuleInfo,
+    listRootVbaModuleFiles,
     normalizeExportMode,
-    readWorkbookRepoConfig,
     relativeNameForModule,
     sanitizeFileName,
 } from './moduleExport';
@@ -18,7 +18,6 @@ export type ModuleSyncItemStatus =
     | 'will-create'
     | 'will-update'
     | 'will-remove'
-    | 'skipping-export'
     | 'skipping-import'
     | 'read-error';
 
@@ -106,14 +105,11 @@ export async function buildExportModuleSyncPlan(
         const liveDisplaySource = editorPreviewSource(liveSource);
         const repoDisplaySource = editorPreviewSource(repoSource);
         const equal = existsInRepo && normalizeText(liveSource) === normalizeText(repoSource);
-        const skipNew = exportMode === 'replaceExistingOnly' && !existsInRepo;
-        const status: ModuleSyncItemStatus = skipNew
-            ? 'skipping-export'
-            : equal
-                ? 'unchanged'
-                : existsInRepo
-                    ? 'will-write'
-                    : 'will-create';
+        const status: ModuleSyncItemStatus = equal
+            ? 'unchanged'
+            : existsInRepo
+                ? 'will-write'
+                : 'will-create';
 
         return {
             id: `export:${mod.name}`,
@@ -124,10 +120,8 @@ export async function buildExportModuleSyncPlan(
             targetPath,
             status,
             checked: status === 'will-write' || status === 'will-create',
-            selectable: !skipNew,
-            warning: skipNew
-                ? 'Skipping export because mode is replaceExistingOnly and the file does not exist.'
-                : undefined,
+            selectable: true,
+            warning: undefined,
             detail: statusLabel(status),
             existsInWorkbook: true,
             existsInRepo,
@@ -145,8 +139,7 @@ export async function buildExportModuleSyncPlan(
     const staleItems: ModuleSyncPlanItem[] = [];
 
     if (exportMode === 'trueUp') {
-        const config = await readWorkbookRepoConfig(params.workbookPath);
-        for (const relPath of managedFilesFromConfig(config)) {
+        for (const relPath of await listRootVbaModuleFiles(params.exportFolder)) {
             if (liveRelativeNames.has(relPath)) {
                 continue;
             }
@@ -168,7 +161,7 @@ export async function buildExportModuleSyncPlan(
                 status: 'will-remove',
                 checked: true,
                 selectable: true,
-                warning: 'This managed repo file no longer exists as a workbook module and will be removed during true-up.',
+                warning: 'This stale .bas/.cls repo module file no longer exists as a workbook module and will be removed during mirror export.',
                 detail: statusLabel('will-remove'),
                 existsInWorkbook: false,
                 existsInRepo: true,
@@ -401,8 +394,6 @@ export function statusLabel(status: ModuleSyncItemStatus): string {
             return 'Will remove stale repo file';
         case 'unchanged':
             return 'Unchanged';
-        case 'skipping-export':
-            return 'Skipping export';
         case 'skipping-import':
             return 'Skipping import';
         case 'read-error':
@@ -488,12 +479,6 @@ function isPathInside(baseDir: string, targetPath: string): boolean {
     return target === base || target.startsWith(base + path.sep);
 }
 
-function managedFilesFromConfig(config: { managedFiles?: unknown }): string[] {
-    return Array.isArray(config.managedFiles)
-        ? config.managedFiles.filter((item): item is string => typeof item === 'string')
-        : [];
-}
-
 function lcsTable(left: readonly string[], right: readonly string[]): number[][] {
     const table = Array.from({ length: left.length + 1 }, () => Array(right.length + 1).fill(0));
     for (let i = left.length - 1; i >= 0; i--) {
@@ -521,7 +506,6 @@ function statusSort(status: ModuleSyncItemStatus): number {
         case 'will-remove':
             return 0;
         case 'skipping-import':
-        case 'skipping-export':
             return 1;
         case 'read-error':
             return 2;
@@ -543,7 +527,7 @@ function moduleKindLabel(kind: string): string {
         case 'document':
             return 'Worksheet/ThisWorkbook';
         case 'userform':
-            return 'UserForm';
+            return 'UserForm .cls code-behind';
         default:
             return kind;
     }

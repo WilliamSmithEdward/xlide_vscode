@@ -922,8 +922,15 @@ development.
   - export/sync modules
   - open/reopen workbook
   - refresh project
+- [ ] Add workbook-tree context menu action for `Lint All Modules` on workbook
+  nodes. It should call the existing workbook lint engine/tool path, respect the
+  selected workbook silo, and avoid creating a second lint pipeline.
 - [ ] Add polished secondary panels for:
   - Problems summary by severity
+  - Workbook lint results in a dedicated GUI/panel with module grouping,
+    severity filters, counts, suppressed-diagnostic visibility, copy/export
+    actions, and click-through navigation to module/line locations; Output
+    should remain a support log, not the primary lint-results surface.
   - Test summary by pass/fail/skip/xfail/xpass
   - Recent XLIDE operations and logs
   - Setup recommendations and quick fixes
@@ -974,8 +981,13 @@ auditable, and recoverable for real user projects.
 - [x] Add full module import/export diff previews for bulk sync. The UI command
   path now opens a webview where users can click each module, inspect a
   workbook-vs-repo diff, check/uncheck modules, and apply selected changes.
-  Missing document/UserForm imports show `Skipping import` and are audited as
-  skipped instead of failing the whole import.
+  Export modes follow one policy: export all workbook modules, or export all
+  plus delete stale `.bas`/`.cls` module files that no longer exist in the workbook.
+  Import modes follow one policy: standard/class modules can be created or
+  updated, existing document modules and UserForm `.cls` code-behind modules
+  update on name match, missing document/UserForm-code-behind imports show
+  `Skipping import`, `.frm` designer files stay out of scope, and the
+  delete/mirror import mode only removes workbook-only standard/class modules.
 - [ ] Move import/export-specific settings into the import/export diff GUI as
   the primary configuration surface. The GUI should show effective defaults,
   allow per-workbook overrides for repo folder/export mode/related sync
@@ -1200,8 +1212,9 @@ Definition of done:
 4. Keep the VBA test runner as a planned workstream until its specs and fixture
    coverage are ready, and continue promoting small `CANARY_*` cases only when
    they become relevant to analyzer behavior.
-5. Treat the XLIDE sidebar as the future product shell for lint, test, setup,
-   sync, and workbook actions.
+5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
+   for lint, test, setup, sync, and workbook actions; avoid using the Output
+   channel as the primary UX for actionable workflow results.
 6. Track safety, settings, code actions, performance, release polish, and
    support diagnostics as product-maturity gates before a broad release.
 

@@ -528,6 +528,27 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             gap: 12px;
         }
         .result { color: var(--vscode-editor-foreground); }
+        .quickTooltip {
+            position: fixed;
+            z-index: 1000;
+            max-width: min(420px, calc(100vw - 16px));
+            padding: 6px 8px;
+            border: 1px solid var(--vscode-editorWidget-border, var(--border));
+            border-radius: 3px;
+            color: var(--vscode-editorWidget-foreground, var(--vscode-editor-foreground));
+            background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+            box-shadow: 0 4px 12px color-mix(in srgb, black 35%, transparent);
+            font-size: 12px;
+            line-height: 1.35;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(2px);
+            transition: opacity 70ms ease, transform 70ms ease;
+        }
+        .quickTooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -545,8 +566,8 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                     <div class="field" id="modeField">
                         <label for="syncMode" id="modeLabel">Export mode</label>
                         <select id="syncMode">
-                            <option value="trueUp">True Up</option>
-                            <option value="replaceExistingOnly">Replace Existing Only</option>
+                            <option value="exportAll">Export All (No Deletes)</option>
+                            <option value="trueUp">Export All + Delete Missing</option>
                         </select>
                     </div>
                 </div>
@@ -590,6 +611,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             <span class="result" id="result"></span>
         </footer>
     </div>
+    <div class="quickTooltip" id="tooltip" role="tooltip" hidden></div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         let plan = ${data};
@@ -600,6 +622,9 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         let showHeaders = false;
         let settingsSaving = false;
         let settingsSaveTimer;
+        let tooltipTimer;
+        let tooltipTarget;
+        const tooltipDelayMs = 140;
 
         const el = id => document.getElementById(id);
 
@@ -659,11 +684,123 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             };
         }
 
-        function option(value, label) {
+        function option(value, label, description) {
             const item = document.createElement('option');
             item.value = value;
             item.textContent = label;
+            if (description) {
+                item.title = description;
+            }
             return item;
+        }
+
+        function setTooltip(targetOrId, text) {
+            const target = typeof targetOrId === 'string' ? el(targetOrId) : targetOrId;
+            if (!target) return;
+            target.dataset.tooltip = text;
+            target.removeAttribute('title');
+        }
+
+        function clearTooltip(targetOrId) {
+            const target = typeof targetOrId === 'string' ? el(targetOrId) : targetOrId;
+            if (!target) return;
+            delete target.dataset.tooltip;
+            target.removeAttribute('title');
+        }
+
+        function clearTooltipTimer() {
+            if (tooltipTimer) {
+                clearTimeout(tooltipTimer);
+                tooltipTimer = undefined;
+            }
+        }
+
+        function hideTooltip() {
+            clearTooltipTimer();
+            tooltipTarget = undefined;
+            const tooltip = el('tooltip');
+            tooltip.classList.remove('visible');
+            tooltip.hidden = true;
+        }
+
+        function showTooltipFor(target) {
+            const text = target.dataset.tooltip;
+            if (!text) return;
+            const tooltip = el('tooltip');
+            tooltip.textContent = text;
+            tooltip.hidden = false;
+            tooltip.classList.remove('visible');
+            const rect = target.getBoundingClientRect();
+            const pad = 8;
+            const tooltipWidth = tooltip.offsetWidth;
+            const tooltipHeight = tooltip.offsetHeight;
+            const maxLeft = Math.max(pad, window.innerWidth - tooltipWidth - pad);
+            const left = clamp(rect.left, pad, maxLeft);
+            let top = rect.bottom + 6;
+            if (top + tooltipHeight > window.innerHeight - pad) {
+                top = Math.max(pad, rect.top - tooltipHeight - 6);
+            }
+            tooltip.style.left = \`\${left}px\`;
+            tooltip.style.top = \`\${top}px\`;
+            requestAnimationFrame(() => tooltip.classList.add('visible'));
+        }
+
+        function installFastTooltips() {
+            document.addEventListener('mouseover', event => {
+                const target = event.target.closest?.('[data-tooltip]');
+                if (!target) return;
+                tooltipTarget = target;
+                clearTooltipTimer();
+                tooltipTimer = setTimeout(() => {
+                    if (tooltipTarget === target) {
+                        showTooltipFor(target);
+                    }
+                }, tooltipDelayMs);
+            });
+            document.addEventListener('mouseout', event => {
+                const target = event.target.closest?.('[data-tooltip]');
+                if (!target) return;
+                if (event.relatedTarget && target.contains(event.relatedTarget)) return;
+                hideTooltip();
+            });
+            document.addEventListener('focusin', event => {
+                const target = event.target.closest?.('[data-tooltip]');
+                if (target) {
+                    tooltipTarget = target;
+                    showTooltipFor(target);
+                }
+            });
+            document.addEventListener('focusout', () => hideTooltip());
+            document.addEventListener('pointerdown', event => {
+                if (event.target.closest?.('[data-tooltip]')) {
+                    hideTooltip();
+                }
+            });
+            document.addEventListener('click', event => {
+                if (event.target.closest?.('[data-tooltip]')) {
+                    hideTooltip();
+                }
+            });
+            document.addEventListener('scroll', () => hideTooltip(), true);
+            window.addEventListener('resize', () => hideTooltip());
+        }
+
+        function modeDescription(modeValue) {
+            const mode = modeValue || el('syncMode').value;
+            if (plan.direction === 'export') {
+                return mode === 'trueUp'
+                    ? 'Export every workbook module to the selected folder, then delete stale .bas/.cls module files that no longer exist in the workbook.'
+                    : 'Export every workbook module to the selected folder. XLIDE will create missing module files and update changed files, but will not delete stale files.';
+            }
+            return mode === 'trueUpStandardClass'
+                ? 'Import/update selected .bas/.cls files, then delete workbook-only standard/class modules missing from the folder. New standard/class modules can be created; existing document modules and UserForm .cls code-behind are updated on name match; document modules and UserForm code-behind are never created or deleted by this mode.'
+                : 'Import/update selected .bas/.cls files without deleting workbook modules. New standard/class modules can be created; existing document modules and UserForm .cls code-behind are updated on name match; missing document modules and UserForm code-behind are skipped because XLIDE cannot create them directly.';
+        }
+
+        function updateModeTitle() {
+            clearTooltip('syncMode');
+            clearTooltip('modeLabel');
+            clearTooltip('modeField');
         }
 
         function renderChrome() {
@@ -671,22 +808,37 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             el('subtitle').textContent = \`\${plan.workbookPath} <-> \${plan.folderPath}\${plan.exportMode ? '  [' + plan.exportMode + ']' : ''}\`;
             el('folderLabel').textContent = plan.direction === 'export' ? 'Export folder' : 'Import folder';
             el('folderValue').textContent = plan.folderPath;
-            el('folderValue').title = plan.folderPath;
+            setTooltip('folderValue', plan.direction === 'export'
+                ? \`Folder XLIDE will compare against and write selected workbook modules into: \${plan.folderPath}\`
+                : \`Folder XLIDE will compare against and import selected module files from: \${plan.folderPath}\`);
+            setTooltip('chooseFolder', plan.direction === 'export'
+                ? 'Choose the folder to compare with this workbook and receive exported module files.'
+                : 'Choose the folder containing module files to compare with and import into this workbook.');
             el('modeField').classList.remove('hidden');
             const mode = el('syncMode');
             mode.innerHTML = '';
             if (plan.direction === 'export') {
                 el('modeLabel').textContent = 'Export mode';
-                mode.append(option('trueUp', 'True Up'));
-                mode.append(option('replaceExistingOnly', 'Replace Existing Only'));
-                mode.value = plan.exportMode || 'trueUp';
+                mode.append(option('exportAll', 'Export All (No Deletes)', modeDescription('exportAll')));
+                mode.append(option('trueUp', 'Export All + Delete Missing', modeDescription('trueUp')));
+                mode.value = plan.exportMode || 'exportAll';
             } else {
                 el('modeLabel').textContent = 'Import mode';
-                mode.append(option('updateOnly', 'Import Changed/New'));
-                mode.append(option('trueUpStandardClass', 'True Up Standard/Class'));
+                mode.append(option('updateOnly', 'Import/Update (No Deletes)', modeDescription('updateOnly')));
+                mode.append(option('trueUpStandardClass', 'Import/Update + Delete Missing', modeDescription('trueUpStandardClass')));
                 mode.value = plan.importMode || 'updateOnly';
             }
+            updateModeTitle();
             el('selectChanged').textContent = plan.direction === 'import' ? 'Select Importable' : 'Select Changed';
+            setTooltip('selectChanged', plan.direction === 'import'
+                ? 'Select every importable row that will create, update, or delete a workbook module under the current import mode.'
+                : 'Select every changed export row that will write or remove files under the current export mode.');
+            setTooltip('clear', 'Clear the current module selection without changing files.');
+            setTooltip('apply', plan.direction === 'import'
+                ? 'Apply the selected import changes to the workbook.'
+                : 'Apply the selected export changes to the folder.');
+            setTooltip('cancel', 'Close this preview without applying changes.');
+            setTooltip('toggleHeaders', 'Toggle hidden VBA Attribute header lines in the diff preview and copy buttons.');
             if (shouldShowWarnings()) {
                 el('warnings').classList.add('visible');
                 el('warnings').textContent = plan.warnings.join('\\n');
@@ -784,8 +936,8 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             el('rightTitle').textContent = item.rightTitle;
             el('copyLeft').disabled = !leftCode;
             el('copyRight').disabled = !rightCode;
-            el('copyLeft').title = leftCode ? 'Copy left code to clipboard' : 'No left-side code to copy';
-            el('copyRight').title = rightCode ? 'Copy right code to clipboard' : 'No right-side code to copy';
+            setTooltip('copyLeft', leftCode ? 'Copy left code to clipboard.' : 'No left-side code to copy.');
+            setTooltip('copyRight', rightCode ? 'Copy right code to clipboard.' : 'No right-side code to copy.');
             el('toggleHeaders').disabled = false;
             el('toggleHeaders').textContent = showHeaders ? 'Hide Headers in Diff' : 'Show Headers in Diff';
             el('toggleHeaders').setAttribute('aria-pressed', String(showHeaders));
@@ -864,6 +1016,9 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             event.stopPropagation();
             vscode.postMessage({ type: 'copy-code', itemId: activeId, side: 'right', showHeaders });
         });
+        document.addEventListener('contextmenu', event => {
+            event.preventDefault();
+        });
         el('toggleHeaders').addEventListener('click', () => {
             showHeaders = !showHeaders;
             renderDiff();
@@ -875,7 +1030,10 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             renderCounts();
             vscode.postMessage({ type: 'choose-folder', autoSaveSettings: true, ...currentSettings() });
         });
-        el('syncMode').addEventListener('change', () => refreshSettings());
+        el('syncMode').addEventListener('change', () => {
+            updateModeTitle();
+            refreshSettings();
+        });
         el('cancel').addEventListener('click', () => {
             clearSettingsAutosave();
             vscode.postMessage({ type: 'cancel' });
@@ -931,6 +1089,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
 
         selected = selectedFromPlan();
         installSplitter();
+        installFastTooltips();
         renderChrome();
         renderList();
         renderDiff();
