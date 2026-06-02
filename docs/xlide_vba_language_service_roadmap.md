@@ -1531,7 +1531,9 @@ workflow panels:
   Avoid separate GUI-only, command-only, and agent-only configuration pipelines.
 - Configuration writes should be debounced and deterministic. Malformed
   workbook-local settings should be reported with a clear recovery path rather
-  than guessed.
+  than guessed. This is implemented for `<workbook>.xlide_settings.json`:
+  invalid JSON, unknown keys, invalid sync modes, and invalid analysis settings
+  surface as explicit workbook settings errors.
 
 Implementation priority:
 

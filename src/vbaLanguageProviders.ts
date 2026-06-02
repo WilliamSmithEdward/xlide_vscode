@@ -64,7 +64,7 @@ import {
     isAnalysisRuleTracked,
 } from './analysisSettingsCore';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
-import { settingsPathForWorkbook } from './moduleExport';
+import { isWorkbookSettingsError, settingsPathForWorkbook } from './moduleExport';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -949,7 +949,32 @@ function registerVbaDiagnostics(
     };
 
     const run = (document: vscode.TextDocument): void => {
-        void runAsync(document);
+        void runAsync(document).catch((err) => {
+            if (!isVbaDocument(document)) {
+                return;
+            }
+            collection.set(document.uri, [diagnosticForAnalysisRunError(document, err)]);
+        });
+    };
+
+    const diagnosticForAnalysisRunError = (
+        document: vscode.TextDocument,
+        err: unknown,
+    ): vscode.Diagnostic => {
+        const firstLine = document.lineCount > 0 ? document.lineAt(0).text : '';
+        const range = new vscode.Range(0, 0, 0, Math.min(firstLine.length, 1));
+        const settingsError = isWorkbookSettingsError(err);
+        const message = settingsError
+            ? `${err.message} Fix or delete the workbook settings sidecar.`
+            : `XLIDE diagnostics failed: ${err instanceof Error ? err.message : String(err)}`;
+        const diagnostic = new vscode.Diagnostic(
+            range,
+            message,
+            vscode.DiagnosticSeverity.Error,
+        );
+        diagnostic.source = settingsError ? 'XLIDE/settings' : 'XLIDE';
+        diagnostic.code = settingsError ? 'workbook-settings-invalid' : 'diagnostics-failed';
+        return diagnostic;
     };
 
     const runAsync = async (document: vscode.TextDocument): Promise<void> => {

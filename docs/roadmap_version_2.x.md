@@ -1058,6 +1058,10 @@ the deterministic analyzer contract.
     snippets and Enter auto-blocking cannot diverge.
   - this setting is user/workspace editor preference, not `.xlide` workbook or
     project configuration.
+- [x] Reject malformed workbook settings sidecars deterministically. A present
+  `<workbook>.xlide_settings.json` file with invalid JSON, unknown keys,
+  invalid sync modes, or invalid analysis settings now reports an explicit
+  settings error instead of silently falling back to empty defaults.
 - [ ] Surface all configuration through the unified XLIDE sidebar menu
   collection, while preserving normal VS Code Settings integration for users
   who prefer native settings UI.

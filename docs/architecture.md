@@ -285,7 +285,7 @@ Workbook settings schema:
 
 `trueUp` export treats the selected folder as the workbook's module folder: it proposes/removes only root `.bas` and `.cls` module files that do not map to a live workbook module. Other file types, nested files, and `.frm` designer files are outside import/export sync.
 
-On later runs, `exportFolder` is used as the default folder in the preview GUI. XLIDE reads and writes only `<workbook-filename>.xlide_settings.json`; older sidecar names are not part of the supported settings contract.
+On later runs, `exportFolder` is used as the default folder in the preview GUI. XLIDE reads and writes only `<workbook-filename>.xlide_settings.json`; older sidecar names are not part of the supported settings contract. If that sidecar exists but contains invalid JSON, unknown keys, invalid sync modes, or invalid analysis settings, XLIDE reports the settings file as invalid instead of treating it as empty defaults.
 
 ---
 

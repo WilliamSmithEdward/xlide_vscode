@@ -28,6 +28,16 @@ interface WorkbookAnalysisSettingsConfig {
     untrackedRules?: string[];
 }
 
+class WorkbookSettingsError extends Error {
+    constructor(
+        public readonly settingsPath: string,
+        message: string,
+    ) {
+        super(`XLIDE workbook settings file is invalid: ${settingsPath}. ${message}`);
+        this.name = 'WorkbookSettingsError';
+    }
+}
+
 type WorkbookSettingsConfigInput = Omit<WorkbookSettingsConfig, 'exportMode'> & {
     exportMode?: ExportMode;
 };
@@ -163,14 +173,165 @@ function normalizeWorkbookSettingsConfig(config: {
     return normalized;
 }
 
-async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsConfig> {
-    try {
-        const raw = await fs.promises.readFile(settingsPathForWorkbook(filePath), 'utf8');
-        const parsed = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? normalizeWorkbookSettingsConfig(parsed) : {};
-    } catch {
-        return {};
+function isWorkbookSettingsError(value: unknown): value is WorkbookSettingsError {
+    return value instanceof WorkbookSettingsError;
+}
+
+function parseWorkbookSettingsConfig(value: unknown, configPath: string): WorkbookSettingsConfig {
+    if (!isPlainObject(value)) {
+        throw new WorkbookSettingsError(configPath, 'Expected the root value to be a JSON object.');
     }
+    assertKnownKeys(value, configPath, 'root', ['exportFolder', 'exportMode', 'importMode', 'analysis']);
+
+    const parsed: WorkbookSettingsConfig = {};
+    if ('exportFolder' in value) {
+        parsed.exportFolder = expectOptionalString(value.exportFolder, configPath, 'exportFolder');
+    }
+    if ('exportMode' in value) {
+        parsed.exportMode = expectExportMode(value.exportMode, configPath, 'exportMode');
+    }
+    if ('importMode' in value) {
+        parsed.importMode = expectImportMode(value.importMode, configPath, 'importMode');
+    }
+    if ('analysis' in value) {
+        parsed.analysis = expectAnalysisSettings(value.analysis, configPath, 'analysis');
+    }
+    return parsed;
+}
+
+function expectAnalysisSettings(
+    value: unknown,
+    configPath: string,
+    fieldPath: string,
+): WorkbookAnalysisSettingsConfig | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (!isPlainObject(value)) {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
+    }
+    assertKnownKeys(value, configPath, fieldPath, ['visibleSeverities', 'untrackedRules']);
+
+    const parsed: WorkbookAnalysisSettingsConfig = {};
+    if ('visibleSeverities' in value) {
+        parsed.visibleSeverities = expectSeverityList(value.visibleSeverities, configPath, `${fieldPath}.visibleSeverities`);
+    }
+    if ('untrackedRules' in value) {
+        parsed.untrackedRules = expectStringList(value.untrackedRules, configPath, `${fieldPath}.untrackedRules`);
+    }
+    return Object.keys(parsed).length > 0 ? parsed : undefined;
+}
+
+function expectSeverityList(value: unknown, configPath: string, fieldPath: string): AnalysisSeverityFilter[] {
+    if (!Array.isArray(value)) {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be an array.`);
+    }
+    const allowed = new Set<string>(['error', 'warning', 'information']);
+    const parsed: AnalysisSeverityFilter[] = [];
+    for (const entry of value) {
+        if (typeof entry !== 'string' || !allowed.has(entry)) {
+            throw new WorkbookSettingsError(
+                configPath,
+                `Expected "${fieldPath}" entries to be "error", "warning", or "information".`,
+            );
+        }
+        parsed.push(entry as AnalysisSeverityFilter);
+    }
+    return normalizeAnalysisVisibleSeverities(parsed);
+}
+
+function expectStringList(value: unknown, configPath: string, fieldPath: string): string[] {
+    if (!Array.isArray(value)) {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be an array.`);
+    }
+    if (!value.every((entry) => typeof entry === 'string')) {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" entries to be strings.`);
+    }
+    return normalizeAnalysisRuleCodes(value);
+}
+
+function expectOptionalString(value: unknown, configPath: string, fieldPath: string): string | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (typeof value !== 'string') {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a string.`);
+    }
+    return value;
+}
+
+function expectExportMode(value: unknown, configPath: string, fieldPath: string): ExportMode | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === 'exportAll' || value === 'trueUp') {
+        return value;
+    }
+    throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be "exportAll" or "trueUp".`);
+}
+
+function expectImportMode(value: unknown, configPath: string, fieldPath: string): ImportMode | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === 'updateOnly' || value === 'trueUpStandardClass') {
+        return value;
+    }
+    throw new WorkbookSettingsError(
+        configPath,
+        `Expected "${fieldPath}" to be "updateOnly" or "trueUpStandardClass".`,
+    );
+}
+
+function assertKnownKeys(
+    value: Record<string, unknown>,
+    configPath: string,
+    fieldPath: string,
+    knownKeys: readonly string[],
+): void {
+    const known = new Set(knownKeys);
+    const unknown = Object.keys(value).filter((key) => !known.has(key));
+    if (unknown.length > 0) {
+        throw new WorkbookSettingsError(
+            configPath,
+            `Unknown setting "${fieldPath === 'root' ? unknown[0] : `${fieldPath}.${unknown[0]}`}".`,
+        );
+    }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsConfig> {
+    const configPath = settingsPathForWorkbook(filePath);
+    let raw: string;
+    try {
+        raw = await fs.promises.readFile(configPath, 'utf8');
+    } catch (err) {
+        if (isNodeError(err) && err.code === 'ENOENT') {
+            return {};
+        }
+        throw new WorkbookSettingsError(
+            configPath,
+            `Unable to read settings: ${err instanceof Error ? err.message : String(err)}`,
+        );
+    }
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (err) {
+        throw new WorkbookSettingsError(
+            configPath,
+            `Expected valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+        );
+    }
+    return parseWorkbookSettingsConfig(parsed, configPath);
+}
+
+function isNodeError(value: unknown): value is NodeJS.ErrnoException {
+    return value !== null && typeof value === 'object' && 'code' in value;
 }
 
 async function writeWorkbookSettings(
@@ -337,6 +498,7 @@ export {
     type ModuleInfo,
     type WorkbookAnalysisSettingsConfig,
     type WorkbookSettingsConfig,
+    WorkbookSettingsError,
     type ExportModulesParams,
     type ExportModulesResult,
     type ExportModuleParams,
@@ -352,4 +514,5 @@ export {
     setWorkbookExportMode,
     exportWorkbookModule,
     exportWorkbookModules,
+    isWorkbookSettingsError,
 };

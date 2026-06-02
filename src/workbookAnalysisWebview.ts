@@ -140,7 +140,7 @@ export function openWorkbookAnalysisResults(
 
     void renderPanel().catch((err) => {
         const error = err instanceof Error ? err.message : String(err);
-        void panel.webview.postMessage({ type: 'error', error });
+        panel.webview.html = renderWorkbookAnalysisErrorHtml(panel.webview, currentModel.workbookName, error);
     });
     const messageSub = panel.webview.onDidReceiveMessage(async (message: {
         type?: string;
@@ -1597,6 +1597,62 @@ function renderWorkbookAnalysisResultsHtml(
         updateRows();
         persistUiState();
     </script>
+</body>
+</html>`;
+}
+
+function renderWorkbookAnalysisErrorHtml(
+    webview: vscode.Webview,
+    workbookName: string,
+    error: string,
+): string {
+    return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XLIDE Analysis Error</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            color: var(--vscode-foreground);
+            background: var(--vscode-editor-background);
+            font-family: var(--vscode-font-family);
+        }
+        main {
+            max-width: 900px;
+        }
+        h1 {
+            margin: 0 0 6px;
+            font-size: 18px;
+        }
+        .subtle {
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 18px;
+        }
+        .error {
+            border: 1px solid var(--vscode-inputValidation-errorBorder);
+            background: color-mix(in srgb, var(--vscode-inputValidation-errorBackground) 40%, transparent);
+            padding: 12px;
+            border-radius: 4px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+        }
+        .help {
+            margin-top: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>XLIDE Analysis Could Not Load</h1>
+        <div class="subtle">${escapeHtml(workbookName)}</div>
+        <div class="error">${escapeHtml(error)}</div>
+        <div class="help">Fix or delete the workbook settings sidecar, then run analysis again.</div>
+    </main>
 </body>
 </html>`;
 }

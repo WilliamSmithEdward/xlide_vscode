@@ -6,6 +6,7 @@ import type { PythonBridge } from '../src/pythonBridge';
 import {
 	exportWorkbookModule,
 	exportWorkbookModules,
+	isWorkbookSettingsError,
 	readWorkbookSettings,
 	settingsPathForWorkbook,
 	writeWorkbookSettings,
@@ -87,34 +88,6 @@ describe('moduleExport', () => {
 		expect(settingsPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.xlide_settings.json'));
 	});
 
-	it('defaults unknown export modes to exportAll and creates new current-module files', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
-			exportFolder,
-			exportMode: 'anythingElse' as never,
-		});
-		const bridge = fakeBridge([
-			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
-		]);
-
-		const result = await exportWorkbookModule(bridge, {
-			filePath: workbook,
-			moduleName: 'Module1',
-		});
-
-		expect(result).toMatchObject({
-			exportMode: 'exportAll',
-			relativeName: 'Module1.bas',
-			written: true,
-			writtenFiles: ['Module1.bas'],
-		});
-		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(true);
-		expect(await readWorkbookSettings(workbook)).toMatchObject({
-			exportFolder,
-			exportMode: 'exportAll',
-		});
-	});
-
 	it('keeps all-module true-up behavior on the shared module-file writer', async () => {
 		const { workbook, exportFolder } = tempWorkbook();
 		fs.mkdirSync(exportFolder, { recursive: true });
@@ -188,5 +161,76 @@ describe('moduleExport', () => {
 				untrackedRules: ['option-explicit-missing'],
 			},
 		});
+	});
+
+	it('treats a missing workbook settings sidecar as no workbook settings', async () => {
+		const { workbook } = tempWorkbook();
+
+		await expect(readWorkbookSettings(workbook)).resolves.toEqual({});
+	});
+
+	it('rejects invalid workbook settings JSON with the sidecar path', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(settingsPathForWorkbook(workbook), '{ nope', 'utf8');
+
+		await expect(readWorkbookSettings(workbook)).rejects.toMatchObject({
+			settingsPath: settingsPathForWorkbook(workbook),
+			name: 'WorkbookSettingsError',
+		});
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected valid JSON');
+	});
+
+	it('rejects non-object workbook settings', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(settingsPathForWorkbook(workbook), '[]', 'utf8');
+
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected the root value to be a JSON object');
+	});
+
+	it('rejects unknown workbook settings keys instead of ignoring them', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({ exportFolder: 'C:/repo', typoMode: true }, null, 2)}\n`,
+			'utf8',
+		);
+
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Unknown setting "typoMode"');
+	});
+
+	it('rejects invalid workbook sync modes from disk', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({ exportFolder: 'C:/repo', exportMode: 'anythingElse' }, null, 2)}\n`,
+			'utf8',
+		);
+
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected "exportMode" to be "exportAll" or "trueUp"');
+	});
+
+	it('rejects invalid workbook analysis settings from disk', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({
+				analysis: {
+					visibleSeverities: ['error', 'hint'],
+				},
+			}, null, 2)}\n`,
+			'utf8',
+		);
+
+		try {
+			await readWorkbookSettings(workbook);
+			throw new Error('Expected readWorkbookSettings to reject');
+		} catch (err) {
+			expect(isWorkbookSettingsError(err)).toBe(true);
+			expect(err).toMatchObject({
+				settingsPath: settingsPathForWorkbook(workbook),
+			});
+			expect(err instanceof Error ? err.message : String(err))
+				.toContain('Expected "analysis.visibleSeverities" entries');
+		}
 	});
 });
