@@ -982,14 +982,16 @@ statement and suppresses overlapping hard syntax diagnostics for incomplete
 member access, trailing binary operators, and unmatched opening parentheses.
 Current-module analysis and workbook analysis do not pass that offset, so completed
 invalid source remains diagnostic-strict outside the active edit.
-Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
-gate it and re-run open documents on change. Contributed `xlide.*` VS Code
-settings are machine-scoped in `package.json`. `globalSettings.ts` validates,
-normalizes, and resolves those contributed settings with explicit provenance
-(`default`, `machine`, or `unknown`). Malformed values surface as
-`XLIDE/settings` diagnostics on VBA documents; invalid `optionExplicit` values
-fall back to the default `warning` severity through the same normalizer used by
-live diagnostics, current-module analysis, and workbook analysis.
+Setting `xlide.diagnostics.enabled` gates it and re-runs open documents on
+change. Analysis rule severity overrides are keyed by stable diagnostic code and
+resolved through `xlide.analysis.ruleSeverityOverrides` globally or the
+workbook sidecar per workbook. Contributed `xlide.*` VS Code settings are
+machine-scoped in `package.json`. `globalSettings.ts` validates, normalizes,
+and resolves those contributed settings with explicit provenance (`default`,
+`machine`, or `unknown`). Malformed values surface as `XLIDE/settings`
+diagnostics on VBA documents; invalid rule severity overrides are rejected by
+the same guardrail model used by live diagnostics, current-module analysis, and
+workbook analysis.
 Before diagnostics are displayed, `src/analyzer/diagnostics/analysisSuppressions.ts`
 scans tokenized apostrophe comments for explicit `@xlide-analysis` directives and
 applies the same lexical file, member, line, next-line, and paired block filter

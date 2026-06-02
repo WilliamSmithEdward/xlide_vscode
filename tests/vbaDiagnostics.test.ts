@@ -305,12 +305,24 @@ describe('analyzeModule - Option Explicit', () => {
 	});
 
 	it('respects a severity override', () => {
+		const src = 'Option Explicit\nSub T()\n    MissingProc\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				knownProcedures: new Set<string>(),
+				severityOverrides: { 'unknown-call': 'warning' },
+			}),
+			'unknown-call',
+		);
+		expect(hits[0].severity).toBe('warning');
+	});
+
+	it('ignores severity overrides that violate rule guardrails', () => {
 		const src = 'Sub T()\nEnd Sub\n';
 		const hits = byCode(
-			analyzeModule(src, { severities: { optionExplicitMissing: 'error' } }),
+			analyzeModule(src, { severityOverrides: { 'option-explicit-missing': 'error' } }),
 			'option-explicit-missing',
 		);
-		expect(hits[0].severity).toBe('error');
+		expect(hits[0].severity).toBe('warning');
 	});
 
 	it('flags an undeclared bare assignment target when Option Explicit is present', () => {
@@ -494,7 +506,7 @@ describe('analyzeModule - Option Explicit', () => {
 	it('can be switched off', () => {
 		const src = 'Sub T()\nEnd Sub\n';
 		const hits = byCode(
-			analyzeModule(src, { severities: { optionExplicitMissing: 'off' } }),
+			analyzeModule(src, { severityOverrides: { 'option-explicit-missing': 'off' } }),
 			'option-explicit-missing',
 		);
 		expect(hits).toHaveLength(0);

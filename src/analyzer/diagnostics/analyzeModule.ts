@@ -101,6 +101,8 @@ import {
 	DIAGNOSTIC_RULES,
 	DiagnosticRuleName,
 	DiagnosticSeverity,
+	DiagnosticSeverityOverride,
+	normalizeDiagnosticSeverityOverride,
 } from './ruleMetadata';
 
 /** A single diagnostic produced by the analyzer (offset-based). */
@@ -140,10 +142,8 @@ export interface VbaDiagnosticData {
 	createProcedureStub?: VbaCreateProcedureStubData;
 }
 
-/** Per-rule severity overrides; `'off'` disables a rule. */
-export type SeverityOverrides = Partial<
-	Record<DiagnosticRuleName, DiagnosticSeverity | 'off'>
->;
+/** Per-rule severity overrides keyed by stable diagnostic code; `'off'` disables an allowed rule. */
+export type DiagnosticSeverityOverrides = Partial<Record<string, DiagnosticSeverityOverride>>;
 
 /** Inputs for {@link analyzeModule}. */
 export interface AnalyzeModuleOptions {
@@ -153,8 +153,8 @@ export interface AnalyzeModuleOptions {
 	moduleKind?: ModuleSymbolKind;
 	/** Workbook/document subtype for Excel document modules when known. */
 	documentType?: EventHandlerDocumentType;
-	/** Optional per-rule severity overrides (e.g. Option Explicit severity). */
-	severities?: SeverityOverrides;
+	/** Optional per-rule severity overrides keyed by stable diagnostic code. */
+	severityOverrides?: DiagnosticSeverityOverrides;
 	/**
 	 * Lowercased procedure names callable as bare identifiers from the current
 	 * module (from ProjectIndex.visibleProcedureNames). Required for the
@@ -204,13 +204,14 @@ function countQuotes(text: string): number {
 /** Resolves the effective severity of a rule, or undefined when switched off. */
 function severityOf(
 	rule: DiagnosticRuleName,
-	overrides: SeverityOverrides | undefined,
+	overrides: DiagnosticSeverityOverrides | undefined,
 ): DiagnosticSeverity | undefined {
-	const override = overrides?.[rule];
+	const meta = DIAGNOSTIC_RULES[rule];
+	const override = normalizeDiagnosticSeverityOverride(meta.code, overrides?.[meta.code]);
 	if (override === 'off') {
 		return undefined;
 	}
-	return override ?? DIAGNOSTIC_RULES[rule].defaultSeverity;
+	return override ?? meta.defaultSeverity;
 }
 
 /**
@@ -255,7 +256,7 @@ function runRules(
 	const out: VbaDiagnostic[] = [];
 	const moduleName = opts.moduleName ?? 'Module';
 	const moduleKind = opts.moduleKind ?? 'standard';
-	const overrides = opts.severities;
+	const overrides = opts.severityOverrides;
 
 	const push = (
 		rule: DiagnosticRuleName,

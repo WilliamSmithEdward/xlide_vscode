@@ -738,9 +738,10 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 > case) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`, runs
 > on open and debounced (300 ms) on every edit, and works on virtual
 > `xlide-vba` module documents. Settings: `xlide.diagnostics.enabled`
-> (default true) and `xlide.diagnostics.optionExplicit`
-> (off/information/warning/error, default warning); both re-run open
-> documents on change. Covered by `tests/vbaDiagnostics.test.ts`.
+> (default true) gates live diagnostics, while guarded rule severity overrides
+> live under `xlide.analysis.ruleSeverityOverrides` globally or
+> `<workbook>.xlide_settings.json` per workbook. Settings changes re-run open
+> documents. Covered by `tests/vbaDiagnostics.test.ts`.
 >
 > Shipped semantic rules (all high-confidence, spec-referenced in
 > `ruleMetadata.ts` and `docs/spec/MS-VBAL.verification-map.md`):
@@ -1550,8 +1551,8 @@ Implementation priority:
    resolve provenance or preserve unrelated workbook settings.
 5. [x] Add global VS Code XLIDE setting validation and provenance resolution in
    `src/globalSettings.ts`. Malformed global settings surface as
-   `XLIDE/settings` diagnostics on VBA documents, while invalid
-   `xlide.diagnostics.optionExplicit` values use the same `warning` fallback in
+   `XLIDE/settings` diagnostics on VBA documents, and guarded
+   `xlide.analysis.ruleSeverityOverrides` values use the same normalizer in
    live diagnostics, current-module analysis, and workbook analysis. The same
    owner now resolves contributed VS Code setting values with `default`,
    `machine`, or `unknown` provenance for support bundles and workbook-facing
@@ -1572,7 +1573,7 @@ Suggested initial settings:
 ```json
 {
   "xlide.diagnostics.enabled": true,
-  "xlide.diagnostics.optionExplicit": "warning",
+  "xlide.analysis.ruleSeverityOverrides": {},
   "xlide.analysis.visibleSeverities": ["error", "warning", "information"],
   "xlide.analysis.untrackedRules": [],
   "xlide.editor.blockLayout": "comfy",

@@ -1081,10 +1081,15 @@ the deterministic analyzer contract.
 - [ ] Surface all configuration through the unified XLIDE sidebar menu
   collection, while preserving normal VS Code Settings integration for users
   who prefer native settings UI.
-- [ ] Add rule severity overrides with guardrails:
-  - error to warning only when the rule permits downgrade
-  - warning to off
+- [x] Add rule severity overrides with guardrails. `ruleMetadata.ts` now owns
+  allowed overrides by stable diagnostic code, and live diagnostics,
+  current-module analysis, workbook analysis, the Analysis Settings GUI, global
+  VS Code settings, and workbook sidecars all consume that same guarded model:
+  - error to warning only when the rule metadata permits downgrade
+  - warning/information to off
   - no override that converts unknown behavior into a red diagnostic
+  - the older special-case `xlide.diagnostics.optionExplicit` setting was
+    removed rather than retained as a compatibility path
 - [ ] Add enabled/disabled rule-set profiles.
 - [ ] Add COM/test-runner settings:
   - Excel visibility

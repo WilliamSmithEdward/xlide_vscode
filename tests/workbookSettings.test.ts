@@ -56,6 +56,10 @@ describe('workbookSettings', () => {
 			analysis: {
 				visibleSeverities: ['warning', 'warning'],
 				untrackedRules: [' Option-Explicit-Missing ', 'option-explicit-missing'],
+				ruleSeverityOverrides: {
+					' Unknown-Call ': 'warning',
+					'option-explicit-missing': 'error',
+				},
 			},
 		});
 
@@ -66,6 +70,9 @@ describe('workbookSettings', () => {
 			analysis: {
 				visibleSeverities: ['warning', 'warning'],
 				untrackedRules: ['option-explicit-missing'],
+				ruleSeverityOverrides: {
+					'unknown-call': 'warning',
+				},
 			},
 		});
 	});
@@ -156,6 +163,9 @@ describe('workbookSettings', () => {
 			`${JSON.stringify({
 				analysis: {
 					visibleSeverities: ['error', 'hint'],
+					ruleSeverityOverrides: {
+						'option-explicit-missing': 'error',
+					},
 				},
 			}, null, 2)}\n`,
 			'utf8',
@@ -172,5 +182,24 @@ describe('workbookSettings', () => {
 			expect(err instanceof Error ? err.message : String(err))
 				.toContain('Expected "analysis.visibleSeverities" entries');
 		}
+	});
+
+	it('rejects invalid workbook rule severity overrides from disk', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({
+				analysis: {
+					ruleSeverityOverrides: {
+						'option-explicit-missing': 'error',
+					},
+				},
+			}, null, 2)}\n`,
+			'utf8',
+		);
+
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow(
+			'Expected "analysis.ruleSeverityOverrides.option-explicit-missing" to be one of: off.',
+		);
 	});
 });

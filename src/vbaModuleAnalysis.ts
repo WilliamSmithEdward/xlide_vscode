@@ -1,6 +1,7 @@
 import {
     analyzeModule,
     incompleteExpressionEditSpan,
+    normalizeDiagnosticSeverityOverride,
     scanAnalysisSuppressions,
     type AnalyzeModuleOptions,
     type DiagnosticSeverity as RuleSeverity,
@@ -82,10 +83,17 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             if (isTransientIncompleteExpressionDiagnostic(problem.code, span)) {
                 continue;
             }
+            const override = normalizeDiagnosticSeverityOverride(
+                problem.code,
+                problem.code ? analyzeOptions.severityOverrides?.[problem.code] : undefined,
+            );
+            if (override === 'off') {
+                continue;
+            }
             const diagnostic: VbaModuleAnalysisDiagnostic = {
                 code: problem.code,
                 message: problem.message,
-                severity: problem.severity,
+                severity: override ?? problem.severity,
                 span,
                 expectedClose: problem.expectedClose,
                 insertLine: problem.insertLine,

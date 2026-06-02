@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type * as vscode from 'vscode';
 import {
-    normalizeXlideOptionExplicitSetting,
     resolvedXlideGlobalSettingsFromConfig,
+    xlideAnalysisRuleSeveritiesFromConfig,
     xlideAnalysisVisibleSeveritiesFromConfig,
     xlideDocsMetadataGlobFromConfig,
     validateXlideGlobalSettingsValues,
@@ -12,7 +12,7 @@ const validSettings = {
     pythonPath: '',
     attachToRunningExcel: true,
     'diagnostics.enabled': true,
-    'diagnostics.optionExplicit': 'warning',
+    'analysis.ruleSeverityOverrides': {},
     'analysis.visibleSeverities': ['error', 'warning', 'information'],
     'analysis.untrackedRules': [],
     'editor.blockLayout': 'comfy',
@@ -30,7 +30,21 @@ describe('globalSettings', () => {
             ...validSettings,
             'analysis.visibleSeverities': ['error', 'hint'],
             'analysis.untrackedRules': ['option-explicit-missing', ''],
+            'analysis.ruleSeverityOverrides': {
+                'option-explicit-missing': 'error',
+                'not-a-rule': 'warning',
+            },
         })).toEqual([
+            {
+                key: 'xlide.analysis.ruleSeverityOverrides',
+                message: 'Expected "xlide.analysis.ruleSeverityOverrides.option-explicit-missing" to be one of: off.',
+                severity: 'error',
+            },
+            {
+                key: 'xlide.analysis.ruleSeverityOverrides',
+                message: 'Expected "xlide.analysis.ruleSeverityOverrides.not-a-rule" to target a known analysis rule that permits severity overrides.',
+                severity: 'error',
+            },
             {
                 key: 'xlide.analysis.visibleSeverities',
                 message: 'Expected "xlide.analysis.visibleSeverities" entries to be one of: error, warning, information.',
@@ -48,38 +62,38 @@ describe('globalSettings', () => {
         expect(validateXlideGlobalSettingsValues({
             ...validSettings,
             attachToRunningExcel: 'yes',
-            'diagnostics.optionExplicit': 'loud',
             'editor.blockLayout': 'spacious',
         }).map((problem) => problem.key)).toEqual([
             'xlide.attachToRunningExcel',
-            'xlide.diagnostics.optionExplicit',
             'xlide.editor.blockLayout',
         ]);
     });
 
-    it('does not expose hint as a diagnostic setting severity', () => {
+    it('does not expose hint as an analysis setting severity', () => {
         expect(validateXlideGlobalSettingsValues({
             ...validSettings,
-            'diagnostics.optionExplicit': 'hint',
-        }).map((problem) => problem.key)).toEqual(['xlide.diagnostics.optionExplicit']);
-    });
-
-    it('normalizes invalid Option Explicit severity to the default runtime value', () => {
-        expect(normalizeXlideOptionExplicitSetting('off')).toBe('off');
-        expect(normalizeXlideOptionExplicitSetting('error')).toBe('error');
-        expect(normalizeXlideOptionExplicitSetting('loud')).toBe('warning');
-        expect(normalizeXlideOptionExplicitSetting(undefined)).toBe('warning');
+            'analysis.ruleSeverityOverrides': { 'option-explicit-missing': 'hint' },
+        }).map((problem) => problem.key)).toEqual(['xlide.analysis.ruleSeverityOverrides']);
     });
 
     it('resolves normalized global settings with explicit provenance', () => {
         const config = fakeConfig({
             'analysis.visibleSeverities': ['warning', 'hint', 'error'],
+            'analysis.ruleSeverityOverrides': {
+                ' Unknown-Call ': 'warning',
+                'option-explicit-missing': 'error',
+            },
             'docs.metadataGlob': ' custom/*.vbref.xml ',
-        }, new Set(['analysis.visibleSeverities']));
+        }, new Set(['analysis.visibleSeverities', 'analysis.ruleSeverityOverrides']));
 
         expect(xlideAnalysisVisibleSeveritiesFromConfig(config)).toEqual({
             key: 'xlide.analysis.visibleSeverities',
             value: ['warning', 'error'],
+            source: 'machine',
+        });
+        expect(xlideAnalysisRuleSeveritiesFromConfig(config)).toEqual({
+            key: 'xlide.analysis.ruleSeverityOverrides',
+            value: { 'unknown-call': 'warning' },
             source: 'machine',
         });
         expect(xlideDocsMetadataGlobFromConfig(config)).toEqual({
@@ -95,11 +109,11 @@ describe('globalSettings', () => {
         }, new Set(['pythonPath'])));
 
         expect(settings.map((setting) => setting.key)).toEqual([
+            'xlide.analysis.ruleSeverityOverrides',
             'xlide.analysis.untrackedRules',
             'xlide.analysis.visibleSeverities',
             'xlide.attachToRunningExcel',
             'xlide.diagnostics.enabled',
-            'xlide.diagnostics.optionExplicit',
             'xlide.docs.enabled',
             'xlide.docs.metadataGlob',
             'xlide.editor.blockLayout',

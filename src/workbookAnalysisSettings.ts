@@ -1,8 +1,10 @@
 import {
     normalizeAnalysisRuleCode,
+    normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
     setAnalysisRuleTrackedInList,
     type AnalysisRuleTrackingUpdate,
+    type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import {
@@ -14,6 +16,7 @@ import {
     type WorkbookSettingsConfig,
 } from './workbookSettings';
 import {
+    ruleSeverityOverridesSettingFromConfig,
     untrackedAnalysisRulesSettingFromConfig,
     visibleAnalysisSeveritiesSettingFromConfig,
 } from './analysisOptions';
@@ -25,6 +28,8 @@ export interface EffectiveWorkbookAnalysisSettings {
     visibleSeveritiesSource: WorkbookAnalysisSettingsSource;
     untrackedRules: string[];
     untrackedRulesSource: WorkbookAnalysisSettingsSource;
+    ruleSeverityOverrides: AnalysisRuleSeverityOverrides;
+    ruleSeverityOverridesSource: WorkbookAnalysisSettingsSource;
 }
 
 export async function effectiveWorkbookAnalysisSettings(
@@ -32,23 +37,32 @@ export async function effectiveWorkbookAnalysisSettings(
 ): Promise<EffectiveWorkbookAnalysisSettings> {
     const globalVisibleSeverities = visibleAnalysisSeveritiesSettingFromConfig();
     const globalUntrackedRules = untrackedAnalysisRulesSettingFromConfig();
+    const globalRuleSeverityOverrides = ruleSeverityOverridesSettingFromConfig();
     if (!workbookPath) {
         return {
             visibleSeverities: globalVisibleSeverities.value,
             visibleSeveritiesSource: globalVisibleSeverities.source,
             untrackedRules: globalUntrackedRules.value,
             untrackedRulesSource: globalUntrackedRules.source,
+            ruleSeverityOverrides: globalRuleSeverityOverrides.value,
+            ruleSeverityOverridesSource: globalRuleSeverityOverrides.source,
         };
     }
 
     const { analysis } = await readWorkbookSettings(workbookPath);
     const visibleSeverities = resolveWorkbookSetting(analysis?.visibleSeverities, globalVisibleSeverities);
     const untrackedRules = resolveWorkbookSetting(analysis?.untrackedRules, globalUntrackedRules);
+    const ruleSeverityOverrides = resolveWorkbookSetting(
+        analysis?.ruleSeverityOverrides,
+        globalRuleSeverityOverrides,
+    );
     return {
         visibleSeverities: visibleSeverities.value,
         visibleSeveritiesSource: visibleSeverities.source,
         untrackedRules: untrackedRules.value,
         untrackedRulesSource: untrackedRules.source,
+        ruleSeverityOverrides: ruleSeverityOverrides.value,
+        ruleSeverityOverridesSource: ruleSeverityOverrides.source,
     };
 }
 
@@ -104,6 +118,52 @@ export async function setWorkbookAnalysisRuleTracked(
     return result;
 }
 
+export async function setWorkbookAnalysisRuleSeverityOverride(
+    workbookPath: string,
+    code: string | undefined,
+    severity: unknown,
+): Promise<EffectiveWorkbookAnalysisSettings> {
+    const normalized = normalizeAnalysisRuleCode(code);
+    if (!normalized) {
+        return effectiveWorkbookAnalysisSettings(workbookPath);
+    }
+    await updateWorkbookSettings(workbookPath, (existing) => {
+        const current = existing.analysis?.ruleSeverityOverrides ?? ruleSeverityOverridesSettingFromConfig().value;
+        const next = normalizeAnalysisRuleSeverityOverrides({
+            ...current,
+            [normalized]: severity,
+        });
+        return withAnalysisSettings(existing, {
+            ...existing.analysis,
+            ruleSeverityOverrides: next,
+        });
+    });
+    return effectiveWorkbookAnalysisSettings(workbookPath);
+}
+
+export async function clearWorkbookAnalysisRuleSeverityOverride(
+    workbookPath: string,
+    code: string | undefined,
+): Promise<EffectiveWorkbookAnalysisSettings> {
+    const normalized = normalizeAnalysisRuleCode(code);
+    if (!normalized) {
+        return effectiveWorkbookAnalysisSettings(workbookPath);
+    }
+    await updateWorkbookSettings(workbookPath, (existing) => {
+        const current = existing.analysis?.ruleSeverityOverrides;
+        if (!current || !(normalized in current)) {
+            return undefined;
+        }
+        const next = { ...current };
+        delete next[normalized];
+        return withAnalysisSettings(existing, {
+            ...existing.analysis,
+            ruleSeverityOverrides: normalizeAnalysisRuleSeverityOverrides(next),
+        });
+    });
+    return effectiveWorkbookAnalysisSettings(workbookPath);
+}
+
 export async function resetWorkbookAnalysisVisibleSeverities(
     workbookPath: string,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
@@ -121,6 +181,17 @@ export async function resetWorkbookAnalysisRuleTracking(
     await updateWorkbookSettings(workbookPath, (existing) => {
         const analysis = { ...(existing.analysis ?? {}) };
         delete analysis.untrackedRules;
+        return withAnalysisSettings(existing, analysis);
+    });
+    return effectiveWorkbookAnalysisSettings(workbookPath);
+}
+
+export async function resetWorkbookAnalysisRuleSeverities(
+    workbookPath: string,
+): Promise<EffectiveWorkbookAnalysisSettings> {
+    await updateWorkbookSettings(workbookPath, (existing) => {
+        const analysis = { ...(existing.analysis ?? {}) };
+        delete analysis.ruleSeverityOverrides;
         return withAnalysisSettings(existing, analysis);
     });
     return effectiveWorkbookAnalysisSettings(workbookPath);
@@ -163,6 +234,9 @@ function compactAnalysisSettings(
     }
     if (analysis.untrackedRules) {
         compacted.untrackedRules = analysis.untrackedRules;
+    }
+    if (analysis.ruleSeverityOverrides && Object.keys(analysis.ruleSeverityOverrides).length > 0) {
+        compacted.ruleSeverityOverrides = analysis.ruleSeverityOverrides;
     }
     return Object.keys(compacted).length > 0 ? compacted : undefined;
 }

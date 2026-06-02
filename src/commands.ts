@@ -34,8 +34,8 @@ import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import {
     resolvedXlideGlobalSettingsFromConfig,
     xlideAttachToRunningExcelFromConfig,
-    xlideOptionExplicitFromConfig,
 } from './globalSettings';
+import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { lineStartOffsets, VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
@@ -52,10 +52,6 @@ import {
     projectClassReferenceEdit,
     renameProjectClassModule,
 } from './vbaClassRename';
-import type {
-    DiagnosticSeverity as RuleSeverity,
-    SeverityOverrides,
-} from './analyzer';
 import { resolveDiagnosticCodeActions } from './analyzer';
 import {
     anonymizedWorkbookAnalysisReportFromResult,
@@ -891,14 +887,6 @@ export function registerCommands(
         };
     }
 
-    function diagnosticSeverityOverridesFromConfig(): SeverityOverrides {
-        const optionExplicit = xlideOptionExplicitFromConfig(vscode.workspace.getConfiguration('xlide')).value;
-        return {
-            optionExplicitMissing:
-                optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
-        };
-    }
-
     async function exportActiveModule(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
@@ -1306,13 +1294,14 @@ export function registerCommands(
             moduleName,
             projectProcedureSignatures(project),
         );
+        const analysisSettings = await effectiveWorkbookAnalysisSettings(xlsmPath);
 
         const result = analyzeVbaModuleSource({
             source,
             moduleName,
             moduleKind,
             documentType: current?.documentType,
-            severities: diagnosticSeverityOverridesFromConfig(),
+            severityOverrides: analysisSettings.ruleSeverityOverrides,
             ...projectOptions,
         });
         const problems = workbookProblemsForModule(
@@ -1427,12 +1416,13 @@ export function registerCommands(
             moduleName,
             projectProcedureSignatures(project),
         );
+        const analysisSettings = await effectiveWorkbookAnalysisSettings(xlsmPath);
         const result = analyzeVbaModuleSource({
             source,
             moduleName,
             moduleKind,
             documentType: current?.documentType,
-            severities: diagnosticSeverityOverridesFromConfig(),
+            severityOverrides: analysisSettings.ruleSeverityOverrides,
             ...projectOptions,
         });
         const problems = workbookProblemsForModule(

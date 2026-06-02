@@ -17,7 +17,6 @@ import {
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
     resolveDiagnosticCodeActions,
-    SeverityOverrides,
     type VbaDiagnosticData,
 } from './analyzer';
 import { lineStartOffsets } from './vbaStructuralAnalysis';
@@ -34,7 +33,7 @@ import {
     validAnalysisSuppressionScopesForDiagnostic,
     type AnalysisSuppressionScope,
 } from './analysisSuppressionScopes';
-import { xlideOptionExplicitFromConfig } from './globalSettings';
+import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -288,11 +287,7 @@ export async function analyzeWorkbook(
     })));
     const projectProcedures = projectProcedureSignatures(project);
 
-    const optionExplicit = xlideOptionExplicitFromConfig(vscode.workspace.getConfiguration('xlide')).value;
-    const severities: SeverityOverrides = {
-        optionExplicitMissing:
-            optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
-    };
+    const analysisSettings = await effectiveWorkbookAnalysisSettings(filePath);
 
     const problems: WorkbookAnalysisProblem[] = [];
     const suppressedProblems: WorkbookAnalysisProblem[] = [];
@@ -304,7 +299,7 @@ export async function analyzeWorkbook(
             moduleName: mod.name,
             moduleKind: moduleKindFromType(mod.type),
             documentType: mod.documentType,
-            severities,
+            severityOverrides: analysisSettings.ruleSeverityOverrides,
             ...projectOptions,
         });
         problems.push(...workbookProblemsForModule(

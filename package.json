@@ -42,18 +42,6 @@
           "default": true,
           "description": "Show live VBA diagnostics (structural block-balance plus high-confidence semantic checks: unterminated strings, duplicate declarations, assignment to a constant, and the Option Explicit reminder)."
         },
-        "xlide.diagnostics.optionExplicit": {
-          "type": "string",
-          "scope": "machine",
-          "enum": [
-            "off",
-            "information",
-            "warning",
-            "error"
-          ],
-          "default": "warning",
-          "description": "Severity for the reminder shown when a code module omits 'Option Explicit'. Set to 'off' to disable just this check."
-        },
         "xlide.analysis.visibleSeverities": {
           "type": "array",
           "scope": "machine",
@@ -71,6 +59,19 @@
             "information"
           ],
           "description": "Global default analysis finding severities for workbooks that do not define a workbook-specific value for this setting."
+        },
+        "xlide.analysis.ruleSeverityOverrides": {
+          "type": "object",
+          "scope": "machine",
+          "default": {},
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "off",
+              "warning"
+            ]
+          },
+          "description": "Global default guarded rule severity overrides keyed by analysis rule code. Warning and information rules can be set to 'off'; only rules marked downgrade-safe can be set from error to 'warning'."
         },
         "xlide.analysis.untrackedRules": {
           "type": "array",

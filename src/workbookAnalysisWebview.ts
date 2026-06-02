@@ -9,15 +9,20 @@ import {
 } from './workbookAnalysisResultsModel';
 import {
     ANALYSIS_SEVERITIES,
+    allowedAnalysisRuleSeverityOverrides,
     isAnalysisRuleTracked,
+    type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import {
+    clearWorkbookAnalysisRuleSeverityOverride,
     effectiveWorkbookAnalysisSettings,
     resetWorkbookAnalysisRuleTracking,
     resetWorkbookAnalysisSettings,
+    resetWorkbookAnalysisRuleSeverities,
     resetWorkbookAnalysisVisibleSeverities,
     setWorkbookAnalysisRuleTracked,
+    setWorkbookAnalysisRuleSeverityOverride,
     setWorkbookAnalysisVisibleSeverities,
     type EffectiveWorkbookAnalysisSettings,
 } from './workbookAnalysisSettings';
@@ -148,6 +153,7 @@ export function openWorkbookAnalysisResults(
         text?: string;
         extension?: string;
         scope?: WorkbookAnalysisSuppressScope;
+        severity?: string;
         severities?: string[];
         fixIndex?: number;
         suppressed?: boolean;
@@ -232,6 +238,17 @@ export function openWorkbookAnalysisResults(
                 }
                 return;
             }
+            if (message.type === 'setRuleSeverityOverride') {
+                const code = typeof message.code === 'string' ? message.code : undefined;
+                if (code && message.severity === 'default') {
+                    await clearWorkbookAnalysisRuleSeverityOverride(currentResult.filePath, code);
+                    await refreshAfterAnalysisMutation();
+                } else if (code) {
+                    await setWorkbookAnalysisRuleSeverityOverride(currentResult.filePath, code, message.severity);
+                    await refreshAfterAnalysisMutation();
+                }
+                return;
+            }
             if (message.type === 'updateSeveritySettings') {
                 await setWorkbookAnalysisVisibleSeverities(currentResult.filePath, message.severities);
                 await refreshAfterAnalysisMutation();
@@ -244,6 +261,11 @@ export function openWorkbookAnalysisResults(
             }
             if (message.type === 'resetAnalysisRuleTracking') {
                 await resetWorkbookAnalysisRuleTracking(currentResult.filePath);
+                await refreshAfterAnalysisMutation();
+                return;
+            }
+            if (message.type === 'resetAnalysisRuleSeverities') {
+                await resetWorkbookAnalysisRuleSeverities(currentResult.filePath);
                 await refreshAfterAnalysisMutation();
                 return;
             }
@@ -347,13 +369,16 @@ function renderWorkbookAnalysisResultsHtml(
     const nonce = randomNonce();
     const visibleSeverities = analysisSettings.visibleSeverities;
     const untrackedRules = analysisSettings.untrackedRules;
+    const ruleSeverityOverrides = analysisSettings.ruleSeverityOverrides;
     const modelJson = JSON.stringify({
         ...model,
         plainText: buildWorkbookAnalysisPlainText(model),
         visibleSeverities,
         untrackedRules,
+        ruleSeverityOverrides,
         visibleSeveritiesSource: analysisSettings.visibleSeveritiesSource,
         untrackedRulesSource: analysisSettings.untrackedRulesSource,
+        ruleSeverityOverridesSource: analysisSettings.ruleSeverityOverridesSource,
         analysisSettingsKey: workbookAnalysisSettingsKey(analysisSettings),
     }).replace(/</g, '\\u003c');
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
@@ -413,9 +438,11 @@ function renderWorkbookAnalysisResultsHtml(
         return `<button class="filterButton${active ? ' active' : ''}" type="button" data-severity-toggle="${severity}" aria-pressed="${active ? 'true' : 'false'}">${severityFilterLabel(severity)}</button>`;
     }).join('');
     const ruleSettingsHtml = analysisRuleSettingsHtml(allRows, untrackedRules);
+    const ruleSeveritySettingsHtml = analysisRuleSeveritySettingsHtml(allRows, ruleSeverityOverrides);
     const severitySourceIsWorkbook = analysisSettings.visibleSeveritiesSource === 'workbook';
     const rulesSourceIsWorkbook = analysisSettings.untrackedRulesSource === 'workbook';
-    const anyAnalysisOverride = severitySourceIsWorkbook || rulesSourceIsWorkbook;
+    const ruleSeveritiesSourceIsWorkbook = analysisSettings.ruleSeverityOverridesSource === 'workbook';
+    const anyAnalysisOverride = severitySourceIsWorkbook || rulesSourceIsWorkbook || ruleSeveritiesSourceIsWorkbook;
     const informationCount = model.rows.filter((row) => row.severity === 'information').length;
     const untrackedCount = model.rows.filter((row) => !isAnalysisRuleTracked(row.code, untrackedRules)).length;
     const summaryStatsHtml = [
@@ -915,6 +942,15 @@ function renderWorkbookAnalysisResultsHtml(
             color: var(--vscode-descriptionForeground);
             font-size: 12px;
         }
+        .settingsRuleSelect {
+            min-width: 150px;
+            height: 30px;
+            color: var(--vscode-dropdown-foreground);
+            background: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 4px;
+            padding: 0 8px;
+        }
         .settingsEmpty {
             color: var(--vscode-descriptionForeground);
         }
@@ -1037,6 +1073,18 @@ function renderWorkbookAnalysisResultsHtml(
                         ${ruleSettingsHtml}
                     </div>
                 </section>
+                <section class="settingsSection">
+                    <div class="settingsSectionHeader">
+                        <div>
+                            <h3>Rule Severities</h3>
+                            <div class="settingsSource">Source: ${settingsSourceLabel(analysisSettings.ruleSeverityOverridesSource)}</div>
+                        </div>
+                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="ruleSeverities" ${ruleSeveritiesSourceIsWorkbook ? '' : 'disabled'}>Use Global Default</button>
+                    </div>
+                    <div class="settingsRuleList" aria-label="Rule severity overrides">
+                        ${ruleSeveritySettingsHtml}
+                    </div>
+                </section>
                 <div class="settingsFooterActions">
                     <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="all" ${anyAnalysisOverride ? '' : 'disabled'}>Use All Global Defaults</button>
                 </div>
@@ -1049,6 +1097,7 @@ function renderWorkbookAnalysisResultsHtml(
         const model = ${modelJson};
         const severityIds = ['error', 'warning', 'information'];
         const untrackedRules = new Set(model.untrackedRules ?? []);
+        const ruleSeverityOverrides = new Map(Object.entries(model.ruleSeverityOverrides ?? {}));
         const persistedState = vscode.getState?.() ?? {};
         const hasPersistedUiState = persistedState.analysisUiInitialized === true;
         const hasPersistedSeverityState = hasPersistedUiState &&
@@ -1427,6 +1476,8 @@ function renderWorkbookAnalysisResultsHtml(
                     vscode.postMessage({ type: 'resetAnalysisSeverities' });
                 } else if (scope === 'rules') {
                     vscode.postMessage({ type: 'resetAnalysisRuleTracking' });
+                } else if (scope === 'ruleSeverities') {
+                    vscode.postMessage({ type: 'resetAnalysisRuleSeverities' });
                 } else if (scope === 'all') {
                     vscode.postMessage({ type: 'resetAnalysisSettings' });
                 }
@@ -1456,6 +1507,24 @@ function renderWorkbookAnalysisResultsHtml(
                     code,
                     tracked,
                 });
+                return;
+            }
+            const settingsRuleSeverity = event.target.closest?.('[data-settings-rule-severity-code]');
+            if (settingsRuleSeverity) {
+                const code = settingsRuleSeverity.dataset.settingsRuleSeverityCode;
+                const severity = settingsRuleSeverity.value;
+                if (code) {
+                    if (severity === 'default') {
+                        ruleSeverityOverrides.delete(code);
+                    } else {
+                        ruleSeverityOverrides.set(code, severity);
+                    }
+                    vscode.postMessage({
+                        type: 'setRuleSeverityOverride',
+                        code,
+                        severity,
+                    });
+                }
                 return;
             }
             const filterButton = event.target.closest?.('[data-severity-toggle]');
@@ -1667,6 +1736,9 @@ function workbookAnalysisSettingsKey(settings: EffectiveWorkbookAnalysisSettings
         visibleSeveritiesSource: settings.visibleSeveritiesSource,
         untrackedRules: [...settings.untrackedRules].sort((left, right) => left.localeCompare(right)),
         untrackedRulesSource: settings.untrackedRulesSource,
+        ruleSeverityOverrides: Object.entries(settings.ruleSeverityOverrides)
+            .sort(([left], [right]) => left.localeCompare(right)),
+        ruleSeverityOverridesSource: settings.ruleSeverityOverridesSource,
     });
 }
 
@@ -1683,51 +1755,19 @@ function settingsSourceLabel(source: EffectiveWorkbookAnalysisSettings['visibleS
     }
 }
 
+interface AnalysisRuleSetting {
+    code: string;
+    title: string;
+    total: number;
+    modules: Set<string>;
+    severities: Set<string>;
+}
+
 function analysisRuleSettingsHtml(
     rows: readonly WorkbookAnalysisResultRow[],
     untrackedRules: readonly string[],
 ): string {
-    interface RuleSetting {
-        code: string;
-        title: string;
-        total: number;
-        modules: Set<string>;
-        severities: Set<string>;
-    }
-
-    const rules = new Map<string, RuleSetting>();
-    for (const row of rows) {
-        const code = normalizeRuleCodeForWebview(row.code);
-        if (!code) {
-            continue;
-        }
-        let setting = rules.get(code);
-        if (!setting) {
-            setting = {
-                code,
-                title: row.ruleTitle || row.code || code,
-                total: 0,
-                modules: new Set<string>(),
-                severities: new Set<string>(),
-            };
-            rules.set(code, setting);
-        }
-        setting.total += 1;
-        setting.modules.add(row.moduleName);
-        setting.severities.add(row.severity);
-    }
-    for (const rule of untrackedRules) {
-        const code = normalizeRuleCodeForWebview(rule);
-        if (code && !rules.has(code)) {
-            rules.set(code, {
-                code,
-                title: code,
-                total: 0,
-                modules: new Set<string>(),
-                severities: new Set<string>(),
-            });
-        }
-    }
+    const rules = collectAnalysisRuleSettings(rows, untrackedRules);
     if (rules.size === 0) {
         return '<div class="settingsEmpty">No analysis rules in the current result.</div>';
     }
@@ -1758,6 +1798,85 @@ function analysisRuleSettingsHtml(
         .join('');
 }
 
+function analysisRuleSeveritySettingsHtml(
+    rows: readonly WorkbookAnalysisResultRow[],
+    ruleSeverityOverrides: AnalysisRuleSeverityOverrides,
+): string {
+    const rules = [...collectAnalysisRuleSettings(rows, Object.keys(ruleSeverityOverrides)).values()]
+        .filter((rule) => allowedAnalysisRuleSeverityOverrides(rule.code).length > 0)
+        .sort((left, right) => left.code.localeCompare(right.code));
+    if (rules.length === 0) {
+        return '<div class="settingsEmpty">No configurable analysis rule severities in the current result.</div>';
+    }
+    return rules.map((rule) => {
+        const allowed = allowedAnalysisRuleSeverityOverrides(rule.code);
+        const current: string = ruleSeverityOverrides[rule.code] ?? 'default';
+        const severitySummary = [...rule.severities]
+            .sort((left, right) => severityOrderForWebview(left) - severityOrderForWebview(right))
+            .map(severityLabelForWebview)
+            .join(', ');
+        const pieces = [
+            `${rule.total} ${rule.total === 1 ? 'finding' : 'findings'}`,
+            severitySummary,
+            `Allowed: ${allowed.map(severityOverrideLabelForWebview).join(', ')}`,
+        ].filter(Boolean);
+        return `
+            <label class="settingsRuleRow">
+                <span class="settingsRuleMain">
+                    <span class="settingsRuleTitle">${escapeHtml(rule.title)}</span>
+                    <span class="settingsRuleMeta">${escapeHtml([rule.code, ...pieces].join(' | '))}</span>
+                </span>
+                <select class="settingsRuleSelect" data-settings-rule-severity-code="${escapeAttr(rule.code)}">
+                    <option value="default" ${current === 'default' ? 'selected' : ''}>Default</option>
+                    ${allowed.map((severity) => `
+                        <option value="${escapeAttr(severity)}" ${current === severity ? 'selected' : ''}>${escapeHtml(severityOverrideLabelForWebview(severity))}</option>
+                    `).join('')}
+                </select>
+            </label>
+        `;
+    }).join('');
+}
+
+function collectAnalysisRuleSettings(
+    rows: readonly WorkbookAnalysisResultRow[],
+    extraCodes: readonly string[],
+): Map<string, AnalysisRuleSetting> {
+    const rules = new Map<string, AnalysisRuleSetting>();
+    for (const row of rows) {
+        const code = normalizeRuleCodeForWebview(row.code);
+        if (!code) {
+            continue;
+        }
+        let setting = rules.get(code);
+        if (!setting) {
+            setting = {
+                code,
+                title: row.ruleTitle || row.code || code,
+                total: 0,
+                modules: new Set<string>(),
+                severities: new Set<string>(),
+            };
+            rules.set(code, setting);
+        }
+        setting.total += 1;
+        setting.modules.add(row.moduleName);
+        setting.severities.add(row.severity);
+    }
+    for (const rule of extraCodes) {
+        const code = normalizeRuleCodeForWebview(rule);
+        if (code && !rules.has(code)) {
+            rules.set(code, {
+                code,
+                title: code,
+                total: 0,
+                modules: new Set<string>(),
+                severities: new Set<string>(),
+            });
+        }
+    }
+    return rules;
+}
+
 function normalizeRuleCodeForWebview(code: unknown): string | undefined {
     return typeof code === 'string' ? code.trim().toLowerCase() || undefined : undefined;
 }
@@ -1786,6 +1905,10 @@ function severityLabelForWebview(severity: string): string {
         default:
             return severity;
     }
+}
+
+function severityOverrideLabelForWebview(severity: string): string {
+    return severity === 'off' ? 'Off' : severityLabelForWebview(severity);
 }
 
 function escapeHtml(value: unknown): string {

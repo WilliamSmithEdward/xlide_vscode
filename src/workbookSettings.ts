@@ -2,8 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ImportMode } from './moduleSyncPlan';
 import {
+    allowedAnalysisRuleSeverityOverrides,
     normalizeAnalysisRuleCodes,
+    normalizeAnalysisRuleCode,
+    normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
+    type AnalysisRuleSeverityOverride,
+    type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import type { XlideGlobalSettingSource } from './globalSettings';
@@ -26,6 +31,7 @@ interface WorkbookSettingsConfig {
 interface WorkbookAnalysisSettingsConfig {
     visibleSeverities?: AnalysisSeverityFilter[];
     untrackedRules?: string[];
+    ruleSeverityOverrides?: AnalysisRuleSeverityOverrides;
 }
 
 type WorkbookSettingsConfigInput = Omit<WorkbookSettingsConfig, 'exportMode'> & {
@@ -74,6 +80,7 @@ function normalizeWorkbookAnalysisSettingsConfig(value: unknown): WorkbookAnalys
     const source = value as {
         visibleSeverities?: unknown;
         untrackedRules?: unknown;
+        ruleSeverityOverrides?: unknown;
     };
     const normalized: WorkbookAnalysisSettingsConfig = {};
     if (Array.isArray(source.visibleSeverities)) {
@@ -81,6 +88,9 @@ function normalizeWorkbookAnalysisSettingsConfig(value: unknown): WorkbookAnalys
     }
     if (Array.isArray(source.untrackedRules)) {
         normalized.untrackedRules = normalizeAnalysisRuleCodes(source.untrackedRules);
+    }
+    if (source.ruleSeverityOverrides !== undefined) {
+        normalized.ruleSeverityOverrides = normalizeAnalysisRuleSeverityOverrides(source.ruleSeverityOverrides);
     }
     return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
@@ -146,7 +156,7 @@ function expectAnalysisSettings(
     if (!isPlainObject(value)) {
         throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
     }
-    assertKnownKeys(value, configPath, fieldPath, ['visibleSeverities', 'untrackedRules']);
+    assertKnownKeys(value, configPath, fieldPath, ['visibleSeverities', 'untrackedRules', 'ruleSeverityOverrides']);
 
     const parsed: WorkbookAnalysisSettingsConfig = {};
     if ('visibleSeverities' in value) {
@@ -154,6 +164,13 @@ function expectAnalysisSettings(
     }
     if ('untrackedRules' in value) {
         parsed.untrackedRules = expectStringList(value.untrackedRules, configPath, `${fieldPath}.untrackedRules`);
+    }
+    if ('ruleSeverityOverrides' in value) {
+        parsed.ruleSeverityOverrides = expectRuleSeverityOverrides(
+            value.ruleSeverityOverrides,
+            configPath,
+            `${fieldPath}.ruleSeverityOverrides`,
+        );
     }
     return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
@@ -185,6 +202,39 @@ function expectStringList(value: unknown, configPath: string, fieldPath: string)
     }
     return normalizeAnalysisRuleCodes(value);
 }
+
+function expectRuleSeverityOverrides(
+    value: unknown,
+    configPath: string,
+    fieldPath: string,
+): AnalysisRuleSeverityOverrides | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (!isPlainObject(value)) {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
+    }
+    const parsed: Record<string, AnalysisRuleSeverityOverride> = {};
+    for (const [rawCode, rawSeverity] of Object.entries(value)) {
+        const code = normalizeAnalysisRuleCode(rawCode);
+        const allowed = allowedAnalysisRuleSeverityOverrides(code);
+        if (!code || allowed.length === 0) {
+            throw new WorkbookSettingsError(
+                configPath,
+                `Expected "${fieldPath}.${rawCode}" to target a known analysis rule that permits severity overrides.`,
+            );
+        }
+        if (typeof rawSeverity !== 'string' || !allowed.includes(rawSeverity as AnalysisRuleSeverityOverride)) {
+            throw new WorkbookSettingsError(
+                configPath,
+                `Expected "${fieldPath}.${rawCode}" to be one of: ${allowed.join(', ')}.`,
+            );
+        }
+        parsed[code] = rawSeverity as AnalysisRuleSeverityOverride;
+    }
+    return Object.keys(parsed).length > 0 ? normalizeAnalysisRuleSeverityOverrides(parsed) : undefined;
+}
+
 
 function expectOptionalString(value: unknown, configPath: string, fieldPath: string): string | undefined {
     if (value === undefined) {

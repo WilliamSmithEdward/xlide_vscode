@@ -36,7 +36,6 @@ import {
     resolveMemberCompletions,
     resolveTypeReferenceAt,
     resolveTypeSemanticTokens,
-    SeverityOverrides,
     TypeSemanticTokenType,
     type VbaDiagnosticData,
     type VbaProjectClassMember,
@@ -68,7 +67,6 @@ import {
     validateXlideGlobalSettingsFromConfig,
     xlideDiagnosticsEnabledFromConfig,
     xlideEditorBlockLayoutFromConfig,
-    xlideOptionExplicitFromConfig,
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
 
@@ -1055,11 +1053,7 @@ function registerVbaDiagnostics(
             }
         }
 
-        const optionExplicit = xlideOptionExplicitFromConfig(config).value;
-        const severities: SeverityOverrides = {
-            optionExplicitMissing:
-                optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
-        };
+        const analysisSettings = await effectiveWorkbookAnalysisSettings(workbookPath);
         const activeEditor = vscode.window.activeTextEditor;
         const activeIncompleteExpressionOffset = activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
@@ -1069,13 +1063,12 @@ function registerVbaDiagnostics(
             moduleName,
             moduleKind,
             documentType,
-            severities,
+            severityOverrides: analysisSettings.ruleSeverityOverrides,
             ...projectOptions,
             activeIncompleteExpressionOffset,
         });
-        const { untrackedRules } = await effectiveWorkbookAnalysisSettings(workbookPath);
         for (const d of moduleAnalysis.diagnostics) {
-            if (!isAnalysisRuleTracked(d.code, untrackedRules)) {
+            if (!isAnalysisRuleTracked(d.code, analysisSettings.untrackedRules)) {
                 continue;
             }
             const diag = new vscode.Diagnostic(

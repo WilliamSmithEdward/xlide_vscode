@@ -1,5 +1,13 @@
+import {
+    allowedDiagnosticSeverityOverridesForCode,
+    normalizeDiagnosticSeverityOverrides,
+    type DiagnosticSeverityOverride,
+} from './analyzer/diagnostics/ruleMetadata';
+
 export const ANALYSIS_SEVERITIES = ['error', 'warning', 'information'] as const;
 export type AnalysisSeverityFilter = typeof ANALYSIS_SEVERITIES[number];
+export type AnalysisRuleSeverityOverride = DiagnosticSeverityOverride;
+export type AnalysisRuleSeverityOverrides = Record<string, AnalysisRuleSeverityOverride>;
 
 export interface AnalysisRuleTrackingUpdate {
     code?: string;
@@ -58,4 +66,14 @@ export function normalizeAnalysisRuleCodes(value: unknown): string[] {
 
 export function normalizeAnalysisRuleCode(code: unknown): string | undefined {
     return typeof code === 'string' ? code.trim().toLowerCase() || undefined : undefined;
+}
+
+export function normalizeAnalysisRuleSeverityOverrides(value: unknown): AnalysisRuleSeverityOverrides {
+    return normalizeDiagnosticSeverityOverrides(value);
+}
+
+export function allowedAnalysisRuleSeverityOverrides(
+    code: string | undefined,
+): readonly AnalysisRuleSeverityOverride[] {
+    return allowedDiagnosticSeverityOverridesForCode(code);
 }

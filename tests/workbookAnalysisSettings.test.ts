@@ -6,6 +6,7 @@ import * as path from 'path';
 const mockConfig = vi.hoisted(() => ({
 	visibleSeverities: ['error', 'warning', 'information'] as string[],
 	untrackedRules: [] as string[],
+	ruleSeverityOverrides: {} as Record<string, string>,
 	machineKeys: new Set<string>(),
 }));
 
@@ -19,12 +20,17 @@ vi.mock('vscode', () => ({
 				if (key === 'analysis.untrackedRules') {
 					return mockConfig.untrackedRules;
 				}
+				if (key === 'analysis.ruleSeverityOverrides') {
+					return mockConfig.ruleSeverityOverrides;
+				}
 				return fallback;
 			},
 			inspect: (key: string) => mockConfig.machineKeys.has(key)
 				? { globalValue: key === 'analysis.visibleSeverities'
 					? mockConfig.visibleSeverities
-					: mockConfig.untrackedRules }
+					: key === 'analysis.untrackedRules'
+						? mockConfig.untrackedRules
+						: mockConfig.ruleSeverityOverrides }
 				: {},
 		}),
 	},
@@ -34,8 +40,10 @@ import { readWorkbookSettings, writeWorkbookSettings } from '../src/workbookSett
 import {
 	effectiveWorkbookAnalysisSettings,
 	resetWorkbookAnalysisRuleTracking,
+	resetWorkbookAnalysisRuleSeverities,
 	resetWorkbookAnalysisSettings,
 	resetWorkbookAnalysisVisibleSeverities,
+	setWorkbookAnalysisRuleSeverityOverride,
 	setWorkbookAnalysisRuleTracked,
 	setWorkbookAnalysisVisibleSeverities,
 } from '../src/workbookAnalysisSettings';
@@ -45,6 +53,7 @@ const tempRoots: string[] = [];
 beforeEach(() => {
 	mockConfig.visibleSeverities = ['error', 'warning', 'information'];
 	mockConfig.untrackedRules = [];
+	mockConfig.ruleSeverityOverrides = {};
 	mockConfig.machineKeys.clear();
 });
 
@@ -68,14 +77,18 @@ describe('workbook analysis settings', () => {
 		const { workbook } = tempWorkbook();
 		mockConfig.visibleSeverities = ['error', 'information'];
 		mockConfig.untrackedRules = ['option-explicit-missing'];
+		mockConfig.ruleSeverityOverrides = { 'unknown-call': 'warning' };
 		mockConfig.machineKeys.add('analysis.visibleSeverities');
 		mockConfig.machineKeys.add('analysis.untrackedRules');
+		mockConfig.machineKeys.add('analysis.ruleSeverityOverrides');
 
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			visibleSeverities: ['error', 'information'],
 			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['option-explicit-missing'],
 			untrackedRulesSource: 'machine',
+			ruleSeverityOverrides: { 'unknown-call': 'warning' },
+			ruleSeverityOverridesSource: 'machine',
 		});
 	});
 
@@ -129,6 +142,7 @@ describe('workbook analysis settings', () => {
 			analysis: {
 				visibleSeverities: ['warning'],
 				untrackedRules: ['argument-count'],
+				ruleSeverityOverrides: { 'unknown-call': 'warning' },
 			},
 		});
 
@@ -138,6 +152,7 @@ describe('workbook analysis settings', () => {
 			exportFolder,
 			analysis: {
 				untrackedRules: ['argument-count'],
+				ruleSeverityOverrides: { 'unknown-call': 'warning' },
 			},
 		});
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
@@ -145,6 +160,62 @@ describe('workbook analysis settings', () => {
 			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['argument-count'],
 			untrackedRulesSource: 'workbook',
+			ruleSeverityOverrides: { 'unknown-call': 'warning' },
+			ruleSeverityOverridesSource: 'workbook',
+		});
+	});
+
+	it('stores workbook rule severity overrides from the effective global default', async () => {
+		const { workbook } = tempWorkbook();
+		mockConfig.ruleSeverityOverrides = { 'member-not-found': 'warning' };
+		mockConfig.machineKeys.add('analysis.ruleSeverityOverrides');
+
+		await setWorkbookAnalysisRuleSeverityOverride(workbook, 'Unknown-Call', 'warning');
+
+		expect((await readWorkbookSettings(workbook)).analysis?.ruleSeverityOverrides).toEqual({
+			'member-not-found': 'warning',
+			'unknown-call': 'warning',
+		});
+		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
+			ruleSeverityOverrides: {
+				'member-not-found': 'warning',
+				'unknown-call': 'warning',
+			},
+			ruleSeverityOverridesSource: 'workbook',
+		});
+	});
+
+	it('drops disallowed workbook rule severity overrides through the guarded normalizer', async () => {
+		const { workbook } = tempWorkbook();
+
+		await setWorkbookAnalysisRuleSeverityOverride(workbook, 'option-explicit-missing', 'error');
+
+		expect((await readWorkbookSettings(workbook)).analysis?.ruleSeverityOverrides).toBeUndefined();
+	});
+
+	it('resets workbook rule severity overrides independently', async () => {
+		const { workbook, exportFolder } = tempWorkbook();
+		mockConfig.ruleSeverityOverrides = { 'member-not-found': 'warning' };
+		mockConfig.machineKeys.add('analysis.ruleSeverityOverrides');
+		await writeWorkbookSettings(workbook, {
+			exportFolder,
+			analysis: {
+				untrackedRules: ['argument-count'],
+				ruleSeverityOverrides: { 'unknown-call': 'warning' },
+			},
+		});
+
+		await resetWorkbookAnalysisRuleSeverities(workbook);
+
+		expect(await readWorkbookSettings(workbook)).toEqual({
+			exportFolder,
+			analysis: {
+				untrackedRules: ['argument-count'],
+			},
+		});
+		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
+			ruleSeverityOverrides: { 'member-not-found': 'warning' },
+			ruleSeverityOverridesSource: 'machine',
 		});
 	});
 
@@ -180,6 +251,7 @@ describe('workbook analysis settings', () => {
 			analysis: {
 				visibleSeverities: ['warning'],
 				untrackedRules: ['argument-count'],
+				ruleSeverityOverrides: { 'unknown-call': 'warning' },
 			},
 		});
 

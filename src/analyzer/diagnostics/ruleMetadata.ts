@@ -24,6 +24,9 @@
 /** Severity of a diagnostic, independent of the VS Code enum. */
 export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 
+/** User-configurable severity override value for an analysis rule. */
+export type DiagnosticSeverityOverride = DiagnosticSeverity | 'off';
+
 /** Analysis suppression scopes exposed by the workbook analysis UI. */
 export type DiagnosticSuppressionScope = 'block' | 'member' | 'module';
 
@@ -75,6 +78,8 @@ export interface DiagnosticRuleMetadata {
 	requiresWholeProject?: boolean;
 	/** Suppression scopes that make sense for this diagnostic rule before source-position filtering. */
 	suppressionScopes?: readonly DiagnosticSuppressionScope[];
+	/** True when an error rule is allowed to be downgraded to warning by user settings. */
+	allowSeverityDowngrade?: boolean;
 	/** How certain the rule is that a flagged construct is genuinely wrong. */
 	confidence: 'high' | 'medium' | 'low';
 }
@@ -169,6 +174,7 @@ export const DIAGNOSTIC_RULES = {
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.4.1.1',
 		requiresWholeProject: true,
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	invalidProcedureHeader: {
@@ -224,6 +230,7 @@ export const DIAGNOSTIC_RULES = {
 		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.3.1 / runtime type coercion',
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	argumentObjectTypeMismatch: {
@@ -246,6 +253,7 @@ export const DIAGNOSTIC_RULES = {
 		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.3 / runtime type coercion',
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	missingReturnAssignment: {
@@ -302,6 +310,7 @@ export const DIAGNOSTIC_RULES = {
 		source: 'XLIDE',
 		specReference: 'VBE oracle: Method or data member not found',
 		requiresWholeProject: true,
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	stringArithmeticCoercion: {
@@ -313,6 +322,7 @@ export const DIAGNOSTIC_RULES = {
 		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.6 / runtime type coercion',
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	unknownCallStatement: {
@@ -325,6 +335,7 @@ export const DIAGNOSTIC_RULES = {
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.4.2.1',
 		requiresWholeProject: true,
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	nonCallableCallStatement: {
@@ -630,10 +641,72 @@ export const XLIDE_DIAGNOSTIC_SOURCE = 'XLIDE';
 export function diagnosticMetadataForCode(
 	code: string | undefined,
 ): DiagnosticRuleMetadata | undefined {
-	if (!code) {
+	const normalized = normalizeDiagnosticRuleCode(code);
+	if (!normalized) {
 		return undefined;
 	}
-	return DIAGNOSTIC_METADATA_BY_CODE.get(code);
+	return DIAGNOSTIC_METADATA_BY_CODE.get(normalized);
+}
+
+/** Severity override choices allowed for one diagnostic code. */
+export function allowedDiagnosticSeverityOverridesForCode(
+	code: string | undefined,
+): readonly DiagnosticSeverityOverride[] {
+	const meta = diagnosticMetadataForCode(code);
+	if (!meta) {
+		return [];
+	}
+	if (meta.defaultSeverity === 'error') {
+		return meta.allowSeverityDowngrade ? ['warning'] : [];
+	}
+	return ['off'];
+}
+
+/** Normalizes one guarded severity override. Invalid or disallowed values are ignored. */
+export function normalizeDiagnosticSeverityOverride(
+	code: string | undefined,
+	value: unknown,
+): DiagnosticSeverityOverride | undefined {
+	if (!isDiagnosticSeverityOverride(value)) {
+		return undefined;
+	}
+	const allowed = allowedDiagnosticSeverityOverridesForCode(code);
+	return allowed.includes(value) ? value : undefined;
+}
+
+/** Normalizes a user-provided map keyed by stable diagnostic code. */
+export function normalizeDiagnosticSeverityOverrides(
+	value: unknown,
+): Record<string, DiagnosticSeverityOverride> {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		return {};
+	}
+	const normalized: Record<string, DiagnosticSeverityOverride> = {};
+	for (const [rawCode, rawSeverity] of Object.entries(value)) {
+		const code = normalizeDiagnosticRuleCode(rawCode);
+		const severity = normalizeDiagnosticSeverityOverride(code, rawSeverity);
+		if (code && severity) {
+			normalized[code] = severity;
+		}
+	}
+	return sortDiagnosticSeverityOverrides(normalized);
+}
+
+/** True when a raw value is part of the severity-override vocabulary. */
+export function isDiagnosticSeverityOverride(value: unknown): value is DiagnosticSeverityOverride {
+	return value === 'off' || value === 'information' || value === 'warning' || value === 'error';
+}
+
+function normalizeDiagnosticRuleCode(code: unknown): string | undefined {
+	return typeof code === 'string' ? code.trim().toLowerCase() || undefined : undefined;
+}
+
+function sortDiagnosticSeverityOverrides(
+	overrides: Record<string, DiagnosticSeverityOverride>,
+): Record<string, DiagnosticSeverityOverride> {
+	return Object.fromEntries(
+		Object.entries(overrides).sort(([left], [right]) => left.localeCompare(right)),
+	);
 }
 
 /** Rule-level suppression scopes before narrowing by the diagnostic's source position. */

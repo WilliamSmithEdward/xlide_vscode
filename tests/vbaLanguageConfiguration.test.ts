@@ -106,15 +106,15 @@ describe('VBA language configuration', () => {
 		expect(setting?.enum).toEqual(['comfy', 'compact']);
 	});
 
-	it('keeps Option Explicit diagnostics on the shared severity vocabulary', () => {
+	it('keeps analysis rule severity overrides guarded by the shared severity vocabulary', () => {
 		const setting = loadPackage()
 			.contributes
 			?.configuration
 			?.properties
-			?.['xlide.diagnostics.optionExplicit'];
+			?.['xlide.analysis.ruleSeverityOverrides'];
 
-		expect(setting?.default).toBe('warning');
-		expect(setting?.enum).toEqual(['off', 'information', 'warning', 'error']);
+		expect(setting?.default).toEqual({});
+		expect(setting?.additionalProperties?.enum).toEqual(['off', 'warning']);
 	});
 
 	it('keeps contributed XLIDE settings machine-scoped', () => {
@@ -127,11 +127,11 @@ describe('VBA language configuration', () => {
 			.sort(([a], [b]) => a.localeCompare(b));
 
 		expect(xlideSettings.map(([key]) => key)).toEqual([
+			'xlide.analysis.ruleSeverityOverrides',
 			'xlide.analysis.untrackedRules',
 			'xlide.analysis.visibleSeverities',
 			'xlide.attachToRunningExcel',
 			'xlide.diagnostics.enabled',
-			'xlide.diagnostics.optionExplicit',
 			'xlide.docs.enabled',
 			'xlide.docs.metadataGlob',
 			'xlide.editor.blockLayout',
