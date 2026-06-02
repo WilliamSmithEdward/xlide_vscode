@@ -391,6 +391,17 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "invalid-new-type-name",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL New object creation semantics plus deterministic XLIDE project/primitive/host type resolution",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The active rule only fires when the type resolver proves the New target is a known non-creatable type, such as a primitive, Excel host object type, document module, Enum, or user-defined Type. Unknown external/reference-library class names remain deferred until reference-library creatability metadata exists.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "set-required",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.3 Set statement plus deterministic XLIDE object type binding",

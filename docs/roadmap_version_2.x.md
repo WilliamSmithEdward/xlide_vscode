@@ -90,12 +90,12 @@ heuristic diagnostics.
   members with visible UDT field surfaces. UDT fields are exhaustive, writable,
   definition-backed members, so `Dim p As TPoint : p.` and `With p : .X` behave
   like ordinary VBA member access.
-- Type names now share one resolver for completion, hover, and VS Code semantic
-  tokens in declaration type positions and `New` expressions. Resolved VBA
+- Type names now share one resolver for completion, hover, diagnostics, and VS
+  Code semantic tokens in declaration type positions and `New` expressions. Resolved VBA
   primitive types, Excel host types, classes, document modules, UserForms, UDTs,
   and enums can be colored without hardcoding project names into static grammar;
-  expression-level `New` completion offers known creatable project classes and
-  UserForms.
+  expression-level `New` and `As New` completion offer only known creatable
+  project classes and UserForms.
 - Workbook class member completion has a first deterministic source-backed
   slice: variables declared as project classes can offer public/default-public
   class members and public fields at `object.`, including chaining through
@@ -137,7 +137,10 @@ heuristic diagnostics.
   shared type-position scanner, so valid workbook/Excel types stay quiet while
   invalid reserved/runtime names, visible project non-type declarations, and
   ambiguous visible project type names are flagged in `As`, `New`, return,
-  parameter, UDT field, `TypeOf ... Is`, and `Implements` positions.
+  parameter, UDT field, `TypeOf ... Is`, and `Implements` positions. Known
+  non-creatable types such as primitives, Excel host types, document modules,
+  enums, and UDTs are also flagged when used after `New` or `As New`, while
+  unresolved external type names remain deferred.
 - Source-backed workbook class member references now resolve through the same
   member binder before textual fallback, so same-named members in different
   classes do not share a reference set.
@@ -1144,8 +1147,9 @@ Definition of done:
    `docs/type_analysis_corpus_coverage.md` to choose the next verified
    corpus additions for the project-wide binder.
 2. Continue extending type-name diagnostics only where the binder can prove the
-   shape, such as verified `New` creatability and qualified reference-library
-   type names; keep broad unknown external reference names deferred.
+   shape, with `New` creatability now covered for resolved local/project/host
+   type names and qualified reference-library type names still deferred; keep
+   broad unknown external reference names deferred.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
 4. Keep the VBA test runner as a planned workstream until its specs and fixture

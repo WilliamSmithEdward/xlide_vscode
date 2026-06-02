@@ -392,6 +392,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 3.3.5.2 / 5.2.3.1',
 		confidence: 'high',
 	},
+	invalidNewTypeName: {
+		code: 'invalid-new-type-name',
+		title: 'Type cannot be created with New',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3.1 / 5.6.9',
+		confidence: 'high',
+	},
 	setRequiresObject: {
 		code: 'set-requires-object',
 		title: 'Set assignment requires an object variable',

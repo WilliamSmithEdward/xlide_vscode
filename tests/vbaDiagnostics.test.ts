@@ -2695,6 +2695,76 @@ describe('analyzeModule - As type name validation', () => {
 		).toHaveLength(0);
 	});
 
+	it('accepts creatable project classes and UserForms after New', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As New Person\n' +
+			'    Dim f As New CustomerForm\n' +
+			'    Dim value As Object\n' +
+			'    Set value = New Person\n' +
+			'    Set value = New CustomerForm\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Person', moduleKind: 'class' as const, source: '' },
+			{ moduleName: 'CustomerForm', moduleKind: 'userform' as const, source: '' },
+		];
+
+		expect(
+			byCode(analyzeProjectModule(src, modules, 'Consumer'), 'invalid-new-type-name'),
+		).toHaveLength(0);
+	});
+
+	it('flags resolved non-creatable types after New', () => {
+		const src =
+			'Public Type Payload\n' +
+			'    Id As Long\n' +
+			'End Type\n' +
+			'\n' +
+			'Public Enum Status\n' +
+			'    Active\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Sub T()\n' +
+			'    Dim eagerSheet As New Worksheet\n' +
+			'    Dim eagerLong As New Long\n' +
+			'    Dim value As Object\n' +
+			'    Set value = New Status\n' +
+			'    Set value = New Payload\n' +
+			'    Set value = New Sheet1\n' +
+			'    Set value = New Worksheet\n' +
+			'    Set value = New Long\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Sheet1', moduleKind: 'document' as const, source: '' },
+		];
+
+		const diags = analyzeProjectModule(src, modules, 'Consumer');
+		const hits = byCode(diags, 'invalid-new-type-name');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'Worksheet',
+			'Long',
+			'Status',
+			'Payload',
+			'Sheet1',
+			'Worksheet',
+			'Long',
+		]);
+		expect(byCode(diags, 'invalid-as-type-name')).toHaveLength(0);
+	});
+
+	it('defers unresolved New type names to the project-wide binder and external references', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim eager As New ExternalThing\n' +
+			'    Dim value As Object\n' +
+			'    Set value = New OtherExternalThing\n' +
+			'End Sub\n';
+		const diags = analyzeModule(src);
+
+		expect(byCode(diags, 'invalid-new-type-name')).toHaveLength(0);
+		expect(byCode(diags, 'invalid-as-type-name')).toHaveLength(0);
+	});
+
 	it('flags runtime functions used in shared type-name positions', () => {
 		const src =
 			'Public Type Bag\n' +

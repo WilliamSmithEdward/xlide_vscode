@@ -27,10 +27,19 @@ describe('type-position detection', () => {
 		expect(result).toContain('Workbook');
 	});
 
-	it('offers types after "As New "', () => {
-		const result = names('Dim c As New ', 'As New ');
-		expect(result).toContain('Worksheet');
-		expect(result).toContain('Object');
+	it('offers only creatable project types after "As New "', () => {
+		const result = names('Dim c As New ', 'As New ', {
+			projectTypes: [
+				{ name: 'Person', kind: 'class' },
+				{ name: 'CustomerForm', kind: 'userform' },
+				{ name: 'Sheet1', kind: 'document' },
+				{ name: 'Status', kind: 'enum' },
+				{ name: 'TPoint', kind: 'userType' },
+			],
+		});
+		expect(result).toEqual(['Person', 'CustomerForm']);
+		expect(result).not.toContain('Long');
+		expect(result).not.toContain('Worksheet');
 	});
 
 	it('offers creatable project types after expression-level "New"', () => {

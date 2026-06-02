@@ -64,6 +64,7 @@ export {
 	resolveCanonicalCaseEdit,
 } from './completion/canonicalCasing';
 export {
+	isCreatableTypeCompletion,
 	ProjectTypeName,
 	resolveTypeCompletions,
 	TypeCompletion,
@@ -115,6 +116,7 @@ export {
 	resolveTypeReferenceAt,
 	resolveTypeSemanticTokens,
 	TypeNameReference,
+	TypeNameReferenceKind,
 	TypeSemanticToken,
 	TypeSemanticTokenType,
 } from './semantic/typeSemanticTokens';

@@ -109,7 +109,9 @@ function isWordToken(tok: VbaToken): boolean {
  * a type position (after `As`, `As New`, or expression `New`), or undefined
  * when it is not.
  */
-function detectTypePosition(slice: string): { prefix: string; mode: 'declaration' | 'newExpression' } | undefined {
+type TypePositionMode = 'declaration' | 'newDeclaration' | 'newExpression';
+
+function detectTypePosition(slice: string): { prefix: string; mode: TypePositionMode } | undefined {
 	const tokens = meaningfulTokens(slice);
 	if (tokens.length === 0) {
 		return undefined;
@@ -136,6 +138,7 @@ function detectTypePosition(slice: string): { prefix: string; mode: 'declaration
 		if (i < 0 || tokens[i].rawText.toLowerCase() !== 'as') {
 			return { prefix, mode: 'newExpression' };
 		}
+		return { prefix, mode: 'newDeclaration' };
 	}
 	if (i < 0) {
 		return undefined;
@@ -242,7 +245,7 @@ export function typeCompletionCandidates(
 	return out;
 }
 
-function isNewExpressionCandidate(candidate: TypeCompletion): boolean {
+export function isCreatableTypeCompletion(candidate: TypeCompletion): boolean {
 	return candidate.kind === 'class' || candidate.kind === 'userform';
 }
 
@@ -275,6 +278,6 @@ export function resolveTypeCompletions(
 	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
 	const prefix = pos.prefix.toLowerCase();
 	return typeCompletionCandidates({ ...ctx, model })
-		.filter((candidate) => pos.mode === 'declaration' || isNewExpressionCandidate(candidate))
+		.filter((candidate) => pos.mode === 'declaration' || isCreatableTypeCompletion(candidate))
 		.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix));
 }

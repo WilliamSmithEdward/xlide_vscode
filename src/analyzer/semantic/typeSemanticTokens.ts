@@ -37,9 +37,17 @@ export interface ResolvedTypeReference extends TypeCompletion {
 	span: Span;
 }
 
+export type TypeNameReferenceKind =
+	| 'declaration'
+	| 'newDeclaration'
+	| 'newExpression'
+	| 'typeOfIs'
+	| 'implements';
+
 export interface TypeNameReference {
 	name: string;
 	span: Span;
+	kind: TypeNameReferenceKind;
 }
 
 function tokenTypeForCompletionKind(kind: TypeCompletionKind): TypeSemanticTokenType {
@@ -78,15 +86,17 @@ function tokenName(tok: VbaToken | undefined): string | undefined {
 	return undefined;
 }
 
-function typeNameSpanAfterAs(source: string, span: Span): { name: string; span: Span } | undefined {
+function typeNameSpanAfterAs(source: string, span: Span): TypeNameReference | undefined {
 	const toks = codeTokens(source, span);
 	for (let i = 0; i < toks.length; i++) {
 		if ((toks[i].canonicalText ?? toks[i].rawText).toLowerCase() !== 'as') {
 			continue;
 		}
 		let typeIndex = i + 1;
+		let kind: TypeNameReferenceKind = 'declaration';
 		if ((toks[typeIndex]?.canonicalText ?? toks[typeIndex]?.rawText ?? '').toLowerCase() === 'new') {
 			typeIndex++;
+			kind = 'newDeclaration';
 		}
 		const name = tokenName(toks[typeIndex]);
 		if (!name) {
@@ -98,14 +108,15 @@ function typeNameSpanAfterAs(source: string, span: Span): { name: string; span: 
 				start: span.start + toks[typeIndex].start,
 				end: span.start + toks[typeIndex].end,
 			},
+			kind,
 		};
 	}
 	return undefined;
 }
 
-function typeNameSpansAfterNew(source: string, span: Span): { name: string; span: Span }[] {
+function typeNameSpansAfterNew(source: string, span: Span): TypeNameReference[] {
 	const toks = codeTokens(source, span);
-	const out: { name: string; span: Span }[] = [];
+	const out: TypeNameReference[] = [];
 	for (let i = 0; i < toks.length; i++) {
 		if ((toks[i].canonicalText ?? toks[i].rawText).toLowerCase() !== 'new') {
 			continue;
@@ -120,14 +131,15 @@ function typeNameSpansAfterNew(source: string, span: Span): { name: string; span
 				start: span.start + toks[i + 1].start,
 				end: span.start + toks[i + 1].end,
 			},
+			kind: 'newExpression',
 		});
 	}
 	return out;
 }
 
-function typeNameSpansAfterTypeOfIs(source: string, span: Span): { name: string; span: Span }[] {
+function typeNameSpansAfterTypeOfIs(source: string, span: Span): TypeNameReference[] {
 	const toks = codeTokens(source, span);
-	const out: { name: string; span: Span }[] = [];
+	const out: TypeNameReference[] = [];
 	let sawTypeOf = false;
 	for (let i = 0; i < toks.length; i++) {
 		const lower = (toks[i].canonicalText ?? toks[i].rawText).toLowerCase();
@@ -148,6 +160,7 @@ function typeNameSpansAfterTypeOfIs(source: string, span: Span): { name: string;
 				start: span.start + toks[i + 1].start,
 				end: span.start + toks[i + 1].end,
 			},
+			kind: 'typeOfIs',
 		});
 		sawTypeOf = false;
 	}
@@ -162,7 +175,7 @@ function headerSpanForProcedure(source: string, proc: ProcedureNode): Span {
 	};
 }
 
-function returnTypeNameSpan(source: string, proc: ProcedureNode): { name: string; span: Span } | undefined {
+function returnTypeNameSpan(source: string, proc: ProcedureNode): TypeNameReference | undefined {
 	const header = headerSpanForProcedure(source, proc);
 	const toks = codeTokens(source, header);
 	let depth = 0;
@@ -189,6 +202,7 @@ function returnTypeNameSpan(source: string, proc: ProcedureNode): { name: string
 				start: header.start + toks[i + 1].start,
 				end: header.start + toks[i + 1].end,
 			},
+			kind: 'declaration',
 		};
 	}
 	return undefined;
@@ -288,6 +302,7 @@ function collectImplements(source: string, out: TypeNameReference[]): void {
 						start: lineStart + column,
 						end: lineStart + column + match[1].length,
 					},
+					kind: 'implements',
 				});
 			}
 		}

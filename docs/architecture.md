@@ -574,9 +574,9 @@ into a pure analyzer layer and a thin VS Code provider:
   prefix. Known workbook/worksheet event-handler-shaped `Sub` declarations in
   the wrong module receive non-red `event-handler-module-scope` guidance because
   Excel will not wire them as events there, even though they may compile as
-  ordinary procedures. In a declaration
-  type position (after `As` / `As New`) or expression-level `New` position it instead
-  offers type-name completions via `src/analyzer/completion/typeCompletion.ts`
+  ordinary procedures. In a declaration type position (after `As`) or a `New`
+  type position (after `As New` or expression-level `New`) it instead offers
+  type-name completions via `src/analyzer/completion/typeCompletion.ts`
   (`resolveTypeCompletions`): VBA built-in data types, the Excel host types, and
   project-defined types from `ProjectIndex.visibleTypeNames()` with the live
   editor text overlaid for the current module: object-module names plus visible
@@ -612,8 +612,9 @@ into a pure analyzer layer and a thin VS Code provider:
   Keyword snippets and Smart Enter use the same literal-tab block indentation
   unit, materialized with the current line's base indentation and
   `keepWhitespace`, so all block archetypes preserve real tabs in their bodies.
-  Expression-level `New` completion is narrower and offers only creatable
-  project classes/UserForms until host/external creatability metadata exists.
+  `As New` and expression-level `New` completion are narrower and offer only
+  creatable project classes/UserForms until host/external creatability metadata
+  exists.
   Accepting callable completions applies canonical casing and uses the shared
   VBA call-site rule: standalone call statements insert only the canonical name,
   while expression contexts and explicit `Call` statements may insert `()` with
@@ -883,14 +884,17 @@ Diagnostic severity policy:
   `invalid-declaration-name` flags unbracketed MS-VBAL reserved identifiers in
   declaration-name positions while accepting bracketed `FOREIGN-NAME` forms such
   as `[In]`.
-  `invalid-as-type-name` uses the shared type-position scanner and resolver
-  for `As`, return, parameter, UDT field, `New`, `TypeOf ... Is`, and
-  `Implements` positions. Resolved project/primitive/host types stay quiet;
+  `invalid-as-type-name` and `invalid-new-type-name` use the shared
+  type-position scanner and resolver for `As`, `As New`, return, parameter, UDT
+  field, expression-level `New`, `TypeOf ... Is`, and `Implements` positions.
+  Resolved project/primitive/host types stay quiet in ordinary type positions;
   unresolved reserved identifiers, runtime functions, visible project
   declarations that are known not to be types, and ambiguous visible project
-  type names are compile-equivalent errors. Broad unknown type names still wait
-  for the external-reference story so referenced-library classes are not
-  flagged prematurely.
+  type names are compile-equivalent errors. Resolved non-creatable types are
+  compile-equivalent errors after `New`/`As New`, using the same creatability
+  predicate as completion. Broad unknown type names still wait for the
+  external-reference story so referenced-library classes are not flagged
+  prematurely.
   `set-required` fires when a plain assignment targets a known object variable,
   `Function`/`Property Get` return name, or source-backed object-valued member
   (`Property Set` or public field) that requires `Set`; `set-requires-object`

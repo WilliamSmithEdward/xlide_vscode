@@ -80,13 +80,21 @@ import {
 	type MemberCompletion,
 	type MemberCompletionContext,
 } from '../completion/memberAccess';
-import { resolveTypeName, type ProjectTypeName } from '../completion/typeCompletion';
+import {
+	isCreatableTypeCompletion,
+	resolveTypeName,
+	type ProjectTypeName,
+	type TypeCompletionKind,
+} from '../completion/typeCompletion';
 import {
 	eventHandlerDocumentTypeForContext,
 	eventHandlerProcedureForName,
 	type EventHandlerDocumentType,
 } from '../completion/eventHandlers';
-import { collectTypeNameReferences } from '../semantic/typeSemanticTokens';
+import {
+	collectTypeNameReferences,
+	type TypeNameReferenceKind,
+} from '../semantic/typeSemanticTokens';
 import {
 	DIAGNOSTIC_RULES,
 	DiagnosticRuleName,
@@ -3899,6 +3907,18 @@ function checkInvalidAsTypeNames(
 			);
 			continue;
 		}
+		if (
+			resolved &&
+			isNewTypeReference(ref.kind) &&
+			!isCreatableTypeCompletion(resolved)
+		) {
+			push(
+				'invalidNewTypeName',
+				`'${ref.name}' is ${typeKindLabelForNew(resolved.kind)} and cannot be used with New. New can create project classes and UserForms only.`,
+				ref.span,
+			);
+			continue;
+		}
 		if (resolved) {
 			continue;
 		}
@@ -4002,6 +4022,30 @@ function checkParameterOrder(
 				);
 			}
 		}
+	}
+}
+
+function isNewTypeReference(kind: TypeNameReferenceKind): boolean {
+	return kind === 'newExpression' || kind === 'newDeclaration';
+}
+
+function typeKindLabelForNew(kind: TypeCompletionKind): string {
+	switch (kind) {
+		case 'primitive':
+			return 'a VBA primitive type';
+		case 'host':
+			return 'an Excel object-model type';
+		case 'document':
+			return 'a document module type';
+		case 'enum':
+			return 'an Enum type';
+		case 'userType':
+			return 'a user-defined Type';
+		case 'ambiguous':
+			return 'an ambiguous project type';
+		case 'class':
+		case 'userform':
+			return 'a creatable project type';
 	}
 }
 
