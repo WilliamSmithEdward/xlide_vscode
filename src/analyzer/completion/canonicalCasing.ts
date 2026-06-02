@@ -25,6 +25,11 @@ export interface CanonicalCaseEdit {
 	text: string;
 }
 
+export interface CanonicalCaseSpan {
+	start: number;
+	end: number;
+}
+
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function resolveCanonicalCaseEdit(
@@ -51,6 +56,26 @@ export function resolveCanonicalCaseEdit(
 		return undefined;
 	}
 	return { ...span, text: canonical };
+}
+
+export function resolveCanonicalCaseEdits(
+	source: string,
+	span: CanonicalCaseSpan,
+	ctx: CanonicalCaseContext = {},
+): CanonicalCaseEdit[] {
+	const safeStart = Math.max(0, Math.min(span.start, source.length));
+	const safeEnd = Math.max(safeStart, Math.min(span.end, source.length));
+	const edits: CanonicalCaseEdit[] = [];
+	for (const token of tokenize(source)) {
+		if (token.start < safeStart || token.end > safeEnd || !isIdentifierToken(token)) {
+			continue;
+		}
+		const edit = resolveCanonicalCaseEdit(source, token.end, ctx);
+		if (edit && edit.start === token.start && edit.end === token.end) {
+			edits.push(edit);
+		}
+	}
+	return edits;
 }
 
 function identifierSpanEndingAt(

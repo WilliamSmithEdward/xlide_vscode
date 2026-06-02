@@ -61,7 +61,9 @@ export {
 export {
 	CanonicalCaseContext,
 	CanonicalCaseEdit,
+	CanonicalCaseSpan,
 	resolveCanonicalCaseEdit,
+	resolveCanonicalCaseEdits,
 } from './completion/canonicalCasing';
 export {
 	isCreatableTypeCompletion,

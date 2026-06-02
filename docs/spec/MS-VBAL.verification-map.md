@@ -59,7 +59,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | future-reserved | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | 3.3.5.2 | Verified |
 | reserved-for-implementation-use | src/analyzer/lexer/keywordTable.ts | (none yet) | 3.3.5.2 | Partial |
 | Contextual keywords (VBE casing) | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | n/a (VBE convention) | Verified |
-| Safe canonical casing edits (keyword/type/member/runtime) | src/analyzer/completion/canonicalCasing.ts + src/vbaMemberCompletion.ts | tests/vbaCanonicalCasing.test.ts | n/a (VBE convention) | Verified |
+| Safe canonical casing edits (keyword/type/member/runtime, single-token and line-span passes) | src/analyzer/completion/canonicalCasing.ts + src/vbaMemberCompletion.ts | tests/vbaCanonicalCasing.test.ts | n/a (VBE convention) | Verified |
 
 ### Documented deviations
 

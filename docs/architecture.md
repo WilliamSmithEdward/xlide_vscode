@@ -620,9 +620,12 @@ into a pure analyzer layer and a thin VS Code provider:
   while expression contexts and explicit `Call` statements may insert `()` with
   the cursor inside the call. Runtime entries that opt out of explicit `Call`
   through verified metadata are filtered at the `Call <target>` position, so
-  invalid forms such as `Call DoEvents` are not offered there. Typing a boundary after a known identifier, moving the
-  cursor away from the identifier, or leaving the editor applies VBE-style
-  canonical casing for keywords, type names, runtime functions, and resolved host
+  invalid forms such as `Call DoEvents` are not offered there. Typing a
+  same-line boundary after a known identifier applies a single-token casing edit,
+  while pressing Enter, moving the cursor to another line, switching editors, or
+  leaving the editor applies all safe VBE-style canonical casing edits on the
+  line just left. Both paths use the same analyzer resolver for keywords, type
+  names, runtime functions, project identifiers, and resolved host/source
   members.
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`

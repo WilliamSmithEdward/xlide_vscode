@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCanonicalCaseEdit, type CanonicalCaseContext } from '../src/analyzer';
+import {
+	resolveCanonicalCaseEdit,
+	resolveCanonicalCaseEdits,
+	type CanonicalCaseContext,
+} from '../src/analyzer';
 
 function editAtMarker(src: string, ctx: CanonicalCaseContext = {}) {
 	const offset = src.indexOf('|');
@@ -7,6 +11,13 @@ function editAtMarker(src: string, ctx: CanonicalCaseContext = {}) {
 		throw new Error('Missing | marker');
 	}
 	return resolveCanonicalCaseEdit(src.replace('|', ''), offset, ctx);
+}
+
+function editsOnLine(src: string, lineNumber: number, ctx: CanonicalCaseContext = {}) {
+	const lines = src.split('\n');
+	const start = lines.slice(0, lineNumber).reduce((sum, line) => sum + line.length + 1, 0);
+	const end = start + lines[lineNumber].replace(/\r$/, '').length;
+	return resolveCanonicalCaseEdits(src, { start, end }, ctx);
 }
 
 describe('canonical casing edits', () => {
@@ -77,5 +88,38 @@ describe('canonical casing edits', () => {
 		expect(editAtMarker('sub| T()\nEnd Sub\n')?.text).toBe('Sub');
 		expect(editAtMarker('Sub T()\n    MsgBox "left|("\nEnd Sub\n')).toBeUndefined();
 		expect(editAtMarker("Sub T()\n    ' left|(\nEnd Sub\n")).toBeUndefined();
+	});
+
+	it('canonicalizes every safe token on a completed line', () => {
+		const src =
+			'Sub T()\n' +
+			'    dim p as person: set p = new person\n' +
+			'End Sub\n';
+		const edits = editsOnLine(src, 1, {
+			type: {
+				projectTypes: [{ name: 'Person', kind: 'class' }],
+			},
+		});
+
+		expect(edits.map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['dim', 'Dim'],
+			['as', 'As'],
+			['person', 'Person'],
+			['set', 'Set'],
+			['new', 'New'],
+			['person', 'Person'],
+		]);
+	});
+
+	it('line canonicalization keeps strings and comments unchanged', () => {
+		const src =
+			'Sub T()\n' +
+			'    msgbox "left" \' application.calculate\n' +
+			'End Sub\n';
+		const edits = editsOnLine(src, 1);
+
+		expect(edits.map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['msgbox', 'MsgBox'],
+		]);
 	});
 });

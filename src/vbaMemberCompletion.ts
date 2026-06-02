@@ -35,7 +35,10 @@ import {
 	materializeKeywordSnippet,
 	VbaProcedureSignature,
 	callableCompletionShouldInsertParens,
+	type CanonicalCaseContext,
+	type CanonicalCaseEdit,
 	resolveCanonicalCaseEdit,
+	resolveCanonicalCaseEdits,
 	resolveEventHandlerCompletions,
 	resolveHover,
 	resolveIdentifierCompletions,
@@ -213,6 +216,37 @@ class VbaMemberCompletionProvider
 		candidateEnd: vscode.Position,
 		editorHint?: vscode.TextEditor,
 	): Promise<void> {
+		await this._applyCanonicalCaseEdits(document, editorHint, (source, ctx) => {
+			const offset = document.offsetAt(candidateEnd);
+			const edit = resolveCanonicalCaseEdit(source, offset, ctx);
+			return edit ? [edit] : [];
+		});
+	}
+
+	async applyCanonicalCaseForLine(
+		document: vscode.TextDocument,
+		lineNumber: number,
+		editorHint?: vscode.TextEditor,
+	): Promise<void> {
+		if (lineNumber < 0 || lineNumber >= document.lineCount) {
+			return;
+		}
+		await this._applyCanonicalCaseEdits(document, editorHint, (source, ctx) => {
+			if (lineNumber >= document.lineCount) {
+				return [];
+			}
+			const line = document.lineAt(lineNumber);
+			const start = document.offsetAt(line.range.start);
+			const end = document.offsetAt(line.range.end);
+			return resolveCanonicalCaseEdits(source, { start, end }, ctx);
+		});
+	}
+
+	private async _applyCanonicalCaseEdits(
+		document: vscode.TextDocument,
+		editorHint: vscode.TextEditor | undefined,
+		resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[],
+	): Promise<void> {
 		if (this._applyingCanonicalCase) {
 			return;
 		}
@@ -225,28 +259,36 @@ class VbaMemberCompletionProvider
 				return;
 			}
 			const source = document.getText();
-			const offset = document.offsetAt(candidateEnd);
 			const projectCtx = await this._buildEditorProjectContext(document, source);
-			const edit = resolveCanonicalCaseEdit(source, offset, {
+			const edits = resolveEdits(source, {
 				member: this._memberContext(projectCtx),
 				identifier: this._identifierContext(projectCtx),
 				type: this._typeContext(projectCtx),
+			}).filter((edit) => {
+				const range = new vscode.Range(
+					document.positionAt(edit.start),
+					document.positionAt(edit.end),
+				);
+				return document.getText(range) !== edit.text;
 			});
-			if (!edit) {
-				return;
-			}
-			const range = new vscode.Range(
-				document.positionAt(edit.start),
-				document.positionAt(edit.end),
-			);
-			if (document.getText(range) === edit.text) {
+			if (edits.length === 0) {
 				return;
 			}
 			const selections = editor.selections.map((selection) =>
 				new vscode.Selection(selection.anchor, selection.active),
 			);
 			const restoreSelection = vscode.window.activeTextEditor === editor;
-			const applied = await editor.edit((builder) => builder.replace(range, edit.text), {
+			const applied = await editor.edit((builder) => {
+				for (const edit of edits) {
+					builder.replace(
+						new vscode.Range(
+							document.positionAt(edit.start),
+							document.positionAt(edit.end),
+						),
+						edit.text,
+					);
+				}
+			}, {
 				undoStopBefore: false,
 				undoStopAfter: false,
 			});
@@ -731,14 +773,14 @@ export function registerVbaMemberCompletion(
 		| undefined;
 	let textChangeSerial = 0;
 	const lastTextChange = new Map<string, { at: number; serial: number }>();
-	const flushCanonicalCandidate = (): void => {
+	const flushCanonicalLine = (): void => {
 		const candidate = lastCanonicalCandidate;
 		if (!candidate || !isVbaDocument(candidate.editor.document)) {
 			return;
 		}
-		void provider.applyCanonicalCase(
+		void provider.applyCanonicalCaseForLine(
 			candidate.editor.document,
-			candidate.position,
+			candidate.position.line,
 			candidate.editor,
 		);
 	};
@@ -807,17 +849,36 @@ export function registerVbaMemberCompletion(
 			if (!change.range.isEmpty || !isCanonicalCaseBoundary(change.text)) {
 				return;
 			}
-			void provider.applyCanonicalCase(event.document, change.range.start);
+			if (isCanonicalCaseLineBoundary(change.text)) {
+				void provider.applyCanonicalCaseForLine(event.document, change.range.start.line);
+			} else {
+				void provider.applyCanonicalCase(event.document, change.range.start);
+			}
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
 			maybeLeaveKeywordSnippet(event);
 			const previous = lastCanonicalCandidate;
-			if (previous?.editor === event.textEditor) {
-				void provider.applyCanonicalCase(
+			if (previous && previous.editor !== event.textEditor) {
+				void provider.applyCanonicalCaseForLine(
 					previous.editor.document,
-					previous.position,
+					previous.position.line,
 					previous.editor,
 				);
+			} else if (previous?.editor === event.textEditor) {
+				const nextPosition = event.textEditor.selection.active;
+				if (previous.position.line !== nextPosition.line) {
+					void provider.applyCanonicalCaseForLine(
+						previous.editor.document,
+						previous.position.line,
+						previous.editor,
+					);
+				} else {
+					void provider.applyCanonicalCase(
+						previous.editor.document,
+						previous.position,
+						previous.editor,
+					);
+				}
 			}
 			lastCanonicalCandidate = canonicalCandidateFromEditor(event.textEditor);
 		}),
@@ -825,12 +886,12 @@ export function registerVbaMemberCompletion(
 			if (activeKeywordSnippet && editor !== activeKeywordSnippet.editor) {
 				activeKeywordSnippet = undefined;
 			}
-			flushCanonicalCandidate();
+			flushCanonicalLine();
 			lastCanonicalCandidate = canonicalCandidateFromEditor(editor);
 		}),
 		vscode.window.onDidChangeWindowState((state) => {
 			if (!state.focused) {
-				flushCanonicalCandidate();
+				flushCanonicalLine();
 			}
 		}),
 		vscode.languages.registerHoverProvider(selector, provider),
@@ -871,7 +932,11 @@ function isVbaDocument(document: vscode.TextDocument): boolean {
 function isCanonicalCaseBoundary(text: string): boolean {
 	return (
 		/^[ \t]$/.test(text) ||
-		/^\r?\n[ \t]*$/.test(text) ||
+		isCanonicalCaseLineBoundary(text) ||
 		['(', ')', '.', ',', '=', ':', '+', '-', '*', '/', '\\', '&', '<', '>'].includes(text)
 	);
+}
+
+function isCanonicalCaseLineBoundary(text: string): boolean {
+	return /^\r?\n[ \t]*$/.test(text);
 }

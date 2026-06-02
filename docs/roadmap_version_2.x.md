@@ -680,9 +680,10 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   expressions. Primitive, host, and project names all flow through the same
   resolver used by type completion.
 - [x] Apply safe canonical casing when typing a boundary after an identifier,
-  moving the cursor away, or leaving the editor, so `person` in `As Person` /
-  `New Person` and known members/runtime names normalize even when completion is
-  dismissed.
+  pressing Enter at the end of a line, moving away from the edited line,
+  switching editors, or leaving the editor, so `person` in `As Person` /
+  `New Person`, known members/runtime names, and VBA keywords normalize even
+  when completion is dismissed.
 - [x] Share structural block knowledge between linting and Smart Enter so safe
   block openers auto-insert their matching closer instead of maintaining
   procedure-only editor logic.
