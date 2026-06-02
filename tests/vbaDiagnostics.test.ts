@@ -698,6 +698,15 @@ describe('analyzeModule - unknown call statement', () => {
 		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('Frobnicate');
+		expect(hits[0].data?.createProcedureStub).toMatchObject({
+			procedureName: 'Frobnicate',
+			edit: {
+				span: { start: src.length, end: src.length },
+				newText:
+					'\nPrivate Sub Frobnicate(ByVal arg1 As Variant, ByVal arg2 As Variant, ByVal arg3 As Variant)\n' +
+					'End Sub\n',
+			},
+		});
 	});
 
 	it('flags an unknown explicit Call statement', () => {
@@ -705,6 +714,17 @@ describe('analyzeModule - unknown call statement', () => {
 		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('DoesNotExist');
+		expect(hits[0].data?.createProcedureStub?.edit.newText).toContain(
+			'Private Sub DoesNotExist(ByVal arg1 As Variant)\n',
+		);
+	});
+
+	it('does not attach procedure-stub metadata for omitted argument slots', () => {
+		const src = 'Sub Main()\n    Call DoesNotExist(1, , 3)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('DoesNotExist');
+		expect(hits[0].data?.createProcedureStub).toBeUndefined();
 	});
 
 	it('does not flag a known procedure called with arguments', () => {

@@ -23,6 +23,7 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isReservedIdentifier } from '../lexer/keywordTable';
+import { VBA_IDENTIFIER_NAME_RE } from '../../vbaLinter';
 import {
 	getHostMembers,
 	resolveHostAlias,
@@ -125,8 +126,17 @@ export interface VbaMissingRequiredArgumentPlaceholderData {
 	};
 }
 
+export interface VbaCreateProcedureStubData {
+	procedureName: string;
+	edit: {
+		span: Span;
+		newText: string;
+	};
+}
+
 export interface VbaDiagnosticData {
 	missingRequiredArgumentPlaceholder?: VbaMissingRequiredArgumentPlaceholderData;
+	createProcedureStub?: VbaCreateProcedureStubData;
 }
 
 /** Per-rule severity overrides; `'off'` disables a rule. */
@@ -831,14 +841,88 @@ function checkUnknownCallStatement(
 		forEachStatement(member.body, (stmt) => {
 			const hit = callStatementTarget(source, stmt.span);
 			if (hit && !isKnown(hit.name, locals)) {
+				const call = extractCall(source, stmt.span);
 				push(
 					'unknownCallStatement',
 					`Sub or Function not defined: '${hit.name}'.`,
 					hit.span,
+					call && call.nameSpan.start === hit.span.start && call.nameSpan.end === hit.span.end
+						? createProcedureStubData(source, call)
+						: undefined,
 				);
 			}
 		}, activity);
 	}
+}
+
+function createProcedureStubData(
+	source: string,
+	call: CallArguments,
+): VbaDiagnosticData | undefined {
+	if (!isGeneratedStubIdentifier(call.name)) {
+		return undefined;
+	}
+	const params = generatedStubParameters(call);
+	if (!params) {
+		return undefined;
+	}
+	const eol = detectSourceEol(source);
+	const leading = source.length === 0
+		? ''
+		: `${source.endsWith('\n') || source.endsWith('\r') ? '' : eol}${endsWithBlankPhysicalLine(source) ? '' : eol}`;
+	const text = `${leading}Private Sub ${call.name}(${params.join(', ')})${eol}End Sub${eol}`;
+	return {
+		createProcedureStub: {
+			procedureName: call.name,
+			edit: {
+				span: { start: source.length, end: source.length },
+				newText: text,
+			},
+		},
+	};
+}
+
+function generatedStubParameters(call: CallArguments): string[] | undefined {
+	if (call.slots.some((slot) => slot.length === 0)) {
+		return undefined;
+	}
+	const named = call.slots.map((slot) => isNamedSlot(slot));
+	if (named.some(Boolean) && !named.every(Boolean)) {
+		return undefined;
+	}
+	const used = new Set<string>();
+	const params: string[] = [];
+	for (let i = 0; i < call.slots.length; i++) {
+		const name = named[i]
+			? generatedNamedArgumentParameterName(call.slots[i])
+			: `arg${i + 1}`;
+		if (!name || used.has(name.toLowerCase())) {
+			return undefined;
+		}
+		used.add(name.toLowerCase());
+		params.push(`ByVal ${name} As Variant`);
+	}
+	return params;
+}
+
+function generatedNamedArgumentParameterName(slot: VbaToken[]): string | undefined {
+	const raw = slot[0]?.rawText;
+	if (!raw || raw.startsWith('[')) {
+		return undefined;
+	}
+	return isGeneratedStubIdentifier(raw) ? raw : undefined;
+}
+
+function isGeneratedStubIdentifier(name: string): boolean {
+	return VBA_IDENTIFIER_NAME_RE.test(name) && !isReservedIdentifier(name);
+}
+
+function detectSourceEol(source: string): string {
+	return source.includes('\r\n') ? '\r\n' : '\n';
+}
+
+function endsWithBlankPhysicalLine(source: string): boolean {
+	return /(?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n)$/.test(source);
 }
 
 /**

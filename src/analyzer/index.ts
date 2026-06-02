@@ -188,6 +188,7 @@ export {
 	incompleteExpressionEditSpan,
 	incompleteMemberAccessEditSpan,
 	SeverityOverrides,
+	VbaCreateProcedureStubData,
 	VbaDiagnostic,
 	VbaDiagnosticData,
 	VbaMissingRequiredArgumentPlaceholderData,

@@ -415,6 +415,83 @@ describe('resolveDiagnosticCodeActions', () => {
 		expect(actions).toHaveLength(0);
 	});
 
+	it('creates a current-module Private Sub stub for an unresolved no-argument call', () => {
+		const source = 'Sub Main()\n    BuildReport\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'unknown-call', {
+			knownProcedures: new Set<string>(),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe("Create Private Sub 'BuildReport' in this module");
+		expect(actions[0].isPreferred).toBe(false);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub Main()\n' +
+			'    BuildReport\n' +
+			'End Sub\n' +
+			'\n' +
+			'Private Sub BuildReport()\n' +
+			'End Sub\n',
+		);
+	});
+
+	it('creates a current-module Private Sub stub with positional Variant parameters', () => {
+		const source = 'Sub Main()\n    Call SaveThing(1, "name")\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'unknown-call', {
+			knownProcedures: new Set<string>(),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'Private Sub SaveThing(ByVal arg1 As Variant, ByVal arg2 As Variant)\n' +
+			'End Sub\n',
+		);
+	});
+
+	it('creates a current-module Private Sub stub with named argument parameters', () => {
+		const source =
+			'Sub Main()\n' +
+			'    Call SaveThing(amount:=1, caption:="name")\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'unknown-call', {
+			knownProcedures: new Set<string>(),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'Private Sub SaveThing(ByVal amount As Variant, ByVal caption As Variant)\n' +
+			'End Sub\n',
+		);
+	});
+
+	it('does not create a procedure stub when the call argument shape requires guessing', () => {
+		const source = 'Sub Main()\n    Call SaveThing(1, , 3)\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'unknown-call', {
+			knownProcedures: new Set<string>(),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(0);
+	});
+
+	it('does not offer an unresolved-call stub without analyzer metadata', () => {
+		const source = 'Sub Main()\n    BuildReport\nEnd Sub\n';
+		const start = source.indexOf('BuildReport');
+
+		const actions = resolveDiagnosticCodeActions(source, {
+			code: 'unknown-call',
+			span: { start, end: start + 'BuildReport'.length },
+		});
+
+		expect(actions).toHaveLength(0);
+	});
+
 	it('adds Set to a proven object assignment', () => {
 		const source =
 			'Public Sub T()\n' +

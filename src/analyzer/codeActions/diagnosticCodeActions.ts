@@ -91,6 +91,8 @@ function ruleSpecificDiagnosticCodeActions(
 			return setRequiresObjectActions(source, diagnostic.span);
 		case 'argument-count':
 			return missingRequiredArgumentPlaceholderActions(diagnostic);
+		case 'unknown-call':
+			return createProcedureStubActions(diagnostic);
 		default:
 			return [];
 	}
@@ -105,6 +107,21 @@ function missingRequiredArgumentPlaceholderActions(
 	}
 	return [{
 		title: `Insert placeholder for missing argument '${data.parameterName}'`,
+		kind: 'quickfix',
+		isPreferred: false,
+		edits: [data.edit],
+	}];
+}
+
+function createProcedureStubActions(
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
+	const data = diagnostic.data?.createProcedureStub;
+	if (!data) {
+		return [];
+	}
+	return [{
+		title: `Create Private Sub '${data.procedureName}' in this module`,
 		kind: 'quickfix',
 		isPreferred: false,
 		edits: [data.edit],

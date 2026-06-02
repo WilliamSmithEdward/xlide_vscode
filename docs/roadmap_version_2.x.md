@@ -1048,8 +1048,10 @@ prove the edit is safe.
   - [x] add missing required argument placeholder only when explicitly requested,
     fed by analyzer-owned structured diagnostic metadata
   - [x] add lint suppression comment for a selected diagnostic
-  - [ ] create procedure stub for unresolved calls only when the target location is
-    explicit
+  - [x] create current-module `Private Sub` stubs for unresolved call statements
+    only when the diagnostic carries analyzer-owned edit metadata; omitted,
+    mixed named/positional, bracketed, or reserved argument names intentionally
+    produce no quick fix
 - [ ] Add source actions:
   - [x] lint current module
   - [ ] export/sync current module
