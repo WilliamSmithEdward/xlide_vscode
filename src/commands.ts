@@ -30,6 +30,10 @@ import {
     projectClassModuleDefinition,
 } from './vbaNavigation';
 import {
+    projectAnalysisOptionsForModule,
+    projectProcedureSignatures,
+} from './vbaProjectAnalysis';
+import {
     projectClassReferenceEdit,
     renameProjectClassModule,
 } from './vbaClassRename';
@@ -364,28 +368,11 @@ export function registerCommands(
             moduleKind,
             source,
         });
-
-        let projectProcedures: ReturnType<typeof project.procedureSignatures> | undefined;
-        let knownProcedures: ReadonlySet<string> | undefined;
-        let knownIdentifiers: ReadonlySet<string> | undefined;
-        let knownNonTypeNames: ReadonlySet<string> | undefined;
-        let projectTypes: ReturnType<typeof project.visibleTypeNames> | undefined;
-        let projectClassMembers: ReturnType<typeof project.projectMemberSurfaces> | undefined;
-        try {
-            projectProcedures = project.procedureSignatures();
-            knownProcedures = project.visibleProcedureNames(moduleName);
-            knownIdentifiers = project.visibleIdentifierNames(moduleName);
-            knownNonTypeNames = project.visibleNonTypeNames(moduleName);
-            projectTypes = project.visibleTypeNames(moduleName);
-            projectClassMembers = project.projectMemberSurfaces(moduleName);
-        } catch {
-            projectProcedures = undefined;
-            knownProcedures = undefined;
-            knownIdentifiers = undefined;
-            knownNonTypeNames = undefined;
-            projectTypes = undefined;
-            projectClassMembers = undefined;
-        }
+        const projectOptions = projectAnalysisOptionsForModule(
+            project,
+            moduleName,
+            projectProcedureSignatures(project),
+        );
 
         const result = lintVbaModuleSource({
             source,
@@ -393,12 +380,7 @@ export function registerCommands(
             moduleKind,
             documentType: current?.documentType,
             severities: diagnosticSeverityOverridesFromConfig(),
-            knownProcedures,
-            knownIdentifiers,
-            knownNonTypeNames,
-            projectProcedures,
-            projectClassMembers,
-            projectTypes,
+            ...projectOptions,
         });
         const problems = workbookProblemsForModule(
             moduleName,

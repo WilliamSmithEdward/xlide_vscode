@@ -16,12 +16,16 @@ import {
     DiagnosticEvidenceKind,
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
-    ModuleSymbolKind,
-    ProjectIndex,
     SeverityOverrides,
 } from './analyzer';
 import { lineStartOffsets } from './vbaLinter';
 import { lintVbaModuleSource, type VbaModuleLintDiagnostic } from './vbaModuleLint';
+import {
+    buildVbaProjectIndex,
+    moduleKindFromType,
+    projectAnalysisOptionsForModule,
+    projectProcedureSignatures,
+} from './vbaProjectAnalysis';
 
 export type WorkbookLintSeverity = 'error' | 'warning' | 'information' | 'hint';
 export type WorkbookLintSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -77,15 +81,6 @@ interface RawModule {
     type: string;
     documentType?: EventHandlerDocumentType;
     source: string;
-}
-
-function moduleKindFromType(type?: string): ModuleSymbolKind {
-    switch (type) {
-        case 'class': return 'class';
-        case 'document': return 'document';
-        case 'userform': return 'userform';
-        default: return 'standard';
-    }
 }
 
 /** Converts a 0-based character offset to a 1-based {line, column} pair. */
@@ -228,26 +223,13 @@ export async function lintWorkbook(
 ): Promise<WorkbookLintResult> {
     const modules = await loadWorkbookModules(bridge, filePath);
 
-    // Project-wide names enable cross-module call and Option Explicit checks,
-    // filtered per caller by VBA visibility.
-    const project = new ProjectIndex();
-    for (const mod of modules) {
-        try {
-            project.setModule({
-                moduleName: mod.name,
-                moduleKind: moduleKindFromType(mod.type),
-                source: mod.source,
-            });
-        } catch {
-            // Ignore parse failures for the cross-module name set.
-        }
-    }
-    let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
-    try {
-        projectProcedures = project.procedureSignatures();
-    } catch {
-        projectProcedures = undefined;
-    }
+    const project = buildVbaProjectIndex(modules.map((mod) => ({
+        moduleName: mod.name,
+        source: mod.source,
+        type: mod.type,
+        documentType: mod.documentType,
+    })));
+    const projectProcedures = projectProcedureSignatures(project);
 
     const config = vscode.workspace.getConfiguration('xlide');
     const optionExplicit = config.get<string>('diagnostics.optionExplicit', 'warning');
@@ -260,36 +242,14 @@ export async function lintWorkbook(
     let suppressedCount = 0;
 
     for (const mod of modules) {
-        let knownProcedures: ReadonlySet<string> | undefined;
-        let knownIdentifiers: ReadonlySet<string> | undefined;
-        let knownNonTypeNames: ReadonlySet<string> | undefined;
-        let projectTypes: ReturnType<ProjectIndex['visibleTypeNames']> | undefined;
-        let projectClassMembers: ReturnType<ProjectIndex['projectMemberSurfaces']> | undefined;
-        try {
-            knownProcedures = project.visibleProcedureNames(mod.name);
-            knownIdentifiers = project.visibleIdentifierNames(mod.name);
-            knownNonTypeNames = project.visibleNonTypeNames(mod.name);
-            projectTypes = project.visibleTypeNames(mod.name);
-            projectClassMembers = project.projectMemberSurfaces(mod.name);
-        } catch {
-            knownProcedures = undefined;
-            knownIdentifiers = undefined;
-            knownNonTypeNames = undefined;
-            projectTypes = undefined;
-            projectClassMembers = undefined;
-        }
+        const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
         const moduleLint = lintVbaModuleSource({
             source: mod.source,
             moduleName: mod.name,
             moduleKind: moduleKindFromType(mod.type),
             documentType: mod.documentType,
             severities,
-            knownProcedures,
-            knownIdentifiers,
-            knownNonTypeNames,
-            projectProcedures,
-            projectClassMembers,
-            projectTypes,
+            ...projectOptions,
         });
         problems.push(...workbookProblemsForModule(
             mod.name,

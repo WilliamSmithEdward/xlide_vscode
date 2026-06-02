@@ -37,6 +37,7 @@ xlide_vscode/
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
     vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource), smart-enter helpers, and the shared smart-block snippet catalogue (no vscode dependency)
     vbaModuleLint.ts    Shared module lint core used by live diagnostics, current-module lint, and workbook lint; merges structural lint, semantic analysis, and lint suppression directives
+    vbaProjectAnalysis.ts  Shared ProjectIndex construction and analyzer-option derivation for project-aware lint/diagnostic surfaces
     vbaWorkbookLint.ts  Workbook-wide lint/report core (lintWorkbook) reused by commands and the xlide_lintWorkbook agent tool; flattens vbaModuleLint results into 1-based problems with diagnostic metadata and summary counts
     analyzer/
       lexer/
@@ -357,6 +358,13 @@ Tree-level class module rename uses the same project type-reference helpers:
 the component name is changed through `renameModule`, and VS Code reference edits
 are applied for the workbook's project-defined class type tokens.
 
+Project-aware diagnostics and lint surfaces derive their analyzer options through
+`src/vbaProjectAnalysis.ts`. That helper owns module-kind normalization,
+live-current-module overlay, project procedure signatures, visibility-filtered
+procedure/identifier/type/non-type names, and source-backed member surfaces, so
+current-module lint, workbook lint, and project-aware diagnostic fixtures do not
+hand-wire parallel `ProjectIndex` option sets.
+
 **Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
 is unit-tested directly (`tests/vbaLinter.test.ts`). It strips strings/comments,
 joins `_` line continuations, then walks a block stack to detect imbalance.
@@ -384,9 +392,11 @@ the cache stays in sync with user edits.
 
 **Workbook-wide lint (command + agent tool)** — `src/vbaWorkbookLint.ts`
 (`lintWorkbook`) loads every module from the workbook via the Python bridge,
-builds a `ProjectIndex` so cross-module rules have the current module's
-visibility-filtered procedure/Declare and bare identifier names, then delegates
-each module to `src/vbaModuleLint.ts`. That shared module core merges
+builds shared project-analysis options so cross-module rules have the current
+module's visibility-filtered procedure/Declare names, bare identifier names,
+visible type/non-type names, exported signatures, and source-backed member
+surfaces, then delegates each module to `src/vbaModuleLint.ts`. That shared
+module core merges
 `lintVbaSource`, `analyzeModule`, and lint suppression directives before
 workbook lint flattens results into 1-based `{moduleName, moduleType, line,
 column, endColumn, severity, code, message, category, vbeCompileEquivalent,
@@ -858,10 +868,11 @@ terminator" family) and lint suppression directives. `registerVbaDiagnostics` in
 (300 ms) on every edit, on real `.vba` files and on virtual `xlide-vba` module
 documents, with no save. Everything is computed from the live editor text plus
 deterministic project context. For workbook-backed documents the provider
-overlays the current live module text into a fresh `ProjectIndex`, then passes
-visibility-filtered procedure names, visible bare identifier names, cross-module
-standard-module signatures, and source-backed project class-member surfaces into
-`lintVbaModuleSource`.
+overlays the current live module text into a fresh shared project-analysis
+context, then passes its visibility-filtered procedures, visible bare
+identifiers, visible project type names, non-type-name exclusions,
+cross-module standard-module signatures, and source-backed project member
+surfaces into `lintVbaModuleSource`.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change.
 Before diagnostics are displayed, `src/analyzer/diagnostics/lintSuppressions.ts`

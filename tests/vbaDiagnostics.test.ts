@@ -7,9 +7,14 @@ import {
 	diagnosticMetadataForCode,
 	diagnosticSourceForCode,
 	isXlideDiagnosticSource,
-	ProjectIndex,
 	type HostObjectModel,
 } from '../src/analyzer';
+import {
+	buildVbaProjectIndex,
+	projectAnalysisOptionsForModule,
+	projectProcedureSignatures,
+	type VbaProjectModuleInput,
+} from '../src/vbaProjectAnalysis';
 
 /** Returns the diagnostics whose code matches `code`. */
 function byCode(diags: VbaDiagnostic[], code: string): VbaDiagnostic[] {
@@ -21,131 +26,91 @@ function spanText(source: string, d: VbaDiagnostic): string {
 	return source.slice(d.span.start, d.span.end);
 }
 
+type ProjectTestModule = VbaProjectModuleInput;
+
+function projectOptions(
+	modules: readonly ProjectTestModule[],
+	currentModule: string,
+): ReturnType<typeof projectAnalysisOptionsForModule> {
+	const project = buildVbaProjectIndex(modules);
+	return projectAnalysisOptionsForModule(
+		project,
+		currentModule,
+		projectProcedureSignatures(project),
+	);
+}
+
+function analyzeProjectModule(
+	source: string,
+	modules: readonly ProjectTestModule[],
+	currentModule: string,
+	extra: Parameters<typeof analyzeModule>[1] = {},
+): VbaDiagnostic[] {
+	const current = modules.find(
+		(mod) => mod.moduleName.toLowerCase() === currentModule.toLowerCase(),
+	);
+	const projectModules: readonly ProjectTestModule[] = [
+		current
+			? { ...current, moduleName: currentModule, source }
+			: { moduleName: currentModule, source },
+		...modules.filter(
+			(mod) => mod.moduleName.toLowerCase() !== currentModule.toLowerCase(),
+		),
+	];
+	return analyzeModule(source, {
+		moduleName: currentModule,
+		...projectOptions(projectModules, currentModule),
+		...extra,
+	});
+}
+
 function projectProcedures(
-	modules: Array<{ moduleName: string; source: string }>,
-): ReturnType<ProjectIndex['procedureSignatures']> {
-	const project = new ProjectIndex();
-	for (const mod of modules) {
-		project.setModule({
-			moduleName: mod.moduleName,
-			moduleKind: 'standard',
-			source: mod.source,
-		});
-	}
-	return project.procedureSignatures();
+	modules: readonly ProjectTestModule[],
+): NonNullable<ReturnType<typeof projectProcedureSignatures>> {
+	const project = buildVbaProjectIndex(modules);
+	return projectProcedureSignatures(project) ?? new Map();
 }
 
 function projectClassMembers(
-	modules: Array<{
-		moduleName: string;
-		source: string;
-		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
-	}>,
-): ReturnType<ProjectIndex['projectClassMembers']> {
-	const project = new ProjectIndex();
-	for (const mod of modules) {
-		project.setModule({
-			moduleName: mod.moduleName,
-			moduleKind: mod.moduleKind ?? 'standard',
-			source: mod.source,
-		});
-	}
+	modules: readonly ProjectTestModule[],
+): NonNullable<ReturnType<typeof projectAnalysisOptionsForModule>['projectClassMembers']> {
+	const project = buildVbaProjectIndex(modules);
 	return project.projectClassMembers();
 }
 
 function projectMemberSurfaces(
-	modules: Array<{
-		moduleName: string;
-		source: string;
-		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
-	}>,
+	modules: readonly ProjectTestModule[],
 	currentModule: string,
-): ReturnType<ProjectIndex['projectMemberSurfaces']> {
-	const project = new ProjectIndex();
-	for (const mod of modules) {
-		project.setModule({
-			moduleName: mod.moduleName,
-			moduleKind: mod.moduleKind ?? 'standard',
-			source: mod.source,
-		});
-	}
-	return project.projectMemberSurfaces(currentModule);
+): NonNullable<ReturnType<typeof projectAnalysisOptionsForModule>['projectClassMembers']> {
+	return projectOptions(modules, currentModule).projectClassMembers ?? [];
 }
 
 function visibleProjectProcedures(
-	modules: Array<{
-		moduleName: string;
-		source: string;
-		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
-	}>,
+	modules: readonly ProjectTestModule[],
 	currentModule: string,
 ): ReadonlySet<string> {
-	const project = new ProjectIndex();
-	for (const mod of modules) {
-		project.setModule({
-			moduleName: mod.moduleName,
-			moduleKind: mod.moduleKind ?? 'standard',
-			source: mod.source,
-		});
-	}
-	return project.visibleProcedureNames(currentModule);
+	return projectOptions(modules, currentModule).knownProcedures ?? new Set();
 }
 
 function visibleProjectIdentifiers(
-	modules: Array<{
-		moduleName: string;
-		source: string;
-		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
-	}>,
+	modules: readonly ProjectTestModule[],
 	currentModule: string,
 ): ReadonlySet<string> {
-	const project = new ProjectIndex();
-	for (const mod of modules) {
-		project.setModule({
-			moduleName: mod.moduleName,
-			moduleKind: mod.moduleKind ?? 'standard',
-			source: mod.source,
-		});
-	}
-	return project.visibleIdentifierNames(currentModule);
+	return projectOptions(modules, currentModule).knownIdentifiers ?? new Set();
 }
 
 function visibleProjectTypes(
-	modules: Array<{
-		moduleName: string;
-		source: string;
-		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
-	}>,
+	modules: readonly ProjectTestModule[],
 	currentModule: string,
-): ReturnType<ProjectIndex['visibleTypeNames']> {
-	const project = new ProjectIndex();
-	for (const mod of modules) {
-		project.setModule({
-			moduleName: mod.moduleName,
-			moduleKind: mod.moduleKind ?? 'standard',
-			source: mod.source,
-		});
-	}
-	return project.visibleTypeNames(currentModule);
+): NonNullable<ReturnType<typeof projectAnalysisOptionsForModule>['projectTypes']> {
+	return projectOptions(modules, currentModule).projectTypes ?? [];
 }
 
 function visibleProjectNonTypeNames(
-	modules: Array<{
-		moduleName: string;
-		source: string;
-		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
-	}>,
+	modules: readonly ProjectTestModule[],
 	currentModule: string,
 ): ReadonlySet<string> {
-	const project = new ProjectIndex();
-	for (const mod of modules) {
-		project.setModule({
-			moduleName: mod.moduleName,
-			moduleKind: mod.moduleKind ?? 'standard',
-			source: mod.source,
-		});
-	}
-	return project.visibleNonTypeNames(currentModule);
+	return projectOptions(modules, currentModule).knownNonTypeNames ?? new Set();
 }
 
 describe('analyzeModule - unterminated string', () => {
@@ -488,14 +453,14 @@ describe('analyzeModule - Option Explicit', () => {
 
 	it('accepts exported standard-module globals visible through the project index', () => {
 		const src = 'Option Explicit\nSub T()\n    sharedValue = 1\nEnd Sub\n';
-		const knownIdentifiers = visibleProjectIdentifiers(
+		const diagnostics = analyzeProjectModule(
+			src,
 			[
-				{ moduleName: 'Caller', source: src },
 				{ moduleName: 'Globals', source: 'Public sharedValue As Long\n' },
 			],
 			'Caller',
 		);
-		expect(byCode(analyzeModule(src, { knownIdentifiers }), 'undeclared-variable')).toHaveLength(0);
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
 	});
 
 	it('can be switched off', () => {
@@ -623,13 +588,9 @@ describe('analyzeModule - unknown call statement', () => {
 			'Public Sub DoWork()\nEnd Sub\n' +
 			'Private Sub Secret()\nEnd Sub\n';
 		const hits = byCode(
-			analyzeModule(caller, {
-				moduleName: 'Caller',
-				knownProcedures: visibleProjectProcedures([
-					{ moduleName: 'Caller', source: caller },
-					{ moduleName: 'Helpers', source: helpers },
-				], 'Caller'),
-			}),
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Helpers', source: helpers },
+			], 'Caller'),
 			'unknown-call',
 		);
 		expect(hits).toHaveLength(1);
@@ -1142,13 +1103,9 @@ describe('analyzeModule - argument count', () => {
 			'Public Sub PrintTotal(ByVal amount As Currency, ByVal caption As String)\n' +
 			'End Sub\n';
 		const hits = byCode(
-			analyzeModule(caller, {
-				moduleName: 'Caller',
-				projectProcedures: projectProcedures([
-					{ moduleName: 'Caller', source: caller },
-					{ moduleName: 'Helpers', source: helper },
-				]),
-			}),
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Helpers', source: helper },
+			], 'Caller'),
 			'argument-count',
 		);
 		expect(hits).toHaveLength(1);
@@ -1488,13 +1445,9 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
 			'End Function\n';
 		const hits = byCode(
-			analyzeModule(caller, {
-				moduleName: 'Caller',
-				projectProcedures: projectProcedures([
-					{ moduleName: 'Caller', source: caller },
-					{ moduleName: 'Invoices', source: invoices },
-				]),
-			}),
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Invoices', source: invoices },
+			], 'Caller'),
 			'argument-type-mismatch',
 		);
 		expect(hits).toHaveLength(1);
@@ -2708,15 +2661,13 @@ describe('analyzeModule - As type name validation', () => {
 			'    Set Make = p\n' +
 			'End Function\n';
 		const modules = [
-			{ moduleName: 'Consumer', source: src },
 			{ moduleName: 'Person', moduleKind: 'class' as const, source: '' },
 			{ moduleName: 'Types', source: 'Public Enum Status\n    Active\nEnd Enum\n' },
 		];
 
-		expect(byCode(analyzeModule(src, {
-			moduleName: 'Consumer',
-			projectTypes: visibleProjectTypes(modules, 'Consumer'),
-		}), 'invalid-as-type-name')).toHaveLength(0);
+		expect(
+			byCode(analyzeProjectModule(src, modules, 'Consumer'), 'invalid-as-type-name'),
+		).toHaveLength(0);
 	});
 
 	it('flags runtime functions used in shared type-name positions', () => {
@@ -3302,12 +3253,12 @@ describe('analyzeModule - Call requires parentheses', () => {
 			'Sub mySub()\n' +
 			'    myFunction()\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src, {
-			moduleName: 'Caller',
-			projectProcedures: projectProcedures([
+		const hits = byCode(
+			analyzeProjectModule(src, [
 				{ moduleName: 'Helpers', source: 'Public Function myFunction() As String\nEnd Function\n' },
-			]),
-		}), 'call-statement-forbids-parens');
+			], 'Caller'),
+			'call-statement-forbids-parens',
+		);
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('myFunction()');
 	});

@@ -1,51 +1,19 @@
 import * as vscode from 'vscode';
 import { encodeModuleUri } from './xlideFileSystem';
 import {
-    ProjectIndex,
     resolveTypeSemanticTokens,
-    type EventHandlerDocumentType,
-    type ModuleSymbolKind,
+    type ProjectIndex,
     type VbaProjectTypeName,
 } from './analyzer';
+import {
+    buildVbaProjectIndex,
+    moduleKindFromType,
+    type VbaProjectModuleInput,
+} from './vbaProjectAnalysis';
 
-export interface VbaNavigationModule {
-    moduleName: string;
-    source: string;
-    type?: string;
-    documentType?: EventHandlerDocumentType;
-}
+export { buildVbaProjectIndex, moduleKindFromType };
 
-export function moduleKindFromType(type?: string): ModuleSymbolKind {
-    switch (type) {
-        case 'class': return 'class';
-        case 'document': return 'document';
-        case 'userform': return 'userform';
-        default: return 'standard';
-    }
-}
-
-export function buildVbaProjectIndex(
-    modules: readonly VbaNavigationModule[],
-    liveOverride?: { moduleName: string; moduleKind: ModuleSymbolKind; source: string },
-): ProjectIndex {
-    const index = new ProjectIndex();
-    let appliedOverride = false;
-    for (const mod of modules) {
-        const isOverride =
-            liveOverride &&
-            mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
-        index.setModule({
-            moduleName: mod.moduleName,
-            moduleKind: isOverride ? liveOverride.moduleKind : moduleKindFromType(mod.type),
-            source: isOverride ? liveOverride.source : mod.source,
-        });
-        appliedOverride = appliedOverride || !!isOverride;
-    }
-    if (liveOverride && !appliedOverride) {
-        index.setModule(liveOverride);
-    }
-    return index;
-}
+export type VbaNavigationModule = VbaProjectModuleInput;
 
 /** Converts a 0-based character offset in `source` to a VS Code position. */
 export function offsetToPosition(source: string, offset: number): vscode.Position {

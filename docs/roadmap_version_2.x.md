@@ -411,7 +411,12 @@ Purpose: move from same-module checks to workbook-aware analysis.
 - [x] Resolve UDT names across modules through the shared project type resolver
   used by completion, hover, semantic tokens, diagnostics, and type-definition
   navigation.
-- [ ] Add workbook-level fixture builder for project analysis tests.
+- [x] Add a shared project-analysis helper for project-aware test fixtures and
+  lint surfaces, covering `ProjectIndex` construction, live current-module
+  overlay, visibility-filtered names, exported signatures, visible project
+  types, and source-backed member surfaces.
+- [ ] Add machine-readable workbook-level fixture files for larger project
+  analysis scenarios.
 - [x] Keep current project-signature diagnostics stable under module order
   changes.
 
@@ -676,6 +681,10 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [x] Route live diagnostics, current-module lint, and workbook lint through a
   shared module lint core so structural diagnostics, semantic diagnostics, and
   lint suppression directives cannot drift by surface.
+- [x] Route current-module lint, workbook lint, and project-aware diagnostic
+  fixtures through shared project-analysis option derivation so cross-module
+  procedure, identifier, type, non-type, and member-surface rules cannot drift by
+  surface.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
