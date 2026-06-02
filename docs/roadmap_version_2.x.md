@@ -976,6 +976,15 @@ development.
   [GitHub Sponsors](https://github.com/sponsors/WilliamSmithEdward), PayPal,
   and Cash App. Each donation card uses `Donate` as the title and moves the
   platform detail into the subtitle.
+- [x] Lock the current sidebar information architecture as stable:
+  Welcome, Setup, Workbook Actions, Settings, Support, and Donate. Future
+  sidebar changes should preserve the section order and layout unless there is a
+  specific product reason to revisit it; prefer additive workflow buttons tied
+  to implemented functionality.
+- [ ] Add a Unit Tests button to Workbook Actions once the VBA test runner is
+  implemented. It should run against the sidebar target workbook and follow the
+  same no-target/runner-not-ready disabled-state contract as the existing
+  workbook-scoped actions.
 - [ ] Add primary action buttons:
   - analyze workbook against the sidebar target workbook
   - open the full VBA test runner GUI
@@ -995,7 +1004,7 @@ development.
     actions, and click-through split-screen navigation to module/line
     locations; Output should remain a support log, not the primary analysis-results
     surface.
-  - [ ] Rename workbook-analysis tracking actions so persistence scope is
+  - [x] Rename workbook-analysis tracking actions so persistence scope is
     explicit: `Untrack In Workbook` writes the selected rule code to the
     workbook sidecar, and `Untrack Globally` writes it to the global
     `xlide.analysis.untrackedRules` setting. Avoid generic `Ignore` wording for

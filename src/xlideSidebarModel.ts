@@ -146,15 +146,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'file-excel',
                 workbookArg,
             ),
-            workbookActionNode(
-                'workbookActions.validateWorkbook',
-                'Validate VBA Project',
-                undefined,
-                'xlide.validateWorkbook',
-                'Validate the selected target workbook VBA project structure.',
-                'verified',
-                workbookArg,
-            ),
         ]),
         section('settings', 'Settings', [
             actionNode(

@@ -4,6 +4,7 @@ import {
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import {
+    setXlideGlobalAnalysisRuleTracked,
     xlideAnalysisRuleSeveritiesFromConfig,
     xlideAnalysisUntrackedRulesFromConfig,
     xlideAnalysisVisibleSeveritiesFromConfig,
@@ -43,4 +44,8 @@ export function untrackedAnalysisRulesSettingFromConfig() {
 
 export function ruleSeverityOverridesSettingFromConfig() {
     return xlideAnalysisRuleSeveritiesFromConfig(vscode.workspace.getConfiguration('xlide'));
+}
+
+export function setGlobalAnalysisRuleTracked(code: string | undefined, tracked: boolean) {
+    return setXlideGlobalAnalysisRuleTracked(vscode.workspace.getConfiguration('xlide'), code, tracked);
 }

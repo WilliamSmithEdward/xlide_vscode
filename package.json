@@ -337,14 +337,9 @@
           "group": "3_workbook@2"
         },
         {
-          "command": "xlide.validateWorkbook",
-          "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "4_analyze@1"
-        },
-        {
           "command": "xlide.analyzeWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "4_analyze@2"
+          "group": "4_analyze@1"
         },
         {
           "command": "xlide.exportModulesToFolder",

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type * as vscode from 'vscode';
 import {
     resolvedXlideGlobalSettingsFromConfig,
+    setXlideGlobalAnalysisRuleTracked,
     xlideAnalysisRuleSeveritiesFromConfig,
     xlideAnalysisVisibleSeveritiesFromConfig,
     xlideDocsMetadataGlobFromConfig,
@@ -124,14 +125,57 @@ describe('globalSettings', () => {
             source: 'machine',
         });
     });
+
+    it('updates global analysis rule tracking through the machine settings target', async () => {
+        const updates: Array<{ key: string; value: unknown; target: unknown }> = [];
+        const config = fakeConfig({
+            'analysis.untrackedRules': ['argument-count'],
+        }, new Set(['analysis.untrackedRules']), updates);
+
+        await expect(setXlideGlobalAnalysisRuleTracked(config, ' Option-Explicit-Missing ', false))
+            .resolves.toEqual({
+                code: 'option-explicit-missing',
+                tracked: false,
+                changed: true,
+                untrackedRules: ['argument-count', 'option-explicit-missing'],
+            });
+        expect(updates).toEqual([{
+            key: 'analysis.untrackedRules',
+            value: ['argument-count', 'option-explicit-missing'],
+            target: true,
+        }]);
+    });
+
+    it('skips global analysis rule tracking writes when the normalized list is unchanged', async () => {
+        const updates: Array<{ key: string; value: unknown; target: unknown }> = [];
+        const config = fakeConfig({
+            'analysis.untrackedRules': ['option-explicit-missing'],
+        }, new Set(['analysis.untrackedRules']), updates);
+
+        await expect(setXlideGlobalAnalysisRuleTracked(config, 'option-explicit-missing', false))
+            .resolves.toMatchObject({
+                code: 'option-explicit-missing',
+                tracked: false,
+                changed: false,
+                untrackedRules: ['option-explicit-missing'],
+            });
+        expect(updates).toEqual([]);
+    });
 });
 
 function fakeConfig(
     values: Record<string, unknown>,
     machineKeys = new Set<string>(),
+    updates: Array<{ key: string; value: unknown; target: unknown }> = [],
 ): vscode.WorkspaceConfiguration {
     return {
         get: (key: string, fallback?: unknown) => key in values ? values[key] : fallback,
         inspect: (key: string) => machineKeys.has(key) ? { globalValue: values[key] } : {},
+        update: (key: string, value: unknown, target?: unknown) => {
+            values[key] = value;
+            machineKeys.add(key);
+            updates.push({ key, value, target });
+            return Promise.resolve();
+        },
     } as unknown as vscode.WorkspaceConfiguration;
 }

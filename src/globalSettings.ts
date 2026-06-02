@@ -6,6 +6,8 @@ import {
     normalizeAnalysisRuleCode,
     normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
+    setAnalysisRuleTrackedInList,
+    type AnalysisRuleTrackingUpdate,
     type AnalysisRuleSeverityOverride,
     type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
@@ -173,6 +175,34 @@ function validateXlideGlobalSettingsFromConfig(
     });
 }
 
+async function setXlideGlobalAnalysisRuleTracked(
+    config: vscode.WorkspaceConfiguration,
+    code: string | undefined,
+    tracked: boolean,
+): Promise<AnalysisRuleTrackingUpdate> {
+    const normalized = normalizeAnalysisRuleCode(code);
+    const current = xlideAnalysisUntrackedRulesFromConfig(config).value;
+    if (!normalized) {
+        return {
+            tracked,
+            changed: false,
+            untrackedRules: current,
+        };
+    }
+
+    const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
+    const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
+    if (changed) {
+        await config.update('analysis.untrackedRules', next, true);
+    }
+    return {
+        code: normalized,
+        tracked,
+        changed,
+        untrackedRules: next,
+    };
+}
+
 function resolveXlideGlobalSetting<T>(
     config: vscode.WorkspaceConfiguration,
     key: XlideGlobalSettingKey,
@@ -315,6 +345,7 @@ export {
     type XlideGlobalSettingSource,
     type XlideGlobalSettingsProblem,
     resolvedXlideGlobalSettingsFromConfig,
+    setXlideGlobalAnalysisRuleTracked,
     validateXlideGlobalSettingsFromConfig,
     validateXlideGlobalSettingsValues,
     xlideAnalysisRuleSeveritiesFromConfig,

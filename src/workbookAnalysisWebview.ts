@@ -14,6 +14,7 @@ import {
     type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
+import { setGlobalAnalysisRuleTracked } from './analysisOptions';
 import {
     clearWorkbookAnalysisRuleSeverityOverride,
     effectiveWorkbookAnalysisSettings,
@@ -158,6 +159,7 @@ export function openWorkbookAnalysisResults(
         fixIndex?: number;
         suppressed?: boolean;
         tracked?: boolean;
+        trackingScope?: 'workbook' | 'global';
         code?: string;
     }) => {
         try {
@@ -227,10 +229,14 @@ export function openWorkbookAnalysisResults(
                 const problem = problemAt(message.index, message.suppressed);
                 const code = typeof message.code === 'string' ? message.code : problem?.code;
                 if (code) {
-                    const update = await setWorkbookAnalysisRuleTracked(currentResult.filePath, code, message.tracked === true);
+                    const scope = message.trackingScope === 'global' ? 'global' : 'workbook';
+                    const update = scope === 'global'
+                        ? await setGlobalAnalysisRuleTracked(code, message.tracked === true)
+                        : await setWorkbookAnalysisRuleTracked(currentResult.filePath, code, message.tracked === true);
                     await refreshAfterAnalysisMutation();
                     await panel.webview.postMessage({
                         type: 'ruleTrackingChanged',
+                        scope,
                         code: update.code ?? code,
                         tracked: update.tracked,
                         untrackedRules: update.untrackedRules,
@@ -361,7 +367,7 @@ function isWorkbookDocument(document: vscode.TextDocument, filePath: string): bo
     }
 }
 
-function renderWorkbookAnalysisResultsHtml(
+export function renderWorkbookAnalysisResultsHtml(
     webview: vscode.Webview,
     model: WorkbookAnalysisResultsModel,
     analysisSettings: EffectiveWorkbookAnalysisSettings,
@@ -1035,7 +1041,8 @@ function renderWorkbookAnalysisResultsHtml(
         <button type="button" data-context-action="suppressMember" data-suppress-scope="member">Ignore Sub/Function</button>
         <button type="button" data-context-action="suppressModule" data-suppress-scope="module">Ignore Module</button>
         <div class="contextDivider"></div>
-        <button type="button" data-context-action="setRuleTracking" id="trackingAction">Untrack</button>
+        <button type="button" data-context-action="setRuleTrackingWorkbook" id="trackingWorkbookAction">Untrack In Workbook</button>
+        <button type="button" data-context-action="setRuleTrackingGlobal" id="trackingGlobalAction">Untrack Globally</button>
     </div>
     <div class="settingsBackdrop" id="analysisSettingsDialog" hidden>
         <section class="settingsDialog" role="dialog" aria-modal="true" aria-labelledby="analysisSettingsTitle">
@@ -1064,12 +1071,12 @@ function renderWorkbookAnalysisResultsHtml(
                 <section class="settingsSection">
                     <div class="settingsSectionHeader">
                         <div>
-                            <h3>Tracked Rules</h3>
+                            <h3>Workbook Rule Tracking</h3>
                             <div class="settingsSource">Source: ${settingsSourceLabel(analysisSettings.untrackedRulesSource)}</div>
                         </div>
                         <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="rules" ${rulesSourceIsWorkbook ? '' : 'disabled'}>Use Global Default</button>
                     </div>
-                    <div class="settingsRuleList" aria-label="Tracked analysis rules">
+                    <div class="settingsRuleList" aria-label="Workbook tracked analysis rules">
                         ${ruleSettingsHtml}
                     </div>
                 </section>
@@ -1128,7 +1135,8 @@ function renderWorkbookAnalysisResultsHtml(
         const quickFixMenuItem = document.getElementById('quickFixMenuItem');
         const quickFixSubmenu = document.getElementById('quickFixSubmenu');
         const suppressionDivider = document.getElementById('suppressionDivider');
-        const trackingAction = document.getElementById('trackingAction');
+        const trackingWorkbookAction = document.getElementById('trackingWorkbookAction');
+        const trackingGlobalAction = document.getElementById('trackingGlobalAction');
         const settingsDialog = document.getElementById('analysisSettingsDialog');
         let contextRow = null;
         let contextMenuVisible = false;
@@ -1342,10 +1350,16 @@ function renderWorkbookAnalysisResultsHtml(
             if (suppressionDivider) {
                 suppressionDivider.hidden = visibleSuppressActions === 0;
             }
-            if (trackingAction) {
+            for (const trackingAction of [trackingWorkbookAction, trackingGlobalAction]) {
+                if (!trackingAction) {
+                    continue;
+                }
                 const hasRuleCode = String(row.dataset.ruleCode ?? '').trim().length > 0;
                 trackingAction.hidden = !hasRuleCode;
-                trackingAction.textContent = row.dataset.tracked === 'no' ? 'Track' : 'Untrack';
+                const scope = trackingAction === trackingGlobalAction ? 'Globally' : 'In Workbook';
+                trackingAction.textContent = row.dataset.tracked === 'no'
+                    ? 'Track ' + scope
+                    : 'Untrack ' + scope;
             }
             contextMenu.hidden = false;
             const rect = contextMenu.getBoundingClientRect();
@@ -1435,12 +1449,13 @@ function renderWorkbookAnalysisResultsHtml(
                     });
                 } else if (action === 'askCopilot') {
                     vscode.postMessage({ type: 'askCopilot', index, suppressed });
-                } else if (action === 'setRuleTracking') {
+                } else if (action === 'setRuleTrackingWorkbook' || action === 'setRuleTrackingGlobal') {
                     vscode.postMessage({
                         type: 'setRuleTracking',
                         index,
                         suppressed,
                         tracked: !currentlyTracked,
+                        trackingScope: action === 'setRuleTrackingGlobal' ? 'global' : 'workbook',
                     });
                 } else if (action === 'suppressBlock') {
                     vscode.postMessage({ type: 'suppressProblem', index, suppressed, scope: 'block' });
@@ -1506,6 +1521,7 @@ function renderWorkbookAnalysisResultsHtml(
                     type: 'setRuleTracking',
                     code,
                     tracked,
+                    trackingScope: 'workbook',
                 });
                 return;
             }
@@ -1652,7 +1668,10 @@ function renderWorkbookAnalysisResultsHtml(
                     sortRows();
                     updateRows();
                 }
-                showToast(code ? (tracked ? 'Tracked ' : 'Untracked ') + code : 'Rule tracking updated');
+                const scope = event.data.scope === 'global' ? 'globally' : 'in workbook';
+                showToast(code
+                    ? (tracked ? 'Tracked ' : 'Untracked ') + code + ' ' + scope
+                    : 'Rule tracking updated');
             } else if (event.data?.type === 'error') {
                 showToast(event.data.error || 'XLIDE action failed');
             }

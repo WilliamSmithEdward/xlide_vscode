@@ -22,6 +22,26 @@ development in VS Code.
 - Dense inline global/machine settings rows have been replaced by one global
   settings launcher. A dedicated XLIDE Global Settings GUI remains roadmap work.
 
+## Stability Agreement
+
+The current sidebar information architecture is considered stable:
+
+```text
+Welcome
+Setup
+Workbook Actions
+Settings
+Support
+Donate
+```
+
+Do not rework the sidebar layout, section order, or status/action split without
+a specific product reason. Future sidebar work should be additive and tied to
+real workflow functionality. The expected next Workbook Actions addition is a
+Unit Tests button once the VBA test runner is implemented; it should use the
+sidebar target workbook and follow the same disabled-state contract as the other
+workbook-scoped actions.
+
 ## Goals
 
 - Make XLIDE visible as a first-class Activity Bar extension.
@@ -80,7 +100,6 @@ Recommended sections:
    - Target workbook picker for workbook-scoped sidebar actions
    - Analyze selected workbook
    - Import/export selected workbook modules
-   - Validate selected workbook VBA project
    - Open selected workbook in Excel
    - Open selected workbook read-only
    - Future workbook-scoped test-runner entry points

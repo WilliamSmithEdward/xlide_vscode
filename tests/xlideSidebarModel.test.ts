@@ -28,7 +28,6 @@ describe('xlideSidebarModel', () => {
             'Import Modules',
             'Open Workbook In Excel',
             'Open Workbook Read Only',
-            'Validate VBA Project',
         ]);
         expect(model[3].children?.map((node) => [node.label, node.description])).toEqual([
             ['Global Settings', 'VS Code / Machine'],
@@ -157,7 +156,6 @@ describe('xlideSidebarModel', () => {
             'workbookActions.analyzeWorkbook',
             'workbookActions.importModules',
             'workbookActions.exportModules',
-            'workbookActions.validateWorkbook',
             'workbookActions.openWorkbook',
             'workbookActions.openWorkbookReadOnly',
         ]) {
@@ -167,5 +165,6 @@ describe('xlideSidebarModel', () => {
                 filePath: 'C:\\work\\Second.xlsm',
             }]);
         }
+        expect(model[2].children?.map((node) => node.id)).not.toContain('workbookActions.validateWorkbook');
     });
 });

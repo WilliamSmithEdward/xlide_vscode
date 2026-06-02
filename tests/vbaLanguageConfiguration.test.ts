@@ -20,6 +20,9 @@ interface PackageConfiguration {
 		};
 		views?: Record<string, PackageView[]>;
 		viewsWelcome?: PackageViewWelcome[];
+		menus?: {
+			'view/item/context'?: PackageMenuContribution[];
+		};
 	};
 }
 
@@ -54,6 +57,12 @@ interface PackageCommand {
 	command?: string;
 	title?: string;
 	category?: string;
+}
+
+interface PackageMenuContribution {
+	command?: string;
+	when?: string;
+	group?: string;
 }
 
 function loadConfig(): VbaLanguageConfiguration {
@@ -212,5 +221,17 @@ describe('VBA language configuration', () => {
 			title: 'Open Workbook Settings',
 			category: 'XLIDE',
 		});
+	});
+
+	it('keeps Validate VBA Project out of workbook tree context actions', () => {
+		const workbookTreeCommands = loadPackage()
+			.contributes
+			?.menus
+			?.['view/item/context']
+			?.filter((entry) => entry.when === 'view == xlide.explorer && viewItem == xlsm')
+			.map((entry) => entry.command) ?? [];
+
+		expect(workbookTreeCommands).toContain('xlide.analyzeWorkbook');
+		expect(workbookTreeCommands).not.toContain('xlide.validateWorkbook');
 	});
 });
