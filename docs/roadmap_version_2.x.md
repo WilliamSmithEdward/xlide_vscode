@@ -1146,8 +1146,10 @@ asking for sensitive workbook contents.
 - [ ] Add opt-in inclusion of anonymized lint/test reports.
 - [ ] Add opt-in inclusion of selected logs.
 - [x] Redact workbook paths and path-like settings by default.
-- [ ] Add a local "Copy Diagnostics" quick action for setup failures.
-- [ ] Document what the support bundle contains before export.
+- [x] Add a local "Copy Diagnostics" quick action for setup failures.
+- [x] Document what the support bundle contains before export.
+- [x] Route support/setup-facing command registration through one command-log
+  helper so recent command ids/outcomes do not diverge by surface.
 
 Definition of done:
 

@@ -53,15 +53,17 @@ import type {
 import {
     buildSupportBundle,
     defaultSupportBundleFileName,
+    supportBundleDisclosureText,
+    supportDiagnosticsText,
+    type SupportBundle,
     type SupportBundleLintSummary,
     type SupportBundleSetting,
     type SupportBundleWorkbookSummary,
 } from './supportBundle';
 import {
-    errorCategoryForSupportLog,
     recentXlideCommands,
-    recordXlideCommand,
 } from './xlideCommandLog';
+import { registerXlideCommand } from './xlideCommandRegistration';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -77,39 +79,6 @@ export function registerCommands(
 ): vscode.Disposable[] {
     function log(msg: string): void {
         out.appendLine(msg);
-    }
-
-    function registerXlideCommand<T extends unknown[]>(
-        command: string,
-        callback: (...args: T) => unknown,
-    ): vscode.Disposable {
-        return vscode.commands.registerCommand(command, async (...args: T) => {
-            const start = Date.now();
-            recordXlideCommand({
-                timestamp: new Date(start).toISOString(),
-                command,
-                outcome: 'started',
-            });
-            try {
-                const result = await callback(...args);
-                recordXlideCommand({
-                    timestamp: new Date().toISOString(),
-                    command,
-                    outcome: 'succeeded',
-                    durationMs: Date.now() - start,
-                });
-                return result;
-            } catch (err) {
-                recordXlideCommand({
-                    timestamp: new Date().toISOString(),
-                    command,
-                    outcome: 'failed',
-                    durationMs: Date.now() - start,
-                    errorCategory: errorCategoryForSupportLog(err),
-                });
-                throw err;
-            }
-        });
     }
 
     // Builds a clickable Output-channel link to a module location. The link uses
@@ -650,20 +619,7 @@ export function registerCommands(
         return 'default';
     }
 
-    async function exportSupportBundle(): Promise<void> {
-        const now = new Date();
-        const defaultFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
-        const target = await vscode.window.showSaveDialog({
-            title: 'Export XLIDE Support Bundle (redacted JSON; no workbook source)',
-            defaultUri: defaultFolder
-                ? vscode.Uri.joinPath(defaultFolder, defaultSupportBundleFileName(now))
-                : undefined,
-            filters: { JSON: ['json'] },
-        });
-        if (!target) {
-            return;
-        }
-
+    async function currentSupportBundle(now = new Date()): Promise<SupportBundle> {
         const packageJson = context.extension.packageJSON as {
             name?: string;
             publisher?: string;
@@ -671,7 +627,7 @@ export function registerCommands(
             displayName?: string;
         };
         const active = await activeModuleSupportData();
-        const bundle = buildSupportBundle({
+        return buildSupportBundle({
             generatedAt: now.toISOString(),
             extension: {
                 id: packageJson.publisher && packageJson.name
@@ -697,6 +653,52 @@ export function registerCommands(
             lint: active.lint,
             commands: recentXlideCommands(),
         });
+    }
+
+    async function confirmSupportBundleExport(bundle: SupportBundle): Promise<boolean> {
+        const choice = await vscode.window.showInformationMessage(
+            'XLIDE support bundle export',
+            {
+                modal: true,
+                detail: supportBundleDisclosureText(bundle),
+            },
+            'Export',
+            'Copy Diagnostics',
+        );
+        if (choice === 'Copy Diagnostics') {
+            await copyDiagnosticsFromBundle(bundle);
+            return false;
+        }
+        return choice === 'Export';
+    }
+
+    async function copyDiagnosticsFromBundle(bundle: SupportBundle): Promise<void> {
+        await vscode.env.clipboard.writeText(supportDiagnosticsText(bundle));
+        vscode.window.showInformationMessage('XLIDE: Redacted diagnostics copied to clipboard.');
+    }
+
+    async function copyDiagnostics(): Promise<void> {
+        await copyDiagnosticsFromBundle(await currentSupportBundle());
+    }
+
+    async function exportSupportBundle(): Promise<void> {
+        const now = new Date();
+        const bundle = await currentSupportBundle(now);
+        if (!await confirmSupportBundleExport(bundle)) {
+            return;
+        }
+
+        const defaultFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const target = await vscode.window.showSaveDialog({
+            title: 'Export XLIDE Support Bundle (redacted JSON; no workbook source)',
+            defaultUri: defaultFolder
+                ? vscode.Uri.joinPath(defaultFolder, defaultSupportBundleFileName(now))
+                : undefined,
+            filters: { JSON: ['json'] },
+        });
+        if (!target) {
+            return;
+        }
 
         await fs.promises.writeFile(target.fsPath, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
         vscode.window.showInformationMessage(`XLIDE: Support bundle exported to ${target.fsPath}`);
@@ -1220,11 +1222,11 @@ export function registerCommands(
 
                 if (errors.length > 0) {
                     void vscode.window.showWarningMessage(
-                        `XLIDE: Imported ${importedCount} module(s), ${errors.length} failed. See XLIDE Output for details.`,
-                        'View Output',
+                        `XLIDE: Imported ${importedCount} module(s), ${errors.length} failed. Copy redacted diagnostics if you need to troubleshoot.`,
+                        'Copy Diagnostics',
                     ).then(choice => {
-                        if (choice === 'View Output') {
-                            void vscode.commands.executeCommand('xlide.showOutput');
+                        if (choice === 'Copy Diagnostics') {
+                            void vscode.commands.executeCommand('xlide.copyDiagnostics');
                         }
                     });
                 } else {
@@ -1325,6 +1327,16 @@ export function registerCommands(
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[supportBundle] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to export support bundle: ${message}`);
+            }
+        }),
+
+        registerXlideCommand('xlide.copyDiagnostics', async () => {
+            try {
+                await copyDiagnostics();
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[copyDiagnostics] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to copy diagnostics: ${message}`);
             }
         }),
 

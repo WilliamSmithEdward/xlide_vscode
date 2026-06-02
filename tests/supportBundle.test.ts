@@ -3,6 +3,8 @@ import {
 	buildSupportBundle,
 	defaultSupportBundleFileName,
 	redactPath,
+	supportBundleDisclosureText,
+	supportDiagnosticsText,
 	type SupportBundleInput,
 } from '../src/supportBundle';
 
@@ -106,5 +108,38 @@ describe('support bundle', () => {
 		expect(defaultSupportBundleFileName(new Date('2026-06-01T12:34:56.789Z'))).toBe(
 			'xlide-support-2026-06-01T12-34-56-789Z.json',
 		);
+	});
+
+	it('describes support-bundle contents before export without exposing source or paths', () => {
+		const bundle = buildSupportBundle(baseInput());
+		const disclosure = supportBundleDisclosureText(bundle);
+
+		expect(disclosure).toContain('Included:');
+		expect(disclosure).toContain('Not included:');
+		expect(disclosure).toContain('Workbook VBA source or cell data');
+		expect(disclosure).toContain('<redacted>.xlsm');
+		expect(disclosure).not.toContain('C:\\Users\\William');
+	});
+
+	it('formats copyable diagnostics from the same redacted support model', () => {
+		const bundle = buildSupportBundle(baseInput({
+			commands: [
+				{
+					timestamp: '2026-06-01T12:00:00.000Z',
+					command: 'xlide.setup',
+					outcome: 'failed',
+					durationMs: 50,
+					errorCategory: 'python-backend',
+				},
+			],
+		}));
+		const text = supportDiagnosticsText(bundle);
+
+		expect(text).toContain('XLIDE Diagnostics');
+		expect(text).toContain('xlide.setup | failed');
+		expect(text).toContain('errorCategory=python-backend');
+		expect(text).toContain('xlide.pythonPath (workspace): <redacted>.exe');
+		expect(text).toContain('Workbook source included: false');
+		expect(text).not.toContain('C:\\Users\\William');
 	});
 });
