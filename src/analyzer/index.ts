@@ -72,8 +72,12 @@ export {
 } from './completion/typeCompletion';
 export {
 	bareCallStatementTarget,
+	explicitCallStatementArgumentWithoutParens,
+	explicitCallStatementTarget,
 	findActiveCallSite,
+	standaloneEmptyParenthesizedCallStatement,
 	BareCallStatementTarget,
+	ParenthesizedCallStatementTarget,
 	VbaCallSite,
 	VbaTextSpan,
 } from './call/callContext';

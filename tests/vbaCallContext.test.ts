@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
 	bareCallStatementTarget,
 	callableCompletionShouldInsertParens,
+	explicitCallStatementArgumentWithoutParens,
+	explicitCallStatementTarget,
 	findActiveCallSite,
+	standaloneEmptyParenthesizedCallStatement,
 } from '../src/analyzer';
 
 function at(src: string): { source: string; offset: number } {
@@ -104,5 +107,79 @@ describe('VBA call context', () => {
 		expect(bareCallStatementTarget(source, lineSpan(source, 'Application.Calculate')))
 			.toBeUndefined();
 		expect(bareCallStatementTarget(source, lineSpan(source, 'Range("A1")'))).toBeUndefined();
+	});
+
+	it('extracts explicit Call targets and unparenthesized Call arguments for diagnostics', () => {
+		const source =
+			'Sub T()\n' +
+			'    Call DoEvents\n' +
+			'    Call Application.Calculate 1\n' +
+			'    Call Workbooks(1).Sheets(1).Move before:=Sheets(2)\n' +
+			'End Sub\n';
+
+		expect(explicitCallStatementTarget(source, lineSpan(source, 'Call DoEvents')))
+			.toMatchObject({ name: 'DoEvents' });
+		expect(
+			explicitCallStatementArgumentWithoutParens(
+				source,
+				lineSpan(source, 'Call Application.Calculate 1'),
+			),
+		).toEqual(lineSpan(source, '1'));
+		expect(
+			explicitCallStatementArgumentWithoutParens(
+				source,
+				lineSpan(source, 'Call Workbooks(1).Sheets(1).Move before:=Sheets(2)'),
+			),
+		).toEqual(lineSpan(source, 'before'));
+	});
+
+	it('classifies complete standalone empty-parentheses call statements', () => {
+		const source =
+			'Sub T()\n' +
+			'    myFunction()\n' +
+			'    Application.Calculate()\n' +
+			'    Workbooks(1).Sheets(1).Range()\n' +
+			'    value = myFunction()\n' +
+			'End Sub\n';
+
+		expect(
+			standaloneEmptyParenthesizedCallStatement(
+				source,
+				lineSpan(source, 'myFunction()'),
+			),
+		).toMatchObject({ name: 'myFunction', isMember: false });
+		expect(
+			standaloneEmptyParenthesizedCallStatement(
+				source,
+				lineSpan(source, 'Application.Calculate()'),
+			),
+		).toMatchObject({ name: 'Calculate', isMember: true, startsWithLeadingDot: false });
+		expect(
+			standaloneEmptyParenthesizedCallStatement(
+				source,
+				lineSpan(source, 'Workbooks(1).Sheets(1).Range()'),
+			),
+		).toMatchObject({ name: 'Range', isMember: true });
+		expect(
+			standaloneEmptyParenthesizedCallStatement(
+				source,
+				lineSpan(source, 'value = myFunction()'),
+			),
+		).toBeUndefined();
+	});
+
+	it('classifies leading-dot empty-parentheses call statements inside With blocks', () => {
+		const source = 'Sub T()\n    With ActiveSheet\n        .Calculate()\n    End With\nEnd Sub\n';
+
+		expect(
+			standaloneEmptyParenthesizedCallStatement(
+				source,
+				lineSpan(source, '.Calculate()'),
+			),
+		).toMatchObject({
+			name: 'Calculate',
+			isMember: true,
+			startsWithLeadingDot: true,
+		});
 	});
 });

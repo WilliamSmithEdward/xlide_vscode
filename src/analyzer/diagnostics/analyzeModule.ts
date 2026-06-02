@@ -36,7 +36,12 @@ import {
 	runtimeAllowsExplicitCall,
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
-import { bareCallStatementTarget as callStatementTarget } from '../call/callContext';
+import {
+	bareCallStatementTarget as callStatementTarget,
+	explicitCallStatementArgumentWithoutParens,
+	explicitCallStatementTarget,
+	standaloneEmptyParenthesizedCallStatement,
+} from '../call/callContext';
 import type {
 	BodyNode,
 	ModuleMember,
@@ -2265,6 +2270,7 @@ function memberExpressionCalls(
 	memberCtx: MemberCompletionContext,
 ): BoundMemberCall[] {
 	const toks = statementTokens(source, span);
+	const standaloneEmptyCall = standaloneEmptyParenthesizedCallStatement(source, span);
 	const out: BoundMemberCall[] = [];
 	for (let i = 1; i < toks.length - 1; i++) {
 		const name = tokenName(toks[i]);
@@ -2285,7 +2291,15 @@ function memberExpressionCalls(
 			continue;
 		}
 		const inner = toks.slice(i + 2, close);
-		if (isImplicitParenthesizedMemberCallStatement(toks, i, close)) {
+		const callSpan = {
+			start: span.start + toks[i].start,
+			end: span.start + toks[close].end,
+		};
+		if (
+			standaloneEmptyCall?.isMember &&
+			standaloneEmptyCall.span.start === callSpan.start &&
+			standaloneEmptyCall.span.end === callSpan.end
+		) {
 			continue;
 		}
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
@@ -2293,7 +2307,7 @@ function memberExpressionCalls(
 			signature: parseRuntimeDisplaySignature(member.name, member.signature),
 			call: {
 				name: member.name,
-				nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+				nameSpan: { start: callSpan.start, end: span.start + toks[i].end },
 				slots: split.slots,
 				slotSpans: split.spans,
 				sliceStart: span.start,
@@ -4010,7 +4024,7 @@ function checkCallParens(
 				);
 				return;
 			}
-			const at = unparenthesizedCallArg(source, stmt.span);
+			const at = explicitCallStatementArgumentWithoutParens(source, stmt.span);
 			if (at) {
 				push(
 					'callRequiresParens',
@@ -4050,19 +4064,15 @@ function invalidExplicitCallTarget(
 	source: string,
 	span: Span,
 ): { name: string; span: Span } | undefined {
-	const toks = statementTokens(source, span);
-	if (toks.length < 2 || tokenText(toks[0]) !== 'call') {
+	const target = explicitCallStatementTarget(source, span);
+	if (!target) {
 		return undefined;
 	}
-	const name = tokenName(toks[1]);
-	if (!name) {
-		return undefined;
-	}
-	const runtime = resolveRuntimeFunction(name);
+	const runtime = resolveRuntimeFunction(target.name);
 	if (!runtime || runtimeAllowsExplicitCall(runtime)) {
 		return undefined;
 	}
-	return { name: runtime.name, span: absoluteSpan(span, toks[1]) };
+	return { name: runtime.name, span: target.span };
 }
 
 function checkInvalidExpressionSyntax(
@@ -4343,84 +4353,22 @@ function topLevelOperatorIndex(toks: readonly VbaToken[], operator: string): num
 	return -1;
 }
 
-/** Returns the span of the first stray argument token in a `Call` statement. */
-function unparenthesizedCallArg(source: string, span: Span): Span | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-	if (toks.length === 0 || toks[0].rawText.toLowerCase() !== 'call') {
-		return undefined;
-	}
-	let i = 1;
-	const callee = toks[i];
-	if (
-		!callee ||
-		(callee.kind !== 'identifier' && callee.kind !== 'bracketedIdentifier')
-	) {
-		return undefined; // malformed Call header - not this rule's concern
-	}
-	i++;
-	for (;;) {
-		const t = toks[i];
-		if (!t) {
-			break;
-		}
-		if (t.rawText === '.') {
-			const name = toks[i + 1];
-			if (
-				name &&
-				(name.kind === 'identifier' ||
-					name.kind === 'bracketedIdentifier' ||
-					name.kind === 'keyword')
-			) {
-				i += 2;
-				continue;
-			}
-			break;
-		}
-		if (t.rawText === '(') {
-			const close = matchParenFrom(toks, i);
-			if (close < 0) {
-				return undefined; // unbalanced - reported elsewhere
-			}
-			i = close + 1;
-			continue;
-		}
-		break;
-	}
-	const stray = toks[i];
-	if (stray) {
-		return { start: span.start + stray.start, end: span.start + stray.end };
-	}
-	return undefined;
-}
-
 function implicitParenthesizedBareCallableCall(
 	source: string,
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 ): { name: string; span: Span } | undefined {
-	const toks = statementTokens(source, span);
-	if (
-		toks.length !== 3 ||
-		toks[0]?.rawText.toLowerCase() === 'call' ||
-		toks[1]?.rawText !== '(' ||
-		toks[2]?.rawText !== ')' ||
-		topLevelOperatorIndex(toks, '=') >= 0
-	) {
+	const call = standaloneEmptyParenthesizedCallStatement(source, span);
+	if (!call || call.isMember) {
 		return undefined;
 	}
-	const name = tokenName(toks[0]);
-	if (!name) {
-		return undefined;
-	}
-	const signature = callableSignatureFor(name, moduleSignatures);
+	const signature = callableSignatureFor(call.name, moduleSignatures);
 	if (!signature || !callableAcceptsZeroArguments(signature)) {
 		return undefined;
 	}
 	return {
-		name,
-		span: { start: span.start + toks[0].start, end: span.start + toks[2].end },
+		name: call.name,
+		span: call.span,
 	};
 }
 
@@ -4433,101 +4381,17 @@ function implicitParenthesizedMemberCall(
 	span: Span,
 	memberCtx: MemberCompletionContext,
 ): { name: string; span: Span } | undefined {
-	const toks = statementTokens(source, span);
-	for (let i = 1; i < toks.length - 1; i++) {
-		const name = tokenName(toks[i]);
-		if (!name || toks[i - 1]?.rawText !== '.' || toks[i + 1]?.rawText !== '(') {
-			continue;
-		}
-		const close = matchParenFrom(toks, i + 1);
-		if (close < 0 || !isImplicitParenthesizedMemberCallStatement(toks, i, close)) {
-			continue;
-		}
-		if (
-			toks[0]?.rawText === '.' &&
-			!resolveExactMemberCompletion(source, name, span.start + toks[i].end, memberCtx)
-		) {
-			continue;
-		}
-		return {
-			name,
-			span: { start: span.start + toks[i].start, end: span.start + toks[close].end },
-		};
-	}
-	return undefined;
-}
-
-function isImplicitParenthesizedMemberCallStatement(
-	toks: readonly VbaToken[],
-	memberIdx: number,
-	closeIdx: number,
-): boolean {
-	if (toks[0]?.rawText.toLowerCase() === 'call') {
-		return false;
+	const call = standaloneEmptyParenthesizedCallStatement(source, span);
+	if (!call || !call.isMember) {
+		return undefined;
 	}
 	if (
-		closeIdx !== toks.length - 1 ||
-		closeIdx !== memberIdx + 2 ||
-		topLevelOperatorIndex(toks, '=') >= 0
+		call.startsWithLeadingDot &&
+		!resolveExactMemberCompletion(source, call.name, call.calleeEndOffset, memberCtx)
 	) {
-		return false;
+		return undefined;
 	}
-	return isCompleteMemberChainThroughCall(toks, memberIdx, closeIdx);
-}
-
-function isCompleteMemberChainThroughCall(
-	toks: readonly VbaToken[],
-	memberIdx: number,
-	closeIdx: number,
-): boolean {
-	const first = toks[0];
-	if (!first) {
-		return false;
-	}
-	let i = 1;
-	if (first.rawText === '.') {
-		const nameIdx = 1;
-		const nameTok = toks[nameIdx];
-		if (!nameTok || !tokenName(nameTok)) {
-			return false;
-		}
-		if (nameIdx === memberIdx) {
-			return (
-				toks[nameIdx + 1]?.rawText === '(' &&
-				matchParenFrom(toks, nameIdx + 1) === closeIdx
-			);
-		}
-		i = nameIdx + 1;
-	} else if (!tokenName(first)) {
-		return false;
-	}
-	while (i < toks.length) {
-		const raw = toks[i]?.rawText;
-		if (raw === '(') {
-			const close = matchParenFrom(toks, i);
-			if (close < 0 || close >= memberIdx) {
-				return false;
-			}
-			i = close + 1;
-			continue;
-		}
-		if (raw !== '.') {
-			return false;
-		}
-		const nameIdx = i + 1;
-		const nameTok = toks[nameIdx];
-		if (!nameTok || !tokenName(nameTok)) {
-			return false;
-		}
-		if (nameIdx === memberIdx) {
-			return (
-				toks[nameIdx + 1]?.rawText === '(' &&
-				matchParenFrom(toks, nameIdx + 1) === closeIdx
-			);
-		}
-		i = nameIdx + 1;
-	}
-	return false;
+	return { name: call.name, span: call.span };
 }
 
 /** Index of the `)` matching the `(` at `open`, or -1 if unbalanced. */

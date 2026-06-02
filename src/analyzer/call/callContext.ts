@@ -57,6 +57,14 @@ export interface BareCallStatementTarget {
 	span: VbaTextSpan;
 }
 
+export interface ParenthesizedCallStatementTarget {
+	name: string;
+	span: VbaTextSpan;
+	isMember: boolean;
+	startsWithLeadingDot: boolean;
+	calleeEndOffset: number;
+}
+
 export function isIdentLike(token: VbaToken): boolean {
 	return (
 		(token.kind === 'identifier' || token.kind === 'keyword') &&
@@ -138,6 +146,78 @@ export function bareCallStatementTarget(
 		}
 	}
 	return result;
+}
+
+export function explicitCallStatementTarget(
+	source: string,
+	span: VbaTextSpan,
+): BareCallStatementTarget | undefined {
+	const toks = statementTokens(source, span);
+	if (toks.length < 2 || toks[0].rawText.toLowerCase() !== 'call') {
+		return undefined;
+	}
+	const name = tokenName(toks[1]);
+	if (!name) {
+		return undefined;
+	}
+	return {
+		name,
+		span: { start: span.start + toks[1].start, end: span.start + toks[1].end },
+	};
+}
+
+export function explicitCallStatementArgumentWithoutParens(
+	source: string,
+	span: VbaTextSpan,
+): VbaTextSpan | undefined {
+	const toks = statementTokens(source, span);
+	if (toks.length === 0 || toks[0].rawText.toLowerCase() !== 'call') {
+		return undefined;
+	}
+	const consumed = consumeCallableChain(toks, 1);
+	if (!consumed) {
+		return undefined;
+	}
+	const stray = toks[consumed.nextIndex];
+	return stray
+		? { start: span.start + stray.start, end: span.start + stray.end }
+		: undefined;
+}
+
+export function standaloneEmptyParenthesizedCallStatement(
+	source: string,
+	span: VbaTextSpan,
+): ParenthesizedCallStatementTarget | undefined {
+	const toks = statementTokens(source, span);
+	if (
+		toks.length < 3 ||
+		toks[0]?.rawText.toLowerCase() === 'call' ||
+		topLevelTokenIndex(toks, '=') >= 0
+	) {
+		return undefined;
+	}
+	for (let i = 0; i < toks.length - 2; i += 1) {
+		const name = tokenName(toks[i]);
+		if (!name || toks[i + 1]?.rawText !== '(') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (
+			close !== i + 2 ||
+			close !== toks.length - 1 ||
+			!isCompleteStatementChainThroughEmptyCall(toks, i, close)
+		) {
+			continue;
+		}
+		return {
+			name,
+			isMember: i > 0 && toks[i - 1]?.rawText === '.',
+			startsWithLeadingDot: toks[0]?.rawText === '.',
+			calleeEndOffset: span.start + toks[i].end,
+			span: { start: span.start + toks[i].start, end: span.start + toks[close].end },
+		};
+	}
+	return undefined;
 }
 
 /**
@@ -376,6 +456,122 @@ function matchParenFrom(tokens: readonly VbaToken[], open: number): number {
 			if (depth === 0) {
 				return i;
 			}
+		}
+	}
+	return -1;
+}
+
+function statementTokens(source: string, span: VbaTextSpan): VbaToken[] {
+	return tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+}
+
+function tokenName(token: VbaToken | undefined): string | undefined {
+	if (!token) {
+		return undefined;
+	}
+	if (token.kind === 'identifier' || token.kind === 'keyword') {
+		return token.rawText;
+	}
+	if (token.kind === 'bracketedIdentifier') {
+		return token.rawText.slice(1, -1);
+	}
+	return undefined;
+}
+
+function consumeCallableChain(
+	tokens: readonly VbaToken[],
+	start: number,
+): { nextIndex: number } | undefined {
+	if (!tokenName(tokens[start])) {
+		return undefined;
+	}
+	let i = start + 1;
+	for (;;) {
+		const t = tokens[i];
+		if (!t) {
+			return { nextIndex: i };
+		}
+		if (t.rawText === '.') {
+			if (!tokenName(tokens[i + 1])) {
+				return { nextIndex: i };
+			}
+			i += 2;
+			continue;
+		}
+		if (t.rawText === '(') {
+			const close = matchParenFrom(tokens, i);
+			if (close < 0) {
+				return undefined;
+			}
+			i = close + 1;
+			continue;
+		}
+		return { nextIndex: i };
+	}
+}
+
+function isCompleteStatementChainThroughEmptyCall(
+	toks: readonly VbaToken[],
+	calleeIdx: number,
+	closeIdx: number,
+): boolean {
+	if (calleeIdx === 0) {
+		return !!tokenName(toks[0]);
+	}
+	const first = toks[0];
+	if (!first) {
+		return false;
+	}
+	let i = 1;
+	if (first.rawText === '.') {
+		const nameIdx = 1;
+		if (!tokenName(toks[nameIdx])) {
+			return false;
+		}
+		if (nameIdx === calleeIdx) {
+			return toks[nameIdx + 1]?.rawText === '(' && matchParenFrom(toks, nameIdx + 1) === closeIdx;
+		}
+		i = nameIdx + 1;
+	} else if (!tokenName(first)) {
+		return false;
+	}
+	while (i < toks.length) {
+		const raw = toks[i]?.rawText;
+		if (raw === '(') {
+			const close = matchParenFrom(toks, i);
+			if (close < 0 || close >= calleeIdx) {
+				return false;
+			}
+			i = close + 1;
+			continue;
+		}
+		if (raw !== '.') {
+			return false;
+		}
+		const nameIdx = i + 1;
+		if (!tokenName(toks[nameIdx])) {
+			return false;
+		}
+		if (nameIdx === calleeIdx) {
+			return toks[nameIdx + 1]?.rawText === '(' && matchParenFrom(toks, nameIdx + 1) === closeIdx;
+		}
+		i = nameIdx + 1;
+	}
+	return false;
+}
+
+function topLevelTokenIndex(tokens: readonly VbaToken[], rawText: string): number {
+	let depth = 0;
+	for (let i = 0; i < tokens.length; i += 1) {
+		const raw = tokens[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth += 1;
+		} else if (raw === ')' || raw === ']') {
+			depth -= 1;
+		} else if (depth === 0 && raw === rawText) {
+			return i;
 		}
 	}
 	return -1;

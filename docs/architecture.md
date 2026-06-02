@@ -700,19 +700,21 @@ Diagnostic severity policy:
   reminder (silent on empty/attribute-only modules), an `unknown-call`
   ("Sub or Function not defined") rule, an `invalid-proc-header`
   ("Invalid procedure declaration") rule, an `unbalanced-parens` rule, and an
-  `argument-count` ("Wrong number of arguments") rule. `bareCallStatementTarget`
-  in `src/analyzer/call/callContext.ts` powers `unknown-call`: it accepts the
-  three call forms whose callee is a bare (non-member) identifier - a lone
-  identifier, a parenless call with arguments
+  `argument-count` ("Wrong number of arguments") rule. `src/analyzer/call/callContext.ts`
+  owns shared VBA call-statement classification for signature help, completion
+  parenthesis insertion, and diagnostics. `bareCallStatementTarget` powers
+  `unknown-call`: it accepts the three call forms whose callee is a bare
+  (non-member) identifier - a lone identifier, a parenless call with arguments
   (`MsgBox "hi"`), and an explicit `Call name` - and flags the callee when the
   name resolves to no project procedure/Declare, runtime function/statement, host
   global, `Application` member, or in-scope declaration. It excludes member
   calls (`.`), labels (`:`), assignments (any top-level `=`), and the
   implicit-host-member form `Cells(1, 1)` / `Range("A1")` (a non-`Call`
   identifier immediately followed by `(`). `checkCallParens` powers call syntax
-  diagnostics: explicit `Call` statements with arguments require parentheses,
-  and VBE-oracle-verified standalone zero-argument calls cannot use empty
-  parentheses unless they are prefixed with valid `Call` syntax or used in an expression.
+  diagnostics using the same shared classifier: explicit `Call` statements with
+  arguments require parentheses, and VBE-oracle-verified standalone
+  zero-argument calls cannot use empty parentheses unless they are prefixed with
+  valid `Call` syntax or used in an expression.
   The rule uses the shared callable signature path for known same-module and
   exported standard-module procedures/Declares such as `myFunction()`, verified
   zero-argument runtime calls such as `DoEvents()`, and member/property

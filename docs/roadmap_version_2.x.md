@@ -685,6 +685,10 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   fixtures through shared project-analysis option derivation so cross-module
   procedure, identifier, type, non-type, and member-surface rules cannot drift by
   surface.
+- [x] Consolidate explicit `Call` argument syntax and standalone
+  empty-parentheses call-statement diagnostics into
+  `src/analyzer/call/callContext.ts`, alongside signature-help call-site
+  detection and completion parenthesis insertion.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
