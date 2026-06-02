@@ -12,6 +12,7 @@ import { XlideStatusBar } from './statusBar';
 import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
+import { createRecordedOutputChannel } from './xlideOutputLog';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -62,7 +63,7 @@ function installDependencies(
 // ---------------------------------------------------------------------------
 
 export function activate(context: vscode.ExtensionContext): void {
-    const out = vscode.window.createOutputChannel('XLIDE');
+    const out = createRecordedOutputChannel(vscode.window.createOutputChannel('XLIDE'));
     out.appendLine('XLIDE activating...');
 
     const bridge = new PythonBridge(context, out);

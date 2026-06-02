@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	anonymizedWorkbookLintReportFromResult,
 	buildSupportBundle,
 	defaultSupportBundleFileName,
 	redactPath,
@@ -86,6 +87,17 @@ describe('support bundle', () => {
 			workbookSourceIncluded: false,
 			pathsRedacted: true,
 			commandArgumentsIncluded: false,
+			anonymizedLintReportIncluded: false,
+			selectedLogsIncluded: false,
+			logPathsRedacted: true,
+		});
+		expect(bundle.anonymizedReports.workbookLint).toEqual({
+			included: false,
+			unavailableReason: 'not-requested',
+		});
+		expect(bundle.selectedLogs).toEqual({
+			included: false,
+			entries: [],
 		});
 	});
 
@@ -117,6 +129,7 @@ describe('support bundle', () => {
 		expect(disclosure).toContain('Included:');
 		expect(disclosure).toContain('Not included:');
 		expect(disclosure).toContain('Workbook VBA source or cell data');
+		expect(disclosure).toContain('Anonymized workbook lint report');
 		expect(disclosure).toContain('<redacted>.xlsm');
 		expect(disclosure).not.toContain('C:\\Users\\William');
 	});
@@ -141,5 +154,75 @@ describe('support bundle', () => {
 		expect(text).toContain('xlide.pythonPath (workspace): <redacted>.exe');
 		expect(text).toContain('Workbook source included: false');
 		expect(text).not.toContain('C:\\Users\\William');
+	});
+
+	it('includes selected redacted logs only when provided', () => {
+		const bundle = buildSupportBundle(baseInput({
+			selectedLogs: [
+				{
+					timestamp: '2026-06-01T12:00:00.000Z',
+					line: 'Reading C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
+				},
+			],
+		}));
+
+		expect(bundle.selectedLogs.included).toBe(true);
+		expect(bundle.selectedLogs.entries[0].line).toBe('Reading <redacted>.xlsm');
+		expect(bundle.privacy.selectedLogsIncluded).toBe(true);
+		expect(supportDiagnosticsText(bundle)).not.toContain('C:\\Users\\William');
+	});
+
+	it('creates anonymized workbook lint reports without source paths or module names', () => {
+		const report = anonymizedWorkbookLintReportFromResult({
+			filePath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
+			moduleCount: 2,
+			errorCount: 1,
+			warningCount: 1,
+			summary: {
+				byCategory: { syntax: 1, semantic: 1 },
+				byDiagnosticKind: { 'compile-error': 1, 'runtime-risk': 1 },
+				vbeCompileEquivalentCount: 1,
+				nonVbeCompileEquivalentCount: 1,
+				suppressedCount: 3,
+			},
+			problems: [
+				{
+					moduleName: 'CustomerPricing',
+					moduleType: 'standard',
+					severity: 'error',
+					code: 'missing-block-closer',
+					category: 'syntax',
+					diagnosticKind: 'compile-error',
+					vbeCompileEquivalent: true,
+				},
+				{
+					moduleName: 'SecretClientModel',
+					moduleType: 'class',
+					severity: 'warning',
+					code: 'missing-return-assignment',
+					category: 'semantic',
+					diagnosticKind: 'runtime-risk',
+					vbeCompileEquivalent: false,
+				},
+			],
+		});
+		const bundle = buildSupportBundle(baseInput({ anonymizedWorkbookLintReport: report }));
+		const json = JSON.stringify(bundle);
+
+		expect(bundle.privacy.anonymizedLintReportIncluded).toBe(true);
+		expect(bundle.anonymizedReports.workbookLint).toMatchObject({
+			included: true,
+			workbookExtension: '.xlsm',
+			moduleCount: 2,
+			problemCount: 2,
+			suppressedCount: 3,
+			byCode: {
+				'missing-block-closer': 1,
+				'missing-return-assignment': 1,
+			},
+		});
+		expect(json).not.toContain('CustomerPricing');
+		expect(json).not.toContain('SecretClientModel');
+		expect(json).not.toContain('C:\\Users\\William');
 	});
 });

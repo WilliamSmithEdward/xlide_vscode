@@ -51,19 +51,23 @@ import type {
     SeverityOverrides,
 } from './analyzer';
 import {
+    anonymizedWorkbookLintReportFromResult,
     buildSupportBundle,
     defaultSupportBundleFileName,
     supportBundleDisclosureText,
     supportDiagnosticsText,
     type SupportBundle,
+    type SupportBundleAnonymizedLintReport,
     type SupportBundleLintSummary,
     type SupportBundleSetting,
     type SupportBundleWorkbookSummary,
 } from './supportBundle';
 import {
+    errorCategoryForSupportLog,
     recentXlideCommands,
 } from './xlideCommandLog';
 import { registerXlideCommand } from './xlideCommandRegistration';
+import { recentXlideOutputLog } from './xlideOutputLog';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -504,6 +508,19 @@ export function registerCommands(
         }
     }
 
+    interface SupportBundleOptions {
+        includeAnonymizedWorkbookLintReport?: boolean;
+        includeSelectedLogs?: boolean;
+    }
+
+    async function activeLocalWorkbookPath(): Promise<string | undefined> {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
+            return undefined;
+        }
+        return decodeModuleUri(editor.document.uri).xlsmPath;
+    }
+
     async function activeModuleSupportData(): Promise<{
         workbook: SupportBundleWorkbookSummary;
         lint: SupportBundleLintSummary;
@@ -619,7 +636,27 @@ export function registerCommands(
         return 'default';
     }
 
-    async function currentSupportBundle(now = new Date()): Promise<SupportBundle> {
+    async function anonymizedWorkbookLintReportForActiveWorkbook():
+        Promise<SupportBundleAnonymizedLintReport> {
+        const workbookPath = await activeLocalWorkbookPath();
+        if (!workbookPath) {
+            return { included: false, unavailableReason: 'no-active-workbook' };
+        }
+        try {
+            return anonymizedWorkbookLintReportFromResult(await lintWorkbook(bridge, workbookPath));
+        } catch (err) {
+            return {
+                included: false,
+                unavailableReason: 'lint-failed',
+                errorCategory: errorCategoryForSupportLog(err),
+            };
+        }
+    }
+
+    async function currentSupportBundle(
+        now = new Date(),
+        options: SupportBundleOptions = {},
+    ): Promise<SupportBundle> {
         const packageJson = context.extension.packageJSON as {
             name?: string;
             publisher?: string;
@@ -627,6 +664,9 @@ export function registerCommands(
             displayName?: string;
         };
         const active = await activeModuleSupportData();
+        const anonymizedWorkbookLintReport = options.includeAnonymizedWorkbookLintReport
+            ? await anonymizedWorkbookLintReportForActiveWorkbook()
+            : undefined;
         return buildSupportBundle({
             generatedAt: now.toISOString(),
             extension: {
@@ -652,10 +692,14 @@ export function registerCommands(
             workbook: active.workbook,
             lint: active.lint,
             commands: recentXlideCommands(),
+            anonymizedWorkbookLintReport,
+            selectedLogs: options.includeSelectedLogs ? recentXlideOutputLog() : undefined,
         });
     }
 
-    async function confirmSupportBundleExport(bundle: SupportBundle): Promise<boolean> {
+    async function selectSupportBundleExportOptions(
+        bundle: SupportBundle,
+    ): Promise<SupportBundleOptions | undefined> {
         const choice = await vscode.window.showInformationMessage(
             'XLIDE support bundle export',
             {
@@ -663,13 +707,46 @@ export function registerCommands(
                 detail: supportBundleDisclosureText(bundle),
             },
             'Export',
+            'Choose Extras',
             'Copy Diagnostics',
         );
         if (choice === 'Copy Diagnostics') {
             await copyDiagnosticsFromBundle(bundle);
-            return false;
+            return undefined;
         }
-        return choice === 'Export';
+        if (choice === 'Choose Extras') {
+            const picks = await vscode.window.showQuickPick(
+                [
+                    {
+                        label: 'Anonymized workbook lint report',
+                        description: 'Counts by rule/module type only; no source or module names',
+                        picked: true,
+                        option: 'includeAnonymizedWorkbookLintReport' as const,
+                    },
+                    {
+                        label: 'Selected recent XLIDE logs',
+                        description: 'Recent XLIDE-authored output lines with paths redacted',
+                        picked: false,
+                        option: 'includeSelectedLogs' as const,
+                    },
+                ],
+                {
+                    title: 'XLIDE Support Bundle: Optional Extras',
+                    canPickMany: true,
+                    placeHolder: 'Choose only the extras you want included in this export.',
+                },
+            );
+            if (!picks) {
+                return undefined;
+            }
+            return {
+                includeAnonymizedWorkbookLintReport:
+                    picks.some((pick) => pick.option === 'includeAnonymizedWorkbookLintReport'),
+                includeSelectedLogs:
+                    picks.some((pick) => pick.option === 'includeSelectedLogs'),
+            };
+        }
+        return choice === 'Export' ? {} : undefined;
     }
 
     async function copyDiagnosticsFromBundle(bundle: SupportBundle): Promise<void> {
@@ -683,10 +760,14 @@ export function registerCommands(
 
     async function exportSupportBundle(): Promise<void> {
         const now = new Date();
-        const bundle = await currentSupportBundle(now);
-        if (!await confirmSupportBundleExport(bundle)) {
+        const baseBundle = await currentSupportBundle(now);
+        const options = await selectSupportBundleExportOptions(baseBundle);
+        if (!options) {
             return;
         }
+        const bundle = Object.keys(options).length === 0
+            ? baseBundle
+            : await currentSupportBundle(now, options);
 
         const defaultFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
         const target = await vscode.window.showSaveDialog({

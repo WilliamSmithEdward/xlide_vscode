@@ -1,5 +1,9 @@
 import * as path from 'path';
 import type { XlideCommandLogEntry } from './xlideCommandLog';
+import {
+    redactSupportLogLine,
+    type XlideOutputLogEntry,
+} from './xlideOutputLog';
 
 export interface SupportBundleSetting {
     key: string;
@@ -25,6 +29,33 @@ export interface SupportBundleWorkbookSummary {
     activeModuleType?: string;
 }
 
+export interface SupportBundleAnonymizedLintModule {
+    moduleIndex: number;
+    moduleType: string;
+    problemCount: number;
+    errorCount: number;
+    warningCount: number;
+    byCode: Record<string, number>;
+}
+
+export interface SupportBundleAnonymizedLintReport {
+    included: boolean;
+    unavailableReason?: 'not-requested' | 'no-active-workbook' | 'lint-failed';
+    errorCategory?: string;
+    workbookExtension?: string;
+    moduleCount?: number;
+    problemCount?: number;
+    errorCount?: number;
+    warningCount?: number;
+    suppressedCount?: number;
+    byCode?: Record<string, number>;
+    byCategory?: Record<string, number>;
+    byDiagnosticKind?: Record<string, number>;
+    vbeCompileEquivalentCount?: number;
+    nonVbeCompileEquivalentCount?: number;
+    modules?: SupportBundleAnonymizedLintModule[];
+}
+
 export interface SupportBundleInput {
     generatedAt: string;
     extension: {
@@ -48,6 +79,8 @@ export interface SupportBundleInput {
     workbook: SupportBundleWorkbookSummary;
     lint: SupportBundleLintSummary;
     commands: XlideCommandLogEntry[];
+    anonymizedWorkbookLintReport?: SupportBundleAnonymizedLintReport;
+    selectedLogs?: XlideOutputLogEntry[];
 }
 
 export interface SupportBundle {
@@ -66,11 +99,21 @@ export interface SupportBundle {
     };
     workbook: SupportBundleWorkbookSummary;
     lint: SupportBundleLintSummary;
+    anonymizedReports: {
+        workbookLint: SupportBundleAnonymizedLintReport;
+    };
     recentCommands: XlideCommandLogEntry[];
+    selectedLogs: {
+        included: boolean;
+        entries: XlideOutputLogEntry[];
+    };
     privacy: {
         workbookSourceIncluded: false;
         pathsRedacted: true;
         commandArgumentsIncluded: false;
+        anonymizedLintReportIncluded: boolean;
+        selectedLogsIncluded: boolean;
+        logPathsRedacted: true;
     };
 }
 
@@ -103,12 +146,109 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
         },
         workbook: sanitizeWorkbookSummary(input.workbook),
         lint: input.lint,
+        anonymizedReports: {
+            workbookLint: input.anonymizedWorkbookLintReport ?? {
+                included: false,
+                unavailableReason: 'not-requested',
+            },
+        },
         recentCommands: input.commands.slice(-25),
+        selectedLogs: {
+            included: Boolean(input.selectedLogs),
+            entries: (input.selectedLogs ?? []).slice(-50).map((entry) => ({
+                timestamp: entry.timestamp,
+                line: redactSupportLogLine(entry.line),
+            })),
+        },
         privacy: {
             workbookSourceIncluded: false,
             pathsRedacted: true,
             commandArgumentsIncluded: false,
+            anonymizedLintReportIncluded: input.anonymizedWorkbookLintReport?.included === true,
+            selectedLogsIncluded: Boolean(input.selectedLogs),
+            logPathsRedacted: true,
         },
+    };
+}
+
+export function anonymizedWorkbookLintReportFromResult(result: {
+    filePath: string;
+    moduleCount: number;
+    problems: readonly {
+        moduleName: string;
+        moduleType: string;
+        severity: string;
+        code?: string;
+        category?: string;
+        diagnosticKind?: string;
+        vbeCompileEquivalent?: boolean;
+    }[];
+    errorCount: number;
+    warningCount: number;
+    summary: {
+        byCategory: Record<string, number> | Partial<Record<string, number>>;
+        byDiagnosticKind: Record<string, number> | Partial<Record<string, number>>;
+        vbeCompileEquivalentCount: number;
+        nonVbeCompileEquivalentCount: number;
+        suppressedCount: number;
+    };
+}): SupportBundleAnonymizedLintReport {
+    const byModule = new Map<string, {
+        moduleType: string;
+        problemCount: number;
+        errorCount: number;
+        warningCount: number;
+        byCode: Record<string, number>;
+    }>();
+    const byCode: Record<string, number> = {};
+    for (const problem of result.problems) {
+        byCode[problem.code ?? 'unclassified'] = (byCode[problem.code ?? 'unclassified'] ?? 0) + 1;
+        const existing = byModule.get(problem.moduleName) ?? {
+            moduleType: problem.moduleType,
+            problemCount: 0,
+            errorCount: 0,
+            warningCount: 0,
+            byCode: {},
+        };
+        existing.problemCount++;
+        if (problem.severity === 'error') {
+            existing.errorCount++;
+        } else if (problem.severity === 'warning') {
+            existing.warningCount++;
+        }
+        existing.byCode[problem.code ?? 'unclassified'] =
+            (existing.byCode[problem.code ?? 'unclassified'] ?? 0) + 1;
+        byModule.set(problem.moduleName, existing);
+    }
+
+    return {
+        included: true,
+        workbookExtension: path.extname(result.filePath),
+        moduleCount: result.moduleCount,
+        problemCount: result.problems.length,
+        errorCount: result.errorCount,
+        warningCount: result.warningCount,
+        suppressedCount: result.summary.suppressedCount,
+        byCode: sortedRecord(byCode),
+        byCategory: sortedRecord(result.summary.byCategory),
+        byDiagnosticKind: sortedRecord(result.summary.byDiagnosticKind),
+        vbeCompileEquivalentCount: result.summary.vbeCompileEquivalentCount,
+        nonVbeCompileEquivalentCount: result.summary.nonVbeCompileEquivalentCount,
+        modules: [...byModule.values()]
+            .map((module, index) => ({
+                moduleIndex: index + 1,
+                moduleType: module.moduleType,
+                problemCount: module.problemCount,
+                errorCount: module.errorCount,
+                warningCount: module.warningCount,
+                byCode: sortedRecord(module.byCode),
+            }))
+            .sort((a, b) => {
+                if (a.moduleType !== b.moduleType) {
+                    return a.moduleType.localeCompare(b.moduleType);
+                }
+                return a.moduleIndex - b.moduleIndex;
+            }),
     };
 }
 
@@ -128,14 +268,20 @@ export function supportBundleDisclosureText(bundle: SupportBundle): string {
         '- Active workbook/module metadata and active-module lint counts when available.',
         '- Recent XLIDE command ids, outcomes, durations, and error categories.',
         '',
+        'Optional when explicitly selected:',
+        '- Anonymized workbook lint report with counts by rule/module type only.',
+        '- Recent selected XLIDE operation log lines with paths redacted.',
+        '',
         'Not included:',
         '- Workbook VBA source or cell data.',
         '- Full workbook paths or path-like setting values.',
         '- Command arguments.',
-        '- Output logs unless a future opt-in export explicitly adds them.',
+        '- Output logs unless you explicitly select the log option.',
         '',
         `Active workbook: ${workbookLine(bundle)}`,
         `Active module lint: ${lintLine(bundle)}`,
+        `Anonymized lint report included: ${bundle.privacy.anonymizedLintReportIncluded}`,
+        `Selected logs included: ${bundle.privacy.selectedLogsIncluded}`,
     ].join('\n');
 }
 
@@ -168,10 +314,19 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         'Recent Commands',
         ...recentCommandLines(bundle),
         '',
+        'Anonymized Workbook Lint Report',
+        anonymizedLintReportLine(bundle.anonymizedReports.workbookLint),
+        '',
+        'Selected Logs',
+        ...selectedLogLines(bundle),
+        '',
         'Privacy',
         `Workbook source included: ${bundle.privacy.workbookSourceIncluded}`,
         `Paths redacted: ${bundle.privacy.pathsRedacted}`,
         `Command arguments included: ${bundle.privacy.commandArgumentsIncluded}`,
+        `Anonymized lint report included: ${bundle.privacy.anonymizedLintReportIncluded}`,
+        `Selected logs included: ${bundle.privacy.selectedLogsIncluded}`,
+        `Log paths redacted: ${bundle.privacy.logPathsRedacted}`,
     ];
     return `${lines.join('\n')}\n`;
 }
@@ -212,6 +367,16 @@ function stringSettingConfigured(
 ): boolean {
     const value = settings.find((setting) => setting.key === key)?.value;
     return typeof value === 'string' && value.trim().length > 0;
+}
+
+function sortedRecord(
+    counts: Record<string, number> | Partial<Record<string, number>>,
+): Record<string, number> {
+    return Object.fromEntries(
+        Object.entries(counts)
+            .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+            .sort(([a], [b]) => a.localeCompare(b)),
+    );
 }
 
 function workbookLine(bundle: SupportBundle): string {
@@ -270,6 +435,30 @@ function recentCommandLines(bundle: SupportBundle): string[] {
         }
         return parts.join(' | ');
     });
+}
+
+function anonymizedLintReportLine(report: SupportBundleAnonymizedLintReport): string {
+    if (!report.included) {
+        return report.unavailableReason ?? 'not-requested';
+    }
+    return [
+        `workbookExtension ${report.workbookExtension ?? UNAVAILABLE}`,
+        `modules ${report.moduleCount ?? 0}`,
+        `problems ${report.problemCount ?? 0}`,
+        `errors ${report.errorCount ?? 0}`,
+        `warnings ${report.warningCount ?? 0}`,
+        `suppressed ${report.suppressedCount ?? 0}`,
+    ].join('; ');
+}
+
+function selectedLogLines(bundle: SupportBundle): string[] {
+    if (!bundle.selectedLogs.included) {
+        return ['not-requested'];
+    }
+    if (bundle.selectedLogs.entries.length === 0) {
+        return ['none'];
+    }
+    return bundle.selectedLogs.entries.map((entry) => `${entry.timestamp} | ${entry.line}`);
 }
 
 function displayJoin(values: readonly (string | undefined)[]): string {

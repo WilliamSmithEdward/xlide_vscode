@@ -1143,8 +1143,9 @@ asking for sensitive workbook contents.
   - active-module lint summary counts when a local module is open
   - COM platform status/failure categories without probing Excel
   - active-workbook metadata summary without source code by default
-- [ ] Add opt-in inclusion of anonymized lint/test reports.
-- [ ] Add opt-in inclusion of selected logs.
+- [x] Add opt-in inclusion of anonymized workbook lint reports. Test-runner
+  reports remain deferred until Workstream H exists.
+- [x] Add opt-in inclusion of selected logs.
 - [x] Redact workbook paths and path-like settings by default.
 - [x] Add a local "Copy Diagnostics" quick action for setup failures.
 - [x] Document what the support bundle contains before export.
