@@ -16,7 +16,6 @@ import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
     exportWorkbookModule,
-    exportWorkbookModules,
     normalizeExportMode,
     readWorkbookRepoConfig,
     writeWorkbookRepoConfig,
@@ -76,6 +75,16 @@ import {
     type XlideChangeSummary,
     type XlideWriteAuditOutcome,
 } from './xlideWriteAudit';
+import {
+    buildExportModuleSyncPlan,
+    buildImportModuleSyncPlan,
+    type ModuleSyncPlan,
+    type ModuleSyncPlanItem,
+} from './moduleSyncPlan';
+import {
+    openModuleSyncPreview,
+    type ModuleSyncApplyResult,
+} from './moduleSyncWebview';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -429,6 +438,22 @@ export function registerCommands(
         return { exportFolder: selected[0].fsPath, exportMode };
     }
 
+    async function resolveWorkbookImportFolder(filePath: string): Promise<string | undefined> {
+        const existingConfig = await readWorkbookRepoConfig(filePath);
+        if (existingConfig.exportFolder) {
+            return existingConfig.exportFolder;
+        }
+
+        const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select folder to import from',
+            defaultUri: vscode.Uri.file(path.dirname(filePath)),
+        });
+        return selected?.[0]?.fsPath;
+    }
+
     function diagnosticSeverityOverridesFromConfig(): SeverityOverrides {
         const optionExplicit = vscode.workspace
             .getConfiguration('xlide')
@@ -499,6 +524,295 @@ export function registerCommands(
         vscode.window.showInformationMessage(
             `XLIDE: ${summaryText} [mode=${result.exportMode}]`,
         );
+    }
+
+    async function showExportModulesDiffGui(filePath: string): Promise<void> {
+        const target = await resolveWorkbookExportFolder(filePath, 'Select export folder');
+        if (!target) {
+            return;
+        }
+
+        log(`[exportModules] Workbook: ${filePath}`);
+        log(`[exportModules] Target folder: ${target.exportFolder}`);
+        log(`[exportModules] Mode: ${target.exportMode}`);
+
+        const plan = await buildExportModuleSyncPlan(bridge, {
+            workbookPath: filePath,
+            exportFolder: target.exportFolder,
+            exportMode: target.exportMode,
+        });
+        if (plan.items.length === 0) {
+            vscode.window.showInformationMessage(`XLIDE: No VBA modules found in ${path.basename(filePath)}.`);
+            return;
+        }
+
+        const result = await openModuleSyncPreview(
+            context,
+            plan,
+            (selectedIds) => applyExportModuleSyncPlan(plan, selectedIds),
+        );
+        if (!result) {
+            return;
+        }
+        const message = `XLIDE: ${result.summary} [mode=${target.exportMode}]`;
+        if (result.failed > 0) {
+            vscode.window.showWarningMessage(message);
+        } else {
+            vscode.window.showInformationMessage(message);
+        }
+    }
+
+    async function showImportModulesDiffGui(filePath: string): Promise<void> {
+        const importFolder = await resolveWorkbookImportFolder(filePath);
+        if (!importFolder) {
+            return;
+        }
+
+        log(`[importModules] Workbook: ${filePath}`);
+        log(`[importModules] Source folder: ${importFolder}`);
+
+        const plan = await buildImportModuleSyncPlan(bridge, {
+            workbookPath: filePath,
+            importFolder,
+        });
+        if (plan.items.length === 0) {
+            vscode.window.showInformationMessage(`XLIDE: No .bas/.cls/.frm files found in ${importFolder}`);
+            return;
+        }
+
+        const result = await openModuleSyncPreview(
+            context,
+            plan,
+            (selectedIds) => applyImportModuleSyncPlan(plan, selectedIds),
+        );
+        if (!result) {
+            return;
+        }
+        if (result.failed > 0) {
+            vscode.window.showWarningMessage(`XLIDE: ${result.summary}. Copy redacted diagnostics if you need to troubleshoot.`);
+        } else {
+            vscode.window.showInformationMessage(`XLIDE: ${result.summary} into ${path.basename(filePath)}`);
+        }
+    }
+
+    async function applyExportModuleSyncPlan(
+        plan: ModuleSyncPlan,
+        selectedIds: readonly string[],
+    ): Promise<ModuleSyncApplyResult> {
+        const selected = selectedModuleSyncItems(plan, selectedIds);
+        const changed: string[] = [];
+        const skipped: string[] = [];
+        const removed: string[] = [];
+        const failed: string[] = [];
+        const successfulManaged = new Set<string>(
+            plan.items
+                .filter((item) => item.existsInWorkbook && item.status === 'unchanged')
+                .map((item) => item.relativeName),
+        );
+
+        for (const item of selected) {
+            if (item.status === 'unchanged') {
+                skipped.push(`${item.relativeName} (unchanged)`);
+                successfulManaged.add(item.relativeName);
+                continue;
+            }
+            if (item.status === 'skipping-export') {
+                skipped.push(item.relativeName);
+                continue;
+            }
+            if (item.status === 'will-remove') {
+                try {
+                    if (!item.targetPath || !isPathInside(plan.folderPath, item.targetPath)) {
+                        throw new Error(`Refusing to remove a file outside the export folder: ${item.relativeName}`);
+                    }
+                    if (await fileExists(item.targetPath)) {
+                        await fs.promises.unlink(item.targetPath);
+                        removed.push(item.relativeName);
+                    } else {
+                        skipped.push(`${item.relativeName} (already missing)`);
+                    }
+                } catch (err) {
+                    failed.push(item.relativeName);
+                    log(`[exportModules] Error removing ${item.relativeName}: ${err instanceof Error ? err.message : String(err)}`);
+                }
+                continue;
+            }
+
+            try {
+                const result = await exportWorkbookModule(bridge, {
+                    filePath: plan.workbookPath,
+                    moduleName: item.moduleName,
+                    exportFolder: plan.folderPath,
+                    exportMode: plan.exportMode,
+                });
+                if (result.skippedNew) {
+                    skipped.push(result.relativeName);
+                } else {
+                    changed.push(...result.writtenFiles);
+                    successfulManaged.add(result.relativeName);
+                }
+            } catch (err) {
+                failed.push(item.relativeName);
+                log(`[exportModules] Error exporting ${item.moduleName}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        }
+
+        await reconcileExportManagedFiles(plan, successfulManaged, removed);
+        const summaryText = logChangeSummary('exportModules', {
+            operation: 'Export modules',
+            changed,
+            skipped,
+            removed,
+            failed,
+        });
+        recordWriteAudit({
+            command: 'xlide.exportModulesToFolder',
+            operation: 'export-modules',
+            outcome: failed.length > 0 ? 'failed' : changed.length > 0 || removed.length > 0 ? 'succeeded' : 'skipped',
+            workbookPath: plan.workbookPath,
+            targetPath: plan.folderPath,
+            summary: summaryText,
+        });
+        return {
+            summary: summaryText,
+            changed: changed.length,
+            skipped: skipped.length,
+            removed: removed.length,
+            failed: failed.length,
+        };
+    }
+
+    async function applyImportModuleSyncPlan(
+        plan: ModuleSyncPlan,
+        selectedIds: readonly string[],
+    ): Promise<ModuleSyncApplyResult> {
+        const selected = selectedModuleSyncItems(plan, selectedIds);
+        const changed: string[] = [];
+        const skipped: string[] = [];
+        const failed: string[] = [];
+
+        for (const item of selected) {
+            if (item.status === 'unchanged') {
+                skipped.push(`${item.relativeName} (unchanged)`);
+                continue;
+            }
+            if (item.status === 'skipping-import' || (item.unsupportedDirectCreation && !item.existsInWorkbook)) {
+                skipped.push(`${item.relativeName} (${item.moduleType} cannot be created directly)`);
+                recordWriteAudit({
+                    command: 'xlide.importModulesFromFolder',
+                    operation: 'import-module',
+                    outcome: 'skipped',
+                    workbookPath: plan.workbookPath,
+                    moduleName: item.moduleName,
+                    sourcePath: item.sourcePath,
+                    summary: 'Import module: 0 changed, 1 skipped',
+                });
+                continue;
+            }
+
+            try {
+                if (!item.sourcePath) {
+                    throw new Error(`Missing source path for ${item.moduleName}.`);
+                }
+                const source = await fs.promises.readFile(item.sourcePath, 'utf8');
+                log(`[importModules] Importing ${item.moduleName} from ${item.relativeName}`);
+                const result = await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
+                    path: plan.workbookPath,
+                    module: item.moduleName,
+                    source,
+                    kind: item.moduleType,
+                });
+                notifySignatureDropped(plan.workbookPath, Boolean(result.signatureDropped));
+                changed.push(item.relativeName);
+                recordWriteAudit({
+                    command: 'xlide.importModulesFromFolder',
+                    operation: 'import-module',
+                    outcome: 'succeeded',
+                    workbookPath: plan.workbookPath,
+                    moduleName: item.moduleName,
+                    sourcePath: item.sourcePath,
+                    summary: 'Import module: 1 changed',
+                });
+            } catch (err) {
+                failed.push(item.relativeName);
+                recordWriteAudit({
+                    command: 'xlide.importModulesFromFolder',
+                    operation: 'import-module',
+                    outcome: 'failed',
+                    workbookPath: plan.workbookPath,
+                    moduleName: item.moduleName,
+                    sourcePath: item.sourcePath,
+                    summary: 'Import module: 0 changed, 1 failed',
+                    error: err,
+                });
+                log(`[importModules] Error importing ${item.moduleName}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        }
+
+        if (changed.length > 0) {
+            vbaIndex.invalidate(plan.workbookPath);
+            explorer.refresh();
+        }
+        const summaryText = logChangeSummary('importModules', {
+            operation: 'Import modules',
+            changed,
+            skipped,
+            failed,
+        });
+        return {
+            summary: summaryText,
+            changed: changed.length,
+            skipped: skipped.length,
+            failed: failed.length,
+        };
+    }
+
+    function selectedModuleSyncItems(
+        plan: ModuleSyncPlan,
+        selectedIds: readonly string[],
+    ): ModuleSyncPlanItem[] {
+        const selected = new Set(selectedIds);
+        return plan.items.filter((item) => selected.has(item.id));
+    }
+
+    async function reconcileExportManagedFiles(
+        plan: ModuleSyncPlan,
+        successfulManaged: ReadonlySet<string>,
+        removed: readonly string[],
+    ): Promise<void> {
+        const existing = await readWorkbookRepoConfig(plan.workbookPath);
+        const managedFiles = new Set(
+            Array.isArray(existing.managedFiles)
+                ? existing.managedFiles.filter((item): item is string => typeof item === 'string')
+                : [],
+        );
+        for (const relPath of successfulManaged) {
+            managedFiles.add(relPath);
+        }
+        for (const relPath of removed) {
+            managedFiles.delete(relPath);
+        }
+        await writeWorkbookRepoConfig(plan.workbookPath, {
+            ...existing,
+            exportFolder: plan.folderPath,
+            exportMode: plan.exportMode ?? normalizeExportMode(existing.exportMode),
+            managedFiles: Array.from(managedFiles).sort(),
+        });
+    }
+
+    function isPathInside(baseDir: string, targetPath: string): boolean {
+        const base = path.resolve(baseDir);
+        const target = path.resolve(targetPath);
+        return target === base || target.startsWith(base + path.sep);
+    }
+
+    async function fileExists(filePath: string): Promise<boolean> {
+        try {
+            await fs.promises.access(filePath, fs.constants.F_OK);
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     async function lintActiveModule(): Promise<void> {
@@ -1196,38 +1510,7 @@ export function registerCommands(
             if (!filePath) { return; }
 
             try {
-                const target = await resolveWorkbookExportFolder(filePath, 'Select export folder');
-                if (!target) { return; }
-
-                log(`[exportModules] Workbook: ${filePath}`);
-                log(`[exportModules] Target folder: ${target.exportFolder}`);
-                log(`[exportModules] Mode: ${target.exportMode}`);
-
-                const result = await exportWorkbookModules(bridge, {
-                    filePath,
-                    exportFolder: target.exportFolder,
-                    exportMode: target.exportMode,
-                });
-
-                const changeSummary: XlideChangeSummary = {
-                    operation: 'Export modules',
-                    changed: result.writtenFiles,
-                    skipped: result.skippedNewFiles,
-                    removed: result.removedFiles,
-                };
-                const summaryText = logChangeSummary('exportModules', changeSummary);
-                recordWriteAudit({
-                    command: 'xlide.exportModulesToFolder',
-                    operation: 'export-modules',
-                    outcome: 'succeeded',
-                    workbookPath: filePath,
-                    targetPath: result.exportFolder,
-                    summary: summaryText,
-                });
-                log(`[exportModules] Config updated: ${result.configPath}`);
-                vscode.window.showInformationMessage(
-                    `XLIDE: ${summaryText} [mode=${result.exportMode}]`,
-                );
+                await showExportModulesDiffGui(filePath);
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[exportModules] Error: ${message}`);
@@ -1268,247 +1551,10 @@ export function registerCommands(
             if (!filePath) { return; }
 
             try {
-                const existingConfig = await readWorkbookRepoConfig(filePath);
-                const configuredFolder = existingConfig.exportFolder;
+                await showImportModulesDiffGui(filePath);
+                return;
 
-                let importFolder: string;
-                if (configuredFolder) {
-                    importFolder = configuredFolder;
-                } else {
-                    const selected = await vscode.window.showOpenDialog({
-                        canSelectFiles: false,
-                        canSelectFolders: true,
-                        canSelectMany: false,
-                        openLabel: 'Select folder to import from',
-                        defaultUri: vscode.Uri.file(path.dirname(filePath)),
-                    });
-                    if (!selected || selected.length === 0) { return; }
-                    importFolder = selected[0].fsPath;
-                }
 
-                let entries: string[];
-                try {
-                    entries = await fs.promises.readdir(importFolder);
-                } catch {
-                    vscode.window.showErrorMessage(`XLIDE: Cannot read folder: ${importFolder}`);
-                    return;
-                }
-
-                const moduleFiles = entries
-                    .filter(e => /\.(bas|cls|frm)$/i.test(e))
-                    .sort();
-
-                if (moduleFiles.length === 0) {
-                    vscode.window.showInformationMessage(
-                        `XLIDE: No .bas/.cls/.frm files found in ${importFolder}`,
-                    );
-                    return;
-                }
-
-                // Fetch live module list so we know which names exist and their types.
-                let liveModuleMap = new Map<string, string>();
-                try {
-                    const liveModules = await bridge.call<Array<{ name: string; type: string }>>(
-                        'listModules', { path: filePath },
-                    );
-                    liveModuleMap = new Map(liveModules.map(m => [m.name, m.type]));
-                } catch {
-                    // Non-fatal: without live data we can't detect missing document modules.
-                    log('[importModules] Warning: could not fetch live module list');
-                }
-
-                // UserForms always carry TWO GUIDs in VB_Base (type-lib + instance).
-                // Class and document modules each have exactly one.
-                // Document CLSIDs are the known Excel Workbook/Sheet/Chart GUIDs.
-                const GUID_RE = /\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/g;
-                const DOCUMENT_CLSIDS = new Set([
-                    '{00020819-0000-0000-C000-000000000046}', // Workbook
-                    '{00020820-0000-0000-C000-000000000046}', // Worksheet
-                    '{00020821-0000-0000-C000-000000000046}', // Chart
-                ]);
-
-                async function fileModuleSubtype(file: string): Promise<'userform' | 'document' | 'class' | null> {
-                    try {
-                        const head = (await fs.promises.readFile(
-                            path.join(importFolder, file), 'utf8',
-                        )).slice(0, 2000);
-                        const vbBaseMatch = head.match(/Attribute\s+VB_Base\s*=\s*"([^"]*)"/i);
-                        if (vbBaseMatch) {
-                            const guids = vbBaseMatch[1].match(new RegExp(GUID_RE.source, 'g')) ?? [];
-                            if (guids.length >= 2) { return 'userform'; }
-                            if (guids.some(g => DOCUMENT_CLSIDS.has(g.toUpperCase().replace(/\{([^}]+)\}/, '{$1}')))) {
-                                return 'document';
-                            }
-                            return 'class';
-                        }
-                        if (/Attribute\s+VB_PredeclaredId\s*=\s*True/i.test(head)) {
-                            return 'document';
-                        }
-                        return null;
-                    } catch {
-                        return null;
-                    }
-                }
-
-                type ImportItem = vscode.QuickPickItem & { file: string; isDocumentMissing: boolean; moduleKind: string };
-
-                const importable: ImportItem[] = [];
-                const unavailable: ImportItem[] = [];
-
-                for (const file of moduleFiles) {
-                    const moduleName = path.basename(file, path.extname(file));
-                    const liveType = liveModuleMap.get(moduleName);
-                    const isFormFile = /\.frm$/i.test(file);
-                    const isClsFile = /\.cls$/i.test(file);
-
-                    // Determine the source-of-truth subtype: live workbook wins; otherwise inspect the file header.
-                    let subtype: 'userform' | 'document' | 'class' | 'standard';
-                    if (liveType === 'userform' || liveType === 'document' || liveType === 'class' || liveType === 'standard') {
-                        subtype = liveType;
-                    } else if (isFormFile) {
-                        subtype = 'userform';
-                    } else if (isClsFile) {
-                        const fileSub = await fileModuleSubtype(file);
-                        if (fileSub === 'userform') {
-                            subtype = 'userform';
-                        } else if (fileSub === 'document') {
-                            subtype = 'document';
-                        } else {
-                            subtype = 'class';
-                        }
-                    } else {
-                        subtype = 'standard';
-                    }
-
-                    // Userforms and document modules cannot be created from scratch \u2014
-                    // they must already exist in the live workbook to be importable.
-                    const requiresExisting = subtype === 'document' || subtype === 'userform';
-                    const existsInWorkbook = liveModuleMap.has(moduleName);
-
-                    if (requiresExisting && !existsInWorkbook) {
-                        const kindLabel = subtype === 'userform' ? 'UserForm' : 'Document module';
-                        unavailable.push({
-                            label: moduleName,
-                            description: file,
-                            detail: `${kindLabel} \u2014 not in this workbook, cannot create`,
-                            picked: false,
-                            file,
-                            isDocumentMissing: true,
-                            moduleKind: subtype,
-                        });
-                    } else {
-                        let newDetail: string;
-                        switch (subtype) {
-                            case 'class':
-                                newDetail = 'Will be created as a new class module';
-                                break;
-                            case 'userform':
-                                newDetail = 'Will update existing UserForm code';
-                                break;
-                            case 'document':
-                                newDetail = 'Will update existing document module code';
-                                break;
-                            default:
-                                newDetail = 'Will be created as a new standard module';
-                        }
-                        importable.push({
-                            label: moduleName,
-                            description: existsInWorkbook ? file : `${file}  (new)`,
-                            detail: existsInWorkbook ? undefined : newDetail,
-                            picked: true,
-                            file,
-                            isDocumentMissing: false,
-                            moduleKind: subtype,
-                        });
-                    }
-                }
-
-                const quickPickItems: (vscode.QuickPickItem | ImportItem)[] = [...importable];
-                if (unavailable.length > 0) {
-                    quickPickItems.push(
-                        { label: 'Cannot import', kind: vscode.QuickPickItemKind.Separator } as vscode.QuickPickItem,
-                        ...unavailable,
-                    );
-                }
-
-                const picks = await vscode.window.showQuickPick(
-                    quickPickItems as ImportItem[],
-                    {
-                        canPickMany: true,
-                        title: `Import modules into ${path.basename(filePath)}`,
-                        placeHolder: 'Select modules to import (all selected by default)',
-                    },
-                );
-                if (!picks || picks.length === 0) { return; }
-
-                const errors: string[] = [];
-                const importedModules: string[] = [];
-                const failedModules: string[] = [];
-                for (const pick of picks) {
-                    if ((pick as ImportItem).isDocumentMissing) { continue; }
-                    const importSourcePath = path.join(importFolder, (pick as ImportItem).file);
-                    try {
-                        const source = await fs.promises.readFile(
-                            importSourcePath,
-                            'utf8',
-                        );
-                        log(`[importModules] Importing ${pick.label} from ${(pick as ImportItem).file}`);
-                        await bridge.call('writeModule', {
-                            path: filePath,
-                            module: pick.label,
-                            source,
-                            kind: (pick as ImportItem).moduleKind,
-                        });
-                        importedModules.push(pick.label);
-                        recordWriteAudit({
-                            command: 'xlide.importModulesFromFolder',
-                            operation: 'import-module',
-                            outcome: 'succeeded',
-                            workbookPath: filePath,
-                            moduleName: pick.label,
-                            sourcePath: importSourcePath,
-                            summary: 'Import module: 1 changed',
-                        });
-                    } catch (err) {
-                        const message = err instanceof Error ? err.message : String(err);
-                        errors.push(`${pick.label}: ${message}`);
-                        failedModules.push(pick.label);
-                        recordWriteAudit({
-                            command: 'xlide.importModulesFromFolder',
-                            operation: 'import-module',
-                            outcome: 'failed',
-                            workbookPath: filePath,
-                            moduleName: pick.label,
-                            sourcePath: importSourcePath,
-                            summary: 'Import module: 0 changed, 1 failed',
-                            error: err,
-                        });
-                        log(`[importModules] Error importing ${pick.label}: ${message}`);
-                    }
-                }
-
-                explorer.refresh();
-                const changeSummary: XlideChangeSummary = {
-                    operation: 'Import modules',
-                    changed: importedModules,
-                    failed: failedModules,
-                };
-                const summaryText = logChangeSummary('importModules', changeSummary);
-
-                if (errors.length > 0) {
-                    void vscode.window.showWarningMessage(
-                        `XLIDE: ${summaryText}. Copy redacted diagnostics if you need to troubleshoot.`,
-                        'Copy Diagnostics',
-                    ).then(choice => {
-                        if (choice === 'Copy Diagnostics') {
-                            void vscode.commands.executeCommand('xlide.copyDiagnostics');
-                        }
-                    });
-                } else {
-                    vscode.window.showInformationMessage(
-                        `XLIDE: ${summaryText} into ${path.basename(filePath)}`,
-                    );
-                }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[importModules] Error: ${message}`);

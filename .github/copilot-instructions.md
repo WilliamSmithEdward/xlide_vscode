@@ -4,6 +4,14 @@ XLIDE is a VS Code extension for editing Excel VBA and cell data. The agent has 
 
 ---
 
+## Source of Truth
+
+Workbook-backed XLIDE operations are canonical. When the user asks to inspect or edit VBA in a workbook, discover modules with `xlide_getWorkbookInfo` or `xlide_listModules`, read with `xlide_readModule`, and write with `xlide_writeModule`. Do not edit exported `.bas`, `.cls`, or `.frm` repo files as a substitute for workbook edits unless the user explicitly asks to work on export artifacts or repository sync files.
+
+Use `xlide_exportModules` only when the user wants to export/sync workbook modules to disk. After direct workbook edits, verify with `xlide_lintWorkbook`; export to repo files is optional and user-directed.
+
+---
+
 ## Headline capabilities
 
 Two XLIDE features are first-class and you should use them proactively:
@@ -26,7 +34,7 @@ The full standard lives in `docs/vba-doc-comments.md`.
 If the user has not specified a file path, always call `xlide_listWorkbooks` first to find available `.xlsm`/`.xlsb`/`.xlam` files.
 
 ### Step 2 — Understand the workbook
-Call `xlide_getWorkbookInfo` once per workbook. It returns sheets (name + used dimensions), VBA modules (name + type), and named ranges in a single round-trip. Do NOT call `xlide_listModules` + `xlide_listSheets` separately when `xlide_getWorkbookInfo` covers both.
+Call `xlide_getWorkbookInfo` once per workbook. It returns sheets (name + used dimensions), VBA modules (name + type), and named ranges in a single round-trip. Do NOT call `xlide_listModules` + `xlide_listSheets` separately when `xlide_getWorkbookInfo` covers both. Do not infer module state from local export files.
 
 ### Step 3 — Operate
 Use the targeted tool for the task (see tool reference below). Prefer specific tools over `xlide_runOpenpyxl` when a specific tool exists.
@@ -46,7 +54,7 @@ After writing or editing any VBA, call `xlide_lintWorkbook` and resolve any repo
 | `xlide_listModules` | Need only the VBA module list |
 | `xlide_listSubs` | Need procedures in a specific module |
 | `xlide_listSheets` | Need only sheet names and dimensions |
-| `xlide_readModule` | Read VBA source of a module |
+| `xlide_readModule` | Read canonical VBA source from the workbook-backed XLIDE module |
 | `xlide_lintWorkbook` | **Verify VBA syntax/lint across the whole workbook** - run after editing modules; returns per-problem `moduleName`/`line`/`column`/`severity`/`code`/`message` |
 | `xlide_readCells` | Read computed cell values (formulas already evaluated) |
 | `xlide_readFormulas` | Read raw formula strings (e.g. `=SUM(A1:A10)`) — use when reproducing or auditing spreadsheet logic |
@@ -54,12 +62,12 @@ After writing or editing any VBA, call `xlide_lintWorkbook` and resolve any repo
 ### Write / Modify (require user confirmation)
 | Tool | When to use |
 |---|---|
-| `xlide_writeModule` | Write or **create** VBA source — if the module name does not exist it is created automatically |
+| `xlide_writeModule` | Write or **create** canonical workbook VBA source - if the module name does not exist it is created automatically |
 | `xlide_renameModule` | Rename a VBA module |
 | `xlide_deleteModule` | Delete a VBA module (irreversible — warn the user) |
 | `xlide_writeCells` | Write values to a cell range |
 | `xlide_runOpenpyxl` | Anything not covered above: styling, fills, fonts, borders, column widths, number formats, charts, conditional formatting, sheet operations, named ranges — full openpyxl API |
-| `xlide_exportModules` | Export all VBA modules to files on disk |
+| `xlide_exportModules` | Export/sync workbook modules to files on disk when explicitly requested |
 | `xlide_configureExportMode` | Set the persistent export mode for a workbook |
 
 ---

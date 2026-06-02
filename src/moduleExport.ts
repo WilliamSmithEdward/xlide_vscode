@@ -5,6 +5,7 @@ import { PythonBridge } from './pythonBridge';
 interface ModuleInfo {
     name: string;
     type: string;
+    documentType?: string;
 }
 
 type ExportMode = 'trueUp' | 'replaceExistingOnly';
@@ -277,14 +278,18 @@ async function exportWorkbookModules(
 
 export {
     type ExportMode,
+    type ModuleInfo,
     type WorkbookRepoConfig,
     type ExportModulesParams,
     type ExportModulesResult,
     type ExportModuleParams,
     type ExportModuleResult,
     configPathForWorkbook,
+    extensionForModuleType,
     normalizeExportMode,
+    relativeNameForModule,
     readWorkbookRepoConfig,
+    sanitizeFileName,
     writeWorkbookRepoConfig,
     setWorkbookExportMode,
     exportWorkbookModule,

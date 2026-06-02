@@ -818,6 +818,12 @@ VBA code from XLIDE, using Excel COM as the execution host.
 - [ ] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
 - [ ] Add fixture tests before enabling broad adoption.
+- [ ] Add a full developer VBA test GUI, not just a command/output stream. It
+  should be callable from workbook/module/procedure right-click menus and the
+  XLIDE Activity Bar/sidebar, show discovered tests with check/uncheck
+  selection, support run-all/current-module/current-test/filter/rerun-failed
+  workflows, and render rich pass/fail/skip/xfail results in a reusable UI
+  surface.
 - [ ] Fully document the downstream developer workflow before calling the test
   runner shipped:
   - how to author tests
@@ -910,6 +916,7 @@ development.
 - [ ] Add primary action buttons:
   - lint current module
   - lint workbook
+  - open the full VBA test runner GUI
   - run current test
   - run all tests
   - export/sync modules
@@ -964,6 +971,23 @@ auditable, and recoverable for real user projects.
 - [x] Surface "what changed?" summaries after sync/write operations. Export,
   import, editor save, module create/rename/delete, and agent-tool workbook
   mutation paths now record shared changed/skipped/removed/failed summaries.
+- [x] Add full module import/export diff previews for bulk sync. The UI command
+  path now opens a webview where users can click each module, inspect a
+  workbook-vs-repo diff, check/uncheck modules, and apply selected changes.
+  Missing document/UserForm imports show `Skipping import` and are audited as
+  skipped instead of failing the whole import.
+- [ ] Move import/export-specific settings into the import/export diff GUI as
+  the primary configuration surface. The GUI should show effective defaults,
+  allow per-workbook overrides for repo folder/export mode/related sync
+  options, and persist selected workbook settings to a sidecar named
+  `<workbook>.repo.json` (for example `workbook.xlsm.repo.json`). The config
+  resolver should load extension/workspace defaults when a workbook has no
+  sidecar, then persist explicit choices after use.
+- [ ] Migrate the existing workbook export sidecar naming without creating a
+  second settings pipeline. Read old `<workbook>.extension.repo.json` files for
+  compatibility, write the new `<workbook>.repo.json` format after the next
+  save/apply, and route legacy folder/mode commands to the same GUI or retire
+  them so settings are not edited in multiple places.
 - [ ] Document trust-center, macro security, and VBA project access
   requirements without hiding them behind vague failures.
 

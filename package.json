@@ -409,7 +409,7 @@
       {
         "name": "xlide_getWorkbookInfo",
         "displayName": "Get Workbook Info",
-        "modelDescription": "Returns a combined one-shot summary of an Excel workbook: VBA modules (name + type), worksheets (name + used dimensions), and named ranges. Use this as the first discovery call instead of calling xlide_listModules and xlide_listSheets separately.",
+        "modelDescription": "Returns a combined one-shot summary of an Excel workbook: VBA modules (name + type), worksheets (name + used dimensions), and named ranges. Treat the workbook/XLIDE virtual modules as the source of truth for VBA. Use this as the first discovery call instead of calling xlide_listModules and xlide_listSheets separately.",
         "toolReferenceName": "xlideGetWorkbookInfo",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -485,7 +485,7 @@
       {
         "name": "xlide_listModules",
         "displayName": "List VBA Modules",
-        "modelDescription": "Lists all VBA modules in an Excel .xlsm file. Returns module names and types (standard, class, document). Use this before reading or editing a module.",
+        "modelDescription": "Lists all VBA modules from the live Excel workbook/XLIDE structure. Returns module names and types (standard, class, document). Use this before reading or editing workbook VBA; do not infer module state from exported .bas/.cls/.frm repo files unless the user explicitly asks to work on those export artifacts.",
         "toolReferenceName": "xlideListModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -528,7 +528,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Reads the full VBA source code of a module from an Excel file. Returns the raw VBA text including Attribute declarations.",
+        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source code of a module from the Excel workbook and returns raw VBA text including Attribute declarations. Prefer this over reading exported .bas/.cls/.frm repo files; exported files are sync artifacts unless the user explicitly asks to edit repo exports.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -552,7 +552,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Writes the VBA source code of a module in an Excel file and saves automatically. If the module does not exist it is created (use moduleName to set the name, and optionally pass kind='class' in the source for class modules — default is standard). Use this to apply AI-generated or edited VBA code, or to create new modules from scratch. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "modelDescription": "Canonical way to edit workbook VBA. Writes the VBA source code of a module directly into the Excel workbook and saves automatically. Prefer this over editing exported repo files. If the module does not exist it is created (use moduleName to set the name, and optionally pass kind='class' in the source for class modules; default is standard). Use this to apply AI-generated or edited VBA code, or to create new modules from scratch. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -749,7 +749,7 @@
       {
         "name": "xlide_exportModules",
         "displayName": "Export VBA Modules to Folder",
-        "modelDescription": "Exports all VBA modules from a workbook to a folder using workbookname.extension.repo.json behavior shared with UI commands. Uses live module reads from the workbook. Supports exportMode trueUp (default: replace existing, add new, remove stale) and replaceExistingOnly (replace existing files only).",
+        "modelDescription": "Exports all VBA modules from a workbook to a folder using workbookname.extension.repo.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode trueUp (default: replace existing, add new, remove stale) and replaceExistingOnly (replace existing files only).",
         "toolReferenceName": "xlideExportModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

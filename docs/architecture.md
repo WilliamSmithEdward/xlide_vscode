@@ -242,21 +242,23 @@ On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in 
 
 ## Module export / import
 
-`moduleExport.ts` is the single source of truth for export/config behavior.
+`moduleExport.ts` is the single source of truth for export/config behavior, and
+`moduleSyncPlan.ts` builds the UI preview model used by bulk import/export.
 
 Both lanes call into this shared implementation:
 
-- UI commands (`xlide.exportModulesToFolder`, `xlide.configureExportMode`)
+- UI commands (`xlide.exportModulesToFolder`, `xlide.importModulesFromFolder`,
+  `xlide.configureExportMode`)
 - AI tools (`xlide_exportModules`, `xlide_configureExportMode`)
 
-**Export** reads all modules live over JSON-RPC (`listModules` then `readModule` per module) and writes them to a folder.
+**Export** reads all modules live over JSON-RPC (`listModules` then `readModule` per module) and writes them to a folder. The UI bulk export command opens a webview diff preview where the user can click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale managed repo files appear as removable diff rows instead of being removed invisibly.
 
 - Output file extension is `.bas` for standard modules and `.cls` for class/document modules.
 - Export mode is per-workbook and persisted in the workbook-local JSON config:
   - `trueUp` (default): replace existing, add new, remove no-longer-existing modules
   - `replaceExistingOnly`: replace files that already exist; do not add missing files; do not remove stale files
 
-**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls`/`.frm` files from the configured (or user-chosen) folder and writes each back into the workbook via `writeModule`. A QuickPick lets the user select which files to import. Document modules and UserForms cannot be created from scratch — they are only importable if the module already exists in the workbook.
+**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls`/`.frm` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Document modules and UserForms cannot be created from scratch; missing document/UserForm rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import.
 
 **Change export folder** (`xlide.changeRepoFolder`) updates `exportFolder` in the workbook config without running an export.
 - A workbook-local config file is written beside the workbook:
@@ -284,6 +286,12 @@ The command `xlide.configureExportMode` updates `exportMode` for a workbook.
 ## AI agent tools
 
 Declared in `package.json` under `contributes.languageModelTools` and registered at activation via `vscode.lm.registerTool`. Copilot can invoke them inline or via `#` references in chat.
+
+For agentic editing, the workbook/XLIDE virtual module structure is the source
+of truth. Agents should discover with `xlide_getWorkbookInfo`/`xlide_listModules`,
+read with `xlide_readModule`, and write with `xlide_writeModule`. Exported
+`.bas`/`.cls`/`.frm` files are sync artifacts unless the user explicitly asks
+to operate on export files.
 
 | Tool name | Chat reference | Side effects | Confirmation |
 |---|---|---|---|
