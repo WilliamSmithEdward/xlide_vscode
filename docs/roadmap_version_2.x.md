@@ -571,9 +571,10 @@ Purpose: validate Excel/VBA object use where receiver type is known.
     procedures, but Excel will not wire them as events from that module.
 - [ ] Extend document-module event handler authoring beyond the first
   workbook/worksheet slice:
-  - Chart document modules offer chart handlers from the chart event surface.
-  - UserForm modules offer form/control event handlers only when designer-backed
-    metadata can prove the control/event surface.
+  - [x] Chart document modules offer chart handlers from the same
+    module-scoped event surface as workbook/worksheet handlers.
+  - [ ] UserForm modules offer form/control event handlers only when
+    designer-backed metadata can prove the control/event surface.
 - [ ] Extend the source member model to declared `Event` members, richer
   signatures, declaration spans, `WithEvents` bindings, and document/UserForm
   designer-backed members.

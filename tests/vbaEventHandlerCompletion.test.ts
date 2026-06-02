@@ -62,7 +62,22 @@ describe('event-handler completion', () => {
 		expect(got).toEqual([]);
 	});
 
-	it('does not offer worksheet handlers for chart document modules until chart events are curated', () => {
+	it('offers chart event handlers in chart document modules', () => {
+		const src = 'Chart_\n';
+		const got = names(src, 'Chart_', {
+			moduleName: 'Chart1',
+			moduleKind: 'document',
+			documentType: 'chart',
+		});
+		expect(got).toContain('Chart_Calculate');
+		expect(got).toContain('Chart_MouseDown');
+		expect(got).toContain('Chart_SeriesChange');
+		expect(got).toContain('Chart_BeforeDoubleClick');
+		expect(got).not.toContain('Worksheet_Change');
+		expect(got).not.toContain('Workbook_Open');
+	});
+
+	it('does not offer worksheet handlers for chart document modules', () => {
 		const src = 'Worksheet_\n';
 		const got = names(src, 'Worksheet_', {
 			moduleName: 'Chart1',
@@ -87,6 +102,21 @@ describe('event-handler completion', () => {
 		expect(got).toContain('Workbook_BeforeClose');
 	});
 
+	it('does not suggest an existing chart handler in a chart module', () => {
+		const src =
+			'Private Sub Chart_Calculate()\n' +
+			'End Sub\n' +
+			'\n' +
+			'Chart_\n';
+		const got = names(src, '\nChart_', {
+			moduleName: 'Chart1',
+			moduleKind: 'document',
+			documentType: 'chart',
+		});
+		expect(got).not.toContain('Chart_Calculate');
+		expect(got).toContain('Chart_Activate');
+	});
+
 	it('does not offer event stubs inside an existing procedure body', () => {
 		const src = 'Sub Test()\n    Work\nEnd Sub\n';
 		const got = names(src, 'Work', {
@@ -105,6 +135,18 @@ describe('event-handler completion', () => {
 			documentType: 'workbook',
 		}).find((completion) => completion.name === 'Workbook_Open');
 		expect(item?.insertText).toBe('Private Sub Workbook_Open()\n    $0\nEnd Sub');
+	});
+
+	it('inserts chart event handler stubs from chart document modules', () => {
+		const src = 'Option Explicit\nChart';
+		const item = completions(src, 'Chart', {
+			moduleName: 'Chart1',
+			moduleKind: 'document',
+			documentType: 'chart',
+		}).find((completion) => completion.name === 'Chart_MouseDown');
+		expect(item?.insertText).toBe(
+			'Private Sub Chart_MouseDown(ByVal Button As Long, ByVal Shift As Long, ByVal X As Long, ByVal Y As Long)\n    $0\nEnd Sub',
+		);
 	});
 
 	it('inserts only the declaration tail after an existing Private Sub prefix', () => {

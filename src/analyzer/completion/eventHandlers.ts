@@ -159,6 +159,75 @@ const WORKSHEET_EVENTS: readonly EventHandlerDefinition[] = [
 	},
 ];
 
+const CHART_EVENTS: readonly EventHandlerDefinition[] = [
+	{
+		name: 'Chart_Activate',
+		params: '',
+		owner: 'Chart',
+		description: 'Occurs when the chart is activated.',
+	},
+	{
+		name: 'Chart_Deactivate',
+		params: '',
+		owner: 'Chart',
+		description: 'Occurs when the chart is deactivated.',
+	},
+	{
+		name: 'Chart_Calculate',
+		params: '',
+		owner: 'Chart',
+		description: 'Occurs after the chart plots new or changed data.',
+	},
+	{
+		name: 'Chart_Resize',
+		params: '',
+		owner: 'Chart',
+		description: 'Occurs when the chart is resized.',
+	},
+	{
+		name: 'Chart_Select',
+		params: 'ByVal ElementID As Long, ByVal Arg1 As Long, ByVal Arg2 As Long',
+		owner: 'Chart',
+		description: 'Occurs when a chart element is selected.',
+	},
+	{
+		name: 'Chart_SeriesChange',
+		params: 'ByVal SeriesIndex As Long, ByVal PointIndex As Long',
+		owner: 'Chart',
+		description: 'Occurs when the value of a chart data point is changed.',
+	},
+	{
+		name: 'Chart_BeforeDoubleClick',
+		params: 'ByVal ElementID As Long, ByVal Arg1 As Long, ByVal Arg2 As Long, Cancel As Boolean',
+		owner: 'Chart',
+		description: 'Occurs before the default double-click action on the chart.',
+	},
+	{
+		name: 'Chart_BeforeRightClick',
+		params: 'Cancel As Boolean',
+		owner: 'Chart',
+		description: 'Occurs before the default right-click action on the chart.',
+	},
+	{
+		name: 'Chart_MouseDown',
+		params: 'ByVal Button As Long, ByVal Shift As Long, ByVal X As Long, ByVal Y As Long',
+		owner: 'Chart',
+		description: 'Occurs when a mouse button is pressed over the chart.',
+	},
+	{
+		name: 'Chart_MouseMove',
+		params: 'ByVal Button As Long, ByVal Shift As Long, ByVal X As Long, ByVal Y As Long',
+		owner: 'Chart',
+		description: 'Occurs when the mouse pointer moves over the chart.',
+	},
+	{
+		name: 'Chart_MouseUp',
+		params: 'ByVal Button As Long, ByVal Shift As Long, ByVal X As Long, ByVal Y As Long',
+		owner: 'Chart',
+		description: 'Occurs when a mouse button is released over the chart.',
+	},
+];
+
 /**
  * Resolves event-procedure stub completions at module level.
  *
@@ -244,6 +313,8 @@ function definitionsForDocumentType(
 			return WORKBOOK_EVENTS;
 		case 'worksheet':
 			return WORKSHEET_EVENTS;
+		case 'chart':
+			return CHART_EVENTS;
 		default:
 			return [];
 	}
@@ -252,6 +323,7 @@ function definitionsForDocumentType(
 const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
 	...WORKBOOK_EVENTS,
 	...WORKSHEET_EVENTS,
+	...CHART_EVENTS,
 ];
 
 function documentTypeForOwner(

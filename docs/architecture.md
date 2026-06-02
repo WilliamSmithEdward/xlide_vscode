@@ -567,12 +567,14 @@ into a pure analyzer layer and a thin VS Code provider:
   document modules, it also offers event-procedure stubs from
   `resolveEventHandlerCompletions`: `ThisWorkbook`/`documentType: workbook`
   gets `Workbook_*` handlers, worksheet document modules get `Worksheet_*`
-  handlers, and chart/UserForm handler authoring stays out until those event
-  surfaces have curated metadata. Existing handlers are not re-suggested, and
+  handlers, and chart document modules get `Chart_*` handlers. UserForm
+  handler authoring stays out until designer-backed form/control event metadata
+  can prove those surfaces. Existing handlers are not re-suggested, and
   accepting an event completion inserts either the full `Private Sub ... End
   Sub` stub or only the declaration tail after an existing `Private Sub`
-  prefix. Known workbook/worksheet event-handler-shaped `Sub` declarations in
-  the wrong module receive non-red `event-handler-module-scope` guidance because
+  prefix. Known workbook/worksheet/chart event-handler-shaped `Sub`
+  declarations in the wrong module receive non-red
+  `event-handler-module-scope` guidance because
   Excel will not wire them as events there, even though they may compile as
   ordinary procedures. In a declaration type position (after `As`) or a `New`
   type position (after `As New` or expression-level `New`) it instead offers
@@ -880,10 +882,10 @@ Diagnostic severity policy:
   is backed by focused VBE oracle evidence, while standard modules and non-Public
   declarations stay outside the rule.
   `event-handler-module-scope` is an information diagnostic for known
-  workbook/worksheet event handler names declared outside the matching document
-  module. It uses the same module-scoped event metadata as completion, and it is
-  deliberately non-red because Excel treats those declarations as ordinary
-  procedures rather than wired event handlers.
+  workbook/worksheet/chart event handler names declared outside the matching
+  document module. It uses the same module-scoped event metadata as completion,
+  and it is deliberately non-red because Excel treats those declarations as
+  ordinary procedures rather than wired event handlers.
   `invalid-declaration-name` flags unbracketed MS-VBAL reserved identifiers in
   declaration-name positions while accepting bracketed `FOREIGN-NAME` forms such
   as `[In]`.

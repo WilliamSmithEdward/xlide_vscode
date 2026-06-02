@@ -3236,6 +3236,39 @@ describe('analyzeModule - event handler module scope guidance', () => {
 		expect(spanText(src, hits[0])).toBe('Worksheet_Calculate');
 		expect(hits[0].message).toContain('chart document module');
 	});
+
+	it('does not guide for chart handlers in chart document modules', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Sub Chart_Calculate()\nEnd Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, {
+					moduleName: 'RevenueChart',
+					moduleKind: 'document',
+					documentType: 'chart',
+				}),
+				'event-handler-module-scope',
+			),
+		).toHaveLength(0);
+	});
+
+	it('guides when a chart handler is declared in a worksheet document module', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Sub Chart_Calculate()\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				moduleName: 'Sheet1',
+				moduleKind: 'document',
+				documentType: 'worksheet',
+			}),
+			'event-handler-module-scope',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Chart_Calculate');
+		expect(hits[0].message).toContain('worksheet document module');
+	});
 });
 
 describe('analyzeModule - Call requires parentheses', () => {
