@@ -432,7 +432,8 @@ Near-term candidates:
 
 - 60 argument boundary.
 - 60 array dimensions boundary.
-- Fixed-length string zero and maximum length.
+- Fixed-length string nonliteral length expressions and assignment/truncation
+  behavior.
 - Continuation-count limit.
 
 ### `legacy-edges`

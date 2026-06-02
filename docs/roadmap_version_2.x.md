@@ -313,13 +313,18 @@ Purpose: finish the conservative first slice before broadening inference.
   object-module public-member diagnostics now consume the shared fact instead of
   reparsing `asType` text; trailing-token diagnostics consume a recognized suffix
   before flagging extra same-statement tokens.
+- [x] Add oracle-backed compile-equivalent diagnostics for literal fixed-length
+  String sizes outside the VBE-verified `1..65526` range. Controls prove
+  `* 1` and `* 65526` compile, while `* 0` and `* 65527` are rejected as
+  `Invalid length for fixed-length string`.
 - [ ] Finish fixed-length string behavior validation beyond the first-class
   declaration model:
-  - accepted declaration shapes across standard/class/document/UserForm modules
-  - invalid lengths and boundary limits
+  - accepted declaration shapes across class/document/UserForm modules beyond
+    current standard-module controls
+  - nonliteral length expressions and constant resolution
   - assignment/truncation behavior
-  - interaction with scalar member access and declaration trailing-token rules
-  - type-declaration suffix interactions such as `$`
+  - interaction with scalar member access and type-declaration suffixes such as
+    `$`
 - [x] Add module-kind-sensitive diagnostics for object-module public
   declarations VBE rejects, including `Public Const`, public fixed-length
   strings, public arrays, public UDTs, and public `Declare` statements. The

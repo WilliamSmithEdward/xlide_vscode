@@ -348,6 +348,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.1 / VBE oracle: Syntax error',
 		confidence: 'high',
 	},
+	fixedLengthStringSize: {
+		code: 'fixed-length-string-size',
+		title: 'Invalid fixed-length String size',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL fixed-length String bounds / VBE oracle: Invalid length for fixed-length string',
+		confidence: 'high',
+	},
 	objectModulePublicMember: {
 		code: 'object-module-public-member',
 		title: 'Invalid public member in object module',

@@ -2996,6 +2996,38 @@ describe('analyzeModule - unexpected declaration tokens', () => {
 	});
 });
 
+describe('analyzeModule - fixed-length String bounds', () => {
+	it('accepts verified literal boundaries and defers nonliteral lengths', () => {
+		const src =
+			'Private moduleName As String * 1\n' +
+			'Private Type Header\n' +
+			'    Code As String * 65526\n' +
+			'End Type\n' +
+			'Sub T()\n' +
+			'    Const MaxNameLength As Long = 20\n' +
+			'    Dim localName As String * MaxNameLength\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'fixed-length-string-size')).toHaveLength(0);
+	});
+
+	it('flags literal lengths outside the VBE-verified range everywhere declarations are parsed', () => {
+		const src =
+			'Private moduleName As String * 0\n' +
+			'Private Type Header\n' +
+			'    Code As String * 65527\n' +
+			'End Type\n' +
+			'Sub T()\n' +
+			'    If True Then\n' +
+			'        Dim localName As String * 0\n' +
+			'    End If\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '65527', '0']);
+		expect(hits[0].message).toContain('between 1 and 65526');
+		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - object module public declaration restrictions', () => {
 	it('flags public declarations that cannot be object-module members', () => {
 		const src =

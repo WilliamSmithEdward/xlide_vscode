@@ -330,7 +330,23 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule only fires after XLIDE parses a complete declaration type name and then sees an additional same-statement token outside valid declaration separators/defaults. Recognized fixed-length string suffixes (`As String * n`) are consumed by the shared suffix parser before trailing-token detection; invalid length boundaries and runtime assignment/truncation behavior remain separate verification work.",
+      "notes": "The active rule only fires after XLIDE parses a complete declaration type name and then sees an additional same-statement token outside valid declaration separators/defaults. Recognized fixed-length string suffixes (`As String * n`) are consumed by the shared suffix parser before trailing-token detection; literal size bounds are owned by `fixed-length-string-size`, while nonliteral length expressions and runtime assignment/truncation behavior remain separate verification work.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "fixed-length-string-size",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle for fixed-length String literal size bounds, matching the MS-VBAL 1 to 65,526 range",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "fixed_length_string_length_one_compile",
+        "fixed_length_string_length_max_compile",
+        "fixed_length_string_length_zero_compile",
+        "fixed_length_string_length_above_max_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The active rule only evaluates decimal integer literal suffixes parsed by the shared fixed-length String suffix helper. Identifier and bracketed lengths remain deferred until constant-expression semantics are verified.",
       "diagnosticKind": "compile-error"
     },
     {

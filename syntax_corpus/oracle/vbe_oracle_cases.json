@@ -680,6 +680,46 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "fixed_length_string_length_one_compile",
+      "description": "Boundary control: a fixed-length String declaration with length 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String * 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "fixed_length_string_length_max_compile",
+      "description": "Boundary control: a fixed-length String declaration at the MS-VBAL 65,526-character upper bound.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String * 65526\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "fixed_length_string_length_zero_compile",
+      "description": "A fixed-length String declaration with length 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String * 0\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "fixed_length_string_length_above_max_compile",
+      "description": "A fixed-length String declaration just above the MS-VBAL 65,526-character upper bound.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String * 65527\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "class_public_type_declaration_compile",
       "description": "A public user-defined Type declaration in a class module is rejected before it can become an object member.",
       "provenance": "vbe-oracle-verified",

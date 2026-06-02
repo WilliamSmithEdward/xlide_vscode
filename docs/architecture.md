@@ -797,10 +797,11 @@ Diagnostic severity policy:
   shape is backed by focused VBE oracle evidence. Recognized fixed-length string
   suffixes such as `As String * 10` are parser-owned metadata
   (`asType: String`, `fixedLength: 10`) used by symbols, hover, UDT member hover,
-  and object-module public-member diagnostics; the declaration trailing-token
-  rule consumes that suffix before looking for extra tokens, while length
-  boundary and assignment/truncation behavior remains on the verification
-  roadmap. A separate
+  and object-module public-member diagnostics. The declaration trailing-token
+  rule consumes that suffix before looking for extra tokens, and
+  `fixed-length-string-size` uses the same parsed suffix to flag literal sizes
+  outside the VBE-verified `1..65526` range. Nonliteral length expressions and
+  assignment/truncation behavior remain on the verification roadmap. A separate
   `object-module-public-member` rule is module-kind-sensitive: in class,
   document, and UserForm modules it rejects explicit Public constants, arrays,
   fixed-length strings, user-defined Types, and Declare statements. Each branch

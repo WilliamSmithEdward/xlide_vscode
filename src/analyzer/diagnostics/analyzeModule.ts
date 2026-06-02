@@ -46,6 +46,7 @@ import type {
 	Span,
 	StatementNode,
 	TypeFieldNode,
+	VariableDeclNode,
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
@@ -247,6 +248,7 @@ function runRules(
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
 	checkDimInitializer(source, mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
+	checkFixedLengthStringBounds(source, mod, activity, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
@@ -3483,8 +3485,9 @@ function checkDimInitializer(
  *
  * This rule is intentionally narrow. It validates the token shape around the
  * `As` clause only; broad unknown type-name resolution belongs to the
- * project-wide binder, and fixed-length string forms are left alone until their
- * full grammar is verified.
+ * project-wide binder. Recognized fixed-length String suffixes are consumed by
+ * the shared suffix parser before trailing-token detection; their literal size
+ * bounds are checked by `checkFixedLengthStringBounds`.
  */
 function checkUnexpectedDeclarationTokens(
 	source: string,
@@ -3528,6 +3531,85 @@ function checkUnexpectedDeclarationTokens(
 			forEachVariableGroup(member.body, inspectGroup, activity);
 		}
 	}
+}
+
+const FIXED_LENGTH_STRING_MIN = 1;
+const FIXED_LENGTH_STRING_MAX = 65526;
+
+/**
+ * Rule: literal fixed-length String sizes must be in VBE's accepted range.
+ * Identifier/bracketed lengths are intentionally deferred until constant
+ * expression semantics are verified.
+ */
+function checkFixedLengthStringBounds(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const inspectDeclaration = (decl: VariableDeclNode | TypeFieldNode): void => {
+		if (decl.fixedLength === undefined || isInactiveNode(activity, decl)) {
+			return;
+		}
+		const value = parseFixedLengthStringLiteralSize(decl.fixedLength);
+		if (value === undefined) {
+			return;
+		}
+		if (value >= FIXED_LENGTH_STRING_MIN && value <= FIXED_LENGTH_STRING_MAX) {
+			return;
+		}
+		push(
+			'fixedLengthStringSize',
+			`Fixed-length String size must be between ${FIXED_LENGTH_STRING_MIN} and ${FIXED_LENGTH_STRING_MAX} characters; got ${value}.`,
+			fixedLengthStringLengthSpan(source, decl.span) ?? decl.span,
+		);
+	};
+
+	const inspectGroup = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			inspectDeclaration(decl);
+		}
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspectGroup(member);
+			continue;
+		}
+		if (member.kind === 'Type') {
+			for (const field of member.fields) {
+				inspectDeclaration(field);
+			}
+			continue;
+		}
+		if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, inspectGroup, activity);
+		}
+	}
+}
+
+function parseFixedLengthStringLiteralSize(raw: string): number | undefined {
+	const text = raw.trim();
+	if (!/^\d+$/.test(text)) {
+		return undefined;
+	}
+	const value = Number(text);
+	return Number.isSafeInteger(value) ? value : undefined;
+}
+
+function fixedLengthStringLengthSpan(source: string, span: Span): Span | undefined {
+	const toks = statementTokens(source, span);
+	const asIndex = toks.findIndex((t) => tokenText(t) === 'as');
+	if (asIndex < 0) {
+		return undefined;
+	}
+	let typeStart = asIndex + 1;
+	if (tokenText(toks[typeStart]) === 'new') {
+		typeStart++;
+	}
+	const fixed = parseFixedLengthStringType(toks, typeStart);
+	const token = fixed ? toks[fixed.lengthIndex] : undefined;
+	return token ? absoluteSpan(span, token) : undefined;
 }
 
 function inspectTypeField(
