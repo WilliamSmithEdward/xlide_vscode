@@ -94,6 +94,12 @@
         "category": "XLIDE"
       },
       {
+        "command": "xlide.exportSupportBundle",
+        "title": "Export Support Bundle",
+        "category": "XLIDE",
+        "icon": "$(archive)"
+      },
+      {
         "command": "xlide.refreshExplorer",
         "title": "Refresh",
         "category": "XLIDE",

@@ -1132,20 +1132,20 @@ Definition of done:
 Purpose: make user support and self-debugging possible without guessing or
 asking for sensitive workbook contents.
 
-- [ ] Add "Export XLIDE Support Bundle" command.
-- [ ] Include non-sensitive diagnostic data:
+- [x] Add "Export XLIDE Support Bundle" command.
+- [x] Include an initial redacted, non-sensitive diagnostic bundle:
   - extension version
   - VS Code version
   - platform
   - enabled XLIDE settings
-  - setup health states
-  - recent XLIDE command log
-  - lint/test summary counts
-  - COM availability and failure categories
-  - workbook metadata summary without source code by default
+  - setup health states that can be determined without side effects
+  - recent XLIDE command ids/outcomes without arguments
+  - active-module lint summary counts when a local module is open
+  - COM platform status/failure categories without probing Excel
+  - active-workbook metadata summary without source code by default
 - [ ] Add opt-in inclusion of anonymized lint/test reports.
 - [ ] Add opt-in inclusion of selected logs.
-- [ ] Redact workbook paths or allow path redaction.
+- [x] Redact workbook paths and path-like settings by default.
 - [ ] Add a local "Copy Diagnostics" quick action for setup failures.
 - [ ] Document what the support bundle contains before export.
 

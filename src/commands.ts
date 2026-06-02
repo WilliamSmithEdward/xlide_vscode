@@ -50,13 +50,25 @@ import type {
     DiagnosticSeverity as RuleSeverity,
     SeverityOverrides,
 } from './analyzer';
+import {
+    buildSupportBundle,
+    defaultSupportBundleFileName,
+    type SupportBundleLintSummary,
+    type SupportBundleSetting,
+    type SupportBundleWorkbookSummary,
+} from './supportBundle';
+import {
+    errorCategoryForSupportLog,
+    recentXlideCommands,
+    recordXlideCommand,
+} from './xlideCommandLog';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
 }
 
 export function registerCommands(
-    _context: vscode.ExtensionContext,
+    context: vscode.ExtensionContext,
     bridge: PythonBridge,
     explorer: XlsmExplorer,
     _fsProvider: XlideFileSystemProvider,
@@ -65,6 +77,39 @@ export function registerCommands(
 ): vscode.Disposable[] {
     function log(msg: string): void {
         out.appendLine(msg);
+    }
+
+    function registerXlideCommand<T extends unknown[]>(
+        command: string,
+        callback: (...args: T) => unknown,
+    ): vscode.Disposable {
+        return vscode.commands.registerCommand(command, async (...args: T) => {
+            const start = Date.now();
+            recordXlideCommand({
+                timestamp: new Date(start).toISOString(),
+                command,
+                outcome: 'started',
+            });
+            try {
+                const result = await callback(...args);
+                recordXlideCommand({
+                    timestamp: new Date().toISOString(),
+                    command,
+                    outcome: 'succeeded',
+                    durationMs: Date.now() - start,
+                });
+                return result;
+            } catch (err) {
+                recordXlideCommand({
+                    timestamp: new Date().toISOString(),
+                    command,
+                    outcome: 'failed',
+                    durationMs: Date.now() - start,
+                    errorCategory: errorCategoryForSupportLog(err),
+                });
+                throw err;
+            }
+        });
     }
 
     // Builds a clickable Output-channel link to a module location. The link uses
@@ -490,6 +535,173 @@ export function registerCommands(
         }
     }
 
+    async function activeModuleSupportData(): Promise<{
+        workbook: SupportBundleWorkbookSummary;
+        lint: SupportBundleLintSummary;
+    }> {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
+            return {
+                workbook: { available: false },
+                lint: { available: false },
+            };
+        }
+
+        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        const modules = applyOpenDocumentSources(
+            await vbaIndex.getAllModules(xlsmPath),
+            xlsmPath,
+        );
+        const current = modules.find(
+            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
+        );
+        const moduleType = current?.type ?? 'standard';
+        const moduleTypes = countBy(modules.map((mod) => mod.type || 'unknown'));
+        const workbook: SupportBundleWorkbookSummary = {
+            available: true,
+            workbookPath: xlsmPath,
+            extension: path.extname(xlsmPath).toLowerCase(),
+            moduleCount: modules.length,
+            moduleTypes,
+            activeModuleType: moduleType,
+        };
+
+        const source = editor.document.getText();
+        const moduleKind = moduleKindFromType(current?.type);
+        const project = buildLiveVbaProjectIndex(modules, {
+            moduleName,
+            moduleKind,
+            source,
+        });
+        const projectOptions = projectAnalysisOptionsForModule(
+            project,
+            moduleName,
+            projectProcedureSignatures(project),
+        );
+        const result = lintVbaModuleSource({
+            source,
+            moduleName,
+            moduleKind,
+            documentType: current?.documentType,
+            severities: diagnosticSeverityOverridesFromConfig(),
+            ...projectOptions,
+        });
+        const problems = workbookProblemsForModule(
+            moduleName,
+            moduleType,
+            source,
+            result.diagnostics,
+        );
+        return {
+            workbook,
+            lint: {
+                available: true,
+                moduleType,
+                errorCount: problems.filter((problem) => problem.severity === 'error').length,
+                warningCount: problems.filter((problem) => problem.severity === 'warning').length,
+                suppressedCount: result.suppressedCount,
+                byCode: countBy(problems.map((problem) => problem.code || 'unclassified')),
+            },
+        };
+    }
+
+    function countBy(values: readonly string[]): Record<string, number> {
+        const out: Record<string, number> = {};
+        for (const value of values) {
+            out[value] = (out[value] ?? 0) + 1;
+        }
+        return out;
+    }
+
+    function xlideSettingsForSupportBundle(): SupportBundleSetting[] {
+        const packageJson = context.extension.packageJSON as {
+            contributes?: { configuration?: { properties?: Record<string, unknown> } };
+        };
+        const keys = Object.keys(packageJson.contributes?.configuration?.properties ?? {})
+            .filter((key) => key.startsWith('xlide.'))
+            .sort();
+        const config = vscode.workspace.getConfiguration();
+        return keys.map((key) => ({
+            key,
+            value: config.get(key),
+            source: configurationSource(config.inspect(key)),
+        }));
+    }
+
+    function configurationSource(
+        inspect: {
+            globalValue?: unknown;
+            workspaceValue?: unknown;
+            workspaceFolderValue?: unknown;
+        } | undefined,
+    ): SupportBundleSetting['source'] {
+        if (!inspect) {
+            return 'unknown';
+        }
+        if (inspect.workspaceFolderValue !== undefined) {
+            return 'workspaceFolder';
+        }
+        if (inspect.workspaceValue !== undefined) {
+            return 'workspace';
+        }
+        if (inspect.globalValue !== undefined) {
+            return 'global';
+        }
+        return 'default';
+    }
+
+    async function exportSupportBundle(): Promise<void> {
+        const now = new Date();
+        const defaultFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const target = await vscode.window.showSaveDialog({
+            title: 'Export XLIDE Support Bundle (redacted JSON; no workbook source)',
+            defaultUri: defaultFolder
+                ? vscode.Uri.joinPath(defaultFolder, defaultSupportBundleFileName(now))
+                : undefined,
+            filters: { JSON: ['json'] },
+        });
+        if (!target) {
+            return;
+        }
+
+        const packageJson = context.extension.packageJSON as {
+            name?: string;
+            publisher?: string;
+            version?: string;
+            displayName?: string;
+        };
+        const active = await activeModuleSupportData();
+        const bundle = buildSupportBundle({
+            generatedAt: now.toISOString(),
+            extension: {
+                id: packageJson.publisher && packageJson.name
+                    ? `${packageJson.publisher}.${packageJson.name}`
+                    : packageJson.name,
+                name: packageJson.displayName ?? packageJson.name,
+                version: packageJson.version,
+            },
+            vscode: {
+                version: vscode.version,
+                appName: vscode.env.appName,
+            },
+            runtime: {
+                platform: process.platform,
+                arch: process.arch,
+                node: process.version,
+            },
+            workspace: {
+                folderCount: vscode.workspace.workspaceFolders?.length ?? 0,
+            },
+            settings: xlideSettingsForSupportBundle(),
+            workbook: active.workbook,
+            lint: active.lint,
+            commands: recentXlideCommands(),
+        });
+
+        await fs.promises.writeFile(target.fsPath, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
+        vscode.window.showInformationMessage(`XLIDE: Support bundle exported to ${target.fsPath}`);
+    }
+
     async function showClassModuleReferences(node: XlideNode): Promise<void> {
         if (!node.moduleName || !node.filePath || node.isRemote) { return; }
         const originUri = encodeModuleUri(node.filePath, node.moduleName);
@@ -502,12 +714,12 @@ export function registerCommands(
     }
 
     return [
-        vscode.commands.registerCommand('xlide.refreshExplorer', () => {
+        registerXlideCommand('xlide.refreshExplorer', () => {
             explorer.refresh();
         }),
 
         // Open a module (or navigate to a sub's line inside one)
-        vscode.commands.registerCommand('xlide.openModule', async (node: XlideNode) => {
+        registerXlideCommand('xlide.openModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
             const uri = node.isRemote && node.remoteId
                 ? encodeRemoteModuleUri(node.remoteId, node.moduleName)
@@ -532,7 +744,7 @@ export function registerCommands(
         }),
 
         // Find all references to the procedure or class represented by a tree node
-        vscode.commands.registerCommand('xlide.findReferences', async (node: XlideNode) => {
+        registerXlideCommand('xlide.findReferences', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
             if (node.kind === 'module' && node.moduleType === 'class') {
                 await showClassModuleReferences(node);
@@ -570,7 +782,7 @@ export function registerCommands(
             await vscode.commands.executeCommand('references-view.findReferences', uri, pos);
         }),
 
-        vscode.commands.registerCommand('xlide.newModule', async (node: XlideNode) => {
+        registerXlideCommand('xlide.newModule', async (node: XlideNode) => {
             if (node?.kind !== 'xlsm') { return; }
             const name = await vscode.window.showInputBox({
                 prompt: 'New module name',
@@ -599,7 +811,7 @@ export function registerCommands(
         }),
 
         // Add a new class module
-        vscode.commands.registerCommand('xlide.newClassModule', async (node: XlideNode) => {
+        registerXlideCommand('xlide.newClassModule', async (node: XlideNode) => {
             if (node?.kind !== 'xlsm') { return; }
             const name = await vscode.window.showInputBox({
                 prompt: 'New class module name',
@@ -628,7 +840,7 @@ export function registerCommands(
         }),
 
         // Rename a module
-        vscode.commands.registerCommand('xlide.renameModule', async (node: XlideNode) => {
+        registerXlideCommand('xlide.renameModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
             const validateInput = (v: string): string | undefined => {
                 if (node.moduleType === 'class') {
@@ -709,7 +921,7 @@ export function registerCommands(
         }),
 
         // Delete a module (with confirmation)
-        vscode.commands.registerCommand('xlide.deleteModule', async (node: XlideNode) => {
+        registerXlideCommand('xlide.deleteModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
 
             // Prevent deletion of document-type modules
@@ -754,7 +966,7 @@ export function registerCommands(
         }),
 
         // Export all modules to a user-selected folder and persist folder in workbook config JSON
-        vscode.commands.registerCommand('xlide.exportModulesToFolder', async (node: XlideNode) => {
+        registerXlideCommand('xlide.exportModulesToFolder', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
 
@@ -791,7 +1003,7 @@ export function registerCommands(
         }),
 
         // Save and export just the active VBA module to the configured module folder
-        vscode.commands.registerCommand('xlide.exportCurrentModuleToFolder', async () => {
+        registerXlideCommand('xlide.exportCurrentModuleToFolder', async () => {
             try {
                 await exportActiveModule();
             } catch (err) {
@@ -802,7 +1014,7 @@ export function registerCommands(
         }),
 
         // Import selected module files from the configured (or user-chosen) export folder
-        vscode.commands.registerCommand('xlide.importModulesFromFolder', async (node: XlideNode) => {
+        registerXlideCommand('xlide.importModulesFromFolder', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
 
@@ -1028,7 +1240,7 @@ export function registerCommands(
         }),
 
         // Change the configured export folder for this workbook
-        vscode.commands.registerCommand('xlide.changeRepoFolder', async (node: XlideNode) => {
+        registerXlideCommand('xlide.changeRepoFolder', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
 
@@ -1062,7 +1274,7 @@ export function registerCommands(
         }),
 
         // Configure export behavior for this workbook
-        vscode.commands.registerCommand('xlide.configureExportMode', async (node: XlideNode) => {
+        registerXlideCommand('xlide.configureExportMode', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
 
@@ -1105,8 +1317,19 @@ export function registerCommands(
             }
         }),
 
+        // Export a redacted local diagnostic snapshot for support/self-debugging.
+        registerXlideCommand('xlide.exportSupportBundle', async () => {
+            try {
+                await exportSupportBundle();
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[supportBundle] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to export support bundle: ${message}`);
+            }
+        }),
+
         // DEV: smoke test — verifies listModules + readModule against a workspace workbook
-        vscode.commands.registerCommand('xlide.dev.smoke', async () => {
+        registerXlideCommand('xlide.dev.smoke', async () => {
             log('[smoke] Starting smoke test...');
 
             const uris = (await vscode.workspace.findFiles('**/*.{xlsm,xlsb,xlam}',
@@ -1168,7 +1391,7 @@ export function registerCommands(
         }),
 
         // Validate the workbook's VBA project structure
-        vscode.commands.registerCommand('xlide.validateWorkbook', async (node: XlideNode) => {
+        registerXlideCommand('xlide.validateWorkbook', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) {
                 vscode.window.showWarningMessage('XLIDE: No workbook selected to validate.');
@@ -1203,7 +1426,7 @@ export function registerCommands(
         }),
 
         // Lint the active VBA module using the same source text the editor shows.
-        vscode.commands.registerCommand('xlide.lintCurrentModule', async () => {
+        registerXlideCommand('xlide.lintCurrentModule', async () => {
             try {
                 await lintActiveModule();
             } catch (err) {
@@ -1214,7 +1437,7 @@ export function registerCommands(
         }),
 
         // Lint every VBA module in the workbook and print a clickable report
-        vscode.commands.registerCommand('xlide.lintWorkbook', async (node: XlideNode) => {
+        registerXlideCommand('xlide.lintWorkbook', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) {
                 vscode.window.showWarningMessage('XLIDE: No workbook selected to lint.');
@@ -1253,7 +1476,7 @@ export function registerCommands(
         }),
 
         // Create a new, empty macro-enabled workbook
-        vscode.commands.registerCommand('xlide.newWorkbook', async () => {
+        registerXlideCommand('xlide.newWorkbook', async () => {
             const defaultDir = vscode.workspace.workspaceFolders?.[0]?.uri;
             const target = await vscode.window.showSaveDialog({
                 title: 'XLIDE: New Macro-Enabled Workbook',
@@ -1281,7 +1504,7 @@ export function registerCommands(
         }),
 
         // Open the workbook in Excel (editable)
-        vscode.commands.registerCommand('xlide.openWorkbook', async (node: XlideNode) => {
+        registerXlideCommand('xlide.openWorkbook', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
             try {
@@ -1300,7 +1523,7 @@ export function registerCommands(
         }),
 
         // Open the workbook in Excel (read-only)
-        vscode.commands.registerCommand('xlide.openWorkbookReadOnly', async (node: XlideNode) => {
+        registerXlideCommand('xlide.openWorkbookReadOnly', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
             try {
@@ -1319,7 +1542,7 @@ export function registerCommands(
         }),
 
         // Detect the Sub/Function at the cursor and open the workbook, then guide to run it
-        vscode.commands.registerCommand('xlide.runMacroAtCursor', async () => {
+        registerXlideCommand('xlide.runMacroAtCursor', async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor || !editor.document.uri.scheme.startsWith(XLIDE_SCHEME)) {
                 vscode.window.showWarningMessage('XLIDE: Open a VBA module to run a macro.');
