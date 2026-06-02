@@ -112,6 +112,23 @@ backup.
 - Encode: replace `\` with `/`; prepend `/` for Windows drive letters; append `/<moduleName>.bas`
 - Decode: regex matches everything up to `.xlsm`/`.xlsb`/`.xlam` as the workbook path; the final segment (minus `.bas`) is the module name; on Windows strip the leading `/` before the drive letter
 
+### Workbook identity and siloing
+
+Each local workbook is a separate VBA project boundary. The `xlide-vba://` URI
+embeds the workbook path, and workbook-aware services must key cache entries,
+project indexes, diagnostics, open-document overlays, reference/rename scopes,
+and mutation commands by that workbook identity before considering module names.
+This is deliberate: two open workbooks can both contain `Module1`, `Person`, or
+`ThisWorkbook`, and those names must not share completion, hover, diagnostics,
+references, rename edits, lint context, or live source overlays. On Windows,
+path comparisons are case-insensitive; on other platforms they are exact unless
+a caller has explicitly normalized the path.
+
+Cross-workbook actions, such as copying modules from one workbook to another,
+must be exposed as explicit user-chosen workflows with source/destination
+selection, preview, conflict handling, and safety checks. They must not happen
+implicitly through project analysis or editor IntelliSense.
+
 ---
 
 ## Sidebar tree — `XlsmExplorer`

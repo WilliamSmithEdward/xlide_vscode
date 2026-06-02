@@ -416,6 +416,11 @@ Purpose: move from same-module checks to workbook-aware analysis.
   construction, live current-module overlay, visibility-filtered names,
   exported signatures, visible project types, source-backed member surfaces,
   and live-IntelliSense tolerance for temporarily invalid modules.
+- [ ] Add explicit multi-workbook isolation fixtures: two open workbooks with
+  overlapping module, class, document-module, procedure, and member names must
+  keep completion, hover, diagnostics, semantic coloring, references, rename,
+  lint, and live-source overlays scoped to the workbook encoded in the module
+  URI.
 - [ ] Add machine-readable workbook-level fixture files for larger project
   analysis scenarios.
 - [x] Keep current project-signature diagnostics stable under module order
@@ -908,6 +913,10 @@ auditable, and recoverable for real user projects.
 - [ ] Add crash/timeout recovery for COM operations.
 - [ ] Add workbook lock/open-state checks before write/run/test operations.
 - [ ] Warn when a workbook is open outside XLIDE's controllable context.
+- [ ] Add explicit workbook-to-workbook module transfer workflows for copying or
+  exporting selected modules/classes from a source workbook into a destination
+  workbook, with source/destination selection, preview, conflict handling,
+  backup/snapshot hooks, and no implicit cross-workbook project analysis.
 - [ ] Surface "what changed?" summaries after sync/write operations.
 - [ ] Document trust-center, macro security, and VBA project access
   requirements without hiding them behind vague failures.
