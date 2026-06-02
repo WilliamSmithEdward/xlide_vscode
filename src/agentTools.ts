@@ -8,6 +8,8 @@ import {
     setWorkbookExportMode,
 } from './moduleExport';
 import { lintWorkbook } from './vbaWorkbookLint';
+import { errorCategoryForSupportLog } from './xlideCommandLog';
+import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 
 // --------------------------------------------------------------------------
 // Input types matching the inputSchema in package.json
@@ -100,19 +102,44 @@ export function registerAgentTools(
         vscode.lm.registerTool<WriteModuleInput>('xlide_writeModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, source } = options.input;
-                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>('writeModule', {
-                    path: filePath,
-                    module: moduleName,
-                    source,
-                });
-                notifySignatureDropped(filePath, result.signatureDropped);
-                explorer.refresh();
-                // Notify VS Code that the file changed so open editors reload
-                const uri = encodeModuleUri(filePath, moduleName);
-                fsProvider.notifyFileChanged(uri);
-                return textResult(
-                    `Module "${moduleName}" written successfully to "${filePath}".`,
-                );
+                try {
+                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>('writeModule', {
+                        path: filePath,
+                        module: moduleName,
+                        source,
+                    });
+                    notifySignatureDropped(filePath, result.signatureDropped);
+                    explorer.refresh();
+                    // Notify VS Code that the file changed so open editors reload
+                    const uri = encodeModuleUri(filePath, moduleName);
+                    fsProvider.notifyFileChanged(uri);
+                    const summary = formatChangeSummary({
+                        operation: 'Write module',
+                        changed: [moduleName],
+                    });
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_writeModule',
+                        operation: 'write-module',
+                        outcome: 'succeeded',
+                        workbookPath: filePath,
+                        moduleName,
+                        summary,
+                    });
+                    return textResult(`${summary}\nModule "${moduleName}" written successfully.`);
+                } catch (err) {
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_writeModule',
+                        operation: 'write-module',
+                        outcome: 'failed',
+                        workbookPath: filePath,
+                        moduleName,
+                        summary: 'Write module: 0 changed, 1 failed',
+                        errorCategory: errorCategoryForSupportLog(err),
+                    });
+                    throw err;
+                }
             },
             async prepareInvocation(options, _token) {
                 const { filePath, moduleName } = options.input;
@@ -135,12 +162,39 @@ export function registerAgentTools(
         vscode.lm.registerTool<RenameModuleInput>('xlide_renameModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, newName } = options.input;
-                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                    'renameModule', { path: filePath, module: moduleName, newName },
-                );
-                notifySignatureDropped(filePath, result.signatureDropped);
-                explorer.refresh();
-                return textResult(`Module "${moduleName}" renamed to "${newName}" in "${filePath}".`);
+                try {
+                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                        'renameModule', { path: filePath, module: moduleName, newName },
+                    );
+                    notifySignatureDropped(filePath, result.signatureDropped);
+                    explorer.refresh();
+                    const summary = formatChangeSummary({
+                        operation: 'Rename module',
+                        changed: [`${moduleName} -> ${newName}`],
+                    });
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_renameModule',
+                        operation: 'rename-module',
+                        outcome: 'succeeded',
+                        workbookPath: filePath,
+                        moduleName: newName,
+                        summary,
+                    });
+                    return textResult(`${summary}\nModule "${moduleName}" renamed to "${newName}".`);
+                } catch (err) {
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_renameModule',
+                        operation: 'rename-module',
+                        outcome: 'failed',
+                        workbookPath: filePath,
+                        moduleName,
+                        summary: 'Rename module: 0 changed, 1 failed',
+                        errorCategory: errorCategoryForSupportLog(err),
+                    });
+                    throw err;
+                }
             },
             async prepareInvocation(options, _token) {
                 const { filePath, moduleName, newName } = options.input;
@@ -162,12 +216,39 @@ export function registerAgentTools(
         vscode.lm.registerTool<DeleteModuleInput>('xlide_deleteModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName } = options.input;
-                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                    'deleteModule', { path: filePath, module: moduleName },
-                );
-                notifySignatureDropped(filePath, result.signatureDropped);
-                explorer.refresh();
-                return textResult(`Module "${moduleName}" deleted from "${filePath}".`);
+                try {
+                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                        'deleteModule', { path: filePath, module: moduleName },
+                    );
+                    notifySignatureDropped(filePath, result.signatureDropped);
+                    explorer.refresh();
+                    const summary = formatChangeSummary({
+                        operation: 'Delete module',
+                        changed: [moduleName],
+                    });
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_deleteModule',
+                        operation: 'delete-module',
+                        outcome: 'succeeded',
+                        workbookPath: filePath,
+                        moduleName,
+                        summary,
+                    });
+                    return textResult(`${summary}\nModule "${moduleName}" deleted.`);
+                } catch (err) {
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_deleteModule',
+                        operation: 'delete-module',
+                        outcome: 'failed',
+                        workbookPath: filePath,
+                        moduleName,
+                        summary: 'Delete module: 0 changed, 1 failed',
+                        errorCategory: errorCategoryForSupportLog(err),
+                    });
+                    throw err;
+                }
             },
             async prepareInvocation(options, _token) {
                 const { filePath, moduleName } = options.input;
@@ -282,15 +363,38 @@ export function registerAgentTools(
         vscode.lm.registerTool<WriteCellsInput>('xlide_writeCells', {
             async invoke(options, _token) {
                 const { filePath, sheet, startCell, data } = options.input;
-                await bridge.call('writeCells', {
-                    path: filePath,
-                    sheet,
-                    startCell,
-                    data,
-                });
-                return textResult(
-                    `Cells written to sheet "${sheet}" starting at "${startCell}" in "${filePath}".`,
-                );
+                try {
+                    await bridge.call('writeCells', {
+                        path: filePath,
+                        sheet,
+                        startCell,
+                        data,
+                    });
+                    const summary = formatChangeSummary({
+                        operation: 'Write cells',
+                        changed: [`${sheet}!${startCell}`],
+                    });
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_writeCells',
+                        operation: 'write-cells',
+                        outcome: 'succeeded',
+                        workbookPath: filePath,
+                        summary,
+                    });
+                    return textResult(`${summary}\nCells written to sheet "${sheet}" starting at "${startCell}".`);
+                } catch (err) {
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_writeCells',
+                        operation: 'write-cells',
+                        outcome: 'failed',
+                        workbookPath: filePath,
+                        summary: 'Write cells: 0 changed, 1 failed',
+                        errorCategory: errorCategoryForSupportLog(err),
+                    });
+                    throw err;
+                }
             },
             async prepareInvocation(options, _token) {
                 const { filePath, sheet, startCell } = options.input;
@@ -312,14 +416,45 @@ export function registerAgentTools(
         vscode.lm.registerTool<RunOpenpyxlInput>('xlide_runOpenpyxl', {
             async invoke(options, _token) {
                 const { filePath, code, save } = options.input;
-                const result = await bridge.call<{ result: unknown; stdout: string }>(
-                    'runOpenpyxl',
-                    { path: filePath, code, save: save !== false },
-                );
-                const parts: string[] = [];
-                if (result.stdout) { parts.push(`stdout:\n${result.stdout}`); }
-                parts.push(`result: ${JSON.stringify(result.result, null, 2)}`);
-                return textResult(parts.join('\n'));
+                const shouldSave = save !== false;
+                try {
+                    const result = await bridge.call<{ result: unknown; stdout: string }>(
+                        'runOpenpyxl',
+                        { path: filePath, code, save: shouldSave },
+                    );
+                    const parts: string[] = [];
+                    if (result.stdout) { parts.push(`stdout:\n${result.stdout}`); }
+                    parts.push(`result: ${JSON.stringify(result.result, null, 2)}`);
+                    if (shouldSave) {
+                        const summary = formatChangeSummary({
+                            operation: 'Run openpyxl',
+                            changed: ['workbook'],
+                        });
+                        recordXlideWriteAudit({
+                            timestamp: new Date().toISOString(),
+                            command: 'xlide_runOpenpyxl',
+                            operation: 'run-openpyxl',
+                            outcome: 'succeeded',
+                            workbookPath: filePath,
+                            summary,
+                        });
+                        parts.unshift(summary);
+                    }
+                    return textResult(parts.join('\n'));
+                } catch (err) {
+                    if (shouldSave) {
+                        recordXlideWriteAudit({
+                            timestamp: new Date().toISOString(),
+                            command: 'xlide_runOpenpyxl',
+                            operation: 'run-openpyxl',
+                            outcome: 'failed',
+                            workbookPath: filePath,
+                            summary: 'Run openpyxl: 0 changed, 1 failed',
+                            errorCategory: errorCategoryForSupportLog(err),
+                        });
+                    }
+                    throw err;
+                }
             },
             async prepareInvocation(options, _token) {
                 const { filePath, save } = options.input;
@@ -343,8 +478,37 @@ export function registerAgentTools(
         vscode.lm.registerTool<ExportModulesInput>('xlide_exportModules', {
             async invoke(options, _token) {
                 const { filePath, exportFolder, exportMode } = options.input;
-                const result = await exportWorkbookModules(bridge, { filePath, exportFolder, exportMode });
-                return textResult(JSON.stringify(result, null, 2));
+                try {
+                    const result = await exportWorkbookModules(bridge, { filePath, exportFolder, exportMode });
+                    const summary = formatChangeSummary({
+                        operation: 'Export modules',
+                        changed: result.writtenFiles,
+                        skipped: result.skippedNewFiles,
+                        removed: result.removedFiles,
+                    });
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_exportModules',
+                        operation: 'export-modules',
+                        outcome: 'succeeded',
+                        workbookPath: filePath,
+                        targetPath: result.exportFolder,
+                        summary,
+                    });
+                    return textResult(JSON.stringify({ ...result, changeSummary: summary }, null, 2));
+                } catch (err) {
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_exportModules',
+                        operation: 'export-modules',
+                        outcome: 'failed',
+                        workbookPath: filePath,
+                        targetPath: exportFolder,
+                        summary: 'Export modules: 0 changed, 1 failed',
+                        errorCategory: errorCategoryForSupportLog(err),
+                    });
+                    throw err;
+                }
             },
             async prepareInvocation(options, _token) {
                 const { filePath, exportFolder, exportMode } = options.input;

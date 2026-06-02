@@ -947,7 +947,8 @@ auditable, and recoverable for real user projects.
 - [ ] Require explicit user action for operations that mutate workbook contents
   or execute VBA.
 - [ ] Add backup/snapshot strategy before workbook mutation where practical.
-- [ ] Add an audit trail for XLIDE writes:
+- [x] Add an in-session audit trail for XLIDE writes, surfaced through support
+  diagnostics:
   - module changed
   - command/tool that changed it
   - timestamp
@@ -960,7 +961,9 @@ auditable, and recoverable for real user projects.
   exporting selected modules/classes from a source workbook into a destination
   workbook, with source/destination selection, preview, conflict handling,
   backup/snapshot hooks, and no implicit cross-workbook project analysis.
-- [ ] Surface "what changed?" summaries after sync/write operations.
+- [x] Surface "what changed?" summaries after sync/write operations. Export,
+  import, editor save, module create/rename/delete, and agent-tool workbook
+  mutation paths now record shared changed/skipped/removed/failed summaries.
 - [ ] Document trust-center, macro security, and VBA project access
   requirements without hiding them behind vague failures.
 

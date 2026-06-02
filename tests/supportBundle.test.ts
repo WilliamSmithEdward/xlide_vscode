@@ -87,6 +87,7 @@ describe('support bundle', () => {
 			workbookSourceIncluded: false,
 			pathsRedacted: true,
 			commandArgumentsIncluded: false,
+			writeAuditIncluded: true,
 			anonymizedLintReportIncluded: false,
 			selectedLogsIncluded: false,
 			logPathsRedacted: true,
@@ -153,6 +154,28 @@ describe('support bundle', () => {
 		expect(text).toContain('errorCategory=python-backend');
 		expect(text).toContain('xlide.pythonPath (workspace): <redacted>.exe');
 		expect(text).toContain('Workbook source included: false');
+		expect(text).not.toContain('C:\\Users\\William');
+	});
+
+	it('includes recent write audit entries with paths redacted', () => {
+		const bundle = buildSupportBundle(baseInput({
+			writeAudits: [
+				{
+					timestamp: '2026-06-01T12:00:00.000Z',
+					command: 'xlide.exportModulesToFolder',
+					operation: 'export-modules',
+					outcome: 'succeeded',
+					workbookPath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
+					targetPath: 'C:\\Users\\William\\Documents\\repo',
+					summary: 'Export modules: 2 changed',
+				},
+			],
+		}));
+		const text = supportDiagnosticsText(bundle);
+
+		expect(bundle.recentWriteAudits[0].workbookPath).toBe('<redacted>.xlsm');
+		expect(bundle.recentWriteAudits[0].targetPath).toBe('<redacted>');
+		expect(text).toContain('xlide.exportModulesToFolder | export-modules | succeeded');
 		expect(text).not.toContain('C:\\Users\\William');
 	});
 

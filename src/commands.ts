@@ -68,6 +68,14 @@ import {
 } from './xlideCommandLog';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { recentXlideOutputLog } from './xlideOutputLog';
+import {
+    formatChangeSummary,
+    formatChangeSummaryDetails,
+    recentXlideWriteAudits,
+    recordXlideWriteAudit,
+    type XlideChangeSummary,
+    type XlideWriteAuditOutcome,
+} from './xlideWriteAudit';
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -83,6 +91,39 @@ export function registerCommands(
 ): vscode.Disposable[] {
     function log(msg: string): void {
         out.appendLine(msg);
+    }
+
+    function logChangeSummary(prefix: string, summary: XlideChangeSummary): string {
+        const lines = formatChangeSummaryDetails(summary);
+        for (const line of lines) {
+            log(`[${prefix}] ${line}`);
+        }
+        return lines[0];
+    }
+
+    function recordWriteAudit(input: {
+        command: string;
+        operation: string;
+        outcome: XlideWriteAuditOutcome;
+        workbookPath?: string;
+        moduleName?: string;
+        sourcePath?: string;
+        targetPath?: string;
+        summary: string;
+        error?: unknown;
+    }): void {
+        recordXlideWriteAudit({
+            timestamp: new Date().toISOString(),
+            command: input.command,
+            operation: input.operation,
+            outcome: input.outcome,
+            workbookPath: input.workbookPath,
+            moduleName: input.moduleName,
+            sourcePath: input.sourcePath,
+            targetPath: input.targetPath,
+            summary: input.summary,
+            errorCategory: input.error ? errorCategoryForSupportLog(input.error) : undefined,
+        });
     }
 
     // Builds a clickable Output-channel link to a module location. The link uses
@@ -430,6 +471,21 @@ export function registerCommands(
             exportFolder: target.exportFolder,
             exportMode: target.exportMode,
         });
+        const changeSummary: XlideChangeSummary = {
+            operation: 'Export current module',
+            changed: result.writtenFiles,
+            skipped: result.skippedNewFiles,
+        };
+        const summaryText = logChangeSummary('exportCurrentModule', changeSummary);
+        recordWriteAudit({
+            command: 'xlide.exportCurrentModuleToFolder',
+            operation: 'export-current-module',
+            outcome: result.skippedNew ? 'skipped' : 'succeeded',
+            workbookPath: xlsmPath,
+            moduleName,
+            targetPath: target.exportFolder,
+            summary: summaryText,
+        });
 
         if (result.skippedNew) {
             log(`[exportCurrentModule] Skipped ${result.relativeName} because mode=replaceExistingOnly and the file does not exist`);
@@ -439,10 +495,9 @@ export function registerCommands(
             return;
         }
 
-        log(`[exportCurrentModule] Wrote ${result.relativeName}`);
         log(`[exportCurrentModule] Config updated: ${result.configPath}`);
         vscode.window.showInformationMessage(
-            `XLIDE: Exported "${result.moduleName}" to ${result.relativeName} [mode=${result.exportMode}]`,
+            `XLIDE: ${summaryText} [mode=${result.exportMode}]`,
         );
     }
 
@@ -692,6 +747,7 @@ export function registerCommands(
             workbook: active.workbook,
             lint: active.lint,
             commands: recentXlideCommands(),
+            writeAudits: recentXlideWriteAudits(),
             anonymizedWorkbookLintReport,
             selectedLogs: options.includeSelectedLogs ? recentXlideOutputLog() : undefined,
         });
@@ -882,6 +938,18 @@ export function registerCommands(
                     module: name,
                     source: stub,
                 });
+                const summaryText = logChangeSummary('newModule', {
+                    operation: 'Create module',
+                    changed: [name],
+                });
+                recordWriteAudit({
+                    command: 'xlide.newModule',
+                    operation: 'create-module',
+                    outcome: 'succeeded',
+                    workbookPath: node.filePath,
+                    moduleName: name,
+                    summary: summaryText,
+                });
                 explorer.refresh();
                 // Open the new module immediately
                 const uri = encodeModuleUri(node.filePath, name);
@@ -889,6 +957,15 @@ export function registerCommands(
                 await vscode.window.showTextDocument(doc, { preview: false });
                 await vscode.languages.setTextDocumentLanguage(doc, 'vba');
             } catch (err) {
+                recordWriteAudit({
+                    command: 'xlide.newModule',
+                    operation: 'create-module',
+                    outcome: 'failed',
+                    workbookPath: node.filePath,
+                    moduleName: name,
+                    summary: 'Create module: 0 changed, 1 failed',
+                    error: err,
+                });
                 vscode.window.showErrorMessage(`XLIDE: Failed to create module: ${err}`);
             }
         }),
@@ -912,12 +989,33 @@ export function registerCommands(
                     source: stub,
                     kind: 'class',
                 });
+                const summaryText = logChangeSummary('newClassModule', {
+                    operation: 'Create class module',
+                    changed: [name],
+                });
+                recordWriteAudit({
+                    command: 'xlide.newClassModule',
+                    operation: 'create-class-module',
+                    outcome: 'succeeded',
+                    workbookPath: node.filePath,
+                    moduleName: name,
+                    summary: summaryText,
+                });
                 explorer.refresh();
                 const uri = encodeModuleUri(node.filePath, name);
                 const doc = await vscode.workspace.openTextDocument(uri);
                 await vscode.window.showTextDocument(doc, { preview: false });
                 await vscode.languages.setTextDocumentLanguage(doc, 'vba');
             } catch (err) {
+                recordWriteAudit({
+                    command: 'xlide.newClassModule',
+                    operation: 'create-class-module',
+                    outcome: 'failed',
+                    workbookPath: node.filePath,
+                    moduleName: name,
+                    summary: 'Create class module: 0 changed, 1 failed',
+                    error: err,
+                });
                 vscode.window.showErrorMessage(`XLIDE: Failed to create class module: ${err}`);
             }
         }),
@@ -991,10 +1089,33 @@ export function registerCommands(
                     notifySignatureDropped(node.filePath, result.signatureDropped);
                     vbaIndex.invalidate(node.filePath);
                 }
+                const summaryText = logChangeSummary('renameModule', {
+                    operation: 'Rename module',
+                    changed: [`${node.moduleName} -> ${newName}`],
+                });
+                recordWriteAudit({
+                    command: 'xlide.renameModule',
+                    operation: 'rename-module',
+                    outcome: 'succeeded',
+                    workbookPath: node.filePath,
+                    moduleName: newName,
+                    summary: summaryText,
+                });
             } catch (err) {
                 const prefix = moduleRenamed
                     ? 'XLIDE: Module was renamed, but reference updates failed'
                     : 'XLIDE: Rename failed';
+                recordWriteAudit({
+                    command: 'xlide.renameModule',
+                    operation: 'rename-module',
+                    outcome: 'failed',
+                    workbookPath: node.filePath,
+                    moduleName: moduleRenamed ? newName : node.moduleName,
+                    summary: moduleRenamed
+                        ? 'Rename module: 1 changed, 1 failed'
+                        : 'Rename module: 0 changed, 1 failed',
+                    error: err,
+                });
                 vscode.window.showErrorMessage(`${prefix}: ${err}`);
             } finally {
                 if (moduleRenamed) {
@@ -1031,6 +1152,18 @@ export function registerCommands(
                     },
                 );
                 notifySignatureDropped(node.filePath, result.signatureDropped);
+                const summaryText = logChangeSummary('deleteModule', {
+                    operation: 'Delete module',
+                    changed: [node.moduleName],
+                });
+                recordWriteAudit({
+                    command: 'xlide.deleteModule',
+                    operation: 'delete-module',
+                    outcome: 'succeeded',
+                    workbookPath: node.filePath,
+                    moduleName: node.moduleName,
+                    summary: summaryText,
+                });
                 // Close any open editors for this module
                 const uri = encodeModuleUri(node.filePath, node.moduleName);
                 for (const tab of vscode.window.tabGroups.all.flatMap((g) => g.tabs)) {
@@ -1044,6 +1177,15 @@ export function registerCommands(
                 }
                 explorer.refresh();
             } catch (err) {
+                recordWriteAudit({
+                    command: 'xlide.deleteModule',
+                    operation: 'delete-module',
+                    outcome: 'failed',
+                    workbookPath: node.filePath,
+                    moduleName: node.moduleName,
+                    summary: 'Delete module: 0 changed, 1 failed',
+                    error: err,
+                });
                 vscode.window.showErrorMessage(`XLIDE: Delete failed: ${err}`);
             }
         }),
@@ -1067,20 +1209,36 @@ export function registerCommands(
                     exportMode: target.exportMode,
                 });
 
-                log(`[exportModules] Wrote ${result.writtenCount} module(s)`);
-                if (result.skippedNewCount > 0) {
-                    log(`[exportModules] Skipped ${result.skippedNewCount} new module(s) because mode=replaceExistingOnly`);
-                }
-                if (result.removedCount > 0) {
-                    log(`[exportModules] Removed ${result.removedCount} stale module file(s)`);
-                }
+                const changeSummary: XlideChangeSummary = {
+                    operation: 'Export modules',
+                    changed: result.writtenFiles,
+                    skipped: result.skippedNewFiles,
+                    removed: result.removedFiles,
+                };
+                const summaryText = logChangeSummary('exportModules', changeSummary);
+                recordWriteAudit({
+                    command: 'xlide.exportModulesToFolder',
+                    operation: 'export-modules',
+                    outcome: 'succeeded',
+                    workbookPath: filePath,
+                    targetPath: result.exportFolder,
+                    summary: summaryText,
+                });
                 log(`[exportModules] Config updated: ${result.configPath}`);
                 vscode.window.showInformationMessage(
-                    `XLIDE: Exported ${result.writtenCount} module(s) to ${result.exportFolder} [mode=${result.exportMode}]`,
+                    `XLIDE: ${summaryText} [mode=${result.exportMode}]`,
                 );
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[exportModules] Error: ${message}`);
+                recordWriteAudit({
+                    command: 'xlide.exportModulesToFolder',
+                    operation: 'export-modules',
+                    outcome: 'failed',
+                    workbookPath: filePath,
+                    summary: 'Export modules: 0 changed, 1 failed',
+                    error: err,
+                });
                 vscode.window.showErrorMessage(`XLIDE: Failed to export modules: ${message}`);
             }
         }),
@@ -1092,6 +1250,14 @@ export function registerCommands(
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[exportCurrentModule] Error: ${message}`);
+                recordWriteAudit({
+                    command: 'xlide.exportCurrentModuleToFolder',
+                    operation: 'export-current-module',
+                    outcome: 'failed',
+                    workbookPath: await activeLocalWorkbookPath(),
+                    summary: 'Export current module: 0 changed, 1 failed',
+                    error: err,
+                });
                 vscode.window.showErrorMessage(`XLIDE: Failed to export current module: ${message}`);
             }
         }),
@@ -1275,13 +1441,15 @@ export function registerCommands(
                 );
                 if (!picks || picks.length === 0) { return; }
 
-                let importedCount = 0;
                 const errors: string[] = [];
+                const importedModules: string[] = [];
+                const failedModules: string[] = [];
                 for (const pick of picks) {
                     if ((pick as ImportItem).isDocumentMissing) { continue; }
+                    const importSourcePath = path.join(importFolder, (pick as ImportItem).file);
                     try {
                         const source = await fs.promises.readFile(
-                            path.join(importFolder, (pick as ImportItem).file),
+                            importSourcePath,
                             'utf8',
                         );
                         log(`[importModules] Importing ${pick.label} from ${(pick as ImportItem).file}`);
@@ -1291,19 +1459,45 @@ export function registerCommands(
                             source,
                             kind: (pick as ImportItem).moduleKind,
                         });
-                        importedCount++;
+                        importedModules.push(pick.label);
+                        recordWriteAudit({
+                            command: 'xlide.importModulesFromFolder',
+                            operation: 'import-module',
+                            outcome: 'succeeded',
+                            workbookPath: filePath,
+                            moduleName: pick.label,
+                            sourcePath: importSourcePath,
+                            summary: 'Import module: 1 changed',
+                        });
                     } catch (err) {
                         const message = err instanceof Error ? err.message : String(err);
                         errors.push(`${pick.label}: ${message}`);
+                        failedModules.push(pick.label);
+                        recordWriteAudit({
+                            command: 'xlide.importModulesFromFolder',
+                            operation: 'import-module',
+                            outcome: 'failed',
+                            workbookPath: filePath,
+                            moduleName: pick.label,
+                            sourcePath: importSourcePath,
+                            summary: 'Import module: 0 changed, 1 failed',
+                            error: err,
+                        });
                         log(`[importModules] Error importing ${pick.label}: ${message}`);
                     }
                 }
 
                 explorer.refresh();
+                const changeSummary: XlideChangeSummary = {
+                    operation: 'Import modules',
+                    changed: importedModules,
+                    failed: failedModules,
+                };
+                const summaryText = logChangeSummary('importModules', changeSummary);
 
                 if (errors.length > 0) {
                     void vscode.window.showWarningMessage(
-                        `XLIDE: Imported ${importedCount} module(s), ${errors.length} failed. Copy redacted diagnostics if you need to troubleshoot.`,
+                        `XLIDE: ${summaryText}. Copy redacted diagnostics if you need to troubleshoot.`,
                         'Copy Diagnostics',
                     ).then(choice => {
                         if (choice === 'Copy Diagnostics') {
@@ -1312,7 +1506,7 @@ export function registerCommands(
                     });
                 } else {
                     vscode.window.showInformationMessage(
-                        `XLIDE: Imported ${importedCount} module(s) into ${path.basename(filePath)}`,
+                        `XLIDE: ${summaryText} into ${path.basename(filePath)}`,
                     );
                 }
             } catch (err) {

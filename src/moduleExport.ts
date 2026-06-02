@@ -28,6 +28,9 @@ interface ExportModulesResult {
     writtenCount: number;
     skippedNewCount: number;
     removedCount: number;
+    writtenFiles: string[];
+    skippedNewFiles: string[];
+    removedFiles: string[];
     totalModules: number;
     configPath: string;
 }
@@ -48,6 +51,8 @@ interface ExportModuleResult {
     relativeName: string;
     written: boolean;
     skippedNew: boolean;
+    writtenFiles: string[];
+    skippedNewFiles: string[];
     configPath: string;
 }
 
@@ -187,6 +192,8 @@ async function exportWorkbookModule(
         relativeName: exported.relativeName,
         written: exported.written,
         skippedNew: exported.skippedNew,
+        writtenFiles: exported.written ? [exported.relativeName] : [],
+        skippedNewFiles: exported.skippedNew ? [exported.relativeName] : [],
         configPath: configPathForWorkbook(params.filePath),
     };
 }
@@ -206,8 +213,9 @@ async function exportWorkbookModules(
 
     const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
     const managedNow = new Set<string>();
-    let writtenCount = 0;
-    let skippedNewCount = 0;
+    const writtenFiles: string[] = [];
+    const skippedNewFiles: string[] = [];
+    const removedFiles: string[] = [];
 
     for (const mod of modules) {
         const exported = await exportModuleFile(
@@ -218,15 +226,14 @@ async function exportWorkbookModules(
             exportMode,
         );
         if (exported.skippedNew) {
-            skippedNewCount++;
+            skippedNewFiles.push(exported.relativeName);
             continue;
         }
 
         managedNow.add(exported.relativeName);
-        writtenCount++;
+        writtenFiles.push(exported.relativeName);
     }
 
-    let removedCount = 0;
     if (exportMode === 'trueUp') {
         const previouslyManaged = getManagedFiles(existingConfig);
         for (const relPath of previouslyManaged) {
@@ -243,7 +250,7 @@ async function exportWorkbookModules(
             }
 
             await fs.promises.unlink(stalePath);
-            removedCount++;
+            removedFiles.push(relPath);
         }
     }
 
@@ -257,9 +264,12 @@ async function exportWorkbookModules(
         filePath: params.filePath,
         exportFolder,
         exportMode,
-        writtenCount,
-        skippedNewCount,
-        removedCount,
+        writtenCount: writtenFiles.length,
+        skippedNewCount: skippedNewFiles.length,
+        removedCount: removedFiles.length,
+        writtenFiles,
+        skippedNewFiles,
+        removedFiles,
         totalModules: modules.length,
         configPath: configPathForWorkbook(params.filePath),
     };

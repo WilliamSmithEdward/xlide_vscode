@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import type { LiveShareIntegration } from './liveShare';
 import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
+import { errorCategoryForSupportLog } from './xlideCommandLog';
+import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 
 export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
@@ -218,6 +220,19 @@ export class XlideFileSystemProvider
             }
             const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
             await this._liveShare.guestWriteModule(workbookId, moduleName, source);
+            const summary = formatChangeSummary({
+                operation: 'Save module',
+                changed: [moduleName],
+            });
+            recordXlideWriteAudit({
+                timestamp: new Date().toISOString(),
+                command: 'xlide.editorSave',
+                operation: 'write-module',
+                outcome: 'succeeded',
+                moduleName,
+                targetPath: workbookId,
+                summary,
+            });
             this.markChanged(uri, Buffer.byteLength(source, 'utf-8'));
             this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
             return;
@@ -233,8 +248,31 @@ export class XlideFileSystemProvider
                 },
             );
             notifySignatureDropped(xlsmPath, result.signatureDropped);
+            const summary = formatChangeSummary({
+                operation: 'Save module',
+                changed: [moduleName],
+            });
+            recordXlideWriteAudit({
+                timestamp: new Date().toISOString(),
+                command: 'xlide.editorSave',
+                operation: 'write-module',
+                outcome: 'succeeded',
+                workbookPath: xlsmPath,
+                moduleName,
+                summary,
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
+            recordXlideWriteAudit({
+                timestamp: new Date().toISOString(),
+                command: 'xlide.editorSave',
+                operation: 'write-module',
+                outcome: 'failed',
+                workbookPath: xlsmPath,
+                moduleName,
+                summary: 'Save module: 0 changed, 1 failed',
+                errorCategory: errorCategoryForSupportLog(err),
+            });
             if (isWorkbookLockedError(message)) {
                 reportWorkbookLocked(xlsmPath, 'write');
                 throw vscode.FileSystemError.Unavailable(

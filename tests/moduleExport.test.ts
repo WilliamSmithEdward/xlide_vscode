@@ -77,6 +77,8 @@ describe('moduleExport', () => {
 			relativeName: 'Module1.bas',
 			written: true,
 			skippedNew: false,
+			writtenFiles: ['Module1.bas'],
+			skippedNewFiles: [],
 		});
 		expect(fs.readFileSync(path.join(exportFolder, 'Module1.bas'), 'utf8')).toBe(
 			'Attribute VB_Name = "Module1"\nSub T()\nEnd Sub\n',
@@ -107,6 +109,8 @@ describe('moduleExport', () => {
 			relativeName: 'Module1.bas',
 			written: false,
 			skippedNew: true,
+			writtenFiles: [],
+			skippedNewFiles: ['Module1.bas'],
 		});
 		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(false);
 		expect((await readWorkbookRepoConfig(workbook)).managedFiles).toEqual(['Existing.bas']);
@@ -132,6 +136,9 @@ describe('moduleExport', () => {
 			writtenCount: 2,
 			removedCount: 1,
 			skippedNewCount: 0,
+			writtenFiles: ['Module1.bas', 'Person.cls'],
+			removedFiles: ['Stale.bas'],
+			skippedNewFiles: [],
 		});
 		expect(fs.existsSync(path.join(exportFolder, 'Stale.bas'))).toBe(false);
 		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(true);

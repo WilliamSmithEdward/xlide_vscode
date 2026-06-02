@@ -4,6 +4,7 @@ import {
     redactSupportLogLine,
     type XlideOutputLogEntry,
 } from './xlideOutputLog';
+import type { XlideWriteAuditEntry } from './xlideWriteAudit';
 
 export interface SupportBundleSetting {
     key: string;
@@ -79,6 +80,7 @@ export interface SupportBundleInput {
     workbook: SupportBundleWorkbookSummary;
     lint: SupportBundleLintSummary;
     commands: XlideCommandLogEntry[];
+    writeAudits?: XlideWriteAuditEntry[];
     anonymizedWorkbookLintReport?: SupportBundleAnonymizedLintReport;
     selectedLogs?: XlideOutputLogEntry[];
 }
@@ -103,6 +105,7 @@ export interface SupportBundle {
         workbookLint: SupportBundleAnonymizedLintReport;
     };
     recentCommands: XlideCommandLogEntry[];
+    recentWriteAudits: XlideWriteAuditEntry[];
     selectedLogs: {
         included: boolean;
         entries: XlideOutputLogEntry[];
@@ -111,6 +114,7 @@ export interface SupportBundle {
         workbookSourceIncluded: false;
         pathsRedacted: true;
         commandArgumentsIncluded: false;
+        writeAuditIncluded: true;
         anonymizedLintReportIncluded: boolean;
         selectedLogsIncluded: boolean;
         logPathsRedacted: true;
@@ -153,6 +157,7 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
             },
         },
         recentCommands: input.commands.slice(-25),
+        recentWriteAudits: (input.writeAudits ?? []).slice(-25).map(sanitizeWriteAuditEntry),
         selectedLogs: {
             included: Boolean(input.selectedLogs),
             entries: (input.selectedLogs ?? []).slice(-50).map((entry) => ({
@@ -164,6 +169,7 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
             workbookSourceIncluded: false,
             pathsRedacted: true,
             commandArgumentsIncluded: false,
+            writeAuditIncluded: true,
             anonymizedLintReportIncluded: input.anonymizedWorkbookLintReport?.included === true,
             selectedLogsIncluded: Boolean(input.selectedLogs),
             logPathsRedacted: true,
@@ -267,6 +273,7 @@ export function supportBundleDisclosureText(bundle: SupportBundle): string {
         '- Setup states that can be determined without probing Excel.',
         '- Active workbook/module metadata and active-module lint counts when available.',
         '- Recent XLIDE command ids, outcomes, durations, and error categories.',
+        '- Recent XLIDE write-audit entries with paths redacted.',
         '',
         'Optional when explicitly selected:',
         '- Anonymized workbook lint report with counts by rule/module type only.',
@@ -314,6 +321,9 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         'Recent Commands',
         ...recentCommandLines(bundle),
         '',
+        'Recent Write Audit',
+        ...writeAuditLines(bundle),
+        '',
         'Anonymized Workbook Lint Report',
         anonymizedLintReportLine(bundle.anonymizedReports.workbookLint),
         '',
@@ -324,6 +334,7 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         `Workbook source included: ${bundle.privacy.workbookSourceIncluded}`,
         `Paths redacted: ${bundle.privacy.pathsRedacted}`,
         `Command arguments included: ${bundle.privacy.commandArgumentsIncluded}`,
+        `Write audit included: ${bundle.privacy.writeAuditIncluded}`,
         `Anonymized lint report included: ${bundle.privacy.anonymizedLintReportIncluded}`,
         `Selected logs included: ${bundle.privacy.selectedLogsIncluded}`,
         `Log paths redacted: ${bundle.privacy.logPathsRedacted}`,
@@ -350,6 +361,15 @@ function sanitizeWorkbookSummary(summary: SupportBundleWorkbookSummary): Support
     return {
         ...summary,
         workbookPath: summary.workbookPath ? redactPath(summary.workbookPath) : undefined,
+    };
+}
+
+function sanitizeWriteAuditEntry(entry: XlideWriteAuditEntry): XlideWriteAuditEntry {
+    return {
+        ...entry,
+        workbookPath: entry.workbookPath ? redactPath(entry.workbookPath) : undefined,
+        sourcePath: entry.sourcePath ? redactPath(entry.sourcePath) : undefined,
+        targetPath: entry.targetPath ? redactPath(entry.targetPath) : undefined,
     };
 }
 
@@ -429,6 +449,28 @@ function recentCommandLines(bundle: SupportBundle): string[] {
         ];
         if (entry.durationMs !== undefined) {
             parts.push(`${entry.durationMs}ms`);
+        }
+        if (entry.errorCategory) {
+            parts.push(`errorCategory=${entry.errorCategory}`);
+        }
+        return parts.join(' | ');
+    });
+}
+
+function writeAuditLines(bundle: SupportBundle): string[] {
+    if (bundle.recentWriteAudits.length === 0) {
+        return ['none'];
+    }
+    return bundle.recentWriteAudits.map((entry) => {
+        const parts = [
+            entry.timestamp,
+            entry.command,
+            entry.operation,
+            entry.outcome,
+            entry.summary,
+        ];
+        if (entry.moduleName) {
+            parts.push(`module=${entry.moduleName}`);
         }
         if (entry.errorCategory) {
             parts.push(`errorCategory=${entry.errorCategory}`);
