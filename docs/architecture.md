@@ -251,14 +251,14 @@ Both lanes call into this shared implementation:
   and compatibility routes that open the same preview GUI)
 - AI tools (`xlide_exportModules`, `xlide_configureExportMode`)
 
-**Export** reads all modules live over JSON-RPC (`listModules` then `readModule` per module) and writes them to a folder. The UI bulk export command opens a webview diff preview where the user can change the export folder, switch export mode, save settings, click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale managed repo files appear as removable diff rows instead of being removed invisibly.
+**Export** reads all modules live over JSON-RPC (`listModules` then `readModule` per module) and writes them to a folder. The UI bulk export command opens a webview diff preview where the user can change the export folder, switch export mode, autosave settings after a short debounce, click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale managed repo files appear as removable diff rows instead of being removed invisibly.
 
 - Output file extension is `.bas` for standard modules and `.cls` for class/document modules.
 - Export mode is per-workbook and persisted in the workbook-local JSON config:
   - `trueUp` (default): replace existing, add new, remove no-longer-existing modules
   - `replaceExistingOnly`: replace files that already exist; do not add missing files; do not remove stale files
 
-**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls`/`.frm` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Document modules and UserForms cannot be created from scratch; missing document/UserForm rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import.
+**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules cannot be created from scratch; missing document rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. `.frm` files are ignored by import/export sync. Import mode defaults to `updateOnly`; `trueUpStandardClass` also previews workbook-only standard/class modules as removable rows, while document modules and UserForms are excluded from true-up removals.
 
 Import/export settings live in the preview GUI so folder and mode edits use the same planner and persistence path as apply.
 A workbook-local config file is written beside the workbook:
@@ -273,6 +273,7 @@ Config schema:
 {
   "exportFolder": "C:/absolute/path/to/export/folder",
   "exportMode": "trueUp",
+  "importMode": "updateOnly",
   "managedFiles": ["Module1.bas", "Sheet1.cls"]
 }
 ```
@@ -290,7 +291,7 @@ Declared in `package.json` under `contributes.languageModelTools` and registered
 For agentic editing, the workbook/XLIDE virtual module structure is the source
 of truth. Agents should discover with `xlide_getWorkbookInfo`/`xlide_listModules`,
 read with `xlide_readModule`, and write with `xlide_writeModule`. Exported
-`.bas`/`.cls`/`.frm` files are sync artifacts unless the user explicitly asks
+`.bas`/`.cls` files are sync artifacts unless the user explicitly asks
 to operate on export files.
 
 | Tool name | Chat reference | Side effects | Confirmation |

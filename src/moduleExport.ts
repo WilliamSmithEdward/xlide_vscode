@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
+import type { ImportMode } from './moduleSyncPlan';
 
 interface ModuleInfo {
     name: string;
@@ -13,6 +14,7 @@ type ExportMode = 'trueUp' | 'replaceExistingOnly';
 interface WorkbookRepoConfig {
     exportFolder?: string;
     exportMode?: ExportMode;
+    importMode?: ImportMode;
     managedFiles?: string[];
 }
 
@@ -122,6 +124,7 @@ async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promis
     const updated: WorkbookRepoConfig = {
         exportFolder: existing.exportFolder,
         exportMode: normalizeExportMode(mode),
+        importMode: existing.importMode,
         managedFiles: getManagedFiles(existing),
     };
     await writeWorkbookRepoConfig(filePath, updated);

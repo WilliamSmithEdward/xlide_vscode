@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ModuleSyncPlan } from './moduleSyncPlan';
+import type { ImportMode, ModuleSyncPlan } from './moduleSyncPlan';
 import type { ExportMode } from './moduleExport';
 
 export interface ModuleSyncApplyResult {
@@ -13,6 +13,7 @@ export interface ModuleSyncApplyResult {
 export interface ModuleSyncSettings {
     folderPath: string;
     exportMode?: ExportMode;
+    importMode?: ImportMode;
 }
 
 export interface ModuleSyncPreviewOptions {
@@ -144,10 +145,29 @@ export function openModuleSyncPreview(
             selectedIds?: string[];
             folderPath?: string;
             exportMode?: ExportMode;
+            importMode?: ImportMode;
+            itemId?: string;
+            side?: 'left' | 'right';
+            showHeaders?: boolean;
+            autoSaveSettings?: boolean;
+            quiet?: boolean;
         }) => {
             if (message.type === 'cancel') {
                 done(undefined);
                 panel.dispose();
+                return;
+            }
+            if (message.type === 'copy-code') {
+                const item = currentPlan.items.find((candidate) => candidate.id === message.itemId);
+                if (!item || (message.side !== 'left' && message.side !== 'right')) {
+                    await panel.webview.postMessage({ type: 'error', error: 'No code selected to copy.' });
+                    return;
+                }
+                const code = message.side === 'left'
+                    ? (message.showHeaders ? item.leftRawCode : item.leftCode)
+                    : (message.showHeaders ? item.rightRawCode : item.rightCode);
+                await vscode.env.clipboard.writeText(code);
+                await panel.webview.postMessage({ type: 'copied', side: message.side });
                 return;
             }
             if (message.type === 'choose-folder') {
@@ -165,6 +185,7 @@ export function openModuleSyncPreview(
                                 type: 'plan',
                                 plan: currentPlan,
                                 message: 'Settings updated. Review the refreshed diff before applying.',
+                                autoSaveSettings: true,
                             });
                         } else {
                             await panel.webview.postMessage({ type: 'ready' });
@@ -189,6 +210,7 @@ export function openModuleSyncPreview(
                             type: 'plan',
                             plan: currentPlan,
                             message: 'Settings updated. Review the refreshed diff before applying.',
+                            autoSaveSettings: message.autoSaveSettings === true,
                         });
                     });
                 } catch (err) {
@@ -202,11 +224,13 @@ export function openModuleSyncPreview(
                 if (!saveSettings) {
                     return;
                 }
-                await panel.webview.postMessage({ type: 'saving-settings' });
+                if (!message.quiet) {
+                    await panel.webview.postMessage({ type: 'saving-settings' });
+                }
                 try {
                     await runExclusive(async () => {
                         const result = await saveSettings(settingsFromMessage(currentPlan, message));
-                        await panel.webview.postMessage({ type: 'settings-saved', result });
+                        await panel.webview.postMessage({ type: 'settings-saved', result, quiet: message.quiet === true });
                     });
                 } catch (err) {
                     const error = err instanceof Error ? err.message : String(err);
@@ -364,7 +388,14 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             padding: 8px;
             border-bottom: 1px solid var(--border);
         }
-        .toolbar button { flex: 1; }
+        .toolbar button {
+            flex: 1;
+            border: 1px solid var(--vscode-button-border, transparent);
+            font-weight: 600;
+        }
+        .toolbar button.secondary {
+            border: 1px solid var(--border);
+        }
         .warnings {
             padding: 8px 12px;
             display: none;
@@ -378,19 +409,27 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         .item {
             width: 100%;
             display: grid;
-            grid-template-columns: 28px minmax(0, 1fr) 132px;
+            grid-template-columns: 56px minmax(0, 1fr) 132px;
             gap: 8px;
             align-items: center;
-            padding: 8px 10px;
+            padding: 8px 10px 8px 6px;
             border-bottom: 1px solid var(--border);
             cursor: pointer;
         }
         .item:hover, .item.active { background: var(--row); }
+        .checkHit {
+            width: 52px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .checkHit.disabled { cursor: default; }
         .item input {
             margin: 0;
             width: 18px;
             height: 18px;
-            justify-self: center;
             cursor: pointer;
         }
         .item input:disabled { cursor: default; }
@@ -410,19 +449,54 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         }
         .badge.skip { color: var(--vscode-editorWarning-foreground); background: var(--warn); }
         .badge.same { color: var(--muted); }
-        section { min-height: 0; display: grid; grid-template-rows: auto 1fr; }
-        .diff-head {
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border);
+        section {
+            --diff-grid: 56px minmax(0, 1fr) 56px minmax(0, 1fr);
+            min-height: 0;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto 1fr;
+        }
+        .diff-tools {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
             gap: 8px;
         }
-        .diff-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .diff-head {
+            border-bottom: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: var(--diff-grid);
+            min-height: 40px;
+        }
+        .diff-head-gutter {
+            border-right: 1px solid var(--border);
+        }
+        .diff-title-wrap {
+            min-width: 0;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 8px;
+        }
+        .diff-title {
+            flex: 0 1 auto;
+            min-width: 0;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .copyCode {
+            flex: 0 0 auto;
+            min-height: 24px;
+            padding: 3px 8px;
+            font-size: 11px;
+        }
         .diff { overflow: auto; font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size); }
         .line {
             display: grid;
-            grid-template-columns: 56px minmax(0, 1fr) 56px minmax(0, 1fr);
+            grid-template-columns: var(--diff-grid);
             min-height: 20px;
             border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
         }
@@ -469,8 +543,8 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                     </div>
                     <button class="secondary" id="chooseFolder">Change</button>
                     <div class="field" id="modeField">
-                        <label for="exportMode">Export mode</label>
-                        <select id="exportMode">
+                        <label for="syncMode" id="modeLabel">Export mode</label>
+                        <select id="syncMode">
                             <option value="trueUp">True Up</option>
                             <option value="replaceExistingOnly">Replace Existing Only</option>
                         </select>
@@ -478,7 +552,6 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 </div>
             </div>
             <div class="actions">
-                <button class="secondary" id="saveSettings">Save Settings</button>
                 <button class="secondary" id="cancel">Cancel</button>
                 <button id="apply">Apply Selected</button>
             </div>
@@ -494,9 +567,20 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             </aside>
             <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Resize module list"></div>
             <section>
+                <div class="diff-tools">
+                    <button class="secondary" id="toggleHeaders" aria-pressed="false">Show Headers in Diff</button>
+                </div>
                 <div class="diff-head">
-                    <div class="diff-title" id="leftTitle"></div>
-                    <div class="diff-title" id="rightTitle"></div>
+                    <div class="diff-head-gutter"></div>
+                    <div class="diff-title-wrap">
+                        <div class="diff-title" id="leftTitle"></div>
+                        <button class="secondary copyCode" id="copyLeft">Copy</button>
+                    </div>
+                    <div class="diff-head-gutter"></div>
+                    <div class="diff-title-wrap">
+                        <div class="diff-title" id="rightTitle"></div>
+                        <button class="secondary copyCode" id="copyRight">Copy</button>
+                    </div>
                 </div>
                 <div class="diff" id="diff"></div>
             </section>
@@ -513,6 +597,9 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         let activeId = plan.items[0]?.id;
         let applying = false;
         let applied = false;
+        let showHeaders = false;
+        let settingsSaving = false;
+        let settingsSaveTimer;
 
         const el = id => document.getElementById(id);
 
@@ -560,11 +647,23 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             return item.selectable && item.status !== 'unchanged' && !item.status.startsWith('skipping');
         }
 
+        function shouldShowWarnings() {
+            return plan.warnings.some(warning => !warning.includes('skipping import unless the module already exists in the workbook'));
+        }
+
         function currentSettings() {
             return {
                 folderPath: plan.folderPath,
-                exportMode: plan.direction === 'export' ? el('exportMode').value : undefined,
+                exportMode: plan.direction === 'export' ? el('syncMode').value : undefined,
+                importMode: plan.direction === 'import' ? el('syncMode').value : undefined,
             };
+        }
+
+        function option(value, label) {
+            const item = document.createElement('option');
+            item.value = value;
+            item.textContent = label;
+            return item;
         }
 
         function renderChrome() {
@@ -573,12 +672,22 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             el('folderLabel').textContent = plan.direction === 'export' ? 'Export folder' : 'Import folder';
             el('folderValue').textContent = plan.folderPath;
             el('folderValue').title = plan.folderPath;
-            el('modeField').classList.toggle('hidden', plan.direction !== 'export');
+            el('modeField').classList.remove('hidden');
+            const mode = el('syncMode');
+            mode.innerHTML = '';
             if (plan.direction === 'export') {
-                el('exportMode').value = plan.exportMode || 'trueUp';
+                el('modeLabel').textContent = 'Export mode';
+                mode.append(option('trueUp', 'True Up'));
+                mode.append(option('replaceExistingOnly', 'Replace Existing Only'));
+                mode.value = plan.exportMode || 'trueUp';
+            } else {
+                el('modeLabel').textContent = 'Import mode';
+                mode.append(option('updateOnly', 'Import Changed/New'));
+                mode.append(option('trueUpStandardClass', 'True Up Standard/Class'));
+                mode.value = plan.importMode || 'updateOnly';
             }
             el('selectChanged').textContent = plan.direction === 'import' ? 'Select Importable' : 'Select Changed';
-            if (plan.warnings.length) {
+            if (shouldShowWarnings()) {
                 el('warnings').classList.add('visible');
                 el('warnings').textContent = plan.warnings.join('\\n');
             } else {
@@ -587,7 +696,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             }
         }
 
-        function setPlan(nextPlan, message) {
+        function setPlan(nextPlan, message, autoSaveSettings) {
             plan = nextPlan;
             selected = selectedFromPlan();
             activeId = plan.items[0]?.id;
@@ -598,6 +707,9 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             renderChrome();
             renderList();
             renderDiff();
+            if (autoSaveSettings) {
+                scheduleSettingsAutosave();
+            }
         }
 
         function renderList() {
@@ -608,18 +720,22 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 row.className = 'item' + (item.id === activeId ? ' active' : '');
                 row.dataset.id = item.id;
                 row.setAttribute('aria-selected', item.id === activeId ? 'true' : 'false');
+                const checkHit = document.createElement('div');
+                checkHit.className = 'checkHit' + (!item.selectable ? ' disabled' : '');
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.checked = selected.has(item.id);
                 checkbox.disabled = !item.selectable;
-                checkbox.addEventListener('click', event => {
+                checkHit.addEventListener('click', event => {
                     event.stopPropagation();
+                    if (!item.selectable) return;
                     activeId = item.id;
-                    if (checkbox.checked) selected.add(item.id);
-                    else selected.delete(item.id);
+                    if (selected.has(item.id)) selected.delete(item.id);
+                    else selected.add(item.id);
                     renderList();
                     renderDiff();
                 });
+                checkHit.append(checkbox);
                 const text = document.createElement('div');
                 text.className = 'itemText';
                 const name = document.createElement('div');
@@ -632,7 +748,8 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 const badge = document.createElement('span');
                 badge.className = 'badge' + (item.status.startsWith('skipping') ? ' skip' : item.status === 'unchanged' ? ' same' : '');
                 badge.textContent = item.detail || item.status;
-                row.append(checkbox, text, badge);
+                badge.title = item.warning || item.detail || item.status;
+                row.append(checkHit, text, badge);
                 row.addEventListener('click', () => {
                     activeId = item.id;
                     renderList();
@@ -650,14 +767,29 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             if (!item) {
                 el('leftTitle').textContent = '';
                 el('rightTitle').textContent = '';
+                el('copyLeft').disabled = true;
+                el('copyRight').disabled = true;
+                el('toggleHeaders').disabled = true;
+                el('toggleHeaders').textContent = showHeaders ? 'Hide Headers in Diff' : 'Show Headers in Diff';
+                el('toggleHeaders').setAttribute('aria-pressed', String(showHeaders));
                 const empty = document.createElement('pre');
                 empty.textContent = 'No module differences found for the current settings.';
                 diff.append(empty);
                 return;
             }
+            const leftCode = showHeaders ? item.leftRawCode : item.leftCode;
+            const rightCode = showHeaders ? item.rightRawCode : item.rightCode;
+            const diffLines = showHeaders ? item.diffWithHeaders : item.diff;
             el('leftTitle').textContent = item.leftTitle;
             el('rightTitle').textContent = item.rightTitle;
-            for (const line of item.diff) {
+            el('copyLeft').disabled = !leftCode;
+            el('copyRight').disabled = !rightCode;
+            el('copyLeft').title = leftCode ? 'Copy left code to clipboard' : 'No left-side code to copy';
+            el('copyRight').title = rightCode ? 'Copy right code to clipboard' : 'No right-side code to copy';
+            el('toggleHeaders').disabled = false;
+            el('toggleHeaders').textContent = showHeaders ? 'Hide Headers in Diff' : 'Show Headers in Diff';
+            el('toggleHeaders').setAttribute('aria-pressed', String(showHeaders));
+            for (const line of diffLines) {
                 const row = document.createElement('div');
                 row.className = 'line ' + line.kind;
                 const leftNo = document.createElement('div');
@@ -680,18 +812,37 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         function renderCounts() {
             const selectedItems = plan.items.filter(item => selected.has(item.id));
             const unsupported = selectedItems.filter(item => item.unsupportedDirectCreation).length;
-            el('counts').textContent = \`\${selectedItems.length} selected\${unsupported ? ' | ' + unsupported + ' will show skipping import warning' : ''}\`;
+            const settingsStatus = settingsSaving ? ' | auto-saving settings' : '';
+            el('counts').textContent = \`\${selectedItems.length} selected\${unsupported ? ' | ' + unsupported + ' will show skipping import warning' : ''}\${settingsStatus}\`;
             el('apply').disabled = applying || applied || selectedItems.length === 0;
-            el('saveSettings').disabled = applying;
             el('chooseFolder').disabled = applying;
-            el('exportMode').disabled = applying;
+            el('syncMode').disabled = applying;
+        }
+
+        function clearSettingsAutosave() {
+            if (settingsSaveTimer) {
+                clearTimeout(settingsSaveTimer);
+                settingsSaveTimer = undefined;
+            }
+        }
+
+        function scheduleSettingsAutosave() {
+            clearSettingsAutosave();
+            el('result').textContent = 'Settings changed. Auto-saving...';
+            settingsSaveTimer = setTimeout(() => {
+                settingsSaveTimer = undefined;
+                settingsSaving = true;
+                renderCounts();
+                vscode.postMessage({ type: 'save-settings', quiet: true, ...currentSettings() });
+            }, 650);
         }
 
         function refreshSettings() {
+            clearSettingsAutosave();
             applying = true;
             el('result').textContent = 'Refreshing...';
             renderCounts();
-            vscode.postMessage({ type: 'refresh-settings', ...currentSettings() });
+            vscode.postMessage({ type: 'refresh-settings', autoSaveSettings: true, ...currentSettings() });
         }
 
         el('selectChanged').addEventListener('click', () => {
@@ -705,22 +856,33 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             selected.clear();
             renderList();
         });
+        el('copyLeft').addEventListener('click', event => {
+            event.stopPropagation();
+            vscode.postMessage({ type: 'copy-code', itemId: activeId, side: 'left', showHeaders });
+        });
+        el('copyRight').addEventListener('click', event => {
+            event.stopPropagation();
+            vscode.postMessage({ type: 'copy-code', itemId: activeId, side: 'right', showHeaders });
+        });
+        el('toggleHeaders').addEventListener('click', () => {
+            showHeaders = !showHeaders;
+            renderDiff();
+        });
         el('chooseFolder').addEventListener('click', () => {
+            clearSettingsAutosave();
             applying = true;
             el('result').textContent = 'Choosing folder...';
             renderCounts();
-            vscode.postMessage({ type: 'choose-folder', ...currentSettings() });
+            vscode.postMessage({ type: 'choose-folder', autoSaveSettings: true, ...currentSettings() });
         });
-        el('exportMode').addEventListener('change', () => refreshSettings());
-        el('saveSettings').addEventListener('click', () => {
-            applying = true;
-            el('result').textContent = 'Saving settings...';
-            renderCounts();
-            vscode.postMessage({ type: 'save-settings', ...currentSettings() });
+        el('syncMode').addEventListener('change', () => refreshSettings());
+        el('cancel').addEventListener('click', () => {
+            clearSettingsAutosave();
+            vscode.postMessage({ type: 'cancel' });
         });
-        el('cancel').addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
         el('apply').addEventListener('click', () => {
             if (applied) return;
+            clearSettingsAutosave();
             applying = true;
             el('result').textContent = 'Applying...';
             renderCounts();
@@ -742,15 +904,17 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 el('result').textContent = '';
                 renderCounts();
             } else if (message.type === 'plan') {
-                setPlan(message.plan, message.message || 'Settings updated. Review the refreshed diff before applying.');
+                setPlan(message.plan, message.message || 'Settings updated. Review the refreshed diff before applying.', message.autoSaveSettings === true);
             } else if (message.type === 'saving-settings') {
-                applying = true;
+                settingsSaving = true;
                 el('result').textContent = 'Saving settings...';
                 renderCounts();
             } else if (message.type === 'settings-saved') {
-                applying = false;
-                el('result').textContent = message.result.summary;
+                settingsSaving = false;
+                el('result').textContent = message.quiet ? 'Settings auto-saved.' : message.result.summary;
                 renderCounts();
+            } else if (message.type === 'copied') {
+                el('result').textContent = message.side === 'left' ? 'Left code copied.' : 'Right code copied.';
             } else if (message.type === 'applied') {
                 applying = false;
                 applied = true;
@@ -759,6 +923,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 renderCounts();
             } else if (message.type === 'error') {
                 applying = false;
+                settingsSaving = false;
                 el('result').textContent = message.error;
                 renderCounts();
             }
@@ -793,11 +958,12 @@ function escapeHtml(value: string): string {
 
 function settingsFromMessage(
     plan: ModuleSyncPlan,
-    message: { folderPath?: string; exportMode?: ExportMode },
+    message: { folderPath?: string; exportMode?: ExportMode; importMode?: ImportMode },
 ): ModuleSyncSettings {
     return {
         folderPath: message.folderPath ?? plan.folderPath,
         exportMode: message.exportMode ?? plan.exportMode,
+        importMode: message.importMode ?? plan.importMode,
     };
 }
 
@@ -805,9 +971,10 @@ function settingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
     return {
         folderPath: plan.folderPath,
         exportMode: plan.exportMode,
+        importMode: plan.importMode,
     };
 }
 
 function isModuleSyncWatchedPath(filePath: string): boolean {
-    return /\.(bas|cls|frm)$/i.test(filePath);
+    return /\.(bas|cls)$/i.test(filePath);
 }

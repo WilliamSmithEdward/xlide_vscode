@@ -464,7 +464,7 @@
       {
         "name": "xlide_listModules",
         "displayName": "List VBA Modules",
-        "modelDescription": "Lists all VBA modules from the live Excel workbook/XLIDE structure. Returns module names and types (standard, class, document). Use this before reading or editing workbook VBA; do not infer module state from exported .bas/.cls/.frm repo files unless the user explicitly asks to work on those export artifacts.",
+        "modelDescription": "Lists all VBA modules from the live Excel workbook/XLIDE structure. Returns module names and types (standard, class, document). Use this before reading or editing workbook VBA; do not infer module state from exported .bas/.cls repo files unless the user explicitly asks to work on those export artifacts.",
         "toolReferenceName": "xlideListModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -507,7 +507,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source code of a module from the Excel workbook and returns raw VBA text including Attribute declarations. Prefer this over reading exported .bas/.cls/.frm repo files; exported files are sync artifacts unless the user explicitly asks to edit repo exports.",
+        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source code of a module from the Excel workbook and returns raw VBA text including Attribute declarations. Prefer this over reading exported .bas/.cls repo files; exported files are sync artifacts unless the user explicitly asks to edit repo exports.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

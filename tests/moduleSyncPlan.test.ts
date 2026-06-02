@@ -7,6 +7,7 @@ import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
 	buildSideBySideDiff,
+	editorPreviewSource,
 } from '../src/moduleSyncPlan';
 import { writeWorkbookRepoConfig } from '../src/moduleExport';
 
@@ -160,6 +161,58 @@ describe('module sync plan', () => {
 		]);
 	});
 
+	it('plans import true-up deletions for workbook-only standard and class modules only', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'Module1.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
+
+		const plan = await buildImportModuleSyncPlan(fakeBridge([
+			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
+			{ name: 'StaleStandard', type: 'standard', source: 'Sub Old()\nEnd Sub\n' },
+			{ name: 'StaleClass', type: 'class', source: 'VERSION 1.0 CLASS\n' },
+			{
+				name: 'Sheet1',
+				type: 'document',
+				documentType: 'worksheet',
+				source: 'Private Sub Worksheet_Activate()\nEnd Sub\n',
+			},
+			{ name: 'UserForm1', type: 'userform', source: 'VERSION 5.00\n' },
+		]), {
+			workbookPath: workbook,
+			importFolder: repo,
+			importMode: 'trueUpStandardClass',
+		});
+
+		const byName = new Map(plan.items.map((item) => [item.moduleName, item]));
+		expect(byName.get('StaleStandard')).toMatchObject({
+			status: 'will-remove',
+			checked: true,
+			selectable: true,
+			existsInWorkbook: true,
+			existsInRepo: false,
+			detail: 'Will delete workbook module',
+		});
+		expect(byName.get('StaleClass')).toMatchObject({
+			status: 'will-remove',
+			checked: true,
+			selectable: true,
+		});
+		expect(byName.has('Sheet1')).toBe(false);
+		expect(byName.has('UserForm1')).toBe(false);
+	});
+
+	it('ignores frm files in import planning', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'UserForm1.frm'), 'VERSION 5.00\nBegin VB.UserForm UserForm1\nEnd\n', 'utf8');
+		fs.writeFileSync(path.join(repo, 'Module1.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
+
+		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+			workbookPath: workbook,
+			importFolder: repo,
+		});
+
+		expect(plan.items.map((item) => item.relativeName)).toEqual(['Module1.bas']);
+	});
+
 	it('builds a side-by-side diff with changed line metadata', () => {
 		const diff = buildSideBySideDiff('A\nB\nC', 'A\nX\nC');
 		expect(diff.map((line) => line.kind)).toContain('changed');
@@ -167,5 +220,48 @@ describe('module sync plan', () => {
 			left: 'B',
 			right: 'X',
 		});
+	});
+
+	it('builds preview source without VBA attribute headers', () => {
+		expect(editorPreviewSource([
+			'Attribute VB_Name = "Class1"',
+			'Attribute VB_GlobalNameSpace = False',
+			'',
+			'Option Explicit',
+			'Public Property Get Name() As String',
+			'End Property',
+			'Attribute Name.VB_Description = "Hidden"',
+		].join('\n'))).toBe([
+			'Option Explicit',
+			'Public Property Get Name() As String',
+			'End Property',
+		].join('\n'));
+	});
+
+	it('keeps raw source available for optional header diff display', async () => {
+		const { workbook, repo } = tempWorkbook();
+		const source = [
+			'Attribute VB_Name = "Module1"',
+			'',
+			'Option Explicit',
+			'Sub T()',
+			'End Sub',
+		].join('\n');
+		fs.writeFileSync(path.join(repo, 'Module1.bas'), source, 'utf8');
+
+		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+			workbookPath: workbook,
+			importFolder: repo,
+		});
+		const item = plan.items[0];
+
+		expect(item.leftCode).toBe([
+			'Option Explicit',
+			'Sub T()',
+			'End Sub',
+		].join('\n'));
+		expect(item.leftRawCode).toBe(source);
+		expect(item.diff.map((line) => line.left).join('\n')).not.toContain('Attribute VB_Name');
+		expect(item.diffWithHeaders.map((line) => line.left).join('\n')).toContain('Attribute VB_Name');
 	});
 });

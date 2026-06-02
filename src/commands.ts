@@ -78,6 +78,8 @@ import {
 import {
     buildExportModuleSyncPlan,
     buildImportModuleSyncPlan,
+    normalizeImportMode,
+    type ImportMode,
     type ModuleSyncPlan,
     type ModuleSyncPlanItem,
 } from './moduleSyncPlan';
@@ -439,10 +441,13 @@ export function registerCommands(
         return { exportFolder: selected[0].fsPath, exportMode };
     }
 
-    async function resolveWorkbookImportFolder(filePath: string): Promise<string | undefined> {
+    async function resolveWorkbookImportFolder(
+        filePath: string,
+    ): Promise<{ importFolder: string; importMode: ImportMode } | undefined> {
         const existingConfig = await readWorkbookRepoConfig(filePath);
+        const importMode = normalizeImportMode(existingConfig.importMode);
         if (existingConfig.exportFolder) {
-            return existingConfig.exportFolder;
+            return { importFolder: existingConfig.exportFolder, importMode };
         }
 
         const selected = await vscode.window.showOpenDialog({
@@ -452,7 +457,7 @@ export function registerCommands(
             openLabel: 'Select folder to import from',
             defaultUri: vscode.Uri.file(path.dirname(filePath)),
         });
-        return selected?.[0]?.fsPath;
+        return selected?.[0]?.fsPath ? { importFolder: selected[0].fsPath, importMode } : undefined;
     }
 
     async function chooseModuleSyncFolder(
@@ -476,6 +481,7 @@ export function registerCommands(
         return {
             folderPath: plan.folderPath,
             exportMode: plan.exportMode,
+            importMode: plan.importMode,
         };
     }
 
@@ -497,9 +503,11 @@ export function registerCommands(
         settings: ModuleSyncSettings,
     ): Promise<ModuleSyncPlan> {
         log(`[importModules] Source folder: ${settings.folderPath}`);
+        log(`[importModules] Mode: ${settings.importMode ?? 'updateOnly'}`);
         return buildImportModuleSyncPlan(bridge, {
             workbookPath: filePath,
             importFolder: settings.folderPath,
+            importMode: settings.importMode,
         });
     }
 
@@ -512,6 +520,7 @@ export function registerCommands(
             ...existingConfig,
             exportFolder: settings.folderPath,
             exportMode: normalizeExportMode(settings.exportMode ?? existingConfig.exportMode),
+            importMode: normalizeImportMode(settings.importMode ?? existingConfig.importMode),
             managedFiles: Array.isArray(existingConfig.managedFiles)
                 ? existingConfig.managedFiles.filter((item): item is string => typeof item === 'string')
                 : [],
@@ -657,15 +666,19 @@ export function registerCommands(
     }
 
     async function showImportModulesDiffGui(filePath: string): Promise<void> {
-        const importFolder = await resolveWorkbookImportFolder(filePath);
-        if (!importFolder) {
+        const target = await resolveWorkbookImportFolder(filePath);
+        if (!target) {
             return;
         }
 
         log(`[importModules] Workbook: ${filePath}`);
-        log(`[importModules] Source folder: ${importFolder}`);
+        log(`[importModules] Source folder: ${target.importFolder}`);
+        log(`[importModules] Mode: ${target.importMode}`);
 
-        const plan = await buildImportSyncPlanFromSettings(filePath, { folderPath: importFolder });
+        const plan = await buildImportSyncPlanFromSettings(filePath, {
+            folderPath: target.importFolder,
+            importMode: target.importMode,
+        });
         const result = await openModuleSyncPreview(
             context,
             plan,
@@ -786,11 +799,44 @@ export function registerCommands(
         const selected = selectedModuleSyncItems(plan, selectedIds);
         const changed: string[] = [];
         const skipped: string[] = [];
+        const removed: string[] = [];
         const failed: string[] = [];
 
         for (const item of selected) {
             if (item.status === 'unchanged') {
                 skipped.push(`${item.relativeName} (unchanged)`);
+                continue;
+            }
+            if (item.status === 'will-remove') {
+                try {
+                    log(`[importModules] Deleting workbook module ${item.moduleName} during import true-up`);
+                    const result = await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('deleteModule', {
+                        path: plan.workbookPath,
+                        module: item.moduleName,
+                    });
+                    notifySignatureDropped(plan.workbookPath, Boolean(result.signatureDropped));
+                    removed.push(item.relativeName);
+                    recordWriteAudit({
+                        command: 'xlide.importModulesFromFolder',
+                        operation: 'delete-module',
+                        outcome: 'succeeded',
+                        workbookPath: plan.workbookPath,
+                        moduleName: item.moduleName,
+                        summary: 'Import true-up: 1 removed',
+                    });
+                } catch (err) {
+                    failed.push(item.relativeName);
+                    recordWriteAudit({
+                        command: 'xlide.importModulesFromFolder',
+                        operation: 'delete-module',
+                        outcome: 'failed',
+                        workbookPath: plan.workbookPath,
+                        moduleName: item.moduleName,
+                        summary: 'Import true-up: 0 removed, 1 failed',
+                        error: err,
+                    });
+                    log(`[importModules] Error deleting ${item.moduleName}: ${err instanceof Error ? err.message : String(err)}`);
+                }
                 continue;
             }
             if (item.status === 'skipping-import' || (item.unsupportedDirectCreation && !item.existsInWorkbook)) {
@@ -846,7 +892,7 @@ export function registerCommands(
             }
         }
 
-        if (changed.length > 0) {
+        if (changed.length > 0 || removed.length > 0) {
             vbaIndex.invalidate(plan.workbookPath);
             explorer.refresh();
         }
@@ -868,12 +914,14 @@ export function registerCommands(
             operation: 'Import modules',
             changed,
             skipped,
+            removed,
             failed,
         });
         return {
             summary: summaryText,
             changed: changed.length,
             skipped: skipped.length,
+            removed: removed.length,
             failed: failed.length,
         };
     }

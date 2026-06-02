@@ -11,6 +11,7 @@ import {
 } from './moduleExport';
 
 export type ModuleSyncDirection = 'export' | 'import';
+export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
 export type ModuleSyncItemStatus =
     | 'will-write'
     | 'unchanged'
@@ -47,7 +48,12 @@ export interface ModuleSyncPlanItem {
     unsupportedDirectCreation: boolean;
     leftTitle: string;
     rightTitle: string;
+    leftCode: string;
+    rightCode: string;
+    leftRawCode: string;
+    rightRawCode: string;
     diff: ModuleSyncDiffLine[];
+    diffWithHeaders: ModuleSyncDiffLine[];
 }
 
 export interface ModuleSyncPlan {
@@ -55,6 +61,7 @@ export interface ModuleSyncPlan {
     workbookPath: string;
     folderPath: string;
     exportMode?: ExportMode;
+    importMode?: ImportMode;
     title: string;
     items: ModuleSyncPlanItem[];
     warnings: string[];
@@ -96,6 +103,8 @@ export async function buildExportModuleSyncPlan(
         const repoSource = existsInRepo
             ? await fs.promises.readFile(targetPath, 'utf8')
             : '';
+        const liveDisplaySource = editorPreviewSource(liveSource);
+        const repoDisplaySource = editorPreviewSource(repoSource);
         const equal = existsInRepo && normalizeText(liveSource) === normalizeText(repoSource);
         const skipNew = exportMode === 'replaceExistingOnly' && !existsInRepo;
         const status: ModuleSyncItemStatus = skipNew
@@ -125,7 +134,12 @@ export async function buildExportModuleSyncPlan(
             unsupportedDirectCreation: false,
             leftTitle: `Workbook: ${mod.name}`,
             rightTitle: `Repo: ${relativeName}`,
-            diff: buildSideBySideDiff(liveSource, repoSource),
+            leftCode: liveDisplaySource,
+            rightCode: repoDisplaySource,
+            leftRawCode: liveSource,
+            rightRawCode: repoSource,
+            diff: buildSideBySideDiff(liveDisplaySource, repoDisplaySource),
+            diffWithHeaders: buildSideBySideDiff(liveSource, repoSource),
         };
     }));
     const staleItems: ModuleSyncPlanItem[] = [];
@@ -143,6 +157,7 @@ export async function buildExportModuleSyncPlan(
             }
 
             const repoSource = await fs.promises.readFile(stalePath, 'utf8');
+            const repoDisplaySource = editorPreviewSource(repoSource);
             const moduleName = path.basename(relPath, path.extname(relPath));
             staleItems.push({
                 id: `export-stale:${relPath}`,
@@ -160,7 +175,12 @@ export async function buildExportModuleSyncPlan(
                 unsupportedDirectCreation: false,
                 leftTitle: `Repo: ${relPath}`,
                 rightTitle: 'Workbook: missing module',
-                diff: buildSideBySideDiff(repoSource, ''),
+                leftCode: repoDisplaySource,
+                rightCode: '',
+                leftRawCode: repoSource,
+                rightRawCode: '',
+                diff: buildSideBySideDiff(repoDisplaySource, ''),
+                diffWithHeaders: buildSideBySideDiff(repoSource, ''),
             });
         }
     }
@@ -181,16 +201,19 @@ export async function buildImportModuleSyncPlan(
     params: {
         workbookPath: string;
         importFolder: string;
+        importMode?: ImportMode;
     },
 ): Promise<ModuleSyncPlan> {
+    const importMode = normalizeImportMode(params.importMode);
     const liveModules = await bridge.call<ModuleInfo[]>('listModules', { path: params.workbookPath });
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
     const entries = (await fs.promises.readdir(params.importFolder))
-        .filter((entry) => /\.(bas|cls|frm)$/i.test(entry))
+        .filter((entry) => /\.(bas|cls)$/i.test(entry))
         .sort((a, b) => a.localeCompare(b));
     const repoFiles = await Promise.all(entries.map((entry) =>
         readRepoModuleFile(params.importFolder, entry),
     ));
+    const repoModuleNames = new Set(repoFiles.map((repo) => repo.moduleName.toLowerCase()));
 
     const items = await Promise.all(repoFiles.map(async (repo): Promise<ModuleSyncPlanItem> => {
         const live = liveByName.get(repo.moduleName.toLowerCase());
@@ -201,6 +224,8 @@ export async function buildImportModuleSyncPlan(
         const workbookSource = existsInWorkbook
             ? await readWorkbookModuleSource(bridge, params.workbookPath, repo.moduleName)
             : '';
+        const repoDisplaySource = editorPreviewSource(repo.source);
+        const workbookDisplaySource = editorPreviewSource(workbookSource);
         const equal = existsInWorkbook && normalizeText(repo.source) === normalizeText(workbookSource);
         const status: ModuleSyncItemStatus = unsupportedDirectCreation
             ? 'skipping-import'
@@ -232,20 +257,65 @@ export async function buildImportModuleSyncPlan(
             unsupportedDirectCreation,
             leftTitle: `Repo: ${repo.file}`,
             rightTitle: `Workbook: ${repo.moduleName}`,
-            diff: buildSideBySideDiff(repo.source, workbookSource),
+            leftCode: repoDisplaySource,
+            rightCode: workbookDisplaySource,
+            leftRawCode: repo.source,
+            rightRawCode: workbookSource,
+            diff: buildSideBySideDiff(repoDisplaySource, workbookDisplaySource),
+            diffWithHeaders: buildSideBySideDiff(repo.source, workbookSource),
         };
     }));
+    const workbookOnlyItems: ModuleSyncPlanItem[] = [];
+
+    if (importMode === 'trueUpStandardClass') {
+        for (const mod of liveModules) {
+            if (repoModuleNames.has(mod.name.toLowerCase()) || !importTrueUpCanRemove(mod)) {
+                continue;
+            }
+            const relativeName = relativeNameForModule(mod);
+            const workbookSource = await readWorkbookModuleSource(bridge, params.workbookPath, mod.name);
+            const workbookDisplaySource = editorPreviewSource(workbookSource);
+            workbookOnlyItems.push({
+                id: `import-stale:${mod.name}`,
+                moduleName: mod.name,
+                moduleType: mod.type,
+                documentType: mod.documentType,
+                relativeName,
+                status: 'will-remove',
+                checked: true,
+                selectable: true,
+                warning: 'This standard/class workbook module is not present in the import folder and will be deleted during import true-up.',
+                detail: 'Will delete workbook module',
+                existsInWorkbook: true,
+                existsInRepo: false,
+                unsupportedDirectCreation: false,
+                leftTitle: 'Repo: missing file',
+                rightTitle: `Workbook: ${mod.name}`,
+                leftCode: '',
+                rightCode: workbookDisplaySource,
+                leftRawCode: '',
+                rightRawCode: workbookSource,
+                diff: buildSideBySideDiff('', workbookDisplaySource),
+                diffWithHeaders: buildSideBySideDiff('', workbookSource),
+            });
+        }
+    }
 
     return {
         direction: 'import',
         workbookPath: params.workbookPath,
         folderPath: params.importFolder,
+        importMode,
         title: `Import modules: ${path.basename(params.workbookPath)}`,
-        items: items.sort(compareSyncItems),
+        items: [...items, ...workbookOnlyItems].sort(compareSyncItems),
         warnings: items
             .filter((item) => item.unsupportedDirectCreation)
             .map((item) => `${item.moduleName}: skipping import unless the module already exists in the workbook.`),
     };
+}
+
+export function normalizeImportMode(mode: ImportMode | undefined): ImportMode {
+    return mode === 'trueUpStandardClass' ? 'trueUpStandardClass' : 'updateOnly';
 }
 
 export function buildSideBySideDiff(leftText: string, rightText: string): ModuleSyncDiffLine[] {
@@ -307,6 +377,18 @@ export function buildSideBySideDiff(leftText: string, rightText: string): Module
     return out.length > 0 ? out : [{ left: '', right: '', kind: 'equal' }];
 }
 
+export function editorPreviewSource(source: string): string {
+    const lines = source
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .filter((line) => !isVbaAttributeLine(line));
+    while (lines.length > 0 && lines[0].trim() === '') {
+        lines.shift();
+    }
+    return lines.join('\n');
+}
+
 export function statusLabel(status: ModuleSyncItemStatus): string {
     switch (status) {
         case 'will-write':
@@ -346,11 +428,7 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
     const source = await fs.promises.readFile(sourcePath, 'utf8');
     const ext = path.extname(file).toLowerCase();
     const moduleName = sanitizeFileName(path.basename(file, ext)) || path.basename(file, ext);
-    const subtype = ext === '.bas'
-        ? 'standard'
-        : ext === '.frm'
-            ? 'userform'
-            : detectClsSubtype(source);
+    const subtype = ext === '.bas' ? 'standard' : detectClsSubtype(source);
     return {
         file,
         moduleName,
@@ -385,6 +463,10 @@ function splitLines(text: string): string[] {
         return [];
     }
     return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+}
+
+function isVbaAttributeLine(line: string): boolean {
+    return /^\s*Attribute\s+(?:VB_[A-Za-z0-9_]+|[A-Za-z_][\w.]*\.VB_[A-Za-z0-9_]+)\s*=/.test(line);
 }
 
 function normalizeText(text: string): string {
@@ -450,6 +532,10 @@ function statusSort(status: ModuleSyncItemStatus): number {
 
 function documentLike(moduleType: string): boolean {
     return moduleType === 'document' || moduleType === 'userform';
+}
+
+function importTrueUpCanRemove(mod: ModuleInfo): boolean {
+    return mod.type === 'standard' || mod.type === 'class';
 }
 
 function moduleKindLabel(kind: string): string {
