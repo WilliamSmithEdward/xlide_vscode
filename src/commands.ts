@@ -35,6 +35,7 @@ import {
     type WorkbookAnalysisSuppressScope,
 } from './workbookAnalysisWebview';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
+import { normalizeXlideOptionExplicitSetting } from './globalSettingsValidation';
 import { lineStartOffsets, VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
@@ -844,9 +845,9 @@ export function registerCommands(
     }
 
     function diagnosticSeverityOverridesFromConfig(): SeverityOverrides {
-        const optionExplicit = vscode.workspace
+        const optionExplicit = normalizeXlideOptionExplicitSetting(vscode.workspace
             .getConfiguration('xlide')
-            .get<string>('diagnostics.optionExplicit', 'warning');
+            .get<unknown>('diagnostics.optionExplicit', 'warning'));
         return {
             optionExplicitMissing:
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),

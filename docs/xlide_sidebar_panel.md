@@ -86,8 +86,8 @@ Recommended sections:
 
 7. **Configuration**
    - Effective configuration grouped by workflow
-   - Source layer for every value: global default, user/workspace setting,
-     workbook-scoped override, or current session override
+   - Source layer for every value: built-in default, VS Code setting, or
+     workbook-scoped sidecar override
    - Workbook-facing workflow settings live with the selected workbook when the
      value is workbook-specific, while the sidebar/global configuration surface
      manages extension-wide defaults
@@ -202,9 +202,10 @@ clear status and should reuse existing safe workbook handling.
 - Do not run health probes that mutate the workbook.
 - Configuration rendering should consume the same resolver used by production
   code so displayed values always match behavior. The resolver must preserve
-  setting provenance and validate malformed workspace files deterministically.
+  setting provenance and validate malformed VS Code settings or workbook
+  sidecars deterministically.
 - Workbook-facing GUIs must use the shared configuration resolver: global
-  settings provide defaults, workbook-scoped sidecar/settings provide overrides,
+  VS Code settings provide defaults, workbook-scoped sidecars provide overrides,
   and GUI actions tied to a workbook must not silently mutate global defaults.
 - Keep analysis, import/export, diff, and future test GUI settings on the same
   scoping model. Avoid compatibility-only command/config paths that make one

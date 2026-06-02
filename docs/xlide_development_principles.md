@@ -68,6 +68,9 @@ Use discernment when deciding where settings live.
 - Workbook-over-global fallback and source provenance should use the shared
   workbook settings resolver; production sidecar mutations should use the
   shared read/patch/write helper so unrelated workbook settings are preserved.
+- Global VS Code XLIDE settings should validate through the shared global
+  settings validator, and runtime fallback for malformed settings should use the
+  same helper that reports the malformed value.
 - Displayed configuration and runtime behavior must come from the same resolver.
   Do not create separate GUI-only, command-only, or compatibility-only settings
   paths for the same business rule.

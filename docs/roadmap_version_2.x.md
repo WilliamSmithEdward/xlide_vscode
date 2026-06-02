@@ -600,7 +600,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   surface used for normal object receivers, merging with the known host surface
   when the current module has one.
 - [ ] Extend external metadata files as an explicit object/member metadata
-  source for referenced libraries, add-ins, team APIs, and host extensions that
+  source for referenced libraries, add-ins, and host extensions that
   XLIDE cannot parse from workbook source.
 - [ ] Ensure external object metadata can provide member names, kinds,
   signatures, parameter docs/types, return types, examples, and provenance.
@@ -921,7 +921,8 @@ development.
   health, commands, configuration, tests, analysis summaries, and status.
 - [ ] Add a unified configuration section/menu collection in the XLIDE sidebar:
   show effective settings, their source layer, validation state, quick actions,
-  and links to edit user, workspace, and local workspace config.
+  and links to edit VS Code settings or the active workbook sidecar where
+  applicable.
 - [ ] Add setup health checks with pass/warn/fail/unknown states for:
   - active XLIDE workbook/project context
   - workbook source sync/export mapping
@@ -1031,23 +1032,17 @@ Definition of done:
 
 ## Workstream L: Settings and Profiles
 
-Purpose: give individuals and teams controlled configuration without weakening
+Purpose: give individuals controlled configuration without weakening
 the deterministic analyzer contract.
 
-- [ ] Define workspace/project configuration for XLIDE.
-- [ ] Separate team-shared settings from local-machine settings.
+- [x] Define the two supported XLIDE setting scopes: global/editor settings live
+  in VS Code settings for the current machine or IDE profile; workbook-specific
+  settings live only in `<workbook>.xlide_settings.json`.
 - [ ] Implement a deterministic configuration resolver with explicit provenance
   for every effective setting:
   - built-in defaults declared in the extension schema
   - user/machine defaults through VS Code settings
-  - workspace/team config stored in a versionable workspace file such as
-    `.xlide/settings.json`
-  - workspace-local machine overrides stored separately, such as
-    `.xlide/settings.local.json`, for paths, COM behavior, and other local
-    choices that should not be committed
-  - explicit command/session overrides for one-off operations
-- [ ] Make built-in defaults configurable by users and overrideable by
-  workspace config without weakening diagnostic determinism.
+  - workbook sidecar overrides where a setting is intentionally workbook scoped
 - [x] Add a deterministic VS Code extension setting, contributed through
   `package.json`, for editor block layout in Smart Enter and block snippets:
   - default `comfy`: spacer line, editable indented body line, spacer line,
@@ -1056,8 +1051,7 @@ the deterministic analyzer contract.
     closer
   - both modes must flow through the shared smart-block catalogue/helper so Tab
     snippets and Enter auto-blocking cannot diverge.
-  - this setting is user/workspace editor preference, not `.xlide` workbook or
-    project configuration.
+  - this setting is a VS Code editor preference, not a workbook sidecar setting.
 - [x] Reject malformed workbook settings sidecars deterministically. A present
   `<workbook>.xlide_settings.json` file with invalid JSON, unknown keys,
   invalid sync modes, or invalid analysis settings now reports an explicit
@@ -1085,14 +1079,16 @@ the deterministic analyzer contract.
   - trusted test folders
   - result output path
 - [ ] Add sidebar/profile UI for active configuration.
-- [ ] Add configuration validation diagnostics for malformed settings.
-- [ ] Document precedence and conflict handling for defaults, user/machine,
-  workspace/team, workspace-local, and command/session override layers.
+- [x] Add configuration validation diagnostics for malformed settings. Global
+  VS Code XLIDE settings now validate through `src/globalSettingsValidation.ts`
+  and surface malformed values as `XLIDE/settings` diagnostics on VBA
+  documents; workbook sidecar errors continue to surface through the workbook
+  settings owner.
+- [ ] Document precedence and conflict handling for built-in defaults, VS Code
+  settings, and workbook sidecar overrides.
 
 Definition of done:
 
-- Teams can share stable XLIDE behavior through project settings while each
-  developer can keep local COM/test paths and machine-specific choices local.
 - Settings cannot make analyzer behavior heuristic or unverifiable.
 
 ## Workstream M: Code Actions and Quick Fixes

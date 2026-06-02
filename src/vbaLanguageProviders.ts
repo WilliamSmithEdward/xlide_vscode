@@ -65,6 +65,11 @@ import {
 } from './analysisSettingsCore';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { isWorkbookSettingsError, settingsPathForWorkbook } from './workbookSettings';
+import {
+    normalizeXlideOptionExplicitSetting,
+    validateXlideGlobalSettingsFromConfig,
+    type XlideGlobalSettingsProblem,
+} from './globalSettingsValidation';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -977,15 +982,41 @@ function registerVbaDiagnostics(
         return diagnostic;
     };
 
+    const diagnosticsForGlobalSettingsProblems = (
+        document: vscode.TextDocument,
+        problems: readonly XlideGlobalSettingsProblem[],
+    ): vscode.Diagnostic[] => {
+        const firstLine = document.lineCount > 0 ? document.lineAt(0).text : '';
+        const range = new vscode.Range(0, 0, 0, Math.min(firstLine.length, 1));
+        return problems.map((problem) => {
+            const diagnostic = new vscode.Diagnostic(
+                range,
+                `${problem.message} Fix the value in VS Code settings.`,
+                vscode.DiagnosticSeverity.Error,
+            );
+            diagnostic.source = 'XLIDE/settings';
+            diagnostic.code = 'global-setting-invalid';
+            return diagnostic;
+        });
+    };
+
     const runAsync = async (document: vscode.TextDocument): Promise<void> => {
         if (!isVbaDocument(document)) { return; }
         const config = vscode.workspace.getConfiguration('xlide');
+        const settingsDiagnostics = diagnosticsForGlobalSettingsProblems(
+            document,
+            validateXlideGlobalSettingsFromConfig(config),
+        );
         if (config.get<boolean>('diagnostics.enabled', true) === false) {
-            collection.delete(document.uri);
+            if (settingsDiagnostics.length > 0) {
+                collection.set(document.uri, settingsDiagnostics);
+            } else {
+                collection.delete(document.uri);
+            }
             return;
         }
         const text = document.getText();
-        const diagnostics: vscode.Diagnostic[] = [];
+        const diagnostics: vscode.Diagnostic[] = [...settingsDiagnostics];
 
         // Project-wide names enable cross-module call, type, member, and
         // Option Explicit checks. Only workbook-backed docs can load the
@@ -1024,7 +1055,9 @@ function registerVbaDiagnostics(
             }
         }
 
-        const optionExplicit = config.get<string>('diagnostics.optionExplicit', 'warning');
+        const optionExplicit = normalizeXlideOptionExplicitSetting(
+            config.get<unknown>('diagnostics.optionExplicit', 'warning'),
+        );
         const severities: SeverityOverrides = {
             optionExplicitMissing:
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),

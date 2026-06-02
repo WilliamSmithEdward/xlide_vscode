@@ -46,7 +46,7 @@ Use these sources in this order:
    - VBA runtime functions/statements in `src/analyzer/runtime/vbaRuntime.ts`.
    - Excel object model signatures in `src/analyzer/host/excelObjectModel.ts`.
 4. **External XML documentation metadata**
-   - Team-authored signatures for missing native/project APIs.
+   - Developer-authored signatures for missing native/project APIs.
    - Type hints for symbols the source parser cannot see.
 5. **Inline `'''` documentation comments**
    - Descriptive metadata and optional type/unit/value hints.

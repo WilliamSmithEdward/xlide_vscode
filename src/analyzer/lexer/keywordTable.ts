@@ -192,7 +192,7 @@ export function isReservedIdentifier(word: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Canonical compound forms for snippets, code actions, and the formatter.
+// 4. Canonical compound forms for snippets, code actions, and casing normalizers.
 //    These are multi-token spellings the VBE emits; the casing of each word is
 //    consistent with VBA_KEYWORDS above.
 // ---------------------------------------------------------------------------

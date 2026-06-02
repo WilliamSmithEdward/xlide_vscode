@@ -100,7 +100,7 @@ Notes:
 ## 3. External metadata files
 
 To document symbols you do not own (host object-model members, VBA runtime
-functions) or to share documentation across a team, put `<member>` entries in a
+functions) or to keep reusable documentation outside one module, put `<member>` entries in a
 metadata file anywhere in your workspace. The default discovery glob is
 `**/*.vbref.xml`.
 
@@ -113,9 +113,9 @@ metadata file anywhere in your workspace. The default discovery glob is
     <returns>The tax owed, in dollars.</returns>
   </member>
 
-  <!-- Re-describe a built-in for your team. -->
+  <!-- Re-describe a built-in for your project. -->
   <member name="MsgBox">
-    <summary>Team note: prefer the Notify helper over raw MsgBox.</summary>
+    <summary>Prefer the Notify helper over raw MsgBox.</summary>
   </member>
 
   <!-- Give a call-tip signature to a symbol XLIDE cannot otherwise resolve. -->

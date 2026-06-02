@@ -12,8 +12,8 @@ metadata is considered shipped.
 
 ## Goals
 
-- Let a team describe referenced libraries, add-ins, host extensions, or shared
-  APIs in a versioned metadata file.
+- Let developers describe referenced libraries, add-ins, host extensions, or
+  local APIs in explicit metadata files.
 - Use the same explicit metadata for member completion, hovers, call tips, and
   type resolution.
 - Keep workbook source authoritative for workbook-owned classes.
@@ -87,7 +87,7 @@ The final schema should document:
   where applicable.
 - Human-readable docs: summary, params, returns, remarks, and examples.
 - Provenance: whether the metadata came from vendor docs, generated type
-  library output, project docs, or team-authored declarations.
+  library output, project docs, or developer-authored declarations.
 
 ## Precedence
 
@@ -132,4 +132,3 @@ repo.FindById("C-100").   ' customer members only if Acme.Customer is explicit
 - Understanding source-vs-metadata precedence.
 - Explaining why no menu appears for `Variant`, unresolved, or ambiguous types.
 - Showing a metadata validation report in the future XLIDE sidebar.
-

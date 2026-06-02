@@ -31,6 +31,7 @@ xlide_vscode/
     agentTools.ts       LanguageModelTool registrations for AI agent use
     moduleExport.ts     Shared module export logic for UI commands and AI tools
     workbookSettings.ts Strict workbook settings sidecar path, schema validation, and persistence
+    globalSettingsValidation.ts  VS Code XLIDE setting validation and runtime normalization helpers
     liveShare.ts        LiveShareIntegration — host/guest Live Share bridge over the VSLS service API
     statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
@@ -395,7 +396,7 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 The expanded Smart Enter layout is the default `comfy` block style. The
 `compact` style removes spacer lines and is exposed as the VS Code extension
 setting `xlide.editor.blockLayout`, contributed by `package.json` rather than
-`.xlide` project configuration. Both modes are expressed in the same
+workbook sidecar configuration. Both modes are expressed in the same
 smart-block helper/catalogue so Enter auto-blocking and Tab snippets share one
 behavior contract.
 
@@ -967,7 +968,11 @@ member access, trailing binary operators, and unmatched opening parentheses.
 Current-module analysis and workbook analysis do not pass that offset, so completed
 invalid source remains diagnostic-strict outside the active edit.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
-gate it and re-run open documents on change.
+gate it and re-run open documents on change. `globalSettingsValidation.ts`
+validates contributed XLIDE VS Code settings and surfaces malformed values as
+`XLIDE/settings` diagnostics on VBA documents; invalid `optionExplicit` values
+fall back to the default `warning` severity through the same normalizer used by
+live diagnostics, current-module analysis, and workbook analysis.
 Before diagnostics are displayed, `src/analyzer/diagnostics/analysisSuppressions.ts`
 scans tokenized apostrophe comments for explicit `@xlide-analysis` directives and
 applies the same lexical file, member, line, next-line, and paired block filter

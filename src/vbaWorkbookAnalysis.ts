@@ -34,6 +34,7 @@ import {
     validAnalysisSuppressionScopesForDiagnostic,
     type AnalysisSuppressionScope,
 } from './analysisSuppressionScopes';
+import { normalizeXlideOptionExplicitSetting } from './globalSettingsValidation';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information' | 'hint';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -288,7 +289,9 @@ export async function analyzeWorkbook(
     const projectProcedures = projectProcedureSignatures(project);
 
     const config = vscode.workspace.getConfiguration('xlide');
-    const optionExplicit = config.get<string>('diagnostics.optionExplicit', 'warning');
+    const optionExplicit = normalizeXlideOptionExplicitSetting(
+        config.get<unknown>('diagnostics.optionExplicit', 'warning'),
+    );
     const severities: SeverityOverrides = {
         optionExplicitMissing:
             optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
