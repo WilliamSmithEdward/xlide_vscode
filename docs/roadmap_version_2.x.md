@@ -1062,6 +1062,9 @@ the deterministic analyzer contract.
   `<workbook>.xlide_settings.json` file with invalid JSON, unknown keys,
   invalid sync modes, or invalid analysis settings now reports an explicit
   settings error instead of silently falling back to empty defaults.
+- [x] Centralize workbook sidecar ownership in `src/workbookSettings.ts` so
+  import/export, analysis settings, live diagnostics, webviews, and agent tools
+  use one strict parser/writer instead of feature-specific settings helpers.
 - [ ] Surface all configuration through the unified XLIDE sidebar menu
   collection, while preserving normal VS Code Settings integration for users
   who prefer native settings UI.

@@ -14,13 +14,15 @@ import {
 import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import { encodeRemoteModuleUri } from './liveShare';
 import {
-    type ExportMode,
     exportWorkbookModule,
+} from './moduleExport';
+import {
     normalizeExportMode,
     readWorkbookSettings,
     settingsPathForWorkbook,
     writeWorkbookSettings,
-} from './moduleExport';
+    type ExportMode,
+} from './workbookSettings';
 import {
     analyzeWorkbook,
     summarizeWorkbookAnalysisProblems,

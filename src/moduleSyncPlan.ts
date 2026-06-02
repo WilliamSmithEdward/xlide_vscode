@@ -2,13 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import {
-    type ExportMode,
     type ModuleInfo,
     listRootVbaModuleFiles,
-    normalizeExportMode,
     relativeNameForModule,
     sanitizeFileName,
 } from './moduleExport';
+import { normalizeExportMode, type ExportMode } from './workbookSettings';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';

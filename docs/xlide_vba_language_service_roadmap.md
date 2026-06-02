@@ -1544,7 +1544,11 @@ Implementation priority:
 2. [x] Keep Import/Export settings in the workbook sidecar and ensure
    descriptions, command behavior, GUI state, and agent tools use the same
    planner/resolver.
-3. [ ] Apply the same resolver pattern to the future test runner GUI and any
+3. [x] Keep workbook sidecar path, strict schema validation, and persistence in
+   `src/workbookSettings.ts`, consumed by import/export, analysis settings,
+   live diagnostics, webviews, and agent tools instead of feature-local
+   settings helpers.
+4. [ ] Apply the same resolver pattern to the future test runner GUI and any
    workbook diff/sync surface.
 
 Suggested initial settings:

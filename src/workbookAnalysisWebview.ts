@@ -21,7 +21,7 @@ import {
     setWorkbookAnalysisVisibleSeverities,
     type EffectiveWorkbookAnalysisSettings,
 } from './workbookAnalysisSettings';
-import { settingsPathForWorkbook } from './moduleExport';
+import { settingsPathForWorkbook } from './workbookSettings';
 import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
 
 export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';

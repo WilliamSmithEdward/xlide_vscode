@@ -24,7 +24,7 @@ vi.mock('vscode', () => ({
 	},
 }));
 
-import { readWorkbookSettings, writeWorkbookSettings } from '../src/moduleExport';
+import { readWorkbookSettings, writeWorkbookSettings } from '../src/workbookSettings';
 import {
 	effectiveWorkbookAnalysisSettings,
 	resetWorkbookAnalysisRuleTracking,

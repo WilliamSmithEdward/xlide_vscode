@@ -29,7 +29,8 @@ xlide_vscode/
     xlideFileSystem.ts  XlideFileSystemProvider — virtual xlide-vba:// filesystem
     commands.ts         Command handlers: open/new/rename/delete, workbook open/run, export modules
     agentTools.ts       LanguageModelTool registrations for AI agent use
-    moduleExport.ts     Shared export/config logic for UI commands and AI tools
+    moduleExport.ts     Shared module export logic for UI commands and AI tools
+    workbookSettings.ts Strict workbook settings sidecar path, schema validation, and persistence
     liveShare.ts        LiveShareIntegration — host/guest Live Share bridge over the VSLS service API
     statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
@@ -244,13 +245,15 @@ On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in 
 
 ## Module export / import
 
-`moduleExport.ts` is the single source of truth for export/config behavior, and
-`moduleSyncPlan.ts` builds the UI preview model used by bulk import/export.
+`moduleExport.ts` is the single source of truth for writing exported module
+files. `workbookSettings.ts` owns the workbook settings sidecar path, strict
+schema validation, and persistence. `moduleSyncPlan.ts` builds the UI preview
+model used by bulk import/export.
 
-Both lanes call into this shared implementation:
+Both lanes call into these shared owners:
 
 - UI commands (`xlide.exportModulesToFolder`, `xlide.importModulesFromFolder`,
-  and compatibility routes that open the same preview GUI)
+  and tree/menu routes that open the same preview GUI)
 - AI tools (`xlide_exportModules`, `xlide_configureExportMode`)
 
 **Export** reads all VBA modules live from Excel macro workbooks (`.xlsm`, `.xlsb`, `.xlam`) over JSON-RPC (`listModules` then `readModule` per module) and writes module files to a folder. The UI bulk export command opens a webview diff preview where the user can change the export folder, switch export mode, autosave settings after a short debounce, click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale `.bas`/`.cls` repo module files appear as removable diff rows instead of being removed invisibly.

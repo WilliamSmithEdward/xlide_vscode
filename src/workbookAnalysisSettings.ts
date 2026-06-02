@@ -10,7 +10,7 @@ import {
     writeWorkbookSettings,
     type WorkbookAnalysisSettingsConfig,
     type WorkbookSettingsConfig,
-} from './moduleExport';
+} from './workbookSettings';
 import {
     untrackedAnalysisRulesFromConfig,
     visibleAnalysisSeveritiesFromConfig,

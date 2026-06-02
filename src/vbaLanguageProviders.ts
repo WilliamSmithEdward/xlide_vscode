@@ -64,7 +64,7 @@ import {
     isAnalysisRuleTracked,
 } from './analysisSettingsCore';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
-import { isWorkbookSettingsError, settingsPathForWorkbook } from './moduleExport';
+import { isWorkbookSettingsError, settingsPathForWorkbook } from './workbookSettings';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },

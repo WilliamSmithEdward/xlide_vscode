@@ -6,11 +6,12 @@ import type { PythonBridge } from '../src/pythonBridge';
 import {
 	exportWorkbookModule,
 	exportWorkbookModules,
-	isWorkbookSettingsError,
+} from '../src/moduleExport';
+import {
 	readWorkbookSettings,
 	settingsPathForWorkbook,
 	writeWorkbookSettings,
-} from '../src/moduleExport';
+} from '../src/workbookSettings';
 
 interface FakeModule {
 	name: string;
@@ -163,74 +164,4 @@ describe('moduleExport', () => {
 		});
 	});
 
-	it('treats a missing workbook settings sidecar as no workbook settings', async () => {
-		const { workbook } = tempWorkbook();
-
-		await expect(readWorkbookSettings(workbook)).resolves.toEqual({});
-	});
-
-	it('rejects invalid workbook settings JSON with the sidecar path', async () => {
-		const { workbook } = tempWorkbook();
-		fs.writeFileSync(settingsPathForWorkbook(workbook), '{ nope', 'utf8');
-
-		await expect(readWorkbookSettings(workbook)).rejects.toMatchObject({
-			settingsPath: settingsPathForWorkbook(workbook),
-			name: 'WorkbookSettingsError',
-		});
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected valid JSON');
-	});
-
-	it('rejects non-object workbook settings', async () => {
-		const { workbook } = tempWorkbook();
-		fs.writeFileSync(settingsPathForWorkbook(workbook), '[]', 'utf8');
-
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected the root value to be a JSON object');
-	});
-
-	it('rejects unknown workbook settings keys instead of ignoring them', async () => {
-		const { workbook } = tempWorkbook();
-		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
-			`${JSON.stringify({ exportFolder: 'C:/repo', typoMode: true }, null, 2)}\n`,
-			'utf8',
-		);
-
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Unknown setting "typoMode"');
-	});
-
-	it('rejects invalid workbook sync modes from disk', async () => {
-		const { workbook } = tempWorkbook();
-		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
-			`${JSON.stringify({ exportFolder: 'C:/repo', exportMode: 'anythingElse' }, null, 2)}\n`,
-			'utf8',
-		);
-
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected "exportMode" to be "exportAll" or "trueUp"');
-	});
-
-	it('rejects invalid workbook analysis settings from disk', async () => {
-		const { workbook } = tempWorkbook();
-		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
-			`${JSON.stringify({
-				analysis: {
-					visibleSeverities: ['error', 'hint'],
-				},
-			}, null, 2)}\n`,
-			'utf8',
-		);
-
-		try {
-			await readWorkbookSettings(workbook);
-			throw new Error('Expected readWorkbookSettings to reject');
-		} catch (err) {
-			expect(isWorkbookSettingsError(err)).toBe(true);
-			expect(err).toMatchObject({
-				settingsPath: settingsPathForWorkbook(workbook),
-			});
-			expect(err instanceof Error ? err.message : String(err))
-				.toContain('Expected "analysis.visibleSeverities" entries');
-		}
-	});
 });

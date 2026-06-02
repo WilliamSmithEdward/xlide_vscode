@@ -3,10 +3,9 @@ import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider, encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
 import {
-    type ExportMode,
     exportWorkbookModules,
-    setWorkbookExportMode,
 } from './moduleExport';
+import { setWorkbookExportMode, type ExportMode } from './workbookSettings';
 import { analyzeWorkbook } from './vbaWorkbookAnalysis';
 import { errorCategoryForSupportLog } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';

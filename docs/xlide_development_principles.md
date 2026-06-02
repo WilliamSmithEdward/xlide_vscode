@@ -63,6 +63,8 @@ Use discernment when deciding where settings live.
 - Some workbook settings have no global equivalent. Workbook-specific facts
   such as a selected sync folder should live only with the workbook.
 - A workbook GUI action must not silently mutate global defaults.
+- Sidecar path resolution, schema validation, and reads/writes should live in
+  the shared workbook settings owner, not in individual feature modules.
 - Displayed configuration and runtime behavior must come from the same resolver.
   Do not create separate GUI-only, command-only, or compatibility-only settings
   paths for the same business rule.

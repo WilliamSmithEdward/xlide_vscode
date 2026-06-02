@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ImportMode, ModuleSyncPlan } from './moduleSyncPlan';
-import { settingsPathForWorkbook, type ExportMode } from './moduleExport';
+import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
 
 export interface ModuleSyncApplyResult {
     summary: string;
