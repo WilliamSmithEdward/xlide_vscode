@@ -94,14 +94,64 @@ export async function setWorkbookAnalysisRuleTracked(
     };
 }
 
+export async function resetWorkbookAnalysisVisibleSeverities(
+    workbookPath: string,
+): Promise<EffectiveWorkbookAnalysisSettings> {
+    const existing = await readWorkbookSettings(workbookPath);
+    const analysis = { ...(existing.analysis ?? {}) };
+    delete analysis.visibleSeverities;
+    await writeWorkbookSettings(workbookPath, withAnalysisSettings(existing, analysis));
+    return effectiveWorkbookAnalysisSettings(workbookPath);
+}
+
+export async function resetWorkbookAnalysisRuleTracking(
+    workbookPath: string,
+): Promise<EffectiveWorkbookAnalysisSettings> {
+    const existing = await readWorkbookSettings(workbookPath);
+    const analysis = { ...(existing.analysis ?? {}) };
+    delete analysis.untrackedRules;
+    await writeWorkbookSettings(workbookPath, withAnalysisSettings(existing, analysis));
+    return effectiveWorkbookAnalysisSettings(workbookPath);
+}
+
+export async function resetWorkbookAnalysisSettings(
+    workbookPath: string,
+): Promise<EffectiveWorkbookAnalysisSettings> {
+    const existing = await readWorkbookSettings(workbookPath);
+    await writeWorkbookSettings(workbookPath, withoutAnalysisSettings(existing));
+    return effectiveWorkbookAnalysisSettings(workbookPath);
+}
+
 function withAnalysisSettings(
     config: WorkbookSettingsConfig,
     analysis: WorkbookAnalysisSettingsConfig,
 ): WorkbookSettingsConfig {
+    const normalizedAnalysis = compactAnalysisSettings(analysis);
     return {
         exportFolder: config.exportFolder,
         exportMode: config.exportMode,
         importMode: config.importMode,
-        analysis,
+        ...(normalizedAnalysis ? { analysis: normalizedAnalysis } : {}),
     };
+}
+
+function withoutAnalysisSettings(config: WorkbookSettingsConfig): WorkbookSettingsConfig {
+    return {
+        exportFolder: config.exportFolder,
+        exportMode: config.exportMode,
+        importMode: config.importMode,
+    };
+}
+
+function compactAnalysisSettings(
+    analysis: WorkbookAnalysisSettingsConfig,
+): WorkbookAnalysisSettingsConfig | undefined {
+    const compacted: WorkbookAnalysisSettingsConfig = {};
+    if (analysis.visibleSeverities) {
+        compacted.visibleSeverities = analysis.visibleSeverities;
+    }
+    if (analysis.untrackedRules) {
+        compacted.untrackedRules = analysis.untrackedRules;
+    }
+    return Object.keys(compacted).length > 0 ? compacted : undefined;
 }

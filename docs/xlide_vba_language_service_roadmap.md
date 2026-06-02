@@ -1535,11 +1535,14 @@ workflow panels:
 
 Implementation priority:
 
-1. Move the Analysis GUI's severity visibility and rule tracking/untracking to
-   workbook-scoped analysis settings with global fallback.
-2. Keep Import/Export settings in the workbook sidecar and ensure descriptions,
-   command behavior, GUI state, and agent tools use the same planner/resolver.
-3. Apply the same resolver pattern to the future test runner GUI and any
+1. [x] Move the Analysis GUI's severity visibility and rule tracking/untracking
+   to workbook-scoped analysis settings with global fallback. The Analysis
+   Settings dialog now shows source provenance and can reset workbook overrides
+   back to global defaults without mutating VS Code settings.
+2. [x] Keep Import/Export settings in the workbook sidecar and ensure
+   descriptions, command behavior, GUI state, and agent tools use the same
+   planner/resolver.
+3. [ ] Apply the same resolver pattern to the future test runner GUI and any
    workbook diff/sync surface.
 
 Suggested initial settings:

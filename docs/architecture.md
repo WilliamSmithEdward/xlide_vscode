@@ -41,7 +41,7 @@ xlide_vscode/
     vbaProjectAnalysis.ts  Shared ProjectIndex construction and analyzer-option derivation for project-aware analysis, diagnostics, semantic tokens, completion, and hover surfaces
     vbaWorkbookAnalysis.ts  Workbook-wide analysis core (analyzeWorkbook) reused by commands and the xlide_analyzeWorkbook agent tool; flattens vbaModuleAnalysis results into 1-based problems with diagnostic metadata and summary counts
     workbookAnalysisResultsModel.ts  Pure workbook analysis results view model and copy-report formatting shared by analysis result UI tests and the webview
-    workbookAnalysisWebview.ts  Dedicated VS Code webview panel for current-module/workbook analysis results, filters, copy actions, and click-through navigation
+    workbookAnalysisWebview.ts  Dedicated VS Code webview panel for current-module/workbook analysis results, filters, workbook-scoped analysis settings provenance/reset controls, copy actions, and click-through navigation
     analyzer/
       lexer/
         keywordTable.ts MS-VBAL 3.3.5.2 reserved-identifier + contextual keyword tables with canonical casing

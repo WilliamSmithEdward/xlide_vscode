@@ -1008,7 +1008,7 @@ auditable, and recoverable for real user projects.
   update on name match, missing document/UserForm-code-behind imports show
   `Skipping import`, `.frm` designer files stay out of scope, and the
   delete/mirror import mode only removes workbook-only standard/class modules.
-- [ ] Move import/export-specific settings into the import/export diff GUI as
+- [x] Move import/export-specific settings into the import/export diff GUI as
   the primary configuration surface. The GUI should show effective defaults,
   allow per-workbook overrides for folder/export mode/related sync options, and
   persist selected workbook settings to a sidecar named
@@ -1016,7 +1016,7 @@ auditable, and recoverable for real user projects.
   `workbook.xlsm.xlide_settings.json`). Global/default settings live in VS Code
   configuration; workbook-only choices live only in the workbook sidecar and
   override global defaults where a setting supports fallback.
-- [ ] Keep one supported workbook settings sidecar path:
+- [x] Keep one supported workbook settings sidecar path:
   `<workbook>.xlide_settings.json`. Do not preserve legacy JSON names or
   compatibility shims. Route older folder/mode commands to the same workbook
   settings writer or retire them so settings are not edited in multiple places.

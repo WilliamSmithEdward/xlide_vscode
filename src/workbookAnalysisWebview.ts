@@ -14,8 +14,12 @@ import {
 } from './analysisSettingsCore';
 import {
     effectiveWorkbookAnalysisSettings,
+    resetWorkbookAnalysisRuleTracking,
+    resetWorkbookAnalysisSettings,
+    resetWorkbookAnalysisVisibleSeverities,
     setWorkbookAnalysisRuleTracked,
     setWorkbookAnalysisVisibleSeverities,
+    type EffectiveWorkbookAnalysisSettings,
 } from './workbookAnalysisSettings';
 import { settingsPathForWorkbook } from './moduleExport';
 import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
@@ -69,8 +73,7 @@ export function openWorkbookAnalysisResults(
         panel.webview.html = renderWorkbookAnalysisResultsHtml(
             panel.webview,
             currentModel,
-            analysisSettings.visibleSeverities,
-            analysisSettings.untrackedRules,
+            analysisSettings,
         );
     };
 
@@ -234,6 +237,21 @@ export function openWorkbookAnalysisResults(
                 await refreshAfterAnalysisMutation();
                 return;
             }
+            if (message.type === 'resetAnalysisSeverities') {
+                await resetWorkbookAnalysisVisibleSeverities(currentResult.filePath);
+                await refreshAfterAnalysisMutation();
+                return;
+            }
+            if (message.type === 'resetAnalysisRuleTracking') {
+                await resetWorkbookAnalysisRuleTracking(currentResult.filePath);
+                await refreshAfterAnalysisMutation();
+                return;
+            }
+            if (message.type === 'resetAnalysisSettings') {
+                await resetWorkbookAnalysisSettings(currentResult.filePath);
+                await refreshAfterAnalysisMutation();
+                return;
+            }
             if (message.type === 'copyText') {
                 await vscode.env.clipboard.writeText(String(message.text ?? ''));
                 await panel.webview.postMessage({ type: 'copied' });
@@ -324,16 +342,19 @@ function isWorkbookDocument(document: vscode.TextDocument, filePath: string): bo
 function renderWorkbookAnalysisResultsHtml(
     webview: vscode.Webview,
     model: WorkbookAnalysisResultsModel,
-    visibleSeverities: readonly AnalysisSeverityFilter[],
-    untrackedRules: readonly string[],
+    analysisSettings: EffectiveWorkbookAnalysisSettings,
 ): string {
     const nonce = randomNonce();
+    const visibleSeverities = analysisSettings.visibleSeverities;
+    const untrackedRules = analysisSettings.untrackedRules;
     const modelJson = JSON.stringify({
         ...model,
         plainText: buildWorkbookAnalysisPlainText(model),
         visibleSeverities,
         untrackedRules,
-        analysisSettingsKey: workbookAnalysisSettingsKey(visibleSeverities, untrackedRules),
+        visibleSeveritiesSource: analysisSettings.visibleSeveritiesSource,
+        untrackedRulesSource: analysisSettings.untrackedRulesSource,
+        analysisSettingsKey: workbookAnalysisSettingsKey(analysisSettings),
     }).replace(/</g, '\\u003c');
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
     const allRows = [...model.rows, ...model.suppressedRows];
@@ -392,6 +413,9 @@ function renderWorkbookAnalysisResultsHtml(
         return `<button class="filterButton${active ? ' active' : ''}" type="button" data-severity-toggle="${severity}" aria-pressed="${active ? 'true' : 'false'}">${severityFilterLabel(severity)}</button>`;
     }).join('');
     const ruleSettingsHtml = analysisRuleSettingsHtml(allRows, untrackedRules);
+    const severitySourceIsWorkbook = analysisSettings.visibleSeveritiesSource === 'workbook';
+    const rulesSourceIsWorkbook = analysisSettings.untrackedRulesSource === 'workbook';
+    const anyAnalysisOverride = severitySourceIsWorkbook || rulesSourceIsWorkbook;
     const informationCount = model.rows.filter((row) => row.severity === 'information').length;
     const untrackedCount = model.rows.filter((row) => !isAnalysisRuleTracked(row.code, untrackedRules)).length;
     const summaryStatsHtml = [
@@ -822,11 +846,32 @@ function renderWorkbookAnalysisResultsHtml(
         .settingsSection + .settingsSection {
             margin-top: 18px;
         }
+        .settingsSectionHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 8px;
+        }
         .settingsSection h3 {
             margin: 0 0 8px;
             color: var(--vscode-descriptionForeground);
             font-size: 13px;
             font-weight: 600;
+        }
+        .settingsSectionHeader h3 {
+            margin-bottom: 2px;
+        }
+        .settingsSource {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+        }
+        .settingsResetButton {
+            white-space: nowrap;
+        }
+        .settingsResetButton:disabled {
+            opacity: 0.45;
+            cursor: default;
         }
         .settingsChoices {
             display: grid;
@@ -872,6 +917,13 @@ function renderWorkbookAnalysisResultsHtml(
         }
         .settingsEmpty {
             color: var(--vscode-descriptionForeground);
+        }
+        .settingsFooterActions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid var(--vscode-panel-border);
         }
         @media (max-width: 860px) {
             .stats {
@@ -957,7 +1009,13 @@ function renderWorkbookAnalysisResultsHtml(
             </div>
             <div class="settingsBody">
                 <section class="settingsSection">
-                    <h3>Severities</h3>
+                    <div class="settingsSectionHeader">
+                        <div>
+                            <h3>Severities</h3>
+                            <div class="settingsSource">Source: ${settingsSourceLabel(analysisSettings.visibleSeveritiesSource)}</div>
+                        </div>
+                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="severities" ${severitySourceIsWorkbook ? '' : 'disabled'}>Use Global Default</button>
+                    </div>
                     <div class="settingsChoices" aria-label="Severity visibility">
                         ${ANALYSIS_SEVERITIES.map((severity) => `
                             <label class="settingsChoice">
@@ -968,11 +1026,20 @@ function renderWorkbookAnalysisResultsHtml(
                     </div>
                 </section>
                 <section class="settingsSection">
-                    <h3>Tracked Rules</h3>
+                    <div class="settingsSectionHeader">
+                        <div>
+                            <h3>Tracked Rules</h3>
+                            <div class="settingsSource">Source: ${settingsSourceLabel(analysisSettings.untrackedRulesSource)}</div>
+                        </div>
+                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="rules" ${rulesSourceIsWorkbook ? '' : 'disabled'}>Use Global Default</button>
+                    </div>
                     <div class="settingsRuleList" aria-label="Tracked analysis rules">
                         ${ruleSettingsHtml}
                     </div>
                 </section>
+                <div class="settingsFooterActions">
+                    <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="all" ${anyAnalysisOverride ? '' : 'disabled'}>Use All Global Defaults</button>
+                </div>
             </div>
         </section>
     </div>
@@ -1350,6 +1417,21 @@ function renderWorkbookAnalysisResultsHtml(
                 setSettingsOpen(false);
                 return;
             }
+            const resetAnalysisButton = event.target.closest?.('[data-reset-analysis]');
+            if (resetAnalysisButton) {
+                if (resetAnalysisButton.disabled) {
+                    return;
+                }
+                const scope = resetAnalysisButton.dataset.resetAnalysis;
+                if (scope === 'severities') {
+                    vscode.postMessage({ type: 'resetAnalysisSeverities' });
+                } else if (scope === 'rules') {
+                    vscode.postMessage({ type: 'resetAnalysisRuleTracking' });
+                } else if (scope === 'all') {
+                    vscode.postMessage({ type: 'resetAnalysisSettings' });
+                }
+                return;
+            }
             const settingsSeverity = event.target.closest?.('[data-settings-severity]');
             if (settingsSeverity) {
                 const id = settingsSeverity.dataset.settingsSeverity;
@@ -1523,14 +1605,17 @@ function statHtml(value: string, label: string): string {
     return `<div class="stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
-function workbookAnalysisSettingsKey(
-    visibleSeverities: readonly AnalysisSeverityFilter[],
-    untrackedRules: readonly string[],
-): string {
+function workbookAnalysisSettingsKey(settings: EffectiveWorkbookAnalysisSettings): string {
     return JSON.stringify({
-        visibleSeverities: [...visibleSeverities],
-        untrackedRules: [...untrackedRules].sort((left, right) => left.localeCompare(right)),
+        visibleSeverities: [...settings.visibleSeverities],
+        visibleSeveritiesSource: settings.visibleSeveritiesSource,
+        untrackedRules: [...settings.untrackedRules].sort((left, right) => left.localeCompare(right)),
+        untrackedRulesSource: settings.untrackedRulesSource,
     });
+}
+
+function settingsSourceLabel(source: EffectiveWorkbookAnalysisSettings['visibleSeveritiesSource']): string {
+    return source === 'workbook' ? 'Workbook override' : 'Global default';
 }
 
 function analysisRuleSettingsHtml(
