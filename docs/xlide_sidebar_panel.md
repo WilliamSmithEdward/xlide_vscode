@@ -14,11 +14,13 @@ development in VS Code.
 - `src/xlideSidebar.ts` owns VS Code rendering and refresh behavior.
 - The current sidebar shows deterministic project/workbook-discovery status,
   active-workbook context, workbook sidecar status, core XLIDE actions,
-  global/editor settings with provenance, workbook-effective import/export and
-  analysis settings, and support actions.
+  workbook-effective import/export and analysis status, and support actions.
 - Global/editor settings are opened through VS Code Settings. Workbook-scoped
   settings continue to live in `<workbook>.xlide_settings.json`; the sidebar
   reads the same sidecar owner and links to the active sidecar when it exists.
+- The next sidebar cleanup should remove dense inline global/machine settings
+  rows and replace them with one button that opens a dedicated XLIDE Global
+  Settings GUI.
 
 ## Goals
 
@@ -71,6 +73,10 @@ Recommended sections:
    - Requirements and recommendations
    - Pass/warn/fail/unknown indicators
    - Inline quick actions where available
+   - Green icon for ready dependencies
+   - Yellow icon for dependencies that need user action
+   - A targeted button/action for each yellow row, such as install dependencies,
+     set Python path, open Trust Center guidance, or open the relevant setup GUI
 
 3. **Actions**
    - Analyze current module
@@ -100,16 +106,15 @@ Recommended sections:
    - COM/reset warnings
 
 7. **Configuration**
-   - Effective configuration grouped by workflow
-   - Source layer for every value: built-in default, VS Code setting, or
-     workbook-scoped sidecar override
-   - Workbook-facing workflow settings live with the selected workbook when the
-     value is workbook-specific, while the sidebar/global configuration surface
-     manages extension-wide defaults
-   - Validation errors/warnings
-   - Quick actions to edit global defaults and workbook-scoped overrides
-   - Reset-to-default actions where safe
-   - Profile/rule-set selector once profiles exist
+   - Compact active-workbook sidecar status.
+   - One action to open the dedicated XLIDE Global Settings GUI for VS
+     Code/machine settings.
+   - One action to open the active workbook settings GUI or sidecar when a
+     workbook context exists.
+   - Do not render every setting as sidebar rows; detailed inspection/editing
+     belongs in dedicated settings GUIs.
+   - Profile/rule-set selector once profiles exist, likely inside the dedicated
+     settings GUI rather than as permanent sidebar clutter.
 
 ## Setup Health Checks
 
@@ -143,6 +148,11 @@ Initial checks:
 - Test runner is configured once implemented.
 - Optional `.vbref.xml` or doc-comment metadata is loaded if present.
 
+Dependency/status rows should be compact and actionable. They belong in the
+sidebar when they answer "can I use XLIDE right now?" and offer a direct fix.
+They should not expand into full setting forms; detailed configuration belongs
+in the dedicated settings GUIs.
+
 Examples:
 
 ```text
@@ -168,9 +178,8 @@ disabled states where appropriate:
 - `XLIDE: Open Workbook`
 - `XLIDE: Reopen Workbook`
 - `XLIDE: Refresh Project`
-- `XLIDE: Open Settings`
-- `XLIDE: Open Workspace XLIDE Settings`
-- `XLIDE: Open Local XLIDE Overrides`
+- `XLIDE: Open Global Settings`
+- `XLIDE: Open Workbook Settings`
 - `XLIDE: Open Logs`
 
 Buttons should not silently run destructive operations. Sync/write actions need
@@ -180,6 +189,10 @@ clear status and should reuse existing safe workbook handling.
 
 - Use VS Code codicons where available.
 - Use concise labels; put detail in tooltips.
+- Keep the sidebar short. Prefer one launch button for a detailed GUI over
+  many always-visible setting rows.
+- Keep dependency health visible when it affects whether the current workflow is
+  usable; use green/yellow status icons and one direct action for yellow items.
 - Keep sections collapsible.
 - Persist collapsed/expanded state locally.
 - Show badges for errors, warnings, and failed tests.
@@ -215,10 +228,11 @@ clear status and should reuse existing safe workbook handling.
   where COM/workbook state is required.
 - Do not require Excel COM for basic sidebar rendering.
 - Do not run health probes that mutate the workbook.
-- Configuration rendering should consume the same resolver used by production
+- Dedicated settings GUIs should consume the same resolver used by production
   code so displayed values always match behavior. The resolver must preserve
   setting provenance and validate malformed VS Code settings or workbook
-  sidecars deterministically.
+  sidecars deterministically. The sidebar should summarize status and launch
+  those GUIs instead of duplicating their detailed controls.
 - Workbook-facing GUIs must use the shared configuration resolver: global
   VS Code settings provide defaults, workbook-scoped sidecars provide overrides,
   and GUI actions tied to a workbook must not silently mutate global defaults.

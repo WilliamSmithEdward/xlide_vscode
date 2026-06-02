@@ -922,12 +922,17 @@ development.
   section even after the dedicated XLIDE Activity Bar/sidebar ships. Explorer is
   the file/navigation surface; the XLIDE sidebar is the product shell for
   health, commands, configuration, tests, analysis summaries, and status.
-- [x] Add a unified configuration section/menu collection in the XLIDE sidebar:
-  show effective settings, their source layer, validation state, quick actions,
-  and links to edit VS Code settings or the active workbook sidecar where
-  applicable. The sidebar now shows global/editor settings, active-workbook
-  sidecar state, workbook-effective import/export settings, and workbook-effective
-  analysis settings from the shared resolvers.
+- [ ] Simplify the XLIDE sidebar information architecture so it stays a clean
+  launch/status surface rather than a dense settings browser. Keep high-frequency
+  actions and compact deterministic status in the sidebar; move detailed setting
+  inspection/editing into dedicated GUIs.
+- [ ] Replace detailed VS Code/machine setting rows in the sidebar with a single
+  clear button that opens a dedicated XLIDE Global Settings GUI. Global/editor
+  settings still live in VS Code machine/profile settings, not JSON files.
+- [x] Add a unified configuration entry point in the XLIDE sidebar: show compact
+  active-workbook sidecar status and launch the appropriate settings GUI without
+  mutating the wrong scope. Detailed setting rows are now considered a cleanup
+  target, not the final sidebar shape.
 - [ ] Add setup health checks with pass/warn/fail/unknown states for:
   - active XLIDE workbook/project context
   - workbook source sync/export mapping
@@ -938,12 +943,21 @@ development.
   - analysis engine readiness
   - VBA test runner readiness once implemented
   - optional metadata/doc-comment support
+- [ ] Render dependency/setup status as compact sidebar rows with clear icons:
+  green for ready, yellow for needs attention, and a targeted action button for
+  each yellow item. Examples: install Python dependencies, set Python path,
+  open Trust Center guidance, configure metadata glob, or open the relevant
+  setup/settings GUI. These rows are allowed in the sidebar because they are
+  actionable health status, not detailed settings browsing.
 - [x] Add selected-workbook context to the sidebar so workbook-scoped settings
   can be viewed from the same shell without mutating global/editor defaults.
   Context comes from the active XLIDE VBA editor or the only workspace workbook;
   workbook actions receive the workbook explicitly, and `.xlide_settings.json`
   file changes refresh the view.
-- [ ] Add direct sidebar edit controls for workbook-scoped setting values.
+- [ ] Add dedicated workbook-scoped settings GUI/edit controls launched from the
+  sidebar or workbook-facing workflows. Do not turn the sidebar itself into a
+  full settings editor; workbook-specific choices must still persist only to
+  `<workbook>.xlide_settings.json`.
 - [ ] Add primary action buttons:
   - analyze current module
   - analyze workbook
@@ -1089,11 +1103,11 @@ the deterministic analyzer contract.
   and agent export-mode configuration. The generic sidecar owner stays in
   `src/workbookSettings.ts`, and sync saves preserve unrelated workbook
   settings instead of stamping defaults for the opposite import/export lane.
-- [x] Surface contributed global/editor configuration through the unified XLIDE
-  sidebar menu collection, while preserving normal VS Code Settings integration
-  for users who prefer native settings UI. The sidebar consumes
-  `resolvedXlideGlobalSettingsFromConfig`, so displayed values and provenance
-  share the production resolver.
+- [ ] Add a dedicated XLIDE Global Settings GUI for contributed VS Code/machine
+  settings. It must consume `resolvedXlideGlobalSettingsFromConfig`, show
+  provenance/validation, and persist changes through VS Code machine/profile
+  settings only. The sidebar should expose this through one button, not a long
+  inline settings list.
 - [x] Surface active-workbook configuration in the XLIDE sidebar once selected
   workbook context is available. Workbook-specific choices still persist only to
   `<workbook>.xlide_settings.json`; the sidebar displays effective sync and
