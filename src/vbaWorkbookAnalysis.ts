@@ -30,10 +30,15 @@ import {
 } from './vbaProjectAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
+import {
+    validAnalysisSuppressionScopesForDiagnostic,
+    type AnalysisSuppressionScope,
+} from './analysisSuppressionScopes';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information' | 'hint';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
 export type WorkbookAnalysisSummaryKind = DiagnosticEvidenceKind | 'unknown';
+export type { AnalysisSuppressionScope } from './analysisSuppressionScopes';
 
 /** A single analysis finding located within one module of a workbook. */
 export interface WorkbookAnalysisProblem {
@@ -64,6 +69,9 @@ export interface WorkbookAnalysisProblem {
     insertLine?: number;
     quickFixAvailable?: boolean;
     quickFixTitles?: string[];
+    suppressionScopes: AnalysisSuppressionScope[];
+    /** True when the finding is hidden by an XLIDE analysis suppression directive. */
+    suppressed?: boolean;
     message: string;
 }
 
@@ -81,6 +89,7 @@ export interface WorkbookAnalysisResult {
     filePath: string;
     moduleCount: number;
     problems: WorkbookAnalysisProblem[];
+    suppressedProblems: WorkbookAnalysisProblem[];
     errorCount: number;
     warningCount: number;
     summary: WorkbookAnalysisSummary;
@@ -170,11 +179,17 @@ export function workbookProblemsForModule(
     moduleType: string,
     source: string,
     diagnostics: readonly VbaModuleAnalysisDiagnostic[],
+    options: { suppressed?: boolean } = {},
 ): WorkbookAnalysisProblem[] {
     const starts = lineStartOffsets(source);
     return diagnostics.map((diagnostic) => {
         const start = offsetToLineColumn(starts, diagnostic.span.start);
         const end = offsetToLineColumn(starts, diagnostic.span.end);
+        const suppressionScopes = validAnalysisSuppressionScopesForDiagnostic(
+            source,
+            diagnostic.code,
+            diagnostic.span.start,
+        );
         const quickFixes = diagnostic.code
             ? resolveDiagnosticCodeActions(source, {
                 code: diagnostic.code,
@@ -199,9 +214,20 @@ export function workbookProblemsForModule(
             insertLine: diagnostic.insertLine,
             quickFixAvailable: quickFixes.length > 0,
             quickFixTitles: quickFixes.map((fix) => fix.title),
+            suppressionScopes,
+            suppressed: options.suppressed === true,
             ...metadataFieldsForCode(diagnostic.code),
             message: diagnostic.message,
         };
+    });
+}
+
+function sortWorkbookProblems(problems: WorkbookAnalysisProblem[]): void {
+    problems.sort((a, b) => {
+        const moduleOrder = compareVbaModulesForTreeOrder(a, b);
+        if (moduleOrder !== 0) { return moduleOrder; }
+        if (a.line !== b.line) { return a.line - b.line; }
+        return a.column - b.column;
     });
 }
 
@@ -269,7 +295,7 @@ export async function analyzeWorkbook(
     };
 
     const problems: WorkbookAnalysisProblem[] = [];
-    let suppressedCount = 0;
+    const suppressedProblems: WorkbookAnalysisProblem[] = [];
 
     for (const mod of modules) {
         const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
@@ -287,24 +313,27 @@ export async function analyzeWorkbook(
             mod.source,
             moduleAnalysis.diagnostics,
         ));
-        suppressedCount += moduleAnalysis.suppressedCount;
+        suppressedProblems.push(...workbookProblemsForModule(
+            mod.name,
+            mod.type,
+            mod.source,
+            moduleAnalysis.suppressedDiagnostics,
+            { suppressed: true },
+        ));
     }
 
-    problems.sort((a, b) => {
-        const moduleOrder = compareVbaModulesForTreeOrder(a, b);
-        if (moduleOrder !== 0) { return moduleOrder; }
-        if (a.line !== b.line) { return a.line - b.line; }
-        return a.column - b.column;
-    });
+    sortWorkbookProblems(problems);
+    sortWorkbookProblems(suppressedProblems);
 
     const errorCount = problems.filter((p) => p.severity === 'error').length;
     const warningCount = problems.filter((p) => p.severity === 'warning').length;
-    const summary = summarizeWorkbookAnalysisProblems(problems, suppressedCount);
+    const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
 
     return {
         filePath,
         moduleCount: modules.length,
         problems,
+        suppressedProblems,
         errorCount,
         warningCount,
         summary,

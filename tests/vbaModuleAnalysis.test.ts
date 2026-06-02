@@ -33,6 +33,7 @@ describe('analyzeVbaModuleSource', () => {
 		});
 
 		expect(result.suppressedCount).toBe(1);
+		expect(result.suppressedDiagnostics.map((diag) => diag.code)).toEqual(['undeclared-variable']);
 		expect(result.diagnostics.map((diag) => diag.code)).toEqual([
 			'analysis-suppression-directive',
 			'missing-block-closer',
@@ -73,6 +74,8 @@ describe('analyzeVbaModuleSource', () => {
 		});
 
 		expect(result.suppressedCount).toBe(1);
+		expect(result.suppressedDiagnostics).toHaveLength(1);
+		expect(result.suppressedDiagnostics[0].message).toContain('hiddenMissing');
 		expect(result.diagnostics).toHaveLength(1);
 		expect(result.diagnostics[0].message).toContain('visibleMissing');
 	});

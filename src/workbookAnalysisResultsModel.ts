@@ -1,5 +1,6 @@
 import * as path from 'path';
 import type {
+    AnalysisSuppressionScope,
     WorkbookAnalysisProblem,
     WorkbookAnalysisResult,
     WorkbookAnalysisSeverity,
@@ -10,6 +11,7 @@ import { compareVbaModulesForTreeOrder, moduleTypeBadge, moduleTypeLabel } from 
 
 export interface WorkbookAnalysisResultRow {
     index: number;
+    suppressed: boolean;
     moduleName: string;
     moduleType: string;
     moduleIcon: string;
@@ -26,6 +28,7 @@ export interface WorkbookAnalysisResultRow {
     vbeCompileEquivalent: boolean;
     quickFixAvailable: boolean;
     quickFixTitles: string[];
+    suppressionScopes: AnalysisSuppressionScope[];
     message: string;
     specReference: string;
 }
@@ -56,11 +59,14 @@ export interface WorkbookAnalysisResultsModel {
     byCategory: Array<{ name: WorkbookAnalysisSummaryCategory; count: number }>;
     byDiagnosticKind: Array<{ name: WorkbookAnalysisSummaryKind; count: number }>;
     rows: WorkbookAnalysisResultRow[];
+    suppressedRows: WorkbookAnalysisResultRow[];
     groups: WorkbookAnalysisModuleGroup[];
 }
 
 export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult): WorkbookAnalysisResultsModel {
-    const rows = result.problems.map(problemToRow);
+    const rows = result.problems.map((problem, index) => problemToRow(problem, index, false));
+    const suppressedRows = (result.suppressedProblems ?? [])
+        .map((problem, index) => problemToRow(problem, index, true));
     const groupsByModule = new Map<string, WorkbookAnalysisModuleGroup>();
 
     for (const row of rows) {
@@ -116,6 +122,7 @@ export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult
         byCategory: countEntries(result.summary.byCategory),
         byDiagnosticKind: countEntries(result.summary.byDiagnosticKind),
         rows,
+        suppressedRows,
         groups,
     };
 }
@@ -145,9 +152,14 @@ export function buildWorkbookAnalysisPlainText(model: WorkbookAnalysisResultsMod
     return lines.join('\n');
 }
 
-function problemToRow(problem: WorkbookAnalysisProblem, index: number): WorkbookAnalysisResultRow {
+function problemToRow(
+    problem: WorkbookAnalysisProblem,
+    index: number,
+    suppressed: boolean,
+): WorkbookAnalysisResultRow {
     return {
         index,
+        suppressed,
         moduleName: problem.moduleName,
         moduleType: problem.moduleType,
         moduleIcon: moduleTypeBadge(problem.moduleType),
@@ -164,6 +176,7 @@ function problemToRow(problem: WorkbookAnalysisProblem, index: number): Workbook
         vbeCompileEquivalent: problem.vbeCompileEquivalent === true,
         quickFixAvailable: problem.quickFixAvailable === true,
         quickFixTitles: problem.quickFixTitles ?? [],
+        suppressionScopes: problem.suppressionScopes ?? ['module'],
         message: problem.message,
         specReference: problem.specReference ?? '',
     };

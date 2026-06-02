@@ -22,7 +22,7 @@ function resultFixture(): WorkbookAnalysisResult {
 			},
 			vbeCompileEquivalentCount: 2,
 			nonVbeCompileEquivalentCount: 1,
-			suppressedCount: 4,
+			suppressedCount: 1,
 		},
 		problems: [
 			{
@@ -69,6 +69,23 @@ function resultFixture(): WorkbookAnalysisResult {
 				message: 'Variable is not declared.',
 			},
 		],
+		suppressedProblems: [
+			{
+				moduleName: 'Module1',
+				moduleType: 'standard',
+				line: 10,
+				column: 4,
+				endColumn: 16,
+				severity: 'warning',
+				code: 'option-explicit-missing',
+				ruleTitle: 'Option Explicit missing',
+				category: 'style',
+				vbeCompileEquivalent: false,
+				diagnosticKind: 'stylePolicy',
+				message: 'Option Explicit is not specified.',
+				suppressed: true,
+			},
+		],
 	};
 }
 
@@ -82,10 +99,19 @@ describe('workbook analysis results model', () => {
 			totalProblems: 3,
 			errorCount: 2,
 			warningCount: 1,
-			suppressedCount: 4,
+			suppressedCount: 1,
 			vbeCompileEquivalentCount: 2,
 			nonVbeCompileEquivalentCount: 1,
 		});
+		expect(model.suppressedRows).toMatchObject([
+			{
+				index: 0,
+				suppressed: true,
+				moduleName: 'Module1',
+				location: 'Module1:10:4',
+				code: 'option-explicit-missing',
+			},
+		]);
 		expect(model.byCategory).toEqual([
 			{ name: 'semantic', count: 2 },
 			{ name: 'syntax', count: 1 },
@@ -131,7 +157,7 @@ describe('workbook analysis results model', () => {
 
 		expect(text).toContain('XLIDE Analysis Results - Book.xlsm');
 		expect(text).toContain('3 problem(s), 2 error(s), 1 warning(s), 3 module(s) checked.');
-		expect(text).toContain('Suppressed by XLIDE analysis directives: 4.');
+		expect(text).toContain('Suppressed by XLIDE analysis directives: 1.');
 		expect(text).toContain('Module1:4:2 Missing End Sub. [missing-block-closer]');
 		expect(text).toContain('Person:12:5 Function does not assign its return value. [missing-return-assignment]');
 	});

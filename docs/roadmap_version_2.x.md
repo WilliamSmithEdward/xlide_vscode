@@ -448,6 +448,13 @@ Purpose: move from same-module checks to workbook-aware analysis.
   the shared `tests/helpers/vbaProjectFixtures.ts` harness.
 - [x] Keep current project-signature diagnostics stable under module order
   changes.
+- [ ] Add a unified procedure-local control-flow and error-label resolver:
+  collect named and numeric labels per procedure; validate `GoTo`, `GoSub`,
+  `Resume`, `Resume <label>`, `On Error GoTo <label>`, `On n GoTo`, and
+  `On n GoSub`; treat `On Error Resume Next`, `On Error GoTo 0`, and
+  `On Error GoTo -1` as explicit valid forms; feed label completion/navigation;
+  and emit hard diagnostics only for spec/oracle-backed VBE-equivalent label
+  failures.
 
 Definition of done:
 
@@ -873,6 +880,12 @@ XLIDE analysis diagnostics without changing VBA execution behavior.
   intent.
 - [x] Add directive diagnostics for unbalanced block directives.
 - [x] Preserve a suppressed-diagnostic count so ignored problems can be audited.
+- [x] Preserve suppressed diagnostics as a hidden workbook-analysis result set and
+  surface them through the same transient `Show Non-Tracked / Suppressed` GUI
+  toggle as untracked rules, with a status column identifying `Tracked`,
+  `Untracked`, and `Suppressed` rows. New analysis panels start with the toggle
+  off, while same-panel refreshes preserve the toggle state so navigation and
+  source refresh events do not race the UI.
 - [x] Add unit tests for file, line, next-line, code-list, ignored-comment,
   structural, malformed, and unknown-code first-slice cases.
 - [x] Add unit tests for remaining next-member/block directive scopes, nesting

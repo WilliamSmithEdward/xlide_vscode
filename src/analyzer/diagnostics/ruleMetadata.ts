@@ -24,6 +24,15 @@
 /** Severity of a diagnostic, independent of the VS Code enum. */
 export type DiagnosticSeverity = 'error' | 'warning' | 'information' | 'hint';
 
+/** Analysis suppression scopes exposed by the workbook analysis UI. */
+export type DiagnosticSuppressionScope = 'block' | 'member' | 'module';
+
+const DEFAULT_DIAGNOSTIC_SUPPRESSION_SCOPES: readonly DiagnosticSuppressionScope[] = [
+	'block',
+	'member',
+	'module',
+];
+
 /** Broad purpose bucket used by tests, docs, and future filtering. */
 export type DiagnosticCategory =
 	| 'syntax'
@@ -64,6 +73,8 @@ export interface DiagnosticRuleMetadata {
 	specReference?: string;
 	/** True when the rule needs the whole project, not a single module. */
 	requiresWholeProject?: boolean;
+	/** Suppression scopes that make sense for this diagnostic rule before source-position filtering. */
+	suppressionScopes?: readonly DiagnosticSuppressionScope[];
 	/** How certain the rule is that a flagged construct is genuinely wrong. */
 	confidence: 'high' | 'medium' | 'low';
 }
@@ -145,6 +156,7 @@ export const DIAGNOSTIC_RULES = {
 		diagnosticKind: 'style-policy',
 		source: 'XLIDE',
 		specReference: 'MS-VBAL 5.2.4.1.1',
+		suppressionScopes: ['module'],
 		confidence: 'high',
 	},
 	undeclaredVariable: {
@@ -622,6 +634,13 @@ export function diagnosticMetadataForCode(
 		return undefined;
 	}
 	return DIAGNOSTIC_METADATA_BY_CODE.get(code);
+}
+
+/** Rule-level suppression scopes before narrowing by the diagnostic's source position. */
+export function diagnosticSuppressionScopesForCode(
+	code: string | undefined,
+): readonly DiagnosticSuppressionScope[] {
+	return diagnosticMetadataForCode(code)?.suppressionScopes ?? DEFAULT_DIAGNOSTIC_SUPPRESSION_SCOPES;
 }
 
 /** Problems-panel source label for a diagnostic code. */

@@ -331,6 +331,9 @@ export function registerCommands(
             0,
             (starts[Math.max(0, problem.line - 1)] ?? 0) + Math.max(0, problem.column - 1),
         );
+        if (!problem.suppressionScopes.includes(scope)) {
+            throw new Error(`Ignore ${scope} is not valid for '${problem.code ?? 'this analysis finding'}'.`);
+        }
         const target = suppressionTargetForProblem(source, starts, problemOffset, scope);
         const code = (problem.code ?? 'all').trim() || 'all';
         const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
@@ -1226,13 +1229,24 @@ export function registerCommands(
             if (a.line !== b.line) { return a.line - b.line; }
             return a.column - b.column;
         });
+        const suppressedProblems = workbookProblemsForModule(
+            moduleName,
+            moduleType,
+            source,
+            result.suppressedDiagnostics,
+            { suppressed: true },
+        ).sort((a, b) => {
+            if (a.line !== b.line) { return a.line - b.line; }
+            return a.column - b.column;
+        });
         const errorCount = problems.filter((p) => p.severity === 'error').length;
         const warningCount = problems.filter((p) => p.severity === 'warning').length;
-        const summary = summarizeWorkbookAnalysisProblems(problems, result.suppressedCount);
+        const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
         return {
             filePath: xlsmPath,
             moduleCount: 1,
             problems,
+            suppressedProblems,
             errorCount,
             warningCount,
             summary,

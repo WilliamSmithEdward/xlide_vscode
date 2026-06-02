@@ -31,6 +31,7 @@ export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
 
 export interface VbaModuleAnalysisResult {
     diagnostics: VbaModuleAnalysisDiagnostic[];
+    suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
     suppressedCount: number;
 }
 
@@ -49,7 +50,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     const starts = lineStartOffsets(source);
     const suppressions = scanAnalysisSuppressions(source);
     const diagnostics: VbaModuleAnalysisDiagnostic[] = [...suppressions.diagnostics];
-    let suppressedCount = 0;
+    const suppressedDiagnostics: VbaModuleAnalysisDiagnostic[] = [];
     const activeIncompleteOffset = activeIncompleteExpressionOffset ?? activeIncompleteMemberAccessOffset;
     const activeIncompleteExpressionSpan = activeIncompleteOffset === undefined
         ? undefined
@@ -81,18 +82,19 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             if (isTransientIncompleteExpressionDiagnostic(problem.code, span)) {
                 continue;
             }
-            if (suppressions.isDiagnosticSuppressed(problem.code, span)) {
-                suppressedCount++;
-                continue;
-            }
-            diagnostics.push({
+            const diagnostic: VbaModuleAnalysisDiagnostic = {
                 code: problem.code,
                 message: problem.message,
                 severity: problem.severity,
                 span,
                 expectedClose: problem.expectedClose,
                 insertLine: problem.insertLine,
-            });
+            };
+            if (suppressions.isDiagnosticSuppressed(problem.code, span)) {
+                suppressedDiagnostics.push(diagnostic);
+                continue;
+            }
+            diagnostics.push(diagnostic);
         }
     } catch {
         // The structural pass is defensive; a failure should not break editing.
@@ -104,7 +106,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
                 continue;
             }
             if (suppressions.isDiagnosticSuppressed(diagnostic.code, diagnostic.span)) {
-                suppressedCount++;
+                suppressedDiagnostics.push(diagnostic);
                 continue;
             }
             diagnostics.push(diagnostic);
@@ -113,7 +115,11 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         // Keep analysis non-throwing while the user is typing malformed VBA.
     }
 
-    return { diagnostics, suppressedCount };
+    return {
+        diagnostics,
+        suppressedDiagnostics,
+        suppressedCount: suppressedDiagnostics.length,
+    };
 }
 
 function spansOverlap(left: Span, right: Span): boolean {

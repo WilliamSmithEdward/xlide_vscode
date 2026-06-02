@@ -45,6 +45,7 @@ export function openWorkbookAnalysisResults(
     let currentModel = buildWorkbookAnalysisResultsModel(currentResult);
     let disposed = false;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let refreshVersion = 0;
     let ignoreNextVisibleSeverityConfigChange = false;
     let contextMenuOpen = false;
     let pendingRefreshAfterContextMenu = false;
@@ -69,14 +70,18 @@ export function openWorkbookAnalysisResults(
         );
     };
 
-    const refreshPanel = async (): Promise<void> => {
+    const refreshPanel = async (requestVersion: number): Promise<void> => {
         if (disposed) { return; }
         if (contextMenuOpen) {
             pendingRefreshAfterContextMenu = true;
             return;
         }
         if (options.onRefreshResult) {
-            currentResult = await options.onRefreshResult();
+            const nextResult = await options.onRefreshResult();
+            if (requestVersion !== refreshVersion || disposed) {
+                return;
+            }
+            currentResult = nextResult;
         }
         if (contextMenuOpen) {
             pendingRefreshAfterContextMenu = true;
@@ -88,6 +93,7 @@ export function openWorkbookAnalysisResults(
     };
 
     const scheduleRefresh = (): void => {
+        const requestVersion = ++refreshVersion;
         if (disposed) { return; }
         if (contextMenuOpen) {
             pendingRefreshAfterContextMenu = true;
@@ -96,15 +102,33 @@ export function openWorkbookAnalysisResults(
         if (refreshTimer) { clearTimeout(refreshTimer); }
         refreshTimer = setTimeout(() => {
             refreshTimer = undefined;
-            void refreshPanel().catch((err) => {
+            void refreshPanel(requestVersion).catch((err) => {
                 const error = err instanceof Error ? err.message : String(err);
                 void panel.webview.postMessage({ type: 'error', error });
             });
         }, 350);
     };
 
-    const problemAt = (index: unknown): WorkbookAnalysisProblem | undefined =>
-        typeof index === 'number' ? currentResult.problems[index] : undefined;
+    const refreshAfterWorkbookMutation = async (): Promise<void> => {
+        const requestVersion = ++refreshVersion;
+        if (disposed) { return; }
+        if (refreshTimer) {
+            clearTimeout(refreshTimer);
+            refreshTimer = undefined;
+        }
+        contextMenuOpen = false;
+        pendingRefreshAfterContextMenu = false;
+        await refreshPanel(requestVersion);
+    };
+
+    const problemAt = (index: unknown, suppressed?: boolean): WorkbookAnalysisProblem | undefined => {
+        if (typeof index !== 'number') {
+            return undefined;
+        }
+        return suppressed
+            ? currentResult.suppressedProblems[index]
+            : currentResult.problems[index];
+    };
 
     renderPanel();
     const messageSub = panel.webview.onDidReceiveMessage(async (message: {
@@ -115,6 +139,7 @@ export function openWorkbookAnalysisResults(
         scope?: WorkbookAnalysisSuppressScope;
         severities?: string[];
         fixIndex?: number;
+        suppressed?: boolean;
     }) => {
         try {
             if (message.type === 'contextMenuOpened') {
@@ -135,30 +160,35 @@ export function openWorkbookAnalysisResults(
                 return;
             }
             if (message.type === 'openProblem') {
-                const problem = problemAt(message.index);
+                const problem = problemAt(message.index, message.suppressed);
                 if (problem && options.onOpenProblem) {
                     await options.onOpenProblem(problem, panel.viewColumn);
                 }
                 return;
             }
             if (message.type === 'suppressProblem') {
-                const problem = problemAt(message.index);
-                if (problem && message.scope && options.onSuppressProblem) {
-                    await options.onSuppressProblem(problem, message.scope, panel.viewColumn);
-                    await panel.webview.postMessage({ type: 'suppressed', scope: message.scope });
-                    scheduleRefresh();
+                const problem = problemAt(message.index, message.suppressed);
+                const scope = message.scope;
+                if (problem && scope && !problem.suppressionScopes.includes(scope)) {
+                    await panel.webview.postMessage({ type: 'error', error: `Ignore ${scope} is not valid for this analysis finding.` });
+                    return;
+                }
+                if (problem && scope && options.onSuppressProblem) {
+                    await options.onSuppressProblem(problem, scope, panel.viewColumn);
+                    await panel.webview.postMessage({ type: 'suppressed', scope });
+                    await refreshAfterWorkbookMutation();
                 }
                 return;
             }
             if (message.type === 'askCopilot') {
-                const problem = problemAt(message.index);
+                const problem = problemAt(message.index, message.suppressed);
                 if (problem && options.onAskCopilot) {
                     await options.onAskCopilot(problem, panel.viewColumn);
                 }
                 return;
             }
             if (message.type === 'quickFixProblem') {
-                const problem = problemAt(message.index);
+                const problem = problemAt(message.index, message.suppressed);
                 const applied = problem && options.onQuickFixProblem
                     ? await options.onQuickFixProblem(problem, panel.viewColumn, message.fixIndex)
                     : false;
@@ -166,12 +196,12 @@ export function openWorkbookAnalysisResults(
                     type: applied ? 'quickFixed' : 'quickFixUnavailable',
                 });
                 if (applied) {
-                    scheduleRefresh();
+                    await refreshAfterWorkbookMutation();
                 }
                 return;
             }
             if (message.type === 'untrackProblem') {
-                const problem = problemAt(message.index);
+                const problem = problemAt(message.index, message.suppressed);
                 if (problem?.code) {
                     const next = await addUntrackedAnalysisRuleToConfig(problem.code);
                     await panel.webview.postMessage({
@@ -287,13 +317,20 @@ function renderWorkbookAnalysisResultsHtml(
         untrackedRules,
     }).replace(/</g, '\\u003c');
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
-    const rowsHtml = model.rows.length === 0
+    const allRows = [...model.rows, ...model.suppressedRows];
+    const rowsHtml = allRows.length === 0
         ? '<div class="empty">No unsuppressed analysis problems.</div>'
-        : model.rows.map((row) => `
+        : allRows.map((row) => {
+            const tracked = isAnalysisRuleTracked(row.code, untrackedRules);
+            const status = row.suppressed ? 'Suppressed' : (tracked ? 'Tracked' : 'Untracked');
+            const statusKey = row.suppressed ? 'suppressed' : (tracked ? 'tracked' : 'untracked');
+            return `
             <button
                 class="problemRow severity-${escapeAttr(row.severity)}"
                 type="button"
                 data-open-index="${row.index}"
+                data-suppressed="${row.suppressed ? 'yes' : 'no'}"
+                data-status="${statusKey}"
                 data-module="${escapeAttr(row.moduleName)}"
                 data-module-order="${moduleOrder.get(row.moduleName.toLowerCase()) ?? 9999}"
                 data-severity="${escapeAttr(row.severity)}"
@@ -305,15 +342,18 @@ function renderWorkbookAnalysisResultsHtml(
                 data-message="${escapeAttr(row.message)}"
                 data-evidence="${escapeAttr(row.diagnosticKind)}"
                 data-quick-fixes="${escapeAttr(JSON.stringify(row.quickFixTitles))}"
-                data-tracked="${isAnalysisRuleTracked(row.code, untrackedRules) ? 'yes' : 'no'}"
+                data-suppression-scopes="${escapeAttr(JSON.stringify(row.suppressionScopes))}"
+                data-tracked="${tracked ? 'yes' : 'no'}"
             >
                 <span class="cell severity">${escapeHtml(row.severity)}</span>
+                <span class="cell status">${escapeHtml(status)}</span>
                 <span class="cell location">${escapeHtml(row.location)}</span>
                 <span class="cell code">${escapeHtml(row.code || row.ruleTitle)}</span>
-                <span class="cell message">${escapeHtml(row.message)}</span>
                 <span class="cell kind">${escapeHtml(row.diagnosticKind)}</span>
+                <span class="cell message">${escapeHtml(row.message)}</span>
             </button>
-        `).join('');
+        `;
+        }).join('');
     const moduleButtons = model.groups.length === 0
         ? '<button class="moduleFilter active" type="button" data-module-filter="all">All modules <span>0</span></button>'
         : [
@@ -516,9 +556,9 @@ function renderWorkbookAnalysisResultsHtml(
         .tableHeader,
         .problemRow {
             display: grid;
-            grid-template-columns: 124px 150px minmax(132px, 190px) minmax(260px, 1fr) 132px;
+            grid-template-columns: 124px 136px 150px minmax(132px, 190px) 132px minmax(260px, 1fr);
             align-items: stretch;
-            min-width: 936px;
+            min-width: 1072px;
         }
         .tableHeader {
             position: sticky;
@@ -566,6 +606,9 @@ function renderWorkbookAnalysisResultsHtml(
                 color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent) 10px
             );
         }
+        .problemRow.suppressedVisible {
+            opacity: 0.62;
+        }
         .problemRow[hidden] {
             display: none !important;
         }
@@ -593,7 +636,8 @@ function renderWorkbookAnalysisResultsHtml(
         }
         .code,
         .kind,
-        .location {
+        .location,
+        .status {
             color: var(--vscode-descriptionForeground);
         }
         .empty {
@@ -649,6 +693,10 @@ function renderWorkbookAnalysisResultsHtml(
         .contextMenu button:disabled:focus {
             color: var(--vscode-disabledForeground);
             background: transparent;
+        }
+        .contextMenu button[hidden],
+        .contextDivider[hidden] {
+            display: none;
         }
         .contextDivider {
             height: 1px;
@@ -734,17 +782,18 @@ function renderWorkbookAnalysisResultsHtml(
                 <div class="toolbar">
                     <div class="filters" aria-label="Filters">
                         ${filterButtons}
-                        <button class="filterButton transient" type="button" data-show-hidden aria-pressed="false">Show Untracked Items</button>
+                        <button class="filterButton transient" type="button" data-show-hidden aria-pressed="false">Show Non-Tracked / Suppressed</button>
                     </div>
                     <div class="visibleCount" id="visibleCount"></div>
                 </div>
                 <div class="table" role="table" aria-label="Analysis problems">
                     <div class="tableHeader" role="row">
                         <button class="cell sortHeader" type="button" role="columnheader" data-sort="severity">Severity</button>
+                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="status">Status</button>
                         <button class="cell sortHeader" type="button" role="columnheader" data-sort="location">Location</button>
                         <button class="cell sortHeader" type="button" role="columnheader" data-sort="rule">Rule</button>
-                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="message">Message</button>
                         <button class="cell sortHeader" type="button" role="columnheader" data-sort="evidence">Evidence</button>
+                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="message">Message</button>
                     </div>
                     ${rowsHtml}
                 </div>
@@ -760,10 +809,10 @@ function renderWorkbookAnalysisResultsHtml(
             </button>
             <div class="contextSubmenu" id="quickFixSubmenu" hidden></div>
         </div>
-        <div class="contextDivider"></div>
-        <button type="button" data-context-action="suppressBlock">Ignore Block</button>
-        <button type="button" data-context-action="suppressMember">Ignore Sub/Function</button>
-        <button type="button" data-context-action="suppressModule">Ignore Module</button>
+        <div class="contextDivider" id="suppressionDivider"></div>
+        <button type="button" data-context-action="suppressBlock" data-suppress-scope="block">Ignore Block</button>
+        <button type="button" data-context-action="suppressMember" data-suppress-scope="member">Ignore Sub/Function</button>
+        <button type="button" data-context-action="suppressModule" data-suppress-scope="module">Ignore Module</button>
         <div class="contextDivider"></div>
         <button type="button" data-context-action="untrack">Untrack</button>
     </div>
@@ -774,17 +823,20 @@ function renderWorkbookAnalysisResultsHtml(
         const severityIds = ['error', 'warning', 'information'];
         const visibleSeverities = new Set(model.visibleSeverities ?? severityIds);
         const untrackedRules = new Set(model.untrackedRules ?? []);
+        const persistedState = vscode.getState?.() ?? {};
         let activeModule = 'all';
-        let showHiddenItems = false;
+        let showHiddenItems = persistedState.showHiddenItems === true;
         let sortKey = 'severity';
         let sortDirection = 'asc';
         const rows = Array.from(document.querySelectorAll('.problemRow'));
         const table = document.querySelector('.table');
+        const showHiddenButton = document.querySelector('[data-show-hidden]');
         const visibleCount = document.getElementById('visibleCount');
         const toast = document.getElementById('toast');
         const contextMenu = document.getElementById('rowContextMenu');
         const quickFixMenuItem = document.getElementById('quickFixMenuItem');
         const quickFixSubmenu = document.getElementById('quickFixSubmenu');
+        const suppressionDivider = document.getElementById('suppressionDivider');
         let contextRow = null;
         let contextMenuVisible = false;
         let persistFiltersTimer = undefined;
@@ -796,16 +848,8 @@ function renderWorkbookAnalysisResultsHtml(
             showToast.timer = setTimeout(() => { toast.hidden = true; }, 1800);
         }
 
-        function rowMatches(row) {
-            return rowMatchesModule(row) && rowMatchesVisibleFilters(row);
-        }
-
         function rowMatchesModule(row) {
             return activeModule === 'all' || row.dataset.module === activeModule;
-        }
-
-        function rowMatchesVisibleFilters(row) {
-            return visibleSeverities.has(row.dataset.severity) && row.dataset.tracked !== 'no';
         }
 
         function updateRows() {
@@ -813,21 +857,31 @@ function renderWorkbookAnalysisResultsHtml(
             let shownHidden = 0;
             for (const row of rows) {
                 const moduleVisible = rowMatchesModule(row);
-                const visible = moduleVisible && rowMatchesVisibleFilters(row);
-                const untrackedVisible = moduleVisible &&
-                    showHiddenItems &&
-                    visibleSeverities.has(row.dataset.severity) &&
-                    row.dataset.tracked === 'no';
-                row.hidden = !visible && !untrackedVisible;
+                const severityVisible = visibleSeverities.has(row.dataset.severity);
+                const untracked = row.dataset.tracked === 'no';
+                const suppressed = row.dataset.suppressed === 'yes';
+                const hiddenByStatus = untracked || suppressed;
+                const visible = moduleVisible &&
+                    severityVisible &&
+                    (!hiddenByStatus || showHiddenItems);
+                const untrackedVisible = visible && untracked && !suppressed;
+                const suppressedVisible = visible && suppressed;
+                row.hidden = !visible;
                 row.classList.toggle('hiddenVisible', untrackedVisible);
-                if (visible) {
+                row.classList.toggle('suppressedVisible', suppressedVisible);
+                if (visible && !hiddenByStatus) {
                     count += 1;
-                } else if (untrackedVisible) {
+                }
+                if (visible && hiddenByStatus) {
                     shownHidden += 1;
                 }
             }
-            visibleCount.textContent = showHiddenItems
-                ? \`\${count} shown, \${shownHidden} untracked visible\`
+            const details = [];
+            if (showHiddenItems) {
+                details.push(\`\${shownHidden} non-tracked/suppressed visible\`);
+            }
+            visibleCount.textContent = details.length > 0
+                ? \`\${count} shown, \${details.join(', ')}\`
                 : \`\${count} shown\`;
         }
 
@@ -843,6 +897,11 @@ function renderWorkbookAnalysisResultsHtml(
             if (key === 'severity') {
                 const severityOrder = { error: 0, warning: 1, information: 2 };
                 return compareNumber(severityOrder[left.dataset.severity] ?? 4, severityOrder[right.dataset.severity] ?? 4)
+                    || compareLocation(left, right);
+            }
+            if (key === 'status') {
+                const statusOrder = { tracked: 0, untracked: 1, suppressed: 2 };
+                return compareNumber(statusOrder[left.dataset.status] ?? 9, statusOrder[right.dataset.status] ?? 9)
                     || compareLocation(left, right);
             }
             if (key === 'rule') {
@@ -878,6 +937,18 @@ function renderWorkbookAnalysisResultsHtml(
             }
         }
 
+        function persistUiState() {
+            vscode.setState?.({
+                ...(vscode.getState?.() ?? {}),
+                showHiddenItems,
+            });
+        }
+
+        function syncHiddenToggleButton() {
+            showHiddenButton?.classList.toggle('active', showHiddenItems);
+            showHiddenButton?.setAttribute('aria-pressed', showHiddenItems ? 'true' : 'false');
+        }
+
         function persistSeveritiesDebounced() {
             clearTimeout(persistFiltersTimer);
             persistFiltersTimer = setTimeout(() => {
@@ -906,6 +977,18 @@ function renderWorkbookAnalysisResultsHtml(
                 quickFixMenuItem?.classList.toggle('hasQuickFixes', enabled);
             }
             renderQuickFixSubmenu(fixes);
+            const suppressionScopes = suppressionScopesForRow(row);
+            let visibleSuppressActions = 0;
+            for (const button of contextMenu.querySelectorAll('[data-suppress-scope]')) {
+                const visible = suppressionScopes.has(button.dataset.suppressScope);
+                button.hidden = !visible;
+                if (visible) {
+                    visibleSuppressActions += 1;
+                }
+            }
+            if (suppressionDivider) {
+                suppressionDivider.hidden = visibleSuppressActions === 0;
+            }
             contextMenu.hidden = false;
             const rect = contextMenu.getBoundingClientRect();
             contextMenu.style.left = Math.min(x, window.innerWidth - rect.width - 8) + 'px';
@@ -926,12 +1009,29 @@ function renderWorkbookAnalysisResultsHtml(
             return contextRow ? Number(contextRow.dataset.openIndex) : undefined;
         }
 
+        function contextProblemSuppressed() {
+            return contextRow?.dataset.suppressed === 'yes';
+        }
+
         function quickFixTitlesForRow(row) {
             try {
                 const parsed = JSON.parse(row.dataset.quickFixes ?? '[]');
                 return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : [];
             } catch {
                 return [];
+            }
+        }
+
+        function suppressionScopesForRow(row) {
+            try {
+                const parsed = JSON.parse(row.dataset.suppressionScopes ?? '[]');
+                return new Set(
+                    Array.isArray(parsed)
+                        ? parsed.filter(item => item === 'block' || item === 'member' || item === 'module')
+                        : []
+                );
+            } catch {
+                return new Set();
             }
         }
 
@@ -959,6 +1059,7 @@ function renderWorkbookAnalysisResultsHtml(
                     return;
                 }
                 const index = contextProblemIndex();
+                const suppressed = contextProblemSuppressed();
                 hideContextMenu();
                 if (typeof index !== 'number' || Number.isNaN(index)) {
                     return;
@@ -967,18 +1068,19 @@ function renderWorkbookAnalysisResultsHtml(
                     vscode.postMessage({
                         type: 'quickFixProblem',
                         index,
+                        suppressed,
                         fixIndex: Number(contextButton.dataset.fixIndex ?? 0),
                     });
                 } else if (action === 'askCopilot') {
-                    vscode.postMessage({ type: 'askCopilot', index });
+                    vscode.postMessage({ type: 'askCopilot', index, suppressed });
                 } else if (action === 'untrack') {
-                    vscode.postMessage({ type: 'untrackProblem', index });
+                    vscode.postMessage({ type: 'untrackProblem', index, suppressed });
                 } else if (action === 'suppressBlock') {
-                    vscode.postMessage({ type: 'suppressProblem', index, scope: 'block' });
+                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, scope: 'block' });
                 } else if (action === 'suppressMember') {
-                    vscode.postMessage({ type: 'suppressProblem', index, scope: 'member' });
+                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, scope: 'member' });
                 } else if (action === 'suppressModule') {
-                    vscode.postMessage({ type: 'suppressProblem', index, scope: 'module' });
+                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, scope: 'module' });
                 }
                 return;
             }
@@ -1013,8 +1115,8 @@ function renderWorkbookAnalysisResultsHtml(
             const showHiddenButton = event.target.closest?.('[data-show-hidden]');
             if (showHiddenButton) {
                 showHiddenItems = !showHiddenItems;
-                showHiddenButton.classList.toggle('active', showHiddenItems);
-                showHiddenButton.setAttribute('aria-pressed', showHiddenItems ? 'true' : 'false');
+                persistUiState();
+                syncHiddenToggleButton();
                 updateRows();
                 return;
             }
@@ -1030,6 +1132,7 @@ function renderWorkbookAnalysisResultsHtml(
                 vscode.postMessage({
                     type: 'openProblem',
                     index: Number(problemRow.dataset.openIndex),
+                    suppressed: problemRow.dataset.suppressed === 'yes',
                 });
             }
         });
@@ -1083,8 +1186,16 @@ function renderWorkbookAnalysisResultsHtml(
                     for (const row of rows) {
                         if (String(row.dataset.ruleCode ?? '').toLowerCase() === code) {
                             row.dataset.tracked = 'no';
+                            if (row.dataset.suppressed !== 'yes') {
+                                row.dataset.status = 'untracked';
+                                const statusCell = row.querySelector('.status');
+                                if (statusCell) {
+                                    statusCell.textContent = 'Untracked';
+                                }
+                            }
                         }
                     }
+                    sortRows();
                     updateRows();
                 }
                 showToast(code ? 'Untracked ' + code : 'Rule untracked');
@@ -1094,6 +1205,7 @@ function renderWorkbookAnalysisResultsHtml(
         });
 
         sortRows();
+        syncHiddenToggleButton();
         updateRows();
     </script>
 </body>
