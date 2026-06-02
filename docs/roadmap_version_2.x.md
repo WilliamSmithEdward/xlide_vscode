@@ -689,6 +689,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   empty-parentheses call-statement diagnostics into
   `src/analyzer/call/callContext.ts`, alongside signature-help call-site
   detection and completion parenthesis insertion.
+- [x] Route explicit `Call` argument-list quick fixes through the same
+  `callContext` range helper used by diagnostics, including chained receivers
+  and named arguments.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
@@ -972,6 +975,7 @@ prove the edit is safe.
 - [ ] Add deterministic quick fixes for:
   - [x] add missing `Option Explicit`
   - [x] insert required `Call` parentheses
+    through the shared `callContext` range helper
   - [x] add expression-call parentheses when a parenless function call is the
     whole assignment RHS
   - [x] remove invalid empty parentheses from standalone zero-argument calls

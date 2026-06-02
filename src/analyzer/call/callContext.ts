@@ -65,6 +65,12 @@ export interface ParenthesizedCallStatementTarget {
 	calleeEndOffset: number;
 }
 
+export interface ExplicitCallStatementArgumentList {
+	calleeEndOffset: number;
+	firstArgumentSpan: VbaTextSpan;
+	argumentSpan: VbaTextSpan;
+}
+
 export function isIdentLike(token: VbaToken): boolean {
 	return (
 		(token.kind === 'identifier' || token.kind === 'keyword') &&
@@ -170,18 +176,54 @@ export function explicitCallStatementArgumentWithoutParens(
 	source: string,
 	span: VbaTextSpan,
 ): VbaTextSpan | undefined {
-	const toks = statementTokens(source, span);
+	return explicitCallStatementArgumentListWithoutParens(source, span)?.firstArgumentSpan;
+}
+
+export function explicitCallStatementArgumentListWithoutParens(
+	source: string,
+	span: VbaTextSpan,
+): ExplicitCallStatementArgumentList | undefined {
+	const rawToks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'newline',
+	);
+	const toks = rawToks.filter((t) => t.kind !== 'comment');
 	if (toks.length === 0 || toks[0].rawText.toLowerCase() !== 'call') {
 		return undefined;
 	}
 	const consumed = consumeCallableChain(toks, 1);
-	if (!consumed) {
+	if (!consumed || consumed.nextIndex <= 1) {
 		return undefined;
 	}
 	const stray = toks[consumed.nextIndex];
-	return stray
-		? { start: span.start + stray.start, end: span.start + stray.end }
-		: undefined;
+	if (!stray || stray.rawText === ':') {
+		return undefined;
+	}
+	let end = span.end;
+	for (const tok of rawToks) {
+		if (tok.start < stray.start) {
+			continue;
+		}
+		if (tok.kind === 'comment') {
+			end = span.start + tok.start;
+			break;
+		}
+		if (tok.rawText === ':') {
+			return undefined;
+		}
+	}
+	while (end > span.start && (source[end - 1] === ' ' || source[end - 1] === '\t')) {
+		end -= 1;
+	}
+	const argStart = span.start + stray.start;
+	if (end <= argStart) {
+		return undefined;
+	}
+	const callee = toks[consumed.nextIndex - 1];
+	return {
+		calleeEndOffset: span.start + callee.end,
+		firstArgumentSpan: { start: argStart, end: span.start + stray.end },
+		argumentSpan: { start: argStart, end },
+	};
 }
 
 export function standaloneEmptyParenthesizedCallStatement(

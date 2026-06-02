@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	bareCallStatementTarget,
 	callableCompletionShouldInsertParens,
+	explicitCallStatementArgumentListWithoutParens,
 	explicitCallStatementArgumentWithoutParens,
 	explicitCallStatementTarget,
 	findActiveCallSite,
@@ -131,6 +132,16 @@ describe('VBA call context', () => {
 				lineSpan(source, 'Call Workbooks(1).Sheets(1).Move before:=Sheets(2)'),
 			),
 		).toEqual(lineSpan(source, 'before'));
+		expect(
+			explicitCallStatementArgumentListWithoutParens(
+				source,
+				lineSpan(source, 'Call Workbooks(1).Sheets(1).Move before:=Sheets(2)'),
+			),
+		).toMatchObject({
+			calleeEndOffset: source.indexOf(' before:='),
+			firstArgumentSpan: lineSpan(source, 'before'),
+			argumentSpan: lineSpan(source, 'before:=Sheets(2)'),
+		});
 	});
 
 	it('classifies complete standalone empty-parentheses call statements', () => {

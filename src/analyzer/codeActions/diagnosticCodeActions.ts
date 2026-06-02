@@ -1,5 +1,6 @@
 import type { Span } from '../parser/nodes';
 import { tokenize } from '../lexer/tokenize';
+import { explicitCallStatementArgumentListWithoutParens } from '../call/callContext';
 import { leadingWhitespace } from '../../vbaLinter';
 import { LINT_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/lintSuppressions';
 
@@ -113,21 +114,8 @@ function callRequiresParensActions(
 	span: Span,
 ): VbaDiagnosticCodeAction[] {
 	const line = physicalLineSpan(source, span.start);
-	const toks = tokenize(source.slice(line.start, line.end));
-	if (toks.length === 0 || toks[0].rawText.toLowerCase() !== 'call') {
-		return [];
-	}
-	const argIdx = toks.findIndex((tok) => line.start + tok.start === span.start);
-	if (argIdx <= 1) {
-		return [];
-	}
-	const calleeEnd = line.start + toks[argIdx - 1].end;
-	const argStart = line.start + toks[argIdx].start;
-	if (!/^[ \t]+$/.test(source.slice(calleeEnd, argStart))) {
-		return [];
-	}
-	const argEnd = callArgumentListEnd(source, line, toks, argIdx);
-	if (argEnd === undefined || argEnd <= argStart) {
+	const args = explicitCallStatementArgumentListWithoutParens(source, line);
+	if (!args || args.firstArgumentSpan.start !== span.start) {
 		return [];
 	}
 	return [{
@@ -135,8 +123,14 @@ function callRequiresParensActions(
 		kind: 'quickfix',
 		isPreferred: true,
 		edits: [
-			{ span: { start: calleeEnd, end: argStart }, newText: '(' },
-			{ span: { start: argEnd, end: argEnd }, newText: ')' },
+			{
+				span: { start: args.calleeEndOffset, end: args.argumentSpan.start },
+				newText: '(',
+			},
+			{
+				span: { start: args.argumentSpan.end, end: args.argumentSpan.end },
+				newText: ')',
+			},
 		],
 	}];
 }

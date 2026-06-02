@@ -154,6 +154,23 @@ describe('resolveDiagnosticCodeActions', () => {
 		);
 	});
 
+	it('adds parentheses around an explicit chained member Call with named arguments', () => {
+		const source =
+			'Sub T()\n' +
+			'    Call Workbooks(1).Sheets(1).Move before:=Sheets(2)\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'call-requires-parens');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub T()\n' +
+			'    Call Workbooks(1).Sheets(1).Move(before:=Sheets(2))\n' +
+			'End Sub\n',
+		);
+	});
+
 	it('removes empty parentheses from a standalone zero-argument runtime call', () => {
 		const source = 'Sub T()\n    DoEvents()\nEnd Sub\n';
 		const diag = firstDiagnostic(source, 'call-statement-forbids-parens');
