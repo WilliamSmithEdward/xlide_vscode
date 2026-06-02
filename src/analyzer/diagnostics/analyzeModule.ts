@@ -188,6 +188,14 @@ export function analyzeModule(
 	}
 }
 
+export function incompleteMemberAccessEditSpan(
+	source: string,
+	offset: number,
+): Span | undefined {
+	const line = physicalLineSpanAtOffset(source, offset);
+	return incompleteMemberAccess(source, line, { includeLeadingDot: true })?.span;
+}
+
 function runRules(
 	source: string,
 	opts: AnalyzeModuleOptions,
@@ -235,7 +243,7 @@ function runRules(
 	checkReservedDeclarationNames(source, mod, activity, push);
 	checkParameterOrder(mod, activity, push);
 	checkUnbalancedParens(source, push);
-	checkInvalidExpressionSyntax(source, mod, activity, push);
+	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
 	checkDimInitializer(source, mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
@@ -3994,6 +4002,7 @@ function invalidExplicitCallTarget(
 function checkInvalidExpressionSyntax(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -4001,7 +4010,19 @@ function checkInvalidExpressionSyntax(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		const env = typeEnvironmentFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
+			const incompleteMember = incompleteMemberAccess(source, stmt.span, {
+				scalarTypes: env,
+			});
+			if (incompleteMember) {
+				push(
+					'invalidExpressionSyntax',
+					"Incomplete member access: type a member name after '.'.",
+					incompleteMember.span,
+				);
+				return;
+			}
 			const hit = invalidOperatorSequence(source, stmt.span);
 			if (hit) {
 				push(
@@ -4064,6 +4085,39 @@ function invalidOperatorSequence(
 				span: absoluteSpan(span, toks[i]),
 			};
 		}
+	}
+	return undefined;
+}
+
+function incompleteMemberAccess(
+	source: string,
+	span: Span,
+	options: {
+		includeLeadingDot?: boolean;
+		scalarTypes?: ReadonlyMap<string, string>;
+	} = {},
+): { span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	for (let i = 0; i < toks.length; i++) {
+		const tok = toks[i];
+		if (tok.rawText !== '.') {
+			continue;
+		}
+		if (i === 0 && !options.includeLeadingDot) {
+			continue;
+		}
+		const next = toks[i + 1];
+		if (next && tokenName(next)) {
+			continue;
+		}
+		const receiverName = i > 0 ? tokenName(toks[i - 1]) : undefined;
+		if (receiverName && options.scalarTypes) {
+			const normalized = normalizeType(options.scalarTypes.get(receiverName.toLowerCase()));
+			if (normalized && isKnownScalarType(normalized)) {
+				continue;
+			}
+		}
+		return { span: absoluteSpan(span, tok) };
 	}
 	return undefined;
 }
@@ -4639,6 +4693,14 @@ function checkContextStatement(
 			absoluteSpan(stmt.span, first),
 		);
 	}
+	const leadingMember = toks[1];
+	if (first.rawText === '.' && ctx.withDepth > 0 && (!leadingMember || !tokenName(leadingMember))) {
+		push(
+			'invalidExpressionSyntax',
+			"Incomplete member access: type a member name after '.'.",
+			absoluteSpan(stmt.span, first),
+		);
+	}
 
 	if (w0 === 'exit') {
 		const target = toks[1];
@@ -4671,6 +4733,18 @@ function tokenText(token: VbaToken | undefined): string {
 
 function absoluteSpan(base: Span, token: VbaToken): Span {
 	return { start: base.start + token.start, end: base.start + token.end };
+}
+
+function physicalLineSpanAtOffset(source: string, offset: number): Span {
+	const safe = Math.max(0, Math.min(offset, source.length));
+	const before = source.lastIndexOf('\n', Math.max(0, safe - 1));
+	const start = before < 0 ? 0 : before + 1;
+	const after = source.indexOf('\n', safe);
+	let end = after < 0 ? source.length : after;
+	if (end > start && source[end - 1] === '\r') {
+		end--;
+	}
+	return { start, end };
 }
 
 function exitPhraseSpan(base: Span, first: VbaToken, target: VbaToken): Span {

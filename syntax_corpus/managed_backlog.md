@@ -92,10 +92,8 @@ Promotion path:
 
 Near-term candidates:
 
-- Incomplete member access after a trailing dot.
-- Bare leading-dot lines inside active `With` blocks: completion/incomplete
-  state while typing, then oracle-backed syntax diagnostic once the edit is no
-  longer active.
+- Remaining incomplete member-access states beyond the promoted oracle-backed
+  `receiver.` and active-`With` bare-dot cases.
 - Incomplete named argument while typing.
 - Unterminated string range stability.
 - Missing block closer with recovery below the broken block.

@@ -1,5 +1,6 @@
 import {
     analyzeModule,
+    incompleteMemberAccessEditSpan,
     scanLintSuppressions,
     type AnalyzeModuleOptions,
     type DiagnosticSeverity as RuleSeverity,
@@ -16,6 +17,7 @@ export interface VbaModuleLintDiagnostic {
 
 export interface VbaModuleLintInput extends AnalyzeModuleOptions {
     source: string;
+    activeIncompleteMemberAccessOffset?: number;
 }
 
 export interface VbaModuleLintResult {
@@ -29,11 +31,27 @@ export interface VbaModuleLintResult {
  * checks, and XLIDE suppression directives cannot drift by surface.
  */
 export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintResult {
-    const { source, ...analyzeOptions } = input;
+    const { source, activeIncompleteMemberAccessOffset, ...analyzeOptions } = input;
     const starts = lineStartOffsets(source);
     const suppressions = scanLintSuppressions(source);
     const diagnostics: VbaModuleLintDiagnostic[] = [...suppressions.diagnostics];
     let suppressedCount = 0;
+    const activeIncompleteMemberSpan = activeIncompleteMemberAccessOffset === undefined
+        ? undefined
+        : incompleteMemberAccessEditSpan(source, activeIncompleteMemberAccessOffset);
+
+    const isTransientIncompleteMemberDiagnostic = (
+        code: string | undefined,
+        span: Span,
+    ): boolean => {
+        if (
+            !activeIncompleteMemberSpan ||
+            (code !== 'invalid-expression-syntax' && code !== 'scalar-member-access')
+        ) {
+            return false;
+        }
+        return spansOverlap(span, activeIncompleteMemberSpan);
+    };
 
     try {
         for (const problem of lintVbaSource(source)) {
@@ -41,6 +59,9 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
                 start: (starts[problem.line] ?? 0) + problem.startCol,
                 end: (starts[problem.line] ?? 0) + problem.endCol,
             };
+            if (isTransientIncompleteMemberDiagnostic(problem.code, span)) {
+                continue;
+            }
             if (suppressions.isDiagnosticSuppressed(problem.code, span)) {
                 suppressedCount++;
                 continue;
@@ -58,6 +79,9 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
 
     try {
         for (const diagnostic of analyzeModule(source, analyzeOptions)) {
+            if (isTransientIncompleteMemberDiagnostic(diagnostic.code, diagnostic.span)) {
+                continue;
+            }
             if (suppressions.isDiagnosticSuppressed(diagnostic.code, diagnostic.span)) {
                 suppressedCount++;
                 continue;
@@ -69,4 +93,8 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
     }
 
     return { diagnostics, suppressedCount };
+}
+
+function spansOverlap(left: Span, right: Span): boolean {
+    return left.start < right.end && left.end > right.start;
 }

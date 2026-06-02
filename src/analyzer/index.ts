@@ -170,6 +170,7 @@ export {
 export {
 	analyzeModule,
 	AnalyzeModuleOptions,
+	incompleteMemberAccessEditSpan,
 	SeverityOverrides,
 	VbaDiagnostic,
 } from './diagnostics/analyzeModule';

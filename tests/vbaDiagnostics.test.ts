@@ -3395,6 +3395,42 @@ describe('analyzeModule - invalid expression syntax', () => {
 		expect(spanText(src, hits[0])).toBe('*');
 	});
 
+	it('flags trailing member-access dots on object receivers', () => {
+		const src = 'Sub T()\n    ThisWorkbook.\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('.');
+		expect(hits[0].message).toContain('member name');
+	});
+
+	it('flags a bare leading dot inside With as incomplete final source', () => {
+		const src =
+			'Sub T()\n' +
+			'    With ActiveSheet\n' +
+			'        .\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('.');
+	});
+
+	it('accepts complete leading-dot member access inside With', () => {
+		const src =
+			'Sub T()\n' +
+			'    With ActiveSheet\n' +
+			'        .Range("A1").Value = 1\n' +
+			'    End With\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('lets scalar member access own known scalar trailing dots', () => {
+		const src = 'Sub T()\n    Dim value As String\n    value.\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'scalar-member-access')).toHaveLength(1);
+	});
+
 	it('does not flag valid arithmetic or string expressions', () => {
 		const src =
 			'Sub T()\n' +

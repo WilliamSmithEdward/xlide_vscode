@@ -63,4 +63,56 @@ describe('lintVbaModuleSource', () => {
 		expect(result.diagnostics).toHaveLength(1);
 		expect(result.diagnostics[0].message).toContain('visibleMissing');
 	});
+
+	it('suppresses incomplete member access only for the active edit line', () => {
+		const withSource =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    With ActiveSheet\n' +
+			'        .\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const withDotOffset = withSource.indexOf('        .') + '        .'.length;
+
+		expect(
+			lintVbaModuleSource({ source: withSource })
+				.diagnostics
+				.filter((diag) => diag.code === 'invalid-expression-syntax'),
+		).toHaveLength(1);
+		expect(
+			lintVbaModuleSource({
+				source: withSource,
+				activeIncompleteMemberAccessOffset: withDotOffset,
+			})
+				.diagnostics
+				.filter((diag) => diag.code === 'invalid-expression-syntax'),
+		).toHaveLength(0);
+
+		const trailingSource = 'Option Explicit\nSub T()\n    ThisWorkbook.\nEnd Sub\n';
+		const trailingOffset = trailingSource.indexOf('ThisWorkbook.') + 'ThisWorkbook.'.length;
+		expect(
+			lintVbaModuleSource({ source: trailingSource })
+				.diagnostics
+				.filter((diag) => diag.code === 'invalid-expression-syntax'),
+		).toHaveLength(1);
+		expect(
+			lintVbaModuleSource({
+				source: trailingSource,
+				activeIncompleteMemberAccessOffset: trailingOffset,
+			})
+				.diagnostics
+				.filter((diag) => diag.code === 'invalid-expression-syntax'),
+		).toHaveLength(0);
+
+		const colonSource = 'Option Explicit\nSub T()\n    ThisWorkbook. : x = 1 *** 2\nEnd Sub\n';
+		const colonDotOffset = colonSource.indexOf('ThisWorkbook.') + 'ThisWorkbook.'.length;
+		const colonHits = lintVbaModuleSource({
+			source: colonSource,
+			activeIncompleteMemberAccessOffset: colonDotOffset,
+		})
+			.diagnostics
+			.filter((diag) => diag.code === 'invalid-expression-syntax');
+		expect(colonHits).toHaveLength(1);
+		expect(colonHits[0].message).toContain('Invalid operator sequence');
+	});
 });

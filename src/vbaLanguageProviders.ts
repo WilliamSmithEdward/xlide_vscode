@@ -964,6 +964,10 @@ function registerVbaDiagnostics(
             optionExplicitMissing:
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
         };
+        const activeEditor = vscode.window.activeTextEditor;
+        const activeIncompleteMemberAccessOffset = activeEditor?.document === document
+            ? document.offsetAt(activeEditor.selection.active)
+            : undefined;
         const moduleLint = lintVbaModuleSource({
             source: text,
             moduleName,
@@ -976,6 +980,7 @@ function registerVbaDiagnostics(
             projectClassMembers,
             projectTypes,
             knownNonTypeNames,
+            activeIncompleteMemberAccessOffset,
         });
         for (const d of moduleLint.diagnostics) {
             const diag = new vscode.Diagnostic(
@@ -1011,6 +1016,10 @@ function registerVbaDiagnostics(
         collection,
         vscode.workspace.onDidOpenTextDocument(run),
         vscode.workspace.onDidChangeTextDocument((e) => schedule(e.document)),
+        vscode.window.onDidChangeTextEditorSelection((e) => schedule(e.textEditor.document)),
+        vscode.window.onDidChangeActiveTextEditor(() => {
+            vscode.workspace.textDocuments.forEach(schedule);
+        }),
         vscode.workspace.onDidCloseTextDocument((doc) => {
             const key = doc.uri.toString();
             const t = timers.get(key);

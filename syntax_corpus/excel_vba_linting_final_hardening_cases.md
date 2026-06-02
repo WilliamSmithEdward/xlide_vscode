@@ -989,10 +989,10 @@ End Sub
 
 Expected while typing: `incomplete`, with member-completion context from the With target.
 
-Promotion note: before adding a red final-code diagnostic, add a focused VBE
-oracle case for this exact completed form. If VBE rejects it, live syntax should
-only suppress the error while the cursor is in the incomplete member-access edit
-state; save/background validation should report it as syntax/compile invalid.
+Promotion note: `bare_leading_member_access_inside_with_compile` verifies that
+VBE rejects this completed form as Syntax error. Live syntax suppresses the error
+only while the cursor is in the incomplete member-access edit state; save,
+current-module lint, and workbook validation report it as syntax invalid.
 
 ---
 
