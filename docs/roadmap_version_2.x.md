@@ -437,9 +437,9 @@ Purpose: move from same-module checks to workbook-aware analysis.
   behavior; provider surfaces consume that single path.
 - [x] Add machine-readable workbook-level fixture files for larger project
   analysis scenarios. `tests/fixtures/vbaProjects/*.json` now carries workbook
-  modules plus expected project context, completion, diagnostics, semantic
-  tokens, hover, and signature-help assertions through the shared
-  `tests/helpers/vbaProjectFixtures.ts` harness.
+  modules plus expected project context, member/type/identifier completion,
+  diagnostics, semantic tokens, hover, and signature-help assertions through
+  the shared `tests/helpers/vbaProjectFixtures.ts` harness.
 - [x] Keep current project-signature diagnostics stable under module order
   changes.
 
@@ -720,7 +720,7 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   and named arguments.
 - [x] Route standalone empty-parentheses removal and invalid runtime `Call`
   rewrite quick fixes through shared `callContext` edit spans.
-- [ ] Keep signature help, hover, completion, and diagnostics sharing the same
+- [x] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
   arity/type checks, and go-to-definition/references/rename now consume it for
@@ -729,7 +729,14 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   and runtime-function misuse diagnostics now share one type resolver and
   type-position scanner; the VS Code completion provider now supplies project
   type candidates from `ProjectIndex.visibleTypeNames()` instead of a parallel
-  type-name cache/builder. Call-site classification now lives in
+  type-name cache/builder. `src/vbaProjectAnalysis.ts` now exposes a shared
+  editor symbol context for external project procedures/symbols plus analysis
+  options, and `src/vbaMemberCompletion.ts` builds one workbook-aware project
+  context per editor request before projecting it into member, type, identifier,
+  hover, signature-help, event, and canonical-casing contexts. The
+  machine-readable workbook fixture locks member/type/identifier completion,
+  diagnostics, semantic tokens, hover, and signature help against the same
+  project model. Call-site classification now lives in
   `src/analyzer/call/callContext.ts`, so signature help, completion parenthesis
   insertion, and bare-call diagnostics share the same
   parenthesized/parenless/explicit `Call` rules.

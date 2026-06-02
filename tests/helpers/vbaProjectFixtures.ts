@@ -2,14 +2,14 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
 	buildVbaProjectIndex,
-	projectAnalysisOptionsForModule,
-	projectProcedureSignatures,
+	projectEditorSymbolContextForModule,
 	type VbaProjectAnalysisOptions,
 	type VbaProjectModuleInput,
 } from '../../src/vbaProjectAnalysis';
 import type {
 	ProjectIndex,
 	VbaProcedureSignature,
+	VbaSymbol,
 } from '../../src/analyzer';
 
 export interface VbaProjectFixtureModule {
@@ -42,6 +42,20 @@ export interface VbaProjectFixtureModuleContextAssertion {
 }
 
 export interface VbaProjectFixtureMemberCompletionAssertion {
+	moduleName: string;
+	marker: string;
+	include: string[];
+	exclude?: string[];
+}
+
+export interface VbaProjectFixtureTypeCompletionAssertion {
+	moduleName: string;
+	marker: string;
+	include: string[];
+	exclude?: string[];
+}
+
+export interface VbaProjectFixtureIdentifierCompletionAssertion {
 	moduleName: string;
 	marker: string;
 	include: string[];
@@ -88,6 +102,8 @@ export interface VbaProjectFixtureHoverAssertion {
 export interface VbaProjectFixtureAssertions {
 	moduleContexts?: VbaProjectFixtureModuleContextAssertion[];
 	memberCompletions?: VbaProjectFixtureMemberCompletionAssertion[];
+	typeCompletions?: VbaProjectFixtureTypeCompletionAssertion[];
+	identifierCompletions?: VbaProjectFixtureIdentifierCompletionAssertion[];
 	diagnostics?: VbaProjectFixtureDiagnosticAssertion[];
 	semanticTokens?: VbaProjectFixtureSemanticTokensAssertion[];
 	signatureHelp?: VbaProjectFixtureSignatureHelpAssertion[];
@@ -106,6 +122,7 @@ export interface VbaProjectFixtureContext {
 	project: ProjectIndex;
 	options: VbaProjectAnalysisOptions;
 	projectProcedures: VbaProcedureSignature[];
+	projectSymbols: VbaSymbol[];
 }
 
 const fixtureRoot = join(process.cwd(), 'tests', 'fixtures', 'vbaProjects');
@@ -149,11 +166,12 @@ export function fixtureContext(
 	moduleName: string,
 ): VbaProjectFixtureContext {
 	const project = buildFixtureProject(fixture);
-	const procedureMap = projectProcedureSignatures(project);
+	const context = projectEditorSymbolContextForModule(project, moduleName);
 	return {
 		project,
-		options: projectAnalysisOptionsForModule(project, moduleName, procedureMap),
-		projectProcedures: uniqueProcedureList(procedureMap),
+		options: context.analysisOptions,
+		projectProcedures: context.externalProjectProcedures,
+		projectSymbols: context.externalProjectSymbols,
 	};
 }
 
@@ -184,26 +202,4 @@ function validateFixture(fixture: VbaProjectFixture, path: string): void {
 		}
 		names.add(key);
 	}
-}
-
-function uniqueProcedureList(
-	procedureMap: ReturnType<typeof projectProcedureSignatures>,
-): VbaProcedureSignature[] {
-	const out: VbaProcedureSignature[] = [];
-	const seen = new Set<string>();
-	for (const candidates of procedureMap?.values() ?? []) {
-		for (const candidate of candidates) {
-			const key = [
-				candidate.moduleName.toLowerCase(),
-				candidate.name.toLowerCase(),
-				candidate.kind,
-			].join(':');
-			if (seen.has(key)) {
-				continue;
-			}
-			seen.add(key);
-			out.push(candidate);
-		}
-	}
-	return out;
 }

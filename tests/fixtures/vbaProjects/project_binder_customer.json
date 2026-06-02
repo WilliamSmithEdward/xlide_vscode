@@ -159,6 +159,28 @@
         "exclude": ["Missing", "Secret"]
       }
     ],
+    "typeCompletions": [
+      {
+        "moduleName": "InvoiceService",
+        "marker": "Dim customer As ",
+        "include": ["Customer", "TAddress", "CustomerStatus", "Sheet1"],
+        "exclude": ["THidden"]
+      },
+      {
+        "moduleName": "InvoiceService",
+        "marker": "New ",
+        "include": ["Customer"],
+        "exclude": ["TAddress", "CustomerStatus", "ThisWorkbook"]
+      }
+    ],
+    "identifierCompletions": [
+      {
+        "moduleName": "InvoiceService",
+        "marker": "status = ",
+        "include": ["Active", "Inactive", "InvoiceTotal", "SharedProc", "Sheet1", "ThisWorkbook"],
+        "exclude": ["HiddenHelper", "THidden", "SecretCode"]
+      }
+    ],
     "diagnostics": [
       {
         "moduleName": "InvoiceService",

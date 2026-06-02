@@ -147,9 +147,9 @@ Larger project-analysis regressions should use machine-readable workbook
 fixtures under `tests/fixtures/vbaProjects/*.json`, loaded by
 `tests/helpers/vbaProjectFixtures.ts` and asserted by
 `tests/vbaProjectWorkbookFixtures.test.ts`. Those fixtures carry module source
-plus expected project context, completion, diagnostics, semantic-token, hover,
-and signature-help behavior so multi-surface workbook scenarios do not need
-bespoke one-off test wiring.
+plus expected project context, member/type/identifier completion, diagnostics,
+semantic-token, hover, and signature-help behavior so multi-surface workbook
+scenarios do not need bespoke one-off test wiring.
 
 ---
 
@@ -404,7 +404,12 @@ procedure signatures, visibility-filtered procedure/identifier/type/non-type
 names, source-backed member surfaces, and the named read-only live-analysis path
 that ignores temporarily invalid modules. Completion, definition, references,
 diagnostics, semantic coloring, hover/signature contexts, and current-module
-lint use that path. Rename and tree-level class rename are the deliberate
+lint use that path. It also exposes `projectEditorSymbolContextForModule()`,
+the provider-facing bridge for external project procedures/symbols plus the
+analysis options used by editor surfaces. `src/vbaMemberCompletion.ts` builds a
+single workbook-aware project context per completion/hover/signature/casing
+request, then projects it into member, type, identifier, hover, signature-help,
+event-handler, and canonical-casing resolver contexts. Rename and tree-level class rename are the deliberate
 mutation-safety exception: they use strict project indexes so reference edits do
 not silently skip modules that cannot be parsed.
 Before those project indexes are built for live editor providers, workbook

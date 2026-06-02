@@ -3,6 +3,8 @@ import {
     type AnalyzeModuleOptions,
     type EventHandlerDocumentType,
     type ModuleSymbolKind,
+    type VbaProcedureSignature,
+    type VbaSymbol,
 } from './analyzer';
 
 export interface VbaProjectModuleInput {
@@ -32,6 +34,12 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectClassMembers'
     | 'projectTypes'
 >;
+
+export interface VbaProjectEditorSymbolContext {
+    analysisOptions: VbaProjectAnalysisOptions;
+    externalProjectProcedures: VbaProcedureSignature[];
+    externalProjectSymbols: VbaSymbol[];
+}
 
 export function moduleKindFromType(type?: string): ModuleSymbolKind {
     switch (type) {
@@ -117,4 +125,28 @@ export function projectAnalysisOptionsForModule(
         // conservative rather than guessing at cross-module visibility.
     }
     return options;
+}
+
+export function projectEditorSymbolContextForModule(
+    project: ProjectIndex,
+    moduleName: string,
+): VbaProjectEditorSymbolContext {
+    const analysisOptions = projectAnalysisOptionsForModule(project, moduleName);
+    const currentLower = moduleName.toLowerCase();
+    let externalProjectProcedures: VbaProcedureSignature[] = [];
+    let externalProjectSymbols: VbaSymbol[] = [];
+    try {
+        externalProjectProcedures = project.visibleProcedureSignatures(moduleName)
+            .filter((procedure) => procedure.moduleName.toLowerCase() !== currentLower);
+        externalProjectSymbols = project.visibleIdentifierSymbols(moduleName)
+            .filter((symbol) => symbol.moduleName.toLowerCase() !== currentLower);
+    } catch {
+        // Keep project editor surfaces conservative if the index cannot answer
+        // visibility for this module.
+    }
+    return {
+        analysisOptions,
+        externalProjectProcedures,
+        externalProjectSymbols,
+    };
 }

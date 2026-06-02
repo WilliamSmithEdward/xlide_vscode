@@ -46,13 +46,12 @@ import {
 	SignatureHelpContext,
 	TypeCompletion,
 	TypeCompletionContext,
-	VbaProjectClassMembers,
 } from './analyzer';
 import {
 	buildLiveVbaProjectIndex,
 	buildVbaProjectIndex,
 	moduleKindFromType,
-	projectAnalysisOptionsForModule,
+	projectEditorSymbolContextForModule,
 	type VbaProjectLiveOverride,
 	type VbaProjectModuleInput,
 } from './vbaProjectAnalysis';
@@ -75,9 +74,18 @@ interface CachedModules {
 	loadedAt: number;
 }
 
-interface CachedProjectProcedures {
-	procedures: VbaProcedureSignature[];
-	loadedAt: number;
+interface EditorProjectContext {
+	moduleName?: string;
+	moduleKind?: ModuleSymbolKind;
+	documentType?: EventHandlerDocumentType;
+	codeNameMap?: Record<string, string>;
+	codeNameList?: string[];
+	meType?: string;
+	meProjectType?: string;
+	projectTypes?: TypeCompletionContext['projectTypes'];
+	projectClassMembers?: MemberCompletionContext['projectClassMembers'];
+	projectProcedures?: readonly VbaProcedureSignature[];
+	projectSymbols?: IdentifierCompletionContext['projectSymbols'];
 }
 
 /** Maps a document module to the host type that `Me` denotes inside it. */
@@ -115,6 +123,12 @@ function codeNamesFor(entries: ModuleEntry[]): Record<string, string> {
 	return out;
 }
 
+function codeNameListFor(entries: ModuleEntry[]): string[] {
+	return entries
+		.filter((entry) => entry.type === 'document')
+		.map((entry) => entry.name);
+}
+
 function documentTypeFor(entry: ModuleEntry | undefined): EventHandlerDocumentType | undefined {
 	if (!entry || entry.type !== 'document') {
 		return undefined;
@@ -133,7 +147,6 @@ class VbaMemberCompletionProvider
 		vscode.SignatureHelpProvider
 {
 	private readonly _cache = new Map<string, CachedModules>();
-	private readonly _procedureCache = new Map<string, CachedProjectProcedures>();
 	private _applyingCanonicalCase = false;
 
 	constructor(
@@ -145,11 +158,9 @@ class VbaMemberCompletionProvider
 	invalidate(xlsmPath?: string): void {
 		if (xlsmPath === undefined) {
 			this._cache.clear();
-			this._procedureCache.clear();
 		} else {
 			const key = workbookIdentityKey(xlsmPath);
 			this._cache.delete(key);
-			this._procedureCache.delete(key);
 		}
 	}
 
@@ -160,20 +171,21 @@ class VbaMemberCompletionProvider
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		const range = this._completionRange(document, position);
+		const projectCtx = await this._buildEditorProjectContext(document, source);
 
-		const memberCtx = await this._buildContext(document);
+		const memberCtx = this._memberContext(projectCtx);
 		const members = resolveMemberCompletions(source, offset, memberCtx);
 		if (members.length > 0) {
 			return members.map((mem) => this._toItem(mem, range, source, offset));
 		}
 
-		const typeCtx = await this._buildTypeContext(document, source);
+		const typeCtx = this._typeContext(projectCtx);
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
 			return types.map((t) => this._toTypeItem(t, range));
 		}
 
-		const eventCtx = await this._buildEventHandlerContext(document);
+		const eventCtx = this._eventHandlerContext(projectCtx);
 		const events = resolveEventHandlerCompletions(source, offset, eventCtx);
 		if (events.length > 0) {
 			return events.map((event) => this._toEventHandlerItem(event, range));
@@ -188,7 +200,7 @@ class VbaMemberCompletionProvider
 			return keywords.items.map((item) => this._toKeywordItem(item, range, document));
 		}
 
-		const identCtx = await this._buildIdentifierContext(document);
+		const identCtx = this._identifierContext(projectCtx);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
 		return [
 			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
@@ -214,10 +226,11 @@ class VbaMemberCompletionProvider
 			}
 			const source = document.getText();
 			const offset = document.offsetAt(candidateEnd);
+			const projectCtx = await this._buildEditorProjectContext(document, source);
 			const edit = resolveCanonicalCaseEdit(source, offset, {
-				member: await this._buildContext(document),
-				identifier: await this._buildIdentifierContext(document),
-				type: await this._buildTypeContext(document, source),
+				member: this._memberContext(projectCtx),
+				identifier: this._identifierContext(projectCtx),
+				type: this._typeContext(projectCtx),
 			});
 			if (!edit) {
 				return;
@@ -251,7 +264,8 @@ class VbaMemberCompletionProvider
 	): Promise<vscode.Hover | undefined> {
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const info = resolveHover(source, offset, await this._buildHoverContext(document));
+		const projectCtx = await this._buildEditorProjectContext(document, source);
+		const info = resolveHover(source, offset, this._hoverContext(projectCtx));
 		if (!info) {
 			return undefined;
 		}
@@ -278,13 +292,8 @@ class VbaMemberCompletionProvider
 	): Promise<vscode.SignatureHelp | undefined> {
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const ctx: SignatureHelpContext = {
-			...(await this._buildContext(document)),
-			moduleSource: source,
-			projectProcedures: await this._buildProjectProcedureContext(document),
-			docRegistry: this._docs,
-		};
-		const info = resolveSignatureHelp(source, offset, ctx);
+		const projectCtx = await this._buildEditorProjectContext(document, source);
+		const info = resolveSignatureHelp(source, offset, this._signatureHelpContext(projectCtx, source));
 		if (!info) {
 			return undefined;
 		}
@@ -306,84 +315,121 @@ class VbaMemberCompletionProvider
 		return help;
 	}
 
-	private async _buildHoverContext(
+	private _memberContext(ctx: EditorProjectContext): MemberCompletionContext {
+		return {
+			codeNames: ctx.codeNameMap,
+			meType: ctx.meType,
+			meProjectType: ctx.meProjectType,
+			projectClassMembers: ctx.projectClassMembers,
+		};
+	}
+
+	private _typeContext(ctx: EditorProjectContext): TypeCompletionContext {
+		return {
+			projectTypes: ctx.projectTypes,
+		};
+	}
+
+	private _identifierContext(ctx: EditorProjectContext): IdentifierCompletionContext {
+		return {
+			codeNames: ctx.codeNameList,
+			moduleName: ctx.moduleName,
+			moduleKind: ctx.moduleKind,
+			projectProcedures: ctx.projectProcedures,
+			projectSymbols: ctx.projectSymbols,
+		};
+	}
+
+	private _hoverContext(ctx: EditorProjectContext): HoverContext {
+		return {
+			...this._memberContext(ctx),
+			moduleName: ctx.moduleName,
+			moduleKind: ctx.moduleKind,
+			projectTypes: ctx.projectTypes,
+			projectProcedures: ctx.projectProcedures,
+			docRegistry: this._docs,
+		};
+	}
+
+	private _signatureHelpContext(
+		ctx: EditorProjectContext,
+		source: string,
+	): SignatureHelpContext {
+		return {
+			...this._memberContext(ctx),
+			moduleSource: source,
+			projectProcedures: ctx.projectProcedures,
+			docRegistry: this._docs,
+		};
+	}
+
+	private _eventHandlerContext(ctx: EditorProjectContext): EventHandlerCompletionContext {
+		return {
+			moduleName: ctx.moduleName,
+			moduleKind: ctx.moduleKind,
+			documentType: ctx.documentType,
+		};
+	}
+
+	private async _buildEditorProjectContext(
 		document: vscode.TextDocument,
-	): Promise<HoverContext> {
-		const source = document.getText();
-		const typeContext = await this._buildTypeContext(document, source);
+		source: string,
+	): Promise<EditorProjectContext> {
 		if (document.uri.scheme !== XLIDE_SCHEME) {
-			return { ...typeContext, docRegistry: this._docs };
+			try {
+				const project = buildLiveVbaProjectIndex(
+					[{ moduleName: 'Module', moduleKind: 'standard', source }],
+				);
+				const context = projectEditorSymbolContextForModule(project, 'Module');
+				return {
+					moduleName: 'Module',
+					moduleKind: 'standard',
+					projectTypes: context.analysisOptions.projectTypes,
+					projectClassMembers: context.analysisOptions.projectClassMembers,
+					projectProcedures: context.externalProjectProcedures,
+					projectSymbols: context.externalProjectSymbols,
+				};
+			} catch {
+				return {};
+			}
 		}
+
 		try {
 			const decoded = decodeModuleUri(document.uri);
 			const entries = await this._loadModules(decoded.xlsmPath);
-			const current = entries?.find(
-				(e) => e.name.toLowerCase() === decoded.moduleName.toLowerCase(),
+			const allEntries = entries ?? [];
+			const current = allEntries.find(
+				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
 			);
+			const moduleKind = moduleKindFromType(current?.type);
+			const project = await this._buildProjectIndexFromEntries(
+				decoded.xlsmPath,
+				allEntries,
+				{
+					liveOverride: {
+						moduleName: decoded.moduleName,
+						moduleKind,
+						source,
+					},
+				},
+			);
+			const context = projectEditorSymbolContextForModule(project, decoded.moduleName);
 			return {
-				codeNames: codeNamesFor(entries ?? []),
+				moduleName: decoded.moduleName,
+				moduleKind,
+				documentType: documentTypeFor(current),
+				codeNameMap: codeNamesFor(allEntries),
+				codeNameList: codeNameListFor(allEntries),
 				meType: meTypeFor(current),
 				meProjectType: meProjectTypeFor(current),
-				moduleName: decoded.moduleName,
-				moduleKind: moduleKindFromType(current?.type),
-				projectTypes: typeContext.projectTypes,
-				projectClassMembers: entries
-					? await this._loadProjectMemberSurfaces(
-						decoded.xlsmPath,
-						entries,
-						decoded.moduleName,
-						{
-							moduleKind: moduleKindFromType(current?.type),
-							source,
-						},
-					)
-					: undefined,
-				projectProcedures: entries
-					? await this._loadCrossModuleProcedureSignatures(
-						decoded.xlsmPath,
-						entries,
-						decoded.moduleName.toLowerCase(),
-					)
-					: undefined,
-				docRegistry: this._docs,
+				projectTypes: context.analysisOptions.projectTypes,
+				projectClassMembers: context.analysisOptions.projectClassMembers,
+				projectProcedures: context.externalProjectProcedures,
+				projectSymbols: context.externalProjectSymbols,
 			};
 		} catch {
-			return { ...typeContext, docRegistry: this._docs };
-		}
-	}
-
-	private async _buildContext(
-		document: vscode.TextDocument,
-	): Promise<MemberCompletionContext> {
-		if (document.uri.scheme !== XLIDE_SCHEME) {
 			return {};
 		}
-		let decoded: { xlsmPath: string; moduleName: string };
-		try {
-			decoded = decodeModuleUri(document.uri);
-		} catch {
-			return {};
-		}
-		const entries = await this._loadModules(decoded.xlsmPath);
-		if (!entries) {
-			return {};
-		}
-		const current = entries.find(
-			(e) => e.name.toLowerCase() === decoded.moduleName.toLowerCase(),
-		);
-		const moduleKind = moduleKindFromType(current?.type);
-		const projectClassMembers = await this._loadProjectMemberSurfaces(
-			decoded.xlsmPath,
-			entries,
-			decoded.moduleName,
-			{ moduleKind, source: document.getText() },
-		);
-		return {
-			codeNames: codeNamesFor(entries),
-			meType: meTypeFor(current),
-			meProjectType: meProjectTypeFor(current),
-			projectClassMembers,
-		};
 	}
 
 	private async _loadModules(xlsmPath: string): Promise<ModuleEntry[] | undefined> {
@@ -401,56 +447,6 @@ class VbaMemberCompletionProvider
 		} catch {
 			return cached?.entries;
 		}
-	}
-
-	private async _loadProjectMemberSurfaces(
-		xlsmPath: string,
-		entries: ModuleEntry[],
-		moduleName: string,
-		liveOverride?: { moduleKind: ModuleSymbolKind; source: string },
-	): Promise<readonly VbaProjectClassMembers[]> {
-		const project = await this._buildProjectIndexFromEntries(
-			xlsmPath,
-			entries,
-			liveOverride
-				? {
-					liveOverride: {
-						moduleName,
-						moduleKind: liveOverride.moduleKind,
-						source: liveOverride.source,
-					},
-				}
-				: {},
-		);
-		return projectAnalysisOptionsForModule(project, moduleName).projectClassMembers ?? [];
-	}
-
-	private async _loadCrossModuleProcedureSignatures(
-		xlsmPath: string,
-		entries: ModuleEntry[],
-		currentLower: string,
-	): Promise<VbaProcedureSignature[]> {
-		const allProcedures = await this._loadProjectProcedureSignatures(xlsmPath, entries);
-		return allProcedures.filter(
-			(procedure) => procedure.moduleName.toLowerCase() !== currentLower,
-		);
-	}
-
-	private async _loadProjectProcedureSignatures(
-		xlsmPath: string,
-		entries: ModuleEntry[],
-	): Promise<VbaProcedureSignature[]> {
-		const key = workbookIdentityKey(xlsmPath);
-		const cached = this._procedureCache.get(key);
-		if (cached && Date.now() - cached.loadedAt < MODULE_CACHE_TTL_MS) {
-			return cached.procedures;
-		}
-		const project = await this._buildProjectIndexFromEntries(xlsmPath, entries, {
-			include: (kind) => kind === 'standard',
-		});
-		const procedures = project.visibleProcedureSignatures('__xlide_external_module__');
-		this._procedureCache.set(key, { procedures, loadedAt: Date.now() });
-		return procedures;
 	}
 
 	private async _buildProjectIndexFromEntries(
@@ -512,153 +508,6 @@ class VbaMemberCompletionProvider
 				module: entry.name,
 			});
 			return res.source;
-		} catch {
-			return undefined;
-		}
-	}
-
-	private async _buildTypeContext(
-		document: vscode.TextDocument,
-		source: string,
-	): Promise<TypeCompletionContext> {
-		if (document.uri.scheme !== XLIDE_SCHEME) {
-			try {
-				const project = buildLiveVbaProjectIndex(
-					[{ moduleName: 'Module', moduleKind: 'standard', source }],
-				);
-				return {
-					projectTypes: projectAnalysisOptionsForModule(project, 'Module').projectTypes ?? [],
-				};
-			} catch {
-				return {};
-			}
-		}
-
-		try {
-			const decoded = decodeModuleUri(document.uri);
-			const entries = await this._loadModules(decoded.xlsmPath);
-			const current = entries?.find(
-				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
-			);
-			const moduleKind = moduleKindFromType(current?.type);
-			const project = await this._buildProjectIndexFromEntries(
-				decoded.xlsmPath,
-				entries ?? [],
-				{
-					liveOverride: {
-						moduleName: decoded.moduleName,
-						moduleKind,
-						source,
-					},
-				},
-			);
-			return {
-				projectTypes: projectAnalysisOptionsForModule(project, decoded.moduleName).projectTypes ?? [],
-			};
-		} catch {
-			return {};
-		}
-	}
-
-	/**
-	 * Builds the event-handler completion context for the current module.
-	 * Event procedures are scoped by host document module type and intentionally
-	 * stay outside object-member completion.
-	 */
-	private async _buildEventHandlerContext(
-		document: vscode.TextDocument,
-	): Promise<EventHandlerCompletionContext> {
-		if (document.uri.scheme !== XLIDE_SCHEME) {
-			return {};
-		}
-		try {
-			const decoded = decodeModuleUri(document.uri);
-			const entries = await this._loadModules(decoded.xlsmPath);
-			const current = entries?.find(
-				(e) => e.name.toLowerCase() === decoded.moduleName.toLowerCase(),
-			);
-			return {
-				moduleName: decoded.moduleName,
-				moduleKind: moduleKindFromType(current?.type),
-				documentType: documentTypeFor(current),
-			};
-		} catch {
-			return {};
-		}
-	}
-
-	/**
-	 * Builds the identifier-completion context: worksheet/document code names of
-	 * the workbook project plus the module currently being edited.
-	 */
-	private async _buildIdentifierContext(
-		document: vscode.TextDocument,
-	): Promise<IdentifierCompletionContext> {
-		if (document.uri.scheme !== XLIDE_SCHEME) {
-			return {};
-		}
-		try {
-			const decoded = decodeModuleUri(document.uri);
-			const source = document.getText();
-			const entries = await this._loadModules(decoded.xlsmPath);
-			const codeNames: string[] = [];
-			let moduleKind: ModuleSymbolKind = 'standard';
-			const currentLower = decoded.moduleName.toLowerCase();
-			for (const entry of entries ?? []) {
-				if (entry.type === 'document') {
-					codeNames.push(entry.name);
-				}
-				if (entry.name.toLowerCase() === currentLower) {
-					moduleKind = moduleKindFromType(entry.type);
-				}
-			}
-			let projectSymbols: IdentifierCompletionContext['projectSymbols'];
-			let projectProcedures: IdentifierCompletionContext['projectProcedures'];
-			if (entries) {
-				const project = await this._buildProjectIndexFromEntries(
-					decoded.xlsmPath,
-					entries,
-					{
-						liveOverride: {
-							moduleName: decoded.moduleName,
-							moduleKind,
-							source,
-						},
-					},
-				);
-				projectSymbols = project.visibleIdentifierSymbols(decoded.moduleName)
-					.filter((symbol) => symbol.moduleName.toLowerCase() !== currentLower);
-				projectProcedures = project.visibleProcedureSignatures(decoded.moduleName)
-					.filter((procedure) => procedure.moduleName.toLowerCase() !== currentLower);
-			}
-			return {
-				codeNames,
-				moduleName: decoded.moduleName,
-				moduleKind,
-				projectProcedures,
-				projectSymbols,
-			};
-		} catch {
-			return {};
-		}
-	}
-
-	private async _buildProjectProcedureContext(
-		document: vscode.TextDocument,
-	): Promise<VbaProcedureSignature[] | undefined> {
-		if (document.uri.scheme !== XLIDE_SCHEME) {
-			return undefined;
-		}
-		try {
-			const decoded = decodeModuleUri(document.uri);
-			const entries = await this._loadModules(decoded.xlsmPath);
-			return entries
-				? await this._loadCrossModuleProcedureSignatures(
-					decoded.xlsmPath,
-					entries,
-					decoded.moduleName.toLowerCase(),
-				)
-				: undefined;
 		} catch {
 			return undefined;
 		}

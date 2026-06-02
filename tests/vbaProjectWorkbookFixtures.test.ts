@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	analyzeModule,
 	resolveHover,
+	resolveIdentifierCompletions,
 	resolveMemberCompletions,
 	resolveSignatureHelp,
+	resolveTypeCompletions,
 	resolveTypeSemanticTokens,
 } from '../src/analyzer';
 import {
@@ -30,13 +32,20 @@ function offsetInsideMarker(source: string, marker: string): number {
 }
 
 function editorContext(fixture: VbaProjectFixture, moduleName: string) {
-	const { options, projectProcedures } = fixtureContext(fixture, moduleName);
+	const { options, projectProcedures, projectSymbols } = fixtureContext(fixture, moduleName);
 	return {
 		moduleName,
 		projectClassMembers: options.projectClassMembers,
 		projectTypes: options.projectTypes,
 		projectProcedures,
+		projectSymbols,
 	};
+}
+
+function fixtureCodeNames(fixture: VbaProjectFixture): string[] {
+	return fixture.modules
+		.filter((mod) => mod.type === 'document')
+		.map((mod) => mod.name);
 }
 
 describe('machine-readable VBA workbook project fixtures', () => {
@@ -101,6 +110,47 @@ describe('machine-readable VBA workbook project fixtures', () => {
 						offsetAfterMarker(mod.source, assertion.marker),
 						ctx,
 					).map((member) => member.name);
+
+					for (const name of assertion.include) {
+						expect(names, name).toContain(name);
+					}
+					for (const name of assertion.exclude ?? []) {
+						expect(names, name).not.toContain(name);
+					}
+				});
+			}
+
+			for (const assertion of fixture.assertions.typeCompletions ?? []) {
+				it(`resolves type completion at ${assertion.moduleName}:${assertion.marker}`, () => {
+					const mod = fixtureModule(fixture, assertion.moduleName);
+					const ctx = editorContext(fixture, assertion.moduleName);
+					const names = resolveTypeCompletions(
+						mod.source,
+						offsetAfterMarker(mod.source, assertion.marker),
+						ctx,
+					).map((type) => type.name);
+
+					for (const name of assertion.include) {
+						expect(names, name).toContain(name);
+					}
+					for (const name of assertion.exclude ?? []) {
+						expect(names, name).not.toContain(name);
+					}
+				});
+			}
+
+			for (const assertion of fixture.assertions.identifierCompletions ?? []) {
+				it(`resolves identifier completion at ${assertion.moduleName}:${assertion.marker}`, () => {
+					const mod = fixtureModule(fixture, assertion.moduleName);
+					const ctx = {
+						...editorContext(fixture, assertion.moduleName),
+						codeNames: fixtureCodeNames(fixture),
+					};
+					const names = resolveIdentifierCompletions(
+						mod.source,
+						offsetAfterMarker(mod.source, assertion.marker),
+						ctx,
+					).map((identifier) => identifier.name);
 
 					for (const name of assertion.include) {
 						expect(names, name).toContain(name);
