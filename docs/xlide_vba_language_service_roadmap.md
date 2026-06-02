@@ -1548,7 +1548,11 @@ Implementation priority:
    `src/workbookSettings.ts`, consumed by import/export, analysis settings,
    live diagnostics, webviews, and agent tools instead of feature-local
    settings helpers.
-4. [ ] Apply the same resolver pattern to the future test runner GUI and any
+4. [x] Add shared workbook-over-global setting resolution and normalized
+   read/patch/write helpers so analysis settings, import/export GUI saves,
+   export commands, and agent export-mode changes cannot drift in how they
+   resolve provenance or preserve unrelated workbook settings.
+5. [ ] Apply the same resolver pattern to the future test runner GUI and any
    workbook diff/sync surface.
 
 Suggested initial settings:

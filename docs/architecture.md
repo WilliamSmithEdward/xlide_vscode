@@ -247,8 +247,9 @@ On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in 
 
 `moduleExport.ts` is the single source of truth for writing exported module
 files. `workbookSettings.ts` owns the workbook settings sidecar path, strict
-schema validation, and persistence. `moduleSyncPlan.ts` builds the UI preview
-model used by bulk import/export.
+schema validation, workbook-over-global provenance resolution, and normalized
+read/patch/write persistence. `moduleSyncPlan.ts` builds the UI preview model
+used by bulk import/export.
 
 Both lanes call into these shared owners:
 

@@ -7,8 +7,10 @@ import {
 } from './analysisSettingsCore';
 import {
     readWorkbookSettings,
-    writeWorkbookSettings,
+    resolveWorkbookSetting,
+    updateWorkbookSettings,
     type WorkbookAnalysisSettingsConfig,
+    type WorkbookSettingSource,
     type WorkbookSettingsConfig,
 } from './workbookSettings';
 import {
@@ -16,7 +18,7 @@ import {
     visibleAnalysisSeveritiesFromConfig,
 } from './analysisOptions';
 
-export type WorkbookAnalysisSettingsSource = 'workbook' | 'global';
+export type WorkbookAnalysisSettingsSource = WorkbookSettingSource;
 
 export interface EffectiveWorkbookAnalysisSettings {
     visibleSeverities: AnalysisSeverityFilter[];
@@ -39,13 +41,14 @@ export async function effectiveWorkbookAnalysisSettings(
         };
     }
 
-    const config = await readWorkbookSettings(workbookPath);
-    const analysis = config.analysis;
+    const { analysis } = await readWorkbookSettings(workbookPath);
+    const visibleSeverities = resolveWorkbookSetting(analysis?.visibleSeverities, globalVisibleSeverities);
+    const untrackedRules = resolveWorkbookSetting(analysis?.untrackedRules, globalUntrackedRules);
     return {
-        visibleSeverities: analysis?.visibleSeverities ?? globalVisibleSeverities,
-        visibleSeveritiesSource: analysis?.visibleSeverities ? 'workbook' : 'global',
-        untrackedRules: analysis?.untrackedRules ?? globalUntrackedRules,
-        untrackedRulesSource: analysis?.untrackedRules ? 'workbook' : 'global',
+        visibleSeverities: visibleSeverities.value,
+        visibleSeveritiesSource: visibleSeverities.source,
+        untrackedRules: untrackedRules.value,
+        untrackedRulesSource: untrackedRules.source,
     };
 }
 
@@ -53,8 +56,7 @@ export async function setWorkbookAnalysisVisibleSeverities(
     workbookPath: string,
     severities: unknown,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
-    const existing = await readWorkbookSettings(workbookPath);
-    await writeWorkbookSettings(workbookPath, withAnalysisSettings(existing, {
+    await updateWorkbookSettings(workbookPath, (existing) => withAnalysisSettings(existing, {
         ...existing.analysis,
         visibleSeverities: normalizeAnalysisVisibleSeverities(severities),
     }));
@@ -76,49 +78,58 @@ export async function setWorkbookAnalysisRuleTracked(
         };
     }
 
-    const existing = await readWorkbookSettings(workbookPath);
-    const current = existing.analysis?.untrackedRules ?? untrackedAnalysisRulesFromConfig();
-    const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
-    const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
-    if (changed || !existing.analysis?.untrackedRules) {
-        await writeWorkbookSettings(workbookPath, withAnalysisSettings(existing, {
-            ...existing.analysis,
-            untrackedRules: next,
-        }));
-    }
-    return {
+    let result: AnalysisRuleTrackingUpdate = {
         code: normalized,
         tracked,
-        changed,
-        untrackedRules: next,
+        changed: false,
+        untrackedRules: [],
     };
+    await updateWorkbookSettings(workbookPath, (existing) => {
+        const current = existing.analysis?.untrackedRules ?? untrackedAnalysisRulesFromConfig();
+        const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
+        const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
+        result = {
+            code: normalized,
+            tracked,
+            changed,
+            untrackedRules: next,
+        };
+        return changed || !existing.analysis?.untrackedRules
+            ? withAnalysisSettings(existing, {
+                ...existing.analysis,
+                untrackedRules: next,
+            })
+            : undefined;
+    });
+    return result;
 }
 
 export async function resetWorkbookAnalysisVisibleSeverities(
     workbookPath: string,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
-    const existing = await readWorkbookSettings(workbookPath);
-    const analysis = { ...(existing.analysis ?? {}) };
-    delete analysis.visibleSeverities;
-    await writeWorkbookSettings(workbookPath, withAnalysisSettings(existing, analysis));
+    await updateWorkbookSettings(workbookPath, (existing) => {
+        const analysis = { ...(existing.analysis ?? {}) };
+        delete analysis.visibleSeverities;
+        return withAnalysisSettings(existing, analysis);
+    });
     return effectiveWorkbookAnalysisSettings(workbookPath);
 }
 
 export async function resetWorkbookAnalysisRuleTracking(
     workbookPath: string,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
-    const existing = await readWorkbookSettings(workbookPath);
-    const analysis = { ...(existing.analysis ?? {}) };
-    delete analysis.untrackedRules;
-    await writeWorkbookSettings(workbookPath, withAnalysisSettings(existing, analysis));
+    await updateWorkbookSettings(workbookPath, (existing) => {
+        const analysis = { ...(existing.analysis ?? {}) };
+        delete analysis.untrackedRules;
+        return withAnalysisSettings(existing, analysis);
+    });
     return effectiveWorkbookAnalysisSettings(workbookPath);
 }
 
 export async function resetWorkbookAnalysisSettings(
     workbookPath: string,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
-    const existing = await readWorkbookSettings(workbookPath);
-    await writeWorkbookSettings(workbookPath, withoutAnalysisSettings(existing));
+    await updateWorkbookSettings(workbookPath, withoutAnalysisSettings);
     return effectiveWorkbookAnalysisSettings(workbookPath);
 }
 

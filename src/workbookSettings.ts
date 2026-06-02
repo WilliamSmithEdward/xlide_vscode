@@ -8,6 +8,12 @@ import {
 } from './analysisSettingsCore';
 
 type ExportMode = 'exportAll' | 'trueUp';
+type WorkbookSettingSource = 'workbook' | 'global';
+
+interface ResolvedWorkbookSetting<T> {
+    value: T;
+    source: WorkbookSettingSource;
+}
 
 interface WorkbookSettingsConfig {
     exportFolder?: string;
@@ -41,6 +47,15 @@ function settingsPathForWorkbook(filePath: string): string {
 
 function normalizeExportMode(mode: ExportMode | unknown): ExportMode {
     return mode === 'trueUp' ? 'trueUp' : 'exportAll';
+}
+
+function resolveWorkbookSetting<T>(
+    workbookValue: T | undefined,
+    globalValue: T,
+): ResolvedWorkbookSetting<T> {
+    return workbookValue === undefined
+        ? { value: globalValue, source: 'global' }
+        : { value: workbookValue, source: 'workbook' };
 }
 
 function normalizeImportModeValue(mode: unknown): ImportMode | undefined {
@@ -246,14 +261,25 @@ async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsC
     return parseWorkbookSettingsConfig(parsed, configPath);
 }
 
-async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promise<WorkbookSettingsConfig> {
+async function updateWorkbookSettings(
+    filePath: string,
+    update: (existing: WorkbookSettingsConfig) => WorkbookSettingsConfig | undefined,
+): Promise<WorkbookSettingsConfig> {
     const existing = await readWorkbookSettings(filePath);
-    const updated: WorkbookSettingsConfig = {
-        ...existing,
-        exportMode: normalizeExportMode(mode),
-    };
+    const updatedInput = update(existing);
+    if (!updatedInput) {
+        return existing;
+    }
+    const updated = normalizeWorkbookSettingsConfig(updatedInput);
     await writeWorkbookSettings(filePath, updated);
     return updated;
+}
+
+async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promise<WorkbookSettingsConfig> {
+    return updateWorkbookSettings(filePath, (existing) => ({
+        ...existing,
+        exportMode: normalizeExportMode(mode),
+    }));
 }
 
 function isNodeError(value: unknown): value is NodeJS.ErrnoException {
@@ -274,13 +300,17 @@ async function writeWorkbookSettings(
 
 export {
     type ExportMode,
+    type ResolvedWorkbookSetting,
     type WorkbookAnalysisSettingsConfig,
+    type WorkbookSettingSource,
     type WorkbookSettingsConfig,
     WorkbookSettingsError,
     isWorkbookSettingsError,
     normalizeExportMode,
     readWorkbookSettings,
+    resolveWorkbookSetting,
     setWorkbookExportMode,
     settingsPathForWorkbook,
+    updateWorkbookSettings,
     writeWorkbookSettings,
 };

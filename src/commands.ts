@@ -20,7 +20,7 @@ import {
     normalizeExportMode,
     readWorkbookSettings,
     settingsPathForWorkbook,
-    writeWorkbookSettings,
+    updateWorkbookSettings,
     type ExportMode,
 } from './workbookSettings';
 import {
@@ -810,13 +810,12 @@ export function registerCommands(
         filePath: string,
         settings: ModuleSyncSettings,
     ): Promise<string> {
-        const existingConfig = await readWorkbookSettings(filePath);
-        await writeWorkbookSettings(filePath, {
+        await updateWorkbookSettings(filePath, (existingConfig) => ({
             ...existingConfig,
             exportFolder: settings.folderPath,
             exportMode: normalizeExportMode(settings.exportMode ?? existingConfig.exportMode),
             importMode: normalizeImportMode(settings.importMode ?? existingConfig.importMode),
-        });
+        }));
         return settingsPathForWorkbook(filePath);
     }
 

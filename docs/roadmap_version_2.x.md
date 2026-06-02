@@ -1065,6 +1065,11 @@ the deterministic analyzer contract.
 - [x] Centralize workbook sidecar ownership in `src/workbookSettings.ts` so
   import/export, analysis settings, live diagnostics, webviews, and agent tools
   use one strict parser/writer instead of feature-specific settings helpers.
+- [x] Add shared workbook-over-global setting resolution and normalized
+  read/patch/write helpers. Analysis severity visibility, analysis rule
+  tracking, import/export GUI saves, export commands, and agent export-mode
+  changes now flow through the same settings owner instead of rebuilding the
+  sidecar shape locally.
 - [ ] Surface all configuration through the unified XLIDE sidebar menu
   collection, while preserving normal VS Code Settings integration for users
   who prefer native settings UI.

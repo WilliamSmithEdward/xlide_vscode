@@ -5,8 +5,10 @@ import * as path from 'path';
 import {
 	isWorkbookSettingsError,
 	readWorkbookSettings,
+	resolveWorkbookSetting,
 	setWorkbookExportMode,
 	settingsPathForWorkbook,
+	updateWorkbookSettings,
 	writeWorkbookSettings,
 } from '../src/workbookSettings';
 
@@ -27,6 +29,17 @@ function tempWorkbook(): { root: string; workbook: string } {
 }
 
 describe('workbookSettings', () => {
+	it('resolves workbook overrides over global defaults with explicit source', () => {
+		expect(resolveWorkbookSetting(['warning'], ['error'])).toEqual({
+			value: ['warning'],
+			source: 'workbook',
+		});
+		expect(resolveWorkbookSetting(undefined, ['error'])).toEqual({
+			value: ['error'],
+			source: 'global',
+		});
+	});
+
 	it('treats a missing workbook settings sidecar as no workbook settings', async () => {
 		const { workbook } = tempWorkbook();
 
@@ -55,6 +68,45 @@ describe('workbookSettings', () => {
 				untrackedRules: ['option-explicit-missing'],
 			},
 		});
+	});
+
+	it('updates workbook settings through one read-normalize-write owner', async () => {
+		const { workbook } = tempWorkbook();
+		await writeWorkbookSettings(workbook, {
+			exportFolder: 'C:/repo',
+			exportMode: 'exportAll',
+			analysis: {
+				untrackedRules: ['option-explicit-missing'],
+			},
+		});
+
+		await expect(updateWorkbookSettings(workbook, (existing) => ({
+			...existing,
+			importMode: 'trueUpStandardClass',
+			analysis: {
+				...existing.analysis,
+				untrackedRules: [' Argument-Count ', 'option-explicit-missing'],
+			},
+		}))).resolves.toEqual({
+			exportFolder: 'C:/repo',
+			exportMode: 'exportAll',
+			importMode: 'trueUpStandardClass',
+			analysis: {
+				untrackedRules: ['argument-count', 'option-explicit-missing'],
+			},
+		});
+	});
+
+	it('can skip workbook settings writes when an update is unnecessary', async () => {
+		const { workbook } = tempWorkbook();
+		await writeWorkbookSettings(workbook, { exportFolder: 'C:/repo' });
+		const before = fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8');
+
+		await expect(updateWorkbookSettings(workbook, () => undefined)).resolves.toEqual({
+			exportFolder: 'C:/repo',
+		});
+
+		expect(fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8')).toBe(before);
 	});
 
 	it('updates export mode through the workbook settings owner', async () => {

@@ -5,7 +5,7 @@ import {
     normalizeExportMode,
     readWorkbookSettings,
     settingsPathForWorkbook,
-    writeWorkbookSettings,
+    updateWorkbookSettings,
     type ExportMode,
 } from './workbookSettings';
 
@@ -139,12 +139,11 @@ async function exportWorkbookModule(
 
     const exported = await exportModuleFile(bridge, params.filePath, mod, exportFolder);
 
-    await writeWorkbookSettings(params.filePath, {
+    await updateWorkbookSettings(params.filePath, (existing) => ({
+        ...existing,
         exportFolder,
         exportMode,
-        importMode: existingConfig.importMode,
-        analysis: existingConfig.analysis,
-    });
+    }));
 
     return {
         filePath: params.filePath,
@@ -207,12 +206,11 @@ async function exportWorkbookModules(
         }
     }
 
-    await writeWorkbookSettings(params.filePath, {
+    await updateWorkbookSettings(params.filePath, (existing) => ({
+        ...existing,
         exportFolder,
         exportMode,
-        importMode: existingConfig.importMode,
-        analysis: existingConfig.analysis,
-    });
+    }));
 
     return {
         filePath: params.filePath,
