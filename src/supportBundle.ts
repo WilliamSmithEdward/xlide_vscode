@@ -5,11 +5,12 @@ import {
     type XlideOutputLogEntry,
 } from './xlideOutputLog';
 import type { XlideWriteAuditEntry } from './xlideWriteAudit';
+import type { XlideGlobalSettingSource } from './globalSettings';
 
 export interface SupportBundleSetting {
     key: string;
     value: unknown;
-    source: 'default' | 'machine' | 'unknown';
+    source: XlideGlobalSettingSource;
 }
 
 export interface SupportBundleAnalysisSummary {

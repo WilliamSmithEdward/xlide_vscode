@@ -16,7 +16,6 @@ import {
     findIdentifierOccurrences,
     isSmartBlockClosedAhead,
     lineStartOffsets,
-    normalizeSmartBlockLayout,
     resolveLoopIteratorSyncEdit,
     smartBlockInsertion,
     VBA_IDENTIFIER_NAME_RE,
@@ -66,10 +65,12 @@ import {
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { isWorkbookSettingsError, settingsPathForWorkbook } from './workbookSettings';
 import {
-    normalizeXlideOptionExplicitSetting,
     validateXlideGlobalSettingsFromConfig,
+    xlideDiagnosticsEnabledFromConfig,
+    xlideEditorBlockLayoutFromConfig,
+    xlideOptionExplicitFromConfig,
     type XlideGlobalSettingsProblem,
-} from './globalSettingsValidation';
+} from './globalSettings';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -1006,7 +1007,7 @@ function registerVbaDiagnostics(
             document,
             validateXlideGlobalSettingsFromConfig(config),
         );
-        if (config.get<boolean>('diagnostics.enabled', true) === false) {
+        if (!xlideDiagnosticsEnabledFromConfig(config).value) {
             if (settingsDiagnostics.length > 0) {
                 collection.set(document.uri, settingsDiagnostics);
             } else {
@@ -1054,9 +1055,7 @@ function registerVbaDiagnostics(
             }
         }
 
-        const optionExplicit = normalizeXlideOptionExplicitSetting(
-            config.get<unknown>('diagnostics.optionExplicit', 'warning'),
-        );
+        const optionExplicit = xlideOptionExplicitFromConfig(config).value;
         const severities: SeverityOverrides = {
             optionExplicitMissing:
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
@@ -1348,9 +1347,7 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const smartBlock = smartBlockInsertion(openerLine, bodyLine, opener, {
             eol,
             insertCloser: !closedAhead,
-            layout: normalizeSmartBlockLayout(
-                vscode.workspace.getConfiguration('xlide').get<string>('editor.blockLayout'),
-            ),
+            layout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
         });
         const bodyRange = new vscode.Range(
             new vscode.Position(bodyLineIndex, 0),

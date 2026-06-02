@@ -3,7 +3,7 @@
 // Discovers `*.vbref.xml` (configurable) metadata files anywhere in the open
 // workspace, parses them with the pure analyzer parser, and maintains a live
 // DocRegistry that the hover and signature-help providers consult. The registry
-// is the "developer-defined overrides the curated library" layer: a team can
+// is the "developer-defined overrides the curated library" layer: a developer can
 // document any symbol - including host members and runtime functions - and have
 // those descriptions appear in tooltips.
 //
@@ -12,21 +12,22 @@
 
 import * as vscode from 'vscode';
 import { DocRegistry, parseMetadataFile } from './analyzer';
+import {
+	xlideDocsEnabledFromConfig,
+	xlideDocsMetadataGlobFromConfig,
+} from './globalSettings';
 
-const DEFAULT_GLOB = '**/*.vbref.xml';
 const EXCLUDE_GLOB = '**/node_modules/**';
 const RELOAD_DEBOUNCE_MS = 250;
 
 /** Reads the configured metadata glob, falling back to the default. */
 function metadataGlob(): string {
-	const cfg = vscode.workspace.getConfiguration('xlide');
-	const glob = cfg.get<string>('docs.metadataGlob');
-	return glob && glob.trim().length > 0 ? glob : DEFAULT_GLOB;
+	return xlideDocsMetadataGlobFromConfig(vscode.workspace.getConfiguration('xlide')).value;
 }
 
 /** True when the documentation feature is enabled in settings. */
 function docsEnabled(): boolean {
-	return vscode.workspace.getConfiguration('xlide').get<boolean>('docs.enabled', true);
+	return xlideDocsEnabledFromConfig(vscode.workspace.getConfiguration('xlide')).value;
 }
 
 /**

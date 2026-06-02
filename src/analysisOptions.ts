@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 import {
-    ANALYSIS_SEVERITIES,
-    normalizeAnalysisRuleCodes,
-    normalizeAnalysisVisibleSeverities,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
+import {
+    xlideAnalysisUntrackedRulesFromConfig,
+    xlideAnalysisVisibleSeveritiesFromConfig,
+} from './globalSettings';
 export {
     ANALYSIS_SEVERITIES,
     isAnalysisRuleTracked,
@@ -19,15 +20,17 @@ export type {
 } from './analysisSettingsCore';
 
 export function visibleAnalysisSeveritiesFromConfig(): AnalysisSeverityFilter[] {
-    const configured = vscode.workspace
-        .getConfiguration('xlide')
-        .get<string[]>('analysis.visibleSeverities', [...ANALYSIS_SEVERITIES]);
-    return normalizeAnalysisVisibleSeverities(configured);
+    return visibleAnalysisSeveritiesSettingFromConfig().value;
 }
 
 export function untrackedAnalysisRulesFromConfig(): string[] {
-    const configured = vscode.workspace
-        .getConfiguration('xlide')
-        .get<string[]>('analysis.untrackedRules', []);
-    return normalizeAnalysisRuleCodes(configured);
+    return untrackedAnalysisRulesSettingFromConfig().value;
+}
+
+export function visibleAnalysisSeveritiesSettingFromConfig() {
+    return xlideAnalysisVisibleSeveritiesFromConfig(vscode.workspace.getConfiguration('xlide'));
+}
+
+export function untrackedAnalysisRulesSettingFromConfig() {
+    return xlideAnalysisUntrackedRulesFromConfig(vscode.workspace.getConfiguration('xlide'));
 }

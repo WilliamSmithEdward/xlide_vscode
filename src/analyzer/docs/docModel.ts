@@ -2,9 +2,9 @@
 //
 // XLIDE lets a developer annotate their own procedures, types, and module
 // members with Visual-Studio-style XML documentation comments (lines beginning
-// with `'''`), and lets a team ship the same vocabulary in external metadata
-// files so symbols the curated library does not know about (or that the team
-// wants to re-describe) gain rich tooltips and call tips.
+// with `'''`), and lets a developer ship the same vocabulary in external
+// metadata files so symbols the curated library does not know about (or that
+// the developer wants to re-describe) gain rich tooltips and call tips.
 //
 // This module is the host-agnostic data model shared by the inline parser
 // (docComment.ts), the external-file parser (externalDoc.ts), and the lookup

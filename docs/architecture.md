@@ -31,7 +31,7 @@ xlide_vscode/
     agentTools.ts       LanguageModelTool registrations for AI agent use
     moduleExport.ts     Shared module export logic for UI commands and AI tools
     workbookSettings.ts Strict workbook settings sidecar path, schema validation, and persistence
-    globalSettingsValidation.ts  VS Code XLIDE setting validation and runtime normalization helpers
+    globalSettings.ts  Machine-scoped VS Code XLIDE setting validation, normalization, and provenance
     liveShare.ts        LiveShareIntegration — host/guest Live Share bridge over the VSLS service API
     statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
@@ -970,8 +970,9 @@ Current-module analysis and workbook analysis do not pass that offset, so comple
 invalid source remains diagnostic-strict outside the active edit.
 Settings `xlide.diagnostics.enabled` and `xlide.diagnostics.optionExplicit`
 gate it and re-run open documents on change. Contributed `xlide.*` VS Code
-settings are machine-scoped in `package.json`. `globalSettingsValidation.ts`
-validates those contributed settings and surfaces malformed values as
+settings are machine-scoped in `package.json`. `globalSettings.ts` validates,
+normalizes, and resolves those contributed settings with explicit provenance
+(`default`, `machine`, or `unknown`). Malformed values surface as
 `XLIDE/settings` diagnostics on VBA documents; invalid `optionExplicit` values
 fall back to the default `warning` severity through the same normalizer used by
 live diagnostics, current-module analysis, and workbook analysis.

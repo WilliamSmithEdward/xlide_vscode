@@ -1671,7 +1671,16 @@ function workbookAnalysisSettingsKey(settings: EffectiveWorkbookAnalysisSettings
 }
 
 function settingsSourceLabel(source: EffectiveWorkbookAnalysisSettings['visibleSeveritiesSource']): string {
-    return source === 'workbook' ? 'Workbook override' : 'Global default';
+    switch (source) {
+        case 'workbook':
+            return 'Workbook override';
+        case 'machine':
+            return 'VS Code machine setting';
+        case 'default':
+            return 'Built-in default';
+        case 'unknown':
+            return 'Unknown';
+    }
 }
 
 function analysisRuleSettingsHtml(

@@ -6,6 +6,7 @@ import * as path from 'path';
 const mockConfig = vi.hoisted(() => ({
 	visibleSeverities: ['error', 'warning', 'information'] as string[],
 	untrackedRules: [] as string[],
+	machineKeys: new Set<string>(),
 }));
 
 vi.mock('vscode', () => ({
@@ -20,6 +21,11 @@ vi.mock('vscode', () => ({
 				}
 				return fallback;
 			},
+			inspect: (key: string) => mockConfig.machineKeys.has(key)
+				? { globalValue: key === 'analysis.visibleSeverities'
+					? mockConfig.visibleSeverities
+					: mockConfig.untrackedRules }
+				: {},
 		}),
 	},
 }));
@@ -39,6 +45,7 @@ const tempRoots: string[] = [];
 beforeEach(() => {
 	mockConfig.visibleSeverities = ['error', 'warning', 'information'];
 	mockConfig.untrackedRules = [];
+	mockConfig.machineKeys.clear();
 });
 
 afterEach(() => {
@@ -61,12 +68,14 @@ describe('workbook analysis settings', () => {
 		const { workbook } = tempWorkbook();
 		mockConfig.visibleSeverities = ['error', 'information'];
 		mockConfig.untrackedRules = ['option-explicit-missing'];
+		mockConfig.machineKeys.add('analysis.visibleSeverities');
+		mockConfig.machineKeys.add('analysis.untrackedRules');
 
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			visibleSeverities: ['error', 'information'],
-			visibleSeveritiesSource: 'global',
+			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['option-explicit-missing'],
-			untrackedRulesSource: 'global',
+			untrackedRulesSource: 'machine',
 		});
 	});
 
@@ -91,13 +100,14 @@ describe('workbook analysis settings', () => {
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			visibleSeverities: ['warning'],
 			visibleSeveritiesSource: 'workbook',
-			untrackedRulesSource: 'global',
+			untrackedRulesSource: 'default',
 		});
 	});
 
 	it('starts rule tracking overrides from the effective global default', async () => {
 		const { workbook } = tempWorkbook();
 		mockConfig.untrackedRules = ['argument-count'];
+		mockConfig.machineKeys.add('analysis.untrackedRules');
 
 		const update = await setWorkbookAnalysisRuleTracked(workbook, 'Option-Explicit-Missing', false);
 
@@ -113,6 +123,7 @@ describe('workbook analysis settings', () => {
 	it('resets one workbook analysis override while preserving the other', async () => {
 		const { workbook, exportFolder } = tempWorkbook();
 		mockConfig.visibleSeverities = ['error'];
+		mockConfig.machineKeys.add('analysis.visibleSeverities');
 		await writeWorkbookSettings(workbook, {
 			exportFolder,
 			analysis: {
@@ -131,7 +142,7 @@ describe('workbook analysis settings', () => {
 		});
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			visibleSeverities: ['error'],
-			visibleSeveritiesSource: 'global',
+			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['argument-count'],
 			untrackedRulesSource: 'workbook',
 		});
@@ -140,6 +151,7 @@ describe('workbook analysis settings', () => {
 	it('resets rule tracking and removes empty analysis settings', async () => {
 		const { workbook, exportFolder } = tempWorkbook();
 		mockConfig.untrackedRules = ['option-explicit-missing'];
+		mockConfig.machineKeys.add('analysis.untrackedRules');
 		await writeWorkbookSettings(workbook, {
 			exportFolder,
 			importMode: 'trueUpStandardClass',
@@ -156,7 +168,7 @@ describe('workbook analysis settings', () => {
 		});
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			untrackedRules: ['option-explicit-missing'],
-			untrackedRulesSource: 'global',
+			untrackedRulesSource: 'machine',
 		});
 	});
 
@@ -178,8 +190,8 @@ describe('workbook analysis settings', () => {
 			exportMode: 'trueUp',
 		});
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
-			visibleSeveritiesSource: 'global',
-			untrackedRulesSource: 'global',
+			visibleSeveritiesSource: 'default',
+			untrackedRulesSource: 'default',
 		});
 	});
 });

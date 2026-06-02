@@ -1548,11 +1548,14 @@ Implementation priority:
    read/patch/write helpers so analysis settings, import/export GUI saves,
    export commands, and agent export-mode changes cannot drift in how they
    resolve provenance or preserve unrelated workbook settings.
-5. [x] Add global VS Code XLIDE setting validation in
-   `src/globalSettingsValidation.ts`. Malformed global settings surface as
+5. [x] Add global VS Code XLIDE setting validation and provenance resolution in
+   `src/globalSettings.ts`. Malformed global settings surface as
    `XLIDE/settings` diagnostics on VBA documents, while invalid
    `xlide.diagnostics.optionExplicit` values use the same `warning` fallback in
-   live diagnostics, current-module analysis, and workbook analysis.
+   live diagnostics, current-module analysis, and workbook analysis. The same
+   owner now resolves contributed VS Code setting values with `default`,
+   `machine`, or `unknown` provenance for support bundles and workbook-facing
+   fallback settings.
 6. [x] Declare contributed `xlide.*` VS Code settings as machine-scoped in
    `package.json`, guarded by a package manifest test so workbook-specific
    settings cannot drift into workspace/folder configuration.

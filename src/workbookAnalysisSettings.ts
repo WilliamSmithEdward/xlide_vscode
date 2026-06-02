@@ -14,8 +14,8 @@ import {
     type WorkbookSettingsConfig,
 } from './workbookSettings';
 import {
-    untrackedAnalysisRulesFromConfig,
-    visibleAnalysisSeveritiesFromConfig,
+    untrackedAnalysisRulesSettingFromConfig,
+    visibleAnalysisSeveritiesSettingFromConfig,
 } from './analysisOptions';
 
 export type WorkbookAnalysisSettingsSource = WorkbookSettingSource;
@@ -30,14 +30,14 @@ export interface EffectiveWorkbookAnalysisSettings {
 export async function effectiveWorkbookAnalysisSettings(
     workbookPath: string | undefined,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
-    const globalVisibleSeverities = visibleAnalysisSeveritiesFromConfig();
-    const globalUntrackedRules = untrackedAnalysisRulesFromConfig();
+    const globalVisibleSeverities = visibleAnalysisSeveritiesSettingFromConfig();
+    const globalUntrackedRules = untrackedAnalysisRulesSettingFromConfig();
     if (!workbookPath) {
         return {
-            visibleSeverities: globalVisibleSeverities,
-            visibleSeveritiesSource: 'global',
-            untrackedRules: globalUntrackedRules,
-            untrackedRulesSource: 'global',
+            visibleSeverities: globalVisibleSeverities.value,
+            visibleSeveritiesSource: globalVisibleSeverities.source,
+            untrackedRules: globalUntrackedRules.value,
+            untrackedRulesSource: globalUntrackedRules.source,
         };
     }
 
@@ -85,7 +85,7 @@ export async function setWorkbookAnalysisRuleTracked(
         untrackedRules: [],
     };
     await updateWorkbookSettings(workbookPath, (existing) => {
-        const current = existing.analysis?.untrackedRules ?? untrackedAnalysisRulesFromConfig();
+        const current = existing.analysis?.untrackedRules ?? untrackedAnalysisRulesSettingFromConfig().value;
         const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
         const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
         result = {

@@ -35,7 +35,11 @@ import {
     type WorkbookAnalysisSuppressScope,
 } from './workbookAnalysisWebview';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
-import { normalizeXlideOptionExplicitSetting } from './globalSettingsValidation';
+import {
+    resolvedXlideGlobalSettingsFromConfig,
+    xlideAttachToRunningExcelFromConfig,
+    xlideOptionExplicitFromConfig,
+} from './globalSettings';
 import { lineStartOffsets, VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
@@ -484,9 +488,7 @@ export function registerCommands(
     }
 
     function shouldAttachToRunningExcel(): boolean {
-        return vscode.workspace
-            .getConfiguration('xlide')
-            .get<boolean>('attachToRunningExcel', true);
+        return xlideAttachToRunningExcelFromConfig(vscode.workspace.getConfiguration('xlide')).value;
     }
 
     function showRunMacroFailure(err: unknown): void {
@@ -845,9 +847,7 @@ export function registerCommands(
     }
 
     function diagnosticSeverityOverridesFromConfig(): SeverityOverrides {
-        const optionExplicit = normalizeXlideOptionExplicitSetting(vscode.workspace
-            .getConfiguration('xlide')
-            .get<unknown>('diagnostics.optionExplicit', 'warning'));
+        const optionExplicit = xlideOptionExplicitFromConfig(vscode.workspace.getConfiguration('xlide')).value;
         return {
             optionExplicitMissing:
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
@@ -1412,32 +1412,7 @@ export function registerCommands(
     }
 
     function xlideSettingsForSupportBundle(): SupportBundleSetting[] {
-        const packageJson = context.extension.packageJSON as {
-            contributes?: { configuration?: { properties?: Record<string, unknown> } };
-        };
-        const keys = Object.keys(packageJson.contributes?.configuration?.properties ?? {})
-            .filter((key) => key.startsWith('xlide.'))
-            .sort();
-        const config = vscode.workspace.getConfiguration();
-        return keys.map((key) => ({
-            key,
-            value: config.get(key),
-            source: configurationSource(config.inspect(key)),
-        }));
-    }
-
-    function configurationSource(
-        inspect: {
-            globalValue?: unknown;
-        } | undefined,
-    ): SupportBundleSetting['source'] {
-        if (!inspect) {
-            return 'unknown';
-        }
-        if (inspect.globalValue !== undefined) {
-            return 'machine';
-        }
-        return 'default';
+        return resolvedXlideGlobalSettingsFromConfig(vscode.workspace.getConfiguration('xlide'));
     }
 
     async function anonymizedWorkbookAnalysisReportForActiveWorkbook():

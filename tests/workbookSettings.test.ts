@@ -30,13 +30,14 @@ function tempWorkbook(): { root: string; workbook: string } {
 
 describe('workbookSettings', () => {
 	it('resolves workbook overrides over global defaults with explicit source', () => {
-		expect(resolveWorkbookSetting(['warning'], ['error'])).toEqual({
+		const fallback = { value: ['error'], source: 'default' as const };
+		expect(resolveWorkbookSetting(['warning'], fallback)).toEqual({
 			value: ['warning'],
 			source: 'workbook',
 		});
-		expect(resolveWorkbookSetting(undefined, ['error'])).toEqual({
+		expect(resolveWorkbookSetting(undefined, fallback)).toEqual({
 			value: ['error'],
-			source: 'global',
+			source: 'default',
 		});
 	});
 

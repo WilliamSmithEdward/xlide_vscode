@@ -1042,11 +1042,15 @@ the deterministic analyzer contract.
 - [x] Declare every contributed `xlide.*` VS Code setting as machine-scoped in
   `package.json`, with a manifest test that fails if a future setting omits the
   scope or introduces an unreviewed contributed setting.
-- [ ] Implement a deterministic configuration resolver with explicit provenance
-  for every effective setting:
+- [x] Implement deterministic global/workbook configuration resolvers with
+  explicit provenance for current settings surfaces:
   - built-in defaults declared in the extension schema
   - user/machine defaults through VS Code settings
   - workbook sidecar overrides where a setting is intentionally workbook scoped
+  `src/globalSettings.ts` now owns contributed VS Code setting validation,
+  normalization, value resolution, and `default`/`machine`/`unknown` provenance.
+  Workbook-facing analysis settings preserve that provenance until a workbook
+  sidecar override takes ownership.
 - [x] Add a deterministic VS Code extension setting, contributed through
   `package.json`, for editor block layout in Smart Enter and block snippets:
   - default `comfy`: spacer line, editable indented body line, spacer line,
@@ -1084,10 +1088,10 @@ the deterministic analyzer contract.
   - result output path
 - [ ] Add sidebar/profile UI for active configuration.
 - [x] Add configuration validation diagnostics for malformed settings. Global
-  VS Code XLIDE settings now validate through `src/globalSettingsValidation.ts`
-  and surface malformed values as `XLIDE/settings` diagnostics on VBA
-  documents; workbook sidecar errors continue to surface through the workbook
-  settings owner.
+  VS Code XLIDE settings now validate through `src/globalSettings.ts` and
+  surface malformed values as `XLIDE/settings` diagnostics on VBA documents;
+  workbook sidecar errors continue to surface through the workbook settings
+  owner.
 - [ ] Document precedence and conflict handling for built-in defaults, VS Code
   settings, and workbook sidecar overrides.
 

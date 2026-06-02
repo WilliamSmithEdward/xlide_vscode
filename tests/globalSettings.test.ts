@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type * as vscode from 'vscode';
 import {
     normalizeXlideOptionExplicitSetting,
+    resolvedXlideGlobalSettingsFromConfig,
+    xlideAnalysisVisibleSeveritiesFromConfig,
+    xlideDocsMetadataGlobFromConfig,
     validateXlideGlobalSettingsValues,
-} from '../src/globalSettingsValidation';
+} from '../src/globalSettings';
 
 const validSettings = {
     pythonPath: '',
@@ -16,7 +20,7 @@ const validSettings = {
     'docs.metadataGlob': '**/*.vbref.xml',
 };
 
-describe('globalSettingsValidation', () => {
+describe('globalSettings', () => {
     it('accepts the extension default settings shape', () => {
         expect(validateXlideGlobalSettingsValues(validSettings)).toEqual([]);
     });
@@ -66,4 +70,54 @@ describe('globalSettingsValidation', () => {
         expect(normalizeXlideOptionExplicitSetting('loud')).toBe('warning');
         expect(normalizeXlideOptionExplicitSetting(undefined)).toBe('warning');
     });
+
+    it('resolves normalized global settings with explicit provenance', () => {
+        const config = fakeConfig({
+            'analysis.visibleSeverities': ['warning', 'hint', 'error'],
+            'docs.metadataGlob': ' custom/*.vbref.xml ',
+        }, new Set(['analysis.visibleSeverities']));
+
+        expect(xlideAnalysisVisibleSeveritiesFromConfig(config)).toEqual({
+            key: 'xlide.analysis.visibleSeverities',
+            value: ['warning', 'error'],
+            source: 'machine',
+        });
+        expect(xlideDocsMetadataGlobFromConfig(config)).toEqual({
+            key: 'xlide.docs.metadataGlob',
+            value: 'custom/*.vbref.xml',
+            source: 'default',
+        });
+    });
+
+    it('returns support-bundle-ready settings in the contributed key order', () => {
+        const settings = resolvedXlideGlobalSettingsFromConfig(fakeConfig({
+            pythonPath: 'C:\\Python\\python.exe',
+        }, new Set(['pythonPath'])));
+
+        expect(settings.map((setting) => setting.key)).toEqual([
+            'xlide.analysis.untrackedRules',
+            'xlide.analysis.visibleSeverities',
+            'xlide.attachToRunningExcel',
+            'xlide.diagnostics.enabled',
+            'xlide.diagnostics.optionExplicit',
+            'xlide.docs.enabled',
+            'xlide.docs.metadataGlob',
+            'xlide.editor.blockLayout',
+            'xlide.pythonPath',
+        ]);
+        expect(settings.find((setting) => setting.key === 'xlide.pythonPath')).toMatchObject({
+            value: 'C:\\Python\\python.exe',
+            source: 'machine',
+        });
+    });
 });
+
+function fakeConfig(
+    values: Record<string, unknown>,
+    machineKeys = new Set<string>(),
+): vscode.WorkspaceConfiguration {
+    return {
+        get: (key: string, fallback?: unknown) => key in values ? values[key] : fallback,
+        inspect: (key: string) => machineKeys.has(key) ? { globalValue: values[key] } : {},
+    } as unknown as vscode.WorkspaceConfiguration;
+}

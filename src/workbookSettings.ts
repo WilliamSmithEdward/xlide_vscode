@@ -6,9 +6,10 @@ import {
     normalizeAnalysisVisibleSeverities,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
+import type { XlideGlobalSettingSource } from './globalSettings';
 
 type ExportMode = 'exportAll' | 'trueUp';
-type WorkbookSettingSource = 'workbook' | 'global';
+type WorkbookSettingSource = 'workbook' | XlideGlobalSettingSource;
 
 interface ResolvedWorkbookSetting<T> {
     value: T;
@@ -51,10 +52,10 @@ function normalizeExportMode(mode: ExportMode | unknown): ExportMode {
 
 function resolveWorkbookSetting<T>(
     workbookValue: T | undefined,
-    globalValue: T,
+    fallback: { value: T; source: XlideGlobalSettingSource },
 ): ResolvedWorkbookSetting<T> {
     return workbookValue === undefined
-        ? { value: globalValue, source: 'global' }
+        ? { value: fallback.value, source: fallback.source }
         : { value: workbookValue, source: 'workbook' };
 }
 

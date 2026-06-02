@@ -68,9 +68,11 @@ Use discernment when deciding where settings live.
 - Workbook-over-global fallback and source provenance should use the shared
   workbook settings resolver; production sidecar mutations should use the
   shared read/patch/write helper so unrelated workbook settings are preserved.
-- Global VS Code XLIDE settings should validate through the shared global
-  settings validator, and runtime fallback for malformed settings should use the
-  same helper that reports the malformed value.
+- Global VS Code XLIDE settings should resolve through the shared global
+  settings owner. Runtime fallback for malformed settings should use the same
+  helper that reports the malformed value, and surfaces that display settings
+  should use the same provenance (`default`, `machine`, or `unknown`) returned
+  by that owner.
 - Contributed `xlide.*` VS Code settings must declare `scope: "machine"` in
   `package.json`. Do not introduce workspace or folder-scoped XLIDE settings
   unless there is an explicit, agreed reason to add a new scope.

@@ -289,7 +289,7 @@ function buildMemberHover(
 /**
  * Renders developer-defined external documentation for `name` (optionally within
  * `qualifier`) to Markdown, or undefined when none is registered. This is the
- * override that lets a team re-describe a curated library symbol.
+ * override that lets a developer re-describe a curated library symbol.
  */
 function externalDocMarkdown(
 	ctx: HoverContext,

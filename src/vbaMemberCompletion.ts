@@ -17,7 +17,8 @@ import {
 	workbookIdentityKey,
 } from './xlideFileSystem';
 import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
-import { leadingWhitespace, normalizeSmartBlockLayout } from './vbaStructuralAnalysis';
+import { leadingWhitespace } from './vbaStructuralAnalysis';
+import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
 	DocRegistry,
 	EventHandlerCompletion,
@@ -196,9 +197,7 @@ class VbaMemberCompletionProvider
 		}
 
 		const keywords = resolveKeywordCompletions(source, offset, {
-			blockLayout: normalizeSmartBlockLayout(
-				vscode.workspace.getConfiguration('xlide').get<string>('editor.blockLayout'),
-			),
+			blockLayout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
 		});
 		if (keywords.exclusive) {
 			return keywords.items.map((item) => this._toKeywordItem(item, range, document));

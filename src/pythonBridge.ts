@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import * as readline from 'readline';
+import { xlidePythonPathFromConfig } from './globalSettings';
 
 interface JsonRpcRequest {
     jsonrpc: '2.0';
@@ -116,11 +117,9 @@ export class PythonBridge implements vscode.Disposable {
     }
 
     private _resolvePython(): string {
-        const configured = vscode.workspace
-            .getConfiguration('xlide')
-            .get<string>('pythonPath');
-        if (configured && configured.trim()) {
-            return configured.trim();
+        const configured = xlidePythonPathFromConfig(vscode.workspace.getConfiguration('xlide')).value;
+        if (configured) {
+            return configured;
         }
 
         // Auto-detect: prefer a .venv inside each workspace folder
