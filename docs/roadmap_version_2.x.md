@@ -411,10 +411,11 @@ Purpose: move from same-module checks to workbook-aware analysis.
 - [x] Resolve UDT names across modules through the shared project type resolver
   used by completion, hover, semantic tokens, diagnostics, and type-definition
   navigation.
-- [x] Add a shared project-analysis helper for project-aware test fixtures and
-  lint surfaces, covering `ProjectIndex` construction, live current-module
-  overlay, visibility-filtered names, exported signatures, visible project
-  types, and source-backed member surfaces.
+- [x] Add a shared project-analysis helper for project-aware test fixtures,
+  lint surfaces, diagnostics, and editor providers, covering `ProjectIndex`
+  construction, live current-module overlay, visibility-filtered names,
+  exported signatures, visible project types, source-backed member surfaces,
+  and live-IntelliSense tolerance for temporarily invalid modules.
 - [ ] Add machine-readable workbook-level fixture files for larger project
   analysis scenarios.
 - [x] Keep current project-signature diagnostics stable under module order
@@ -685,6 +686,9 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   fixtures through shared project-analysis option derivation so cross-module
   procedure, identifier, type, non-type, and member-surface rules cannot drift by
   surface.
+- [x] Route live diagnostics, type semantic tokens, member completion, hover,
+  and type completion through shared project-analysis project construction and
+  option derivation so editor-facing project context cannot drift by provider.
 - [x] Consolidate explicit `Call` argument syntax and standalone
   empty-parentheses call-statement diagnostics into
   `src/analyzer/call/callContext.ts`, alongside signature-help call-site

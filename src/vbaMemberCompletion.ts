@@ -28,7 +28,6 @@ import {
 	MemberCompletionContext,
 	ModuleSymbolKind,
 	materializeKeywordSnippet,
-	ProjectIndex,
 	VbaProcedureSignature,
 	callableCompletionShouldInsertParens,
 	resolveCanonicalCaseEdit,
@@ -44,6 +43,13 @@ import {
 	TypeCompletionContext,
 	VbaProjectClassMembers,
 } from './analyzer';
+import {
+	buildVbaProjectIndex,
+	moduleKindFromType,
+	projectAnalysisOptionsForModule,
+	type VbaProjectLiveOverride,
+	type VbaProjectModuleInput,
+} from './vbaProjectAnalysis';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
@@ -313,7 +319,7 @@ class VbaMemberCompletionProvider
 				meType: meTypeFor(current),
 				meProjectType: meProjectTypeFor(current),
 				moduleName: decoded.moduleName,
-				moduleKind: current ? this._moduleKind(current.type) : 'standard',
+				moduleKind: moduleKindFromType(current?.type),
 				projectTypes: typeContext.projectTypes,
 				projectClassMembers: entries
 					? await this._loadProjectMemberSurfaces(
@@ -321,7 +327,7 @@ class VbaMemberCompletionProvider
 						entries,
 						decoded.moduleName,
 						{
-							moduleKind: current ? this._moduleKind(current.type) : 'standard',
+							moduleKind: moduleKindFromType(current?.type),
 							source,
 						},
 					)
@@ -359,7 +365,7 @@ class VbaMemberCompletionProvider
 		const current = entries.find(
 			(e) => e.name.toLowerCase() === decoded.moduleName.toLowerCase(),
 		);
-		const moduleKind = current ? this._moduleKind(current.type) : 'standard';
+		const moduleKind = moduleKindFromType(current?.type);
 		const projectClassMembers = await this._loadProjectMemberSurfaces(
 			decoded.xlsmPath,
 			entries,
@@ -396,7 +402,7 @@ class VbaMemberCompletionProvider
 		entries: ModuleEntry[],
 		moduleName: string,
 		liveOverride?: { moduleKind: ModuleSymbolKind; source: string },
-	): Promise<VbaProjectClassMembers[]> {
+	): Promise<readonly VbaProjectClassMembers[]> {
 		const project = await this._buildProjectIndexFromEntries(
 			xlsmPath,
 			entries,
@@ -410,7 +416,7 @@ class VbaMemberCompletionProvider
 				}
 				: {},
 		);
-		return project.projectMemberSurfaces(moduleName);
+		return projectAnalysisOptionsForModule(project, moduleName).projectClassMembers ?? [];
 	}
 
 	private async _loadCrossModuleProcedureSignatures(
@@ -445,24 +451,25 @@ class VbaMemberCompletionProvider
 		xlsmPath: string,
 		entries: ModuleEntry[],
 		options: {
-			liveOverride?: { moduleName: string; moduleKind: ModuleSymbolKind; source: string };
+			liveOverride?: VbaProjectLiveOverride;
 			include?: (kind: ModuleSymbolKind) => boolean;
 		} = {},
-	): Promise<ProjectIndex> {
-		const project = new ProjectIndex();
-		let appliedOverride = false;
+	): Promise<ReturnType<typeof buildVbaProjectIndex>> {
+		const modules: VbaProjectModuleInput[] = [];
+		const live = options.liveOverride;
 		for (const entry of entries) {
-			const entryKind = this._moduleKind(entry.type);
 			const isOverride =
-				options.liveOverride &&
-				entry.name.toLowerCase() === options.liveOverride.moduleName.toLowerCase();
-			const moduleKind = isOverride ? options.liveOverride!.moduleKind : entryKind;
+				live &&
+				entry.name.toLowerCase() === live.moduleName.toLowerCase();
+			const entryKind = moduleKindFromType(entry.type);
+			const moduleKind = isOverride ? live.moduleKind : entryKind;
 			if (options.include && !options.include(moduleKind)) {
 				continue;
 			}
-			let source = isOverride
-				? options.liveOverride!.source
-				: await this._moduleSource(xlsmPath, entry);
+			if (isOverride) {
+				continue;
+			}
+			let source = await this._moduleSource(xlsmPath, entry);
 			if (source === undefined) {
 				if (moduleKind !== 'class' && moduleKind !== 'document' && moduleKind !== 'userform') {
 					continue;
@@ -471,30 +478,18 @@ class VbaMemberCompletionProvider
 				// even when the module body cannot be read for members/docs.
 				source = '';
 			}
-			try {
-				project.setModule({
-					moduleName: isOverride ? options.liveOverride!.moduleName : entry.name,
-					moduleKind,
-					source,
-				});
-				appliedOverride = appliedOverride || !!isOverride;
-			} catch {
-				// Keep IntelliSense alive if one workbook module is temporarily invalid.
-			}
+			modules.push({
+				moduleName: entry.name,
+				type: entry.type,
+				moduleKind,
+				documentType: entry.documentType,
+				source,
+			});
 		}
-		const live = options.liveOverride;
-		if (
-			live &&
-			!appliedOverride &&
-			(!options.include || options.include(live.moduleKind))
-		) {
-			try {
-				project.setModule(live);
-			} catch {
-				// Same recovery rule as above for unsaved/incomplete live text.
-			}
-		}
-		return project;
+		const liveOverride = live && (!options.include || options.include(live.moduleKind))
+			? live
+			: undefined;
+		return buildVbaProjectIndex(modules, liveOverride, { ignoreInvalidModules: true });
 	}
 
 	private async _moduleSource(
@@ -546,17 +541,18 @@ class VbaMemberCompletionProvider
 		source: string,
 	): Promise<TypeCompletionContext> {
 		if (document.uri.scheme !== XLIDE_SCHEME) {
-			const project = new ProjectIndex();
 			try {
-				project.setModule({
-					moduleName: 'Module',
-					moduleKind: 'standard',
-					source,
-				});
+				const project = buildVbaProjectIndex(
+					[{ moduleName: 'Module', moduleKind: 'standard', source }],
+					undefined,
+					{ ignoreInvalidModules: true },
+				);
+				return {
+					projectTypes: projectAnalysisOptionsForModule(project, 'Module').projectTypes ?? [],
+				};
 			} catch {
 				return {};
 			}
-			return { projectTypes: project.visibleTypeNames('Module') };
 		}
 
 		try {
@@ -565,7 +561,7 @@ class VbaMemberCompletionProvider
 			const current = entries?.find(
 				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
 			);
-			const moduleKind = current ? this._moduleKind(current.type) : 'standard';
+			const moduleKind = moduleKindFromType(current?.type);
 			const project = await this._buildProjectIndexFromEntries(
 				decoded.xlsmPath,
 				entries ?? [],
@@ -577,7 +573,9 @@ class VbaMemberCompletionProvider
 					},
 				},
 			);
-			return { projectTypes: project.visibleTypeNames(decoded.moduleName) };
+			return {
+				projectTypes: projectAnalysisOptionsForModule(project, decoded.moduleName).projectTypes ?? [],
+			};
 		} catch {
 			return {};
 		}
@@ -602,7 +600,7 @@ class VbaMemberCompletionProvider
 			);
 			return {
 				moduleName: decoded.moduleName,
-				moduleKind: current ? this._moduleKind(current.type) : 'standard',
+				moduleKind: moduleKindFromType(current?.type),
 				documentType: documentTypeFor(current),
 			};
 		} catch {
@@ -632,7 +630,7 @@ class VbaMemberCompletionProvider
 					codeNames.push(entry.name);
 				}
 				if (entry.name.toLowerCase() === currentLower) {
-					moduleKind = this._moduleKind(entry.type);
+					moduleKind = moduleKindFromType(entry.type);
 				}
 			}
 			let projectSymbols: IdentifierCompletionContext['projectSymbols'];
@@ -684,20 +682,6 @@ class VbaMemberCompletionProvider
 				: undefined;
 		} catch {
 			return undefined;
-		}
-	}
-
-	/** Maps a host module-type string to a {@link ModuleSymbolKind}. */
-	private _moduleKind(type: string): ModuleSymbolKind {
-		switch (type) {
-			case 'class':
-				return 'class';
-			case 'document':
-				return 'document';
-			case 'userform':
-				return 'userform';
-			default:
-				return 'standard';
 		}
 	}
 

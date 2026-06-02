@@ -37,7 +37,7 @@ xlide_vscode/
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
     vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource), smart-enter helpers, and the shared smart-block snippet catalogue (no vscode dependency)
     vbaModuleLint.ts    Shared module lint core used by live diagnostics, current-module lint, and workbook lint; merges structural lint, semantic analysis, and lint suppression directives
-    vbaProjectAnalysis.ts  Shared ProjectIndex construction and analyzer-option derivation for project-aware lint/diagnostic surfaces
+    vbaProjectAnalysis.ts  Shared ProjectIndex construction and analyzer-option derivation for project-aware lint, diagnostics, semantic tokens, completion, and hover surfaces
     vbaWorkbookLint.ts  Workbook-wide lint/report core (lintWorkbook) reused by commands and the xlide_lintWorkbook agent tool; flattens vbaModuleLint results into 1-based problems with diagnostic metadata and summary counts
     analyzer/
       lexer/
@@ -358,12 +358,14 @@ Tree-level class module rename uses the same project type-reference helpers:
 the component name is changed through `renameModule`, and VS Code reference edits
 are applied for the workbook's project-defined class type tokens.
 
-Project-aware diagnostics and lint surfaces derive their analyzer options through
-`src/vbaProjectAnalysis.ts`. That helper owns module-kind normalization,
-live-current-module overlay, project procedure signatures, visibility-filtered
-procedure/identifier/type/non-type names, and source-backed member surfaces, so
-current-module lint, workbook lint, and project-aware diagnostic fixtures do not
-hand-wire parallel `ProjectIndex` option sets.
+Project-aware diagnostics, lint surfaces, semantic type coloring, completion,
+and hover derive project context through `src/vbaProjectAnalysis.ts`. That
+helper owns module-kind normalization, live-current-module overlay, project
+procedure signatures, visibility-filtered procedure/identifier/type/non-type
+names, source-backed member surfaces, and the explicit live-IntelliSense mode
+that ignores temporarily invalid modules. Current-module lint, workbook lint,
+project-aware diagnostic fixtures, and editor providers do not hand-wire
+parallel `ProjectIndex` option sets.
 
 **Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
 is unit-tested directly (`tests/vbaLinter.test.ts`). It strips strings/comments,
@@ -500,14 +502,17 @@ into a pure analyzer layer and a thin VS Code provider:
   member surface and mark `defaultMember`, but direct object-expression
   inference is not enabled until that behavior has separate oracle coverage.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
-  characters `.` and space). For member access it builds the project context
-  from the workbook's module list (document code names with workbook,
-  worksheet, or chart host type where known, plus the host/source
-  `Me` context for the current object module) via the Python bridge and renders
-  the resolved members. For workbook class members, open XLIDE module documents
-  are read from their live editor text first, so unsaved changes in an open
-  `Person` class are reflected the next time completion is requested elsewhere; saved module text
-  is read through the bridge when no live editor text exists. At module level in
+  characters `.` and space). For member access it loads the workbook's module
+  list via the Python bridge, then uses `src/vbaProjectAnalysis.ts` for
+  module-kind normalization, live-current-module overlay, project type/member
+  derivation, and invalid-module tolerance while the user is mid-edit. The
+  resulting context includes document code names with workbook, worksheet, or
+  chart host type where known, plus the host/source `Me` context for the current
+  object module. For workbook class members, open XLIDE module documents are
+  read from their live editor text first, so unsaved changes in an open
+  `Person` class are reflected the next time completion is requested elsewhere;
+  saved module text is read through the bridge when no live editor text exists.
+  At module level in
   document modules, it also offers event-procedure stubs from
   `resolveEventHandlerCompletions`: `ThisWorkbook`/`documentType: workbook`
   gets `Workbook_*` handlers, worksheet document modules get `Worksheet_*`

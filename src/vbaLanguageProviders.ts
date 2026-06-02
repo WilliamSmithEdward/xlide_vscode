@@ -46,6 +46,11 @@ import {
     projectTypeDefinitionToLocation,
     typeReferenceLocations,
 } from './vbaNavigation';
+import {
+    projectAnalysisOptionsForModule,
+    projectProcedureSignatures,
+    type VbaProjectAnalysisOptions,
+} from './vbaProjectAnalysis';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -832,10 +837,10 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
 
         const source = document.getText();
         const moduleName = moduleNameFromDocument(document);
-        let projectTypes: ReturnType<ProjectIndex['visibleTypeNames']> = [];
+        let projectTypes: VbaProjectAnalysisOptions['projectTypes'] = [];
         try {
             const project = await this._projectIndexForDocument(document, source, moduleName);
-            projectTypes = project.visibleTypeNames(moduleName);
+            projectTypes = projectAnalysisOptionsForModule(project, moduleName).projectTypes ?? [];
         } catch {
             projectTypes = [];
         }
@@ -918,18 +923,13 @@ function registerVbaDiagnostics(
         const text = document.getText();
         const diagnostics: vscode.Diagnostic[] = [];
 
-        // Project-wide names enable cross-module call and Option Explicit checks;
-        // project signatures enable deterministic cross-module arity/type checks.
-        // Only available for workbook-backed docs.
+        // Project-wide names enable cross-module call, type, member, and
+        // Option Explicit checks. Only workbook-backed docs can load the
+        // complete project context.
         const moduleName = moduleNameFromDocument(document);
         let moduleKind: ModuleSymbolKind | undefined;
         let documentType: EventHandlerDocumentType | undefined;
-        let knownProcedures: ReadonlySet<string> | undefined;
-        let knownIdentifiers: ReadonlySet<string> | undefined;
-        let projectProcedures: ReturnType<ProjectIndex['procedureSignatures']> | undefined;
-        let projectClassMembers: ReturnType<ProjectIndex['projectClassMembers']> | undefined;
-        let projectTypes: ReturnType<ProjectIndex['visibleTypeNames']> | undefined;
-        let knownNonTypeNames: ReturnType<ProjectIndex['visibleNonTypeNames']> | undefined;
+        let projectOptions: VbaProjectAnalysisOptions = {};
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
@@ -944,19 +944,13 @@ function registerVbaDiagnostics(
                     moduleKind,
                     source: text,
                 });
-                knownProcedures = project.visibleProcedureNames(moduleName);
-                knownIdentifiers = project.visibleIdentifierNames(moduleName);
-                projectProcedures = project.procedureSignatures();
-                projectClassMembers = project.projectMemberSurfaces(moduleName);
-                projectTypes = project.visibleTypeNames(moduleName);
-                knownNonTypeNames = project.visibleNonTypeNames(moduleName);
+                projectOptions = projectAnalysisOptionsForModule(
+                    project,
+                    moduleName,
+                    projectProcedureSignatures(project),
+                );
             } catch {
-                knownProcedures = undefined;
-                knownIdentifiers = undefined;
-                projectProcedures = undefined;
-                projectClassMembers = undefined;
-                projectTypes = undefined;
-                knownNonTypeNames = undefined;
+                projectOptions = {};
             }
         }
 
@@ -975,12 +969,7 @@ function registerVbaDiagnostics(
             moduleKind,
             documentType,
             severities,
-            knownProcedures,
-            knownIdentifiers,
-            projectProcedures,
-            projectClassMembers,
-            projectTypes,
-            knownNonTypeNames,
+            ...projectOptions,
             activeIncompleteMemberAccessOffset,
         });
         for (const d of moduleLint.diagnostics) {

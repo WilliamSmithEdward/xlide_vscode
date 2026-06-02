@@ -19,6 +19,10 @@ export interface VbaProjectLiveOverride {
     source: string;
 }
 
+export interface VbaProjectIndexBuildOptions {
+    ignoreInvalidModules?: boolean;
+}
+
 export type VbaProjectAnalysisOptions = Pick<
     AnalyzeModuleOptions,
     | 'knownProcedures'
@@ -45,22 +49,35 @@ export function effectiveModuleKind(input: Pick<VbaProjectModuleInput, 'type' | 
 export function buildVbaProjectIndex(
     modules: readonly VbaProjectModuleInput[],
     liveOverride?: VbaProjectLiveOverride,
+    options: VbaProjectIndexBuildOptions = {},
 ): ProjectIndex {
     const index = new ProjectIndex();
+    const setModule = (module: Parameters<ProjectIndex['setModule']>[0]): boolean => {
+        if (!options.ignoreInvalidModules) {
+            index.setModule(module);
+            return true;
+        }
+        try {
+            index.setModule(module);
+            return true;
+        } catch {
+            return false;
+        }
+    };
     let appliedOverride = false;
     for (const mod of modules) {
         const isOverride =
             liveOverride &&
             mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
-        index.setModule({
+        const applied = setModule({
             moduleName: mod.moduleName,
             moduleKind: isOverride ? liveOverride.moduleKind : effectiveModuleKind(mod),
             source: isOverride ? liveOverride.source : mod.source,
         });
-        appliedOverride = appliedOverride || !!isOverride;
+        appliedOverride = appliedOverride || (!!isOverride && applied);
     }
     if (liveOverride && !appliedOverride) {
-        index.setModule(liveOverride);
+        setModule(liveOverride);
     }
     return index;
 }

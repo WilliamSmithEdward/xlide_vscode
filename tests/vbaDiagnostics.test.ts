@@ -113,6 +113,31 @@ function visibleProjectNonTypeNames(
 	return projectOptions(modules, currentModule).knownNonTypeNames ?? new Set();
 }
 
+describe('vbaProjectAnalysis helper', () => {
+	it('derives project member surfaces from the live current-module overlay', () => {
+		const savedClass = [
+			'Public Property Get Name() As String',
+			'End Property',
+		].join('\n');
+		const liveClass = [
+			'Public Property Get Age() As Long',
+			'End Property',
+		].join('\n');
+		const project = buildVbaProjectIndex(
+			[
+				{ moduleName: 'Person', moduleKind: 'class', source: savedClass },
+				{ moduleName: 'Caller', moduleKind: 'standard', source: '' },
+			],
+			{ moduleName: 'Person', moduleKind: 'class', source: liveClass },
+		);
+		const person = projectAnalysisOptionsForModule(project, 'Caller')
+			.projectClassMembers
+			?.find((surface) => surface.name === 'Person');
+
+		expect(person?.members.map((member) => member.name)).toEqual(['Age']);
+	});
+});
+
 describe('analyzeModule - unterminated string', () => {
 	it('flags a string with no closing quote', () => {
 		const src = 'Sub T()\n    MsgBox "hello\nEnd Sub\n';
