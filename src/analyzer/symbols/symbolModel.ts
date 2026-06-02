@@ -65,6 +65,8 @@ export interface VbaSymbol {
 	visibility?: SymbolVisibility;
 	/** Declared `As` type, when present. */
 	asType?: string;
+	/** Raw fixed-length suffix after `As String *`, when present. */
+	fixedLength?: string;
 	/** Raw default/constant initializer text after `=` when source provides one. */
 	defaultRaw?: string;
 	/** True when a parameter is declared Optional. */

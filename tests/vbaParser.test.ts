@@ -201,6 +201,22 @@ describe('parseModule - declarations (MS-VBAL 5.2.3 / 5.2.4)', () => {
 		expect(group.declarations.map((d) => d.asType)).toEqual(['Long', 'String']);
 	});
 
+	it('parses fixed-length String declarations as String plus a fixed length', () => {
+		const m = parseModule(
+			'Dim fixedName As String * 20\n' +
+				'Private Type Header\n' +
+				'    Code As String * 4\n' +
+				'End Type\n',
+		);
+		const group = m.members[0] as VariableGroupNode;
+		expect(group.declarations[0].asType).toBe('String');
+		expect(group.declarations[0].fixedLength).toBe('20');
+
+		const type = m.members[1] as TypeNode;
+		expect(type.fields[0].asType).toBe('String');
+		expect(type.fields[0].fixedLength).toBe('4');
+	});
+
 	it('parses a module variable declared with only a visibility modifier', () => {
 		const m = parseModule('Public Counter As Long\n');
 		const group = m.members[0] as VariableGroupNode;

@@ -135,6 +135,17 @@ describe('hover - user symbols', () => {
 		expect(info?.details.some((d) => d.includes('Test'))).toBe(true);
 	});
 
+	it('preserves fixed-length String suffixes on variable hovers', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim buffer As String * 20\n' +
+			'    buffer = "abc"\n' +
+			'End Sub\n';
+		const usage = src.lastIndexOf('buffer');
+		const info = resolveHover(src, usage + 1, { moduleName: 'Module1' });
+		expect(info?.signature).toBe('buffer As String * 20');
+	});
+
 	it('describes a parameter', () => {
 		const src = 'Sub Greet(name As String)\n    Debug.Print name\nEnd Sub\n';
 		const usage = src.lastIndexOf('name');
@@ -218,15 +229,21 @@ describe('hover - host symbols', () => {
 		index.setModule({
 			moduleName: 'Types',
 			moduleKind: 'standard',
-			source: 'Public Type TPoint\n    X As Long\nEnd Type\n',
+			source: 'Public Type TPoint\n    X As Long\n    Label As String * 12\nEnd Type\n',
 		});
 		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
-		const src = 'Sub T()\n    Dim p As TPoint\n    p.X\nEnd Sub\n';
-		const info = resolveHover(src, src.indexOf('X') + 1, {
+		const src = 'Sub T()\n    Dim p As TPoint\n    p.X\n    p.Label\nEnd Sub\n';
+		const x = resolveHover(src, src.indexOf('X') + 1, {
 			projectClassMembers: index.projectMemberSurfaces('Caller'),
 		});
-		expect(info?.signature).toBe('TPoint.X As Long');
-		expect(info?.details).toContain('TPoint property');
+		expect(x?.signature).toBe('TPoint.X As Long');
+		expect(x?.details).toContain('TPoint property');
+
+		const label = resolveHover(src, src.indexOf('Label') + 1, {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+		expect(label?.signature).toBe('TPoint.Label As String * 12');
+		expect(label?.details).toContain('TPoint property');
 	});
 
 	it('includes generated reference docs on promoted host member hovers', () => {

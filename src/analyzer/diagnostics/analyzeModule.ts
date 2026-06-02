@@ -49,6 +49,7 @@ import type {
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
+import { parseFixedLengthStringType } from '../parser/fixedLengthString';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	conditionalCompilerConstants,
@@ -3594,7 +3595,7 @@ function checkObjectModulePublicMembers(
 					report('constants', span);
 				} else if (decl.isArray) {
 					report('arrays', span);
-				} else if (isFixedLengthStringType(decl.asType)) {
+				} else if (decl.fixedLength !== undefined) {
 					report('fixed-length strings', span);
 				}
 			}
@@ -3700,14 +3701,6 @@ function isPublicModifier(value: string | undefined): boolean {
 	return value?.toLowerCase() === 'public';
 }
 
-function isFixedLengthStringType(asType: string | undefined): boolean {
-	if (!asType) {
-		return false;
-	}
-	const toks = tokenize(asType).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	return toks.length >= 3 && tokenText(toks[0]) === 'string' && toks[1]?.rawText === '*';
-}
-
 function unexpectedTokenAfterDeclarationType(
 	source: string,
 	span: Span,
@@ -3730,10 +3723,9 @@ function unexpectedTokenAfterDeclarationType(
 		return undefined;
 	}
 
-	// Fixed-length string syntax (`As String * 10`) has its own backlog item;
-	// do not infer trailing-token errors inside that grammar until verified.
-	if (isUnqualifiedStringType(toks, typeStart, i) && toks[i]?.rawText === '*') {
-		return undefined;
+	const fixedLengthString = parseFixedLengthStringType(toks, typeStart);
+	if (fixedLengthString && fixedLengthString.endIndex > i) {
+		i = fixedLengthString.endIndex;
 	}
 
 	const next = toks[i];
@@ -3775,14 +3767,6 @@ function isDeclarationTypeNameToken(tok: VbaToken | undefined): boolean {
 		tok.kind === 'keyword' ||
 		tok.kind === 'bracketedIdentifier'
 	);
-}
-
-function isUnqualifiedStringType(
-	toks: VbaToken[],
-	start: number,
-	end: number,
-): boolean {
-	return end === start + 1 && tokenText(toks[start]) === 'string';
 }
 
 function checkInvalidAsTypeNames(

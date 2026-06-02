@@ -330,7 +330,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule only fires after XLIDE parses a complete declaration type name and then sees an additional same-statement token outside valid declaration separators/defaults. Fixed-length string syntax remains out of scope until its full grammar is verified.",
+      "notes": "The active rule only fires after XLIDE parses a complete declaration type name and then sees an additional same-statement token outside valid declaration separators/defaults. Recognized fixed-length string suffixes (`As String * n`) are consumed by the shared suffix parser before trailing-token detection; invalid length boundaries and runtime assignment/truncation behavior remain separate verification work.",
       "diagnosticKind": "compile-error"
     },
     {

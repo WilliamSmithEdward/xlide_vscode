@@ -65,6 +65,7 @@ describe('buildModuleSymbols', () => {
 	it('extracts module variables and constants with visibility', () => {
 		const src = [
 			'Private mState As Long',
+			'Private mBuffer As String * 20',
 			'Public Const MaxItems As Long = 10',
 			'Dim untyped',
 		].join('\n');
@@ -74,6 +75,11 @@ describe('buildModuleSymbols', () => {
 		expect(state?.kind).toBe('moduleVariable');
 		expect(state?.visibility).toBe('Private');
 		expect(state?.asType).toBe('Long');
+
+		const buffer = mod.all.find((s) => s.name === 'mBuffer');
+		expect(buffer?.kind).toBe('moduleVariable');
+		expect(buffer?.asType).toBe('String');
+		expect(buffer?.fixedLength).toBe('20');
 
 		const max = mod.all.find((s) => s.name === 'MaxItems');
 		expect(max?.kind).toBe('constant');
@@ -90,6 +96,7 @@ describe('buildModuleSymbols', () => {
 		const src = [
 			'Public Type TPoint',
 			'    X As Double',
+			'    Label As String * 12',
 			'    Y As Double',
 			'End Type',
 			'',
@@ -102,9 +109,11 @@ describe('buildModuleSymbols', () => {
 
 		const type = mod.root.children?.find((c) => c.name === 'TPoint');
 		expect(type?.kind).toBe('type');
-		expect((type?.children ?? []).map((c) => c.name)).toEqual(['X', 'Y']);
+		expect((type?.children ?? []).map((c) => c.name)).toEqual(['X', 'Label', 'Y']);
 		expect(type?.children?.[0].kind).toBe('typeField');
 		expect(type?.children?.[0].asType).toBe('Double');
+		expect(type?.children?.[1].asType).toBe('String');
+		expect(type?.children?.[1].fixedLength).toBe('12');
 
 		const en = mod.root.children?.find((c) => c.name === 'Color');
 		expect(en?.kind).toBe('enum');

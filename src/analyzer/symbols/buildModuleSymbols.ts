@@ -199,6 +199,7 @@ function collectLocals(
 					containerName,
 					visibility: toVisibility(node.modifier),
 					asType: decl.asType,
+					fixedLength: decl.fixedLength,
 					defaultRaw: decl.defaultRaw,
 				});
 			}
@@ -337,6 +338,7 @@ function buildType(
 			moduleName,
 			containerName: node.name,
 			asType: field.asType,
+			fixedLength: field.fixedLength,
 		};
 		children.push(fieldSymbol);
 		flat.push(fieldSymbol);
@@ -394,6 +396,7 @@ function buildModuleVariables(
 			moduleName,
 			visibility: toVisibility(group.modifier),
 			asType: decl.asType,
+			fixedLength: decl.fixedLength,
 			defaultRaw: decl.defaultRaw,
 			doc,
 		};

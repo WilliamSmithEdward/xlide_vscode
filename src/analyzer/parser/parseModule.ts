@@ -67,6 +67,7 @@ import {
 	StatementCursor,
 	tokenWord,
 } from './parserState';
+import { parseFixedLengthStringType } from './fixedLengthString';
 
 /** Visibility / sharing modifiers that may lead a declaration (MS-VBAL 5.2.3). */
 const LEADING_MODIFIERS = new Set(['public', 'private', 'friend', 'global', 'static']);
@@ -409,13 +410,16 @@ class Parser {
 		}
 		let isNew = false;
 		let asType: string | undefined;
+		let fixedLength: string | undefined;
 		if (group[i] && tokenWord(group[i]) === 'as') {
 			i++;
 			if (group[i] && tokenWord(group[i]) === 'new') {
 				isNew = true;
 				i++;
 			}
-			asType = this.captureType(group, i, isConst ? '=' : undefined);
+			const type = this.captureDeclarationType(group, i, isConst ? '=' : undefined);
+			asType = type.asType;
+			fixedLength = type.fixedLength;
 		}
 		let defaultRaw: string | undefined;
 		const eq = group.findIndex((t) => t.rawText === '=');
@@ -428,6 +432,7 @@ class Parser {
 			kind: 'VariableDecl',
 			name,
 			asType,
+			fixedLength,
 			defaultRaw,
 			isArray,
 			isNew,
@@ -484,13 +489,17 @@ class Parser {
 			i = this.skipParens(tokens, i);
 		}
 		let asType: string | undefined;
+		let fixedLength: string | undefined;
 		if (tokens[i] && tokenWord(tokens[i]) === 'as') {
-			asType = this.captureType(tokens, i + 1);
+			const type = this.captureDeclarationType(tokens, i + 1);
+			asType = type.asType;
+			fixedLength = type.fixedLength;
 		}
 		return {
 			kind: 'TypeField',
 			name,
 			asType,
+			fixedLength,
 			isArray,
 			span: { start: stmt.start, end: stmt.end },
 		};
@@ -1024,6 +1033,24 @@ class Parser {
 			last = j;
 		}
 		return this.source.slice(tokens[i].start, tokens[last].end);
+	}
+
+	private captureDeclarationType(
+		tokens: VbaToken[],
+		i: number,
+		stopRaw?: string,
+	): { asType?: string; fixedLength?: string } {
+		const fixed = parseFixedLengthStringType(tokens, i);
+		if (fixed) {
+			return {
+				asType: this.source.slice(tokens[i].start, tokens[i].end),
+				fixedLength: this.source.slice(
+					tokens[fixed.lengthIndex].start,
+					tokens[fixed.lengthIndex].end,
+				),
+			};
+		}
+		return { asType: this.captureType(tokens, i, stopRaw) };
 	}
 
 	private canonical(token: VbaToken | undefined): string {

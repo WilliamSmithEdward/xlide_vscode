@@ -794,8 +794,13 @@ Diagnostic severity policy:
   a compile-equivalent
   declaration diagnostic for extra same-statement tokens after a complete
   `As` type name, such as `Dim s As String junk`; the representative `Dim`
-  shape is backed by focused VBE oracle evidence, and broad fixed-length string
-  behavior remains out of scope until its full grammar is verified. A separate
+  shape is backed by focused VBE oracle evidence. Recognized fixed-length string
+  suffixes such as `As String * 10` are parser-owned metadata
+  (`asType: String`, `fixedLength: 10`) used by symbols, hover, UDT member hover,
+  and object-module public-member diagnostics; the declaration trailing-token
+  rule consumes that suffix before looking for extra tokens, while length
+  boundary and assignment/truncation behavior remains on the verification
+  roadmap. A separate
   `object-module-public-member` rule is module-kind-sensitive: in class,
   document, and UserForm modules it rejects explicit Public constants, arrays,
   fixed-length strings, user-defined Types, and Declare statements. Each branch

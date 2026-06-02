@@ -71,10 +71,12 @@ These are the highest-value additions before the next major binder slice:
    locale-sensitive cases marked as no-diagnostic until deterministic.
 4. **Object assignment matrix**: host object RHS compatibility, non-project
    interfaces, default-member object returns, and broader Property Get/Let/Set.
-5. **Fixed-length string matrix**: verify `As String * n` declaration grammar,
-   allowed module contexts, length boundaries, assignment/truncation behavior,
-   interaction with member access, and type-declaration suffixes before any
-   analyzer rule treats `String * n` as ordinary trailing declaration tokens.
+5. **Fixed-length string matrix**: the parser/symbol graph now treats
+   recognized `As String * n` declaration suffixes as explicit metadata and
+   trailing-token detection consumes that suffix. Still verify allowed module
+   contexts, length boundaries, assignment/truncation behavior, scalar member
+   access, and type-declaration suffix interactions before adding further hard
+   diagnostics.
 6. **Operator matrix**: arithmetic, integer division, `Mod`, comparisons,
    `Like`, `Is`, and Boolean operators.
 7. **Native metadata expansion matrix**: prioritize common VBA runtime

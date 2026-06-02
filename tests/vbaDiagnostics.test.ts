@@ -2975,13 +2975,24 @@ describe('analyzeModule - unexpected declaration tokens', () => {
 		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
 	});
 
-	it('does not guess inside fixed-length string declarations or qualified type names', () => {
+	it('accepts fixed-length string declarations and qualified type names', () => {
 		const src =
 			'Private fixedName As String * 10\n' +
+			'Private Type Header\n' +
+			'    Code As String * 4\n' +
+			'End Type\n' +
 			'Sub T()\n' +
+			'    Dim localName As String * 20\n' +
 			'    Dim workbook As Excel.Workbook\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
+
+	it('flags extra tokens after a fixed-length string suffix', () => {
+		const src = 'Sub T()\n    Dim fixedName As String * 10 junk\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unexpected-declaration-token');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('junk');
 	});
 });
 

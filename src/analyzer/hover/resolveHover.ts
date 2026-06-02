@@ -474,13 +474,13 @@ function buildSymbolHover(
 		signature = symbol.name;
 		details.push(`Member of Enum ${symbol.containerName ?? ''}`.trimEnd());
 	} else if (symbol.kind === 'typeField') {
-		const as = symbol.asType ? ` As ${symbol.asType}` : '';
+		const as = symbolAsClause(symbol);
 		signature = `${symbol.name}${as}`;
 		details.push(`Field of Type ${symbol.containerName ?? ''}`.trimEnd());
 	} else {
 		// Variables, parameters, and constants.
 		const prefix = symbol.kind === 'constant' ? 'Const ' : '';
-		const as = symbol.asType ? ` As ${symbol.asType}` : '';
+		const as = symbolAsClause(symbol);
 		const initializer =
 			symbol.kind === 'constant' && symbol.defaultRaw ? ` = ${symbol.defaultRaw}` : '';
 		signature = `${prefix}${symbol.name}${as}${initializer}`;
@@ -498,4 +498,12 @@ function buildSymbolHover(
 	}
 
 	return { signature, details, span };
+}
+
+function symbolAsClause(symbol: VbaSymbol): string {
+	if (!symbol.asType) {
+		return '';
+	}
+	const fixedLength = symbol.fixedLength ? ` * ${symbol.fixedLength}` : '';
+	return ` As ${symbol.asType}${fixedLength}`;
 }

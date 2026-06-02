@@ -307,9 +307,15 @@ Purpose: finish the conservative first slice before broadening inference.
 - [x] Add compile-equivalent diagnostics for extra same-statement tokens after
   complete declaration type names, such as `Dim s As String junk`, after focused
   oracle verification of the representative `Dim` case.
-- [ ] Validate fixed-length string declarations and behavior before broadening
-  declaration/type-token diagnostics around `As String * n`:
-  - accepted declaration shapes in standard/class/document/UserForm modules
+- [x] Model fixed-length string declaration suffixes (`As String * n`) as an
+  explicit parser/symbol fact for variable declarations and UDT fields, while
+  normalizing `asType` to `String`. Hover, source-backed UDT member hover, and
+  object-module public-member diagnostics now consume the shared fact instead of
+  reparsing `asType` text; trailing-token diagnostics consume a recognized suffix
+  before flagging extra same-statement tokens.
+- [ ] Finish fixed-length string behavior validation beyond the first-class
+  declaration model:
+  - accepted declaration shapes across standard/class/document/UserForm modules
   - invalid lengths and boundary limits
   - assignment/truncation behavior
   - interaction with scalar member access and declaration trailing-token rules

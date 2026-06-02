@@ -274,6 +274,12 @@ function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 	return `${symbol.name}(${params})${returns}`;
 }
 
+function userTypeFieldSignature(symbol: VbaSymbol): string {
+	const fixedLength = symbol.fixedLength ? ` * ${symbol.fixedLength}` : '';
+	const as = symbol.asType ? ` As ${symbol.asType}${fixedLength}` : '';
+	return `${symbol.name}${as}`;
+}
+
 /** A project-wide symbol index built from a set of module sources. */
 export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
@@ -988,6 +994,7 @@ export class ProjectIndex {
 				name: field.name,
 				kind: 'property' as const,
 				returns: field.asType,
+				signature: userTypeFieldSignature(field),
 				writable: true,
 				writeType: field.asType,
 				moduleName: field.moduleName,

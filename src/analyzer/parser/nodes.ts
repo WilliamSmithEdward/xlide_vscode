@@ -144,6 +144,7 @@ export interface VariableDeclNode extends NodeBase {
 	kind: 'VariableDecl';
 	name: string;
 	asType?: string;
+	fixedLength?: string;
 	defaultRaw?: string;
 	isArray: boolean;
 	isNew: boolean;
@@ -162,6 +163,7 @@ export interface TypeFieldNode extends NodeBase {
 	kind: 'TypeField';
 	name: string;
 	asType?: string;
+	fixedLength?: string;
 	isArray: boolean;
 }
 
