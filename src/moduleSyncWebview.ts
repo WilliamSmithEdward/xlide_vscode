@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { ModuleSyncPlan } from './moduleSyncPlan';
+import type { ExportMode } from './moduleExport';
 
 export interface ModuleSyncApplyResult {
     summary: string;
@@ -9,10 +10,22 @@ export interface ModuleSyncApplyResult {
     failed: number;
 }
 
+export interface ModuleSyncSettings {
+    folderPath: string;
+    exportMode?: ExportMode;
+}
+
+export interface ModuleSyncPreviewOptions {
+    onChooseFolder?: (current: ModuleSyncSettings) => Promise<ModuleSyncPlan | undefined>;
+    onRefresh?: (settings: ModuleSyncSettings) => Promise<ModuleSyncPlan>;
+    onSaveSettings?: (settings: ModuleSyncSettings) => Promise<ModuleSyncApplyResult>;
+}
+
 export function openModuleSyncPreview(
     context: vscode.ExtensionContext,
     plan: ModuleSyncPlan,
-    onApply: (selectedIds: readonly string[]) => Promise<ModuleSyncApplyResult>,
+    onApply: (plan: ModuleSyncPlan, selectedIds: readonly string[]) => Promise<ModuleSyncApplyResult>,
+    options: ModuleSyncPreviewOptions = {},
 ): Promise<ModuleSyncApplyResult | undefined> {
     return new Promise((resolve) => {
         const panel = vscode.window.createWebviewPanel(
@@ -33,14 +46,64 @@ export function openModuleSyncPreview(
             }
         };
 
-        panel.webview.html = renderModuleSyncHtml(panel.webview, plan);
+        let currentPlan = plan;
+        panel.webview.html = renderModuleSyncHtml(panel.webview, currentPlan);
         const messageSub = panel.webview.onDidReceiveMessage(async (message: {
             type?: string;
             selectedIds?: string[];
+            folderPath?: string;
+            exportMode?: ExportMode;
         }) => {
             if (message.type === 'cancel') {
                 done(undefined);
                 panel.dispose();
+                return;
+            }
+            if (message.type === 'choose-folder') {
+                if (!options.onChooseFolder) {
+                    return;
+                }
+                await panel.webview.postMessage({ type: 'refreshing' });
+                try {
+                    const nextPlan = await options.onChooseFolder(settingsFromMessage(currentPlan, message));
+                    if (nextPlan) {
+                        currentPlan = nextPlan;
+                        await panel.webview.postMessage({ type: 'plan', plan: currentPlan });
+                    } else {
+                        await panel.webview.postMessage({ type: 'ready' });
+                    }
+                } catch (err) {
+                    const error = err instanceof Error ? err.message : String(err);
+                    await panel.webview.postMessage({ type: 'error', error });
+                }
+                return;
+            }
+            if (message.type === 'refresh-settings') {
+                if (!options.onRefresh) {
+                    return;
+                }
+                await panel.webview.postMessage({ type: 'refreshing' });
+                try {
+                    currentPlan = await options.onRefresh(settingsFromMessage(currentPlan, message));
+                    await panel.webview.postMessage({ type: 'plan', plan: currentPlan });
+                } catch (err) {
+                    const error = err instanceof Error ? err.message : String(err);
+                    await panel.webview.postMessage({ type: 'error', error });
+                }
+                return;
+            }
+            if (message.type === 'save-settings') {
+                if (!options.onSaveSettings) {
+                    return;
+                }
+                await panel.webview.postMessage({ type: 'saving-settings' });
+                try {
+                    const result = await options.onSaveSettings(settingsFromMessage(currentPlan, message));
+                    await panel.webview.postMessage({ type: 'settings-saved', result });
+                } catch (err) {
+                    const error = err instanceof Error ? err.message : String(err);
+                    await panel.webview.postMessage({ type: 'error', error });
+                }
                 return;
             }
             if (message.type !== 'apply') {
@@ -49,7 +112,7 @@ export function openModuleSyncPreview(
             const selectedIds = message.selectedIds ?? [];
             await panel.webview.postMessage({ type: 'applying' });
             try {
-                const result = await onApply(selectedIds);
+                const result = await onApply(currentPlan, selectedIds);
                 await panel.webview.postMessage({ type: 'applied', result });
                 done(result);
             } catch (err) {
@@ -108,6 +171,41 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             font-weight: 600;
         }
         .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .settings {
+            margin-top: 8px;
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) auto auto;
+            gap: 8px;
+            align-items: end;
+            max-width: 780px;
+        }
+        .field {
+            display: grid;
+            gap: 3px;
+            min-width: 0;
+        }
+        .field label {
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .folderValue {
+            min-height: 28px;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        select {
+            min-height: 28px;
+            color: var(--vscode-dropdown-foreground);
+            background: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            padding: 3px 8px;
+        }
+        .hidden { display: none; }
         .actions { display: flex; gap: 8px; align-items: center; }
         button {
             color: var(--vscode-button-foreground);
@@ -217,8 +315,23 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             <div>
                 <h1 id="title"></h1>
                 <div class="sub" id="subtitle"></div>
+                <div class="settings">
+                    <div class="field">
+                        <label id="folderLabel"></label>
+                        <div class="folderValue" id="folderValue"></div>
+                    </div>
+                    <button class="secondary" id="chooseFolder">Change</button>
+                    <div class="field" id="modeField">
+                        <label for="exportMode">Export mode</label>
+                        <select id="exportMode">
+                            <option value="trueUp">True Up</option>
+                            <option value="replaceExistingOnly">Replace Existing Only</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="actions">
+                <button class="secondary" id="saveSettings">Save Settings</button>
                 <button class="secondary" id="cancel">Cancel</button>
                 <button id="apply">Apply Selected</button>
             </div>
@@ -247,18 +360,55 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
     </div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
-        const plan = ${data};
-        const selected = new Set(plan.items.filter(item => item.checked && item.selectable).map(item => item.id));
+        let plan = ${data};
+        let selected = new Set();
         let activeId = plan.items[0]?.id;
         let applying = false;
         let applied = false;
 
         const el = id => document.getElementById(id);
-        el('title').textContent = plan.title;
-        el('subtitle').textContent = \`\${plan.workbookPath} <-> \${plan.folderPath}\${plan.exportMode ? '  [' + plan.exportMode + ']' : ''}\`;
-        if (plan.warnings.length) {
-            el('warnings').classList.add('visible');
-            el('warnings').textContent = plan.warnings.join('\\n');
+
+        function selectedFromPlan() {
+            return new Set(plan.items.filter(item => item.checked && item.selectable).map(item => item.id));
+        }
+
+        function currentSettings() {
+            return {
+                folderPath: plan.folderPath,
+                exportMode: plan.direction === 'export' ? el('exportMode').value : undefined,
+            };
+        }
+
+        function renderChrome() {
+            el('title').textContent = plan.title;
+            el('subtitle').textContent = \`\${plan.workbookPath} <-> \${plan.folderPath}\${plan.exportMode ? '  [' + plan.exportMode + ']' : ''}\`;
+            el('folderLabel').textContent = plan.direction === 'export' ? 'Export folder' : 'Import folder';
+            el('folderValue').textContent = plan.folderPath;
+            el('folderValue').title = plan.folderPath;
+            el('modeField').classList.toggle('hidden', plan.direction !== 'export');
+            if (plan.direction === 'export') {
+                el('exportMode').value = plan.exportMode || 'trueUp';
+            }
+            if (plan.warnings.length) {
+                el('warnings').classList.add('visible');
+                el('warnings').textContent = plan.warnings.join('\\n');
+            } else {
+                el('warnings').classList.remove('visible');
+                el('warnings').textContent = '';
+            }
+        }
+
+        function setPlan(nextPlan, message) {
+            plan = nextPlan;
+            selected = selectedFromPlan();
+            activeId = plan.items[0]?.id;
+            applying = false;
+            applied = false;
+            el('apply').textContent = 'Apply Selected';
+            el('result').textContent = message || '';
+            renderChrome();
+            renderList();
+            renderDiff();
         }
 
         function renderList() {
@@ -302,11 +452,18 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
 
         function renderDiff() {
             const item = plan.items.find(candidate => candidate.id === activeId) || plan.items[0];
-            if (!item) return;
-            el('leftTitle').textContent = item.leftTitle;
-            el('rightTitle').textContent = item.rightTitle;
             const diff = el('diff');
             diff.innerHTML = '';
+            if (!item) {
+                el('leftTitle').textContent = '';
+                el('rightTitle').textContent = '';
+                const empty = document.createElement('pre');
+                empty.textContent = 'No module differences found for the current settings.';
+                diff.append(empty);
+                return;
+            }
+            el('leftTitle').textContent = item.leftTitle;
+            el('rightTitle').textContent = item.rightTitle;
             for (const line of item.diff) {
                 const row = document.createElement('div');
                 row.className = 'line ' + line.kind;
@@ -332,6 +489,16 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             const unsupported = selectedItems.filter(item => item.unsupportedDirectCreation).length;
             el('counts').textContent = \`\${selectedItems.length} selected\${unsupported ? ' | ' + unsupported + ' will show skipping import warning' : ''}\`;
             el('apply').disabled = applying || applied || selectedItems.length === 0;
+            el('saveSettings').disabled = applying;
+            el('chooseFolder').disabled = applying;
+            el('exportMode').disabled = applying;
+        }
+
+        function refreshSettings() {
+            applying = true;
+            el('result').textContent = 'Refreshing...';
+            renderCounts();
+            vscode.postMessage({ type: 'refresh-settings', ...currentSettings() });
         }
 
         el('selectChanged').addEventListener('click', () => {
@@ -344,6 +511,19 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         el('clear').addEventListener('click', () => {
             selected.clear();
             renderList();
+        });
+        el('chooseFolder').addEventListener('click', () => {
+            applying = true;
+            el('result').textContent = 'Choosing folder...';
+            renderCounts();
+            vscode.postMessage({ type: 'choose-folder', ...currentSettings() });
+        });
+        el('exportMode').addEventListener('change', () => refreshSettings());
+        el('saveSettings').addEventListener('click', () => {
+            applying = true;
+            el('result').textContent = 'Saving settings...';
+            renderCounts();
+            vscode.postMessage({ type: 'save-settings', ...currentSettings() });
         });
         el('cancel').addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
         el('apply').addEventListener('click', () => {
@@ -360,6 +540,24 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 applying = true;
                 el('result').textContent = 'Applying...';
                 renderCounts();
+            } else if (message.type === 'refreshing') {
+                applying = true;
+                el('result').textContent = 'Refreshing...';
+                renderCounts();
+            } else if (message.type === 'ready') {
+                applying = false;
+                el('result').textContent = '';
+                renderCounts();
+            } else if (message.type === 'plan') {
+                setPlan(message.plan, 'Settings updated. Review the refreshed diff before applying.');
+            } else if (message.type === 'saving-settings') {
+                applying = true;
+                el('result').textContent = 'Saving settings...';
+                renderCounts();
+            } else if (message.type === 'settings-saved') {
+                applying = false;
+                el('result').textContent = message.result.summary;
+                renderCounts();
             } else if (message.type === 'applied') {
                 applying = false;
                 applied = true;
@@ -373,6 +571,8 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             }
         });
 
+        selected = selectedFromPlan();
+        renderChrome();
         renderList();
         renderDiff();
     </script>
@@ -395,4 +595,14 @@ function escapeHtml(value: string): string {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+function settingsFromMessage(
+    plan: ModuleSyncPlan,
+    message: { folderPath?: string; exportMode?: ExportMode },
+): ModuleSyncSettings {
+    return {
+        folderPath: message.folderPath ?? plan.folderPath,
+        exportMode: message.exportMode ?? plan.exportMode,
+    };
 }

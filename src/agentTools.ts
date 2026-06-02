@@ -519,7 +519,7 @@ export function registerAgentTools(
                         message: new vscode.MarkdownString(
                             `Export all modules for \`${filePath}\` using mode **${exportMode ?? 'trueUp'}**` +
                             `${exportFolder ? ` to folder \`${exportFolder}\`` : ' using configured folder'}` +
-                            `?\n\nThis writes files and updates workbookname.extension.repo.json.`,
+                            `?\n\nThis writes files and updates workbookname.repo.json.`,
                         ),
                     },
                 };
@@ -543,7 +543,7 @@ export function registerAgentTools(
                         title: 'Configure Export Mode',
                         message: new vscode.MarkdownString(
                             `Set export mode for \`${filePath}\` to **${exportMode}**?\n\n` +
-                            `This updates workbookname.extension.repo.json beside the workbook.`,
+                            `This updates workbookname.repo.json beside the workbook.`,
                         ),
                     },
                 };

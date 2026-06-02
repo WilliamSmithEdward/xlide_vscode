@@ -15,11 +15,11 @@ import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
+    configPathForWorkbook,
     exportWorkbookModule,
     normalizeExportMode,
     readWorkbookRepoConfig,
     writeWorkbookRepoConfig,
-    setWorkbookExportMode,
 } from './moduleExport';
 import {
     lintWorkbook,
@@ -84,6 +84,7 @@ import {
 import {
     openModuleSyncPreview,
     type ModuleSyncApplyResult,
+    type ModuleSyncSettings,
 } from './moduleSyncWebview';
 
 function psSingleQuoted(value: string): string {
@@ -454,6 +455,94 @@ export function registerCommands(
         return selected?.[0]?.fsPath;
     }
 
+    async function chooseModuleSyncFolder(
+        filePath: string,
+        currentFolder: string | undefined,
+        openLabel: string,
+    ): Promise<string | undefined> {
+        const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel,
+            defaultUri: currentFolder
+                ? vscode.Uri.file(currentFolder)
+                : vscode.Uri.file(path.dirname(filePath)),
+        });
+        return selected?.[0]?.fsPath;
+    }
+
+    function syncSettingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
+        return {
+            folderPath: plan.folderPath,
+            exportMode: plan.exportMode,
+        };
+    }
+
+    async function buildExportSyncPlanFromSettings(
+        filePath: string,
+        settings: ModuleSyncSettings,
+    ): Promise<ModuleSyncPlan> {
+        log(`[exportModules] Target folder: ${settings.folderPath}`);
+        log(`[exportModules] Mode: ${settings.exportMode ?? 'trueUp'}`);
+        return buildExportModuleSyncPlan(bridge, {
+            workbookPath: filePath,
+            exportFolder: settings.folderPath,
+            exportMode: settings.exportMode,
+        });
+    }
+
+    async function buildImportSyncPlanFromSettings(
+        filePath: string,
+        settings: ModuleSyncSettings,
+    ): Promise<ModuleSyncPlan> {
+        log(`[importModules] Source folder: ${settings.folderPath}`);
+        return buildImportModuleSyncPlan(bridge, {
+            workbookPath: filePath,
+            importFolder: settings.folderPath,
+        });
+    }
+
+    async function persistModuleSyncSettings(
+        filePath: string,
+        settings: ModuleSyncSettings,
+    ): Promise<string> {
+        const existingConfig = await readWorkbookRepoConfig(filePath);
+        await writeWorkbookRepoConfig(filePath, {
+            ...existingConfig,
+            exportFolder: settings.folderPath,
+            exportMode: normalizeExportMode(settings.exportMode ?? existingConfig.exportMode),
+            managedFiles: Array.isArray(existingConfig.managedFiles)
+                ? existingConfig.managedFiles.filter((item): item is string => typeof item === 'string')
+                : [],
+        });
+        return configPathForWorkbook(filePath);
+    }
+
+    async function saveModuleSyncSettings(
+        filePath: string,
+        command: string,
+        settings: ModuleSyncSettings,
+    ): Promise<ModuleSyncApplyResult> {
+        const configPath = await persistModuleSyncSettings(filePath, settings);
+        const summary = 'Sync settings: 1 changed';
+        log(`[moduleSyncSettings] Config updated: ${configPath}`);
+        recordWriteAudit({
+            command,
+            operation: 'configure-module-sync',
+            outcome: 'succeeded',
+            workbookPath: filePath,
+            targetPath: settings.folderPath,
+            summary,
+        });
+        return {
+            summary,
+            changed: 1,
+            skipped: 0,
+            failed: 0,
+        };
+    }
+
     function diagnosticSeverityOverridesFromConfig(): SeverityOverrides {
         const optionExplicit = vscode.workspace
             .getConfiguration('xlide')
@@ -536,25 +625,30 @@ export function registerCommands(
         log(`[exportModules] Target folder: ${target.exportFolder}`);
         log(`[exportModules] Mode: ${target.exportMode}`);
 
-        const plan = await buildExportModuleSyncPlan(bridge, {
-            workbookPath: filePath,
-            exportFolder: target.exportFolder,
+        const plan = await buildExportSyncPlanFromSettings(filePath, {
+            folderPath: target.exportFolder,
             exportMode: target.exportMode,
         });
-        if (plan.items.length === 0) {
-            vscode.window.showInformationMessage(`XLIDE: No VBA modules found in ${path.basename(filePath)}.`);
-            return;
-        }
-
         const result = await openModuleSyncPreview(
             context,
             plan,
-            (selectedIds) => applyExportModuleSyncPlan(plan, selectedIds),
+            (currentPlan, selectedIds) => applyExportModuleSyncPlan(currentPlan, selectedIds),
+            {
+                onChooseFolder: async (settings) => {
+                    const folderPath = await chooseModuleSyncFolder(filePath, settings.folderPath, 'Select export folder');
+                    if (!folderPath) {
+                        return undefined;
+                    }
+                    return buildExportSyncPlanFromSettings(filePath, { ...settings, folderPath });
+                },
+                onRefresh: (settings) => buildExportSyncPlanFromSettings(filePath, settings),
+                onSaveSettings: (settings) => saveModuleSyncSettings(filePath, 'xlide.exportModulesToFolder', settings),
+            },
         );
         if (!result) {
             return;
         }
-        const message = `XLIDE: ${result.summary} [mode=${target.exportMode}]`;
+        const message = `XLIDE: ${result.summary}`;
         if (result.failed > 0) {
             vscode.window.showWarningMessage(message);
         } else {
@@ -571,19 +665,22 @@ export function registerCommands(
         log(`[importModules] Workbook: ${filePath}`);
         log(`[importModules] Source folder: ${importFolder}`);
 
-        const plan = await buildImportModuleSyncPlan(bridge, {
-            workbookPath: filePath,
-            importFolder,
-        });
-        if (plan.items.length === 0) {
-            vscode.window.showInformationMessage(`XLIDE: No .bas/.cls/.frm files found in ${importFolder}`);
-            return;
-        }
-
+        const plan = await buildImportSyncPlanFromSettings(filePath, { folderPath: importFolder });
         const result = await openModuleSyncPreview(
             context,
             plan,
-            (selectedIds) => applyImportModuleSyncPlan(plan, selectedIds),
+            (currentPlan, selectedIds) => applyImportModuleSyncPlan(currentPlan, selectedIds),
+            {
+                onChooseFolder: async (settings) => {
+                    const folderPath = await chooseModuleSyncFolder(filePath, settings.folderPath, 'Select folder to import from');
+                    if (!folderPath) {
+                        return undefined;
+                    }
+                    return buildImportSyncPlanFromSettings(filePath, { ...settings, folderPath });
+                },
+                onRefresh: (settings) => buildImportSyncPlanFromSettings(filePath, settings),
+                onSaveSettings: (settings) => saveModuleSyncSettings(filePath, 'xlide.importModulesFromFolder', settings),
+            },
         );
         if (!result) {
             return;
@@ -752,6 +849,20 @@ export function registerCommands(
         if (changed.length > 0) {
             vbaIndex.invalidate(plan.workbookPath);
             explorer.refresh();
+        }
+        try {
+            await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
+        } catch (err) {
+            failed.push('workbook repo config');
+            recordWriteAudit({
+                command: 'xlide.importModulesFromFolder',
+                operation: 'configure-module-sync',
+                outcome: 'failed',
+                workbookPath: plan.workbookPath,
+                targetPath: plan.folderPath,
+                summary: 'Sync settings: 0 changed, 1 failed',
+                error: err,
+            });
         }
         const summaryText = logChangeSummary('importModules', {
             operation: 'Import modules',
@@ -1552,9 +1663,6 @@ export function registerCommands(
 
             try {
                 await showImportModulesDiffGui(filePath);
-                return;
-
-
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[importModules] Error: ${message}`);
@@ -1562,81 +1670,30 @@ export function registerCommands(
             }
         }),
 
-        // Change the configured export folder for this workbook
+        // Compatibility shim: settings now live in the import/export preview GUI.
         registerXlideCommand('xlide.changeRepoFolder', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
 
             try {
-                const existingConfig = await readWorkbookRepoConfig(filePath);
-                const currentFolder = existingConfig.exportFolder;
-                const selected = await vscode.window.showOpenDialog({
-                    canSelectFiles: false,
-                    canSelectFolders: true,
-                    canSelectMany: false,
-                    openLabel: 'Select new export folder',
-                    defaultUri: currentFolder
-                        ? vscode.Uri.file(currentFolder)
-                        : vscode.Uri.file(path.dirname(filePath)),
-                });
-                if (!selected || selected.length === 0) { return; }
-
-                const newFolder = selected[0].fsPath;
-                await writeWorkbookRepoConfig(filePath, {
-                    ...existingConfig,
-                    exportFolder: newFolder,
-                });
-                log(`[changeRepoFolder] Folder set to ${newFolder} for ${filePath}`);
-                vscode.window.showInformationMessage(
-                    `XLIDE: Export folder updated to ${newFolder}`,
-                );
+                await showExportModulesDiffGui(filePath);
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
-                vscode.window.showErrorMessage(`XLIDE: Failed to update export folder: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to open import/export settings: ${message}`);
             }
         }),
 
-        // Configure export behavior for this workbook
+        // Compatibility shim: settings now live in the import/export preview GUI.
         registerXlideCommand('xlide.configureExportMode', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
 
             try {
-                const existingConfig = await readWorkbookRepoConfig(filePath);
-                const currentMode = normalizeExportMode(existingConfig.exportMode);
-                const selection = await vscode.window.showQuickPick(
-                    [
-                        {
-                            label: 'True Up (default)',
-                            description: 'Replace existing, add new, remove no longer existing',
-                            mode: 'trueUp' as ExportMode,
-                        },
-                        {
-                            label: 'Replace Existing Only',
-                            description: 'Replace files that already exist in the folder only',
-                            mode: 'replaceExistingOnly' as ExportMode,
-                        },
-                    ],
-                    {
-                        title: `Configure module export mode for ${path.basename(filePath)}`,
-                        placeHolder: currentMode === 'trueUp'
-                            ? 'Current: True Up'
-                            : 'Current: Replace Existing Only',
-                    },
-                );
-
-                if (!selection) { return; }
-
-                await setWorkbookExportMode(filePath, selection.mode);
-
-                log(`[exportModules] Config mode set to ${selection.mode} for ${filePath}`);
-                vscode.window.showInformationMessage(
-                    `XLIDE: Export mode set to ${selection.mode} for ${path.basename(filePath)}`,
-                );
+                await showExportModulesDiffGui(filePath);
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
-                log(`[exportModules] Configure mode error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Failed to configure export mode: ${message}`);
+                log(`[exportModules] Configure settings error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to open import/export settings: ${message}`);
             }
         }),
 

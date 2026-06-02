@@ -248,10 +248,10 @@ On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in 
 Both lanes call into this shared implementation:
 
 - UI commands (`xlide.exportModulesToFolder`, `xlide.importModulesFromFolder`,
-  `xlide.configureExportMode`)
+  and compatibility routes that open the same preview GUI)
 - AI tools (`xlide_exportModules`, `xlide_configureExportMode`)
 
-**Export** reads all modules live over JSON-RPC (`listModules` then `readModule` per module) and writes them to a folder. The UI bulk export command opens a webview diff preview where the user can click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale managed repo files appear as removable diff rows instead of being removed invisibly.
+**Export** reads all modules live over JSON-RPC (`listModules` then `readModule` per module) and writes them to a folder. The UI bulk export command opens a webview diff preview where the user can change the export folder, switch export mode, save settings, click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale managed repo files appear as removable diff rows instead of being removed invisibly.
 
 - Output file extension is `.bas` for standard modules and `.cls` for class/document modules.
 - Export mode is per-workbook and persisted in the workbook-local JSON config:
@@ -260,11 +260,11 @@ Both lanes call into this shared implementation:
 
 **Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls`/`.frm` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Document modules and UserForms cannot be created from scratch; missing document/UserForm rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import.
 
-**Change export folder** (`xlide.changeRepoFolder`) updates `exportFolder` in the workbook config without running an export.
-- A workbook-local config file is written beside the workbook:
+Import/export settings live in the preview GUI so folder and mode edits use the same planner and persistence path as apply.
+A workbook-local config file is written beside the workbook:
 
 ```
-<workbook-filename>.extension.repo.json
+<workbook-filename>.repo.json
 ```
 
 Config schema:
@@ -277,9 +277,9 @@ Config schema:
 }
 ```
 
-On later runs, `exportFolder` is used as the default folder in the picker.
-
-The command `xlide.configureExportMode` updates `exportMode` for a workbook.
+On later runs, `exportFolder` is used as the default folder in the preview GUI. Existing
+`<workbook-filename>.extension.repo.json` sidecars are read for compatibility, but the
+next save/apply writes the new `<workbook-filename>.repo.json` file.
 
 ---
 

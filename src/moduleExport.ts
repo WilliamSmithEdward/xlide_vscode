@@ -58,6 +58,10 @@ interface ExportModuleResult {
 }
 
 function configPathForWorkbook(filePath: string): string {
+    return path.join(path.dirname(filePath), `${path.basename(filePath)}.repo.json`);
+}
+
+function legacyConfigPathForWorkbook(filePath: string): string {
     return path.join(path.dirname(filePath), `${path.basename(filePath)}.extension.repo.json`);
 }
 
@@ -96,14 +100,16 @@ function normalizeExportMode(mode: ExportMode | undefined): ExportMode {
 }
 
 async function readWorkbookRepoConfig(filePath: string): Promise<WorkbookRepoConfig> {
-    const configPath = configPathForWorkbook(filePath);
-    try {
-        const raw = await fs.promises.readFile(configPath, 'utf8');
-        const parsed = JSON.parse(raw) as WorkbookRepoConfig;
-        return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch {
-        return {};
+    for (const configPath of [configPathForWorkbook(filePath), legacyConfigPathForWorkbook(filePath)]) {
+        try {
+            const raw = await fs.promises.readFile(configPath, 'utf8');
+            const parsed = JSON.parse(raw) as WorkbookRepoConfig;
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            // Try the next supported sidecar path.
+        }
     }
+    return {};
 }
 
 async function writeWorkbookRepoConfig(filePath: string, config: WorkbookRepoConfig): Promise<void> {
@@ -286,6 +292,7 @@ export {
     type ExportModuleResult,
     configPathForWorkbook,
     extensionForModuleType,
+    legacyConfigPathForWorkbook,
     normalizeExportMode,
     relativeNameForModule,
     readWorkbookRepoConfig,

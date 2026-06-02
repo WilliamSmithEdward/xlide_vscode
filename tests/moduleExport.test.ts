@@ -7,6 +7,7 @@ import {
 	configPathForWorkbook,
 	exportWorkbookModule,
 	exportWorkbookModules,
+	legacyConfigPathForWorkbook,
 	readWorkbookRepoConfig,
 	writeWorkbookRepoConfig,
 } from '../src/moduleExport';
@@ -147,6 +148,38 @@ describe('moduleExport', () => {
 			'Module1.bas',
 			'Person.cls',
 		]);
-		expect(configPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.extension.repo.json'));
+		expect(configPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.repo.json'));
+	});
+
+	it('reads legacy sidecars and writes the new sidecar name on update', async () => {
+		const { workbook, exportFolder } = tempWorkbook();
+		fs.writeFileSync(
+			legacyConfigPathForWorkbook(workbook),
+			`${JSON.stringify({
+				exportFolder,
+				exportMode: 'replaceExistingOnly',
+				managedFiles: ['Legacy.bas'],
+			}, null, 2)}\n`,
+			'utf8',
+		);
+
+		expect(await readWorkbookRepoConfig(workbook)).toMatchObject({
+			exportFolder,
+			exportMode: 'replaceExistingOnly',
+			managedFiles: ['Legacy.bas'],
+		});
+
+		await writeWorkbookRepoConfig(workbook, {
+			exportFolder,
+			exportMode: 'trueUp',
+			managedFiles: ['Module1.bas'],
+		});
+
+		expect(fs.existsSync(configPathForWorkbook(workbook))).toBe(true);
+		expect(await readWorkbookRepoConfig(workbook)).toMatchObject({
+			exportFolder,
+			exportMode: 'trueUp',
+			managedFiles: ['Module1.bas'],
+		});
 	});
 });

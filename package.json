@@ -170,17 +170,6 @@
         "icon": "$(import)"
       },
       {
-        "command": "xlide.changeRepoFolder",
-        "title": "Change Export Folder",
-        "category": "XLIDE"
-      },
-      {
-        "command": "xlide.configureExportMode",
-        "title": "Configure Module Export Mode",
-        "category": "XLIDE",
-        "icon": "$(settings-gear)"
-      },
-      {
         "command": "xlide.runMacroAtCursor",
         "title": "Run Macro at Cursor",
         "category": "XLIDE",
@@ -306,16 +295,6 @@
           "command": "xlide.importModulesFromFolder",
           "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "5_transfer@2"
-        },
-        {
-          "command": "xlide.changeRepoFolder",
-          "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "6_settings@1"
-        },
-        {
-          "command": "xlide.configureExportMode",
-          "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "6_settings@2"
         }
       ],
       "editor/context": [
@@ -749,7 +728,7 @@
       {
         "name": "xlide_exportModules",
         "displayName": "Export VBA Modules to Folder",
-        "modelDescription": "Exports all VBA modules from a workbook to a folder using workbookname.extension.repo.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode trueUp (default: replace existing, add new, remove stale) and replaceExistingOnly (replace existing files only).",
+        "modelDescription": "Exports all VBA modules from a workbook to a folder using workbookname.repo.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode trueUp (default: replace existing, add new, remove stale) and replaceExistingOnly (replace existing files only).",
         "toolReferenceName": "xlideExportModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -761,7 +740,7 @@
             },
             "exportFolder": {
               "type": "string",
-              "description": "Optional absolute folder path. If omitted, uses exportFolder from workbookname.extension.repo.json"
+              "description": "Optional absolute folder path. If omitted, uses exportFolder from workbookname.repo.json"
             },
             "exportMode": {
               "type": "string",
@@ -780,7 +759,7 @@
       {
         "name": "xlide_configureExportMode",
         "displayName": "Configure VBA Export Mode",
-        "modelDescription": "Sets the persistent exportMode in workbookname.extension.repo.json beside the workbook. Use trueUp by default unless the user explicitly requests replaceExistingOnly.",
+        "modelDescription": "Sets the persistent exportMode in workbookname.repo.json beside the workbook. Use trueUp by default unless the user explicitly requests replaceExistingOnly.",
         "toolReferenceName": "xlideConfigureExportMode",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -796,7 +775,7 @@
                 "trueUp",
                 "replaceExistingOnly"
               ],
-              "description": "Persistent export mode to store in workbookname.extension.repo.json"
+              "description": "Persistent export mode to store in workbookname.repo.json"
             }
           },
           "required": [
