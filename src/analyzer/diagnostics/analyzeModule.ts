@@ -34,6 +34,7 @@ import type { HostObjectModel } from '../host/excelObjectModel';
 import {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	resolveRuntimeObject,
 	runtimeAllowsExplicitCall,
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
@@ -823,6 +824,7 @@ function checkUnknownCallStatement(
 			locals.has(lower) ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name) !== undefined ||
+			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);
 	};
@@ -3433,6 +3435,7 @@ function checkUndeclaredVariables(
 			resolveHostGlobal(name) !== undefined ||
 			resolveHostConstant(name) !== undefined ||
 			resolveRuntimeConstant(name) !== undefined ||
+			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);
 	};

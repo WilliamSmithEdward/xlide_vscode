@@ -851,6 +851,7 @@
     "lint": "eslint src",
     "test": "vitest run",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
+    "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
     "test:oracle:vbe": "python syntax_corpus/oracle/run_excel_vbe_oracle.py"
   },
   "devDependencies": {

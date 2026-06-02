@@ -280,6 +280,21 @@ describe('hover - built-in VBA runtime', () => {
 		expect(info?.details).toContain('VBA runtime function');
 	});
 
+	it('describes the intrinsic Err object and its members', () => {
+		const src = 'Sub T()\n    Err.Raise vbObjectError + 1, "M", "boom"\nEnd Sub\n';
+		const err = resolveHover(src, src.indexOf('Err') + 1, {
+			moduleName: 'M',
+		});
+		expect(err?.signature).toBe('Err As ErrObject');
+		expect(err?.details).toContain('VBA runtime object');
+
+		const raise = resolveHover(src, src.indexOf('Raise') + 1, {
+			moduleName: 'M',
+		});
+		expect(raise?.signature).toContain('Err.Raise(Number As Long');
+		expect(raise?.details).toContain('VBA runtime method');
+	});
+
 	it('describes common string and conversion functions', () => {
 		const src = 'Sub T()\n    Dim s As String\n    s = Left(CStr(1), 2)\nEnd Sub\n';
 		const left = resolveHover(src, src.indexOf('Left(') + 1, {
@@ -295,6 +310,7 @@ describe('hover - built-in VBA runtime', () => {
 			'Sub T()\n' +
 			'    MsgBox "hi", vbOKOnly\n' +
 			'    ActiveSheet.Range("A1").End(xlUp).Select\n' +
+			'    ActiveSheet.Shapes(1).Line.DashStyle = msoLineDash\n' +
 			'End Sub\n';
 		const vb = resolveHover(src, src.indexOf('vbOKOnly') + 2, {
 			moduleName: 'M',
@@ -306,7 +322,13 @@ describe('hover - built-in VBA runtime', () => {
 			moduleName: 'M',
 		});
 		expect(xl?.signature).toBe('Const xlUp As XlDirection = -4162');
-		expect(xl?.details).toContain('Excel constant');
+		expect(xl?.details).toContain('Excel/Office constant');
+
+		const mso = resolveHover(src, src.indexOf('msoLineDash') + 2, {
+			moduleName: 'M',
+		});
+		expect(mso?.signature).toBe('Const msoLineDash As MsoLineDashStyle = 4');
+		expect(mso?.details).toContain('Excel/Office constant');
 	});
 
 	it('lets a user symbol shadow a built-in of the same name', () => {

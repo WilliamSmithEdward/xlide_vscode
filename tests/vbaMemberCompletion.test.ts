@@ -37,6 +37,9 @@ describe('host model resolution', () => {
 	it('resolves generated host enum constants case-insensitively', () => {
 		expect(resolveHostConstant('xlUp')?.type).toBe('XlDirection');
 		expect(resolveHostConstant('XLUP')?.name).toBe('xlUp');
+		expect(resolveHostConstant('msoLineDash')?.type).toBe('MsoLineDashStyle');
+		expect(resolveHostConstant('MSOLINEDASH')?.name).toBe('msoLineDash');
+		expect(resolveHostConstant('msoLineDash')?.value).toBe(4);
 		expect(resolveHostConstant('notAConstant')).toBeUndefined();
 	});
 
@@ -269,6 +272,23 @@ describe('member completion - host globals', () => {
 		expect(
 			variable.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive,
 		).toBe(true);
+	});
+});
+
+describe('member completion - runtime objects', () => {
+	it('offers verified Err object members', () => {
+		const src = 'Sub Test()\n    Err.Rai\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Err.Rai'));
+		const raise = got.find((member) => member.name === 'Raise');
+		expect(raise?.owner).toBe('Err');
+		expect(raise?.kind).toBe('method');
+		expect(raise?.signature).toContain('Number As Long');
+		expect(raise?.surfaceExhaustive).toBe(true);
+	});
+
+	it('does not treat scalar Err object properties as chainable objects', () => {
+		const src = 'Sub Test()\n    Err.Number.\nEnd Sub\n';
+		expect(resolveMemberCompletions(src, dotOffset(src, 'Err.Number.'))).toEqual([]);
 	});
 });
 

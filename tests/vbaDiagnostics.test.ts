@@ -455,6 +455,9 @@ describe('analyzeModule - Option Explicit', () => {
 			'    MsgBox "hi", vbOKOnly\n' +
 			'    Application.DisplayAlerts = vbFalse\n' +
 			'    ActiveSheet.Range("A1").End(xlUp).Select\n' +
+			'    Dim dashStyle As Long\n' +
+			'    dashStyle = msoLineDash\n' +
+			'    Err.Raise vbObjectError + 1, "Person.Age", "Age must be between 0 and 120"\n' +
 			'End Sub\n';
 		expect(
 			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
@@ -1507,6 +1510,18 @@ describe('analyzeModule - argument count', () => {
 		expect(hits[0].message).toContain('got 0');
 	});
 
+	it('validates required arguments on runtime object member calls', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Err.Raise\n' +
+			'    Err.Raise vbObjectError + 1\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Raise');
+		expect(hits[0].message).toContain('got 0');
+	});
+
 	it('flags missing required arguments on current class Me member calls', () => {
 		const src =
 			'Public Sub Main()\n' +
@@ -2555,6 +2570,20 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('asdf');
 		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+	});
+
+	it('uses the exhaustive runtime object surface for Err', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Err.Raise vbObjectError + 1, "M", "boom"\n' +
+			'    Err.DoesNotExist\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+		const hits = byCode(diagnostics, 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('DoesNotExist');
+		expect(hits[0].message).toContain('Err.DoesNotExist');
 	});
 
 	it('uses the current workbook Me host surface for ThisWorkbook modules', () => {

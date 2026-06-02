@@ -16,9 +16,11 @@ import { getHostConstants, getHostGlobals, getHostType } from '../host/hostModel
 import {
 	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
+	VBA_RUNTIME_OBJECTS,
 	runtimeAllowsExplicitCall,
 	type VbaRuntimeConstant,
 	type VbaRuntimeFunction,
+	type VbaRuntimeObject,
 	type VbaRuntimeParam,
 } from '../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -193,6 +195,9 @@ export function resolveIdentifierCompletions(
 			}
 			add(f.name, 'runtime', f.signature, runtimeDocumentation(f));
 		}
+		for (const object of VBA_RUNTIME_OBJECTS) {
+			add(object.name, 'runtime', runtimeObjectDetail(object), runtimeObjectDocumentation(object));
+		}
 		if (lowerPartial.length >= 2) {
 			for (const constant of VBA_RUNTIME_CONSTANTS) {
 				add(
@@ -206,7 +211,7 @@ export function resolveIdentifierCompletions(
 				add(
 					constant.name,
 					'constant',
-					constantDetail('Excel constant', constant.type),
+					constantDetail('Excel/Office constant', constant.type),
 					hostConstantDocumentation(constant),
 				);
 			}
@@ -411,9 +416,20 @@ function runtimeConstantDocumentation(constant: VbaRuntimeConstant): string {
 	return lines.join('\n');
 }
 
+function runtimeObjectDetail(object: VbaRuntimeObject): string {
+	return `VBA runtime object As ${object.type.replace(/^VBA\./, '')}`;
+}
+
+function runtimeObjectDocumentation(object: VbaRuntimeObject): string {
+	const displayType = object.type.replace(/^VBA\./, '');
+	const lines = [`**VBA runtime object**`, '', '```vba', `${object.name} As ${displayType}`, '```'];
+	lines.push('', 'Source: verified Microsoft VBA runtime metadata.');
+	return lines.join('\n');
+}
+
 function hostConstantDocumentation(constant: { name: string; type?: string; value?: string | number }): string {
-	const lines = [`**Excel constant**`, '', '```vba', constantSignature(constant), '```'];
-	lines.push('', 'Source: generated Excel reference metadata.');
+	const lines = [`**Excel/Office constant**`, '', '```vba', constantSignature(constant), '```'];
+	lines.push('', 'Source: generated Excel/Office reference metadata.');
 	return lines.join('\n');
 }
 

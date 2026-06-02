@@ -18,6 +18,7 @@ import {
 	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
 } from './excelReferenceMembers';
+import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
 import type { VbaDoc } from '../docs/docModel';
 
 // Events are retained as a distinct metadata kind for future handler-authoring
@@ -162,8 +163,32 @@ function referenceMembers(displayName: string): readonly HostMember[] {
 	return EXCEL_REFERENCE_MEMBER_SETS[displayName] ?? [];
 }
 
+function mergeHostConstants(
+	...sets: Array<Record<string, HostConstant>>
+): Record<string, HostConstant> {
+	const out: Record<string, HostConstant> = {};
+	const keysByLowerName = new Map<string, string>();
+	for (const set of sets) {
+		for (const constant of Object.values(set)) {
+			const lowerName = constant.name.toLowerCase();
+			const previousKey = keysByLowerName.get(lowerName);
+			if (previousKey) {
+				delete out[previousKey];
+			}
+			keysByLowerName.set(lowerName, constant.name);
+			out[constant.name] = constant;
+		}
+	}
+	return out;
+}
+
+const EXCEL_HOST_ENUM_CONSTANTS = mergeHostConstants(
+	OFFICE_REFERENCE_ENUM_CONSTANTS,
+	EXCEL_REFERENCE_ENUM_CONSTANTS,
+);
+
 export const EXCEL_OBJECT_MODEL: HostObjectModel = {
-	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel reference metadata with Workbook/Worksheet exhaustive dumps; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
+	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel and Office reference enum constants; promoted Excel reference metadata with Workbook/Worksheet exhaustive dumps; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
 	aliases: {
 		workbook: WORKBOOK,
 		worksheet: WORKSHEET,
@@ -218,7 +243,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		Worksheets: WORKSHEETS,
 		Sheets: SHEETS,
 	},
-	constants: EXCEL_REFERENCE_ENUM_CONSTANTS,
+	constants: EXCEL_HOST_ENUM_CONSTANTS,
 	types: {
 		[APPLICATION]: {
 			displayName: 'Application',

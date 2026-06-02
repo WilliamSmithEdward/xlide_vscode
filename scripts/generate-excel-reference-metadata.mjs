@@ -1,5 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+	cleanText,
+	collectConstants,
+	readReferenceDumps,
+	renderConstant,
+} from './reference-generator-utils.mjs';
 
 const root = process.cwd();
 const jsonDir = path.join(root, 'reference', 'excel', 'json');
@@ -37,23 +43,7 @@ const primitiveTypes = new Set([
 	'IUnknown',
 ]);
 
-function readJson(filePath) {
-	return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-}
-
-function referenceFiles() {
-	return fs
-		.readdirSync(jsonDir)
-		.filter((name) => name.endsWith('.json') && name !== '_index.json')
-		.sort((a, b) => a.localeCompare(b, 'en'));
-}
-
-const dumps = new Map(
-	referenceFiles().map((fileName) => {
-		const dump = readJson(path.join(jsonDir, fileName));
-		return [dump.name, { dump, fileName }];
-	}),
-);
+const dumps = readReferenceDumps(jsonDir);
 
 function normalizeTypeName(typeName) {
 	if (!typeName || typeof typeName !== 'string') {
@@ -78,14 +68,6 @@ function excelQualifiedReturn(typeName) {
 
 function memberReturn(raw, kind) {
 	return kind === 'method' ? raw.returns : raw.type ?? raw.returns;
-}
-
-function cleanText(value) {
-	if (typeof value !== 'string') {
-		return undefined;
-	}
-	const text = value.replace(/\s+/g, ' ').trim();
-	return text.length > 0 ? text : undefined;
 }
 
 function memberDoc(raw) {
@@ -182,39 +164,6 @@ function renderMember(member) {
 	return `\t\t{ ${parts.join(', ')} },`;
 }
 
-function constantFrom(raw, enumName) {
-	if (!raw?.name) {
-		return undefined;
-	}
-	return {
-		name: raw.name,
-		type: enumName,
-		...(raw.value !== undefined ? { value: raw.value } : {}),
-		source: 'external',
-	};
-}
-
-function collectConstants() {
-	const byName = new Map();
-	for (const { dump } of dumps.values()) {
-		for (const raw of dump.constants ?? []) {
-			const constant = constantFrom(raw, dump.name);
-			if (!constant) {
-				continue;
-			}
-			const key = constant.name.toLowerCase();
-			if (!byName.has(key)) {
-				byName.set(key, constant);
-			}
-		}
-	}
-	return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'en'));
-}
-
-function renderConstant(constant) {
-	return `\t${JSON.stringify(constant.name)}: ${JSON.stringify(constant)},`;
-}
-
 function provenanceFor(typeName) {
 	const entry = dumps.get(typeName);
 	if (!entry) {
@@ -284,7 +233,7 @@ function typeCoverage(entry) {
 const coverage = [...dumps.values()]
 	.map(typeCoverage)
 	.sort((a, b) => a.name.localeCompare(b.name, 'en'));
-const constants = collectConstants();
+const constants = collectConstants(dumps);
 
 function countWhere(predicate) {
 	return coverage.filter(predicate).length;

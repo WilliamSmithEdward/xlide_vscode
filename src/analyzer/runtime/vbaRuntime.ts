@@ -1,10 +1,11 @@
 // Built-in VBA runtime metadata (MS-VBAL Phase 9).
 //
 // A curated, verified subset of the VBA runtime library: the intrinsic
-// functions and statements available in every VBA project regardless of host
-// (MsgBox, Left, CLng, Now, Array, RGB, ...). Signatures are transcribed from
-// the Microsoft VBA language reference (learn.microsoft.com/office/vba/language)
-// and MS-VBAL; they are never LLM-invented.
+// functions, statements, constants, and global objects available in every VBA
+// project regardless of host (MsgBox, Left, CLng, Now, Array, RGB, Err, ...).
+// Signatures are transcribed from the Microsoft VBA language reference
+// (learn.microsoft.com/office/vba/language) and MS-VBAL; they are never
+// LLM-invented.
 //
 // Names that collide with intrinsic data types or are otherwise context
 // ambiguous (Date, Time, String, Error) are intentionally omitted so that
@@ -48,6 +49,24 @@ export interface VbaRuntimeConstant {
 	source: 'verified';
 }
 
+export interface VbaRuntimeObjectMember {
+	name: string;
+	kind: 'property' | 'method';
+	returns?: string;
+	signature?: string;
+	writable?: boolean;
+	writeType?: string;
+}
+
+/** A built-in global VBA runtime object, such as `Err`. */
+export interface VbaRuntimeObject {
+	name: string;
+	type: string;
+	source: 'verified';
+	exhaustive: true;
+	members: readonly VbaRuntimeObjectMember[];
+}
+
 function fn(
 	name: string,
 	signature: string,
@@ -69,6 +88,24 @@ function stmt(
 
 function c(name: string, type?: string, value?: string | number): VbaRuntimeConstant {
 	return { name, type, value, source: 'verified' };
+}
+
+function prop(
+	name: string,
+	type: string,
+	options: Pick<VbaRuntimeObjectMember, 'writable'> = { writable: true },
+): VbaRuntimeObjectMember {
+	return {
+		name,
+		kind: 'property',
+		signature: `${name} As ${type}`,
+		writeType: type,
+		...options,
+	};
+}
+
+function method(name: string, signature: string): VbaRuntimeObjectMember {
+	return { name, kind: 'method', signature };
 }
 
 /** The verified built-in VBA runtime functions and statements. */
@@ -400,11 +437,37 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbCalHijri', 'VbCalendar', 1),
 ];
 
+/** The verified built-in VBA runtime global objects. */
+export const VBA_RUNTIME_OBJECTS: VbaRuntimeObject[] = [
+	{
+		name: 'Err',
+		type: 'VBA.ErrObject',
+		source: 'verified',
+		exhaustive: true,
+		members: [
+			method('Clear', 'Clear()'),
+			prop('Description', 'String'),
+			prop('HelpContext', 'Long'),
+			prop('HelpFile', 'String'),
+			prop('LastDLLError', 'Long', { writable: false }),
+			prop('Number', 'Long'),
+			method('Raise', 'Raise(Number As Long, [Source], [Description], [HelpFile], [HelpContext])'),
+			prop('Source', 'String'),
+		],
+	},
+];
+
 const BY_LOWER = new Map<string, VbaRuntimeFunction>(
 	VBA_RUNTIME_FUNCTIONS.map((f) => [f.name.toLowerCase(), f]),
 );
 const CONSTANTS_BY_LOWER = new Map<string, VbaRuntimeConstant>(
 	VBA_RUNTIME_CONSTANTS.map((constant) => [constant.name.toLowerCase(), constant]),
+);
+const OBJECTS_BY_LOWER = new Map<string, VbaRuntimeObject>(
+	VBA_RUNTIME_OBJECTS.map((object) => [object.name.toLowerCase(), object]),
+);
+const OBJECTS_BY_TYPE_LOWER = new Map<string, VbaRuntimeObject>(
+	VBA_RUNTIME_OBJECTS.map((object) => [object.type.toLowerCase(), object]),
 );
 
 /** Resolves a built-in VBA runtime function/statement by name (case-insensitive). */
@@ -424,4 +487,18 @@ export function resolveRuntimeConstant(
 	name: string,
 ): VbaRuntimeConstant | undefined {
 	return CONSTANTS_BY_LOWER.get(name.toLowerCase());
+}
+
+/** Resolves a built-in VBA runtime global object by name, such as `Err`. */
+export function resolveRuntimeObject(
+	name: string,
+): VbaRuntimeObject | undefined {
+	return OBJECTS_BY_LOWER.get(name.toLowerCase());
+}
+
+/** Resolves a built-in VBA runtime object type, such as `VBA.ErrObject`. */
+export function resolveRuntimeObjectType(
+	typeName: string,
+): VbaRuntimeObject | undefined {
+	return OBJECTS_BY_TYPE_LOWER.get(typeName.toLowerCase());
 }

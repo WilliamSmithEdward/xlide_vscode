@@ -22,7 +22,7 @@ import {
 import { Span } from '../parser/nodes';
 import { HostObjectModel } from '../host/excelObjectModel';
 import { getHostType, resolveHostConstant, resolveHostGlobal } from '../host/hostModel';
-import { resolveRuntimeConstant, resolveRuntimeFunction } from '../runtime/vbaRuntime';
+import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
 	MemberCompletion,
 	resolveMemberCompletions,
@@ -165,6 +165,16 @@ export function resolveHover(
 		};
 	}
 
+	const runtimeObject = resolveRuntimeObject(name);
+	if (runtimeObject) {
+		return {
+			signature: `${runtimeObject.name} As ${displayType(runtimeObject.type)}`,
+			details: ['VBA runtime object'],
+			span,
+			documentation: externalDocMarkdown(ctx, name),
+		};
+	}
+
 	const runtimeConstant = resolveRuntimeConstant(name);
 	if (runtimeConstant) {
 		return {
@@ -179,7 +189,7 @@ export function resolveHover(
 	if (hostConstant) {
 		return {
 			signature: constantSignature(hostConstant),
-			details: ['Excel constant'],
+			details: ['Excel/Office constant'],
 			span,
 			documentation: externalDocMarkdown(ctx, name),
 		};
@@ -257,6 +267,7 @@ function buildMemberHover(
 	const ret = member.returns ? ` As ${displayType(member.returns)}` : '';
 	const call = member.kind === 'method' ? '()' : '';
 	const hostType = !!getHostType(member.owner, ctx.model);
+	const runtimeType = !!resolveRuntimeObject(member.owner);
 	const signature = member.signature
 		? `${ownerName}.${member.signature}`
 		: `${ownerName}.${member.name}${call}${ret}`;
@@ -264,7 +275,9 @@ function buildMemberHover(
 	return {
 		signature,
 		details: [
-			hostType ? `Excel host ${member.kind}` : `${ownerName} ${member.kind}`,
+			runtimeType
+				? `VBA runtime ${member.kind}`
+				: hostType ? `Excel host ${member.kind}` : `${ownerName} ${member.kind}`,
 		],
 		span,
 		documentation: hostType

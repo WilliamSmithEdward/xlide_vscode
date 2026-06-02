@@ -31,6 +31,10 @@ import {
 	resolveHostAlias,
 	resolveHostGlobal,
 } from '../host/hostModel';
+import {
+	resolveRuntimeObject,
+	resolveRuntimeObjectType,
+} from '../runtime/vbaRuntime';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaDoc } from '../docs/docModel';
 import type {
@@ -232,6 +236,12 @@ function signatureForMember(
 			memberName,
 			ctx,
 		);
+	}
+	const runtimeObject = resolveRuntimeObjectType(typeName);
+	if (runtimeObject) {
+		return runtimeObject.members.find(
+			(member) => member.name.toLowerCase() === memberName.toLowerCase(),
+		)?.signature;
 	}
 	return resolveHostMemberSignature(typeName, memberName, ctx.model);
 }
@@ -513,6 +523,10 @@ function resolveRoot(
 		return projectKey ? projectTypeKey(projectKey) : undefined;
 	}
 	const projectKey = projectClassMembersByName(ctx).has(lower) ? lower : undefined;
+	const runtimeObject = resolveRuntimeObject(root);
+	if (runtimeObject) {
+		return runtimeObject.type;
+	}
 	const asGlobal = resolveHostGlobal(root, model);
 	if (asGlobal) {
 		return projectKey ? combinedTypeKey(projectKey, asGlobal) : asGlobal;
@@ -675,6 +689,14 @@ function memberSurfaceForType(
 			}
 			: undefined;
 	}
+	const runtimeObject = resolveRuntimeObjectType(typeName);
+	if (runtimeObject) {
+		return {
+			owner: runtimeObject.name,
+			members: runtimeObject.members,
+			exhaustive: runtimeObject.exhaustive,
+		};
+	}
 	const hostType = getHostType(typeName, ctx.model);
 	return {
 		owner: typeName,
@@ -714,6 +736,13 @@ function resolveAnyMemberReturnType(
 		return hostMemberReturn(combined.hostType, memberName, ctx.model);
 	}
 	if (!ownerType.startsWith(PROJECT_TYPE_PREFIX)) {
+		const runtimeObject = resolveRuntimeObjectType(ownerType);
+		if (runtimeObject) {
+			const member = runtimeObject.members.find(
+				(item) => item.name.toLowerCase() === memberName.toLowerCase(),
+			);
+			return member?.returns ? { type: member.returns, kind: member.kind } : undefined;
+		}
 		return hostMemberReturn(ownerType, memberName, ctx.model);
 	}
 	const projectType = projectClassMembersByName(ctx).get(

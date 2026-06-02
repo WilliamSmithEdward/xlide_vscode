@@ -1012,6 +1012,26 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "office_mso_line_dash_constant_compile",
+      "description": "Office shared MsoLineDashStyle constants are visible in Excel VBA and compile under the default Office/Excel references.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim dashStyle As Long\n    dashStyle = msoLineDash\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "runtime_err_object_raise_compile",
+      "description": "The intrinsic Err object has global scope in VBA, and Err.Raise compiles without declaring Err.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Sub XlideOracleEntry()\n    Err.Raise vbObjectError + 1, \"Person.Age\", \"Age must be between 0 and 120\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "compile_then_run_valid_control",
       "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
       "provenance": "vbe-oracle-verified",

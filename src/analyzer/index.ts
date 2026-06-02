@@ -132,11 +132,16 @@ export {
 export {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	resolveRuntimeObject,
+	resolveRuntimeObjectType,
 	runtimeAllowsExplicitCall,
 	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
+	VBA_RUNTIME_OBJECTS,
 	VbaRuntimeConstant,
 	VbaRuntimeFunction,
+	VbaRuntimeObject,
+	VbaRuntimeObjectMember,
 } from './runtime/vbaRuntime';
 export {
 	resolveSignatureHelp,

@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
+	resolveRuntimeObject,
 	runtimeAllowsExplicitCall,
 	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
+	VBA_RUNTIME_OBJECTS,
 	resolveIdentifierCompletions,
 } from '../src/analyzer';
 
@@ -15,6 +17,9 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeFunction('LEFT')?.returns).toBe('String');
 		expect(resolveRuntimeFunction('CLng')?.returns).toBe('Long');
 		expect(resolveRuntimeFunction('NotARealFunction')).toBeUndefined();
+		expect(resolveRuntimeObject('Err')?.type).toBe('VBA.ErrObject');
+		expect(resolveRuntimeObject('ERR')?.name).toBe('Err');
+		expect(resolveRuntimeObject('NotARealObject')).toBeUndefined();
 	});
 
 	it('every entry has a signature and is marked verified', () => {
@@ -83,6 +88,21 @@ describe('VBA runtime metadata', () => {
 		}
 	});
 
+	it('models intrinsic runtime objects as exhaustive member surfaces', () => {
+		for (const object of VBA_RUNTIME_OBJECTS) {
+			expect(object.name.length).toBeGreaterThan(0);
+			expect(object.type).toMatch(/^VBA\./);
+			expect(object.source).toBe('verified');
+			expect(object.exhaustive).toBe(true);
+			expect(object.members.length).toBeGreaterThan(0);
+		}
+		const err = resolveRuntimeObject('Err');
+		expect(err?.members.map((member) => member.name)).toContain('Raise');
+		expect(err?.members.find((member) => member.name === 'Raise')?.signature).toContain(
+			'Number As Long',
+		);
+	});
+
 });
 
 describe('identifier completion - runtime built-ins', () => {
@@ -96,6 +116,7 @@ describe('identifier completion - runtime built-ins', () => {
 		expect(names).toContain('MsgBox');
 		expect(names).toContain('Array');
 		expect(names).toContain('RGB');
+		expect(names).toContain('Err');
 	});
 
 	it('filters built-ins by the typed prefix', () => {
@@ -136,6 +157,14 @@ describe('identifier completion - runtime built-ins', () => {
 		expect(left?.documentation).toContain('```vba\nLeft(String, Length) As String\n```');
 		expect(left?.documentation).toContain('`String` As `String`');
 		expect(left?.documentation).toContain('`Length` As `Long`');
+
+		const errSrc = 'Sub T()\n    Er\nEnd Sub\n';
+		const errItems = resolveIdentifierCompletions(errSrc, errSrc.indexOf('Er') + 2, {
+			moduleName: 'M',
+		});
+		const err = errItems.find((item) => item.name === 'Err');
+		expect(err?.detail).toBe('VBA runtime object As ErrObject');
+		expect(err?.documentation).toContain('Err As ErrObject');
 	});
 
 	it('offers runtime and host constants once a constant-like prefix is typed', () => {
@@ -154,8 +183,17 @@ describe('identifier completion - runtime built-ins', () => {
 		});
 		const xlUp = xlItems.find((item) => item.name === 'xlUp');
 		expect(xlUp?.kind).toBe('constant');
-		expect(xlUp?.detail).toBe('Excel constant As XlDirection');
+		expect(xlUp?.detail).toBe('Excel/Office constant As XlDirection');
 		expect(xlUp?.documentation).toContain('Const xlUp As XlDirection = -4162');
+
+		const mso = 'Sub T()\n    msoLine\nEnd Sub\n';
+		const msoItems = resolveIdentifierCompletions(mso, mso.indexOf('msoLine') + 7, {
+			moduleName: 'M',
+		});
+		const msoLineDash = msoItems.find((item) => item.name === 'msoLineDash');
+		expect(msoLineDash?.kind).toBe('constant');
+		expect(msoLineDash?.detail).toBe('Excel/Office constant As MsoLineDashStyle');
+		expect(msoLineDash?.documentation).toContain('Const msoLineDash As MsoLineDashStyle = 4');
 	});
 
 	it('can be disabled via includeRuntime', () => {
