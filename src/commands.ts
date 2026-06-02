@@ -15,11 +15,11 @@ import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
-    configPathForWorkbook,
     exportWorkbookModule,
     normalizeExportMode,
-    readWorkbookRepoConfig,
-    writeWorkbookRepoConfig,
+    readWorkbookSettings,
+    settingsPathForWorkbook,
+    writeWorkbookSettings,
 } from './moduleExport';
 import {
     analyzeWorkbook,
@@ -675,7 +675,7 @@ export function registerCommands(
         filePath: string,
         openLabel: string,
     ): Promise<{ exportFolder: string; exportMode: ExportMode } | undefined> {
-        const existingConfig = await readWorkbookRepoConfig(filePath);
+        const existingConfig = await readWorkbookSettings(filePath);
         const exportMode = normalizeExportMode(existingConfig.exportMode);
         if (existingConfig.exportFolder) {
             return { exportFolder: existingConfig.exportFolder, exportMode };
@@ -697,7 +697,7 @@ export function registerCommands(
     async function resolveWorkbookImportFolder(
         filePath: string,
     ): Promise<{ importFolder: string; importMode: ImportMode } | undefined> {
-        const existingConfig = await readWorkbookRepoConfig(filePath);
+        const existingConfig = await readWorkbookSettings(filePath);
         const importMode = normalizeImportMode(existingConfig.importMode);
         if (existingConfig.exportFolder) {
             return { importFolder: existingConfig.exportFolder, importMode };
@@ -711,6 +711,32 @@ export function registerCommands(
             defaultUri: vscode.Uri.file(path.dirname(filePath)),
         });
         return selected?.[0]?.fsPath ? { importFolder: selected[0].fsPath, importMode } : undefined;
+    }
+
+    async function resolveWorkbookExportFolderFromSettings(
+        filePath: string,
+    ): Promise<ModuleSyncSettings | undefined> {
+        const existingConfig = await readWorkbookSettings(filePath);
+        if (!existingConfig.exportFolder) {
+            return undefined;
+        }
+        return {
+            folderPath: existingConfig.exportFolder,
+            exportMode: normalizeExportMode(existingConfig.exportMode),
+        };
+    }
+
+    async function resolveWorkbookImportFolderFromSettings(
+        filePath: string,
+    ): Promise<ModuleSyncSettings | undefined> {
+        const existingConfig = await readWorkbookSettings(filePath);
+        if (!existingConfig.exportFolder) {
+            return undefined;
+        }
+        return {
+            folderPath: existingConfig.exportFolder,
+            importMode: normalizeImportMode(existingConfig.importMode),
+        };
     }
 
     async function chooseModuleSyncFolder(
@@ -764,18 +790,32 @@ export function registerCommands(
         });
     }
 
+    async function buildExportSyncPlanFromWorkbookSettings(
+        filePath: string,
+    ): Promise<ModuleSyncPlan | undefined> {
+        const settings = await resolveWorkbookExportFolderFromSettings(filePath);
+        return settings ? buildExportSyncPlanFromSettings(filePath, settings) : undefined;
+    }
+
+    async function buildImportSyncPlanFromWorkbookSettings(
+        filePath: string,
+    ): Promise<ModuleSyncPlan | undefined> {
+        const settings = await resolveWorkbookImportFolderFromSettings(filePath);
+        return settings ? buildImportSyncPlanFromSettings(filePath, settings) : undefined;
+    }
+
     async function persistModuleSyncSettings(
         filePath: string,
         settings: ModuleSyncSettings,
     ): Promise<string> {
-        const existingConfig = await readWorkbookRepoConfig(filePath);
-        await writeWorkbookRepoConfig(filePath, {
+        const existingConfig = await readWorkbookSettings(filePath);
+        await writeWorkbookSettings(filePath, {
             ...existingConfig,
             exportFolder: settings.folderPath,
             exportMode: normalizeExportMode(settings.exportMode ?? existingConfig.exportMode),
             importMode: normalizeImportMode(settings.importMode ?? existingConfig.importMode),
         });
-        return configPathForWorkbook(filePath);
+        return settingsPathForWorkbook(filePath);
     }
 
     async function saveModuleSyncSettings(
@@ -892,6 +932,7 @@ export function registerCommands(
                     return buildExportSyncPlanFromSettings(filePath, { ...settings, folderPath });
                 },
                 onRefresh: (settings) => buildExportSyncPlanFromSettings(filePath, settings),
+                onReloadWorkbookSettings: () => buildExportSyncPlanFromWorkbookSettings(filePath),
                 onSaveSettings: (settings) => saveModuleSyncSettings(filePath, 'xlide.exportModulesToFolder', settings),
             },
         );
@@ -933,6 +974,7 @@ export function registerCommands(
                     return buildImportSyncPlanFromSettings(filePath, { ...settings, folderPath });
                 },
                 onRefresh: (settings) => buildImportSyncPlanFromSettings(filePath, settings),
+                onReloadWorkbookSettings: () => buildImportSyncPlanFromWorkbookSettings(filePath),
                 onSaveSettings: (settings) => saveModuleSyncSettings(filePath, 'xlide.importModulesFromFolder', settings),
             },
         );
@@ -996,7 +1038,7 @@ export function registerCommands(
         try {
             await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
         } catch (err) {
-            failed.push('workbook repo config');
+            failed.push('workbook settings');
             recordWriteAudit({
                 command: 'xlide.exportModulesToFolder',
                 operation: 'configure-module-sync',
@@ -1006,7 +1048,7 @@ export function registerCommands(
                 summary: 'Sync settings: 0 changed, 1 failed',
                 error: err,
             });
-            log(`[exportModules] Error updating workbook repo config: ${err instanceof Error ? err.message : String(err)}`);
+            log(`[exportModules] Error updating workbook settings: ${err instanceof Error ? err.message : String(err)}`);
         }
         const summaryText = logChangeSummary('exportModules', {
             operation: 'Export modules',
@@ -1139,7 +1181,7 @@ export function registerCommands(
         try {
             await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
         } catch (err) {
-            failed.push('workbook repo config');
+            failed.push('workbook settings');
             recordWriteAudit({
                 command: 'xlide.importModulesFromFolder',
                 operation: 'configure-module-sync',

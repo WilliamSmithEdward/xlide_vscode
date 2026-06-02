@@ -1,18 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('vscode', () => ({
-    workspace: {
-        getConfiguration: () => ({
-            get: () => [],
-            update: async () => undefined,
-        }),
-    },
-    ConfigurationTarget: {
-        Global: true,
-    },
-}));
-
-import { setAnalysisRuleTrackedInList } from '../src/analysisOptions';
+import { describe, expect, it } from 'vitest';
+import { setAnalysisRuleTrackedInList } from '../src/analysisSettingsCore';
 
 describe('analysis rule tracking options', () => {
     it('adds a rule to the untracked list when tracking is disabled', () => {

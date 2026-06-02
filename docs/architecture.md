@@ -263,27 +263,29 @@ Both lanes call into this shared implementation:
 **Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules and UserForm `.cls` code-behind modules can be updated when the workbook already has a same-named module, but they cannot be created directly from import; missing document/UserForm-code-behind rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. `.frm` designer files are ignored by import/export sync. Import mode defaults to `updateOnly` (`Import/Update (No Deletes)`). `trueUpStandardClass` (`Import/Update + Delete Missing`) performs the same create/update pass, then previews workbook-only standard/class modules as removable rows; document modules and UserForm code-behind modules are excluded from true-up removals.
 
 Import/export settings live in the preview GUI so folder and mode edits use the same planner and persistence path as apply.
-A workbook-local config file is written beside the workbook:
+Workbook-specific settings are written beside the workbook; global/default settings live in VS Code configuration:
 
 ```
-<workbook-filename>.repo.json
+<workbook-filename>.xlide_settings.json
 ```
 
-Config schema:
+Workbook settings schema:
 
 ```json
 {
   "exportFolder": "C:/absolute/path/to/export/folder",
   "exportMode": "exportAll",
-  "importMode": "updateOnly"
+  "importMode": "updateOnly",
+  "analysis": {
+    "visibleSeverities": ["error", "warning", "information"],
+    "untrackedRules": []
+  }
 }
 ```
 
-`trueUp` export treats the selected folder as the workbook's module folder: it proposes/removes only root `.bas` and `.cls` module files that do not map to a live workbook module. Other file types, nested files, and `.frm` designer files are outside import/export sync. Legacy `replaceExistingOnly` sidecar values are read as `exportAll` so old configs keep exporting every workbook module without enabling deletes.
+`trueUp` export treats the selected folder as the workbook's module folder: it proposes/removes only root `.bas` and `.cls` module files that do not map to a live workbook module. Other file types, nested files, and `.frm` designer files are outside import/export sync.
 
-On later runs, `exportFolder` is used as the default folder in the preview GUI. Existing
-`<workbook-filename>.extension.repo.json` sidecars are read for compatibility, but the
-next save/apply writes the new `<workbook-filename>.repo.json` file.
+On later runs, `exportFolder` is used as the default folder in the preview GUI. XLIDE reads and writes only `<workbook-filename>.xlide_settings.json`; older sidecar names are not part of the supported settings contract.
 
 ---
 

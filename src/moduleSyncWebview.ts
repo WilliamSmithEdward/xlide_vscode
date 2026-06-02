@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import type { ImportMode, ModuleSyncPlan } from './moduleSyncPlan';
-import type { ExportMode } from './moduleExport';
+import { settingsPathForWorkbook, type ExportMode } from './moduleExport';
 
 export interface ModuleSyncApplyResult {
     summary: string;
@@ -19,6 +20,7 @@ export interface ModuleSyncSettings {
 export interface ModuleSyncPreviewOptions {
     onChooseFolder?: (current: ModuleSyncSettings) => Promise<ModuleSyncPlan | undefined>;
     onRefresh?: (settings: ModuleSyncSettings) => Promise<ModuleSyncPlan>;
+    onReloadWorkbookSettings?: () => Promise<ModuleSyncPlan | undefined>;
     onSaveSettings?: (settings: ModuleSyncSettings) => Promise<ModuleSyncApplyResult>;
 }
 
@@ -43,9 +45,11 @@ export function openModuleSyncPreview(
         let disposed = false;
         let operationInFlight = false;
         let queuedFolderRefresh = false;
+        let queuedWorkbookSettingsRefresh = false;
         let folderRefreshTimer: ReturnType<typeof setTimeout> | undefined;
         let watchedFolderPath: string | undefined;
         let folderWatcherDisposables: vscode.Disposable[] = [];
+        let settingsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
         const done = (result: ModuleSyncApplyResult | undefined): void => {
             if (!resolved) {
                 resolved = true;
@@ -75,6 +79,22 @@ export function openModuleSyncPreview(
             folderRefreshTimer = setTimeout(() => {
                 folderRefreshTimer = undefined;
                 void refreshPlanFromDisk();
+            }, delayMs);
+        };
+        const queueWorkbookSettingsRefresh = (delayMs = 300): void => {
+            if (!options.onReloadWorkbookSettings || disposed) {
+                return;
+            }
+            if (operationInFlight) {
+                queuedWorkbookSettingsRefresh = true;
+                return;
+            }
+            if (settingsRefreshTimer) {
+                clearTimeout(settingsRefreshTimer);
+            }
+            settingsRefreshTimer = setTimeout(() => {
+                settingsRefreshTimer = undefined;
+                void refreshPlanFromWorkbookSettings();
             }, delayMs);
         };
         const configureFolderWatcher = (): void => {
@@ -108,6 +128,10 @@ export function openModuleSyncPreview(
                     queuedFolderRefresh = false;
                     queueFolderRefresh(100);
                 }
+                if (queuedWorkbookSettingsRefresh && !disposed) {
+                    queuedWorkbookSettingsRefresh = false;
+                    queueWorkbookSettingsRefresh(100);
+                }
             }
         };
         const updateCurrentPlan = (nextPlan: ModuleSyncPlan): void => {
@@ -138,7 +162,47 @@ export function openModuleSyncPreview(
                 await panel.webview.postMessage({ type: 'error', error });
             }
         }
+        async function refreshPlanFromWorkbookSettings(): Promise<void> {
+            const reload = options.onReloadWorkbookSettings;
+            if (!reload || disposed) {
+                return;
+            }
+            if (operationInFlight) {
+                queuedWorkbookSettingsRefresh = true;
+                return;
+            }
+            try {
+                await panel.webview.postMessage({ type: 'refreshing', message: 'Workbook settings changed. Refreshing preview...' });
+                await runExclusive(async () => {
+                    const nextPlan = await reload();
+                    if (nextPlan) {
+                        updateCurrentPlan(nextPlan);
+                        await panel.webview.postMessage({
+                            type: 'plan',
+                            plan: currentPlan,
+                            message: 'Workbook settings changed. Preview refreshed.',
+                        });
+                    } else {
+                        await panel.webview.postMessage({ type: 'ready' });
+                    }
+                });
+            } catch (err) {
+                const error = err instanceof Error ? err.message : String(err);
+                await panel.webview.postMessage({ type: 'error', error });
+            }
+        }
         configureFolderWatcher();
+        const workbookSettingsPath = settingsPathForWorkbook(currentPlan.workbookPath);
+        const workbookSettingsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
+            path.dirname(workbookSettingsPath),
+            path.basename(workbookSettingsPath),
+        ));
+        const workbookSettingsWatcherDisposables = [
+            workbookSettingsWatcher.onDidCreate(() => queueWorkbookSettingsRefresh()),
+            workbookSettingsWatcher.onDidChange(() => queueWorkbookSettingsRefresh()),
+            workbookSettingsWatcher.onDidDelete(() => queueWorkbookSettingsRefresh()),
+            workbookSettingsWatcher,
+        ];
         panel.webview.html = renderModuleSyncHtml(panel.webview, currentPlan);
         const messageSub = panel.webview.onDidReceiveMessage(async (message: {
             type?: string;
@@ -260,7 +324,14 @@ export function openModuleSyncPreview(
                 clearTimeout(folderRefreshTimer);
                 folderRefreshTimer = undefined;
             }
+            if (settingsRefreshTimer) {
+                clearTimeout(settingsRefreshTimer);
+                settingsRefreshTimer = undefined;
+            }
             disposeFolderWatcher();
+            for (const disposable of workbookSettingsWatcherDisposables) {
+                disposable.dispose();
+            }
             messageSub.dispose();
             done(undefined);
         });

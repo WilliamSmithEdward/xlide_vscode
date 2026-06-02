@@ -10,12 +10,14 @@ import {
 import {
     ANALYSIS_SEVERITIES,
     isAnalysisRuleTracked,
-    normalizeAnalysisVisibleSeverities,
-    setAnalysisRuleTrackedInConfig,
     type AnalysisSeverityFilter,
-    untrackedAnalysisRulesFromConfig,
-    visibleAnalysisSeveritiesFromConfig,
-} from './analysisOptions';
+} from './analysisSettingsCore';
+import {
+    effectiveWorkbookAnalysisSettings,
+    setWorkbookAnalysisRuleTracked,
+    setWorkbookAnalysisVisibleSeverities,
+} from './workbookAnalysisSettings';
+import { settingsPathForWorkbook } from './moduleExport';
 import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
 
 export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';
@@ -47,7 +49,6 @@ export function openWorkbookAnalysisResults(
     let disposed = false;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     let refreshVersion = 0;
-    let ignoreNextVisibleSeverityConfigChange = false;
     let contextMenuOpen = false;
     let pendingRefreshAfterContextMenu = false;
     const panel = vscode.window.createWebviewPanel(
@@ -60,14 +61,16 @@ export function openWorkbookAnalysisResults(
         },
     );
 
-    const renderPanel = (): void => {
+    const renderPanel = async (): Promise<void> => {
         currentModel = buildWorkbookAnalysisResultsModel(currentResult);
+        const analysisSettings = await effectiveWorkbookAnalysisSettings(currentResult.filePath);
+        if (disposed) { return; }
         panel.title = `XLIDE Analysis: ${currentModel.workbookName}`;
         panel.webview.html = renderWorkbookAnalysisResultsHtml(
             panel.webview,
             currentModel,
-            visibleAnalysisSeveritiesFromConfig(),
-            untrackedAnalysisRulesFromConfig(),
+            analysisSettings.visibleSeverities,
+            analysisSettings.untrackedRules,
         );
     };
 
@@ -90,7 +93,7 @@ export function openWorkbookAnalysisResults(
             return;
         }
         if (!disposed) {
-            renderPanel();
+            await renderPanel();
         }
     };
 
@@ -132,7 +135,10 @@ export function openWorkbookAnalysisResults(
             : currentResult.problems[index];
     };
 
-    renderPanel();
+    void renderPanel().catch((err) => {
+        const error = err instanceof Error ? err.message : String(err);
+        void panel.webview.postMessage({ type: 'error', error });
+    });
     const messageSub = panel.webview.onDidReceiveMessage(async (message: {
         type?: string;
         index?: number;
@@ -212,7 +218,7 @@ export function openWorkbookAnalysisResults(
                 const problem = problemAt(message.index, message.suppressed);
                 const code = typeof message.code === 'string' ? message.code : problem?.code;
                 if (code) {
-                    const update = await setAnalysisRuleTrackedInConfig(code, message.tracked === true);
+                    const update = await setWorkbookAnalysisRuleTracked(currentResult.filePath, code, message.tracked === true);
                     await refreshAfterAnalysisMutation();
                     await panel.webview.postMessage({
                         type: 'ruleTrackingChanged',
@@ -224,11 +230,8 @@ export function openWorkbookAnalysisResults(
                 return;
             }
             if (message.type === 'updateSeveritySettings') {
-                const next = normalizeAnalysisVisibleSeverities(message.severities);
-                ignoreNextVisibleSeverityConfigChange = true;
-                await vscode.workspace
-                    .getConfiguration('xlide')
-                    .update('analysis.visibleSeverities', next, vscode.ConfigurationTarget.Global);
+                await setWorkbookAnalysisVisibleSeverities(currentResult.filePath, message.severities);
+                await refreshAfterAnalysisMutation();
                 return;
             }
             if (message.type === 'copyText') {
@@ -261,10 +264,6 @@ export function openWorkbookAnalysisResults(
     });
 
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('xlide.analysis.visibleSeverities') && ignoreNextVisibleSeverityConfigChange) {
-            ignoreNextVisibleSeverityConfigChange = false;
-            return;
-        }
         if (e.affectsConfiguration('xlide.analysis') || e.affectsConfiguration('xlide.diagnostics')) {
             scheduleRefresh();
         }
@@ -280,11 +279,20 @@ export function openWorkbookAnalysisResults(
         }
     });
     const treeSub = options.onDidChangeWorkbookTree?.(() => scheduleRefresh());
+    const sidecarPath = settingsPathForWorkbook(currentResult.filePath);
+    const sidecarWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
+        path.dirname(sidecarPath),
+        path.basename(sidecarPath),
+    ));
     const panelDisposables = [
         messageSub,
         configSub,
         textChangeSub,
         saveSub,
+        sidecarWatcher,
+        sidecarWatcher.onDidCreate(scheduleRefresh),
+        sidecarWatcher.onDidChange(scheduleRefresh),
+        sidecarWatcher.onDidDelete(scheduleRefresh),
         ...(treeSub ? [treeSub] : []),
     ];
     panel.onDidDispose(() => {
@@ -325,6 +333,7 @@ function renderWorkbookAnalysisResultsHtml(
         plainText: buildWorkbookAnalysisPlainText(model),
         visibleSeverities,
         untrackedRules,
+        analysisSettingsKey: workbookAnalysisSettingsKey(visibleSeverities, untrackedRules),
     }).replace(/</g, '\\u003c');
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
     const allRows = [...model.rows, ...model.suppressedRows];
@@ -975,8 +984,11 @@ function renderWorkbookAnalysisResultsHtml(
         const untrackedRules = new Set(model.untrackedRules ?? []);
         const persistedState = vscode.getState?.() ?? {};
         const hasPersistedUiState = persistedState.analysisUiInitialized === true;
+        const hasPersistedSeverityState = hasPersistedUiState &&
+            persistedState.analysisSettingsKey === model.analysisSettingsKey &&
+            Array.isArray(persistedState.visibleSeverities);
         const visibleSeverities = new Set(
-            hasPersistedUiState && Array.isArray(persistedState.visibleSeverities)
+            hasPersistedSeverityState
                 ? normalizeSeverityList(persistedState.visibleSeverities)
                 : normalizeSeverityList(model.visibleSeverities ?? severityIds)
         );
@@ -1112,6 +1124,7 @@ function renderWorkbookAnalysisResultsHtml(
                 sortDirection,
                 settingsOpen,
                 visibleSeverities: Array.from(visibleSeverities),
+                analysisSettingsKey: model.analysisSettingsKey,
             });
         }
 
@@ -1508,6 +1521,16 @@ function renderWorkbookAnalysisResultsHtml(
 
 function statHtml(value: string, label: string): string {
     return `<div class="stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+function workbookAnalysisSettingsKey(
+    visibleSeverities: readonly AnalysisSeverityFilter[],
+    untrackedRules: readonly string[],
+): string {
+    return JSON.stringify({
+        visibleSeverities: [...visibleSeverities],
+        untrackedRules: [...untrackedRules].sort((left, right) => left.localeCompare(right)),
+    });
 }
 
 function analysisRuleSettingsHtml(

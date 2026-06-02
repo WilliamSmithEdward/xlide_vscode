@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import {
     XLIDE_SCHEME,
@@ -61,8 +62,9 @@ import {
 } from './vbaProjectAnalysis';
 import {
     isAnalysisRuleTracked,
-    untrackedAnalysisRulesFromConfig,
-} from './analysisOptions';
+} from './analysisSettingsCore';
+import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
+import { settingsPathForWorkbook } from './moduleExport';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -935,6 +937,7 @@ function registerVbaDiagnostics(
 ): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
     const timers = new Map<string, ReturnType<typeof setTimeout>>();
+    const workbookSettingsWatchers = new Map<string, vscode.Disposable[]>();
 
     const severityToVscode = (s: RuleSeverity): vscode.DiagnosticSeverity => {
         switch (s) {
@@ -963,12 +966,15 @@ function registerVbaDiagnostics(
         // Option Explicit checks. Only workbook-backed docs can load the
         // complete project context.
         const moduleName = moduleNameFromDocument(document);
+        let workbookPath: string | undefined;
         let moduleKind: ModuleSymbolKind | undefined;
         let documentType: EventHandlerDocumentType | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
+                workbookPath = xlsmPath;
+                ensureWorkbookSettingsWatcher(xlsmPath);
                 const modules = applyOpenDocumentSources(
                     await index.getAllModules(xlsmPath),
                     xlsmPath,
@@ -1011,7 +1017,7 @@ function registerVbaDiagnostics(
             ...projectOptions,
             activeIncompleteExpressionOffset,
         });
-        const untrackedRules = untrackedAnalysisRulesFromConfig();
+        const { untrackedRules } = await effectiveWorkbookAnalysisSettings(workbookPath);
         for (const d of moduleAnalysis.diagnostics) {
             if (!isAnalysisRuleTracked(d.code, untrackedRules)) {
                 continue;
@@ -1048,6 +1054,67 @@ function registerVbaDiagnostics(
         }, 300));
     };
 
+    const workbookKey = (workbookPath: string): string => path.resolve(workbookPath).toLowerCase();
+    const rerunWorkbookDocuments = (workbookPath: string): void => {
+        const key = workbookKey(workbookPath);
+        for (const document of vscode.workspace.textDocuments) {
+            if (document.uri.scheme !== XLIDE_SCHEME) {
+                continue;
+            }
+            try {
+                if (workbookKey(decodeModuleUri(document.uri).xlsmPath) === key) {
+                    run(document);
+                }
+            } catch {
+                // Ignore URIs that are no longer valid XLIDE module documents.
+            }
+        }
+    };
+    const ensureWorkbookSettingsWatcher = (workbookPath: string): void => {
+        const key = workbookKey(workbookPath);
+        if (workbookSettingsWatchers.has(key)) {
+            return;
+        }
+        const settingsPath = settingsPathForWorkbook(workbookPath);
+        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
+            path.dirname(settingsPath),
+            path.basename(settingsPath),
+        ));
+        const rerun = () => rerunWorkbookDocuments(workbookPath);
+        workbookSettingsWatchers.set(key, [
+            watcher.onDidCreate(rerun),
+            watcher.onDidChange(rerun),
+            watcher.onDidDelete(rerun),
+            watcher,
+        ]);
+    };
+    const pruneWorkbookSettingsWatchers = (): void => {
+        const openWorkbookKeys = new Set<string>();
+        for (const document of vscode.workspace.textDocuments) {
+            if (document.uri.scheme !== XLIDE_SCHEME) {
+                continue;
+            }
+            try {
+                openWorkbookKeys.add(workbookKey(decodeModuleUri(document.uri).xlsmPath));
+            } catch {
+                // Ignore invalid XLIDE URIs.
+            }
+        }
+        for (const [key, disposables] of workbookSettingsWatchers) {
+            if (openWorkbookKeys.has(key)) {
+                continue;
+            }
+            disposables.forEach((disposable) => disposable.dispose());
+            workbookSettingsWatchers.delete(key);
+        }
+    };
+    const disposeWorkbookSettingsWatchers = (): void => {
+        for (const disposables of workbookSettingsWatchers.values()) {
+            disposables.forEach((disposable) => disposable.dispose());
+        }
+        workbookSettingsWatchers.clear();
+    };
+
     context.subscriptions.push(
         collection,
         vscode.workspace.onDidOpenTextDocument(run),
@@ -1061,13 +1128,15 @@ function registerVbaDiagnostics(
             const t = timers.get(key);
             if (t) { clearTimeout(t); timers.delete(key); }
             collection.delete(doc.uri);
+            pruneWorkbookSettingsWatchers();
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('xlide.diagnostics') ||
-                e.affectsConfiguration('xlide.analysis.untrackedRules')) {
+                e.affectsConfiguration('xlide.analysis')) {
                 vscode.workspace.textDocuments.forEach(run);
             }
         }),
+        { dispose: disposeWorkbookSettingsWatchers },
     );
     vscode.workspace.textDocuments.forEach(run);
 }

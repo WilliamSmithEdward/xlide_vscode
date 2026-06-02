@@ -66,7 +66,7 @@
             "warning",
             "information"
           ],
-          "description": "Analysis finding severities shown by default in the workbook analysis GUI. The toolbar and Analysis Settings panel update this setting automatically."
+          "description": "Global default analysis finding severities for workbooks that do not define a workbook-specific value for this setting."
         },
         "xlide.analysis.untrackedRules": {
           "type": "array",
@@ -74,7 +74,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Analysis diagnostic rule codes hidden from analysis tracking. The workbook analysis GUI can update this list from row Track/Untrack actions or the Analysis Settings panel."
+          "description": "Global default analysis diagnostic rule codes hidden from tracking for workbooks that do not define a workbook-specific value for this setting."
         },
         "xlide.editor.blockLayout": {
           "type": "string",
@@ -753,7 +753,7 @@
       {
         "name": "xlide_exportModules",
         "displayName": "Export VBA Modules to Folder",
-        "modelDescription": "Exports all VBA modules from an Excel VBA workbook to a folder using workbookname.repo.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the workbook).",
+        "modelDescription": "Exports all VBA modules from an Excel VBA workbook to a folder using workbookname.xlide_settings.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the workbook).",
         "toolReferenceName": "xlideExportModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -765,7 +765,7 @@
             },
             "exportFolder": {
               "type": "string",
-              "description": "Optional absolute folder path. If omitted, uses exportFolder from workbookname.repo.json"
+              "description": "Optional absolute folder path. If omitted, uses the workbook-specific exportFolder from workbookname.xlide_settings.json"
             },
             "exportMode": {
               "type": "string",
@@ -784,7 +784,7 @@
       {
         "name": "xlide_configureExportMode",
         "displayName": "Configure VBA Export Mode",
-        "modelDescription": "Sets the persistent exportMode in workbookname.repo.json beside the Excel VBA workbook. Use exportAll by default unless the user explicitly asks to delete stale .bas/.cls module files missing from the workbook.",
+        "modelDescription": "Sets the persistent workbook-specific exportMode in workbookname.xlide_settings.json beside the Excel VBA workbook. Use exportAll by default unless the user explicitly asks to delete stale .bas/.cls module files missing from the workbook.",
         "toolReferenceName": "xlideConfigureExportMode",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -800,7 +800,7 @@
                 "exportAll",
                 "trueUp"
               ],
-              "description": "Persistent export mode to store in workbookname.repo.json"
+              "description": "Persistent workbook-specific export mode to store in workbookname.xlide_settings.json"
             }
           },
           "required": [

@@ -1515,6 +1515,9 @@ workflow panels:
   import/export folder and mode, analysis severity visibility, tracked/untracked
   analysis rules, suppression visibility, per-workbook diff preferences,
   selected module state where useful, and future workbook test/run preferences.
+- Some workbook-scoped settings are workbook-only and do not have a global
+  fallback. Workbook-specific facts such as a selected sync folder belong only
+  to that workbook.
 - A workbook GUI action must not silently mutate a global setting. If the action
   is performed in the context of a workbook, persist it beside or for that
   workbook.

@@ -2,6 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import type { ImportMode } from './moduleSyncPlan';
+import {
+    normalizeAnalysisRuleCodes,
+    normalizeAnalysisVisibleSeverities,
+    type AnalysisSeverityFilter,
+} from './analysisSettingsCore';
 
 interface ModuleInfo {
     name: string;
@@ -10,16 +15,21 @@ interface ModuleInfo {
 }
 
 type ExportMode = 'exportAll' | 'trueUp';
-type LegacyExportMode = 'replaceExistingOnly';
 
-interface WorkbookRepoConfig {
+interface WorkbookSettingsConfig {
     exportFolder?: string;
     exportMode?: ExportMode;
     importMode?: ImportMode;
+    analysis?: WorkbookAnalysisSettingsConfig;
 }
 
-type WorkbookRepoConfigInput = Omit<WorkbookRepoConfig, 'exportMode'> & {
-    exportMode?: ExportMode | LegacyExportMode;
+interface WorkbookAnalysisSettingsConfig {
+    visibleSeverities?: AnalysisSeverityFilter[];
+    untrackedRules?: string[];
+}
+
+type WorkbookSettingsConfigInput = Omit<WorkbookSettingsConfig, 'exportMode'> & {
+    exportMode?: ExportMode;
 };
 
 interface ExportModulesParams {
@@ -59,12 +69,8 @@ interface ExportModuleResult {
     configPath: string;
 }
 
-function configPathForWorkbook(filePath: string): string {
-    return path.join(path.dirname(filePath), `${path.basename(filePath)}.repo.json`);
-}
-
-function legacyConfigPathForWorkbook(filePath: string): string {
-    return path.join(path.dirname(filePath), `${path.basename(filePath)}.extension.repo.json`);
+function settingsPathForWorkbook(filePath: string): string {
+    return path.join(path.dirname(filePath), `${path.basename(filePath)}.xlide_settings.json`);
 }
 
 function extensionForModuleType(moduleType: string): string {
@@ -107,7 +113,7 @@ async function fileExists(filePath: string): Promise<boolean> {
     }
 }
 
-function normalizeExportMode(mode: ExportMode | LegacyExportMode | unknown): ExportMode {
+function normalizeExportMode(mode: ExportMode | unknown): ExportMode {
     return mode === 'trueUp' ? 'trueUp' : 'exportAll';
 }
 
@@ -115,57 +121,79 @@ function normalizeImportModeValue(mode: unknown): ImportMode | undefined {
     return mode === 'updateOnly' || mode === 'trueUpStandardClass' ? mode : undefined;
 }
 
-function normalizeWorkbookRepoConfig(config: {
+function normalizeWorkbookAnalysisSettingsConfig(value: unknown): WorkbookAnalysisSettingsConfig | undefined {
+    if (!value || typeof value !== 'object') {
+        return undefined;
+    }
+    const source = value as {
+        visibleSeverities?: unknown;
+        untrackedRules?: unknown;
+    };
+    const normalized: WorkbookAnalysisSettingsConfig = {};
+    if (Array.isArray(source.visibleSeverities)) {
+        normalized.visibleSeverities = normalizeAnalysisVisibleSeverities(source.visibleSeverities);
+    }
+    if (Array.isArray(source.untrackedRules)) {
+        normalized.untrackedRules = normalizeAnalysisRuleCodes(source.untrackedRules);
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeWorkbookSettingsConfig(config: {
     exportFolder?: unknown;
     exportMode?: unknown;
     importMode?: unknown;
-}): WorkbookRepoConfig {
-    const normalized: WorkbookRepoConfig = {
-        exportMode: normalizeExportMode(config.exportMode),
-    };
+    analysis?: unknown;
+}): WorkbookSettingsConfig {
+    const normalized: WorkbookSettingsConfig = {};
     if (typeof config.exportFolder === 'string') {
         normalized.exportFolder = config.exportFolder;
+    }
+    if (config.exportMode !== undefined) {
+        normalized.exportMode = normalizeExportMode(config.exportMode);
     }
     const importMode = normalizeImportModeValue(config.importMode);
     if (importMode) {
         normalized.importMode = importMode;
     }
+    const analysis = normalizeWorkbookAnalysisSettingsConfig(config.analysis);
+    if (analysis) {
+        normalized.analysis = analysis;
+    }
     return normalized;
 }
 
-async function readWorkbookRepoConfig(filePath: string): Promise<WorkbookRepoConfig> {
-    for (const configPath of [configPathForWorkbook(filePath), legacyConfigPathForWorkbook(filePath)]) {
-        try {
-            const raw = await fs.promises.readFile(configPath, 'utf8');
-            const parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' ? normalizeWorkbookRepoConfig(parsed) : {};
-        } catch {
-            // Try the next supported sidecar path.
-        }
+async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsConfig> {
+    try {
+        const raw = await fs.promises.readFile(settingsPathForWorkbook(filePath), 'utf8');
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? normalizeWorkbookSettingsConfig(parsed) : {};
+    } catch {
+        return {};
     }
-    return {};
 }
 
-async function writeWorkbookRepoConfig(
+async function writeWorkbookSettings(
     filePath: string,
-    config: WorkbookRepoConfigInput,
+    config: WorkbookSettingsConfigInput,
 ): Promise<void> {
-    const configPath = configPathForWorkbook(filePath);
+    const configPath = settingsPathForWorkbook(filePath);
     await fs.promises.writeFile(
         configPath,
-        `${JSON.stringify(normalizeWorkbookRepoConfig(config), null, 2)}\n`,
+        `${JSON.stringify(normalizeWorkbookSettingsConfig(config), null, 2)}\n`,
         'utf8',
     );
 }
 
-async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promise<WorkbookRepoConfig> {
-    const existing = await readWorkbookRepoConfig(filePath);
-    const updated: WorkbookRepoConfig = {
+async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promise<WorkbookSettingsConfig> {
+    const existing = await readWorkbookSettings(filePath);
+    const updated: WorkbookSettingsConfig = {
         exportFolder: existing.exportFolder,
         exportMode: normalizeExportMode(mode),
         importMode: existing.importMode,
+        analysis: existing.analysis,
     };
-    await writeWorkbookRepoConfig(filePath, updated);
+    await writeWorkbookSettings(filePath, updated);
     return updated;
 }
 
@@ -197,7 +225,7 @@ async function exportWorkbookModule(
     bridge: PythonBridge,
     params: ExportModuleParams,
 ): Promise<ExportModuleResult> {
-    const existingConfig = await readWorkbookRepoConfig(params.filePath);
+    const existingConfig = await readWorkbookSettings(params.filePath);
     const exportFolder = params.exportFolder ?? existingConfig.exportFolder;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
@@ -216,10 +244,11 @@ async function exportWorkbookModule(
 
     const exported = await exportModuleFile(bridge, params.filePath, mod, exportFolder);
 
-    await writeWorkbookRepoConfig(params.filePath, {
+    await writeWorkbookSettings(params.filePath, {
         exportFolder,
         exportMode,
         importMode: existingConfig.importMode,
+        analysis: existingConfig.analysis,
     });
 
     return {
@@ -231,7 +260,7 @@ async function exportWorkbookModule(
         relativeName: exported.relativeName,
         written: exported.written,
         writtenFiles: exported.written ? [exported.relativeName] : [],
-        configPath: configPathForWorkbook(params.filePath),
+        configPath: settingsPathForWorkbook(params.filePath),
     };
 }
 
@@ -239,7 +268,7 @@ async function exportWorkbookModules(
     bridge: PythonBridge,
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
-    const existingConfig = await readWorkbookRepoConfig(params.filePath);
+    const existingConfig = await readWorkbookSettings(params.filePath);
     const exportFolder = params.exportFolder ?? existingConfig.exportFolder;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
@@ -283,10 +312,11 @@ async function exportWorkbookModules(
         }
     }
 
-    await writeWorkbookRepoConfig(params.filePath, {
+    await writeWorkbookSettings(params.filePath, {
         exportFolder,
         exportMode,
         importMode: existingConfig.importMode,
+        analysis: existingConfig.analysis,
     });
 
     return {
@@ -298,27 +328,27 @@ async function exportWorkbookModules(
         writtenFiles,
         removedFiles,
         totalModules: modules.length,
-        configPath: configPathForWorkbook(params.filePath),
+        configPath: settingsPathForWorkbook(params.filePath),
     };
 }
 
 export {
     type ExportMode,
     type ModuleInfo,
-    type WorkbookRepoConfig,
+    type WorkbookAnalysisSettingsConfig,
+    type WorkbookSettingsConfig,
     type ExportModulesParams,
     type ExportModulesResult,
     type ExportModuleParams,
     type ExportModuleResult,
-    configPathForWorkbook,
     extensionForModuleType,
-    legacyConfigPathForWorkbook,
     listRootVbaModuleFiles,
     normalizeExportMode,
     relativeNameForModule,
-    readWorkbookRepoConfig,
+    readWorkbookSettings,
     sanitizeFileName,
-    writeWorkbookRepoConfig,
+    settingsPathForWorkbook,
+    writeWorkbookSettings,
     setWorkbookExportMode,
     exportWorkbookModule,
     exportWorkbookModules,

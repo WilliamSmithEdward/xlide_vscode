@@ -21,7 +21,10 @@ heuristic diagnostics.
 - Prefer no diagnostic over a guessed diagnostic.
 - Converge renamed concepts across command IDs, tool names, file names, exported
   types, docs, and tests. Do not keep compatibility aliases or parallel naming
-  paths unless explicitly approved as a time-boxed migration.
+  paths unless explicitly approved as a time-boxed migration with a defined
+  retirement plan. Backwards compatibility patches are anti-patterns by
+  default; actively remove unnecessary legacy shims and compatibility-only
+  code paths.
 - Red/error means a deterministic compile blocker or a construct XLIDE can prove
   invalid.
 - Yellow/warning means XLIDE guidance, maintainability advice, or a soft risk
@@ -1007,16 +1010,16 @@ auditable, and recoverable for real user projects.
   delete/mirror import mode only removes workbook-only standard/class modules.
 - [ ] Move import/export-specific settings into the import/export diff GUI as
   the primary configuration surface. The GUI should show effective defaults,
-  allow per-workbook overrides for repo folder/export mode/related sync
-  options, and persist selected workbook settings to a sidecar named
-  `<workbook>.repo.json` (for example `workbook.xlsm.repo.json`). The config
-  resolver should load extension/workspace defaults when a workbook has no
-  sidecar, then persist explicit choices after use.
-- [ ] Migrate the existing workbook export sidecar naming without creating a
-  second settings pipeline. Read old `<workbook>.extension.repo.json` files for
-  compatibility, write the new `<workbook>.repo.json` format after the next
-  save/apply, and route legacy folder/mode commands to the same GUI or retire
-  them so settings are not edited in multiple places.
+  allow per-workbook overrides for folder/export mode/related sync options, and
+  persist selected workbook settings to a sidecar named
+  `<workbook>.xlide_settings.json` (for example
+  `workbook.xlsm.xlide_settings.json`). Global/default settings live in VS Code
+  configuration; workbook-only choices live only in the workbook sidecar and
+  override global defaults where a setting supports fallback.
+- [ ] Keep one supported workbook settings sidecar path:
+  `<workbook>.xlide_settings.json`. Do not preserve legacy JSON names or
+  compatibility shims. Route older folder/mode commands to the same workbook
+  settings writer or retire them so settings are not edited in multiple places.
 - [ ] Document trust-center, macro security, and VBA project access
   requirements without hiding them behind vague failures.
 
