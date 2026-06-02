@@ -56,6 +56,19 @@ describe('VBA runtime metadata', () => {
 		expect(runtimeAllowsExplicitCall(msgBox!)).toBe(true);
 	});
 
+	it('records Array ArgList as a zero-or-more ParamArray', () => {
+		const array = resolveRuntimeFunction('Array');
+
+		expect(array?.params).toEqual([
+			{
+				name: 'ArgList',
+				type: 'Variant',
+				optional: true,
+				paramArray: true,
+			},
+		]);
+	});
+
 	it('resolves built-in constants case-insensitively', () => {
 		expect(resolveRuntimeConstant('vbOKOnly')?.type).toBe('VbMsgBoxStyle');
 		expect(resolveRuntimeConstant('VBOKONLY')?.name).toBe('vbOKOnly');

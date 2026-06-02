@@ -1147,6 +1147,19 @@ describe('analyzeModule - argument count', () => {
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
+	it('treats VBA Array ArgList as a runtime ParamArray', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim monthNames As Variant\n' +
+			'    monthNames = Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", _\n' +
+			'                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", _\n' +
+			'                       "Jan+1", "Feb+1", "Mar+1", "Apr+1", "May+1", _\n' +
+			'                       "Jun+1", "Jul+1", "Aug+1")\n' +
+			'    monthNames = Array()\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
 	it('validates named-argument names but not the count', () => {
 		const src =
 			'Sub Main()\n' +

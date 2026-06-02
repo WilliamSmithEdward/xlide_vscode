@@ -1002,6 +1002,16 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "array_arglist_paramarray_compile",
+      "description": "The VBA Array function accepts zero arguments and a comma-delimited list of many values, including across explicit line continuations.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim monthNames As Variant\n    monthNames = Array()\n    monthNames = Array(\"Jan\", \"Feb\", \"Mar\", \"Apr\", \"May\", \"Jun\", _\n                       \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\", _\n                       \"Jan+1\", \"Feb+1\", \"Mar+1\", \"Apr+1\", \"May+1\", _\n                       \"Jun+1\", \"Jul+1\", \"Aug+1\")\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "compile_then_run_valid_control",
       "description": "Discovery control: compile first, then run the entry point only after compile accepts.",
       "provenance": "vbe-oracle-verified",

@@ -172,7 +172,9 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('TimeValue', 'TimeValue(Time) As Date', 'Date'),
 
 	// -- Arrays / inspection ------------------------------------------------
-	fn('Array', 'Array(ArgList) As Variant', 'Variant'),
+	fn('Array', 'Array(ArgList) As Variant', 'Variant', [
+		{ name: 'ArgList', type: 'Variant', optional: true, paramArray: true },
+	]),
 	fn('LBound', 'LBound(ArrayName, [Dimension = 1]) As Long', 'Long'),
 	fn('UBound', 'UBound(ArrayName, [Dimension = 1]) As Long', 'Long'),
 	fn('IsArray', 'IsArray(VarName) As Boolean', 'Boolean'),
