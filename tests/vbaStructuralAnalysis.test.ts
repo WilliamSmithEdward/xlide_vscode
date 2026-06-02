@@ -13,8 +13,6 @@ import {
     smartBlockBodyText,
     smartBlockInsertion,
     withMemberContinuationText,
-    detectProcOpener,
-    isProcClosedAhead,
     normalizeSmartBlockLayout,
 } from '../src/vbaStructuralAnalysis';
 
@@ -228,21 +226,21 @@ describe('shared VBA source text helpers', () => {
     });
 });
 
-describe('detectProcOpener', () => {
+describe('detectSmartBlockOpener procedure headers', () => {
     it('detects Sub', () => {
-        expect(detectProcOpener('Sub Foo()')).toEqual({ endKeyword: 'End Sub' });
+        expect(detectSmartBlockOpener('Sub Foo()')).toEqual({ endKeyword: 'End Sub' });
     });
     it('detects Public Function', () => {
-        expect(detectProcOpener('Public Function Bar() As Long')).toEqual({ endKeyword: 'End Function' });
+        expect(detectSmartBlockOpener('Public Function Bar() As Long')).toEqual({ endKeyword: 'End Function' });
     });
     it('detects Property Get', () => {
-        expect(detectProcOpener('Property Get Name() As String')).toEqual({ endKeyword: 'End Property' });
+        expect(detectSmartBlockOpener('Property Get Name() As String')).toEqual({ endKeyword: 'End Property' });
     });
     it('ignores Declare Sub', () => {
-        expect(detectProcOpener('Declare Sub Sleep Lib "k" ()')).toBeUndefined();
+        expect(detectSmartBlockOpener('Declare Sub Sleep Lib "k" ()')).toBeUndefined();
     });
     it('ignores non-procedures', () => {
-        expect(detectProcOpener('Dim x As Long')).toBeUndefined();
+        expect(detectSmartBlockOpener('Dim x As Long')).toBeUndefined();
     });
 });
 
@@ -302,18 +300,18 @@ describe('detectSmartBlockOpener', () => {
     });
 });
 
-describe('isProcClosedAhead', () => {
+describe('isSmartBlockClosedAhead procedure headers', () => {
     it('returns true when End Sub follows', () => {
         const lines = ['Sub Foo()', '    x = 1', 'End Sub'];
-        expect(isProcClosedAhead(lines, 0, 'End Sub')).toBe(true);
+        expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'End Sub' })).toBe(true);
     });
     it('returns false when no End before next proc', () => {
         const lines = ['Sub Foo()', '    x = 1', 'Sub Bar()', 'End Sub'];
-        expect(isProcClosedAhead(lines, 0, 'End Sub')).toBe(false);
+        expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'End Sub' })).toBe(false);
     });
     it('returns false at end of file', () => {
         const lines = ['Sub Foo()', '    x = 1'];
-        expect(isProcClosedAhead(lines, 0, 'End Sub')).toBe(false);
+        expect(isSmartBlockClosedAhead(lines, 0, { endKeyword: 'End Sub' })).toBe(false);
     });
 });
 

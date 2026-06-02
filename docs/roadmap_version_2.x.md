@@ -1010,9 +1010,9 @@ auditable, and recoverable for real user projects.
   `Skipping import`, `.frm` designer files stay out of scope, and the
   delete/mirror import mode only removes workbook-only standard/class modules.
 - [x] Move import/export-specific settings into the import/export diff GUI as
-  the primary configuration surface. The GUI should show effective defaults,
-  allow per-workbook overrides for folder/export mode/related sync options, and
-  persist selected workbook settings to a sidecar named
+  the primary configuration surface. The GUI shows effective defaults and
+  source labels, allows per-workbook overrides for folder/export/import sync
+  options, and persists selected workbook settings to a sidecar named
   `<workbook>.xlide_settings.json` (for example
   `workbook.xlsm.xlide_settings.json`). Global/default settings live in
   machine-scoped VS Code configuration; workbook-only choices live only in the
@@ -1072,6 +1072,12 @@ the deterministic analyzer contract.
   tracking, import/export GUI saves, export commands, and agent export-mode
   changes now flow through the same settings owner instead of rebuilding the
   sidecar shape locally.
+- [x] Apply the resolver/provenance pattern to the import/export diff surface.
+  `src/workbookModuleSyncSettings.ts` now owns effective sync folder/mode
+  values and source metadata for commands, the diff preview, export helpers,
+  and agent export-mode configuration. The generic sidecar owner stays in
+  `src/workbookSettings.ts`, and sync saves preserve unrelated workbook
+  settings instead of stamping defaults for the opposite import/export lane.
 - [ ] Surface all configuration through the unified XLIDE sidebar menu
   collection, while preserving normal VS Code Settings integration for users
   who prefer native settings UI.

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import type { ImportMode, ModuleSyncPlan } from './moduleSyncPlan';
+import type { ImportMode, ModuleSyncFolderSource, ModuleSyncModeSource, ModuleSyncPlan } from './moduleSyncPlan';
 import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
 
 export interface ModuleSyncApplyResult {
@@ -13,8 +13,12 @@ export interface ModuleSyncApplyResult {
 
 export interface ModuleSyncSettings {
     folderPath: string;
+    folderPathSource?: ModuleSyncFolderSource;
     exportMode?: ExportMode;
+    exportModeSource?: ModuleSyncModeSource;
     importMode?: ImportMode;
+    importModeSource?: ModuleSyncModeSource;
+    settingsPath?: string;
 }
 
 export interface ModuleSyncPreviewOptions {
@@ -409,6 +413,14 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        .settingMeta {
+            color: var(--muted);
+            font-size: 11px;
+            min-height: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         select {
             min-height: 28px;
             color: var(--vscode-dropdown-foreground);
@@ -632,6 +644,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                     <div class="field">
                         <label id="folderLabel"></label>
                         <div class="folderValue" id="folderValue"></div>
+                        <div class="settingMeta" id="folderSource"></div>
                     </div>
                     <button class="secondary" id="chooseFolder">Change</button>
                     <div class="field" id="modeField">
@@ -640,6 +653,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                             <option value="exportAll">Export All (No Deletes)</option>
                             <option value="trueUp">Export All + Delete Missing</option>
                         </select>
+                        <div class="settingMeta" id="modeSource"></div>
                     </div>
                 </div>
             </div>
@@ -868,6 +882,24 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 : 'Import/update selected .bas/.cls files without deleting workbook modules. New standard/class modules can be created; existing document modules and UserForm .cls code-behind are updated on name match; missing document modules and UserForm code-behind are skipped because XLIDE cannot create them directly.';
         }
 
+        function settingsSourceLabel(source) {
+            if (source === 'workbook') return 'Workbook override';
+            if (source === 'session') return 'Current session';
+            if (source === 'machine') return 'VS Code machine setting';
+            if (source === 'unknown') return 'Unknown';
+            return 'Built-in default';
+        }
+
+        function folderSourceLabel(source) {
+            if (source === 'workbook') return 'Workbook sidecar';
+            if (source === 'session') return 'Current session';
+            return 'Not saved';
+        }
+
+        function settingsPathDescription() {
+            return plan.settingsPath ? \` Settings file: \${plan.settingsPath}\` : '';
+        }
+
         function updateModeTitle() {
             clearTooltip('syncMode');
             clearTooltip('modeLabel');
@@ -879,9 +911,11 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             el('subtitle').textContent = \`\${plan.workbookPath} <-> \${plan.folderPath}\${plan.exportMode ? '  [' + plan.exportMode + ']' : ''}\`;
             el('folderLabel').textContent = plan.direction === 'export' ? 'Export folder' : 'Import folder';
             el('folderValue').textContent = plan.folderPath;
+            el('folderSource').textContent = \`Source: \${folderSourceLabel(plan.folderPathSource)}\`;
             setTooltip('folderValue', plan.direction === 'export'
                 ? \`Folder XLIDE will compare against and write selected workbook modules into: \${plan.folderPath}\`
                 : \`Folder XLIDE will compare against and import selected module files from: \${plan.folderPath}\`);
+            setTooltip('folderSource', \`This folder is workbook-scoped.\${settingsPathDescription()}\`);
             setTooltip('chooseFolder', plan.direction === 'export'
                 ? 'Choose the folder to compare with this workbook and receive exported module files.'
                 : 'Choose the folder containing module files to compare with and import into this workbook.');
@@ -899,6 +933,9 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 mode.append(option('trueUpStandardClass', 'Import/Update + Delete Missing', modeDescription('trueUpStandardClass')));
                 mode.value = plan.importMode || 'updateOnly';
             }
+            const modeSource = plan.direction === 'export' ? plan.exportModeSource : plan.importModeSource;
+            el('modeSource').textContent = \`Source: \${settingsSourceLabel(modeSource)}\`;
+            setTooltip('modeSource', \`This mode uses a workbook override when present, otherwise the built-in default.\${settingsPathDescription()}\`);
             updateModeTitle();
             el('selectChanged').textContent = plan.direction === 'import' ? 'Select Importable' : 'Select Changed';
             setTooltip('selectChanged', plan.direction === 'import'
@@ -1190,18 +1227,32 @@ function settingsFromMessage(
     plan: ModuleSyncPlan,
     message: { folderPath?: string; exportMode?: ExportMode; importMode?: ImportMode },
 ): ModuleSyncSettings {
+    const exportModeSource = message.exportMode !== undefined && message.exportMode !== plan.exportMode
+        ? 'session'
+        : plan.exportModeSource;
+    const importModeSource = message.importMode !== undefined && message.importMode !== plan.importMode
+        ? 'session'
+        : plan.importModeSource;
     return {
         folderPath: message.folderPath ?? plan.folderPath,
+        folderPathSource: plan.folderPathSource,
         exportMode: message.exportMode ?? plan.exportMode,
+        exportModeSource,
         importMode: message.importMode ?? plan.importMode,
+        importModeSource,
+        settingsPath: plan.settingsPath,
     };
 }
 
 function settingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
     return {
         folderPath: plan.folderPath,
+        folderPathSource: plan.folderPathSource,
         exportMode: plan.exportMode,
+        exportModeSource: plan.exportModeSource,
         importMode: plan.importMode,
+        importModeSource: plan.importModeSource,
+        settingsPath: plan.settingsPath,
     };
 }
 

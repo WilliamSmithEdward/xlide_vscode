@@ -1559,8 +1559,13 @@ Implementation priority:
 6. [x] Declare contributed `xlide.*` VS Code settings as machine-scoped in
    `package.json`, guarded by a package manifest test so workbook-specific
    settings cannot drift into workspace/folder configuration.
-7. [ ] Apply the same resolver pattern to the future test runner GUI and any
-   workbook diff/sync surface.
+7. [x] Apply the same resolver pattern to the workbook import/export diff/sync
+   surface. `workbookModuleSyncSettings.ts` now resolves effective folder and
+   mode values with provenance for commands, the preview GUI, export helpers,
+   and agent export-mode configuration, while `workbookSettings.ts` remains the
+   single strict sidecar parser/writer.
+8. [ ] Apply the same resolver pattern to the future test runner GUI once it
+   has workbook-scoped run settings.
 
 Suggested initial settings:
 

@@ -17,10 +17,6 @@ import {
     exportWorkbookModule,
 } from './moduleExport';
 import {
-    normalizeExportMode,
-    readWorkbookSettings,
-    settingsPathForWorkbook,
-    updateWorkbookSettings,
     type ExportMode,
 } from './workbookSettings';
 import {
@@ -90,7 +86,6 @@ import {
 import {
     buildExportModuleSyncPlan,
     buildImportModuleSyncPlan,
-    normalizeImportMode,
     type ImportMode,
     type ModuleSyncPlan,
     type ModuleSyncPlanItem,
@@ -100,6 +95,12 @@ import {
     type ModuleSyncApplyResult,
     type ModuleSyncSettings,
 } from './moduleSyncWebview';
+import {
+    effectiveWorkbookModuleSyncSettings,
+    updateWorkbookModuleSyncSettings,
+    type WorkbookModuleSyncFolderSource,
+    type WorkbookModuleSyncModeSource,
+} from './workbookModuleSyncSettings';
 import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
 
@@ -110,6 +111,13 @@ type AnalysisSuppressionInsertionTarget =
 
 type SuppressibleMember = Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>;
 type BlockBodyNode = Extract<BodyNode, { body: BodyNode[] }>;
+
+interface ResolvedModuleSyncSettings extends ModuleSyncSettings {
+    folderPathSource: WorkbookModuleSyncFolderSource;
+    exportModeSource?: WorkbookModuleSyncModeSource;
+    importModeSource?: WorkbookModuleSyncModeSource;
+    settingsPath: string;
+}
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -679,11 +687,16 @@ export function registerCommands(
     async function resolveWorkbookExportFolder(
         filePath: string,
         openLabel: string,
-    ): Promise<{ exportFolder: string; exportMode: ExportMode } | undefined> {
-        const existingConfig = await readWorkbookSettings(filePath);
-        const exportMode = normalizeExportMode(existingConfig.exportMode);
-        if (existingConfig.exportFolder) {
-            return { exportFolder: existingConfig.exportFolder, exportMode };
+    ): Promise<ResolvedModuleSyncSettings | undefined> {
+        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
+        if (existing.folderPath) {
+            return {
+                folderPath: existing.folderPath,
+                folderPathSource: existing.folderPathSource,
+                exportMode: existing.exportMode,
+                exportModeSource: existing.exportModeSource,
+                settingsPath: existing.settingsPath,
+            };
         }
 
         const selected = await vscode.window.showOpenDialog({
@@ -696,16 +709,27 @@ export function registerCommands(
         if (!selected || selected.length === 0) {
             return undefined;
         }
-        return { exportFolder: selected[0].fsPath, exportMode };
+        return {
+            folderPath: selected[0].fsPath,
+            folderPathSource: 'session',
+            exportMode: existing.exportMode,
+            exportModeSource: existing.exportModeSource,
+            settingsPath: existing.settingsPath,
+        };
     }
 
     async function resolveWorkbookImportFolder(
         filePath: string,
-    ): Promise<{ importFolder: string; importMode: ImportMode } | undefined> {
-        const existingConfig = await readWorkbookSettings(filePath);
-        const importMode = normalizeImportMode(existingConfig.importMode);
-        if (existingConfig.exportFolder) {
-            return { importFolder: existingConfig.exportFolder, importMode };
+    ): Promise<ResolvedModuleSyncSettings | undefined> {
+        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
+        if (existing.folderPath) {
+            return {
+                folderPath: existing.folderPath,
+                folderPathSource: existing.folderPathSource,
+                importMode: existing.importMode,
+                importModeSource: existing.importModeSource,
+                settingsPath: existing.settingsPath,
+            };
         }
 
         const selected = await vscode.window.showOpenDialog({
@@ -715,32 +739,44 @@ export function registerCommands(
             openLabel: 'Select folder to import from',
             defaultUri: vscode.Uri.file(path.dirname(filePath)),
         });
-        return selected?.[0]?.fsPath ? { importFolder: selected[0].fsPath, importMode } : undefined;
+        return selected?.[0]?.fsPath ? {
+            folderPath: selected[0].fsPath,
+            folderPathSource: 'session',
+            importMode: existing.importMode,
+            importModeSource: existing.importModeSource,
+            settingsPath: existing.settingsPath,
+        } : undefined;
     }
 
     async function resolveWorkbookExportFolderFromSettings(
         filePath: string,
-    ): Promise<ModuleSyncSettings | undefined> {
-        const existingConfig = await readWorkbookSettings(filePath);
-        if (!existingConfig.exportFolder) {
+    ): Promise<ResolvedModuleSyncSettings | undefined> {
+        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
+        if (!existing.folderPath) {
             return undefined;
         }
         return {
-            folderPath: existingConfig.exportFolder,
-            exportMode: normalizeExportMode(existingConfig.exportMode),
+            folderPath: existing.folderPath,
+            folderPathSource: existing.folderPathSource,
+            exportMode: existing.exportMode,
+            exportModeSource: existing.exportModeSource,
+            settingsPath: existing.settingsPath,
         };
     }
 
     async function resolveWorkbookImportFolderFromSettings(
         filePath: string,
-    ): Promise<ModuleSyncSettings | undefined> {
-        const existingConfig = await readWorkbookSettings(filePath);
-        if (!existingConfig.exportFolder) {
+    ): Promise<ResolvedModuleSyncSettings | undefined> {
+        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
+        if (!existing.folderPath) {
             return undefined;
         }
         return {
-            folderPath: existingConfig.exportFolder,
-            importMode: normalizeImportMode(existingConfig.importMode),
+            folderPath: existing.folderPath,
+            folderPathSource: existing.folderPathSource,
+            importMode: existing.importMode,
+            importModeSource: existing.importModeSource,
+            settingsPath: existing.settingsPath,
         };
     }
 
@@ -764,8 +800,12 @@ export function registerCommands(
     function syncSettingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
         return {
             folderPath: plan.folderPath,
+            folderPathSource: plan.folderPathSource,
             exportMode: plan.exportMode,
+            exportModeSource: plan.exportModeSource,
             importMode: plan.importMode,
+            importModeSource: plan.importModeSource,
+            settingsPath: plan.settingsPath,
         };
     }
 
@@ -779,6 +819,9 @@ export function registerCommands(
             workbookPath: filePath,
             exportFolder: settings.folderPath,
             exportMode: settings.exportMode,
+            folderPathSource: settings.folderPathSource,
+            exportModeSource: settings.exportModeSource,
+            settingsPath: settings.settingsPath,
         });
     }
 
@@ -792,6 +835,9 @@ export function registerCommands(
             workbookPath: filePath,
             importFolder: settings.folderPath,
             importMode: settings.importMode,
+            folderPathSource: settings.folderPathSource,
+            importModeSource: settings.importModeSource,
+            settingsPath: settings.settingsPath,
         });
     }
 
@@ -813,13 +859,12 @@ export function registerCommands(
         filePath: string,
         settings: ModuleSyncSettings,
     ): Promise<string> {
-        await updateWorkbookSettings(filePath, (existingConfig) => ({
-            ...existingConfig,
-            exportFolder: settings.folderPath,
-            exportMode: normalizeExportMode(settings.exportMode ?? existingConfig.exportMode),
-            importMode: normalizeImportMode(settings.importMode ?? existingConfig.importMode),
-        }));
-        return settingsPathForWorkbook(filePath);
+        const updated = await updateWorkbookModuleSyncSettings(filePath, {
+            folderPath: settings.folderPath,
+            exportMode: settings.exportMode,
+            importMode: settings.importMode,
+        });
+        return updated.settingsPath;
     }
 
     async function saveModuleSyncSettings(
@@ -877,13 +922,13 @@ export function registerCommands(
 
         log(`[exportCurrentModule] Workbook: ${xlsmPath}`);
         log(`[exportCurrentModule] Module: ${moduleName}`);
-        log(`[exportCurrentModule] Target folder: ${target.exportFolder}`);
+        log(`[exportCurrentModule] Target folder: ${target.folderPath}`);
         log(`[exportCurrentModule] Mode: ${target.exportMode}`);
 
         const result = await exportWorkbookModule(bridge, {
             filePath: xlsmPath,
             moduleName,
-            exportFolder: target.exportFolder,
+            exportFolder: target.folderPath,
             exportMode: target.exportMode,
         });
         const changeSummary: XlideChangeSummary = {
@@ -897,7 +942,7 @@ export function registerCommands(
             outcome: 'succeeded',
             workbookPath: xlsmPath,
             moduleName,
-            targetPath: target.exportFolder,
+            targetPath: target.folderPath,
             summary: summaryText,
         });
 
@@ -914,12 +959,15 @@ export function registerCommands(
         }
 
         log(`[exportModules] Workbook: ${filePath}`);
-        log(`[exportModules] Target folder: ${target.exportFolder}`);
+        log(`[exportModules] Target folder: ${target.folderPath}`);
         log(`[exportModules] Mode: ${target.exportMode}`);
 
         const plan = await buildExportSyncPlanFromSettings(filePath, {
-            folderPath: target.exportFolder,
+            folderPath: target.folderPath,
+            folderPathSource: target.folderPathSource,
             exportMode: target.exportMode,
+            exportModeSource: target.exportModeSource,
+            settingsPath: target.settingsPath,
         });
         const result = await openModuleSyncPreview(
             context,
@@ -931,7 +979,7 @@ export function registerCommands(
                     if (!folderPath) {
                         return undefined;
                     }
-                    return buildExportSyncPlanFromSettings(filePath, { ...settings, folderPath });
+                    return buildExportSyncPlanFromSettings(filePath, { ...settings, folderPath, folderPathSource: 'session' });
                 },
                 onRefresh: (settings) => buildExportSyncPlanFromSettings(filePath, settings),
                 onReloadWorkbookSettings: () => buildExportSyncPlanFromWorkbookSettings(filePath),
@@ -956,12 +1004,15 @@ export function registerCommands(
         }
 
         log(`[importModules] Workbook: ${filePath}`);
-        log(`[importModules] Source folder: ${target.importFolder}`);
+        log(`[importModules] Source folder: ${target.folderPath}`);
         log(`[importModules] Mode: ${target.importMode}`);
 
         const plan = await buildImportSyncPlanFromSettings(filePath, {
-            folderPath: target.importFolder,
+            folderPath: target.folderPath,
+            folderPathSource: target.folderPathSource,
             importMode: target.importMode,
+            importModeSource: target.importModeSource,
+            settingsPath: target.settingsPath,
         });
         const result = await openModuleSyncPreview(
             context,
@@ -973,7 +1024,7 @@ export function registerCommands(
                     if (!folderPath) {
                         return undefined;
                     }
-                    return buildImportSyncPlanFromSettings(filePath, { ...settings, folderPath });
+                    return buildImportSyncPlanFromSettings(filePath, { ...settings, folderPath, folderPathSource: 'session' });
                 },
                 onRefresh: (settings) => buildImportSyncPlanFromSettings(filePath, settings),
                 onReloadWorkbookSettings: () => buildImportSyncPlanFromWorkbookSettings(filePath),

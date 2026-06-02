@@ -31,6 +31,7 @@ xlide_vscode/
     agentTools.ts       LanguageModelTool registrations for AI agent use
     moduleExport.ts     Shared module export logic for UI commands and AI tools
     workbookSettings.ts Strict workbook settings sidecar path, schema validation, and persistence
+    workbookModuleSyncSettings.ts Effective workbook import/export sync settings and provenance
     globalSettings.ts  Machine-scoped VS Code XLIDE setting validation, normalization, and provenance
     liveShare.ts        LiveShareIntegration — host/guest Live Share bridge over the VSLS service API
     statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
@@ -248,9 +249,12 @@ On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in 
 
 `moduleExport.ts` is the single source of truth for writing exported module
 files. `workbookSettings.ts` owns the workbook settings sidecar path, strict
-schema validation, workbook-over-global provenance resolution, and normalized
-read/patch/write persistence. `moduleSyncPlan.ts` builds the UI preview model
-used by bulk import/export.
+schema validation, generic workbook-over-global provenance resolution, and
+normalized read/patch/write persistence. `workbookModuleSyncSettings.ts` owns
+the effective import/export folder and mode model, including source provenance
+for workbook overrides, built-in defaults, and unsaved session edits.
+`moduleSyncPlan.ts` builds the UI preview model used by bulk import/export and
+carries that resolved settings metadata into the webview.
 
 Both lanes call into these shared owners:
 
@@ -267,8 +271,11 @@ Both lanes call into these shared owners:
 
 **Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules and UserForm `.cls` code-behind modules can be updated when the workbook already has a same-named module, but they cannot be created directly from import; missing document/UserForm-code-behind rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. `.frm` designer files are ignored by import/export sync. Import mode defaults to `updateOnly` (`Import/Update (No Deletes)`). `trueUpStandardClass` (`Import/Update + Delete Missing`) performs the same create/update pass, then previews workbook-only standard/class modules as removable rows; document modules and UserForm code-behind modules are excluded from true-up removals.
 
-Import/export settings live in the preview GUI so folder and mode edits use the same planner and persistence path as apply.
-Workbook-specific settings are written beside the workbook; global/default settings live in machine-scoped VS Code configuration:
+Import/export settings live in the preview GUI so folder and mode edits use the
+same resolver, planner, and persistence path as apply. The preview shows quiet
+source labels for folder and mode values. Workbook-specific settings are
+written beside the workbook; global/default settings live in machine-scoped VS
+Code configuration:
 
 ```
 <workbook-filename>.xlide_settings.json
@@ -290,7 +297,14 @@ Workbook settings schema:
 
 `trueUp` export treats the selected folder as the workbook's module folder: it proposes/removes only root `.bas` and `.cls` module files that do not map to a live workbook module. Other file types, nested files, and `.frm` designer files are outside import/export sync.
 
-On later runs, `exportFolder` is used as the default folder in the preview GUI. XLIDE reads and writes only `<workbook-filename>.xlide_settings.json`; older sidecar names are not part of the supported settings contract. If that sidecar exists but contains invalid JSON, unknown keys, invalid sync modes, or invalid analysis settings, XLIDE reports the settings file as invalid instead of treating it as empty defaults.
+On later runs, `exportFolder` is used as the default folder in the preview GUI.
+Mode edits write only the edited sync mode and preserve unrelated workbook
+settings, so export saves do not stamp import defaults and import saves do not
+stamp export defaults. XLIDE reads and writes only
+`<workbook-filename>.xlide_settings.json`; older sidecar names are not part of
+the supported settings contract. If that sidecar exists but contains invalid
+JSON, unknown keys, invalid sync modes, or invalid analysis settings, XLIDE
+reports the settings file as invalid instead of treating it as empty defaults.
 
 ---
 

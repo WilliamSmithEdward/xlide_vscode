@@ -6,7 +6,6 @@ import {
 	isWorkbookSettingsError,
 	readWorkbookSettings,
 	resolveWorkbookSetting,
-	setWorkbookExportMode,
 	settingsPathForWorkbook,
 	updateWorkbookSettings,
 	writeWorkbookSettings,
@@ -108,38 +107,6 @@ describe('workbookSettings', () => {
 		});
 
 		expect(fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8')).toBe(before);
-	});
-
-	it('updates export mode through the workbook settings owner', async () => {
-		const { workbook } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
-			exportFolder: 'C:/repo',
-			exportMode: 'exportAll',
-			importMode: 'trueUpStandardClass',
-			analysis: {
-				visibleSeverities: ['error', 'information'],
-				untrackedRules: ['option-explicit-missing'],
-			},
-		});
-
-		await expect(setWorkbookExportMode(workbook, 'trueUp')).resolves.toEqual({
-			exportFolder: 'C:/repo',
-			exportMode: 'trueUp',
-			importMode: 'trueUpStandardClass',
-			analysis: {
-				visibleSeverities: ['error', 'information'],
-				untrackedRules: ['option-explicit-missing'],
-			},
-		});
-		expect(await readWorkbookSettings(workbook)).toEqual({
-			exportFolder: 'C:/repo',
-			exportMode: 'trueUp',
-			importMode: 'trueUpStandardClass',
-			analysis: {
-				visibleSeverities: ['error', 'information'],
-				untrackedRules: ['option-explicit-missing'],
-			},
-		});
 	});
 
 	it('rejects invalid workbook settings JSON with the sidecar path', async () => {

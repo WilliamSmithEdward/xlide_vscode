@@ -5,7 +5,8 @@ import { XlideFileSystemProvider, encodeModuleUri, notifySignatureDropped } from
 import {
     exportWorkbookModules,
 } from './moduleExport';
-import { setWorkbookExportMode, type ExportMode } from './workbookSettings';
+import { type ExportMode } from './workbookSettings';
+import { setWorkbookModuleSyncExportMode } from './workbookModuleSyncSettings';
 import { analyzeWorkbook } from './vbaWorkbookAnalysis';
 import { errorCategoryForSupportLog } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
@@ -530,7 +531,7 @@ export function registerAgentTools(
         vscode.lm.registerTool<ConfigureExportModeInput>('xlide_configureExportMode', {
             async invoke(options, _token) {
                 const { filePath, exportMode } = options.input;
-                const updated = await setWorkbookExportMode(filePath, exportMode);
+                const updated = await setWorkbookModuleSyncExportMode(filePath, exportMode);
                 return textResult(JSON.stringify({ filePath, ...updated }, null, 2));
             },
             async prepareInvocation(options, _token) {

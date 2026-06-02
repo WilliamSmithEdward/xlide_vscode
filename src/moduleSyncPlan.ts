@@ -7,10 +7,17 @@ import {
     relativeNameForModule,
     sanitizeFileName,
 } from './moduleExport';
-import { normalizeExportMode, type ExportMode } from './workbookSettings';
+import {
+    normalizeExportMode,
+    normalizeImportMode,
+    type ExportMode,
+    type WorkbookSettingSource,
+} from './workbookSettings';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
+export type ModuleSyncFolderSource = 'workbook' | 'session' | 'missing';
+export type ModuleSyncModeSource = WorkbookSettingSource | 'session';
 export type ModuleSyncItemStatus =
     | 'will-write'
     | 'unchanged'
@@ -58,8 +65,12 @@ export interface ModuleSyncPlan {
     direction: ModuleSyncDirection;
     workbookPath: string;
     folderPath: string;
+    folderPathSource?: ModuleSyncFolderSource;
     exportMode?: ExportMode;
+    exportModeSource?: ModuleSyncModeSource;
     importMode?: ImportMode;
+    importModeSource?: ModuleSyncModeSource;
+    settingsPath?: string;
     title: string;
     items: ModuleSyncPlanItem[];
     warnings: string[];
@@ -87,6 +98,9 @@ export async function buildExportModuleSyncPlan(
         workbookPath: string;
         exportFolder: string;
         exportMode?: ExportMode;
+        folderPathSource?: ModuleSyncFolderSource;
+        exportModeSource?: ModuleSyncModeSource;
+        settingsPath?: string;
     },
 ): Promise<ModuleSyncPlan> {
     const exportMode = normalizeExportMode(params.exportMode);
@@ -181,7 +195,10 @@ export async function buildExportModuleSyncPlan(
         direction: 'export',
         workbookPath: params.workbookPath,
         folderPath: params.exportFolder,
+        folderPathSource: params.folderPathSource,
         exportMode,
+        exportModeSource: params.exportModeSource,
+        settingsPath: params.settingsPath,
         title: `Export modules: ${path.basename(params.workbookPath)}`,
         items: [...items, ...staleItems].sort(compareSyncItems),
         warnings: [],
@@ -194,6 +211,9 @@ export async function buildImportModuleSyncPlan(
         workbookPath: string;
         importFolder: string;
         importMode?: ImportMode;
+        folderPathSource?: ModuleSyncFolderSource;
+        importModeSource?: ModuleSyncModeSource;
+        settingsPath?: string;
     },
 ): Promise<ModuleSyncPlan> {
     const importMode = normalizeImportMode(params.importMode);
@@ -297,17 +317,16 @@ export async function buildImportModuleSyncPlan(
         direction: 'import',
         workbookPath: params.workbookPath,
         folderPath: params.importFolder,
+        folderPathSource: params.folderPathSource,
         importMode,
+        importModeSource: params.importModeSource,
+        settingsPath: params.settingsPath,
         title: `Import modules: ${path.basename(params.workbookPath)}`,
         items: [...items, ...workbookOnlyItems].sort(compareSyncItems),
         warnings: items
             .filter((item) => item.unsupportedDirectCreation)
             .map((item) => `${item.moduleName}: skipping import unless the module already exists in the workbook.`),
     };
-}
-
-export function normalizeImportMode(mode: ImportMode | undefined): ImportMode {
-    return mode === 'trueUpStandardClass' ? 'trueUpStandardClass' : 'updateOnly';
 }
 
 export function buildSideBySideDiff(leftText: string, rightText: string): ModuleSyncDiffLine[] {

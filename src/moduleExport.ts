@@ -3,11 +3,12 @@ import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import {
     normalizeExportMode,
-    readWorkbookSettings,
-    settingsPathForWorkbook,
-    updateWorkbookSettings,
     type ExportMode,
 } from './workbookSettings';
+import {
+    effectiveWorkbookModuleSyncSettings,
+    updateWorkbookModuleSyncSettings,
+} from './workbookModuleSyncSettings';
 
 interface ModuleInfo {
     name: string;
@@ -120,13 +121,13 @@ async function exportWorkbookModule(
     bridge: PythonBridge,
     params: ExportModuleParams,
 ): Promise<ExportModuleResult> {
-    const existingConfig = await readWorkbookSettings(params.filePath);
-    const exportFolder = params.exportFolder ?? existingConfig.exportFolder;
+    const existingSettings = await effectiveWorkbookModuleSyncSettings(params.filePath);
+    const exportFolder = params.exportFolder ?? existingSettings.folderPath;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
     }
 
-    const exportMode = normalizeExportMode(params.exportMode ?? existingConfig.exportMode);
+    const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
     await fs.promises.mkdir(exportFolder, { recursive: true });
 
     const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
@@ -139,11 +140,10 @@ async function exportWorkbookModule(
 
     const exported = await exportModuleFile(bridge, params.filePath, mod, exportFolder);
 
-    await updateWorkbookSettings(params.filePath, (existing) => ({
-        ...existing,
-        exportFolder,
+    const updatedSettings = await updateWorkbookModuleSyncSettings(params.filePath, {
+        folderPath: exportFolder,
         exportMode,
-    }));
+    });
 
     return {
         filePath: params.filePath,
@@ -154,7 +154,7 @@ async function exportWorkbookModule(
         relativeName: exported.relativeName,
         written: exported.written,
         writtenFiles: exported.written ? [exported.relativeName] : [],
-        configPath: settingsPathForWorkbook(params.filePath),
+        configPath: updatedSettings.settingsPath,
     };
 }
 
@@ -162,13 +162,13 @@ async function exportWorkbookModules(
     bridge: PythonBridge,
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
-    const existingConfig = await readWorkbookSettings(params.filePath);
-    const exportFolder = params.exportFolder ?? existingConfig.exportFolder;
+    const existingSettings = await effectiveWorkbookModuleSyncSettings(params.filePath);
+    const exportFolder = params.exportFolder ?? existingSettings.folderPath;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
     }
 
-    const exportMode = normalizeExportMode(params.exportMode ?? existingConfig.exportMode);
+    const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
     await fs.promises.mkdir(exportFolder, { recursive: true });
 
     const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
@@ -206,11 +206,10 @@ async function exportWorkbookModules(
         }
     }
 
-    await updateWorkbookSettings(params.filePath, (existing) => ({
-        ...existing,
-        exportFolder,
+    const updatedSettings = await updateWorkbookModuleSyncSettings(params.filePath, {
+        folderPath: exportFolder,
         exportMode,
-    }));
+    });
 
     return {
         filePath: params.filePath,
@@ -221,7 +220,7 @@ async function exportWorkbookModules(
         writtenFiles,
         removedFiles,
         totalModules: modules.length,
-        configPath: settingsPathForWorkbook(params.filePath),
+        configPath: updatedSettings.settingsPath,
     };
 }
 

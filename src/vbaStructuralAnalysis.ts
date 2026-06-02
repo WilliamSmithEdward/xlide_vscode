@@ -902,22 +902,6 @@ export function withMemberContinuationText(
 }
 
 /**
- * Back-compat wrapper for tests/providers that only care about procedure
- * headers. New smart-enter callers should use `detectSmartBlockOpener`.
- */
-export function detectProcOpener(strippedLine: string): { endKeyword: string } | undefined {
-    const opener = detectSmartBlockOpener(strippedLine);
-    if (
-        opener?.endKeyword === 'End Sub' ||
-        opener?.endKeyword === 'End Function' ||
-        opener?.endKeyword === 'End Property'
-    ) {
-        return { endKeyword: opener.endKeyword };
-    }
-    return undefined;
-}
-
-/**
  * Returns true if the smart-enter block opener already has a compatible closer
  * before the next procedure opener or end of file.
  * `strippedLines` must already have strings/comments removed.
@@ -933,15 +917,6 @@ export function isSmartBlockClosedAhead(
         if (isProcedureOpener(t)) { return false; }
     }
     return false;
-}
-
-/**
- * Back-compat wrapper for procedure-only smart-enter callers.
- */
-export function isProcClosedAhead(
-    strippedLines: string[], openerIdx: number, endKeyword: string,
-): boolean {
-    return isSmartBlockClosedAhead(strippedLines, openerIdx, { endKeyword });
 }
 
 function forIteratorName(t: string): string | undefined {

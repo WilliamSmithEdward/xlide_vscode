@@ -65,6 +65,9 @@ Use discernment when deciding where settings live.
 - A workbook GUI action must not silently mutate global defaults.
 - Sidecar path resolution, schema validation, and reads/writes should live in
   the shared workbook settings owner, not in individual feature modules.
+- Feature-specific effective setting modules may project those shared settings
+  into product concepts, but they must consume the shared owners rather than
+  reading, writing, or normalizing sidecars independently.
 - Workbook-over-global fallback and source provenance should use the shared
   workbook settings resolver; production sidecar mutations should use the
   shared read/patch/write helper so unrelated workbook settings are preserved.

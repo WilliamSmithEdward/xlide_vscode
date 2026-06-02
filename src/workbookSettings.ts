@@ -50,6 +50,10 @@ function normalizeExportMode(mode: ExportMode | unknown): ExportMode {
     return mode === 'trueUp' ? 'trueUp' : 'exportAll';
 }
 
+function normalizeImportMode(mode: ImportMode | unknown): ImportMode {
+    return mode === 'trueUpStandardClass' ? 'trueUpStandardClass' : 'updateOnly';
+}
+
 function resolveWorkbookSetting<T>(
     workbookValue: T | undefined,
     fallback: { value: T; source: XlideGlobalSettingSource },
@@ -276,13 +280,6 @@ async function updateWorkbookSettings(
     return updated;
 }
 
-async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promise<WorkbookSettingsConfig> {
-    return updateWorkbookSettings(filePath, (existing) => ({
-        ...existing,
-        exportMode: normalizeExportMode(mode),
-    }));
-}
-
 function isNodeError(value: unknown): value is NodeJS.ErrnoException {
     return value !== null && typeof value === 'object' && 'code' in value;
 }
@@ -308,9 +305,9 @@ export {
     WorkbookSettingsError,
     isWorkbookSettingsError,
     normalizeExportMode,
+    normalizeImportMode,
     readWorkbookSettings,
     resolveWorkbookSetting,
-    setWorkbookExportMode,
     settingsPathForWorkbook,
     updateWorkbookSettings,
     writeWorkbookSettings,
