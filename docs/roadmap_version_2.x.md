@@ -435,8 +435,11 @@ Purpose: move from same-module checks to workbook-aware analysis.
   URI. The fixture locks the shared same-workbook analysis inputs plus
   completion, diagnostics, semantic type coloring, and class-reference location
   behavior; provider surfaces consume that single path.
-- [ ] Add machine-readable workbook-level fixture files for larger project
-  analysis scenarios.
+- [x] Add machine-readable workbook-level fixture files for larger project
+  analysis scenarios. `tests/fixtures/vbaProjects/*.json` now carries workbook
+  modules plus expected project context, completion, diagnostics, semantic
+  tokens, hover, and signature-help assertions through the shared
+  `tests/helpers/vbaProjectFixtures.ts` harness.
 - [x] Keep current project-signature diagnostics stable under module order
   changes.
 

@@ -143,6 +143,13 @@ instead of carrying local workspace-document scans.
 `tests/vbaMultiWorkbookIsolation.test.ts` locks the shared overlay and
 project-analysis inputs with two same-named open workbooks so provider surfaces
 stay workbook-siloed by construction.
+Larger project-analysis regressions should use machine-readable workbook
+fixtures under `tests/fixtures/vbaProjects/*.json`, loaded by
+`tests/helpers/vbaProjectFixtures.ts` and asserted by
+`tests/vbaProjectWorkbookFixtures.test.ts`. Those fixtures carry module source
+plus expected project context, completion, diagnostics, semantic-token, hover,
+and signature-help behavior so multi-surface workbook scenarios do not need
+bespoke one-off test wiring.
 
 ---
 

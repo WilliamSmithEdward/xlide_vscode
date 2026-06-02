@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "id": "project-binder-customer",
+  "description": "Workbook-level project binder fixture with standard, class, document, UDT, enum, procedure, member, hover, signature, diagnostic, and semantic-token assertions.",
+  "modules": [
+    {
+      "name": "Customer",
+      "type": "class",
+      "sourceLines": [
+        "''' <summary>Represents a customer.</summary>",
+        "Option Explicit",
+        "Private mName As String",
+        "Private mAge As Long",
+        "",
+        "Public Property Get Name() As String",
+        "    Name = mName",
+        "End Property",
+        "",
+        "Public Property Let Name(ByVal value As String)",
+        "    mName = value",
+        "End Property",
+        "",
+        "Public Property Get Age() As Long",
+        "    Age = mAge",
+        "End Property",
+        "",
+        "Public Sub Save()",
+        "End Sub",
+        "",
+        "Private Sub SecretCode()",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "Types",
+      "type": "standard",
+      "sourceLines": [
+        "Public Type TAddress",
+        "    Street As String",
+        "    PostalCode As String",
+        "End Type",
+        "",
+        "Private Type THidden",
+        "    Secret As String",
+        "End Type",
+        "",
+        "Public Enum CustomerStatus",
+        "    Active = 1",
+        "    Inactive = 2",
+        "End Enum"
+      ]
+    },
+    {
+      "name": "Finance",
+      "type": "standard",
+      "sourceLines": [
+        "''' <summary>Calculates the invoice total.</summary>",
+        "''' <param name=\"Subtotal\">Pre-tax amount.</param>",
+        "Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double = 0.08) As Currency",
+        "    InvoiceTotal = Subtotal * (1 + TaxRate)",
+        "End Function",
+        "",
+        "Public Sub SharedProc(ByVal customer As Customer, ByVal address As TAddress)",
+        "End Sub",
+        "",
+        "Private Sub HiddenHelper()",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "ThisWorkbook",
+      "type": "document",
+      "documentType": "workbook",
+      "sourceLines": [
+        "Public Sub WorkbookTitle()",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "Sheet1",
+      "type": "document",
+      "documentType": "worksheet",
+      "sourceLines": [
+        "Public Sub SheetAudit()",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "InvoiceService",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub BuildInvoice()",
+        "    Dim customer As Customer",
+        "    Dim address As TAddress",
+        "    Dim status As CustomerStatus",
+        "    Dim total As Currency",
+        "",
+        "    Set customer = New Customer",
+        "    customer.Name = \"Ada\"",
+        "    customer.DoesNotExist",
+        "    address.Street = \"First\"",
+        "    address.Missing = \"Oops\"",
+        "    status = Active",
+        "    total = InvoiceTotal(100)",
+        "    SharedProc customer",
+        "End Sub"
+      ]
+    }
+  ],
+  "assertions": {
+    "moduleContexts": [
+      {
+        "moduleName": "InvoiceService",
+        "knownProcedures": ["buildinvoice", "invoicetotal", "sharedproc"],
+        "absentKnownProcedures": ["hiddenhelper"],
+        "projectTypes": [
+          { "name": "Customer", "kind": "class", "moduleName": "Customer" },
+          { "name": "TAddress", "kind": "userType", "moduleName": "Types" },
+          { "name": "CustomerStatus", "kind": "enum", "moduleName": "Types" },
+          { "name": "ThisWorkbook", "kind": "document", "moduleName": "ThisWorkbook" },
+          { "name": "Sheet1", "kind": "document", "moduleName": "Sheet1" }
+        ],
+        "absentProjectTypes": ["THidden"],
+        "memberSurfaces": [
+          {
+            "name": "Customer",
+            "members": ["Name", "Age", "Save"],
+            "absentMembers": ["SecretCode"]
+          },
+          {
+            "name": "TAddress",
+            "members": ["Street", "PostalCode"],
+            "absentMembers": ["Secret"]
+          },
+          {
+            "name": "ThisWorkbook",
+            "members": ["WorkbookTitle"]
+          },
+          {
+            "name": "Sheet1",
+            "members": ["SheetAudit"]
+          }
+        ]
+      }
+    ],
+    "memberCompletions": [
+      {
+        "moduleName": "InvoiceService",
+        "marker": "customer.",
+        "include": ["Name", "Age", "Save"],
+        "exclude": ["SecretCode", "DoesNotExist"]
+      },
+      {
+        "moduleName": "InvoiceService",
+        "marker": "address.",
+        "include": ["Street", "PostalCode"],
+        "exclude": ["Missing", "Secret"]
+      }
+    ],
+    "diagnostics": [
+      {
+        "moduleName": "InvoiceService",
+        "codes": [
+          {
+            "code": "member-not-found",
+            "count": 2,
+            "messagesContain": ["Customer.DoesNotExist", "TAddress.Missing"]
+          },
+          {
+            "code": "argument-count",
+            "count": 1,
+            "messagesContain": ["SharedProc", "expected 2 arguments"]
+          }
+        ]
+      }
+    ],
+    "semanticTokens": [
+      {
+        "moduleName": "InvoiceService",
+        "tokens": [
+          { "text": "Customer", "type": "class" },
+          { "text": "TAddress", "type": "struct" },
+          { "text": "CustomerStatus", "type": "enum" },
+          { "text": "Currency", "type": "type" },
+          { "text": "Customer", "type": "class" }
+        ]
+      }
+    ],
+    "signatureHelp": [
+      {
+        "moduleName": "InvoiceService",
+        "marker": "InvoiceTotal(",
+        "label": "InvoiceTotal(Subtotal As Currency, [TaxRate As Double = 0.08]) As Currency",
+        "parameters": ["Subtotal As Currency", "[TaxRate As Double = 0.08]"],
+        "documentationContains": "Calculates the invoice total."
+      }
+    ],
+    "hovers": [
+      {
+        "moduleName": "InvoiceService",
+        "marker": "InvoiceTotal",
+        "signature": "Function InvoiceTotal(Subtotal As Currency, [TaxRate As Double = 0.08]) As Currency",
+        "detailsContain": ["Declared in Module: Finance", "Visibility: Public"],
+        "documentationContains": "Calculates the invoice total."
+      },
+      {
+        "moduleName": "InvoiceService",
+        "marker": "Customer",
+        "signature": "Class Customer",
+        "documentationContains": "Represents a customer."
+      }
+    ]
+  }
+}
