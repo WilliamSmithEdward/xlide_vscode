@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    lintVbaSource,
+    analyzeVbaStructure,
     stripVba,
     detectSmartBlockOpener,
     findIdentifierOccurrences,
@@ -16,17 +16,17 @@ import {
     detectProcOpener,
     isProcClosedAhead,
     normalizeSmartBlockLayout,
-} from '../src/vbaLinter';
+} from '../src/vbaStructuralAnalysis';
 
-describe('lintVbaSource', () => {
+describe('analyzeVbaStructure', () => {
     it('reports no problems for a balanced Sub', () => {
         const src = 'Sub Foo()\n    MsgBox 1\nEnd Sub\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('flags a Sub missing End Sub', () => {
         const src = 'Sub Foo()\n    MsgBox 1\n';
-        const problems = lintVbaSource(src);
+        const problems = analyzeVbaStructure(src);
         expect(problems).toHaveLength(1);
         expect(problems[0].line).toBe(0);
         expect(problems[0].message).toContain("Missing 'End Sub'");
@@ -41,7 +41,7 @@ describe('lintVbaSource', () => {
 
     it('flags a Function missing End Function', () => {
         const src = 'Function Bar() As Long\n    Bar = 2\n';
-        const problems = lintVbaSource(src);
+        const problems = analyzeVbaStructure(src);
         expect(problems).toHaveLength(1);
         expect(problems[0].message).toContain("Missing 'End Function'");
         expect(problems[0].startCol).toBe(0);
@@ -50,7 +50,7 @@ describe('lintVbaSource', () => {
 
     it('flags a stray End If', () => {
         const src = 'Sub Foo()\n    End If\nEnd Sub\n';
-        const problems = lintVbaSource(src);
+        const problems = analyzeVbaStructure(src);
         expect(problems).toHaveLength(1);
         expect(problems[0].line).toBe(1);
         expect(problems[0].message).toContain("'End If' has no matching 'If'");
@@ -61,12 +61,12 @@ describe('lintVbaSource', () => {
 
     it('accepts a balanced multiline If', () => {
         const src = 'Sub Foo()\n    If x Then\n        y = 1\n    End If\nEnd Sub\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('does not treat a single-line If as a block', () => {
         const src = 'Sub Foo()\n    If x Then y = 1\nEnd Sub\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('accepts For/Next, Do/Loop, While/Wend, With, Select Case', () => {
@@ -87,12 +87,12 @@ describe('lintVbaSource', () => {
             'End Sub',
             '',
         ].join('\n');
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('flags an inner block left unclosed', () => {
         const src = 'Sub Foo()\n    If x Then\n        y = 1\nEnd Sub\n';
-        const problems = lintVbaSource(src);
+        const problems = analyzeVbaStructure(src);
         // The If is unclosed; End Sub closes the Sub leaving the If reported.
         expect(problems.some((p) => p.message.includes("Missing 'End If'"))).toBe(true);
         const missingIf = problems.find((p) => p.expectedClose === 'End If');
@@ -104,27 +104,27 @@ describe('lintVbaSource', () => {
 
     it('ignores block keywords inside strings and comments', () => {
         const src = 'Sub Foo()\n    s = "End Sub"  \' If Then For\nEnd Sub\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('handles line continuations in an If', () => {
         const src = 'Sub Foo()\n    If x = 1 _\n        Then\n        y = 1\n    End If\nEnd Sub\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('closes multiple For loops with Next i, j', () => {
         const src = 'Sub Foo()\n    For i = 1 To 2\n        For j = 1 To 2\n        Next i, j\nEnd Sub\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('does not treat Declare Sub as a block', () => {
         const src = 'Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('balances Type and Enum blocks', () => {
         const src = 'Public Type TPoint\n    X As Long\nEnd Type\nEnum Color\n    Red\nEnd Enum\n';
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('balances conditional compilation #If blocks', () => {
@@ -136,12 +136,12 @@ describe('lintVbaSource', () => {
             '#End If',
             '',
         ].join('\n');
-        expect(lintVbaSource(src)).toEqual([]);
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('flags a conditional compilation block missing #End If', () => {
         const src = '#If VBA7 Then\nDeclare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
-        const problems = lintVbaSource(src);
+        const problems = analyzeVbaStructure(src);
         expect(problems).toHaveLength(1);
         expect(problems[0].message).toContain("Missing '#End If'");
         expect(problems[0].startCol).toBe(0);
@@ -149,7 +149,7 @@ describe('lintVbaSource', () => {
     });
 
     it('flags stray conditional compilation branch and closer directives', () => {
-        const problems = lintVbaSource('#Else\n#End If\n');
+        const problems = analyzeVbaStructure('#Else\n#End If\n');
         expect(problems).toHaveLength(2);
         expect(problems[0].message).toContain("has no matching '#If'");
         expect(problems[1].message).toContain("has no matching '#If'");
@@ -167,7 +167,7 @@ describe('lintVbaSource', () => {
             'End Sub',
             '',
         ].join('\n');
-        const problems = lintVbaSource(src);
+        const problems = analyzeVbaStructure(src);
 
         expect(problems.find((p) => p.expectedClose === 'End With')).toMatchObject({
             line: 1,

@@ -8,7 +8,7 @@ vi.mock('vscode', () => ({
 	},
 }));
 
-import { lintWorkbook } from '../src/vbaWorkbookLint';
+import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { PythonBridge } from '../src/pythonBridge';
 
 interface TestModule {
@@ -36,7 +36,7 @@ function bridgeForModules(modules: TestModule[]): PythonBridge {
 	} as unknown as PythonBridge;
 }
 
-describe('lintWorkbook metadata summary', () => {
+describe('analyzeWorkbook metadata summary', () => {
 	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {
 		const bridge = bridgeForModules([
 			{
@@ -56,7 +56,7 @@ describe('lintWorkbook metadata summary', () => {
 			},
 		]);
 
-		const result = await lintWorkbook(bridge, 'Book.xlsm');
+		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
 		const byCode = new Map(result.problems.map((problem) => [problem.code, problem]));
 
 		expect([...byCode.keys()].sort()).toEqual([

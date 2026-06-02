@@ -9,7 +9,7 @@ import {
 import { VbaSymbol, VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
 import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import {
-    lintVbaSource,
+    analyzeVbaStructure,
     stripVba,
     detectSmartBlockOpener,
     findIdentifierOccurrences,
@@ -21,7 +21,7 @@ import {
     VBA_IDENTIFIER_NAME_RE,
     VBA_IDENTIFIER_RE,
     withMemberContinuationText,
-} from './vbaLinter';
+} from './vbaStructuralAnalysis';
 import {
     diagnosticSourceForCode,
     DiagnosticSeverity as RuleSeverity,
@@ -43,7 +43,7 @@ import {
     type VbaProjectClassMemberDefinition,
     VbaSymbol as AstSymbol,
 } from './analyzer';
-import { lintVbaModuleSource } from './vbaModuleLint';
+import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 import { DocMetadataLoader } from './vbaDocMetadata';
 import {
@@ -66,7 +66,7 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
     { language: 'vba' },
 ];
 const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
-const XLIDE_LINT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('lintCurrentModule');
+const XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('analyzeCurrentModule');
 const XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('exportCurrentModule');
 const XLIDE_DIAGNOSTIC_DATA = Symbol('xlideDiagnosticData');
 
@@ -918,7 +918,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
 }
 
 /**
- * Live diagnostics: structural block-balance (lintVbaSource) plus the analyzer's
+ * Live diagnostics: structural block-balance (analyzeVbaStructure) plus the analyzer's
  * high-confidence semantic rules (analyzeModule) - unterminated strings,
  * duplicate procedures/declarations, assignment to a constant, and a
  * configurable Option Explicit reminder. Runs on open and (debounced) on every
@@ -998,7 +998,7 @@ function registerVbaDiagnostics(
         const activeIncompleteExpressionOffset = activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
             : undefined;
-        const moduleLint = lintVbaModuleSource({
+        const moduleAnalysis = analyzeVbaModuleSource({
             source: text,
             moduleName,
             moduleKind,
@@ -1007,7 +1007,7 @@ function registerVbaDiagnostics(
             ...projectOptions,
             activeIncompleteExpressionOffset,
         });
-        for (const d of moduleLint.diagnostics) {
+        for (const d of moduleAnalysis.diagnostics) {
             const diag = new vscode.Diagnostic(
                 new vscode.Range(
                     document.positionAt(d.span.start),
@@ -1072,22 +1072,22 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
     ): vscode.ProviderResult<vscode.CodeAction[]> {
         if (!isVbaDocument(document)) { return []; }
         const wantsQuickFix = codeActionKindRequested(context.only, vscode.CodeActionKind.QuickFix);
-        const wantsLintCurrentModule = codeActionKindRequested(context.only, XLIDE_LINT_CURRENT_MODULE_ACTION_KIND);
+        const wantsAnalyzeCurrentModule = codeActionKindRequested(context.only, XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND);
         const wantsExportCurrentModule = codeActionKindRequested(context.only, XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND);
-        if (!wantsQuickFix && !wantsLintCurrentModule && !wantsExportCurrentModule) {
+        if (!wantsQuickFix && !wantsAnalyzeCurrentModule && !wantsExportCurrentModule) {
             return [];
         }
 
         const source = document.getText();
         const actions: vscode.CodeAction[] = [];
-        if (wantsLintCurrentModule && document.uri.scheme === XLIDE_SCHEME) {
+        if (wantsAnalyzeCurrentModule && document.uri.scheme === XLIDE_SCHEME) {
             const action = new vscode.CodeAction(
-                'XLIDE: Lint Current Module',
-                XLIDE_LINT_CURRENT_MODULE_ACTION_KIND,
+                'XLIDE: Analyze Current Module',
+                XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND,
             );
             action.command = {
-                command: 'xlide.lintCurrentModule',
-                title: 'Lint Current Module',
+                command: 'xlide.analyzeCurrentModule',
+                title: 'Analyze Current Module',
             };
             actions.push(action);
         }
@@ -1105,22 +1105,22 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
         if (!wantsQuickFix) {
             return actions;
         }
-        let lintProblems: ReturnType<typeof lintVbaSource> | undefined;
+        let structuralDiagnostics: ReturnType<typeof analyzeVbaStructure> | undefined;
         for (const diagnostic of context.diagnostics) {
             if (!isXlideDiagnosticSource(diagnostic.source)) { continue; }
             const code = normalizeDiagnosticCode(diagnostic.code);
             if (!code) { continue; }
-            const lintProblem = code === 'missing-block-closer'
-                ? matchingLintProblem(
+            const structuralDiagnostic = code === 'missing-block-closer'
+                ? matchingStructuralDiagnostic(
                     diagnostic,
-                    lintProblems ??= lintVbaSource(source),
+                    structuralDiagnostics ??= analyzeVbaStructure(source),
                 )
                 : undefined;
             const fixes = resolveDiagnosticCodeActions(source, {
                 code,
                 message: diagnostic.message,
-                expectedClose: lintProblem?.expectedClose,
-                insertLine: lintProblem?.insertLine,
+                expectedClose: structuralDiagnostic?.expectedClose,
+                insertLine: structuralDiagnostic?.insertLine,
                 span: {
                     start: document.offsetAt(diagnostic.range.start),
                     end: document.offsetAt(diagnostic.range.end),
@@ -1158,10 +1158,10 @@ function codeActionKindRequested(
     return !only || only.contains(kind) || kind.contains(only);
 }
 
-function matchingLintProblem(
+function matchingStructuralDiagnostic(
     diagnostic: vscode.Diagnostic,
-    problems: ReturnType<typeof lintVbaSource>,
-): ReturnType<typeof lintVbaSource>[number] | undefined {
+    problems: ReturnType<typeof analyzeVbaStructure>,
+): ReturnType<typeof analyzeVbaStructure>[number] | undefined {
     return problems.find((problem) =>
         problem.code === normalizeDiagnosticCode(diagnostic.code) &&
         problem.message === diagnostic.message &&
@@ -1383,7 +1383,7 @@ export function registerVbaLanguageProviders(
             {
                 providedCodeActionKinds: [
                     vscode.CodeActionKind.QuickFix,
-                    XLIDE_LINT_CURRENT_MODULE_ACTION_KIND,
+                    XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND,
                     XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND,
                 ],
             },

@@ -5,8 +5,8 @@ import {
 	explicitCallStatementBareRuntimeRewrite,
 	standaloneEmptyParenthesizedCallStatement,
 } from '../call/callContext';
-import { leadingWhitespace } from '../../vbaLinter';
-import { LINT_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/lintSuppressions';
+import { leadingWhitespace } from '../../vbaStructuralAnalysis';
+import { ANALYSIS_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/analysisSuppressions';
 import type { VbaDiagnosticData } from '../diagnostics/analyzeModule';
 
 export interface VbaDiagnosticCodeActionInput {
@@ -132,7 +132,7 @@ function suppressNextLineAction(
 	source: string,
 	diagnostic: VbaDiagnosticCodeActionInput,
 ): VbaDiagnosticCodeAction | undefined {
-	if (!diagnostic.code || diagnostic.code === LINT_SUPPRESSION_DIRECTIVE_CODE) {
+	if (!diagnostic.code || diagnostic.code === ANALYSIS_SUPPRESSION_DIRECTIVE_CODE) {
 		return undefined;
 	}
 	const line = physicalLineSpan(source, diagnostic.span.start);
@@ -144,7 +144,7 @@ function suppressNextLineAction(
 		isPreferred: false,
 		edits: [{
 			span: { start: line.start, end: line.start },
-			newText: `${indent}' @xlide-lint-disable-next-line ${diagnostic.code}${eol}`,
+			newText: `${indent}' @xlide-analysis-disable-next-line ${diagnostic.code}${eol}`,
 		}],
 	};
 }

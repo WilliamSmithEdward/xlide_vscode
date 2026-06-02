@@ -7,7 +7,7 @@ import {
     exportWorkbookModules,
     setWorkbookExportMode,
 } from './moduleExport';
-import { lintWorkbook } from './vbaWorkbookLint';
+import { analyzeWorkbook } from './vbaWorkbookAnalysis';
 import { errorCategoryForSupportLog } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 
@@ -24,7 +24,7 @@ interface DeleteModuleInput { filePath: string; moduleName: string; }
 interface ListSheetsInput  { filePath: string; }
 interface GetWorkbookInfoInput { filePath: string; }
 interface ValidateWorkbookInput { filePath: string; }
-interface LintWorkbookInput { filePath: string; }
+interface AnalyzeWorkbookInput { filePath: string; }
 interface CreateWorkbookInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
@@ -306,11 +306,11 @@ export function registerAgentTools(
         }),
 
         // ----------------------------------------------------------------
-        // xlide_lintWorkbook
+        // xlide_analyzeWorkbook
         // ----------------------------------------------------------------
-        vscode.lm.registerTool<LintWorkbookInput>('xlide_lintWorkbook', {
+        vscode.lm.registerTool<AnalyzeWorkbookInput>('xlide_analyzeWorkbook', {
             async invoke(options, _token) {
-                const result = await lintWorkbook(bridge, options.input.filePath);
+                const result = await analyzeWorkbook(bridge, options.input.filePath);
                 return textResult(JSON.stringify(result, null, 2));
             },
         }),

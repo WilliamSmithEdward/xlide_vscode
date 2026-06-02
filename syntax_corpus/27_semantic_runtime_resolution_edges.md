@@ -2,7 +2,7 @@
 
 **Recommended file name:** `27_semantic_runtime_resolution_edges.md`
 
-**Purpose:** Add a final optional hardening layer for XLIDE's Excel VBA realtime linting suite.
+**Purpose:** Add a final optional hardening layer for XLIDE's Excel VBA realtime analysis suite.
 
 This file is not a basic syntax corpus. It targets state-sensitive analysis:
 

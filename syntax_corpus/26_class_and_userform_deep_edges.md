@@ -2,7 +2,7 @@
 
 **Recommended file name:** `26_class_and_userform_deep_edges.md`
 
-**Purpose:** Add focused class-module and UserForm-module coverage to the XLIDE Excel VBA realtime linting corpus.
+**Purpose:** Add focused class-module and UserForm-module coverage to the XLIDE Excel VBA realtime analysis corpus.
 
 The existing corpus covers module-kind awareness, core syntax, realtime recovery, legacy syntax, limits, host-aware warnings, and some basic class/UserForm examples. This file adds the deeper object-module cases that usually break static analysis, IntelliSense, symbol resolution, and false-positive control.
 
@@ -1482,7 +1482,7 @@ incomplete
 missing End Property should not cascade into whole file if user is actively typing
 ```
 
-Expected on save/full lint:
+Expected on save/full analysis:
 
 ```text
 invalid
@@ -1560,7 +1560,7 @@ incomplete
 expected object/form expression after Load
 ```
 
-Expected on save/full lint:
+Expected on save/full analysis:
 
 ```text
 invalid or compile-error

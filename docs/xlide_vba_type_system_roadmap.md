@@ -2,7 +2,7 @@
 
 ## Purpose
 
-XLIDE should grow from high-confidence syntax linting into a real VBA type
+XLIDE should grow from high-confidence syntax analysis into a real VBA type
 analysis layer: one that understands user code, Excel/VBA native APIs, module
 kinds, object members, documentation metadata, and the difference between
 compile-time errors, runtime type risks, and intentional VBA coercion.

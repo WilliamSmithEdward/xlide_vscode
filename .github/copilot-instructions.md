@@ -8,7 +8,7 @@ XLIDE is a VS Code extension for editing Excel VBA and cell data. The agent has 
 
 Workbook-backed XLIDE operations are canonical. When the user asks to inspect or edit VBA in a workbook, discover modules with `xlide_getWorkbookInfo` or `xlide_listModules`, read with `xlide_readModule`, and write with `xlide_writeModule`. Do not edit exported `.bas`, `.cls`, or `.frm` repo files as a substitute for workbook edits unless the user explicitly asks to work on export artifacts or repository sync files.
 
-Use `xlide_exportModules` only when the user wants to export/sync workbook modules to disk. After direct workbook edits, verify with `xlide_lintWorkbook`; export to repo files is optional and user-directed.
+Use `xlide_exportModules` only when the user wants to export/sync workbook modules to disk. After direct workbook edits, verify with `xlide_analyzeWorkbook`; export to repo files is optional and user-directed.
 
 ---
 
@@ -16,8 +16,8 @@ Use `xlide_exportModules` only when the user wants to export/sync workbook modul
 
 Two XLIDE features are first-class and you should use them proactively:
 
-### 1. Real-time VBA syntax + lint verification
-XLIDE ships a pure, false-positive-free VBA analyzer (the same engine that powers the live editor diagnostics). **After every `xlide_writeModule` (or any batch of VBA edits), call `xlide_lintWorkbook` to verify lint passes before you report success.** It returns a structured JSON report of every error/warning with `moduleName`, `line`, `column`, `severity`, `code`, and `message`. An empty `problems` array means the workbook's VBA is clean. Rules cover block balance, unterminated strings, duplicate declarations, `Const` assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, `Sub`/`Function`-not-defined and more - each carrying an MS-VBAL spec reference. Treat a non-empty report as a build failure and fix it.
+### 1. Real-time VBA syntax + analysis verification
+XLIDE ships a pure, false-positive-free VBA analyzer (the same engine that powers the live editor diagnostics). **After every `xlide_writeModule` (or any batch of VBA edits), call `xlide_analyzeWorkbook` to verify analysis passes before you report success.** It returns a structured JSON report of every error/warning with `moduleName`, `line`, `column`, `severity`, `code`, and `message`. An empty `problems` array means the workbook's VBA is clean. Rules cover block balance, unterminated strings, duplicate declarations, `Const` assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, `Sub`/`Function`-not-defined and more - each carrying an MS-VBAL spec reference. Treat a non-empty report as a build failure and fix it.
 
 ### 2. Custom XML tooltips / definitions / metadata for VBA
 XLIDE supports Visual-Studio-style documentation that drives hovers and call tips. You can author it two ways, and **developer-defined metadata overrides the built-in library**:
@@ -40,7 +40,7 @@ Call `xlide_getWorkbookInfo` once per workbook. It returns sheets (name + used d
 Use the targeted tool for the task (see tool reference below). Prefer specific tools over `xlide_runOpenpyxl` when a specific tool exists.
 
 ### Step 4 — Verify VBA edits
-After writing or editing any VBA, call `xlide_lintWorkbook` and resolve any reported problems before finishing.
+After writing or editing any VBA, call `xlide_analyzeWorkbook` and resolve any reported problems before finishing.
 
 ---
 
@@ -55,7 +55,7 @@ After writing or editing any VBA, call `xlide_lintWorkbook` and resolve any repo
 | `xlide_listSubs` | Need procedures in a specific module |
 | `xlide_listSheets` | Need only sheet names and dimensions |
 | `xlide_readModule` | Read canonical VBA source from the workbook-backed XLIDE module |
-| `xlide_lintWorkbook` | **Verify VBA syntax/lint across the whole workbook** - run after editing modules; returns per-problem `moduleName`/`line`/`column`/`severity`/`code`/`message` |
+| `xlide_analyzeWorkbook` | **Verify VBA syntax/analysis across the whole workbook** - run after editing modules; returns per-problem `moduleName`/`line`/`column`/`severity`/`code`/`message` |
 | `xlide_readCells` | Read computed cell values (formulas already evaluated) |
 | `xlide_readFormulas` | Read raw formula strings (e.g. `=SUM(A1:A10)`) — use when reproducing or auditing spreadsheet logic |
 

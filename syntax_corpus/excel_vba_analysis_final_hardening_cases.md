@@ -1,8 +1,8 @@
-# Excel VBA Realtime Linting Addendum: Final Hardening Cases
+# Excel VBA Realtime Analysis Addendum: Final Hardening Cases
 
-**Purpose:** Add the remaining high-value tests for a VS Code Excel VBA realtime syntax linter after the basic syntax, edge-case, and limits corpora are already covered.
+**Purpose:** Add the remaining high-value tests for a VS Code Excel VBA realtime syntax analyzer after the basic syntax, edge-case, and limits corpora are already covered.
 
-**Audience:** LLM agent implementing or validating XLIDE-style realtime syntax linting, semantic diagnostics, project-aware symbol analysis, and Excel host-aware warnings.
+**Audience:** LLM agent implementing or validating XLIDE-style realtime syntax analysis, semantic diagnostics, project-aware symbol analysis, and Excel host-aware warnings.
 
 **Non-negotiable rule:** Treat Microsoft MS-VBAL as the grammar oracle. Treat Microsoft Office VBA docs as the behavior oracle for editor/compiler diagnostics. Do not borrow rules from VB.NET, VBScript, TypeScript, Python, or generic BASIC.
 
@@ -34,7 +34,7 @@ Official references to verify before implementation:
 
 ## Agent instruction
 
-Add these cases as a fourth suite. Do **not** collapse them into generic parser tests. These are hardening cases for the places a realtime linter usually becomes annoying:
+Add these cases as a fourth suite. Do **not** collapse them into generic parser tests. These are hardening cases for the places a realtime analyzer usually becomes annoying:
 
 1. Module-kind-sensitive rules.
 2. Directive placement.
@@ -57,7 +57,7 @@ Expected diagnostic levels:
 
 # A. Module-kind-sensitive validation
 
-The same text may be valid in one module kind and invalid or suspicious in another. The linter must know whether the file represents a standard `.bas`, class `.cls`, userform `.frm`, sheet module, or `ThisWorkbook` module.
+The same text may be valid in one module kind and invalid or suspicious in another. The analyzer must know whether the file represents a standard `.bas`, class `.cls`, userform `.frm`, sheet module, or `ThisWorkbook` module.
 
 ## MOD_KIND_001 valid standard module public Sub
 
@@ -102,7 +102,7 @@ End Sub
 
 Expected: valid in worksheet module.
 
-Agent note: If the linter cannot know the module kind yet, mark this as valid syntax and avoid a false error.
+Agent note: If the analyzer cannot know the module kind yet, mark this as valid syntax and avoid a false error.
 
 ---
 
@@ -285,7 +285,7 @@ End Sub
 
 Expected: valid syntax, no compile-error for undeclared variable.
 
-Agent note: The linter may emit a style warning, but not a syntax error.
+Agent note: The analyzer may emit a style warning, but not a syntax error.
 
 ---
 
@@ -971,7 +971,7 @@ End Sub
 
 Expected while typing: `incomplete`, not permanent syntax-error.
 
-Agent note: This is where completion popup and linter must cooperate.
+Agent note: This is where completion popup and analyzer must cooperate.
 
 ---
 
@@ -992,7 +992,7 @@ Expected while typing: `incomplete`, with member-completion context from the Wit
 Promotion note: `bare_leading_member_access_inside_with_compile` verifies that
 VBE rejects this completed form as Syntax error. Live syntax suppresses the error
 only while the cursor is in the incomplete member-access edit state; save,
-current-module lint, and workbook validation report it as syntax invalid.
+current-module analysis, and workbook validation report it as syntax invalid.
 
 ---
 
@@ -1038,7 +1038,7 @@ Expected: mode-dependent.
 
 Recommended behavior:
 
-- Foreground linter: suppress hard syntax errors in inactive branch if the condition is statically known.
+- Foreground analyzer: suppress hard syntax errors in inactive branch if the condition is statically known.
 - Background validator: optional warning that inactive branch is not parseable.
 
 Agent note: Verify exact compiler behavior against MS-VBAL conditional compilation grammar before final implementation.
@@ -1339,7 +1339,7 @@ Agent note: Procedure-call grammar and Excel object model resolution are separat
 
 # P. Realtime editor partial states
 
-These are not final source files. They are transient states the linter sees while the user is typing.
+These are not final source files. They are transient states the analyzer sees while the user is typing.
 
 ## RT_001 half-written Sub
 
@@ -1498,4 +1498,4 @@ Recommended pipeline:
 6. **Excel host checker:** worksheet/workbook events, object model calls, unqualified host members, default members.
 7. **Style analyzer:** optional warnings like implicit default members, unqualified `Range`, `Dim a, b As Long`, auto-instancing `New`.
 
-A good realtime VBA linter should feel forgiving while typing and strict after the code settles. That means `incomplete` is not a weaker error. It is a different state.
+A good realtime VBA analyzer should feel forgiving while typing and strict after the code settles. That means `incomplete` is not a weaker error. It is a different state.

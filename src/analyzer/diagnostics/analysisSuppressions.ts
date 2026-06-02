@@ -4,19 +4,19 @@ import { parseModule } from '../parser/parseModule';
 import type { VbaDiagnostic } from './analyzeModule';
 import { diagnosticMetadataForCode, DIAGNOSTIC_RULES } from './ruleMetadata';
 
-export const LINT_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.lintSuppressionDirective.code;
+export const ANALYSIS_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.analysisSuppressionDirective.code;
 
-export interface LintSuppressionAnalysis {
+export interface AnalysisSuppressionAnalysis {
 	diagnostics: readonly VbaDiagnostic[];
 	isSuppressed(code: string | undefined, zeroBasedLine: number): boolean;
 	isDiagnosticSuppressed(code: string | undefined, span: Span): boolean;
 }
 
-export interface LintSuppressionFilterResult<T> {
+export interface AnalysisSuppressionFilterResult<T> {
 	diagnostics: T[];
 	directiveDiagnostics: readonly VbaDiagnostic[];
 	suppressedCount: number;
-	analysis: LintSuppressionAnalysis;
+	analysis: AnalysisSuppressionAnalysis;
 }
 
 type SuppressionTarget = 'all' | ReadonlySet<string>;
@@ -59,13 +59,13 @@ interface LineTokenSummary {
 }
 
 /**
- * Parses XLIDE lint suppression directives:
+ * Parses XLIDE analysis suppression directives:
  * apostrophe comments only, no doc comments, no Rem comments, and physical-line
  * line directives. Member and block directives are lexical source ranges. The
  * resulting predicate is intentionally shared by live diagnostics, workbook
- * lint, and tests so suppression semantics cannot drift by surface.
+ * analysis, and tests so suppression semantics cannot drift by surface.
  */
-export function scanLintSuppressions(source: string): LintSuppressionAnalysis {
+export function scanAnalysisSuppressions(source: string): AnalysisSuppressionAnalysis {
 	const tokens = tokenize(source);
 	const lineStarts = lineStartOffsets(source);
 	const firstSourceLine = firstNonCommentNonAttributeLine(tokens);
@@ -94,7 +94,7 @@ export function scanLintSuppressions(source: string): LintSuppressionAnalysis {
 		if (parsed.directive.action === 'disable-file') {
 			if (firstSourceLine !== undefined && token.line >= firstSourceLine) {
 				state.diagnostics.push(directiveDiagnostic(
-					'@xlide-lint-disable-file must appear before the first non-comment, non-attribute source line.',
+					'@xlide-analysis-disable-file must appear before the first non-comment, non-attribute source line.',
 					{ start: token.start, end: token.end },
 				));
 				continue;
@@ -106,7 +106,7 @@ export function scanLintSuppressions(source: string): LintSuppressionAnalysis {
 			const member = nextDirectSuppressibleMember(tokens, members, token.end);
 			if (!member) {
 				state.diagnostics.push(directiveDiagnostic(
-					'@xlide-lint-disable-next-member must appear directly before a Sub, Function, Property, Type, or Enum declaration.',
+					'@xlide-analysis-disable-next-member must appear directly before a Sub, Function, Property, Type, or Enum declaration.',
 					{ start: token.start, end: token.end },
 				));
 				continue;
@@ -126,14 +126,14 @@ export function scanLintSuppressions(source: string): LintSuppressionAnalysis {
 			const open = openBlocks[openBlocks.length - 1];
 			if (!open) {
 				state.diagnostics.push(directiveDiagnostic(
-					'@xlide-lint-enable-block has no matching @xlide-lint-disable-block.',
+					'@xlide-analysis-enable-block has no matching @xlide-analysis-disable-block.',
 					{ start: token.start, end: token.end },
 				));
 				continue;
 			}
 			if (!targetsEqual(open.target, parsed.directive.target)) {
 				state.diagnostics.push(directiveDiagnostic(
-					'@xlide-lint-enable-block code list must match the innermost open @xlide-lint-disable-block.',
+					'@xlide-analysis-enable-block code list must match the innermost open @xlide-analysis-disable-block.',
 					{ start: token.start, end: token.end },
 				));
 				continue;
@@ -153,7 +153,7 @@ export function scanLintSuppressions(source: string): LintSuppressionAnalysis {
 
 	for (const open of openBlocks) {
 		state.diagnostics.push(directiveDiagnostic(
-			'@xlide-lint-disable-block is missing a matching @xlide-lint-enable-block.',
+			'@xlide-analysis-disable-block is missing a matching @xlide-analysis-enable-block.',
 			open.directiveSpan,
 		));
 	}
@@ -183,7 +183,7 @@ function diagnosticSuppressedAt(
 	zeroBasedLine: number,
 	span: Span,
 ): boolean {
-	if (zeroBasedLine < 0 || code === LINT_SUPPRESSION_DIRECTIVE_CODE) {
+	if (zeroBasedLine < 0 || code === ANALYSIS_SUPPRESSION_DIRECTIVE_CODE) {
 		return false;
 	}
 	const normalized = normalizeCode(code);
@@ -209,8 +209,8 @@ function diagnosticSuppressedAt(
 export function filterDiagnosticsWithSuppressions<T extends { code?: string; span: Span }>(
 	source: string,
 	diagnostics: readonly T[],
-): LintSuppressionFilterResult<T> {
-	const analysis = scanLintSuppressions(source);
+): AnalysisSuppressionFilterResult<T> {
+	const analysis = scanAnalysisSuppressions(source);
 	const filtered: T[] = [];
 	let suppressedCount = 0;
 
@@ -239,15 +239,15 @@ function parseDirectiveComment(
 	span: Span,
 ): { directive?: ParsedDirective; diagnostics: VbaDiagnostic[] } | undefined {
 	const body = rawText.slice(1).trimStart();
-	if (!/^@xlide-lint-/i.test(body)) {
+	if (!/^@xlide-analysis-/i.test(body)) {
 		return undefined;
 	}
 
-	const match = /^@xlide-lint-(disable-file|disable-line|disable-next-line|disable-next-member|disable-block|enable-block)\b(.*)$/i.exec(body);
+	const match = /^@xlide-analysis-(disable-file|disable-line|disable-next-line|disable-next-member|disable-block|enable-block)\b(.*)$/i.exec(body);
 	if (!match) {
 		return {
 			diagnostics: [directiveDiagnostic(
-				'Unknown XLIDE lint suppression directive. Supported directives are disable-file, disable-line, disable-next-line, disable-next-member, disable-block, and enable-block.',
+				'Unknown XLIDE analysis suppression directive. Supported directives are disable-file, disable-line, disable-next-line, disable-next-member, disable-block, and enable-block.',
 				span,
 			)],
 		};
@@ -276,7 +276,7 @@ function parseTargetList(
 		return {
 			target: undefined,
 			diagnostics: [directiveDiagnostic(
-				'Malformed XLIDE lint suppression code list. Use "all" or comma-separated diagnostic codes.',
+				'Malformed XLIDE analysis suppression code list. Use "all" or comma-separated diagnostic codes.',
 				span,
 			)],
 		};
@@ -287,7 +287,7 @@ function parseTargetList(
 		return {
 			target: undefined,
 			diagnostics: [directiveDiagnostic(
-				'Malformed XLIDE lint suppression code list. Use comma-separated diagnostic codes with no embedded whitespace.',
+				'Malformed XLIDE analysis suppression code list. Use comma-separated diagnostic codes with no embedded whitespace.',
 				span,
 			)],
 		};
@@ -298,7 +298,7 @@ function parseTargetList(
 		return {
 			target: undefined,
 			diagnostics: [directiveDiagnostic(
-				'Malformed XLIDE lint suppression code list. Use "all" by itself, or list specific diagnostic codes.',
+				'Malformed XLIDE analysis suppression code list. Use "all" by itself, or list specific diagnostic codes.',
 				span,
 			)],
 		};
@@ -314,7 +314,7 @@ function parseTargetList(
 		}
 		if (!diagnosticMetadataForCode(code)) {
 			diagnostics.push(directiveDiagnostic(
-				`Unknown XLIDE lint diagnostic code '${code}'.`,
+				`Unknown XLIDE analysis diagnostic code '${code}'.`,
 				span,
 			));
 			continue;
@@ -401,7 +401,7 @@ function normalizeCode(code: string | undefined): string | undefined {
 }
 
 function directiveDiagnostic(message: string, span: Span): VbaDiagnostic {
-	const meta = DIAGNOSTIC_RULES.lintSuppressionDirective;
+	const meta = DIAGNOSTIC_RULES.analysisSuppressionDirective;
 	return {
 		code: meta.code,
 		message,

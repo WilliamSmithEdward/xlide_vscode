@@ -9,7 +9,7 @@ development in VS Code.
 
 - Make XLIDE visible as a first-class Activity Bar extension.
 - Put the most common workbook workflows in one polished sidebar.
-- Surface setup health clearly before a developer tries to lint, run, or test.
+- Surface setup health clearly before a developer tries to analyze, run, or test.
 - Provide one unified XLIDE configuration surface while preserving native VS
   Code Settings for users who prefer it.
 - Keep every status deterministic: pass, warn, fail, or unknown with a concrete
@@ -17,7 +17,7 @@ development in VS Code.
 - Avoid replacing command-palette workflows; the sidebar should make them easier
   to discover and run.
 - Keep workbook/module navigation available in the VS Code Explorer. The XLIDE
-  Activity Bar/sidebar is an additional command, health, test, lint, and config
+  Activity Bar/sidebar is an additional command, health, test, analysis, and config
   surface, not a reason to remove the Explorer tree.
 
 ## Activity Bar Icon
@@ -58,8 +58,8 @@ Recommended sections:
    - Inline quick actions where available
 
 3. **Actions**
-   - Lint current module
-   - Lint workbook
+   - Analyze current module
+   - Analyze workbook
    - Run current test
    - Run all tests
    - Export/sync modules
@@ -70,7 +70,7 @@ Recommended sections:
    - Error count
    - Warning count
    - Suppressed diagnostic count once suppression support exists
-   - Last lint run summary
+   - Last analysis run summary
 
 5. **Tests**
    - Pass/fail/skip/xfail/xpass summary
@@ -81,7 +81,7 @@ Recommended sections:
 6. **Activity**
    - Recent XLIDE operations
    - Last export/import
-   - Last lint/test run
+   - Last analysis/test run
    - COM/reset warnings
 
 7. **Configuration**
@@ -122,7 +122,7 @@ Initial checks:
 - Trust access to the VBA project object model is enabled when COM write/run
   workflows require it.
 - Macro/security prerequisites are sufficient for run/test workflows.
-- Lint engine is available.
+- Analysis engine is available.
 - Test runner is configured once implemented.
 - Optional `.vbref.xml` or doc-comment metadata is loaded if present.
 
@@ -140,10 +140,10 @@ unknown No workbook selected
 Actions should be visible as buttons or tree-item commands, with tooltips and
 disabled states where appropriate:
 
-- `XLIDE: Lint Current Module`
-- `XLIDE: Lint Workbook`
-- `XLIDE: Lint All Modules` from the workbook node context menu in the XLIDE
-  workbook tree; this should route to the same workbook lint engine and active
+- `XLIDE: Analyze Current Module`
+- `XLIDE: Analyze Workbook`
+- `XLIDE: Analyze Workbook` from the workbook node context menu in the XLIDE
+  workbook tree; this should route to the same workbook analysis engine and active
   workbook selection model as the sidebar action.
 - `XLIDE: Run Current VBA Test`
 - `XLIDE: Run All VBA Tests`
@@ -168,12 +168,12 @@ clear status and should reuse existing safe workbook handling.
 - Show badges for errors, warnings, and failed tests.
 - Prefer inline action buttons for common actions.
 - Keep long-running actions cancelable where VS Code supports it.
-- Show progress for lint/test/sync operations.
+- Show progress for analysis/test/sync operations.
 - Link result rows to modules and exact source lines.
-- Render workbook lint results in a dedicated native-feeling GUI/panel with
+- Render workbook analysis results in a dedicated native-feeling GUI/panel with
   module grouping, severity filters, counts, suppressed-diagnostic visibility,
   and copy/export actions. The Output channel should remain a support log, not
-  the main lint-results surface.
+  the main analysis-results surface.
 - Keep all colors theme-driven.
 - Do not use custom decorative UI that fights VS Code styling.
 
@@ -207,12 +207,12 @@ clear status and should reuse existing safe workbook handling.
 - The sidebar is not a replacement for inline diagnostics.
 - The sidebar should not make heuristic guesses about project state.
 - The sidebar should not run tests or macros automatically.
-- The sidebar should not require COM to show lint-only workflows.
+- The sidebar should not require COM to show analysis-only workflows.
 
 ## Definition Of Done
 
 - XLIDE has a dedicated Activity Bar icon and sidebar container.
 - Setup health is visible with deterministic pass/warn/fail/unknown states.
-- Lint, test, sync, workbook, and refresh actions are discoverable.
+- Analyze, test, sync, workbook, and refresh actions are discoverable.
 - Results and status link back to source where practical.
 - The UI looks native in VS Code light, dark, and high-contrast themes.

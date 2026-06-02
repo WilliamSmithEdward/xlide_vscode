@@ -1,15 +1,15 @@
 import {
     analyzeModule,
     incompleteExpressionEditSpan,
-    scanLintSuppressions,
+    scanAnalysisSuppressions,
     type AnalyzeModuleOptions,
     type DiagnosticSeverity as RuleSeverity,
     type VbaDiagnosticData,
 } from './analyzer';
 import type { Span } from './analyzer/parser/nodes';
-import { lineStartOffsets, lintVbaSource } from './vbaLinter';
+import { analyzeVbaStructure, lineStartOffsets } from './vbaStructuralAnalysis';
 
-export interface VbaModuleLintDiagnostic {
+export interface VbaModuleAnalysisDiagnostic {
     code?: string;
     message: string;
     severity: RuleSeverity;
@@ -17,23 +17,23 @@ export interface VbaModuleLintDiagnostic {
     data?: VbaDiagnosticData;
 }
 
-export interface VbaModuleLintInput extends AnalyzeModuleOptions {
+export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
     source: string;
     activeIncompleteExpressionOffset?: number;
     activeIncompleteMemberAccessOffset?: number;
 }
 
-export interface VbaModuleLintResult {
-    diagnostics: VbaModuleLintDiagnostic[];
+export interface VbaModuleAnalysisResult {
+    diagnostics: VbaModuleAnalysisDiagnostic[];
     suppressedCount: number;
 }
 
 /**
- * Shared module-level lint core. Live diagnostics, current-module lint, and
- * workbook lint all flow through this function so structural checks, semantic
+ * Shared module-level analysis core. Live diagnostics, current-module analysis,
+ * and workbook analysis all flow through this function so structural checks, semantic
  * checks, and XLIDE suppression directives cannot drift by surface.
  */
-export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintResult {
+export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModuleAnalysisResult {
     const {
         source,
         activeIncompleteExpressionOffset,
@@ -41,8 +41,8 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
         ...analyzeOptions
     } = input;
     const starts = lineStartOffsets(source);
-    const suppressions = scanLintSuppressions(source);
-    const diagnostics: VbaModuleLintDiagnostic[] = [...suppressions.diagnostics];
+    const suppressions = scanAnalysisSuppressions(source);
+    const diagnostics: VbaModuleAnalysisDiagnostic[] = [...suppressions.diagnostics];
     let suppressedCount = 0;
     const activeIncompleteOffset = activeIncompleteExpressionOffset ?? activeIncompleteMemberAccessOffset;
     const activeIncompleteExpressionSpan = activeIncompleteOffset === undefined
@@ -67,7 +67,7 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
     };
 
     try {
-        for (const problem of lintVbaSource(source)) {
+        for (const problem of analyzeVbaStructure(source)) {
             const span = {
                 start: (starts[problem.line] ?? 0) + problem.startCol,
                 end: (starts[problem.line] ?? 0) + problem.endCol,
@@ -102,7 +102,7 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
             diagnostics.push(diagnostic);
         }
     } catch {
-        // Keep lint non-throwing while the user is typing malformed VBA.
+        // Keep analysis non-throwing while the user is typing malformed VBA.
     }
 
     return { diagnostics, suppressedCount };

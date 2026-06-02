@@ -4,7 +4,7 @@ import {
 	detectSmartBlockOpener,
 	VBA_BLOCK_INDENT_UNIT,
 	VBA_SMART_BLOCK_SNIPPETS,
-} from '../src/vbaLinter';
+} from '../src/vbaStructuralAnalysis';
 
 function at(src: string, marker: string): number {
 	const idx = src.indexOf(marker);

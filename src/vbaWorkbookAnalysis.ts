@@ -1,6 +1,6 @@
-// Workbook-wide VBA linting. Reads every module's source from a workbook and
+// Workbook-wide VBA analysis. Reads every module's source from a workbook and
 // runs the same two analysis passes the live editor uses - the structural
-// block-balance linter (lintVbaSource) and the high-confidence semantic rule
+// block-balance analyzer (analyzeVbaStructure) and the high-confidence semantic rule
 // engine (analyzeModule) - then flattens the findings into a single, sorted
 // list of problems with 1-based line/column locations suitable for both the
 // Output channel (with clickable file links) and the AI agent tool.
@@ -18,8 +18,8 @@ import {
     EventHandlerDocumentType,
     SeverityOverrides,
 } from './analyzer';
-import { lineStartOffsets } from './vbaLinter';
-import { lintVbaModuleSource, type VbaModuleLintDiagnostic } from './vbaModuleLint';
+import { lineStartOffsets } from './vbaStructuralAnalysis';
+import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
 import {
     buildVbaProjectIndex,
     moduleKindFromType,
@@ -27,12 +27,12 @@ import {
     projectProcedureSignatures,
 } from './vbaProjectAnalysis';
 
-export type WorkbookLintSeverity = 'error' | 'warning' | 'information' | 'hint';
-export type WorkbookLintSummaryCategory = DiagnosticCategory | 'uncategorized';
-export type WorkbookLintSummaryKind = DiagnosticEvidenceKind | 'unknown';
+export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information' | 'hint';
+export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
+export type WorkbookAnalysisSummaryKind = DiagnosticEvidenceKind | 'unknown';
 
-/** A single lint finding located within one module of a workbook. */
-export interface WorkbookLintProblem {
+/** A single analysis finding located within one module of a workbook. */
+export interface WorkbookAnalysisProblem {
     moduleName: string;
     moduleType: string;
     /** 1-based line number of the finding. */
@@ -41,7 +41,7 @@ export interface WorkbookLintProblem {
     column: number;
     /** 1-based end column (exclusive) of the finding. */
     endColumn: number;
-    severity: WorkbookLintSeverity;
+    severity: WorkbookAnalysisSeverity;
     /** Stable rule code shared by structural and semantic diagnostics. */
     code?: string;
     /** Human-readable title from the shared diagnostic metadata catalogue. */
@@ -57,23 +57,23 @@ export interface WorkbookLintProblem {
     message: string;
 }
 
-/** Aggregate metadata summary for a workbook lint run. */
-export interface WorkbookLintSummary {
-    byCategory: Partial<Record<WorkbookLintSummaryCategory, number>>;
-    byDiagnosticKind: Partial<Record<WorkbookLintSummaryKind, number>>;
+/** Aggregate metadata summary for a workbook analysis run. */
+export interface WorkbookAnalysisSummary {
+    byCategory: Partial<Record<WorkbookAnalysisSummaryCategory, number>>;
+    byDiagnosticKind: Partial<Record<WorkbookAnalysisSummaryKind, number>>;
     vbeCompileEquivalentCount: number;
     nonVbeCompileEquivalentCount: number;
     suppressedCount: number;
 }
 
-/** Aggregate result of linting an entire workbook. */
-export interface WorkbookLintResult {
+/** Aggregate result of analyzing an entire workbook. */
+export interface WorkbookAnalysisResult {
     filePath: string;
     moduleCount: number;
-    problems: WorkbookLintProblem[];
+    problems: WorkbookAnalysisProblem[];
     errorCount: number;
     warningCount: number;
-    summary: WorkbookLintSummary;
+    summary: WorkbookAnalysisSummary;
 }
 
 interface RawModule {
@@ -97,14 +97,14 @@ function offsetToLineColumn(
     return { line: lo + 1, column: offset - starts[lo] + 1 };
 }
 
-function severityFromRule(s: RuleSeverity): WorkbookLintSeverity {
+function severityFromRule(s: RuleSeverity): WorkbookAnalysisSeverity {
     return s;
 }
 
 function metadataFieldsForCode(
     code: string | undefined,
 ): Pick<
-    WorkbookLintProblem,
+    WorkbookAnalysisProblem,
     'ruleTitle' | 'category' | 'vbeCompileEquivalent' | 'diagnosticKind' | 'specReference'
 > {
     const meta = diagnosticMetadataForCode(code);
@@ -127,12 +127,12 @@ function incrementCount<K extends string>(
     counts[key] = (counts[key] ?? 0) + 1;
 }
 
-export function summarizeWorkbookLintProblems(
-    problems: readonly WorkbookLintProblem[],
+export function summarizeWorkbookAnalysisProblems(
+    problems: readonly WorkbookAnalysisProblem[],
     suppressedCount: number,
-): WorkbookLintSummary {
-    const byCategory: Partial<Record<WorkbookLintSummaryCategory, number>> = {};
-    const byDiagnosticKind: Partial<Record<WorkbookLintSummaryKind, number>> = {};
+): WorkbookAnalysisSummary {
+    const byCategory: Partial<Record<WorkbookAnalysisSummaryCategory, number>> = {};
+    const byDiagnosticKind: Partial<Record<WorkbookAnalysisSummaryKind, number>> = {};
     let vbeCompileEquivalentCount = 0;
     let nonVbeCompileEquivalentCount = 0;
 
@@ -159,8 +159,8 @@ export function workbookProblemsForModule(
     moduleName: string,
     moduleType: string,
     source: string,
-    diagnostics: readonly VbaModuleLintDiagnostic[],
-): WorkbookLintProblem[] {
+    diagnostics: readonly VbaModuleAnalysisDiagnostic[],
+): WorkbookAnalysisProblem[] {
     const starts = lineStartOffsets(source);
     return diagnostics.map((diagnostic) => {
         const start = offsetToLineColumn(starts, diagnostic.span.start);
@@ -206,21 +206,21 @@ async function loadWorkbookModules(
                 source: result.source,
             });
         } catch {
-            // Skip modules that fail to read; lint is best-effort.
+            // Skip modules that fail to read; analysis is best-effort.
         }
     }
     return out;
 }
 
 /**
- * Lints every module in a workbook and returns the flattened, sorted problem
+ * Analyzes every module in a workbook and returns the flattened, sorted problem
  * list. Never throws on a per-module analysis failure - those modules simply
  * contribute no problems.
  */
-export async function lintWorkbook(
+export async function analyzeWorkbook(
     bridge: PythonBridge,
     filePath: string,
-): Promise<WorkbookLintResult> {
+): Promise<WorkbookAnalysisResult> {
     const modules = await loadWorkbookModules(bridge, filePath);
 
     const project = buildVbaProjectIndex(modules.map((mod) => ({
@@ -238,12 +238,12 @@ export async function lintWorkbook(
             optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
     };
 
-    const problems: WorkbookLintProblem[] = [];
+    const problems: WorkbookAnalysisProblem[] = [];
     let suppressedCount = 0;
 
     for (const mod of modules) {
         const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
-        const moduleLint = lintVbaModuleSource({
+        const moduleAnalysis = analyzeVbaModuleSource({
             source: mod.source,
             moduleName: mod.name,
             moduleKind: moduleKindFromType(mod.type),
@@ -255,9 +255,9 @@ export async function lintWorkbook(
             mod.name,
             mod.type,
             mod.source,
-            moduleLint.diagnostics,
+            moduleAnalysis.diagnostics,
         ));
-        suppressedCount += moduleLint.suppressedCount;
+        suppressedCount += moduleAnalysis.suppressedCount;
     }
 
     problems.sort((a, b) => {
@@ -270,7 +270,7 @@ export async function lintWorkbook(
 
     const errorCount = problems.filter((p) => p.severity === 'error').length;
     const warningCount = problems.filter((p) => p.severity === 'warning').length;
-    const summary = summarizeWorkbookLintProblems(problems, suppressedCount);
+    const summary = summarizeWorkbookAnalysisProblems(problems, suppressedCount);
 
     return {
         filePath,

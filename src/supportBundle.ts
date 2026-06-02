@@ -12,7 +12,7 @@ export interface SupportBundleSetting {
     source: 'default' | 'global' | 'workspace' | 'workspaceFolder' | 'unknown';
 }
 
-export interface SupportBundleLintSummary {
+export interface SupportBundleAnalysisSummary {
     available: boolean;
     moduleType?: string;
     errorCount?: number;
@@ -30,7 +30,7 @@ export interface SupportBundleWorkbookSummary {
     activeModuleType?: string;
 }
 
-export interface SupportBundleAnonymizedLintModule {
+export interface SupportBundleAnonymizedAnalysisModule {
     moduleIndex: number;
     moduleType: string;
     problemCount: number;
@@ -39,9 +39,9 @@ export interface SupportBundleAnonymizedLintModule {
     byCode: Record<string, number>;
 }
 
-export interface SupportBundleAnonymizedLintReport {
+export interface SupportBundleAnonymizedAnalysisReport {
     included: boolean;
-    unavailableReason?: 'not-requested' | 'no-active-workbook' | 'lint-failed';
+    unavailableReason?: 'not-requested' | 'no-active-workbook' | 'analysis-failed';
     errorCategory?: string;
     workbookExtension?: string;
     moduleCount?: number;
@@ -54,7 +54,7 @@ export interface SupportBundleAnonymizedLintReport {
     byDiagnosticKind?: Record<string, number>;
     vbeCompileEquivalentCount?: number;
     nonVbeCompileEquivalentCount?: number;
-    modules?: SupportBundleAnonymizedLintModule[];
+    modules?: SupportBundleAnonymizedAnalysisModule[];
 }
 
 export interface SupportBundleInput {
@@ -78,10 +78,10 @@ export interface SupportBundleInput {
     };
     settings: SupportBundleSetting[];
     workbook: SupportBundleWorkbookSummary;
-    lint: SupportBundleLintSummary;
+    analysis: SupportBundleAnalysisSummary;
     commands: XlideCommandLogEntry[];
     writeAudits?: XlideWriteAuditEntry[];
-    anonymizedWorkbookLintReport?: SupportBundleAnonymizedLintReport;
+    anonymizedWorkbookAnalysisReport?: SupportBundleAnonymizedAnalysisReport;
     selectedLogs?: XlideOutputLogEntry[];
 }
 
@@ -100,9 +100,9 @@ export interface SupportBundle {
         excelComStatus: 'available-on-windows-not-checked' | 'not-supported-on-platform';
     };
     workbook: SupportBundleWorkbookSummary;
-    lint: SupportBundleLintSummary;
+    analysis: SupportBundleAnalysisSummary;
     anonymizedReports: {
-        workbookLint: SupportBundleAnonymizedLintReport;
+        workbookAnalysis: SupportBundleAnonymizedAnalysisReport;
     };
     recentCommands: XlideCommandLogEntry[];
     recentWriteAudits: XlideWriteAuditEntry[];
@@ -115,7 +115,7 @@ export interface SupportBundle {
         pathsRedacted: true;
         commandArgumentsIncluded: false;
         writeAuditIncluded: true;
-        anonymizedLintReportIncluded: boolean;
+        anonymizedAnalysisReportIncluded: boolean;
         selectedLogsIncluded: boolean;
         logPathsRedacted: true;
     };
@@ -149,9 +149,9 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
                 : 'not-supported-on-platform',
         },
         workbook: sanitizeWorkbookSummary(input.workbook),
-        lint: input.lint,
+        analysis: input.analysis,
         anonymizedReports: {
-            workbookLint: input.anonymizedWorkbookLintReport ?? {
+            workbookAnalysis: input.anonymizedWorkbookAnalysisReport ?? {
                 included: false,
                 unavailableReason: 'not-requested',
             },
@@ -170,14 +170,14 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
             pathsRedacted: true,
             commandArgumentsIncluded: false,
             writeAuditIncluded: true,
-            anonymizedLintReportIncluded: input.anonymizedWorkbookLintReport?.included === true,
+            anonymizedAnalysisReportIncluded: input.anonymizedWorkbookAnalysisReport?.included === true,
             selectedLogsIncluded: Boolean(input.selectedLogs),
             logPathsRedacted: true,
         },
     };
 }
 
-export function anonymizedWorkbookLintReportFromResult(result: {
+export function anonymizedWorkbookAnalysisReportFromResult(result: {
     filePath: string;
     moduleCount: number;
     problems: readonly {
@@ -198,7 +198,7 @@ export function anonymizedWorkbookLintReportFromResult(result: {
         nonVbeCompileEquivalentCount: number;
         suppressedCount: number;
     };
-}): SupportBundleAnonymizedLintReport {
+}): SupportBundleAnonymizedAnalysisReport {
     const byModule = new Map<string, {
         moduleType: string;
         problemCount: number;
@@ -271,12 +271,12 @@ export function supportBundleDisclosureText(bundle: SupportBundle): string {
         '- Extension, VS Code, platform, Node, and workspace folder count.',
         '- XLIDE settings with path-like values redacted.',
         '- Setup states that can be determined without probing Excel.',
-        '- Active workbook/module metadata and active-module lint counts when available.',
+        '- Active workbook/module metadata and active-module analysis counts when available.',
         '- Recent XLIDE command ids, outcomes, durations, and error categories.',
         '- Recent XLIDE write-audit entries with paths redacted.',
         '',
         'Optional when explicitly selected:',
-        '- Anonymized workbook lint report with counts by rule/module type only.',
+        '- Anonymized workbook analysis report with counts by rule/module type only.',
         '- Recent selected XLIDE operation log lines with paths redacted.',
         '',
         'Not included:',
@@ -286,8 +286,8 @@ export function supportBundleDisclosureText(bundle: SupportBundle): string {
         '- Output logs unless you explicitly select the log option.',
         '',
         `Active workbook: ${workbookLine(bundle)}`,
-        `Active module lint: ${lintLine(bundle)}`,
-        `Anonymized lint report included: ${bundle.privacy.anonymizedLintReportIncluded}`,
+        `Active module analysis: ${analysisLine(bundle)}`,
+        `Anonymized analysis report included: ${bundle.privacy.anonymizedAnalysisReportIncluded}`,
         `Selected logs included: ${bundle.privacy.selectedLogsIncluded}`,
     ].join('\n');
 }
@@ -310,8 +310,8 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         'Active Workbook',
         workbookLine(bundle),
         '',
-        'Active Module Lint',
-        lintLine(bundle),
+        'Active Module Analysis',
+        analysisLine(bundle),
         '',
         'XLIDE Settings',
         ...bundle.settings.map((setting) =>
@@ -324,8 +324,8 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         'Recent Write Audit',
         ...writeAuditLines(bundle),
         '',
-        'Anonymized Workbook Lint Report',
-        anonymizedLintReportLine(bundle.anonymizedReports.workbookLint),
+        'Anonymized Workbook Analysis Report',
+        anonymizedAnalysisReportLine(bundle.anonymizedReports.workbookAnalysis),
         '',
         'Selected Logs',
         ...selectedLogLines(bundle),
@@ -335,7 +335,7 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         `Paths redacted: ${bundle.privacy.pathsRedacted}`,
         `Command arguments included: ${bundle.privacy.commandArgumentsIncluded}`,
         `Write audit included: ${bundle.privacy.writeAuditIncluded}`,
-        `Anonymized lint report included: ${bundle.privacy.anonymizedLintReportIncluded}`,
+        `Anonymized analysis report included: ${bundle.privacy.anonymizedAnalysisReportIncluded}`,
         `Selected logs included: ${bundle.privacy.selectedLogsIncluded}`,
         `Log paths redacted: ${bundle.privacy.logPathsRedacted}`,
     ];
@@ -418,21 +418,21 @@ function workbookLine(bundle: SupportBundle): string {
     ].join('; ');
 }
 
-function lintLine(bundle: SupportBundle): string {
-    if (!bundle.lint.available) {
+function analysisLine(bundle: SupportBundle): string {
+    if (!bundle.analysis.available) {
         return UNAVAILABLE;
     }
-    const byCode = bundle.lint.byCode
-        ? Object.entries(bundle.lint.byCode)
+    const byCode = bundle.analysis.byCode
+        ? Object.entries(bundle.analysis.byCode)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([code, count]) => `${code} ${count}`)
             .join(', ')
         : 'none';
     return [
-        `moduleType ${bundle.lint.moduleType ?? UNAVAILABLE}`,
-        `errors ${bundle.lint.errorCount ?? 0}`,
-        `warnings ${bundle.lint.warningCount ?? 0}`,
-        `suppressed ${bundle.lint.suppressedCount ?? 0}`,
+        `moduleType ${bundle.analysis.moduleType ?? UNAVAILABLE}`,
+        `errors ${bundle.analysis.errorCount ?? 0}`,
+        `warnings ${bundle.analysis.warningCount ?? 0}`,
+        `suppressed ${bundle.analysis.suppressedCount ?? 0}`,
         `byCode ${byCode || 'none'}`,
     ].join('; ');
 }
@@ -479,7 +479,7 @@ function writeAuditLines(bundle: SupportBundle): string[] {
     });
 }
 
-function anonymizedLintReportLine(report: SupportBundleAnonymizedLintReport): string {
+function anonymizedAnalysisReportLine(report: SupportBundleAnonymizedAnalysisReport): string {
     if (!report.included) {
         return report.unavailableReason ?? 'not-requested';
     }

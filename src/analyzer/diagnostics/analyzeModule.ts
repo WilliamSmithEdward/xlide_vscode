@@ -4,7 +4,7 @@
 // catalogue over one module's source and returns offset-based diagnostics. It
 // is pure (no `vscode`): the editor layer converts spans to ranges and severity
 // names to the VS Code enum. Structural block-balance checking stays in
-// `src/vbaLinter.ts` (lintVbaSource); this engine adds the semantic rules on
+// `src/vbaStructuralAnalysis.ts` (analyzeVbaStructure); this engine adds the semantic rules on
 // top, so the two do not overlap or double-report.
 //
 // Design rule (see /memories): no "looks like" heuristics. Every rule here is
@@ -23,7 +23,7 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isReservedIdentifier } from '../lexer/keywordTable';
-import { VBA_IDENTIFIER_NAME_RE } from '../../vbaLinter';
+import { VBA_IDENTIFIER_NAME_RE } from '../../vbaStructuralAnalysis';
 import {
 	getHostMembers,
 	resolveHostAlias,
@@ -1079,7 +1079,7 @@ function checkProcedureHeader(
 
 		const nameTok = toks[i];
 		if (!nameTok) {
-			continue; // malformed in a way the structural linter already reports
+			continue; // malformed in a way the structural analyzer already reports
 		}
 		const next = toks[i + 1];
 		if (!next) {

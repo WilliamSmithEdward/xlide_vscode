@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	anonymizedWorkbookLintReportFromResult,
+	anonymizedWorkbookAnalysisReportFromResult,
 	buildSupportBundle,
 	defaultSupportBundleFileName,
 	redactPath,
@@ -43,7 +43,7 @@ function baseInput(overrides: Partial<SupportBundleInput> = {}): SupportBundleIn
 			moduleTypes: { standard: 2, class: 1 },
 			activeModuleType: 'standard',
 		},
-		lint: {
+		analysis: {
 			available: true,
 			moduleType: 'standard',
 			errorCount: 1,
@@ -88,11 +88,11 @@ describe('support bundle', () => {
 			pathsRedacted: true,
 			commandArgumentsIncluded: false,
 			writeAuditIncluded: true,
-			anonymizedLintReportIncluded: false,
+			anonymizedAnalysisReportIncluded: false,
 			selectedLogsIncluded: false,
 			logPathsRedacted: true,
 		});
-		expect(bundle.anonymizedReports.workbookLint).toEqual({
+		expect(bundle.anonymizedReports.workbookAnalysis).toEqual({
 			included: false,
 			unavailableReason: 'not-requested',
 		});
@@ -130,7 +130,7 @@ describe('support bundle', () => {
 		expect(disclosure).toContain('Included:');
 		expect(disclosure).toContain('Not included:');
 		expect(disclosure).toContain('Workbook VBA source or cell data');
-		expect(disclosure).toContain('Anonymized workbook lint report');
+		expect(disclosure).toContain('Anonymized workbook analysis report');
 		expect(disclosure).toContain('<redacted>.xlsm');
 		expect(disclosure).not.toContain('C:\\Users\\William');
 	});
@@ -195,8 +195,8 @@ describe('support bundle', () => {
 		expect(supportDiagnosticsText(bundle)).not.toContain('C:\\Users\\William');
 	});
 
-	it('creates anonymized workbook lint reports without source paths or module names', () => {
-		const report = anonymizedWorkbookLintReportFromResult({
+	it('creates anonymized workbook analysis reports without source paths or module names', () => {
+		const report = anonymizedWorkbookAnalysisReportFromResult({
 			filePath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
 			moduleCount: 2,
 			errorCount: 1,
@@ -229,11 +229,11 @@ describe('support bundle', () => {
 				},
 			],
 		});
-		const bundle = buildSupportBundle(baseInput({ anonymizedWorkbookLintReport: report }));
+		const bundle = buildSupportBundle(baseInput({ anonymizedWorkbookAnalysisReport: report }));
 		const json = JSON.stringify(bundle);
 
-		expect(bundle.privacy.anonymizedLintReportIncluded).toBe(true);
-		expect(bundle.anonymizedReports.workbookLint).toMatchObject({
+		expect(bundle.privacy.anonymizedAnalysisReportIncluded).toBe(true);
+		expect(bundle.anonymizedReports.workbookAnalysis).toMatchObject({
 			included: true,
 			workbookExtension: '.xlsm',
 			moduleCount: 2,

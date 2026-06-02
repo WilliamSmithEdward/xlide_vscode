@@ -218,8 +218,8 @@ are listed rather than inventing a synthetic `...` token.
 Phase 5 adds live semantic diagnostics computed from module text by
 `src/analyzer/diagnostics/analyzeModule.ts` (rule catalogue in
 `ruleMetadata.ts`). Each rule is high-confidence and cites the MS-VBAL section
-it enforces; the engine is merged with the structural block-balance linter
-(`src/vbaLinter.ts`, which covers the "Missing End .../unexpected terminator"
+it enforces; the engine is merged with the structural block-balance analyzer
+(`src/vbaStructuralAnalysis.ts`, which covers the "Missing End .../unexpected terminator"
 family) in `registerVbaDiagnostics`.
 
 | Rule code | Meaning | MS-VBAL | Implementation File | Fixture | Status |
@@ -258,7 +258,7 @@ family) in `registerVbaDiagnostics`.
 | `call-requires-parens` | A `Call` statement supplies arguments without enclosing parentheses (`Call MsgBox "hi"`) | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `invalid-explicit-call-target` | A runtime entry with verified explicit-`Call` incompatibility is used as the target of `Call`; VBE rejects both `Call DoEvents` and `Call DoEvents()` as Syntax error while accepting bare `DoEvents` and expression `DoEvents()` controls | VBE oracle call syntax | src/analyzer/diagnostics/analyzeModule.ts + src/analyzer/runtime/vbaRuntime.ts | tests/vbaDiagnostics.test.ts + tests/vbaRuntime.test.ts + tests/vbaSignatureHelp.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `call-statement-forbids-parens` | A standalone zero-argument call statement uses empty parentheses without `Call`: known same-module/exported project procedures/Declares such as `myFunction()`, verified zero-argument runtime functions such as `DoEvents()`, plus member/property statements such as `ThisWorkbook.CanCheckIn()`, `Application.Calculate()`, and `ActiveSheet.Range()`. Required-argument calls such as `MsgBox()` remain owned by `argument-count`. Expression context and non-empty standalone member/property controls are VBE-oracle verified separately; explicit `Call` target special cases are owned by `invalid-explicit-call-target` | 5.4.2.1 (call statement) / VBE oracle call syntax | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
-| `invalid-expression-syntax` | A narrow expression-syntax diagnostic for impossible operator shapes: consecutive non-unary binary operators such as `***`, or a statement ending in a binary operator. Broader incomplete-expression linting is deferred to avoid noisy realtime false positives | 5.6 / VBE oracle Syntax error behavior | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `invalid-expression-syntax` | A narrow expression-syntax diagnostic for impossible operator shapes: consecutive non-unary binary operators such as `***`, or a statement ending in a binary operator. Broader incomplete-expression analysis is deferred to avoid noisy realtime false positives | 5.6 / VBE oracle Syntax error behavior | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `required-param-after-optional` | A required parameter follows an `Optional` parameter in a procedure header | 5.3.1.5 (parameter list) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `paramarray-not-last` | A `ParamArray` parameter is not the final parameter | 5.3.1.6 (ParamArray) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `exit-wrong-proc` | An `Exit Sub`/`Exit Function`/`Exit Property` does not match the enclosing procedure kind (`Exit Do`/`Exit For` excluded) | 5.4.1.3 (Exit statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |

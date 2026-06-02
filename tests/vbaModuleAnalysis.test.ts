@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { lintVbaModuleSource } from '../src/vbaModuleLint';
+import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 
 function diagnosticsByCode(
 	source: string,
 	code: string,
 	activeIncompleteExpressionOffset?: number,
 ) {
-	return lintVbaModuleSource({
+	return analyzeVbaModuleSource({
 		source,
 		activeIncompleteExpressionOffset,
 	})
@@ -14,19 +14,19 @@ function diagnosticsByCode(
 		.filter((diag) => diag.code === code);
 }
 
-describe('lintVbaModuleSource', () => {
+describe('analyzeVbaModuleSource', () => {
 	it('merges directive, structural, and semantic diagnostics through one suppression-aware core', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-next-line undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-next-line undeclared-variable\n" +
 			'    hiddenMissing = 1\n' +
 			'    visibleMissing = 2\n' +
 			'End Sub\n' +
-			"' @xlide-lint-disable-next-line not-a-rule\n" +
+			"' @xlide-analysis-disable-next-line not-a-rule\n" +
 			'Sub Broken()\n';
 
-		const result = lintVbaModuleSource({
+		const result = analyzeVbaModuleSource({
 			source,
 			moduleName: 'Module1',
 			knownIdentifiers: new Set<string>(),
@@ -34,7 +34,7 @@ describe('lintVbaModuleSource', () => {
 
 		expect(result.suppressedCount).toBe(1);
 		expect(result.diagnostics.map((diag) => diag.code)).toEqual([
-			'lint-suppression-directive',
+			'analysis-suppression-directive',
 			'missing-block-closer',
 			'undeclared-variable',
 		]);
@@ -45,7 +45,7 @@ describe('lintVbaModuleSource', () => {
 	it('honors project procedure context supplied by callers', () => {
 		const source = 'Option Explicit\nSub T()\n    KnownProc 1\n    MissingProc 2\nEnd Sub\n';
 
-		const result = lintVbaModuleSource({
+		const result = analyzeVbaModuleSource({
 			source,
 			moduleName: 'Module1',
 			knownProcedures: new Set(['knownproc']),
@@ -58,7 +58,7 @@ describe('lintVbaModuleSource', () => {
 	it('keeps hard diagnostics suppressed inside member ranges', () => {
 		const source =
 			'Option Explicit\n' +
-			"' @xlide-lint-disable-next-member undeclared-variable\n" +
+			"' @xlide-analysis-disable-next-member undeclared-variable\n" +
 			'Sub Hidden()\n' +
 			'    hiddenMissing = 1\n' +
 			'End Sub\n' +
@@ -66,7 +66,7 @@ describe('lintVbaModuleSource', () => {
 			'    visibleMissing = 2\n' +
 			'End Sub\n';
 
-		const result = lintVbaModuleSource({
+		const result = analyzeVbaModuleSource({
 			source,
 			moduleName: 'Module1',
 			knownIdentifiers: new Set<string>(),
@@ -105,7 +105,7 @@ describe('lintVbaModuleSource', () => {
 
 		const colonSource = 'Option Explicit\nSub T()\n    ThisWorkbook. : x = 1 *** 2\nEnd Sub\n';
 		const colonDotOffset = colonSource.indexOf('ThisWorkbook.') + 'ThisWorkbook.'.length;
-		const colonHits = lintVbaModuleSource({
+		const colonHits = analyzeVbaModuleSource({
 			source: colonSource,
 			activeIncompleteExpressionOffset: colonDotOffset,
 		})

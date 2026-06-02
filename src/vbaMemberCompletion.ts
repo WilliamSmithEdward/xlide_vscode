@@ -17,7 +17,7 @@ import {
 	workbookIdentityKey,
 } from './xlideFileSystem';
 import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
-import { leadingWhitespace, normalizeSmartBlockLayout } from './vbaLinter';
+import { leadingWhitespace, normalizeSmartBlockLayout } from './vbaStructuralAnalysis';
 import {
 	DocRegistry,
 	EventHandlerCompletion,

@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
 	analyzeModule,
 	filterDiagnosticsWithSuppressions,
-	LINT_SUPPRESSION_DIRECTIVE_CODE,
-	scanLintSuppressions,
+	ANALYSIS_SUPPRESSION_DIRECTIVE_CODE,
+	scanAnalysisSuppressions,
 	type VbaDiagnostic,
 } from '../src/analyzer';
-import { lintVbaSource } from '../src/vbaLinter';
+import { analyzeVbaStructure } from '../src/vbaStructuralAnalysis';
 
 function semanticDiagnostics(source: string): VbaDiagnostic[] {
 	return analyzeModule(source, {
@@ -18,12 +18,12 @@ function diagnosticsByCode(diags: readonly VbaDiagnostic[], code: string): VbaDi
 	return diags.filter((diag) => diag.code === code);
 }
 
-describe('XLIDE lint suppression directives', () => {
+describe('XLIDE analysis suppression directives', () => {
 	it('suppresses only the next physical line for a matching diagnostic code', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-next-line undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-next-line undeclared-variable\n" +
 			'    notDeclared = 1\n' +
 			'    stillMissing = 2\n' +
 			'End Sub\n';
@@ -39,7 +39,7 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    notDeclared = 1 ' @xlide-lint-disable-line undeclared-variable\n" +
+			"    notDeclared = 1 ' @xlide-analysis-disable-line undeclared-variable\n" +
 			'End Sub\n';
 
 		const result = filterDiagnosticsWithSuppressions(source, semanticDiagnostics(source));
@@ -52,7 +52,7 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-next-line\n" +
+			"    ' @xlide-analysis-disable-next-line\n" +
 			'    notDeclared = 1\n' +
 			'End Sub\n';
 
@@ -65,7 +65,7 @@ describe('XLIDE lint suppression directives', () => {
 	it('supports file-level suppression before the first source line', () => {
 		const source =
 			'Attribute VB_Name = "Module1"\n' +
-			" ' @xlide-lint-disable-file undeclared-variable -- generated shim\n" +
+			" ' @xlide-analysis-disable-file undeclared-variable -- generated shim\n" +
 			'Option Explicit\n' +
 			'Sub T()\n' +
 			'    notDeclared = 1\n' +
@@ -81,7 +81,7 @@ describe('XLIDE lint suppression directives', () => {
 	it('reports and ignores late file-level suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
-			" ' @xlide-lint-disable-file all\n" +
+			" ' @xlide-analysis-disable-file all\n" +
 			'Sub T()\n' +
 			'    notDeclared = 1\n' +
 			'End Sub\n';
@@ -91,15 +91,15 @@ describe('XLIDE lint suppression directives', () => {
 		expect(result.suppressedCount).toBe(0);
 		expect(diagnosticsByCode(result.diagnostics, 'undeclared-variable')).toHaveLength(1);
 		expect(result.directiveDiagnostics).toHaveLength(1);
-		expect(result.directiveDiagnostics[0].code).toBe(LINT_SUPPRESSION_DIRECTIVE_CODE);
+		expect(result.directiveDiagnostics[0].code).toBe(ANALYSIS_SUPPRESSION_DIRECTIVE_CODE);
 	});
 
 	it('ignores triple-apostrophe documentation comments', () => {
 		const source =
-			"''' @xlide-lint-disable-next-line missing-block-closer\n" +
+			"''' @xlide-analysis-disable-next-line missing-block-closer\n" +
 			'Sub T()\n';
-		const suppressions = scanLintSuppressions(source);
-		const visible = lintVbaSource(source).filter((problem) =>
+		const suppressions = scanAnalysisSuppressions(source);
+		const visible = analyzeVbaStructure(source).filter((problem) =>
 			!suppressions.isSuppressed(problem.code, problem.line),
 		);
 
@@ -109,10 +109,10 @@ describe('XLIDE lint suppression directives', () => {
 
 	it('ignores Rem comments', () => {
 		const source =
-			'Rem @xlide-lint-disable-next-line missing-block-closer\n' +
+			'Rem @xlide-analysis-disable-next-line missing-block-closer\n' +
 			'Sub T()\n';
-		const suppressions = scanLintSuppressions(source);
-		const visible = lintVbaSource(source).filter((problem) =>
+		const suppressions = scanAnalysisSuppressions(source);
+		const visible = analyzeVbaStructure(source).filter((problem) =>
 			!suppressions.isSuppressed(problem.code, problem.line),
 		);
 
@@ -122,11 +122,11 @@ describe('XLIDE lint suppression directives', () => {
 
 	it('suppresses structural diagnostics through the same physical-line predicate', () => {
 		const source =
-			"' @xlide-lint-disable-next-line missing-block-closer\n" +
+			"' @xlide-analysis-disable-next-line missing-block-closer\n" +
 			'Sub T()\n';
-		const suppressions = scanLintSuppressions(source);
+		const suppressions = scanAnalysisSuppressions(source);
 		let suppressedCount = 0;
-		const visible = lintVbaSource(source).filter((problem) => {
+		const visible = analyzeVbaStructure(source).filter((problem) => {
 			if (suppressions.isSuppressed(problem.code, problem.line)) {
 				suppressedCount++;
 				return false;
@@ -142,7 +142,7 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-next-line not-a-rule\n" +
+			"    ' @xlide-analysis-disable-next-line not-a-rule\n" +
 			'    notDeclared = 1\n' +
 			'End Sub\n';
 
@@ -158,7 +158,7 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-next-line undeclared-variable, not-a-rule\n" +
+			"    ' @xlide-analysis-disable-next-line undeclared-variable, not-a-rule\n" +
 			'    notDeclared = 1\n' +
 			'End Sub\n';
 
@@ -173,7 +173,7 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-next-line all, undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-next-line all, undeclared-variable\n" +
 			'    notDeclared = 1\n' +
 			'End Sub\n';
 
@@ -187,7 +187,7 @@ describe('XLIDE lint suppression directives', () => {
 	it('suppresses diagnostics inside the next supported top-level member only', () => {
 		const source =
 			'Option Explicit\n' +
-			"' @xlide-lint-disable-next-member undeclared-variable\n" +
+			"' @xlide-analysis-disable-next-member undeclared-variable\n" +
 			'Sub Suppressed()\n' +
 			'    memberMissing = 1\n' +
 			'End Sub\n' +
@@ -206,7 +206,7 @@ describe('XLIDE lint suppression directives', () => {
 	it('reports disable-next-member when it is not directly before a supported member', () => {
 		const source =
 			'Option Explicit\n' +
-			"' @xlide-lint-disable-next-member all\n" +
+			"' @xlide-analysis-disable-next-member all\n" +
 			'Dim moduleValue As Long\n' +
 			'Sub T()\n' +
 			'    notDeclared = 1\n' +
@@ -222,11 +222,11 @@ describe('XLIDE lint suppression directives', () => {
 
 	it('supports Type and Enum members through the same next-member range model', () => {
 		const source =
-			"' @xlide-lint-disable-next-member invalid-declaration-name\n" +
+			"' @xlide-analysis-disable-next-member invalid-declaration-name\n" +
 			'Type TPoint\n' +
 			'    X As Long\n' +
 			'End Type\n' +
-			"' @xlide-lint-disable-next-member invalid-declaration-name\n" +
+			"' @xlide-analysis-disable-next-member invalid-declaration-name\n" +
 			'Enum Color\n' +
 			'    Red\n' +
 			'End Enum\n' +
@@ -260,9 +260,9 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-block undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-block undeclared-variable\n" +
 			'    blockMissing = 1\n' +
-			"    ' @xlide-lint-enable-block undeclared-variable\n" +
+			"    ' @xlide-analysis-enable-block undeclared-variable\n" +
 			'    afterMissing = 2\n' +
 			'End Sub\n';
 
@@ -277,13 +277,13 @@ describe('XLIDE lint suppression directives', () => {
 	it('supports nested block directives with an explicit stack contract', () => {
 		const source =
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-block undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-block undeclared-variable\n" +
 			'    firstMissing = 1\n' +
-			"    ' @xlide-lint-disable-block invalid-expression-syntax\n" +
+			"    ' @xlide-analysis-disable-block invalid-expression-syntax\n" +
 			'    total = 1 *** 2\n' +
-			"    ' @xlide-lint-enable-block invalid-expression-syntax\n" +
+			"    ' @xlide-analysis-enable-block invalid-expression-syntax\n" +
 			'    secondMissing = 2\n' +
-			"    ' @xlide-lint-enable-block undeclared-variable\n" +
+			"    ' @xlide-analysis-enable-block undeclared-variable\n" +
 			'    outsideMissing = 3\n' +
 			'End Sub\n';
 		const diagnostics = [
@@ -329,7 +329,7 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-enable-block undeclared-variable\n" +
+			"    ' @xlide-analysis-enable-block undeclared-variable\n" +
 			'    notDeclared = 1\n' +
 			'End Sub\n';
 
@@ -345,7 +345,7 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-block undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-block undeclared-variable\n" +
 			'    notDeclared = 1\n' +
 			'End Sub\n';
 
@@ -361,9 +361,9 @@ describe('XLIDE lint suppression directives', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-block undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-block undeclared-variable\n" +
 			'    notDeclared = 1\n' +
-			"    ' @xlide-lint-enable-block argument-count\n" +
+			"    ' @xlide-analysis-enable-block argument-count\n" +
 			'End Sub\n';
 
 		const result = filterDiagnosticsWithSuppressions(source, semanticDiagnostics(source));

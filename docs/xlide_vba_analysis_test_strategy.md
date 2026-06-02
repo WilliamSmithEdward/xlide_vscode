@@ -1,16 +1,16 @@
-# XLIDE VBA Realtime Linting Test Strategy
+# XLIDE VBA Realtime Analysis Test Strategy
 
 ## Purpose
 
-This document defines the high-level test strategy for validating realtime Excel VBA syntax linting in a VS Code extension.
+This document defines the high-level test strategy for validating realtime Excel VBA syntax analysis in a VS Code extension.
 
 The goal is not only to prove that the parser accepts or rejects snippets. The goal is to prove that XLIDE behaves correctly across three different layers:
 
-1. The standalone VBA linting engine.
+1. The standalone VBA analysis engine.
 2. The live VS Code diagnostic surface.
 3. The real Excel/VBE compiler behavior, when available.
 
-These layers should not be treated as equal. The pure linting engine should be the primary regression target. VS Code and Excel COM should be integration and oracle layers.
+These layers should not be treated as equal. The pure analysis engine should be the primary regression target. VS Code and Excel COM should be integration and oracle layers.
 
 ---
 
@@ -18,21 +18,21 @@ These layers should not be treated as equal. The pure linting engine should be t
 
 Do not make live VS Code or Excel COM the primary test layer.
 
-Use them as validation layers around a deterministic, fixture-driven linter test suite.
+Use them as validation layers around a deterministic, fixture-driven analyzer test suite.
 
 ```text
 Spec corpus
    |
 Fixture runner
    |
-Pure lint facade tests
+Pure analysis facade tests
    |
 VS Code diagnostic integration tests
    |
 Optional Excel COM / VBE oracle tests
 ```
 
-The core linter must be testable without launching VS Code, Excel, or COM.
+The core analyzer must be testable without launching VS Code, Excel, or COM.
 
 ---
 
@@ -66,16 +66,16 @@ for new VBE-behavior evaluation, debugging, discovery, and corpus coverage work.
 ## Current XLIDE Shape
 
 XLIDE already has the right separation for this strategy. Do not rewrite it into
-one large parser/linter module.
+one large parser/analyzer module.
 
 Current pure pieces:
 
-- `src/vbaLinter.ts` owns fast structural block-balance diagnostics and
+- `src/vbaStructuralAnalysis.ts` owns fast structural block-balance diagnostics and
   smart-enter helpers.
 - `src/analyzer/diagnostics/analyzeModule.ts` owns high-confidence semantic and
   syntax-adjacent diagnostics over one module.
 - `src/analyzer/diagnostics/ruleMetadata.ts` owns the diagnostic rule catalogue.
-- `src/vbaWorkbookLint.ts` flattens module diagnostics across a workbook for the
+- `src/vbaWorkbookAnalysis.ts` flattens module diagnostics across a workbook for the
   command and agent-tool path.
 - `src/vbaLanguageProviders.ts` adapts pure diagnostics to VS Code ranges,
   severities, debounce, and `DiagnosticCollection`.
@@ -83,23 +83,23 @@ Current pure pieces:
 The next test layer should add a small pure facade, not collapse these modules:
 
 ```ts
-export function lintVbaModule(
+export function analyzeVbaModule(
   source: string,
-  options: VbaLintOptions
+  options: VbaAnalysisOptions
 ): NormalizedVbaDiagnostic[];
 ```
 
-That facade should merge `lintVbaSource(source)` and `analyzeModule(source,
+That facade should merge `analyzeVbaStructure(source)` and `analyzeModule(source,
 options)`, normalize locations, apply mode-specific filtering, and keep the VS
 Code adapter thin.
 
 ---
 
-## Layer 1: Pure Linter Engine Tests
+## Layer 1: Pure Analyzer Engine Tests
 
 ### Purpose
 
-Pure linter tests answer this question:
+Pure analyzer tests answer this question:
 
 ```text
 Did the language engine classify this VBA source correctly?
@@ -131,10 +131,10 @@ This layer should test:
 This is a facade over the existing pure modules, not a replacement for them.
 
 ```ts
-export type LintMode = "realtime" | "strict";
+export type AnalysisMode = "realtime" | "strict";
 
-export interface VbaLintOptions {
-  mode: LintMode;
+export interface VbaAnalysisOptions {
+  mode: AnalysisMode;
   moduleKind: "standard" | "class" | "form" | "worksheet" | "workbook";
   host: "excel";
   settings?: {
@@ -158,22 +158,22 @@ export interface NormalizedVbaDiagnostic {
   source: "xlide-vba";
 }
 
-export function lintVbaModule(
+export function analyzeVbaModule(
   source: string,
-  options: VbaLintOptions
+  options: VbaAnalysisOptions
 ): NormalizedVbaDiagnostic[] {
   return [];
 }
 ```
 
-The existing `lintVbaSource` name should remain reserved for the current
+The existing `analyzeVbaStructure` name should remain reserved for the current
 structural block-balance function unless that API is intentionally migrated.
 
 ### Why This Layer Comes First
 
-If the linter cannot be tested outside VS Code, then every small grammar change becomes slow and fragile.
+If the analyzer cannot be tested outside VS Code, then every small grammar change becomes slow and fragile.
 
-The extension should adapt the linter to VS Code. The VS Code extension should not be the linter itself.
+The extension should adapt the analyzer to VS Code. The VS Code extension should not be the analyzer itself.
 
 ---
 
@@ -205,7 +205,7 @@ This layer should test:
 - range mapping
 - severity mapping
 - diagnostic code preservation
-- command-triggered linting
+- command-triggered analysis
 - behavior while the user is still typing
 
 ### Recommended Test Command
@@ -213,10 +213,10 @@ This layer should test:
 Expose an internal or development-only command for deterministic tests:
 
 ```text
-xlide.lintDocument
+xlide.analyzeDocument
 ```
 
-This command should force linting for one document URI.
+This command should force analysis for one document URI.
 
 Avoid making tests wait on debounce timers whenever possible.
 
@@ -224,7 +224,7 @@ Avoid making tests wait on debounce timers whenever possible.
 
 ```text
 1. Open an in-memory VBA document in VS Code.
-2. Run xlide.lintDocument.
+2. Run xlide.analyzeDocument.
 3. Read vscode.languages.getDiagnostics(uri).
 4. Normalize the diagnostics.
 5. Compare against the fixture expectation.
@@ -234,9 +234,9 @@ Avoid making tests wait on debounce timers whenever possible.
 
 Do not use VS Code tests to prove the full grammar.
 
-That belongs in the pure linter tests.
+That belongs in the pure analyzer tests.
 
-VS Code tests should prove that the linter result is correctly translated into the editor experience.
+VS Code tests should prove that the analyzer result is correctly translated into the editor experience.
 
 ---
 
@@ -481,7 +481,7 @@ The marker syntax is only for tests:
 <| diagnostic target |>
 ```
 
-The test harness should strip markers before linting, then use those marker ranges for expected diagnostic locations.
+The test harness should strip markers before analysis, then use those marker ranges for expected diagnostic locations.
 
 ### Fixture Defaults
 
@@ -540,12 +540,12 @@ Example:
 
 This distinction is essential.
 
-Realtime linting should preserve typing flow.
+Realtime analysis should preserve typing flow.
 
 Strict validation should preserve correctness.
 
 In the current codebase, mode should initially be implemented in the pure facade
-by filtering or downgrading diagnostics from `lintVbaSource` and `analyzeModule`.
+by filtering or downgrading diagnostics from `analyzeVbaStructure` and `analyzeModule`.
 Only move mode awareness deeper into the parser/analyzer when a rule genuinely
 needs different parse recovery behavior.
 
@@ -555,7 +555,7 @@ needs different parse recovery behavior.
 
 VBA is not purely file-local.
 
-The linter should eventually support project-level fixtures.
+The analyzer should eventually support project-level fixtures.
 
 Example:
 
@@ -633,7 +633,7 @@ Diagnostic codes should be stable.
   "scripts": {
     "test": "vitest run",
     "test:core": "vitest run",
-    "test:fixtures": "vitest run tests/vbaLintFixtures.test.ts",
+    "test:fixtures": "vitest run tests/vbaAnalysisFixtures.test.ts",
     "test:vscode": "vscode-test",
     "test:oracle:vbe": "node ./scripts/run-vbe-oracle.js",
     "check-types": "tsc --noEmit",
@@ -653,11 +653,11 @@ local loop.
 ```text
 Pull request CI:
   - TypeScript compile
-  - pure linter fixture tests
+  - pure analyzer fixture tests
   - selected VS Code integration tests, once stable
 
 Nightly or manual Windows CI:
-  - pure linter fixture tests
+  - pure analyzer fixture tests
   - VS Code integration tests
   - optional Excel COM / VBE oracle tests
 
@@ -676,10 +676,10 @@ Recommended implementation order:
 
 ```text
 1. Add category and VBE-equivalence fields to the diagnostic rule registry.
-2. Define the pure `lintVbaModule` facade and normalized diagnostic shape.
+2. Define the pure `analyzeVbaModule` facade and normalized diagnostic shape.
 3. Define fixture format.
 4. Build marker stripper.
-5. Build pure linter fixture runner.
+5. Build pure analyzer fixture runner.
 6. Add 20 syntax fixtures.
 7. Add realtime-vs-strict expectations.
 8. Wire facade output into VS Code diagnostics.
@@ -690,7 +690,7 @@ Recommended implementation order:
 
 Do not start with Excel automation.
 
-That should come after the linter is deterministic.
+That should come after the analyzer is deterministic.
 
 ---
 
@@ -699,7 +699,7 @@ That should come after the linter is deterministic.
 A diagnostic has the strongest confidence when all three layers agree.
 
 ```text
-XLIDE linter:     invalid
+XLIDE analyzer:     invalid
 VS Code surface:  red squiggle in correct range
 Excel/VBE oracle: compile failure
 Result:           high confidence syntax error
@@ -708,7 +708,7 @@ Result:           high confidence syntax error
 A warning can still be valid even when Excel compiles the code.
 
 ```text
-XLIDE linter:     warning
+XLIDE analyzer:     warning
 VS Code surface:  yellow squiggle
 Excel/VBE oracle: compiles fine
 Result:           valid XLIDE opinion warning
@@ -740,7 +740,7 @@ XLIDE can and should provide diagnostics that VBE does not provide, including:
 - incomplete realtime state handling
 - project hygiene warnings
 
-The linter should distinguish between:
+The analyzer should distinguish between:
 
 ```text
 This is invalid VBA.
@@ -758,7 +758,7 @@ That distinction is what will make the extension feel accurate instead of noisy.
 
 ## Definition Of Done
 
-The linting test strategy is working when:
+The analysis test strategy is working when:
 
 ```text
 1. Every diagnostic has a stable code.
@@ -773,4 +773,4 @@ The linting test strategy is working when:
 10. New parser bugs can be reproduced by adding one fixture.
 ```
 
-At that point, the linter is not just a demo. It is a regression-tested language subsystem.
+At that point, the analyzer is not just a demo. It is a regression-tested language subsystem.

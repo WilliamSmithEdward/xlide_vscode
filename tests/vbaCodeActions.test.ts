@@ -7,7 +7,7 @@ import {
 	type VbaDiagnostic,
 	type VbaTextEdit,
 } from '../src/analyzer';
-import { lintVbaSource, type VbaLintProblem } from '../src/vbaLinter';
+import { analyzeVbaStructure, type VbaStructuralDiagnostic } from '../src/vbaStructuralAnalysis';
 
 function byCode(diags: readonly VbaDiagnostic[], code: string): VbaDiagnostic[] {
 	return diags.filter((diag) => diag.code === code);
@@ -46,7 +46,7 @@ function offsetAt(source: string, line: number, character: number): number {
 	return source.length;
 }
 
-function lintAction(source: string, problem: VbaLintProblem) {
+function analysisAction(source: string, problem: VbaStructuralDiagnostic) {
 	return resolveDiagnosticCodeActions(source, {
 		code: problem.code ?? '',
 		message: problem.message,
@@ -98,9 +98,9 @@ function projectProcedures(
 describe('resolveDiagnosticCodeActions', () => {
 	it('inserts a missing procedure closer at EOF', () => {
 		const source = 'Sub Foo()\n    MsgBox 1\n';
-		const problem = lintVbaSource(source)[0];
+		const problem = analyzeVbaStructure(source)[0];
 
-		const actions = lintAction(source, problem);
+		const actions = analysisAction(source, problem);
 
 		expect(actions).toHaveLength(1);
 		expect(actions[0].title).toBe("Insert 'End Sub'");
@@ -111,9 +111,9 @@ describe('resolveDiagnosticCodeActions', () => {
 
 	it('inserts a missing procedure closer at EOF when the file has no final newline', () => {
 		const source = 'Sub Foo()\n    MsgBox 1';
-		const problem = lintVbaSource(source)[0];
+		const problem = analyzeVbaStructure(source)[0];
 
-		const actions = lintAction(source, problem);
+		const actions = analysisAction(source, problem);
 
 		expect(actions).toHaveLength(1);
 		expect(applyEdits(source, actions[0].edits)).toBe(
@@ -123,12 +123,12 @@ describe('resolveDiagnosticCodeActions', () => {
 
 	it('inserts an unclosed inner block before a mismatched outer closer', () => {
 		const source = 'Sub Foo()\n    If x Then\n        y = 1\nEnd Sub\n';
-		const problem = lintVbaSource(source).find(
+		const problem = analyzeVbaStructure(source).find(
 			(candidate) => candidate.expectedClose === 'End If',
 		);
 		expect(problem).toBeTruthy();
 
-		const actions = lintAction(source, problem!);
+		const actions = analysisAction(source, problem!);
 
 		expect(actions).toHaveLength(1);
 		expect(actions[0].title).toBe("Insert 'End If'");
@@ -139,9 +139,9 @@ describe('resolveDiagnosticCodeActions', () => {
 
 	it('does not offer structural insertion for unmatched closers', () => {
 		const source = 'Sub Foo()\n    End If\nEnd Sub\n';
-		const problem = lintVbaSource(source)[0];
+		const problem = analyzeVbaStructure(source)[0];
 
-		const actions = lintAction(source, problem);
+		const actions = analysisAction(source, problem);
 
 		expect(problem.code).toBe('unmatched-block-closer');
 		expect(actions).toHaveLength(0);
@@ -534,7 +534,7 @@ describe('resolveDiagnosticCodeActions', () => {
 		expect(applyEdits(source, suppress!.edits)).toBe(
 			'Option Explicit\n' +
 			'Sub T()\n' +
-			"    ' @xlide-lint-disable-next-line undeclared-variable\n" +
+			"    ' @xlide-analysis-disable-next-line undeclared-variable\n" +
 			'    notDeclared = 1\n' +
 			'End Sub\n',
 		);

@@ -13,7 +13,7 @@ import {
 	vbaSmartBlockSnippetsFor,
 	type VbaSmartBlockLayout,
 	type VbaSmartBlockSnippetSpec,
-} from '../../vbaLinter';
+} from '../../vbaStructuralAnalysis';
 
 export type KeywordCompletionKind = 'keyword' | 'snippet';
 

@@ -65,7 +65,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
-        "excel_vba_linting_additional_edge_cases.md"
+        "excel_vba_analysis_additional_edge_cases.md"
       ],
       "notes": "Enabled only when supplied compiler constants prove Win64; unknown platform branches stay silent until an oracle-backed platform profile is configured.",
       "diagnosticKind": "compile-error"
@@ -81,14 +81,14 @@
       "diagnosticKind": "style-policy"
     },
     {
-      "code": "lint-suppression-directive",
+      "code": "analysis-suppression-directive",
       "status": "spec-derived",
-      "sourceOfTruth": "docs/xlide_vba_lint_suppression_comments.md plus XLIDE style policy",
+      "sourceOfTruth": "docs/xlide_vba_analysis_suppression_comments.md plus XLIDE style policy",
       "corpusInfluence": "none",
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Directive diagnostics report malformed XLIDE lint suppression comments, unknown diagnostic codes, and first-slice scope placement errors. They are not VBA compile behavior and are intentionally not suppressible by lint suppression directives.",
+      "notes": "Directive diagnostics report malformed XLIDE analysis suppression comments, unknown diagnostic codes, and first-slice scope placement errors. They are not VBA compile behavior and are intentionally not suppressible by analysis suppression directives.",
       "diagnosticKind": "style-policy"
     },
     {
@@ -103,7 +103,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
-        "syntax_corpus/excel_vba_linting_final_hardening_cases.md"
+        "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"
       ],
       "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives.",
       "diagnosticKind": "compile-error"

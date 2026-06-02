@@ -1,7 +1,7 @@
 # XLIDE Roadmap Version 2.x
 
 Unified development roadmap for the current XLIDE workstream: realtime VBA
-linting, language service hardening, type analysis, corpus coverage, and
+analysis, language service hardening, type analysis, corpus coverage, and
 Excel/VBE compatibility validation.
 
 ## North Star
@@ -19,6 +19,9 @@ heuristic diagnostics.
 - Deterministic logic only. No heuristic analyzer behavior unless the operator
   explicitly approves it before implementation.
 - Prefer no diagnostic over a guessed diagnostic.
+- Converge renamed concepts across command IDs, tool names, file names, exported
+  types, docs, and tests. Do not keep compatibility aliases or parallel naming
+  paths unless explicitly approved as a time-boxed migration.
 - Red/error means a deterministic compile blocker or a construct XLIDE can prove
   invalid.
 - Yellow/warning means XLIDE guidance, maintainability advice, or a soft risk
@@ -59,7 +62,7 @@ heuristic diagnostics.
 
 ### Landed
 
-- Realtime diagnostics are split between structural linting and analyzer rules.
+- Realtime diagnostics are split between structural analysis and analyzer rules.
 - Active diagnostics are catalogued in `src/analyzer/diagnostics/ruleMetadata.ts`.
 - Rule metadata includes category, VBE compile-equivalence, and diagnostic-kind
   fields so compile-time and deterministic-runtime red squiggles stay separate.
@@ -173,7 +176,7 @@ heuristic diagnostics.
   markers in one keypress. Tab on those empty auto-continued comment markers
   escapes the marker and indents normally.
 - Smart Enter auto-blocks safe VBA block openers through the same structural
-  block helper used by linting, including procedures, `If ... Then`, `With`,
+  block helper used by analysis, including procedures, `If ... Then`, `With`,
   `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`; `With`
   uses the default `xlide.editor.blockLayout = "comfy"` layout: spacer line,
   one editable body line one real tab deeper, spacer line, then the closer.
@@ -220,7 +223,7 @@ Purpose: make every diagnostic self-describing and severity-safe.
   advisory.
 - [x] Add tests that assert every rule declares category and VBE equivalence.
 - [x] Add a short diagnostic policy table to architecture docs.
-- [x] Use category/equivalence fields when reporting workbook lint summaries.
+- [x] Use category/equivalence fields when reporting workbook analysis summaries.
 
 Definition of done:
 
@@ -415,7 +418,7 @@ Purpose: move from same-module checks to workbook-aware analysis.
   used by completion, hover, semantic tokens, diagnostics, and type-definition
   navigation.
 - [x] Add a shared project-analysis helper for project-aware test fixtures,
-  lint surfaces, diagnostics, and editor providers, covering `ProjectIndex`
+  analysis surfaces, diagnostics, and editor providers, covering `ProjectIndex`
   construction, live current-module overlay, visibility-filtered names,
   exported signatures, visible project types, source-backed member surfaces,
   and a named read-only live-analysis path for temporarily invalid modules.
@@ -428,13 +431,13 @@ Purpose: move from same-module checks to workbook-aware analysis.
   path.
 - [x] Add a shared same-workbook open-document source overlay helper and route
   completion, hover, signature help, live diagnostics, semantic coloring,
-  definition/reference/rename, current-module lint, and tree-level class rename
+  definition/reference/rename, current-module analysis, and tree-level class rename
   through it so unsaved open modules participate consistently without crossing
   workbook boundaries.
 - [x] Add explicit multi-workbook isolation fixtures: two open workbooks with
   overlapping module, class, document-module, procedure, and member names must
   keep completion, hover, diagnostics, semantic coloring, references, rename,
-  lint, and live-source overlays scoped to the workbook encoded in the module
+  analysis, and live-source overlays scoped to the workbook encoded in the module
   URI. The fixture locks the shared same-workbook analysis inputs plus
   completion, diagnostics, semantic type coloring, and class-reference location
   behavior; provider surfaces consume that single path.
@@ -660,10 +663,10 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [x] Suppress hard errors for incomplete expressions where VBE behavior is not
   yet deterministically knowable. Live diagnostics now pass one active cursor
   offset through `incompleteExpressionEditSpan`, scoped to the active
-  colon-separated statement on the physical line. The shared module lint core
+  colon-separated statement on the physical line. The shared module analysis core
   suppresses overlapping hard syntax diagnostics for incomplete member access,
   trailing binary operators, and unmatched opening parentheses while the cursor
-  is in that edit; current-module lint and workbook lint omit the active offset
+  is in that edit; current-module analysis and workbook analysis omit the active offset
   and keep completed invalid source strict.
 - [x] Add a live-syntax state for incomplete member access, including trailing
   receiver dots such as `ThisWorkbook.` and bare leading dots inside active
@@ -693,7 +696,7 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   the shared analyzer casing helper, and Enter-triggered line casing is deferred
   one tick so Smart Enter and other same-keystroke edits settle before the line
   formatter runs.
-- [x] Share structural block knowledge between linting and Smart Enter so safe
+- [x] Share structural block knowledge between analysis and Smart Enter so safe
   block openers auto-insert their matching closer instead of maintaining
   procedure-only editor logic.
 - [x] Use the same smart-block stack for close-keyword completion while keeping
@@ -704,7 +707,7 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   literal-tab indentation rule, so `While`, `Do`, `If`, `With`, procedure,
   `Select Case`, `Type`, `Enum`, `#If`, `For`, and `For Each` bodies do not
   drift into separate space/tab behavior.
-- [x] Project block keyword snippets from the shared `src/vbaLinter.ts`
+- [x] Project block keyword snippets from the shared `src/vbaStructuralAnalysis.ts`
   smart-block catalogue, and test that snippets, Smart Enter, and static
   language-configuration indentation stay aligned as one contract.
 - [x] Conform static VS Code language-configuration indentation/folding regexes
@@ -713,17 +716,17 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   `Select Case`, `If`, and `#If`.
 - [x] Consolidate shared VBA source-text helpers (`stripVba`,
   identifier validation, comment/string-safe identifier occurrence search,
-  line-start offsets, and leading whitespace) so providers, workbook lint,
+  line-start offsets, and leading whitespace) so providers, workbook analysis,
   code actions, member completion, and class-module commands do not carry
   local duplicate regex pipelines.
 - [x] Use metadata categories to tune Problems output and future filters.
-- [x] Route workbook lint summaries through the shared diagnostic metadata
+- [x] Route workbook analysis summaries through the shared diagnostic metadata
   catalogue, including structural block-balance codes, so command output and
   agent JSON report category/equivalence without local bucketing.
-- [x] Route live diagnostics, current-module lint, and workbook lint through a
-  shared module lint core so structural diagnostics, semantic diagnostics, and
-  lint suppression directives cannot drift by surface.
-- [x] Route current-module lint, workbook lint, and project-aware diagnostic
+- [x] Route live diagnostics, current-module analysis, and workbook analysis through a
+  shared module analysis core so structural diagnostics, semantic diagnostics, and
+  analysis suppression directives cannot drift by surface.
+- [x] Route current-module analysis, workbook analysis, and project-aware diagnostic
   fixtures through shared project-analysis option derivation so cross-module
   procedure, identifier, type, non-type, and member-surface rules cannot drift by
   surface.
@@ -850,13 +853,13 @@ Definition of done:
 - The full workflow is documented for downstream workbook developers, including
   examples they can copy into real projects.
 
-## Workstream I: Lint Suppression Directives
+## Workstream I: Analysis Suppression Directives
 
 Purpose: give developers deterministic, VBA-comment-compatible control over
-XLIDE lint diagnostics without changing VBA execution behavior.
+XLIDE analysis diagnostics without changing VBA execution behavior.
 
 - [x] Document the proposed suppression syntax in
-  `docs/xlide_vba_lint_suppression_comments.md`.
+  `docs/xlide_vba_analysis_suppression_comments.md`.
 - [x] Parse suppression directives only from explicit XLIDE comment directives.
 - [x] Support module-level suppression.
 - [x] Support next-member suppression for `Sub`, `Function`, `Property`,
@@ -899,7 +902,7 @@ development.
 - [ ] Keep the existing XLIDE workbook/module tree in the VS Code Explorer
   section even after the dedicated XLIDE Activity Bar/sidebar ships. Explorer is
   the file/navigation surface; the XLIDE sidebar is the product shell for
-  health, commands, configuration, tests, lint summaries, and status.
+  health, commands, configuration, tests, analysis summaries, and status.
 - [ ] Add a unified configuration section/menu collection in the XLIDE sidebar:
   show effective settings, their source layer, validation state, quick actions,
   and links to edit user, workspace, and local workspace config.
@@ -910,31 +913,32 @@ development.
   - trust access to the VBA project object model
   - macro/security prerequisites relevant to run/test workflows
   - workbook open/reopen safety
-  - lint engine readiness
+  - analysis engine readiness
   - VBA test runner readiness once implemented
   - optional metadata/doc-comment support
 - [ ] Add primary action buttons:
-  - lint current module
-  - lint workbook
+  - analyze current module
+  - analyze workbook
   - open the full VBA test runner GUI
   - run current test
   - run all tests
   - export/sync modules
   - open/reopen workbook
   - refresh project
-- [ ] Add workbook-tree context menu action for `Lint All Modules` on workbook
-  nodes. It should call the existing workbook lint engine/tool path, respect the
-  selected workbook silo, and avoid creating a second lint pipeline.
+- [x] Add workbook-tree context menu action for `Analyze Workbook` on workbook
+  nodes. It should call the existing workbook analysis engine/tool path, respect the
+  selected workbook silo, and avoid creating a second analysis pipeline.
 - [ ] Add polished secondary panels for:
-  - Problems summary by severity
-  - Workbook lint results in a dedicated GUI/panel with module grouping,
+  - [x] Workbook analysis results in a dedicated GUI/panel with module grouping,
     severity filters, counts, suppressed-diagnostic visibility, copy/export
-    actions, and click-through navigation to module/line locations; Output
-    should remain a support log, not the primary lint-results surface.
-  - Test summary by pass/fail/skip/xfail/xpass
-  - Recent XLIDE operations and logs
-  - Setup recommendations and quick fixes
-  - Workbook/module metadata
+    actions, and click-through split-screen navigation to module/line
+    locations; Output should remain a support log, not the primary analysis-results
+    surface.
+  - [ ] Problems summary by severity
+  - [ ] Test summary by pass/fail/skip/xfail/xpass
+  - [ ] Recent XLIDE operations and logs
+  - [ ] Setup recommendations and quick fixes
+  - [ ] Workbook/module metadata
 - [ ] Keep status checks deterministic. If XLIDE cannot prove a requirement is
   met or missing, show `Unknown` with a concrete action instead of guessing.
 - [ ] Add telemetry-free local persistence for collapsed sections and selected
@@ -946,7 +950,7 @@ Definition of done:
 
 - XLIDE has a recognizable Activity Bar icon and a sidebar that surfaces the
   main workbook workflows without needing command-palette spelunking.
-- Setup health, lint, test, sync, and workbook actions are available from one
+- Setup health, analysis, test, sync, and workbook actions are available from one
   coherent place.
 - Sidebar status is deterministic, accessible, theme-safe, and does not depend
   on heuristic project guesses.
@@ -1086,13 +1090,13 @@ prove the edit is safe.
   - [x] remove `Set` when the assignment target is known scalar type
   - [x] add missing required argument placeholder only when explicitly requested,
     fed by analyzer-owned structured diagnostic metadata
-  - [x] add lint suppression comment for a selected diagnostic
+  - [x] add analysis suppression comment for a selected diagnostic
   - [x] create current-module `Private Sub` stubs for unresolved call statements
     only when the diagnostic carries analyzer-owned edit metadata; omitted,
     mixed named/positional, bracketed, or reserved argument names intentionally
     produce no quick fix
 - [ ] Add source actions:
-  - [x] lint current module
+  - [x] analyze current module
   - [x] export/sync current module via the shared module-export helper; dirty
     local `xlide-vba` editors save first, then only that module is exported to
     the configured folder without replacing the all-module export pipeline
@@ -1115,7 +1119,7 @@ Purpose: keep XLIDE responsive on large workbooks and during active typing.
 - [ ] Define performance budgets for:
   - keystroke diagnostics
   - module parse/analyze
-  - workbook-wide lint
+  - workbook-wide analysis
   - project index rebuild
   - sidebar health refresh
 - [ ] Add incremental parsing/indexing where deterministic and measurable.
@@ -1124,7 +1128,7 @@ Purpose: keep XLIDE responsive on large workbooks and during active typing.
 - [ ] Ensure live diagnostics never block typing.
 - [ ] Add large-workbook fixture coverage.
 - [ ] Add stress tests for many modules, large modules, and many diagnostics.
-- [ ] Add cancellation for long-running lint/test/sync operations.
+- [ ] Add cancellation for long-running analysis/test/sync operations.
 - [ ] Add status/progress reporting for work that exceeds user-visible latency
   thresholds.
 
@@ -1150,7 +1154,7 @@ of development.
 - [ ] Add feature walkthroughs:
   - opening a workbook
   - editing modules
-  - linting
+  - analysis
   - running macros
   - running VBA tests
   - using doc comments and metadata
@@ -1179,10 +1183,10 @@ asking for sensitive workbook contents.
   - enabled XLIDE settings
   - setup health states that can be determined without side effects
   - recent XLIDE command ids/outcomes without arguments
-  - active-module lint summary counts when a local module is open
+  - active-module analysis summary counts when a local module is open
   - COM platform status/failure categories without probing Excel
   - active-workbook metadata summary without source code by default
-- [x] Add opt-in inclusion of anonymized workbook lint reports. Test-runner
+- [x] Add opt-in inclusion of anonymized workbook analysis reports. Test-runner
   reports remain deferred until Workstream H exists.
 - [x] Add opt-in inclusion of selected logs.
 - [x] Redact workbook paths and path-like settings by default.
@@ -1195,7 +1199,7 @@ Definition of done:
 
 - Users can produce a useful local support snapshot without exposing workbook
   source by default.
-- The bundle helps diagnose setup, COM, lint, test, and sync issues
+- The bundle helps diagnose setup, COM, analysis, test, and sync issues
   deterministically.
 
 ## Immediate Next Steps
@@ -1213,7 +1217,7 @@ Definition of done:
    coverage are ready, and continue promoting small `CANARY_*` cases only when
    they become relevant to analyzer behavior.
 5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
-   for lint, test, setup, sync, and workbook actions; avoid using the Output
+   for analysis, test, setup, sync, and workbook actions; avoid using the Output
    channel as the primary UX for actionable workflow results.
 6. Track safety, settings, code actions, performance, release polish, and
    support diagnostics as product-maturity gates before a broad release.
@@ -1223,13 +1227,13 @@ Definition of done:
 - `docs/roadmap_version_2.x.md`
 - `docs/type_analysis_corpus_coverage.md`
 - `docs/xlide_vba_type_system_roadmap.md`
-- `docs/xlide_vba_linting_test_strategy.md`
-- `docs/xlide_vba_lint_suppression_comments.md`
+- `docs/xlide_vba_analysis_test_strategy.md`
+- `docs/xlide_vba_analysis_suppression_comments.md`
 - `docs/xlide_vba_com_test_runner.md`
 - `docs/xlide_external_member_metadata.md`
 - `docs/xlide_sidebar_panel.md`
 - `docs/xlide_development_principles.md`
-- `src/vbaModuleLint.ts`
+- `src/vbaModuleAnalysis.ts`
 - `src/analyzer/diagnostics/ruleMetadata.ts`
 - `syntax_corpus/README.md`
 - `syntax_corpus/corpus_provenance.json`

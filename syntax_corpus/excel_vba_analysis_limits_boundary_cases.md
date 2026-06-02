@@ -1,6 +1,6 @@
-# Excel VBA Realtime Linting Addendum: Limits, Boundaries, Names, and Continuations
+# Excel VBA Realtime Analysis Addendum: Limits, Boundaries, Names, and Continuations
 
-**Purpose:** Add hard-boundary fixtures for Excel VBA realtime linting in VS Code.
+**Purpose:** Add hard-boundary fixtures for Excel VBA realtime analysis in VS Code.
 
 **Audience:** LLM agent implementing or validating the XLIDE-style Excel VBA parser, lexer, semantic checker, and host-aware diagnostics.
 
@@ -21,7 +21,7 @@ Official references to verify before implementation:
 
 ## Core distinction for the agent
 
-The linter must keep these categories separate:
+The analyzer must keep these categories separate:
 
 1. **VBA source text limits**: physical source line length, logical line continuation count, malformed `_` continuation.
 2. **VBA runtime value limits**: `String` variables can be much larger than 255 characters.
@@ -150,7 +150,7 @@ Public Sub Demo()
     Debug.Print "hello" & _
 ```
 
-Expected: incomplete in realtime mode, invalid on save or full lint.
+Expected: incomplete in realtime mode, invalid on save or full analysis.
 
 Diagnostic mode:
 
@@ -973,7 +973,7 @@ Public Sub Demo()
     Range("A1").Formula = "=
 ```
 
-Strict mode may promote these to invalid at EOF, on save, or on explicit lint.
+Strict mode may promote these to invalid at EOF, on save, or on explicit analysis.
 
 ---
 
@@ -994,7 +994,7 @@ Strict mode may promote these to invalid at EOF, on save, or on explicit lint.
 
 # Minimal pass checklist
 
-A linter passes this addendum only if it can correctly classify:
+A analyzer passes this addendum only if it can correctly classify:
 
 - `_` continuation with and without required whitespace
 - `_` inside strings

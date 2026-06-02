@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines one final recommended edge-case corpus file for XLIDE's realtime VBA linting suite.
+This document defines one final recommended edge-case corpus file for XLIDE's realtime VBA analysis suite.
 
 The goal is to cover **weird but VBE-visible VBA**: syntax and language forms that real users can see or type inside the VBA IDE, but that are easy for a modern parser to miss.
 
@@ -45,7 +45,7 @@ colon-separated statements
 labels mixed with statements
 ```
 
-The purpose is not to make the linter noisy. The purpose is to prevent valid legacy VBA from being falsely rejected.
+The purpose is not to make the analyzer noisy. The purpose is to prevent valid legacy VBA from being falsely rejected.
 
 ---
 

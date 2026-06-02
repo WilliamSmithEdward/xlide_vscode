@@ -1,6 +1,6 @@
-# Excel VBA Realtime Linting Addendum: Additional Edge-Case Snippets
+# Excel VBA Realtime Analysis Addendum: Additional Edge-Case Snippets
 
-**Purpose:** Extend the primary Excel VBA realtime linting corpus with high-value edge cases that commonly break parsers, completion engines, and syntax highlighters.
+**Purpose:** Extend the primary Excel VBA realtime analysis corpus with high-value edge cases that commonly break parsers, completion engines, and syntax highlighters.
 
 **Audience:** LLM agent implementing or validating a VS Code extension for Excel VBA.
 
@@ -40,7 +40,7 @@ Classification guidance:
 
 ```text
 valid      = valid VBA syntax and acceptable for the declared module kind
-invalid    = should produce an error in strict/full lint mode
+invalid    = should produce an error in strict/full analysis mode
 incomplete = should not hard-error while user is actively typing
 warning    = syntactically valid, but suspicious, host-specific, or style-risky
 ```
@@ -122,7 +122,7 @@ Public Sub Demo()
 End Sub
 ```
 
-Expected: valid when parsing exported module text. The linter may ignore attributes after recording metadata.
+Expected: valid when parsing exported module text. The analyzer may ignore attributes after recording metadata.
 
 ## ATTR_002 valid exported member attribute placement
 
@@ -398,7 +398,7 @@ Public Sub Demo()
 End Sub
 ```
 
-Expected: syntactically this may parse as an expression passed positionally, not as a named argument. The linter should warn that `:=` was probably intended.
+Expected: syntactically this may parse as an expression passed positionally, not as a named argument. The analyzer should warn that `:=` was probably intended.
 
 ---
 
@@ -1258,7 +1258,7 @@ Public Sub Demo()
 End Sub
 ```
 
-Expected: VBA syntax valid. Optional host-aware Excel formula warning only if formula linting is explicitly enabled.
+Expected: VBA syntax valid. Optional host-aware Excel formula warning only if formula analysis is explicitly enabled.
 
 ---
 
@@ -1294,7 +1294,7 @@ End Sub
 #End If
 ```
 
-Expected: active-branch compile may be valid, whole-file strict parser may detect invalid inactive branch. The linter must have a configurable policy: `parseAllBranches` vs `activeBranchOnly`.
+Expected: active-branch compile may be valid, whole-file strict parser may detect invalid inactive branch. The analyzer must have a configurable policy: `parseAllBranches` vs `activeBranchOnly`.
 
 ## PP_007 invalid: #Else without #If
 
@@ -1775,4 +1775,4 @@ Prioritize these before the rest:
 
 # Final Agent Note
 
-The extension should not only know what is wrong. It should know **when not to complain yet**. In VS Code, a linter that is technically right too early feels broken. VBA needs a tolerant foreground parser and a stricter background validator.
+The extension should not only know what is wrong. It should know **when not to complain yet**. In VS Code, a analyzer that is technically right too early feels broken. VBA needs a tolerant foreground parser and a stricter background validator.

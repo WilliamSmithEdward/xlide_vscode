@@ -17,13 +17,13 @@ Do not use a Markdown expectation alone to justify a red diagnostic.
 | --- | --- | --- |
 | `26_class_and_userform_deep_edges.md` | Deep class-module and UserForm-module coverage for lifecycle events, `Me`, `Friend`, events, WithEvents, Implements, properties, designer symbols, default instances, exported metadata, realtime states, and completion contexts | `module-context`, `project-binder`, `object-member`, `userform-designer`, `completion-context`, `roundtrip-io`, `canary-verdicts`, `realtime-recovery` |
 | `27_semantic_runtime_resolution_edges.md` | Semantic/runtime hardening for deterministic runtime faults, error-handler suppression, coercion, For Each restrictions, structured-branch targets, references, host event binding, public API visibility, WithEvents restrictions, macro discoverability, predeclared instances, conditional reachability, realtime semantic suppression, and canary verdicts | `runtime-resolution`, `type-analysis`, `project-binder`, `module-context`, `host-behavior`, `object-member`, `canary-verdicts`, `realtime-recovery` |
-| `excel_vba_realtime_linting_test_corpus.md` | Broad baseline corpus for visible realtime syntax linting | `syntax-core`, `realtime-recovery`, `type-analysis`, `host-behavior`, `module-context`, `userform-designer`, `legacy-edges` |
-| `excel_vba_linting_additional_edge_cases.md` | Additional parser, type, host, class, conditional compilation, API, file I/O, and tokenizer cases | `syntax-core`, `type-analysis`, `object-member`, `host-behavior`, `legacy-edges`, `limits-boundaries`, `tokenizer` |
-| `excel_vba_linting_final_hardening_cases.md` | Final hardening layer for module-kind, directives, signatures, assignments, properties, labels, arrays, types, Implements, host warnings, and realtime partial states | `syntax-core`, `project-binder`, `type-analysis`, `object-member`, `host-behavior`, `realtime-recovery`, `module-context` |
-| `excel_vba_linting_limits_boundary_cases.md` | Generated and hand-written limits for continuations, line length, strings, names, modules, argument count, arrays, and host limits | `limits-boundaries`, `syntax-core`, `realtime-recovery`, `host-behavior` |
+| `excel_vba_realtime_analysis_test_corpus.md` | Broad baseline corpus for visible realtime syntax analysis | `syntax-core`, `realtime-recovery`, `type-analysis`, `host-behavior`, `module-context`, `userform-designer`, `legacy-edges` |
+| `excel_vba_analysis_additional_edge_cases.md` | Additional parser, type, host, class, conditional compilation, API, file I/O, and tokenizer cases | `syntax-core`, `type-analysis`, `object-member`, `host-behavior`, `legacy-edges`, `limits-boundaries`, `tokenizer` |
+| `excel_vba_analysis_final_hardening_cases.md` | Final hardening layer for module-kind, directives, signatures, assignments, properties, labels, arrays, types, Implements, host warnings, and realtime partial states | `syntax-core`, `project-binder`, `type-analysis`, `object-member`, `host-behavior`, `realtime-recovery`, `module-context` |
+| `excel_vba_analysis_limits_boundary_cases.md` | Generated and hand-written limits for continuations, line length, strings, names, modules, argument count, arrays, and host limits | `limits-boundaries`, `syntax-core`, `realtime-recovery`, `host-behavior` |
 | `xlide_vba_legacy_visible_corpus_edges.md` | Legacy-visible VBA grammar and recovery cases | `legacy-edges`, `syntax-core`, `realtime-recovery`, `type-analysis` |
-| `xlide_vba_visible_linting_corpus_recommendations.md` | Recommended user-visible fixture organization and diagnostic range strategy | `diagnostic-ranges`, `realtime-recovery`, `module-context`, `host-behavior`, `roundtrip-io` |
-| `xlide_vba_realtime_linting_final_corpus_addendum.md` | Latest hardening addendum for Excel syntax traps, legacy control transfer, completion contexts, canaries, UserForm symbols, and casing | `host-behavior`, `legacy-edges`, `completion-context`, `canary-verdicts`, `userform-designer`, `casing` |
+| `xlide_vba_visible_analysis_corpus_recommendations.md` | Recommended user-visible fixture organization and diagnostic range strategy | `diagnostic-ranges`, `realtime-recovery`, `module-context`, `host-behavior`, `roundtrip-io` |
+| `xlide_vba_realtime_analysis_final_corpus_addendum.md` | Latest hardening addendum for Excel syntax traps, legacy control transfer, completion contexts, canaries, UserForm symbols, and casing | `host-behavior`, `legacy-edges`, `completion-context`, `canary-verdicts`, `userform-designer`, `casing` |
 
 ## Category Index
 
@@ -35,18 +35,18 @@ and parser traps.
 
 Sources:
 
-- `excel_vba_realtime_linting_test_corpus.md`: `MOD_*`, `LEX_*`, `CONT_*`,
+- `excel_vba_realtime_analysis_test_corpus.md`: `MOD_*`, `LEX_*`, `CONT_*`,
   `LIT_*`, `PROC_*`, `PROP_*`, `CTRL_*`, `PP_*`, `API_*`, `TRAP_*`, `BAD_*`.
-- `excel_vba_linting_additional_edge_cases.md`: `OPT_*`, `ATTR_*`, `DEF_*`,
+- `excel_vba_analysis_additional_edge_cases.md`: `OPT_*`, `ATTR_*`, `DEF_*`,
   `PROC_009` through `PROC_018`, `CALL_*`, `ID_*`, `SEP_*`, `CASE_*`,
   `PP_*`, `API_*`, `FILE_*`, `TOK_*`.
-- `excel_vba_linting_final_hardening_cases.md`: `DIRECTIVE_*`, `SIG_*`,
+- `excel_vba_analysis_final_hardening_cases.md`: `DIRECTIVE_*`, `SIG_*`,
   `LABEL_*`, `COND_*`, and syntax-shaped pieces of `TYPE_*`.
-- `excel_vba_linting_limits_boundary_cases.md`: line continuation,
+- `excel_vba_analysis_limits_boundary_cases.md`: line continuation,
   identifier/name, module-name, and argument-count boundary cases.
 - `xlide_vba_legacy_visible_corpus_edges.md`: line labels, `DefType`, file I/O,
   `Option Compare`, `AddressOf`, date and `#` ambiguity, colon separators.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`: `EXCEL_SYNTAX_*` and
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`: `EXCEL_SYNTAX_*` and
   `CANARY_*` grammar-sensitive cases.
 
 Promotion path:
@@ -71,16 +71,16 @@ or no diagnostic; it must not flood the editor with cascades.
 
 Sources:
 
-- `excel_vba_realtime_linting_test_corpus.md`: `WITH_003`, incremental
+- `excel_vba_realtime_analysis_test_corpus.md`: `WITH_003`, incremental
   `RT_001` through `RT_004`, and high-value `BAD_*` recovery snippets.
-- `excel_vba_linting_additional_edge_cases.md`: `RT_005` through `RT_009`.
-- `excel_vba_linting_final_hardening_cases.md`: `RT_001` through `RT_007`.
-- `excel_vba_linting_limits_boundary_cases.md`: `CONT_LIMIT_007` and realtime
+- `excel_vba_analysis_additional_edge_cases.md`: `RT_005` through `RT_009`.
+- `excel_vba_analysis_final_hardening_cases.md`: `RT_001` through `RT_007`.
+- `excel_vba_analysis_limits_boundary_cases.md`: `CONT_LIMIT_007` and realtime
   acceptance rules.
 - `26_class_and_userform_deep_edges.md`: `RT_CLASS_*` and `RT_FORM_*`.
 - `27_semantic_runtime_resolution_edges.md`: `RT_SEM_*`.
 - `xlide_vba_legacy_visible_corpus_edges.md`: `negative_recovery_fuzz_seed.md`.
-- `xlide_vba_visible_linting_corpus_recommendations.md`:
+- `xlide_vba_visible_analysis_corpus_recommendations.md`:
   `vbe_realtime_incomplete_states.md`.
 
 Promotion path:
@@ -107,11 +107,11 @@ range is still a poor editor result.
 
 Sources:
 
-- `xlide_vba_visible_linting_corpus_recommendations.md`:
+- `xlide_vba_visible_analysis_corpus_recommendations.md`:
   `vbe_diagnostic_ranges.md`.
-- `excel_vba_realtime_linting_test_corpus.md`: invalid and incomplete cases
+- `excel_vba_realtime_analysis_test_corpus.md`: invalid and incomplete cases
   whose expected range should be narrowed.
-- `excel_vba_linting_final_hardening_cases.md`: assignment, signature, label,
+- `excel_vba_analysis_final_hardening_cases.md`: assignment, signature, label,
   With, and realtime hardening cases.
 
 Promotion path:
@@ -134,16 +134,16 @@ UDTs, enums, and return assignment.
 
 Sources:
 
-- `excel_vba_realtime_linting_test_corpus.md`: declarations, procedures,
+- `excel_vba_realtime_analysis_test_corpus.md`: declarations, procedures,
   properties, expressions, arrays, UDTs, enums, and invalid corpus cases.
-- `excel_vba_linting_additional_edge_cases.md`: procedure signatures,
+- `excel_vba_analysis_additional_edge_cases.md`: procedure signatures,
   `IsMissing`, `ByRef`, `Set`, `Is`, arrays, UDTs, enums, properties, and
   For Each control variables.
-- `excel_vba_linting_final_hardening_cases.md`: signature, assignment,
+- `excel_vba_analysis_final_hardening_cases.md`: signature, assignment,
   property consistency, arrays, types, enums, and object-module restrictions.
 - `27_semantic_runtime_resolution_edges.md`: `COERCE_*`, `FOREACH_*`,
   `API_VIS_*`, `WITHEVENTS_TYPE_*`, and conditional semantic cases.
-- `excel_vba_linting_limits_boundary_cases.md`: fixed-length strings, argument
+- `excel_vba_analysis_limits_boundary_cases.md`: fixed-length strings, argument
   limits, array dimensions, naming boundaries.
 - `xlide_vba_legacy_visible_corpus_edges.md`: `Let`, `Set`, `LSet`, `RSet`,
   `Mid`, optional arguments, `ByRef`, `ParamArray`, date literals.
@@ -207,9 +207,9 @@ enums, and module order stability.
 
 Sources:
 
-- `excel_vba_linting_final_hardening_cases.md`: `EXPLICIT_*`, `SYMBOL_*`,
+- `excel_vba_analysis_final_hardening_cases.md`: `EXPLICIT_*`, `SYMBOL_*`,
   `TYPE_*`, `IMPL_*`, module-kind-sensitive validation.
-- `excel_vba_linting_additional_edge_cases.md`: class, interface, event,
+- `excel_vba_analysis_additional_edge_cases.md`: class, interface, event,
   WithEvents, UDT, enum, property, and Excel module-context examples.
 - `26_class_and_userform_deep_edges.md`: `FRIEND_*`, `OBJECT_MEMBER_*`,
   `EVENT_*`, `WITHEVENTS_*`, `IMPLEMENTS_*`, `PROP_CLASS_*`, and default
@@ -217,9 +217,9 @@ Sources:
 - `27_semantic_runtime_resolution_edges.md`: `REF_*`, `API_VIS_*`,
   `MACRO_VIS_*`, `PREDECLARED_*`, and project-visible reference-resolution
   cases.
-- `xlide_vba_visible_linting_corpus_recommendations.md`:
+- `xlide_vba_visible_analysis_corpus_recommendations.md`:
   `vbe_scope_and_shadowing.md` and `vbe_module_context_events.md`.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`:
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`:
   module-context and completion cases that need project metadata.
 
 Promotion path:
@@ -250,13 +250,13 @@ Sources:
   `ME_*`, `FRIEND_*`, class/UserForm event and module-kind cases.
 - `27_semantic_runtime_resolution_edges.md`: `HOST_EVENT_SIG_*`,
   `MACRO_VIS_*`, `PREDECLARED_*`, and module-kind pieces of `WITHEVENTS_TYPE_*`.
-- `excel_vba_linting_final_hardening_cases.md`: module-kind-sensitive
+- `excel_vba_analysis_final_hardening_cases.md`: module-kind-sensitive
   validation, object-module restrictions, Implements, host event stubs.
-- `excel_vba_realtime_linting_test_corpus.md`: worksheet, workbook, class,
+- `excel_vba_realtime_analysis_test_corpus.md`: worksheet, workbook, class,
   event, WithEvents, and UserForm baseline cases.
-- `xlide_vba_visible_linting_corpus_recommendations.md`:
+- `xlide_vba_visible_analysis_corpus_recommendations.md`:
   `vbe_module_context_events.md`.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`: worksheet/UserForm
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`: worksheet/UserForm
   completion and module-context examples.
 
 Promotion path:
@@ -281,18 +281,18 @@ member existence, class/document module members, and known receiver chains.
 
 Sources:
 
-- `excel_vba_realtime_linting_test_corpus.md`: object declaration and property
+- `excel_vba_realtime_analysis_test_corpus.md`: object declaration and property
   examples.
-- `excel_vba_linting_additional_edge_cases.md`: `EXPR_010` through `EXPR_015`,
+- `excel_vba_analysis_additional_edge_cases.md`: `EXPR_010` through `EXPR_015`,
   `PROP_006` through `PROP_009`, class and WithEvents edge cases.
-- `excel_vba_linting_final_hardening_cases.md`: `ASSIGN_*`, `PROP_*`,
+- `excel_vba_analysis_final_hardening_cases.md`: `ASSIGN_*`, `PROP_*`,
   `WITH_*`, `IMPL_*`.
 - `26_class_and_userform_deep_edges.md`: object-module members, events,
   WithEvents declarations, Implements, property consistency, UserForm usage, and
   default instances.
 - `27_semantic_runtime_resolution_edges.md`: `RUNTIME_007`, `WITHEVENTS_TYPE_*`,
   `PREDECLARED_*`, and object/event binding cases.
-- `xlide_vba_visible_linting_corpus_recommendations.md`: host object patterns
+- `xlide_vba_visible_analysis_corpus_recommendations.md`: host object patterns
   and module-context event cases.
 
 Promotion path:
@@ -317,15 +317,15 @@ events, formula strings, object-model receiver chains, and host warnings.
 
 Sources:
 
-- `excel_vba_realtime_linting_test_corpus.md`: `XL_*`.
-- `excel_vba_linting_additional_edge_cases.md`: `XL_009` through `XL_020`.
-- `excel_vba_linting_final_hardening_cases.md`: `HOST_*`.
-- `excel_vba_linting_limits_boundary_cases.md`: `EXCEL_LIMIT_*`.
+- `excel_vba_realtime_analysis_test_corpus.md`: `XL_*`.
+- `excel_vba_analysis_additional_edge_cases.md`: `XL_009` through `XL_020`.
+- `excel_vba_analysis_final_hardening_cases.md`: `HOST_*`.
+- `excel_vba_analysis_limits_boundary_cases.md`: `EXCEL_LIMIT_*`.
 - `27_semantic_runtime_resolution_edges.md`: `HOST_EVENT_SIG_*`,
   `MACRO_VIS_*`, reference-sensitive host binding, and Application event cases.
-- `xlide_vba_visible_linting_corpus_recommendations.md`:
+- `xlide_vba_visible_analysis_corpus_recommendations.md`:
   `vbe_excel_host_common_patterns.md`.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`:
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`:
   `EXCEL_SYNTAX_*`.
 
 Promotion path:
@@ -348,11 +348,11 @@ signature help, and hover while the user is mid-expression.
 
 Sources:
 
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`: `COMP_001` through
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`: `COMP_001` through
   `COMP_010`.
-- `xlide_vba_visible_linting_corpus_recommendations.md`: recommended fixture
+- `xlide_vba_visible_analysis_corpus_recommendations.md`: recommended fixture
   marker shape for incomplete states and diagnostic ranges.
-- `excel_vba_linting_additional_edge_cases.md`: `RT_006`, `RT_009`.
+- `excel_vba_analysis_additional_edge_cases.md`: `RT_006`, `RT_009`.
 - `26_class_and_userform_deep_edges.md`: `COMP_CLASS_*` and `COMP_FORM_*`.
 
 Promotion path:
@@ -376,19 +376,19 @@ host-generated module context, not because they appear in the code pane.
 
 Sources:
 
-- `excel_vba_realtime_linting_test_corpus.md`: `FORM_*`, worksheet/workbook
+- `excel_vba_realtime_analysis_test_corpus.md`: `FORM_*`, worksheet/workbook
   event cases, class events and WithEvents.
-- `excel_vba_linting_additional_edge_cases.md`: UserForm, class, event, and
+- `excel_vba_analysis_additional_edge_cases.md`: UserForm, class, event, and
   WithEvents edge cases.
-- `excel_vba_linting_final_hardening_cases.md`: module-kind-sensitive
+- `excel_vba_analysis_final_hardening_cases.md`: module-kind-sensitive
   validation and event stubs.
 - `26_class_and_userform_deep_edges.md`: `FORM_LIFE_*`, `FORM_SYMBOL_*`,
   `FORM_USE_*`, UserForm default instance cases, and UserForm completion.
 - `27_semantic_runtime_resolution_edges.md`: UserForm default-instance and
   predeclared-instance cases under `PREDECLARED_*`.
-- `xlide_vba_visible_linting_corpus_recommendations.md`:
+- `xlide_vba_visible_analysis_corpus_recommendations.md`:
   `vbe_module_context_events.md`.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`:
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`:
   `FORM_SYMBOL_*`.
 
 Promotion path:
@@ -412,13 +412,13 @@ Purpose: generated and boundary tests for language limits and host limits.
 
 Sources:
 
-- `excel_vba_linting_limits_boundary_cases.md`: continuation count, physical
+- `excel_vba_analysis_limits_boundary_cases.md`: continuation count, physical
   and logical line lengths, string and fixed-string sizes, identifier length,
   module-name length, argument limits, array dimension limits, Excel formula
   and worksheet-function limits.
-- `excel_vba_linting_additional_edge_cases.md`: Declare/PtrSafe/LongPtr,
+- `excel_vba_analysis_additional_edge_cases.md`: Declare/PtrSafe/LongPtr,
   LongLong, API declarations, array and ParamArray boundaries.
-- `excel_vba_realtime_linting_test_corpus.md`: Declare and 64-bit
+- `excel_vba_realtime_analysis_test_corpus.md`: Declare and 64-bit
   compatibility baseline.
 
 Promotion path:
@@ -447,11 +447,11 @@ Sources:
 - `xlide_vba_legacy_visible_corpus_edges.md`: line numbers, `DefType`, `Let`,
   `LSet`, `RSet`, `Mid`, file I/O, optional/ByRef/ParamArray, `Option Compare`,
   `AddressOf`, date literals, colon separators, negative recovery fuzz seeds.
-- `excel_vba_realtime_linting_test_corpus.md`: `ERR_*`, `TRAP_*`, legacy
+- `excel_vba_realtime_analysis_test_corpus.md`: `ERR_*`, `TRAP_*`, legacy
   control flow and parser traps.
-- `excel_vba_linting_additional_edge_cases.md`: `ERR_005` through `ERR_010`,
+- `excel_vba_analysis_additional_edge_cases.md`: `ERR_005` through `ERR_010`,
   file I/O and legacy branching.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`:
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`:
   `LEGACY_TRANSFER_*`.
 
 Promotion path:
@@ -475,10 +475,10 @@ Purpose: highlighting and lexing traps that should not leak into diagnostics.
 
 Sources:
 
-- `excel_vba_linting_additional_edge_cases.md`: `TOK_001` through `TOK_006`.
-- `excel_vba_realtime_linting_test_corpus.md`: strings, comments, date
+- `excel_vba_analysis_additional_edge_cases.md`: `TOK_001` through `TOK_006`.
+- `excel_vba_realtime_analysis_test_corpus.md`: strings, comments, date
   literals, type suffixes, keyword-like identifiers.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`: casing and bracketed
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`: casing and bracketed
   identifier preservation.
 
 Promotion path:
@@ -500,12 +500,12 @@ without surfacing non-user-editable content as live editor diagnostics.
 
 Sources:
 
-- `xlide_vba_visible_linting_corpus_recommendations.md`:
+- `xlide_vba_visible_analysis_corpus_recommendations.md`:
   `internal-io-only/roundtrip_preservation.md`.
 - `26_class_and_userform_deep_edges.md`: `EXPORT_META_*`.
-- `excel_vba_realtime_linting_test_corpus.md`: exported `Attribute` examples.
-- `excel_vba_linting_additional_edge_cases.md`: `ATTR_*`.
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`: `CANARY_006` and
+- `excel_vba_realtime_analysis_test_corpus.md`: exported `Attribute` examples.
+- `excel_vba_analysis_additional_edge_cases.md`: `ATTR_*`.
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`: `CANARY_006` and
   `CANARY_007`.
 
 Promotion path:
@@ -527,7 +527,7 @@ fixtures before implementing analyzer behavior.
 
 Sources:
 
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`: `vbe_canary_verdicts.md`.
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`: `vbe_canary_verdicts.md`.
 - `26_class_and_userform_deep_edges.md`: suggested VBE canary matrix for class
   and UserForm module-kind behavior.
 - `27_semantic_runtime_resolution_edges.md`: VBE canary matrix for runtime,
@@ -558,11 +558,11 @@ preservation, type-declaration suffix preservation, and host member casing.
 
 Sources:
 
-- `xlide_vba_realtime_linting_final_corpus_addendum.md`: `CASING_001` through
+- `xlide_vba_realtime_analysis_final_corpus_addendum.md`: `CASING_001` through
   `CASING_006`.
-- `excel_vba_linting_additional_edge_cases.md`: keyword, identifier, and type
+- `excel_vba_analysis_additional_edge_cases.md`: keyword, identifier, and type
   suffix traps.
-- `excel_vba_realtime_linting_test_corpus.md`: keyword-like identifiers and
+- `excel_vba_realtime_analysis_test_corpus.md`: keyword-like identifiers and
   type suffix examples.
 
 Promotion path:

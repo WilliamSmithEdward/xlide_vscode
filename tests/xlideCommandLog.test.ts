@@ -14,12 +14,12 @@ describe('XLIDE command log', () => {
 	it('keeps command ids and outcomes without command arguments', () => {
 		recordXlideCommand({
 			timestamp: '2026-06-01T12:00:00.000Z',
-			command: 'xlide.lintCurrentModule',
+			command: 'xlide.analyzeCurrentModule',
 			outcome: 'started',
 		});
 		recordXlideCommand({
 			timestamp: '2026-06-01T12:00:01.000Z',
-			command: 'xlide.lintCurrentModule',
+			command: 'xlide.analyzeCurrentModule',
 			outcome: 'succeeded',
 			durationMs: 10,
 		});
@@ -27,12 +27,12 @@ describe('XLIDE command log', () => {
 		expect(recentXlideCommands()).toEqual([
 			{
 				timestamp: '2026-06-01T12:00:00.000Z',
-				command: 'xlide.lintCurrentModule',
+				command: 'xlide.analyzeCurrentModule',
 				outcome: 'started',
 			},
 			{
 				timestamp: '2026-06-01T12:00:01.000Z',
-				command: 'xlide.lintCurrentModule',
+				command: 'xlide.analyzeCurrentModule',
 				outcome: 'succeeded',
 				durationMs: 10,
 			},

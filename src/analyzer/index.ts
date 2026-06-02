@@ -215,8 +215,8 @@ export {
 } from './diagnostics/ruleMetadata';
 export {
 	filterDiagnosticsWithSuppressions,
-	LINT_SUPPRESSION_DIRECTIVE_CODE,
-	LintSuppressionAnalysis,
-	LintSuppressionFilterResult,
-	scanLintSuppressions,
-} from './diagnostics/lintSuppressions';
+	ANALYSIS_SUPPRESSION_DIRECTIVE_CODE,
+	AnalysisSuppressionAnalysis,
+	AnalysisSuppressionFilterResult,
+	scanAnalysisSuppressions,
+} from './diagnostics/analysisSuppressions';

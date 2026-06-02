@@ -1,8 +1,8 @@
-# XLIDE VBA Visible Linting Corpus Recommendations
+# XLIDE VBA Visible Analysis Corpus Recommendations
 
 ## Purpose
 
-This document defines the recommended remaining corpus files for testing realtime syntax linting in XLIDE, focused on what a user actually sees and edits in the VBA IDE.
+This document defines the recommended remaining corpus files for testing realtime syntax analysis in XLIDE, focused on what a user actually sees and edits in the VBA IDE.
 
 The core rule is simple:
 
@@ -42,7 +42,7 @@ corpus/
     roundtrip_preservation.md
 ```
 
-The `vbe-visible` folder is the user-facing linting corpus.
+The `vbe-visible` folder is the user-facing analysis corpus.
 
 The `internal-io-only` folder is not for realtime user diagnostics. It exists to make sure XLIDE can safely import, normalize, preserve, and export VBA modules without corrupting metadata.
 
@@ -54,7 +54,7 @@ The `internal-io-only` folder is not for realtime user diagnostics. It exists to
 
 Test what happens while the user is still typing.
 
-Realtime linting should not behave like a final compiler pass. It should tolerate partial thoughts, avoid diagnostic floods, and recover cleanly as soon as the user finishes the construct.
+Realtime analysis should not behave like a final compiler pass. It should tolerate partial thoughts, avoid diagnostic floods, and recover cleanly as soon as the user finishes the construct.
 
 ## Required Assertions
 
@@ -196,7 +196,7 @@ Use marker syntax in fixtures if possible:
 <|bad token|>
 ```
 
-The marker should be stripped before linting, then used to compare expected ranges.
+The marker should be stripped before analysis, then used to compare expected ranges.
 
 ## Example Cases
 
@@ -283,7 +283,7 @@ range: Set statement
 
 Test names that are legal, confusing, ambiguous, or context-sensitive.
 
-This file prevents the linter from treating every suspicious name as invalid syntax.
+This file prevents the analyzer from treating every suspicious name as invalid syntax.
 
 ## Classification Rules
 
@@ -648,7 +648,7 @@ This corpus is not for realtime user diagnostics.
 ## Rule
 
 ```text
-If it is hidden from the user, do not lint it as visible source.
+If it is hidden from the user, do not analyze it as visible source.
 If XLIDE writes it back, test that it is preserved or normalized intentionally.
 ```
 
@@ -769,7 +769,7 @@ This improves semantic quality and prepares the engine for project-level analysi
 
 Keep `internal-io-only` tests separate.
 
-This protects round-tripping without polluting user-facing lint behavior.
+This protects round-tripping without polluting user-facing analysis behavior.
 
 ---
 

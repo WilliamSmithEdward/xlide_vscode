@@ -192,7 +192,7 @@ Machine-readable JSON output should be documented for automation.
 
 The runner should:
 
-- run in an opt-in command, never during normal linting;
+- run in an opt-in command, never during normal analysis;
 - use a disposable workbook/session by default;
 - avoid silently mutating a workbook already open outside XLIDE's control;
 - close/reset Excel after each run where practical;
@@ -219,6 +219,6 @@ Before the feature is called shipped, this document should include:
 ## Non-Goals
 
 - The test runner is not XLIDE's internal VBE oracle.
-- The test runner should not run on every lint or compile.
+- The test runner should not run on every analysis or compile.
 - The runner should not infer test intent from names alone.
 - The runner should not hide Excel trust-center or COM failures.

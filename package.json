@@ -182,14 +182,14 @@
         "icon": "$(check)"
       },
       {
-        "command": "xlide.lintWorkbook",
-        "title": "Lint All Modules in Workbook",
+        "command": "xlide.analyzeWorkbook",
+        "title": "Analyze Workbook",
         "category": "XLIDE",
         "icon": "$(checklist)"
       },
       {
-        "command": "xlide.lintCurrentModule",
-        "title": "Lint Current Module",
+        "command": "xlide.analyzeCurrentModule",
+        "title": "Analyze Current Module",
         "category": "XLIDE",
         "icon": "$(check)"
       },
@@ -279,12 +279,12 @@
         {
           "command": "xlide.validateWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "4_lint@1"
+          "group": "4_analyze@1"
         },
         {
-          "command": "xlide.lintWorkbook",
+          "command": "xlide.analyzeWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "4_lint@2"
+          "group": "4_analyze@2"
         },
         {
           "command": "xlide.exportModulesToFolder",
@@ -299,7 +299,7 @@
       ],
       "editor/context": [
         {
-          "command": "xlide.lintCurrentModule",
+          "command": "xlide.analyzeCurrentModule",
           "when": "editorLangId == vba && resourceScheme == xlide-vba",
           "group": "xlide@1"
         },
@@ -424,17 +424,17 @@
         }
       },
       {
-        "name": "xlide_lintWorkbook",
-        "displayName": "Lint VBA Workbook",
-        "modelDescription": "Lints every VBA module in a workbook using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT LINT PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the workbook's VBA passes lint. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire workbook. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this linter checks.",
-        "toolReferenceName": "xlideLintWorkbook",
+        "name": "xlide_analyzeWorkbook",
+        "displayName": "Analyze VBA Workbook",
+        "modelDescription": "Analyzes every VBA module in a workbook using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT ANALYSIS PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the workbook's VBA passes analysis. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire workbook. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this analyzer checks.",
+        "toolReferenceName": "xlideAnalyzeWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file to lint"
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file to analyze"
             }
           },
           "required": [

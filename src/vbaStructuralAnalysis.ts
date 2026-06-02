@@ -2,7 +2,7 @@
 // provider and the smart auto-block editing feature. Keeping this module
 // free of any `vscode` import means it can be unit-tested directly with vitest.
 
-export interface VbaLintProblem {
+export interface VbaStructuralDiagnostic {
     /** 0-based physical line of the relevant token. */
     line: number;
     /** 0-based start column (inclusive). */
@@ -477,9 +477,9 @@ function matchOpener(t: string): OpenBlock | undefined {
 
 function fullLineProblem(
     physical: string[], line: number, message: string, severity: 'error' | 'warning',
-    details: Pick<VbaLintProblem, 'code' | 'expectedClose' | 'insertLine'> = {},
+    details: Pick<VbaStructuralDiagnostic, 'code' | 'expectedClose' | 'insertLine'> = {},
     span = defaultDiagnosticColumnSpan(physical[line] ?? ''),
-): VbaLintProblem {
+): VbaStructuralDiagnostic {
     return {
         line,
         startCol: span.startCol,
@@ -582,11 +582,11 @@ function capturedColumnSpan(stripped: string, pattern: RegExp): ColumnSpan | und
  *  - closers with no matching opener (stray `End If`, `Loop`, ...),
  *  - mismatched nesting (an inner block left unclosed).
  */
-export function lintVbaSource(source: string): VbaLintProblem[] {
+export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
     const physical = source.split(/\r\n|\r|\n/);
     const { logical } = toLogicalLines(source);
     const stack: OpenBlock[] = [];
-    const problems: VbaLintProblem[] = [];
+    const problems: VbaStructuralDiagnostic[] = [];
 
     const closeOne = (closerKind: BlockKind, line: number, closerWord: string): void => {
         let idx = -1;

@@ -568,20 +568,20 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.1.3',
 		confidence: 'high',
 	},
-	lintSuppressionDirective: {
-		code: 'lint-suppression-directive',
-		title: 'Invalid XLIDE lint suppression directive',
+	analysisSuppressionDirective: {
+		code: 'analysis-suppression-directive',
+		title: 'Invalid XLIDE analysis suppression directive',
 		defaultSeverity: 'warning',
 		category: 'style',
 		vbeCompileEquivalent: false,
 		diagnosticKind: 'style-policy',
 		source: 'XLIDE',
-		specReference: 'docs/xlide_vba_lint_suppression_comments.md',
+		specReference: 'docs/xlide_vba_analysis_suppression_comments.md',
 		confidence: 'high',
 	},
 } satisfies Record<string, DiagnosticRuleMetadata>;
 
-/** Structural diagnostics emitted by the dependency-free block-balance linter. */
+/** Structural diagnostics emitted by the dependency-free block-balance analyzer. */
 export const STRUCTURAL_DIAGNOSTIC_RULES = {
 	missingBlockCloser: {
 		code: 'missing-block-closer',

@@ -1,10 +1,10 @@
-# Excel VBA Realtime Syntax Linting Test Corpus
+# Excel VBA Realtime Syntax Analysis Test Corpus
 
-**Purpose:** Provide an LLM agent with a structured test plan and snippet corpus for validating realtime syntax linting in a VS Code extension for Excel VBA.
+**Purpose:** Provide an LLM agent with a structured test plan and snippet corpus for validating realtime syntax analysis in a VS Code extension for Excel VBA.
 
 **Target host:** Excel VBA.
 
-**Primary grammar oracle:** Microsoft **[MS-VBAL]: VBA Language Specification**. The agent must verify grammar, lexical rules, statement forms, declaration rules, and ambiguous cases against the current Microsoft specification before changing parser or linter behavior.
+**Primary grammar oracle:** Microsoft **[MS-VBAL]: VBA Language Specification**. The agent must verify grammar, lexical rules, statement forms, declaration rules, and ambiguous cases against the current Microsoft specification before changing parser or analyzer behavior.
 
 Official reference landing page: https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74
 
@@ -14,17 +14,17 @@ Current published version observed during creation of this test plan: **MS-VBAL 
 
 ## Instructions for the LLM Agent
 
-You are helping implement and validate realtime syntax linting for Excel VBA inside a VS Code extension.
+You are helping implement and validate realtime syntax analysis for Excel VBA inside a VS Code extension.
 
 Do **not** treat this corpus as the final authority. Treat it as a practical coverage scaffold. For every grammar-sensitive behavior, verify against **MS-VBAL**. For Excel host object examples, distinguish between **VBA syntax validity** and **Excel object model semantic validity**.
 
-The linter should support three diagnostic levels:
+The analyzer should support three diagnostic levels:
 
 1. **Lexical / parse error**: cannot be valid VBA syntax.
 2. **Semantic compile error**: syntactically shaped like VBA but invalid by declaration, scope, module type, or language rules.
 3. **Host-aware warning**: likely invalid or suspicious in Excel, but not a pure VBA syntax failure.
 
-Realtime behavior matters. While the user is typing, the linter should avoid noisy false positives for incomplete but plausible constructs. Prefer delayed diagnostics for open blocks, unfinished string literals on the current line, and partial member access such as `ThisWorkbook.`.
+Realtime behavior matters. While the user is typing, the analyzer should avoid noisy false positives for incomplete but plausible constructs. Prefer delayed diagnostics for open blocks, unfinished string literals on the current line, and partial member access such as `ThisWorkbook.`.
 
 ---
 
@@ -66,7 +66,7 @@ Line numbers should be stable and 1-based.
 
 ---
 
-## Realtime Linting Rules
+## Realtime Analysis Rules
 
 The agent must implement realtime tolerance before strict final validation.
 
@@ -100,7 +100,7 @@ Range("A1").
 Debug.Print "unfinished
 ```
 
-The same snippets may become invalid when the user leaves the construct stale, saves the file, runs full lint, or the parser reaches EOF with no plausible continuation.
+The same snippets may become invalid when the user leaves the construct stale, saves the file, runs full analysis, or the parser reaches EOF with no plausible continuation.
 
 Recommended modes:
 
@@ -950,7 +950,7 @@ End Sub
 
 ## 14. Excel Host Object Patterns
 
-These are mainly syntax and linter-noise tests. The linter must not require complete Excel type inference before recognizing common valid chains.
+These are mainly syntax and analyzer-noise tests. The analyzer must not require complete Excel type inference before recognizing common valid chains.
 
 ### XL_001 valid: Workbook / worksheet / range chain
 
@@ -1175,7 +1175,7 @@ Private Sub IDisposableLike_Dispose()
 End Sub
 ```
 
-Expected: syntactically valid in a class module if interface exists. Semantic resolution of interface may be external to syntax linter.
+Expected: syntactically valid in a class module if interface exists. Semantic resolution of interface may be external to syntax analyzer.
 
 ### CLS_005 invalid standard module: WithEvents in standard module
 
@@ -1616,7 +1616,7 @@ The extension should pass all of these before public release:
 
 1. No hard errors for valid Excel macro patterns.
 2. No VB.NET syntax accepted as valid VBA.
-3. Missing block terminators are caught on save/full lint.
+3. Missing block terminators are caught on save/full analysis.
 4. Realtime member access like `ThisWorkbook.` triggers completion without red-squiggle spam.
 5. `Dim a, b, c As Long` is not misreported as syntax invalid.
 6. `Set` rules are handled for object assignment.
@@ -1686,4 +1686,4 @@ change Set assignment to normal assignment
 
 # Final Note
 
-The goal is not merely to catch errors. The goal is to make VBA feel native in VS Code without betraying how VBA actually works. A good realtime linter should feel calm while typing and strict when it matters.
+The goal is not merely to catch errors. The goal is to make VBA feel native in VS Code without betraying how VBA actually works. A good realtime analyzer should feel calm while typing and strict when it matters.

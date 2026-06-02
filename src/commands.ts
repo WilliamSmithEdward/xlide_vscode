@@ -22,14 +22,15 @@ import {
     writeWorkbookRepoConfig,
 } from './moduleExport';
 import {
-    lintWorkbook,
-    summarizeWorkbookLintProblems,
+    analyzeWorkbook,
+    summarizeWorkbookAnalysisProblems,
     workbookProblemsForModule,
-    type WorkbookLintProblem,
-    type WorkbookLintSummary,
-} from './vbaWorkbookLint';
-import { lintVbaModuleSource } from './vbaModuleLint';
-import { VBA_IDENTIFIER_NAME_RE } from './vbaLinter';
+    type WorkbookAnalysisProblem,
+    type WorkbookAnalysisResult,
+} from './vbaWorkbookAnalysis';
+import { openWorkbookAnalysisResults } from './workbookAnalysisWebview';
+import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
+import { VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
     buildVbaProjectIndex,
@@ -50,14 +51,14 @@ import type {
     SeverityOverrides,
 } from './analyzer';
 import {
-    anonymizedWorkbookLintReportFromResult,
+    anonymizedWorkbookAnalysisReportFromResult,
     buildSupportBundle,
     defaultSupportBundleFileName,
     supportBundleDisclosureText,
     supportDiagnosticsText,
     type SupportBundle,
-    type SupportBundleAnonymizedLintReport,
-    type SupportBundleLintSummary,
+    type SupportBundleAnonymizedAnalysisReport,
+    type SupportBundleAnalysisSummary,
     type SupportBundleSetting,
     type SupportBundleWorkbookSummary,
 } from './supportBundle';
@@ -105,22 +106,6 @@ export function registerCommands(
         out.appendLine(msg);
     }
 
-    function showOutputFromNotification(choice: string | undefined): void {
-        if (choice === 'Show Output') {
-            out.show(true);
-        }
-    }
-
-    function showInformationWithOutput(message: string): void {
-        void vscode.window.showInformationMessage(message, 'Show Output')
-            .then(showOutputFromNotification);
-    }
-
-    function showWarningWithOutput(message: string): void {
-        void vscode.window.showWarningMessage(message, 'Show Output')
-            .then(showOutputFromNotification);
-    }
-
     function logChangeSummary(prefix: string, summary: XlideChangeSummary): string {
         const lines = formatChangeSummaryDetails(summary);
         for (const line of lines) {
@@ -154,93 +139,51 @@ export function registerCommands(
         });
     }
 
-    // Builds a clickable Output-channel link to a module location. The link uses
-    // the xlide-vba scheme with a triple-slash (empty authority) so the Output
-    // panel's link detector recognises it, and an "#L<line>,<col>" fragment so
-    // clicking reveals the exact problem location in the opened module.
-    function moduleLocationLink(
+    async function openWorkbookAnalysisProblem(
         filePath: string,
-        moduleName: string,
-        line: number,
-        column: number,
-    ): string {
-        const loc = encodeModuleUri(filePath, moduleName).with({
-            fragment: `L${line},${column}`,
+        problem: WorkbookAnalysisProblem,
+        analysisPanelColumn?: vscode.ViewColumn,
+    ): Promise<void> {
+        const uri = encodeModuleUri(filePath, problem.moduleName);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        const editor = await vscode.window.showTextDocument(doc, {
+            preview: false,
+            viewColumn: adjacentAnalysisSourceColumn(analysisPanelColumn),
         });
-        return loc.toString().replace(/^xlide-vba:\/(?!\/)/, 'xlide-vba://');
+        const line = Math.max(0, problem.line - 1);
+        const startColumn = Math.max(0, problem.column - 1);
+        const endColumn = Math.max(startColumn + 1, problem.endColumn - 1);
+        const start = new vscode.Position(line, startColumn);
+        const end = new vscode.Position(line, endColumn);
+        const range = new vscode.Range(start, end);
+        editor.selection = new vscode.Selection(start, end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
     }
 
-    // Prints a formatted, scannable lint report with clickable per-problem
-    // links. Leaves generous blank space above the report so it is easy to find
-    // when the user opens the Output view.
-    function printLintReport(
-        filePath: string,
-        moduleCount: number,
-        problems: WorkbookLintProblem[],
-        errorCount: number,
-        warningCount: number,
-        summary: WorkbookLintSummary,
-    ): void {
-        const name = path.basename(filePath);
-        out.appendLine('');
-        out.appendLine('');
-        out.appendLine('');
-        out.appendLine('========================================================================');
-        out.appendLine(`  XLIDE Lint - ${name}`);
-        out.appendLine(`  ${new Date().toLocaleString()}`);
-        out.appendLine('========================================================================');
-        out.appendLine('');
-
-        if (problems.length === 0) {
-            const suppressed = summary.suppressedCount > 0
-                ? ` ${summary.suppressedCount} diagnostic(s) suppressed by XLIDE lint directives.`
-                : '';
-            out.appendLine(`  No unsuppressed problems found across ${moduleCount} module(s). Lint passed.${suppressed}`);
-            out.appendLine('');
-            return;
-        }
-
-        out.appendLine(
-            `  ${problems.length} problem(s) in ${moduleCount} module(s): ` +
-            `${errorCount} error(s), ${warningCount} warning(s).`,
-        );
-        out.appendLine(
-            `  VBE compile-equivalent: ${summary.vbeCompileEquivalentCount}; ` +
-            `XLIDE non-compile guidance/risk: ${summary.nonVbeCompileEquivalentCount}.`,
-        );
-        if (summary.suppressedCount > 0) {
-            out.appendLine(`  Suppressed by XLIDE lint directives: ${summary.suppressedCount}.`);
-        }
-        out.appendLine(`  Categories: ${formatSummaryCounts(summary.byCategory)}.`);
-        out.appendLine(`  Evidence: ${formatSummaryCounts(summary.byDiagnosticKind)}.`);
-        out.appendLine('  (Click a location link to jump to the problem.)');
-        out.appendLine('');
-
-        let currentModule = '';
-        for (const p of problems) {
-            if (p.moduleName !== currentModule) {
-                currentModule = p.moduleName;
-                out.appendLine(`  ${currentModule} (${p.moduleType})`);
-            }
-            const sev = p.severity.toUpperCase().padEnd(11);
-            const code = p.code ? ` [${p.code}]` : '';
-            const link = moduleLocationLink(filePath, p.moduleName, p.line, p.column);
-            out.appendLine(`    ${sev} ${p.message}${code}`);
-            out.appendLine(`                ${link}`);
-        }
-        out.appendLine('');
+    function showWorkbookAnalysisResults(result: WorkbookAnalysisResult): void {
+        openWorkbookAnalysisResults(context, result, {
+            onOpenProblem: (problem, analysisPanelColumn) =>
+                openWorkbookAnalysisProblem(result.filePath, problem, analysisPanelColumn),
+        });
     }
 
-    function formatSummaryCounts<K extends string>(
-        counts: Partial<Record<K, number>>,
-    ): string {
-        const entries = Object.entries(counts)
-            .filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] > 0)
-            .sort(([a], [b]) => a.localeCompare(b));
-        if (entries.length === 0) {
-            return 'none';
+    function adjacentAnalysisSourceColumn(analysisPanelColumn?: vscode.ViewColumn): vscode.ViewColumn {
+        switch (analysisPanelColumn) {
+            case vscode.ViewColumn.One:
+                return vscode.ViewColumn.Two;
+            case vscode.ViewColumn.Two:
+            case vscode.ViewColumn.Three:
+            case vscode.ViewColumn.Four:
+            case vscode.ViewColumn.Five:
+            case vscode.ViewColumn.Six:
+            case vscode.ViewColumn.Seven:
+            case vscode.ViewColumn.Eight:
+            case vscode.ViewColumn.Nine:
+                return vscode.ViewColumn.One;
+            default:
+                return vscode.ViewColumn.Beside;
         }
-        return entries.map(([name, count]) => `${name} ${count}`).join(', ');
     }
 
     function shouldAttachToRunningExcel(): boolean {
@@ -952,10 +895,10 @@ export function registerCommands(
         }
     }
 
-    async function lintActiveModule(): Promise<void> {
+    async function analyzeActiveModule(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME) {
-            vscode.window.showWarningMessage('XLIDE: Open a workbook VBA module to lint the current module.');
+            vscode.window.showWarningMessage('XLIDE: Open a workbook VBA module to analyze the current module.');
             return;
         }
 
@@ -981,7 +924,7 @@ export function registerCommands(
             projectProcedureSignatures(project),
         );
 
-        const result = lintVbaModuleSource({
+        const result = analyzeVbaModuleSource({
             source,
             moduleName,
             moduleKind,
@@ -1000,22 +943,30 @@ export function registerCommands(
         });
         const errorCount = problems.filter((p) => p.severity === 'error').length;
         const warningCount = problems.filter((p) => p.severity === 'warning').length;
-        const summary = summarizeWorkbookLintProblems(problems, result.suppressedCount);
+        const summary = summarizeWorkbookAnalysisProblems(problems, result.suppressedCount);
+        const analysisResult: WorkbookAnalysisResult = {
+            filePath: xlsmPath,
+            moduleCount: 1,
+            problems,
+            errorCount,
+            warningCount,
+            summary,
+        };
 
-        printLintReport(xlsmPath, 1, problems, errorCount, warningCount, summary);
+        showWorkbookAnalysisResults(analysisResult);
         if (problems.length === 0) {
-            showInformationWithOutput(
-                `XLIDE: "${moduleName}" passed lint (no unsuppressed problems).`,
+            vscode.window.showInformationMessage(
+                `XLIDE: "${moduleName}" passed analysis (no unsuppressed problems).`,
             );
         } else {
-            showWarningWithOutput(
-                `XLIDE: "${moduleName}" has ${errorCount} error(s) and ${warningCount} warning(s). See XLIDE Output.`,
+            vscode.window.showWarningMessage(
+                `XLIDE: "${moduleName}" has ${errorCount} error(s) and ${warningCount} warning(s).`,
             );
         }
     }
 
     interface SupportBundleOptions {
-        includeAnonymizedWorkbookLintReport?: boolean;
+        includeAnonymizedWorkbookAnalysisReport?: boolean;
         includeSelectedLogs?: boolean;
     }
 
@@ -1029,13 +980,13 @@ export function registerCommands(
 
     async function activeModuleSupportData(): Promise<{
         workbook: SupportBundleWorkbookSummary;
-        lint: SupportBundleLintSummary;
+        analysis: SupportBundleAnalysisSummary;
     }> {
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
             return {
                 workbook: { available: false },
-                lint: { available: false },
+                analysis: { available: false },
             };
         }
 
@@ -1070,7 +1021,7 @@ export function registerCommands(
             moduleName,
             projectProcedureSignatures(project),
         );
-        const result = lintVbaModuleSource({
+        const result = analyzeVbaModuleSource({
             source,
             moduleName,
             moduleKind,
@@ -1086,7 +1037,7 @@ export function registerCommands(
         );
         return {
             workbook,
-            lint: {
+            analysis: {
                 available: true,
                 moduleType,
                 errorCount: problems.filter((problem) => problem.severity === 'error').length,
@@ -1142,18 +1093,18 @@ export function registerCommands(
         return 'default';
     }
 
-    async function anonymizedWorkbookLintReportForActiveWorkbook():
-        Promise<SupportBundleAnonymizedLintReport> {
+    async function anonymizedWorkbookAnalysisReportForActiveWorkbook():
+        Promise<SupportBundleAnonymizedAnalysisReport> {
         const workbookPath = await activeLocalWorkbookPath();
         if (!workbookPath) {
             return { included: false, unavailableReason: 'no-active-workbook' };
         }
         try {
-            return anonymizedWorkbookLintReportFromResult(await lintWorkbook(bridge, workbookPath));
+            return anonymizedWorkbookAnalysisReportFromResult(await analyzeWorkbook(bridge, workbookPath));
         } catch (err) {
             return {
                 included: false,
-                unavailableReason: 'lint-failed',
+                unavailableReason: 'analysis-failed',
                 errorCategory: errorCategoryForSupportLog(err),
             };
         }
@@ -1170,8 +1121,8 @@ export function registerCommands(
             displayName?: string;
         };
         const active = await activeModuleSupportData();
-        const anonymizedWorkbookLintReport = options.includeAnonymizedWorkbookLintReport
-            ? await anonymizedWorkbookLintReportForActiveWorkbook()
+        const anonymizedWorkbookAnalysisReport = options.includeAnonymizedWorkbookAnalysisReport
+            ? await anonymizedWorkbookAnalysisReportForActiveWorkbook()
             : undefined;
         return buildSupportBundle({
             generatedAt: now.toISOString(),
@@ -1196,10 +1147,10 @@ export function registerCommands(
             },
             settings: xlideSettingsForSupportBundle(),
             workbook: active.workbook,
-            lint: active.lint,
+            analysis: active.analysis,
             commands: recentXlideCommands(),
             writeAudits: recentXlideWriteAudits(),
-            anonymizedWorkbookLintReport,
+            anonymizedWorkbookAnalysisReport,
             selectedLogs: options.includeSelectedLogs ? recentXlideOutputLog() : undefined,
         });
     }
@@ -1225,10 +1176,10 @@ export function registerCommands(
             const picks = await vscode.window.showQuickPick(
                 [
                     {
-                        label: 'Anonymized workbook lint report',
+                        label: 'Anonymized workbook analysis report',
                         description: 'Counts by rule/module type only; no source or module names',
                         picked: true,
-                        option: 'includeAnonymizedWorkbookLintReport' as const,
+                        option: 'includeAnonymizedWorkbookAnalysisReport' as const,
                     },
                     {
                         label: 'Selected recent XLIDE logs',
@@ -1247,8 +1198,8 @@ export function registerCommands(
                 return undefined;
             }
             return {
-                includeAnonymizedWorkbookLintReport:
-                    picks.some((pick) => pick.option === 'includeAnonymizedWorkbookLintReport'),
+                includeAnonymizedWorkbookAnalysisReport:
+                    picks.some((pick) => pick.option === 'includeAnonymizedWorkbookAnalysisReport'),
                 includeSelectedLogs:
                     picks.some((pick) => pick.option === 'includeSelectedLogs'),
             };
@@ -1841,51 +1792,44 @@ export function registerCommands(
             );
         }),
 
-        // Lint the active VBA module using the same source text the editor shows.
-        registerXlideCommand('xlide.lintCurrentModule', async () => {
+        // Analyze the active VBA module using the same source text the editor shows.
+        registerXlideCommand('xlide.analyzeCurrentModule', async () => {
             try {
-                await lintActiveModule();
+                await analyzeActiveModule();
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
-                log(`[lintCurrentModule] Error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Failed to lint current module: ${message}`);
+                log(`[analyzeCurrentModule] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to analyze current module: ${message}`);
             }
         }),
 
-        // Lint every VBA module in the workbook and print a clickable report
-        registerXlideCommand('xlide.lintWorkbook', async (node: XlideNode) => {
+        // Analyze every VBA module in the workbook and show a navigable results panel.
+        registerXlideCommand('xlide.analyzeWorkbook', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) {
-                vscode.window.showWarningMessage('XLIDE: No workbook selected to lint.');
+                vscode.window.showWarningMessage('XLIDE: No workbook selected to analyze.');
                 return;
             }
             const name = path.basename(filePath);
             await vscode.window.withProgress(
-                { location: vscode.ProgressLocation.Notification, title: `XLIDE: Linting "${name}"...`, cancellable: false },
+                { location: vscode.ProgressLocation.Notification, title: `XLIDE: Analyzing "${name}"...`, cancellable: false },
                 async () => {
                     try {
-                        const result = await lintWorkbook(bridge, filePath);
-                        printLintReport(
-                            filePath,
-                            result.moduleCount,
-                            result.problems,
-                            result.errorCount,
-                            result.warningCount,
-                            result.summary,
-                        );
+                        const result = await analyzeWorkbook(bridge, filePath);
+                        showWorkbookAnalysisResults(result);
                         if (result.problems.length === 0) {
-                            showInformationWithOutput(
-                                `XLIDE: "${name}" passed lint (no problems across ${result.moduleCount} module(s)).`,
+                            vscode.window.showInformationMessage(
+                                `XLIDE: "${name}" passed analysis (no problems across ${result.moduleCount} module(s)).`,
                             );
                         } else {
-                            showWarningWithOutput(
-                                `XLIDE: "${name}" has ${result.errorCount} error(s) and ${result.warningCount} warning(s). See XLIDE Output.`,
+                            vscode.window.showWarningMessage(
+                                `XLIDE: "${name}" has ${result.errorCount} error(s) and ${result.warningCount} warning(s).`,
                             );
                         }
                     } catch (err) {
                         const msg = err instanceof Error ? err.message : String(err);
-                        log(`[lint] FAILED: ${msg}`);
-                        vscode.window.showErrorMessage(`XLIDE: Lint failed: ${msg}`);
+                        log(`[analyzeWorkbook] FAILED: ${msg}`);
+                        vscode.window.showErrorMessage(`XLIDE: Analysis failed: ${msg}`);
                     }
                 },
             );

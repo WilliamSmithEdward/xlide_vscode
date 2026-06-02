@@ -1,8 +1,8 @@
-# XLIDE VBA Realtime Linting Final Corpus Addendum
+# XLIDE VBA Realtime Analysis Final Corpus Addendum
 
-**Recommended file name:** `xlide_vba_realtime_linting_final_corpus_addendum.md`
+**Recommended file name:** `xlide_vba_realtime_analysis_final_corpus_addendum.md`
 
-**Purpose:** Add a final, narrow hardening layer to the existing XLIDE Excel VBA realtime linting corpus.
+**Purpose:** Add a final, narrow hardening layer to the existing XLIDE Excel VBA realtime analysis corpus.
 
 This addendum does **not** attempt to add another broad syntax suite. The existing corpus already covers the main parser, declaration, limits, realtime recovery, module-kind, and legacy-visible cases.
 
@@ -213,7 +213,7 @@ Me resolves to worksheet module instance
 
 Cover old but VBE-visible control-transfer forms that a modern parser may miss.
 
-These are not style recommendations. The linter may warn, but it should not falsely reject valid legacy VBA.
+These are not style recommendations. The analyzer may warn, but it should not falsely reject valid legacy VBA.
 
 ---
 
@@ -412,7 +412,7 @@ if accepted by Excel VBE, classify valid
 
 Test parser state used by IntelliSense and member completion.
 
-This is not only a linting concern. XLIDE's realtime parser should preserve enough context to answer:
+This is not only a analysis concern. XLIDE's realtime parser should preserve enough context to answer:
 
 ```text
 What receiver is before the dot?
@@ -810,7 +810,7 @@ not necessarily same as live editor-visible source
 ```text
 If MS-VBAL and VBE canary disagree:
 1. Record both.
-2. Prefer VBE canary for realtime Excel-host lint UX.
+2. Prefer VBE canary for realtime Excel-host analysis UX.
 3. Keep MS-VBAL note for spec tracking.
 4. Do not silently weaken the parser without a recorded reason.
 ```

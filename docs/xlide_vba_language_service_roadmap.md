@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Build the next layer of XLIDE: active linting, IntelliSense, symbol navigation, and safe formatting for VBA inside VS Code.
+Build the next layer of XLIDE: active analysis, IntelliSense, symbol navigation, and safe formatting for VBA inside VS Code.
 
 XLIDE already has the differentiated workbook/module IO layer. This roadmap is for the semantic layer above that IO: a VBA language service that understands modules, procedures, declarations, scopes, symbols, diagnostics, and keyword casing.
 
@@ -76,7 +76,7 @@ Keyword capitalization must apply only to real keyword tokens. Do not alter text
 
 ### 3. Low-noise diagnostics only
 
-Do not ship noisy linting. Prefer fewer diagnostics with high certainty.
+Do not ship noisy analysis. Prefer fewer diagnostics with high certainty.
 
 A diagnostic is acceptable only when at least one of the following is true:
 
@@ -732,7 +732,7 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 > `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (barrel-exported
 > as `analyzeModule`, `DIAGNOSTIC_RULES`) computes high-confidence semantic
 > diagnostics directly from editor text - no save, no Python round-trip. It is
-> merged with the existing structural block-balance linter (`lintVbaSource`,
+> merged with the existing structural block-balance analyzer (`analyzeVbaStructure`,
 > which already covers every "Missing End .../Unexpected block terminator"
 > case) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`, runs
 > on open and debounced (300 ms) on every edit, and works on virtual
@@ -810,7 +810,7 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 
 ### Goal
 
-Ship useful, high-confidence active linting.
+Ship useful, high-confidence active analysis.
 
 ### First Diagnostics
 
