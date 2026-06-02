@@ -10,9 +10,8 @@ import {
     decodeModuleUri,
     XLIDE_SCHEME,
     notifySignatureDropped,
-    moduleIdentityKey,
-    sameWorkbookPath,
 } from './xlideFileSystem';
+import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
@@ -38,6 +37,7 @@ import {
     projectClassModuleDefinition,
 } from './vbaNavigation';
 import {
+    buildLiveVbaProjectIndex,
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
 } from './vbaProjectAnalysis';
@@ -365,13 +365,16 @@ export function registerCommands(
 
         const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
         const source = editor.document.getText();
-        const modules = await vbaIndex.getAllModules(xlsmPath);
+        const modules = applyOpenDocumentSources(
+            await vbaIndex.getAllModules(xlsmPath),
+            xlsmPath,
+        );
         const current = modules.find(
             (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
         );
         const moduleKind = moduleKindFromType(current?.type);
         const moduleType = current?.type ?? 'standard';
-        const project = buildVbaProjectIndex(modules, {
+        const project = buildLiveVbaProjectIndex(modules, {
             moduleName,
             moduleKind,
             source,
@@ -424,27 +427,6 @@ export function registerCommands(
         const origin = new vscode.Position(0, 0);
         editor.selection = new vscode.Selection(origin, origin);
         await vscode.commands.executeCommand('references-view.findReferences', originUri, origin);
-    }
-
-    function applyOpenDocumentSources(
-        modules: Awaited<ReturnType<VbaSymbolIndex['getAllModules']>>,
-        xlsmPath: string,
-    ): Awaited<ReturnType<VbaSymbolIndex['getAllModules']>> {
-        const out = modules.map((mod) => ({ ...mod }));
-        const byName = new Map(out.map((mod) => [moduleIdentityKey(mod.moduleName), mod]));
-        for (const document of vscode.workspace.textDocuments) {
-            if (document.uri.scheme !== XLIDE_SCHEME) { continue; }
-            try {
-                const decoded = decodeModuleUri(document.uri);
-                if (!sameWorkbookPath(decoded.xlsmPath, xlsmPath)) { continue; }
-                const mod = byName.get(moduleIdentityKey(decoded.moduleName));
-                if (!mod) { continue; }
-                mod.source = document.getText();
-            } catch {
-                // Ignore non-standard xlide-vba URIs.
-            }
-        }
-        return out;
     }
 
     return [

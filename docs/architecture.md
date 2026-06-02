@@ -37,6 +37,7 @@ xlide_vscode/
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
     vbaLinter.ts        Pure structural block-balance analysis (lintVbaSource), smart-enter helpers, and the shared smart-block snippet catalogue (no vscode dependency)
     vbaModuleLint.ts    Shared module lint core used by live diagnostics, current-module lint, and workbook lint; merges structural lint, semantic analysis, and lint suppression directives
+    vbaOpenDocuments.ts Shared same-workbook open-document source overlay helper for editor-backed project analysis
     vbaProjectAnalysis.ts  Shared ProjectIndex construction and analyzer-option derivation for project-aware lint, diagnostics, semantic tokens, completion, and hover surfaces
     vbaWorkbookLint.ts  Workbook-wide lint/report core (lintWorkbook) reused by commands and the xlide_lintWorkbook agent tool; flattens vbaModuleLint results into 1-based problems with diagnostic metadata and summary counts
     analyzer/
@@ -131,6 +132,17 @@ Cross-workbook actions, such as copying modules from one workbook to another,
 must be exposed as explicit user-chosen workflows with source/destination
 selection, preview, conflict handling, and safety checks. They must not happen
 implicitly through project analysis or editor IntelliSense.
+
+Same-workbook live source overlays are centralized in `src/vbaOpenDocuments.ts`.
+That helper scans open `xlide-vba://` documents, decodes the workbook/module
+identity through the same URI helpers, and replaces cached module source only
+when the open editor belongs to the requested workbook. Completion, hover,
+signature help, live diagnostics, semantic tokens, definition/reference/rename,
+current-module lint, and tree-level class rename all use that overlay path
+instead of carrying local workspace-document scans.
+`tests/vbaMultiWorkbookIsolation.test.ts` locks the shared overlay and
+project-analysis inputs with two same-named open workbooks so provider surfaces
+stay workbook-siloed by construction.
 
 ---
 
@@ -382,10 +394,17 @@ Project-aware diagnostics, lint surfaces, semantic type coloring, completion,
 and hover derive project context through `src/vbaProjectAnalysis.ts`. That
 helper owns module-kind normalization, live-current-module overlay, project
 procedure signatures, visibility-filtered procedure/identifier/type/non-type
-names, source-backed member surfaces, and the explicit live-IntelliSense mode
-that ignores temporarily invalid modules. Current-module lint, workbook lint,
-project-aware diagnostic fixtures, and editor providers do not hand-wire
-parallel `ProjectIndex` option sets.
+names, source-backed member surfaces, and the named read-only live-analysis path
+that ignores temporarily invalid modules. Completion, definition, references,
+diagnostics, semantic coloring, hover/signature contexts, and current-module
+lint use that path. Rename and tree-level class rename are the deliberate
+mutation-safety exception: they use strict project indexes so reference edits do
+not silently skip modules that cannot be parsed.
+Before those project indexes are built for live editor providers, workbook
+modules are passed through `src/vbaOpenDocuments.ts` so unsaved open modules from
+the same workbook participate in cross-module diagnostics, type coloring,
+navigation, completion, hover, and signature help without crossing workbook
+boundaries.
 
 **Structural linting** — `src/vbaLinter.ts` is a pure, `vscode`-free module so it
 is unit-tested directly (`tests/vbaLinter.test.ts`). It strips strings/comments,

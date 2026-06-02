@@ -82,6 +82,13 @@ export function buildVbaProjectIndex(
     return index;
 }
 
+export function buildLiveVbaProjectIndex(
+    modules: readonly VbaProjectModuleInput[],
+    liveOverride?: VbaProjectLiveOverride,
+): ProjectIndex {
+    return buildVbaProjectIndex(modules, liveOverride, { ignoreInvalidModules: true });
+}
+
 export function projectProcedureSignatures(
     project: ProjectIndex,
 ): ReturnType<ProjectIndex['procedureSignatures']> | undefined {

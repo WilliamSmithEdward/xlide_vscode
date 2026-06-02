@@ -415,17 +415,26 @@ Purpose: move from same-module checks to workbook-aware analysis.
   lint surfaces, diagnostics, and editor providers, covering `ProjectIndex`
   construction, live current-module overlay, visibility-filtered names,
   exported signatures, visible project types, source-backed member surfaces,
-  and live-IntelliSense tolerance for temporarily invalid modules.
+  and a named read-only live-analysis path for temporarily invalid modules.
+  Rename/class-rename edit paths remain strict so reference edits do not skip
+  modules silently.
 - [x] Add shared workbook identity helpers for workbook cache keys,
   workbook-path comparisons, and case-insensitive module-name keys; route symbol
   index caches, member-completion caches/open-document overlays, command
   open-document overlays, and signature-drop warning suppression through that
   path.
-- [ ] Add explicit multi-workbook isolation fixtures: two open workbooks with
+- [x] Add a shared same-workbook open-document source overlay helper and route
+  completion, hover, signature help, live diagnostics, semantic coloring,
+  definition/reference/rename, current-module lint, and tree-level class rename
+  through it so unsaved open modules participate consistently without crossing
+  workbook boundaries.
+- [x] Add explicit multi-workbook isolation fixtures: two open workbooks with
   overlapping module, class, document-module, procedure, and member names must
   keep completion, hover, diagnostics, semantic coloring, references, rename,
   lint, and live-source overlays scoped to the workbook encoded in the module
-  URI.
+  URI. The fixture locks the shared same-workbook analysis inputs plus
+  completion, diagnostics, semantic type coloring, and class-reference location
+  behavior; provider surfaces consume that single path.
 - [ ] Add machine-readable workbook-level fixture files for larger project
   analysis scenarios.
 - [x] Keep current project-signature diagnostics stable under module order

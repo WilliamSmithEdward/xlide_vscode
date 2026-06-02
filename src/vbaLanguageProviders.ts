@@ -1,7 +1,13 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
-import { XLIDE_SCHEME, decodeModuleUri, encodeModuleUri } from './xlideFileSystem';
+import {
+    XLIDE_SCHEME,
+    decodeModuleUri,
+    encodeModuleUri,
+    moduleIdentityKey,
+} from './xlideFileSystem';
 import { VbaSymbol, VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
+import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import {
     lintVbaSource,
     stripVba,
@@ -47,6 +53,7 @@ import {
     typeReferenceLocations,
 } from './vbaNavigation';
 import {
+    buildLiveVbaProjectIndex,
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
     type VbaProjectAnalysisOptions,
@@ -219,8 +226,11 @@ function moduleMapWithLiveDocument(
     type?: string,
     documentType?: EventHandlerDocumentType,
 ): Map<string, VbaModuleSymbols> {
-    const byModule = new Map(modules.map((m) => [m.moduleName.toLowerCase(), m]));
-    byModule.set(moduleName.toLowerCase(), {
+    const byModule = new Map(modules.map((m) => [
+        moduleIdentityKey(m.moduleName),
+        { ...m, symbols: parseVbaModule(m.source) },
+    ]));
+    byModule.set(moduleIdentityKey(moduleName), {
         moduleName,
         type,
         documentType,
@@ -453,11 +463,14 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
 
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = await this._index.getAllModules(xlsmPath);
+        const modules = applyOpenDocumentSources(
+            await this._index.getAllModules(xlsmPath),
+            xlsmPath,
+        );
         const current = modules.find(
             (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
         );
-        const project = buildProjectIndex(modules, {
+        const project = buildLiveVbaProjectIndex(modules, {
             moduleName,
             moduleKind: moduleKindFromType(current?.type),
             source,
@@ -531,11 +544,14 @@ class VbaReferenceProvider implements vscode.ReferenceProvider {
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = await this._index.getAllModules(xlsmPath);
+        const modules = applyOpenDocumentSources(
+            await this._index.getAllModules(xlsmPath),
+            xlsmPath,
+        );
         const current = modules.find(
             (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
         );
-        const project = buildProjectIndex(modules, {
+        const project = buildLiveVbaProjectIndex(modules, {
             moduleName,
             moduleKind: moduleKindFromType(current?.type),
             source,
@@ -668,7 +684,10 @@ class VbaRenameProvider implements vscode.RenameProvider {
 
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = await this._index.getAllModules(xlsmPath);
+        const modules = applyOpenDocumentSources(
+            await this._index.getAllModules(xlsmPath),
+            xlsmPath,
+        );
         const current = modules.find(
             (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
         );
@@ -727,7 +746,10 @@ class VbaRenameProvider implements vscode.RenameProvider {
 
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = await this._index.getAllModules(xlsmPath);
+        const modules = applyOpenDocumentSources(
+            await this._index.getAllModules(xlsmPath),
+            xlsmPath,
+        );
         const current = modules.find(
             (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
         );
@@ -865,7 +887,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         moduleName: string,
     ): Promise<ProjectIndex> {
         if (document.uri.scheme !== XLIDE_SCHEME) {
-            return buildProjectIndex([], {
+            return buildLiveVbaProjectIndex([], {
                 moduleName,
                 moduleKind: 'standard',
                 source,
@@ -873,11 +895,14 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         }
 
         const decoded = decodeModuleUri(document.uri);
-        const modules = await this._index.getAllModules(decoded.xlsmPath);
+        const modules = applyOpenDocumentSources(
+            await this._index.getAllModules(decoded.xlsmPath),
+            decoded.xlsmPath,
+        );
         const current = modules.find(
             (m) => m.moduleName.toLowerCase() === moduleName.toLowerCase(),
         );
-        return buildProjectIndex(modules, {
+        return buildLiveVbaProjectIndex(modules, {
             moduleName,
             moduleKind: moduleKindFromType(current?.type),
             source,
@@ -933,13 +958,16 @@ function registerVbaDiagnostics(
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
-                const modules = await index.getAllModules(xlsmPath);
+                const modules = applyOpenDocumentSources(
+                    await index.getAllModules(xlsmPath),
+                    xlsmPath,
+                );
                 const current = modules.find(
                     (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
                 );
                 moduleKind = moduleKindFromType(current?.type);
                 documentType = current?.documentType;
-                const project = buildProjectIndex(modules, {
+                const project = buildLiveVbaProjectIndex(modules, {
                     moduleName,
                     moduleKind,
                     source: text,

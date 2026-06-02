@@ -14,10 +14,9 @@ import { PythonBridge } from './pythonBridge';
 import {
 	XLIDE_SCHEME,
 	decodeModuleUri,
-	moduleIdentityKey,
-	sameWorkbookPath,
 	workbookIdentityKey,
 } from './xlideFileSystem';
+import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
 import { leadingWhitespace, normalizeSmartBlockLayout } from './vbaLinter';
 import {
 	DocRegistry,
@@ -50,6 +49,7 @@ import {
 	VbaProjectClassMembers,
 } from './analyzer';
 import {
+	buildLiveVbaProjectIndex,
 	buildVbaProjectIndex,
 	moduleKindFromType,
 	projectAnalysisOptionsForModule,
@@ -495,14 +495,14 @@ class VbaMemberCompletionProvider
 		const liveOverride = live && (!options.include || options.include(live.moduleKind))
 			? live
 			: undefined;
-		return buildVbaProjectIndex(modules, liveOverride, { ignoreInvalidModules: true });
+		return buildLiveVbaProjectIndex(modules, liveOverride);
 	}
 
 	private async _moduleSource(
 		xlsmPath: string,
 		entry: ModuleEntry,
 	): Promise<string | undefined> {
-		const open = this._openModuleSource(xlsmPath, entry.name);
+		const open = openModuleSourceForWorkbook(xlsmPath, entry.name);
 		if (open !== undefined) {
 			return open;
 		}
@@ -517,40 +517,14 @@ class VbaMemberCompletionProvider
 		}
 	}
 
-	private _openModuleSource(
-		xlsmPath: string,
-		moduleName: string,
-	): string | undefined {
-		const moduleKey = moduleIdentityKey(moduleName);
-		for (const doc of vscode.workspace.textDocuments) {
-			if (doc.uri.scheme !== XLIDE_SCHEME) {
-				continue;
-			}
-			try {
-				const decoded = decodeModuleUri(doc.uri);
-				if (
-					sameWorkbookPath(decoded.xlsmPath, xlsmPath) &&
-					moduleIdentityKey(decoded.moduleName) === moduleKey
-				) {
-					return doc.getText();
-				}
-			} catch {
-				// Ignore virtual documents outside XLIDE's module URI shape.
-			}
-		}
-		return undefined;
-	}
-
 	private async _buildTypeContext(
 		document: vscode.TextDocument,
 		source: string,
 	): Promise<TypeCompletionContext> {
 		if (document.uri.scheme !== XLIDE_SCHEME) {
 			try {
-				const project = buildVbaProjectIndex(
+				const project = buildLiveVbaProjectIndex(
 					[{ moduleName: 'Module', moduleKind: 'standard', source }],
-					undefined,
-					{ ignoreInvalidModules: true },
 				);
 				return {
 					projectTypes: projectAnalysisOptionsForModule(project, 'Module').projectTypes ?? [],
