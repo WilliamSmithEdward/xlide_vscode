@@ -1498,6 +1498,47 @@ No grammar feature is “done” without a test and a spec-map row.
 
 Add settings slowly.
 
+### Configuration Scoping Contract
+
+Workbook-facing GUIs must use workbook-scoped settings for workbook-specific
+choices, with global extension settings acting only as defaults until a workbook
+establishes its own value.
+
+Use this split across analysis, import/export, diff, test, and future workbook
+workflow panels:
+
+- **Global extension settings** are for environment and default behavior:
+  Python/backend setup, editor typing behavior, default block layout, default
+  analysis profile, default import/export modes, documentation metadata glob,
+  and sidebar/editor preferences.
+- **Workbook-scoped settings** are for decisions tied to one workbook:
+  import/export folder and mode, analysis severity visibility, tracked/untracked
+  analysis rules, suppression visibility, per-workbook diff preferences,
+  selected module state where useful, and future workbook test/run preferences.
+- A workbook GUI action must not silently mutate a global setting. If the action
+  is performed in the context of a workbook, persist it beside or for that
+  workbook.
+- Workbook-scoped settings inherit global defaults until the workbook has an
+  explicit value. Add reset actions where useful so a workbook can return to the
+  current global default.
+- Refreshing an already-open workbook GUI must preserve active UI state and must
+  not replay "on open" defaults. A fresh open may re-read workbook settings and
+  global defaults.
+- Displayed settings and runtime behavior must come from the same resolver.
+  Avoid separate GUI-only, command-only, and agent-only configuration pipelines.
+- Configuration writes should be debounced and deterministic. Malformed
+  workbook-local settings should be reported with a clear recovery path rather
+  than guessed.
+
+Implementation priority:
+
+1. Move the Analysis GUI's severity visibility and rule tracking/untracking to
+   workbook-scoped analysis settings with global fallback.
+2. Keep Import/Export settings in the workbook sidecar and ensure descriptions,
+   command behavior, GUI state, and agent tools use the same planner/resolver.
+3. Apply the same resolver pattern to the future test runner GUI and any
+   workbook diff/sync surface.
+
 Suggested initial settings:
 
 ```json

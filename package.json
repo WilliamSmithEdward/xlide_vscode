@@ -66,7 +66,7 @@
             "warning",
             "information"
           ],
-          "description": "Problem severities shown by default in the workbook analysis GUI. Toggle buttons in the analysis GUI update this setting automatically."
+          "description": "Analysis finding severities shown by default in the workbook analysis GUI. The toolbar and Analysis Settings panel update this setting automatically."
         },
         "xlide.analysis.untrackedRules": {
           "type": "array",
@@ -74,7 +74,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Analysis diagnostic rule codes hidden from analysis tracking. The workbook analysis GUI can update this list with row-level Track/Untrack actions."
+          "description": "Analysis diagnostic rule codes hidden from analysis tracking. The workbook analysis GUI can update this list from row Track/Untrack actions or the Analysis Settings panel."
         },
         "xlide.editor.blockLayout": {
           "type": "string",

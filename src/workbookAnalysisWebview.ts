@@ -4,6 +4,7 @@ import type { WorkbookAnalysisProblem, WorkbookAnalysisResult } from './vbaWorkb
 import {
     buildWorkbookAnalysisPlainText,
     buildWorkbookAnalysisResultsModel,
+    type WorkbookAnalysisResultRow,
     type WorkbookAnalysisResultsModel,
 } from './workbookAnalysisResultsModel';
 import {
@@ -142,6 +143,7 @@ export function openWorkbookAnalysisResults(
         fixIndex?: number;
         suppressed?: boolean;
         tracked?: boolean;
+        code?: string;
     }) => {
         try {
             if (message.type === 'contextMenuOpened') {
@@ -208,12 +210,13 @@ export function openWorkbookAnalysisResults(
             }
             if (message.type === 'setRuleTracking') {
                 const problem = problemAt(message.index, message.suppressed);
-                if (problem?.code) {
-                    const update = await setAnalysisRuleTrackedInConfig(problem.code, message.tracked === true);
+                const code = typeof message.code === 'string' ? message.code : problem?.code;
+                if (code) {
+                    const update = await setAnalysisRuleTrackedInConfig(code, message.tracked === true);
                     await refreshAfterAnalysisMutation();
                     await panel.webview.postMessage({
                         type: 'ruleTrackingChanged',
-                        code: update.code ?? problem.code,
+                        code: update.code ?? code,
                         tracked: update.tracked,
                         untrackedRules: update.untrackedRules,
                     });
@@ -326,7 +329,7 @@ function renderWorkbookAnalysisResultsHtml(
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
     const allRows = [...model.rows, ...model.suppressedRows];
     const rowsHtml = allRows.length === 0
-        ? '<div class="empty">No unsuppressed analysis problems.</div>'
+        ? '<div class="empty">No analysis findings.</div>'
         : allRows.map((row) => {
             const tracked = isAnalysisRuleTracked(row.code, untrackedRules);
             const status = row.suppressed ? 'Suppressed' : (tracked ? 'Tracked' : 'Untracked');
@@ -379,6 +382,7 @@ function renderWorkbookAnalysisResultsHtml(
         const active = visibleSeverities.includes(severity);
         return `<button class="filterButton${active ? ' active' : ''}" type="button" data-severity-toggle="${severity}" aria-pressed="${active ? 'true' : 'false'}">${severityFilterLabel(severity)}</button>`;
     }).join('');
+    const ruleSettingsHtml = analysisRuleSettingsHtml(allRows, untrackedRules);
     const informationCount = model.rows.filter((row) => row.severity === 'information').length;
     const untrackedCount = model.rows.filter((row) => !isAnalysisRuleTracked(row.code, untrackedRules)).length;
     const summaryStatsHtml = [
@@ -443,7 +447,8 @@ function renderWorkbookAnalysisResultsHtml(
         }
         .actionButton,
         .filterButton,
-        .moduleFilter {
+        .moduleFilter,
+        .secondaryButton {
             border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
             color: var(--vscode-button-secondaryForeground);
             background: var(--vscode-button-secondaryBackground);
@@ -453,8 +458,13 @@ function renderWorkbookAnalysisResultsHtml(
         }
         .actionButton:hover,
         .filterButton:hover,
-        .moduleFilter:hover {
+        .moduleFilter:hover,
+        .secondaryButton:hover {
             background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .secondaryButton {
+            color: var(--vscode-foreground);
+            background: transparent;
         }
         .filterButton.active,
         .moduleFilter.active {
@@ -759,6 +769,101 @@ function renderWorkbookAnalysisResultsHtml(
         .contextItemWithSubmenu.hasQuickFixes:hover > .contextSubmenu {
             display: block;
         }
+        .settingsBackdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.28);
+        }
+        .settingsBackdrop[hidden] {
+            display: none;
+        }
+        .settingsDialog {
+            width: min(760px, 100%);
+            max-height: min(760px, calc(100vh - 48px));
+            display: grid;
+            grid-template-rows: auto 1fr;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            color: var(--vscode-foreground);
+            background: var(--vscode-editor-background);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+            overflow: hidden;
+        }
+        .settingsHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .settingsHeader h2 {
+            margin: 0;
+            font-size: 15px;
+        }
+        .settingsBody {
+            min-height: 0;
+            overflow: auto;
+            padding: 14px;
+        }
+        .settingsSection + .settingsSection {
+            margin-top: 18px;
+        }
+        .settingsSection h3 {
+            margin: 0 0 8px;
+            color: var(--vscode-descriptionForeground);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .settingsChoices {
+            display: grid;
+            gap: 8px;
+        }
+        .settingsChoice,
+        .settingsRuleRow {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 32px;
+            padding: 6px 8px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+        }
+        .settingsChoice input,
+        .settingsRuleRow input {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+        }
+        .settingsRuleList {
+            display: grid;
+            gap: 6px;
+        }
+        .settingsRuleMain {
+            min-width: 0;
+            flex: 1;
+        }
+        .settingsRuleTitle {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .settingsRuleMeta {
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+        }
+        .settingsEmpty {
+            color: var(--vscode-descriptionForeground);
+        }
         @media (max-width: 860px) {
             .stats {
                 gap: 8px 18px;
@@ -782,6 +887,7 @@ function renderWorkbookAnalysisResultsHtml(
                 <div class="subtle">${escapeHtml(model.workbookName)}</div>
             </div>
             <div class="headerActions">
+                <button class="actionButton" id="analysisSettings" type="button">Analysis Settings</button>
                 <button class="actionButton" id="copyReport" type="button">Copy Report</button>
                 <button class="actionButton" id="copyJson" type="button">Copy JSON</button>
                 <button class="actionButton" id="exportReport" type="button">Export Report</button>
@@ -804,7 +910,7 @@ function renderWorkbookAnalysisResultsHtml(
                     </div>
                     <div class="visibleCount" id="visibleCount"></div>
                 </div>
-                <div class="table" role="table" aria-label="Analysis problems">
+                <div class="table" role="table" aria-label="Analysis findings">
                     <div class="tableHeader" role="row">
                         <button class="cell sortHeader" type="button" role="columnheader" data-sort="severity">Severity</button>
                         <button class="cell sortHeader" type="button" role="columnheader" data-sort="status">Status</button>
@@ -834,6 +940,33 @@ function renderWorkbookAnalysisResultsHtml(
         <div class="contextDivider"></div>
         <button type="button" data-context-action="setRuleTracking" id="trackingAction">Untrack</button>
     </div>
+    <div class="settingsBackdrop" id="analysisSettingsDialog" hidden>
+        <section class="settingsDialog" role="dialog" aria-modal="true" aria-labelledby="analysisSettingsTitle">
+            <div class="settingsHeader">
+                <h2 id="analysisSettingsTitle">Analysis Settings</h2>
+                <button class="secondaryButton" id="closeAnalysisSettings" type="button">Close</button>
+            </div>
+            <div class="settingsBody">
+                <section class="settingsSection">
+                    <h3>Severities</h3>
+                    <div class="settingsChoices" aria-label="Severity visibility">
+                        ${ANALYSIS_SEVERITIES.map((severity) => `
+                            <label class="settingsChoice">
+                                <input type="checkbox" data-settings-severity="${severity}" ${visibleSeverities.includes(severity) ? 'checked' : ''}>
+                                <span>${severityFilterLabel(severity)}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </section>
+                <section class="settingsSection">
+                    <h3>Tracked Rules</h3>
+                    <div class="settingsRuleList" aria-label="Tracked analysis rules">
+                        ${ruleSettingsHtml}
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
     <div class="toast" id="toast" hidden></div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
@@ -857,6 +990,7 @@ function renderWorkbookAnalysisResultsHtml(
         let sortDirection = hasPersistedUiState && persistedState.sortDirection === 'desc'
             ? 'desc'
             : 'asc';
+        let settingsOpen = hasPersistedUiState && persistedState.settingsOpen === true;
         const rows = Array.from(document.querySelectorAll('.problemRow'));
         const table = document.querySelector('.table');
         const showHiddenButton = document.querySelector('[data-show-hidden]');
@@ -867,6 +1001,7 @@ function renderWorkbookAnalysisResultsHtml(
         const quickFixSubmenu = document.getElementById('quickFixSubmenu');
         const suppressionDivider = document.getElementById('suppressionDivider');
         const trackingAction = document.getElementById('trackingAction');
+        const settingsDialog = document.getElementById('analysisSettingsDialog');
         let contextRow = null;
         let contextMenuVisible = false;
         let persistFiltersTimer = undefined;
@@ -975,6 +1110,7 @@ function renderWorkbookAnalysisResultsHtml(
                 showHiddenItems,
                 sortKey,
                 sortDirection,
+                settingsOpen,
                 visibleSeverities: Array.from(visibleSeverities),
             });
         }
@@ -990,6 +1126,9 @@ function renderWorkbookAnalysisResultsHtml(
                 button.classList.toggle('active', active);
                 button.setAttribute('aria-pressed', active ? 'true' : 'false');
             }
+            for (const checkbox of document.querySelectorAll('[data-settings-severity]')) {
+                checkbox.checked = visibleSeverities.has(checkbox.dataset.settingsSeverity);
+            }
         }
 
         function syncModuleFilterButtons() {
@@ -1001,6 +1140,12 @@ function renderWorkbookAnalysisResultsHtml(
             }
             if (activeButton) {
                 setActive(buttons, activeButton);
+            }
+        }
+
+        function syncSettingsDialog() {
+            if (settingsDialog) {
+                settingsDialog.hidden = !settingsOpen;
             }
         }
 
@@ -1034,6 +1179,12 @@ function renderWorkbookAnalysisResultsHtml(
             quickFixSubmenu.hidden = true;
             contextRow = null;
             notifyContextMenu(false);
+        }
+
+        function setSettingsOpen(open) {
+            settingsOpen = open;
+            persistUiState();
+            syncSettingsDialog();
         }
 
         function showContextMenu(row, x, y) {
@@ -1172,6 +1323,46 @@ function renderWorkbookAnalysisResultsHtml(
                 return;
             }
             hideContextMenu();
+            const settingsButton = event.target.closest?.('#analysisSettings');
+            if (settingsButton) {
+                setSettingsOpen(true);
+                return;
+            }
+            const closeSettingsButton = event.target.closest?.('#closeAnalysisSettings');
+            if (closeSettingsButton) {
+                setSettingsOpen(false);
+                return;
+            }
+            if (event.target === settingsDialog) {
+                setSettingsOpen(false);
+                return;
+            }
+            const settingsSeverity = event.target.closest?.('[data-settings-severity]');
+            if (settingsSeverity) {
+                const id = settingsSeverity.dataset.settingsSeverity;
+                if (settingsSeverity.checked) {
+                    visibleSeverities.add(id);
+                } else {
+                    visibleSeverities.delete(id);
+                }
+                persistUiState();
+                syncSeverityFilterButtons();
+                updateRows();
+                persistSeveritiesDebounced();
+                return;
+            }
+            const settingsRule = event.target.closest?.('[data-settings-rule-code]');
+            if (settingsRule) {
+                const code = settingsRule.dataset.settingsRuleCode;
+                const tracked = settingsRule.checked === true;
+                persistUiState();
+                vscode.postMessage({
+                    type: 'setRuleTracking',
+                    code,
+                    tracked,
+                });
+                return;
+            }
             const filterButton = event.target.closest?.('[data-severity-toggle]');
             if (filterButton) {
                 const id = filterButton.dataset.severityToggle;
@@ -1239,6 +1430,10 @@ function renderWorkbookAnalysisResultsHtml(
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
+                if (settingsOpen) {
+                    setSettingsOpen(false);
+                    return;
+                }
                 hideContextMenu();
             }
         });
@@ -1303,6 +1498,7 @@ function renderWorkbookAnalysisResultsHtml(
         syncModuleFilterButtons();
         syncSeverityFilterButtons();
         syncHiddenToggleButton();
+        syncSettingsDialog();
         updateRows();
         persistUiState();
     </script>
@@ -1312,6 +1508,111 @@ function renderWorkbookAnalysisResultsHtml(
 
 function statHtml(value: string, label: string): string {
     return `<div class="stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+function analysisRuleSettingsHtml(
+    rows: readonly WorkbookAnalysisResultRow[],
+    untrackedRules: readonly string[],
+): string {
+    interface RuleSetting {
+        code: string;
+        title: string;
+        total: number;
+        modules: Set<string>;
+        severities: Set<string>;
+    }
+
+    const rules = new Map<string, RuleSetting>();
+    for (const row of rows) {
+        const code = normalizeRuleCodeForWebview(row.code);
+        if (!code) {
+            continue;
+        }
+        let setting = rules.get(code);
+        if (!setting) {
+            setting = {
+                code,
+                title: row.ruleTitle || row.code || code,
+                total: 0,
+                modules: new Set<string>(),
+                severities: new Set<string>(),
+            };
+            rules.set(code, setting);
+        }
+        setting.total += 1;
+        setting.modules.add(row.moduleName);
+        setting.severities.add(row.severity);
+    }
+    for (const rule of untrackedRules) {
+        const code = normalizeRuleCodeForWebview(rule);
+        if (code && !rules.has(code)) {
+            rules.set(code, {
+                code,
+                title: code,
+                total: 0,
+                modules: new Set<string>(),
+                severities: new Set<string>(),
+            });
+        }
+    }
+    if (rules.size === 0) {
+        return '<div class="settingsEmpty">No analysis rules in the current result.</div>';
+    }
+    return [...rules.values()]
+        .sort((left, right) => left.code.localeCompare(right.code))
+        .map((rule) => {
+            const tracked = isAnalysisRuleTracked(rule.code, untrackedRules);
+            const severitySummary = [...rule.severities]
+                .sort((left, right) => severityOrderForWebview(left) - severityOrderForWebview(right))
+                .map(severityLabelForWebview)
+                .join(', ');
+            const moduleSummary = [...rule.modules].sort().join(', ');
+            const pieces = [
+                `${rule.total} ${rule.total === 1 ? 'finding' : 'findings'}`,
+                severitySummary,
+                moduleSummary,
+            ].filter(Boolean);
+            return `
+                <label class="settingsRuleRow">
+                    <input type="checkbox" data-settings-rule-code="${escapeAttr(rule.code)}" ${tracked ? 'checked' : ''}>
+                    <span class="settingsRuleMain">
+                        <span class="settingsRuleTitle">${escapeHtml(rule.title)}</span>
+                        <span class="settingsRuleMeta">${escapeHtml([rule.code, ...pieces].join(' | '))}</span>
+                    </span>
+                </label>
+            `;
+        })
+        .join('');
+}
+
+function normalizeRuleCodeForWebview(code: unknown): string | undefined {
+    return typeof code === 'string' ? code.trim().toLowerCase() || undefined : undefined;
+}
+
+function severityOrderForWebview(severity: string): number {
+    switch (severity) {
+        case 'error':
+            return 0;
+        case 'warning':
+            return 1;
+        case 'information':
+            return 2;
+        default:
+            return 9;
+    }
+}
+
+function severityLabelForWebview(severity: string): string {
+    switch (severity) {
+        case 'error':
+            return 'Error';
+        case 'warning':
+            return 'Warning';
+        case 'information':
+            return 'Information';
+        default:
+            return severity;
+    }
 }
 
 function escapeHtml(value: unknown): string {

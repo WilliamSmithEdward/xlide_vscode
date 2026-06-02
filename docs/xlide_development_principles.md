@@ -38,6 +38,21 @@ Diagnostic text must match the certainty of the rule.
 - Uncertain behavior should not be hidden behind hedged red text. Prefer no
   diagnostic until the behavior is deterministic enough to state plainly.
 
+## Configuration Scoping
+
+Use discernment when deciding where settings live.
+
+- Global extension settings are defaults and environment/user preferences.
+- Workbook-scoped settings are choices that are meaningful for one workbook and
+  may differ from another workbook in the same workspace.
+- Workbook-facing GUIs should write workbook-scoped settings for workbook
+  decisions and should inherit global defaults only when the workbook has no
+  explicit value.
+- A workbook GUI action must not silently mutate global defaults.
+- Displayed configuration and runtime behavior must come from the same resolver.
+  Do not create separate GUI-only, command-only, or compatibility-only settings
+  paths for the same business rule.
+
 ## Excel/VBE Oracle Usage
 
 The Excel/VBE oracle is a discovery, debugging, and corpus-coverage tool. Use it

@@ -86,11 +86,13 @@ Recommended sections:
 
 7. **Configuration**
    - Effective configuration grouped by workflow
-   - Source layer for every value: default, user, workspace, workspace-local, or
-     command/session override
+   - Source layer for every value: global default, user/workspace setting,
+     workbook-scoped override, or current session override
+   - Workbook-facing workflow settings live with the selected workbook when the
+     value is workbook-specific, while the sidebar/global configuration surface
+     manages extension-wide defaults
    - Validation errors/warnings
-   - Quick actions to edit user settings, workspace settings, and local
-     workspace overrides
+   - Quick actions to edit global defaults and workbook-scoped overrides
    - Reset-to-default actions where safe
    - Profile/rule-set selector once profiles exist
 
@@ -201,6 +203,12 @@ clear status and should reuse existing safe workbook handling.
 - Configuration rendering should consume the same resolver used by production
   code so displayed values always match behavior. The resolver must preserve
   setting provenance and validate malformed workspace files deterministically.
+- Workbook-facing GUIs must use the shared configuration resolver: global
+  settings provide defaults, workbook-scoped sidecar/settings provide overrides,
+  and GUI actions tied to a workbook must not silently mutate global defaults.
+- Keep analysis, import/export, diff, and future test GUI settings on the same
+  scoping model. Avoid compatibility-only command/config paths that make one
+  surface behave differently from another.
 
 ## Non-Goals
 
@@ -216,3 +224,5 @@ clear status and should reuse existing safe workbook handling.
 - Analyze, test, sync, workbook, and refresh actions are discoverable.
 - Results and status link back to source where practical.
 - The UI looks native in VS Code light, dark, and high-contrast themes.
+- Workbook-facing settings preserve provenance, use global defaults only as
+  fallback, and persist workbook-specific choices at workbook scope.
