@@ -35,6 +35,8 @@ describe('lintVbaSource', () => {
         expect(problems[0].code).toBe('missing-block-closer');
         expect(problems[0].expectedClose).toBe('End Sub');
         expect(problems[0].insertLine).toBe(3);
+        expect(problems[0].startCol).toBe(0);
+        expect(problems[0].endCol).toBe(3);
     });
 
     it('flags a Function missing End Function', () => {
@@ -42,6 +44,8 @@ describe('lintVbaSource', () => {
         const problems = lintVbaSource(src);
         expect(problems).toHaveLength(1);
         expect(problems[0].message).toContain("Missing 'End Function'");
+        expect(problems[0].startCol).toBe(0);
+        expect(problems[0].endCol).toBe('Function'.length);
     });
 
     it('flags a stray End If', () => {
@@ -51,6 +55,8 @@ describe('lintVbaSource', () => {
         expect(problems[0].line).toBe(1);
         expect(problems[0].message).toContain("'End If' has no matching 'If'");
         expect(problems[0].code).toBe('unmatched-block-closer');
+        expect(problems[0].startCol).toBe(4);
+        expect(problems[0].endCol).toBe(10);
     });
 
     it('accepts a balanced multiline If', () => {
@@ -92,6 +98,8 @@ describe('lintVbaSource', () => {
         const missingIf = problems.find((p) => p.expectedClose === 'End If');
         expect(missingIf?.code).toBe('missing-block-closer');
         expect(missingIf?.insertLine).toBe(3);
+        expect(missingIf?.startCol).toBe(4);
+        expect(missingIf?.endCol).toBe(6);
     });
 
     it('ignores block keywords inside strings and comments', () => {
@@ -136,6 +144,8 @@ describe('lintVbaSource', () => {
         const problems = lintVbaSource(src);
         expect(problems).toHaveLength(1);
         expect(problems[0].message).toContain("Missing '#End If'");
+        expect(problems[0].startCol).toBe(0);
+        expect(problems[0].endCol).toBe(3);
     });
 
     it('flags stray conditional compilation branch and closer directives', () => {
@@ -143,6 +153,32 @@ describe('lintVbaSource', () => {
         expect(problems).toHaveLength(2);
         expect(problems[0].message).toContain("has no matching '#If'");
         expect(problems[1].message).toContain("has no matching '#If'");
+        expect(problems[0].startCol).toBe(0);
+        expect(problems[0].endCol).toBe(5);
+        expect(problems[1].startCol).toBe(0);
+        expect(problems[1].endCol).toBe(7);
+    });
+
+    it('pins structural ranges to block syntax phrases instead of full lines', () => {
+        const src = [
+            'Sub Foo()',
+            '    With ActiveSheet',
+            '        For Each cell In Selection',
+            'End Sub',
+            '',
+        ].join('\n');
+        const problems = lintVbaSource(src);
+
+        expect(problems.find((p) => p.expectedClose === 'End With')).toMatchObject({
+            line: 1,
+            startCol: 4,
+            endCol: 8,
+        });
+        expect(problems.find((p) => p.expectedClose === 'Next')).toMatchObject({
+            line: 2,
+            startCol: 8,
+            endCol: 16,
+        });
     });
 });
 

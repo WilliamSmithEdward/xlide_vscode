@@ -3536,7 +3536,7 @@ describe('analyzeModule - parameter order', () => {
 			'Sub T(Optional ByVal a As Long = 1, ByVal b As Long)\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'required-param-after-optional');
 		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toContain('b');
+		expect(spanText(src, hits[0])).toBe('b');
 	});
 
 	it('accepts trailing Optional parameters', () => {
@@ -3551,7 +3551,7 @@ describe('analyzeModule - parameter order', () => {
 		const src = 'Sub T(ParamArray items() As Variant, ByVal n As Long)\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'paramarray-not-last');
 		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toContain('items');
+		expect(spanText(src, hits[0])).toBe('items');
 	});
 
 	it('accepts a trailing ParamArray', () => {
@@ -3743,6 +3743,7 @@ describe('analyzeModule - Option placement', () => {
 		const hits = byCode(analyzeModule(src), 'option-after-declaration');
 		expect(hits).toHaveLength(1);
 		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Option');
 	});
 
 	it('flags an Option after a procedure', () => {

@@ -267,6 +267,11 @@ interface OpenBlock {
     label: string;
 }
 
+interface ColumnSpan {
+    startCol: number;
+    endCol: number;
+}
+
 interface PhysicalLine {
     text: string;
     start: number;
@@ -473,16 +478,101 @@ function matchOpener(t: string): OpenBlock | undefined {
 function fullLineProblem(
     physical: string[], line: number, message: string, severity: 'error' | 'warning',
     details: Pick<VbaLintProblem, 'code' | 'expectedClose' | 'insertLine'> = {},
+    span = defaultDiagnosticColumnSpan(physical[line] ?? ''),
 ): VbaLintProblem {
-    const raw = physical[line] ?? '';
-    const startCol = raw.length - raw.trimStart().length;
     return {
         line,
-        startCol,
-        endCol: Math.max(raw.length, startCol + 1),
+        startCol: span.startCol,
+        endCol: span.endCol,
         message,
         severity,
         ...details,
+    };
+}
+
+function defaultDiagnosticColumnSpan(raw: string): ColumnSpan {
+    const startCol = raw.length - raw.trimStart().length;
+    return {
+        startCol,
+        endCol: Math.max(raw.length, startCol + 1),
+    };
+}
+
+function blockOpenerColumnSpan(raw: string, kind: BlockKind): ColumnSpan | undefined {
+    const stripped = stripVba(raw);
+    switch (kind) {
+        case 'Sub':
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub)\b/i);
+        case 'Function':
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Function)\b/i);
+        case 'Property':
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Property\s+(?:Get|Let|Set))\b/i);
+        case 'If':
+            return capturedColumnSpan(stripped, /^(\s*)(If)\b/i);
+        case 'With':
+            return capturedColumnSpan(stripped, /^(\s*)(With)\b/i);
+        case 'Select':
+            return capturedColumnSpan(stripped, /^(\s*)(Select\s+Case)\b/i);
+        case 'Type':
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Global)\s+)?(Type)\b/i);
+        case 'Enum':
+            return capturedColumnSpan(stripped, /^(\s*)(?:(?:Public|Private|Global)\s+)?(Enum)\b/i);
+        case 'For':
+            return capturedColumnSpan(stripped, /^(\s*)(For(?:\s+Each)?)\b/i);
+        case 'Do':
+            return capturedColumnSpan(stripped, /^(\s*)(Do(?:\s+(?:While|Until))?)\b/i);
+        case 'While':
+            return capturedColumnSpan(stripped, /^(\s*)(While)\b/i);
+        case 'PreprocessorIf':
+            return capturedColumnSpan(stripped, /^(\s*)(#\s*If)\b/i);
+    }
+}
+
+function blockCloserColumnSpan(raw: string, kind: BlockKind): ColumnSpan | undefined {
+    const stripped = stripVba(raw);
+    switch (kind) {
+        case 'Sub':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+Sub)\b/i);
+        case 'Function':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+Function)\b/i);
+        case 'Property':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+Property)\b/i);
+        case 'If':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+If)\b/i);
+        case 'With':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+With)\b/i);
+        case 'Select':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+Select)\b/i);
+        case 'Type':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+Type)\b/i);
+        case 'Enum':
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+Enum)\b/i);
+        case 'For':
+            return capturedColumnSpan(stripped, /^(\s*)(Next)\b/i);
+        case 'Do':
+            return capturedColumnSpan(stripped, /^(\s*)(Loop)\b/i);
+        case 'While':
+            return capturedColumnSpan(stripped, /^(\s*)(Wend)\b/i);
+        case 'PreprocessorIf':
+            return capturedColumnSpan(stripped, /^(\s*)(#\s*End\s*If|#\s*EndIf)\b/i);
+    }
+}
+
+function preprocessorBranchColumnSpan(raw: string): ColumnSpan | undefined {
+    return capturedColumnSpan(stripVba(raw), /^(\s*)(#\s*ElseIf|#\s*Else)\b/i);
+}
+
+function capturedColumnSpan(stripped: string, pattern: RegExp): ColumnSpan | undefined {
+    const match = pattern.exec(stripped);
+    if (!match) {
+        return undefined;
+    }
+    const prefix = match[1] ?? '';
+    const text = match[2] ?? match[0].slice(prefix.length);
+    const startCol = prefix.length + match[0].slice(prefix.length).indexOf(text);
+    return {
+        startCol,
+        endCol: startCol + text.length,
     };
 }
 
@@ -509,6 +599,7 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
                 `'${closerWord}' has no matching '${OPEN_WORD[closerKind]}'.`,
                 'error',
                 { code: 'unmatched-block-closer' },
+                blockCloserColumnSpan(physical[line] ?? '', closerKind),
             ));
             return;
         }
@@ -524,6 +615,7 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
                     expectedClose: CLOSE_PHRASE[open.kind],
                     insertLine: line,
                 },
+                blockOpenerColumnSpan(physical[open.line] ?? '', open.kind),
             ));
         }
         stack.length = idx;
@@ -541,6 +633,7 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
                     `'${preprocessorBranch[1].replace(/\s+/g, ' ')}' has no matching '#If'.`,
                     'error',
                     { code: 'unmatched-block-closer' },
+                    preprocessorBranchColumnSpan(physical[ll.line] ?? ''),
                 ));
             }
             continue;
@@ -580,6 +673,7 @@ export function lintVbaSource(source: string): VbaLintProblem[] {
                 expectedClose: CLOSE_PHRASE[open.kind],
                 insertLine: physical.length,
             },
+            blockOpenerColumnSpan(physical[open.line] ?? '', open.kind),
         ));
     }
 

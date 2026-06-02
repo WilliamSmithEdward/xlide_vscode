@@ -265,10 +265,10 @@ function runRules(
 	checkConstAssignment(source, mod, symbols, activity, push);
 	checkOptionExplicit(source, mod, activity, push);
 	checkUndeclaredVariables(source, mod, symbols, activity, opts.knownIdentifiers, push);
-	checkOptionPlacement(mod, activity, push);
+	checkOptionPlacement(source, mod, activity, push);
 	checkProcedureHeader(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
-	checkParameterOrder(mod, activity, push);
+	checkParameterOrder(source, mod, activity, push);
 	checkUnbalancedParens(source, push);
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
 	checkDimInitializer(source, mod, activity, push);
@@ -3959,6 +3959,11 @@ function declaredNameSpan(source: string, span: Span, name: string): Span {
 	return span;
 }
 
+function firstTokenSpan(source: string, span: Span): Span {
+	const tok = statementTokens(source, span)[0];
+	return tok ? absoluteSpan(span, tok) : span;
+}
+
 /**
  * Returns the absolute offset of the first top-level `=` operator in the source
  * slice for `span`, or undefined. Parenthesised regions (array bounds, default
@@ -3988,6 +3993,7 @@ function topLevelAssignOffset(source: string, span: Span): number | undefined {
  * straight off the parsed parameter flags, so they are deterministic.
  */
 function checkParameterOrder(
+	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -4005,7 +4011,7 @@ function checkParameterOrder(
 					push(
 						'paramArrayNotLast',
 						`ParamArray '${p.name}' must be the last parameter.`,
-						p.span,
+						declaredNameSpan(source, p.span, p.name),
 					);
 				}
 				continue;
@@ -4018,7 +4024,7 @@ function checkParameterOrder(
 				push(
 					'requiredParamAfterOptional',
 					`Parameter '${p.name}' must be Optional because it follows an Optional parameter.`,
-					p.span,
+					declaredNameSpan(source, p.span, p.name),
 				);
 			}
 		}
@@ -4813,6 +4819,7 @@ function exitPhraseSpan(base: Span, first: VbaToken, target: VbaToken): Span {
  * declaration has appeared, any later `Option` is misplaced.
  */
 function checkOptionPlacement(
+	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -4827,7 +4834,7 @@ function checkOptionPlacement(
 				push(
 					'optionAfterDeclaration',
 					'Option statements must appear before any declaration or procedure.',
-					member.span,
+					firstTokenSpan(source, member.span),
 				);
 			}
 			continue;

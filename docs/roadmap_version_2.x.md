@@ -674,6 +674,11 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   `bare_leading_member_access_inside_with_compile`, and the valid
   `leading_member_access_inside_with_compile` control.
 - [ ] Make diagnostic ranges precise and stable.
+  - [x] Pin structural block-balance diagnostics to the opener/closer syntax
+    phrase (`If`, `For Each`, `End If`, `#Else`, etc.) instead of whole lines.
+  - [x] Pin the first declaration-order batch to exact tokens: misplaced
+    `Option` statements, required parameters after `Optional`, and non-trailing
+    `ParamArray`.
 - [x] Emit semantic tokens and hover for resolved type names in declaration type
   positions (`As Person`, `As Worksheet`, `As Currency`, function returns,
   parameters, UDT fields, and local/module variables) and `New Person`
