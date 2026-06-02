@@ -16,7 +16,9 @@ import {
     DiagnosticEvidenceKind,
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
+    resolveDiagnosticCodeActions,
     SeverityOverrides,
+    type VbaDiagnosticData,
 } from './analyzer';
 import { lineStartOffsets } from './vbaStructuralAnalysis';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
@@ -26,6 +28,8 @@ import {
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
 } from './vbaProjectAnalysis';
+import { compareVbaModulesForTreeOrder } from './moduleDisplay';
+import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information' | 'hint';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -54,6 +58,12 @@ export interface WorkbookAnalysisProblem {
     diagnosticKind?: DiagnosticEvidenceKind;
     /** Optional authority or oracle note behind the diagnostic. */
     specReference?: string;
+    /** Resolver metadata used by shared quick-fix actions. */
+    data?: VbaDiagnosticData;
+    expectedClose?: string;
+    insertLine?: number;
+    quickFixAvailable?: boolean;
+    quickFixTitles?: string[];
     message: string;
 }
 
@@ -165,6 +175,17 @@ export function workbookProblemsForModule(
     return diagnostics.map((diagnostic) => {
         const start = offsetToLineColumn(starts, diagnostic.span.start);
         const end = offsetToLineColumn(starts, diagnostic.span.end);
+        const quickFixes = diagnostic.code
+            ? resolveDiagnosticCodeActions(source, {
+                code: diagnostic.code,
+                message: diagnostic.message,
+                span: diagnostic.span,
+                expectedClose: diagnostic.expectedClose,
+                insertLine: diagnostic.insertLine,
+                data: diagnostic.data,
+                includeSuppressionAction: false,
+            })
+            : [];
         return {
             moduleName,
             moduleType,
@@ -173,6 +194,11 @@ export function workbookProblemsForModule(
             endColumn: end.line === start.line ? end.column : start.column + 1,
             severity: severityFromRule(diagnostic.severity),
             code: diagnostic.code,
+            data: diagnostic.data,
+            expectedClose: diagnostic.expectedClose,
+            insertLine: diagnostic.insertLine,
+            quickFixAvailable: quickFixes.length > 0,
+            quickFixTitles: quickFixes.map((fix) => fix.title),
             ...metadataFieldsForCode(diagnostic.code),
             message: diagnostic.message,
         };
@@ -222,6 +248,10 @@ export async function analyzeWorkbook(
     filePath: string,
 ): Promise<WorkbookAnalysisResult> {
     const modules = await loadWorkbookModules(bridge, filePath);
+    const openDocuments = vscode.workspace.textDocuments ?? [];
+    for (const mod of modules) {
+        mod.source = openModuleSourceForWorkbook(filePath, mod.name, openDocuments) ?? mod.source;
+    }
 
     const project = buildVbaProjectIndex(modules.map((mod) => ({
         moduleName: mod.name,
@@ -261,9 +291,8 @@ export async function analyzeWorkbook(
     }
 
     problems.sort((a, b) => {
-        if (a.moduleName !== b.moduleName) {
-            return a.moduleName.localeCompare(b.moduleName);
-        }
+        const moduleOrder = compareVbaModulesForTreeOrder(a, b);
+        if (moduleOrder !== 0) { return moduleOrder; }
         if (a.line !== b.line) { return a.line - b.line; }
         return a.column - b.column;
     });

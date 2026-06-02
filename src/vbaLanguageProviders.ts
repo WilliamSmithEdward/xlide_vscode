@@ -59,6 +59,10 @@ import {
     projectProcedureSignatures,
     type VbaProjectAnalysisOptions,
 } from './vbaProjectAnalysis';
+import {
+    isAnalysisRuleTracked,
+    untrackedAnalysisRulesFromConfig,
+} from './analysisOptions';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -1007,7 +1011,11 @@ function registerVbaDiagnostics(
             ...projectOptions,
             activeIncompleteExpressionOffset,
         });
+        const untrackedRules = untrackedAnalysisRulesFromConfig();
         for (const d of moduleAnalysis.diagnostics) {
+            if (!isAnalysisRuleTracked(d.code, untrackedRules)) {
+                continue;
+            }
             const diag = new vscode.Diagnostic(
                 new vscode.Range(
                     document.positionAt(d.span.start),
@@ -1055,7 +1063,8 @@ function registerVbaDiagnostics(
             collection.delete(doc.uri);
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration('xlide.diagnostics')) {
+            if (e.affectsConfiguration('xlide.diagnostics') ||
+                e.affectsConfiguration('xlide.analysis.untrackedRules')) {
                 vscode.workspace.textDocuments.forEach(run);
             }
         }),

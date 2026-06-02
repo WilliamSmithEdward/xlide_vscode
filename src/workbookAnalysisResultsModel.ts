@@ -6,11 +6,14 @@ import type {
     WorkbookAnalysisSummaryCategory,
     WorkbookAnalysisSummaryKind,
 } from './vbaWorkbookAnalysis';
+import { compareVbaModulesForTreeOrder, moduleTypeBadge, moduleTypeLabel } from './moduleDisplay';
 
 export interface WorkbookAnalysisResultRow {
     index: number;
     moduleName: string;
     moduleType: string;
+    moduleIcon: string;
+    moduleTypeLabel: string;
     location: string;
     line: number;
     column: number;
@@ -21,6 +24,8 @@ export interface WorkbookAnalysisResultRow {
     category: WorkbookAnalysisSummaryCategory;
     diagnosticKind: WorkbookAnalysisSummaryKind;
     vbeCompileEquivalent: boolean;
+    quickFixAvailable: boolean;
+    quickFixTitles: string[];
     message: string;
     specReference: string;
 }
@@ -28,6 +33,8 @@ export interface WorkbookAnalysisResultRow {
 export interface WorkbookAnalysisModuleGroup {
     moduleName: string;
     moduleType: string;
+    moduleIcon: string;
+    moduleTypeLabel: string;
     total: number;
     errorCount: number;
     warningCount: number;
@@ -63,6 +70,8 @@ export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult
             group = {
                 moduleName: row.moduleName,
                 moduleType: row.moduleType,
+                moduleIcon: row.moduleIcon,
+                moduleTypeLabel: row.moduleTypeLabel,
                 total: 0,
                 errorCount: 0,
                 warningCount: 0,
@@ -91,7 +100,7 @@ export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult
     }
 
     const groups = [...groupsByModule.values()].sort((left, right) =>
-        left.moduleName.localeCompare(right.moduleName),
+        compareVbaModulesForTreeOrder(left, right),
     );
 
     return {
@@ -141,6 +150,8 @@ function problemToRow(problem: WorkbookAnalysisProblem, index: number): Workbook
         index,
         moduleName: problem.moduleName,
         moduleType: problem.moduleType,
+        moduleIcon: moduleTypeBadge(problem.moduleType),
+        moduleTypeLabel: moduleTypeLabel(problem.moduleType),
         location: `${problem.moduleName}:${problem.line}:${problem.column}`,
         line: problem.line,
         column: problem.column,
@@ -151,6 +162,8 @@ function problemToRow(problem: WorkbookAnalysisProblem, index: number): Workbook
         category: problem.category ?? 'uncategorized',
         diagnosticKind: problem.diagnosticKind ?? 'unknown',
         vbeCompileEquivalent: problem.vbeCompileEquivalent === true,
+        quickFixAvailable: problem.quickFixAvailable === true,
+        quickFixTitles: problem.quickFixTitles ?? [],
         message: problem.message,
         specReference: problem.specReference ?? '',
     };

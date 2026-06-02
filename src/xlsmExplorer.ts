@@ -3,6 +3,7 @@ import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import { encodeModuleUri } from './xlideFileSystem';
 import type { LiveShareIntegration } from './liveShare';
+import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 
 export type XlideNodeKind = 'xlsm' | 'module' | 'sub';
 
@@ -28,13 +29,6 @@ export interface XlideNode {
     /** Workbook only: VBA project carries a digital signature. */
     isSigned?: boolean;
 }
-
-const MODULE_ICONS: Record<string, string> = {
-    standard: 'symbol-module',
-    class: 'symbol-class',
-    document: 'symbol-namespace',
-    userform: 'window',
-};
 
 export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     private _emitter = new vscode.EventEmitter<XlideNode | undefined | null | void>();
@@ -206,9 +200,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
                 break;
 
             case 'module':
-                item.iconPath = new vscode.ThemeIcon(
-                    MODULE_ICONS[node.moduleType ?? 'standard'] ?? 'symbol-module',
-                );
+                item.iconPath = new vscode.ThemeIcon(moduleThemeIconName(node.moduleType));
                 item.description = node.moduleType;
                 // Remote modules get a distinct contextValue so host-only menu items don't appear.
                 if (node.isRemote) {
@@ -290,15 +282,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
         try {
             const modules = await this._liveShare.guestListModules(workbookId);
             return modules
-                .sort((a, b) => {
-                    const typeOrder: Record<string, number> = {
-                        document: 0, userform: 1, standard: 2, class: 3,
-                    };
-                    const aOrder = typeOrder[a.type] ?? 4;
-                    const bOrder = typeOrder[b.type] ?? 4;
-                    if (aOrder !== bOrder) return aOrder - bOrder;
-                    return a.name.localeCompare(b.name);
-                })
+                .sort(compareVbaModulesForTreeOrder)
                 .map((m) => ({
                     kind: 'module' as const,
                     label: m.name,
@@ -363,17 +347,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
                 );
                 this._modulesListCache.set(filePath, modules);
             }
-            // Sort: document, userform, standard, class — alphabetical within each group.
             return modules
-                .sort((a, b) => {
-                    const typeOrder: Record<string, number> = {
-                        document: 0, userform: 1, standard: 2, class: 3,
-                    };
-                    const aOrder = typeOrder[a.type] ?? 4;
-                    const bOrder = typeOrder[b.type] ?? 4;
-                    if (aOrder !== bOrder) return aOrder - bOrder;
-                    return a.name.localeCompare(b.name);
-                })
+                .sort(compareVbaModulesForTreeOrder)
                 .map((m) => {
                     const key = `${filePath}::${m.name}`;
                     let node = this._moduleNodes.get(key);

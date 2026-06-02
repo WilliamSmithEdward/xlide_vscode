@@ -28,9 +28,12 @@ import {
     type WorkbookAnalysisProblem,
     type WorkbookAnalysisResult,
 } from './vbaWorkbookAnalysis';
-import { openWorkbookAnalysisResults } from './workbookAnalysisWebview';
+import {
+    openWorkbookAnalysisResults,
+    type WorkbookAnalysisSuppressScope,
+} from './workbookAnalysisWebview';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
-import { VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
+import { lineStartOffsets, VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
     buildVbaProjectIndex,
@@ -50,6 +53,7 @@ import type {
     DiagnosticSeverity as RuleSeverity,
     SeverityOverrides,
 } from './analyzer';
+import { resolveDiagnosticCodeActions } from './analyzer';
 import {
     anonymizedWorkbookAnalysisReportFromResult,
     buildSupportBundle,
@@ -89,9 +93,160 @@ import {
     type ModuleSyncApplyResult,
     type ModuleSyncSettings,
 } from './moduleSyncWebview';
+import { parseModule } from './analyzer/parser/parseModule';
+import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
+
+type AnalysisSuppressionInsertionTarget =
+    | { kind: 'module'; startLine: number }
+    | { kind: 'member'; startLine: number }
+    | { kind: 'block'; startLine: number; endLine: number };
+
+type SuppressibleMember = Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>;
+type BlockBodyNode = Extract<BodyNode, { body: BodyNode[] }>;
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
+}
+
+function suppressionTargetForProblem(
+    source: string,
+    starts: readonly number[],
+    problemOffset: number,
+    scope: WorkbookAnalysisSuppressScope,
+): AnalysisSuppressionInsertionTarget {
+    if (scope === 'module') {
+        return { kind: 'module', startLine: moduleSuppressionInsertLine(source) };
+    }
+
+    const parsed = parseModule(source);
+    const member = containingSuppressibleMember(parsed.members, problemOffset);
+    if (!member) {
+        throw new Error(`No containing Sub, Function, Property, Type, or Enum was found for this analysis finding.`);
+    }
+
+    if (scope === 'member') {
+        return {
+            kind: 'member',
+            startLine: lineForOffset(starts, member.span.start),
+        };
+    }
+
+    if (member.kind !== 'Procedure') {
+        throw new Error('No containing executable block was found for this analysis finding.');
+    }
+    const block = closestContainingBlock(member.body, problemOffset);
+    if (!block) {
+        throw new Error('No containing executable block was found for this analysis finding.');
+    }
+
+    return {
+        kind: 'block',
+        startLine: lineForOffset(starts, block.span.start),
+        endLine: lineForOffset(starts, Math.max(block.span.start, block.span.end - 1)),
+    };
+}
+
+function moduleSuppressionInsertLine(source: string): number {
+    const lines = source.split(/\r\n|\r|\n/);
+    let line = 0;
+    while (line < lines.length && /^\s*Attribute\b/i.test(lines[line])) {
+        line++;
+    }
+    return line;
+}
+
+function containingSuppressibleMember(
+    members: readonly ModuleMember[],
+    offset: number,
+): SuppressibleMember | undefined {
+    return members
+        .filter((member): member is SuppressibleMember =>
+            member.kind === 'Procedure' || member.kind === 'Type' || member.kind === 'Enum',
+        )
+        .filter((member) => spanContainsOffset(member.span, offset))
+        .sort((left, right) => spanLength(left.span) - spanLength(right.span))[0];
+}
+
+function closestContainingBlock(nodes: readonly BodyNode[], offset: number): BlockBodyNode | undefined {
+    let best: BlockBodyNode | undefined;
+    for (const node of nodes) {
+        if (!isBlockBodyNode(node) || !spanContainsOffset(node.span, offset)) {
+            continue;
+        }
+        const nested = closestContainingBlock(node.body, offset);
+        const candidate = nested ?? node;
+        if (!best || spanLength(candidate.span) < spanLength(best.span)) {
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+function isBlockBodyNode(node: BodyNode): node is BlockBodyNode {
+    return node.kind === 'IfBlock' ||
+        node.kind === 'ForBlock' ||
+        node.kind === 'DoBlock' ||
+        node.kind === 'WhileBlock' ||
+        node.kind === 'WithBlock' ||
+        node.kind === 'SelectBlock';
+}
+
+function spanContainsOffset(span: Span, offset: number): boolean {
+    return offset >= span.start && offset < Math.max(span.end, span.start + 1);
+}
+
+function spanLength(span: Span): number {
+    return Math.max(1, span.end - span.start);
+}
+
+function lineForOffset(starts: readonly number[], offset: number): number {
+    let lo = 0;
+    let hi = starts.length - 1;
+    while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (starts[mid] <= offset) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    return lo;
+}
+
+function copilotAnalysisPrompt(
+    filePath: string,
+    problem: WorkbookAnalysisProblem,
+    source: string,
+): string {
+    const lines = source.split(/\r\n|\r|\n/);
+    const zeroBasedLine = Math.max(0, problem.line - 1);
+    const start = Math.max(0, zeroBasedLine - 6);
+    const end = Math.min(lines.length, zeroBasedLine + 7);
+    const excerpt = lines
+        .slice(start, end)
+        .map((line, index) => `${String(start + index + 1).padStart(4, ' ')}: ${line}`)
+        .join('\n');
+    const rule = problem.code
+        ? `${problem.code}${problem.ruleTitle ? ` (${problem.ruleTitle})` : ''}`
+        : problem.ruleTitle ?? 'unknown rule';
+    return [
+        'Please help me understand and fix this Excel VBA analysis finding from XLIDE.',
+        '',
+        `Workbook: ${path.basename(filePath)}`,
+        `Module: ${problem.moduleName} (${problem.moduleType})`,
+        `Location: ${problem.line}:${problem.column}`,
+        `Severity: ${problem.severity}`,
+        `Rule: ${rule}`,
+        `Evidence: ${problem.diagnosticKind ?? 'unknown'}`,
+        `Message: ${problem.message}`,
+        '',
+        'Relevant VBA source:',
+        '```vba',
+        excerpt,
+        '```',
+        '',
+        'Please explain whether the finding is valid, what VBA rule or behavior is involved, and the smallest code change that would fix it.',
+    ].join('\n');
 }
 
 export function registerCommands(
@@ -161,10 +316,146 @@ export function registerCommands(
         editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
     }
 
-    function showWorkbookAnalysisResults(result: WorkbookAnalysisResult): void {
+    async function suppressWorkbookAnalysisProblem(
+        filePath: string,
+        problem: WorkbookAnalysisProblem,
+        scope: WorkbookAnalysisSuppressScope,
+        analysisPanelColumn?: vscode.ViewColumn,
+    ): Promise<void> {
+        const uri = encodeModuleUri(filePath, problem.moduleName);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        const source = doc.getText();
+        const starts = lineStartOffsets(source);
+        const problemOffset = Math.max(
+            0,
+            (starts[Math.max(0, problem.line - 1)] ?? 0) + Math.max(0, problem.column - 1),
+        );
+        const target = suppressionTargetForProblem(source, starts, problemOffset, scope);
+        const code = (problem.code ?? 'all').trim() || 'all';
+        const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+        const edit = new vscode.WorkspaceEdit();
+
+        if (target.kind === 'block') {
+            edit.insert(uri, new vscode.Position(target.endLine + 1, 0), `' @xlide-analysis-enable-block ${code}${eol}`);
+            edit.insert(uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-block ${code}${eol}`);
+        } else if (target.kind === 'member') {
+            edit.insert(uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-next-member ${code}${eol}`);
+        } else {
+            edit.insert(uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-file ${code}${eol}`);
+        }
+
+        const applied = await vscode.workspace.applyEdit(edit);
+        if (!applied) {
+            throw new Error('VS Code rejected the analysis ignore edit.');
+        }
+        const editor = await vscode.window.showTextDocument(doc, {
+            preview: false,
+            viewColumn: adjacentAnalysisSourceColumn(analysisPanelColumn),
+        });
+        const position = new vscode.Position(target.startLine, 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        vscode.window.showInformationMessage(`XLIDE: Added ${scope} analysis ignore directive for '${code}'.`);
+    }
+
+    async function askCopilotAboutWorkbookAnalysisProblem(
+        filePath: string,
+        problem: WorkbookAnalysisProblem,
+        analysisPanelColumn?: vscode.ViewColumn,
+    ): Promise<void> {
+        const uri = encodeModuleUri(filePath, problem.moduleName);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        await openWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn);
+        const prompt = copilotAnalysisPrompt(filePath, problem, doc.getText());
+        try {
+            await vscode.commands.executeCommand('workbench.action.chat.open', { query: prompt });
+        } catch {
+            await vscode.env.clipboard.writeText(prompt);
+            vscode.window.showWarningMessage(
+                'XLIDE: Could not open VS Code Chat. The Copilot prompt was copied to the clipboard.',
+            );
+        }
+    }
+
+    async function quickFixWorkbookAnalysisProblem(
+        filePath: string,
+        problem: WorkbookAnalysisProblem,
+        analysisPanelColumn?: vscode.ViewColumn,
+        fixIndex = 0,
+    ): Promise<boolean> {
+        if (!problem.code) {
+            return false;
+        }
+
+        const uri = encodeModuleUri(filePath, problem.moduleName);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        const source = doc.getText();
+        const starts = lineStartOffsets(source);
+        const lineStart = starts[Math.max(0, problem.line - 1)] ?? 0;
+        const span = {
+            start: lineStart + Math.max(0, problem.column - 1),
+            end: lineStart + Math.max(0, problem.endColumn - 1),
+        };
+        const fixes = resolveDiagnosticCodeActions(source, {
+            code: problem.code,
+            message: problem.message,
+            span,
+            expectedClose: problem.expectedClose,
+            insertLine: problem.insertLine,
+            data: problem.data,
+            includeSuppressionAction: false,
+        });
+        const fix = fixes[fixIndex] ?? fixes[0];
+        if (!fix || fix.edits.length === 0) {
+            return false;
+        }
+
+        const edit = new vscode.WorkspaceEdit();
+        for (const textEdit of fix.edits) {
+            edit.replace(
+                uri,
+                new vscode.Range(
+                    doc.positionAt(textEdit.span.start),
+                    doc.positionAt(textEdit.span.end),
+                ),
+                textEdit.newText,
+            );
+        }
+        const applied = await vscode.workspace.applyEdit(edit);
+        if (!applied) {
+            return false;
+        }
+
+        const editor = await vscode.window.showTextDocument(doc, {
+            preview: false,
+            viewColumn: adjacentAnalysisSourceColumn(analysisPanelColumn),
+        });
+        const firstEdit = fix.edits[0];
+        const position = doc.positionAt(firstEdit.span.start);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        return true;
+    }
+
+    function showWorkbookAnalysisResults(
+        result: WorkbookAnalysisResult,
+        onRefreshResult?: () => Promise<WorkbookAnalysisResult>,
+    ): void {
+        const filePath = result.filePath;
         openWorkbookAnalysisResults(context, result, {
             onOpenProblem: (problem, analysisPanelColumn) =>
-                openWorkbookAnalysisProblem(result.filePath, problem, analysisPanelColumn),
+                openWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn),
+            onQuickFixProblem: (problem, analysisPanelColumn, fixIndex) =>
+                quickFixWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn, fixIndex),
+            onSuppressProblem: (problem, scope, analysisPanelColumn) =>
+                suppressWorkbookAnalysisProblem(filePath, problem, scope, analysisPanelColumn),
+            onAskCopilot: (problem, analysisPanelColumn) =>
+                askCopilotAboutWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn),
+            onRefreshResult,
+            onDidChangeWorkbookTree: explorer.onDidChangeTreeData,
         });
     }
 
@@ -895,15 +1186,9 @@ export function registerCommands(
         }
     }
 
-    async function analyzeActiveModule(): Promise<void> {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME) {
-            vscode.window.showWarningMessage('XLIDE: Open a workbook VBA module to analyze the current module.');
-            return;
-        }
-
-        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
-        const source = editor.document.getText();
+    async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<WorkbookAnalysisResult> {
+        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+        const source = document.getText();
         const modules = applyOpenDocumentSources(
             await vbaIndex.getAllModules(xlsmPath),
             xlsmPath,
@@ -944,7 +1229,7 @@ export function registerCommands(
         const errorCount = problems.filter((p) => p.severity === 'error').length;
         const warningCount = problems.filter((p) => p.severity === 'warning').length;
         const summary = summarizeWorkbookAnalysisProblems(problems, result.suppressedCount);
-        const analysisResult: WorkbookAnalysisResult = {
+        return {
             filePath: xlsmPath,
             moduleCount: 1,
             problems,
@@ -952,8 +1237,20 @@ export function registerCommands(
             warningCount,
             summary,
         };
+    }
 
-        showWorkbookAnalysisResults(analysisResult);
+    async function analyzeActiveModule(): Promise<void> {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME) {
+            vscode.window.showWarningMessage('XLIDE: Open a workbook VBA module to analyze the current module.');
+            return;
+        }
+
+        const { moduleName } = decodeModuleUri(editor.document.uri);
+        const analysisResult = await currentModuleAnalysisResult(editor.document);
+        const { problems, errorCount, warningCount } = analysisResult;
+
+        showWorkbookAnalysisResults(analysisResult, () => currentModuleAnalysisResult(editor.document));
         if (problems.length === 0) {
             vscode.window.showInformationMessage(
                 `XLIDE: "${moduleName}" passed analysis (no unsuppressed problems).`,
@@ -1647,33 +1944,6 @@ export function registerCommands(
             }
         }),
 
-        // Compatibility shim: settings now live in the import/export preview GUI.
-        registerXlideCommand('xlide.changeRepoFolder', async (node: XlideNode) => {
-            const filePath = resolveWorkbookPath(node);
-            if (!filePath) { return; }
-
-            try {
-                await showExportModulesDiffGui(filePath);
-            } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
-                vscode.window.showErrorMessage(`XLIDE: Failed to open import/export settings: ${message}`);
-            }
-        }),
-
-        // Compatibility shim: settings now live in the import/export preview GUI.
-        registerXlideCommand('xlide.configureExportMode', async (node: XlideNode) => {
-            const filePath = resolveWorkbookPath(node);
-            if (!filePath) { return; }
-
-            try {
-                await showExportModulesDiffGui(filePath);
-            } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
-                log(`[exportModules] Configure settings error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Failed to open import/export settings: ${message}`);
-            }
-        }),
-
         // Export a redacted local diagnostic snapshot for support/self-debugging.
         registerXlideCommand('xlide.exportSupportBundle', async () => {
             try {
@@ -1816,7 +2086,7 @@ export function registerCommands(
                 async () => {
                     try {
                         const result = await analyzeWorkbook(bridge, filePath);
-                        showWorkbookAnalysisResults(result);
+                        showWorkbookAnalysisResults(result, () => analyzeWorkbook(bridge, filePath));
                         if (result.problems.length === 0) {
                             vscode.window.showInformationMessage(
                                 `XLIDE: "${name}" passed analysis (no problems across ${result.moduleCount} module(s)).`,

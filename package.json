@@ -51,6 +51,31 @@
           "default": "warning",
           "description": "Severity for the reminder shown when a code module omits 'Option Explicit'. Set to 'off' to disable just this check."
         },
+        "xlide.analysis.visibleSeverities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "information"
+            ]
+          },
+          "default": [
+            "error",
+            "warning",
+            "information"
+          ],
+          "description": "Problem severities shown by default in the workbook analysis GUI. Toggle buttons in the analysis GUI update this setting automatically."
+        },
+        "xlide.analysis.untrackedRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Analysis diagnostic rule codes hidden from analysis tracking. The workbook analysis GUI can add rules to this list with the Untrack row action."
+        },
         "xlide.editor.blockLayout": {
           "type": "string",
           "enum": [

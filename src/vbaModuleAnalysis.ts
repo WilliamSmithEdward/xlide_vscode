@@ -7,7 +7,11 @@ import {
     type VbaDiagnosticData,
 } from './analyzer';
 import type { Span } from './analyzer/parser/nodes';
-import { analyzeVbaStructure, lineStartOffsets } from './vbaStructuralAnalysis';
+import {
+    analyzeVbaStructure,
+    lineStartOffsets,
+    type VbaStructuralDiagnostic,
+} from './vbaStructuralAnalysis';
 
 export interface VbaModuleAnalysisDiagnostic {
     code?: string;
@@ -15,6 +19,8 @@ export interface VbaModuleAnalysisDiagnostic {
     severity: RuleSeverity;
     span: Span;
     data?: VbaDiagnosticData;
+    expectedClose?: VbaStructuralDiagnostic['expectedClose'];
+    insertLine?: VbaStructuralDiagnostic['insertLine'];
 }
 
 export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
@@ -84,6 +90,8 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
                 message: problem.message,
                 severity: problem.severity,
                 span,
+                expectedClose: problem.expectedClose,
+                insertLine: problem.insertLine,
             });
         }
     } catch {

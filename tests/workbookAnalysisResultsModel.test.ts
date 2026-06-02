@@ -96,12 +96,33 @@ describe('workbook analysis results model', () => {
 		]);
 		expect(model.groups.map((group) => ({
 			moduleName: group.moduleName,
+			moduleIcon: group.moduleIcon,
 			total: group.total,
 			errors: group.errorCount,
 			warnings: group.warningCount,
 		}))).toEqual([
-			{ moduleName: 'Module1', total: 2, errors: 2, warnings: 0 },
-			{ moduleName: 'Person', total: 1, errors: 0, warnings: 1 },
+			{ moduleName: 'Module1', moduleIcon: 'M', total: 2, errors: 2, warnings: 0 },
+			{ moduleName: 'Person', moduleIcon: 'C', total: 1, errors: 0, warnings: 1 },
+		]);
+	});
+
+	it('sorts module groups in the same order as the XLIDE tree', () => {
+		const fixture = resultFixture();
+		const base = fixture.problems[0];
+		fixture.problems = [
+			{ ...base, moduleName: 'Person', moduleType: 'class' },
+			{ ...base, moduleName: 'Module1', moduleType: 'standard' },
+			{ ...base, moduleName: 'Sheet1', moduleType: 'document' },
+			{ ...base, moduleName: 'UserForm1', moduleType: 'userform' },
+		];
+
+		const model = buildWorkbookAnalysisResultsModel(fixture);
+
+		expect(model.groups.map((group) => `${group.moduleIcon}:${group.moduleName}`)).toEqual([
+			'D:Sheet1',
+			'F:UserForm1',
+			'M:Module1',
+			'C:Person',
 		]);
 	});
 
