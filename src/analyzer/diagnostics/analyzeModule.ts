@@ -200,7 +200,19 @@ export function incompleteMemberAccessEditSpan(
 	offset: number,
 ): Span | undefined {
 	const line = physicalLineSpanAtOffset(source, offset);
-	return incompleteMemberAccess(source, line, { includeLeadingDot: true })?.span;
+	const statement = activeStatementSpanOnLine(source, line, offset);
+	return incompleteMemberAccess(source, statement, { includeLeadingDot: true })?.span;
+}
+
+export function incompleteExpressionEditSpan(
+	source: string,
+	offset: number,
+): Span | undefined {
+	const line = physicalLineSpanAtOffset(source, offset);
+	const statement = activeStatementSpanOnLine(source, line, offset);
+	return incompleteMemberAccess(source, statement, { includeLeadingDot: true })?.span
+		?? trailingBinaryOperatorEditSpan(source, statement, offset)
+		?? unmatchedOpenParenEditSpan(source, statement, offset);
 }
 
 function runRules(
@@ -4163,6 +4175,76 @@ function invalidOperatorSequence(
 		}
 	}
 	return undefined;
+}
+
+function activeStatementSpanOnLine(source: string, line: Span, offset: number): Span {
+	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	const toks = statementTokens(source, line);
+	let depth = 0;
+	let start = line.start;
+	let end = line.end;
+	for (const tok of toks) {
+		if (tok.kind === 'punctuation') {
+			if (tok.rawText === '(') {
+				depth++;
+			} else if (tok.rawText === ')') {
+				depth = Math.max(0, depth - 1);
+			}
+			continue;
+		}
+		if (tok.kind !== 'colon' || depth !== 0) {
+			continue;
+		}
+		const colon = absoluteSpan(line, tok);
+		if (safeOffset <= colon.start) {
+			end = colon.start;
+			break;
+		}
+		start = colon.end;
+	}
+	return { start, end };
+}
+
+function trailingBinaryOperatorEditSpan(
+	source: string,
+	span: Span,
+	offset: number,
+): Span | undefined {
+	const toks = statementTokens(source, span);
+	const last = toks[toks.length - 1];
+	if (!isNonUnaryBinaryOperator(last)) {
+		return undefined;
+	}
+	const active = absoluteSpan(span, last);
+	if (offset < active.start) {
+		return undefined;
+	}
+	const cursorTail = source.slice(active.end, Math.min(offset, span.end));
+	return /^[ \t]*$/.test(cursorTail) ? active : undefined;
+}
+
+function unmatchedOpenParenEditSpan(
+	source: string,
+	span: Span,
+	offset: number,
+): Span | undefined {
+	const stack: VbaToken[] = [];
+	for (const tok of statementTokens(source, span)) {
+		if (tok.kind !== 'punctuation') {
+			continue;
+		}
+		if (tok.rawText === '(') {
+			stack.push(tok);
+		} else if (tok.rawText === ')' && stack.length > 0) {
+			stack.pop();
+		}
+	}
+	const firstUnmatched = stack[0];
+	if (!firstUnmatched) {
+		return undefined;
+	}
+	const active = absoluteSpan(span, firstUnmatched);
+	return offset >= active.start ? active : undefined;
 }
 
 function incompleteMemberAccess(

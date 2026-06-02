@@ -653,8 +653,14 @@ Definition of done:
 
 Purpose: keep the live editor useful while the user is mid-keystroke.
 
-- [ ] Suppress hard errors for incomplete expressions where VBE behavior is not
-  yet deterministically knowable.
+- [x] Suppress hard errors for incomplete expressions where VBE behavior is not
+  yet deterministically knowable. Live diagnostics now pass one active cursor
+  offset through `incompleteExpressionEditSpan`, scoped to the active
+  colon-separated statement on the physical line. The shared module lint core
+  suppresses overlapping hard syntax diagnostics for incomplete member access,
+  trailing binary operators, and unmatched opening parentheses while the cursor
+  is in that edit; current-module lint and workbook lint omit the active offset
+  and keep completed invalid source strict.
 - [x] Add a live-syntax state for incomplete member access, including trailing
   receiver dots such as `ThisWorkbook.` and bare leading dots inside active
   `With` blocks. While the cursor is in the incomplete edit, keep completion

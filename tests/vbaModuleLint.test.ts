@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { lintVbaModuleSource } from '../src/vbaModuleLint';
 
+function diagnosticsByCode(
+	source: string,
+	code: string,
+	activeIncompleteExpressionOffset?: number,
+) {
+	return lintVbaModuleSource({
+		source,
+		activeIncompleteExpressionOffset,
+	})
+		.diagnostics
+		.filter((diag) => diag.code === code);
+}
+
 describe('lintVbaModuleSource', () => {
 	it('merges directive, structural, and semantic diagnostics through one suppression-aware core', () => {
 		const source =
@@ -74,45 +87,80 @@ describe('lintVbaModuleSource', () => {
 			'End Sub\n';
 		const withDotOffset = withSource.indexOf('        .') + '        .'.length;
 
-		expect(
-			lintVbaModuleSource({ source: withSource })
-				.diagnostics
-				.filter((diag) => diag.code === 'invalid-expression-syntax'),
-		).toHaveLength(1);
-		expect(
-			lintVbaModuleSource({
-				source: withSource,
-				activeIncompleteMemberAccessOffset: withDotOffset,
-			})
-				.diagnostics
-				.filter((diag) => diag.code === 'invalid-expression-syntax'),
-		).toHaveLength(0);
+		expect(diagnosticsByCode(withSource, 'invalid-expression-syntax')).toHaveLength(1);
+		expect(diagnosticsByCode(
+			withSource,
+			'invalid-expression-syntax',
+			withDotOffset,
+		)).toHaveLength(0);
 
 		const trailingSource = 'Option Explicit\nSub T()\n    ThisWorkbook.\nEnd Sub\n';
 		const trailingOffset = trailingSource.indexOf('ThisWorkbook.') + 'ThisWorkbook.'.length;
-		expect(
-			lintVbaModuleSource({ source: trailingSource })
-				.diagnostics
-				.filter((diag) => diag.code === 'invalid-expression-syntax'),
-		).toHaveLength(1);
-		expect(
-			lintVbaModuleSource({
-				source: trailingSource,
-				activeIncompleteMemberAccessOffset: trailingOffset,
-			})
-				.diagnostics
-				.filter((diag) => diag.code === 'invalid-expression-syntax'),
-		).toHaveLength(0);
+		expect(diagnosticsByCode(trailingSource, 'invalid-expression-syntax')).toHaveLength(1);
+		expect(diagnosticsByCode(
+			trailingSource,
+			'invalid-expression-syntax',
+			trailingOffset,
+		)).toHaveLength(0);
 
 		const colonSource = 'Option Explicit\nSub T()\n    ThisWorkbook. : x = 1 *** 2\nEnd Sub\n';
 		const colonDotOffset = colonSource.indexOf('ThisWorkbook.') + 'ThisWorkbook.'.length;
 		const colonHits = lintVbaModuleSource({
 			source: colonSource,
-			activeIncompleteMemberAccessOffset: colonDotOffset,
+			activeIncompleteExpressionOffset: colonDotOffset,
 		})
 			.diagnostics
 			.filter((diag) => diag.code === 'invalid-expression-syntax');
 		expect(colonHits).toHaveLength(1);
 		expect(colonHits[0].message).toContain('Invalid operator sequence');
+	});
+
+	it('suppresses trailing binary operators only for the active edit statement', () => {
+		const source = 'Option Explicit\nSub T()\n    total = subtotal *\nEnd Sub\n';
+		const operatorOffset = source.indexOf('*') + 1;
+		const inactiveOffset = source.indexOf('End Sub');
+
+		expect(diagnosticsByCode(source, 'invalid-expression-syntax')).toHaveLength(1);
+		expect(diagnosticsByCode(
+			source,
+			'invalid-expression-syntax',
+			operatorOffset,
+		)).toHaveLength(0);
+		expect(diagnosticsByCode(
+			source,
+			'invalid-expression-syntax',
+			inactiveOffset,
+		)).toHaveLength(1);
+	});
+
+	it('suppresses unmatched opening parentheses only for the active edit statement', () => {
+		const source = 'Option Explicit\nSub T()\n    MsgBox(\nEnd Sub\n';
+		const openParenOffset = source.indexOf('MsgBox(') + 'MsgBox('.length;
+		const inactiveOffset = source.indexOf('End Sub');
+
+		expect(diagnosticsByCode(source, 'unbalanced-parens')).toHaveLength(1);
+		expect(diagnosticsByCode(
+			source,
+			'unbalanced-parens',
+			openParenOffset,
+		)).toHaveLength(0);
+		expect(diagnosticsByCode(
+			source,
+			'unbalanced-parens',
+			inactiveOffset,
+		)).toHaveLength(1);
+	});
+
+	it('keeps active expression suppression local across colon-separated statements', () => {
+		const source = 'Option Explicit\nSub T()\n    total = subtotal * : other = 1 *** 2\nEnd Sub\n';
+		const firstOperatorOffset = source.indexOf('*') + 1;
+		const hits = diagnosticsByCode(
+			source,
+			'invalid-expression-syntax',
+			firstOperatorOffset,
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('Invalid operator sequence');
 	});
 });

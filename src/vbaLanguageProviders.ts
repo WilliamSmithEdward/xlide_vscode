@@ -988,7 +988,7 @@ function registerVbaDiagnostics(
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
         };
         const activeEditor = vscode.window.activeTextEditor;
-        const activeIncompleteMemberAccessOffset = activeEditor?.document === document
+        const activeIncompleteExpressionOffset = activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
             : undefined;
         const moduleLint = lintVbaModuleSource({
@@ -998,7 +998,7 @@ function registerVbaDiagnostics(
             documentType,
             severities,
             ...projectOptions,
-            activeIncompleteMemberAccessOffset,
+            activeIncompleteExpressionOffset,
         });
         for (const d of moduleLint.diagnostics) {
             const diag = new vscode.Diagnostic(

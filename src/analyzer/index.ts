@@ -179,6 +179,7 @@ export {
 export {
 	analyzeModule,
 	AnalyzeModuleOptions,
+	incompleteExpressionEditSpan,
 	incompleteMemberAccessEditSpan,
 	SeverityOverrides,
 	VbaDiagnostic,

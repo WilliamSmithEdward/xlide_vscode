@@ -1,6 +1,6 @@
 import {
     analyzeModule,
-    incompleteMemberAccessEditSpan,
+    incompleteExpressionEditSpan,
     scanLintSuppressions,
     type AnalyzeModuleOptions,
     type DiagnosticSeverity as RuleSeverity,
@@ -17,6 +17,7 @@ export interface VbaModuleLintDiagnostic {
 
 export interface VbaModuleLintInput extends AnalyzeModuleOptions {
     source: string;
+    activeIncompleteExpressionOffset?: number;
     activeIncompleteMemberAccessOffset?: number;
 }
 
@@ -31,26 +32,36 @@ export interface VbaModuleLintResult {
  * checks, and XLIDE suppression directives cannot drift by surface.
  */
 export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintResult {
-    const { source, activeIncompleteMemberAccessOffset, ...analyzeOptions } = input;
+    const {
+        source,
+        activeIncompleteExpressionOffset,
+        activeIncompleteMemberAccessOffset,
+        ...analyzeOptions
+    } = input;
     const starts = lineStartOffsets(source);
     const suppressions = scanLintSuppressions(source);
     const diagnostics: VbaModuleLintDiagnostic[] = [...suppressions.diagnostics];
     let suppressedCount = 0;
-    const activeIncompleteMemberSpan = activeIncompleteMemberAccessOffset === undefined
+    const activeIncompleteOffset = activeIncompleteExpressionOffset ?? activeIncompleteMemberAccessOffset;
+    const activeIncompleteExpressionSpan = activeIncompleteOffset === undefined
         ? undefined
-        : incompleteMemberAccessEditSpan(source, activeIncompleteMemberAccessOffset);
+        : incompleteExpressionEditSpan(source, activeIncompleteOffset);
 
-    const isTransientIncompleteMemberDiagnostic = (
+    const isTransientIncompleteExpressionDiagnostic = (
         code: string | undefined,
         span: Span,
     ): boolean => {
         if (
-            !activeIncompleteMemberSpan ||
-            (code !== 'invalid-expression-syntax' && code !== 'scalar-member-access')
+            !activeIncompleteExpressionSpan ||
+            (
+                code !== 'invalid-expression-syntax' &&
+                code !== 'scalar-member-access' &&
+                code !== 'unbalanced-parens'
+            )
         ) {
             return false;
         }
-        return spansOverlap(span, activeIncompleteMemberSpan);
+        return spansOverlap(span, activeIncompleteExpressionSpan);
     };
 
     try {
@@ -59,7 +70,7 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
                 start: (starts[problem.line] ?? 0) + problem.startCol,
                 end: (starts[problem.line] ?? 0) + problem.endCol,
             };
-            if (isTransientIncompleteMemberDiagnostic(problem.code, span)) {
+            if (isTransientIncompleteExpressionDiagnostic(problem.code, span)) {
                 continue;
             }
             if (suppressions.isDiagnosticSuppressed(problem.code, span)) {
@@ -79,7 +90,7 @@ export function lintVbaModuleSource(input: VbaModuleLintInput): VbaModuleLintRes
 
     try {
         for (const diagnostic of analyzeModule(source, analyzeOptions)) {
-            if (isTransientIncompleteMemberDiagnostic(diagnostic.code, diagnostic.span)) {
+            if (isTransientIncompleteExpressionDiagnostic(diagnostic.code, diagnostic.span)) {
                 continue;
             }
             if (suppressions.isDiagnosticSuppressed(diagnostic.code, diagnostic.span)) {
