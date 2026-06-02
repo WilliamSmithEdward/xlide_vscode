@@ -1,7 +1,7 @@
 # XLIDE Sidebar Panel
 
-Status: initial native Activity Bar/sidebar implemented; richer workbook-context,
-test, and health-probe sections remain roadmap work.
+Status: initial native Activity Bar/sidebar implemented; richer test and
+health-probe sections remain roadmap work.
 
 Purpose: define the future XLIDE Activity Bar/sidebar experience for workbook
 development in VS Code.
@@ -13,11 +13,12 @@ development in VS Code.
 - `src/xlideSidebarModel.ts` owns the testable sidebar section model.
 - `src/xlideSidebar.ts` owns VS Code rendering and refresh behavior.
 - The current sidebar shows deterministic project/workbook-discovery status,
-  core XLIDE actions, global/editor settings with provenance, and support
-  actions.
+  active-workbook context, workbook sidecar status, core XLIDE actions,
+  global/editor settings with provenance, workbook-effective import/export and
+  analysis settings, and support actions.
 - Global/editor settings are opened through VS Code Settings. Workbook-scoped
-  settings continue to live in `<workbook>.xlide_settings.json` and in the
-  workbook-facing GUIs until selected-workbook editing is added to this sidebar.
+  settings continue to live in `<workbook>.xlide_settings.json`; the sidebar
+  reads the same sidecar owner and links to the active sidecar when it exists.
 
 ## Goals
 

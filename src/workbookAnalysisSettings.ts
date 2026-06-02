@@ -35,6 +35,19 @@ export interface EffectiveWorkbookAnalysisSettings {
 export async function effectiveWorkbookAnalysisSettings(
     workbookPath: string | undefined,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
+    if (!workbookPath) {
+        return effectiveWorkbookAnalysisSettingsFromConfig(undefined);
+    }
+    return effectiveWorkbookAnalysisSettingsFromConfig(
+        workbookPath,
+        await readWorkbookSettings(workbookPath),
+    );
+}
+
+export function effectiveWorkbookAnalysisSettingsFromConfig(
+    workbookPath: string | undefined,
+    config: WorkbookSettingsConfig = {},
+): EffectiveWorkbookAnalysisSettings {
     const globalVisibleSeverities = visibleAnalysisSeveritiesSettingFromConfig();
     const globalUntrackedRules = untrackedAnalysisRulesSettingFromConfig();
     const globalRuleSeverityOverrides = ruleSeverityOverridesSettingFromConfig();
@@ -49,7 +62,7 @@ export async function effectiveWorkbookAnalysisSettings(
         };
     }
 
-    const { analysis } = await readWorkbookSettings(workbookPath);
+    const { analysis } = config;
     const visibleSeverities = resolveWorkbookSetting(analysis?.visibleSeverities, globalVisibleSeverities);
     const untrackedRules = resolveWorkbookSetting(analysis?.untrackedRules, globalUntrackedRules);
     const ruleSeverityOverrides = resolveWorkbookSetting(

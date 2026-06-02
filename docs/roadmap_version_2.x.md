@@ -922,10 +922,12 @@ development.
   section even after the dedicated XLIDE Activity Bar/sidebar ships. Explorer is
   the file/navigation surface; the XLIDE sidebar is the product shell for
   health, commands, configuration, tests, analysis summaries, and status.
-- [ ] Add a unified configuration section/menu collection in the XLIDE sidebar:
+- [x] Add a unified configuration section/menu collection in the XLIDE sidebar:
   show effective settings, their source layer, validation state, quick actions,
   and links to edit VS Code settings or the active workbook sidecar where
-  applicable.
+  applicable. The sidebar now shows global/editor settings, active-workbook
+  sidecar state, workbook-effective import/export settings, and workbook-effective
+  analysis settings from the shared resolvers.
 - [ ] Add setup health checks with pass/warn/fail/unknown states for:
   - active XLIDE workbook/project context
   - workbook source sync/export mapping
@@ -936,9 +938,12 @@ development.
   - analysis engine readiness
   - VBA test runner readiness once implemented
   - optional metadata/doc-comment support
-- [ ] Add selected-workbook context to the sidebar so workbook-scoped settings
-  can be viewed and edited from the same shell without mutating global/editor
-  defaults.
+- [x] Add selected-workbook context to the sidebar so workbook-scoped settings
+  can be viewed from the same shell without mutating global/editor defaults.
+  Context comes from the active XLIDE VBA editor or the only workspace workbook;
+  workbook actions receive the workbook explicitly, and `.xlide_settings.json`
+  file changes refresh the view.
+- [ ] Add direct sidebar edit controls for workbook-scoped setting values.
 - [ ] Add primary action buttons:
   - analyze current module
   - analyze workbook
@@ -1089,9 +1094,10 @@ the deterministic analyzer contract.
   for users who prefer native settings UI. The sidebar consumes
   `resolvedXlideGlobalSettingsFromConfig`, so displayed values and provenance
   share the production resolver.
-- [ ] Surface active-workbook configuration in the XLIDE sidebar once selected
-  workbook context is available. Workbook-specific choices must still persist
-  only to `<workbook>.xlide_settings.json`.
+- [x] Surface active-workbook configuration in the XLIDE sidebar once selected
+  workbook context is available. Workbook-specific choices still persist only to
+  `<workbook>.xlide_settings.json`; the sidebar displays effective sync and
+  analysis settings with source labels and links to an existing sidecar.
 - [x] Add rule severity overrides with guardrails. `ruleMetadata.ts` now owns
   allowed overrides by stable diagnostic code, and live diagnostics,
   current-module analysis, workbook analysis, the Analysis Settings GUI, global

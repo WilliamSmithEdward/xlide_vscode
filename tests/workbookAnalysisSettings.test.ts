@@ -39,6 +39,7 @@ vi.mock('vscode', () => ({
 import { readWorkbookSettings, writeWorkbookSettings } from '../src/workbookSettings';
 import {
 	effectiveWorkbookAnalysisSettings,
+	effectiveWorkbookAnalysisSettingsFromConfig,
 	resetWorkbookAnalysisRuleTracking,
 	resetWorkbookAnalysisRuleSeverities,
 	resetWorkbookAnalysisSettings,
@@ -89,6 +90,23 @@ describe('workbook analysis settings', () => {
 			untrackedRulesSource: 'machine',
 			ruleSeverityOverrides: { 'unknown-call': 'warning' },
 			ruleSeverityOverridesSource: 'machine',
+		});
+	});
+
+	it('resolves effective settings from an already-loaded workbook config', () => {
+		mockConfig.visibleSeverities = ['error'];
+		mockConfig.machineKeys.add('analysis.visibleSeverities');
+
+		expect(effectiveWorkbookAnalysisSettingsFromConfig('Book.xlsm', {
+			analysis: {
+				untrackedRules: ['argument-count'],
+			},
+		})).toMatchObject({
+			visibleSeverities: ['error'],
+			visibleSeveritiesSource: 'machine',
+			untrackedRules: ['argument-count'],
+			untrackedRulesSource: 'workbook',
+			ruleSeverityOverridesSource: 'default',
 		});
 	});
 

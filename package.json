@@ -247,6 +247,12 @@
         "title": "New Macro-Enabled Workbook",
         "category": "XLIDE",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "xlide.openWorkbookSettings",
+        "title": "Open Workbook Settings",
+        "category": "XLIDE",
+        "icon": "$(json)"
       }
     ],
     "views": {

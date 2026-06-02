@@ -13,12 +13,15 @@ describe('xlideSidebarModel', () => {
         expect(model.map((section) => section.label)).toEqual([
             'Project',
             'Actions',
+            'Workbook Configuration',
             'Configuration',
             'Support',
         ]);
         expect(model[0].children?.map((node) => [node.label, node.description])).toEqual([
             ['Workspace', 'Open'],
             ['Workbook discovery', '2 workbooks'],
+            ['Active workbook', 'None selected'],
+            ['Workbook settings', 'No workbook'],
             ['Reveal workbook tree', 'Explorer'],
             ['Refresh workbooks', undefined],
         ]);
@@ -53,9 +56,60 @@ describe('xlideSidebarModel', () => {
         expect(project.children?.map((node) => [node.label, node.description, node.status])).toEqual([
             ['Workspace', 'No folder', 'warn'],
             ['Workbook discovery', 'None found', 'unknown'],
+            ['Active workbook', 'None selected', 'unknown'],
+            ['Workbook settings', 'No workbook', 'unknown'],
             ['Reveal workbook tree', 'Explorer', undefined],
             ['Refresh workbooks', undefined, undefined],
         ]);
+    });
+
+    it('surfaces active workbook settings without mutating global settings', () => {
+        const model = buildXlideSidebarModel({
+            globalSettings: settings(),
+            hasWorkspace: true,
+            workbookCount: 1,
+            activeWorkbook: {
+                label: 'Book.xlsm',
+                filePath: 'C:\\work\\Book.xlsm',
+                settingsPath: 'C:\\work\\Book.xlsm.xlide_settings.json',
+                selectionSource: 'activeEditor',
+                settingsState: 'valid',
+                moduleSyncSettings: {
+                    folderPath: 'C:\\work\\repo',
+                    folderPathSource: 'workbook',
+                    exportMode: 'trueUp',
+                    exportModeSource: 'workbook',
+                    importMode: 'updateOnly',
+                    importModeSource: 'default',
+                    settingsPath: 'C:\\work\\Book.xlsm.xlide_settings.json',
+                },
+                analysisSettings: {
+                    visibleSeverities: ['error', 'warning'],
+                    visibleSeveritiesSource: 'workbook',
+                    untrackedRules: ['option-explicit-missing'],
+                    untrackedRulesSource: 'workbook',
+                    ruleSeverityOverrides: { 'unknown-call': 'warning' },
+                    ruleSeverityOverridesSource: 'workbook',
+                },
+            },
+        });
+
+        expect(model[0].children?.map((node) => [node.label, node.description, node.status])).toContainEqual([
+            'Active workbook',
+            'Book.xlsm',
+            'pass',
+        ]);
+        expect(model[1].children?.find((node) => node.id === 'actions.analyzeWorkbook')?.command?.arguments)
+            .toEqual([{ kind: 'xlsm', label: 'Book.xlsm', filePath: 'C:\\work\\Book.xlsm' }]);
+        expect(model[2].children?.map((node) => [node.label, node.description])).toContainEqual([
+            'Export mode',
+            'Export All + Delete Missing (Workbook)',
+        ]);
+        expect(model[2].children?.map((node) => [node.label, node.description])).toContainEqual([
+            'Analysis severities',
+            'error, warning (Workbook)',
+        ]);
+        expect(model[2].children?.map((node) => node.command?.command)).toContain('xlide.openWorkbookSettings');
     });
 
     it('formats settings and sources consistently', () => {
@@ -66,6 +120,7 @@ describe('xlideSidebarModel', () => {
         expect(settingDescription({ a: 'off', b: 'warning' })).toBe('2 overrides');
         expect(sourceLabel('machine')).toBe('VS Code');
         expect(sourceLabel('default')).toBe('Default');
+        expect(sourceLabel('workbook')).toBe('Workbook');
     });
 });
 

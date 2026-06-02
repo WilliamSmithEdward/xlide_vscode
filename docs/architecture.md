@@ -376,15 +376,19 @@ actions.
 
 `src/xlideSidebarModel.ts` owns the pure sidebar model so the UI shape can be
 tested without VS Code APIs. `src/xlideSidebar.ts` renders that model, refreshes
-on `xlide.*` configuration changes, workspace-folder changes, and workbook file
-create/delete events, and does not require Excel COM to render.
+on `xlide.*` configuration changes, workspace-folder changes, active-editor
+changes, workbook file create/delete events, and `.xlide_settings.json` sidecar
+changes, and does not require Excel COM to render.
 
 The Configuration section consumes `resolvedXlideGlobalSettingsFromConfig`.
 That keeps displayed global/editor values, source labels, validation behavior,
-and production behavior on the same resolver path. Workbook-specific settings
-are not stored globally: workbook-facing GUIs and future selected-workbook
-sidebar controls persist workbook choices only to
-`<workbook-filename>.xlide_settings.json`.
+and production behavior on the same resolver path. The Workbook Configuration
+section selects a workbook from the active `xlide-vba://` editor, or from a
+single-workbook workspace, then reads `<workbook-filename>.xlide_settings.json`
+through `workbookSettings.ts`. It displays the same effective import/export
+settings from `workbookModuleSyncSettings.ts` and analysis settings from
+`workbookAnalysisSettings.ts` that production commands use. Workbook-specific
+settings are not stored globally.
 
 ---
 

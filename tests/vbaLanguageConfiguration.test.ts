@@ -10,6 +10,7 @@ interface VbaLanguageConfiguration {
 
 interface PackageConfiguration {
 	contributes?: {
+		commands?: PackageCommand[];
 		configuration?: {
 			properties?: Record<string, PackageSetting>;
 		};
@@ -39,6 +40,12 @@ interface PackageView {
 	id?: string;
 	name?: string;
 	contextualTitle?: string;
+}
+
+interface PackageCommand {
+	command?: string;
+	title?: string;
+	category?: string;
 }
 
 function loadConfig(): VbaLanguageConfiguration {
@@ -174,5 +181,18 @@ describe('VBA language configuration', () => {
 		});
 		expect(contributes?.views?.xlide?.map((view) => view.id)).toEqual(['xlide.sidebar']);
 		expect(contributes?.views?.explorer?.map((view) => view.id)).toContain('xlide.explorer');
+	});
+
+	it('contributes the workbook settings command used by the XLIDE sidebar', () => {
+		const command = loadPackage()
+			.contributes
+			?.commands
+			?.find((entry) => entry.command === 'xlide.openWorkbookSettings');
+
+		expect(command).toMatchObject({
+			command: 'xlide.openWorkbookSettings',
+			title: 'Open Workbook Settings',
+			category: 'XLIDE',
+		});
 	});
 });
