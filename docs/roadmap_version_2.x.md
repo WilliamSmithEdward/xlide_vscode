@@ -692,6 +692,8 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
 - [x] Route explicit `Call` argument-list quick fixes through the same
   `callContext` range helper used by diagnostics, including chained receivers
   and named arguments.
+- [x] Route standalone empty-parentheses removal and invalid runtime `Call`
+  rewrite quick fixes through shared `callContext` edit spans.
 - [ ] Keep signature help, hover, completion, and diagnostics sharing the same
   symbol/type model. Signature help now reuses the member-completion route for
   member-call signatures; diagnostics now consume it for known member-call
@@ -979,7 +981,9 @@ prove the edit is safe.
   - [x] add expression-call parentheses when a parenless function call is the
     whole assignment RHS
   - [x] remove invalid empty parentheses from standalone zero-argument calls
+    through shared `callContext` edit spans
   - [x] rewrite runtime calls such as `Call DoEvents()` to bare statement syntax
+    through shared `callContext` edit spans
   - [x] add missing block closer
   - [x] move misplaced `Option` statements before declarations
   - [x] split local `Dim` initializers into declaration plus assignment

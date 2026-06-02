@@ -220,6 +220,19 @@ describe('resolveDiagnosticCodeActions', () => {
 		);
 	});
 
+	it('rewrites invalid explicit Call runtime syntax with empty parentheses before comments', () => {
+		const source = "Sub T()\n    Call DoEvents() ' keep pumping messages\nEnd Sub\n";
+		const diag = firstDiagnostic(source, 'invalid-explicit-call-target');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe('Use bare runtime call syntax');
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			"Sub T()\n    DoEvents ' keep pumping messages\nEnd Sub\n",
+		);
+	});
+
 	it('removes only the Call keyword when invalid explicit Call syntax has no parentheses', () => {
 		const source = "Sub T()\n    Call DoEvents ' keep pumping messages\nEnd Sub\n";
 		const diag = firstDiagnostic(source, 'invalid-explicit-call-target');

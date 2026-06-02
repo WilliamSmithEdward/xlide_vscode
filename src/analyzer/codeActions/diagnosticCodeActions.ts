@@ -1,6 +1,10 @@
 import type { Span } from '../parser/nodes';
 import { tokenize } from '../lexer/tokenize';
-import { explicitCallStatementArgumentListWithoutParens } from '../call/callContext';
+import {
+	explicitCallStatementArgumentListWithoutParens,
+	explicitCallStatementBareRuntimeRewrite,
+	standaloneEmptyParenthesizedCallStatement,
+} from '../call/callContext';
 import { leadingWhitespace } from '../../vbaLinter';
 import { LINT_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/lintSuppressions';
 
@@ -173,15 +177,15 @@ function callStatementForbidsParensActions(
 	source: string,
 	span: Span,
 ): VbaDiagnosticCodeAction[] {
-	const parens = trailingEmptyParens(source, span);
-	if (!parens) {
+	const call = standaloneEmptyParenthesizedCallStatement(source, span);
+	if (!call) {
 		return [];
 	}
 	return [{
 		title: 'Remove empty parentheses',
 		kind: 'quickfix',
 		isPreferred: true,
-		edits: [{ span: parens, newText: '' }],
+		edits: [{ span: call.emptyParensSpan, newText: '' }],
 	}];
 }
 
@@ -190,26 +194,18 @@ function invalidExplicitCallTargetActions(
 	span: Span,
 ): VbaDiagnosticCodeAction[] {
 	const line = physicalLineSpan(source, span.start);
-	const before = source.slice(line.start, span.start);
-	const call = /\bCall[ \t]*$/i.exec(before);
-	if (!call) {
-		return [];
-	}
-
-	const after = source.slice(span.end, line.end);
-	const emptyParens = /^[ \t]*\([ \t]*\)/.exec(after);
-	const afterCall = emptyParens ? after.slice(emptyParens[0].length) : after;
-	if (!isBlankOrCommentTail(afterCall)) {
+	const rewrite = explicitCallStatementBareRuntimeRewrite(source, line);
+	if (!rewrite || rewrite.targetSpan.start !== span.start || rewrite.targetSpan.end !== span.end) {
 		return [];
 	}
 
 	const edits: VbaTextEdit[] = [{
-		span: { start: line.start + call.index, end: span.start },
+		span: rewrite.callPrefixSpan,
 		newText: '',
 	}];
-	if (emptyParens) {
+	if (rewrite.emptyParensSpan) {
 		edits.push({
-			span: { start: span.end, end: span.end + emptyParens[0].length },
+			span: rewrite.emptyParensSpan,
 			newText: '',
 		});
 	}
@@ -399,18 +395,6 @@ function dimInitializerActions(
 	}];
 }
 
-function trailingEmptyParens(source: string, span: Span): Span | undefined {
-	const slice = source.slice(span.start, span.end);
-	const hit = /\([ \t]*\)[ \t]*$/.exec(slice);
-	if (!hit) {
-		return undefined;
-	}
-	return {
-		start: span.start + hit.index,
-		end: span.start + hit.index + hit[0].length,
-	};
-}
-
 function callArgumentListEnd(
 	source: string,
 	line: Span,
@@ -585,11 +569,6 @@ function readPhysicalLine(
 		text: source.slice(offset, end),
 		next,
 	};
-}
-
-function isBlankOrCommentTail(text: string): boolean {
-	const trimmed = text.trimStart();
-	return trimmed.length === 0 || trimmed.startsWith("'");
 }
 
 function detectEol(source: string): string {

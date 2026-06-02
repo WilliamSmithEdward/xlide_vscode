@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	bareCallStatementTarget,
 	callableCompletionShouldInsertParens,
+	explicitCallStatementBareRuntimeRewrite,
 	explicitCallStatementArgumentListWithoutParens,
 	explicitCallStatementArgumentWithoutParens,
 	explicitCallStatementTarget,
@@ -158,7 +159,14 @@ describe('VBA call context', () => {
 				source,
 				lineSpan(source, 'myFunction()'),
 			),
-		).toMatchObject({ name: 'myFunction', isMember: false });
+		).toMatchObject({
+			name: 'myFunction',
+			isMember: false,
+			emptyParensSpan: {
+				start: lineSpan(source, 'myFunction()').end - 2,
+				end: lineSpan(source, 'myFunction()').end,
+			},
+		});
 		expect(
 			standaloneEmptyParenthesizedCallStatement(
 				source,
@@ -192,5 +200,44 @@ describe('VBA call context', () => {
 			isMember: true,
 			startsWithLeadingDot: true,
 		});
+	});
+
+	it('extracts invalid explicit Call runtime rewrites with optional empty parentheses', () => {
+		const source =
+			'Sub T()\n' +
+			'    Call DoEvents()\n' +
+			"    Call DoEvents ' keep pumping messages\n" +
+			'    Call DoEvents 1\n' +
+			'End Sub\n';
+
+		expect(
+			explicitCallStatementBareRuntimeRewrite(
+				source,
+				lineSpan(source, 'Call DoEvents()'),
+			),
+		).toMatchObject({
+			name: 'DoEvents',
+			callPrefixSpan: lineSpan(source, 'Call '),
+			targetSpan: lineSpan(source, 'DoEvents'),
+			emptyParensSpan: {
+				start: lineSpan(source, 'DoEvents()').end - 2,
+				end: lineSpan(source, 'DoEvents()').end,
+			},
+		});
+		expect(
+			explicitCallStatementBareRuntimeRewrite(
+				source,
+				lineSpan(source, "Call DoEvents ' keep pumping messages"),
+			),
+		).toMatchObject({
+			name: 'DoEvents',
+			emptyParensSpan: undefined,
+		});
+		expect(
+			explicitCallStatementBareRuntimeRewrite(
+				source,
+				lineSpan(source, 'Call DoEvents 1'),
+			),
+		).toBeUndefined();
 	});
 });

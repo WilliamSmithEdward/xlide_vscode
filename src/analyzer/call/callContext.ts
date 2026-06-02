@@ -60,6 +60,7 @@ export interface BareCallStatementTarget {
 export interface ParenthesizedCallStatementTarget {
 	name: string;
 	span: VbaTextSpan;
+	emptyParensSpan: VbaTextSpan;
 	isMember: boolean;
 	startsWithLeadingDot: boolean;
 	calleeEndOffset: number;
@@ -69,6 +70,13 @@ export interface ExplicitCallStatementArgumentList {
 	calleeEndOffset: number;
 	firstArgumentSpan: VbaTextSpan;
 	argumentSpan: VbaTextSpan;
+}
+
+export interface ExplicitCallStatementBareRuntimeRewrite {
+	name: string;
+	targetSpan: VbaTextSpan;
+	callPrefixSpan: VbaTextSpan;
+	emptyParensSpan?: VbaTextSpan;
 }
 
 export function isIdentLike(token: VbaToken): boolean {
@@ -172,6 +180,47 @@ export function explicitCallStatementTarget(
 	};
 }
 
+export function explicitCallStatementBareRuntimeRewrite(
+	source: string,
+	span: VbaTextSpan,
+): ExplicitCallStatementBareRuntimeRewrite | undefined {
+	const rawToks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'newline',
+	);
+	const toks = rawToks.filter((t) => t.kind !== 'comment');
+	if (toks.length < 2 || toks[0].rawText.toLowerCase() !== 'call') {
+		return undefined;
+	}
+	const name = tokenName(toks[1]);
+	if (!name) {
+		return undefined;
+	}
+	let nextIndex = 2;
+	let emptyParensSpan: VbaTextSpan | undefined;
+	if (toks[nextIndex]?.rawText === '(') {
+		const close = matchParenFrom(toks, nextIndex);
+		if (close !== nextIndex + 1) {
+			return undefined;
+		}
+		emptyParensSpan = {
+			start: span.start + toks[nextIndex].start,
+			end: span.start + toks[close].end,
+		};
+		nextIndex = close + 1;
+	}
+	for (let i = nextIndex; i < toks.length; i += 1) {
+		if (toks[i].kind !== 'comment') {
+			return undefined;
+		}
+	}
+	return {
+		name,
+		targetSpan: { start: span.start + toks[1].start, end: span.start + toks[1].end },
+		callPrefixSpan: { start: span.start + toks[0].start, end: span.start + toks[1].start },
+		emptyParensSpan,
+	};
+}
+
 export function explicitCallStatementArgumentWithoutParens(
 	source: string,
 	span: VbaTextSpan,
@@ -256,6 +305,10 @@ export function standaloneEmptyParenthesizedCallStatement(
 			isMember: i > 0 && toks[i - 1]?.rawText === '.',
 			startsWithLeadingDot: toks[0]?.rawText === '.',
 			calleeEndOffset: span.start + toks[i].end,
+			emptyParensSpan: {
+				start: span.start + toks[i + 1].start,
+				end: span.start + toks[close].end,
+			},
 			span: { start: span.start + toks[i].start, end: span.start + toks[close].end },
 		};
 	}
