@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import type { EventHandlerDocumentType } from './analyzer/completion/eventHandlers';
+import { moduleIdentityKey, workbookIdentityKey } from './xlideFileSystem';
 
 export type VbaSymbolKind =
     | 'Sub' | 'Function' | 'PropertyGet' | 'PropertyLet' | 'PropertySet'
@@ -140,13 +141,13 @@ export class VbaSymbolIndex implements vscode.Disposable {
 
     /** Invalidate one module (or the whole workbook when moduleName is omitted). */
     invalidate(xlsmPath: string, moduleName?: string): void {
-        const key = this._key(xlsmPath);
+        const key = workbookIdentityKey(xlsmPath);
         const wb = this._cache.get(key);
         if (!wb) { return; }
         if (moduleName === undefined) {
             this._cache.delete(key);
         } else {
-            wb.modules.delete(moduleName);
+            wb.modules.delete(moduleIdentityKey(moduleName));
         }
         this._emitter.fire({ xlsmPath, moduleName });
     }
@@ -158,13 +159,14 @@ export class VbaSymbolIndex implements vscode.Disposable {
 
     /** Returns the parsed symbols for a single module, loading on demand. */
     async getModule(xlsmPath: string, moduleName: string): Promise<VbaModuleSymbols> {
-        const key = this._key(xlsmPath);
+        const key = workbookIdentityKey(xlsmPath);
         let wb = this._cache.get(key);
         if (!wb) {
             wb = { modules: new Map() };
             this._cache.set(key, wb);
         }
-        let mod = wb.modules.get(moduleName);
+        const moduleKey = moduleIdentityKey(moduleName);
+        let mod = wb.modules.get(moduleKey);
         if (!mod) {
             const result = await this._bridge.call<{ source: string }>(
                 'readModule',
@@ -175,7 +177,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 source: result.source,
                 symbols: parseVbaModule(result.source),
             };
-            wb.modules.set(moduleName, mod);
+            wb.modules.set(moduleKey, mod);
         }
         return mod;
     }
@@ -216,9 +218,5 @@ export class VbaSymbolIndex implements vscode.Disposable {
     dispose(): void {
         this._cache.clear();
         this._emitter.dispose();
-    }
-
-    private _key(xlsmPath: string): string {
-        return process.platform === 'win32' ? xlsmPath.toLowerCase() : xlsmPath;
     }
 }

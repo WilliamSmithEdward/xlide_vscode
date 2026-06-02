@@ -8,6 +8,25 @@ import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
 export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
+export function workbookIdentityKey(
+    workbookPath: string,
+    platform: NodeJS.Platform = process.platform,
+): string {
+    return platform === 'win32' ? workbookPath.toLowerCase() : workbookPath;
+}
+
+export function sameWorkbookPath(
+    a: string,
+    b: string,
+    platform: NodeJS.Platform = process.platform,
+): boolean {
+    return workbookIdentityKey(a, platform) === workbookIdentityKey(b, platform);
+}
+
+export function moduleIdentityKey(moduleName: string): string {
+    return moduleName.toLowerCase();
+}
+
 /**
  * Tracks workbook paths for which the signature-dropped notice has already
  * been shown this session, so the user sees it at most once per file.
@@ -20,8 +39,9 @@ const _sigWarnedPaths = new Set<string>();
  * per workbook path per session.
  */
 export function notifySignatureDropped(filePath: string, signatureDropped: boolean): void {
-    if (!signatureDropped || _sigWarnedPaths.has(filePath)) { return; }
-    _sigWarnedPaths.add(filePath);
+    const key = workbookIdentityKey(filePath);
+    if (!signatureDropped || _sigWarnedPaths.has(key)) { return; }
+    _sigWarnedPaths.add(key);
     void vscode.window.showWarningMessage(
         `XLIDE: "${path.basename(filePath)}" had a VBA digital signature that was invalidated by this edit. ` +
         `Re-sign the workbook externally to restore trust.`,

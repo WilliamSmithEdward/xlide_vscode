@@ -4,7 +4,15 @@ import * as cp from 'child_process';
 import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer, XlideNode } from './xlsmExplorer';
-import { XlideFileSystemProvider, encodeModuleUri, decodeModuleUri, XLIDE_SCHEME, notifySignatureDropped } from './xlideFileSystem';
+import {
+    XlideFileSystemProvider,
+    encodeModuleUri,
+    decodeModuleUri,
+    XLIDE_SCHEME,
+    notifySignatureDropped,
+    moduleIdentityKey,
+    sameWorkbookPath,
+} from './xlideFileSystem';
 import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
@@ -418,24 +426,18 @@ export function registerCommands(
         await vscode.commands.executeCommand('references-view.findReferences', originUri, origin);
     }
 
-    function sameWorkbook(a: string, b: string): boolean {
-        return process.platform === 'win32'
-            ? a.toLowerCase() === b.toLowerCase()
-            : a === b;
-    }
-
     function applyOpenDocumentSources(
         modules: Awaited<ReturnType<VbaSymbolIndex['getAllModules']>>,
         xlsmPath: string,
     ): Awaited<ReturnType<VbaSymbolIndex['getAllModules']>> {
         const out = modules.map((mod) => ({ ...mod }));
-        const byName = new Map(out.map((mod) => [mod.moduleName.toLowerCase(), mod]));
+        const byName = new Map(out.map((mod) => [moduleIdentityKey(mod.moduleName), mod]));
         for (const document of vscode.workspace.textDocuments) {
             if (document.uri.scheme !== XLIDE_SCHEME) { continue; }
             try {
                 const decoded = decodeModuleUri(document.uri);
-                if (!sameWorkbook(decoded.xlsmPath, xlsmPath)) { continue; }
-                const mod = byName.get(decoded.moduleName.toLowerCase());
+                if (!sameWorkbookPath(decoded.xlsmPath, xlsmPath)) { continue; }
+                const mod = byName.get(moduleIdentityKey(decoded.moduleName));
                 if (!mod) { continue; }
                 mod.source = document.getText();
             } catch {

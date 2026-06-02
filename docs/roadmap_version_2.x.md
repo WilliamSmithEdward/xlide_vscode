@@ -416,6 +416,11 @@ Purpose: move from same-module checks to workbook-aware analysis.
   construction, live current-module overlay, visibility-filtered names,
   exported signatures, visible project types, source-backed member surfaces,
   and live-IntelliSense tolerance for temporarily invalid modules.
+- [x] Add shared workbook identity helpers for workbook cache keys,
+  workbook-path comparisons, and case-insensitive module-name keys; route symbol
+  index caches, member-completion caches/open-document overlays, command
+  open-document overlays, and signature-drop warning suppression through that
+  path.
 - [ ] Add explicit multi-workbook isolation fixtures: two open workbooks with
   overlapping module, class, document-module, procedure, and member names must
   keep completion, hover, diagnostics, semantic coloring, references, rename,

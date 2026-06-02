@@ -44,7 +44,13 @@ vi.mock('../src/liveShare', () => ({
     XLIDE_LIVESHARE_AUTHORITY: 'liveshare',
 }));
 
-import { decodeModuleUri, XlideFileSystemProvider } from '../src/xlideFileSystem';
+import {
+    decodeModuleUri,
+    moduleIdentityKey,
+    sameWorkbookPath,
+    workbookIdentityKey,
+    XlideFileSystemProvider,
+} from '../src/xlideFileSystem';
 
 /** Minimal stand-in — decodeModuleUri only reads uri.path */
 function fakeUri(uriPath: string): VscodeType.Uri {
@@ -91,6 +97,20 @@ describe('decodeModuleUri', () => {
 
     it('throws on a path with missing module segment', () => {
         expect(() => decodeModuleUri(fakeUri('/home/user/workbook.xlsm/'))).toThrow();
+    });
+});
+
+describe('workbook identity helpers', () => {
+    it('normalizes workbook paths case-insensitively on Windows only', () => {
+        expect(workbookIdentityKey('C:/Repo/Book.xlsm', 'win32')).toBe('c:/repo/book.xlsm');
+        expect(workbookIdentityKey('/Users/me/Book.xlsm', 'darwin')).toBe('/Users/me/Book.xlsm');
+        expect(sameWorkbookPath('C:/Repo/Book.xlsm', 'c:/repo/book.xlsm', 'win32')).toBe(true);
+        expect(sameWorkbookPath('/repo/Book.xlsm', '/repo/book.xlsm', 'linux')).toBe(false);
+    });
+
+    it('normalizes VBA module identity independent of workbook identity', () => {
+        expect(moduleIdentityKey('Module1')).toBe('module1');
+        expect(moduleIdentityKey('Person')).toBe(moduleIdentityKey('person'));
     });
 });
 

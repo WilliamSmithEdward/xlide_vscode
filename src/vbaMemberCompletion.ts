@@ -11,7 +11,13 @@
 
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
-import { XLIDE_SCHEME, decodeModuleUri } from './xlideFileSystem';
+import {
+	XLIDE_SCHEME,
+	decodeModuleUri,
+	moduleIdentityKey,
+	sameWorkbookPath,
+	workbookIdentityKey,
+} from './xlideFileSystem';
 import { leadingWhitespace, normalizeSmartBlockLayout } from './vbaLinter';
 import {
 	DocRegistry,
@@ -141,7 +147,7 @@ class VbaMemberCompletionProvider
 			this._cache.clear();
 			this._procedureCache.clear();
 		} else {
-			const key = this._key(xlsmPath);
+			const key = workbookIdentityKey(xlsmPath);
 			this._cache.delete(key);
 			this._procedureCache.delete(key);
 		}
@@ -381,7 +387,7 @@ class VbaMemberCompletionProvider
 	}
 
 	private async _loadModules(xlsmPath: string): Promise<ModuleEntry[] | undefined> {
-		const key = this._key(xlsmPath);
+		const key = workbookIdentityKey(xlsmPath);
 		const cached = this._cache.get(key);
 		if (cached && Date.now() - cached.loadedAt < MODULE_CACHE_TTL_MS) {
 			return cached.entries;
@@ -434,7 +440,7 @@ class VbaMemberCompletionProvider
 		xlsmPath: string,
 		entries: ModuleEntry[],
 	): Promise<VbaProcedureSignature[]> {
-		const key = this._key(xlsmPath);
+		const key = workbookIdentityKey(xlsmPath);
 		const cached = this._procedureCache.get(key);
 		if (cached && Date.now() - cached.loadedAt < MODULE_CACHE_TTL_MS) {
 			return cached.procedures;
@@ -515,8 +521,7 @@ class VbaMemberCompletionProvider
 		xlsmPath: string,
 		moduleName: string,
 	): string | undefined {
-		const workbookKey = this._key(xlsmPath);
-		const moduleKey = moduleName.toLowerCase();
+		const moduleKey = moduleIdentityKey(moduleName);
 		for (const doc of vscode.workspace.textDocuments) {
 			if (doc.uri.scheme !== XLIDE_SCHEME) {
 				continue;
@@ -524,8 +529,8 @@ class VbaMemberCompletionProvider
 			try {
 				const decoded = decodeModuleUri(doc.uri);
 				if (
-					this._key(decoded.xlsmPath) === workbookKey &&
-					decoded.moduleName.toLowerCase() === moduleKey
+					sameWorkbookPath(decoded.xlsmPath, xlsmPath) &&
+					moduleIdentityKey(decoded.moduleName) === moduleKey
 				) {
 					return doc.getText();
 				}
@@ -886,10 +891,6 @@ class VbaMemberCompletionProvider
 			default:
 				return vscode.CompletionItemKind.Variable;
 		}
-	}
-
-	private _key(xlsmPath: string): string {
-		return process.platform === 'win32' ? xlsmPath.toLowerCase() : xlsmPath;
 	}
 }
 

@@ -118,11 +118,14 @@ Each local workbook is a separate VBA project boundary. The `xlide-vba://` URI
 embeds the workbook path, and workbook-aware services must key cache entries,
 project indexes, diagnostics, open-document overlays, reference/rename scopes,
 and mutation commands by that workbook identity before considering module names.
-This is deliberate: two open workbooks can both contain `Module1`, `Person`, or
+The shared helpers in `src/xlideFileSystem.ts` (`workbookIdentityKey`,
+`sameWorkbookPath`, and `moduleIdentityKey`) define that boundary. This is
+deliberate: two open workbooks can both contain `Module1`, `Person`, or
 `ThisWorkbook`, and those names must not share completion, hover, diagnostics,
 references, rename edits, lint context, or live source overlays. On Windows,
 path comparisons are case-insensitive; on other platforms they are exact unless
-a caller has explicitly normalized the path.
+a caller has explicitly normalized the path. VBA module-name identity is
+case-insensitive inside the workbook boundary.
 
 Cross-workbook actions, such as copying modules from one workbook to another,
 must be exposed as explicit user-chosen workflows with source/destination
