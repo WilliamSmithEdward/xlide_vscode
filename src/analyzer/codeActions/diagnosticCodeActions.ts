@@ -7,6 +7,7 @@ import {
 } from '../call/callContext';
 import { leadingWhitespace } from '../../vbaLinter';
 import { LINT_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/lintSuppressions';
+import type { VbaDiagnosticData } from '../diagnostics/analyzeModule';
 
 export interface VbaDiagnosticCodeActionInput {
 	code: string;
@@ -15,6 +16,7 @@ export interface VbaDiagnosticCodeActionInput {
 	expectedClose?: string;
 	insertLine?: number;
 	includeSuppressionAction?: boolean;
+	data?: VbaDiagnosticData;
 }
 
 export interface VbaTextEdit {
@@ -87,9 +89,26 @@ function ruleSpecificDiagnosticCodeActions(
 			return setRequiredActions(source, diagnostic.span);
 		case 'set-requires-object':
 			return setRequiresObjectActions(source, diagnostic.span);
+		case 'argument-count':
+			return missingRequiredArgumentPlaceholderActions(diagnostic);
 		default:
 			return [];
 	}
+}
+
+function missingRequiredArgumentPlaceholderActions(
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
+	const data = diagnostic.data?.missingRequiredArgumentPlaceholder;
+	if (!data) {
+		return [];
+	}
+	return [{
+		title: `Insert placeholder for missing argument '${data.parameterName}'`,
+		kind: 'quickfix',
+		isPreferred: false,
+		edits: [data.edit],
+	}];
 }
 
 function suppressNextLineAction(

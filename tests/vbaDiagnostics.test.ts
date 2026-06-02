@@ -959,6 +959,16 @@ describe('analyzeModule - argument count', () => {
 		expect(spanText(src, hits[0])).toBe('Greet');
 		expect(hits[0].message).toContain('expected 2 arguments');
 		expect(hits[0].message).toContain('got 1');
+		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
+			parameterName: 'b',
+			edit: {
+				span: {
+					start: src.indexOf('"Ann"') + '"Ann"'.length,
+					end: src.indexOf('"Ann"') + '"Ann"'.length,
+				},
+				newText: ', TODO_b',
+			},
+		});
 	});
 
 	it('flags too many arguments to a same-module Sub', () => {
@@ -990,6 +1000,17 @@ describe('analyzeModule - argument count', () => {
 		expect(spanText(src, hits[0])).toBe('MsgBox');
 		expect(hits[0].message).toContain('expected between 1 and 5 arguments');
 		expect(hits[0].message).toContain('got 0');
+		const argStart = src.indexOf('MsgBox(') + 'MsgBox('.length;
+		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
+			parameterName: 'Prompt',
+			edit: {
+				span: {
+					start: argStart,
+					end: argStart,
+				},
+				newText: 'TODO_Prompt',
+			},
+		});
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
@@ -999,6 +1020,16 @@ describe('analyzeModule - argument count', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('MsgBox');
 		expect(hits[0].message).toContain('got 0');
+		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
+			parameterName: 'Prompt',
+			edit: {
+				span: {
+					start: src.indexOf('MsgBox') + 'MsgBox'.length,
+					end: src.indexOf('MsgBox') + 'MsgBox'.length,
+				},
+				newText: ' TODO_Prompt',
+			},
+		});
 	});
 
 	it('validates an explicit Call statement', () => {
@@ -1020,8 +1051,19 @@ describe('analyzeModule - argument count', () => {
 		const hits = byCode(analyzeModule(src), 'argument-count');
 		expect(hits).toHaveLength(1);
 		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe(',');
 		expect(hits[0].message).toContain('TaxRate');
 		expect(hits[0].message).toContain('Argument not optional');
+		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
+			parameterName: 'TaxRate',
+			edit: {
+				span: {
+					start: src.indexOf(', )'),
+					end: src.indexOf(', )') + 2,
+				},
+				newText: ', TODO_TaxRate',
+			},
+		});
 	});
 
 	it('flags an omitted leading required argument in an expression call', () => {
@@ -1033,7 +1075,18 @@ describe('analyzeModule - argument count', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
 		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe(',');
 		expect(hits[0].message).toContain('Subtotal');
+		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
+			parameterName: 'Subtotal',
+			edit: {
+				span: {
+					start: src.indexOf('(,') + 1,
+					end: src.indexOf('(,') + 3,
+				},
+				newText: 'TODO_Subtotal, ',
+			},
+		});
 	});
 
 	it('accepts an omitted Optional argument in an expression call', () => {

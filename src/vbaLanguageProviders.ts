@@ -38,6 +38,7 @@ import {
     resolveTypeSemanticTokens,
     SeverityOverrides,
     TypeSemanticTokenType,
+    type VbaDiagnosticData,
     type VbaProjectClassMember,
     type VbaProjectClassMemberDefinition,
     VbaSymbol as AstSymbol,
@@ -66,6 +67,11 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
 ];
 const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
 const XLIDE_LINT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('lintCurrentModule');
+const XLIDE_DIAGNOSTIC_DATA = Symbol('xlideDiagnosticData');
+
+type XlideDiagnosticWithData = vscode.Diagnostic & {
+    [XLIDE_DIAGNOSTIC_DATA]?: VbaDiagnosticData;
+};
 
 function symbolKindToVscode(kind: VbaSymbol['kind']): vscode.SymbolKind {
     switch (kind) {
@@ -1013,6 +1019,9 @@ function registerVbaDiagnostics(
             if (d.code) {
                 diag.code = d.code;
             }
+            if (d.data) {
+                (diag as XlideDiagnosticWithData)[XLIDE_DIAGNOSTIC_DATA] = d.data;
+            }
             diagnostics.push(diag);
         }
 
@@ -1104,6 +1113,7 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
                     end: document.offsetAt(diagnostic.range.end),
                 },
                 includeSuppressionAction: true,
+                data: (diagnostic as XlideDiagnosticWithData)[XLIDE_DIAGNOSTIC_DATA],
             });
             for (const fix of fixes) {
                 const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);

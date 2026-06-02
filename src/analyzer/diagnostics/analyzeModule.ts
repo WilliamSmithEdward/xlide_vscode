@@ -113,6 +113,20 @@ export interface VbaDiagnostic {
 	span: Span;
 	/** MS-VBAL (or other) reference for the rule, when known. */
 	specReference?: string;
+	/** Optional structured data for deterministic editor actions. */
+	data?: VbaDiagnosticData;
+}
+
+export interface VbaMissingRequiredArgumentPlaceholderData {
+	parameterName: string;
+	edit: {
+		span: Span;
+		newText: string;
+	};
+}
+
+export interface VbaDiagnosticData {
+	missingRequiredArgumentPlaceholder?: VbaMissingRequiredArgumentPlaceholderData;
 }
 
 /** Per-rule severity overrides; `'off'` disables a rule. */
@@ -236,6 +250,7 @@ function runRules(
 		rule: DiagnosticRuleName,
 		message: string,
 		span: Span,
+		data?: VbaDiagnosticData,
 	): void => {
 		const severity = severityOf(rule, overrides);
 		if (!severity) {
@@ -248,6 +263,7 @@ function runRules(
 			severity,
 			span,
 			specReference: meta.specReference,
+			...(data ? { data } : {}),
 		});
 	};
 
@@ -313,7 +329,12 @@ function runRules(
 	return out;
 }
 
-type PushFn = (rule: DiagnosticRuleName, message: string, span: Span) => void;
+type PushFn = (
+	rule: DiagnosticRuleName,
+	message: string,
+	span: Span,
+	data?: VbaDiagnosticData,
+) => void;
 
 function isInactiveNode(
 	activity: ConditionalActivityTracker | undefined,
@@ -1270,6 +1291,7 @@ function checkArgumentCount(
 			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
 			if (effectiveStatementCall) {
 				validateCallableArity(
+					source,
 					effectiveStatementCall,
 					sameModuleSignatures,
 					projectSignatures,
@@ -1280,27 +1302,28 @@ function checkArgumentCount(
 				if (sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
-				validateCallableArity(call, sameModuleSignatures, projectSignatures, push);
+				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, push);
 			}
 			for (const memberCall of memberExpressionCalls(
 				source,
 				stmt.span,
 				memberCtx,
 			)) {
-				validateArity(memberCall.signature, memberCall.call, push);
+				validateArity(source, memberCall.signature, memberCall.call, push);
 			}
 			for (const memberCall of memberStatementCalls(
 				source,
 				stmt.span,
 				memberCtx,
 			)) {
-				validateArity(memberCall.signature, memberCall.call, push);
+				validateArity(source, memberCall.signature, memberCall.call, push);
 			}
 		}, activity);
 	}
 }
 
 function validateCallableArity(
+	source: string,
 	call: CallArguments,
 	sameModuleSignatures: ReadonlyMap<string, readonly CallableTypeSignature[]>,
 	projectSignatures: ReadonlyMap<string, CallableTypeSignature>,
@@ -1313,20 +1336,20 @@ function validateCallableArity(
 	if (candidates) {
 		// Skip ambiguous same-module targets where the signature is not unique.
 		if (candidates.length === 1) {
-			validateArity(candidates[0], call, push);
+			validateArity(source, candidates[0], call, push);
 		}
 		return;
 	}
 	const projectSignature = projectSignatures.get(lower);
 	if (projectSignature) {
-		validateArity(projectSignature, call, push);
+		validateArity(source, projectSignature, call, push);
 		return;
 	}
 	if (!call.qualifier) {
 		const runtime = resolveRuntimeFunction(call.name);
 		const runtimeSignature = runtime ? runtimeAritySignature(runtime) : undefined;
 		if (runtimeSignature) {
-			validateArity(runtimeSignature, call, push);
+			validateArity(source, runtimeSignature, call, push);
 		}
 	}
 }
@@ -1523,9 +1546,9 @@ function splitArgSlots(toks: VbaToken[], sliceStart: number): ArgSplit {
 	const spans: Span[] = [];
 	let depth = 0;
 	let emptyMarker: VbaToken | undefined;
-	const finishSlot = (): void => {
+	const finishSlot = (nextSeparator?: VbaToken): void => {
 		const slot = slots[slots.length - 1];
-		spans.push(argumentSlotSpan(slot, emptyMarker, sliceStart));
+		spans.push(argumentSlotSpan(slot, emptyMarker, nextSeparator, sliceStart));
 	};
 	for (const t of toks) {
 		if (t.kind === 'punctuation' && t.rawText === '(') {
@@ -1534,7 +1557,7 @@ function splitArgSlots(toks: VbaToken[], sliceStart: number): ArgSplit {
 			depth--;
 		}
 		if (t.kind === 'punctuation' && t.rawText === ',' && depth === 0) {
-			finishSlot();
+			finishSlot(t);
 			slots.push([]);
 			emptyMarker = t;
 		} else {
@@ -1550,7 +1573,12 @@ function emptyArgSplit(): ArgSplit {
 	return { slots: [], spans: [] };
 }
 
-function argumentSlotSpan(slot: VbaToken[], emptyMarker: VbaToken | undefined, sliceStart: number): Span {
+function argumentSlotSpan(
+	slot: VbaToken[],
+	emptyMarker: VbaToken | undefined,
+	nextSeparator: VbaToken | undefined,
+	sliceStart: number,
+): Span {
 	if (slot.length > 0) {
 		return {
 			start: sliceStart + slot[0].start,
@@ -1559,6 +1587,9 @@ function argumentSlotSpan(slot: VbaToken[], emptyMarker: VbaToken | undefined, s
 	}
 	if (emptyMarker) {
 		return { start: sliceStart + emptyMarker.start, end: sliceStart + emptyMarker.end };
+	}
+	if (nextSeparator) {
+		return { start: sliceStart + nextSeparator.start, end: sliceStart + nextSeparator.end };
 	}
 	return { start: sliceStart, end: sliceStart };
 }
@@ -1592,6 +1623,7 @@ function describeArity(required: number, max: number): string {
  * the required minimum and the maximum implied by `Optional`/`ParamArray`.
  */
 function validateArity(
+	source: string,
 	sig: CallableTypeSignature,
 	call: CallArguments,
 	push: PushFn,
@@ -1632,22 +1664,126 @@ function validateArity(
 		const param = params[i];
 		if (call.slots[i].length === 0 && !param.optional && !param.paramArray) {
 			const name = stripHeaderBrackets(param.name);
+			const placeholder = omittedArgumentPlaceholderData(source, call, param, i);
 			push(
 				'argumentCount',
 				`Argument not optional: '${name}' is required by '${sig.name}'.`,
 				call.slotSpans?.[i] ?? call.nameSpan,
+				placeholder,
 			);
 		}
 	}
 
 	const n = call.slots.length;
 	if (n < required || n > max) {
+		const missingParam = n < required ? params[n] : undefined;
+		const placeholder = missingParam
+			? trailingMissingArgumentPlaceholderData(source, call, missingParam)
+			: undefined;
 		push(
 			'argumentCount',
 			`Wrong number of arguments to '${sig.name}': expected ${describeArity(required, max)}, but got ${n}.`,
 			call.nameSpan,
+			placeholder,
 		);
 	}
+}
+
+function omittedArgumentPlaceholderData(
+	source: string,
+	call: CallArguments,
+	param: CallableParamType,
+	slotIndex: number,
+): VbaDiagnosticData | undefined {
+	const separator = call.slotSpans?.[slotIndex];
+	if (!separator || source.slice(separator.start, separator.end) !== ',') {
+		return undefined;
+	}
+	const parameterName = stripHeaderBrackets(param.name);
+	const placeholder = placeholderNameForParameter(parameterName);
+	return {
+		missingRequiredArgumentPlaceholder: {
+			parameterName,
+			edit: {
+				span: separatorWithFollowingHorizontalSpace(source, separator),
+				newText: slotIndex === 0 ? `${placeholder}, ` : `, ${placeholder}`,
+			},
+		},
+	};
+}
+
+function trailingMissingArgumentPlaceholderData(
+	source: string,
+	call: CallArguments,
+	param: CallableParamType,
+): VbaDiagnosticData | undefined {
+	const parameterName = stripHeaderBrackets(param.name);
+	const placeholder = placeholderNameForParameter(parameterName);
+	if (call.slots.length === 0) {
+		const innerSpan = emptyParenthesizedArgumentSpan(source, call);
+		if (innerSpan) {
+			return missingArgumentPlaceholderData(parameterName, innerSpan, placeholder);
+		}
+		const newText = call.explicitCall ? `(${placeholder})` : ` ${placeholder}`;
+		return missingArgumentPlaceholderData(
+			parameterName,
+			{ start: call.nameSpan.end, end: call.nameSpan.end },
+			newText,
+		);
+	}
+	const lastSpan = call.slotSpans?.[call.slotSpans.length - 1];
+	if (!lastSpan) {
+		return undefined;
+	}
+	return missingArgumentPlaceholderData(
+		parameterName,
+		{ start: lastSpan.end, end: lastSpan.end },
+		`, ${placeholder}`,
+	);
+}
+
+function missingArgumentPlaceholderData(
+	parameterName: string,
+	span: Span,
+	newText: string,
+): VbaDiagnosticData {
+	return {
+		missingRequiredArgumentPlaceholder: {
+			parameterName,
+			edit: { span, newText },
+		},
+	};
+}
+
+function placeholderNameForParameter(name: string): string {
+	const safe = name.replace(/[^A-Za-z0-9_]/g, '_').replace(/^[^A-Za-z_]+/, '');
+	return `TODO_${safe || 'Argument'}`;
+}
+
+function separatorWithFollowingHorizontalSpace(source: string, separator: Span): Span {
+	let end = separator.end;
+	while (end < source.length && (source[end] === ' ' || source[end] === '\t')) {
+		end++;
+	}
+	return { start: separator.start, end };
+}
+
+function emptyParenthesizedArgumentSpan(source: string, call: CallArguments): Span | undefined {
+	let open = call.nameSpan.end;
+	while (open < source.length && (source[open] === ' ' || source[open] === '\t')) {
+		open++;
+	}
+	if (source[open] !== '(') {
+		return undefined;
+	}
+	let close = open + 1;
+	while (close < source.length && (source[close] === ' ' || source[close] === '\t')) {
+		close++;
+	}
+	if (source[close] !== ')') {
+		return undefined;
+	}
+	return { start: open + 1, end: close };
 }
 
 interface CallableParamType {

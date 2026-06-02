@@ -1045,7 +1045,8 @@ prove the edit is safe.
   - [x] split local `Dim` initializers into declaration plus assignment
   - [x] add `Set` when the assignment target is known object type
   - [x] remove `Set` when the assignment target is known scalar type
-  - [ ] add missing required argument placeholder only when explicitly requested
+  - [x] add missing required argument placeholder only when explicitly requested,
+    fed by analyzer-owned structured diagnostic metadata
   - [x] add lint suppression comment for a selected diagnostic
   - [ ] create procedure stub for unresolved calls only when the target location is
     explicit

@@ -4,6 +4,7 @@ import {
     scanLintSuppressions,
     type AnalyzeModuleOptions,
     type DiagnosticSeverity as RuleSeverity,
+    type VbaDiagnosticData,
 } from './analyzer';
 import type { Span } from './analyzer/parser/nodes';
 import { lineStartOffsets, lintVbaSource } from './vbaLinter';
@@ -13,6 +14,7 @@ export interface VbaModuleLintDiagnostic {
     message: string;
     severity: RuleSeverity;
     span: Span;
+    data?: VbaDiagnosticData;
 }
 
 export interface VbaModuleLintInput extends AnalyzeModuleOptions {

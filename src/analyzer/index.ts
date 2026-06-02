@@ -189,6 +189,8 @@ export {
 	incompleteMemberAccessEditSpan,
 	SeverityOverrides,
 	VbaDiagnostic,
+	VbaDiagnosticData,
+	VbaMissingRequiredArgumentPlaceholderData,
 } from './diagnostics/analyzeModule';
 export {
 	normalizeDiagnosticCode,

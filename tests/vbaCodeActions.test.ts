@@ -77,6 +77,24 @@ function projectClassMembers(
 	return project.projectClassMembers();
 }
 
+function projectProcedures(
+	modules: Array<{
+		moduleName: string;
+		source: string;
+		moduleKind?: 'standard' | 'class' | 'document' | 'userform';
+	}>,
+): ReturnType<ProjectIndex['procedureSignatures']> {
+	const project = new ProjectIndex();
+	for (const mod of modules) {
+		project.setModule({
+			moduleName: mod.moduleName,
+			moduleKind: mod.moduleKind ?? 'standard',
+			source: mod.source,
+		});
+	}
+	return project.procedureSignatures();
+}
+
 describe('resolveDiagnosticCodeActions', () => {
 	it('inserts a missing procedure closer at EOF', () => {
 		const source = 'Sub Foo()\n    MsgBox 1\n';
@@ -269,6 +287,129 @@ describe('resolveDiagnosticCodeActions', () => {
 		const actions = resolveDiagnosticCodeActions(source, {
 			code: 'expression-call-requires-parens',
 			span: { start, end: start + 'InvoiceTotal'.length },
+		});
+
+		expect(actions).toHaveLength(0);
+	});
+
+	it('inserts a placeholder for a trailing same-module required argument', () => {
+		const source =
+			'Sub Main()\n' +
+			'    Greet "Ann"\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'argument-count');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe("Insert placeholder for missing argument 'b'");
+		expect(actions[0].isPreferred).toBe(false);
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'    Greet "Ann", TODO_b\n',
+		);
+	});
+
+	it('inserts a placeholder into an empty runtime call argument list', () => {
+		const source = 'Sub Main()\n    MsgBox()\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'argument-count');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Sub Main()\n    MsgBox(TODO_Prompt)\nEnd Sub\n',
+		);
+	});
+
+	it('inserts a placeholder for an omitted leading required argument', () => {
+		const source =
+			'Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Sub Main()\n' +
+			'    total2 = InvoiceTotal(, 0.08)\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'argument-count');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'    total2 = InvoiceTotal(TODO_Subtotal, 0.08)\n',
+		);
+	});
+
+	it('inserts a placeholder for an omitted trailing required argument', () => {
+		const source =
+			'Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n' +
+			'Sub Main()\n' +
+			'    total2 = InvoiceTotal(total, )\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'argument-count');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'    total2 = InvoiceTotal(total, TODO_TaxRate)\n',
+		);
+	});
+
+	it('inserts a placeholder for a cross-module required argument', () => {
+		const source =
+			'Public Sub Main()\n' +
+			'    PrintTotal 100\n' +
+			'End Sub\n';
+		const helpers =
+			'Public Sub PrintTotal(ByVal amount As Currency, ByVal caption As String)\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'argument-count', {
+			moduleName: 'Caller',
+			projectProcedures: projectProcedures([
+				{ moduleName: 'Caller', source },
+				{ moduleName: 'Helpers', source: helpers },
+			]),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'    PrintTotal 100, TODO_caption\n',
+		);
+	});
+
+	it('inserts a placeholder for a source-backed class member required argument', () => {
+		const source =
+			'Sub Main()\n' +
+			'    Dim p As Person\n' +
+			'    Call p.Save()\n' +
+			'End Sub\n';
+		const person =
+			'Public Sub Save(ByVal Caption As String)\n' +
+			'End Sub\n';
+		const diag = firstDiagnostic(source, 'argument-count', {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+			]),
+		});
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(actions).toHaveLength(1);
+		expect(applyEdits(source, actions[0].edits)).toContain(
+			'    Call p.Save(TODO_Caption)\n',
+		);
+	});
+
+	it('does not offer a missing-argument placeholder without analyzer metadata', () => {
+		const source = 'Sub Main()\n    MsgBox()\nEnd Sub\n';
+		const start = source.indexOf('MsgBox');
+
+		const actions = resolveDiagnosticCodeActions(source, {
+			code: 'argument-count',
+			span: { start, end: start + 'MsgBox'.length },
 		});
 
 		expect(actions).toHaveLength(0);
