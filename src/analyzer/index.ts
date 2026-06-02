@@ -59,9 +59,11 @@ export {
 	resolveReceiverTypeAt,
 } from './completion/memberAccess';
 export {
+	CanonicalCaseBoundaryKind,
 	CanonicalCaseContext,
 	CanonicalCaseEdit,
 	CanonicalCaseSpan,
+	canonicalCaseBoundaryKind,
 	resolveCanonicalCaseEdit,
 	resolveCanonicalCaseEdits,
 } from './completion/canonicalCasing';

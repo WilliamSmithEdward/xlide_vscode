@@ -689,7 +689,10 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   pressing Enter at the end of a line, moving away from the edited line,
   switching editors, or leaving the editor, so `person` in `As Person` /
   `New Person`, known members/runtime names, and VBA keywords normalize even
-  when completion is dismissed.
+  when completion is dismissed. Text-change boundary classification now lives in
+  the shared analyzer casing helper, and Enter-triggered line casing is deferred
+  one tick so Smart Enter and other same-keystroke edits settle before the line
+  formatter runs.
 - [x] Share structural block knowledge between linting and Smart Enter so safe
   block openers auto-insert their matching closer instead of maintaining
   procedure-only editor logic.

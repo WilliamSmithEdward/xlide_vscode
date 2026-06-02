@@ -30,7 +30,35 @@ export interface CanonicalCaseSpan {
 	end: number;
 }
 
+export type CanonicalCaseBoundaryKind = 'token' | 'line';
+
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const TOKEN_BOUNDARY_CHARS = new Set([
+	'(',
+	')',
+	'.',
+	',',
+	'=',
+	':',
+	'+',
+	'-',
+	'*',
+	'/',
+	'\\',
+	'&',
+	'<',
+	'>',
+]);
+
+export function canonicalCaseBoundaryKind(text: string): CanonicalCaseBoundaryKind | undefined {
+	if (/^\r?\n[ \t]*$/.test(text)) {
+		return 'line';
+	}
+	if (/^[ \t]$/.test(text) || TOKEN_BOUNDARY_CHARS.has(text)) {
+		return 'token';
+	}
+	return undefined;
+}
 
 export function resolveCanonicalCaseEdit(
 	source: string,

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	canonicalCaseBoundaryKind,
 	resolveCanonicalCaseEdit,
 	resolveCanonicalCaseEdits,
 	type CanonicalCaseContext,
@@ -121,5 +122,23 @@ describe('canonical casing edits', () => {
 		expect(edits.map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
 			['msgbox', 'MsgBox'],
 		]);
+	});
+});
+
+describe('canonical casing boundary policy', () => {
+	it('classifies Enter with optional editor indentation as a line boundary', () => {
+		expect(canonicalCaseBoundaryKind('\n')).toBe('line');
+		expect(canonicalCaseBoundaryKind('\r\n')).toBe('line');
+		expect(canonicalCaseBoundaryKind('\n\t\t')).toBe('line');
+		expect(canonicalCaseBoundaryKind('\r\n    ')).toBe('line');
+	});
+
+	it('classifies single-token boundaries without treating pasted text as a boundary', () => {
+		for (const text of [' ', '\t', '.', '(', ')', ',', '=', ':', '+', '-', '*', '/', '\\', '&', '<', '>']) {
+			expect(canonicalCaseBoundaryKind(text), text).toBe('token');
+		}
+		expect(canonicalCaseBoundaryKind('  ')).toBeUndefined();
+		expect(canonicalCaseBoundaryKind(' = ')).toBeUndefined();
+		expect(canonicalCaseBoundaryKind('Value')).toBeUndefined();
 	});
 });
