@@ -331,14 +331,15 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
 | `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, add/remove `Set` for proven object/scalar assignments, and expose an XLIDE source action for linting the current workbook-backed module |
 | Diagnostics | Debounced `vbaModuleLint` results merge structural block-balance, semantic analysis, and suppression directives before rendering VS Code diagnostics; live diagnostics pass the active cursor offset so oracle-backed incomplete member access (`receiver.` and bare `.` inside an active `With`) is hidden only while that line is being edited, then restored on selection/editor change, current-module lint, or workbook lint |
-| Smart enter (auto-block) | Pressing Enter after a safe block opener inserts the matching closer with an expanded layout: spacer line, one editable body line one real tab deeper than the opener, spacer line, then the closer at opener indentation; if a matching closer already exists ahead, Smart Enter only normalizes the newly created body line indentation; supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion. Pressing Enter after a leading-dot member line inside an active `With` block keeps the same indentation and seeds another leading `.` |
+| Smart enter (auto-block) | Pressing Enter after a safe block opener inserts the matching closer through the shared smart-block helper. The default `xlide.editor.blockLayout = "comfy"` layout uses a spacer line, one editable body line one real tab deeper than the opener, another spacer line, then the closer at opener indentation; `"compact"` places the editable body directly above the closer. If a matching closer already exists ahead, Smart Enter only normalizes the newly created body line indentation. Supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion. Pressing Enter after a leading-dot member line inside an active `With` block keeps the same indentation and seeds another leading `.` |
 | Loop iterator sync | Editing the iterator token in a simple `For` / `For Each` opener or its matching `Next name` updates the paired token, using the same string/comment stripping and conservative block matching as structural linting |
 
-The expanded Smart Enter layout is the default `comfy` block style. A future
-`compact` style may remove spacer lines, exposed as a VS Code extension setting
-contributed by `package.json` rather than `.xlide` project configuration. Both
-modes must be expressed in the same smart-block helper/catalogue so Enter
-auto-blocking and Tab snippets still share one behavior contract.
+The expanded Smart Enter layout is the default `comfy` block style. The
+`compact` style removes spacer lines and is exposed as the VS Code extension
+setting `xlide.editor.blockLayout`, contributed by `package.json` rather than
+`.xlide` project configuration. Both modes are expressed in the same
+smart-block helper/catalogue so Enter auto-blocking and Tab snippets share one
+behavior contract.
 
 Language-service business rules are unified across surfaces. Unless a behavior is
 called out as a deliberate corner case, completion insert text, hover, signature

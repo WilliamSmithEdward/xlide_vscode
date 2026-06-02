@@ -8,10 +8,22 @@ interface VbaLanguageConfiguration {
 	onEnterRules?: Array<{ beforeText?: string; afterText?: string }>;
 }
 
+interface PackageConfiguration {
+	contributes?: {
+		configuration?: {
+			properties?: Record<string, unknown>;
+		};
+	};
+}
+
 function loadConfig(): VbaLanguageConfiguration {
 	return JSON.parse(
 		readFileSync('language-configuration/vba-language-configuration.json', 'utf8'),
 	) as VbaLanguageConfiguration;
+}
+
+function loadPackage(): PackageConfiguration {
+	return JSON.parse(readFileSync('package.json', 'utf8')) as PackageConfiguration;
 }
 
 function enterRuleMatches(config: VbaLanguageConfiguration, line: string): boolean {
@@ -75,5 +87,16 @@ describe('VBA language configuration', () => {
 			expect(increase.test(`    ${line}`), line).toBe(false);
 			expect(enterRuleMatches(config, `    ${line}`), line).toBe(false);
 		}
+	});
+
+	it('contributes the shared Smart Enter/snippet block layout setting', () => {
+		const setting = loadPackage()
+			.contributes
+			?.configuration
+			?.properties
+			?.['xlide.editor.blockLayout'] as { enum?: string[]; default?: string } | undefined;
+
+		expect(setting?.default).toBe('comfy');
+		expect(setting?.enum).toEqual(['comfy', 'compact']);
 	});
 });

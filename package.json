@@ -51,6 +51,15 @@
           "default": "warning",
           "description": "Severity for the reminder shown when a code module omits 'Option Explicit'. Set to 'off' to disable just this check."
         },
+        "xlide.editor.blockLayout": {
+          "type": "string",
+          "enum": [
+            "comfy",
+            "compact"
+          ],
+          "default": "comfy",
+          "description": "Controls VBA Smart Enter and block-snippet layout. 'comfy' inserts spacer lines around the editable body; 'compact' places the editable body directly above the closer."
+        },
         "xlide.docs.enabled": {
           "type": "boolean",
           "default": true,

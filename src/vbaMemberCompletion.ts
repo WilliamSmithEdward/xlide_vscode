@@ -12,7 +12,7 @@
 import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import { XLIDE_SCHEME, decodeModuleUri } from './xlideFileSystem';
-import { leadingWhitespace } from './vbaLinter';
+import { leadingWhitespace, normalizeSmartBlockLayout } from './vbaLinter';
 import {
 	DocRegistry,
 	EventHandlerCompletion,
@@ -167,7 +167,11 @@ class VbaMemberCompletionProvider
 			return events.map((event) => this._toEventHandlerItem(event, range));
 		}
 
-		const keywords = resolveKeywordCompletions(source, offset);
+		const keywords = resolveKeywordCompletions(source, offset, {
+			blockLayout: normalizeSmartBlockLayout(
+				vscode.workspace.getConfiguration('xlide').get<string>('editor.blockLayout'),
+			),
+		});
 		if (keywords.exclusive) {
 			return keywords.items.map((item) => this._toKeywordItem(item, range, document));
 		}

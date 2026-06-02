@@ -9,6 +9,7 @@ import {
     findIdentifierOccurrences,
     isSmartBlockClosedAhead,
     lineStartOffsets,
+    normalizeSmartBlockLayout,
     resolveLoopIteratorSyncEdit,
     smartBlockInsertion,
     VBA_IDENTIFIER_NAME_RE,
@@ -1172,6 +1173,9 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const smartBlock = smartBlockInsertion(openerLine, bodyLine, opener, {
             eol,
             insertCloser: !closedAhead,
+            layout: normalizeSmartBlockLayout(
+                vscode.workspace.getConfiguration('xlide').get<string>('editor.blockLayout'),
+            ),
         });
         const bodyRange = new vscode.Range(
             new vscode.Position(bodyLineIndex, 0),

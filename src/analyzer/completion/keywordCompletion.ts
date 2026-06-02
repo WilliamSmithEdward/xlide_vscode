@@ -11,6 +11,7 @@ import {
 	openSmartBlockClosersBefore,
 	VBA_BLOCK_INDENT_UNIT,
 	vbaSmartBlockSnippetsFor,
+	type VbaSmartBlockLayout,
 	type VbaSmartBlockSnippetSpec,
 } from '../../vbaLinter';
 
@@ -30,6 +31,10 @@ export interface KeywordCompletionResult {
 	items: KeywordCompletion[];
 	/** True when the grammar position should not show ordinary symbols. */
 	exclusive: boolean;
+}
+
+export interface KeywordCompletionOptions {
+	blockLayout?: VbaSmartBlockLayout;
 }
 
 interface CompletionContext {
@@ -54,7 +59,6 @@ const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const I = VBA_BLOCK_INDENT_UNIT;
 
 const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
-	...vbaSmartBlockSnippetsFor('statement').map(keywordSpecFromSmartBlock),
 	snippet('Option Explicit', 'Option Explicit', 'Option statement'),
 	snippet('On Error Resume Next', 'On Error Resume Next', 'Error-handling statement'),
 	snippet('On Error GoTo 0', 'On Error GoTo 0', 'Error-handling statement'),
@@ -75,7 +79,6 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 ];
 
 const MODIFIER_SNIPPETS: readonly KeywordSpec[] = [
-	...vbaSmartBlockSnippetsFor('modifier').map(keywordSpecFromSmartBlock),
 	keyword('Const', 'Constant declaration'),
 	keyword('Dim', 'Variable declaration'),
 ];
@@ -105,7 +108,6 @@ const ON_ERROR_SNIPPETS: readonly KeywordSpec[] = [
 ];
 
 const DIRECTIVE_SNIPPETS: readonly KeywordSpec[] = [
-	...vbaSmartBlockSnippetsFor('directive').map(keywordSpecFromSmartBlock),
 	snippet('#Const', '#Const ${1:name} = ${2:value}', 'Conditional compilation constant'),
 	keyword('#ElseIf', 'Conditional compilation branch'),
 	keyword('#Else', 'Conditional compilation branch'),
@@ -115,11 +117,13 @@ const DIRECTIVE_SNIPPETS: readonly KeywordSpec[] = [
 export function resolveKeywordCompletions(
 	source: string,
 	offset: number,
+	options: KeywordCompletionOptions = {},
 ): KeywordCompletionResult {
 	const ctx = completionContext(source, offset);
 	if (!ctx) {
 		return { items: [], exclusive: false };
 	}
+	const blockLayout = options.blockLayout;
 
 	const first = word(ctx.prefix[0]);
 	const second = word(ctx.prefix[1]);
@@ -139,14 +143,15 @@ export function resolveKeywordCompletions(
 		return complete(ON_SNIPPETS, ctx.partial, true);
 	}
 	if (first === '#') {
-		return complete(DIRECTIVE_SNIPPETS, ctx.partial, true);
+		return complete(directiveSnippets(blockLayout), ctx.partial, true);
 	}
 	if (ctx.prefix.length === 1 && isAccessModifier(first)) {
-		return complete(MODIFIER_SNIPPETS, ctx.partial, true);
+		return complete(modifierSnippets(blockLayout), ctx.partial, true);
 	}
 	if (ctx.atStatementStart) {
 		const close = closingCompletion(source, ctx.statementStart);
-		return complete(close ? [close, ...STATEMENT_SNIPPETS] : STATEMENT_SNIPPETS, ctx.partial, false);
+		const snippets = statementSnippets(blockLayout);
+		return complete(close ? [close, ...snippets] : snippets, ctx.partial, false);
 	}
 	return { items: [], exclusive: false };
 }
@@ -205,6 +210,27 @@ function isKeywordPrefix(tokens: readonly VbaToken[]): boolean {
 		}
 		return isIdentLike(token);
 	});
+}
+
+function statementSnippets(layout: VbaSmartBlockLayout | undefined): readonly KeywordSpec[] {
+	return [
+		...vbaSmartBlockSnippetsFor('statement', layout).map(keywordSpecFromSmartBlock),
+		...STATEMENT_SNIPPETS,
+	];
+}
+
+function modifierSnippets(layout: VbaSmartBlockLayout | undefined): readonly KeywordSpec[] {
+	return [
+		...vbaSmartBlockSnippetsFor('modifier', layout).map(keywordSpecFromSmartBlock),
+		...MODIFIER_SNIPPETS,
+	];
+}
+
+function directiveSnippets(layout: VbaSmartBlockLayout | undefined): readonly KeywordSpec[] {
+	return [
+		...vbaSmartBlockSnippetsFor('directive', layout).map(keywordSpecFromSmartBlock),
+		...DIRECTIVE_SNIPPETS,
+	];
 }
 
 function complete(

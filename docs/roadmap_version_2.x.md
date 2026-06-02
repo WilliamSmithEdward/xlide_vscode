@@ -172,9 +172,11 @@ heuristic diagnostics.
 - Smart Enter auto-blocks safe VBA block openers through the same structural
   block helper used by linting, including procedures, `If ... Then`, `With`,
   `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`; `With`
-  uses the default comfy block layout: spacer line, one editable body line one
-  real tab deeper, spacer line, then the closer. `With` starts the editable body
-  line with `.` for immediate member completion.
+  uses the default `xlide.editor.blockLayout = "comfy"` layout: spacer line,
+  one editable body line one real tab deeper, spacer line, then the closer.
+  The optional `"compact"` layout removes spacer lines for both Smart Enter and
+  block snippets. `With` starts the editable body line with `.` for immediate
+  member completion.
 - Block keyword completions remain full-block scaffolds for explicit Tab-driven
   shortcuts, while Smart Enter handles the line-by-line opener workflow. Active
   close-keyword suggestions consume the same smart-block stack as Smart Enter.
@@ -902,7 +904,7 @@ the deterministic analyzer contract.
   - explicit command/session overrides for one-off operations
 - [ ] Make built-in defaults configurable by users and overrideable by
   workspace config without weakening diagnostic determinism.
-- [ ] Add a deterministic VS Code extension setting, contributed through
+- [x] Add a deterministic VS Code extension setting, contributed through
   `package.json`, for editor block layout in Smart Enter and block snippets:
   - default `comfy`: spacer line, editable indented body line, spacer line,
     closer

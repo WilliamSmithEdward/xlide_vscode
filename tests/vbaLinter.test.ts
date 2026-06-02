@@ -15,6 +15,7 @@ import {
     withMemberContinuationText,
     detectProcOpener,
     isProcClosedAhead,
+    normalizeSmartBlockLayout,
 } from '../src/vbaLinter';
 
 describe('lintVbaSource', () => {
@@ -474,6 +475,20 @@ describe('smartBlockInsertion', () => {
         });
     });
 
+    it('builds compact blocks from the same Smart Enter helper', () => {
+        const opener = detectSmartBlockOpener('    If True Then');
+        expect(opener).toBeDefined();
+
+        expect(smartBlockInsertion('    If True Then', '    ', opener!, {
+            eol: '\r\n',
+            layout: 'compact',
+        })).toEqual({
+            bodyText: '    \t',
+            bodyLineOffset: 0,
+            replacementText: '    \t\r\n    End If',
+        });
+    });
+
     it('keeps existing-closer Enter compact while preserving body indentation', () => {
         const opener = detectSmartBlockOpener('    For Each item In collection');
         expect(opener).toBeDefined();
@@ -486,6 +501,14 @@ describe('smartBlockInsertion', () => {
             bodyLineOffset: 0,
             replacementText: '    \t',
         });
+    });
+});
+
+describe('normalizeSmartBlockLayout', () => {
+    it('defaults unknown settings to the comfy layout', () => {
+        expect(normalizeSmartBlockLayout(undefined)).toBe('comfy');
+        expect(normalizeSmartBlockLayout('nonsense')).toBe('comfy');
+        expect(normalizeSmartBlockLayout('compact')).toBe('compact');
     });
 });
 

@@ -53,6 +53,24 @@ describe('keyword completion - statement snippets', () => {
 		}
 	});
 
+	it('projects compact block snippets from the same smart-block catalogue', () => {
+		const result = resolveKeywordCompletions(
+			'Sub T()\n    \nEnd Sub\n',
+			at('Sub T()\n    \nEnd Sub\n', '    '),
+			{ blockLayout: 'compact' },
+		);
+
+		expect(result.items.find((item) => item.label === 'With')?.insertText).toBe(
+			'With ${1:object}\n\t.$0\nEnd With',
+		);
+		expect(result.items.find((item) => item.label === 'If Else')?.insertText).toBe(
+			'If ${1:condition} Then\n\t$2\nElse\n\t$0\nEnd If',
+		);
+		expect(result.items.find((item) => item.label === 'Select Case')?.insertText).toBe(
+			'Select Case ${1:expression}\n\tCase ${2:value}\n\t\t$0\nEnd Select',
+		);
+	});
+
 	it('projects statement block snippets from the shared smart-block catalogue', () => {
 		const result = resolveKeywordCompletions('Sub T()\n    \nEnd Sub\n', at('Sub T()\n    \nEnd Sub\n', '    '));
 		const labels = result.items.map((item) => item.label);
