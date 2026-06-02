@@ -13,6 +13,10 @@ interface PackageConfiguration {
 		configuration?: {
 			properties?: Record<string, PackageSetting>;
 		};
+		viewsContainers?: {
+			activitybar?: PackageViewContainer[];
+		};
+		views?: Record<string, PackageView[]>;
 	};
 }
 
@@ -20,6 +24,21 @@ interface PackageSetting {
 	default?: unknown;
 	enum?: string[];
 	scope?: string;
+	additionalProperties?: {
+		enum?: string[];
+	};
+}
+
+interface PackageViewContainer {
+	id?: string;
+	title?: string;
+	icon?: string;
+}
+
+interface PackageView {
+	id?: string;
+	name?: string;
+	contextualTitle?: string;
 }
 
 function loadConfig(): VbaLanguageConfiguration {
@@ -141,5 +160,19 @@ describe('VBA language configuration', () => {
 		for (const [key, setting] of xlideSettings) {
 			expect(setting.scope, key).toBe('machine');
 		}
+	});
+
+	it('contributes one dedicated XLIDE activity bar sidebar without replacing the explorer tree', () => {
+		const contributes = loadPackage().contributes;
+		const activityContainers = contributes?.viewsContainers?.activitybar ?? [];
+		const xlideContainer = activityContainers.find((container) => container.id === 'xlide');
+
+		expect(xlideContainer).toMatchObject({
+			id: 'xlide',
+			title: 'XLIDE',
+			icon: 'assets/icons/xlide-activity.svg',
+		});
+		expect(contributes?.views?.xlide?.map((view) => view.id)).toEqual(['xlide.sidebar']);
+		expect(contributes?.views?.explorer?.map((view) => view.id)).toContain('xlide.explorer');
 	});
 });

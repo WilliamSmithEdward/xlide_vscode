@@ -908,14 +908,17 @@ Activity Bar icon and a full sidebar command/status surface for workbook
 development.
 
 - [x] Add the planned sidebar design/spec to `docs/xlide_sidebar_panel.md`.
-- [ ] Add a dedicated XLIDE Activity Bar container using standard VS Code
-  contribution points.
-- [ ] Create a slick monochrome SVG Activity Bar icon that follows VS Code's
+- [x] Add a dedicated XLIDE Activity Bar container using standard VS Code
+  contribution points. `package.json` now contributes the `xlide` Activity Bar
+  container and native `xlide.sidebar` TreeView.
+- [x] Create a slick monochrome SVG Activity Bar icon that follows VS Code's
   icon style: simple line geometry, mask-friendly, readable at 24px, and
-  theme-neutral.
-- [ ] Expand the current workbook/module explorer into a full XLIDE sidebar
-  with deterministic status sections and command surfaces.
-- [ ] Keep the existing XLIDE workbook/module tree in the VS Code Explorer
+  theme-neutral. The icon lives at `assets/icons/xlide-activity.svg`.
+- [x] Add the initial full XLIDE sidebar shell with deterministic status
+  sections and command surfaces. `src/xlideSidebarModel.ts` owns the pure model;
+  `src/xlideSidebar.ts` renders it as a native TreeView with Project, Actions,
+  Configuration, and Support sections.
+- [x] Keep the existing XLIDE workbook/module tree in the VS Code Explorer
   section even after the dedicated XLIDE Activity Bar/sidebar ships. Explorer is
   the file/navigation surface; the XLIDE sidebar is the product shell for
   health, commands, configuration, tests, analysis summaries, and status.
@@ -933,6 +936,9 @@ development.
   - analysis engine readiness
   - VBA test runner readiness once implemented
   - optional metadata/doc-comment support
+- [ ] Add selected-workbook context to the sidebar so workbook-scoped settings
+  can be viewed and edited from the same shell without mutating global/editor
+  defaults.
 - [ ] Add primary action buttons:
   - analyze current module
   - analyze workbook
@@ -1078,9 +1084,14 @@ the deterministic analyzer contract.
   and agent export-mode configuration. The generic sidecar owner stays in
   `src/workbookSettings.ts`, and sync saves preserve unrelated workbook
   settings instead of stamping defaults for the opposite import/export lane.
-- [ ] Surface all configuration through the unified XLIDE sidebar menu
-  collection, while preserving normal VS Code Settings integration for users
-  who prefer native settings UI.
+- [x] Surface contributed global/editor configuration through the unified XLIDE
+  sidebar menu collection, while preserving normal VS Code Settings integration
+  for users who prefer native settings UI. The sidebar consumes
+  `resolvedXlideGlobalSettingsFromConfig`, so displayed values and provenance
+  share the production resolver.
+- [ ] Surface active-workbook configuration in the XLIDE sidebar once selected
+  workbook context is available. Workbook-specific choices must still persist
+  only to `<workbook>.xlide_settings.json`.
 - [x] Add rule severity overrides with guardrails. `ruleMetadata.ts` now owns
   allowed overrides by stable diagnostic code, and live diagnostics,
   current-module analysis, workbook analysis, the Analysis Settings GUI, global
@@ -1103,7 +1114,7 @@ the deterministic analyzer contract.
   surface malformed values as `XLIDE/settings` diagnostics on VBA documents;
   workbook sidecar errors continue to surface through the workbook settings
   owner.
-- [ ] Document precedence and conflict handling for built-in defaults, VS Code
+- [x] Document precedence and conflict handling for built-in defaults, VS Code
   settings, and workbook sidecar overrides.
 
 Definition of done:

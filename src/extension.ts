@@ -13,6 +13,7 @@ import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { createRecordedOutputChannel } from './xlideOutputLog';
+import { registerXlideSidebar } from './xlideSidebar';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -228,6 +229,7 @@ export function activate(context: vscode.ExtensionContext): void {
             out.show(true);
         }),
 
+        ...registerXlideSidebar(),
         ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
         ...registerAgentTools(context, bridge, explorer, fsProvider),
 

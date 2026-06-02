@@ -25,7 +25,9 @@ xlide_vscode/
   src/
     extension.ts        Activation entry point — registers all providers and commands
     pythonBridge.ts     PythonBridge class — spawns server.py, JSON-RPC 2.0 client
-    xlsmExplorer.ts     XlsmExplorer — TreeDataProvider for the XLIDE sidebar
+    xlsmExplorer.ts     XlsmExplorer — TreeDataProvider for the XLIDE workbook tree in VS Code Explorer
+    xlideSidebar.ts     Native XLIDE Activity Bar/sidebar TreeDataProvider
+    xlideSidebarModel.ts Pure model for sidebar status/action/configuration sections
     xlideFileSystem.ts  XlideFileSystemProvider — virtual xlide-vba:// filesystem
     commands.ts         Command handlers: open/new/rename/delete, workbook open/run, export modules
     agentTools.ts       LanguageModelTool registrations for AI agent use
@@ -88,7 +90,8 @@ xlide_vscode/
 
 ## Virtual filesystem — `xlide-vba://`
 
-Clicking a module in the sidebar opens it under the custom scheme:
+Clicking a module in the XLIDE Explorer workbook tree opens it under the custom
+scheme:
 
 ```
 xlide-vba:///C:/path/to/workbook.xlsm/Module1.bas
@@ -360,6 +363,45 @@ The host-side RPC handlers (`listWorkbooks`, `listModules`, `listSubs`, `readMod
 |---|---|---|---|
 | Active module | Active editor is an `xlide-vba://` document | `<workbook> | <module>` (or `XLIDE (Live Share)` for remote) | `xlide.refreshExplorer` |
 | Live Share | Connected as a Live Share guest | `XLIDE (Live Share): <N workbooks>` | `xlide.refreshExplorer` |
+
+---
+
+## Activity Bar sidebar — `xlideSidebar.ts`
+
+XLIDE contributes a dedicated Activity Bar container (`xlide`) and a native
+TreeView (`xlide.sidebar`). The workbook/module navigation tree remains in the
+VS Code Explorer as `xlide.explorer`; the Activity Bar sidebar is the product
+shell for setup status, common actions, global/editor settings, and support
+actions.
+
+`src/xlideSidebarModel.ts` owns the pure sidebar model so the UI shape can be
+tested without VS Code APIs. `src/xlideSidebar.ts` renders that model, refreshes
+on `xlide.*` configuration changes, workspace-folder changes, and workbook file
+create/delete events, and does not require Excel COM to render.
+
+The Configuration section consumes `resolvedXlideGlobalSettingsFromConfig`.
+That keeps displayed global/editor values, source labels, validation behavior,
+and production behavior on the same resolver path. Workbook-specific settings
+are not stored globally: workbook-facing GUIs and future selected-workbook
+sidebar controls persist workbook choices only to
+`<workbook-filename>.xlide_settings.json`.
+
+---
+
+## Configuration scopes and precedence
+
+XLIDE supports two configuration scopes:
+
+1. Global/editor settings live in VS Code machine/profile settings and are
+   declared as machine-scoped `xlide.*` contributions in `package.json`.
+2. Workbook-specific settings live beside the workbook in
+   `<workbook-filename>.xlide_settings.json`.
+
+Precedence is deterministic: built-in defaults are the floor, VS Code global
+settings override those defaults for the current machine/profile, and
+workbook-specific sidecar values override global defaults only for that
+workbook. There are no legacy sidecar names and no secondary JSON settings
+surface outside workbook sidecars.
 
 ---
 

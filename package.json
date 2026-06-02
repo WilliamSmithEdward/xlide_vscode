@@ -21,6 +21,15 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "xlide",
+          "title": "XLIDE",
+          "icon": "assets/icons/xlide-activity.svg"
+        }
+      ]
+    },
     "configuration": {
       "title": "XLIDE",
       "properties": {
@@ -241,6 +250,14 @@
       }
     ],
     "views": {
+      "xlide": [
+        {
+          "id": "xlide.sidebar",
+          "name": "XLIDE",
+          "contextualTitle": "XLIDE Sidebar",
+          "icon": "$(dashboard)"
+        }
+      ],
       "explorer": [
         {
           "id": "xlide.explorer",
@@ -251,6 +268,10 @@
       ]
     },
     "viewsWelcome": [
+      {
+        "view": "xlide.sidebar",
+        "contents": "XLIDE actions, setup status, and global settings are available here.\n[Refresh workbooks](command:xlide.refreshExplorer)\n[Open global settings](command:workbench.action.openSettings?%5B%22%40ext%3AWilliamSmithE.xlide%22%5D)"
+      },
       {
         "view": "xlide.explorer",
         "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)\n\nLive Share notes:\n- Guests can view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- Guests do not need XLIDE installed to participate."
