@@ -32,6 +32,25 @@ interface ExportModulesResult {
     configPath: string;
 }
 
+interface ExportModuleParams {
+    filePath: string;
+    moduleName: string;
+    exportFolder?: string;
+    exportMode?: ExportMode;
+}
+
+interface ExportModuleResult {
+    filePath: string;
+    moduleName: string;
+    moduleType: string;
+    exportFolder: string;
+    exportMode: ExportMode;
+    relativeName: string;
+    written: boolean;
+    skippedNew: boolean;
+    configPath: string;
+}
+
 function configPathForWorkbook(filePath: string): string {
     return path.join(path.dirname(filePath), `${path.basename(filePath)}.extension.repo.json`);
 }
@@ -97,6 +116,81 @@ async function setWorkbookExportMode(filePath: string, mode: ExportMode): Promis
     return updated;
 }
 
+function relativeNameForModule(mod: ModuleInfo): string {
+    const safeName = sanitizeFileName(mod.name) || mod.name;
+    const ext = extensionForModuleType(mod.type);
+    return `${safeName}.${ext}`;
+}
+
+async function exportModuleFile(
+    bridge: PythonBridge,
+    filePath: string,
+    mod: ModuleInfo,
+    exportFolder: string,
+    exportMode: ExportMode,
+): Promise<{ relativeName: string; written: boolean; skippedNew: boolean }> {
+    const relativeName = relativeNameForModule(mod);
+    const outPath = path.join(exportFolder, relativeName);
+
+    if (exportMode === 'replaceExistingOnly' && !(await fileExists(outPath))) {
+        return { relativeName, written: false, skippedNew: true };
+    }
+
+    const sourceResult = await bridge.call<{ source: string }>('readModule', {
+        path: filePath,
+        module: mod.name,
+        full: true,   // include VBA attribute headers so exported files round-trip cleanly
+    });
+    await fs.promises.writeFile(outPath, sourceResult.source, 'utf8');
+    return { relativeName, written: true, skippedNew: false };
+}
+
+async function exportWorkbookModule(
+    bridge: PythonBridge,
+    params: ExportModuleParams,
+): Promise<ExportModuleResult> {
+    const existingConfig = await readWorkbookRepoConfig(params.filePath);
+    const exportFolder = params.exportFolder ?? existingConfig.exportFolder;
+    if (!exportFolder) {
+        throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
+    }
+
+    const exportMode = normalizeExportMode(params.exportMode ?? existingConfig.exportMode);
+    await fs.promises.mkdir(exportFolder, { recursive: true });
+
+    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
+    const mod = modules.find(
+        (candidate) => candidate.name.toLowerCase() === params.moduleName.toLowerCase(),
+    );
+    if (!mod) {
+        throw new Error(`Module "${params.moduleName}" was not found in the workbook.`);
+    }
+
+    const exported = await exportModuleFile(bridge, params.filePath, mod, exportFolder, exportMode);
+    const managedFiles = new Set(getManagedFiles(existingConfig));
+    if (exported.written) {
+        managedFiles.add(exported.relativeName);
+    }
+
+    await writeWorkbookRepoConfig(params.filePath, {
+        exportFolder,
+        exportMode,
+        managedFiles: Array.from(managedFiles).sort(),
+    });
+
+    return {
+        filePath: params.filePath,
+        moduleName: mod.name,
+        moduleType: mod.type,
+        exportFolder,
+        exportMode,
+        relativeName: exported.relativeName,
+        written: exported.written,
+        skippedNew: exported.skippedNew,
+        configPath: configPathForWorkbook(params.filePath),
+    };
+}
+
 async function exportWorkbookModules(
     bridge: PythonBridge,
     params: ExportModulesParams,
@@ -116,24 +210,19 @@ async function exportWorkbookModules(
     let skippedNewCount = 0;
 
     for (const mod of modules) {
-        const sourceResult = await bridge.call<{ source: string }>('readModule', {
-            path: params.filePath,
-            module: mod.name,
-            full: true,   // include VBA attribute headers so exported files round-trip cleanly
-        });
-
-        const safeName = sanitizeFileName(mod.name) || mod.name;
-        const ext = extensionForModuleType(mod.type);
-        const relativeName = `${safeName}.${ext}`;
-        const outPath = path.join(exportFolder, relativeName);
-
-        if (exportMode === 'replaceExistingOnly' && !(await fileExists(outPath))) {
+        const exported = await exportModuleFile(
+            bridge,
+            params.filePath,
+            mod,
+            exportFolder,
+            exportMode,
+        );
+        if (exported.skippedNew) {
             skippedNewCount++;
             continue;
         }
 
-        await fs.promises.writeFile(outPath, sourceResult.source, 'utf8');
-        managedNow.add(relativeName);
+        managedNow.add(exported.relativeName);
         writtenCount++;
     }
 
@@ -181,10 +270,13 @@ export {
     type WorkbookRepoConfig,
     type ExportModulesParams,
     type ExportModulesResult,
+    type ExportModuleParams,
+    type ExportModuleResult,
     configPathForWorkbook,
     normalizeExportMode,
     readWorkbookRepoConfig,
     writeWorkbookRepoConfig,
     setWorkbookExportMode,
+    exportWorkbookModule,
     exportWorkbookModules,
 };

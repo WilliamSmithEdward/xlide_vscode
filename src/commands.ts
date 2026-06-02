@@ -15,6 +15,7 @@ import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import { encodeRemoteModuleUri } from './liveShare';
 import {
     type ExportMode,
+    exportWorkbookModule,
     exportWorkbookModules,
     normalizeExportMode,
     readWorkbookRepoConfig,
@@ -346,6 +347,29 @@ export function registerCommands(
         return filePath;
     }
 
+    async function resolveWorkbookExportFolder(
+        filePath: string,
+        openLabel: string,
+    ): Promise<{ exportFolder: string; exportMode: ExportMode } | undefined> {
+        const existingConfig = await readWorkbookRepoConfig(filePath);
+        const exportMode = normalizeExportMode(existingConfig.exportMode);
+        if (existingConfig.exportFolder) {
+            return { exportFolder: existingConfig.exportFolder, exportMode };
+        }
+
+        const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel,
+            defaultUri: vscode.Uri.file(path.dirname(filePath)),
+        });
+        if (!selected || selected.length === 0) {
+            return undefined;
+        }
+        return { exportFolder: selected[0].fsPath, exportMode };
+    }
+
     function diagnosticSeverityOverridesFromConfig(): SeverityOverrides {
         const optionExplicit = vscode.workspace
             .getConfiguration('xlide')
@@ -354,6 +378,54 @@ export function registerCommands(
             optionExplicitMissing:
                 optionExplicit === 'off' ? 'off' : (optionExplicit as RuleSeverity),
         };
+    }
+
+    async function exportActiveModule(): Promise<void> {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
+            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to export the current module.');
+            return;
+        }
+
+        if (editor.document.isDirty) {
+            const saved = await editor.document.save();
+            if (!saved) {
+                vscode.window.showWarningMessage('XLIDE: Save the current module before exporting it.');
+                return;
+            }
+        }
+
+        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        const target = await resolveWorkbookExportFolder(xlsmPath, 'Select export folder');
+        if (!target) {
+            return;
+        }
+
+        log(`[exportCurrentModule] Workbook: ${xlsmPath}`);
+        log(`[exportCurrentModule] Module: ${moduleName}`);
+        log(`[exportCurrentModule] Target folder: ${target.exportFolder}`);
+        log(`[exportCurrentModule] Mode: ${target.exportMode}`);
+
+        const result = await exportWorkbookModule(bridge, {
+            filePath: xlsmPath,
+            moduleName,
+            exportFolder: target.exportFolder,
+            exportMode: target.exportMode,
+        });
+
+        if (result.skippedNew) {
+            log(`[exportCurrentModule] Skipped ${result.relativeName} because mode=replaceExistingOnly and the file does not exist`);
+            vscode.window.showWarningMessage(
+                `XLIDE: Skipped "${result.relativeName}" because export mode is replaceExistingOnly and the file does not exist.`,
+            );
+            return;
+        }
+
+        log(`[exportCurrentModule] Wrote ${result.relativeName}`);
+        log(`[exportCurrentModule] Config updated: ${result.configPath}`);
+        vscode.window.showInformationMessage(
+            `XLIDE: Exported "${result.moduleName}" to ${result.relativeName} [mode=${result.exportMode}]`,
+        );
     }
 
     async function lintActiveModule(): Promise<void> {
@@ -687,35 +759,17 @@ export function registerCommands(
             if (!filePath) { return; }
 
             try {
-                const existingConfig = await readWorkbookRepoConfig(filePath);
-                const exportMode = normalizeExportMode(existingConfig.exportMode);
-                const configuredFolder = existingConfig.exportFolder;
-
-                let exportFolder: string;
-                if (configuredFolder) {
-                    // Folder already set — export directly without prompting
-                    exportFolder = configuredFolder;
-                } else {
-                    // First time — ask the user to pick a folder
-                    const selected = await vscode.window.showOpenDialog({
-                        canSelectFiles: false,
-                        canSelectFolders: true,
-                        canSelectMany: false,
-                        openLabel: 'Select export folder',
-                        defaultUri: vscode.Uri.file(path.dirname(filePath)),
-                    });
-                    if (!selected || selected.length === 0) { return; }
-                    exportFolder = selected[0].fsPath;
-                }
+                const target = await resolveWorkbookExportFolder(filePath, 'Select export folder');
+                if (!target) { return; }
 
                 log(`[exportModules] Workbook: ${filePath}`);
-                log(`[exportModules] Target folder: ${exportFolder}`);
-                log(`[exportModules] Mode: ${exportMode}`);
+                log(`[exportModules] Target folder: ${target.exportFolder}`);
+                log(`[exportModules] Mode: ${target.exportMode}`);
 
                 const result = await exportWorkbookModules(bridge, {
                     filePath,
-                    exportFolder,
-                    exportMode,
+                    exportFolder: target.exportFolder,
+                    exportMode: target.exportMode,
                 });
 
                 log(`[exportModules] Wrote ${result.writtenCount} module(s)`);
@@ -733,6 +787,17 @@ export function registerCommands(
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[exportModules] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to export modules: ${message}`);
+            }
+        }),
+
+        // Save and export just the active VBA module to the configured module folder
+        vscode.commands.registerCommand('xlide.exportCurrentModuleToFolder', async () => {
+            try {
+                await exportActiveModule();
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[exportCurrentModule] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to export current module: ${message}`);
             }
         }),
 

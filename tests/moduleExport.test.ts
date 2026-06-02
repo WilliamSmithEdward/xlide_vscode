@@ -1,0 +1,145 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import type { PythonBridge } from '../src/pythonBridge';
+import {
+	configPathForWorkbook,
+	exportWorkbookModule,
+	exportWorkbookModules,
+	readWorkbookRepoConfig,
+	writeWorkbookRepoConfig,
+} from '../src/moduleExport';
+
+interface FakeModule {
+	name: string;
+	type: string;
+	source: string;
+}
+
+const tempRoots: string[] = [];
+
+afterEach(() => {
+	for (const root of tempRoots.splice(0)) {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+function tempWorkbook(): { root: string; workbook: string; exportFolder: string } {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-export-'));
+	tempRoots.push(root);
+	const workbook = path.join(root, 'Book.xlsm');
+	const exportFolder = path.join(root, 'repo');
+	fs.writeFileSync(workbook, '', 'utf8');
+	return { root, workbook, exportFolder };
+}
+
+function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
+	return {
+		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
+			if (method === 'listModules') {
+				return modules.map((mod) => ({ name: mod.name, type: mod.type })) as T;
+			}
+			if (method === 'readModule') {
+				const moduleName = String(args.module ?? '').toLowerCase();
+				const mod = modules.find((candidate) => candidate.name.toLowerCase() === moduleName);
+				if (!mod) {
+					throw new Error(`Unknown module ${String(args.module)}`);
+				}
+				return { source: mod.source } as T;
+			}
+			throw new Error(`Unexpected bridge call ${method}`);
+		},
+	} as PythonBridge;
+}
+
+describe('moduleExport', () => {
+	it('exports one module and preserves existing managed files', async () => {
+		const { workbook, exportFolder } = tempWorkbook();
+		await writeWorkbookRepoConfig(workbook, {
+			exportFolder,
+			exportMode: 'trueUp',
+			managedFiles: ['Other.bas'],
+		});
+		const bridge = fakeBridge([
+			{ name: 'Module1', type: 'standard', source: 'Attribute VB_Name = "Module1"\nSub T()\nEnd Sub\n' },
+			{ name: 'Other', type: 'standard', source: 'Sub Other()\nEnd Sub\n' },
+		]);
+
+		const result = await exportWorkbookModule(bridge, {
+			filePath: workbook,
+			moduleName: 'module1',
+		});
+
+		expect(result).toMatchObject({
+			moduleName: 'Module1',
+			moduleType: 'standard',
+			relativeName: 'Module1.bas',
+			written: true,
+			skippedNew: false,
+		});
+		expect(fs.readFileSync(path.join(exportFolder, 'Module1.bas'), 'utf8')).toBe(
+			'Attribute VB_Name = "Module1"\nSub T()\nEnd Sub\n',
+		);
+		expect((await readWorkbookRepoConfig(workbook)).managedFiles).toEqual([
+			'Module1.bas',
+			'Other.bas',
+		]);
+	});
+
+	it('skips a new current-module file in replaceExistingOnly mode without dropping managed files', async () => {
+		const { workbook, exportFolder } = tempWorkbook();
+		await writeWorkbookRepoConfig(workbook, {
+			exportFolder,
+			exportMode: 'replaceExistingOnly',
+			managedFiles: ['Existing.bas'],
+		});
+		const bridge = fakeBridge([
+			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
+		]);
+
+		const result = await exportWorkbookModule(bridge, {
+			filePath: workbook,
+			moduleName: 'Module1',
+		});
+
+		expect(result).toMatchObject({
+			relativeName: 'Module1.bas',
+			written: false,
+			skippedNew: true,
+		});
+		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(false);
+		expect((await readWorkbookRepoConfig(workbook)).managedFiles).toEqual(['Existing.bas']);
+	});
+
+	it('keeps all-module true-up behavior on the shared module-file writer', async () => {
+		const { workbook, exportFolder } = tempWorkbook();
+		fs.mkdirSync(exportFolder, { recursive: true });
+		fs.writeFileSync(path.join(exportFolder, 'Stale.bas'), 'old', 'utf8');
+		await writeWorkbookRepoConfig(workbook, {
+			exportFolder,
+			exportMode: 'trueUp',
+			managedFiles: ['Stale.bas'],
+		});
+		const bridge = fakeBridge([
+			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
+			{ name: 'Person', type: 'class', source: 'VERSION 1.0 CLASS\n' },
+		]);
+
+		const result = await exportWorkbookModules(bridge, { filePath: workbook });
+
+		expect(result).toMatchObject({
+			writtenCount: 2,
+			removedCount: 1,
+			skippedNewCount: 0,
+		});
+		expect(fs.existsSync(path.join(exportFolder, 'Stale.bas'))).toBe(false);
+		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(true);
+		expect(fs.existsSync(path.join(exportFolder, 'Person.cls'))).toBe(true);
+		expect((await readWorkbookRepoConfig(workbook)).managedFiles).toEqual([
+			'Module1.bas',
+			'Person.cls',
+		]);
+		expect(configPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.extension.repo.json'));
+	});
+});

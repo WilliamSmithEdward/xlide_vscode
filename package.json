@@ -193,6 +193,12 @@
         "icon": "$(check)"
       },
       {
+        "command": "xlide.exportCurrentModuleToFolder",
+        "title": "Export/Sync Current Module",
+        "category": "XLIDE",
+        "icon": "$(export)"
+      },
+      {
         "command": "xlide.newWorkbook",
         "title": "New Macro-Enabled Workbook",
         "category": "XLIDE",
@@ -305,6 +311,11 @@
           "command": "xlide.lintCurrentModule",
           "when": "editorLangId == vba && resourceScheme == xlide-vba",
           "group": "xlide@1"
+        },
+        {
+          "command": "xlide.exportCurrentModuleToFolder",
+          "when": "editorLangId == vba && resourceScheme == xlide-vba",
+          "group": "xlide@2"
         }
       ]
     },

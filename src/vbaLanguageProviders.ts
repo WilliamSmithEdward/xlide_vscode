@@ -67,6 +67,7 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
 ];
 const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
 const XLIDE_LINT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('lintCurrentModule');
+const XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('exportCurrentModule');
 const XLIDE_DIAGNOSTIC_DATA = Symbol('xlideDiagnosticData');
 
 type XlideDiagnosticWithData = vscode.Diagnostic & {
@@ -1071,14 +1072,15 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
     ): vscode.ProviderResult<vscode.CodeAction[]> {
         if (!isVbaDocument(document)) { return []; }
         const wantsQuickFix = codeActionKindRequested(context.only, vscode.CodeActionKind.QuickFix);
-        const wantsSource = codeActionKindRequested(context.only, XLIDE_LINT_CURRENT_MODULE_ACTION_KIND);
-        if (!wantsQuickFix && !wantsSource) {
+        const wantsLintCurrentModule = codeActionKindRequested(context.only, XLIDE_LINT_CURRENT_MODULE_ACTION_KIND);
+        const wantsExportCurrentModule = codeActionKindRequested(context.only, XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND);
+        if (!wantsQuickFix && !wantsLintCurrentModule && !wantsExportCurrentModule) {
             return [];
         }
 
         const source = document.getText();
         const actions: vscode.CodeAction[] = [];
-        if (wantsSource && document.uri.scheme === XLIDE_SCHEME) {
+        if (wantsLintCurrentModule && document.uri.scheme === XLIDE_SCHEME) {
             const action = new vscode.CodeAction(
                 'XLIDE: Lint Current Module',
                 XLIDE_LINT_CURRENT_MODULE_ACTION_KIND,
@@ -1086,6 +1088,17 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
             action.command = {
                 command: 'xlide.lintCurrentModule',
                 title: 'Lint Current Module',
+            };
+            actions.push(action);
+        }
+        if (wantsExportCurrentModule && document.uri.scheme === XLIDE_SCHEME && !document.uri.authority) {
+            const action = new vscode.CodeAction(
+                'XLIDE: Export/Sync Current Module',
+                XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND,
+            );
+            action.command = {
+                command: 'xlide.exportCurrentModuleToFolder',
+                title: 'Export/Sync Current Module',
             };
             actions.push(action);
         }
@@ -1367,7 +1380,13 @@ export function registerVbaLanguageProviders(
         vscode.languages.registerCodeActionsProvider(
             VBA_SELECTOR,
             new VbaCodeActionProvider(),
-            { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, XLIDE_LINT_CURRENT_MODULE_ACTION_KIND] },
+            {
+                providedCodeActionKinds: [
+                    vscode.CodeActionKind.QuickFix,
+                    XLIDE_LINT_CURRENT_MODULE_ACTION_KIND,
+                    XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND,
+                ],
+            },
         ),
         vscode.languages.registerDocumentSemanticTokensProvider(
             VBA_SELECTOR,

@@ -1054,7 +1054,9 @@ prove the edit is safe.
     produce no quick fix
 - [ ] Add source actions:
   - [x] lint current module
-  - [ ] export/sync current module
+  - [x] export/sync current module via the shared module-export helper; dirty
+    local `xlide-vba` editors save first, then only that module is exported to
+    the configured folder without replacing the all-module export pipeline
   - [ ] run current test when test runner exists
 - [ ] Add tests for every generated edit, including formatting and range
   stability.
