@@ -1,6 +1,6 @@
 # XLIDE Sidebar Panel
 
-Status: initial native Activity Bar/sidebar implemented; richer test and
+Status: polished Activity Bar/sidebar WebviewView implemented; richer test and
 health-probe sections remain roadmap work.
 
 Purpose: define the future XLIDE Activity Bar/sidebar experience for workbook
@@ -9,18 +9,18 @@ development in VS Code.
 ## Implemented Initial Slice
 
 - `package.json` contributes a dedicated `xlide` Activity Bar container and the
-  native `xlide.sidebar` TreeView.
+  `xlide.sidebar` WebviewView.
 - `src/xlideSidebarModel.ts` owns the testable sidebar section model.
 - `src/xlideSidebar.ts` owns VS Code rendering and refresh behavior.
-- The current sidebar shows deterministic project/workbook-discovery status,
-  active-workbook context, workbook sidecar status, core XLIDE actions,
-  workbook-effective import/export and analysis status, and support actions.
+- The current sidebar shows a compact welcome note that points users to the
+  Explorer-hosted XLIDE workbook tree, setup/dependency health with green/yellow
+  status dots, a dedicated target-workbook action group, core XLIDE actions,
+  compact settings launchers, and support actions.
 - Global/editor settings are opened through VS Code Settings. Workbook-scoped
-  settings continue to live in `<workbook>.xlide_settings.json`; the sidebar
-  reads the same sidecar owner and links to the active sidecar when it exists.
-- The next sidebar cleanup should remove dense inline global/machine settings
-  rows and replace them with one button that opens a dedicated XLIDE Global
-  Settings GUI.
+  settings continue to live in `<workbook>.xlide_settings.json` and are edited
+  from workbook-facing GUIs rather than permanent sidebar rows.
+- Dense inline global/machine settings rows have been replaced by one global
+  settings launcher. A dedicated XLIDE Global Settings GUI remains roadmap work.
 
 ## Goals
 
@@ -33,6 +33,9 @@ development in VS Code.
   next action.
 - Avoid replacing command-palette workflows; the sidebar should make them easier
   to discover and run.
+- Keep module-scoped actions and module-scoped information out of the sidebar.
+  Module-targeted commands belong in the editor or workbook/module tree where
+  the module target is explicit.
 - Keep workbook/module navigation available in the VS Code Explorer. The XLIDE
   Activity Bar/sidebar is an additional command, health, test, analysis, and config
   surface, not a reason to remove the Explorer tree.
@@ -62,30 +65,25 @@ The icon should live in a stable media asset path and be referenced through the
 
 Recommended sections:
 
-1. **Project**
-   - Active workbook
-   - Linked source folder
-   - Current project context and selected workbook
-   - Dirty/sync status
-   - Link/button to reveal the workbook/module tree in Explorer
+1. **Welcome**
+   - A compact note explaining that workbook/module navigation lives in
+     Explorer > XLIDE.
 
 2. **Setup Health**
-   - Requirements and recommendations
+   - Python Executable
+   - Required Python Libraries
    - Pass/warn/fail/unknown indicators
-   - Inline quick actions where available
-   - Green icon for ready dependencies
-   - Yellow icon for dependencies that need user action
-   - A targeted button/action for each yellow row, such as install dependencies,
-     set Python path, open Trust Center guidance, or open the relevant setup GUI
+   - A Set Path button next to Python Executable, disabled when ready
+   - An Install button next to Required Python Libraries, disabled when ready
 
-3. **Actions**
-   - Analyze current module
-   - Analyze workbook
-   - Run current test
-   - Run all tests
-   - Export/sync modules
-   - Open/reopen workbook
-   - Refresh project
+3. **Workbook Actions**
+   - Target workbook picker for workbook-scoped sidebar actions
+   - Analyze selected workbook
+   - Import/export selected workbook modules
+   - Validate selected workbook VBA project
+   - Open selected workbook in Excel
+   - Open selected workbook read-only
+   - Future workbook-scoped test-runner entry points
 
 4. **Problems**
    - Error count
@@ -106,15 +104,21 @@ Recommended sections:
    - COM/reset warnings
 
 7. **Configuration**
-   - Compact active-workbook sidecar status.
    - One action to open the dedicated XLIDE Global Settings GUI for VS
      Code/machine settings.
-   - One action to open the active workbook settings GUI or sidecar when a
-     workbook context exists.
    - Do not render every setting as sidebar rows; detailed inspection/editing
      belongs in dedicated settings GUIs.
    - Profile/rule-set selector once profiles exist, likely inside the dedicated
      settings GUI rather than as permanent sidebar clutter.
+
+8. **Support**
+   - Copy diagnostics
+   - Export support bundle
+
+9. **Donate**
+   - Donate / GitHub Sponsors ❤️
+   - Donate / PayPal 💳
+   - Donate / Cash App: $williamesmithjcil 💵
 
 ## Setup Health Checks
 
@@ -167,32 +171,46 @@ unknown No workbook selected
 Actions should be visible as buttons or tree-item commands, with tooltips and
 disabled states where appropriate:
 
-- `XLIDE: Analyze Current Module`
-- `XLIDE: Analyze Workbook`
+- `XLIDE: Analyze Workbook` against the sidebar target workbook
 - `XLIDE: Analyze Workbook` from the workbook node context menu in the XLIDE
   workbook tree; this should route to the same workbook analysis engine and active
   workbook selection model as the sidebar action.
-- `XLIDE: Run Current VBA Test`
-- `XLIDE: Run All VBA Tests`
-- `XLIDE: Export/Sync Modules`
-- `XLIDE: Open Workbook`
+- `XLIDE: Run All VBA Tests` against the sidebar target workbook once the test
+  runner exists
+- `XLIDE: Export/Sync Modules` against the sidebar target workbook
+- `XLIDE: Open Workbook` for the sidebar target workbook
+- `XLIDE: Open Workbook Read Only` for the sidebar target workbook
 - `XLIDE: Reopen Workbook`
-- `XLIDE: Refresh Project`
 - `XLIDE: Open Global Settings`
-- `XLIDE: Open Workbook Settings`
 - `XLIDE: Open Logs`
+- `XLIDE: Donate` / GitHub Sponsors opens
+  [GitHub Sponsors](https://github.com/sponsors/WilliamSmithEdward)
+- `XLIDE: Donate` / PayPal opens the PayPal donation page
+- `XLIDE: Donate` / Cash App opens
+  [Cash App](https://cash.app/$williamesmithjcil)
 
 Buttons should not silently run destructive operations. Sync/write actions need
-clear status and should reuse existing safe workbook handling.
+clear status and should reuse existing safe workbook handling. Workbook-scoped
+sidebar buttons must be disabled when no target workbook is selected instead of
+falling back to an unrelated active editor.
+
+Module-scoped commands such as analyze current module, export current module,
+and run current test should remain available from editor context menus,
+command-palette flows, or module tree context menus, not as permanent sidebar
+buttons.
 
 ## Polish Details
 
 - Use VS Code codicons where available.
 - Use concise labels; put detail in tooltips.
+- Use a polished WebviewView layout with stable section spacing, borders,
+  dividers, compact status dots, and button-style action rows.
 - Keep the sidebar short. Prefer one launch button for a detailed GUI over
   many always-visible setting rows.
 - Keep dependency health visible when it affects whether the current workflow is
   usable; use green/yellow status icons and one direct action for yellow items.
+- Keep status dots reserved for setup/dependency health; project/welcome and
+  workbook-action rows should not show health-color indicators.
 - Keep sections collapsible.
 - Persist collapsed/expanded state locally.
 - Show badges for errors, warnings, and failed tests.
@@ -216,14 +234,29 @@ clear status and should reuse existing safe workbook handling.
 
 ## Implementation Notes
 
-- Prefer a VS Code `TreeView` model for status/action sections unless a
-  `WebviewView` is needed for richer test summaries.
+- Use a VS Code `WebviewView` for the polished sidebar shell. Keep the model
+  separate and dependency-free so the business shape remains unit-testable.
 - Keep the sidebar state model separate from VS Code rendering so it can be unit
   tested.
 - Reuse the existing workbook explorer provider where possible.
 - Keep the workbook/module explorer contributed to the Explorer view. The
   dedicated XLIDE Activity Bar view can reference the same selected workbook and
   provide actions/status, but should not make the Explorer tree disappear.
+- Treat the sidebar target workbook as the single workbook-scoped action target
+  for analysis, import/export, open/reopen, and future test-runner actions. The
+  picker should list workbooks discovered from the open VS Code workspace, clear
+  invalid selections when files disappear, and refresh when workbook files or
+  workbook sidecars change.
+- Do not render module-scoped actions or module-scoped information in the
+  sidebar. The sidebar can route to the Explorer tree or editor context for
+  module workflows, but it should not own a second module target picker or infer
+  module intent from the active editor.
+- Keep tree right-click workbook actions and sidebar workbook actions in sync as
+  parallel entry points. The tree supplies the clicked workbook node, the sidebar
+  supplies the target picker value, and both must call the same command handlers
+  and downstream GUI/business logic.
+- Store selected-workbook UI state in VS Code workspace state, not global
+  settings and not workbook sidecar settings.
 - Setup checks should be pure functions where possible and explicit async probes
   where COM/workbook state is required.
 - Do not require Excel COM for basic sidebar rendering.

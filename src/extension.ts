@@ -14,6 +14,7 @@ import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { createRecordedOutputChannel } from './xlideOutputLog';
 import { registerXlideSidebar } from './xlideSidebar';
+import type { XlideSidebarSetupStatus } from './xlideSidebarModel';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -23,6 +24,8 @@ function installDependencies(
     bridge: PythonBridge,
     context: vscode.ExtensionContext,
     out: vscode.OutputChannel,
+    onBridgeReady?: () => void,
+    onBridgeFailed?: (err: Error) => void,
 ): Promise<void> {
     const pythonPath = bridge.resolvePython();
     const requirementsPath = path.join(context.extensionPath, 'python', 'requirements.txt');
@@ -42,12 +45,14 @@ function installDependencies(
                     bridge.start()
                         .then(() => {
                             out.appendLine('XLIDE ready.');
+                            onBridgeReady?.();
                             void vscode.window.showInformationMessage(
                                 'XLIDE: Dependencies installed and bridge started. If any files failed to open, click Try Again in the editor tab.',
                             );
                         })
                         .catch((err: Error) => {
                             out.appendLine(`ERROR after install: ${err.message}`);
+                            onBridgeFailed?.(err);
                             vscode.window.showErrorMessage(`XLIDE: ${err.message}`);
                         });
                     resolve();
@@ -74,6 +79,89 @@ export function activate(context: vscode.ExtensionContext): void {
     fsProvider.setLiveShare(liveShare);
     explorer.setLiveShare(liveShare);
     const statusBar = new XlideStatusBar(liveShare);
+    const isMissingPackage = (msg: string) =>
+        /No module named|ModuleNotFoundError|ImportError/i.test(msg);
+
+    const isPythonNotFound = (msg: string) =>
+        /python.*not found|not recognized|cannot find|no such file|ENOENT|spawn.*python/i.test(msg);
+
+    const checkingSetupStatus = (): XlideSidebarSetupStatus => ({
+        pythonExecutable: {
+            status: 'unknown',
+            description: 'Checking',
+            tooltip: 'XLIDE is checking the configured Python executable.',
+        },
+        pythonLibraries: {
+            status: 'unknown',
+            description: 'Checking',
+            tooltip: 'XLIDE is checking required Python libraries.',
+        },
+    });
+    let setupStatus: XlideSidebarSetupStatus = checkingSetupStatus();
+    const sidebar = registerXlideSidebar({
+        setupStatus: () => setupStatus,
+        workspaceState: context.workspaceState,
+    });
+    const setSetupStatus = (status: XlideSidebarSetupStatus) => {
+        setupStatus = status;
+        sidebar.refresh();
+    };
+    const pythonBackendReady = () => setSetupStatus({
+        pythonExecutable: {
+            status: 'pass',
+            description: bridge.resolvePython(),
+            tooltip: 'XLIDE found a usable Python executable.',
+        },
+        pythonLibraries: {
+            status: 'pass',
+            description: 'Installed',
+            tooltip: 'Required Python libraries are installed.',
+        },
+    });
+    const pythonBackendNeedsAttention = (err: Error) => {
+        if (isPythonNotFound(err.message)) {
+            setSetupStatus({
+                pythonExecutable: {
+                    status: 'warn',
+                    description: 'Not Found',
+                    tooltip: err.message,
+                },
+                pythonLibraries: {
+                    status: 'unknown',
+                    description: 'Waiting For Python',
+                    tooltip: 'Set a valid Python executable before installing required libraries.',
+                },
+            });
+            return;
+        }
+        if (isMissingPackage(err.message)) {
+            setSetupStatus({
+                pythonExecutable: {
+                    status: 'pass',
+                    description: bridge.resolvePython(),
+                    tooltip: 'XLIDE found a usable Python executable.',
+                },
+                pythonLibraries: {
+                    status: 'warn',
+                    description: 'Missing',
+                    tooltip: err.message,
+                },
+            });
+            return;
+        }
+        setSetupStatus({
+            pythonExecutable: {
+                status: 'unknown',
+                description: 'Check Settings',
+                tooltip: err.message,
+            },
+            pythonLibraries: {
+                status: 'warn',
+                description: 'Needs Attention',
+                tooltip: err.message,
+            },
+        });
+    };
 
     // Mirror Live Share guest state into a context key so the explorer welcome view
     // can show a "not supported" message instead of the generic empty-workspace one.
@@ -211,7 +299,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // Manual setup command (also auto-triggered on missing packages)
         registerXlideCommand('xlide.setup', () =>
-            installDependencies(bridge, context, out).catch((err: Error) => {
+            installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention).catch((err: Error) => {
+                pythonBackendNeedsAttention(err);
                 out.appendLine(`Setup error: ${err.message}`);
                 void vscode.window.showErrorMessage(
                     `XLIDE setup failed: ${err.message}`,
@@ -229,7 +318,7 @@ export function activate(context: vscode.ExtensionContext): void {
             out.show(true);
         }),
 
-        ...registerXlideSidebar(),
+        ...sidebar.disposables,
         ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
         ...registerAgentTools(context, bridge, explorer, fsProvider),
 
@@ -256,14 +345,9 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
     );
 
-    const isMissingPackage = (msg: string) =>
-        /No module named|ModuleNotFoundError|ImportError/i.test(msg);
-
-    const isPythonNotFound = (msg: string) =>
-        /python.*not found|not recognized|cannot find|no such file|ENOENT|spawn.*python/i.test(msg);
-
     bridge.start().then(() => {
         out.appendLine('XLIDE ready.');
+        pythonBackendReady();
 
         // Item 9: Show a one-time welcome notification on first ever activation.
         if (!context.globalState.get('xlide.welcomed')) {
@@ -291,6 +375,7 @@ export function activate(context: vscode.ExtensionContext): void {
         });
     }).catch(async (err: Error) => {
         out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
+        pythonBackendNeedsAttention(err);
 
         if (isPythonNotFound(err.message)) {
             const choice = await vscode.window.showErrorMessage(
@@ -335,7 +420,8 @@ export function activate(context: vscode.ExtensionContext): void {
                 'Dismiss',
             );
             if (choice === 'Install Now') {
-                await installDependencies(bridge, context, out).catch((e: Error) => {
+                await installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention).catch((e: Error) => {
+                    pythonBackendNeedsAttention(e);
                     out.appendLine(`Setup error: ${e.message}`);
                     void vscode.window.showErrorMessage(
                         `XLIDE setup failed: ${e.message}. Copy redacted diagnostics if you need to troubleshoot.`,

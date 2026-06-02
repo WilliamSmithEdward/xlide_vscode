@@ -26,7 +26,7 @@ xlide_vscode/
     extension.ts        Activation entry point — registers all providers and commands
     pythonBridge.ts     PythonBridge class — spawns server.py, JSON-RPC 2.0 client
     xlsmExplorer.ts     XlsmExplorer — TreeDataProvider for the XLIDE workbook tree in VS Code Explorer
-    xlideSidebar.ts     Native XLIDE Activity Bar/sidebar TreeDataProvider
+    xlideSidebar.ts     Polished XLIDE Activity Bar/sidebar WebviewView
     xlideSidebarModel.ts Pure model for sidebar status/action/configuration sections
     xlideFileSystem.ts  XlideFileSystemProvider — virtual xlide-vba:// filesystem
     commands.ts         Command handlers: open/new/rename/delete, workbook open/run, export modules
@@ -368,27 +368,41 @@ The host-side RPC handlers (`listWorkbooks`, `listModules`, `listSubs`, `readMod
 
 ## Activity Bar sidebar — `xlideSidebar.ts`
 
-XLIDE contributes a dedicated Activity Bar container (`xlide`) and a native
-TreeView (`xlide.sidebar`). The workbook/module navigation tree remains in the
-VS Code Explorer as `xlide.explorer`; the Activity Bar sidebar is the product
-shell for setup status, common actions, global/editor settings, and support
-actions.
+XLIDE contributes a dedicated Activity Bar container (`xlide`) and a polished
+WebviewView (`xlide.sidebar`). The workbook/module navigation tree remains in
+the VS Code Explorer as `xlide.explorer`; the Activity Bar sidebar is the
+product shell for setup status, common actions, compact settings entry points,
+and support actions.
 
 `src/xlideSidebarModel.ts` owns the pure sidebar model so the UI shape can be
-tested without VS Code APIs. `src/xlideSidebar.ts` renders that model, refreshes
-on `xlide.*` configuration changes, workspace-folder changes, active-editor
-changes, workbook file create/delete events, and `.xlide_settings.json` sidecar
-changes, and does not require Excel COM to render.
+tested without VS Code APIs. `src/xlideSidebar.ts` renders that model into a
+VS Code-themed webview with section spacing, dividers, setup-only status dots,
+a compact welcome note that points users to the Explorer-hosted XLIDE tree, and
+a dedicated Workbook Actions group containing the target workbook picker and
+workbook-scoped action buttons. It does not render module-scoped actions or
+module-scoped information; those stay in editor or tree contexts where the
+module target is explicit. It refreshes on `xlide.*` configuration changes,
+workspace-folder changes, active-editor changes, workbook file create/delete
+events, and `.xlide_settings.json` sidecar changes, and does not require Excel
+COM to render.
 
-The Configuration section consumes `resolvedXlideGlobalSettingsFromConfig`.
-That keeps displayed global/editor values, source labels, validation behavior,
-and production behavior on the same resolver path. The Workbook Configuration
-section selects a workbook from the active `xlide-vba://` editor, or from a
-single-workbook workspace, then reads `<workbook-filename>.xlide_settings.json`
-through `workbookSettings.ts`. It displays the same effective import/export
-settings from `workbookModuleSyncSettings.ts` and analysis settings from
-`workbookAnalysisSettings.ts` that production commands use. Workbook-specific
-settings are not stored globally.
+The Setup section exposes only two dependency rows today: Python Executable and
+Required Python Libraries. Each row has an action button that is disabled when
+the row is already green. The Workbook Actions section lets the user pick the
+target workbook and keeps workbook-scoped actions directly under that picker. If
+no explicit sidebar target is selected, the context can fall back to the active
+`xlide-vba://` editor or a single-workbook workspace; if no target exists,
+workbook-scoped sidebar buttons are disabled rather than falling back to an
+unrelated editor. The selected target is workspace UI state, not a global
+setting or workbook sidecar value. The Settings section offers a compact global
+settings launcher without rendering workbook-scoped import/export, analysis, or
+sidecar rows. The Support section keeps troubleshooting actions together. The
+bottom Donate section renders each donation action with `Donate` as the card
+title and the platform details as the subtitle: GitHub Sponsors, PayPal, and
+Cash App. Workbook-facing GUIs read `<workbook-filename>.xlide_settings.json`
+through `workbookSettings.ts` and the effective settings helpers that production
+commands use.
+Workbook-specific settings are not stored globally.
 
 ---
 

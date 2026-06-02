@@ -1,26 +1,42 @@
-import type { ResolvedXlideGlobalSetting } from './globalSettings';
-import type { EffectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
-import type { EffectiveWorkbookModuleSyncSettings } from './workbookModuleSyncSettings';
-
-type XlideSidebarNodeKind = 'section' | 'status' | 'setting' | 'action';
+type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
-type XlideSidebarSettingSource = ResolvedXlideGlobalSetting<unknown>['source'] | 'workbook' | 'session' | 'missing';
 
 interface XlideSidebarActiveWorkbook {
     label: string;
     filePath: string;
     settingsPath: string;
-    selectionSource: 'activeEditor' | 'singleWorkbook';
+    selectionSource: 'activeEditor' | 'singleWorkbook' | 'sidebarSelection';
     settingsState: 'missing' | 'valid' | 'invalid';
     settingsMessage?: string;
-    analysisSettings?: EffectiveWorkbookAnalysisSettings;
-    moduleSyncSettings?: EffectiveWorkbookModuleSyncSettings;
+}
+
+interface XlideSidebarWorkbookChoice {
+    label: string;
+    filePath: string;
+    description?: string;
 }
 
 interface XlideSidebarCommand {
     command: string;
     title: string;
     arguments?: unknown[];
+}
+
+interface XlideSidebarSelectOption {
+    label: string;
+    value: string;
+    description?: string;
+}
+
+interface XlideSidebarDependencyStatus {
+    status: XlideSidebarStatus;
+    description: string;
+    tooltip: string;
+}
+
+interface XlideSidebarSetupStatus {
+    pythonExecutable: XlideSidebarDependencyStatus;
+    pythonLibraries: XlideSidebarDependencyStatus;
 }
 
 interface XlideSidebarNode {
@@ -31,156 +47,130 @@ interface XlideSidebarNode {
     tooltip?: string;
     icon?: string;
     status?: XlideSidebarStatus;
+    disabled?: boolean;
+    value?: string;
+    options?: XlideSidebarSelectOption[];
     command?: XlideSidebarCommand;
     children?: XlideSidebarNode[];
 }
 
 interface XlideSidebarModelInput {
-    globalSettings: readonly ResolvedXlideGlobalSetting<unknown>[];
-    hasWorkspace: boolean;
-    workbookCount: number;
+    workbookChoices?: readonly XlideSidebarWorkbookChoice[];
     activeWorkbook?: XlideSidebarActiveWorkbook;
+    setupStatus?: XlideSidebarSetupStatus;
 }
 
-const GLOBAL_SETTING_LABELS: Record<string, string> = {
-    'xlide.analysis.ruleSeverityOverrides': 'Rule severities',
-    'xlide.analysis.untrackedRules': 'Untracked rules',
-    'xlide.analysis.visibleSeverities': 'Visible severities',
-    'xlide.attachToRunningExcel': 'Attach to running Excel',
-    'xlide.diagnostics.enabled': 'Live diagnostics',
-    'xlide.docs.enabled': 'Documentation hovers',
-    'xlide.docs.metadataGlob': 'Doc metadata glob',
-    'xlide.editor.blockLayout': 'Block layout',
-    'xlide.pythonPath': 'Python executable',
-};
-
 function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode[] {
-    const workbookArg = input.activeWorkbook
-        ? {
-            kind: 'xlsm',
-            label: input.activeWorkbook.label,
-            filePath: input.activeWorkbook.filePath,
-        }
-        : undefined;
+    const workbookArg = input.activeWorkbook ? workbookCommandArg(input.activeWorkbook) : undefined;
+    const setupStatus = input.setupStatus ?? defaultSetupStatus();
     return [
-        section('project', 'Project', [
+        section('welcome', 'Welcome', [
             statusNode(
-                'project.workspace',
-                'Workspace',
-                input.hasWorkspace ? 'Open' : 'No folder',
-                input.hasWorkspace ? 'pass' : 'warn',
-                input.hasWorkspace
-                    ? 'VS Code has a workspace folder open.'
-                    : 'Open a workspace folder so XLIDE can discover workbooks.',
-            ),
-            statusNode(
-                'project.workbooks',
-                'Workbook discovery',
-                workbookDiscoveryDescription(input.workbookCount),
-                input.workbookCount > 0 ? 'pass' : 'unknown',
-                input.workbookCount > 0
-                    ? `${input.workbookCount} Excel VBA workbook(s) were found in the workspace.`
-                    : 'No .xlsm, .xlsb, or .xlam workbooks were found in the workspace yet.',
-            ),
-            activeWorkbookNode(input.activeWorkbook),
-            workbookSettingsStatusNode(input.activeWorkbook),
-            actionNode(
-                'project.revealExplorer',
-                'Reveal workbook tree',
-                'Explorer',
-                'xlide.explorer.focus',
-                'Focus the XLIDE workbook tree in the VS Code Explorer.',
-                'list-tree',
-            ),
-            actionNode(
-                'project.refreshExplorer',
-                'Refresh workbooks',
-                undefined,
-                'xlide.refreshExplorer',
-                'Refresh the XLIDE workbook tree.',
-                'refresh',
+                'welcome.tree',
+                'Workbook Tree',
+                'Find workbook and module navigation in Explorer > XLIDE.',
+                'unknown',
+                'The XLIDE workbook tree stays in the VS Code Explorer so workbook navigation and sidebar actions remain separate.',
             ),
         ]),
-        section('actions', 'Actions', [
-            actionNode(
-                'actions.analyzeCurrentModule',
-                'Analyze current module',
+        section('setup', 'Setup', [
+            statusNode(
+                'setup.pythonExecutable',
+                'Python Executable',
+                setupStatus.pythonExecutable.description,
+                setupStatus.pythonExecutable.status,
+                setupStatus.pythonExecutable.tooltip,
                 undefined,
-                'xlide.analyzeCurrentModule',
-                'Analyze the active VBA module using the same engine as workbook analysis.',
-                'check',
+                {
+                    command: 'workbench.action.openSettings',
+                    title: 'Set Path',
+                    arguments: ['xlide.pythonPath'],
+                },
+                setupStatus.pythonExecutable.status === 'pass',
             ),
-            actionNode(
-                'actions.analyzeWorkbook',
-                'Analyze active workbook',
+            statusNode(
+                'setup.pythonLibraries',
+                'Required Python Libraries',
+                setupStatus.pythonLibraries.description,
+                setupStatus.pythonLibraries.status,
+                setupStatus.pythonLibraries.tooltip,
+                undefined,
+                { command: 'xlide.setup', title: 'Install' },
+                setupStatus.pythonLibraries.status === 'pass',
+            ),
+        ]),
+        section('workbookActions', 'Workbook Actions', [
+            targetWorkbookNode(input.workbookChoices ?? [], input.activeWorkbook),
+            workbookActionNode(
+                'workbookActions.analyzeWorkbook',
+                'Analyze Workbook',
                 undefined,
                 'xlide.analyzeWorkbook',
-                'Analyze the active workbook. Open a workbook module first if no workbook node is selected.',
+                'Analyze the selected target workbook.',
                 'checklist',
-                workbookArg ? [workbookArg] : [],
+                workbookArg,
             ),
-            actionNode(
-                'actions.importModules',
-                'Import modules',
-                undefined,
-                'xlide.importModulesFromFolder',
-                'Open the module import diff GUI for the active workbook.',
-                'import',
-                workbookArg ? [workbookArg] : [],
-            ),
-            actionNode(
-                'actions.exportModules',
-                'Export modules',
+            workbookActionNode(
+                'workbookActions.exportModules',
+                'Export Modules',
                 undefined,
                 'xlide.exportModulesToFolder',
-                'Open the module export diff GUI for the active workbook.',
+                'Open the module export diff GUI for the selected target workbook.',
                 'export',
-                workbookArg ? [workbookArg] : [],
+                workbookArg,
             ),
-            actionNode(
-                'actions.validateWorkbook',
-                'Validate VBA project',
+            workbookActionNode(
+                'workbookActions.importModules',
+                'Import Modules',
                 undefined,
-                'xlide.validateWorkbook',
-                'Validate the active workbook VBA project structure.',
-                'verified',
-                workbookArg ? [workbookArg] : [],
+                'xlide.importModulesFromFolder',
+                'Open the module import diff GUI for the selected target workbook.',
+                'import',
+                workbookArg,
             ),
-            actionNode(
-                'actions.openWorkbook',
-                'Open workbook in Excel',
+            workbookActionNode(
+                'workbookActions.openWorkbook',
+                'Open Workbook In Excel',
                 undefined,
                 'xlide.openWorkbook',
-                'Open the active workbook in Excel.',
+                'Open the selected target workbook in Excel.',
                 'file-excel',
-                workbookArg ? [workbookArg] : [],
+                workbookArg,
+            ),
+            workbookActionNode(
+                'workbookActions.openWorkbookReadOnly',
+                'Open Workbook Read Only',
+                undefined,
+                'xlide.openWorkbookReadOnly',
+                'Open the selected target workbook in Excel as read-only.',
+                'file-excel',
+                workbookArg,
+            ),
+            workbookActionNode(
+                'workbookActions.validateWorkbook',
+                'Validate VBA Project',
+                undefined,
+                'xlide.validateWorkbook',
+                'Validate the selected target workbook VBA project structure.',
+                'verified',
+                workbookArg,
             ),
         ]),
-        workbookConfigurationSection(input.activeWorkbook),
-        section('configuration', 'Configuration', [
-            ...input.globalSettings.map((setting) => settingNode(setting)),
+        section('settings', 'Settings', [
             actionNode(
-                'configuration.openSettings',
-                'Open global settings',
-                'VS Code',
+                'settings.openGlobal',
+                'Global Settings',
+                'VS Code / Machine',
                 'workbench.action.openSettings',
-                'Open XLIDE global/editor settings in VS Code Settings.',
+                'Open XLIDE global/editor settings in VS Code Settings. The dedicated XLIDE Global Settings GUI is tracked on the roadmap.',
                 'settings-gear',
                 ['@ext:WilliamSmithE.xlide'],
             ),
         ]),
         section('support', 'Support', [
             actionNode(
-                'support.setup',
-                'Install Python dependencies',
-                undefined,
-                'xlide.setup',
-                'Install or repair the Python dependencies used by the XLIDE backend.',
-                'cloud-download',
-            ),
-            actionNode(
                 'support.copyDiagnostics',
-                'Copy diagnostics',
+                'Copy Diagnostics',
                 undefined,
                 'xlide.copyDiagnostics',
                 'Copy a redacted diagnostic snapshot to the clipboard.',
@@ -188,14 +178,55 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
             ),
             actionNode(
                 'support.exportBundle',
-                'Export support bundle',
+                'Export Support Bundle',
                 undefined,
                 'xlide.exportSupportBundle',
                 'Export a redacted support bundle for troubleshooting.',
                 'archive',
             ),
         ]),
+        section('donate', 'Donate', [
+            actionNode(
+                'donate.githubSponsors',
+                'Donate',
+                'GitHub Sponsors ❤️',
+                'xlide.openSponsorLink',
+                'Support XLIDE through GitHub Sponsors.',
+                'heart',
+            ),
+            actionNode(
+                'donate.paypal',
+                'Donate',
+                'PayPal 💳',
+                'xlide.openPayPalDonateLink',
+                'Support XLIDE with a PayPal donation.',
+                'heart',
+            ),
+            actionNode(
+                'donate.cashApp',
+                'Donate',
+                'Cash App: $williamesmithjcil 💵',
+                'xlide.openCashAppDonateLink',
+                'Support XLIDE with a Cash App donation.',
+                'heart',
+            ),
+        ]),
     ];
+}
+
+function defaultSetupStatus(): XlideSidebarSetupStatus {
+    return {
+        pythonExecutable: {
+            status: 'unknown',
+            description: 'Checking',
+            tooltip: 'XLIDE is checking the configured Python executable.',
+        },
+        pythonLibraries: {
+            status: 'unknown',
+            description: 'Checking',
+            tooltip: 'XLIDE is checking required Python libraries.',
+        },
+    };
 }
 
 function section(id: string, label: string, children: XlideSidebarNode[]): XlideSidebarNode {
@@ -209,188 +240,68 @@ function statusNode(
     status: XlideSidebarStatus,
     tooltip: string,
     icon = statusIcon(status),
+    command?: XlideSidebarCommand,
+    disabled = false,
 ): XlideSidebarNode {
-    return { id, kind: 'status', label, description, status, tooltip, icon };
+    return { id, kind: 'status', label, description, status, tooltip, icon, command, disabled };
 }
 
-function activeWorkbookNode(workbook: XlideSidebarActiveWorkbook | undefined): XlideSidebarNode {
+function targetWorkbookNode(
+    choices: readonly XlideSidebarWorkbookChoice[],
+    workbook: XlideSidebarActiveWorkbook | undefined,
+): XlideSidebarNode {
+    if (choices.length > 0) {
+        const optionValues = new Set(choices.map((choice) => normalizePathKey(choice.filePath)));
+        const options = [
+            ...(workbook ? [] : [{ label: 'Select Workbook...', value: '' }]),
+            ...(workbook && !optionValues.has(normalizePathKey(workbook.filePath))
+                ? [{
+                    label: workbook.label,
+                    value: workbook.filePath,
+                    description: workbook.filePath,
+                }]
+                : []),
+            ...choices.map((choice) => ({
+                label: choice.label,
+                value: choice.filePath,
+                description: choice.description,
+            })),
+        ];
+        return {
+            id: 'project.targetWorkbook',
+            kind: 'select',
+            label: 'Target Workbook',
+            description: workbook ? workbook.label : 'Select Workbook',
+            status: workbook ? 'pass' : 'warn',
+            tooltip: workbook
+                ? `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`
+                : 'Choose the workbook that sidebar actions should analyze, import/export, validate, run, or test.',
+            icon: workbook ? 'file-code' : 'warning',
+            value: workbook?.filePath ?? '',
+            options,
+        };
+    }
     if (!workbook) {
         return statusNode(
-            'project.activeWorkbook',
-            'Active workbook',
-            'None selected',
+            'project.targetWorkbook',
+            'Target Workbook',
+            'None Selected',
             'unknown',
-            'Open an XLIDE VBA module, or keep exactly one workbook in the workspace, to select a workbook context.',
+            'Open an XLIDE VBA module, choose a workbook in the sidebar, or keep exactly one workbook in the workspace to select a workbook context.',
         );
     }
     return statusNode(
-        'project.activeWorkbook',
-        'Active workbook',
+        'project.targetWorkbook',
+        'Target Workbook',
         workbook.label,
         'pass',
-        `${workbook.filePath}\nSelected from ${workbook.selectionSource === 'activeEditor' ? 'the active editor' : 'the only workbook in the workspace'}.`,
+        `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`,
         'file-code',
     );
 }
 
-function workbookSettingsStatusNode(workbook: XlideSidebarActiveWorkbook | undefined): XlideSidebarNode {
-    if (!workbook) {
-        return statusNode(
-            'project.workbookSettings',
-            'Workbook settings',
-            'No workbook',
-            'unknown',
-            'Workbook-scoped settings are shown after XLIDE has an active workbook context.',
-        );
-    }
-    if (workbook.settingsState === 'invalid') {
-        return statusNode(
-            'project.workbookSettings',
-            'Workbook settings',
-            'Invalid',
-            'fail',
-            workbook.settingsMessage ?? workbook.settingsPath,
-        );
-    }
-    if (workbook.settingsState === 'missing') {
-        return statusNode(
-            'project.workbookSettings',
-            'Workbook settings',
-            'Using defaults',
-            'unknown',
-            `${workbook.settingsPath}\nNo workbook sidecar exists yet, so workbook-facing GUIs use global/editor defaults.`,
-        );
-    }
-    return statusNode(
-        'project.workbookSettings',
-        'Workbook settings',
-        'Sidecar loaded',
-        'pass',
-        workbook.settingsPath,
-        'json',
-    );
-}
-
-function workbookConfigurationSection(workbook: XlideSidebarActiveWorkbook | undefined): XlideSidebarNode {
-    if (!workbook) {
-        return section('workbookConfiguration', 'Workbook Configuration', [
-            statusNode(
-                'workbookConfiguration.none',
-                'Workbook context',
-                'None selected',
-                'unknown',
-                'Open an XLIDE VBA module or select a workspace with one workbook to see workbook-scoped settings.',
-            ),
-        ]);
-    }
-    if (workbook.settingsState === 'invalid') {
-        return section('workbookConfiguration', 'Workbook Configuration', [
-            workbookSettingsStatusNode(workbook),
-        ]);
-    }
-
-    const analysis = workbook.analysisSettings;
-    const sync = workbook.moduleSyncSettings;
-    const children: XlideSidebarNode[] = [
-        workbookSettingsStatusNode(workbook),
-    ];
-    if (workbook.settingsState === 'valid') {
-        children.push(actionNode(
-            'workbookConfiguration.openSidecar',
-            'Open workbook settings',
-            'Sidecar',
-            'xlide.openWorkbookSettings',
-            'Open the workbook-scoped XLIDE settings sidecar.',
-            'json',
-            [workbook.settingsPath],
-        ));
-    }
-    if (sync) {
-        children.push(
-            settingLikeNode(
-                'workbookConfiguration.exportFolder',
-                'Export folder',
-                sync.folderPath ?? 'Not configured',
-                sync.folderPathSource,
-                sync.folderPath ? 'folder' : 'warning',
-            ),
-            settingLikeNode(
-                'workbookConfiguration.exportMode',
-                'Export mode',
-                exportModeLabel(sync.exportMode),
-                sync.exportModeSource,
-            ),
-            settingLikeNode(
-                'workbookConfiguration.importMode',
-                'Import mode',
-                importModeLabel(sync.importMode),
-                sync.importModeSource,
-            ),
-        );
-    }
-    if (analysis) {
-        children.push(
-            settingLikeNode(
-                'workbookConfiguration.analysisVisibleSeverities',
-                'Analysis severities',
-                settingDescription(analysis.visibleSeverities),
-                analysis.visibleSeveritiesSource,
-                'list-selection',
-            ),
-            settingLikeNode(
-                'workbookConfiguration.analysisUntrackedRules',
-                'Untracked rules',
-                settingDescription(analysis.untrackedRules),
-                analysis.untrackedRulesSource,
-                'list-unordered',
-            ),
-            settingLikeNode(
-                'workbookConfiguration.analysisRuleSeverities',
-                'Rule severities',
-                settingDescription(analysis.ruleSeverityOverrides),
-                analysis.ruleSeverityOverridesSource,
-                'json',
-            ),
-        );
-    }
-    return section('workbookConfiguration', 'Workbook Configuration', children);
-}
-
-function settingNode(setting: ResolvedXlideGlobalSetting<unknown>): XlideSidebarNode {
-    const key = setting.key;
-    const label = GLOBAL_SETTING_LABELS[key] ?? key.replace(/^xlide\./, '');
-    const description = `${settingDescription(setting.value)} (${sourceLabel(setting.source)})`;
-    return {
-        id: `configuration.${key}`,
-        kind: 'setting',
-        label,
-        description,
-        tooltip: `${key}\n${description}`,
-        icon: settingIcon(setting.value),
-        command: {
-            command: 'workbench.action.openSettings',
-            title: 'Open Setting',
-            arguments: [key],
-        },
-    };
-}
-
-function settingLikeNode(
-    id: string,
-    label: string,
-    value: string,
-    source: XlideSidebarSettingSource,
-    icon = 'settings',
-): XlideSidebarNode {
-    const description = `${value} (${sourceLabel(source)})`;
-    return {
-        id,
-        kind: 'setting',
-        label,
-        description,
-        tooltip: description,
-        icon,
-    };
+function normalizePathKey(filePath: string): string {
+    return filePath.toLowerCase();
 }
 
 function actionNode(
@@ -413,50 +324,47 @@ function actionNode(
     };
 }
 
-function workbookDiscoveryDescription(workbookCount: number): string {
-    if (workbookCount === 0) {
-        return 'None found';
+function workbookActionNode(
+    id: string,
+    label: string,
+    description: string | undefined,
+    command: string,
+    tooltip: string,
+    icon: string,
+    workbookArg: unknown | undefined,
+): XlideSidebarNode {
+    if (!workbookArg) {
+        return {
+            id,
+            kind: 'action',
+            label,
+            description,
+            tooltip: 'Select a target workbook before running this sidebar action.',
+            icon,
+            disabled: true,
+        };
     }
-    if (workbookCount === 1) {
-        return '1 workbook';
-    }
-    return `${workbookCount} workbooks`;
+    return actionNode(id, label, description, command, tooltip, icon, [workbookArg]);
 }
 
-function settingDescription(value: unknown): string {
-    if (typeof value === 'boolean') {
-        return value ? 'Enabled' : 'Disabled';
-    }
-    if (typeof value === 'string') {
-        return value.length > 0 ? value : 'From PATH';
-    }
-    if (Array.isArray(value)) {
-        return value.length > 0 ? value.join(', ') : 'None';
-    }
-    if (value && typeof value === 'object') {
-        const count = Object.keys(value).length;
-        return count === 1 ? '1 override' : `${count} overrides`;
-    }
-    if (value === undefined || value === null) {
-        return 'Not set';
-    }
-    return String(value);
+function workbookCommandArg(workbook: XlideSidebarActiveWorkbook): { kind: 'xlsm'; label: string; filePath: string } {
+    return {
+        kind: 'xlsm',
+        label: workbook.label,
+        filePath: workbook.filePath,
+    };
 }
 
-function sourceLabel(source: XlideSidebarSettingSource): string {
+function selectionSourceLabel(source: XlideSidebarActiveWorkbook['selectionSource']): string {
     switch (source) {
-        case 'workbook':
-            return 'Workbook';
-        case 'session':
-            return 'Session';
-        case 'missing':
-            return 'Not set';
-        case 'machine':
-            return 'VS Code';
-        case 'default':
-            return 'Default';
+        case 'activeEditor':
+            return 'the active editor';
+        case 'singleWorkbook':
+            return 'the only workbook in the workspace';
+        case 'sidebarSelection':
+            return 'the sidebar workbook picker';
         default:
-            return 'Unknown';
+            return 'the current context';
     }
 }
 
@@ -473,35 +381,15 @@ function statusIcon(status: XlideSidebarStatus): string {
     }
 }
 
-function settingIcon(value: unknown): string {
-    if (typeof value === 'boolean') {
-        return value ? 'check' : 'circle-slash';
-    }
-    if (Array.isArray(value)) {
-        return 'list-selection';
-    }
-    if (value && typeof value === 'object') {
-        return 'json';
-    }
-    return 'settings';
-}
-
-function exportModeLabel(mode: string): string {
-    return mode === 'trueUp' ? 'Export All + Delete Missing' : 'Export All';
-}
-
-function importModeLabel(mode: string): string {
-    return mode === 'trueUpStandardClass' ? 'Import/Update + Delete Missing' : 'Import/Update';
-}
-
 export {
     buildXlideSidebarModel,
-    settingDescription,
-    sourceLabel,
     type XlideSidebarActiveWorkbook,
     type XlideSidebarCommand,
+    type XlideSidebarDependencyStatus,
     type XlideSidebarModelInput,
     type XlideSidebarNode,
     type XlideSidebarNodeKind,
+    type XlideSidebarSetupStatus,
+    type XlideSidebarWorkbookChoice,
     type XlideSidebarStatus,
 };

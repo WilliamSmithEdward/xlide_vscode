@@ -9,6 +9,7 @@ interface VbaLanguageConfiguration {
 }
 
 interface PackageConfiguration {
+	activationEvents?: string[];
 	contributes?: {
 		commands?: PackageCommand[];
 		configuration?: {
@@ -18,6 +19,7 @@ interface PackageConfiguration {
 			activitybar?: PackageViewContainer[];
 		};
 		views?: Record<string, PackageView[]>;
+		viewsWelcome?: PackageViewWelcome[];
 	};
 }
 
@@ -40,6 +42,12 @@ interface PackageView {
 	id?: string;
 	name?: string;
 	contextualTitle?: string;
+	type?: string;
+}
+
+interface PackageViewWelcome {
+	view?: string;
+	contents?: string;
 }
 
 interface PackageCommand {
@@ -179,8 +187,18 @@ describe('VBA language configuration', () => {
 			title: 'XLIDE',
 			icon: 'assets/icons/xlide-activity.svg',
 		});
-		expect(contributes?.views?.xlide?.map((view) => view.id)).toEqual(['xlide.sidebar']);
+		expect(contributes?.views?.xlide).toEqual([
+			expect.objectContaining({
+				id: 'xlide.sidebar',
+				type: 'webview',
+			}),
+		]);
 		expect(contributes?.views?.explorer?.map((view) => view.id)).toContain('xlide.explorer');
+		expect(loadPackage().activationEvents).toEqual(expect.arrayContaining([
+			'onView:xlide.sidebar',
+			'onView:xlide.explorer',
+		]));
+		expect(contributes?.viewsWelcome?.map((entry) => entry.view)).not.toContain('xlide.sidebar');
 	});
 
 	it('contributes the workbook settings command used by the XLIDE sidebar', () => {

@@ -910,29 +910,33 @@ development.
 - [x] Add the planned sidebar design/spec to `docs/xlide_sidebar_panel.md`.
 - [x] Add a dedicated XLIDE Activity Bar container using standard VS Code
   contribution points. `package.json` now contributes the `xlide` Activity Bar
-  container and native `xlide.sidebar` TreeView.
+  container and `xlide.sidebar` WebviewView surface.
 - [x] Create a slick monochrome SVG Activity Bar icon that follows VS Code's
   icon style: simple line geometry, mask-friendly, readable at 24px, and
   theme-neutral. The icon lives at `assets/icons/xlide-activity.svg`.
 - [x] Add the initial full XLIDE sidebar shell with deterministic status
   sections and command surfaces. `src/xlideSidebarModel.ts` owns the pure model;
-  `src/xlideSidebar.ts` renders it as a native TreeView with Project, Actions,
-  Configuration, and Support sections.
+  `src/xlideSidebar.ts` renders it as a polished WebviewView with Welcome,
+  Setup, Workbook Actions, Settings, and Support sections.
 - [x] Keep the existing XLIDE workbook/module tree in the VS Code Explorer
   section even after the dedicated XLIDE Activity Bar/sidebar ships. Explorer is
   the file/navigation surface; the XLIDE sidebar is the product shell for
   health, commands, configuration, tests, analysis summaries, and status.
-- [ ] Simplify the XLIDE sidebar information architecture so it stays a clean
+- [x] Simplify the XLIDE sidebar information architecture so it stays a clean
   launch/status surface rather than a dense settings browser. Keep high-frequency
   actions and compact deterministic status in the sidebar; move detailed setting
   inspection/editing into dedicated GUIs.
-- [ ] Replace detailed VS Code/machine setting rows in the sidebar with a single
-  clear button that opens a dedicated XLIDE Global Settings GUI. Global/editor
-  settings still live in VS Code machine/profile settings, not JSON files.
-- [x] Add a unified configuration entry point in the XLIDE sidebar: show compact
-  active-workbook sidecar status and launch the appropriate settings GUI without
-  mutating the wrong scope. Detailed setting rows are now considered a cleanup
-  target, not the final sidebar shape.
+- [x] Replace detailed VS Code/machine setting rows in the sidebar with a single
+  clear global settings launcher. Global/editor settings still live in VS Code
+  machine/profile settings, not JSON files. A dedicated XLIDE Global Settings
+  GUI remains tracked in Workstream L.
+- [x] Render the sidebar as a polished WebviewView with real spacing, section
+  borders/dividers, compact status dots, and button-style action rows rather
+  than trying to fake layout polish through TreeView rows.
+- [x] Add a unified configuration entry point in the XLIDE sidebar: launch the
+  appropriate global/workbook settings surface without mutating the wrong scope.
+  Detailed workbook setting/status rows belong in dedicated workbook-facing GUIs,
+  not the sidebar.
 - [ ] Add setup health checks with pass/warn/fail/unknown states for:
   - active XLIDE workbook/project context
   - workbook source sync/export mapping
@@ -943,39 +947,59 @@ development.
   - analysis engine readiness
   - VBA test runner readiness once implemented
   - optional metadata/doc-comment support
-- [ ] Render dependency/setup status as compact sidebar rows with clear icons:
-  green for ready, yellow for needs attention, and a targeted action button for
-  each yellow item. Examples: install Python dependencies, set Python path,
-  open Trust Center guidance, configure metadata glob, or open the relevant
-  setup/settings GUI. These rows are allowed in the sidebar because they are
-  actionable health status, not detailed settings browsing.
-- [x] Add selected-workbook context to the sidebar so workbook-scoped settings
-  can be viewed from the same shell without mutating global/editor defaults.
-  Context comes from the active XLIDE VBA editor or the only workspace workbook;
-  workbook actions receive the workbook explicitly, and `.xlide_settings.json`
-  file changes refresh the view.
-- [ ] Add dedicated workbook-scoped settings GUI/edit controls launched from the
-  sidebar or workbook-facing workflows. Do not turn the sidebar itself into a
-  full settings editor; workbook-specific choices must still persist only to
-  `<workbook>.xlide_settings.json`.
+- [x] Render initial dependency/setup status as compact sidebar rows with clear
+  icons: green for ready, yellow for needs attention, and a targeted action
+  button for yellow rows. The first pass covers Python Executable and Required
+  Python Libraries only. Broader Trust Center, macro security, metadata, live
+  diagnostics, documentation, and test-runner health remain in the setup health
+  checklist above or in dedicated settings/results GUIs.
+- [x] Add explicit selected-workbook context to the sidebar so workbook-scoped
+  settings and actions can be used from the same shell without mutating
+  global/editor defaults or guessing the wrong target. Context comes from the
+  sidebar target-workbook picker, the active XLIDE VBA editor, or the only
+  workspace workbook; workbook actions receive the workbook explicitly, no-target
+  sidebar actions are disabled, and workbook/settings file changes refresh the
+  view.
+- [x] Group the sidebar target-workbook picker with workbook-scoped action
+  buttons in a dedicated `Workbook Actions` section so the target and the
+  commands that use it visually flow together.
+- [x] Remove module-scoped actions and module-scoped information from the XLIDE
+  sidebar. Current-module/current-procedure actions stay in editor context menus,
+  command-palette flows, or module-tree context menus where the target is
+  explicit.
+- [x] Remove the old Project and Workbook status sections from the sidebar.
+  Workbook/module navigation stays in Explorer > XLIDE, and workbook settings
+  are edited through workbook-facing GUIs instead of permanent sidebar rows.
+- [x] Add `Open Workbook Read Only` beside the normal open action in the
+  workbook-scoped sidebar action group.
+- [x] Add a dedicated bottom Donate section with donation actions for
+  [GitHub Sponsors](https://github.com/sponsors/WilliamSmithEdward), PayPal,
+  and Cash App. Each donation card uses `Donate` as the title and moves the
+  platform detail into the subtitle.
 - [ ] Add primary action buttons:
-  - analyze current module
-  - analyze workbook
+  - analyze workbook against the sidebar target workbook
   - open the full VBA test runner GUI
-  - run current test
-  - run all tests
-  - export/sync modules
-  - open/reopen workbook
-  - refresh project
+  - run all tests against the sidebar target workbook
+  - export/sync modules against the sidebar target workbook
+  - open/reopen the sidebar target workbook
 - [x] Add workbook-tree context menu action for `Analyze Workbook` on workbook
   nodes. It should call the existing workbook analysis engine/tool path, respect the
   selected workbook silo, and avoid creating a second analysis pipeline.
+- [x] Keep workbook-scoped tree context-menu actions and sidebar actions in
+  sync as parallel entry points into the same commands. The tree passes the
+  clicked workbook node; the sidebar passes the target-workbook picker value;
+  neither surface owns a separate business path.
 - [ ] Add polished secondary panels for:
   - [x] Workbook analysis results in a dedicated GUI/panel with module grouping,
     severity filters, counts, suppressed-diagnostic visibility, copy/export
     actions, and click-through split-screen navigation to module/line
     locations; Output should remain a support log, not the primary analysis-results
     surface.
+  - [ ] Rename workbook-analysis tracking actions so persistence scope is
+    explicit: `Untrack In Workbook` writes the selected rule code to the
+    workbook sidecar, and `Untrack Globally` writes it to the global
+    `xlide.analysis.untrackedRules` setting. Avoid generic `Ignore` wording for
+    persisted choices; reserve it, if needed, for one-session visual hiding.
   - [ ] Problems summary by severity
   - [ ] Test summary by pass/fail/skip/xfail/xpass
   - [ ] Recent XLIDE operations and logs
@@ -1108,10 +1132,17 @@ the deterministic analyzer contract.
   provenance/validation, and persist changes through VS Code machine/profile
   settings only. The sidebar should expose this through one button, not a long
   inline settings list.
-- [x] Surface active-workbook configuration in the XLIDE sidebar once selected
-  workbook context is available. Workbook-specific choices still persist only to
-  `<workbook>.xlide_settings.json`; the sidebar displays effective sync and
-  analysis settings with source labels and links to an existing sidecar.
+- [ ] In the XLIDE Global Settings GUI, render global analysis ignore/untrack
+  settings as guided controls rather than raw array editing.
+  `xlide.analysis.untrackedRules` should be a searchable dropdown or
+  multi-select populated from `ruleMetadata.ts`, showing human-friendly rule
+  names alongside stable diagnostic codes and writing only valid known codes to
+  VS Code machine/profile settings.
+- [x] Keep workbook-scoped configuration out of permanent sidebar rows once the
+  selected workbook context is available. Workbook-specific choices still
+  persist only to `<workbook>.xlide_settings.json`; workbook-facing GUIs display
+  effective sync and analysis settings with provenance and save workbook
+  overrides through the shared sidecar owner.
 - [x] Add rule severity overrides with guardrails. `ruleMetadata.ts` now owns
   allowed overrides by stable diagnostic code, and live diagnostics,
   current-module analysis, workbook analysis, the Analysis Settings GUI, global
