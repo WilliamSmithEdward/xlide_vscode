@@ -39,6 +39,12 @@ export function openModuleSyncPreview(
             },
         );
         let resolved = false;
+        let disposed = false;
+        let operationInFlight = false;
+        let queuedFolderRefresh = false;
+        let folderRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+        let watchedFolderPath: string | undefined;
+        let folderWatcherDisposables: vscode.Disposable[] = [];
         const done = (result: ModuleSyncApplyResult | undefined): void => {
             if (!resolved) {
                 resolved = true;
@@ -47,6 +53,91 @@ export function openModuleSyncPreview(
         };
 
         let currentPlan = plan;
+        const disposeFolderWatcher = (): void => {
+            for (const disposable of folderWatcherDisposables) {
+                disposable.dispose();
+            }
+            folderWatcherDisposables = [];
+            watchedFolderPath = undefined;
+        };
+        const queueFolderRefresh = (delayMs = 300): void => {
+            if (!options.onRefresh || disposed) {
+                return;
+            }
+            if (operationInFlight) {
+                queuedFolderRefresh = true;
+                return;
+            }
+            if (folderRefreshTimer) {
+                clearTimeout(folderRefreshTimer);
+            }
+            folderRefreshTimer = setTimeout(() => {
+                folderRefreshTimer = undefined;
+                void refreshPlanFromDisk();
+            }, delayMs);
+        };
+        const configureFolderWatcher = (): void => {
+            if (!options.onRefresh || disposed || !currentPlan.folderPath || watchedFolderPath === currentPlan.folderPath) {
+                return;
+            }
+            disposeFolderWatcher();
+            watchedFolderPath = currentPlan.folderPath;
+            const watcher = vscode.workspace.createFileSystemWatcher(
+                new vscode.RelativePattern(currentPlan.folderPath, '**/*'),
+            );
+            const refreshIfRelevant = (uri: vscode.Uri): void => {
+                if (isModuleSyncWatchedPath(uri.fsPath)) {
+                    queueFolderRefresh();
+                }
+            };
+            folderWatcherDisposables = [
+                watcher.onDidChange(refreshIfRelevant),
+                watcher.onDidCreate(refreshIfRelevant),
+                watcher.onDidDelete(refreshIfRelevant),
+                watcher,
+            ];
+        };
+        const runExclusive = async <T>(operation: () => Promise<T>): Promise<T> => {
+            operationInFlight = true;
+            try {
+                return await operation();
+            } finally {
+                operationInFlight = false;
+                if (queuedFolderRefresh && !disposed) {
+                    queuedFolderRefresh = false;
+                    queueFolderRefresh(100);
+                }
+            }
+        };
+        const updateCurrentPlan = (nextPlan: ModuleSyncPlan): void => {
+            currentPlan = nextPlan;
+            configureFolderWatcher();
+        };
+        async function refreshPlanFromDisk(): Promise<void> {
+            const refresh = options.onRefresh;
+            if (!refresh || disposed) {
+                return;
+            }
+            if (operationInFlight) {
+                queuedFolderRefresh = true;
+                return;
+            }
+            try {
+                await panel.webview.postMessage({ type: 'refreshing', message: 'Disk changes detected. Refreshing preview...' });
+                await runExclusive(async () => {
+                    updateCurrentPlan(await refresh(settingsFromPlan(currentPlan)));
+                    await panel.webview.postMessage({
+                        type: 'plan',
+                        plan: currentPlan,
+                        message: 'Disk changes detected. Preview refreshed.',
+                    });
+                });
+            } catch (err) {
+                const error = err instanceof Error ? err.message : String(err);
+                await panel.webview.postMessage({ type: 'error', error });
+            }
+        }
+        configureFolderWatcher();
         panel.webview.html = renderModuleSyncHtml(panel.webview, currentPlan);
         const messageSub = panel.webview.onDidReceiveMessage(async (message: {
             type?: string;
@@ -60,18 +151,25 @@ export function openModuleSyncPreview(
                 return;
             }
             if (message.type === 'choose-folder') {
-                if (!options.onChooseFolder) {
+                const chooseFolder = options.onChooseFolder;
+                if (!chooseFolder) {
                     return;
                 }
                 await panel.webview.postMessage({ type: 'refreshing' });
                 try {
-                    const nextPlan = await options.onChooseFolder(settingsFromMessage(currentPlan, message));
-                    if (nextPlan) {
-                        currentPlan = nextPlan;
-                        await panel.webview.postMessage({ type: 'plan', plan: currentPlan });
-                    } else {
-                        await panel.webview.postMessage({ type: 'ready' });
-                    }
+                    await runExclusive(async () => {
+                        const nextPlan = await chooseFolder(settingsFromMessage(currentPlan, message));
+                        if (nextPlan) {
+                            updateCurrentPlan(nextPlan);
+                            await panel.webview.postMessage({
+                                type: 'plan',
+                                plan: currentPlan,
+                                message: 'Settings updated. Review the refreshed diff before applying.',
+                            });
+                        } else {
+                            await panel.webview.postMessage({ type: 'ready' });
+                        }
+                    });
                 } catch (err) {
                     const error = err instanceof Error ? err.message : String(err);
                     await panel.webview.postMessage({ type: 'error', error });
@@ -79,13 +177,20 @@ export function openModuleSyncPreview(
                 return;
             }
             if (message.type === 'refresh-settings') {
-                if (!options.onRefresh) {
+                const refresh = options.onRefresh;
+                if (!refresh) {
                     return;
                 }
                 await panel.webview.postMessage({ type: 'refreshing' });
                 try {
-                    currentPlan = await options.onRefresh(settingsFromMessage(currentPlan, message));
-                    await panel.webview.postMessage({ type: 'plan', plan: currentPlan });
+                    await runExclusive(async () => {
+                        updateCurrentPlan(await refresh(settingsFromMessage(currentPlan, message)));
+                        await panel.webview.postMessage({
+                            type: 'plan',
+                            plan: currentPlan,
+                            message: 'Settings updated. Review the refreshed diff before applying.',
+                        });
+                    });
                 } catch (err) {
                     const error = err instanceof Error ? err.message : String(err);
                     await panel.webview.postMessage({ type: 'error', error });
@@ -93,13 +198,16 @@ export function openModuleSyncPreview(
                 return;
             }
             if (message.type === 'save-settings') {
-                if (!options.onSaveSettings) {
+                const saveSettings = options.onSaveSettings;
+                if (!saveSettings) {
                     return;
                 }
                 await panel.webview.postMessage({ type: 'saving-settings' });
                 try {
-                    const result = await options.onSaveSettings(settingsFromMessage(currentPlan, message));
-                    await panel.webview.postMessage({ type: 'settings-saved', result });
+                    await runExclusive(async () => {
+                        const result = await saveSettings(settingsFromMessage(currentPlan, message));
+                        await panel.webview.postMessage({ type: 'settings-saved', result });
+                    });
                 } catch (err) {
                     const error = err instanceof Error ? err.message : String(err);
                     await panel.webview.postMessage({ type: 'error', error });
@@ -112,15 +220,23 @@ export function openModuleSyncPreview(
             const selectedIds = message.selectedIds ?? [];
             await panel.webview.postMessage({ type: 'applying' });
             try {
-                const result = await onApply(currentPlan, selectedIds);
-                await panel.webview.postMessage({ type: 'applied', result });
-                done(result);
+                await runExclusive(async () => {
+                    const result = await onApply(currentPlan, selectedIds);
+                    await panel.webview.postMessage({ type: 'applied', result });
+                    done(result);
+                });
             } catch (err) {
                 const error = err instanceof Error ? err.message : String(err);
                 await panel.webview.postMessage({ type: 'error', error });
             }
         });
         panel.onDidDispose(() => {
+            disposed = true;
+            if (folderRefreshTimer) {
+                clearTimeout(folderRefreshTimer);
+                folderRefreshTimer = undefined;
+            }
+            disposeFolderWatcher();
             messageSub.dispose();
             done(undefined);
         });
@@ -221,8 +337,27 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             background: var(--vscode-button-secondaryBackground);
         }
         button:disabled { opacity: .55; cursor: default; }
-        main { display: grid; grid-template-columns: minmax(280px, 34%) 1fr; min-height: 0; }
-        aside { border-right: 1px solid var(--border); min-height: 0; display: grid; grid-template-rows: auto auto 1fr; }
+        main {
+            --list-width: 34%;
+            display: grid;
+            grid-template-columns: minmax(280px, var(--list-width)) 6px minmax(320px, 1fr);
+            min-height: 0;
+        }
+        aside { min-height: 0; display: grid; grid-template-rows: auto auto 1fr; }
+        .splitter {
+            cursor: col-resize;
+            background: color-mix(in srgb, var(--border) 45%, transparent);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+        }
+        .splitter:hover,
+        .splitter.dragging {
+            background: color-mix(in srgb, var(--vscode-focusBorder) 60%, transparent);
+        }
+        body.resizing {
+            cursor: col-resize;
+            user-select: none;
+        }
         .toolbar {
             display: flex;
             gap: 8px;
@@ -243,7 +378,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         .item {
             width: 100%;
             display: grid;
-            grid-template-columns: auto 1fr auto;
+            grid-template-columns: 28px minmax(0, 1fr) 132px;
             gap: 8px;
             align-items: center;
             padding: 8px 10px;
@@ -251,15 +386,27 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             cursor: pointer;
         }
         .item:hover, .item.active { background: var(--row); }
-        .item input { margin: 0; }
+        .item input {
+            margin: 0;
+            width: 18px;
+            height: 18px;
+            justify-self: center;
+            cursor: pointer;
+        }
+        .item input:disabled { cursor: default; }
+        .itemText { min-width: 0; }
         .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .meta { color: var(--muted); font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .badge {
+            justify-self: end;
+            max-width: 132px;
             font-size: 11px;
             padding: 2px 6px;
             border-radius: 999px;
             border: 1px solid var(--border);
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .badge.skip { color: var(--vscode-editorWarning-foreground); background: var(--warn); }
         .badge.same { color: var(--muted); }
@@ -336,7 +483,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 <button id="apply">Apply Selected</button>
             </div>
         </header>
-        <main>
+        <main id="layout">
             <aside>
                 <div class="toolbar">
                     <button class="secondary" id="selectChanged">Select Changed</button>
@@ -345,6 +492,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 <div class="warnings" id="warnings"></div>
                 <div class="list" id="list"></div>
             </aside>
+            <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Resize module list"></div>
             <section>
                 <div class="diff-head">
                     <div class="diff-title" id="leftTitle"></div>
@@ -368,8 +516,48 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
 
         const el = id => document.getElementById(id);
 
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function setListWidth(width) {
+            const layout = el('layout');
+            const bounds = layout.getBoundingClientRect();
+            const max = Math.max(320, bounds.width - 360);
+            layout.style.setProperty('--list-width', \`\${clamp(width, 280, max)}px\`);
+        }
+
+        function installSplitter() {
+            const splitter = el('splitter');
+            const layout = el('layout');
+            splitter.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                splitter.setPointerCapture(event.pointerId);
+                splitter.classList.add('dragging');
+                document.body.classList.add('resizing');
+            });
+            splitter.addEventListener('pointermove', event => {
+                if (!splitter.hasPointerCapture(event.pointerId)) return;
+                const bounds = layout.getBoundingClientRect();
+                setListWidth(event.clientX - bounds.left);
+            });
+            function stopDrag(event) {
+                if (splitter.hasPointerCapture(event.pointerId)) {
+                    splitter.releasePointerCapture(event.pointerId);
+                }
+                splitter.classList.remove('dragging');
+                document.body.classList.remove('resizing');
+            }
+            splitter.addEventListener('pointerup', stopDrag);
+            splitter.addEventListener('pointercancel', stopDrag);
+        }
+
         function selectedFromPlan() {
             return new Set(plan.items.filter(item => item.checked && item.selectable).map(item => item.id));
+        }
+
+        function isRelevantItem(item) {
+            return item.selectable && item.status !== 'unchanged' && !item.status.startsWith('skipping');
         }
 
         function currentSettings() {
@@ -389,6 +577,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             if (plan.direction === 'export') {
                 el('exportMode').value = plan.exportMode || 'trueUp';
             }
+            el('selectChanged').textContent = plan.direction === 'import' ? 'Select Importable' : 'Select Changed';
             if (plan.warnings.length) {
                 el('warnings').classList.add('visible');
                 el('warnings').textContent = plan.warnings.join('\\n');
@@ -418,17 +607,21 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 const row = document.createElement('div');
                 row.className = 'item' + (item.id === activeId ? ' active' : '');
                 row.dataset.id = item.id;
+                row.setAttribute('aria-selected', item.id === activeId ? 'true' : 'false');
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.checked = selected.has(item.id);
                 checkbox.disabled = !item.selectable;
                 checkbox.addEventListener('click', event => {
                     event.stopPropagation();
+                    activeId = item.id;
                     if (checkbox.checked) selected.add(item.id);
                     else selected.delete(item.id);
-                    renderCounts();
+                    renderList();
+                    renderDiff();
                 });
                 const text = document.createElement('div');
+                text.className = 'itemText';
                 const name = document.createElement('div');
                 name.className = 'name';
                 name.textContent = item.moduleName;
@@ -504,7 +697,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         el('selectChanged').addEventListener('click', () => {
             selected.clear();
             for (const item of plan.items) {
-                if (item.selectable && item.status !== 'unchanged' && !item.status.startsWith('skipping')) selected.add(item.id);
+                if (isRelevantItem(item)) selected.add(item.id);
             }
             renderList();
         });
@@ -542,14 +735,14 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 renderCounts();
             } else if (message.type === 'refreshing') {
                 applying = true;
-                el('result').textContent = 'Refreshing...';
+                el('result').textContent = message.message || 'Refreshing...';
                 renderCounts();
             } else if (message.type === 'ready') {
                 applying = false;
                 el('result').textContent = '';
                 renderCounts();
             } else if (message.type === 'plan') {
-                setPlan(message.plan, 'Settings updated. Review the refreshed diff before applying.');
+                setPlan(message.plan, message.message || 'Settings updated. Review the refreshed diff before applying.');
             } else if (message.type === 'saving-settings') {
                 applying = true;
                 el('result').textContent = 'Saving settings...';
@@ -572,6 +765,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         });
 
         selected = selectedFromPlan();
+        installSplitter();
         renderChrome();
         renderList();
         renderDiff();
@@ -605,4 +799,15 @@ function settingsFromMessage(
         folderPath: message.folderPath ?? plan.folderPath,
         exportMode: message.exportMode ?? plan.exportMode,
     };
+}
+
+function settingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
+    return {
+        folderPath: plan.folderPath,
+        exportMode: plan.exportMode,
+    };
+}
+
+function isModuleSyncWatchedPath(filePath: string): boolean {
+    return /\.(bas|cls|frm)$/i.test(filePath);
 }
