@@ -51,6 +51,7 @@ import {
     validateVbaTestHostOracleTrace,
     type VbaTestHostOracleEvent,
 } from './vbaTestHostOracle';
+import { writeVbaTestRunArtifacts } from './vbaTestArtifacts';
 import { openVbaTestResults } from './vbaTestResultsWebview';
 import {
     normalizeVbaTestSupportModuleSource,
@@ -152,6 +153,11 @@ interface OwnedReadOnlyExcelHostRunResult {
     resultsByName: Map<string, OwnedReadOnlyExcelHostTestResult>;
     hostError?: string;
     timedOutAfter?: string;
+}
+
+interface VbaTestRunExecution {
+    report: VbaTestRunReport;
+    hostEvents: VbaTestHostOracleEvent[];
 }
 
 interface OwnedReadOnlyExcelHostTestResult {
@@ -978,7 +984,7 @@ export function registerCommands(
         filePath: string,
         progress?: vscode.Progress<{ message?: string; increment?: number }>,
         options: VbaTestRunOptions = {},
-    ): Promise<VbaTestRunReport> {
+    ): Promise<VbaTestRunExecution> {
         const startedAt = new Date();
         const startedMs = Date.now();
         progress?.report({ message: 'Discovering tests...' });
@@ -986,13 +992,16 @@ export function registerCommands(
         const results: VbaTestRunItem[] = [];
 
         if (discovery.tests.length === 0) {
-            return createVbaTestRunReport({
-                filePath,
-                startedAt,
-                durationMs: Date.now() - startedMs,
-                discovery,
-                results,
-            });
+            return {
+                report: createVbaTestRunReport({
+                    filePath,
+                    startedAt,
+                    durationMs: Date.now() - startedMs,
+                    discovery,
+                    results,
+                }),
+                hostEvents: [],
+            };
         }
 
         if (process.platform !== 'win32') {
@@ -1005,13 +1014,16 @@ export function registerCommands(
                     error: message,
                 });
             }
-            return createVbaTestRunReport({
-                filePath,
-                startedAt,
-                durationMs: Date.now() - startedMs,
-                discovery,
-                results,
-            });
+            return {
+                report: createVbaTestRunReport({
+                    filePath,
+                    startedAt,
+                    durationMs: Date.now() - startedMs,
+                    discovery,
+                    results,
+                }),
+                hostEvents: [],
+            };
         }
 
         log('[runVbaTests] attachToRunningExcel=false (owned read-only test host)');
@@ -1073,13 +1085,16 @@ export function registerCommands(
             }
         }
 
-        return createVbaTestRunReport({
-            filePath,
-            startedAt,
-            durationMs: Date.now() - startedMs,
-            discovery,
-            results,
-        });
+        return {
+            report: createVbaTestRunReport({
+                filePath,
+                startedAt,
+                durationMs: Date.now() - startedMs,
+                discovery,
+                results,
+            }),
+            hostEvents: hostRun.events,
+        };
     }
 
     function vbaTestRunItemFromHostResult(
@@ -1141,7 +1156,7 @@ export function registerCommands(
         const selectionDescription = describeVbaTestSelection(options.selection);
         const runScope = selectionDescription ? ` (${selectionDescription})` : '';
         try {
-            let report: VbaTestRunReport | undefined;
+            let execution: VbaTestRunExecution | undefined;
             await vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
@@ -1149,13 +1164,23 @@ export function registerCommands(
                     cancellable: false,
                 },
                 async (progress) => {
-                    report = await runWorkbookVbaTests(filePath, progress, options);
+                    execution = await runWorkbookVbaTests(filePath, progress, options);
                 },
             );
-            if (!report) {
+            if (!execution) {
                 return;
             }
+            const { report, hostEvents } = execution;
             log(`[runVbaTests] Report JSON:\n${JSON.stringify(report, null, 2)}`);
+            try {
+                const artifacts = await writeVbaTestRunArtifacts(report, hostEvents);
+                log(`[runVbaTests] Artifacts written to ${artifacts.runDirectory}`);
+                log(`[runVbaTests] CI status written to ${artifacts.statusPath}`);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[runVbaTests] Artifact write failed: ${message}`);
+                void vscode.window.showWarningMessage(`XLIDE: VBA test artifacts could not be written: ${message}`);
+            }
             openVbaTestResults(context, report);
             showVbaTestRunOutcome(report);
         } catch (err) {

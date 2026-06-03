@@ -145,6 +145,9 @@ The current runner supports:
 - pass/fail/skip/xfail/xpass accounting
 - timeout and host-error accounting
 - JSON report logging in the XLIDE Output channel
+- persisted default run artifacts under `tests` beside the workbook:
+  `summary.json`, `host-trace.json`, `output.log`, and latest
+  `status_for_ci.json`
 - a concise VS Code test results panel
 - command palette and workbook-tree entry points
 - non-Windows discovery with skipped execution because Excel COM is Windows-only
@@ -264,7 +267,7 @@ Remaining shipped-runner execution features include:
 - stage/test duration metrics and performance regression baselines
 - setup and teardown hooks
 - explicit test logs
-- persisted run artifacts and latest CI status JSON
+- configurable artifact output folder and retention policy
 - explicit headless/automation runner mode
 - stable result ids for editor navigation and CI artifacts
 
@@ -346,13 +349,14 @@ Machine-readable JSON output should distinguish persisted artifacts from an
 explicit headless/automation runner mode. `status_for_ci.json` is useful for
 automation consumers, but it does not by itself make XLIDE a headless CI runner.
 
-## Planned Run Artifacts and CI Status
+## Run Artifacts and CI Status
 
-The runner should persist run artifacts into a configurable workbook-specific
-output folder. The default folder is `tests`, resolved relative to the workbook
-directory unless the configured path is absolute.
+The runner persists run artifacts into a workbook-specific output folder. The
+current implementation uses the default folder `tests`, resolved relative to
+the workbook directory. User-configurable output folder selection and retention
+policy are planned follow-ups.
 
-Each run should create a timestamped run directory using
+Each run creates a timestamped run directory using
 `yyyy-mm-dd_hhmmss`, preferably prefixed with a sanitized workbook stem:
 
 ```text
@@ -369,7 +373,7 @@ tests/
 diagnostics. `output.log` is a human-readable transcript for local debugging.
 
 `status_for_ci.json` is overwritten on every test run and points at the most
-recent run. It should be compact, stable, and deterministic enough for CI to
+recent run. It is compact, stable, and deterministic enough for CI to
 consume without parsing the full report:
 
 ```json
@@ -449,7 +453,8 @@ The runner should:
 
 ## Documentation Required Before Shipping
 
-Before the feature is called shipped, this document should include:
+Before the feature is called shipped, the public-facing guide
+`user_guides/testing.md` should exist and cover:
 
 - quickstart
 - complete annotation or manifest syntax
@@ -463,6 +468,10 @@ Before the feature is called shipped, this document should include:
 - setup/teardown examples
 - troubleshooting
 - limitations and host-version notes
+
+Keep this `docs/` file as the internal engineering contract and roadmap notes.
+Keep `user_guides/testing.md` as the publish-ready end-user guide for the
+broader testing topic.
 
 ## Non-Goals
 

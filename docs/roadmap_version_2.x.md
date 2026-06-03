@@ -853,7 +853,7 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - [x] include/exclude tags
   - rerun failed
   - [x] fail fast
-  - persisted run artifacts plus latest CI status JSON
+  - [x] persisted default run artifacts plus latest CI status JSON
   - explicit headless/automation runner mode
 - [ ] Support setup/teardown patterns:
   - per-test setup and teardown
@@ -871,24 +871,23 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - [x] host errors
   - explicit test log/output written through the XLIDE test API
   - teardown failures
-- [ ] Persist test run artifacts to a configurable workbook-specific output
-  folder, defaulting to `tests` beside the workbook. Each run should create a
-  timestamped `yyyy-mm-dd_hhmmss` run directory with `summary.json`,
-  `host-trace.json`, and `output.log`, and overwrite `status_for_ci.json` in
-  the output folder with compact deterministic metadata for the latest run.
-  `status_for_ci.json` should include schema version, status/reason, run id,
-  generated timestamp, workbook name, relative artifact paths where possible,
-  summary counts, duration, and failed test identities (`failed`, `timeout`,
-  `host-error`, `xpass`) with bounded messages. `status` should be
-  `pass | fail | error`; `reason` should be `passed | test-failures | timeouts |
+- [x] Persist default test run artifacts beside the workbook under `tests`.
+  Each run creates a timestamped `yyyy-mm-dd_hhmmss` run directory with
+  `summary.json`, sanitized `host-trace.json`, and `output.log`, and overwrites
+  `status_for_ci.json` in the output folder with compact deterministic metadata
+  for the latest run. `status_for_ci.json` includes schema version,
+  status/reason, run id, generated timestamp, workbook name, relative artifact
+  paths, summary counts, duration, and failed test identities (`failed`,
+  `timeout`, `host-error`, `xpass`) with bounded messages. `status` is
+  `pass | fail | error`; `reason` is `passed | test-failures | timeouts |
   host-errors | unexpected-pass | no-tests | runner-error`. No discovered tests
-  should produce `error` with `reason: "no-tests"` by default. Redact line
-  breaks/control characters in CI messages, avoid absolute workbook paths unless
-  explicitly enabled, use `status_for_ci.json` as the latest-run pointer instead
-  of symlinks/junctions, and add retention later for the last N run directories
-  with a default around 20. Omit line/column from CI status until exact failure
-  locations are deterministic; keep procedure declaration locations in
-  `summary.json`.
+  produce `error` with `reason: "no-tests"` by default. CI messages redact line
+  breaks/control characters, CI status avoids absolute workbook paths, and
+  line/column are omitted from CI status until exact failure locations are
+  deterministic.
+- [ ] Add configurable workbook-specific test artifact output folder and
+  retention for the last N run directories, with a default around 20. Keep
+  `status_for_ci.json` as the latest-run pointer instead of symlinks/junctions.
 - [ ] Support tests that assert expected output, expected state, expected thrown
   error, and expected absence of errors.
 - [x] Return machine-readable JSON results for automation and render a concise
@@ -903,7 +902,7 @@ VBA code from XLIDE, using Excel COM as the execution host.
   workflows, and render rich pass/fail/skip/xfail results in a reusable UI
   surface.
 - [ ] Fully document the downstream developer workflow before calling the test
-  runner shipped:
+  runner shipped in public-facing `user_guides/testing.md`:
   - how to author tests
   - how to mark test procedures explicitly
   - metadata for tags, skips, expected failures, timeouts, owners, and
@@ -920,6 +919,9 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - result JSON schema
   - run artifact folder and `status_for_ci.json` schema
   - troubleshooting and known host limitations
+- [x] Establish `user_guides/` as the publish-ready public documentation folder,
+  with `docs/` reserved for internal roadmap, architecture, implementation
+  policy, and engineering notes.
 
 Definition of done:
 
@@ -1420,6 +1422,8 @@ Definition of done:
 - `docs/xlide_external_member_metadata.md`
 - `docs/xlide_sidebar_panel.md`
 - `docs/xlide_development_principles.md`
+- `user_guides/README.md`
+- `user_guides/testing.md`
 - `src/vbaModuleAnalysis.ts`
 - `src/vbaTestExcelHost.ts`
 - `src/vbaTestHostOracle.ts`
