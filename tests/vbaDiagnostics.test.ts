@@ -1698,6 +1698,65 @@ describe('analyzeModule - argument type validation', () => {
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
 	});
 
+	it('flags known scalar variable type mismatches for ByRef parameters', () => {
+		const src =
+			'Public Sub Mutate(ByRef value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim amount As Integer\n' +
+			'    Mutate amount\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'byref-argument-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('amount');
+		expect(hits[0].message).toContain('expects Long');
+		expect(hits[0].message).toContain('declared as Integer');
+	});
+
+	it('treats omitted parameter passing markers as default ByRef', () => {
+		const src =
+			'Public Sub Mutate(value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim amount As Integer\n' +
+			'    Mutate amount\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'byref-argument-type-mismatch')).toHaveLength(1);
+	});
+
+	it('does not apply ByRef exactness to ByVal parameters, literals, or parenthesized expressions', () => {
+		const src =
+			'Public Sub Mutate(ByRef value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub ReadValue(ByVal value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim amount As Integer\n' +
+			'    Dim longAmount As Long\n' +
+			'    ReadValue amount\n' +
+			'    Mutate 1\n' +
+			'    Mutate (longAmount)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'byref-argument-type-mismatch')).toHaveLength(0);
+	});
+
+	it('uses unique exported project signatures for ByRef exactness', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim amount As Integer\n' +
+			'    Mutate amount\n' +
+			'End Sub\n';
+		const helpers = 'Public Sub Mutate(ByRef value As Long)\nEnd Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Helpers', source: helpers },
+			], 'Caller'),
+			'byref-argument-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('amount');
+	});
+
 	it('does not warn on Variant arguments whose runtime value is unknown', () => {
 		const src =
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +

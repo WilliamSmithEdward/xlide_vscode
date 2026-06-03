@@ -448,6 +448,7 @@ describe('ProjectIndex procedure signatures', () => {
 				optional: false,
 				paramArray: false,
 				isArray: false,
+				byVal: true,
 			},
 			{
 				name: 'TaxRate',
@@ -456,6 +457,7 @@ describe('ProjectIndex procedure signatures', () => {
 				paramArray: false,
 				isArray: false,
 				defaultRaw: '0.08',
+				byVal: true,
 			},
 		]);
 	});
@@ -626,6 +628,7 @@ describe('ProjectIndex visible procedure signatures', () => {
 			optional: false,
 			paramArray: false,
 			isArray: false,
+			byVal: true,
 		});
 		expect(got.find((sig) => sig.name === 'InvoiceTotal')?.signature).toBe(
 			'InvoiceTotal(Subtotal As Currency) As Currency',

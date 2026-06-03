@@ -198,6 +198,23 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "byref-argument-type-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and local type model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "byref_long_variable_compile",
+        "byref_long_literal_compile",
+        "byref_long_parenthesized_variable_compile",
+        "byref_long_integer_variable_compile",
+        "byval_long_integer_variable_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef scalar parameter and the argument is an unparenthesized known scalar variable with a different normalized type. Oracle controls prove that literals and parenthesized Long variable expressions are compile-accepted, so the rule does not treat ByRef as a generic assignability check.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "assignment-type-mismatch",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar assignment compatibility model",

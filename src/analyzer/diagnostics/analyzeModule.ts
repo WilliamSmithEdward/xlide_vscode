@@ -1883,6 +1883,7 @@ interface CallableParamType {
 	type?: string;
 	optional: boolean;
 	paramArray: boolean;
+	byRef?: boolean;
 }
 
 interface CallableTypeSignature {
@@ -2378,11 +2379,12 @@ function sameModuleCallableSignatures(
 function callableTypeSignatureFromSymbol(symbol: VbaSymbol): CallableTypeSignature {
 	return {
 		name: symbol.name,
-		params: procedureParamsFromSymbol(symbol).map((p) => ({
+		params: procedureParamsFromSymbol(symbol, { includePassing: true }).map((p) => ({
 			name: stripHeaderBrackets(p.name),
 			type: p.type,
 			optional: p.optional,
 			paramArray: p.paramArray,
+			byRef: isByRefProcedureParam(p),
 		})),
 		returnType: symbol.asType,
 	};
@@ -2420,11 +2422,19 @@ function uniqueProjectTypeSignatures(
 				type: p.type,
 				optional: p.optional,
 				paramArray: p.paramArray,
+				byRef: isByRefProcedureParam(p),
 			})),
 			returnType: candidate.returnType,
 		});
 	}
 	return out;
+}
+
+function isByRefProcedureParam(param: { byRef?: boolean; byVal?: boolean; paramArray?: boolean }): boolean {
+	if (param.paramArray) {
+		return false;
+	}
+	return param.byRef === true || param.byVal !== true;
 }
 
 function typeEnvironmentFor(
@@ -2735,6 +2745,15 @@ function validateArgumentTypesForSignature(
 		if (!expected) {
 			continue;
 		}
+		const byRefMismatch = byRefVariableTypeMismatch(param, valueSlot, call.sliceStart, env);
+		if (byRefMismatch) {
+			push(
+				'byRefArgumentTypeMismatch',
+				`ByRef argument '${param.name}' of '${sig.name}' expects ${expected}, but '${byRefMismatch.name}' is declared as ${byRefMismatch.actual}. This is a VBE compile error: ByRef argument type mismatch.`,
+				byRefMismatch.span,
+			);
+			continue;
+		}
 		const stringArithmetic = nonnumericStringArithmeticOperand(
 			expected,
 			valueSlot,
@@ -2776,6 +2795,39 @@ function callableSignatureForCall(
 		return moduleSignatures.get(call.lookupKey);
 	}
 	return callableSignatureFor(call.name, moduleSignatures);
+}
+
+function byRefVariableTypeMismatch(
+	param: CallableParamType,
+	slot: VbaToken[],
+	sliceStart: number,
+	env: ReadonlyMap<string, string>,
+): { name: string; actual: string; span: Span } | undefined {
+	if (!param.byRef || !param.type) {
+		return undefined;
+	}
+	const expected = normalizeType(param.type);
+	if (!expected || !isKnownScalarType(expected)) {
+		return undefined;
+	}
+	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	if (toks.length !== 1) {
+		return undefined;
+	}
+	const name = tokenName(toks[0]);
+	if (!name) {
+		return undefined;
+	}
+	const actualRaw = env.get(name.toLowerCase());
+	const actual = normalizeType(actualRaw);
+	if (!actual || !isKnownScalarType(actual) || actual === expected) {
+		return undefined;
+	}
+	return {
+		name,
+		actual: actualRaw ?? name,
+		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[0].end },
+	};
 }
 
 function namedArgumentSlot(slot: VbaToken[]): { name: string; value: VbaToken[] } | undefined {

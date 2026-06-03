@@ -333,7 +333,7 @@ export function procedureSignatureFromSymbol(
 		name: symbol.name,
 		moduleName: symbol.moduleName,
 		kind,
-		params: procedureParamsFromSymbol(symbol, { includePassing: external }),
+		params: procedureParamsFromSymbol(symbol, { includePassing: true }),
 		returnType: symbol.asType,
 		visibility: symbol.visibility,
 		doc: symbol.doc,

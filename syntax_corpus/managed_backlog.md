@@ -158,7 +158,10 @@ Promotion path:
 
 Near-term candidates:
 
-- `ByRef` exactness and parenthesized expression behavior.
+- `ByRef` exactness and parenthesized expression behavior. First scalar compile
+  slice is promoted through `byref-argument-type-mismatch`; continue with
+  object references, arrays, Variant behavior, named arguments, and runtime
+  mutation behavior.
 - Optional/default parameter validity.
 - `ParamArray` placement and element typing.
 - Return assignment inside `Function` and `Property Get`.

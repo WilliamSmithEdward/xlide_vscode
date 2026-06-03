@@ -244,6 +244,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1',
 		confidence: 'high',
 	},
+	byRefArgumentTypeMismatch: {
+		code: 'byref-argument-type-mismatch',
+		title: 'ByRef argument type mismatch',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1 / VBE oracle: ByRef argument type mismatch',
+		confidence: 'high',
+	},
 	assignmentTypeMismatch: {
 		code: 'assignment-type-mismatch',
 		title: 'Assignment type mismatch',

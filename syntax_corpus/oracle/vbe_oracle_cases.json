@@ -173,6 +173,56 @@
       "diagnosticMeaning": "observation"
     },
     {
+      "id": "byref_long_variable_compile",
+      "description": "Observe whether a Long variable can be passed to a ByRef Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Long)\n    value = value + 1\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim amount As Long\n    Mutate amount\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "byref_long_literal_compile",
+      "description": "Observe whether a literal can be passed to a ByRef Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Long)\n    value = value + 1\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Mutate 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "byref_long_parenthesized_variable_compile",
+      "description": "Observe whether a parenthesized Long variable expression can be passed to a ByRef Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Long)\n    value = value + 1\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim amount As Long\n    Mutate (amount)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "byref_long_integer_variable_compile",
+      "description": "Observe whether an Integer variable can be passed to a ByRef Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Long)\n    value = value + 1\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim amount As Integer\n    Mutate amount\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "byval_long_integer_variable_compile",
+      "description": "Observe the ByVal control for passing an Integer variable to a Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub ReadValue(ByVal value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim amount As Integer\n    ReadValue amount\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "explicit_call_missing_argument_parentheses",
       "description": "A Call statement with arguments but without the required parentheses.",
       "provenance": "observed-not-asserted",

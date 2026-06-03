@@ -44,7 +44,7 @@ view of that backlog.
 | String family | Partial | Fixed-length declaration parser/symbol/hover tests; oracle-backed literal bounds for `String * 1`, `String * 65526`, `String * 0`, and `String * 65527`; deterministic fixed-length `Const` expression diagnostics; fixed-length string and string-size legacy corpus cases | Fixed-length assignment truncation, non-deterministic length expression semantics, type suffix `$` | Spec and oracle mix |
 | Optional/default parameter typing | Pending | Arity tests and optional argument oracle seed | Default value type compatibility, missing optional argument slots, named optional args | Compile oracle for headers and call syntax |
 | ParamArray typing | Pending | Legacy corpus examples, arity tests | Non-Variant ParamArray, ParamArray not last, argument element inference | Spec first, oracle for VBE messages |
-| ByRef compatibility | Missing | None systematic | ByRef exactness vs coercion, literals to ByRef, parenthesized ByRef expressions | Compile/runtime oracle required |
+| ByRef compatibility | Partial | Oracle-backed compile matrix for `ByRef Long`: exact `Long` variable accepted, literal accepted, parenthesized `Long` variable expression accepted, unparenthesized `Integer` variable rejected, and matching `ByVal Long` control accepted; analyzer diagnostic for known source-backed scalar variable exactness | Object references, arrays, Variant behavior, named arguments, runtime mutation behavior | Compile/runtime oracle required |
 | Named arguments | Partial | Unit tests for named argument mapping | Named/positional mixing, duplicate named args, optional named omissions | Compile oracle for call syntax; unit tests for binder mapping |
 | Return assignment inside Function | Partial | Unit tests for scalar Function return assignment, object Function return requiring `Set`, incompatible object return assignment, compatible object return assignment, and Property Get object return assignment | Property Let/Set declaration consistency, object return values through default members, host object return compatibility | Compile/runtime oracle and binder tests |
 | Comparisons | Missing | Roadmap only | Numeric/string/Date/Object comparisons, `Like`, `Is`, `Is Not` | Needs operator matrix and oracle for edge behavior |
@@ -66,8 +66,9 @@ These are the highest-value additions before the next major binder slice:
 1. **Workbook fixture files**: build on the shared project-analysis helper with
    machine-readable multi-module fixtures so cross-module calls, classes, UDTs,
    and enums can be tested deterministically at workbook scale.
-2. **ByRef oracle matrix**: exactness, coercion, literals, parenthesized
-   expressions, and object references.
+2. **ByRef oracle matrix**: first scalar exactness slice is promoted; continue
+   with object references, arrays, Variant behavior, named arguments, and
+   runtime mutation behavior.
 3. **Date coercion matrix**: accepted literals, rejected strings, and
    locale-sensitive cases marked as no-diagnostic until deterministic.
 4. **Object assignment matrix**: host object RHS compatibility, non-project
