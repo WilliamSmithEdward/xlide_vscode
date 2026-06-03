@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest';
+import {
+    buildOwnedReadOnlyExcelTestHostScript,
+    parseVbaTestHostEventLine,
+    vbaTestHostPlanItems,
+    XLIDE_TEST_HOST_EVENT_PREFIX,
+} from '../src/vbaTestExcelHost';
+import type { VbaTestCase } from '../src/vbaTestRunner';
+
+describe('VBA test Excel host script', () => {
+    it('builds a single owned read-only Excel host script without attaching to user Excel', () => {
+        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', [
+            { qualifiedName: 'Tests.Pass', timeoutMs: 5000, expectedFailure: false },
+            { qualifiedName: 'Tests.KnownFailure', timeoutMs: 7000, expectedFailure: true },
+        ], { failFast: true });
+
+        expect(script).toContain('New-Object -ComObject Excel.Application');
+        expect(script).not.toContain('GetActiveObject');
+        expect(script).toContain('$excel.DisplayAlerts = $false');
+        expect(script).toContain('$excel.Workbooks.Open($targetPath, 0, $true');
+        expect(script).toContain('[Type]::Missing, [Type]::Missing, [Type]::Missing, $true');
+        expect(script).toContain('$workbook.Close($false)');
+        expect(script).toContain('$excel.Quit()');
+        expect(script).toContain('Emit-XlideTestHostEvent "macro-started"');
+        expect(script).toContain('if ($failFast -and -not $expectedFailure) { break }');
+    });
+
+    it('uses per-test timeout metadata when building host plan items', () => {
+        const tests: VbaTestCase[] = [
+            testCase('Tests.DefaultTimeout', {}),
+            testCase('Tests.CustomTimeout', { timeoutMs: 2500, xfailReason: 'Known issue' }),
+        ];
+
+        expect(vbaTestHostPlanItems(tests)).toEqual([
+            { qualifiedName: 'Tests.DefaultTimeout', timeoutMs: 30000, expectedFailure: false },
+            { qualifiedName: 'Tests.CustomTimeout', timeoutMs: 2500, expectedFailure: true },
+        ]);
+    });
+
+    it('parses host event lines and ignores ordinary output', () => {
+        expect(parseVbaTestHostEventLine('not an event')).toBeUndefined();
+        expect(parseVbaTestHostEventLine(`${XLIDE_TEST_HOST_EVENT_PREFIX}${JSON.stringify({
+            kind: 'macro-finished',
+            excelId: 'xlide-1',
+            qualifiedName: 'Tests.Pass',
+            outcome: 'passed',
+            durationMs: 12,
+        })}`)).toEqual({
+            kind: 'macro-finished',
+            excelId: 'xlide-1',
+            qualifiedName: 'Tests.Pass',
+            outcome: 'passed',
+            durationMs: 12,
+        });
+    });
+});
+
+function testCase(qualifiedName: string, metadata: Partial<VbaTestCase['metadata']>): VbaTestCase {
+    const [moduleName, procedureName] = qualifiedName.split('.');
+    return {
+        id: qualifiedName,
+        moduleName,
+        moduleType: 'standard',
+        procedureName,
+        qualifiedName,
+        line: 1,
+        column: 1,
+        annotationLine: 1,
+        metadata: {
+            tags: [],
+            ...metadata,
+        },
+    };
+}

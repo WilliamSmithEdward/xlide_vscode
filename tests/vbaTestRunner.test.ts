@@ -188,17 +188,21 @@ describe('VBA test runner reporting', () => {
                 { test, status: 'skipped', durationMs: 0, error: 'not supported' },
                 { test, status: 'xfail', durationMs: 5, error: 'known failure' },
                 { test, status: 'xpass', durationMs: 6, error: 'unexpected pass' },
+                { test, status: 'timeout', durationMs: 30000, error: 'hung' },
+                { test, status: 'host-error', durationMs: 0, error: 'open failed' },
             ],
         });
 
         expect(report.workbookName).toBe('Book.xlsm');
         expect(summarizeVbaTestRun(report)).toEqual({
-            total: 5,
+            total: 7,
             passed: 1,
             failed: 1,
             skipped: 1,
             xfail: 1,
             xpass: 1,
+            timeout: 1,
+            hostError: 1,
         });
         expect(vbaTestFailureMessage(new Error('RUN_FAILED|Assertion failed'))).toBe('Assertion failed');
     });

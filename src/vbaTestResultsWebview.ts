@@ -141,6 +141,11 @@ export function renderVbaTestResultsHtml(
             color: var(--vscode-testing-iconFailed, #f48771);
             background: color-mix(in srgb, var(--vscode-testing-iconFailed, #f48771) 16%, transparent);
         }
+        .timeout .status,
+        .host-error .status {
+            color: var(--vscode-errorForeground, #f48771);
+            background: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 16%, transparent);
+        }
         .skipped .status {
             color: var(--vscode-testing-iconSkipped, #cca700);
             background: color-mix(in srgb, var(--vscode-testing-iconSkipped, #cca700) 16%, transparent);
@@ -227,6 +232,8 @@ function renderSummary(summary: VbaTestRunSummary): string {
         ${statHtml(summary.total, 'Tests')}
         ${statHtml(summary.passed, 'Passed')}
         ${statHtml(summary.failed, 'Failed')}
+        ${statHtml(summary.timeout, 'Timeout')}
+        ${statHtml(summary.hostError, 'Host Errors')}
         ${statHtml(summary.skipped, 'Skipped')}
         ${statHtml(summary.xfail, 'XFail')}
         ${statHtml(summary.xpass, 'XPass')}
@@ -243,6 +250,10 @@ function statusLabel(status: string): string {
             return 'Passed';
         case 'failed':
             return 'Failed';
+        case 'timeout':
+            return 'Timeout';
+        case 'host-error':
+            return 'Host Error';
         case 'skipped':
             return 'Skipped';
         case 'xfail':

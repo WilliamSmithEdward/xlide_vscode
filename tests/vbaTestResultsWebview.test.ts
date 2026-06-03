@@ -20,6 +20,8 @@ describe('VBA test results webview', () => {
         expect(html).toContain('Tests.TestFail');
         expect(html).toContain('Passed');
         expect(html).toContain('Failed');
+        expect(html).toContain('Timeout');
+        expect(html).toContain('Host Errors');
         expect(html).toContain('XFail');
         expect(html).toContain('owner:finance');
         expect(html).toContain('smoke');
@@ -62,6 +64,15 @@ function reportFixture(): VbaTestRunReport {
         annotationLine: 9,
         metadata: { tags: ['known-bug'], xfailReason: 'Pending fix' },
     };
+    const timeout = {
+        ...pass,
+        id: 'Tests.TestTimeout',
+        procedureName: 'TestTimeout',
+        qualifiedName: 'Tests.TestTimeout',
+        line: 14,
+        annotationLine: 13,
+        metadata: { tags: ['slow'], timeoutMs: 5000 },
+    };
     return {
         filePath: 'C:/work/Book.xlsm',
         workbookName: 'Book.xlsm',
@@ -69,8 +80,8 @@ function reportFixture(): VbaTestRunReport {
         durationMs: 45,
         discovery: {
             filePath: 'C:/work/Book.xlsm',
-            tests: [pass, fail, xfail],
-            unfilteredTestCount: 3,
+            tests: [pass, fail, xfail, timeout],
+            unfilteredTestCount: 4,
             modulesScanned: 1,
             modulesIgnored: 0,
             contract: "Standard-module no-argument Sub procedures with '@xlide-test'.",
@@ -79,6 +90,7 @@ function reportFixture(): VbaTestRunReport {
             { test: pass, status: 'passed', durationMs: 10 },
             { test: fail, status: 'failed', durationMs: 20, error: 'Err.Raise <boom>' },
             { test: xfail, status: 'xfail', durationMs: 14, error: 'Known issue' },
+            { test: timeout, status: 'timeout', durationMs: 5000, error: 'Timed out' },
         ],
     };
 }

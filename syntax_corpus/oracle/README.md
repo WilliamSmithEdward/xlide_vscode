@@ -69,6 +69,22 @@ By default the runner is observational and exits successfully even when a
 fixture expectation differs from the observed result. Use `--strict` when the
 local Excel/VBE automation path is stable enough to enforce expectations.
 
+## Automation Policy
+
+The oracle must not use `SendKeys`, keyboard focus scripting, or
+timing-dependent keystroke playback as evidence. Driving Excel/VBE should use
+deterministic low-level hooks: COM object model calls for workbook/VBE actions,
+VBE command-bar controls for compile invocation, Win32 window enumeration and
+messages for dialog capture/dismissal, or UI Automation hooks where COM/Win32
+cannot expose the required state. If a case can only be exercised through
+foreground focus or keystroke replay, keep it unsupported or pending until a
+low-level hook exists.
+
+The harness must also account for blockers that could prevent completion. Known
+prompts should be prevented or handled through low-level hooks. Unknown modals,
+hangs, setup failures, and automation-busy states are oracle infrastructure
+failures after timeout/retry cleanup, not accepted or rejected VBA evidence.
+
 ## Fixture Policy
 
 Fixtures record empirical VBE behavior. They should be used to verify edge cases

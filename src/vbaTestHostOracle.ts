@@ -34,7 +34,7 @@ export interface VbaTestHostOracleIssue {
 export type VbaTestMacroOutcome = 'passed' | 'failed' | 'timeout' | 'hung' | 'runner-error';
 
 export type VbaTestHostOracleEvent =
-    | { kind: 'excel-created'; excelId: string; owned: boolean }
+    | { kind: 'excel-created'; excelId: string; owned: boolean; pid?: number }
     | { kind: 'excel-attached'; excelId: string }
     | {
         kind: 'workbook-opened';
@@ -46,7 +46,14 @@ export type VbaTestHostOracleEvent =
         ignoreReadOnlyRecommended?: boolean;
     }
     | { kind: 'macro-started'; excelId: string; qualifiedName: string; timeoutMs?: number }
-    | { kind: 'macro-finished'; excelId: string; qualifiedName: string; outcome: VbaTestMacroOutcome; message?: string }
+    | {
+        kind: 'macro-finished';
+        excelId: string;
+        qualifiedName: string;
+        outcome: VbaTestMacroOutcome;
+        durationMs?: number;
+        message?: string;
+    }
     | { kind: 'workbook-closed'; excelId: string; filePath?: string; saveChanges: boolean }
     | { kind: 'excel-quit'; excelId: string }
     | { kind: 'excel-killed'; excelId: string; reason: 'timeout' | 'hung' | 'runner-error' | 'cleanup-failed' };

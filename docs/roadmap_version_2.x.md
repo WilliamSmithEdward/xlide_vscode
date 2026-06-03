@@ -54,6 +54,15 @@ heuristic diagnostics.
   declares and verifies exhaustiveness for that type.
 - The Excel/VBE oracle is a discovery, debugging, and corpus-coverage tool, not
   a routine per-change test.
+- Oracle and Excel-host automation must use deterministic low-level hooks, not
+  `SendKeys`, keyboard focus scripting, or timing-dependent keystroke playback.
+  Use COM, VBE command-bar controls, Win32 handles/messages, or UI Automation;
+  cases that require keystroke replay remain unsupported until a low-level hook
+  exists.
+- Excel-hosted test and oracle flows must be bounded against blockers: known
+  prompts should be prevented or handled, and unknown modals, hangs, setup
+  failures, or automation-busy states must produce host/oracle infrastructure
+  errors with cleanup rather than leaving a run stuck.
 - The syntax corpus is evidence, not authority. Corpus cases may be incomplete
   or wrong and should be verified against the oracle when they drive analyzer
   behavior.
@@ -243,8 +252,13 @@ truth.
 
 - [x] Add Excel/VBE oracle harness.
 - [x] Capture VBE compile popups as the primary oracle signal.
+- [x] Lock oracle automation to low-level hooks: no `SendKeys`, focus-driven
+  keystroke playback, or timing-dependent keyboard automation for oracle truth.
 - [x] Keep oracle out of routine per-change verification.
 - [x] Kill the recorded disposable Excel PID after each oracle case.
+- [x] Treat unknown oracle modals, hangs, setup failures, and automation-busy
+  states as oracle infrastructure failures after timeout/retry cleanup, not as
+  accepted/rejected VBA evidence.
 - [x] Mark corpus fixtures with provenance:
   - spec-derived
   - VBE-oracle-verified
@@ -789,7 +803,7 @@ VBA code from XLIDE, using Excel COM as the execution host.
   tests through Excel COM. First slice runs all discovered tests in the target
   workbook; the runner now also supports current-module/current-test execution,
   include/exclude tag filters, and fail-fast mode on the same runner path.
-- [ ] Run tests by default in one dedicated XLIDE-owned Excel instance that
+- [x] Run tests by default in one dedicated XLIDE-owned Excel instance that
   opens the target workbook read-only, runs all selected tests in that same
   instance, closes without saving, and never attaches to the user's normal Excel
   session unless explicitly opted in. Disposable workbook/session isolation can
@@ -799,6 +813,21 @@ VBA code from XLIDE, using Excel COM as the execution host.
   read-only Excel instance, prompt/hang safeguards, close-without-saving, and
   timeout/hang cleanup, so future COM-host changes can be checked without live
   Excel in routine unit tests.
+- [x] Define a feature-complete test-host oracle plan in
+  `docs/xlide_vba_com_test_runner.md`: frozen trace schema, expanded lifecycle
+  invariants, popup/blocker matrix, full result taxonomy, host-script safety
+  checks, artifact/CI-status mapping, and optional live Excel canaries.
+- [ ] Expand `src/vbaTestHostOracle.ts` from the current lifecycle seed into
+  the full test-host proof surface: stage events, blocker classifications,
+  no-`SendKeys`/no-focus automation checks, result taxonomy, cleanup guarantees,
+  and artifact/status mapping.
+- [ ] Add a comprehensive Excel popup/blocker matrix for the test runner:
+  workbook-open prompts, link/update prompts, password/protected-view/security
+  prompts, Trust Center/trust-access failures, compile/runtime/modal VBA
+  dialogs, add-in prompts, repair/recovery prompts, automation-busy states, and
+  cleanup failures. Each blocker should be prevented, handled by low-level
+  hooks, or reported as `host-error`/timeout with host trace and owned-process
+  cleanup; no blocker may leave a run indefinitely pending.
 - [x] Reuse the workbook close/reopen/reset discipline from macro execution and
   warn when a workbook cannot be safely reopened in XLIDE's context.
 - [x] Add a small VBA assertion/support module or equivalent injected test
@@ -819,7 +848,8 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - [x] include/exclude tags
   - rerun failed
   - [x] fail fast
-  - machine-readable automation mode
+  - persisted run artifacts plus latest CI status JSON
+  - explicit headless/automation runner mode
 - [ ] Support setup/teardown patterns:
   - per-test setup and teardown
   - per-module setup and teardown
@@ -832,8 +862,28 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - compile errors
   - [x] runtime errors, including error description
   - [x] assertion failures
+  - [x] timeout failures
+  - [x] host errors
   - explicit test log/output written through the XLIDE test API
-  - timeout and teardown failures
+  - teardown failures
+- [ ] Persist test run artifacts to a configurable workbook-specific output
+  folder, defaulting to `tests` beside the workbook. Each run should create a
+  timestamped `yyyy-mm-dd_hhmmss` run directory with `summary.json`,
+  `host-trace.json`, and `output.log`, and overwrite `status_for_ci.json` in
+  the output folder with compact deterministic metadata for the latest run.
+  `status_for_ci.json` should include schema version, status/reason, run id,
+  generated timestamp, workbook name, relative artifact paths where possible,
+  summary counts, duration, and failed test identities (`failed`, `timeout`,
+  `host-error`, `xpass`) with bounded messages. `status` should be
+  `pass | fail | error`; `reason` should be `passed | test-failures | timeouts |
+  host-errors | unexpected-pass | no-tests | runner-error`. No discovered tests
+  should produce `error` with `reason: "no-tests"` by default. Redact line
+  breaks/control characters in CI messages, avoid absolute workbook paths unless
+  explicitly enabled, use `status_for_ci.json` as the latest-run pointer instead
+  of symlinks/junctions, and add retention later for the last N run directories
+  with a default around 20. Omit line/column from CI status until exact failure
+  locations are deterministic; keep procedure declaration locations in
+  `summary.json`.
 - [ ] Support tests that assert expected output, expected state, expected thrown
   error, and expected absence of errors.
 - [x] Return machine-readable JSON results for automation and render a concise
@@ -860,8 +910,10 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - workbook/session lifecycle
   - COM/Excel trust requirements
   - timeout and cleanup behavior
-  - command palette and automation usage
+  - command palette usage
+  - explicit headless/automation runner mode
   - result JSON schema
+  - run artifact folder and `status_for_ci.json` schema
   - troubleshooting and known host limitations
 
 Definition of done:
@@ -1181,7 +1233,7 @@ the deterministic analyzer contract.
   - timeouts
   - workbook reset behavior
   - trusted test folders
-  - result output path
+  - result output path, defaulting to `tests` relative to the workbook
 - [ ] Add sidebar/profile UI for active configuration.
 - [x] Add configuration validation diagnostics for malformed settings. Global
   VS Code XLIDE settings now validate through `src/globalSettings.ts` and
@@ -1342,10 +1394,10 @@ Definition of done:
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
 4. Continue hardening the VBA test runner beyond the explicit `@xlide-test`
-   run-all/current-scope slice: implement the single owned read-only Excel host
-   against `src/vbaTestHostOracle.ts`, then add disposable-session safety,
-   rerun-failed/automation flows, setup/teardown, compile-error capture, and
-   full workflow documentation before calling it shipped.
+   run-all/current-scope/single-host slice: add run artifacts plus
+   `status_for_ci.json`, disposable-session safety, rerun-failed/automation
+   flows, setup/teardown, compile-error capture, suite timeouts, and full
+   workflow documentation before calling it shipped.
 5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
    for analysis, test, setup, sync, and workbook actions; avoid using the Output
    channel as the primary UX for actionable workflow results.
@@ -1364,6 +1416,7 @@ Definition of done:
 - `docs/xlide_sidebar_panel.md`
 - `docs/xlide_development_principles.md`
 - `src/vbaModuleAnalysis.ts`
+- `src/vbaTestExcelHost.ts`
 - `src/vbaTestHostOracle.ts`
 - `src/analyzer/diagnostics/ruleMetadata.ts`
 - `syntax_corpus/README.md`

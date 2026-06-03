@@ -7,7 +7,14 @@ import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
 
-export type VbaTestStatus = 'passed' | 'failed' | 'skipped' | 'xfail' | 'xpass';
+export type VbaTestStatus =
+    | 'passed'
+    | 'failed'
+    | 'skipped'
+    | 'xfail'
+    | 'xpass'
+    | 'timeout'
+    | 'host-error';
 
 export interface VbaTestModuleEntry {
     name: string;
@@ -77,6 +84,8 @@ export interface VbaTestRunSummary {
     skipped: number;
     xfail: number;
     xpass: number;
+    timeout: number;
+    hostError: number;
 }
 
 export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestCase[] {
@@ -237,9 +246,15 @@ export function summarizeVbaTestRun(report: Pick<VbaTestRunReport, 'results'>): 
         skipped: 0,
         xfail: 0,
         xpass: 0,
+        timeout: 0,
+        hostError: 0,
     };
     for (const result of report.results) {
-        summary[result.status]++;
+        if (result.status === 'host-error') {
+            summary.hostError++;
+        } else {
+            summary[result.status]++;
+        }
     }
     return summary;
 }

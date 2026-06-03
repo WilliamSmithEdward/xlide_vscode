@@ -36,10 +36,21 @@ import {
     discoverWorkbookVbaTests,
     summarizeVbaTestRun,
     vbaTestFailureMessage,
+    type VbaTestCase,
     type VbaTestRunItem,
     type VbaTestRunReport,
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
+import {
+    buildOwnedReadOnlyExcelTestHostScript,
+    DEFAULT_VBA_TEST_TIMEOUT_MS,
+    parseVbaTestHostEventLine,
+    vbaTestHostPlanItems,
+} from './vbaTestExcelHost';
+import {
+    validateVbaTestHostOracleTrace,
+    type VbaTestHostOracleEvent,
+} from './vbaTestHostOracle';
 import { openVbaTestResults } from './vbaTestResultsWebview';
 import {
     normalizeVbaTestSupportModuleSource,
@@ -134,6 +145,19 @@ interface ResolvedModuleSyncSettings extends ModuleSyncSettings {
 interface VbaTestRunOptions {
     selection?: VbaTestSelectionOptions;
     failFast?: boolean;
+}
+
+interface OwnedReadOnlyExcelHostRunResult {
+    events: VbaTestHostOracleEvent[];
+    resultsByName: Map<string, OwnedReadOnlyExcelHostTestResult>;
+    hostError?: string;
+    timedOutAfter?: string;
+}
+
+interface OwnedReadOnlyExcelHostTestResult {
+    outcome: 'passed' | 'failed' | 'timeout' | 'runner-error';
+    durationMs: number;
+    message?: string;
 }
 
 type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
@@ -692,6 +716,264 @@ export function registerCommands(
         });
     }
 
+    async function runOwnedReadOnlyExcelTestHost(
+        filePath: string,
+        tests: readonly VbaTestCase[],
+        options: VbaTestRunOptions,
+    ): Promise<OwnedReadOnlyExcelHostRunResult> {
+        const script = buildOwnedReadOnlyExcelTestHostScript(
+            filePath,
+            vbaTestHostPlanItems(tests),
+            { failFast: options.failFast },
+        );
+        log(`[runVbaTests] Running owned read-only Excel host for ${tests.length} test(s).`);
+        log(`[runVbaTests] Host script: ${script}`);
+
+        return new Promise<OwnedReadOnlyExcelHostRunResult>((resolve) => {
+            const child = cp.spawn('powershell.exe', [
+                '-NoProfile',
+                '-ExecutionPolicy',
+                'Bypass',
+                '-Command',
+                script,
+            ]);
+            const events: VbaTestHostOracleEvent[] = [];
+            const stderrLines: string[] = [];
+            let stdoutBuffer = '';
+            let currentMacro: { excelId: string; qualifiedName: string; timeoutMs: number; startedMs: number } | undefined;
+            let currentTimer: ReturnType<typeof setTimeout> | undefined;
+            let startupTimer: ReturnType<typeof setTimeout> | undefined;
+            let ownedExcelPid: number | undefined;
+            let timedOutAfter: string | undefined;
+            let settled = false;
+
+            const clearCurrentTimer = () => {
+                if (currentTimer) {
+                    clearTimeout(currentTimer);
+                    currentTimer = undefined;
+                }
+            };
+            const clearStartupTimer = () => {
+                if (startupTimer) {
+                    clearTimeout(startupTimer);
+                    startupTimer = undefined;
+                }
+            };
+
+            const eventResult = (event: VbaTestHostOracleEvent): OwnedReadOnlyExcelHostTestResult | undefined => {
+                if (event.kind !== 'macro-finished') {
+                    return undefined;
+                }
+                if (event.outcome === 'passed' || event.outcome === 'failed') {
+                    return {
+                        outcome: event.outcome,
+                        durationMs: event.durationMs ?? 0,
+                        message: event.message,
+                    };
+                }
+                if (event.outcome === 'timeout' || event.outcome === 'hung') {
+                    return {
+                        outcome: 'timeout',
+                        durationMs: event.durationMs ?? currentMacro?.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS,
+                        message: event.message,
+                    };
+                }
+                return {
+                    outcome: 'runner-error',
+                    durationMs: event.durationMs ?? 0,
+                    message: event.message,
+                };
+            };
+
+            const finish = (hostError?: string) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearCurrentTimer();
+                clearStartupTimer();
+                const resultsByName = new Map<string, OwnedReadOnlyExcelHostTestResult>();
+                for (const event of events) {
+                    const result = eventResult(event);
+                    if (result && event.kind === 'macro-finished') {
+                        resultsByName.set(event.qualifiedName, result);
+                    }
+                }
+                const oracleIssues = validateVbaTestHostOracleTrace(events);
+                for (const issue of oracleIssues) {
+                    log(`[runVbaTests oracle] ${issue.code}: ${issue.message}`);
+                }
+                resolve({
+                    events,
+                    resultsByName,
+                    hostError,
+                    timedOutAfter,
+                });
+            };
+
+            const killOwnedExcel = (reason: 'timeout' | 'hung' | 'runner-error' | 'cleanup-failed') => {
+                if (!ownedExcelPid) {
+                    return;
+                }
+                log(`[runVbaTests] Killing owned Excel process ${ownedExcelPid} after ${reason}.`);
+                cp.spawn('taskkill.exe', ['/PID', String(ownedExcelPid), '/T', '/F']);
+                const excelId = currentMacro?.excelId ?? events.find((event) => event.kind === 'excel-created')?.excelId;
+                if (excelId) {
+                    events.push({ kind: 'excel-killed', excelId, reason });
+                }
+            };
+
+            startupTimer = setTimeout(() => {
+                if (settled || currentMacro) {
+                    return;
+                }
+                timedOutAfter = 'test host startup';
+                const excelId = events.find((event) => event.kind === 'excel-created')?.excelId ?? 'unknown';
+                const message = `Excel test host timed out before starting tests after ${DEFAULT_VBA_TEST_TIMEOUT_MS} ms.`;
+                events.push({
+                    kind: 'macro-finished',
+                    excelId,
+                    qualifiedName: 'XLIDE.TestHostStartup',
+                    outcome: 'timeout',
+                    durationMs: DEFAULT_VBA_TEST_TIMEOUT_MS,
+                    message,
+                });
+                killOwnedExcel('timeout');
+                child.kill();
+                finish(message);
+            }, DEFAULT_VBA_TEST_TIMEOUT_MS);
+
+            const armMacroTimeout = (event: Extract<VbaTestHostOracleEvent, { kind: 'macro-started' }>) => {
+                clearStartupTimer();
+                clearCurrentTimer();
+                const timeoutMs = event.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS;
+                currentMacro = {
+                    excelId: event.excelId,
+                    qualifiedName: event.qualifiedName,
+                    timeoutMs,
+                    startedMs: Date.now(),
+                };
+                currentTimer = setTimeout(() => {
+                    if (!currentMacro || timedOutAfter) {
+                        return;
+                    }
+                    timedOutAfter = currentMacro.qualifiedName;
+                    const durationMs = Date.now() - currentMacro.startedMs;
+                    const message = `Timed out after ${currentMacro.timeoutMs} ms.`;
+                    events.push({
+                        kind: 'macro-finished',
+                        excelId: currentMacro.excelId,
+                        qualifiedName: currentMacro.qualifiedName,
+                        outcome: 'timeout',
+                        durationMs,
+                        message,
+                    });
+                    killOwnedExcel('timeout');
+                    child.kill();
+                    finish(message);
+                }, timeoutMs);
+            };
+
+            const handleEvent = (event: VbaTestHostOracleEvent) => {
+                events.push(event);
+                if (event.kind === 'excel-created') {
+                    ownedExcelPid = event.pid;
+                    log(`[runVbaTests host] excel-created pid=${ownedExcelPid ?? 'unknown'}`);
+                } else if (event.kind === 'macro-started') {
+                    log(`[runVbaTests host] macro-started ${event.qualifiedName} timeoutMs=${event.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS}`);
+                    armMacroTimeout(event);
+                } else if (event.kind === 'macro-finished') {
+                    log(`[runVbaTests host] macro-finished ${event.qualifiedName} outcome=${event.outcome}`);
+                    clearCurrentTimer();
+                    currentMacro = undefined;
+                }
+            };
+
+            const handleStdoutText = (text: string) => {
+                stdoutBuffer += text;
+                const lines = stdoutBuffer.split(/\r?\n/);
+                stdoutBuffer = lines.pop() ?? '';
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed) {
+                        continue;
+                    }
+                    try {
+                        const event = parseVbaTestHostEventLine(trimmed);
+                        if (event) {
+                            handleEvent(event);
+                        } else {
+                            log(`[runVbaTests host stdout] ${trimmed}`);
+                        }
+                    } catch (err) {
+                        log(`[runVbaTests host stdout] ${trimmed}`);
+                        log(`[runVbaTests host parse] ${err instanceof Error ? err.message : String(err)}`);
+                    }
+                }
+            };
+
+            child.on('spawn', () => {
+                log(`[runVbaTests] Spawned owned host powershell.exe (pid=${child.pid ?? 'unknown'})`);
+            });
+            child.on('error', (err) => {
+                const message = `RUNNER_FAILED|${err.message}`;
+                if (currentMacro) {
+                    events.push({
+                        kind: 'macro-finished',
+                        excelId: currentMacro.excelId,
+                        qualifiedName: currentMacro.qualifiedName,
+                        outcome: 'runner-error',
+                        durationMs: Date.now() - currentMacro.startedMs,
+                        message,
+                    });
+                }
+                killOwnedExcel('runner-error');
+                finish(message);
+            });
+            child.stdout?.on('data', (data: Buffer) => {
+                handleStdoutText(data.toString());
+            });
+            child.stderr?.on('data', (data: Buffer) => {
+                for (const line of data.toString().split(/\r?\n/)) {
+                    const trimmed = line.trimEnd();
+                    if (trimmed) {
+                        stderrLines.push(trimmed);
+                        log(`[runVbaTests host stderr] ${trimmed}`);
+                    }
+                }
+            });
+            child.on('exit', (code, signal) => {
+                if (stdoutBuffer.trim()) {
+                    handleStdoutText('\n');
+                }
+                log(`[runVbaTests] owned host powershell exited with code=${code} signal=${signal ?? 'none'}`);
+                if (settled) {
+                    return;
+                }
+                if (code === 0) {
+                    finish();
+                    return;
+                }
+                const sentinel = stderrLines.find((line) => line.includes('XLIDE_TEST_HOST_ERROR|'));
+                const hostError = sentinel
+                    ? sentinel.slice(sentinel.indexOf('XLIDE_TEST_HOST_ERROR|') + 'XLIDE_TEST_HOST_ERROR|'.length)
+                    : stderrLines.join('\n') || `PowerShell exited with code ${code}`;
+                if (currentMacro) {
+                    events.push({
+                        kind: 'macro-finished',
+                        excelId: currentMacro.excelId,
+                        qualifiedName: currentMacro.qualifiedName,
+                        outcome: 'runner-error',
+                        durationMs: Date.now() - currentMacro.startedMs,
+                        message: hostError,
+                    });
+                }
+                killOwnedExcel('runner-error');
+                finish(hostError);
+            });
+        });
+    }
+
     async function runWorkbookVbaTests(
         filePath: string,
         progress?: vscode.Progress<{ message?: string; increment?: number }>,
@@ -732,11 +1014,26 @@ export function registerCommands(
             });
         }
 
-        const attachToRunning = shouldAttachToRunningExcel();
-        log(`[runVbaTests] attachToRunningExcel=${attachToRunning}`);
+        log('[runVbaTests] attachToRunningExcel=false (owned read-only test host)');
         log(`[runVbaTests] selection=${describeVbaTestSelection(options.selection) || 'all tests'} failFast=${Boolean(options.failFast)}`);
-        for (let index = 0; index < discovery.tests.length; index++) {
-            const test = discovery.tests[index];
+        const executableTests = discovery.tests.filter((test) => !test.metadata.skipReason);
+        progress?.report({ message: `Running ${executableTests.length} test(s) in owned Excel...` });
+        const hostRun: OwnedReadOnlyExcelHostRunResult = executableTests.length > 0
+            ? await runOwnedReadOnlyExcelTestHost(filePath, executableTests, options)
+            : {
+                events: [],
+                resultsByName: new Map<string, OwnedReadOnlyExcelHostTestResult>(),
+            };
+        let stoppedAfter: string | undefined;
+
+        for (const test of discovery.tests) {
+            if (stoppedAfter) {
+                const message = `Not run because fail-fast stopped after ${stoppedAfter}.`;
+                results.push({ test, status: 'skipped', durationMs: 0, error: message });
+                log(`[runVbaTests] SKIP ${test.qualifiedName}: ${message}`);
+                continue;
+            }
+
             if (test.metadata.skipReason) {
                 results.push({
                     test,
@@ -747,46 +1044,32 @@ export function registerCommands(
                 log(`[runVbaTests] SKIP ${test.qualifiedName}: ${test.metadata.skipReason}`);
                 continue;
             }
-            const testStartedMs = Date.now();
-            progress?.report({
-                message: `${index + 1}/${discovery.tests.length} ${test.qualifiedName}`,
-                increment: 100 / discovery.tests.length,
-            });
-            try {
-                await runWindowsExcelMacroReadOnly(filePath, test.qualifiedName, attachToRunning);
-                const durationMs = Date.now() - testStartedMs;
-                let result: VbaTestRunItem;
-                if (test.metadata.xfailReason) {
-                    const message = `Expected failure did not occur: ${test.metadata.xfailReason}`;
-                    result = { test, status: 'xpass', durationMs, error: message };
-                    results.push(result);
-                    log(`[runVbaTests] XPASS ${test.qualifiedName} (${durationMs} ms): ${message}`);
-                } else {
-                    result = { test, status: 'passed', durationMs };
-                    results.push(result);
-                    log(`[runVbaTests] PASS ${test.qualifiedName} (${durationMs} ms)`);
-                }
-                if (shouldFailFastStop(result, options.failFast)) {
-                    appendFailFastSkippedTests(results, discovery.tests, index + 1, test.qualifiedName);
-                    break;
-                }
-            } catch (err) {
-                const durationMs = Date.now() - testStartedMs;
-                const message = vbaTestFailureMessage(err);
-                let result: VbaTestRunItem;
-                if (test.metadata.xfailReason) {
-                    result = { test, status: 'xfail', durationMs, error: message };
-                    results.push(result);
-                    log(`[runVbaTests] XFAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
-                } else {
-                    result = { test, status: 'failed', durationMs, error: message };
-                    results.push(result);
-                    log(`[runVbaTests] FAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
-                }
-                if (shouldFailFastStop(result, options.failFast)) {
-                    appendFailFastSkippedTests(results, discovery.tests, index + 1, test.qualifiedName);
-                    break;
-                }
+
+            const hostResult = hostRun.resultsByName.get(test.qualifiedName);
+            let result: VbaTestRunItem;
+            if (hostResult) {
+                result = vbaTestRunItemFromHostResult(test, hostResult);
+            } else if (hostRun.hostError) {
+                result = { test, status: 'host-error', durationMs: 0, error: hostRun.hostError };
+            } else if (hostRun.timedOutAfter) {
+                result = {
+                    test,
+                    status: 'skipped',
+                    durationMs: 0,
+                    error: `Not run because test host timed out after ${hostRun.timedOutAfter}.`,
+                };
+            } else {
+                result = {
+                    test,
+                    status: 'host-error',
+                    durationMs: 0,
+                    error: 'The Excel test host did not emit a result for this test.',
+                };
+            }
+            results.push(result);
+            logVbaTestRunItem(result);
+            if (shouldFailFastStop(result, options.failFast)) {
+                stoppedAfter = test.qualifiedName;
             }
         }
 
@@ -799,27 +1082,55 @@ export function registerCommands(
         });
     }
 
-    function shouldFailFastStop(result: VbaTestRunItem, failFast?: boolean): boolean {
-        return Boolean(failFast) && (result.status === 'failed' || result.status === 'xpass');
+    function vbaTestRunItemFromHostResult(
+        test: VbaTestCase,
+        hostResult: OwnedReadOnlyExcelHostTestResult,
+    ): VbaTestRunItem {
+        const message = hostResult.message ? vbaTestFailureMessage(new Error(hostResult.message)) : undefined;
+        if (hostResult.outcome === 'passed') {
+            if (test.metadata.xfailReason) {
+                return {
+                    test,
+                    status: 'xpass',
+                    durationMs: hostResult.durationMs,
+                    error: `Expected failure did not occur: ${test.metadata.xfailReason}`,
+                };
+            }
+            return { test, status: 'passed', durationMs: hostResult.durationMs };
+        }
+        if (hostResult.outcome === 'failed') {
+            if (test.metadata.xfailReason) {
+                return { test, status: 'xfail', durationMs: hostResult.durationMs, error: message };
+            }
+            return { test, status: 'failed', durationMs: hostResult.durationMs, error: message };
+        }
+        if (hostResult.outcome === 'timeout') {
+            return {
+                test,
+                status: 'timeout',
+                durationMs: hostResult.durationMs,
+                error: message ?? `Timed out after ${hostResult.durationMs} ms.`,
+            };
+        }
+        return {
+            test,
+            status: 'host-error',
+            durationMs: hostResult.durationMs,
+            error: message ?? 'The Excel test host failed while running this test.',
+        };
     }
 
-    function appendFailFastSkippedTests(
-        results: VbaTestRunItem[],
-        tests: readonly VbaTestRunItem['test'][],
-        startIndex: number,
-        stoppedAfter: string,
-    ): void {
-        const message = `Not run because fail-fast stopped after ${stoppedAfter}.`;
-        for (let index = startIndex; index < tests.length; index++) {
-            const test = tests[index];
-            results.push({
-                test,
-                status: 'skipped',
-                durationMs: 0,
-                error: message,
-            });
-            log(`[runVbaTests] SKIP ${test.qualifiedName}: ${message}`);
-        }
+    function logVbaTestRunItem(result: VbaTestRunItem): void {
+        const detail = result.error ? `: ${result.error}` : '';
+        log(`[runVbaTests] ${result.status.toUpperCase()} ${result.test.qualifiedName} (${result.durationMs} ms)${detail}`);
+    }
+
+    function shouldFailFastStop(result: VbaTestRunItem, failFast?: boolean): boolean {
+        return Boolean(failFast) &&
+            (result.status === 'failed' ||
+                result.status === 'xpass' ||
+                result.status === 'timeout' ||
+                result.status === 'host-error');
     }
 
     async function runVbaTestsForWorkbook(
@@ -870,9 +1181,9 @@ export function registerCommands(
             );
             return;
         }
-        if (summary.failed > 0 || summary.xpass > 0) {
+        if (summary.failed > 0 || summary.xpass > 0 || summary.timeout > 0 || summary.hostError > 0) {
             void vscode.window.showWarningMessage(
-                `XLIDE: "${label}" VBA tests finished with ${summary.failed} failed, ${summary.xpass} unexpected passed, ${summary.passed} passed, ${summary.skipped} skipped.`,
+                `XLIDE: "${label}" VBA tests finished with ${summary.failed} failed, ${summary.timeout} timed out, ${summary.hostError} host error(s), ${summary.xpass} unexpected passed, ${summary.passed} passed, ${summary.skipped} skipped.`,
             );
             return;
         }
