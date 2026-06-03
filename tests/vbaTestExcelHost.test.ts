@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildVbaTestDirectRunnerModule,
     buildOwnedReadOnlyExcelTestHostScript,
     parseVbaTestHostEventLine,
     vbaTestHostPlanItems,
+    XLIDE_TEST_RUNNER_MODULE_NAME,
     XLIDE_TEST_HOST_EVENT_PREFIX,
 } from '../src/vbaTestExcelHost';
 import type { VbaTestCase } from '../src/vbaTestRunner';
@@ -22,6 +24,8 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('$excel.ScreenUpdating = $false');
         expect(script).not.toContain('$excel.Visible = $true');
         expect(script).toContain('$excel.Workbooks.Open($targetPath, 0, $true');
+        expect(script).toContain(`$runnerModuleName = '${XLIDE_TEST_RUNNER_MODULE_NAME}'`);
+        expect(script).toContain('$testRunnerRef = "\'" + $workbook.Name + "\'!" + $runnerModuleName + ".RunTest"');
         expect(script).toContain('$excel.Run($testRunnerRef, $macroName)');
         expect(script).not.toContain('$excel.Run($macroRef)');
         expect(script).not.toContain('VBProject');
@@ -58,7 +62,7 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('function Format-XlideRunException');
         expect(script).toContain('$hex = Format-XlideHResult $exception.HResult');
         expect(script).not.toContain('[uint32]$exception.HResult');
-        expect(script).toContain('XlideAssert.RunTest');
+        expect(script).toContain('XlideTestRuntime');
         expect(script).toContain('HRESULT: ');
         expect(script).toContain('0x800A9C68');
         expect(script).toContain('0x800706BE');
@@ -83,6 +87,25 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('durationMs = [int]$phaseSw.ElapsedMilliseconds');
         expect(script).not.toContain('SendKeys');
         expect(script).toContain('if ($failFast -and -not $expectedFailure) { break }');
+    });
+
+    it('builds a direct-call VBA dispatcher so runtime errors are caught inside VBA', () => {
+        const source = buildVbaTestDirectRunnerModule([
+            testCase('Tests.Pass', {}),
+            testCase('MoreTests.RaisesRuntimeError', {}),
+        ]);
+
+        expect(source).toContain('Attribute VB_Name = "XlideTestRuntime"');
+        expect(source).toContain('Public Function RunTest(ByVal testId As String) As String');
+        expect(source).toContain('On Error GoTo Caught');
+        expect(source).toContain('Select Case testId');
+        expect(source).toContain('Case "Tests.Pass"');
+        expect(source).toContain('Call Tests.Pass');
+        expect(source).toContain('Case "MoreTests.RaisesRuntimeError"');
+        expect(source).toContain('Call MoreTests.RaisesRuntimeError');
+        expect(source).toContain('RunTest = FailureJson(actualNumber, actualSource, actualDescription)');
+        expect(source).toContain('XlideAssert.LastFailureMessage()');
+        expect(source).not.toContain('Application.Run');
     });
 
     it('uses per-test timeout metadata when building host plan items', () => {

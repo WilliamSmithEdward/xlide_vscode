@@ -56,6 +56,12 @@ disabled until the installed module matches the version bundled with XLIDE.
 The GUI also checks for Microsoft Excel COM registration before enabling runs.
 That check does not launch Excel.
 
+Runs execute against a temporary copy of the workbook in an XLIDE-owned Excel
+instance. XLIDE injects a transient test dispatcher into that copy so ordinary
+VBA runtime errors are reported as failed tests without requiring "Trust access
+to the VBA project object model" through COM. The original workbook is not
+modified by the run.
+
 The Tests GUI currently runs all discovered tests, runs selected include/exclude
 tag filters from discovered tag checkboxes, supports fail-fast mode, and can
 rerun failed/timed-out/host-error/unexpected-pass tests from the previous run.

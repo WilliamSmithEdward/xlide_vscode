@@ -3,6 +3,7 @@ import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
 
 export const XLIDE_TEST_HOST_EVENT_PREFIX = 'XLIDE_TEST_HOST_EVENT|';
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
+export const XLIDE_TEST_RUNNER_MODULE_NAME = 'XlideTestRuntime';
 
 export interface VbaTestHostPlanItem {
     qualifiedName: string;
@@ -12,6 +13,7 @@ export interface VbaTestHostPlanItem {
 
 export interface OwnedReadOnlyExcelTestHostScriptOptions {
     failFast?: boolean;
+    runnerModuleName?: string;
 }
 
 export function vbaTestHostPlanItems(tests: readonly VbaTestCase[]): VbaTestHostPlanItem[] {
@@ -20,6 +22,62 @@ export function vbaTestHostPlanItems(tests: readonly VbaTestCase[]): VbaTestHost
         timeoutMs: test.metadata.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS,
         expectedFailure: Boolean(test.metadata.xfailReason),
     }));
+}
+
+export function buildVbaTestDirectRunnerModule(
+    tests: readonly VbaTestCase[],
+    moduleName = XLIDE_TEST_RUNNER_MODULE_NAME,
+): string {
+    const cases = tests.map((test) => [
+        `        Case ${vbaStringLiteral(test.qualifiedName)}`,
+        `            Call ${test.moduleName}.${test.procedureName}`,
+    ].join('\n'));
+    return [
+        `Attribute VB_Name = "${moduleName.replace(/"/g, '')}"`,
+        'Option Explicit',
+        '',
+        'Public Function RunTest(ByVal testId As String) As String',
+        '    XlideAssert.ResetLastFailure',
+        '    On Error GoTo Caught',
+        '    Select Case testId',
+        ...cases,
+        '        Case Else',
+        '            RunTest = FailureJson(5, "XLIDE.TestRunner", "Unknown XLIDE test: " & testId)',
+        '            Exit Function',
+        '    End Select',
+        '    On Error GoTo 0',
+        '    If Len(XlideAssert.LastFailureMessage()) > 0 Then',
+        '        RunTest = FailureJson(XlideAssert.AssertionErrorNumber(), "XLIDE.Assert", XlideAssert.LastFailureMessage())',
+        '    Else',
+        '        RunTest = "{""outcome"":""passed""}"',
+        '    End If',
+        '    Exit Function',
+        'Caught:',
+        '    Dim actualNumber As Long',
+        '    Dim actualSource As String',
+        '    Dim actualDescription As String',
+        '    actualNumber = Err.Number',
+        '    actualSource = Err.Source',
+        '    actualDescription = Err.Description',
+        '    On Error GoTo 0',
+        '    RunTest = FailureJson(actualNumber, actualSource, actualDescription)',
+        'End Function',
+        '',
+        'Private Function FailureJson(ByVal number As Long, ByVal source As String, ByVal message As String) As String',
+        '    FailureJson = "{""outcome"":""failed"",""number"":" & CStr(number) & ",""source"":""" & JsonEscape(source) & """,""message"":""" & JsonEscape(message) & """}"',
+        'End Function',
+        '',
+        'Private Function JsonEscape(ByVal value As String) As String',
+        '    Dim escaped As String',
+        '    escaped = Replace(value, Chr$(92), Chr$(92) & Chr$(92))',
+        '    escaped = Replace(escaped, Chr$(34), Chr$(92) & Chr$(34))',
+        '    escaped = Replace(escaped, vbCrLf, Chr$(92) & "n")',
+        '    escaped = Replace(escaped, vbCr, Chr$(92) & "n")',
+        '    escaped = Replace(escaped, vbLf, Chr$(92) & "n")',
+        '    JsonEscape = escaped',
+        'End Function',
+        '',
+    ].join('\r\n');
 }
 
 function productionModalWatcherCSharp(): string {
@@ -708,12 +766,14 @@ export function buildOwnedReadOnlyExcelTestHostScript(
     options: OwnedReadOnlyExcelTestHostScriptOptions = {},
 ): string {
     const testsJson = JSON.stringify(tests);
+    const runnerModuleName = options.runnerModuleName ?? XLIDE_TEST_RUNNER_MODULE_NAME;
     const modalWatcherSource = productionModalWatcherCSharp();
     return [
         '$ErrorActionPreference = "Stop"',
         '$ProgressPreference = "SilentlyContinue"',
         `$targetPath = ${psSingleQuoted(filePath)}`,
         `$testsJson = ${psSingleQuoted(testsJson)}`,
+        `$runnerModuleName = ${psSingleQuoted(runnerModuleName)}`,
         `$failFast = ${options.failFast ? '$true' : '$false'}`,
         `$eventPrefix = ${psSingleQuoted(XLIDE_TEST_HOST_EVENT_PREFIX)}`,
         '$excelId = "xlide-" + [Guid]::NewGuid().ToString("N")',
@@ -835,7 +895,7 @@ export function buildOwnedReadOnlyExcelTestHostScript(
         '    Emit-XlideTestHostEvent "macro-started" @{ excelId = $excelId; qualifiedName = $macroName; timeoutMs = $timeoutMs }',
         '    $sw = [Diagnostics.Stopwatch]::StartNew()',
         '    try {',
-        '      $testRunnerRef = "\'" + $workbook.Name + "\'!XlideAssert.RunTest"',
+        '      $testRunnerRef = "\'" + $workbook.Name + "\'!" + $runnerModuleName + ".RunTest"',
         '      if ($modalWatcherAvailable -and $excelPid) { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, $macroName) }',
         '      $vbaRunResult = Convert-XlideVbaRunResult ([string]$excel.Run($testRunnerRef, $macroName))',
         '      $sw.Stop()',
@@ -907,4 +967,8 @@ export function parseVbaTestHostEventLine(line: string): VbaTestHostOracleEvent 
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
+}
+
+function vbaStringLiteral(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
 }

@@ -902,11 +902,11 @@ VBA code from XLIDE, using Excel COM as the execution host.
 - [x] Return machine-readable JSON results for automation and render a concise
   Problems/Test Results view in VS Code.
 - [x] Surface clean developer-facing failure details in test results. The
-  bundled `XlideAssert` module records normal assertion failures and runs tests
-  through an internal VBA wrapper so assertion/runtime details are captured
-  before Excel Automation can collapse them into generic `Run` HRESULTs; generic
-  host failures still collapse to terse actionable text instead of raw
-  host-script stack output.
+  bundled `XlideAssert` module records normal assertion failures, and each run
+  injects an XLIDE-owned direct-call dispatcher into a temporary workbook copy
+  so assertion/runtime details are captured before Excel Automation can collapse
+  them into generic `Run` HRESULTs; generic host failures still collapse to
+  terse actionable text instead of raw host-script stack output.
 - [x] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
 - [x] Add fixture tests before enabling broad adoption.

@@ -44,6 +44,7 @@ import {
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
 import {
+    buildVbaTestDirectRunnerModule,
     buildOwnedReadOnlyExcelTestHostScript,
     DEFAULT_VBA_TEST_TIMEOUT_MS,
     parseVbaTestHostEventLine,
@@ -758,15 +759,40 @@ export function registerCommands(
         tests: readonly VbaTestCase[],
         options: VbaTestRunOptions,
     ): Promise<OwnedReadOnlyExcelHostRunResult> {
-        const script = buildOwnedReadOnlyExcelTestHostScript(
-            filePath,
-            vbaTestHostPlanItems(tests),
-            { failFast: options.failFast },
-        );
         const hostScriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vba-test-host-'));
+        const tempWorkbookPath = path.join(hostScriptDir, path.basename(filePath));
         const hostScriptPath = path.join(hostScriptDir, 'run-vba-tests.ps1');
-        fs.writeFileSync(hostScriptPath, script, 'utf8');
+        const runnerModuleName = `XlideRun${Date.now().toString(36).slice(-8)}`;
+        try {
+            fs.copyFileSync(filePath, tempWorkbookPath);
+            await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
+                path: tempWorkbookPath,
+                module: XLIDE_ASSERT_MODULE_NAME,
+                source: XLIDE_ASSERT_MODULE_SOURCE,
+                kind: 'standard',
+            });
+            await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
+                path: tempWorkbookPath,
+                module: runnerModuleName,
+                source: buildVbaTestDirectRunnerModule(tests, runnerModuleName),
+                kind: 'standard',
+            });
+            const script = buildOwnedReadOnlyExcelTestHostScript(
+                tempWorkbookPath,
+                vbaTestHostPlanItems(tests),
+                { failFast: options.failFast, runnerModuleName },
+            );
+            fs.writeFileSync(hostScriptPath, script, 'utf8');
+        } catch (err) {
+            try {
+                fs.rmSync(hostScriptDir, { recursive: true, force: true });
+            } catch {
+                // Best-effort cleanup only.
+            }
+            throw err;
+        }
         log(`[runVbaTests] Running owned read-only Excel host for ${tests.length} test(s).`);
+        log(`[runVbaTests] Temporary workbook path: ${tempWorkbookPath}`);
         log(`[runVbaTests] Host script path: ${hostScriptPath}`);
 
         return new Promise<OwnedReadOnlyExcelHostRunResult>((resolve) => {

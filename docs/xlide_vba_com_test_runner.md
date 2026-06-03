@@ -314,12 +314,14 @@ XlideAssert.AssertionErrorNumber()
 ```
 
 Assertion failures are recorded inside the bundled support module instead of
-being raised as normal VBA runtime errors. The COM runner invokes tests through
-an XLIDE-owned internal `XlideAssert.RunTest` wrapper so assertion failures can
-return as structured failed-test results, while unexpected runtime errors are
-still caught and reported before Excel Automation can collapse them into
-generic `Run` HRESULTs. That wrapper is for runner integration, not the
-documented authoring API.
+being raised as normal VBA runtime errors. For each run, XLIDE copies the
+workbook to a temporary file, injects an XLIDE-owned direct-call dispatcher into
+that copy, and opens the copy in the owned Excel host. The dispatcher calls each
+selected test directly under `On Error GoTo Caught`, so assertion failures and
+ordinary VBA runtime errors can return as structured failed-test results before
+Excel Automation can collapse them into generic `Run` HRESULTs. This temporary
+runner is for XLIDE integration, not the documented authoring API, and it does
+not require COM access to the VBA project object model.
 
 ## Planned Assertion Surface
 
