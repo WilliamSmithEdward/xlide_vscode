@@ -57,12 +57,17 @@ describe('globalSettingsWebview', () => {
         expect(html).toContain('VS Code / Machine');
         expect(html).toContain('Globally Untracked Rules');
         expect(html).toContain('id="ruleSearch"');
+        expect(html).toContain('id="ruleList"');
+        expect(html).toContain('id="overrideList"');
         expect(html).toContain('data-rule-untracked');
         expect(html).toContain('Option Explicit is not specified');
         expect(html).toContain('option-explicit-missing');
         expect(html).toContain('Source: Machine');
         expect(html).toContain('color: var(--vscode-foreground)');
         expect(html).toContain('background: var(--vscode-editorWidget-background, var(--vscode-input-background))');
+        expect(html).toContain('persistGlobalSettingsState();');
+        expect(html).toContain('restoreGlobalSettingsState();');
+        expect(html).toContain('overrideListScrollTop');
         expect(html).not.toContain('Add Item');
     });
 

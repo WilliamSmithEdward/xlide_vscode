@@ -334,12 +334,12 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
             '{**/node_modules/**,**/.venv/**,**/venv/**}',
         );
         return uris
-            .filter(uri => uri.scheme === 'file' && !path.basename(uri.fsPath).startsWith('~$'))
+            .filter(uri => uri.scheme === 'file' && !fileNameForDisplay(uri.fsPath).startsWith('~$'))
             .sort((a, b) => a.fsPath.localeCompare(b.fsPath))
             .map((uri) => {
                 let node = this._xlsmNodes.get(uri.fsPath);
                 if (!node) {
-                    node = { kind: 'xlsm', label: path.basename(uri.fsPath), filePath: uri.fsPath };
+                    node = { kind: 'xlsm', label: fileNameForDisplay(uri.fsPath), filePath: uri.fsPath };
                     this._xlsmNodes.set(uri.fsPath, node);
                 }
                 return node;
@@ -377,7 +377,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
                     return node;
                 });
         } catch (err) {
-            vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${path.basename(filePath)}": ${err}`);
+            vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${fileNameForDisplay(filePath)}": ${err}`);
             return [];
         }
     }
@@ -423,4 +423,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
             return [];
         }
     }
+}
+
+function fileNameForDisplay(filePath: string): string {
+    return filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
 }

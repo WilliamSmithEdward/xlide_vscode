@@ -204,9 +204,11 @@ function renderXlideGlobalSettingsHtml(
         }
         h2 {
             font-size: 17px;
+            font-weight: 700;
         }
         h3 {
-            font-size: 14px;
+            font-size: 15px;
+            font-weight: 700;
         }
         .subtitle,
         .source,
@@ -227,6 +229,8 @@ function renderXlideGlobalSettingsHtml(
             justify-content: space-between;
             gap: 12px;
             margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--vscode-panel-border);
         }
         .grid {
             display: grid;
@@ -237,7 +241,7 @@ function renderXlideGlobalSettingsHtml(
             border: 1px solid var(--vscode-panel-border);
             border-radius: 6px;
             background: var(--vscode-sideBar-background);
-            padding: 14px;
+            overflow: hidden;
             min-width: 0;
         }
         .wide {
@@ -248,7 +252,12 @@ function renderXlideGlobalSettingsHtml(
             justify-content: space-between;
             gap: 12px;
             align-items: flex-start;
-            margin-bottom: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+        }
+        .cardBody {
+            padding: 14px;
         }
         .titleBlock {
             min-width: 0;
@@ -421,12 +430,15 @@ function renderXlideGlobalSettingsHtml(
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
 
+        restoreGlobalSettingsState();
+
         document.addEventListener('change', (event) => {
             const target = event.target;
             if (!(target instanceof HTMLElement)) {
                 return;
             }
             if (target.matches('input[data-setting-kind="boolean"]')) {
+                persistGlobalSettingsState();
                 vscode.postMessage({
                     type: 'updateSetting',
                     key: target.dataset.settingKey,
@@ -435,6 +447,7 @@ function renderXlideGlobalSettingsHtml(
                 return;
             }
             if (target.matches('input[data-setting-kind="text"]')) {
+                persistGlobalSettingsState();
                 vscode.postMessage({
                     type: 'updateSetting',
                     key: target.dataset.settingKey,
@@ -443,6 +456,7 @@ function renderXlideGlobalSettingsHtml(
                 return;
             }
             if (target.matches('select[data-setting-kind="enum"]')) {
+                persistGlobalSettingsState();
                 vscode.postMessage({
                     type: 'updateSetting',
                     key: target.dataset.settingKey,
@@ -451,6 +465,7 @@ function renderXlideGlobalSettingsHtml(
                 return;
             }
             if (target.matches('input[data-severity-filter]')) {
+                persistGlobalSettingsState();
                 vscode.postMessage({
                     type: 'updateSetting',
                     key: 'analysis.visibleSeverities',
@@ -459,6 +474,7 @@ function renderXlideGlobalSettingsHtml(
                 return;
             }
             if (target.matches('input[data-rule-untracked]')) {
+                persistGlobalSettingsState();
                 vscode.postMessage({
                     type: 'updateSetting',
                     key: 'analysis.untrackedRules',
@@ -467,6 +483,7 @@ function renderXlideGlobalSettingsHtml(
                 return;
             }
             if (target.matches('select[data-rule-severity]')) {
+                persistGlobalSettingsState();
                 vscode.postMessage({
                     type: 'setRuleSeverityOverride',
                     code: target.dataset.ruleCode,
@@ -480,10 +497,8 @@ function renderXlideGlobalSettingsHtml(
             if (!search) {
                 return;
             }
-            const query = search.value.trim().toLowerCase();
-            for (const row of document.querySelectorAll('[data-rule-row]')) {
-                row.hidden = query.length > 0 && !row.dataset.search.includes(query);
-            }
+            applyRuleSearch(search.value);
+            persistGlobalSettingsState();
         });
 
         document.addEventListener('click', (event) => {
@@ -491,6 +506,7 @@ function renderXlideGlobalSettingsHtml(
             if (!button) {
                 return;
             }
+            persistGlobalSettingsState();
             vscode.postMessage({
                 type: 'resetSetting',
                 key: button.dataset.resetSetting
@@ -499,6 +515,44 @@ function renderXlideGlobalSettingsHtml(
 
         function checkedValues(selector) {
             return Array.from(document.querySelectorAll(selector)).map((input) => input.value);
+        }
+
+        function applyRuleSearch(value) {
+            const query = value.trim().toLowerCase();
+            for (const row of document.querySelectorAll('[data-rule-row]')) {
+                row.hidden = query.length > 0 && !row.dataset.search.includes(query);
+            }
+        }
+
+        function persistGlobalSettingsState() {
+            vscode.setState({
+                pageScrollTop: window.scrollY,
+                ruleSearch: document.getElementById('ruleSearch')?.value ?? '',
+                ruleListScrollTop: document.getElementById('ruleList')?.scrollTop ?? 0,
+                overrideListScrollTop: document.getElementById('overrideList')?.scrollTop ?? 0
+            });
+        }
+
+        function restoreGlobalSettingsState() {
+            const state = typeof vscode.getState === 'function' ? vscode.getState() || {} : {};
+            const ruleSearch = document.getElementById('ruleSearch');
+            if (ruleSearch && typeof state.ruleSearch === 'string') {
+                ruleSearch.value = state.ruleSearch;
+                applyRuleSearch(state.ruleSearch);
+            }
+            requestAnimationFrame(() => {
+                if (typeof state.pageScrollTop === 'number') {
+                    window.scrollTo(0, state.pageScrollTop);
+                }
+                const ruleList = document.getElementById('ruleList');
+                if (ruleList && typeof state.ruleListScrollTop === 'number') {
+                    ruleList.scrollTop = state.ruleListScrollTop;
+                }
+                const overrideList = document.getElementById('overrideList');
+                if (overrideList && typeof state.overrideListScrollTop === 'number') {
+                    overrideList.scrollTop = state.overrideListScrollTop;
+                }
+            });
         }
     </script>
 </body>
@@ -639,7 +693,7 @@ function renderRulePickerSetting(
         <div class="ruleTools">
             <input type="search" id="ruleSearch" aria-label="Search Analysis Rules" placeholder="Search Rules">
         </div>
-        <div class="ruleList" aria-label="Globally Untracked Rules">
+        <div class="ruleList" id="ruleList" aria-label="Globally Untracked Rules">
             ${rows || '<div class="empty">No rules</div>'}
         </div>
     `, 'wide');
@@ -668,7 +722,7 @@ function renderRuleSeverityOverridesSetting(
         </select>
     </div>`).join('');
     return renderSettingCard(model, problems, 'analysis.ruleSeverityOverrides', 'Rule Severity Overrides', `
-        <div class="overrideList">
+        <div class="overrideList" id="overrideList">
             ${rows || '<div class="empty">No severity overrides available</div>'}
         </div>
     `, 'wide');
@@ -692,8 +746,10 @@ function renderSettingCard(
             </div>
             <button type="button" data-reset-setting="${escapeAttr(key)}">Reset</button>
         </div>
-        ${body}
-        ${cardProblems.map((problem) => `<div class="problem">${escapeHtml(problem.message)}</div>`).join('')}
+        <div class="cardBody">
+            ${body}
+            ${cardProblems.map((problem) => `<div class="problem">${escapeHtml(problem.message)}</div>`).join('')}
+        </div>
     </section>`;
 }
 

@@ -204,7 +204,7 @@ describe('VBA language configuration', () => {
 			}),
 		]);
 		expect(contributes?.views?.explorer?.map((view) => view.id)).toContain('xlide.explorer');
-		expect(loadPackage().activationEvents).toEqual(expect.arrayContaining([
+		expect(loadPackage().activationEvents).not.toEqual(expect.arrayContaining([
 			'onView:xlide.sidebar',
 			'onView:xlide.explorer',
 		]));

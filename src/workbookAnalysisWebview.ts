@@ -393,8 +393,11 @@ export function renderWorkbookAnalysisResultsHtml(
         ? '<div class="empty">No analysis findings.</div>'
         : allRows.map((row) => {
             const tracked = isAnalysisRuleTracked(row.code, untrackedRules);
-            const status = row.suppressed ? 'Suppressed' : (tracked ? 'Tracked' : 'Untracked');
-            const statusKey = row.suppressed ? 'suppressed' : (tracked ? 'tracked' : 'untracked');
+            const trackingSource = analysisRuleTrackingSourceForRow(tracked, analysisSettings.untrackedRulesSource);
+            const status = !tracked
+                ? analysisRuleTrackingStatusLabel(trackingSource)
+                : (row.suppressed ? 'Suppressed' : 'Tracked');
+            const statusKey = !tracked ? 'untracked' : (row.suppressed ? 'suppressed' : 'tracked');
             return `
             <button
                 class="problemRow severity-${escapeAttr(row.severity)}"
@@ -415,6 +418,7 @@ export function renderWorkbookAnalysisResultsHtml(
                 data-quick-fixes="${escapeAttr(JSON.stringify(row.quickFixTitles))}"
                 data-suppression-scopes="${escapeAttr(JSON.stringify(row.suppressionScopes))}"
                 data-tracked="${tracked ? 'yes' : 'no'}"
+                data-tracking-source="${escapeAttr(trackingSource)}"
             >
                 <span class="cell severity">${escapeHtml(row.severity)}</span>
                 <span class="cell status">${escapeHtml(status)}</span>
@@ -450,12 +454,13 @@ export function renderWorkbookAnalysisResultsHtml(
     const ruleSeveritiesSourceIsWorkbook = analysisSettings.ruleSeverityOverridesSource === 'workbook';
     const anyAnalysisOverride = severitySourceIsWorkbook || rulesSourceIsWorkbook || ruleSeveritiesSourceIsWorkbook;
     const informationCount = model.rows.filter((row) => row.severity === 'information').length;
-    const untrackedCount = model.rows.filter((row) => !isAnalysisRuleTracked(row.code, untrackedRules)).length;
+    const untrackedCount = allRows.filter((row) => !isAnalysisRuleTracked(row.code, untrackedRules)).length;
+    const suppressedCount = allRows.filter((row) => row.suppressed && isAnalysisRuleTracked(row.code, untrackedRules)).length;
     const summaryStatsHtml = [
         statHtml(String(model.errorCount), 'Errors'),
         statHtml(String(model.warningCount), 'Warnings'),
         statHtml(String(informationCount), 'Information'),
-        statHtml(String(model.suppressedCount), 'Suppressed'),
+        statHtml(String(suppressedCount), 'Suppressed'),
         statHtml(String(untrackedCount), 'Untracked'),
         statHtml(String(model.moduleCount), 'Modules'),
     ].join('');
@@ -655,9 +660,9 @@ export function renderWorkbookAnalysisResultsHtml(
         .tableHeader,
         .problemRow {
             display: grid;
-            grid-template-columns: 124px 136px 150px minmax(132px, 190px) 132px minmax(260px, 1fr);
+            grid-template-columns: 124px minmax(184px, 210px) 150px minmax(132px, 190px) 132px minmax(260px, 1fr);
             align-items: stretch;
-            min-width: 1072px;
+            min-width: 1120px;
         }
         .tableHeader {
             position: sticky;
@@ -1040,7 +1045,7 @@ export function renderWorkbookAnalysisResultsHtml(
         <button type="button" data-context-action="suppressBlock" data-suppress-scope="block">Ignore Block</button>
         <button type="button" data-context-action="suppressMember" data-suppress-scope="member">Ignore Sub/Function</button>
         <button type="button" data-context-action="suppressModule" data-suppress-scope="module">Ignore Module</button>
-        <div class="contextDivider"></div>
+        <div class="contextDivider" id="trackingDivider"></div>
         <button type="button" data-context-action="setRuleTrackingWorkbook" id="trackingWorkbookAction">Untrack In Workbook</button>
         <button type="button" data-context-action="setRuleTrackingGlobal" id="trackingGlobalAction">Untrack Globally</button>
     </div>
@@ -1135,6 +1140,7 @@ export function renderWorkbookAnalysisResultsHtml(
         const quickFixMenuItem = document.getElementById('quickFixMenuItem');
         const quickFixSubmenu = document.getElementById('quickFixSubmenu');
         const suppressionDivider = document.getElementById('suppressionDivider');
+        const trackingDivider = document.getElementById('trackingDivider');
         const trackingWorkbookAction = document.getElementById('trackingWorkbookAction');
         const trackingGlobalAction = document.getElementById('trackingGlobalAction');
         const settingsDialog = document.getElementById('analysisSettingsDialog');
@@ -1165,8 +1171,8 @@ export function renderWorkbookAnalysisResultsHtml(
                 const visible = moduleVisible &&
                     severityVisible &&
                     (!hiddenByStatus || showHiddenItems);
-                const untrackedVisible = visible && untracked && !suppressed;
-                const suppressedVisible = visible && suppressed;
+                const untrackedVisible = visible && untracked;
+                const suppressedVisible = visible && suppressed && !untracked;
                 row.hidden = !visible;
                 row.classList.toggle('hiddenVisible', untrackedVisible);
                 row.classList.toggle('suppressedVisible', suppressedVisible);
@@ -1350,16 +1356,9 @@ export function renderWorkbookAnalysisResultsHtml(
             if (suppressionDivider) {
                 suppressionDivider.hidden = visibleSuppressActions === 0;
             }
-            for (const trackingAction of [trackingWorkbookAction, trackingGlobalAction]) {
-                if (!trackingAction) {
-                    continue;
-                }
-                const hasRuleCode = String(row.dataset.ruleCode ?? '').trim().length > 0;
-                trackingAction.hidden = !hasRuleCode;
-                const scope = trackingAction === trackingGlobalAction ? 'Globally' : 'In Workbook';
-                trackingAction.textContent = row.dataset.tracked === 'no'
-                    ? 'Track ' + scope
-                    : 'Untrack ' + scope;
+            const visibleTrackingActions = syncTrackingActions(row);
+            if (trackingDivider) {
+                trackingDivider.hidden = visibleTrackingActions === 0;
             }
             contextMenu.hidden = false;
             const rect = contextMenu.getBoundingClientRect();
@@ -1386,6 +1385,34 @@ export function renderWorkbookAnalysisResultsHtml(
 
         function contextProblemTracked() {
             return contextRow?.dataset.tracked !== 'no';
+        }
+
+        function syncTrackingActions(row) {
+            const hasRuleCode = String(row.dataset.ruleCode ?? '').trim().length > 0;
+            const tracked = row.dataset.tracked !== 'no';
+            const source = row.dataset.trackingSource === 'workbook' ? 'workbook' : 'global';
+            return configureTrackingAction(trackingWorkbookAction, {
+                hidden: !hasRuleCode || (!tracked && source !== 'workbook'),
+                label: tracked ? 'Untrack In Workbook' : 'Track In Workbook',
+            }) + configureTrackingAction(trackingGlobalAction, {
+                hidden: !hasRuleCode || (!tracked && source !== 'global'),
+                label: tracked ? 'Untrack Globally' : 'Track Globally',
+            });
+        }
+
+        function configureTrackingAction(button, options) {
+            if (!button) {
+                return 0;
+            }
+            button.hidden = options.hidden;
+            button.textContent = options.label;
+            return options.hidden ? 0 : 1;
+        }
+
+        function trackingStatusLabel(source) {
+            return source === 'workbook'
+                ? 'Untracked In Workbook'
+                : 'Untracked Globally';
         }
 
         function quickFixTitlesForRow(row) {
@@ -1648,6 +1675,7 @@ export function renderWorkbookAnalysisResultsHtml(
                 const code = String(event.data.code ?? '').toLowerCase();
                 const tracked = event.data.tracked === true;
                 if (code) {
+                    const trackingSource = event.data.scope === 'global' ? 'global' : 'workbook';
                     if (tracked) {
                         untrackedRules.delete(code);
                     } else {
@@ -1656,12 +1684,14 @@ export function renderWorkbookAnalysisResultsHtml(
                     for (const row of rows) {
                         if (String(row.dataset.ruleCode ?? '').toLowerCase() === code) {
                             row.dataset.tracked = tracked ? 'yes' : 'no';
-                            if (row.dataset.suppressed !== 'yes') {
-                                row.dataset.status = tracked ? 'tracked' : 'untracked';
-                                const statusCell = row.querySelector('.status');
-                                if (statusCell) {
-                                    statusCell.textContent = tracked ? 'Tracked' : 'Untracked';
-                                }
+                            row.dataset.trackingSource = tracked ? 'tracked' : trackingSource;
+                            const suppressed = row.dataset.suppressed === 'yes';
+                            row.dataset.status = !tracked ? 'untracked' : (suppressed ? 'suppressed' : 'tracked');
+                            const statusCell = row.querySelector('.status');
+                            if (statusCell) {
+                                statusCell.textContent = !tracked
+                                    ? trackingStatusLabel(trackingSource)
+                                    : (suppressed ? 'Suppressed' : 'Tracked');
                             }
                         }
                     }
@@ -1771,6 +1801,27 @@ function settingsSourceLabel(source: EffectiveWorkbookAnalysisSettings['visibleS
             return 'Built-in default';
         case 'unknown':
             return 'Unknown';
+    }
+}
+
+function analysisRuleTrackingSourceForRow(
+    tracked: boolean,
+    source: EffectiveWorkbookAnalysisSettings['untrackedRulesSource'],
+): 'tracked' | 'workbook' | 'global' {
+    if (tracked) {
+        return 'tracked';
+    }
+    return source === 'workbook' ? 'workbook' : 'global';
+}
+
+function analysisRuleTrackingStatusLabel(source: 'tracked' | 'workbook' | 'global'): string {
+    switch (source) {
+        case 'tracked':
+            return 'Tracked';
+        case 'workbook':
+            return 'Untracked In Workbook';
+        case 'global':
+            return 'Untracked Globally';
     }
 }
 

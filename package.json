@@ -16,8 +16,6 @@
     "Other"
   ],
   "activationEvents": [
-    "onView:xlide.sidebar",
-    "onView:xlide.explorer",
     "onStartupFinished",
     "onFileSystem:xlide-vba"
   ],
