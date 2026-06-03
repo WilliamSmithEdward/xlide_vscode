@@ -177,11 +177,15 @@
         "nonnumeric_string_to_currency_argument_runtime",
         "numeric_string_to_currency_argument_runtime",
         "left_length_nonnumeric_string_runtime",
-        "left_length_numeric_string_runtime"
+        "left_length_numeric_string_runtime",
+        "byte_argument_max_literal_runtime",
+        "byte_argument_overflow_literal_runtime",
+        "integer_argument_max_literal_runtime",
+        "integer_argument_overflow_literal_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, while numeric-string controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, and runtime error 6 for positive decimal literals outside Byte/Integer argument bounds, while numeric-string and boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -229,6 +233,10 @@
         "integer_assignment_numeric_string_runtime",
         "boolean_assignment_nonboolean_string_runtime",
         "boolean_assignment_true_string_runtime",
+        "byte_assignment_max_literal_runtime",
+        "byte_assignment_overflow_literal_runtime",
+        "integer_assignment_max_literal_runtime",
+        "integer_assignment_overflow_literal_runtime",
         "class_property_integer_nonnumeric_string_runtime",
         "class_property_integer_numeric_string_runtime",
         "class_public_field_integer_nonnumeric_string_runtime",
@@ -236,7 +244,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced because focused runtime oracle cases deterministically raise runtime error 13, while numeric/string/Boolean/property/public-field controls run successfully. Function and Property Get return-name assignments use the same deterministic scalar path.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a literal cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch and runtime error 6 for positive decimal Byte/Integer overflow, while numeric/string/Boolean/property/public-field and boundary controls run successfully. Function and Property Get return-name assignments use the same deterministic scalar path.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

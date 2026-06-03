@@ -425,6 +425,94 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim n As Integer\n    n = \"2\"\nEnd Sub\n"
     },
     {
+      "id": "byte_assignment_max_literal_runtime",
+      "description": "Runtime control: assigning the maximum Byte literal stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Byte\n    value = 255\nEnd Sub\n"
+    },
+    {
+      "id": "byte_assignment_overflow_literal_runtime",
+      "description": "Runtime probe: assigning a positive decimal literal above the Byte range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Byte\n    value = 256\nEnd Sub\n"
+    },
+    {
+      "id": "integer_assignment_max_literal_runtime",
+      "description": "Runtime control: assigning the maximum Integer literal stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value = 32767\nEnd Sub\n"
+    },
+    {
+      "id": "integer_assignment_overflow_literal_runtime",
+      "description": "Runtime probe: assigning a positive decimal literal above the Integer range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value = 32768\nEnd Sub\n"
+    },
+    {
+      "id": "byte_argument_max_literal_runtime",
+      "description": "Runtime control: passing the maximum Byte literal to a Byte parameter stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub TakesByte(ByVal value As Byte)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesByte 255\nEnd Sub\n"
+    },
+    {
+      "id": "byte_argument_overflow_literal_runtime",
+      "description": "Runtime probe: passing a positive decimal literal above the Byte range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub TakesByte(ByVal value As Byte)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesByte 256\nEnd Sub\n"
+    },
+    {
+      "id": "integer_argument_max_literal_runtime",
+      "description": "Runtime control: passing the maximum Integer literal to an Integer parameter stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub TakesInteger(ByVal value As Integer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesInteger 32767\nEnd Sub\n"
+    },
+    {
+      "id": "integer_argument_overflow_literal_runtime",
+      "description": "Runtime probe: passing a positive decimal literal above the Integer range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub TakesInteger(ByVal value As Integer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesInteger 32768\nEnd Sub\n"
+    },
+    {
       "id": "number_to_string_assignment_runtime",
       "description": "Runtime control: assigning a numeric literal to a String variable should exercise successful VBA string coercion.",
       "provenance": "vbe-oracle-verified",

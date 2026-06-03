@@ -1898,6 +1898,8 @@ interface InferredArgumentType {
 	label: string;
 	span: Span;
 	stringValue?: string;
+	numericValue?: number;
+	numericText?: string;
 }
 
 /**
@@ -3001,8 +3003,19 @@ function inferAtomicExpressionType(
 				return { type: 'String', label: `String literal ${first.rawText}`, span, stringValue: value };
 			}
 			case 'integerLiteral':
-			case 'floatLiteral':
-				return { type: 'Double', label: 'numeric literal', span };
+			case 'floatLiteral': {
+				const numericValue =
+					first.kind === 'integerLiteral'
+						? parseDecimalIntegerLiteral(first.rawText)
+						: undefined;
+				return {
+					type: 'Double',
+					label: `numeric literal ${first.rawText}`,
+					span,
+					numericValue,
+					numericText: first.rawText,
+				};
+			}
 			case 'dateLiteral':
 				return { type: 'Date', label: 'Date literal', span };
 			case 'keyword': {
@@ -3234,6 +3247,10 @@ function incompatibilityReason(
 			: 'An object parameter requires an object value.';
 	}
 	if (isNumericType(expected)) {
+		const overflow = numericLiteralOverflowReason(expected, actual);
+		if (overflow) {
+			return overflow;
+		}
 		if (isNumericType(actualType) || actualType === 'boolean') {
 			return undefined;
 		}
@@ -3259,6 +3276,37 @@ function incompatibilityReason(
 		return undefined; // VBA can stringify scalar values; do not warn.
 	}
 	return undefined;
+}
+
+function numericLiteralOverflowReason(
+	expected: string,
+	actual: InferredArgumentType,
+): string | undefined {
+	if (actual.numericValue === undefined) {
+		return undefined;
+	}
+	const bounds = numericLiteralBounds(expected);
+	if (!bounds) {
+		return undefined;
+	}
+	if (actual.numericValue >= bounds.min && actual.numericValue <= bounds.max) {
+		return undefined;
+	}
+	const literal = actual.numericText ?? String(actual.numericValue);
+	return `The numeric literal ${literal} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
+}
+
+function numericLiteralBounds(
+	expected: string,
+): { min: number; max: number; label: string } | undefined {
+	switch (expected) {
+		case 'byte':
+			return { min: 0, max: 255, label: 'Byte' };
+		case 'integer':
+			return { min: -32768, max: 32767, label: 'Integer' };
+		default:
+			return undefined;
+	}
 }
 
 function normalizeType(type: string | undefined): string | undefined {

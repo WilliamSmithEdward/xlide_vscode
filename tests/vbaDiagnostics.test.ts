@@ -1687,6 +1687,28 @@ describe('analyzeModule - argument type validation', () => {
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
 	});
 
+	it('errors on positive decimal literals outside Byte and Integer parameter bounds', () => {
+		const src =
+			'Public Sub TakesByte(ByVal value As Byte)\n' +
+			'End Sub\n' +
+			'Public Sub TakesInteger(ByVal value As Integer)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    TakesByte 255\n' +
+			'    TakesByte 256\n' +
+			'    TakesInteger 32767\n' +
+			'    TakesInteger 32768\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+		expect(hits).toHaveLength(2);
+		expect(spanText(src, hits[0])).toBe('256');
+		expect(hits[0].message).toContain('Byte');
+		expect(hits[0].message).toContain("Run-time error '6'");
+		expect(spanText(src, hits[1])).toBe('32768');
+		expect(hits[1].message).toContain('Integer');
+		expect(hits[1].message).toContain("Run-time error '6'");
+	});
+
 	it('does not warn on string variables whose runtime value is unknown', () => {
 		const src =
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
@@ -2005,6 +2027,26 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(spanText(src, hits[0])).toBe('"maybe"');
 		expect(hits[0].message).toContain('Boolean');
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
+	it('errors on positive decimal literals outside Byte and Integer assignment bounds', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim small As Byte\n' +
+			'    Dim count As Integer\n' +
+			'    small = 255\n' +
+			'    small = 256\n' +
+			'    count = 32767\n' +
+			'    count = 32768\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+		expect(hits).toHaveLength(2);
+		expect(spanText(src, hits[0])).toBe('256');
+		expect(hits[0].message).toContain('Byte');
+		expect(hits[0].message).toContain("Run-time error '6'");
+		expect(spanText(src, hits[1])).toBe('32768');
+		expect(hits[1].message).toContain('Integer');
+		expect(hits[1].message).toContain("Run-time error '6'");
 	});
 
 	it('accepts VBA scalar coercions and unknown assignment values', () => {
