@@ -2,9 +2,9 @@
 
 Edit VBA code directly in VS Code. Browse modules in a sidebar tree,
 edit with syntax highlighting and symbol navigation (Go to Definition,
-Find All References, Rename Symbol), save changes back to the `.xlsm` file
-with Ctrl+S, and expose every operation to GitHub Copilot via the Language
-Model API.
+Find All References, Rename Symbol), save changes back to files
+with Ctrl+S, and allow GitHub Copilot to interface with them via 
+the Language Model API.
 
 <a href="https://github.com/sponsors/WilliamSmithEdward"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?style=for-the-badge" alt="Sponsor WilliamSmithEdward"></a>
 

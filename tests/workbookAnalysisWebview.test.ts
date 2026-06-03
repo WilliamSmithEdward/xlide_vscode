@@ -1,14 +1,44 @@
-import { describe, expect, it, vi } from 'vitest';
+import * as vscode from 'vscode';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkbookAnalysisResult } from '../src/vbaWorkbookAnalysis';
 import { buildWorkbookAnalysisResultsModel } from '../src/workbookAnalysisResultsModel';
-import { renderWorkbookAnalysisResultsHtml } from '../src/workbookAnalysisWebview';
+import { openWorkbookAnalysisResults, renderWorkbookAnalysisResultsHtml } from '../src/workbookAnalysisWebview';
 
 vi.mock('vscode', () => ({
+    ViewColumn: { Active: -1 },
+    env: {
+        clipboard: {
+            writeText: vi.fn(),
+        },
+    },
+    Uri: {
+        file: (fsPath: string) => ({ fsPath }),
+    },
+    RelativePattern: vi.fn(function (this: { baseUri: string; pattern: string }, baseUri: string, pattern: string) {
+        this.baseUri = baseUri;
+        this.pattern = pattern;
+    }),
+    window: {
+        createWebviewPanel: vi.fn(),
+        showSaveDialog: vi.fn(),
+    },
     workspace: {
         getConfiguration: () => ({
             get: (_key: string, fallback: unknown) => fallback,
             inspect: () => ({}),
         }),
+        onDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() })),
+        onDidChangeTextDocument: vi.fn(() => ({ dispose: vi.fn() })),
+        onDidSaveTextDocument: vi.fn(() => ({ dispose: vi.fn() })),
+        createFileSystemWatcher: vi.fn(() => ({
+            dispose: vi.fn(),
+            onDidCreate: vi.fn(() => ({ dispose: vi.fn() })),
+            onDidChange: vi.fn(() => ({ dispose: vi.fn() })),
+            onDidDelete: vi.fn(() => ({ dispose: vi.fn() })),
+        })),
+        fs: {
+            writeFile: vi.fn(),
+        },
     },
 }));
 
@@ -68,6 +98,33 @@ function suppressedOnlyResultFixture(): WorkbookAnalysisResult {
 }
 
 describe('workbook analysis webview', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('reuses an existing analysis panel for the workbook in the active editor group', () => {
+        const panel = fakeWebviewPanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+
+        const first = openWorkbookAnalysisResults(context, resultFixture());
+        const second = openWorkbookAnalysisResults(context, resultFixture());
+
+        expect(first).toBe(second);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
+            'xlideWorkbookAnalysisResults',
+            'XLIDE Analysis: Book.xlsm',
+            vscode.ViewColumn.Active,
+            expect.objectContaining({
+                enableScripts: true,
+                retainContextWhenHidden: true,
+            }),
+        );
+        expect(panel.reveal).toHaveBeenCalledWith(vscode.ViewColumn.Active);
+        panel.disposePanel();
+    });
+
     it('renders scope-explicit rule tracking controls', () => {
         const html = renderWorkbookAnalysisResultsHtml(
             { cspSource: 'test-csp' } as never,
@@ -96,6 +153,49 @@ describe('workbook analysis webview', () => {
         expect(html).toContain('trackingScope: \'workbook\'');
         expect(html).toContain('trackingScope: action === \'setRuleTrackingGlobal\' ? \'global\' : \'workbook\'');
         expect(html).not.toContain('id="trackingAction"');
+    });
+
+    it('renders analysis table headers as sortable controls', () => {
+        const html = renderWorkbookAnalysisResultsHtml(
+            { cspSource: 'test-csp' } as never,
+            buildWorkbookAnalysisResultsModel(resultFixture()),
+            {
+                visibleSeverities: ['error', 'warning', 'information'],
+                visibleSeveritiesSource: 'default',
+                untrackedRules: [],
+                untrackedRulesSource: 'default',
+                ruleSeverityOverrides: {},
+                ruleSeverityOverridesSource: 'default',
+            },
+        );
+
+        expect(html).toContain('data-sort="severity"');
+        expect(html).toContain('data-sort="message"');
+        expect(html).toContain('class="sortIndicator" aria-hidden="true"');
+        expect(html).toContain('syncSortHeaders();');
+    });
+
+    it('posts stable finding location data when opening a row', () => {
+        const html = renderWorkbookAnalysisResultsHtml(
+            { cspSource: 'test-csp' } as never,
+            buildWorkbookAnalysisResultsModel(resultFixture()),
+            {
+                visibleSeverities: ['error', 'warning', 'information'],
+                visibleSeveritiesSource: 'default',
+                untrackedRules: [],
+                untrackedRulesSource: 'default',
+                ruleSeverityOverrides: {},
+                ruleSeverityOverridesSource: 'default',
+            },
+        );
+
+        expect(html).toContain('data-module="Module1"');
+        expect(html).toContain('data-module-type="standard"');
+        expect(html).toContain('data-line="4"');
+        expect(html).toContain('data-column="2"');
+        expect(html).toContain('data-end-column="8"');
+        expect(html).toContain('moduleName: problemRow.dataset.module');
+        expect(html).toContain('endColumn: Number(problemRow.dataset.endColumn)');
     });
 
     it('labels globally untracked rule rows distinctly', () => {
@@ -158,3 +258,23 @@ describe('workbook analysis webview', () => {
         expect(html).not.toContain('<span class="cell status">Suppressed</span>');
     });
 });
+
+function fakeWebviewPanel(): vscode.WebviewPanel & { disposePanel: () => void } {
+    let disposeHandler: (() => void) | undefined;
+    return {
+        title: '',
+        viewColumn: vscode.ViewColumn.Active,
+        webview: {
+            cspSource: 'test-csp',
+            html: '',
+            postMessage: vi.fn(),
+            onDidReceiveMessage: vi.fn(() => ({ dispose: vi.fn() })),
+        },
+        reveal: vi.fn(),
+        onDidDispose: vi.fn((handler: () => void) => {
+            disposeHandler = handler;
+            return { dispose: vi.fn() };
+        }),
+        disposePanel: () => disposeHandler?.(),
+    } as unknown as vscode.WebviewPanel & { disposePanel: () => void };
+}

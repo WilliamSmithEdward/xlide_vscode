@@ -49,11 +49,58 @@ export interface WorkbookAnalysisResultsOptions {
     onDidChangeWorkbookTree?: vscode.Event<unknown>;
 }
 
+interface WorkbookAnalysisMessage {
+    type?: string;
+    index?: number;
+    text?: string;
+    extension?: string;
+    scope?: WorkbookAnalysisSuppressScope;
+    severity?: string;
+    severities?: string[];
+    fixIndex?: number;
+    suppressed?: boolean;
+    tracked?: boolean;
+    trackingScope?: 'workbook' | 'global';
+    code?: string;
+    moduleName?: string;
+    moduleType?: string;
+    line?: number;
+    column?: number;
+    endColumn?: number;
+    message?: string;
+}
+
+interface OpenWorkbookAnalysisResultsPanelEntry {
+    panel: vscode.WebviewPanel;
+    options: WorkbookAnalysisResultsOptions;
+    renderPanel: () => Promise<void>;
+    setResult: (result: WorkbookAnalysisResult) => void;
+}
+
+const openWorkbookAnalysisResultsPanels = new Map<string, OpenWorkbookAnalysisResultsPanelEntry>();
+
 export function openWorkbookAnalysisResults(
     context: vscode.ExtensionContext,
     result: WorkbookAnalysisResult,
     options: WorkbookAnalysisResultsOptions = {},
 ): vscode.WebviewPanel {
+    const panelKey = workbookAnalysisResultsPanelKey(result.filePath);
+    const existing = openWorkbookAnalysisResultsPanels.get(panelKey);
+    if (existing) {
+        existing.options = options;
+        existing.setResult(result);
+        existing.panel.reveal(vscode.ViewColumn.Active);
+        void existing.renderPanel().catch((err) => {
+            const error = err instanceof Error ? err.message : String(err);
+            existing.panel.webview.html = renderWorkbookAnalysisErrorHtml(
+                existing.panel.webview,
+                path.basename(result.filePath),
+                error,
+            );
+        });
+        return existing.panel;
+    }
+
     let currentResult = result;
     let currentModel = buildWorkbookAnalysisResultsModel(currentResult);
     let disposed = false;
@@ -61,15 +108,28 @@ export function openWorkbookAnalysisResults(
     let refreshVersion = 0;
     let contextMenuOpen = false;
     let pendingRefreshAfterContextMenu = false;
+    let severitySettingsSaveVersion = 0;
+    let severitySettingsSaveQueue: Promise<void> = Promise.resolve();
+    let ignoreOwnSeveritySettingsRefresh = false;
+    let ignoreOwnSeveritySettingsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     const panel = vscode.window.createWebviewPanel(
         'xlideWorkbookAnalysisResults',
         `XLIDE Analysis: ${currentModel.workbookName}`,
-        vscode.ViewColumn.Beside,
+        vscode.ViewColumn.Active,
         {
             enableScripts: true,
             retainContextWhenHidden: true,
         },
     );
+    const entry: OpenWorkbookAnalysisResultsPanelEntry = {
+        panel,
+        options,
+        renderPanel: async () => { /* assigned below */ },
+        setResult: (nextResult) => {
+            currentResult = nextResult;
+            currentModel = buildWorkbookAnalysisResultsModel(currentResult);
+        },
+    };
 
     const renderPanel = async (): Promise<void> => {
         currentModel = buildWorkbookAnalysisResultsModel(currentResult);
@@ -82,6 +142,8 @@ export function openWorkbookAnalysisResults(
             analysisSettings,
         );
     };
+    entry.renderPanel = renderPanel;
+    openWorkbookAnalysisResultsPanels.set(panelKey, entry);
 
     const refreshPanel = async (requestVersion: number): Promise<void> => {
         if (disposed) { return; }
@@ -90,8 +152,8 @@ export function openWorkbookAnalysisResults(
             pendingRefreshAfterContextMenu = true;
             return;
         }
-        if (options.onRefreshResult) {
-            const nextResult = await options.onRefreshResult();
+        if (entry.options.onRefreshResult) {
+            const nextResult = await entry.options.onRefreshResult();
             if (requestVersion !== refreshVersion || disposed) {
                 return;
             }
@@ -135,6 +197,41 @@ export function openWorkbookAnalysisResults(
         await refreshPanel(requestVersion);
     };
 
+    const saveVisibleSeveritySettings = async (severities: string[] | undefined): Promise<void> => {
+        const requestVersion = ++severitySettingsSaveVersion;
+        severitySettingsSaveQueue = severitySettingsSaveQueue
+            .catch(() => undefined)
+            .then(async () => {
+                if (requestVersion !== severitySettingsSaveVersion) {
+                    return;
+                }
+                ignoreOwnSidecarRefreshBriefly();
+                await setWorkbookAnalysisVisibleSeverities(currentResult.filePath, severities);
+                if (!disposed && requestVersion === severitySettingsSaveVersion) {
+                    await panel.webview.postMessage({ type: 'severitySettingsSaved' });
+                }
+            });
+        await severitySettingsSaveQueue;
+    };
+
+    const ignoreOwnSidecarRefreshBriefly = (): void => {
+        ignoreOwnSeveritySettingsRefresh = true;
+        if (ignoreOwnSeveritySettingsRefreshTimer) {
+            clearTimeout(ignoreOwnSeveritySettingsRefreshTimer);
+        }
+        ignoreOwnSeveritySettingsRefreshTimer = setTimeout(() => {
+            ignoreOwnSeveritySettingsRefresh = false;
+            ignoreOwnSeveritySettingsRefreshTimer = undefined;
+        }, 1000);
+    };
+
+    const scheduleSidecarRefresh = (): void => {
+        if (ignoreOwnSeveritySettingsRefresh) {
+            return;
+        }
+        scheduleRefresh();
+    };
+
     const problemAt = (index: unknown, suppressed?: boolean): WorkbookAnalysisProblem | undefined => {
         if (typeof index !== 'number') {
             return undefined;
@@ -144,24 +241,20 @@ export function openWorkbookAnalysisResults(
             : currentResult.problems[index];
     };
 
+    const problemForOpenMessage = (message: WorkbookAnalysisMessage): WorkbookAnalysisProblem | undefined => {
+        const indexedProblem = problemAt(message.index, message.suppressed);
+        const rowProblem = problemFromOpenMessage(message);
+        if (indexedProblem && (!rowProblem || sameProblemLocation(indexedProblem, rowProblem))) {
+            return indexedProblem;
+        }
+        return rowProblem ?? indexedProblem;
+    };
+
     void renderPanel().catch((err) => {
         const error = err instanceof Error ? err.message : String(err);
         panel.webview.html = renderWorkbookAnalysisErrorHtml(panel.webview, currentModel.workbookName, error);
     });
-    const messageSub = panel.webview.onDidReceiveMessage(async (message: {
-        type?: string;
-        index?: number;
-        text?: string;
-        extension?: string;
-        scope?: WorkbookAnalysisSuppressScope;
-        severity?: string;
-        severities?: string[];
-        fixIndex?: number;
-        suppressed?: boolean;
-        tracked?: boolean;
-        trackingScope?: 'workbook' | 'global';
-        code?: string;
-    }) => {
+    const messageSub = panel.webview.onDidReceiveMessage(async (message: WorkbookAnalysisMessage) => {
         try {
             if (message.type === 'contextMenuOpened') {
                 contextMenuOpen = true;
@@ -181,9 +274,9 @@ export function openWorkbookAnalysisResults(
                 return;
             }
             if (message.type === 'openProblem') {
-                const problem = problemAt(message.index, message.suppressed);
-                if (problem && options.onOpenProblem) {
-                    await options.onOpenProblem(problem, panel.viewColumn);
+                const problem = problemForOpenMessage(message);
+                if (problem && entry.options.onOpenProblem) {
+                    await entry.options.onOpenProblem(problem, panel.viewColumn);
                 }
                 return;
             }
@@ -198,8 +291,8 @@ export function openWorkbookAnalysisResults(
                     await panel.webview.postMessage({ type: 'error', error: `Ignore ${scope} is not valid for this analysis finding.` });
                     return;
                 }
-                if (problem && scope && options.onSuppressProblem) {
-                    await options.onSuppressProblem(problem, scope, panel.viewColumn);
+                if (problem && scope && entry.options.onSuppressProblem) {
+                    await entry.options.onSuppressProblem(problem, scope, panel.viewColumn);
                     await panel.webview.postMessage({ type: 'suppressed', scope });
                     await refreshAfterAnalysisMutation();
                 }
@@ -207,15 +300,15 @@ export function openWorkbookAnalysisResults(
             }
             if (message.type === 'askCopilot') {
                 const problem = problemAt(message.index, message.suppressed);
-                if (problem && options.onAskCopilot) {
-                    await options.onAskCopilot(problem, panel.viewColumn);
+                if (problem && entry.options.onAskCopilot) {
+                    await entry.options.onAskCopilot(problem, panel.viewColumn);
                 }
                 return;
             }
             if (message.type === 'quickFixProblem') {
                 const problem = problemAt(message.index, message.suppressed);
-                const applied = problem && options.onQuickFixProblem
-                    ? await options.onQuickFixProblem(problem, panel.viewColumn, message.fixIndex)
+                const applied = problem && entry.options.onQuickFixProblem
+                    ? await entry.options.onQuickFixProblem(problem, panel.viewColumn, message.fixIndex)
                     : false;
                 await panel.webview.postMessage({
                     type: applied ? 'quickFixed' : 'quickFixUnavailable',
@@ -256,8 +349,7 @@ export function openWorkbookAnalysisResults(
                 return;
             }
             if (message.type === 'updateSeveritySettings') {
-                await setWorkbookAnalysisVisibleSeverities(currentResult.filePath, message.severities);
-                await refreshAfterAnalysisMutation();
+                await saveVisibleSeveritySettings(message.severities);
                 return;
             }
             if (message.type === 'resetAnalysisSeverities') {
@@ -324,7 +416,7 @@ export function openWorkbookAnalysisResults(
             scheduleRefresh();
         }
     });
-    const treeSub = options.onDidChangeWorkbookTree?.(() => scheduleRefresh());
+    const treeSub = entry.options.onDidChangeWorkbookTree?.(() => scheduleRefresh());
     const sidecarPath = settingsPathForWorkbook(currentResult.filePath);
     const sidecarWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
         path.dirname(sidecarPath),
@@ -336,16 +428,21 @@ export function openWorkbookAnalysisResults(
         textChangeSub,
         saveSub,
         sidecarWatcher,
-        sidecarWatcher.onDidCreate(scheduleRefresh),
-        sidecarWatcher.onDidChange(scheduleRefresh),
-        sidecarWatcher.onDidDelete(scheduleRefresh),
+        sidecarWatcher.onDidCreate(scheduleSidecarRefresh),
+        sidecarWatcher.onDidChange(scheduleSidecarRefresh),
+        sidecarWatcher.onDidDelete(scheduleSidecarRefresh),
         ...(treeSub ? [treeSub] : []),
     ];
     panel.onDidDispose(() => {
         disposed = true;
+        openWorkbookAnalysisResultsPanels.delete(panelKey);
         if (refreshTimer) {
             clearTimeout(refreshTimer);
             refreshTimer = undefined;
+        }
+        if (ignoreOwnSeveritySettingsRefreshTimer) {
+            clearTimeout(ignoreOwnSeveritySettingsRefreshTimer);
+            ignoreOwnSeveritySettingsRefreshTimer = undefined;
         }
         for (const sub of panelDisposables) {
             sub.dispose();
@@ -406,11 +503,13 @@ export function renderWorkbookAnalysisResultsHtml(
                 data-suppressed="${row.suppressed ? 'yes' : 'no'}"
                 data-status="${statusKey}"
                 data-module="${escapeAttr(row.moduleName)}"
+                data-module-type="${escapeAttr(row.moduleType)}"
                 data-module-order="${moduleOrder.get(row.moduleName.toLowerCase()) ?? 9999}"
                 data-severity="${escapeAttr(row.severity)}"
                 data-compile="${row.vbeCompileEquivalent ? 'yes' : 'no'}"
                 data-line="${row.line}"
                 data-column="${row.column}"
+                data-end-column="${row.endColumn}"
                 data-rule="${escapeAttr(row.code || row.ruleTitle)}"
                 data-rule-code="${escapeAttr(row.code)}"
                 data-message="${escapeAttr(row.message)}"
@@ -685,6 +784,10 @@ export function renderWorkbookAnalysisResultsHtml(
         }
         .sortHeader {
             border: 0;
+            display: grid;
+            grid-template-columns: minmax(0, auto) 12px;
+            align-items: center;
+            gap: 5px;
             color: inherit;
             background: transparent;
             text-align: left;
@@ -695,6 +798,39 @@ export function renderWorkbookAnalysisResultsHtml(
         .sortHeader:focus {
             outline: none;
             background: var(--vscode-list-hoverBackground);
+        }
+        .sortHeader[aria-sort="ascending"],
+        .sortHeader[aria-sort="descending"] {
+            color: var(--vscode-foreground);
+        }
+        .sortHeaderText {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sortIndicator {
+            width: 10px;
+            height: 10px;
+            color: currentColor;
+        }
+        .sortIndicator::before {
+            content: "";
+            display: block;
+            width: 0;
+            height: 0;
+            margin: 2px auto 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            opacity: 0;
+        }
+        .sortHeader[aria-sort="ascending"] .sortIndicator::before {
+            border-bottom: 6px solid currentColor;
+            opacity: 1;
+        }
+        .sortHeader[aria-sort="descending"] .sortIndicator::before {
+            border-top: 6px solid currentColor;
+            opacity: 1;
         }
         .problemRow {
             width: 100%;
@@ -1030,12 +1166,14 @@ export function renderWorkbookAnalysisResultsHtml(
                 </div>
                 <div class="table" role="table" aria-label="Analysis findings">
                     <div class="tableHeader" role="row">
-                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="severity">Severity</button>
-                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="status">Status</button>
-                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="location">Location</button>
-                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="rule">Rule</button>
-                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="evidence">Evidence</button>
-                        <button class="cell sortHeader" type="button" role="columnheader" data-sort="message">Message</button>
+                        ${[
+        sortHeaderHtml('severity', 'Severity'),
+        sortHeaderHtml('status', 'Status'),
+        sortHeaderHtml('location', 'Location'),
+        sortHeaderHtml('rule', 'Rule'),
+        sortHeaderHtml('evidence', 'Evidence'),
+        sortHeaderHtml('message', 'Message'),
+    ].join('')}
                     </div>
                     ${rowsHtml}
                 </div>
@@ -1142,6 +1280,7 @@ export function renderWorkbookAnalysisResultsHtml(
             : 'asc';
         let settingsOpen = hasPersistedUiState && persistedState.settingsOpen === true;
         const rows = Array.from(document.querySelectorAll('.problemRow'));
+        const sortHeaders = Array.from(document.querySelectorAll('[data-sort]'));
         const table = document.querySelector('.table');
         const showHiddenButton = document.querySelector('[data-show-hidden]');
         const visibleCount = document.getElementById('visibleCount');
@@ -1281,6 +1420,21 @@ export function renderWorkbookAnalysisResultsHtml(
             }
             for (const checkbox of document.querySelectorAll('[data-settings-severity]')) {
                 checkbox.checked = visibleSeverities.has(checkbox.dataset.settingsSeverity);
+            }
+        }
+
+        function syncSortHeaders() {
+            for (const header of sortHeaders) {
+                const active = header.dataset.sort === sortKey;
+                const sortValue = active
+                    ? (sortDirection === 'asc' ? 'ascending' : 'descending')
+                    : 'none';
+                const label = header.dataset.sortLabel ?? header.textContent?.trim() ?? 'column';
+                const nextDirection = active && sortDirection === 'asc' ? 'descending' : 'ascending';
+                header.setAttribute('aria-sort', sortValue);
+                header.title = active
+                    ? \`Sorted \${sortValue}. Click to sort \${nextDirection}.\`
+                    : \`Sort by \${label}\`;
             }
         }
 
@@ -1460,6 +1614,22 @@ export function renderWorkbookAnalysisResultsHtml(
             });
         }
 
+        function postOpenProblem(row) {
+            vscode.postMessage({
+                type: 'openProblem',
+                index: Number(row.dataset.openIndex),
+                suppressed: row.dataset.suppressed === 'yes',
+                moduleName: row.dataset.module,
+                moduleType: row.dataset.moduleType,
+                line: Number(row.dataset.line),
+                column: Number(row.dataset.column),
+                endColumn: Number(row.dataset.endColumn),
+                severity: row.dataset.severity,
+                code: row.dataset.ruleCode,
+                message: row.dataset.message,
+            });
+        }
+
         document.addEventListener('click', (event) => {
             if (event.button === 2) {
                 return;
@@ -1605,6 +1775,7 @@ export function renderWorkbookAnalysisResultsHtml(
                 }
                 persistUiState();
                 sortRows();
+                syncSortHeaders();
                 updateRows();
                 return;
             }
@@ -1626,11 +1797,7 @@ export function renderWorkbookAnalysisResultsHtml(
             }
             const problemRow = event.target.closest?.('[data-open-index]');
             if (problemRow) {
-                vscode.postMessage({
-                    type: 'openProblem',
-                    index: Number(problemRow.dataset.openIndex),
-                    suppressed: problemRow.dataset.suppressed === 'yes',
-                });
+                postOpenProblem(problemRow);
             }
         });
 
@@ -1718,6 +1885,7 @@ export function renderWorkbookAnalysisResultsHtml(
         });
 
         sortRows();
+        syncSortHeaders();
         syncModuleFilterButtons();
         syncSeverityFilterButtons();
         syncHiddenToggleButton();
@@ -1787,6 +1955,59 @@ function renderWorkbookAnalysisErrorHtml(
 
 function statHtml(value: string, label: string): string {
     return `<div class="stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+function sortHeaderHtml(key: string, label: string): string {
+    return `<button
+        class="cell sortHeader"
+        type="button"
+        role="columnheader"
+        data-sort="${escapeAttr(key)}"
+        data-sort-label="${escapeAttr(label)}"
+        aria-sort="none"
+        title="Sort by ${escapeAttr(label)}"
+    ><span class="sortHeaderText">${escapeHtml(label)}</span><span class="sortIndicator" aria-hidden="true"></span></button>`;
+}
+
+function problemFromOpenMessage(message: WorkbookAnalysisMessage): WorkbookAnalysisProblem | undefined {
+    const moduleName = typeof message.moduleName === 'string' && message.moduleName.trim()
+        ? message.moduleName
+        : undefined;
+    const line = positiveIntegerFromUnknown(message.line);
+    const column = positiveIntegerFromUnknown(message.column);
+    const rawEndColumn = positiveIntegerFromUnknown(message.endColumn);
+    if (!moduleName || line === undefined || column === undefined) {
+        return undefined;
+    }
+    return {
+        moduleName,
+        moduleType: typeof message.moduleType === 'string' && message.moduleType.trim()
+            ? message.moduleType
+            : 'standard',
+        line,
+        column,
+        endColumn: Math.max(column + 1, rawEndColumn ?? column + 1),
+        severity: analysisProblemSeverityFromUnknown(message.severity),
+        code: typeof message.code === 'string' ? message.code : undefined,
+        message: typeof message.message === 'string' ? message.message : '',
+        suppressionScopes: [],
+    };
+}
+
+function sameProblemLocation(left: WorkbookAnalysisProblem, right: WorkbookAnalysisProblem): boolean {
+    return left.moduleName.toLowerCase() === right.moduleName.toLowerCase() &&
+        left.line === right.line &&
+        left.column === right.column;
+}
+
+function positiveIntegerFromUnknown(value: unknown): number | undefined {
+    return Number.isInteger(value) && Number(value) > 0 ? Number(value) : undefined;
+}
+
+function analysisProblemSeverityFromUnknown(value: unknown): WorkbookAnalysisProblem['severity'] {
+    return value === 'error' || value === 'warning' || value === 'information'
+        ? value
+        : 'information';
 }
 
 function workbookAnalysisSettingsKey(settings: EffectiveWorkbookAnalysisSettings): string {
@@ -2026,4 +2247,9 @@ function randomNonce(): string {
 
 function sanitizeFileName(value: string): string {
     return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/[. ]+$/g, '');
+}
+
+function workbookAnalysisResultsPanelKey(filePath: string): string {
+    const normalized = path.normalize(filePath);
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }

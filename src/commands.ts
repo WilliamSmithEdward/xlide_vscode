@@ -356,18 +356,25 @@ export function registerCommands(
         });
     }
 
+    let analysisSourceOpenQueue: Promise<void> = Promise.resolve();
+    let analysisSourceOpenSequence = 0;
+
     async function openWorkbookAnalysisProblem(
         filePath: string,
         problem: WorkbookAnalysisProblem,
-        analysisPanelColumn?: vscode.ViewColumn,
+        _analysisPanelColumn?: vscode.ViewColumn,
+    ): Promise<void> {
+        await queueAnalysisSourceOpen(() => openWorkbookAnalysisProblemNow(filePath, problem));
+    }
+
+    async function openWorkbookAnalysisProblemNow(
+        filePath: string,
+        problem: WorkbookAnalysisProblem,
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.languages.setTextDocumentLanguage(doc, 'vba');
-        const editor = await vscode.window.showTextDocument(doc, {
-            preview: false,
-            viewColumn: adjacentAnalysisSourceColumn(analysisPanelColumn),
-        });
+        const editor = await showAnalysisSourceDocument(doc);
         const line = Math.max(0, problem.line - 1);
         const startColumn = Math.max(0, problem.column - 1);
         const endColumn = Math.max(startColumn + 1, problem.endColumn - 1);
@@ -382,7 +389,7 @@ export function registerCommands(
         filePath: string,
         problem: WorkbookAnalysisProblem,
         scope: WorkbookAnalysisSuppressScope,
-        analysisPanelColumn?: vscode.ViewColumn,
+        _analysisPanelColumn?: vscode.ViewColumn,
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
@@ -414,10 +421,7 @@ export function registerCommands(
         if (!applied) {
             throw new Error('VS Code rejected the analysis ignore edit.');
         }
-        const editor = await vscode.window.showTextDocument(doc, {
-            preview: false,
-            viewColumn: adjacentAnalysisSourceColumn(analysisPanelColumn),
-        });
+        const editor = await showAnalysisSourceDocument(doc);
         const position = new vscode.Position(target.startLine, 0);
         editor.selection = new vscode.Selection(position, position);
         editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
@@ -447,7 +451,7 @@ export function registerCommands(
     async function quickFixWorkbookAnalysisProblem(
         filePath: string,
         problem: WorkbookAnalysisProblem,
-        analysisPanelColumn?: vscode.ViewColumn,
+        _analysisPanelColumn?: vscode.ViewColumn,
         fixIndex = 0,
     ): Promise<boolean> {
         if (!problem.code) {
@@ -494,10 +498,7 @@ export function registerCommands(
             return false;
         }
 
-        const editor = await vscode.window.showTextDocument(doc, {
-            preview: false,
-            viewColumn: adjacentAnalysisSourceColumn(analysisPanelColumn),
-        });
+        const editor = await showAnalysisSourceDocument(doc);
         const firstEdit = fix.edits[0];
         const position = doc.positionAt(firstEdit.span.start);
         editor.selection = new vscode.Selection(position, position);
@@ -524,22 +525,51 @@ export function registerCommands(
         });
     }
 
-    function adjacentAnalysisSourceColumn(analysisPanelColumn?: vscode.ViewColumn): vscode.ViewColumn {
-        switch (analysisPanelColumn) {
-            case vscode.ViewColumn.One:
-                return vscode.ViewColumn.Two;
-            case vscode.ViewColumn.Two:
-            case vscode.ViewColumn.Three:
-            case vscode.ViewColumn.Four:
-            case vscode.ViewColumn.Five:
-            case vscode.ViewColumn.Six:
-            case vscode.ViewColumn.Seven:
-            case vscode.ViewColumn.Eight:
-            case vscode.ViewColumn.Nine:
-                return vscode.ViewColumn.One;
-            default:
-                return vscode.ViewColumn.Beside;
+    async function queueAnalysisSourceOpen(operation: () => Promise<void>): Promise<void> {
+        const sequence = ++analysisSourceOpenSequence;
+        const run = analysisSourceOpenQueue
+            .catch(() => undefined)
+            .then(async () => {
+                if (sequence !== analysisSourceOpenSequence) {
+                    return;
+                }
+                await operation();
+            });
+        analysisSourceOpenQueue = run;
+        await run;
+    }
+
+    async function showAnalysisSourceDocument(doc: vscode.TextDocument): Promise<vscode.TextEditor> {
+        let lastError: unknown;
+        let lastEditor: vscode.TextEditor | undefined;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            if (attempt > 0) {
+                await delay(50 * attempt);
+            }
+            try {
+                const editor = await vscode.window.showTextDocument(doc, { preview: false });
+                if (sameDocumentUri(editor.document.uri, doc.uri)) {
+                    return editor;
+                }
+                lastEditor = editor;
+            } catch (err) {
+                lastError = err;
+            }
         }
+        if (lastEditor) {
+            return lastEditor;
+        }
+        throw lastError instanceof Error
+            ? lastError
+            : new Error('VS Code did not open the analysis source document.');
+    }
+
+    function sameDocumentUri(left: vscode.Uri, right: vscode.Uri): boolean {
+        return left.toString() === right.toString();
+    }
+
+    function delay(milliseconds: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, milliseconds));
     }
 
     function shouldAttachToRunningExcel(): boolean {

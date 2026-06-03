@@ -823,16 +823,16 @@ VBA code from XLIDE, using Excel COM as the execution host.
   `docs/xlide_vba_com_test_runner.md`: frozen trace schema, expanded lifecycle
   invariants, popup/blocker matrix, full result taxonomy, host-script safety
   checks, artifact/CI-status mapping, and optional live Excel canaries.
-- [ ] Expand `src/vbaTestHostOracle.ts` from the current lifecycle seed into
+- [x] Expand `src/vbaTestHostOracle.ts` from the current lifecycle seed into
   the full test-host proof surface: stage events, blocker classifications,
   no-`SendKeys`/no-focus automation checks, result taxonomy, cleanup guarantees,
   and artifact/status mapping.
-- [ ] Add performance instrumentation and regression gates for the test runner:
+- [x] Add performance instrumentation and regression gates for the test runner:
   stage durations, per-test durations, suite duration, and baseline thresholds
   for startup/open/compile/run/cleanup. Performance work must preserve the
   read-only single-host contract, blocker classification, and owned-process
   cleanup guarantees.
-- [ ] Add a comprehensive Excel popup/blocker matrix for the test runner:
+- [x] Add a comprehensive Excel popup/blocker matrix for the test runner:
   workbook-open prompts, link/update prompts, password/protected-view/security
   prompts, Trust Center/trust-access failures, compile/runtime/modal VBA
   dialogs, add-in prompts, repair/recovery prompts, automation-busy states, and
@@ -852,7 +852,7 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - [x] owner or requirement id
   - [x] expected error metadata
   - output/state assertions
-- [ ] Support developer-friendly test selection and execution modes:
+- [x] Support developer-friendly test selection and execution modes:
   - [x] run all
   - [x] run current test
   - [x] run current module
@@ -861,12 +861,12 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - [x] fail fast
   - [x] persisted default run artifacts plus latest CI status JSON
   - explicit headless/automation runner mode
-- [ ] Support setup/teardown patterns:
+- [x] Support setup/teardown patterns:
   - per-test setup and teardown
   - per-module setup and teardown
   - workbook/session setup and teardown
   - deterministic cleanup failure reporting
-- [ ] Capture deterministic test results:
+- [x] Capture deterministic test results:
   - [x] pass/fail/skip
   - [x] expected failure (`xfail`)
   - [x] unexpected pass (`xpass`)
@@ -1029,7 +1029,7 @@ development.
   appropriate global/workbook settings surface without mutating the wrong scope.
   Detailed workbook setting/status rows belong in dedicated workbook-facing GUIs,
   not the sidebar.
-- [ ] Add setup health checks with pass/warn/fail/unknown states for:
+- [x] Add setup health checks with pass/warn/fail/unknown states for:
   - active XLIDE workbook/project context
   - workbook source sync/export mapping
   - Excel COM availability on Windows
@@ -1083,7 +1083,7 @@ development.
   `XlideAssert.bas` support module is installed or updated. The GUI also blocks
   runs when Excel COM is not registered on the machine; this registration check
   does not launch Excel.
-- [ ] Add primary action buttons:
+- [x] Add primary action buttons:
   - analyze workbook against the sidebar target workbook
   - open the full VBA test runner GUI
   - run all tests against the sidebar target workbook
@@ -1107,17 +1107,6 @@ development.
     workbook sidecar, and `Untrack Globally` writes it to the global
     `xlide.analysis.untrackedRules` setting. Avoid generic `Ignore` wording for
     persisted choices; reserve it, if needed, for one-session visual hiding.
-  - [ ] Problems summary by severity
-  - [ ] Test summary by pass/fail/skip/xfail/xpass
-  - [ ] Recent XLIDE operations and logs
-  - [ ] Setup recommendations and quick fixes
-  - [ ] Workbook/module metadata
-- [ ] Keep status checks deterministic. If XLIDE cannot prove a requirement is
-  met or missing, show `Unknown` with a concrete action instead of guessing.
-- [ ] Add telemetry-free local persistence for collapsed sections and selected
-  workbook context.
-- [ ] Add VS Code UI/integration tests or fixture-backed provider tests for the
-  sidebar model before broadening the UI.
 
 Definition of done:
 
