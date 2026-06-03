@@ -231,6 +231,24 @@
         "icon": "$(beaker)"
       },
       {
+        "command": "xlide.runVbaTestsWithFilters",
+        "title": "Run VBA Unit Tests with Filters",
+        "category": "XLIDE",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "xlide.runVbaTestsInCurrentModule",
+        "title": "Run VBA Unit Tests in Current Module",
+        "category": "XLIDE",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "xlide.runVbaTestAtCursor",
+        "title": "Run VBA Unit Test at Cursor",
+        "category": "XLIDE",
+        "icon": "$(debug-start)"
+      },
+      {
         "command": "xlide.installVbaTestSupport",
         "title": "Install VBA Test Support Module",
         "category": "XLIDE",
@@ -375,9 +393,14 @@
           "group": "4_analyze@2"
         },
         {
-          "command": "xlide.installVbaTestSupport",
+          "command": "xlide.runVbaTestsWithFilters",
           "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "4_analyze@3"
+        },
+        {
+          "command": "xlide.installVbaTestSupport",
+          "when": "view == xlide.explorer && viewItem == xlsm",
+          "group": "4_analyze@4"
         },
         {
           "command": "xlide.exportModulesToFolder",
@@ -400,6 +423,16 @@
           "command": "xlide.exportCurrentModuleToFolder",
           "when": "editorLangId == vba && resourceScheme == xlide-vba",
           "group": "xlide@2"
+        },
+        {
+          "command": "xlide.runVbaTestsInCurrentModule",
+          "when": "editorLangId == vba && resourceScheme == xlide-vba",
+          "group": "xlide@3"
+        },
+        {
+          "command": "xlide.runVbaTestAtCursor",
+          "when": "editorLangId == vba && resourceScheme == xlide-vba",
+          "group": "xlide@4"
         }
       ]
     },

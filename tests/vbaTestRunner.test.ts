@@ -103,8 +103,57 @@ describe('VBA test runner discovery', () => {
 
         expect(result.modulesScanned).toBe(1);
         expect(result.modulesIgnored).toBe(2);
+        expect(result.unfilteredTestCount).toBe(1);
         expect(result.tests.map((test) => test.qualifiedName)).toEqual(['Tests.TestWorkbookFlow']);
         expect(result.contract).toContain('@xlide-test');
+    });
+
+    it('filters discovered workbook tests by module, procedure, and tags', async () => {
+        const bridge = bridgeForModules([
+            {
+                name: 'AlphaTests',
+                type: 'standard',
+                source: [
+                    "' @xlide-test tags=smoke,fast",
+                    'Sub FastSmoke()',
+                    'End Sub',
+                    '',
+                    "' @xlide-test tags=slow",
+                    'Sub SlowScenario()',
+                    'End Sub',
+                ].join('\n'),
+            },
+            {
+                name: 'BetaTests',
+                type: 'standard',
+                source: [
+                    "' @xlide-test tags=smoke",
+                    'Sub BetaSmoke()',
+                    'End Sub',
+                ].join('\n'),
+            },
+        ]);
+
+        const moduleResult = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm', {
+            moduleName: 'alphatests',
+            includeTags: ['SMOKE'],
+            excludeTags: ['slow'],
+        });
+        expect(moduleResult.modulesScanned).toBe(1);
+        expect(moduleResult.unfilteredTestCount).toBe(2);
+        expect(moduleResult.selection).toEqual({
+            moduleName: 'alphatests',
+            includeTags: ['SMOKE'],
+            excludeTags: ['slow'],
+        });
+        expect(moduleResult.tests.map((test) => test.qualifiedName)).toEqual(['AlphaTests.FastSmoke']);
+
+        const procedureResult = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm', {
+            moduleName: 'BetaTests',
+            procedureName: 'betasmoke',
+        });
+        expect(procedureResult.unfilteredTestCount).toBe(1);
+        expect(procedureResult.tests.map((test) => test.qualifiedName)).toEqual(['BetaTests.BetaSmoke']);
     });
 });
 
@@ -128,6 +177,7 @@ describe('VBA test runner reporting', () => {
             discovery: {
                 filePath: 'C:/work/Book.xlsm',
                 tests: [test],
+                unfilteredTestCount: 1,
                 modulesScanned: 1,
                 modulesIgnored: 0,
                 contract: 'contract',

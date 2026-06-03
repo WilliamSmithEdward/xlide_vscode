@@ -787,7 +787,8 @@ VBA code from XLIDE, using Excel COM as the execution host.
   annotation-driven or manifest-driven, not naming-heuristic-driven.
 - [x] Add a developer-facing `xlide.runVbaTests` command that runs selected
   tests through Excel COM. First slice runs all discovered tests in the target
-  workbook.
+  workbook; the runner now also supports current-module/current-test execution,
+  include/exclude tag filters, and fail-fast mode on the same runner path.
 - [ ] Run tests against a disposable workbook/session by default so test runs do
   not mutate the developer's open workbook unexpectedly.
 - [x] Reuse the workbook close/reopen/reset discipline from macro execution and
@@ -805,11 +806,11 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - output/state assertions
 - [ ] Support developer-friendly test selection and execution modes:
   - [x] run all
-  - run current test
-  - run current module
-  - include/exclude tags
+  - [x] run current test
+  - [x] run current module
+  - [x] include/exclude tags
   - rerun failed
-  - fail fast
+  - [x] fail fast
   - machine-readable automation mode
 - [ ] Support setup/teardown patterns:
   - per-test setup and teardown
@@ -1330,10 +1331,10 @@ Definition of done:
    broad unknown external reference names deferred.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
-4. Continue hardening the VBA test runner beyond the first explicit
-   `@xlide-test` run-all slice: assertion support, richer metadata,
-   selection/filtering, disposable workbook/session behavior, and full workflow
-   documentation remain before calling it shipped.
+4. Continue hardening the VBA test runner beyond the explicit `@xlide-test`
+   run-all/current-scope slice: disposable workbook/session behavior,
+   rerun-failed/automation flows, setup/teardown, compile-error capture, and
+   full workflow documentation remain before calling it shipped.
 5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
    for analysis, test, setup, sync, and workbook actions; avoid using the Output
    channel as the primary UX for actionable workflow results.

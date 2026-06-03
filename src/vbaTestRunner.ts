@@ -37,9 +37,18 @@ export interface VbaTestMetadata {
     xfailReason?: string;
 }
 
+export interface VbaTestSelectionOptions {
+    moduleName?: string;
+    procedureName?: string;
+    includeTags?: readonly string[];
+    excludeTags?: readonly string[];
+}
+
 export interface VbaTestDiscoveryResult {
     filePath: string;
     tests: VbaTestCase[];
+    unfilteredTestCount: number;
+    selection?: VbaTestSelectionOptions;
     modulesScanned: number;
     modulesIgnored: number;
     contract: string;
@@ -109,34 +118,98 @@ export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestC
 export async function discoverWorkbookVbaTests(
     bridge: PythonBridge,
     filePath: string,
+    selection?: VbaTestSelectionOptions,
 ): Promise<VbaTestDiscoveryResult> {
+    const normalizedSelection = normalizeVbaTestSelection(selection);
     const modules = await bridge.call<Array<{ name: string; type: string }>>(
         'listModules',
         { path: filePath },
     );
     const orderedModules = [...modules].sort(compareVbaModulesForTreeOrder);
-    const testableModules = orderedModules.filter((module) => module.type === 'standard');
-    const tests: VbaTestCase[] = [];
+    const testableModules = orderedModules.filter((module) =>
+        module.type === 'standard' &&
+        (!normalizedSelection?.moduleName || equalsIgnoreCase(module.name, normalizedSelection.moduleName)),
+    );
+    const discoveredTests: VbaTestCase[] = [];
 
     for (const module of testableModules) {
         const result = await bridge.call<{ source: string }>(
             'readModule',
             { path: filePath, module: module.name },
         );
-        tests.push(...discoverVbaTestsFromModule({
+        discoveredTests.push(...discoverVbaTestsFromModule({
             name: module.name,
             type: module.type,
             source: result.source,
         }));
     }
+    const tests = filterVbaTests(discoveredTests, normalizedSelection);
 
     return {
         filePath,
         tests,
+        unfilteredTestCount: discoveredTests.length,
+        selection: normalizedSelection,
         modulesScanned: testableModules.length,
         modulesIgnored: orderedModules.length - testableModules.length,
         contract: `Standard-module no-argument Sub procedures with an immediately preceding '${XLIDE_VBA_TEST_DIRECTIVE}' comment directive.`,
     };
+}
+
+export function filterVbaTests(
+    tests: readonly VbaTestCase[],
+    selection?: VbaTestSelectionOptions,
+): VbaTestCase[] {
+    const normalizedSelection = normalizeVbaTestSelection(selection);
+    if (!normalizedSelection) {
+        return [...tests];
+    }
+
+    const includeTags = normalizedSelection.includeTags?.map(normalizeTag) ?? [];
+    const excludeTags = normalizedSelection.excludeTags?.map(normalizeTag) ?? [];
+
+    return tests.filter((test) => {
+        if (normalizedSelection.moduleName && !equalsIgnoreCase(test.moduleName, normalizedSelection.moduleName)) {
+            return false;
+        }
+        if (
+            normalizedSelection.procedureName &&
+            !equalsIgnoreCase(test.procedureName, normalizedSelection.procedureName)
+        ) {
+            return false;
+        }
+
+        const tags = new Set(test.metadata.tags.map(normalizeTag));
+        if (includeTags.length > 0 && !includeTags.some((tag) => tags.has(tag))) {
+            return false;
+        }
+        if (excludeTags.length > 0 && excludeTags.some((tag) => tags.has(tag))) {
+            return false;
+        }
+        return true;
+    });
+}
+
+export function describeVbaTestSelection(selection?: VbaTestSelectionOptions): string {
+    const normalizedSelection = normalizeVbaTestSelection(selection);
+    if (!normalizedSelection) {
+        return '';
+    }
+
+    const parts: string[] = [];
+    if (normalizedSelection.moduleName) {
+        parts.push(`module ${normalizedSelection.moduleName}`);
+    }
+    if (normalizedSelection.procedureName) {
+        parts.push(`test ${normalizedSelection.procedureName}`);
+    }
+    if (normalizedSelection.includeTags?.length) {
+        parts.push(`tags ${normalizedSelection.includeTags.join(', ')}`);
+    }
+    if (normalizedSelection.excludeTags?.length) {
+        parts.push(`excluding ${normalizedSelection.excludeTags.join(', ')}`);
+    }
+    return parts.join(', ');
 }
 
 export function createVbaTestRunReport(input: {
@@ -175,6 +248,41 @@ export function vbaTestFailureMessage(error: unknown): string {
     const raw = error instanceof Error ? error.message : String(error);
     const pipe = raw.indexOf('|');
     return pipe >= 0 ? raw.slice(pipe + 1) : raw;
+}
+
+function normalizeVbaTestSelection(selection?: VbaTestSelectionOptions): VbaTestSelectionOptions | undefined {
+    const moduleName = normalizeOptionalText(selection?.moduleName);
+    const procedureName = normalizeOptionalText(selection?.procedureName);
+    const includeTags = normalizeTagList(selection?.includeTags);
+    const excludeTags = normalizeTagList(selection?.excludeTags);
+    if (!moduleName && !procedureName && includeTags.length === 0 && excludeTags.length === 0) {
+        return undefined;
+    }
+    return {
+        ...(moduleName ? { moduleName } : {}),
+        ...(procedureName ? { procedureName } : {}),
+        ...(includeTags.length > 0 ? { includeTags } : {}),
+        ...(excludeTags.length > 0 ? { excludeTags } : {}),
+    };
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+}
+
+function normalizeTagList(values: readonly string[] | undefined): string[] {
+    return [...new Set((values ?? [])
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0))];
+}
+
+function normalizeTag(value: string): string {
+    return value.trim().toLowerCase();
+}
+
+function equalsIgnoreCase(left: string, right: string): boolean {
+    return left.localeCompare(right, undefined, { sensitivity: 'accent' }) === 0;
 }
 
 function isRunnableTestProcedure(member: unknown): member is ProcedureNode {

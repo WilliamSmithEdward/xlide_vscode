@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
-import { summarizeVbaTestRun } from './vbaTestRunner';
+import { describeVbaTestSelection, summarizeVbaTestRun } from './vbaTestRunner';
 
 export function openVbaTestResults(
     context: vscode.ExtensionContext,
@@ -27,6 +27,7 @@ export function renderVbaTestResultsHtml(
     const report = maybeReport ?? webviewOrReport as VbaTestRunReport;
     const webview = maybeReport ? webviewOrReport as vscode.Webview : undefined;
     const summary = summarizeVbaTestRun(report);
+    const selectionDescription = describeVbaTestSelection(report.discovery.selection);
     const rows = report.results.map((result) => `
         <tr class="${escapeAttr(result.status)}">
             <td><span class="status">${escapeHtml(statusLabel(result.status))}</span></td>
@@ -186,7 +187,11 @@ export function renderVbaTestResultsHtml(
         <header class="header">
             <div>
                 <h1>XLIDE VBA Test Results</h1>
-                <div class="subtitle">${escapeHtml(report.workbookName)}</div>
+                <div class="subtitle">${escapeHtml(
+                    selectionDescription
+                        ? `${report.workbookName} - ${selectionDescription}`
+                        : report.workbookName,
+                )}</div>
             </div>
             <div class="subtitle">${escapeHtml(`${report.durationMs} ms total`)}</div>
         </header>
@@ -203,11 +208,18 @@ export function renderVbaTestResultsHtml(
             </thead>
             <tbody>${rows}</tbody>
         </table>`
-        : `<div class="empty">No VBA tests were discovered.</div>`}
+        : `<div class="empty">${escapeHtml(emptyResultsMessage(report, selectionDescription))}</div>`}
         <div class="contract">${escapeHtml(report.discovery.contract)}</div>
     </main>
 </body>
 </html>`;
+}
+
+function emptyResultsMessage(report: VbaTestRunReport, selectionDescription: string): string {
+    if (selectionDescription && report.discovery.unfilteredTestCount > 0) {
+        return 'No VBA tests matched the selected filters.';
+    }
+    return 'No VBA tests were discovered.';
 }
 
 function renderSummary(summary: VbaTestRunSummary): string {

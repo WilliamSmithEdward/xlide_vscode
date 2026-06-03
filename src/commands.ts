@@ -32,11 +32,13 @@ import {
 } from './workbookAnalysisWebview';
 import {
     createVbaTestRunReport,
+    describeVbaTestSelection,
     discoverWorkbookVbaTests,
     summarizeVbaTestRun,
     vbaTestFailureMessage,
     type VbaTestRunItem,
     type VbaTestRunReport,
+    type VbaTestSelectionOptions,
 } from './vbaTestRunner';
 import { openVbaTestResults } from './vbaTestResultsWebview';
 import {
@@ -128,6 +130,13 @@ interface ResolvedModuleSyncSettings extends ModuleSyncSettings {
     importModeSource?: WorkbookModuleSyncModeSource;
     settingsPath: string;
 }
+
+interface VbaTestRunOptions {
+    selection?: VbaTestSelectionOptions;
+    failFast?: boolean;
+}
+
+type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
 
 function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
@@ -686,11 +695,12 @@ export function registerCommands(
     async function runWorkbookVbaTests(
         filePath: string,
         progress?: vscode.Progress<{ message?: string; increment?: number }>,
+        options: VbaTestRunOptions = {},
     ): Promise<VbaTestRunReport> {
         const startedAt = new Date();
         const startedMs = Date.now();
         progress?.report({ message: 'Discovering tests...' });
-        const discovery = await discoverWorkbookVbaTests(bridge, filePath);
+        const discovery = await discoverWorkbookVbaTests(bridge, filePath, options.selection);
         const results: VbaTestRunItem[] = [];
 
         if (discovery.tests.length === 0) {
@@ -724,6 +734,7 @@ export function registerCommands(
 
         const attachToRunning = shouldAttachToRunningExcel();
         log(`[runVbaTests] attachToRunningExcel=${attachToRunning}`);
+        log(`[runVbaTests] selection=${describeVbaTestSelection(options.selection) || 'all tests'} failFast=${Boolean(options.failFast)}`);
         for (let index = 0; index < discovery.tests.length; index++) {
             const test = discovery.tests[index];
             if (test.metadata.skipReason) {
@@ -744,23 +755,37 @@ export function registerCommands(
             try {
                 await runWindowsExcelMacroReadOnly(filePath, test.qualifiedName, attachToRunning);
                 const durationMs = Date.now() - testStartedMs;
+                let result: VbaTestRunItem;
                 if (test.metadata.xfailReason) {
                     const message = `Expected failure did not occur: ${test.metadata.xfailReason}`;
-                    results.push({ test, status: 'xpass', durationMs, error: message });
+                    result = { test, status: 'xpass', durationMs, error: message };
+                    results.push(result);
                     log(`[runVbaTests] XPASS ${test.qualifiedName} (${durationMs} ms): ${message}`);
                 } else {
-                    results.push({ test, status: 'passed', durationMs });
+                    result = { test, status: 'passed', durationMs };
+                    results.push(result);
                     log(`[runVbaTests] PASS ${test.qualifiedName} (${durationMs} ms)`);
+                }
+                if (shouldFailFastStop(result, options.failFast)) {
+                    appendFailFastSkippedTests(results, discovery.tests, index + 1, test.qualifiedName);
+                    break;
                 }
             } catch (err) {
                 const durationMs = Date.now() - testStartedMs;
                 const message = vbaTestFailureMessage(err);
+                let result: VbaTestRunItem;
                 if (test.metadata.xfailReason) {
-                    results.push({ test, status: 'xfail', durationMs, error: message });
+                    result = { test, status: 'xfail', durationMs, error: message };
+                    results.push(result);
                     log(`[runVbaTests] XFAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
                 } else {
-                    results.push({ test, status: 'failed', durationMs, error: message });
+                    result = { test, status: 'failed', durationMs, error: message };
+                    results.push(result);
                     log(`[runVbaTests] FAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
+                }
+                if (shouldFailFastStop(result, options.failFast)) {
+                    appendFailFastSkippedTests(results, discovery.tests, index + 1, test.qualifiedName);
+                    break;
                 }
             }
         }
@@ -774,10 +799,72 @@ export function registerCommands(
         });
     }
 
+    function shouldFailFastStop(result: VbaTestRunItem, failFast?: boolean): boolean {
+        return Boolean(failFast) && (result.status === 'failed' || result.status === 'xpass');
+    }
+
+    function appendFailFastSkippedTests(
+        results: VbaTestRunItem[],
+        tests: readonly VbaTestRunItem['test'][],
+        startIndex: number,
+        stoppedAfter: string,
+    ): void {
+        const message = `Not run because fail-fast stopped after ${stoppedAfter}.`;
+        for (let index = startIndex; index < tests.length; index++) {
+            const test = tests[index];
+            results.push({
+                test,
+                status: 'skipped',
+                durationMs: 0,
+                error: message,
+            });
+            log(`[runVbaTests] SKIP ${test.qualifiedName}: ${message}`);
+        }
+    }
+
+    async function runVbaTestsForWorkbook(
+        filePath: string,
+        options: VbaTestRunOptions = {},
+    ): Promise<void> {
+        const name = path.basename(filePath);
+        const selectionDescription = describeVbaTestSelection(options.selection);
+        const runScope = selectionDescription ? ` (${selectionDescription})` : '';
+        try {
+            let report: VbaTestRunReport | undefined;
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `XLIDE: Running VBA tests${runScope} for "${name}"...`,
+                    cancellable: false,
+                },
+                async (progress) => {
+                    report = await runWorkbookVbaTests(filePath, progress, options);
+                },
+            );
+            if (!report) {
+                return;
+            }
+            log(`[runVbaTests] Report JSON:\n${JSON.stringify(report, null, 2)}`);
+            openVbaTestResults(context, report);
+            showVbaTestRunOutcome(report);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            log(`[runVbaTests] FAILED: ${msg}`);
+            vscode.window.showErrorMessage(`XLIDE: VBA tests failed: ${msg}`);
+        }
+    }
+
     function showVbaTestRunOutcome(report: VbaTestRunReport): void {
         const summary = summarizeVbaTestRun(report);
         const label = path.basename(report.filePath);
         if (summary.total === 0) {
+            const selectionDescription = describeVbaTestSelection(report.discovery.selection);
+            if (selectionDescription && report.discovery.unfilteredTestCount > 0) {
+                void vscode.window.showInformationMessage(
+                    `XLIDE: No VBA tests matched ${selectionDescription} in "${label}".`,
+                );
+                return;
+            }
             void vscode.window.showInformationMessage(
                 `XLIDE: No VBA tests were discovered in "${label}". Add '@xlide-test' above a no-argument standard-module Sub.`,
             );
@@ -876,6 +963,125 @@ export function registerCommands(
             }
         }
         return filePath;
+    }
+
+    function activeLocalVbaEditor(): vscode.TextEditor | undefined {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
+            return undefined;
+        }
+        return editor;
+    }
+
+    function procedureNameAtCursor(editor: vscode.TextEditor): string | undefined {
+        const source = editor.document.getText();
+        const offset = editor.document.offsetAt(editor.selection.active);
+        const parsed = parseModule(source);
+        const procedure = parsed.members
+            .filter((member): member is ProcedureMember => member.kind === 'Procedure')
+            .filter((member) => spanContainsOffset(member.span, offset))
+            .sort((left, right) => spanLength(left.span) - spanLength(right.span))[0];
+        return procedure?.name;
+    }
+
+    function parseTagFilterInput(value: string | undefined): string[] {
+        return [...new Set((value ?? '')
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0))];
+    }
+
+    async function promptVbaTestRunOptions(): Promise<VbaTestRunOptions | undefined> {
+        const includeInput = await vscode.window.showInputBox({
+            title: 'XLIDE: Include VBA Test Tags',
+            prompt: 'Comma-separated tags to include. Leave blank to include all tags.',
+            placeHolder: 'smoke, fast',
+        });
+        if (includeInput === undefined) {
+            return undefined;
+        }
+
+        const excludeInput = await vscode.window.showInputBox({
+            title: 'XLIDE: Exclude VBA Test Tags',
+            prompt: 'Comma-separated tags to exclude. Leave blank to exclude none.',
+            placeHolder: 'slow, external',
+        });
+        if (excludeInput === undefined) {
+            return undefined;
+        }
+
+        const modeOptions: Array<{ label: string; description: string; failFast: boolean }> = [
+            {
+                label: 'Run All Matches',
+                description: 'Continue after failures and unexpected passes.',
+                failFast: false,
+            },
+            {
+                label: 'Fail Fast',
+                description: 'Stop after the first failure or unexpected pass.',
+                failFast: true,
+            },
+        ];
+        const mode = await vscode.window.showQuickPick(modeOptions, {
+            title: 'XLIDE: VBA Test Run Mode',
+            placeHolder: 'Choose how XLIDE handles failures.',
+        });
+        if (!mode) {
+            return undefined;
+        }
+
+        const includeTags = parseTagFilterInput(includeInput);
+        const excludeTags = parseTagFilterInput(excludeInput);
+        const selection: VbaTestSelectionOptions = {};
+        if (includeTags.length > 0) {
+            selection.includeTags = includeTags;
+        }
+        if (excludeTags.length > 0) {
+            selection.excludeTags = excludeTags;
+        }
+        return {
+            selection,
+            failFast: mode.failFast,
+        };
+    }
+
+    async function runCurrentModuleVbaTests(): Promise<void> {
+        const editor = activeLocalVbaEditor();
+        if (!editor) {
+            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run module tests.');
+            return;
+        }
+        if (editor.document.isDirty) {
+            await editor.document.save();
+        }
+        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        await runVbaTestsForWorkbook(xlsmPath, {
+            selection: { moduleName },
+        });
+    }
+
+    async function runVbaTestAtCursor(): Promise<void> {
+        const editor = activeLocalVbaEditor();
+        if (!editor) {
+            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run the test at the cursor.');
+            return;
+        }
+
+        const procedureName = procedureNameAtCursor(editor);
+        if (!procedureName) {
+            vscode.window.showWarningMessage('XLIDE: Cursor is not inside a VBA procedure.');
+            return;
+        }
+        if (editor.document.isDirty) {
+            await editor.document.save();
+        }
+        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        await runVbaTestsForWorkbook(xlsmPath, {
+            selection: {
+                moduleName,
+                procedureName,
+            },
+        });
     }
 
     async function resolveWorkbookExportFolder(
@@ -2376,26 +2582,31 @@ export function registerCommands(
                 vscode.window.showWarningMessage('XLIDE: No workbook selected to test.');
                 return;
             }
-            const name = path.basename(filePath);
-            try {
-                let report: VbaTestRunReport | undefined;
-                await vscode.window.withProgress(
-                    { location: vscode.ProgressLocation.Notification, title: `XLIDE: Running VBA tests for "${name}"...`, cancellable: false },
-                    async (progress) => {
-                        report = await runWorkbookVbaTests(filePath, progress);
-                    },
-                );
-                if (!report) {
-                    return;
-                }
-                log(`[runVbaTests] Report JSON:\n${JSON.stringify(report, null, 2)}`);
-                openVbaTestResults(context, report);
-                showVbaTestRunOutcome(report);
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                log(`[runVbaTests] FAILED: ${msg}`);
-                vscode.window.showErrorMessage(`XLIDE: VBA tests failed: ${msg}`);
+            await runVbaTestsForWorkbook(filePath);
+        }),
+
+        // Run workbook VBA tests with tag include/exclude filters and fail-fast mode.
+        registerXlideCommand('xlide.runVbaTestsWithFilters', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) {
+                vscode.window.showWarningMessage('XLIDE: No workbook selected to test.');
+                return;
             }
+            const options = await promptVbaTestRunOptions();
+            if (!options) {
+                return;
+            }
+            await runVbaTestsForWorkbook(filePath, options);
+        }),
+
+        // Run all annotated tests in the active VBA module.
+        registerXlideCommand('xlide.runVbaTestsInCurrentModule', async () => {
+            await runCurrentModuleVbaTests();
+        }),
+
+        // Run the annotated test procedure under the active editor cursor.
+        registerXlideCommand('xlide.runVbaTestAtCursor', async () => {
+            await runVbaTestAtCursor();
         }),
 
         // Install/update the standard VBA assertion helpers used by XLIDE tests.

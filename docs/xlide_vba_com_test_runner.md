@@ -21,7 +21,8 @@ before the test runner is considered shipped.
 2. Run `XLIDE: Install VBA Test Support Module` if you want the built-in
    `XlideAssert` helpers.
 3. Create VBA test procedures using an explicit XLIDE test marker.
-4. Run `XLIDE: Run VBA Unit Tests`.
+4. Run all tests, filtered tests, the current module's tests, or the test at
+   the cursor.
 5. Review test results in VS Code.
 6. Open failing tests, assertion messages, runtime errors, and logs from the
    result view.
@@ -71,7 +72,8 @@ Current marker rules:
 - Tests must be standard-module `Sub` procedures with no parameters.
 - Supported key/value metadata: `tags`, `owner`, `requirement`, `timeout`,
   `expected-error`, and `reason` on skip/xfail markers.
-- Command execution currently runs all discovered tests in the workbook.
+- Command execution supports run-all, current-module, current-test, tag
+  include/exclude filters, and fail-fast mode.
 
 ## Expected Failures, Skips, and Tags
 
@@ -122,13 +124,18 @@ End Sub
 Semantics:
 
 - Tags are explicit metadata, not inferred from names.
-- The command UI and automation mode should support include/exclude tag filters.
+- The command UI supports include/exclude tag filters. Automation-oriented
+  filtering remains a planned workflow surface.
 
 ## Current Execution Features
 
 The current runner supports:
 
 - run all discovered tests in the target workbook
+- run all discovered tests that match include/exclude tag filters
+- run all discovered tests in the current module from editor context
+- run the discovered test at the cursor from editor context
+- fail fast after the first failure or unexpected pass
 - pass/fail/skip/xfail/xpass accounting
 - JSON report logging in the XLIDE Output channel
 - a concise VS Code test results panel
@@ -137,18 +144,12 @@ The current runner supports:
 
 ## Planned Execution Features
 
-The shipped runner should support enough workflow surface for real projects:
+Remaining shipped-runner execution features include:
 
-- run all tests
-- run the current test at cursor
-- run all tests in the current module
 - run selected tests by manifest id
-- include or exclude tags
 - rerun failed tests
-- fail fast
 - timeout per test and per suite
 - setup and teardown hooks
-- expected failure and skip accounting
 - explicit test logs
 - JSON output for automation
 - stable result ids for editor navigation and CI artifacts

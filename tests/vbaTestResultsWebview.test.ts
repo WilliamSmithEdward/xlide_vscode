@@ -70,6 +70,7 @@ function reportFixture(): VbaTestRunReport {
         discovery: {
             filePath: 'C:/work/Book.xlsm',
             tests: [pass, fail, xfail],
+            unfilteredTestCount: 3,
             modulesScanned: 1,
             modulesIgnored: 0,
             contract: "Standard-module no-argument Sub procedures with '@xlide-test'.",
