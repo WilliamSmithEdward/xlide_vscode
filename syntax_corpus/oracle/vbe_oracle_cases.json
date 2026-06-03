@@ -223,6 +223,66 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "optional_long_numeric_default_compile",
+      "description": "Observe whether a numeric literal default is accepted for an Optional Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub T(Optional ByVal value As Long = 1)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    T\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "optional_long_numeric_string_default_compile",
+      "description": "Observe whether a numeric string literal default is accepted for an Optional Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub T(Optional ByVal value As Long = \"1\")\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    T\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "optional_long_nonnumeric_string_default_compile",
+      "description": "Observe whether a nonnumeric string literal default is rejected for an Optional Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub T(Optional ByVal value As Long = \"bad\")\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    T\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "optional_string_string_default_compile",
+      "description": "Observe whether a string literal default is accepted for an Optional String parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub T(Optional ByVal label As String = \"ok\")\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    T\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "optional_boolean_true_default_compile",
+      "description": "Observe whether True is accepted for an Optional Boolean parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub T(Optional ByVal enabled As Boolean = True)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    T\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "optional_boolean_nonnumeric_string_default_compile",
+      "description": "Observe whether a nonnumeric string literal default is rejected for an Optional Boolean parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub T(Optional ByVal enabled As Boolean = \"bad\")\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    T\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "explicit_call_missing_argument_parentheses",
       "description": "A Call statement with arguments but without the required parentheses.",
       "provenance": "observed-not-asserted",

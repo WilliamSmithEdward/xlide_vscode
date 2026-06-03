@@ -536,6 +536,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1.6',
 		confidence: 'high',
 	},
+	parameterDefaultTypeMismatch: {
+		code: 'parameter-default-type-mismatch',
+		title: 'Parameter default type mismatch',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1 / VBE oracle: Type mismatch',
+		confidence: 'high',
+	},
 	exitWrongProcedure: {
 		code: 'exit-wrong-proc',
 		title: 'Exit statement does not match the enclosing procedure',

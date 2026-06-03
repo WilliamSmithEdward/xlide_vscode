@@ -567,6 +567,24 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "parameter-default-type-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE parameter default literal model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "optional_long_numeric_default_compile",
+        "optional_long_numeric_string_default_compile",
+        "optional_long_nonnumeric_string_default_compile",
+        "optional_string_string_default_compile",
+        "optional_boolean_true_default_compile",
+        "optional_boolean_nonnumeric_string_default_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The active rule is intentionally narrow: it fires only when an Optional parameter default is a deterministic string literal that VBE rejects for the declared scalar type. Oracle controls prove numeric and numeric-string Long defaults, String defaults, and True Boolean defaults are compile-accepted, so broader default-expression diagnostics remain pending.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "exit-wrong-proc",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.1.3",

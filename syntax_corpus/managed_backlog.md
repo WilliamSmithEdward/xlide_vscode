@@ -162,7 +162,10 @@ Near-term candidates:
   slice is promoted through `byref-argument-type-mismatch`; continue with
   object references, arrays, Variant behavior, named arguments, and runtime
   mutation behavior.
-- Optional/default parameter validity.
+- Optional/default parameter validity. First scalar default-value slice is
+  promoted through `parameter-default-type-mismatch`; continue with broader
+  default expressions, Date defaults, object/array invalid defaults, missing
+  optional argument slots, and named optional args.
 - `ParamArray` placement and element typing.
 - Return assignment inside `Function` and `Property Get`.
 - Object assignment without `Set` where receiver type is statically known.

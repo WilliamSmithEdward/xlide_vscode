@@ -301,6 +301,7 @@ function runRules(
 	checkProcedureHeader(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
 	checkParameterOrder(source, mod, activity, push);
+	checkParameterDefaultValues(source, mod, activity, push);
 	checkUnbalancedParens(source, push);
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
 	checkDimInitializer(source, mod, activity, push);
@@ -4559,6 +4560,76 @@ function checkParameterOrder(
 			}
 		}
 	}
+}
+
+/**
+ * Rule: Optional parameter defaults must be compile-time compatible with their
+ * declared type when the default expression is deterministic. VBE oracle
+ * evidence rejects nonnumeric string defaults for numeric and Boolean
+ * parameters as compile-time Type mismatch, while numeric strings remain valid.
+ */
+function checkParameterDefaultValues(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		for (const param of member.params) {
+			if (!param.defaultRaw || !param.asType) {
+				continue;
+			}
+			const defaultTokens = parameterDefaultTokens(source, param);
+			if (!defaultTokens) {
+				continue;
+			}
+			const actual = inferArgumentType(defaultTokens.tokens, param.span.start, new Map(), new Map());
+			if (!actual) {
+				continue;
+			}
+			const reason = parameterDefaultIncompatibilityReason(param.asType, actual);
+			if (!reason) {
+				continue;
+			}
+			push(
+				'parameterDefaultTypeMismatch',
+				`Optional parameter '${param.name}' expects ${param.asType}, but its default value is ${actual.label}. ${reason}`,
+				defaultTokens.span,
+			);
+		}
+	}
+}
+
+function parameterDefaultTokens(
+	source: string,
+	param: ParameterNode,
+): { tokens: VbaToken[]; span: Span } | undefined {
+	const toks = tokenize(source.slice(param.span.start, param.span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	const eq = topLevelOperatorIndex(toks, '=');
+	if (eq < 0 || eq + 1 >= toks.length) {
+		return undefined;
+	}
+	const tokens = toks.slice(eq + 1);
+	return {
+		tokens,
+		span: spanForTokens(tokens, param.span.start),
+	};
+}
+
+function parameterDefaultIncompatibilityReason(
+	expectedRaw: string,
+	actual: InferredArgumentType,
+): string | undefined {
+	const reason = incompatibilityReason(expectedRaw, actual);
+	if (!reason || !/string literal/i.test(actual.label)) {
+		return undefined;
+	}
+	return 'This is a VBE compile error: Type mismatch.';
 }
 
 function isNewTypeReference(kind: TypeNameReferenceKind): boolean {

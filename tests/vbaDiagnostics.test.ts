@@ -3866,6 +3866,26 @@ describe('analyzeModule - parameter order', () => {
 	});
 });
 
+describe('analyzeModule - parameter default values', () => {
+	it('flags nonnumeric string defaults for numeric and Boolean Optional parameters', () => {
+		const src =
+			'Sub T(Optional ByVal count As Long = "bad", Optional ByVal enabled As Boolean = "bad")\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['"bad"', '"bad"']);
+		expect(hits[0].message).toContain('count');
+		expect(hits[0].message).toContain('expects Long');
+		expect(hits[1].message).toContain('enabled');
+		expect(hits[1].message).toContain('expects Boolean');
+	});
+
+	it('accepts oracle-backed scalar Optional default controls', () => {
+		const src =
+			'Sub T(Optional ByVal count As Long = 1, Optional ByVal fromText As Long = "1", Optional ByVal label As String = "ok", Optional ByVal enabled As Boolean = True)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'parameter-default-type-mismatch')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - Exit statement matches procedure', () => {
 	it('flags Exit Function inside a Sub', () => {
 		const src = 'Sub T()\n    Exit Function\nEnd Sub\n';
