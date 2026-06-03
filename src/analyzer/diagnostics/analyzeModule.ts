@@ -3796,9 +3796,9 @@ const FIXED_LENGTH_STRING_MIN = 1;
 const FIXED_LENGTH_STRING_MAX = 65526;
 
 /**
- * Rule: literal fixed-length String sizes must be in VBE's accepted range.
- * Identifier/bracketed lengths are intentionally deferred until constant
- * expression semantics are verified.
+ * Rule: fixed-length String sizes must be in VBE's accepted range when the
+ * length is a decimal literal or a same-procedure/module Const with a decimal
+ * literal value. Broader constant-expression semantics remain deferred.
  */
 function checkFixedLengthStringBounds(
 	source: string,
@@ -3806,11 +3806,15 @@ function checkFixedLengthStringBounds(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const inspectDeclaration = (decl: VariableDeclNode | TypeFieldNode): void => {
+	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity);
+	const inspectDeclaration = (
+		decl: VariableDeclNode | TypeFieldNode,
+		constants: ReadonlyMap<string, number | undefined>,
+	): void => {
 		if (decl.fixedLength === undefined || isInactiveNode(activity, decl)) {
 			return;
 		}
-		const value = parseFixedLengthStringLiteralSize(decl.fixedLength);
+		const value = resolveFixedLengthStringSize(decl.fixedLength, constants);
 		if (value === undefined) {
 			return;
 		}
@@ -3826,7 +3830,7 @@ function checkFixedLengthStringBounds(
 
 	const inspectGroup = (group: VariableGroupNode): void => {
 		for (const decl of group.declarations) {
-			inspectDeclaration(decl);
+			inspectDeclaration(decl, moduleConstants);
 		}
 	};
 
@@ -3837,14 +3841,95 @@ function checkFixedLengthStringBounds(
 		}
 		if (member.kind === 'Type') {
 			for (const field of member.fields) {
-				inspectDeclaration(field);
+				inspectDeclaration(field, moduleConstants);
 			}
 			continue;
 		}
 		if (member.kind === 'Procedure') {
-			forEachVariableGroup(member.body, inspectGroup, activity);
+			const procedureConstants = new Map(moduleConstants);
+			collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
+			forEachVariableGroup(
+				member.body,
+				(group) => {
+					for (const decl of group.declarations) {
+						inspectDeclaration(decl, procedureConstants);
+					}
+				},
+				activity,
+			);
 		}
 	}
+}
+
+function collectModuleLiteralIntegerConstants(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, number | undefined> {
+	const constants = new Map<string, number | undefined>();
+	const seen = new Set<string>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup' && member.isConst) {
+			addLiteralIntegerConstants(member, constants, seen);
+		}
+	}
+	return constants;
+}
+
+function collectBodyLiteralIntegerConstants(
+	body: BodyNode[],
+	constants: Map<string, number | undefined>,
+	activity: ConditionalActivityTracker | undefined,
+	seen = new Set<string>(),
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'VariableGroup') {
+			if (node.isConst) {
+				addLiteralIntegerConstants(node, constants, seen);
+			}
+		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
+			collectBodyLiteralIntegerConstants((node as { body: BodyNode[] }).body, constants, activity, seen);
+		}
+	}
+}
+
+function addLiteralIntegerConstants(
+	group: VariableGroupNode,
+	constants: Map<string, number | undefined>,
+	seen: Set<string>,
+): void {
+	for (const decl of group.declarations) {
+		const name = normalizeDeclaredConstantName(decl.name);
+		if (!name) {
+			continue;
+		}
+		const key = name.toLowerCase();
+		if (seen.has(key)) {
+			constants.set(key, undefined);
+			continue;
+		}
+		seen.add(key);
+		constants.set(
+			key,
+			decl.defaultRaw === undefined
+				? undefined
+				: parseFixedLengthStringLiteralSize(decl.defaultRaw),
+		);
+	}
+}
+
+function resolveFixedLengthStringSize(
+	raw: string,
+	constants: ReadonlyMap<string, number | undefined>,
+): number | undefined {
+	const literal = parseFixedLengthStringLiteralSize(raw);
+	if (literal !== undefined) {
+		return literal;
+	}
+	const name = normalizeFixedLengthConstantName(raw);
+	return name ? constants.get(name.toLowerCase()) : undefined;
 }
 
 function parseFixedLengthStringLiteralSize(raw: string): number | undefined {
@@ -3854,6 +3939,19 @@ function parseFixedLengthStringLiteralSize(raw: string): number | undefined {
 	}
 	const value = Number(text);
 	return Number.isSafeInteger(value) ? value : undefined;
+}
+
+function normalizeDeclaredConstantName(raw: string): string | undefined {
+	const text = raw.trim();
+	return text.length > 0 ? text : undefined;
+}
+
+function normalizeFixedLengthConstantName(raw: string): string | undefined {
+	const text = raw.trim();
+	if (/^\[[^\]]+\]$/.test(text)) {
+		return text.slice(1, -1);
+	}
+	return VBA_IDENTIFIER_NAME_RE.test(text) ? text : undefined;
 }
 
 function fixedLengthStringLengthSpan(source: string, span: Span): Span | undefined {

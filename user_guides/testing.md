@@ -187,6 +187,12 @@ Test execution uses Excel COM to run macros, but it does not require Excel's
 and temporary test-host injection use XLIDE's workbook module I/O rather than
 COM `VBProject` automation.
 
+> Note: XLIDE's internal developer-only Excel/VBE oracle is different from the
+> production workbook unit-test runner. The internal oracle can require Excel's
+> "Trust access to the VBA project object model" setting because it creates
+> disposable VBE modules to verify language behavior. Running workbook unit
+> tests through XLIDE should not require users to enable that setting.
+
 ## Results And Artifacts
 
 Results include passed, failed, skipped, expected-failure, unexpected-pass,

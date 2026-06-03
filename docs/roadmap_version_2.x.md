@@ -342,12 +342,15 @@ Purpose: finish the conservative first slice before broadening inference.
   `Invalid length for fixed-length string`.
 - [ ] Finish fixed-length string behavior validation beyond the first-class
   declaration model:
-  - accepted declaration shapes across class/document/UserForm modules beyond
-    current standard-module controls
-  - nonliteral length expressions and constant resolution
-  - assignment/truncation behavior
-  - interaction with scalar member access and type-declaration suffixes such as
-    `$`
+  - [x] accepted private declaration shapes across class/document/UserForm
+    modules beyond current standard-module controls
+  - [x] decimal integer literal Const-name resolution for
+    `As String * constantName`, including procedure-local shadowing and
+    duplicate/nonliteral deferral
+  - [x] interaction with scalar member access for fixed-length String receivers
+  - [ ] compound constant-expression resolution for fixed-length sizes
+  - [ ] assignment/truncation behavior
+  - [ ] interaction with type-declaration suffixes such as `$`
 - [x] Add module-kind-sensitive diagnostics for object-module public
   declarations VBE rejects, including `Public Const`, public fixed-length
   strings, public arrays, public UDTs, and public `Declare` statements. The

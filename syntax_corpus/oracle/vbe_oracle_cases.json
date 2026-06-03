@@ -720,6 +720,26 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "fixed_length_string_const_length_compile",
+      "description": "A fixed-length String declaration whose length is a module Const integer literal alias.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Private Const NameLength As Long = 20\nPublic Sub XlideOracleEntry()\n    Dim s As String * NameLength\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "fixed_length_string_const_length_above_max_compile",
+      "description": "A fixed-length String declaration whose Const integer literal alias resolves above the accepted maximum.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Private Const NameLength As Long = 65527\nPublic Sub XlideOracleEntry()\n    Dim s As String * NameLength\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "class_public_type_declaration_compile",
       "description": "A public user-defined Type declaration in a class module is rejected before it can become an object member.",
       "provenance": "vbe-oracle-verified",

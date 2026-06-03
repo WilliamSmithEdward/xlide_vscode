@@ -3170,14 +3170,29 @@ describe('analyzeModule - unexpected declaration tokens', () => {
 });
 
 describe('analyzeModule - fixed-length String bounds', () => {
-	it('accepts verified literal boundaries and defers nonliteral lengths', () => {
+	it('accepts verified literal boundaries and literal Const lengths', () => {
 		const src =
+			'Private Const HeaderCodeLength As Long = 65526\n' +
 			'Private moduleName As String * 1\n' +
 			'Private Type Header\n' +
-			'    Code As String * 65526\n' +
+			'    Code As String * HeaderCodeLength\n' +
 			'End Type\n' +
 			'Sub T()\n' +
 			'    Const MaxNameLength As Long = 20\n' +
+			'    Dim localName As String * MaxNameLength\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'fixed-length-string-size')).toHaveLength(0);
+	});
+
+	it('defers unknown and nonliteral Const lengths until constant-expression semantics are modeled', () => {
+		const src =
+			'Private Const HeaderCodeLength As Long = 65520 + 7\n' +
+			'Private moduleName As String * MissingLength\n' +
+			'Private Type Header\n' +
+			'    Code As String * HeaderCodeLength\n' +
+			'End Type\n' +
+			'Sub T()\n' +
+			'    Const MaxNameLength As Long = 10 + 10\n' +
 			'    Dim localName As String * MaxNameLength\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'fixed-length-string-size')).toHaveLength(0);
@@ -3198,6 +3213,41 @@ describe('analyzeModule - fixed-length String bounds', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '65527', '0']);
 		expect(hits[0].message).toContain('between 1 and 65526');
 		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
+
+	it('flags simple Const lengths outside the VBE-verified range', () => {
+		const src =
+			'Private Const ModuleTooLong As Long = 65527\n' +
+			'Private moduleName As String * ModuleTooLong\n' +
+			'Sub T()\n' +
+			'    Const LocalTooSmall As Long = 0\n' +
+			'    Dim localName As String * LocalTooSmall\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['ModuleTooLong', 'LocalTooSmall']);
+		expect(hits[0].message).toContain('got 65527');
+		expect(hits[1].message).toContain('got 0');
+	});
+
+	it('lets procedure-local Const lengths shadow module Const lengths', () => {
+		const src =
+			'Private Const NameLength As Long = 65527\n' +
+			'Sub T()\n' +
+			'    Const NameLength As Long = 20\n' +
+			'    Dim localName As String * NameLength\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'fixed-length-string-size')).toHaveLength(0);
+	});
+
+	it('resolves bracketed Const names used as fixed-length String sizes', () => {
+		const src =
+			'Private Const [Name Length] As Long = 0\n' +
+			'Sub T()\n' +
+			'    Dim localName As String * [Name Length]\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('[Name Length]');
 	});
 });
 
@@ -3253,6 +3303,15 @@ describe('analyzeModule - object module public declaration restrictions', () => 
 				'object-module-public-member',
 			),
 		).toHaveLength(0);
+	});
+
+	it('accepts private fixed-length strings across object module kinds', () => {
+		const src = 'Private FixedName As String * 20\n';
+		for (const moduleKind of ['class', 'document', 'userform'] as const) {
+			const diagnostics = analyzeModule(src, { moduleName: 'ObjectModule', moduleKind });
+			expect(byCode(diagnostics, 'object-module-public-member')).toHaveLength(0);
+			expect(byCode(diagnostics, 'fixed-length-string-size')).toHaveLength(0);
+		}
 	});
 });
 
@@ -3678,6 +3737,14 @@ describe('analyzeModule - invalid expression syntax', () => {
 		const src = 'Sub T()\n    Dim value As String\n    value.\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'scalar-member-access')).toHaveLength(1);
+	});
+
+	it('treats fixed-length String declarations as scalar String receivers', () => {
+		const src = 'Sub T()\n    Dim value As String * 20\n    value.\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+		const hits = byCode(analyzeModule(src), 'scalar-member-access');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('value.');
 	});
 
 	it('does not flag valid arithmetic or string expressions', () => {
