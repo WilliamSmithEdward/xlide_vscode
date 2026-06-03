@@ -10,6 +10,7 @@ import {
 	getHostMembers,
 	type HostObjectModel,
 } from '../src/analyzer';
+import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
 
 /** Offset just after the dot in the first occurrence of `marker` in `src`. */
 function dotOffset(src: string, marker: string): number {
@@ -289,6 +290,29 @@ describe('member completion - runtime objects', () => {
 	it('does not treat scalar Err object properties as chainable objects', () => {
 		const src = 'Sub Test()\n    Err.Number.\nEnd Sub\n';
 		expect(resolveMemberCompletions(src, dotOffset(src, 'Err.Number.'))).toEqual([]);
+	});
+});
+
+describe('member completion - standard modules', () => {
+	it('offers installed XLIDE assertion helpers after XlideAssert.', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'XlideAssert',
+			moduleKind: 'standard',
+			source: XLIDE_ASSERT_MODULE_SOURCE,
+		});
+		index.setModule({ moduleName: 'Tests', moduleKind: 'standard', source: '' });
+		const src = 'Sub TestInvoice()\n    XlideAssert.Are\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'XlideAssert.Are'), {
+			projectClassMembers: index.projectMemberSurfaces('Tests'),
+		});
+		const areEqual = got.find((member) => member.name === 'AreEqual');
+
+		expect(got.map((member) => member.name)).toContain('AreNotEqual');
+		expect(areEqual?.owner).toBe('XlideAssert');
+		expect(areEqual?.kind).toBe('method');
+		expect(areEqual?.signature).toContain('AreEqual(expected As Variant, actual As Variant, [message As String = ""])');
+		expect(areEqual?.surfaceExhaustive).toBe(true);
 	});
 });
 

@@ -58,6 +58,7 @@ import {
     XLIDE_ASSERT_MODULE_NAME,
     XLIDE_ASSERT_MODULE_SOURCE,
 } from './vbaTestSupportModule';
+import { invalidateVbaMemberCompletionCache } from './vbaMemberCompletion';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import {
     resolvedXlideGlobalSettingsFromConfig,
@@ -1223,6 +1224,12 @@ export function registerCommands(
         );
     }
 
+    function refreshVbaProjectState(filePath: string): void {
+        vbaIndex.invalidate(filePath);
+        invalidateVbaMemberCompletionCache(filePath);
+        explorer.refresh();
+    }
+
     async function installVbaTestSupportModule(filePath: string): Promise<boolean> {
         const modules = await bridge.call<Array<{ name: string; type: string }>>(
             'listModules',
@@ -1283,7 +1290,7 @@ export function registerCommands(
             moduleName: XLIDE_ASSERT_MODULE_NAME,
             summary: summaryText,
         });
-        explorer.refresh();
+        refreshVbaProjectState(filePath);
         void vscode.window.showInformationMessage(
             `XLIDE: "${XLIDE_ASSERT_MODULE_NAME}" ${existing ? 'updated' : 'installed'} in "${path.basename(filePath)}".`,
         );
@@ -1956,8 +1963,7 @@ export function registerCommands(
         }
 
         if (changed.length > 0 || removed.length > 0) {
-            vbaIndex.invalidate(plan.workbookPath);
-            explorer.refresh();
+            refreshVbaProjectState(plan.workbookPath);
         }
         try {
             await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
@@ -2039,6 +2045,7 @@ export function registerCommands(
         const result = analyzeVbaModuleSource({
             source,
             moduleName,
+            moduleType,
             moduleKind,
             documentType: current?.documentType,
             severityOverrides: analysisSettings.ruleSeverityOverrides,
@@ -2160,6 +2167,7 @@ export function registerCommands(
         const result = analyzeVbaModuleSource({
             source,
             moduleName,
+            moduleType,
             moduleKind,
             documentType: current?.documentType,
             severityOverrides: analysisSettings.ruleSeverityOverrides,
@@ -2455,7 +2463,7 @@ export function registerCommands(
                     moduleName: name,
                     summary: summaryText,
                 });
-                explorer.refresh();
+                refreshVbaProjectState(node.filePath);
                 // Open the new module immediately
                 const uri = encodeModuleUri(node.filePath, name);
                 const doc = await vscode.workspace.openTextDocument(uri);
@@ -2506,7 +2514,7 @@ export function registerCommands(
                     moduleName: name,
                     summary: summaryText,
                 });
-                explorer.refresh();
+                refreshVbaProjectState(node.filePath);
                 const uri = encodeModuleUri(node.filePath, name);
                 const doc = await vscode.workspace.openTextDocument(uri);
                 await vscode.window.showTextDocument(doc, { preview: false });
@@ -2624,7 +2632,7 @@ export function registerCommands(
                 vscode.window.showErrorMessage(`${prefix}: ${err}`);
             } finally {
                 if (moduleRenamed) {
-                    explorer.refresh();
+                    refreshVbaProjectState(node.filePath);
                 }
             }
         }),
@@ -2680,7 +2688,7 @@ export function registerCommands(
                         await vscode.window.tabGroups.close(tab);
                     }
                 }
-                explorer.refresh();
+                refreshVbaProjectState(node.filePath);
             } catch (err) {
                 recordWriteAudit({
                     command: 'xlide.deleteModule',

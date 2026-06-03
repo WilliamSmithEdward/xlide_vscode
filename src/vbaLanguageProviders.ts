@@ -1021,6 +1021,7 @@ function registerVbaDiagnostics(
         // complete project context.
         const moduleName = moduleNameFromDocument(document);
         let workbookPath: string | undefined;
+        let moduleType: string | undefined;
         let moduleKind: ModuleSymbolKind | undefined;
         let documentType: EventHandlerDocumentType | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
@@ -1036,6 +1037,7 @@ function registerVbaDiagnostics(
                 const current = modules.find(
                     (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
                 );
+                moduleType = current?.type;
                 moduleKind = moduleKindFromType(current?.type);
                 documentType = current?.documentType;
                 const project = buildLiveVbaProjectIndex(modules, {
@@ -1061,6 +1063,7 @@ function registerVbaDiagnostics(
         const moduleAnalysis = analyzeVbaModuleSource({
             source: text,
             moduleName,
+            moduleType,
             moduleKind,
             documentType,
             severityOverrides: analysisSettings.ruleSeverityOverrides,

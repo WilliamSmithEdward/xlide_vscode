@@ -1,11 +1,12 @@
 import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import { parseModule } from './analyzer/parser/parseModule';
-import type { ProcedureNode } from './analyzer/parser/nodes';
+import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaStructuralAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
+export const VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE = 'vba-test-directive';
 
 export type VbaTestStatus =
     | 'passed'
@@ -42,6 +43,14 @@ export interface VbaTestMetadata {
     expectedError?: string;
     skipReason?: string;
     xfailReason?: string;
+}
+
+export interface VbaTestDirectiveIssue {
+    code: typeof VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE;
+    message: string;
+    span: Span;
+    line: number;
+    column: number;
 }
 
 export interface VbaTestSelectionOptions {
@@ -122,6 +131,64 @@ export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestC
     }
 
     return tests;
+}
+
+export function validateVbaTestDirectivesFromModule(module: VbaTestModuleEntry): VbaTestDirectiveIssue[] {
+    if (module.source === undefined) {
+        return [];
+    }
+
+    const source = module.source;
+    const ast = parseModule(source);
+    const starts = lineStartOffsets(source);
+    const lines = source.split(/\r\n|\r|\n/);
+    const issues: VbaTestDirectiveIssue[] = [];
+    const candidatesByLine = testDirectiveCandidatesByLine(lines, starts);
+    const attachedLines = new Set<number>();
+
+    for (const member of ast.members) {
+        const block = precedingCommentBlock(lines, starts, member.span.start);
+        const blockCandidates = block
+            .map((entry) => candidatesByLine.get(entry.line))
+            .filter((candidate): candidate is TestDirectiveCandidate => candidate !== undefined);
+        if (blockCandidates.length === 0) {
+            continue;
+        }
+
+        const targetIssue = testDirectiveTargetIssue(module, member);
+        for (const candidate of blockCandidates) {
+            attachedLines.add(candidate.line);
+            const parsed = parseXlideTestDirective(candidate.text);
+            if (!parsed) {
+                issues.push(testDirectiveIssue(candidate, unknownTestDirectiveMessage()));
+                continue;
+            }
+            issues.push(...validateTestDirectiveMetadata(candidate, parsed));
+            if (targetIssue) {
+                issues.push(testDirectiveIssue(candidate, targetIssue));
+            }
+        }
+    }
+
+    for (const candidate of candidatesByLine.values()) {
+        if (attachedLines.has(candidate.line)) {
+            continue;
+        }
+        const parsed = parseXlideTestDirective(candidate.text);
+        if (!parsed) {
+            issues.push(testDirectiveIssue(candidate, unknownTestDirectiveMessage()));
+            continue;
+        }
+        issues.push(...validateTestDirectiveMetadata(candidate, parsed));
+        issues.push(testDirectiveIssue(
+            candidate,
+            'XLIDE test directives must be in the comment block immediately above a zero-argument Sub procedure.',
+        ));
+    }
+
+    return issues.sort((left, right) =>
+        left.span.start - right.span.start || left.message.localeCompare(right.message),
+    );
 }
 
 export async function discoverWorkbookVbaTests(
@@ -315,19 +382,7 @@ function precedingTestAnnotation(
     starts: readonly number[],
     offset: number,
 ): { line: number; metadata: VbaTestMetadata } | undefined {
-    const declarationLine = offsetToLineColumn(starts, offset).line - 1;
-    const block: Array<{ line: number; text: string }> = [];
-    for (let lineIndex = declarationLine - 1; lineIndex >= 0; lineIndex--) {
-        const line = lines[lineIndex] ?? '';
-        if (/^\s*$/.test(line)) {
-            break;
-        }
-        if (!/^\s*'/.test(line)) {
-            break;
-        }
-        block.unshift({ line: lineIndex + 1, text: line });
-    }
-
+    const block = precedingCommentBlock(lines, starts, offset);
     const metadata = defaultTestMetadata();
     let annotationLine: number | undefined;
     let discovered = false;
@@ -352,9 +407,43 @@ function precedingTestAnnotation(
     };
 }
 
+function precedingCommentBlock(
+    lines: readonly string[],
+    starts: readonly number[],
+    offset: number,
+): Array<{ line: number; text: string }> {
+    const declarationLine = offsetToLineColumn(starts, offset).line - 1;
+    const block: Array<{ line: number; text: string }> = [];
+    for (let lineIndex = declarationLine - 1; lineIndex >= 0; lineIndex--) {
+        const line = lines[lineIndex] ?? '';
+        if (/^\s*$/.test(line)) {
+            break;
+        }
+        if (!/^\s*'/.test(line)) {
+            break;
+        }
+        block.unshift({ line: lineIndex + 1, text: line });
+    }
+    return block;
+}
+
 interface ParsedTestDirective {
     kind: 'test' | 'skip' | 'xfail';
     values: Record<string, string>;
+    metadata: ParsedDirectiveKeyValues;
+}
+
+interface ParsedDirectiveKeyValues {
+    values: Record<string, string>;
+    entries: Array<{ key: string; value: string }>;
+    malformedSegments: string[];
+}
+
+interface TestDirectiveCandidate {
+    line: number;
+    column: number;
+    text: string;
+    span: Span;
 }
 
 function parseXlideTestDirective(line: string): ParsedTestDirective | undefined {
@@ -363,21 +452,219 @@ function parseXlideTestDirective(line: string): ParsedTestDirective | undefined 
         return undefined;
     }
     const suffix = match[2]?.toLowerCase();
+    const metadata = parseDirectiveKeyValues(match[3] ?? '');
     return {
         kind: suffix === 'skip' || suffix === 'xfail' ? suffix : 'test',
-        values: parseDirectiveKeyValues(match[3] ?? ''),
+        values: metadata.values,
+        metadata,
     };
 }
 
-function parseDirectiveKeyValues(text: string): Record<string, string> {
+function parseDirectiveKeyValues(text: string): ParsedDirectiveKeyValues {
     const values: Record<string, string> = {};
+    const entries: Array<{ key: string; value: string }> = [];
+    const malformedSegments: string[] = [];
+    const metadataText = stripInlineMetadataComment(text);
     const re = /([A-Za-z][A-Za-z0-9_-]*)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
     let match: RegExpExecArray | null;
-    while ((match = re.exec(text)) !== null) {
+    let cursor = 0;
+    while ((match = re.exec(metadataText)) !== null) {
+        const gap = metadataText.slice(cursor, match.index).trim();
+        if (gap.length > 0) {
+            malformedSegments.push(gap);
+        }
         const key = match[1].toLowerCase();
-        values[key] = match[2] ?? match[3] ?? match[4] ?? '';
+        const value = match[2] ?? match[3] ?? match[4] ?? '';
+        values[key] = value;
+        entries.push({ key, value });
+        cursor = match.index + match[0].length;
     }
-    return values;
+    const tail = metadataText.slice(cursor).trim();
+    if (tail.length > 0) {
+        malformedSegments.push(tail);
+    }
+    return { values, entries, malformedSegments };
+}
+
+function stripInlineMetadataComment(text: string): string {
+    const commentStart = text.search(/\s--/);
+    return commentStart >= 0 ? text.slice(0, commentStart) : text;
+}
+
+function testDirectiveCandidatesByLine(
+    lines: readonly string[],
+    starts: readonly number[],
+): Map<number, TestDirectiveCandidate> {
+    const candidates = new Map<number, TestDirectiveCandidate>();
+    lines.forEach((line, lineIndex) => {
+        const candidate = testDirectiveCandidateForLine(line, lineIndex, starts);
+        if (candidate) {
+            candidates.set(candidate.line, candidate);
+        }
+    });
+    return candidates;
+}
+
+function testDirectiveCandidateForLine(
+    line: string,
+    lineIndex: number,
+    starts: readonly number[],
+): TestDirectiveCandidate | undefined {
+    const commentMatch = /^(\s*)'/.exec(line);
+    if (!commentMatch) {
+        return undefined;
+    }
+    const apostropheIndex = commentMatch[1].length;
+    if (line.startsWith("'''", apostropheIndex)) {
+        return undefined;
+    }
+    const body = line.slice(apostropheIndex + 1).trimStart();
+    const token = /^@\S*/.exec(body)?.[0] ?? '';
+    if (!isLikelyXlideTestDirectiveToken(token)) {
+        return undefined;
+    }
+    const atIndex = line.indexOf('@', apostropheIndex);
+    const spanStart = (starts[lineIndex] ?? 0) + Math.max(0, atIndex);
+    const spanEnd = Math.max(spanStart + 1, (starts[lineIndex] ?? 0) + line.length);
+    return {
+        line: lineIndex + 1,
+        column: Math.max(1, atIndex + 1),
+        text: line,
+        span: { start: spanStart, end: spanEnd },
+    };
+}
+
+function isLikelyXlideTestDirectiveToken(token: string): boolean {
+    const normalized = token.trim().toLowerCase();
+    if (normalized === XLIDE_VBA_TEST_DIRECTIVE || normalized.startsWith(`${XLIDE_VBA_TEST_DIRECTIVE}-`)) {
+        return true;
+    }
+    return normalized.startsWith('@xlide-') &&
+        normalized.length <= XLIDE_VBA_TEST_DIRECTIVE.length + 4 &&
+        editDistance(normalized, XLIDE_VBA_TEST_DIRECTIVE) <= 2;
+}
+
+function editDistance(left: string, right: string): number {
+    const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+    const current = new Array<number>(right.length + 1);
+    for (let i = 1; i <= left.length; i++) {
+        current[0] = i;
+        for (let j = 1; j <= right.length; j++) {
+            const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+            current[j] = Math.min(
+                current[j - 1] + 1,
+                previous[j] + 1,
+                previous[j - 1] + cost,
+            );
+        }
+        previous.splice(0, previous.length, ...current);
+    }
+    return previous[right.length];
+}
+
+function validateTestDirectiveMetadata(
+    candidate: TestDirectiveCandidate,
+    directive: ParsedTestDirective,
+): VbaTestDirectiveIssue[] {
+    const issues: VbaTestDirectiveIssue[] = [];
+    const supportedKeys = directive.kind === 'test'
+        ? TEST_DIRECTIVE_METADATA_KEYS
+        : TEST_DIRECTIVE_METADATA_KEYS_WITH_REASON;
+
+    if (directive.metadata.malformedSegments.length > 0) {
+        issues.push(testDirectiveIssue(
+            candidate,
+            'Malformed XLIDE test metadata. Use key=value pairs and quote values that contain spaces.',
+        ));
+    }
+
+    for (const entry of directive.metadata.entries) {
+        if (!supportedKeys.has(entry.key)) {
+            issues.push(testDirectiveIssue(
+                candidate,
+                `Unknown XLIDE test metadata key '${entry.key}'.`,
+            ));
+        }
+    }
+
+    if (hasMetadataKey(directive.values, 'tags') && splitTags(directive.values.tags).length === 0) {
+        issues.push(testDirectiveIssue(candidate, 'XLIDE test metadata key tags must list at least one tag.'));
+    }
+
+    const timeoutValue = directive.values.timeout ?? directive.values.timeoutms;
+    if (
+        (hasMetadataKey(directive.values, 'timeout') || hasMetadataKey(directive.values, 'timeoutms')) &&
+        parseTimeoutMs(timeoutValue) === undefined
+    ) {
+        issues.push(testDirectiveIssue(candidate, 'XLIDE test timeout must be a positive integer with optional ms or s suffix.'));
+    }
+
+    if (
+        (directive.kind === 'skip' || directive.kind === 'xfail') &&
+        !directive.values.reason?.trim()
+    ) {
+        issues.push(testDirectiveIssue(
+            candidate,
+            `XLIDE ${directive.kind === 'skip' ? 'skip' : 'expected-failure'} test directives should include reason="...".`,
+        ));
+    }
+
+    return issues;
+}
+
+const TEST_DIRECTIVE_METADATA_KEYS = new Set([
+    'tags',
+    'owner',
+    'requirement',
+    'req',
+    'timeout',
+    'timeoutms',
+    'expected-error',
+    'expectederror',
+]);
+
+const TEST_DIRECTIVE_METADATA_KEYS_WITH_REASON = new Set([
+    ...TEST_DIRECTIVE_METADATA_KEYS,
+    'reason',
+]);
+
+function hasMetadataKey(values: Record<string, string>, key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(values, key);
+}
+
+function testDirectiveTargetIssue(module: VbaTestModuleEntry, member: ModuleMember): string | undefined {
+    const moduleType = module.type || 'unknown';
+    if (moduleType !== 'standard') {
+        return `XLIDE test directives only run from standard modules; '${module.name}' is a ${moduleType} module.`;
+    }
+    if (!isProcedureNode(member)) {
+        return 'XLIDE test directives must target a zero-argument Sub procedure.';
+    }
+    if (member.procKind !== 'Sub') {
+        return 'XLIDE test directives must target a Sub procedure; Functions and Properties are not runnable tests.';
+    }
+    if (member.params.length > 0) {
+        return 'XLIDE test Sub procedures must not declare parameters.';
+    }
+    return undefined;
+}
+
+function isProcedureNode(member: ModuleMember): member is ProcedureNode {
+    return member.kind === 'Procedure';
+}
+
+function testDirectiveIssue(candidate: TestDirectiveCandidate, message: string): VbaTestDirectiveIssue {
+    return {
+        code: VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE,
+        message,
+        span: candidate.span,
+        line: candidate.line,
+        column: candidate.column,
+    };
+}
+
+function unknownTestDirectiveMessage(): string {
+    return 'Unknown XLIDE test directive. Supported directives are @xlide-test, @xlide-test-skip, and @xlide-test-xfail.';
 }
 
 function defaultTestMetadata(): VbaTestMetadata {

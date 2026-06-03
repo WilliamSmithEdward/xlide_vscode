@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { PythonBridge } from '../src/pythonBridge';
 import {
     createVbaTestRunReport,
+    VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE,
     discoverVbaTestsFromModule,
     discoverWorkbookVbaTests,
     summarizeVbaTestRun,
+    validateVbaTestDirectivesFromModule,
     vbaTestFailureMessage,
 } from '../src/vbaTestRunner';
 
@@ -154,6 +156,74 @@ describe('VBA test runner discovery', () => {
         });
         expect(procedureResult.unfilteredTestCount).toBe(1);
         expect(procedureResult.tests.map((test) => test.qualifiedName)).toEqual(['BetaTests.BetaSmoke']);
+    });
+
+    it('validates malformed test directive syntax and metadata', () => {
+        const issues = validateVbaTestDirectivesFromModule({
+            name: 'Tests',
+            type: 'standard',
+            source: [
+                "' @xlide-tset tags=smoke",
+                'Sub Typo()',
+                'End Sub',
+                '',
+                "' @xlide-test timeout=fast owner finance",
+                'Sub BadMetadata()',
+                'End Sub',
+                '',
+                "' @xlide-test-skip",
+                'Sub MissingReason()',
+                'End Sub',
+                '',
+                "' @xlide-test tags=,",
+                'Sub EmptyTags()',
+                'End Sub',
+            ].join('\n'),
+        });
+
+        expect(issues.map((issue) => issue.code)).toEqual(Array(5).fill(VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE));
+        expect(issues.map((issue) => `${issue.line}:${issue.message}`)).toEqual([
+            '1:Unknown XLIDE test directive. Supported directives are @xlide-test, @xlide-test-skip, and @xlide-test-xfail.',
+            '5:Malformed XLIDE test metadata. Use key=value pairs and quote values that contain spaces.',
+            '5:XLIDE test timeout must be a positive integer with optional ms or s suffix.',
+            '9:XLIDE skip test directives should include reason="...".',
+            '13:XLIDE test metadata key tags must list at least one tag.',
+        ]);
+    });
+
+    it('validates directives that cannot discover runnable tests', () => {
+        const standardIssues = validateVbaTestDirectivesFromModule({
+            name: 'Tests',
+            type: 'standard',
+            source: [
+                "' @xlide-test",
+                'Function NotRunnable() As Boolean',
+                'End Function',
+                '',
+                "' @xlide-test",
+                'Sub NeedsArg(value As Long)',
+                'End Sub',
+                '',
+                "' @xlide-test",
+                '',
+                'Sub Detached()',
+                'End Sub',
+            ].join('\n'),
+        });
+        const classIssues = validateVbaTestDirectivesFromModule({
+            name: 'Person',
+            type: 'class',
+            source: "' @xlide-test\nSub ClassScenario()\nEnd Sub",
+        });
+
+        expect(standardIssues.map((issue) => `${issue.line}:${issue.message}`)).toEqual([
+            '1:XLIDE test directives must target a Sub procedure; Functions and Properties are not runnable tests.',
+            '5:XLIDE test Sub procedures must not declare parameters.',
+            '9:XLIDE test directives must be in the comment block immediately above a zero-argument Sub procedure.',
+        ]);
+        expect(classIssues.map((issue) => issue.message)).toEqual([
+            "XLIDE test directives only run from standard modules; 'Person' is a class module.",
+        ]);
     });
 });
 

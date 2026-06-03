@@ -799,6 +799,11 @@ VBA code from XLIDE, using Excel COM as the execution host.
 
 - [x] Define an explicit VBA test discovery contract. Discovery must be
   annotation-driven or manifest-driven, not naming-heuristic-driven.
+- [x] Surface invalid `@xlide-test` marker syntax and non-runnable markers
+  through the shared analysis diagnostics path. The `vba-test-directive` warning
+  covers unknown/malformed directives, malformed metadata, unsupported metadata
+  keys, invalid timeouts, missing skip/xfail reasons, detached markers,
+  non-standard-module markers, Functions/Properties, and parameterized Subs.
 - [x] Add a developer-facing `xlide.runVbaTests` command that runs selected
   tests through Excel COM. First slice runs all discovered tests in the target
   workbook; the runner now also supports current-module/current-test execution,
@@ -922,6 +927,9 @@ VBA code from XLIDE, using Excel COM as the execution host.
 - [x] Establish `user_guides/` as the publish-ready public documentation folder,
   with `docs/` reserved for internal roadmap, architecture, implementation
   policy, and engineering notes.
+- [x] Add the first topical public testing guide in `user_guides/testing.md`
+  covering authoring, marker syntax, diagnostics for invalid markers, running
+  tests, reviewing results, artifacts, CI status, and current limitations.
 
 Definition of done:
 

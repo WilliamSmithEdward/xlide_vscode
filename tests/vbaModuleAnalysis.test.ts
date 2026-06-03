@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE } from '../src/vbaTestRunner';
 
 function diagnosticsByCode(
 	source: string,
@@ -54,6 +55,50 @@ describe('analyzeVbaModuleSource', () => {
 
 		expect(result.diagnostics.map((diag) => diag.code)).toEqual(['unknown-call']);
 		expect(result.diagnostics[0].message).toContain('MissingProc');
+	});
+
+	it('surfaces VBA test directive diagnostics through the shared analysis core', () => {
+		const source =
+			"' @xlide-test timeout=soon\n" +
+			'Sub BadTimeout()\n' +
+			'End Sub\n' +
+			"' @xlide-test\n" +
+			'Function NotRunnable() As Boolean\n' +
+			'End Function\n';
+
+		const result = analyzeVbaModuleSource({
+			source,
+			moduleName: 'Tests',
+			moduleType: 'standard',
+			severityOverrides: { 'option-explicit-missing': 'off' },
+		});
+
+		expect(result.diagnostics
+			.filter((diag) => diag.code === VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE)
+			.map((diag) => diag.message))
+			.toEqual([
+				'XLIDE test timeout must be a positive integer with optional ms or s suffix.',
+				'XLIDE test directives must target a Sub procedure; Functions and Properties are not runnable tests.',
+			]);
+	});
+
+	it('allows VBA test directive diagnostics to be suppressed explicitly', () => {
+		const source =
+			"' @xlide-analysis-disable-next-line vba-test-directive\n" +
+			"' @xlide-test timeout=soon\n" +
+			'Sub BadTimeout()\n' +
+			'End Sub\n';
+
+		const result = analyzeVbaModuleSource({
+			source,
+			moduleName: 'Tests',
+			moduleType: 'standard',
+			severityOverrides: { 'option-explicit-missing': 'off' },
+		});
+
+		expect(result.diagnostics.filter((diag) => diag.code === VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE))
+			.toHaveLength(0);
+		expect(result.suppressedDiagnostics.map((diag) => diag.code)).toEqual([VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE]);
 	});
 
 	it('keeps hard diagnostics suppressed inside member ranges', () => {

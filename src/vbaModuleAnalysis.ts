@@ -1,5 +1,6 @@
 import {
     analyzeModule,
+    DIAGNOSTIC_RULES,
     incompleteExpressionEditSpan,
     normalizeDiagnosticSeverityOverride,
     scanAnalysisSuppressions,
@@ -13,6 +14,7 @@ import {
     lineStartOffsets,
     type VbaStructuralDiagnostic,
 } from './vbaStructuralAnalysis';
+import { validateVbaTestDirectivesFromModule } from './vbaTestRunner';
 
 export interface VbaModuleAnalysisDiagnostic {
     code?: string;
@@ -26,6 +28,7 @@ export interface VbaModuleAnalysisDiagnostic {
 
 export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
     source: string;
+    moduleType?: string;
     activeIncompleteExpressionOffset?: number;
     activeIncompleteMemberAccessOffset?: number;
 }
@@ -44,6 +47,7 @@ export interface VbaModuleAnalysisResult {
 export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModuleAnalysisResult {
     const {
         source,
+        moduleType,
         activeIncompleteExpressionOffset,
         activeIncompleteMemberAccessOffset,
         ...analyzeOptions
@@ -56,6 +60,35 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     const activeIncompleteExpressionSpan = activeIncompleteOffset === undefined
         ? undefined
         : incompleteExpressionEditSpan(source, activeIncompleteOffset);
+
+    try {
+        const meta = DIAGNOSTIC_RULES.vbaTestDirective;
+        const override = normalizeDiagnosticSeverityOverride(
+            meta.code,
+            analyzeOptions.severityOverrides?.[meta.code],
+        );
+        if (override !== 'off') {
+            for (const issue of validateVbaTestDirectivesFromModule({
+                name: analyzeOptions.moduleName ?? 'Module',
+                type: moduleType ?? analyzeOptions.moduleKind ?? 'standard',
+                source,
+            })) {
+                const diagnostic: VbaModuleAnalysisDiagnostic = {
+                    code: meta.code,
+                    message: issue.message,
+                    severity: override ?? meta.defaultSeverity,
+                    span: issue.span,
+                };
+                if (suppressions.isDiagnosticSuppressed(meta.code, issue.span)) {
+                    suppressedDiagnostics.push(diagnostic);
+                    continue;
+                }
+                diagnostics.push(diagnostic);
+            }
+        }
+    } catch {
+        // Test directive validation should never interrupt live analysis.
+    }
 
     const isTransientIncompleteExpressionDiagnostic = (
         code: string | undefined,

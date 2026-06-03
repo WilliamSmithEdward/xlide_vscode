@@ -263,10 +263,10 @@ export interface VbaProjectClassMember {
 	attributes?: VbaSymbolAttribute[];
 }
 
-/** Public member surface for a workbook-defined object type or user-defined Type. */
+/** Public member surface for a workbook-defined object type, standard module, or user-defined Type. */
 export interface VbaProjectClassMembers {
 	name: string;
-	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform' | 'userType'>;
+	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform' | 'userType'> | 'standardModule';
 	moduleName: string;
 	/** Interfaces named by module-level Implements statements. */
 	implements?: string[];

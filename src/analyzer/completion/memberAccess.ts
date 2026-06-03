@@ -522,7 +522,8 @@ function resolveRoot(
 		}
 		return projectKey ? projectTypeKey(projectKey) : undefined;
 	}
-	const projectKey = projectClassMembersByName(ctx).has(lower) ? lower : undefined;
+	const projectSurface = projectClassMembersByName(ctx).get(lower);
+	const projectKey = projectSurface ? lower : undefined;
 	const runtimeObject = resolveRuntimeObject(root);
 	if (runtimeObject) {
 		return runtimeObject.type;
@@ -534,6 +535,9 @@ function resolveRoot(
 	const asCode = ctx.codeNames?.[lower];
 	if (asCode) {
 		return projectKey ? combinedTypeKey(projectKey, asCode) : asCode;
+	}
+	if (projectSurface?.kind === 'standardModule') {
+		return projectTypeKey(lower);
 	}
 	const declaredType = findDeclaredType(source, offset, root);
 	if (declaredType) {
@@ -817,7 +821,11 @@ function projectKeyForTypeName(
 		return undefined;
 	}
 	const key = simpleTypeName(typeName)?.toLowerCase();
-	return key && projectClassMembersByName(ctx).has(key) ? key : undefined;
+	if (!key) {
+		return undefined;
+	}
+	const projectType = projectClassMembersByName(ctx).get(key);
+	return projectType && projectType.kind !== 'standardModule' ? key : undefined;
 }
 
 function simpleTypeName(typeText: string): string | undefined {

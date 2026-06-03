@@ -60,6 +60,10 @@ import {
 	type VbaProjectLiveOverride,
 	type VbaProjectModuleInput,
 } from './vbaProjectAnalysis';
+import {
+	resolveVbaTestDirectiveCompletions,
+	type VbaTestDirectiveCompletion,
+} from './vbaTestDirectiveCompletion';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
@@ -173,6 +177,11 @@ class VbaMemberCompletionProvider
 		document: vscode.TextDocument,
 		position: vscode.Position,
 	): Promise<vscode.CompletionItem[]> {
+		const directiveItems = this._testDirectiveItems(document, position);
+		if (directiveItems.length > 0) {
+			return directiveItems;
+		}
+
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		const range = this._completionRange(document, position);
@@ -693,6 +702,38 @@ class VbaMemberCompletionProvider
 		return item;
 	}
 
+	private _testDirectiveItems(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+	): vscode.CompletionItem[] {
+		return resolveVbaTestDirectiveCompletions(
+			document.lineAt(position.line).text,
+			position.character,
+		).map((completion) => this._toTestDirectiveItem(completion, position.line));
+	}
+
+	private _toTestDirectiveItem(
+		completion: VbaTestDirectiveCompletion,
+		line: number,
+	): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(
+			completion.label,
+			vscode.CompletionItemKind.Snippet,
+		);
+		item.detail = completion.detail;
+		item.documentation = new vscode.MarkdownString(completion.documentation);
+		item.range = new vscode.Range(
+			line,
+			completion.range.start,
+			line,
+			completion.range.end,
+		);
+		item.filterText = `${completion.label} ${completion.label.replace(/^@/, '')}`;
+		item.sortText = completion.sortText;
+		item.insertText = new vscode.SnippetString(completion.insertText);
+		return item;
+	}
+
 	private _applyCompletionInsert(
 		item: vscode.CompletionItem,
 		name: string,
@@ -759,6 +800,14 @@ class VbaMemberCompletionProvider
 	}
 }
 
+const ACTIVE_MEMBER_COMPLETION_PROVIDERS = new Set<VbaMemberCompletionProvider>();
+
+export function invalidateVbaMemberCompletionCache(xlsmPath?: string): void {
+	for (const provider of ACTIVE_MEMBER_COMPLETION_PROVIDERS) {
+		provider.invalidate(xlsmPath);
+	}
+}
+
 /** Registers the host-context member completion provider. */
 export function registerVbaMemberCompletion(
 	context: vscode.ExtensionContext,
@@ -767,6 +816,10 @@ export function registerVbaMemberCompletion(
 	docs?: DocRegistry,
 ): void {
 	const provider = new VbaMemberCompletionProvider(bridge, docs);
+	ACTIVE_MEMBER_COMPLETION_PROVIDERS.add(provider);
+	context.subscriptions.push({
+		dispose: () => ACTIVE_MEMBER_COMPLETION_PROVIDERS.delete(provider),
+	});
 	let lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
 	let activeKeywordSnippet:
 		| { editor: vscode.TextEditor; documentKey: string; textChangeSerialAtAccept: number }
@@ -869,6 +922,7 @@ export function registerVbaMemberCompletion(
 			'.',
 			' ',
 			'#',
+			'@',
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			markTextChange(event.document);

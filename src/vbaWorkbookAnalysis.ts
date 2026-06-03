@@ -297,6 +297,7 @@ export async function analyzeWorkbook(
         const moduleAnalysis = analyzeVbaModuleSource({
             source: mod.source,
             moduleName: mod.name,
+            moduleType: mod.type,
             moduleKind: moduleKindFromType(mod.type),
             documentType: mod.documentType,
             severityOverrides: analysisSettings.ruleSeverityOverrides,

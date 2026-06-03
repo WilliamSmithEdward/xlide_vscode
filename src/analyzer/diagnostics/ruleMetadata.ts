@@ -591,6 +591,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.1.3',
 		confidence: 'high',
 	},
+	vbaTestDirective: {
+		code: 'vba-test-directive',
+		title: 'Invalid XLIDE VBA test directive',
+		defaultSeverity: 'warning',
+		category: 'style',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'docs/xlide_vba_com_test_runner.md',
+		confidence: 'high',
+	},
 	analysisSuppressionDirective: {
 		code: 'analysis-suppression-directive',
 		title: 'Invalid XLIDE analysis suppression directive',

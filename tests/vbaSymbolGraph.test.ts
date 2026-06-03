@@ -1108,6 +1108,33 @@ describe('ProjectIndex project class members', () => {
 		expect(surfaces.find((surface) => surface.name === 'THidden')).toBeUndefined();
 		expect(index.projectMemberSurfaces('Types').find((surface) => surface.name === 'THidden')).toBeDefined();
 	});
+
+	it('exposes exported standard-module members as module-qualified surfaces', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'XlideAssert',
+			moduleKind: 'standard',
+			source: [
+				'Public Sub AreEqual(expected As Variant, actual As Variant)',
+				'End Sub',
+				'Sub IsTrue(condition As Boolean)',
+				'End Sub',
+				'Private Sub Hidden()',
+				'End Sub',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'Tests', moduleKind: 'standard', source: '' });
+
+		const surface = index.projectMemberSurfaces('Tests')
+			.find((item) => item.name === 'XlideAssert');
+		expect(surface?.kind).toBe('standardModule');
+		expect(surface?.exhaustive).toBe(true);
+		expect(surface?.members.map((member) => member.name)).toEqual(['AreEqual', 'IsTrue']);
+		expect(surface?.members.find((member) => member.name === 'AreEqual')?.signature)
+			.toBe('AreEqual(expected As Variant, actual As Variant)');
+		expect(surface?.members.find((member) => member.name === 'Hidden')).toBeUndefined();
+		expect(index.resolveTypeDefinitions('Tests', 'XlideAssert')).toEqual([]);
+	});
 });
 
 describe('ProjectIndex resolveQualifiedDefinition', () => {

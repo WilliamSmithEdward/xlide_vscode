@@ -72,6 +72,10 @@ Current marker rules:
 - Tests must be standard-module `Sub` procedures with no parameters.
 - Supported key/value metadata: `tags`, `owner`, `requirement`, `timeout`,
   `expected-error`, and `reason` on skip/xfail markers.
+- Malformed test markers, malformed metadata, unsupported metadata keys,
+  detached markers, non-standard-module markers, Functions, Properties, and
+  parameterized Subs are reported through the `vba-test-directive` warning in
+  live diagnostics and workbook analysis.
 - Command execution supports run-all, current-module, current-test, tag
   include/exclude filters, and fail-fast mode.
 
@@ -148,6 +152,8 @@ The current runner supports:
 - persisted default run artifacts under `tests` beside the workbook:
   `summary.json`, `host-trace.json`, `output.log`, and latest
   `status_for_ci.json`
+- live/workbook diagnostics for invalid `@xlide-test` marker syntax and markers
+  that cannot discover a runnable test
 - a concise VS Code test results panel
 - command palette and workbook-tree entry points
 - non-Windows discovery with skipped execution because Excel COM is Windows-only

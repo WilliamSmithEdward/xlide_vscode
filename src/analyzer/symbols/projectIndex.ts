@@ -158,6 +158,20 @@ function isVisibleProjectObjectMember(symbol: VbaSymbol): boolean {
 	return false;
 }
 
+function isVisibleStandardModuleMember(
+	symbol: VbaSymbol,
+	mod: ModuleSymbols,
+	sameModule: boolean,
+): boolean {
+	if (!projectObjectMemberKind(symbol)) {
+		return false;
+	}
+	if (sameModule) {
+		return true;
+	}
+	return isExported(symbol, mod.moduleKind);
+}
+
 function projectObjectMemberKind(symbol: VbaSymbol): VbaProjectClassMember['kind'] | undefined {
 	switch (symbol.kind) {
 		case 'sub':
@@ -576,13 +590,39 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * Source-backed member surfaces for standard modules. These are not type
+	 * names, but they are valid module-qualified receivers such as
+	 * `XlideAssert.AreEqual`.
+	 */
+	projectStandardModuleMembers(moduleName: string): VbaProjectClassMembers[] {
+		const currentLower = moduleName.toLowerCase();
+		const out: VbaProjectClassMembers[] = [];
+		for (const mod of this.modules.values()) {
+			if (mod.moduleKind !== 'standard') {
+				continue;
+			}
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			out.push({
+				name: mod.moduleName,
+				kind: 'standardModule',
+				moduleName: mod.moduleName,
+				doc: mod.root.doc,
+				exhaustive: true,
+				members: this.visibleStandardModuleMembers(mod, sameModule),
+			});
+		}
+		return out;
+	}
+
+	/**
 	 * Source-backed member surfaces visible from `moduleName`: workbook object
-	 * modules plus visible `Type ... End Type` declarations. UDT fields are
-	 * exhaustive, writable property-like members.
+	 * modules, standard module-qualified members, plus visible `Type ... End Type`
+	 * declarations. UDT fields are exhaustive, writable property-like members.
 	 */
 	projectMemberSurfaces(moduleName: string): VbaProjectClassMembers[] {
 		return [
 			...this.projectClassMembers(),
+			...this.projectStandardModuleMembers(moduleName),
 			...this.projectUserTypeMembers(moduleName),
 		];
 	}
@@ -904,9 +944,26 @@ export class ProjectIndex {
 	}
 
 	private visibleObjectMembers(mod: ModuleSymbols): VbaProjectClassMember[] {
+		return this.visibleProjectMembers(mod, (symbol) => isVisibleProjectObjectMember(symbol));
+	}
+
+	private visibleStandardModuleMembers(
+		mod: ModuleSymbols,
+		sameModule: boolean,
+	): VbaProjectClassMember[] {
+		return this.visibleProjectMembers(
+			mod,
+			(symbol) => isVisibleStandardModuleMember(symbol, mod, sameModule),
+		);
+	}
+
+	private visibleProjectMembers(
+		mod: ModuleSymbols,
+		isVisible: (symbol: VbaSymbol) => boolean,
+	): VbaProjectClassMember[] {
 		const byName = new Map<string, VbaProjectClassMember>();
 		for (const symbol of mod.root.children ?? []) {
-			if (!isVisibleProjectObjectMember(symbol)) {
+			if (!isVisible(symbol)) {
 				continue;
 			}
 			const kind = projectObjectMemberKind(symbol);

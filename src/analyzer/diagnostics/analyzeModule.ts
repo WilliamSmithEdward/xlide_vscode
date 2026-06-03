@@ -3273,6 +3273,7 @@ function resolveKnownObjectAssignmentType(
 	const matches = (memberCtx.projectClassMembers ?? []).filter(
 		(projectType) =>
 			projectType.kind !== 'userType' &&
+			projectType.kind !== 'standardModule' &&
 			projectType.name.toLowerCase() === lower,
 	);
 	if (matches.length !== 1) {

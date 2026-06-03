@@ -92,6 +92,17 @@
       "diagnosticKind": "style-policy"
     },
     {
+      "code": "vba-test-directive",
+      "status": "spec-derived",
+      "sourceOfTruth": "docs/xlide_vba_com_test_runner.md plus XLIDE test discovery contract",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Directive diagnostics report malformed XLIDE VBA test comments, metadata syntax issues, and markers that cannot discover a runnable standard-module zero-argument Sub. They are product workflow guidance, not VBA compile behavior.",
+      "diagnosticKind": "style-policy"
+    },
+    {
       "code": "undeclared-variable",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus Excel/VBE compile oracle",
