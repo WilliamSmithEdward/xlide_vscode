@@ -469,12 +469,14 @@ Purpose: move from same-module checks to workbook-aware analysis.
 - [x] Keep current project-signature diagnostics stable under module order
   changes.
 - [ ] Add a unified procedure-local control-flow and error-label resolver:
-  collect named and numeric labels per procedure; validate `GoTo`, `GoSub`,
-  `Resume`, `Resume <label>`, `On Error GoTo <label>`, `On n GoTo`, and
-  `On n GoSub`; treat `On Error Resume Next`, `On Error GoTo 0`, and
-  `On Error GoTo -1` as explicit valid forms; feed label completion/navigation;
-  and emit hard diagnostics only for spec/oracle-backed VBE-equivalent label
-  failures.
+  - [x] Collect named and numeric labels per procedure and validate simple
+    `GoTo`, `GoSub`, `Resume <label>`, `On Error GoTo <label>`, `On n GoTo`,
+    and `On n GoSub` label targets.
+  - [x] Treat `On Error Resume Next`, `On Error GoTo 0`, `On Error GoTo -1`,
+    `Resume`, and `Resume Next` as explicit valid non-label forms.
+  - [x] Emit the `undefined-label` hard diagnostic only for spec/oracle-backed
+    VBE-equivalent label failures.
+  - [ ] Feed the collected label surface into completion/navigation.
 
 Definition of done:
 

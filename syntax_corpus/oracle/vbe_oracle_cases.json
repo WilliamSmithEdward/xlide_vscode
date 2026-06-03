@@ -740,6 +740,26 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "procedure_goto_missing_label_compile",
+      "description": "A procedure-local GoTo target names no label in the same procedure.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    GoTo MissingLabel\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "procedure_goto_existing_label_compile",
+      "description": "Compile control: a forward GoTo target names a label in the same procedure.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    GoTo Done\nDone:\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "class_public_type_declaration_compile",
       "description": "A public user-defined Type declaration in a class module is rejected before it can become an object member.",
       "provenance": "vbe-oracle-verified",

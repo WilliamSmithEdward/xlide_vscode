@@ -3826,6 +3826,108 @@ describe('analyzeModule - Exit statement matches procedure', () => {
 	});
 });
 
+describe('analyzeModule - procedure labels', () => {
+	it('accepts forward and backward GoTo and GoSub labels in the same procedure', () => {
+		const src =
+			'Sub T()\n' +
+			'    GoTo done\n' +
+			'start:\n' +
+			'    GoSub done\n' +
+			'    GoTo start\n' +
+			'done:\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(0);
+	});
+
+	it('flags missing GoTo, GoSub, Resume, and On Error labels', () => {
+		const src =
+			'Sub T()\n' +
+			'    GoTo MissingGoTo\n' +
+			'    GoSub MissingGoSub\n' +
+			'    Resume MissingResume\n' +
+			'    On Error GoTo MissingHandler\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'undefined-label');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'MissingGoTo',
+			'MissingGoSub',
+			'MissingResume',
+			'MissingHandler',
+		]);
+		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
+	});
+
+	it('keeps labels scoped to their enclosing procedure', () => {
+		const src =
+			'Sub A()\n' +
+			'    GoTo Done\n' +
+			'End Sub\n' +
+			'Sub B()\n' +
+			'Done:\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'undefined-label');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Done');
+	});
+
+	it('accepts explicit On Error forms that do not name a label', () => {
+		const src =
+			'Sub T()\n' +
+			'    On Error Resume Next\n' +
+			'    On Error GoTo 0\n' +
+			'    On Error GoTo -1\n' +
+			'    Resume\n' +
+			'    Resume Next\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(0);
+	});
+
+	it('validates On n GoTo and On n GoSub label lists', () => {
+		const src =
+			'Sub T(ByVal n As Long)\n' +
+			'    On n GoTo First, MissingJump\n' +
+			'    On n GoSub First, MissingSub\n' +
+			'First:\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'undefined-label');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['MissingJump', 'MissingSub']);
+	});
+
+	it('validates labels on both sides of a single-line If Else statement', () => {
+		const src = 'Sub T(ByVal flag As Boolean)\n    If flag Then GoTo MissingA Else GoTo MissingB\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'undefined-label');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['MissingA', 'MissingB']);
+	});
+
+	it('accepts numeric line labels and references', () => {
+		const src =
+			'Sub T()\n' +
+			'    GoTo 10\n' +
+			'10:\n' +
+			'    On 1 GoTo 10\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(0);
+	});
+
+	it('does not use labels from inactive conditional-compilation branches', () => {
+		const src =
+			'Sub T()\n' +
+			'    GoTo MissingWhenInactive\n' +
+			'#If VBA7 Then\n' +
+			'MissingWhenInactive:\n' +
+			'#End If\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				conditionalCompilation: { compilerConstants: { VBA7: false } },
+			}),
+			'undefined-label',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('MissingWhenInactive');
+	});
+});
+
 describe('analyzeModule - statement context', () => {
 	it('flags an If statement missing Then', () => {
 		const src = 'Sub T()\n    If x > 0\n        x = 1\nEnd Sub\n';

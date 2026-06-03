@@ -536,6 +536,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.1.3',
 		confidence: 'high',
 	},
+	undefinedLabel: {
+		code: 'undefined-label',
+		title: 'Label not defined',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.1 / VBE oracle: Label not defined',
+		confidence: 'high',
+	},
 	optionAfterDeclaration: {
 		code: 'option-after-declaration',
 		title: 'Option statement must precede all declarations',

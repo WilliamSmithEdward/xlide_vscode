@@ -310,6 +310,7 @@ function runRules(
 	checkExpressionCallParens(source, mod, symbols, activity, push);
 	checkSetAssignments(source, mod, symbols, memberCtx, activity, push);
 	checkExitStatements(source, mod, activity, push);
+	checkUndefinedLabels(source, mod, activity, push);
 	checkStatementContext(source, mod, activity, push);
 	checkScalarMemberAccess(source, mod, symbols, activity, push);
 	checkMemberNotFound(source, mod, memberCtx, activity, push);
@@ -4944,6 +4945,240 @@ function exitTarget(
 		word,
 		span: { start: span.start + toks[0].start, end: span.start + toks[1].end },
 	};
+}
+
+interface ProcedureLabel {
+	key: string;
+	text: string;
+	span: Span;
+}
+
+/**
+ * Rule: procedure-local control-flow labels must exist in the same procedure.
+ * This covers the deterministic VBE "Label not defined" cases without letting
+ * labels leak across procedures or across inactive conditional-compilation code.
+ */
+function checkUndefinedLabels(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const labels = procedureLabels(source, member, activity);
+		forEachStatement(member.body, (stmt) => {
+			for (const ref of labelReferences(source, stmt.span)) {
+				if (!labels.has(ref.key)) {
+					push(
+						'undefinedLabel',
+						`Label '${ref.text}' is not defined in procedure '${member.name}'.`,
+						ref.span,
+					);
+				}
+			}
+		}, activity);
+	}
+}
+
+function procedureLabels(
+	source: string,
+	member: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, ProcedureLabel> {
+	const labels = new Map<string, ProcedureLabel>();
+	forEachStatement(member.body, (stmt) => {
+		const label = statementLabelDeclaration(source, stmt.span);
+		if (label && !labels.has(label.key)) {
+			labels.set(label.key, label);
+		}
+	}, activity);
+	return labels;
+}
+
+function statementLabelDeclaration(source: string, span: Span): ProcedureLabel | undefined {
+	const toks = statementTokens(source, span);
+	const first = toks[0];
+	if (!first) {
+		return undefined;
+	}
+	const label = labelFromToken(first, span);
+	if (!label) {
+		return undefined;
+	}
+	if (first.kind === 'integerLiteral' && toks.length > 1) {
+		return label;
+	}
+	if (toks.length >= 2 && toks[1].rawText === ':') {
+		return label;
+	}
+	if (toks.length === 1 && hasSourceColonAfterToken(source, span, first)) {
+		return label;
+	}
+	return undefined;
+}
+
+function labelReferences(source: string, span: Span): ProcedureLabel[] {
+	const toks = statementTokens(source, span);
+	if (toks.length === 0) {
+		return [];
+	}
+	if (tokenText(toks[0]) === 'on') {
+		return onStatementLabelReferences(toks, span);
+	}
+	const refs: ProcedureLabel[] = [];
+	for (let i = 0; i < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		if (word === 'goto' || word === 'gosub') {
+			const ref = labelReferenceAfter(toks, span, i + 1);
+			if (ref) {
+				refs.push(ref);
+			}
+			continue;
+		}
+		if (word === 'resume') {
+			const nextWord = tokenText(toks[i + 1]);
+			if (!toks[i + 1] || nextWord === 'next') {
+				continue;
+			}
+			const ref = labelReferenceAfter(toks, span, i + 1);
+			if (ref) {
+				refs.push(ref);
+			}
+		}
+	}
+	return refs;
+}
+
+function onStatementLabelReferences(toks: readonly VbaToken[], span: Span): ProcedureLabel[] {
+	if (tokenText(toks[1]) === 'error') {
+		if (tokenText(toks[2]) === 'resume' && tokenText(toks[3]) === 'next') {
+			return [];
+		}
+		if (tokenText(toks[2]) !== 'goto') {
+			return [];
+		}
+		const target = toks[3];
+		if (!target || onErrorGotoDisableTarget(toks, 3)) {
+			return [];
+		}
+		const ref = labelReferenceAfter(toks, span, 3);
+		return ref ? [ref] : [];
+	}
+
+	const flowIndex = toks.findIndex((tok, i) =>
+		i > 0 && (tokenText(tok) === 'goto' || tokenText(tok) === 'gosub')
+	);
+	if (flowIndex < 0) {
+		return [];
+	}
+	const refs: ProcedureLabel[] = [];
+	for (const group of splitTopLevelTokenGroups(toks, flowIndex + 1, ',')) {
+		const ref = labelReferenceGroup(group, span);
+		if (ref) {
+			refs.push(ref);
+		}
+	}
+	return refs;
+}
+
+function onErrorGotoDisableTarget(toks: readonly VbaToken[], index: number): boolean {
+	const target = toks[index];
+	if (!target) {
+		return false;
+	}
+	if (target.kind === 'integerLiteral' && normalizedDecimalLabel(target.rawText) === '0') {
+		return true;
+	}
+	return target.rawText === '-' &&
+		toks[index + 1]?.kind === 'integerLiteral' &&
+		normalizedDecimalLabel(toks[index + 1].rawText) === '1';
+}
+
+function labelReferenceAfter(
+	toks: readonly VbaToken[],
+	base: Span,
+	index: number,
+): ProcedureLabel | undefined {
+	const group = toks.slice(index);
+	const end = group.findIndex((tok) => tok.rawText === ',' || tokenText(tok) === 'else');
+	return labelReferenceGroup(end >= 0 ? group.slice(0, end) : group, base);
+}
+
+function labelReferenceGroup(
+	group: readonly VbaToken[],
+	base: Span,
+): ProcedureLabel | undefined {
+	const content = group.filter((tok) => tok.kind !== 'comment');
+	if (content.length !== 1) {
+		return undefined;
+	}
+	return labelFromToken(content[0], base);
+}
+
+function splitTopLevelTokenGroups(
+	toks: readonly VbaToken[],
+	from: number,
+	separator: string,
+): VbaToken[][] {
+	const groups: VbaToken[][] = [];
+	let current: VbaToken[] = [];
+	let depth = 0;
+	for (let i = from; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth = Math.max(0, depth - 1);
+		}
+		if (depth === 0 && raw === separator) {
+			groups.push(current);
+			current = [];
+			continue;
+		}
+		current.push(toks[i]);
+	}
+	groups.push(current);
+	return groups;
+}
+
+function labelFromToken(tok: VbaToken, base: Span): ProcedureLabel | undefined {
+	const name = tokenName(tok);
+	if (name) {
+		return {
+			key: `name:${name.toLowerCase()}`,
+			text: name,
+			span: absoluteSpan(base, tok),
+		};
+	}
+	if (tok.kind === 'integerLiteral') {
+		const normalized = normalizedDecimalLabel(tok.rawText);
+		if (normalized !== undefined) {
+			return {
+				key: `line:${normalized}`,
+				text: tok.rawText,
+				span: absoluteSpan(base, tok),
+			};
+		}
+	}
+	return undefined;
+}
+
+function normalizedDecimalLabel(raw: string): string | undefined {
+	if (!/^\d+$/.test(raw)) {
+		return undefined;
+	}
+	return raw.replace(/^0+/, '') || '0';
+}
+
+function hasSourceColonAfterToken(source: string, span: Span, tok: VbaToken): boolean {
+	let i = span.start + tok.end;
+	while (i < source.length && (source[i] === ' ' || source[i] === '\t')) {
+		i++;
+	}
+	return source[i] === ':';
 }
 
 interface StatementContext {

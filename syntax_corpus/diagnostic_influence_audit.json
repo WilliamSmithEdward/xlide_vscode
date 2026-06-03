@@ -560,6 +560,20 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "undefined-label",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.1 plus Excel/VBE compile oracle",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "procedure_goto_missing_label_compile",
+        "procedure_goto_existing_label_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Active coverage is procedure-local and deliberately scoped to simple named and decimal numeric targets for GoTo, GoSub, Resume, On Error GoTo, On n GoTo, and On n GoSub. On Error Resume Next, On Error GoTo 0, and On Error GoTo -1 are explicit non-label forms.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "option-after-declaration",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.2.1",
