@@ -425,6 +425,9 @@ Promotion path:
 
 - Generated tests should be deterministic and checked into fixtures or created
   by deterministic builders.
+- XLIDE-owned deterministic fixture builders live in
+  `tests/helpers/vbaLimitBoundaryFixtures.ts`; use them before promoting
+  boundary cases into analyzer diagnostics.
 - Oracle only for actual VBE limit verdicts.
 - Yellow warnings for platform or host limits unless a hard failure is proven.
 

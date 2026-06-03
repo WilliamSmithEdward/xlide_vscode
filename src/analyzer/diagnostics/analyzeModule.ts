@@ -3802,8 +3802,9 @@ const FIXED_LENGTH_STRING_MAX = 65526;
 
 /**
  * Rule: fixed-length String sizes must be in VBE's accepted range when the
- * length is a decimal literal or a same-procedure/module Const with a decimal
- * literal value. Broader constant-expression semantics remain deferred.
+ * length is a decimal literal or a same-procedure/module Const whose value can
+ * be reduced to a deterministic decimal integer expression. Broader
+ * constant-expression semantics remain deferred.
  */
 function checkFixedLengthStringBounds(
 	source: string,
@@ -3870,21 +3871,35 @@ function collectModuleLiteralIntegerConstants(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 ): Map<string, number | undefined> {
-	const constants = new Map<string, number | undefined>();
+	const rawConstants = new Map<string, string | undefined>();
 	const seen = new Set<string>();
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup' && member.isConst) {
-			addLiteralIntegerConstants(member, constants, seen);
+			addRawIntegerConstants(member, rawConstants, seen);
 		}
 	}
-	return constants;
+	return resolveRawIntegerConstants(rawConstants, new Map());
 }
 
 function collectBodyLiteralIntegerConstants(
 	body: BodyNode[],
 	constants: Map<string, number | undefined>,
 	activity: ConditionalActivityTracker | undefined,
-	seen = new Set<string>(),
+): void {
+	const rawConstants = new Map<string, string | undefined>();
+	const seen = new Set<string>();
+	collectBodyRawIntegerConstants(body, rawConstants, activity, seen);
+	const resolved = resolveRawIntegerConstants(rawConstants, constants);
+	for (const [name, value] of resolved) {
+		constants.set(name, value);
+	}
+}
+
+function collectBodyRawIntegerConstants(
+	body: BodyNode[],
+	rawConstants: Map<string, string | undefined>,
+	activity: ConditionalActivityTracker | undefined,
+	seen: Set<string>,
 ): void {
 	for (const node of body) {
 		if (isInactiveNode(activity, node)) {
@@ -3892,17 +3907,17 @@ function collectBodyLiteralIntegerConstants(
 		}
 		if (node.kind === 'VariableGroup') {
 			if (node.isConst) {
-				addLiteralIntegerConstants(node, constants, seen);
+				addRawIntegerConstants(node, rawConstants, seen);
 			}
 		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
-			collectBodyLiteralIntegerConstants((node as { body: BodyNode[] }).body, constants, activity, seen);
+			collectBodyRawIntegerConstants((node as { body: BodyNode[] }).body, rawConstants, activity, seen);
 		}
 	}
 }
 
-function addLiteralIntegerConstants(
+function addRawIntegerConstants(
 	group: VariableGroupNode,
-	constants: Map<string, number | undefined>,
+	rawConstants: Map<string, string | undefined>,
 	seen: Set<string>,
 ): void {
 	for (const decl of group.declarations) {
@@ -3912,16 +3927,11 @@ function addLiteralIntegerConstants(
 		}
 		const key = name.toLowerCase();
 		if (seen.has(key)) {
-			constants.set(key, undefined);
+			rawConstants.set(key, undefined);
 			continue;
 		}
 		seen.add(key);
-		constants.set(
-			key,
-			decl.defaultRaw === undefined
-				? undefined
-				: parseFixedLengthStringLiteralSize(decl.defaultRaw),
-		);
+		rawConstants.set(key, decl.defaultRaw);
 	}
 }
 
@@ -3929,20 +3939,160 @@ function resolveFixedLengthStringSize(
 	raw: string,
 	constants: ReadonlyMap<string, number | undefined>,
 ): number | undefined {
-	const literal = parseFixedLengthStringLiteralSize(raw);
-	if (literal !== undefined) {
-		return literal;
-	}
-	const name = normalizeFixedLengthConstantName(raw);
-	return name ? constants.get(name.toLowerCase()) : undefined;
+	return evaluateIntegerConstantExpression(raw, constants);
 }
 
-function parseFixedLengthStringLiteralSize(raw: string): number | undefined {
-	const text = raw.trim();
-	if (!/^\d+$/.test(text)) {
+function resolveRawIntegerConstants(
+	rawConstants: ReadonlyMap<string, string | undefined>,
+	base: ReadonlyMap<string, number | undefined>,
+): Map<string, number | undefined> {
+	const resolved = new Map<string, number | undefined>();
+	const resolving = new Set<string>();
+	const resolve = (name: string): number | undefined => {
+		const key = name.toLowerCase();
+		if (resolved.has(key)) {
+			return resolved.get(key);
+		}
+		if (!rawConstants.has(key)) {
+			return base.get(key);
+		}
+		if (resolving.has(key)) {
+			resolved.set(key, undefined);
+			return undefined;
+		}
+		const raw = rawConstants.get(key);
+		if (raw === undefined) {
+			resolved.set(key, undefined);
+			return undefined;
+		}
+		resolving.add(key);
+		const value = evaluateIntegerConstantExpression(raw, {
+			get: resolve,
+		});
+		resolving.delete(key);
+		resolved.set(key, value);
+		return value;
+	};
+	for (const key of rawConstants.keys()) {
+		resolve(key);
+	}
+	return resolved;
+}
+
+interface IntegerConstantLookup {
+	get(name: string): number | undefined;
+}
+
+function evaluateIntegerConstantExpression(
+	raw: string,
+	constants: IntegerConstantLookup,
+): number | undefined {
+	const parser = new IntegerConstantExpressionParser(raw, constants);
+	return parser.parse();
+}
+
+class IntegerConstantExpressionParser {
+	private readonly tokens: VbaToken[];
+	private index = 0;
+
+	constructor(
+		raw: string,
+		private readonly constants: IntegerConstantLookup,
+	) {
+		this.tokens = tokenize(raw).filter((token) => token.kind !== 'comment' && token.kind !== 'newline');
+	}
+
+	parse(): number | undefined {
+		if (this.tokens.length === 0) {
+			return undefined;
+		}
+		const value = this.expression();
+		if (value === undefined || this.current()) {
+			return undefined;
+		}
+		return value;
+	}
+
+	private expression(): number | undefined {
+		let value = this.term();
+		while (value !== undefined) {
+			if (this.accept('+')) {
+				const right = this.term();
+				value = right === undefined ? undefined : safeInteger(value + right);
+				continue;
+			}
+			if (this.accept('-')) {
+				const right = this.term();
+				value = right === undefined ? undefined : safeInteger(value - right);
+				continue;
+			}
+			break;
+		}
+		return value;
+	}
+
+	private term(): number | undefined {
+		let value = this.factor();
+		while (value !== undefined) {
+			if (!this.accept('*')) {
+				break;
+			}
+			const right = this.factor();
+			value = right === undefined ? undefined : safeInteger(value * right);
+		}
+		return value;
+	}
+
+	private factor(): number | undefined {
+		if (this.accept('+')) {
+			return this.factor();
+		}
+		if (this.accept('-')) {
+			const value = this.factor();
+			return value === undefined ? undefined : safeInteger(-value);
+		}
+		if (this.accept('(')) {
+			const value = this.expression();
+			return value !== undefined && this.accept(')') ? value : undefined;
+		}
+		const token = this.current();
+		if (!token) {
+			return undefined;
+		}
+		if (token.kind === 'integerLiteral') {
+			this.index++;
+			return parseDecimalIntegerLiteral(token.rawText);
+		}
+		const name = normalizeFixedLengthConstantName(token.rawText);
+		if (name) {
+			this.index++;
+			return this.constants.get(name.toLowerCase());
+		}
 		return undefined;
 	}
-	const value = Number(text);
+
+	private current(): VbaToken | undefined {
+		return this.tokens[this.index];
+	}
+
+	private accept(raw: string): boolean {
+		if (this.current()?.rawText !== raw) {
+			return false;
+		}
+		this.index++;
+		return true;
+	}
+}
+
+function parseDecimalIntegerLiteral(raw: string): number | undefined {
+	if (!/^\d+$/.test(raw)) {
+		return undefined;
+	}
+	const value = Number(raw);
+	return Number.isSafeInteger(value) ? value : undefined;
+}
+
+function safeInteger(value: number): number | undefined {
 	return Number.isSafeInteger(value) ? value : undefined;
 }
 

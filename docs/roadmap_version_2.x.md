@@ -276,12 +276,13 @@ truth.
   limits, and legacy edges). Treat every Markdown case as raw material until
   promoted through spec, oracle, or deterministic XLIDE-owned evidence. See
   `syntax_corpus/managed_backlog.md`.
-- [ ] Promote the `limits-boundaries` backlog into deterministic fixture
+- [x] Promote the `limits-boundaries` backlog into deterministic fixture
   builders before adding hard diagnostics for continuation-count, physical and
   logical line length, string literal/fixed-string size, identifier/module-name
   length, argument-count, array-dimension, or Excel host limits. Basic `_` line
   continuation tokenization/logical-line handling exists today; boundary
-  diagnostics remain pending until backed by spec or oracle evidence.
+  diagnostics remain pending until backed by spec or oracle evidence. The
+  deterministic builder surface lives in `tests/helpers/vbaLimitBoundaryFixtures.ts`.
 
 Definition of done:
 
@@ -348,7 +349,7 @@ Purpose: finish the conservative first slice before broadening inference.
     `As String * constantName`, including procedure-local shadowing and
     duplicate/nonliteral deferral
   - [x] interaction with scalar member access for fixed-length String receivers
-  - [ ] compound constant-expression resolution for fixed-length sizes
+  - [x] compound constant-expression resolution for fixed-length sizes
   - [ ] assignment/truncation behavior
   - [ ] interaction with type-declaration suffixes such as `$`
 - [x] Add module-kind-sensitive diagnostics for object-module public

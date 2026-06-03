@@ -3184,16 +3184,36 @@ describe('analyzeModule - fixed-length String bounds', () => {
 		expect(byCode(analyzeModule(src), 'fixed-length-string-size')).toHaveLength(0);
 	});
 
-	it('defers unknown and nonliteral Const lengths until constant-expression semantics are modeled', () => {
+	it('resolves compound integer Const expressions used as fixed-length String sizes', () => {
 		const src =
-			'Private Const HeaderCodeLength As Long = 65520 + 7\n' +
-			'Private moduleName As String * MissingLength\n' +
+			'Private Const BaseLength As Long = 32763\n' +
+			'Private Const HeaderCodeLength As Long = BaseLength * 2 + 1\n' +
 			'Private Type Header\n' +
 			'    Code As String * HeaderCodeLength\n' +
 			'End Type\n' +
 			'Sub T()\n' +
-			'    Const MaxNameLength As Long = 10 + 10\n' +
+			'    Const LocalBase As Long = 10\n' +
+			'    Const MaxNameLength As Long = LocalBase + 10\n' +
+			'    Const LocalTooSmall As Long = LocalBase - 10\n' +
 			'    Dim localName As String * MaxNameLength\n' +
+			'    Dim badLocalName As String * LocalTooSmall\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['HeaderCodeLength', 'LocalTooSmall']);
+		expect(hits[0].message).toContain('got 65527');
+		expect(hits[1].message).toContain('got 0');
+	});
+
+	it('defers unknown and non-deterministic Const length expressions', () => {
+		const src =
+			'Private Const FractionLength As Long = 20 / 2\n' +
+			'Private moduleName As String * MissingLength\n' +
+			'Private Type Header\n' +
+			'    Code As String * FractionLength\n' +
+			'End Type\n' +
+			'Sub T()\n' +
+			'    Const RuntimeLength As Long = CLng(20)\n' +
+			'    Dim localName As String * RuntimeLength\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'fixed-length-string-size')).toHaveLength(0);
 	});

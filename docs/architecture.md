@@ -980,8 +980,10 @@ Diagnostic severity policy:
   and object-module public-member diagnostics. The declaration trailing-token
   rule consumes that suffix before looking for extra tokens, and
   `fixed-length-string-size` uses the same parsed suffix to flag literal sizes
-  outside the VBE-verified `1..65526` range. Nonliteral length expressions and
-  assignment/truncation behavior remain on the verification roadmap. A separate
+  and deterministic same-module/procedure `Const` integer expressions outside
+  the VBE-verified `1..65526` range. Unknown/non-deterministic length
+  expressions and assignment/truncation behavior remain on the verification
+  roadmap. A separate
   `object-module-public-member` rule is module-kind-sensitive: in class,
   document, and UserForm modules it rejects explicit Public constants, arrays,
   fixed-length strings, user-defined Types, and Declare statements. Each branch
