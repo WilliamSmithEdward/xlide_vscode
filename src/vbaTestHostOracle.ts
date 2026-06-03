@@ -5,6 +5,9 @@ export const DEFAULT_VBA_TEST_HOST_ORACLE_CONTRACT = {
     closeWorkbookWithoutSaving: true,
     requiresPerTestTimeout: true,
     cleanupOwnedExcelOnHang: true,
+    detectsExcelModals: true,
+    dismissesSafeModalsWithoutSendKeys: true,
+    blocksUnsafeModals: true,
 } as const;
 
 export type VbaTestHostOracleIssueCode =
@@ -20,6 +23,8 @@ export type VbaTestHostOracleIssueCode =
     | 'macro-instance'
     | 'macro-order'
     | 'macro-timeout'
+    | 'modal-result'
+    | 'modal-cleanup'
     | 'close-without-saving'
     | 'normal-cleanup'
     | 'hang-cleanup'
@@ -31,7 +36,7 @@ export interface VbaTestHostOracleIssue {
     eventIndex?: number;
 }
 
-export type VbaTestMacroOutcome = 'passed' | 'failed' | 'timeout' | 'hung' | 'runner-error';
+export type VbaTestMacroOutcome = 'passed' | 'failed' | 'timeout' | 'hung' | 'modal-blocked' | 'runner-error';
 
 export type VbaTestHostOracleEvent =
     | { kind: 'excel-created'; excelId: string; owned: boolean; pid?: number; visible?: boolean }
@@ -47,6 +52,36 @@ export type VbaTestHostOracleEvent =
     }
     | { kind: 'macro-started'; excelId: string; qualifiedName: string; timeoutMs?: number }
     | {
+        kind: 'modal-detected';
+        excelId: string;
+        qualifiedName: string;
+        title?: string;
+        className?: string;
+        message?: string;
+        texts?: string[];
+        buttons?: string[];
+        safeToDismiss?: boolean;
+        classification?: string;
+    }
+    | {
+        kind: 'modal-dismissed';
+        excelId: string;
+        qualifiedName: string;
+        title?: string;
+        message?: string;
+        button?: string;
+        dismissed: boolean;
+    }
+    | {
+        kind: 'modal-blocked';
+        excelId: string;
+        qualifiedName: string;
+        title?: string;
+        message?: string;
+        buttons?: string[];
+        reason: string;
+    }
+    | {
         kind: 'macro-finished';
         excelId: string;
         qualifiedName: string;
@@ -56,7 +91,7 @@ export type VbaTestHostOracleEvent =
     }
     | { kind: 'workbook-closed'; excelId: string; filePath?: string; saveChanges: boolean }
     | { kind: 'excel-quit'; excelId: string }
-    | { kind: 'excel-killed'; excelId: string; reason: 'timeout' | 'hung' | 'runner-error' | 'cleanup-failed' };
+    | { kind: 'excel-killed'; excelId: string; reason: 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed' };
 
 export function validateVbaTestHostOracleTrace(
     events: readonly VbaTestHostOracleEvent[],
@@ -74,6 +109,7 @@ export function validateVbaTestHostOracleTrace(
     const opened = indexed(events, 'workbook-opened');
     const macroStarted = indexed(events, 'macro-started');
     const macroFinished = indexed(events, 'macro-finished');
+    const modalBlocked = indexed(events, 'modal-blocked');
     const closed = indexed(events, 'workbook-closed');
     const quit = indexed(events, 'excel-quit');
     const killed = indexed(events, 'excel-killed');
@@ -178,9 +214,35 @@ export function validateVbaTestHostOracleTrace(
             });
         }
     }
+    for (const entry of modalBlocked) {
+        const resultAfterModal = macroFinished.find((finished) =>
+            finished.index > entry.index &&
+            finished.event.excelId === entry.event.excelId &&
+            finished.event.qualifiedName === entry.event.qualifiedName &&
+            finished.event.outcome === 'modal-blocked',
+        );
+        if (!resultAfterModal) {
+            issues.push({
+                code: 'modal-result',
+                message: 'A blocked Excel modal must be reflected as a modal-blocked macro result.',
+                eventIndex: entry.index,
+            });
+            continue;
+        }
+        const killAfterModal = killed.find((kill) =>
+            kill.index > resultAfterModal.index && kill.event.excelId === entry.event.excelId,
+        );
+        if (!killAfterModal) {
+            issues.push({
+                code: 'modal-cleanup',
+                message: 'A blocked Excel modal must clean up the XLIDE-owned Excel instance.',
+                eventIndex: resultAfterModal.index,
+            });
+        }
+    }
 
     const firstHang = macroFinished.find((entry) =>
-        entry.event.outcome === 'timeout' || entry.event.outcome === 'hung',
+        entry.event.outcome === 'timeout' || entry.event.outcome === 'hung' || entry.event.outcome === 'modal-blocked',
     );
     if (firstHang) {
         const killAfterHang = killed.find((entry) =>

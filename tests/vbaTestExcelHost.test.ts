@@ -32,6 +32,16 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('visible = $false');
         expect(script).not.toContain('MainWindowHandle');
         expect(script).toContain('Emit-XlideTestHostEvent "macro-started"');
+        expect(script).toContain('XlideTestModalWatcher');
+        expect(script).toContain('EnumWindows');
+        expect(script).toContain('BM_CLICK');
+        expect(script).toContain('modal-detected');
+        expect(script).toContain('modal-dismissed');
+        expect(script).toContain('modal-blocked');
+        expect(script).toContain('safeToDismiss');
+        expect(script).toContain('[XlideTestModalWatcher]::Start');
+        expect(script).toContain('[XlideTestModalWatcher]::Stop');
+        expect(script).not.toContain('SendKeys');
         expect(script).toContain('if ($failFast -and -not $expectedFailure) { break }');
     });
 

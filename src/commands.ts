@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as cp from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer, XlideNode } from './xlsmExplorer';
 import {
@@ -168,10 +169,12 @@ interface VbaTestRunExecution {
 }
 
 interface OwnedReadOnlyExcelHostTestResult {
-    outcome: 'passed' | 'failed' | 'timeout' | 'runner-error';
+    outcome: 'passed' | 'failed' | 'timeout' | 'modal-blocked' | 'runner-error';
     durationMs: number;
     message?: string;
 }
+
+type OwnedExcelKillReason = 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed';
 
 type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
 
@@ -739,26 +742,31 @@ export function registerCommands(
             vbaTestHostPlanItems(tests),
             { failFast: options.failFast },
         );
+        const hostScriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vba-test-host-'));
+        const hostScriptPath = path.join(hostScriptDir, 'run-vba-tests.ps1');
+        fs.writeFileSync(hostScriptPath, script, 'utf8');
         log(`[runVbaTests] Running owned read-only Excel host for ${tests.length} test(s).`);
-        log(`[runVbaTests] Host script: ${script}`);
+        log(`[runVbaTests] Host script path: ${hostScriptPath}`);
 
         return new Promise<OwnedReadOnlyExcelHostRunResult>((resolve) => {
             const child = cp.spawn('powershell.exe', [
                 '-NoProfile',
                 '-ExecutionPolicy',
                 'Bypass',
-                '-Command',
-                script,
+                '-File',
+                hostScriptPath,
             ]);
             const events: VbaTestHostOracleEvent[] = [];
             const stderrLines: string[] = [];
             let stdoutBuffer = '';
             let currentMacro: { excelId: string; qualifiedName: string; timeoutMs: number; startedMs: number } | undefined;
+            let currentModalBlocker: Extract<VbaTestHostOracleEvent, { kind: 'modal-blocked' }> | undefined;
             let currentTimer: ReturnType<typeof setTimeout> | undefined;
             let startupTimer: ReturnType<typeof setTimeout> | undefined;
             let ownedExcelPid: number | undefined;
             let timedOutAfter: string | undefined;
             let settled = false;
+            let hostScriptCleaned = false;
 
             const clearCurrentTimer = () => {
                 if (currentTimer) {
@@ -770,6 +778,25 @@ export function registerCommands(
                 if (startupTimer) {
                     clearTimeout(startupTimer);
                     startupTimer = undefined;
+                }
+            };
+            const cleanupHostScript = () => {
+                if (hostScriptCleaned) {
+                    return;
+                }
+                hostScriptCleaned = true;
+                try {
+                    fs.rmSync(hostScriptDir, { recursive: true, force: true });
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    log(`[runVbaTests] Could not delete temporary host script: ${message}`);
+                    setTimeout(() => {
+                        try {
+                            fs.rmSync(hostScriptDir, { recursive: true, force: true });
+                        } catch {
+                            // Best-effort cleanup only.
+                        }
+                    }, 1000);
                 }
             };
 
@@ -791,6 +818,13 @@ export function registerCommands(
                         message: event.message,
                     };
                 }
+                if (event.outcome === 'modal-blocked') {
+                    return {
+                        outcome: 'modal-blocked',
+                        durationMs: event.durationMs ?? currentMacro?.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS,
+                        message: event.message,
+                    };
+                }
                 return {
                     outcome: 'runner-error',
                     durationMs: event.durationMs ?? 0,
@@ -805,6 +839,7 @@ export function registerCommands(
                 settled = true;
                 clearCurrentTimer();
                 clearStartupTimer();
+                cleanupHostScript();
                 const resultsByName = new Map<string, OwnedReadOnlyExcelHostTestResult>();
                 for (const event of events) {
                     const result = eventResult(event);
@@ -824,7 +859,7 @@ export function registerCommands(
                 });
             };
 
-            const killOwnedExcel = (reason: 'timeout' | 'hung' | 'runner-error' | 'cleanup-failed') => {
+            const killOwnedExcel = (reason: OwnedExcelKillReason) => {
                 if (!ownedExcelPid) {
                     return;
                 }
@@ -872,16 +907,23 @@ export function registerCommands(
                     }
                     timedOutAfter = currentMacro.qualifiedName;
                     const durationMs = Date.now() - currentMacro.startedMs;
-                    const message = `Timed out after ${currentMacro.timeoutMs} ms.`;
+                    const modalBlocker = currentModalBlocker;
+                    const modalDetail = modalBlocker
+                        ? [modalBlocker.title, modalBlocker.message].filter(Boolean).join(': ')
+                        : '';
+                    const outcome = modalBlocker ? 'modal-blocked' : 'timeout';
+                    const message = modalBlocker
+                        ? `Blocked by Excel modal dialog${modalDetail ? ` (${modalDetail})` : ''}.`
+                        : `Timed out after ${currentMacro.timeoutMs} ms.`;
                     events.push({
                         kind: 'macro-finished',
                         excelId: currentMacro.excelId,
                         qualifiedName: currentMacro.qualifiedName,
-                        outcome: 'timeout',
+                        outcome,
                         durationMs,
                         message,
                     });
-                    killOwnedExcel('timeout');
+                    killOwnedExcel(modalBlocker ? 'modal-blocked' : 'timeout');
                     child.kill();
                     finish(message);
                 }, timeoutMs);
@@ -894,11 +936,25 @@ export function registerCommands(
                     log(`[runVbaTests host] excel-created pid=${ownedExcelPid ?? 'unknown'}`);
                 } else if (event.kind === 'macro-started') {
                     log(`[runVbaTests host] macro-started ${event.qualifiedName} timeoutMs=${event.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS}`);
+                    currentModalBlocker = undefined;
                     armMacroTimeout(event);
+                } else if (event.kind === 'modal-detected') {
+                    log(`[runVbaTests host] modal-detected ${event.qualifiedName} classification=${event.classification ?? 'unknown'} safeToDismiss=${event.safeToDismiss ?? false}`);
+                } else if (event.kind === 'modal-dismissed') {
+                    log(`[runVbaTests host] modal-dismissed ${event.qualifiedName} button=${event.button ?? 'unknown'} dismissed=${event.dismissed}`);
+                } else if (event.kind === 'modal-blocked') {
+                    const matchesCurrentMacro = currentMacro &&
+                        currentMacro.excelId === event.excelId &&
+                        currentMacro.qualifiedName === event.qualifiedName;
+                    if (matchesCurrentMacro) {
+                        currentModalBlocker = event;
+                    }
+                    log(`[runVbaTests host] modal-blocked ${event.qualifiedName}: ${event.reason}`);
                 } else if (event.kind === 'macro-finished') {
                     log(`[runVbaTests host] macro-finished ${event.qualifiedName} outcome=${event.outcome}`);
                     clearCurrentTimer();
                     currentMacro = undefined;
+                    currentModalBlocker = undefined;
                 }
             };
 
@@ -1132,6 +1188,14 @@ export function registerCommands(
                 status: 'timeout',
                 durationMs: hostResult.durationMs,
                 error: message ?? `Timed out after ${hostResult.durationMs} ms.`,
+            };
+        }
+        if (hostResult.outcome === 'modal-blocked') {
+            return {
+                test,
+                status: 'host-error',
+                durationMs: hostResult.durationMs,
+                error: message ?? 'Blocked by an Excel modal dialog.',
             };
         }
         return {

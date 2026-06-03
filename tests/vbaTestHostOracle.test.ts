@@ -112,6 +112,90 @@ describe('VBA test host oracle', () => {
         ];
         expect(validateVbaTestHostOracleTrace(cleanedUp)).toEqual([]);
     });
+
+    it('accepts informational modal detection and dismissal during a normal run', () => {
+        const events: VbaTestHostOracleEvent[] = [
+            { kind: 'excel-created', excelId: 'xlide-1', owned: true },
+            {
+                kind: 'workbook-opened',
+                excelId: 'xlide-1',
+                filePath: 'C:/work/Book.xlsm',
+                readOnly: true,
+                updateLinks: 0,
+                displayAlerts: false,
+                ignoreReadOnlyRecommended: true,
+            },
+            { kind: 'macro-started', excelId: 'xlide-1', qualifiedName: 'Tests.MsgBox', timeoutMs: 5000 },
+            {
+                kind: 'modal-detected',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.MsgBox',
+                title: 'XLIDE Modal Smoke',
+                message: 'XLIDE modal smoke',
+                buttons: ['OK'],
+                safeToDismiss: true,
+                classification: 'excel-modal',
+            },
+            {
+                kind: 'modal-dismissed',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.MsgBox',
+                title: 'XLIDE Modal Smoke',
+                button: 'OK',
+                dismissed: true,
+            },
+            { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.MsgBox', outcome: 'passed' },
+            { kind: 'workbook-closed', excelId: 'xlide-1', filePath: 'C:/work/Book.xlsm', saveChanges: false },
+            { kind: 'excel-quit', excelId: 'xlide-1' },
+        ];
+
+        expect(validateVbaTestHostOracleTrace(events)).toEqual([]);
+    });
+
+    it('requires blocked modal results to kill the owned Excel instance', () => {
+        const missingResultAndCleanup: VbaTestHostOracleEvent[] = [
+            { kind: 'excel-created', excelId: 'xlide-1', owned: true },
+            {
+                kind: 'workbook-opened',
+                excelId: 'xlide-1',
+                filePath: 'C:/work/Book.xlsm',
+                readOnly: true,
+                updateLinks: 0,
+                displayAlerts: false,
+                ignoreReadOnlyRecommended: true,
+            },
+            { kind: 'macro-started', excelId: 'xlide-1', qualifiedName: 'Tests.DecisionDialog', timeoutMs: 5000 },
+            {
+                kind: 'modal-blocked',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.DecisionDialog',
+                title: 'Microsoft Excel',
+                message: 'Save changes?',
+                buttons: ['Yes', 'No', 'Cancel'],
+                reason: 'decision-or-unknown-dialog',
+            },
+        ];
+
+        expect(issueCodes(missingResultAndCleanup)).toEqual(expect.arrayContaining([
+            'modal-result',
+            'close-without-saving',
+            'normal-cleanup',
+        ]));
+
+        const cleanedUp: VbaTestHostOracleEvent[] = [
+            ...missingResultAndCleanup,
+            {
+                kind: 'macro-finished',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.DecisionDialog',
+                outcome: 'modal-blocked',
+                durationMs: 5000,
+                message: 'Blocked by Excel modal dialog.',
+            },
+            { kind: 'excel-killed', excelId: 'xlide-1', reason: 'modal-blocked' },
+        ];
+        expect(validateVbaTestHostOracleTrace(cleanedUp)).toEqual([]);
+    });
 });
 
 function issueCodes(events: readonly VbaTestHostOracleEvent[]): string[] {
