@@ -2,6 +2,7 @@ import type * as vscode from 'vscode';
 import {
     ANALYSIS_SEVERITIES,
     allowedAnalysisRuleSeverityOverrides,
+    normalizeKnownAnalysisRuleCodes,
     normalizeAnalysisRuleCodes,
     normalizeAnalysisRuleCode,
     normalizeAnalysisRuleSeverityOverrides,
@@ -32,6 +33,12 @@ interface ResolvedXlideGlobalSetting<T> {
     key: `xlide.${XlideGlobalSettingKey}`;
     value: T;
     source: XlideGlobalSettingSource;
+}
+
+interface XlideGlobalSettingUpdateResult<T = unknown> {
+    key: `xlide.${XlideGlobalSettingKey}`;
+    value: T;
+    changed: boolean;
 }
 
 type XlideGlobalSettingsSnapshot = Record<string, unknown>;
@@ -151,7 +158,7 @@ function validateXlideGlobalSettingsValues(values: XlideGlobalSettingsSnapshot):
     expectBoolean(values, problems, 'diagnostics.enabled');
     expectRuleSeverityOverrides(values, problems, 'analysis.ruleSeverityOverrides');
     expectStringArrayEnum(values, problems, 'analysis.visibleSeverities', ANALYSIS_SEVERITIES);
-    expectNonEmptyStringArray(values, problems, 'analysis.untrackedRules');
+    expectKnownAnalysisRuleCodeArray(values, problems, 'analysis.untrackedRules');
     expectEnum(values, problems, 'editor.blockLayout', BLOCK_LAYOUT_VALUES);
     expectBoolean(values, problems, 'docs.enabled');
     expectString(values, problems, 'docs.metadataGlob');
@@ -181,8 +188,8 @@ async function setXlideGlobalAnalysisRuleTracked(
     tracked: boolean,
 ): Promise<AnalysisRuleTrackingUpdate> {
     const normalized = normalizeAnalysisRuleCode(code);
-    const current = xlideAnalysisUntrackedRulesFromConfig(config).value;
-    if (!normalized) {
+    const current = normalizeKnownAnalysisRuleCodes(xlideAnalysisUntrackedRulesFromConfig(config).value);
+    if (!normalized || normalizeKnownAnalysisRuleCodes([normalized]).length === 0) {
         return {
             tracked,
             changed: false,
@@ -203,6 +210,73 @@ async function setXlideGlobalAnalysisRuleTracked(
     };
 }
 
+async function setXlideGlobalAnalysisRuleSeverityOverride(
+    config: vscode.WorkspaceConfiguration,
+    code: string | undefined,
+    severity: unknown,
+): Promise<XlideGlobalSettingUpdateResult<AnalysisRuleSeverityOverrides>> {
+    const normalized = normalizeAnalysisRuleCode(code);
+    const current = xlideAnalysisRuleSeveritiesFromConfig(config).value;
+    if (!normalized) {
+        return {
+            key: 'xlide.analysis.ruleSeverityOverrides',
+            value: current,
+            changed: false,
+        };
+    }
+    const next = normalizeAnalysisRuleSeverityOverrides({
+        ...current,
+        [normalized]: severity,
+    });
+    return updateXlideGlobalSetting(config, 'analysis.ruleSeverityOverrides', next);
+}
+
+async function clearXlideGlobalAnalysisRuleSeverityOverride(
+    config: vscode.WorkspaceConfiguration,
+    code: string | undefined,
+): Promise<XlideGlobalSettingUpdateResult<AnalysisRuleSeverityOverrides>> {
+    const normalized = normalizeAnalysisRuleCode(code);
+    const current = xlideAnalysisRuleSeveritiesFromConfig(config).value;
+    if (!normalized || !(normalized in current)) {
+        return {
+            key: 'xlide.analysis.ruleSeverityOverrides',
+            value: current,
+            changed: false,
+        };
+    }
+    const next = { ...current };
+    delete next[normalized];
+    return updateXlideGlobalSetting(
+        config,
+        'analysis.ruleSeverityOverrides',
+        normalizeAnalysisRuleSeverityOverrides(next),
+    );
+}
+
+async function setXlideGlobalSettingValue(
+    config: vscode.WorkspaceConfiguration,
+    key: XlideGlobalSettingKey,
+    value: unknown,
+): Promise<XlideGlobalSettingUpdateResult> {
+    return updateXlideGlobalSetting(config, key, normalizeXlideGlobalSettingValue(key, value));
+}
+
+async function resetXlideGlobalSettingValue(
+    config: vscode.WorkspaceConfiguration,
+    key: XlideGlobalSettingKey,
+): Promise<XlideGlobalSettingUpdateResult> {
+    const inspect = typeof config.inspect === 'function' ? config.inspect(key) : undefined;
+    const changed = inspect?.globalValue !== undefined;
+    if (changed) {
+        await config.update(key, undefined, true);
+    }
+    return {
+        key: `xlide.${key}`,
+        value: normalizeXlideGlobalSettingValue(key, undefined),
+        changed,
+    };
+}
+
 function resolveXlideGlobalSetting<T>(
     config: vscode.WorkspaceConfiguration,
     key: XlideGlobalSettingKey,
@@ -216,6 +290,76 @@ function resolveXlideGlobalSetting<T>(
             typeof config.inspect === 'function' ? config.inspect(key) : undefined,
         ),
     };
+}
+
+function xlideGlobalSettingFromConfig(
+    config: vscode.WorkspaceConfiguration,
+    key: XlideGlobalSettingKey,
+): ResolvedXlideGlobalSetting<unknown> {
+    switch (key) {
+        case 'analysis.ruleSeverityOverrides':
+            return xlideAnalysisRuleSeveritiesFromConfig(config);
+        case 'analysis.untrackedRules':
+            return xlideAnalysisUntrackedRulesFromConfig(config);
+        case 'analysis.visibleSeverities':
+            return xlideAnalysisVisibleSeveritiesFromConfig(config);
+        case 'attachToRunningExcel':
+            return xlideAttachToRunningExcelFromConfig(config);
+        case 'diagnostics.enabled':
+            return xlideDiagnosticsEnabledFromConfig(config);
+        case 'docs.enabled':
+            return xlideDocsEnabledFromConfig(config);
+        case 'docs.metadataGlob':
+            return xlideDocsMetadataGlobFromConfig(config);
+        case 'editor.blockLayout':
+            return xlideEditorBlockLayoutFromConfig(config);
+        case 'pythonPath':
+            return xlidePythonPathFromConfig(config);
+    }
+}
+
+async function updateXlideGlobalSetting<T>(
+    config: vscode.WorkspaceConfiguration,
+    key: XlideGlobalSettingKey,
+    value: T,
+): Promise<XlideGlobalSettingUpdateResult<T>> {
+    const current = xlideGlobalSettingFromConfig(config, key).value;
+    const changed = !equivalentSettingValue(current, value);
+    if (changed) {
+        await config.update(key, value, true);
+    }
+    return {
+        key: `xlide.${key}`,
+        value,
+        changed,
+    };
+}
+
+function normalizeXlideGlobalSettingValue(key: XlideGlobalSettingKey, value: unknown): unknown {
+    switch (key) {
+        case 'analysis.ruleSeverityOverrides':
+            return normalizeAnalysisRuleSeverityOverrides(value);
+        case 'analysis.untrackedRules':
+            return normalizeKnownAnalysisRuleCodes(value);
+        case 'analysis.visibleSeverities':
+            return normalizeAnalysisVisibleSeverities(value);
+        case 'attachToRunningExcel':
+            return normalizeBoolean(true)(value);
+        case 'diagnostics.enabled':
+            return normalizeBoolean(true)(value);
+        case 'docs.enabled':
+            return normalizeBoolean(true)(value);
+        case 'docs.metadataGlob':
+            return normalizeNonEmptyString(value, DEFAULT_DOC_METADATA_GLOB);
+        case 'editor.blockLayout':
+            return normalizeSmartBlockLayout(value);
+        case 'pythonPath':
+            return typeof value === 'string' ? value.trim() : '';
+    }
+}
+
+function equivalentSettingValue(left: unknown, right: unknown): boolean {
+    return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function xlideGlobalSettingSource(
@@ -285,7 +429,7 @@ function expectStringArrayEnum<T extends readonly string[]>(
     }
 }
 
-function expectNonEmptyStringArray(
+function expectKnownAnalysisRuleCodeArray(
     values: XlideGlobalSettingsSnapshot,
     problems: XlideGlobalSettingsProblem[],
     key: string,
@@ -297,6 +441,11 @@ function expectNonEmptyStringArray(
     }
     if (value.some((entry) => typeof entry !== 'string' || entry.trim().length === 0)) {
         problems.push(problem(key, `Expected "xlide.${key}" entries to be non-empty strings.`));
+        return;
+    }
+    const invalid = value.find((entry) => normalizeKnownAnalysisRuleCodes([entry]).length === 0);
+    if (invalid !== undefined) {
+        problems.push(problem(key, `Expected "xlide.${key}" entries to be known analysis rule codes.`));
     }
 }
 
@@ -343,9 +492,14 @@ export {
     type ResolvedXlideGlobalSetting,
     type XlideGlobalSettingKey,
     type XlideGlobalSettingSource,
+    type XlideGlobalSettingUpdateResult,
     type XlideGlobalSettingsProblem,
+    clearXlideGlobalAnalysisRuleSeverityOverride,
     resolvedXlideGlobalSettingsFromConfig,
+    resetXlideGlobalSettingValue,
+    setXlideGlobalAnalysisRuleSeverityOverride,
     setXlideGlobalAnalysisRuleTracked,
+    setXlideGlobalSettingValue,
     validateXlideGlobalSettingsFromConfig,
     validateXlideGlobalSettingsValues,
     xlideAnalysisRuleSeveritiesFromConfig,

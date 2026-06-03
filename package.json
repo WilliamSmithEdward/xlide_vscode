@@ -255,6 +255,12 @@
         "title": "Open Workbook Settings",
         "category": "XLIDE",
         "icon": "$(json)"
+      },
+      {
+        "command": "xlide.openGlobalSettings",
+        "title": "Open Global Settings",
+        "category": "XLIDE",
+        "icon": "$(settings-gear)"
       }
     ],
     "views": {

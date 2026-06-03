@@ -648,6 +648,17 @@ export function diagnosticMetadataForCode(
 	return DIAGNOSTIC_METADATA_BY_CODE.get(normalized);
 }
 
+/** Metadata for every active diagnostic rule, sorted by stable diagnostic code. */
+export function allDiagnosticRuleMetadata(): DiagnosticRuleMetadata[] {
+	return Array.from(DIAGNOSTIC_METADATA_BY_CODE.values())
+		.sort((left, right) => left.code.localeCompare(right.code));
+}
+
+/** True when a diagnostic code is part of the active XLIDE rule catalog. */
+export function isKnownDiagnosticRuleCode(code: string | undefined): boolean {
+	return diagnosticMetadataForCode(code) !== undefined;
+}
+
 /** Severity override choices allowed for one diagnostic code. */
 export function allowedDiagnosticSeverityOverridesForCode(
 	code: string | undefined,

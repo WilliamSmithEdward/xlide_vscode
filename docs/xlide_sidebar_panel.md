@@ -16,11 +16,12 @@ development in VS Code.
   Explorer-hosted XLIDE workbook tree, setup/dependency health with green/yellow
   status dots, a dedicated target-workbook action group, core XLIDE actions,
   compact settings launchers, and support actions.
-- Global/editor settings are opened through VS Code Settings. Workbook-scoped
+- Global/editor settings are opened through the dedicated XLIDE Global Settings
+  GUI and still persist to VS Code machine/profile settings. Workbook-scoped
   settings continue to live in `<workbook>.xlide_settings.json` and are edited
   from workbook-facing GUIs rather than permanent sidebar rows.
 - Dense inline global/machine settings rows have been replaced by one global
-  settings launcher. A dedicated XLIDE Global Settings GUI remains roadmap work.
+  settings launcher.
 
 ## Stability Agreement
 

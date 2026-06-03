@@ -32,6 +32,7 @@ describe('xlideSidebarModel', () => {
         expect(model[3].children?.map((node) => [node.label, node.description])).toEqual([
             ['Global Settings', 'VS Code / Machine'],
         ]);
+        expect(model[3].children?.[0]?.command?.command).toBe('xlide.openGlobalSettings');
         expect(model[4].children?.map((node) => node.label)).toEqual([
             'Copy Diagnostics',
             'Export Support Bundle',

@@ -211,14 +211,20 @@ describe('VBA language configuration', () => {
 	});
 
 	it('contributes the workbook settings command used by the XLIDE sidebar', () => {
-		const command = loadPackage()
+		const commands = loadPackage()
 			.contributes
-			?.commands
-			?.find((entry) => entry.command === 'xlide.openWorkbookSettings');
+			?.commands ?? [];
+		const command = commands.find((entry) => entry.command === 'xlide.openWorkbookSettings');
+		const globalCommand = commands.find((entry) => entry.command === 'xlide.openGlobalSettings');
 
 		expect(command).toMatchObject({
 			command: 'xlide.openWorkbookSettings',
 			title: 'Open Workbook Settings',
+			category: 'XLIDE',
+		});
+		expect(globalCommand).toMatchObject({
+			command: 'xlide.openGlobalSettings',
+			title: 'Open Global Settings',
 			category: 'XLIDE',
 		});
 	});

@@ -1136,12 +1136,14 @@ the deterministic analyzer contract.
   and agent export-mode configuration. The generic sidecar owner stays in
   `src/workbookSettings.ts`, and sync saves preserve unrelated workbook
   settings instead of stamping defaults for the opposite import/export lane.
-- [ ] Add a dedicated XLIDE Global Settings GUI for contributed VS Code/machine
+- [x] Add a dedicated XLIDE Global Settings GUI for contributed VS Code/machine
   settings. It must consume `resolvedXlideGlobalSettingsFromConfig`, show
   provenance/validation, and persist changes through VS Code machine/profile
-  settings only. The sidebar should expose this through one button, not a long
-  inline settings list.
-- [ ] In the XLIDE Global Settings GUI, render global analysis ignore/untrack
+  settings only. The sidebar exposes this through one button, not a long inline
+  settings list. The first implementation is `xlide.openGlobalSettings`, a
+  webview that edits runtime, editor, docs, visible severity, untracked-rule,
+  and guarded rule severity settings through the shared global settings owner.
+- [x] In the XLIDE Global Settings GUI, render global analysis ignore/untrack
   settings as guided controls rather than raw array editing.
   `xlide.analysis.untrackedRules` should be a searchable dropdown or
   multi-select populated from `ruleMetadata.ts`, showing human-friendly rule

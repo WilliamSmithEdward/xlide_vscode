@@ -1,5 +1,6 @@
 import {
     allowedDiagnosticSeverityOverridesForCode,
+    diagnosticMetadataForCode,
     normalizeDiagnosticSeverityOverrides,
     type DiagnosticSeverityOverride,
 } from './analyzer/diagnostics/ruleMetadata';
@@ -62,6 +63,11 @@ export function normalizeAnalysisRuleCodes(value: unknown): string[] {
         .map(normalizeAnalysisRuleCode)
         .filter((entry): entry is string => Boolean(entry)))]
         .sort();
+}
+
+export function normalizeKnownAnalysisRuleCodes(value: unknown): string[] {
+    return normalizeAnalysisRuleCodes(value)
+        .filter((code) => diagnosticMetadataForCode(code) !== undefined);
 }
 
 export function normalizeAnalysisRuleCode(code: unknown): string | undefined {

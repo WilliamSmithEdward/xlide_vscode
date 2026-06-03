@@ -13,6 +13,7 @@ import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { createRecordedOutputChannel } from './xlideOutputLog';
+import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import { registerXlideSidebar } from './xlideSidebar';
 import type { XlideSidebarSetupStatus } from './xlideSidebarModel';
 
@@ -319,6 +320,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
 
         ...sidebar.disposables,
+        registerXlideGlobalSettingsWebview(),
         ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
         ...registerAgentTools(context, bridge, explorer, fsProvider),
 

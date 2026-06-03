@@ -152,10 +152,9 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'settings.openGlobal',
                 'Global Settings',
                 'VS Code / Machine',
-                'workbench.action.openSettings',
-                'Open XLIDE global/editor settings in VS Code Settings. The dedicated XLIDE Global Settings GUI is tracked on the roadmap.',
+                'xlide.openGlobalSettings',
+                'Open XLIDE global/editor settings.',
                 'settings-gear',
-                ['@ext:WilliamSmithE.xlide'],
             ),
         ]),
         section('support', 'Support', [

@@ -395,8 +395,10 @@ no explicit sidebar target is selected, the context can fall back to the active
 workbook-scoped sidebar buttons are disabled rather than falling back to an
 unrelated editor. The selected target is workspace UI state, not a global
 setting or workbook sidecar value. The Settings section offers a compact global
-settings launcher without rendering workbook-scoped import/export, analysis, or
-sidecar rows. The Support section keeps troubleshooting actions together. The
+settings launcher that opens `xlide.openGlobalSettings`, a dedicated webview for
+VS Code machine/profile settings, without rendering workbook-scoped
+import/export, analysis, or sidecar rows. The Support section keeps
+troubleshooting actions together. The
 bottom Donate section renders each donation action with `Donate` as the card
 title and the platform details as the subtitle: GitHub Sponsors, PayPal, and
 Cash App. Workbook-facing GUIs read `<workbook-filename>.xlide_settings.json`
