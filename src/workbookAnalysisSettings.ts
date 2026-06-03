@@ -226,6 +226,7 @@ function withAnalysisSettings(
         exportFolder: config.exportFolder,
         exportMode: config.exportMode,
         importMode: config.importMode,
+        tests: config.tests,
         ...(normalizedAnalysis ? { analysis: normalizedAnalysis } : {}),
     };
 }
@@ -235,6 +236,7 @@ function withoutAnalysisSettings(config: WorkbookSettingsConfig): WorkbookSettin
         exportFolder: config.exportFolder,
         exportMode: config.exportMode,
         importMode: config.importMode,
+        tests: config.tests,
     };
 }
 

@@ -26,12 +26,18 @@ interface WorkbookSettingsConfig {
     exportMode?: ExportMode;
     importMode?: ImportMode;
     analysis?: WorkbookAnalysisSettingsConfig;
+    tests?: WorkbookTestSettingsConfig;
 }
 
 interface WorkbookAnalysisSettingsConfig {
     visibleSeverities?: AnalysisSeverityFilter[];
     untrackedRules?: string[];
     ruleSeverityOverrides?: AnalysisRuleSeverityOverrides;
+}
+
+interface WorkbookTestSettingsConfig {
+    artifactFolder?: string;
+    artifactRetention?: number;
 }
 
 type WorkbookSettingsConfigInput = Omit<WorkbookSettingsConfig, 'exportMode'> & {
@@ -95,11 +101,34 @@ function normalizeWorkbookAnalysisSettingsConfig(value: unknown): WorkbookAnalys
     return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+function normalizeWorkbookTestSettingsConfig(value: unknown): WorkbookTestSettingsConfig | undefined {
+    if (!value || typeof value !== 'object') {
+        return undefined;
+    }
+    const source = value as {
+        artifactFolder?: unknown;
+        artifactRetention?: unknown;
+    };
+    const normalized: WorkbookTestSettingsConfig = {};
+    if (typeof source.artifactFolder === 'string') {
+        normalized.artifactFolder = source.artifactFolder;
+    }
+    if (
+        typeof source.artifactRetention === 'number' &&
+        Number.isInteger(source.artifactRetention) &&
+        source.artifactRetention > 0
+    ) {
+        normalized.artifactRetention = source.artifactRetention;
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 function normalizeWorkbookSettingsConfig(config: {
     exportFolder?: unknown;
     exportMode?: unknown;
     importMode?: unknown;
     analysis?: unknown;
+    tests?: unknown;
 }): WorkbookSettingsConfig {
     const normalized: WorkbookSettingsConfig = {};
     if (typeof config.exportFolder === 'string') {
@@ -116,6 +145,10 @@ function normalizeWorkbookSettingsConfig(config: {
     if (analysis) {
         normalized.analysis = analysis;
     }
+    const tests = normalizeWorkbookTestSettingsConfig(config.tests);
+    if (tests) {
+        normalized.tests = tests;
+    }
     return normalized;
 }
 
@@ -127,7 +160,7 @@ function parseWorkbookSettingsConfig(value: unknown, configPath: string): Workbo
     if (!isPlainObject(value)) {
         throw new WorkbookSettingsError(configPath, 'Expected the root value to be a JSON object.');
     }
-    assertKnownKeys(value, configPath, 'root', ['exportFolder', 'exportMode', 'importMode', 'analysis']);
+    assertKnownKeys(value, configPath, 'root', ['exportFolder', 'exportMode', 'importMode', 'analysis', 'tests']);
 
     const parsed: WorkbookSettingsConfig = {};
     if ('exportFolder' in value) {
@@ -141,6 +174,9 @@ function parseWorkbookSettingsConfig(value: unknown, configPath: string): Workbo
     }
     if ('analysis' in value) {
         parsed.analysis = expectAnalysisSettings(value.analysis, configPath, 'analysis');
+    }
+    if ('tests' in value) {
+        parsed.tests = expectTestSettings(value.tests, configPath, 'tests');
     }
     return parsed;
 }
@@ -171,6 +207,29 @@ function expectAnalysisSettings(
             configPath,
             `${fieldPath}.ruleSeverityOverrides`,
         );
+    }
+    return Object.keys(parsed).length > 0 ? parsed : undefined;
+}
+
+function expectTestSettings(
+    value: unknown,
+    configPath: string,
+    fieldPath: string,
+): WorkbookTestSettingsConfig | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (!isPlainObject(value)) {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
+    }
+    assertKnownKeys(value, configPath, fieldPath, ['artifactFolder', 'artifactRetention']);
+
+    const parsed: WorkbookTestSettingsConfig = {};
+    if ('artifactFolder' in value) {
+        parsed.artifactFolder = expectOptionalString(value.artifactFolder, configPath, `${fieldPath}.artifactFolder`);
+    }
+    if ('artifactRetention' in value) {
+        parsed.artifactRetention = expectPositiveInteger(value.artifactRetention, configPath, `${fieldPath}.artifactRetention`);
     }
     return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
@@ -235,6 +294,16 @@ function expectRuleSeverityOverrides(
     return Object.keys(parsed).length > 0 ? normalizeAnalysisRuleSeverityOverrides(parsed) : undefined;
 }
 
+
+function expectPositiveInteger(value: unknown, configPath: string, fieldPath: string): number | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a positive integer.`);
+    }
+    return value;
+}
 
 function expectOptionalString(value: unknown, configPath: string, fieldPath: string): string | undefined {
     if (value === undefined) {
@@ -352,6 +421,7 @@ export {
     type WorkbookAnalysisSettingsConfig,
     type WorkbookSettingSource,
     type WorkbookSettingsConfig,
+    type WorkbookTestSettingsConfig,
     WorkbookSettingsError,
     isWorkbookSettingsError,
     normalizeExportMode,

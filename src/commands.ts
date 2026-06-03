@@ -74,6 +74,7 @@ import {
     xlideAttachToRunningExcelFromConfig,
 } from './globalSettings';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
+import { effectiveWorkbookTestSettings } from './workbookTestSettings';
 import { lineStartOffsets, VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
@@ -1322,9 +1323,14 @@ export function registerCommands(
             const { report, hostEvents } = execution;
             log(`[runVbaTests] Report JSON:\n${JSON.stringify(report, null, 2)}`);
             try {
-                const artifacts = await writeVbaTestRunArtifacts(report, hostEvents);
+                const testSettings = await effectiveWorkbookTestSettings(filePath);
+                const artifacts = await writeVbaTestRunArtifacts(report, hostEvents, {
+                    outputFolder: testSettings.artifactFolder,
+                    retention: testSettings.artifactRetention,
+                });
                 log(`[runVbaTests] Artifacts written to ${artifacts.runDirectory}`);
                 log(`[runVbaTests] CI status written to ${artifacts.statusPath}`);
+                log(`[runVbaTests] Artifact settings source folder=${testSettings.artifactFolderSource} retention=${testSettings.artifactRetentionSource}`);
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[runVbaTests] Artifact write failed: ${message}`);

@@ -186,7 +186,7 @@ describe('VBA test artifacts', () => {
         });
     });
 
-    it('writes summary, sanitized host trace, output log, and latest CI status', async () => {
+	it('writes summary, sanitized host trace, output log, and latest CI status', async () => {
         const workbook = tempWorkbook('Live Test.xlsm');
         const report = testReport(workbook, [
             result('Tests.Passes', 'passed', 10),
@@ -277,10 +277,52 @@ describe('VBA test artifacts', () => {
                     { phase: 'workbook-open', count: 1, failed: 0, totalDurationMs: 80, maxDurationMs: 80 },
                 ],
             },
-        });
-    });
+		});
+	});
 
-    it('sanitizes workbook paths in persisted host traces', () => {
+	it('writes to a configured artifact folder and prunes only old matching workbook run directories', async () => {
+		const workbook = tempWorkbook('Live Test.xlsm');
+		const artifactFolder = path.join(path.dirname(workbook), 'ci-artifacts');
+		for (const name of [
+			'Live_Test_2026-06-01_000000',
+			'Live_Test_2026-06-02_000000',
+			'Live_Test_2026-06-03_000000',
+			'Live_Test_2026-05-31_000000',
+			'Other_2026-06-01_000000',
+			'Live_Test_notes',
+		]) {
+			fs.mkdirSync(path.join(artifactFolder, name), { recursive: true });
+			fs.writeFileSync(path.join(artifactFolder, name, 'keep.txt'), name, 'utf8');
+			if (name.startsWith('Live_Test_2026-06-')) {
+				fs.writeFileSync(path.join(artifactFolder, name, 'summary.json'), '{}\n', 'utf8');
+			}
+		}
+		const report = testReport(workbook, [
+			result('Tests.Passes', 'passed', 10),
+		]);
+
+		const written = await writeVbaTestRunArtifacts(report, [], {
+			outputFolder: 'ci-artifacts',
+			retention: 2,
+			generatedAt: new Date('2026-06-03T21:23:00.000Z'),
+		});
+
+		expect(written.relativePaths.summary).toBe('ci-artifacts/Live_Test_2026-06-03_212233/summary.json');
+		expect(fs.existsSync(path.join(artifactFolder, 'Live_Test_2026-06-03_212233'))).toBe(true);
+		expect(fs.existsSync(path.join(artifactFolder, 'Live_Test_2026-06-03_000000'))).toBe(true);
+		expect(fs.existsSync(path.join(artifactFolder, 'Live_Test_2026-06-02_000000'))).toBe(false);
+		expect(fs.existsSync(path.join(artifactFolder, 'Live_Test_2026-06-01_000000'))).toBe(false);
+		expect(fs.existsSync(path.join(artifactFolder, 'Live_Test_2026-05-31_000000', 'keep.txt'))).toBe(true);
+		expect(fs.existsSync(path.join(artifactFolder, 'Other_2026-06-01_000000', 'keep.txt'))).toBe(true);
+		expect(fs.existsSync(path.join(artifactFolder, 'Live_Test_notes', 'keep.txt'))).toBe(true);
+		expect(JSON.parse(fs.readFileSync(written.statusPath, 'utf8'))).toMatchObject({
+			paths: {
+				summary: 'ci-artifacts/Live_Test_2026-06-03_212233/summary.json',
+			},
+		});
+	});
+
+	it('sanitizes workbook paths in persisted host traces', () => {
         const workbook = tempWorkbook('Book.xlsm');
         const events: VbaTestHostOracleEvent[] = [
             {

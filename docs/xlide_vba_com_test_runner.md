@@ -276,7 +276,7 @@ Remaining shipped-runner execution features include:
 - stage/test duration metrics and performance regression baselines
 - setup and teardown hooks
 - explicit test logs
-- configurable artifact output folder and retention policy
+- GUI controls for artifact output folder and retention policy
 - explicit headless/automation runner mode
 - stable result ids for editor navigation and CI artifacts
 
@@ -361,9 +361,25 @@ automation consumers, but it does not by itself make XLIDE a headless CI runner.
 ## Run Artifacts and CI Status
 
 The runner persists run artifacts into a workbook-specific output folder. The
-current implementation uses the default folder `tests`, resolved relative to
-the workbook directory. User-configurable output folder selection and retention
-policy are planned follow-ups.
+default folder is `tests`, resolved relative to the workbook directory.
+Workbook-specific sidecar settings can override both the folder and retention
+count:
+
+```json
+{
+  "tests": {
+    "artifactFolder": "tests",
+    "artifactRetention": 20
+  }
+}
+```
+
+`artifactFolder` may be relative to the workbook directory or absolute.
+`artifactRetention` keeps the newest matching XLIDE run directories for the same
+workbook, including the current run, and defaults to `20`. Cleanup only targets
+run directories that match XLIDE's generated `<workbook>_yyyy-mm-dd_hhmmss`
+pattern and contain `summary.json`; unrelated folders in the output directory
+are left alone.
 
 Each run creates a timestamped run directory using
 `yyyy-mm-dd_hhmmss`, preferably prefixed with a sanitized workbook stem:
@@ -444,8 +460,8 @@ assertion/runtime layer can provide it deterministically.
 
 Prefer relative artifact paths where possible, and include workbook name only by
 default. Avoid absolute workbook paths in CI status unless an explicit setting
-enables them. Add retention later as a bounded cleanup policy, such as keeping
-the last N run directories with a default around 20. Use `status_for_ci.json` as
+enables them. Retention is a bounded cleanup policy that keeps the last N
+matching run directories with a default around 20. Use `status_for_ci.json` as
 the latest-run pointer instead of filesystem symlinks or junctions.
 
 ## Excel COM Session Policy

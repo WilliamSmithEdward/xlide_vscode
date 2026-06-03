@@ -116,6 +116,10 @@ describe('workbook analysis settings', () => {
 			exportFolder,
 			exportMode: 'trueUp',
 			importMode: 'updateOnly',
+			tests: {
+				artifactFolder: 'custom-tests',
+				artifactRetention: 3,
+			},
 		});
 
 		await setWorkbookAnalysisVisibleSeverities(workbook, ['warning']);
@@ -124,6 +128,10 @@ describe('workbook analysis settings', () => {
 			exportFolder,
 			exportMode: 'trueUp',
 			importMode: 'updateOnly',
+			tests: {
+				artifactFolder: 'custom-tests',
+				artifactRetention: 3,
+			},
 			analysis: {
 				visibleSeverities: ['warning'],
 			},
@@ -266,6 +274,10 @@ describe('workbook analysis settings', () => {
 		await writeWorkbookSettings(workbook, {
 			exportFolder,
 			exportMode: 'trueUp',
+			tests: {
+				artifactFolder: 'custom-tests',
+				artifactRetention: 4,
+			},
 			analysis: {
 				visibleSeverities: ['warning'],
 				untrackedRules: ['argument-count'],
@@ -278,6 +290,10 @@ describe('workbook analysis settings', () => {
 		expect(await readWorkbookSettings(workbook)).toEqual({
 			exportFolder,
 			exportMode: 'trueUp',
+			tests: {
+				artifactFolder: 'custom-tests',
+				artifactRetention: 4,
+			},
 		});
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			visibleSeveritiesSource: 'default',

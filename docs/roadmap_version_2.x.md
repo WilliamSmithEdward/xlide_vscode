@@ -891,9 +891,12 @@ VBA code from XLIDE, using Excel COM as the execution host.
   breaks/control characters, CI status avoids absolute workbook paths, and
   line/column are omitted from CI status until exact failure locations are
   deterministic.
-- [ ] Add configurable workbook-specific test artifact output folder and
-  retention for the last N run directories, with a default around 20. Keep
-  `status_for_ci.json` as the latest-run pointer instead of symlinks/junctions.
+- [x] Add configurable workbook-specific test artifact output folder and
+  retention for the last N run directories, with a default around 20. Workbook
+  sidecars now support `tests.artifactFolder` and `tests.artifactRetention`;
+  the writer prunes only matching XLIDE run directories for the same workbook
+  and keeps `status_for_ci.json` as the latest-run pointer instead of
+  symlinks/junctions.
 - [ ] Support tests that assert expected output, expected state, expected thrown
   error, and expected absence of errors.
 - [x] Return machine-readable JSON results for automation and render a concise
@@ -1255,7 +1258,7 @@ the deterministic analyzer contract.
   - timeouts
   - workbook reset behavior
   - trusted test folders
-  - result output path, defaulting to `tests` relative to the workbook
+  - [x] result output path, defaulting to `tests` relative to the workbook
 - [ ] Add sidebar/profile UI for active configuration.
 - [x] Add configuration validation diagnostics for malformed settings. Global
   VS Code XLIDE settings now validate through `src/globalSettings.ts` and
@@ -1416,10 +1419,9 @@ Definition of done:
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
 4. Continue hardening the VBA test runner beyond the explicit `@xlide-test`
-   run-all/current-scope/single-host slice: add run artifacts plus
-   `status_for_ci.json`, disposable-session safety, rerun-failed/automation
-   flows, setup/teardown, compile-error capture, suite timeouts, and full
-   workflow documentation before calling it shipped.
+   run-all/current-scope/single-host slice: disposable-session safety,
+   rerun-failed/automation flows, setup/teardown, compile-error capture, suite
+   timeouts, and full workflow documentation before calling it shipped.
 5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
    for analysis, test, setup, sync, and workbook actions; avoid using the Output
    channel as the primary UX for actionable workflow results.

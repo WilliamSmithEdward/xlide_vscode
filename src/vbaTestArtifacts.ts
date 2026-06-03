@@ -10,6 +10,7 @@ import {
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
 
 export const DEFAULT_VBA_TEST_ARTIFACT_FOLDER = 'tests';
+export const DEFAULT_VBA_TEST_ARTIFACT_RETENTION = 20;
 export const VBA_TEST_CI_STATUS_FILE_NAME = 'status_for_ci.json';
 
 export type VbaTestCiStatusValue = 'pass' | 'fail' | 'error';
@@ -113,6 +114,7 @@ export interface VbaTestCiFailedTest {
 
 export interface VbaTestRunArtifactOptions {
     outputFolder?: string;
+    retention?: number;
     generatedAt?: Date;
 }
 
@@ -248,6 +250,7 @@ export async function writeVbaTestRunArtifacts(
     await fs.promises.writeFile(paths.hostTracePath, jsonText(sanitizedHostTrace), 'utf8');
     await fs.promises.writeFile(paths.outputLogPath, renderVbaTestOutputLog(report, ciStatus), 'utf8');
     await fs.promises.writeFile(paths.statusPath, jsonText(ciStatus), 'utf8');
+    await pruneOldVbaTestRunArtifacts(paths, effectiveRetention(options.retention));
 
     return {
         ...paths,
@@ -260,6 +263,84 @@ function resolveVbaTestArtifactOutputFolder(workbookPath: string, configuredFold
     return path.isAbsolute(folder)
         ? path.normalize(folder)
         : path.join(path.dirname(workbookPath), folder);
+}
+
+async function pruneOldVbaTestRunArtifacts(
+    paths: VbaTestRunArtifactPaths,
+    retention: number,
+): Promise<void> {
+    const entries = await xlideRunDirectoriesForWorkbook(paths.outputFolder, paths.runId);
+    if (entries.length <= retention) {
+        return;
+    }
+
+    const keep = new Set(entries
+        .slice(0, retention)
+        .map((entry) => entry.name));
+    keep.add(paths.runId);
+
+    await Promise.all(entries
+        .filter((entry) => !keep.has(entry.name))
+        .map((entry) => fs.promises.rm(entry.fullPath, { recursive: true, force: true })));
+}
+
+async function xlideRunDirectoriesForWorkbook(
+    outputFolder: string,
+    currentRunId: string,
+): Promise<Array<{ name: string; fullPath: string }>> {
+    let entries: fs.Dirent[];
+    try {
+        entries = await fs.promises.readdir(outputFolder, { withFileTypes: true });
+    } catch (err) {
+        if (isNodeError(err) && err.code === 'ENOENT') {
+            return [];
+        }
+        throw err;
+    }
+
+    const prefix = workbookRunIdPrefix(currentRunId);
+    const candidates = entries
+        .filter((entry) => entry.isDirectory() && isWorkbookRunDirectoryName(entry.name, prefix))
+        .map((entry) => ({
+            name: entry.name,
+            fullPath: path.join(outputFolder, entry.name),
+        }));
+    const runDirectories: Array<{ name: string; fullPath: string }> = [];
+    for (const candidate of candidates) {
+        if (await isXlideRunArtifactDirectory(candidate.fullPath)) {
+            runDirectories.push(candidate);
+        }
+    }
+    return runDirectories.sort((left, right) => right.name.localeCompare(left.name));
+}
+
+function workbookRunIdPrefix(runId: string): string {
+    const match = /^(.+_)\d{4}-\d{2}-\d{2}_\d{6}$/.exec(runId);
+    return match?.[1] ?? '';
+}
+
+function isWorkbookRunDirectoryName(name: string, prefix: string): boolean {
+    return prefix.length > 0 &&
+        name.startsWith(prefix) &&
+        /^\d{4}-\d{2}-\d{2}_\d{6}$/.test(name.slice(prefix.length));
+}
+
+function effectiveRetention(retention: number | undefined): number {
+    return retention && Number.isInteger(retention) && retention > 0
+        ? retention
+        : DEFAULT_VBA_TEST_ARTIFACT_RETENTION;
+}
+
+async function isXlideRunArtifactDirectory(directory: string): Promise<boolean> {
+    try {
+        const summary = await fs.promises.stat(path.join(directory, 'summary.json'));
+        return summary.isFile();
+    } catch (err) {
+        if (isNodeError(err) && err.code === 'ENOENT') {
+            return false;
+        }
+        throw err;
+    }
 }
 
 function classifyCiStatus(summary: VbaTestRunSummary): { status: VbaTestCiStatusValue; reason: VbaTestCiReason } {
@@ -399,4 +480,8 @@ function toPosixPath(value: string): string {
 
 function jsonText(value: unknown): string {
     return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function isNodeError(value: unknown): value is NodeJS.ErrnoException {
+    return value !== null && typeof value === 'object' && 'code' in value;
 }

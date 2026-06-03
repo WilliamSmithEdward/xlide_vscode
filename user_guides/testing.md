@@ -84,9 +84,26 @@ tests/
 lifecycle. `output.log` is a readable transcript. `status_for_ci.json` is
 overwritten on each run with compact latest-run metadata for downstream CI.
 
+To change the artifact folder or retention policy for one workbook, edit the
+workbook sidecar file `<workbook>.xlide_settings.json`:
+
+```json
+{
+  "tests": {
+    "artifactFolder": "tests",
+    "artifactRetention": 20
+  }
+}
+```
+
+`artifactFolder` may be relative to the workbook directory or absolute.
+`artifactRetention` keeps the newest matching XLIDE run directories for that
+workbook. Cleanup only targets generated run folders that contain `summary.json`;
+unrelated folders in the output directory are left alone.
+
 ## Current Limitations
 
 Excel COM execution is Windows-only. The first shipped path uses the selected
 workbook and standard-module VBA tests; setup/teardown helpers, richer expected
-output/state assertions, configurable artifact folders, retention policies, and
-module/current-test run controls inside the Tests GUI are planned follow-ups.
+output/state assertions, and module/current-test run controls inside the Tests
+GUI are planned follow-ups.

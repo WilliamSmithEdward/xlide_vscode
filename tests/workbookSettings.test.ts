@@ -53,6 +53,10 @@ describe('workbookSettings', () => {
 			exportFolder: 'C:/repo',
 			exportMode: 'trueUp',
 			importMode: 'updateOnly',
+			tests: {
+				artifactFolder: 'custom-tests',
+				artifactRetention: 7,
+			},
 			analysis: {
 				visibleSeverities: ['warning', 'warning'],
 				untrackedRules: [' Option-Explicit-Missing ', 'option-explicit-missing'],
@@ -67,6 +71,10 @@ describe('workbookSettings', () => {
 			exportFolder: 'C:/repo',
 			exportMode: 'trueUp',
 			importMode: 'updateOnly',
+			tests: {
+				artifactFolder: 'custom-tests',
+				artifactRetention: 7,
+			},
 			analysis: {
 				visibleSeverities: ['warning', 'warning'],
 				untrackedRules: ['option-explicit-missing'],
@@ -182,6 +190,39 @@ describe('workbookSettings', () => {
 			expect(err instanceof Error ? err.message : String(err))
 				.toContain('Expected "analysis.visibleSeverities" entries');
 		}
+	});
+
+	it('rejects invalid workbook test settings from disk', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({
+				tests: {
+					artifactFolder: 123,
+					artifactRetention: 0,
+				},
+			}, null, 2)}\n`,
+			'utf8',
+		);
+
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow(
+			'Expected "tests.artifactFolder" to be a string.',
+		);
+
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({
+				tests: {
+					artifactFolder: 'tests',
+					artifactRetention: 0,
+				},
+			}, null, 2)}\n`,
+			'utf8',
+		);
+
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow(
+			'Expected "tests.artifactRetention" to be a positive integer.',
+		);
 	});
 
 	it('rejects invalid workbook rule severity overrides from disk', async () => {
