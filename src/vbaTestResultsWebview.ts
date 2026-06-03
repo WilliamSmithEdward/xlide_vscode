@@ -33,6 +33,7 @@ export function renderVbaTestResultsHtml(
             <td>
                 <div class="testName">${escapeHtml(result.test.qualifiedName)}</div>
                 <div class="meta">${escapeHtml(`${result.test.moduleName}:${result.test.line}:${result.test.column}`)}</div>
+                ${testMetadataHtml(result.test.metadata)}
             </td>
             <td>${escapeHtml(`${result.durationMs} ms`)}</td>
             <td>${result.error ? escapeHtml(result.error) : ''}</td>
@@ -82,7 +83,7 @@ export function renderVbaTestResultsHtml(
         }
         .stats {
             display: grid;
-            grid-template-columns: repeat(4, minmax(92px, 1fr));
+            grid-template-columns: repeat(6, minmax(92px, 1fr));
             gap: 10px;
             margin: 20px 0;
         }
@@ -143,6 +144,27 @@ export function renderVbaTestResultsHtml(
             color: var(--vscode-testing-iconSkipped, #cca700);
             background: color-mix(in srgb, var(--vscode-testing-iconSkipped, #cca700) 16%, transparent);
         }
+        .xfail .status {
+            color: var(--vscode-testing-iconSkipped, #cca700);
+            background: color-mix(in srgb, var(--vscode-testing-iconSkipped, #cca700) 16%, transparent);
+        }
+        .xpass .status {
+            color: var(--vscode-testing-iconQueued, #4fc1ff);
+            background: color-mix(in srgb, var(--vscode-testing-iconQueued, #4fc1ff) 16%, transparent);
+        }
+        .tagSet {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 6px;
+        }
+        .tag {
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 999px;
+            padding: 1px 7px;
+            color: var(--vscode-descriptionForeground);
+            background: var(--vscode-badge-background);
+        }
         .contract {
             margin-top: 16px;
         }
@@ -194,6 +216,8 @@ function renderSummary(summary: VbaTestRunSummary): string {
         ${statHtml(summary.passed, 'Passed')}
         ${statHtml(summary.failed, 'Failed')}
         ${statHtml(summary.skipped, 'Skipped')}
+        ${statHtml(summary.xfail, 'XFail')}
+        ${statHtml(summary.xpass, 'XPass')}
     </section>`;
 }
 
@@ -209,9 +233,36 @@ function statusLabel(status: string): string {
             return 'Failed';
         case 'skipped':
             return 'Skipped';
+        case 'xfail':
+            return 'XFail';
+        case 'xpass':
+            return 'XPass';
         default:
             return status;
     }
+}
+
+function testMetadataHtml(metadata: {
+    tags: readonly string[];
+    owner?: string;
+    requirement?: string;
+    timeoutMs?: number;
+    expectedError?: string;
+    skipReason?: string;
+    xfailReason?: string;
+}): string {
+    const tags = [
+        ...metadata.tags,
+        metadata.owner ? `owner:${metadata.owner}` : '',
+        metadata.requirement ? `req:${metadata.requirement}` : '',
+        metadata.timeoutMs ? `timeout:${metadata.timeoutMs}ms` : '',
+        metadata.expectedError ? `expected-error:${metadata.expectedError}` : '',
+        metadata.xfailReason ? 'xfail' : '',
+    ].filter(Boolean);
+    if (tags.length === 0) {
+        return '';
+    }
+    return `<div class="tagSet">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`;
 }
 
 function escapeHtml(value: unknown): string {

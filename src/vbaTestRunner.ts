@@ -7,7 +7,7 @@ import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
 
-export type VbaTestStatus = 'passed' | 'failed' | 'skipped';
+export type VbaTestStatus = 'passed' | 'failed' | 'skipped' | 'xfail' | 'xpass';
 
 export interface VbaTestModuleEntry {
     name: string;
@@ -24,6 +24,17 @@ export interface VbaTestCase {
     line: number;
     column: number;
     annotationLine: number;
+    metadata: VbaTestMetadata;
+}
+
+export interface VbaTestMetadata {
+    tags: string[];
+    owner?: string;
+    requirement?: string;
+    timeoutMs?: number;
+    expectedError?: string;
+    skipReason?: string;
+    xfailReason?: string;
 }
 
 export interface VbaTestDiscoveryResult {
@@ -55,6 +66,8 @@ export interface VbaTestRunSummary {
     passed: number;
     failed: number;
     skipped: number;
+    xfail: number;
+    xpass: number;
 }
 
 export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestCase[] {
@@ -72,8 +85,8 @@ export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestC
         if (!isRunnableTestProcedure(member)) {
             continue;
         }
-        const annotationLine = precedingTestAnnotationLine(lines, starts, member.span.start);
-        if (annotationLine === undefined) {
+        const annotation = precedingTestAnnotation(lines, starts, member.span.start);
+        if (!annotation) {
             continue;
         }
         const location = offsetToLineColumn(starts, member.span.start);
@@ -85,7 +98,8 @@ export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestC
             qualifiedName: `${module.name}.${member.name}`,
             line: location.line,
             column: location.column,
-            annotationLine,
+            annotationLine: annotation.line,
+            metadata: annotation.metadata,
         });
     }
 
@@ -148,6 +162,8 @@ export function summarizeVbaTestRun(report: Pick<VbaTestRunReport, 'results'>): 
         passed: 0,
         failed: 0,
         skipped: 0,
+        xfail: 0,
+        xpass: 0,
     };
     for (const result of report.results) {
         summary[result.status]++;
@@ -171,26 +187,123 @@ function isRunnableTestProcedure(member: unknown): member is ProcedureNode {
     );
 }
 
-function precedingTestAnnotationLine(lines: readonly string[], starts: readonly number[], offset: number): number | undefined {
+function precedingTestAnnotation(
+    lines: readonly string[],
+    starts: readonly number[],
+    offset: number,
+): { line: number; metadata: VbaTestMetadata } | undefined {
     const declarationLine = offsetToLineColumn(starts, offset).line - 1;
+    const block: Array<{ line: number; text: string }> = [];
     for (let lineIndex = declarationLine - 1; lineIndex >= 0; lineIndex--) {
         const line = lines[lineIndex] ?? '';
         if (/^\s*$/.test(line)) {
-            return undefined;
+            break;
         }
-        if (isXlideTestDirectiveComment(line)) {
-            return lineIndex + 1;
+        if (!/^\s*'/.test(line)) {
+            break;
         }
-        if (/^\s*'/.test(line)) {
+        block.unshift({ line: lineIndex + 1, text: line });
+    }
+
+    const metadata = defaultTestMetadata();
+    let annotationLine: number | undefined;
+    let discovered = false;
+    for (const entry of block) {
+        const directive = parseXlideTestDirective(entry.text);
+        if (!directive) {
             continue;
         }
+        if (annotationLine === undefined) {
+            annotationLine = entry.line;
+        }
+        discovered = true;
+        mergeDirectiveMetadata(metadata, directive);
+    }
+
+    if (!discovered || annotationLine === undefined) {
         return undefined;
     }
-    return undefined;
+    return {
+        line: annotationLine,
+        metadata,
+    };
 }
 
-function isXlideTestDirectiveComment(line: string): boolean {
-    return /^\s*'\s*@xlide-test\b/i.test(line);
+interface ParsedTestDirective {
+    kind: 'test' | 'skip' | 'xfail';
+    values: Record<string, string>;
+}
+
+function parseXlideTestDirective(line: string): ParsedTestDirective | undefined {
+    const match = /^\s*'\s*@(xlide-test(?:-(skip|xfail))?)\b(.*)$/i.exec(line);
+    if (!match) {
+        return undefined;
+    }
+    const suffix = match[2]?.toLowerCase();
+    return {
+        kind: suffix === 'skip' || suffix === 'xfail' ? suffix : 'test',
+        values: parseDirectiveKeyValues(match[3] ?? ''),
+    };
+}
+
+function parseDirectiveKeyValues(text: string): Record<string, string> {
+    const values: Record<string, string> = {};
+    const re = /([A-Za-z][A-Za-z0-9_-]*)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(text)) !== null) {
+        const key = match[1].toLowerCase();
+        values[key] = match[2] ?? match[3] ?? match[4] ?? '';
+    }
+    return values;
+}
+
+function defaultTestMetadata(): VbaTestMetadata {
+    return { tags: [] };
+}
+
+function mergeDirectiveMetadata(metadata: VbaTestMetadata, directive: ParsedTestDirective): void {
+    const tags = splitTags(directive.values.tags);
+    if (tags.length > 0) {
+        metadata.tags = [...new Set([...metadata.tags, ...tags])];
+    }
+    metadata.owner = directive.values.owner ?? metadata.owner;
+    metadata.requirement = directive.values.requirement ?? directive.values.req ?? metadata.requirement;
+    metadata.expectedError = directive.values['expected-error'] ?? directive.values.expectederror ?? metadata.expectedError;
+    const timeoutMs = parseTimeoutMs(directive.values.timeout ?? directive.values.timeoutms);
+    if (timeoutMs !== undefined) {
+        metadata.timeoutMs = timeoutMs;
+    }
+    if (directive.kind === 'skip') {
+        metadata.skipReason = directive.values.reason ?? 'Skipped by @xlide-test-skip.';
+    } else if (directive.kind === 'xfail') {
+        metadata.xfailReason = directive.values.reason ?? 'Expected failure by @xlide-test-xfail.';
+    }
+}
+
+function splitTags(value: string | undefined): string[] {
+    if (!value) {
+        return [];
+    }
+    return value
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
+}
+
+function parseTimeoutMs(value: string | undefined): number | undefined {
+    if (!value) {
+        return undefined;
+    }
+    const normalized = value.trim().toLowerCase();
+    const match = /^(\d+)(ms|s)?$/.exec(normalized);
+    if (!match) {
+        return undefined;
+    }
+    const amount = Number(match[1]);
+    if (!Number.isFinite(amount) || amount <= 0) {
+        return undefined;
+    }
+    return match[2] === 's' ? amount * 1000 : amount;
 }
 
 function offsetToLineColumn(

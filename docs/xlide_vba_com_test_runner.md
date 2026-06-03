@@ -1,6 +1,7 @@
 # XLIDE VBA COM Test Runner
 
-Status: planned downstream-developer documentation, not implemented behavior.
+Status: first implementation slice exists. This document tracks the current
+downstream-developer workflow plus remaining shipped-runner gaps.
 
 Purpose: describe the intended workflow for writing and running VBA project tests
 from XLIDE through Excel COM. This document should become the user-facing guide
@@ -16,20 +17,23 @@ before the test runner is considered shipped.
 
 ## Intended Developer Workflow
 
-1. Create VBA test procedures using an explicit XLIDE test marker or manifest.
-2. Open the workbook/project in XLIDE.
-3. Run `XLIDE: Run VBA Tests`.
-4. Review test results in VS Code.
-5. Open failing tests, assertion messages, runtime errors, and logs from the
+1. Open the workbook/project in XLIDE.
+2. Run `XLIDE: Install VBA Test Support Module` if you want the built-in
+   `XlideAssert` helpers.
+3. Create VBA test procedures using an explicit XLIDE test marker.
+4. Run `XLIDE: Run VBA Unit Tests`.
+5. Review test results in VS Code.
+6. Open failing tests, assertion messages, runtime errors, and logs from the
    result view.
 
 Discovery must be explicit. XLIDE should not discover tests by guessing from
 procedure names alone.
 
-## Planned Test Marker
+## Current Test Marker
 
-Exact syntax is not final. The first implementation should prefer a
-VBA-comment-compatible annotation such as:
+XLIDE discovers tests from a VBA-comment-compatible annotation block immediately
+above a zero-argument `Sub` in a standard module. Discovery is explicit; names
+such as `TestSomething` do not matter unless the marker is present.
 
 ```vba
 ' @xlide-test
@@ -38,7 +42,7 @@ Public Sub InvoiceTotal_AddsTax()
 End Sub
 ```
 
-Feature-rich metadata should stay explicit and deterministic:
+Supported first-slice metadata is explicit and deterministic:
 
 ```vba
 ' @xlide-test tags=invoice,smoke owner=finance requirement=INV-104
@@ -58,14 +62,16 @@ Public Sub ImportsFromErp()
 End Sub
 ```
 
-Rules to decide before implementation:
+Current marker rules:
 
-- Whether annotations live in comments, a manifest file, or both.
-- The exact key/value grammar for metadata.
-- Whether setup/teardown hooks live in annotations, a manifest, or convention
-  backed by explicit manifest entries.
-- Whether tests must be `Public Sub` procedures with no required parameters.
-- How to select tests by module, procedure, tag, or workbook.
+- Annotations live in apostrophe comment lines immediately above the procedure.
+- Blank lines or non-comment source lines break the annotation block.
+- `@xlide-test`, `@xlide-test-skip`, and `@xlide-test-xfail` all mark the
+  procedure as discoverable.
+- Tests must be standard-module `Sub` procedures with no parameters.
+- Supported key/value metadata: `tags`, `owner`, `requirement`, `timeout`,
+  `expected-error`, and `reason` on skip/xfail markers.
+- Command execution currently runs all discovered tests in the workbook.
 
 ## Expected Failures, Skips, and Tags
 
@@ -87,7 +93,8 @@ Semantics:
 - If the test passes and is marked expected-failure, record `xpass`.
 - `xpass` should be visible in the result view and configurable as either a
   suite failure or warning.
-- Expected-failure markers require a reason.
+- Expected-failure markers should include a reason; if omitted, XLIDE records a
+  default expected-failure reason.
 
 Skip:
 
@@ -100,7 +107,8 @@ End Sub
 Semantics:
 
 - Skipped tests are discovered but not executed.
-- Skips require a reason.
+- Skip markers should include a reason; if omitted, XLIDE records a default skip
+  reason.
 - Skips appear in result JSON and the Test Results view.
 
 Tags:
@@ -115,6 +123,17 @@ Semantics:
 
 - Tags are explicit metadata, not inferred from names.
 - The command UI and automation mode should support include/exclude tag filters.
+
+## Current Execution Features
+
+The current runner supports:
+
+- run all discovered tests in the target workbook
+- pass/fail/skip/xfail/xpass accounting
+- JSON report logging in the XLIDE Output channel
+- a concise VS Code test results panel
+- command palette and workbook-tree entry points
+- non-Windows discovery with skipped execution because Excel COM is Windows-only
 
 ## Planned Execution Features
 
@@ -144,10 +163,32 @@ Candidate scopes:
 - before workbook test session
 - after workbook test session
 
+## Current Assertion Surface
+
+Run `XLIDE: Install VBA Test Support Module` on a workbook to install/update the
+standard `XlideAssert` module. The current API is:
+
+```vba
+XlideAssert.AreEqual expected, actual
+XlideAssert.AreNotEqual unexpected, actual
+XlideAssert.IsTrue condition
+XlideAssert.IsFalse condition
+XlideAssert.AreSame expectedObject, actualObject
+XlideAssert.IsNothing value
+XlideAssert.IsNotNothing value
+XlideAssert.Throws expectedErrorNumber, "ModuleName.ProcedureName"
+XlideAssert.DoesNotThrow "ModuleName.ProcedureName"
+XlideAssert.Fail "message"
+XlideAssert.AssertionErrorNumber()
+```
+
+Assertion failures raise `vbObjectError + 513` with source `XLIDE.Assert`, so
+the COM runner records them as failed tests.
+
 ## Planned Assertion Surface
 
 The shipped documentation should describe every supported assertion with
-examples. Candidate assertions:
+examples. Candidate future assertions:
 
 ```vba
 XlideAssert.AreEqual expected, actual

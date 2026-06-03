@@ -39,6 +39,11 @@ import {
     type VbaTestRunReport,
 } from './vbaTestRunner';
 import { openVbaTestResults } from './vbaTestResultsWebview';
+import {
+    normalizeVbaTestSupportModuleSource,
+    XLIDE_ASSERT_MODULE_NAME,
+    XLIDE_ASSERT_MODULE_SOURCE,
+} from './vbaTestSupportModule';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import {
     resolvedXlideGlobalSettingsFromConfig,
@@ -721,6 +726,16 @@ export function registerCommands(
         log(`[runVbaTests] attachToRunningExcel=${attachToRunning}`);
         for (let index = 0; index < discovery.tests.length; index++) {
             const test = discovery.tests[index];
+            if (test.metadata.skipReason) {
+                results.push({
+                    test,
+                    status: 'skipped',
+                    durationMs: 0,
+                    error: test.metadata.skipReason,
+                });
+                log(`[runVbaTests] SKIP ${test.qualifiedName}: ${test.metadata.skipReason}`);
+                continue;
+            }
             const testStartedMs = Date.now();
             progress?.report({
                 message: `${index + 1}/${discovery.tests.length} ${test.qualifiedName}`,
@@ -729,13 +744,24 @@ export function registerCommands(
             try {
                 await runWindowsExcelMacroReadOnly(filePath, test.qualifiedName, attachToRunning);
                 const durationMs = Date.now() - testStartedMs;
-                results.push({ test, status: 'passed', durationMs });
-                log(`[runVbaTests] PASS ${test.qualifiedName} (${durationMs} ms)`);
+                if (test.metadata.xfailReason) {
+                    const message = `Expected failure did not occur: ${test.metadata.xfailReason}`;
+                    results.push({ test, status: 'xpass', durationMs, error: message });
+                    log(`[runVbaTests] XPASS ${test.qualifiedName} (${durationMs} ms): ${message}`);
+                } else {
+                    results.push({ test, status: 'passed', durationMs });
+                    log(`[runVbaTests] PASS ${test.qualifiedName} (${durationMs} ms)`);
+                }
             } catch (err) {
                 const durationMs = Date.now() - testStartedMs;
                 const message = vbaTestFailureMessage(err);
-                results.push({ test, status: 'failed', durationMs, error: message });
-                log(`[runVbaTests] FAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
+                if (test.metadata.xfailReason) {
+                    results.push({ test, status: 'xfail', durationMs, error: message });
+                    log(`[runVbaTests] XFAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
+                } else {
+                    results.push({ test, status: 'failed', durationMs, error: message });
+                    log(`[runVbaTests] FAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
+                }
             }
         }
 
@@ -757,9 +783,9 @@ export function registerCommands(
             );
             return;
         }
-        if (summary.failed > 0) {
+        if (summary.failed > 0 || summary.xpass > 0) {
             void vscode.window.showWarningMessage(
-                `XLIDE: "${label}" VBA tests finished with ${summary.failed} failed, ${summary.passed} passed, ${summary.skipped} skipped.`,
+                `XLIDE: "${label}" VBA tests finished with ${summary.failed} failed, ${summary.xpass} unexpected passed, ${summary.passed} passed, ${summary.skipped} skipped.`,
             );
             return;
         }
@@ -772,6 +798,73 @@ export function registerCommands(
         void vscode.window.showInformationMessage(
             `XLIDE: "${label}" passed ${summary.passed} VBA test(s).`,
         );
+    }
+
+    async function installVbaTestSupportModule(filePath: string): Promise<boolean> {
+        const modules = await bridge.call<Array<{ name: string; type: string }>>(
+            'listModules',
+            { path: filePath },
+        );
+        const existing = modules.find(
+            (module) => module.name.toLowerCase() === XLIDE_ASSERT_MODULE_NAME.toLowerCase(),
+        );
+        if (existing && existing.type !== 'standard') {
+            void vscode.window.showErrorMessage(
+                `XLIDE: "${XLIDE_ASSERT_MODULE_NAME}" already exists as a ${existing.type} module. Rename it before installing the test support module.`,
+            );
+            return false;
+        }
+        if (existing) {
+            const current = await bridge.call<{ source: string }>(
+                'readModule',
+                { path: filePath, module: existing.name },
+            );
+            if (
+                normalizeVbaTestSupportModuleSource(current.source) ===
+                normalizeVbaTestSupportModuleSource(XLIDE_ASSERT_MODULE_SOURCE)
+            ) {
+                void vscode.window.showInformationMessage(
+                    `XLIDE: "${XLIDE_ASSERT_MODULE_NAME}" is already installed in "${path.basename(filePath)}".`,
+                );
+                return false;
+            }
+            const choice = await vscode.window.showWarningMessage(
+                `Update the existing "${XLIDE_ASSERT_MODULE_NAME}" module in "${path.basename(filePath)}"?`,
+                { modal: true },
+                'Update',
+            );
+            if (choice !== 'Update') {
+                return false;
+            }
+        }
+
+        const result = await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>(
+            'writeModule',
+            {
+                path: filePath,
+                module: XLIDE_ASSERT_MODULE_NAME,
+                source: XLIDE_ASSERT_MODULE_SOURCE,
+                kind: 'standard',
+            },
+        );
+        notifySignatureDropped(filePath, Boolean(result.signatureDropped));
+        const summaryText = logChangeSummary('installVbaTestSupport', {
+            operation: existing ? 'Update VBA test support module' : 'Install VBA test support module',
+            changed: [XLIDE_ASSERT_MODULE_NAME],
+        });
+        recordWriteAudit({
+            command: 'xlide.installVbaTestSupport',
+            operation: 'write-module',
+            outcome: 'succeeded',
+            workbookPath: filePath,
+            moduleName: XLIDE_ASSERT_MODULE_NAME,
+            summary: summaryText,
+        });
+        explorer.refresh();
+        void vscode.window.showInformationMessage(
+            `XLIDE: "${XLIDE_ASSERT_MODULE_NAME}" ${existing ? 'updated' : 'installed'} in "${path.basename(filePath)}".`,
+        );
+        return true;
     }
 
     function resolveWorkbookPath(node?: XlideNode): string | undefined {
@@ -2302,6 +2395,31 @@ export function registerCommands(
                 const msg = err instanceof Error ? err.message : String(err);
                 log(`[runVbaTests] FAILED: ${msg}`);
                 vscode.window.showErrorMessage(`XLIDE: VBA tests failed: ${msg}`);
+            }
+        }),
+
+        // Install/update the standard VBA assertion helpers used by XLIDE tests.
+        registerXlideCommand('xlide.installVbaTestSupport', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) {
+                vscode.window.showWarningMessage('XLIDE: No workbook selected for test support installation.');
+                return;
+            }
+            try {
+                await installVbaTestSupportModule(filePath);
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                log(`[installVbaTestSupport] FAILED: ${msg}`);
+                recordWriteAudit({
+                    command: 'xlide.installVbaTestSupport',
+                    operation: 'write-module',
+                    outcome: 'failed',
+                    workbookPath: filePath,
+                    moduleName: XLIDE_ASSERT_MODULE_NAME,
+                    summary: 'Install VBA test support module: 0 changed, 1 failed',
+                    error: err,
+                });
+                vscode.window.showErrorMessage(`XLIDE: Failed to install VBA test support: ${msg}`);
             }
         }),
 

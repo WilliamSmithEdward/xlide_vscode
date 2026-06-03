@@ -20,6 +20,9 @@ describe('VBA test results webview', () => {
         expect(html).toContain('Tests.TestFail');
         expect(html).toContain('Passed');
         expect(html).toContain('Failed');
+        expect(html).toContain('XFail');
+        expect(html).toContain('owner:finance');
+        expect(html).toContain('smoke');
         expect(html).toContain('&lt;boom&gt;');
         expect(html).toContain('@xlide-test');
     });
@@ -35,6 +38,11 @@ function reportFixture(): VbaTestRunReport {
         line: 2,
         column: 1,
         annotationLine: 1,
+        metadata: {
+            tags: ['smoke'],
+            owner: 'finance',
+            requirement: 'INV-104',
+        },
     };
     const fail = {
         ...pass,
@@ -43,6 +51,16 @@ function reportFixture(): VbaTestRunReport {
         qualifiedName: 'Tests.TestFail',
         line: 6,
         annotationLine: 5,
+        metadata: { tags: [] },
+    };
+    const xfail = {
+        ...pass,
+        id: 'Tests.TestExpectedFailure',
+        procedureName: 'TestExpectedFailure',
+        qualifiedName: 'Tests.TestExpectedFailure',
+        line: 10,
+        annotationLine: 9,
+        metadata: { tags: ['known-bug'], xfailReason: 'Pending fix' },
     };
     return {
         filePath: 'C:/work/Book.xlsm',
@@ -51,7 +69,7 @@ function reportFixture(): VbaTestRunReport {
         durationMs: 45,
         discovery: {
             filePath: 'C:/work/Book.xlsm',
-            tests: [pass, fail],
+            tests: [pass, fail, xfail],
             modulesScanned: 1,
             modulesIgnored: 0,
             contract: "Standard-module no-argument Sub procedures with '@xlide-test'.",
@@ -59,6 +77,7 @@ function reportFixture(): VbaTestRunReport {
         results: [
             { test: pass, status: 'passed', durationMs: 10 },
             { test: fail, status: 'failed', durationMs: 20, error: 'Err.Raise <boom>' },
+            { test: xfail, status: 'xfail', durationMs: 14, error: 'Known issue' },
         ],
     };
 }

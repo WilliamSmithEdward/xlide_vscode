@@ -16,7 +16,7 @@ describe('VBA test runner discovery', () => {
             source: [
                 'Option Explicit',
                 "' regular comment in the annotation block",
-                "' @xlide-test",
+                "' @xlide-test tags=smoke,fast owner=finance requirement=INV-104 timeout=2s expected-error=13",
                 'Public Sub AddsNumbers()',
                 'End Sub',
                 '',
@@ -42,7 +42,42 @@ describe('VBA test runner discovery', () => {
             line: 4,
             column: 1,
             annotationLine: 3,
+            metadata: {
+                tags: ['smoke', 'fast'],
+                owner: 'finance',
+                requirement: 'INV-104',
+                timeoutMs: 2000,
+                expectedError: '13',
+            },
         })]);
+    });
+
+    it('discovers skip and expected-failure metadata from the annotation block', () => {
+        const tests = discoverVbaTestsFromModule({
+            name: 'MetadataTests',
+            type: 'standard',
+            source: [
+                "' @xlide-test tags=known-bug",
+                "' @xlide-test-xfail reason=\"Pending fix\"",
+                'Sub KnownFailure()',
+                'End Sub',
+                '',
+                "' @xlide-test-skip reason=\"Needs external workbook\"",
+                'Sub ExternalScenario()',
+                'End Sub',
+            ].join('\n'),
+        });
+
+        expect(tests.map((test) => [test.qualifiedName, test.metadata])).toEqual([
+            ['MetadataTests.KnownFailure', {
+                tags: ['known-bug'],
+                xfailReason: 'Pending fix',
+            }],
+            ['MetadataTests.ExternalScenario', {
+                tags: [],
+                skipReason: 'Needs external workbook',
+            }],
+        ]);
     });
 
     it('ignores annotations in modules Excel cannot run as standard macros', async () => {
@@ -84,6 +119,7 @@ describe('VBA test runner reporting', () => {
             line: 2,
             column: 1,
             annotationLine: 1,
+            metadata: { tags: [] },
         };
         const report = createVbaTestRunReport({
             filePath: 'C:/work/Book.xlsm',
@@ -100,15 +136,19 @@ describe('VBA test runner reporting', () => {
                 { test, status: 'passed', durationMs: 3 },
                 { test, status: 'failed', durationMs: 4, error: 'boom' },
                 { test, status: 'skipped', durationMs: 0, error: 'not supported' },
+                { test, status: 'xfail', durationMs: 5, error: 'known failure' },
+                { test, status: 'xpass', durationMs: 6, error: 'unexpected pass' },
             ],
         });
 
         expect(report.workbookName).toBe('Book.xlsm');
         expect(summarizeVbaTestRun(report)).toEqual({
-            total: 3,
+            total: 5,
             passed: 1,
             failed: 1,
             skipped: 1,
+            xfail: 1,
+            xpass: 1,
         });
         expect(vbaTestFailureMessage(new Error('RUN_FAILED|Assertion failed'))).toBe('Assertion failed');
     });

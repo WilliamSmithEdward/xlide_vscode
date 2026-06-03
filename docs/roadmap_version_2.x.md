@@ -792,19 +792,19 @@ VBA code from XLIDE, using Excel COM as the execution host.
   not mutate the developer's open workbook unexpectedly.
 - [x] Reuse the workbook close/reopen/reset discipline from macro execution and
   warn when a workbook cannot be safely reopened in XLIDE's context.
-- [ ] Add a small VBA assertion/support module or equivalent injected test
+- [x] Add a small VBA assertion/support module or equivalent injected test
   runtime for assertions such as equality, truth, expected error, and expected
   no error.
 - [ ] Support rich explicit test metadata:
-  - tags/categories
-  - skip reason
-  - expected failure (`xfail`) reason
-  - per-test timeout
-  - owner or requirement id
-  - expected error metadata
+  - [x] tags/categories
+  - [x] skip reason
+  - [x] expected failure (`xfail`) reason
+  - [x] per-test timeout metadata
+  - [x] owner or requirement id
+  - [x] expected error metadata
   - output/state assertions
 - [ ] Support developer-friendly test selection and execution modes:
-  - run all
+  - [x] run all
   - run current test
   - run current module
   - include/exclude tags
@@ -817,19 +817,19 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - workbook/session setup and teardown
   - deterministic cleanup failure reporting
 - [ ] Capture deterministic test results:
-  - pass/fail/skip
-  - expected failure (`xfail`)
-  - unexpected pass (`xpass`)
+  - [x] pass/fail/skip
+  - [x] expected failure (`xfail`)
+  - [x] unexpected pass (`xpass`)
   - compile errors
-  - runtime errors, including error number and description
-  - assertion failures
+  - [x] runtime errors, including error description
+  - [x] assertion failures
   - explicit test log/output written through the XLIDE test API
   - timeout and teardown failures
 - [ ] Support tests that assert expected output, expected state, expected thrown
   error, and expected absence of errors.
 - [x] Return machine-readable JSON results for automation and render a concise
   Problems/Test Results view in VS Code.
-- [ ] Keep the product test runner separate from the Excel/VBE oracle. The
+- [x] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
 - [x] Add fixture tests before enabling broad adoption.
 - [ ] Add a full developer VBA test GUI, not just a command/output stream. It
