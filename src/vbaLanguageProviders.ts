@@ -34,6 +34,7 @@ import {
     ReferenceScope,
     resolveDiagnosticCodeActions,
     resolveMemberCompletions,
+    resolveProcedureLabelDefinitionAt,
     resolveTypeReferenceAt,
     resolveTypeSemanticTokens,
     TypeSemanticTokenType,
@@ -472,13 +473,25 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
     ): Promise<vscode.Location[] | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
 
+        const source = document.getText();
+        const offset = document.offsetAt(position);
+        const labelDefinition = resolveProcedureLabelDefinitionAt(source, offset);
+        if (labelDefinition) {
+            return [new vscode.Location(
+                document.uri,
+                new vscode.Range(
+                    document.positionAt(labelDefinition.label.span.start),
+                    document.positionAt(labelDefinition.label.span.end),
+                ),
+            )];
+        }
+
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { return undefined; }
         const word = document.getText(wordRange);
         const line = document.lineAt(position.line).text;
         const qualifier = detectQualifier(line, wordRange.start.character);
 
-        const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const modules = applyOpenDocumentSources(
             await this._index.getAllModules(xlsmPath),
@@ -538,7 +551,7 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
 
         const defs = qualifier
             ? project.resolveQualifiedDefinition(unquoteModule(qualifier), word)
-            : project.resolveDefinition(moduleName, word, document.offsetAt(position));
+            : project.resolveDefinition(moduleName, word, offset);
 
         const locations: vscode.Location[] = [];
         for (const sym of defs) {

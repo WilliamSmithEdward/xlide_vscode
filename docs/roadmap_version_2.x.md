@@ -468,7 +468,7 @@ Purpose: move from same-module checks to workbook-aware analysis.
   the shared `tests/helpers/vbaProjectFixtures.ts` harness.
 - [x] Keep current project-signature diagnostics stable under module order
   changes.
-- [ ] Add a unified procedure-local control-flow and error-label resolver:
+- [x] Add a unified procedure-local control-flow and error-label resolver:
   - [x] Collect named and numeric labels per procedure and validate simple
     `GoTo`, `GoSub`, `Resume <label>`, `On Error GoTo <label>`, `On n GoTo`,
     and `On n GoSub` label targets.
@@ -476,7 +476,7 @@ Purpose: move from same-module checks to workbook-aware analysis.
     `Resume`, and `Resume Next` as explicit valid non-label forms.
   - [x] Emit the `undefined-label` hard diagnostic only for spec/oracle-backed
     VBE-equivalent label failures.
-  - [ ] Feed the collected label surface into completion/navigation.
+  - [x] Feed the collected label surface into completion/navigation.
 
 Definition of done:
 
@@ -706,12 +706,14 @@ Purpose: keep the live editor useful while the user is mid-keystroke.
   `thisworkbook_trailing_dot_compile`,
   `bare_leading_member_access_inside_with_compile`, and the valid
   `leading_member_access_inside_with_compile` control.
-- [ ] Make diagnostic ranges precise and stable.
+- [x] Make diagnostic ranges precise and stable.
   - [x] Pin structural block-balance diagnostics to the opener/closer syntax
     phrase (`If`, `For Each`, `End If`, `#Else`, etc.) instead of whole lines.
   - [x] Pin the first declaration-order batch to exact tokens: misplaced
     `Option` statements, required parameters after `Optional`, and non-trailing
     `ParamArray`.
+  - [x] Pin procedure label diagnostics and navigation to exact label target and
+    declaration tokens through the shared procedure-label surface.
 - [x] Emit semantic tokens and hover for resolved type names in declaration type
   positions (`As Person`, `As Worksheet`, `As Currency`, function returns,
   parameters, UDT fields, and local/module variables) and `New Person`

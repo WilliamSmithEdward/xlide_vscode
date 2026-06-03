@@ -46,11 +46,13 @@ import {
 	resolveIdentifierCompletions,
 	resolveKeywordCompletions,
 	resolveMemberCompletions,
+	resolveProcedureLabelCompletions,
 	resolveSignatureHelp,
 	resolveTypeCompletions,
 	SignatureHelpContext,
 	TypeCompletion,
 	TypeCompletionContext,
+	type VbaProcedureLabelCompletion,
 } from './analyzer';
 import {
 	buildLiveVbaProjectIndex,
@@ -206,6 +208,11 @@ class VbaMemberCompletionProvider
 		const events = resolveEventHandlerCompletions(source, offset, eventCtx);
 		if (events.length > 0) {
 			return events.map((event) => this._toEventHandlerItem(event, range));
+		}
+
+		const labels = resolveProcedureLabelCompletions(source, offset);
+		if (labels.length > 0) {
+			return labels.map((label) => this._toProcedureLabelItem(label, range));
 		}
 
 		const keywords = resolveKeywordCompletions(source, offset, {
@@ -652,6 +659,19 @@ class VbaMemberCompletionProvider
 		item.filterText = event.name;
 		item.sortText = `0:${event.name}`;
 		item.insertText = new vscode.SnippetString(event.insertText);
+		return item;
+	}
+
+	private _toProcedureLabelItem(
+		label: VbaProcedureLabelCompletion,
+		range: vscode.Range,
+	): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(label.label, vscode.CompletionItemKind.Reference);
+		item.detail = label.detail;
+		item.range = range;
+		item.filterText = label.label;
+		item.sortText = `1:${label.label}`;
+		item.insertText = label.label;
 		return item;
 	}
 

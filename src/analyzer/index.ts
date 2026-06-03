@@ -106,6 +106,17 @@ export {
 	resolveKeywordCompletions,
 } from './completion/keywordCompletion';
 export {
+	collectProcedureLabelReferences,
+	collectProcedureLabels,
+	resolveProcedureLabelCompletions,
+	resolveProcedureLabelDefinitionAt,
+	statementLabelReferences,
+	VbaProcedureLabel,
+	VbaProcedureLabelCompletion,
+	VbaProcedureLabelDefinition,
+	VbaProcedureLabelReference,
+} from './flow/procedureLabels';
+export {
 	EventHandlerCompletion,
 	EventHandlerCompletionContext,
 	EventHandlerDocumentType,
