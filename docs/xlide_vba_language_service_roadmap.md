@@ -84,6 +84,13 @@ A diagnostic is acceptable only when at least one of the following is true:
 - It is verified by a focused fixture against the real VBE/VBA runtime.
 - It is clearly labeled as an optional style inspection and disabled by default.
 
+Corpus promotion must cover both sides of behavior. Accepted forms become
+no-diagnostic controls that guard against false positives. Rejected forms become
+compile-equivalent diagnostics when VBE or MS-VBAL proves they cannot compile.
+Forms that compile but deterministically raise when executed may also become
+red/error diagnostics, but they must be labeled and worded as deterministic
+runtime failures rather than syntax errors.
+
 ### 4. Determinism over cleverness
 
 The language service must be deterministic. The same project text must produce the same tokens, AST, symbol graph, diagnostics, and completions every run.

@@ -50,6 +50,25 @@ Diagnostic text must match the certainty of the rule.
 - Uncertain behavior should not be hidden behind hedged red text. Prefer no
   diagnostic until the behavior is deterministic enough to state plainly.
 
+## Corpus Promotion Strategy
+
+Corpus and oracle work must prove invalid behavior just as deliberately as valid
+behavior. A promoted case should land in one of these buckets:
+
+- Accepted VBA behavior: no diagnostic, and use the case to prevent false
+  positives.
+- Compile-invalid VBA behavior: red/error diagnostic when VBE or MS-VBAL proves
+  the form cannot compile.
+- Deterministic runtime failure: red/error diagnostic when the form compiles but
+  will always raise when that execution path runs.
+- Advisory or context-dependent behavior: warning only when useful, otherwise no
+  diagnostic until the behavior becomes deterministic.
+
+Keep compile-invalid and deterministic-runtime diagnostics distinct in rule
+metadata, wording, tests, and documentation. Runtime diagnostics may still be
+red when the failure is certain; they must say what will raise rather than
+claiming the syntax is invalid.
+
 ## Configuration Scoping
 
 Use discernment when deciding where settings live.
