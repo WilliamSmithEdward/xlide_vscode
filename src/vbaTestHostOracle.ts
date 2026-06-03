@@ -74,6 +74,7 @@ export type VbaTestHostOracleEvent =
         message?: string;
         texts?: string[];
         buttons?: string[];
+        buttonIds?: number[];
         safeToDismiss?: boolean;
         classification?: string;
     }
@@ -84,6 +85,7 @@ export type VbaTestHostOracleEvent =
         title?: string;
         message?: string;
         button?: string;
+        buttonId?: number;
         dismissed: boolean;
     }
     | {
@@ -93,6 +95,7 @@ export type VbaTestHostOracleEvent =
         title?: string;
         message?: string;
         buttons?: string[];
+        buttonIds?: number[];
         reason: string;
     }
     | {

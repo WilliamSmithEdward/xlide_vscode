@@ -961,6 +961,11 @@ export function registerCommands(
                 }, timeoutMs);
             };
 
+            const modalBlockedMessage = (event: Extract<VbaTestHostOracleEvent, { kind: 'modal-blocked' }>): string => {
+                const modalDetail = [event.title, event.message].filter(Boolean).join(': ');
+                return `Blocked by Excel modal dialog${modalDetail ? ` (${modalDetail})` : ''}.`;
+            };
+
             const handleEvent = (event: VbaTestHostOracleEvent) => {
                 events.push(event);
                 if (event.kind === 'excel-created') {
@@ -977,11 +982,24 @@ export function registerCommands(
                 } else if (event.kind === 'modal-dismissed') {
                     log(`[runVbaTests host] modal-dismissed ${event.qualifiedName} button=${event.button ?? 'unknown'} dismissed=${event.dismissed}`);
                 } else if (event.kind === 'modal-blocked') {
-                    const matchesCurrentMacro = currentMacro &&
+                    if (currentMacro &&
                         currentMacro.excelId === event.excelId &&
-                        currentMacro.qualifiedName === event.qualifiedName;
-                    if (matchesCurrentMacro) {
+                        currentMacro.qualifiedName === event.qualifiedName) {
+                        const macro = currentMacro;
                         currentModalBlocker = event;
+                        const durationMs = Date.now() - macro.startedMs;
+                        const message = modalBlockedMessage(event);
+                        events.push({
+                            kind: 'macro-finished',
+                            excelId: macro.excelId,
+                            qualifiedName: macro.qualifiedName,
+                            outcome: 'modal-blocked',
+                            durationMs,
+                            message,
+                        });
+                        killOwnedExcel('modal-blocked');
+                        child.kill();
+                        finish(message);
                     }
                     log(`[runVbaTests host] modal-blocked ${event.qualifiedName}: ${event.reason}`);
                 } else if (event.kind === 'macro-finished') {
@@ -1407,6 +1425,16 @@ export function registerCommands(
             };
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
+            if (isVbaProjectAccessBlockedMessage(message)) {
+                return {
+                    state: 'blocked',
+                    title: 'VBA Project Access Blocked',
+                    description: 'Enable "Trust access to the VBA project object model" in Excel Trust Center before installing or running workbook tests.',
+                    actionLabel: 'Blocked',
+                    canInstall: false,
+                    canRun: false,
+                };
+            }
             return {
                 state: 'unknown',
                 title: 'Test Support Unknown',
@@ -1416,6 +1444,12 @@ export function registerCommands(
                 canRun: false,
             };
         }
+    }
+
+    function isVbaProjectAccessBlockedMessage(message: string): boolean {
+        return /programmatic access to visual basic project is not trusted/i.test(message) ||
+            /access to the vba project object model/i.test(message) ||
+            /trust access to the vba project object model/i.test(message);
     }
 
     function moduleSourceFromReadResult(result: { source?: string } | string): string {

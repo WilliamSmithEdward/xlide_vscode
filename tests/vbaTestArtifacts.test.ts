@@ -133,6 +133,59 @@ describe('VBA test artifacts', () => {
         });
     });
 
+    it('summarizes blocked modal cleanup for downstream CI consumers', () => {
+        const workbook = tempWorkbook('Blocked.xlsm');
+        const report = testReport(workbook, [
+            result('Tests.DecisionDialog', 'host-error', 5000, 'Blocked by Excel modal dialog.'),
+        ]);
+        const paths = buildVbaTestRunArtifactPaths(report);
+        const status = createVbaTestCiStatus(report, paths, {
+            generatedAt: new Date('2026-06-03T21:23:00.000Z'),
+            hostEvents: [
+                { kind: 'excel-created', excelId: 'xlide-1', owned: true, pid: 123 },
+                { kind: 'macro-started', excelId: 'xlide-1', qualifiedName: 'Tests.DecisionDialog', timeoutMs: 5000 },
+                {
+                    kind: 'modal-blocked',
+                    excelId: 'xlide-1',
+                    qualifiedName: 'Tests.DecisionDialog',
+                    title: 'Question',
+                    message: 'Continue?',
+                    buttons: ['Yes', 'No', 'Cancel'],
+                    buttonIds: [6, 7, 2],
+                    reason: 'decision-or-unknown-dialog',
+                },
+                { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.DecisionDialog', outcome: 'modal-blocked' },
+                { kind: 'excel-killed', excelId: 'xlide-1', reason: 'modal-blocked' },
+            ],
+        });
+
+        expect(status).toMatchObject({
+            status: 'error',
+            reason: 'host-errors',
+            host: {
+                excel: {
+                    created: 1,
+                    quitNormally: false,
+                    killed: 1,
+                    killReasons: ['modal-blocked'],
+                },
+                modals: {
+                    detected: 0,
+                    dismissed: 0,
+                    blocked: 1,
+                    blockedDialogs: [{
+                        qualifiedName: 'Tests.DecisionDialog',
+                        title: 'Question',
+                        message: 'Continue?',
+                        buttons: ['Yes', 'No', 'Cancel'],
+                        buttonIds: [6, 7, 2],
+                        reason: 'decision-or-unknown-dialog',
+                    }],
+                },
+            },
+        });
+    });
+
     it('writes summary, sanitized host trace, output log, and latest CI status', async () => {
         const workbook = tempWorkbook('Live Test.xlsm');
         const report = testReport(workbook, [

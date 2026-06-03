@@ -135,6 +135,7 @@ describe('VBA test host oracle', () => {
                 title: 'XLIDE Modal Smoke',
                 message: 'XLIDE modal smoke',
                 buttons: ['OK'],
+                buttonIds: [1],
                 safeToDismiss: true,
                 classification: 'excel-modal',
             },
@@ -144,6 +145,7 @@ describe('VBA test host oracle', () => {
                 qualifiedName: 'Tests.MsgBox',
                 title: 'XLIDE Modal Smoke',
                 button: 'OK',
+                buttonId: 1,
                 dismissed: true,
             },
             { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.MsgBox', outcome: 'passed' },
@@ -229,6 +231,7 @@ describe('VBA test host oracle', () => {
                 title: 'Microsoft Excel',
                 message: 'Save changes?',
                 buttons: ['Yes', 'No', 'Cancel'],
+                buttonIds: [6, 7, 2],
                 reason: 'decision-or-unknown-dialog',
             },
         ];

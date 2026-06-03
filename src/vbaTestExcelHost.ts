@@ -55,6 +55,9 @@ public static class XlideTestModalWatcher
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+    [DllImport("user32.dll")]
+    private static extern int GetDlgCtrlID(IntPtr hWnd);
+
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SendMessageTimeout(
         IntPtr hWnd,
@@ -67,6 +70,15 @@ public static class XlideTestModalWatcher
 
     private const uint BM_CLICK = 0x00F5;
     private const uint SMTO_ABORTIFHUNG = 0x0002;
+    private const int IDOK = 1;
+    private const int IDCANCEL = 2;
+    private const int IDABORT = 3;
+    private const int IDRETRY = 4;
+    private const int IDIGNORE = 5;
+    private const int IDYES = 6;
+    private const int IDNO = 7;
+    private const int IDCLOSE = 8;
+    private const int IDHELP = 9;
 
     private static readonly object Gate = new object();
     private static Timer WatcherTimer;
@@ -90,6 +102,7 @@ public static class XlideTestModalWatcher
     {
         public IntPtr Handle;
         public string Text = "";
+        public int ControlId;
     }
 
     private sealed class DialogAction
@@ -229,18 +242,24 @@ public static class XlideTestModalWatcher
         info.Title = WindowText(hWnd).Trim();
         EnumChildWindows(hWnd, (child, lParam) =>
         {
+            string childClass = WindowClass(child);
+            if (String.Equals(childClass, "Button", StringComparison.OrdinalIgnoreCase))
+            {
+                info.Buttons.Add(new ButtonInfo
+                {
+                    Handle = child,
+                    Text = WindowText(child).Trim(),
+                    ControlId = GetDlgCtrlID(child)
+                });
+                return true;
+            }
+
             string text = WindowText(child).Trim();
             if (text.Length == 0)
             {
                 return true;
             }
-
-            string childClass = WindowClass(child);
-            if (String.Equals(childClass, "Button", StringComparison.OrdinalIgnoreCase))
-            {
-                info.Buttons.Add(new ButtonInfo { Handle = child, Text = text });
-            }
-            else if (!info.Texts.Contains(text))
+            if (!info.Texts.Contains(text))
             {
                 info.Texts.Add(text);
             }
@@ -255,10 +274,16 @@ public static class XlideTestModalWatcher
         DialogAction action = new DialogAction();
         action.Classification = Classify(info);
 
-        ButtonInfo endButton = FindButton(info, "End");
+        if (String.Equals(action.Classification, "compile-error", StringComparison.Ordinal))
+        {
+            action.SafeToDismiss = false;
+            action.Reason = "compile-error-blocks-runner";
+            return action;
+        }
+
+        ButtonInfo endButton = FindButton(info, "End") ?? FindSafeVbeErrorButton(info);
         if (endButton != null &&
             (String.Equals(action.Classification, "runtime-error", StringComparison.Ordinal) ||
-             String.Equals(action.Classification, "compile-error", StringComparison.Ordinal) ||
              String.Equals(action.Classification, "vba-modal", StringComparison.Ordinal)))
         {
             action.SafeToDismiss = true;
@@ -267,7 +292,7 @@ public static class XlideTestModalWatcher
             return action;
         }
 
-        ButtonInfo okButton = FindButton(info, "OK");
+        ButtonInfo okButton = FindOkButton(info);
         if (okButton != null && HasOnlyInformationalButtons(info))
         {
             action.SafeToDismiss = true;
@@ -307,14 +332,33 @@ public static class XlideTestModalWatcher
         }
         foreach (ButtonInfo button in info.Buttons)
         {
-            string normalized = NormalizeButtonText(button.Text);
-            if (!String.Equals(normalized, "ok", StringComparison.Ordinal) &&
-                !String.Equals(normalized, "help", StringComparison.Ordinal))
+            if (!IsOkButton(button) && !IsHelpButton(button))
             {
                 return false;
             }
         }
-        return FindButton(info, "OK") != null;
+        return FindOkButton(info) != null;
+    }
+
+    private static ButtonInfo FindSafeVbeErrorButton(DialogInfo info)
+    {
+        if (HasUserDecisionButtons(info))
+        {
+            return null;
+        }
+        return FindOkButton(info);
+    }
+
+    private static ButtonInfo FindOkButton(DialogInfo info)
+    {
+        foreach (ButtonInfo button in info.Buttons)
+        {
+            if (IsOkButton(button))
+            {
+                return button;
+            }
+        }
+        return null;
     }
 
     private static ButtonInfo FindButton(DialogInfo info, string caption)
@@ -328,6 +372,50 @@ public static class XlideTestModalWatcher
             }
         }
         return null;
+    }
+
+    private static bool HasUserDecisionButtons(DialogInfo info)
+    {
+        foreach (ButtonInfo button in info.Buttons)
+        {
+            if (IsDecisionButton(button))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool IsOkButton(ButtonInfo button)
+    {
+        return button.ControlId == IDOK ||
+            String.Equals(NormalizeButtonText(button.Text), "ok", StringComparison.Ordinal);
+    }
+
+    private static bool IsHelpButton(ButtonInfo button)
+    {
+        return button.ControlId == IDHELP ||
+            String.Equals(NormalizeButtonText(button.Text), "help", StringComparison.Ordinal);
+    }
+
+    private static bool IsDecisionButton(ButtonInfo button)
+    {
+        string normalized = NormalizeButtonText(button.Text);
+        return button.ControlId == IDCANCEL ||
+            button.ControlId == IDABORT ||
+            button.ControlId == IDRETRY ||
+            button.ControlId == IDIGNORE ||
+            button.ControlId == IDYES ||
+            button.ControlId == IDNO ||
+            button.ControlId == IDCLOSE ||
+            String.Equals(normalized, "cancel", StringComparison.Ordinal) ||
+            String.Equals(normalized, "abort", StringComparison.Ordinal) ||
+            String.Equals(normalized, "retry", StringComparison.Ordinal) ||
+            String.Equals(normalized, "ignore", StringComparison.Ordinal) ||
+            String.Equals(normalized, "yes", StringComparison.Ordinal) ||
+            String.Equals(normalized, "no", StringComparison.Ordinal) ||
+            String.Equals(normalized, "debug", StringComparison.Ordinal) ||
+            String.Equals(normalized, "close", StringComparison.Ordinal);
     }
 
     private static string NormalizeButtonText(string text)
@@ -399,6 +487,7 @@ public static class XlideTestModalWatcher
         AddString(json, "message", info.Message);
         AddStringArray(json, "texts", info.Texts);
         AddButtonArray(json, info);
+        AddButtonIdArray(json, info);
         AddBool(json, "safeToDismiss", action.SafeToDismiss);
         AddString(json, "classification", action.Classification);
         FinishEvent(json);
@@ -410,6 +499,7 @@ public static class XlideTestModalWatcher
         AddString(json, "title", info.Title);
         AddString(json, "message", info.Message);
         AddString(json, "button", button);
+        AddInt(json, "buttonId", ButtonIdByText(info, button));
         AddBool(json, "dismissed", dismissed);
         FinishEvent(json);
     }
@@ -430,6 +520,7 @@ public static class XlideTestModalWatcher
         AddString(json, "title", info.Title);
         AddString(json, "message", info.Message);
         AddButtonArray(json, info);
+        AddButtonIdArray(json, info);
         AddString(json, "reason", action.Reason);
         FinishEvent(json);
     }
@@ -485,6 +576,15 @@ public static class XlideTestModalWatcher
         json.Append(value ? "true" : "false");
     }
 
+    private static void AddInt(StringBuilder json, string name, int value)
+    {
+        AddSeparatorIfNeeded(json);
+        json.Append("\"");
+        json.Append(JsonEscape(name));
+        json.Append("\":");
+        json.Append(value.ToString());
+    }
+
     private static void AddStringArray(StringBuilder json, string name, List<string> values)
     {
         AddSeparatorIfNeeded(json);
@@ -512,6 +612,34 @@ public static class XlideTestModalWatcher
             buttons.Add(button.Text);
         }
         AddStringArray(json, "buttons", buttons);
+    }
+
+    private static void AddButtonIdArray(StringBuilder json, DialogInfo info)
+    {
+        AddSeparatorIfNeeded(json);
+        json.Append("\"buttonIds\":[");
+        for (int i = 0; i < info.Buttons.Count; i++)
+        {
+            if (i > 0)
+            {
+                json.Append(",");
+            }
+            json.Append(info.Buttons[i].ControlId.ToString());
+        }
+        json.Append("]");
+    }
+
+    private static int ButtonIdByText(DialogInfo info, string text)
+    {
+        string normalized = NormalizeButtonText(text);
+        foreach (ButtonInfo button in info.Buttons)
+        {
+            if (String.Equals(NormalizeButtonText(button.Text), normalized, StringComparison.Ordinal))
+            {
+                return button.ControlId;
+            }
+        }
+        return 0;
     }
 
     private static void AddSeparatorIfNeeded(StringBuilder json)

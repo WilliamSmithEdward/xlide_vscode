@@ -90,6 +90,7 @@ export interface VbaTestCiBlockedModal {
     title?: string;
     message?: string;
     buttons?: string[];
+    buttonIds?: number[];
     reason: string;
 }
 
@@ -321,6 +322,7 @@ function summarizeHostEventsForCi(events: readonly VbaTestHostOracleEvent[]): Vb
             ...(sanitizeCiMessage(event.title) ? { title: sanitizeCiMessage(event.title) } : {}),
             ...(sanitizeCiMessage(event.message) ? { message: sanitizeCiMessage(event.message) } : {}),
             ...(event.buttons?.length ? { buttons: event.buttons.map((button) => sanitizeCiMessage(button) ?? '') } : {}),
+            ...(event.buttonIds?.length ? { buttonIds: event.buttonIds } : {}),
             reason: sanitizeCiMessage(event.reason) ?? 'unknown',
         }));
     return {
