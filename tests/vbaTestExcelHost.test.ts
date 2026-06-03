@@ -108,6 +108,18 @@ describe('VBA test Excel host script', () => {
         expect(source).not.toContain('Application.Run');
     });
 
+    it('rejects unsafe dispatcher identifiers before generating VBA source', () => {
+        expect(() => buildVbaTestDirectRunnerModule([
+            { ...testCase('Tests.Pass', {}), moduleName: 'Tests;Kill' },
+        ])).toThrow(/module name is not a valid plain VBA identifier/);
+        expect(() => buildVbaTestDirectRunnerModule([
+            { ...testCase('Tests.Pass', {}), procedureName: 'Pass;Kill' },
+        ])).toThrow(/procedure name is not a valid plain VBA identifier/);
+        expect(() => buildVbaTestDirectRunnerModule([
+            testCase('Tests.Pass', {}),
+        ], 'Bad-Runner')).toThrow(/runner module name is not a valid plain VBA identifier/);
+    });
+
     it('uses per-test timeout metadata when building host plan items', () => {
         const tests: VbaTestCase[] = [
             testCase('Tests.DefaultTimeout', {}),

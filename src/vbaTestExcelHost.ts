@@ -1,5 +1,6 @@
 import type { VbaTestCase } from './vbaTestRunner';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
+import { VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 
 export const XLIDE_TEST_HOST_EVENT_PREFIX = 'XLIDE_TEST_HOST_EVENT|';
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
@@ -28,6 +29,7 @@ export function buildVbaTestDirectRunnerModule(
     tests: readonly VbaTestCase[],
     moduleName = XLIDE_TEST_RUNNER_MODULE_NAME,
 ): string {
+    validateVbaTestDispatcherIdentifiers(tests, moduleName);
     const cases = tests.map((test) => [
         `        Case ${vbaStringLiteral(test.qualifiedName)}`,
         `            Call ${test.moduleName}.${test.procedureName}`,
@@ -78,6 +80,23 @@ export function buildVbaTestDirectRunnerModule(
         'End Function',
         '',
     ].join('\r\n');
+}
+
+export function validateVbaTestDispatcherIdentifiers(
+    tests: readonly VbaTestCase[],
+    runnerModuleName = XLIDE_TEST_RUNNER_MODULE_NAME,
+): void {
+    if (!VBA_IDENTIFIER_NAME_RE.test(runnerModuleName)) {
+        throw new Error(`XLIDE test runner module name is not a valid plain VBA identifier: ${runnerModuleName}`);
+    }
+    for (const test of tests) {
+        if (!VBA_IDENTIFIER_NAME_RE.test(test.moduleName)) {
+            throw new Error(`XLIDE test module name is not a valid plain VBA identifier: ${test.moduleName}`);
+        }
+        if (!VBA_IDENTIFIER_NAME_RE.test(test.procedureName)) {
+            throw new Error(`XLIDE test procedure name is not a valid plain VBA identifier: ${test.procedureName}`);
+        }
+    }
 }
 
 function productionModalWatcherCSharp(): string {

@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as cp from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer, XlideNode } from './xlsmExplorer';
 import {
@@ -56,6 +55,7 @@ import {
 } from './vbaTestHostOracle';
 import { writeVbaTestRunArtifacts } from './vbaTestArtifacts';
 import { openVbaTestResults, setVbaTestResultsRunning } from './vbaTestResultsWebview';
+import { createVbaTestHostTempDir } from './vbaTestTempFiles';
 import { checkExcelComAvailability } from './excelComAvailability';
 import {
     openVbaTestsPanel,
@@ -759,7 +759,7 @@ export function registerCommands(
         tests: readonly VbaTestCase[],
         options: VbaTestRunOptions,
     ): Promise<OwnedReadOnlyExcelHostRunResult> {
-        const hostScriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vba-test-host-'));
+        const hostScriptDir = createVbaTestHostTempDir();
         const tempWorkbookPath = path.join(hostScriptDir, path.basename(filePath));
         const hostScriptPath = path.join(hostScriptDir, 'run-vba-tests.ps1');
         const runnerModuleName = `XlideRun${Date.now().toString(36).slice(-8)}`;

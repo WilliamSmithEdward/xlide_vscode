@@ -907,6 +907,10 @@ VBA code from XLIDE, using Excel COM as the execution host.
   so assertion/runtime details are captured before Excel Automation can collapse
   them into generic `Run` HRESULTs; generic host failures still collapse to
   terse actionable text instead of raw host-script stack output.
+- [x] Harden temporary test-host artifacts. XLIDE cleans stale
+  `xlide-vba-test-host-*` temp folders on activation and validates generated
+  dispatcher module/procedure identifiers before injecting the runner into a
+  temporary workbook copy.
 - [x] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
 - [x] Add fixture tests before enabling broad adoption.

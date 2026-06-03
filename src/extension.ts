@@ -17,6 +17,7 @@ import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import { setXlideGlobalSettingValue, xlidePythonPathFromConfig } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
 import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
+import { cleanupStaleVbaTestHostTempDirs } from './vbaTestTempFiles';
 
 const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/';
 
@@ -75,6 +76,17 @@ function installDependencies(
 export function activate(context: vscode.ExtensionContext): void {
     const out = createRecordedOutputChannel(vscode.window.createOutputChannel('XLIDE'));
     out.appendLine('XLIDE activating...');
+    try {
+        const cleanup = cleanupStaleVbaTestHostTempDirs();
+        if (cleanup.deleted > 0 || cleanup.failed > 0) {
+            out.appendLine(
+                `VBA test temp cleanup: scanned=${cleanup.scanned} deleted=${cleanup.deleted} failed=${cleanup.failed}`,
+            );
+        }
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        out.appendLine(`VBA test temp cleanup skipped: ${message}`);
+    }
 
     const bridge = new PythonBridge(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
