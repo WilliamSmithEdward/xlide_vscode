@@ -821,6 +821,11 @@ VBA code from XLIDE, using Excel COM as the execution host.
   the full test-host proof surface: stage events, blocker classifications,
   no-`SendKeys`/no-focus automation checks, result taxonomy, cleanup guarantees,
   and artifact/status mapping.
+- [ ] Add performance instrumentation and regression gates for the test runner:
+  stage durations, per-test durations, suite duration, and baseline thresholds
+  for startup/open/compile/run/cleanup. Performance work must preserve the
+  read-only single-host contract, blocker classification, and owned-process
+  cleanup guarantees.
 - [ ] Add a comprehensive Excel popup/blocker matrix for the test runner:
   workbook-open prompts, link/update prompts, password/protected-view/security
   prompts, Trust Center/trust-access failures, compile/runtime/modal VBA

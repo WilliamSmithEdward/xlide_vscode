@@ -232,7 +232,15 @@ The completion plan:
    `status_for_ci.json` classification, including failed-test identity,
    bounded/sanitized messages, relative artifact paths, and omission of
    nondeterministic line/column data.
-7. Add optional live Excel canaries. Keep a small manually invoked smoke suite
+7. Add performance gates after correctness gates. The default path should be
+   fast because it opens one owned read-only Excel instance, compiles once per
+   run, runs selected tests in that same host, emits lightweight trace events,
+   and does not re-open/re-import workbooks per test. Record duration by stage
+   and by test so slow startup, open, compile, macro execution, modal handling,
+   and cleanup are visible. Set regression thresholds after a baseline is
+   measured; never trade away read-only safety, cleanup guarantees, or blocker
+   classification just to make a run faster.
+8. Add optional live Excel canaries. Keep a small manually invoked smoke suite
    for one passing test, one assertion failure, one expected failure, one
    timeout/hang, and one trusted-access failure where possible. These canaries
    should confirm the host emits traces matching the unit-test oracle, but they
@@ -240,9 +248,9 @@ The completion plan:
 
 Feature-complete means every runner state transition and every user-facing
 outcome has a unit oracle fixture, every known blocker has an explicit
-classification, generated host scripts are checked for the safety contract, and
-unknown blockers are bounded host failures with owned-process cleanup rather
-than indefinite runs.
+classification, generated host scripts are checked for the safety contract,
+performance is measured by stage with regression gates, and unknown blockers are
+bounded host failures with owned-process cleanup rather than indefinite runs.
 
 ## Planned Execution Features
 
@@ -253,6 +261,7 @@ Remaining shipped-runner execution features include:
 - suite timeout
 - comprehensive popup/blocker matrix with deterministic handling or host-error
   classification
+- stage/test duration metrics and performance regression baselines
 - setup and teardown hooks
 - explicit test logs
 - persisted run artifacts and latest CI status JSON
