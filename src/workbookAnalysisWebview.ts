@@ -475,6 +475,11 @@ export function renderWorkbookAnalysisResultsHtml(
     <style>
         :root {
             color-scheme: light dark;
+            --xlide-accent-blue: #2d5f94;
+            --xlide-accent-blue-hover: #376fa8;
+            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-editor-background));
+            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-editor-background));
+            --xlide-accent-border: color-mix(in srgb, var(--xlide-accent-blue) 78%, var(--vscode-panel-border));
         }
         * {
             box-sizing: border-box;
@@ -540,7 +545,12 @@ export function renderWorkbookAnalysisResultsHtml(
         .filterButton.active,
         .moduleFilter.active {
             color: var(--vscode-button-foreground);
-            background: var(--vscode-button-background);
+            border-color: var(--xlide-accent-border);
+            background: var(--xlide-accent-background);
+        }
+        .filterButton.active:hover,
+        .moduleFilter.active:hover {
+            background: var(--xlide-accent-hover-background);
         }
         .filterButton.transient {
             margin-left: 6px;

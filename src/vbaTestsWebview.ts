@@ -269,6 +269,13 @@ export function renderVbaTestsHtml(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLIDE Tests</title>
     <style>
+        :root {
+            --xlide-accent-blue: #2d5f94;
+            --xlide-accent-blue-hover: #376fa8;
+            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-editor-background));
+            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-editor-background));
+            --xlide-accent-border: color-mix(in srgb, var(--xlide-accent-blue) 78%, var(--vscode-panel-border));
+        }
         body {
             margin: 0;
             color: var(--vscode-foreground);
@@ -308,13 +315,13 @@ export function renderVbaTestsHtml(
             border-radius: 4px;
             padding: 5px 12px;
             color: var(--vscode-button-foreground);
-            background: var(--vscode-button-background);
+            background: var(--xlide-accent-background);
             font: inherit;
             font-weight: 600;
             cursor: pointer;
         }
         button:hover:not(:disabled) {
-            background: var(--vscode-button-hoverBackground);
+            background: var(--xlide-accent-hover-background);
         }
         button.secondary {
             color: var(--vscode-button-secondaryForeground);
@@ -395,6 +402,7 @@ export function renderVbaTestsHtml(
         .runButton {
             width: 100%;
             min-height: 44px;
+            border-color: var(--xlide-accent-border);
             text-align: left;
         }
         .filterPanel {
@@ -465,7 +473,7 @@ export function renderVbaTestsHtml(
         }
         .tagChoice input,
         .checkRow input {
-            accent-color: var(--vscode-checkbox-selectBackground, var(--vscode-button-background));
+            accent-color: var(--vscode-checkbox-selectBackground, var(--xlide-accent-background));
         }
         .tagName {
             overflow: hidden;

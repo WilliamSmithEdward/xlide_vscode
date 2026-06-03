@@ -124,6 +124,10 @@ export function renderVbaTestResultsHtml(
     <style>
         :root {
             color-scheme: dark light;
+            --xlide-accent-blue: #2d5f94;
+            --xlide-accent-blue-hover: #376fa8;
+            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-editor-background));
+            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-editor-background));
         }
         body {
             margin: 0;
@@ -189,13 +193,13 @@ export function renderVbaTestResultsHtml(
             border-radius: 4px;
             padding: 5px 12px;
             color: var(--vscode-button-foreground);
-            background: var(--vscode-button-background);
+            background: var(--xlide-accent-background);
             font: inherit;
             font-weight: 600;
             cursor: pointer;
         }
         button:hover:not(:disabled) {
-            background: var(--vscode-button-hoverBackground);
+            background: var(--xlide-accent-hover-background);
         }
         button:disabled {
             cursor: not-allowed;

@@ -301,6 +301,11 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
     <style nonce="${nonce}">
         :root {
             color-scheme: light dark;
+            --xlide-accent-blue: #2d5f94;
+            --xlide-accent-blue-hover: #376fa8;
+            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-sideBar-background));
+            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-sideBar-background));
+            --xlide-accent-border: color-mix(in srgb, var(--xlide-accent-blue) 72%, var(--vscode-dropdown-border));
         }
         * {
             box-sizing: border-box;
@@ -325,6 +330,9 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             border-radius: 6px;
             background: var(--vscode-sideBar-background);
             overflow: hidden;
+        }
+        .section.hasCustomSelect {
+            overflow: visible;
         }
         .sectionHeader {
             display: flex;
@@ -446,20 +454,78 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
         .selectRow.noDotRow {
             grid-template-columns: minmax(0, 1fr);
         }
-        select {
-            width: 100%;
-            min-width: 0;
+        .customSelect {
+            position: relative;
             margin-top: 7px;
-            border: 1px solid var(--vscode-dropdown-border);
-            border-radius: 4px;
-            padding: 4px 7px;
+        }
+        .selectButton {
+            width: 100%;
+            min-height: 30px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            border-color: var(--xlide-accent-border);
             color: var(--vscode-dropdown-foreground);
             background: var(--vscode-dropdown-background);
-            font: inherit;
+            text-align: left;
         }
-        select:focus {
-            outline: 1px solid var(--vscode-focusBorder);
+        .selectButton:hover,
+        .selectButton[aria-expanded="true"] {
+            background: color-mix(in srgb, var(--xlide-accent-blue) 18%, var(--vscode-dropdown-background));
+        }
+        .selectButton:focus {
+            outline: 1px solid var(--xlide-accent-border);
             outline-offset: 1px;
+        }
+        .selectButtonLabel {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .selectChevron {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+        }
+        .selectMenu {
+            position: absolute;
+            z-index: 20;
+            inset-inline: 0;
+            top: calc(100% + 3px);
+            max-height: 180px;
+            overflow: auto;
+            border: 1px solid var(--xlide-accent-border);
+            border-radius: 4px;
+            padding: 2px;
+            background: var(--vscode-dropdown-background);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+        }
+        .selectMenu[hidden] {
+            display: none;
+        }
+        .selectOption {
+            width: 100%;
+            min-height: 28px;
+            display: block;
+            border: 0;
+            border-radius: 3px;
+            padding: 5px 7px;
+            color: var(--vscode-dropdown-foreground);
+            background: transparent;
+            text-align: left;
+        }
+        .selectOption:hover,
+        .selectOption:focus {
+            outline: none;
+            background: var(--vscode-list-hoverBackground);
+        }
+        .selectOption[aria-selected="true"] {
+            color: var(--vscode-button-foreground);
+            background: var(--xlide-accent-background);
+        }
+        .selectOption[aria-selected="true"]:hover,
+        .selectOption[aria-selected="true"]:focus {
+            background: var(--xlide-accent-hover-background);
         }
         .empty {
             padding: 10px;
@@ -499,9 +565,64 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
         document.addEventListener('contextmenu', (event) => {
             event.preventDefault();
         });
+        function closeSelects(except) {
+            document.querySelectorAll('[data-select-menu]').forEach((menu) => {
+                if (menu === except) {
+                    return;
+                }
+                menu.hidden = true;
+                const button = document.querySelector('[data-select-toggle][aria-controls="' + menu.id + '"]');
+                button?.setAttribute('aria-expanded', 'false');
+            });
+        }
+        function optionButtons(menu) {
+            return Array.from(menu.querySelectorAll('[data-select-option]'));
+        }
+        function focusOption(menu, direction) {
+            const options = optionButtons(menu);
+            if (options.length === 0) {
+                return;
+            }
+            const currentIndex = Math.max(0, options.indexOf(document.activeElement));
+            const nextIndex = direction === 'previous'
+                ? (currentIndex + options.length - 1) % options.length
+                : (currentIndex + 1) % options.length;
+            options[nextIndex].focus();
+        }
+        function selectOption(option) {
+            if (option.dataset.selectId === 'project.targetWorkbook') {
+                vscode.postMessage({
+                    type: 'selectWorkbook',
+                    filePath: option.dataset.selectValue || undefined
+                });
+            }
+            closeSelects();
+        }
         document.addEventListener('click', (event) => {
+            const option = event.target.closest?.('[data-select-option]');
+            if (option) {
+                selectOption(option);
+                return;
+            }
+            const toggle = event.target.closest?.('[data-select-toggle]');
+            if (toggle) {
+                const menu = document.getElementById(toggle.getAttribute('aria-controls'));
+                if (!menu) {
+                    return;
+                }
+                const open = menu.hidden;
+                closeSelects(open ? menu : undefined);
+                menu.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (open) {
+                    const selected = menu.querySelector('[aria-selected="true"]');
+                    (selected ?? menu.querySelector('[data-select-option]'))?.focus();
+                }
+                return;
+            }
             const button = event.target.closest('[data-command]');
             if (!button) {
+                closeSelects();
                 return;
             }
             const payload = JSON.parse(button.dataset.command);
@@ -512,16 +633,42 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
                 arguments: useCtrlCommand ? payload.ctrlArguments || [] : payload.arguments || []
             });
         });
-        document.addEventListener('change', (event) => {
-            const select = event.target.closest('select[data-select-id]');
-            if (!select) {
+        document.addEventListener('keydown', (event) => {
+            const toggle = event.target.closest?.('[data-select-toggle]');
+            if (toggle && (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown')) {
+                event.preventDefault();
+                const menu = document.getElementById(toggle.getAttribute('aria-controls'));
+                if (!menu) {
+                    return;
+                }
+                closeSelects(menu);
+                menu.hidden = false;
+                toggle.setAttribute('aria-expanded', 'true');
+                (menu.querySelector('[aria-selected="true"]') ?? menu.querySelector('[data-select-option]'))?.focus();
                 return;
             }
-            if (select.dataset.selectId === 'project.targetWorkbook') {
-                vscode.postMessage({
-                    type: 'selectWorkbook',
-                    filePath: select.value || undefined
-                });
+            const option = event.target.closest?.('[data-select-option]');
+            if (!option) {
+                if (event.key === 'Escape') {
+                    closeSelects();
+                }
+                return;
+            }
+            const menu = option.closest('[data-select-menu]');
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectOption(option);
+            } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                focusOption(menu, 'next');
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                focusOption(menu, 'previous');
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                closeSelects();
+                const button = document.querySelector('[data-select-toggle][aria-controls="' + menu.id + '"]');
+                button?.focus();
             }
         });
     </script>
@@ -535,7 +682,8 @@ function renderSection(section: XlideSidebarNode): string {
         section.id === 'settings' ||
         section.id === 'support' ||
         section.id === 'donate';
-    return `<section class="section" aria-label="${escapeAttr(section.label)}">
+    const sectionClass = children.some((child) => child.kind === 'select') ? 'section hasCustomSelect' : 'section';
+    return `<section class="${sectionClass}" aria-label="${escapeAttr(section.label)}">
         <div class="sectionHeader">${escapeHtml(section.label)}</div>
         <div class="${isActionSection ? 'actionGrid' : 'sectionBody'}">
             ${children.length > 0
@@ -614,21 +762,59 @@ function renderSelectNode(node: XlideSidebarNode, sectionId: string): string {
     const options = node.options ?? [];
     const showDot = sectionId === 'setup';
     const rowClass = showDot ? 'row selectRow' : 'row selectRow noDotRow';
+    const selectedValue = node.value ?? '';
+    const selectedOption = options.find((option) => option.value === selectedValue);
+    const selectedLabel = selectedOption?.label ?? node.description ?? node.label;
+    const menuId = `select-menu-${slugId(node.id)}`;
     return `<div class="${rowClass}" title="${escapeAttr(node.tooltip ?? node.label)}">
         ${showDot ? `<span class="dot ${escapeAttr(status)}" aria-hidden="true"></span>` : ''}
         <div class="rowText">
             <div class="label">${escapeHtml(node.label)}</div>
             ${node.description ? `<div class="description">${escapeHtml(node.description)}</div>` : ''}
-            <select data-select-id="${escapeAttr(node.id)}" aria-label="${escapeAttr(node.label)}">
-                ${options.map((option) => renderSelectOption(option, node.value ?? '')).join('')}
-            </select>
+            <div class="customSelect">
+                <button
+                    class="selectButton"
+                    type="button"
+                    data-select-toggle
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="${escapeAttr(menuId)}"
+                    title="${escapeAttr(selectedOption?.value || selectedLabel)}"
+                >
+                    <span class="selectButtonLabel">${escapeHtml(selectedLabel)}</span>
+                    <span class="selectChevron" aria-hidden="true">&#9662;</span>
+                </button>
+                <div
+                    class="selectMenu"
+                    id="${escapeAttr(menuId)}"
+                    role="listbox"
+                    aria-label="${escapeAttr(node.label)}"
+                    data-select-menu
+                    hidden
+                >
+                    ${options.map((option) => renderSelectOption(node.id, option, selectedValue)).join('')}
+                </div>
+            </div>
         </div>
     </div>`;
 }
 
-function renderSelectOption(option: { label: string; value: string }, selectedValue: string): string {
-    const selected = option.value === selectedValue ? ' selected' : '';
-    return `<option value="${escapeAttr(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+function renderSelectOption(
+    selectId: string,
+    option: { label: string; value: string },
+    selectedValue: string,
+): string {
+    const selected = option.value === selectedValue;
+    return `<button
+        class="selectOption"
+        type="button"
+        role="option"
+        data-select-option
+        data-select-id="${escapeAttr(selectId)}"
+        data-select-value="${escapeAttr(option.value)}"
+        aria-selected="${selected ? 'true' : 'false'}"
+        title="${escapeAttr(option.value || option.label)}"
+    >${escapeHtml(option.label)}</button>`;
 }
 
 function commandAttr(command: XlideSidebarCommand): string {
@@ -653,6 +839,10 @@ function nonceString(): string {
         result += alphabet[Math.floor(Math.random() * alphabet.length)];
     }
     return result;
+}
+
+function slugId(value: string): string {
+    return value.replace(/[^a-z0-9_-]/gi, '-');
 }
 
 export {
