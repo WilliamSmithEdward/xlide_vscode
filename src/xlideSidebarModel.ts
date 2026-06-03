@@ -113,15 +113,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 workbookArg,
             ),
             workbookActionNode(
-                'workbookActions.runVbaTests',
-                'Unit Tests',
-                undefined,
-                'xlide.runVbaTests',
-                'Open the VBA unit tests GUI for the selected target workbook.',
-                'beaker',
-                workbookArg,
-            ),
-            workbookActionNode(
                 'workbookActions.exportModules',
                 'Export Modules',
                 undefined,
@@ -157,6 +148,15 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'file-excel',
                 workbookArg,
             ),
+            workbookActionNode(
+                'workbookActions.runVbaTests',
+                'Unit Tests',
+                undefined,
+                'xlide.runVbaTests',
+                'Open the VBA unit tests GUI for the selected target workbook.',
+                'beaker',
+                workbookArg,
+            ),
         ]),
         section('settings', 'Settings', [
             actionNode(
@@ -188,6 +188,14 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
         ]),
         section('donate', 'Donate', [
             actionNode(
+                'donate.cashApp',
+                'Donate',
+                'Cash App: $williamesmithjcil 💵',
+                'xlide.openCashAppDonateLink',
+                'Support XLIDE with a Cash App donation.',
+                'heart',
+            ),
+            actionNode(
                 'donate.githubSponsors',
                 'Donate',
                 'GitHub Sponsors ❤️',
@@ -201,14 +209,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'PayPal 💳',
                 'xlide.openPayPalDonateLink',
                 'Support XLIDE with a PayPal donation.',
-                'heart',
-            ),
-            actionNode(
-                'donate.cashApp',
-                'Donate',
-                'Cash App: $williamesmithjcil 💵',
-                'xlide.openCashAppDonateLink',
-                'Support XLIDE with a Cash App donation.',
                 'heart',
             ),
         ]),

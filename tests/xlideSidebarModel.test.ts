@@ -25,11 +25,11 @@ describe('xlideSidebarModel', () => {
         expect(model[2].children?.map((node) => node.label)).toEqual([
             'Target Workbook',
             'Analyze Workbook',
-            'Unit Tests',
             'Export Modules',
             'Import Modules',
             'Open Workbook In Excel',
             'Open Workbook Read Only',
+            'Unit Tests',
         ]);
         expect(model[3].children?.map((node) => [node.label, node.description])).toEqual([
             ['Global Settings', 'VS Code / Machine'],
@@ -40,13 +40,13 @@ describe('xlideSidebarModel', () => {
             'Export Support Bundle',
         ]);
         expect(model[5].children?.map((node) => [node.label, node.description])).toEqual([
+            ['Donate', 'Cash App: $williamesmithjcil 💵'],
             ['Donate', 'GitHub Sponsors ❤️'],
             ['Donate', 'PayPal 💳'],
-            ['Donate', 'Cash App: $williamesmithjcil 💵'],
         ]);
-        expect(model[5].children?.[0]?.command?.command).toBe('xlide.openSponsorLink');
-        expect(model[5].children?.[1]?.command?.command).toBe('xlide.openPayPalDonateLink');
-        expect(model[5].children?.[2]?.command?.command).toBe('xlide.openCashAppDonateLink');
+        expect(model[5].children?.[0]?.command?.command).toBe('xlide.openCashAppDonateLink');
+        expect(model[5].children?.[1]?.command?.command).toBe('xlide.openSponsorLink');
+        expect(model[5].children?.[2]?.command?.command).toBe('xlide.openPayPalDonateLink');
     });
 
     it('renders setup rows with Installed buttons once they are green', () => {

@@ -51,6 +51,11 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('modal-blocked');
         expect(script).toContain('safeToDismiss');
         expect(script).toContain('buttonIds');
+        expect(script).toContain('function Format-XlideRunException');
+        expect(script).toContain('HRESULT: ');
+        expect(script).toContain('0x800A9C68');
+        expect(script).toContain('Excel reported that the macro could not be run');
+        expect(script).toContain('$message = "RUN_FAILED|" + (Format-XlideRunException $_)');
         expect(script).toContain('[XlideTestModalWatcher]::Start');
         expect(script).toContain('[XlideTestModalWatcher]::Stop');
         expect(script).toContain('Emit-XlideTestHostEvent "host-phase"');

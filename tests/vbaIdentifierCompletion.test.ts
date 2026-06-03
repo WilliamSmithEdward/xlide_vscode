@@ -86,6 +86,19 @@ describe('identifier completion - code names', () => {
 });
 
 describe('identifier completion - in-scope declarations', () => {
+	it('offers Boolean literals as value completions in expression positions', () => {
+		const src = 'Sub Test()\n    AreEqual True, Fa\nEnd Sub\n';
+		const got = resolveIdentifierCompletions(src, at(src, 'Fa'));
+		const falseItem = got.find((item) => item.name === 'False');
+
+		expect(names('Sub Test()\n    AreEqual True, \nEnd Sub\n', 'True, ')).toEqual(
+			expect.arrayContaining(['True', 'False']),
+		);
+		expect(falseItem?.kind).toBe('value');
+		expect(falseItem?.detail).toBe('Boolean literal');
+		expect(got.map((item) => item.name)).not.toContain('True');
+	});
+
 	it('offers locals, parameters and module variables', () => {
 		const src =
 			'Public gCount As Long\n' +
@@ -315,6 +328,17 @@ describe('identifier completion - suppressed positions', () => {
 	it('returns nothing in a declaration-name position (after Dim)', () => {
 		const src = 'Sub Test()\n    Dim ne\nEnd Sub\n';
 		expect(names(src, 'Dim ne')).toEqual([]);
+	});
+
+	it('does not offer Boolean literals while naming a declaration', () => {
+		const src = 'Sub Test()\n    Dim Fa\nEnd Sub\n';
+		expect(names(src, 'Dim Fa')).not.toContain('False');
+	});
+
+	it('does not offer Boolean literals at a blank statement start', () => {
+		const src = 'Sub Test()\n    \nEnd Sub\n';
+		expect(names(src, '    ')).not.toContain('True');
+		expect(names(src, '    ')).not.toContain('False');
 	});
 
 	it('returns nothing after Public/Private', () => {

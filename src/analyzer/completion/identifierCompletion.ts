@@ -48,6 +48,7 @@ export type IdentifierCompletionKind =
 	| 'variable'
 	| 'parameter'
 	| 'constant'
+	| 'value'
 	| 'procedure'
 	| 'enum'
 	| 'enumMember'
@@ -106,6 +107,21 @@ const DECLARATION_INTRODUCERS = new Set([
 	'enum',
 	'declare',
 ]);
+
+const BOOLEAN_LITERAL_COMPLETIONS: readonly IdentifierCompletion[] = [
+	{
+		name: 'True',
+		kind: 'value',
+		detail: 'Boolean literal',
+		documentation: '**Boolean literal**\n\n```vba\nTrue\n```',
+	},
+	{
+		name: 'False',
+		kind: 'value',
+		detail: 'Boolean literal',
+		documentation: '**Boolean literal**\n\n```vba\nFalse\n```',
+	},
+];
 
 /**
  * Resolves the identifier completions available at `offset`. Returns an empty
@@ -171,6 +187,12 @@ export function resolveIdentifierCompletions(
 		seen.add(key);
 		out.push({ name, kind, detail, documentation });
 	};
+
+	if (isBooleanLiteralCompletionContext(tokens, last)) {
+		for (const literal of BOOLEAN_LITERAL_COMPLETIONS) {
+			add(literal.name, literal.kind, literal.detail, literal.documentation);
+		}
+	}
 
 	addInScopeSymbols(source, offset, ctx, add);
 
@@ -270,6 +292,37 @@ function addInScopeSymbols(
 			}
 		}
 	}
+}
+
+function isBooleanLiteralCompletionContext(
+	tokens: readonly ReturnType<typeof tokenize>[number][],
+	previousIndex: number,
+): boolean {
+	if (previousIndex < 0) {
+		return false;
+	}
+	const before = tokens[previousIndex];
+	if (!before || before.kind === 'newline' || before.kind === 'colon') {
+		return false;
+	}
+	if (before.kind === 'operator') {
+		return true;
+	}
+	if (before.kind === 'punctuation') {
+		return before.rawText === ',' || before.rawText === '(' || before.rawText === ';';
+	}
+	if (isIdentLike(before)) {
+		const lower = before.rawText.toLowerCase();
+		return lower === 'if' ||
+			lower === 'elseif' ||
+			lower === 'case' ||
+			lower === 'while' ||
+			lower === 'until' ||
+			lower === 'not' ||
+			lower === 'and' ||
+			lower === 'or';
+	}
+	return false;
 }
 
 function addProjectProcedures(

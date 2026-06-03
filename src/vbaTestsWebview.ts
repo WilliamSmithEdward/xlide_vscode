@@ -537,7 +537,7 @@ export function renderVbaTestsHtml(
                 <div class="sectionBody">
                     <div class="runGrid">
                         <button class="runButton" type="button" data-action="runAll" ${runDisabled}>Run All Tests</button>
-                        <button class="runButton secondary" type="button" data-action="runWithFilters" title="${escapeAttr(filterRunTitle)}" ${filterRunDisabled}>Run With Filters</button>
+                        <button class="runButton" type="button" data-action="runWithFilters" title="${escapeAttr(filterRunTitle)}" ${filterRunDisabled}>Run With Filters</button>
                     </div>
                     ${runHelp ? `<p class="helpText">${escapeHtml(runHelp)}</p>` : ''}
                     ${renderTagFilters(model)}
@@ -555,6 +555,7 @@ export function renderVbaTestsHtml(
         const hasTags = ${hasTagsJson};
         let toastTimer;
         let filterState = initialFilterState();
+        let running = false;
 
         function showToast(message) {
             toast.textContent = message;
@@ -593,6 +594,11 @@ export function renderVbaTestsHtml(
             vscode.setState?.(filterState);
         }
 
+        function setRunning(next) {
+            running = next;
+            syncFilterUi();
+        }
+
         function syncFilterUi() {
             document.querySelectorAll('input[data-filter-kind]').forEach((input) => {
                 const list = input.dataset.filterKind === 'exclude' ? filterState.excludeTags : filterState.includeTags;
@@ -608,9 +614,17 @@ export function renderVbaTestsHtml(
                 const excludeCount = filterState.excludeTags.length;
                 summary.textContent = includeCount + ' include, ' + excludeCount + ' exclude';
             }
+            document.querySelectorAll('[data-filter-action], input[data-filter-kind], #failFast').forEach((control) => {
+                control.disabled = running;
+            });
+            const runAll = document.querySelector('button[data-action="runAll"]');
+            if (runAll && canRun) {
+                runAll.disabled = running;
+            }
             const runWithFilters = document.querySelector('button[data-action="runWithFilters"]');
             if (runWithFilters && canRun && hasTags) {
-                runWithFilters.disabled = filterState.includeTags.length === 0 && filterState.excludeTags.length === 0;
+                runWithFilters.disabled = running ||
+                    (filterState.includeTags.length === 0 && filterState.excludeTags.length === 0);
             }
         }
 
@@ -663,7 +677,13 @@ export function renderVbaTestsHtml(
             if (!button || button.disabled) {
                 return;
             }
+            if (button.dataset.action === 'runAll') {
+                setRunning(true);
+                vscode.postMessage({ type: 'runAll' });
+                return;
+            }
             if (button.dataset.action === 'runWithFilters') {
+                setRunning(true);
                 vscode.postMessage({
                     type: 'runWithFilters',
                     includeTags: filterState.includeTags,
@@ -677,8 +697,10 @@ export function renderVbaTestsHtml(
 
         window.addEventListener('message', (event) => {
             if (event.data?.type === 'error') {
+                setRunning(false);
                 showToast(event.data.error || 'XLIDE test action failed');
             } else if (event.data?.type === 'refreshed') {
+                setRunning(false);
                 showToast('Test support refreshed');
             }
         });

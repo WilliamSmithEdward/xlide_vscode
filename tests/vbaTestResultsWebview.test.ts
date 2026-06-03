@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import * as vscode from 'vscode';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode', () => ({
     ViewColumn: { Beside: 2 },
@@ -7,15 +8,41 @@ vi.mock('vscode', () => ({
     },
 }));
 
-import { renderVbaTestResultsHtml } from '../src/vbaTestResultsWebview';
+import { openVbaTestResults, renderVbaTestResultsHtml } from '../src/vbaTestResultsWebview';
 import type { VbaTestRunReport } from '../src/vbaTestRunner';
 
 describe('VBA test results webview', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('reuses an existing results panel for the same workbook', () => {
+        const panel = fakeWebviewPanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+        const firstReport = reportFixture();
+        const secondReport = { ...reportFixture(), durationMs: 99 };
+
+        const first = openVbaTestResults(context, firstReport);
+        const second = openVbaTestResults(context, secondReport);
+
+        expect(first).toBe(second);
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+        expect(panel.reveal).toHaveBeenCalledWith(vscode.ViewColumn.Beside);
+        expect(panel.webview.html).toContain('99 ms total');
+        panel.disposePanel();
+    });
+
     it('renders summary stats, discovered tests, and escaped failure details', () => {
         const html = renderVbaTestResultsHtml(reportFixture());
 
         expect(html).toContain('XLIDE VBA Test Results');
         expect(html).toContain('Book.xlsm');
+        expect(html).toContain('Started');
+        expect(html).toContain('Stopped');
+        expect(html).toContain('Elapsed');
+        expect(html).toContain('title="2026-01-01T00:00:00.000Z"');
+        expect(html).toContain('title="2026-01-01T00:00:00.045Z"');
         expect(html).toContain('Tests.TestPass');
         expect(html).toContain('Tests.TestFail');
         expect(html).toContain('Passed');
@@ -25,6 +52,8 @@ describe('VBA test results webview', () => {
         expect(html).toContain('XFail');
         expect(html).toContain('<th>Tags</th>');
         expect(html).toContain('class="tagCell"');
+        expect(html).toContain('class="detailsCell"');
+        expect(html).toContain('white-space: pre-wrap');
         expect(html).toContain('var(--vscode-badge-foreground');
         expect(html).toContain('owner:finance');
         expect(html).toContain('smoke');
@@ -32,6 +61,23 @@ describe('VBA test results webview', () => {
         expect(html).toContain('@xlide-test');
     });
 });
+
+function fakeWebviewPanel(): vscode.WebviewPanel & { disposePanel: () => void } {
+    let disposeHandler: (() => void) | undefined;
+    return {
+        title: '',
+        webview: {
+            cspSource: 'vscode-resource:',
+            html: '',
+        },
+        reveal: vi.fn(),
+        onDidDispose: vi.fn((handler: () => void) => {
+            disposeHandler = handler;
+            return { dispose: vi.fn() };
+        }),
+        disposePanel: () => disposeHandler?.(),
+    } as unknown as vscode.WebviewPanel & { disposePanel: () => void };
+}
 
 function reportFixture(): VbaTestRunReport {
     const pass = {

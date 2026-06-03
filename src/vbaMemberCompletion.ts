@@ -792,6 +792,8 @@ class VbaMemberCompletionProvider
 				return vscode.CompletionItemKind.Function;
 			case 'constant':
 				return vscode.CompletionItemKind.Constant;
+			case 'value':
+				return vscode.CompletionItemKind.Value;
 			case 'enum':
 				return vscode.CompletionItemKind.Enum;
 			case 'enumMember':

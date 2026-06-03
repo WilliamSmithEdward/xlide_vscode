@@ -67,6 +67,8 @@ describe('VBA tests webview', () => {
         expect(html).toContain('data-filter-kind="include" data-tag="smoke" checked');
         expect(html).toContain('data-filter-kind="exclude" data-tag="fast"');
         expect(html).toContain('Fail Fast');
+        expect(html).toContain('let running = false;');
+        expect(html).toContain('setRunning(true);');
     });
 
     it('disables filtered runs when the workbook has no tag filters', () => {

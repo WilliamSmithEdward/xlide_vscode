@@ -1,20 +1,36 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import type { VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun } from './vbaTestRunner';
+
+const openVbaTestResultsPanels = new Map<string, vscode.WebviewPanel>();
 
 export function openVbaTestResults(
     context: vscode.ExtensionContext,
     report: VbaTestRunReport,
 ): vscode.WebviewPanel {
+    const panelKey = vbaTestResultsPanelKey(report.filePath);
+    const existing = openVbaTestResultsPanels.get(panelKey);
+    if (existing) {
+        existing.title = `XLIDE Test Results: ${report.workbookName}`;
+        existing.webview.html = renderVbaTestResultsHtml(existing.webview, report);
+        existing.reveal(vscode.ViewColumn.Beside);
+        return existing;
+    }
+
     const panel = vscode.window.createWebviewPanel(
         'xlideVbaTestResults',
-        `XLIDE Tests: ${report.workbookName}`,
+        `XLIDE Test Results: ${report.workbookName}`,
         vscode.ViewColumn.Beside,
         {
             enableScripts: false,
             retainContextWhenHidden: true,
         },
     );
+    openVbaTestResultsPanels.set(panelKey, panel);
+    panel.onDidDispose(() => {
+        openVbaTestResultsPanels.delete(panelKey);
+    });
     panel.webview.html = renderVbaTestResultsHtml(panel.webview, report);
     context.subscriptions.push(panel);
     return panel;
@@ -28,6 +44,7 @@ export function renderVbaTestResultsHtml(
     const webview = maybeReport ? webviewOrReport as vscode.Webview : undefined;
     const summary = summarizeVbaTestRun(report);
     const selectionDescription = describeVbaTestSelection(report.discovery.selection);
+    const timing = runTimingSummary(report);
     const rows = report.results.map((result) => `
         <tr class="${escapeAttr(result.status)}">
             <td><span class="status">${escapeHtml(statusLabel(result.status))}</span></td>
@@ -37,7 +54,7 @@ export function renderVbaTestResultsHtml(
             </td>
             <td class="tagCell">${testMetadataHtml(result.test.metadata)}</td>
             <td>${escapeHtml(`${result.durationMs} ms`)}</td>
-            <td>${result.error ? escapeHtml(result.error) : ''}</td>
+            <td class="detailsCell">${result.error ? escapeHtml(result.error) : ''}</td>
         </tr>
     `).join('');
 
@@ -81,6 +98,24 @@ export function renderVbaTestResultsHtml(
         .contract,
         .empty {
             color: var(--vscode-descriptionForeground);
+        }
+        .runTiming {
+            display: grid;
+            gap: 4px;
+            min-width: 260px;
+            text-align: right;
+        }
+        .runTimingRow {
+            display: grid;
+            grid-template-columns: 72px 1fr;
+            gap: 10px;
+            align-items: baseline;
+        }
+        .runTimingLabel {
+            color: var(--vscode-descriptionForeground);
+        }
+        .runTimingValue {
+            font-weight: 650;
         }
         .stats {
             display: grid;
@@ -142,6 +177,10 @@ export function renderVbaTestResultsHtml(
         .meta {
             overflow-wrap: anywhere;
         }
+        .detailsCell {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
         .status {
             display: inline-block;
             min-width: 68px;
@@ -199,6 +238,10 @@ export function renderVbaTestResultsHtml(
             .header {
                 display: block;
             }
+            .runTiming {
+                margin-top: 12px;
+                text-align: left;
+            }
             .stats {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -216,7 +259,20 @@ export function renderVbaTestResultsHtml(
                         : report.workbookName,
                 )}</div>
             </div>
-            <div class="subtitle">${escapeHtml(`${report.durationMs} ms total`)}</div>
+            <div class="runTiming" aria-label="Run timing">
+                <div class="runTimingRow">
+                    <span class="runTimingLabel">Started</span>
+                    <span class="runTimingValue" title="${escapeAttr(timing.startedIso)}">${escapeHtml(timing.startedLabel)}</span>
+                </div>
+                <div class="runTimingRow">
+                    <span class="runTimingLabel">Stopped</span>
+                    <span class="runTimingValue" title="${escapeAttr(timing.stoppedIso)}">${escapeHtml(timing.stoppedLabel)}</span>
+                </div>
+                <div class="runTimingRow">
+                    <span class="runTimingLabel">Elapsed</span>
+                    <span class="runTimingValue">${escapeHtml(`${report.durationMs} ms total`)}</span>
+                </div>
+            </div>
         </header>
         ${renderSummary(summary)}
         ${rows
@@ -261,6 +317,41 @@ function renderSummary(summary: VbaTestRunSummary): string {
 
 function statHtml(value: number, label: string): string {
     return `<div class="stat"><strong>${escapeHtml(String(value))}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+function runTimingSummary(report: VbaTestRunReport): {
+    startedLabel: string;
+    startedIso: string;
+    stoppedLabel: string;
+    stoppedIso: string;
+} {
+    const startedAt = new Date(report.startedAt);
+    if (!Number.isFinite(startedAt.getTime())) {
+        return {
+            startedLabel: 'Unknown',
+            startedIso: '',
+            stoppedLabel: 'Unknown',
+            stoppedIso: '',
+        };
+    }
+    const stoppedAt = new Date(startedAt.getTime() + Math.max(0, report.durationMs));
+    return {
+        startedLabel: formatRunTimestamp(startedAt),
+        startedIso: startedAt.toISOString(),
+        stoppedLabel: formatRunTimestamp(stoppedAt),
+        stoppedIso: stoppedAt.toISOString(),
+    };
+}
+
+function formatRunTimestamp(value: Date): string {
+    return value.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
 }
 
 function statusLabel(status: string): string {
@@ -318,4 +409,9 @@ function escapeHtml(value: unknown): string {
 
 function escapeAttr(value: unknown): string {
     return escapeHtml(value);
+}
+
+function vbaTestResultsPanelKey(filePath: string): string {
+    const normalized = path.normalize(filePath);
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
