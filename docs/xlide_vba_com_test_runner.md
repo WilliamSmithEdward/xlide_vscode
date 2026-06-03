@@ -142,6 +142,32 @@ The current runner supports:
 - command palette and workbook-tree entry points
 - non-Windows discovery with skipped execution because Excel COM is Windows-only
 
+## Locked Default Excel Host Contract
+
+The shipped default Excel host should run each selected test suite in one
+dedicated XLIDE-owned Excel instance. It must open the target workbook
+read-only, run all selected tests in that same instance, close the workbook
+without saving, and quit or kill only the Excel instance XLIDE created.
+
+By default, the test runner must not attach to the user's normal Excel session.
+Attaching to an existing Excel instance can be a future explicit opt-in mode,
+but it is not the default safety posture.
+
+The default host must also account for Excel automation rough edges that can
+otherwise hang the window or the extension:
+
+- every test macro carries a positive timeout
+- link updates are disabled when opening the workbook
+- read-only recommendation prompts are bypassed
+- Excel alerts that can block automation are suppressed
+- normal cleanup closes without saving and quits the owned Excel instance
+- timeout/hang cleanup kills the owned Excel instance and records the run as a
+  host/runtime failure, not a normal assertion failure
+
+`src/vbaTestHostOracle.ts` is the unit-test oracle surface for this contract.
+It validates simple lifecycle traces so future COM-host changes can prove the
+expected behavior without needing live Excel in routine unit tests.
+
 ## Planned Execution Features
 
 Remaining shipped-runner execution features include:

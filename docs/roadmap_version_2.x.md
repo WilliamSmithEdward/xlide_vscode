@@ -789,8 +789,16 @@ VBA code from XLIDE, using Excel COM as the execution host.
   tests through Excel COM. First slice runs all discovered tests in the target
   workbook; the runner now also supports current-module/current-test execution,
   include/exclude tag filters, and fail-fast mode on the same runner path.
-- [ ] Run tests against a disposable workbook/session by default so test runs do
-  not mutate the developer's open workbook unexpectedly.
+- [ ] Run tests by default in one dedicated XLIDE-owned Excel instance that
+  opens the target workbook read-only, runs all selected tests in that same
+  instance, closes without saving, and never attaches to the user's normal Excel
+  session unless explicitly opted in. Disposable workbook/session isolation can
+  be added later as a stronger safety mode, not as the default contract.
+- [x] Add a unit-test oracle surface for the default Excel host lifecycle.
+  `src/vbaTestHostOracle.ts` validates simple lifecycle traces for one owned
+  read-only Excel instance, prompt/hang safeguards, close-without-saving, and
+  timeout/hang cleanup, so future COM-host changes can be checked without live
+  Excel in routine unit tests.
 - [x] Reuse the workbook close/reopen/reset discipline from macro execution and
   warn when a workbook cannot be safely reopened in XLIDE's context.
 - [x] Add a small VBA assertion/support module or equivalent injected test
@@ -861,7 +869,9 @@ Definition of done:
 - A developer can author VBA tests, run them through Excel COM from XLIDE, and
   receive deterministic pass/fail/error/output results.
 - The runner is opt-in, visible to the user, timeout-bounded, and safe against
-  silent workbook mutation.
+  silent workbook mutation. The default Excel host is a single XLIDE-owned
+  read-only Excel instance per run; hangs/timeouts must clean up that owned
+  instance without killing unrelated user Excel windows.
 - The full workflow is documented for downstream workbook developers, including
   examples they can copy into real projects.
 
@@ -1332,9 +1342,10 @@ Definition of done:
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
 4. Continue hardening the VBA test runner beyond the explicit `@xlide-test`
-   run-all/current-scope slice: disposable workbook/session behavior,
+   run-all/current-scope slice: implement the single owned read-only Excel host
+   against `src/vbaTestHostOracle.ts`, then add disposable-session safety,
    rerun-failed/automation flows, setup/teardown, compile-error capture, and
-   full workflow documentation remain before calling it shipped.
+   full workflow documentation before calling it shipped.
 5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
    for analysis, test, setup, sync, and workbook actions; avoid using the Output
    channel as the primary UX for actionable workflow results.
@@ -1353,6 +1364,7 @@ Definition of done:
 - `docs/xlide_sidebar_panel.md`
 - `docs/xlide_development_principles.md`
 - `src/vbaModuleAnalysis.ts`
+- `src/vbaTestHostOracle.ts`
 - `src/analyzer/diagnostics/ruleMetadata.ts`
 - `syntax_corpus/README.md`
 - `syntax_corpus/corpus_provenance.json`
