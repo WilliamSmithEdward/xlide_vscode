@@ -35,14 +35,14 @@ export function openVbaTestResults(
         existing.panel.webview.html = renderVbaTestResultsHtml(existing.panel.webview, report, {
             canRerunFailed: Boolean(options.onRerunFailed),
         });
-        existing.panel.reveal(vscode.ViewColumn.Beside);
+        existing.panel.reveal(vscode.ViewColumn.Active);
         return existing.panel;
     }
 
     const panel = vscode.window.createWebviewPanel(
         'xlideVbaTestResults',
         `XLIDE Test Results: ${report.workbookName}`,
-        vscode.ViewColumn.Beside,
+        vscode.ViewColumn.Active,
         {
             enableScripts: true,
             retainContextWhenHidden: true,
