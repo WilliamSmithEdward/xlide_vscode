@@ -8,6 +8,14 @@ import {
 import { type ExportMode } from './workbookSettings';
 import { setWorkbookModuleSyncExportMode } from './workbookModuleSyncSettings';
 import { analyzeWorkbook } from './vbaWorkbookAnalysis';
+import { checkExcelComAvailability } from './excelComAvailability';
+import { runWorkbookVbaTests } from './vbaTestExecution';
+import { getVbaTestSupportStatus } from './vbaTestSupportStatus';
+import {
+    describeVbaTestSelection,
+    summarizeVbaTestRun,
+    type VbaTestSelectionOptions,
+} from './vbaTestRunner';
 import { errorCategoryForSupportLog } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 
@@ -25,6 +33,16 @@ interface ListSheetsInput  { filePath: string; }
 interface GetWorkbookInfoInput { filePath: string; }
 interface ValidateWorkbookInput { filePath: string; }
 interface AnalyzeWorkbookInput { filePath: string; }
+interface RunVbaTestsInput {
+    filePath: string;
+    moduleName?: string;
+    procedureName?: string;
+    testIds?: string[];
+    includeTags?: string[];
+    excludeTags?: string[];
+    failFast?: boolean;
+    includeHostEvents?: boolean;
+}
 interface CreateWorkbookInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
@@ -37,6 +55,26 @@ function textResult(value: string): vscode.LanguageModelToolResult {
     return new vscode.LanguageModelToolResult([
         new vscode.LanguageModelTextPart(value),
     ]);
+}
+
+function vbaTestSelectionFromInput(input: RunVbaTestsInput): VbaTestSelectionOptions | undefined {
+    const selection: VbaTestSelectionOptions = {
+        moduleName: input.moduleName,
+        procedureName: input.procedureName,
+        testIds: input.testIds,
+        includeTags: input.includeTags,
+        excludeTags: input.excludeTags,
+    };
+    if (
+        !selection.moduleName &&
+        !selection.procedureName &&
+        !selection.testIds?.length &&
+        !selection.includeTags?.length &&
+        !selection.excludeTags?.length
+    ) {
+        return undefined;
+    }
+    return selection;
 }
 
 export function registerAgentTools(
@@ -312,6 +350,68 @@ export function registerAgentTools(
             async invoke(options, _token) {
                 const result = await analyzeWorkbook(bridge, options.input.filePath);
                 return textResult(JSON.stringify(result, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_runVbaTests
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<RunVbaTestsInput>('xlide_runVbaTests', {
+            async invoke(options, _token) {
+                const { filePath, failFast, includeHostEvents } = options.input;
+                const selection = vbaTestSelectionFromInput(options.input);
+                const support = await getVbaTestSupportStatus(bridge, filePath);
+                if (!support.canRun) {
+                    return textResult(JSON.stringify({
+                        ok: false,
+                        blocked: true,
+                        reason: 'test-support',
+                        filePath,
+                        support,
+                    }, null, 2));
+                }
+
+                const runtime = await checkExcelComAvailability();
+                if (!runtime.canRun) {
+                    return textResult(JSON.stringify({
+                        ok: false,
+                        blocked: true,
+                        reason: 'excel-com',
+                        filePath,
+                        runtime,
+                    }, null, 2));
+                }
+
+                const execution = await runWorkbookVbaTests(bridge, filePath, {
+                    selection,
+                    failFast,
+                });
+                const summary = summarizeVbaTestRun(execution.report);
+                const ok = summary.failed === 0 &&
+                    summary.timeout === 0 &&
+                    summary.hostError === 0 &&
+                    summary.xpass === 0;
+                return textResult(JSON.stringify({
+                    ok,
+                    summary,
+                    report: execution.report,
+                    ...(includeHostEvents ? { hostEvents: execution.hostEvents } : {}),
+                }, null, 2));
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, failFast } = options.input;
+                const selection = vbaTestSelectionFromInput(options.input);
+                const scope = describeVbaTestSelection(selection) || 'all tests';
+                return {
+                    invocationMessage: `Running XLIDE VBA tests for "${filePath}"`,
+                    confirmationMessages: {
+                        title: 'Run XLIDE VBA Tests',
+                        message: new vscode.MarkdownString(
+                            `Run **${scope}** in \`${filePath}\` through the XLIDE owned read-only Excel test host?` +
+                            `${failFast ? '\n\nFail-fast is enabled.' : ''}`,
+                        ),
+                    },
+                };
             },
         }),
 

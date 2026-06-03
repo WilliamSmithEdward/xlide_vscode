@@ -525,6 +525,62 @@
         }
       },
       {
+        "name": "xlide_runVbaTests",
+        "displayName": "Run XLIDE VBA Tests",
+        "modelDescription": "Runs discovered '@xlide-test' VBA tests in a workbook through XLIDE's production owned read-only Excel test oracle and returns JSON {ok, summary, report}. Use this after editing workbook VBA to verify tests pass without opening the Tests GUI. Requires the workbook to have the current XlideAssert.bas support module installed and Microsoft Excel COM to be available. Supports narrowing by moduleName, procedureName, testIds, includeTags, excludeTags, and failFast. Set includeHostEvents true only when diagnosing host/oracle behavior.",
+        "toolReferenceName": "xlideRunVbaTests",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file to test"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Optional VBA standard module name to restrict discovery"
+            },
+            "procedureName": {
+              "type": "string",
+              "description": "Optional test Sub procedure name to run"
+            },
+            "testIds": {
+              "type": "array",
+              "description": "Optional exact XLIDE test ids to run",
+              "items": {
+                "type": "string"
+              }
+            },
+            "includeTags": {
+              "type": "array",
+              "description": "Optional tags; when present, only tests with at least one matching tag run",
+              "items": {
+                "type": "string"
+              }
+            },
+            "excludeTags": {
+              "type": "array",
+              "description": "Optional tags to exclude from the run",
+              "items": {
+                "type": "string"
+              }
+            },
+            "failFast": {
+              "type": "boolean",
+              "description": "Stop after the first failed, timed out, host-error, or unexpected-pass result"
+            },
+            "includeHostEvents": {
+              "type": "boolean",
+              "description": "Include low-level Excel host oracle events in the JSON response for debugging"
+            }
+          },
+          "required": [
+            "filePath"
+          ]
+        }
+      },
+      {
         "name": "xlide_createWorkbook",
         "displayName": "Create New Workbook",
         "modelDescription": "Creates a new macro-enabled workbook (.xlsm or .xlsb) with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. Overwrites the file if it already exists. Use this to start a fresh workbook before adding modules or cell data.",
