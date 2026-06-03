@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import type { VbaTestCase, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
+import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
 
 export interface VbaTestResultsOptions {
@@ -131,7 +131,7 @@ export function renderVbaTestResultsHtml(
             </td>
             <td class="tagCell">${testMetadataHtml(result.test.metadata)}</td>
             <td>${escapeHtml(`${result.durationMs} ms`)}</td>
-            <td class="detailsCell">${result.error ? escapeHtml(vbaTestFailureMessage(result.error)) : ''}</td>
+            <td class="detailsCell">${resultDetailsHtml(result)}</td>
         </tr>
     `).join('');
 
@@ -324,6 +324,22 @@ export function renderVbaTestResultsHtml(
         .detailsCell {
             white-space: pre-wrap;
             overflow-wrap: anywhere;
+        }
+        .testOutput {
+            margin-top: 8px;
+            color: var(--vscode-descriptionForeground);
+        }
+        .detailsCell > .testOutput:first-child {
+            margin-top: 0;
+        }
+        .outputLabel {
+            margin-bottom: 2px;
+            font-weight: 650;
+            color: var(--vscode-foreground);
+        }
+        .outputLine {
+            padding-left: 10px;
+            border-left: 2px solid var(--vscode-panel-border);
         }
         .status {
             display: inline-block;
@@ -601,6 +617,16 @@ function testMetadataHtml(metadata: {
         return '';
     }
     return `<div class="tagSet">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`;
+}
+
+function resultDetailsHtml(result: VbaTestRunItem): string {
+    const details = result.error ? `<div>${escapeHtml(vbaTestFailureMessage(result.error))}</div>` : '';
+    const output = result.output?.length
+        ? `<div class="testOutput"><div class="outputLabel">Output</div>${result.output
+            .map((line) => `<div class="outputLine">${escapeHtml(line)}</div>`)
+            .join('')}</div>`
+        : '';
+    return `${details}${output}`;
 }
 
 function randomNonce(): string {

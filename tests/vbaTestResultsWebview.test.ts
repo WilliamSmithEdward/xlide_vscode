@@ -80,6 +80,9 @@ describe('VBA test results webview', () => {
         expect(html).toContain('<th>Tags</th>');
         expect(html).toContain('class="tagCell"');
         expect(html).toContain('class="detailsCell"');
+        expect(html).toContain('class="testOutput"');
+        expect(html).toContain('Output');
+        expect(html).toContain('created invoice');
         expect(html).toContain('class="testNameLink"');
         expect(html).toContain('data-open-test-index="0"');
         expect(html).toContain('cursor: pointer');
@@ -241,7 +244,7 @@ function reportFixture(): VbaTestRunReport {
             contract: "Standard-module no-argument Sub procedures with '@xlide-test'.",
         },
         results: [
-            { test: pass, status: 'passed', durationMs: 10 },
+            { test: pass, status: 'passed', durationMs: 10, output: ['created invoice'] },
             { test: fail, status: 'failed', durationMs: 20, error: 'Err.Raise <boom>' },
             { test: xfail, status: 'xfail', durationMs: 14, error: 'Known issue' },
             { test: timeout, status: 'timeout', durationMs: 5000, error: 'Timed out' },

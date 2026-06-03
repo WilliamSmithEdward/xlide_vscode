@@ -63,6 +63,89 @@ diagnostics and workbook analysis. This catches typos, unsupported metadata
 keys, invalid timeouts, detached markers, markers in class/document modules,
 Functions, Properties, and parameterized Subs.
 
+## Assertions And Output
+
+Install `XlideAssert.bas` from the Tests GUI before running tests. The module is
+also used for IntelliSense when it is present in the workbook.
+
+Core assertions:
+
+- `XlideAssert.AreEqual expected, actual[, message]`
+- `XlideAssert.AreNotEqual expected, actual[, message]`
+- `XlideAssert.IsTrue condition[, message]`
+- `XlideAssert.IsFalse condition[, message]`
+- `XlideAssert.Fail [message]`
+
+Object and value-state assertions:
+
+- `XlideAssert.AreSame expectedObject, actualObject[, message]`
+- `XlideAssert.AreNotSame expectedObject, actualObject[, message]`
+- `XlideAssert.IsNothing actualObject[, message]`
+- `XlideAssert.IsNotNothing actualObject[, message]`
+- `XlideAssert.IsNullValue actual[, message]`
+- `XlideAssert.IsNotNullValue actual[, message]`
+- `XlideAssert.IsEmptyValue actual[, message]`
+- `XlideAssert.IsNotEmptyValue actual[, message]`
+
+String and expected-output assertions use binary, case-sensitive comparison:
+
+- `XlideAssert.Contains actual, expectedSubstring[, message]`
+- `XlideAssert.DoesNotContain actual, unexpectedSubstring[, message]`
+- `XlideAssert.StartsWith actual, expectedPrefix[, message]`
+- `XlideAssert.EndsWith actual, expectedSuffix[, message]`
+
+Expected-error helpers:
+
+- `XlideAssert.Throws expectedErrorNumber, macroName[, message]`
+- `XlideAssert.DoesNotThrow macroName[, message]`
+
+Use `Throws` or `DoesNotThrow` when one call inside a larger test should raise,
+or not raise, a deterministic error. Use marker metadata such as
+`expected-error=13` when the whole test procedure is expected to fall through
+with that VBA error.
+
+`XlideAssert.WriteLine value` records deterministic per-test output. Output
+appears in the results view Details column, in `summary.json`, and in
+`output.log`.
+
+```vba
+' @xlide-test tags=smoke
+Public Sub InvoiceTotal_WritesUsefulOutput()
+    Dim total As Currency
+    total = InvoiceTotal(100, 0.08)
+
+    XlideAssert.WriteLine "total=" & CStr(total)
+    XlideAssert.AreEqual 108, total
+    XlideAssert.Contains "invoice-total:108", "108"
+End Sub
+```
+
+## Setup And Test Data
+
+XLIDE tests are ordinary VBA. Put setup, teardown, factories, and fixture data
+in helper procedures or modules, then call them explicitly from the test. This
+keeps order deterministic and avoids hidden naming conventions.
+
+```vba
+' @xlide-test tags=invoice
+Public Sub InvoiceTotal_UsesFixture()
+    On Error GoTo Cleanup
+
+    ResetInvoiceFixture
+    SeedInvoiceFixture 100, 0.08
+
+    XlideAssert.AreEqual 108, ActiveInvoiceTotal()
+
+Cleanup:
+    ClearInvoiceFixture
+    If Err.Number <> 0 Then Err.Raise Err.Number, Err.Source, Err.Description
+End Sub
+```
+
+Dedicated setup/teardown hook directives are not part of the public contract
+yet. Prefer explicit helper calls until hook ordering, failure reporting, and
+cleanup semantics are fully specified.
+
 ## Run Tests
 
 Use the XLIDE Unit Tests workbook action or the workbook-tree Unit Tests context
@@ -86,9 +169,23 @@ previous run. It refreshes with the XLIDE workbook tree, so installing/removing
 modules or refreshing the tree updates the support gate without reopening the
 panel.
 
+Command palette and automation surfaces use the same runner:
+
+- `XLIDE: Run VBA Tests` opens the workbook Tests GUI.
+- `XLIDE: Run VBA Tests With Options` prompts for include/exclude tag filters.
+- `XLIDE: Run VBA Tests In Current Module` runs marked tests in the active
+  workbook module.
+- `XLIDE: Run VBA Test At Cursor` runs the marked test under the editor cursor.
+- The `xlide_runVbaTests` AI-agent tool runs headless and writes the same
+  artifacts as the GUI.
+
 By default XLIDE creates one XLIDE-owned Excel instance, opens the workbook
 read-only, runs the selected tests, closes without saving, and cleans up the
 owned Excel process. It does not attach to your normal Excel session by default.
+Test execution uses Excel COM to run macros, but it does not require Excel's
+"Trust access to the VBA project object model" setting. Support-module install
+and temporary test-host injection use XLIDE's workbook module I/O rather than
+COM `VBProject` automation.
 
 ## Results And Artifacts
 
@@ -110,6 +207,12 @@ tests/
 `summary.json` is the complete report. `host-trace.json` captures the Excel host
 lifecycle. `output.log` is a readable transcript. `status_for_ci.json` is
 overwritten on each run with compact latest-run metadata for downstream CI.
+`summary.json` includes every discovered test result, status, duration, failure
+message, metadata, and `XlideAssert.WriteLine` output. `status_for_ci.json`
+keeps only deterministic CI-oriented metadata: schema version, pass/fail/error
+status, reason, run id, generated timestamp, workbook name, relative artifact
+paths, counts, duration, host summary, and failed test identities. It omits line
+and column numbers until exact failure locations are deterministic.
 
 To change the artifact folder or retention policy for one workbook, edit the
 workbook sidecar file `<workbook>.xlide_settings.json`:
@@ -136,7 +239,7 @@ latest CI status payload.
 
 ## Current Limitations
 
-Excel COM execution is Windows-only. The first shipped path uses the selected
-workbook and standard-module VBA tests. Richer expected output/state assertions
-beyond `expected-error`, `XlideAssert.Throws`, and `XlideAssert.DoesNotThrow`
-remain planned follow-ups.
+Excel COM execution is Windows-only. The public test contract currently runs
+explicitly marked zero-argument `Sub` procedures in standard modules. Hook-style
+setup/teardown directives, deterministic compile-error preflight, and richer
+suite-level lifecycle controls remain planned hardening work.

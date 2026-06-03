@@ -77,6 +77,30 @@ describe('VBA test execution result classification', () => {
         expect(result.status).toBe('xpass');
         expect(result.error).toBe('Expected failure did not occur: Bug should still raise a different error');
     });
+
+    it('preserves deterministic output lines from the VBA assertion API', () => {
+        const passed = vbaTestRunItemFromHostResult(
+            testCase(),
+            hostResult({ outcome: 'passed', output: ['created invoice', 'checked total'] }),
+        );
+        const failed = vbaTestRunItemFromHostResult(
+            testCase(),
+            hostResult({
+                outcome: 'failed',
+                message: 'RUN_FAILED|Expected <1> but was <2>.',
+                output: ['before assertion'],
+            }),
+        );
+
+        expect(passed).toMatchObject({
+            status: 'passed',
+            output: ['created invoice', 'checked total'],
+        });
+        expect(failed).toMatchObject({
+            status: 'failed',
+            output: ['before assertion'],
+        });
+    });
 });
 
 function testCase(metadata: Partial<VbaTestCase['metadata']> = {}): VbaTestCase {

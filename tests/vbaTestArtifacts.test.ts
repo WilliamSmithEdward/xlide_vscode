@@ -189,7 +189,7 @@ describe('VBA test artifacts', () => {
 	it('writes summary, sanitized host trace, output log, and latest CI status', async () => {
         const workbook = tempWorkbook('Live Test.xlsm');
         const report = testReport(workbook, [
-            result('Tests.Passes', 'passed', 10),
+            result('Tests.Passes', 'passed', 10, undefined, ['created invoice', 'checked total']),
         ]);
         const hostEvents: VbaTestHostOracleEvent[] = [
             { kind: 'host-phase', excelId: 'xlide-1', phase: 'excel-create', outcome: 'passed', durationMs: 120 },
@@ -241,7 +241,7 @@ describe('VBA test artifacts', () => {
 
         expect(JSON.parse(fs.readFileSync(written.summaryPath, 'utf8'))).toMatchObject({
             workbookName: 'Live Test.xlsm',
-            results: [{ status: 'passed' }],
+            results: [{ status: 'passed', output: ['created invoice', 'checked total'] }],
         });
         const hostTrace = JSON.parse(fs.readFileSync(written.hostTracePath, 'utf8'));
         expect(hostTrace.schemaVersion).toBe(1);
@@ -249,6 +249,8 @@ describe('VBA test artifacts', () => {
         expect(hostTrace.events[3]).toMatchObject({ kind: 'workbook-opened', filePath: 'Live Test.xlsm' });
         expect(hostTrace.events[8]).toMatchObject({ kind: 'workbook-closed', filePath: 'Live Test.xlsm' });
         expect(fs.readFileSync(written.outputLogPath, 'utf8')).toContain('Status: pass (passed)');
+        expect(fs.readFileSync(written.outputLogPath, 'utf8')).toContain('output: created invoice');
+        expect(fs.readFileSync(written.outputLogPath, 'utf8')).toContain('output: checked total');
         expect(JSON.parse(fs.readFileSync(written.statusPath, 'utf8'))).toMatchObject({
             status: 'pass',
             reason: 'passed',
@@ -371,12 +373,19 @@ function testReport(workbook: string, results: VbaTestRunItem[]): VbaTestRunRepo
     };
 }
 
-function result(qualifiedName: string, status: VbaTestStatus, durationMs: number, error?: string): VbaTestRunItem {
+function result(
+    qualifiedName: string,
+    status: VbaTestStatus,
+    durationMs: number,
+    error?: string,
+    output?: string[],
+): VbaTestRunItem {
     return {
         test: testCase(qualifiedName),
         status,
         durationMs,
         ...(error ? { error } : {}),
+        ...(output?.length ? { output } : {}),
     };
 }
 

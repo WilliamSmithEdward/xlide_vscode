@@ -313,6 +313,14 @@ describe('member completion - standard modules', () => {
 		expect(areEqual?.kind).toBe('method');
 		expect(areEqual?.signature).toContain('AreEqual(expected As Variant, actual As Variant, [message As String = ""])');
 		expect(areEqual?.surfaceExhaustive).toBe(true);
+
+		const containsSrc = 'Sub TestInvoice()\n    XlideAssert.Con\nEnd Sub\n';
+		const contains = resolveMemberCompletions(containsSrc, dotOffset(containsSrc, 'XlideAssert.Con'), {
+			projectClassMembers: index.projectMemberSurfaces('Tests'),
+		}).find((member) => member.name === 'Contains');
+		expect(contains?.signature).toContain(
+			'Contains(actual As Variant, expectedSubstring As Variant, [message As String = ""])',
+		);
 	});
 });
 

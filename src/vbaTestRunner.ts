@@ -81,6 +81,7 @@ export interface VbaTestRunItem {
     status: VbaTestStatus;
     durationMs: number;
     error?: string;
+    output?: string[];
 }
 
 export interface VbaTestRunReport {

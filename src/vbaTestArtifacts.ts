@@ -457,7 +457,10 @@ function artifactSafeWorkbookPath(value: string, workbookPath: string): string {
 
 function formatOutputLogResult(result: VbaTestRunItem): string {
     const detail = result.error ? ` - ${sanitizeCiMessage(result.error) ?? ''}` : '';
-    return `- ${result.status.toUpperCase()} ${result.test.qualifiedName} (${result.durationMs} ms)${detail}`;
+    const output = result.output?.length
+        ? `\n${result.output.map((line) => `  output: ${sanitizeCiMessage(line) ?? ''}`).join('\n')}`
+        : '';
+    return `- ${result.status.toUpperCase()} ${result.test.qualifiedName} (${result.durationMs} ms)${detail}${output}`;
 }
 
 function formatRunTimestamp(date: Date): string {

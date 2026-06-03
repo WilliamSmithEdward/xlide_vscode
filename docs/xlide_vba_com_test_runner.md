@@ -4,8 +4,8 @@ Status: first implementation slice exists. This document tracks the current
 downstream-developer workflow plus remaining shipped-runner gaps.
 
 Purpose: describe the intended workflow for writing and running VBA project tests
-from XLIDE through Excel COM. This document should become the user-facing guide
-before the test runner is considered shipped.
+from XLIDE through Excel COM. This file is the internal engineering contract;
+`user_guides/testing.md` is the publish-ready topical guide.
 
 ## Goals
 
@@ -164,6 +164,7 @@ The current runner supports:
 - timeout and host-error accounting
 - clean assertion details from the bundled `XlideAssert` support module, with
   terse fallback text for generic Excel automation `Run` failures
+- deterministic per-test output written through `XlideAssert.WriteLine`
 - JSON report logging in the XLIDE Output channel
 - persisted default run artifacts under `tests` beside the workbook:
   `summary.json`, `host-trace.json`, `output.log`, and latest
@@ -171,7 +172,7 @@ The current runner supports:
 - live/workbook diagnostics for invalid `@xlide-test` marker syntax and markers
   that cannot discover a runnable test
 - a concise VS Code test results panel
-- command palette and workbook-tree entry points
+- command palette, workbook-tree, and headless AI-agent command entry points
 - Tests GUI runtime gating for Excel COM registration without launching Excel
 - non-Windows discovery with skipped execution because Excel COM is Windows-only
 
@@ -282,15 +283,12 @@ bounded host failures with owned-process cleanup rather than indefinite runs.
 
 Remaining shipped-runner execution features include:
 
-- GUI selected-test checkbox/list execution
 - suite timeout
 - comprehensive popup/blocker matrix with deterministic handling or host-error
   classification
 - stage/test duration metrics and performance regression baselines
 - setup and teardown hooks
-- explicit test logs
 - GUI controls for artifact output folder and retention policy
-- explicit headless/automation runner mode
 - stable result ids for editor navigation and CI artifacts
 
 Setup/teardown design should be explicit and documented before implementation.
@@ -314,11 +312,21 @@ XlideAssert.AreNotEqual unexpected, actual
 XlideAssert.IsTrue condition
 XlideAssert.IsFalse condition
 XlideAssert.AreSame expectedObject, actualObject
+XlideAssert.AreNotSame unexpectedObject, actualObject
 XlideAssert.IsNothing value
 XlideAssert.IsNotNothing value
+XlideAssert.IsNullValue value
+XlideAssert.IsNotNullValue value
+XlideAssert.IsEmptyValue value
+XlideAssert.IsNotEmptyValue value
+XlideAssert.Contains actualText, expectedSubstring
+XlideAssert.DoesNotContain actualText, unexpectedSubstring
+XlideAssert.StartsWith actualText, expectedPrefix
+XlideAssert.EndsWith actualText, expectedSuffix
 XlideAssert.Throws expectedErrorNumber, "ModuleName.ProcedureName"
 XlideAssert.DoesNotThrow "ModuleName.ProcedureName"
 XlideAssert.Fail "message"
+XlideAssert.WriteLine "message"
 XlideAssert.AssertionErrorNumber()
 ```
 
@@ -334,28 +342,10 @@ not require COM access to the VBA project object model.
 
 ## Planned Assertion Surface
 
-The shipped documentation should describe every supported assertion with
-examples. Candidate future assertions:
-
-```vba
-XlideAssert.AreEqual expected, actual
-XlideAssert.AreNotEqual unexpected, actual
-XlideAssert.IsTrue condition
-XlideAssert.IsFalse condition
-XlideAssert.IsEmpty value
-XlideAssert.IsNotEmpty value
-XlideAssert.IsNothing value
-XlideAssert.IsNotNothing value
-XlideAssert.Contains expectedSubstring, actualText
-XlideAssert.Matches expectedPattern, actualText
-XlideAssert.Throws expectedErrorNumber, "ProcedureName"
-XlideAssert.DoesNotThrow "ProcedureName"
-XlideAssert.Fail "message"
-XlideTest.Log "message"
-```
-
-The assertion API must be deterministic and implemented by an auditable VBA
-support module or equivalent controlled test runtime.
+Future assertion candidates should stay deterministic and auditable. Regex or
+pattern helpers can be added later if the matching semantics are documented
+clearly enough for stable CI output. Hook-style setup/teardown helpers are still
+planned separately from the assertion API.
 
 ## Planned Result Data
 
@@ -370,7 +360,7 @@ Each test result should include:
 - assertion message
 - runtime error number, source, and description
 - compile failure details when available
-- explicit `XlideTest.Log` output
+- explicit `XlideAssert.WriteLine` output
 - elapsed time
 - teardown/cleanup status
 
@@ -496,10 +486,9 @@ The runner should:
 - warn clearly when Excel cannot be reset or the workbook cannot be reopened;
 - use timeouts as a fallback, not as the primary success/failure signal.
 
-## Documentation Required Before Shipping
+## Documentation
 
-Before the feature is called shipped, the public-facing guide
-`user_guides/testing.md` should exist and cover:
+The public-facing guide `user_guides/testing.md` now covers:
 
 - quickstart
 - complete annotation or manifest syntax
@@ -510,7 +499,7 @@ Before the feature is called shipped, the public-facing guide
 - JSON schema
 - COM/Excel trust and security prerequisites
 - tags, skips, expected failures, rerun failed, and fail-fast examples
-- setup/teardown examples
+- current setup/test-data patterns and planned setup/teardown direction
 - troubleshooting
 - limitations and host-version notes
 

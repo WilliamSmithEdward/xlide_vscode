@@ -60,6 +60,7 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('function Convert-XlideVbaRunResult');
         expect(script).toContain('function Format-XlideVbaRunResult');
         expect(script).toContain('function Convert-XlideNullableInt');
+        expect(script).toContain('function Convert-XlideOutputLines');
         expect(script).toContain('function Format-XlideRunException');
         expect(script).toContain('$hex = Format-XlideHResult $exception.HResult');
         expect(script).not.toContain('[uint32]$exception.HResult');
@@ -74,6 +75,8 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('$message = "RUN_FAILED|" + (Format-XlideVbaRunResult $vbaRunResult)');
         expect(script).toContain('$errorNumber = Convert-XlideNullableInt $vbaRunResult.number');
         expect(script).toContain('$payload["errorNumber"] = $errorNumber');
+        expect(script).toContain('$testOutput = Convert-XlideOutputLines $vbaRunResult.output');
+        expect(script).toContain('$payload["output"] = @($testOutput)');
         expect(script).toContain('$message = "RUN_FAILED|" + (Format-XlideRunException $_)');
         expect(script).toContain('outcome = "runner-error"');
         expect(script).toContain('      break');
@@ -100,6 +103,7 @@ describe('VBA test Excel host script', () => {
 
         expect(source).toContain('Attribute VB_Name = "XlideTestRuntime"');
         expect(source).toContain('Public Function RunTest(ByVal testId As String) As String');
+        expect(source).toContain('XlideAssert.ResetTestState');
         expect(source).toContain('On Error GoTo Caught');
         expect(source).toContain('Select Case testId');
         expect(source).toContain('Case "Tests.Pass"');
@@ -108,6 +112,7 @@ describe('VBA test Excel host script', () => {
         expect(source).toContain('Call MoreTests.RaisesRuntimeError');
         expect(source).toContain('RunTest = FailureJson(actualNumber, actualSource, actualDescription)');
         expect(source).toContain('XlideAssert.LastFailureMessage()');
+        expect(source).toContain('XlideAssert.OutputJson()');
         expect(source).not.toContain('Application.Run');
     });
 
@@ -144,6 +149,7 @@ describe('VBA test Excel host script', () => {
             outcome: 'passed',
             durationMs: 12,
             errorNumber: 13,
+            output: ['hello'],
         })}`)).toEqual({
             kind: 'macro-finished',
             excelId: 'xlide-1',
@@ -151,6 +157,7 @@ describe('VBA test Excel host script', () => {
             outcome: 'passed',
             durationMs: 12,
             errorNumber: 13,
+            output: ['hello'],
         });
     });
 });
