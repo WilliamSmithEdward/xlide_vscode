@@ -79,6 +79,11 @@ Current marker rules:
   matching VBA `Err.Number` passes; no error or a different error number fails.
 - `expected-error` and `expected-error=any` pass when the test raises any caught
   VBA error and fail when the test completes normally.
+- The analysis/testing contract is unified: in a valid `@xlide-test` procedure,
+  `expected-error` suppresses only deterministic runtime-error diagnostics that
+  match the intentional error path. It must not hide the whole procedure, and it
+  must not suppress syntax, compile-equivalent, invalid-marker, style, or
+  unrelated diagnostics.
 - Malformed test markers, malformed metadata, unsupported metadata keys,
   detached markers, non-standard-module markers, Functions, Properties, and
   parameterized Subs are reported through the `vba-test-directive` warning in

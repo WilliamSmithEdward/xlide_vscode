@@ -52,6 +52,12 @@ the expected failure path has a deterministic `Err.Number`. Use
 `XlideAssert.Throws` inside a test when you want a single assertion to verify
 that another procedure raises a specific error.
 
+XLIDE applies the same contract to analysis. In a valid `@xlide-test`
+procedure, `expected-error` suppresses only analyzer diagnostics that represent
+the intentional deterministic runtime error path. It does not suppress the
+whole procedure: syntax errors, compile-equivalent diagnostics, invalid test
+marker syntax, style diagnostics, and unrelated findings remain visible.
+
 XLIDE reports invalid marker syntax as a `vba-test-directive` warning in live
 diagnostics and workbook analysis. This catches typos, unsupported metadata
 keys, invalid timeouts, detached markers, markers in class/document modules,

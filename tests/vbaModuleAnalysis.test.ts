@@ -101,6 +101,76 @@ describe('analyzeVbaModuleSource', () => {
 		expect(result.suppressedDiagnostics.map((diag) => diag.code)).toEqual([VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE]);
 	});
 
+	it('suppresses only intentional deterministic runtime diagnostics for expected-error tests', () => {
+		const source =
+			'Option Explicit\n' +
+			"' @xlide-test expected-error=13\n" +
+			'Sub Test_ShouldRTE()\n' +
+			'    Dim i As Integer\n' +
+			'    i = "RTE"\n' +
+			'    hiddenMissing = 1\n' +
+			'End Sub\n' +
+			'Sub Control()\n' +
+			'    Dim j As Integer\n' +
+			'    j = "RTE"\n' +
+			'End Sub\n';
+
+		const result = analyzeVbaModuleSource({
+			source,
+			moduleName: 'Tests',
+			moduleType: 'standard',
+			knownIdentifiers: new Set<string>(),
+		});
+
+		expect(result.suppressedDiagnostics.map((diag) => diag.code)).toEqual(['assignment-type-mismatch']);
+		expect(result.diagnostics.filter((diag) => diag.code === 'assignment-type-mismatch'))
+			.toHaveLength(1);
+		expect(result.diagnostics.find((diag) => diag.code === 'assignment-type-mismatch')?.message)
+			.toContain('j');
+		expect(result.diagnostics.find((diag) => diag.code === 'undeclared-variable')?.message)
+			.toContain('hiddenMissing');
+	});
+
+	it('supports expected-error any without hiding non-runtime diagnostics', () => {
+		const source =
+			'Option Explicit\n' +
+			"' @xlide-test expected-error\n" +
+			'Sub Test_ShouldRTE()\n' +
+			'    Dim i As Integer\n' +
+			'    i = "RTE"\n' +
+			'    hiddenMissing = 1\n' +
+			'End Sub\n';
+
+		const result = analyzeVbaModuleSource({
+			source,
+			moduleName: 'Tests',
+			moduleType: 'standard',
+			knownIdentifiers: new Set<string>(),
+		});
+
+		expect(result.diagnostics.map((diag) => diag.code)).toEqual(['undeclared-variable']);
+		expect(result.suppressedDiagnostics.map((diag) => diag.code)).toEqual(['assignment-type-mismatch']);
+	});
+
+	it('does not suppress deterministic runtime diagnostics with a mismatched expected error number', () => {
+		const source =
+			'Option Explicit\n' +
+			"' @xlide-test expected-error=9\n" +
+			'Sub Test_ShouldRTE()\n' +
+			'    Dim i As Integer\n' +
+			'    i = "RTE"\n' +
+			'End Sub\n';
+
+		const result = analyzeVbaModuleSource({
+			source,
+			moduleName: 'Tests',
+			moduleType: 'standard',
+		});
+
+		expect(result.suppressedDiagnostics).toHaveLength(0);
+		expect(result.diagnostics.map((diag) => diag.code)).toEqual(['assignment-type-mismatch']);
+	});
+
 	it('keeps hard diagnostics suppressed inside member ranges', () => {
 		const source =
 			'Option Explicit\n' +
