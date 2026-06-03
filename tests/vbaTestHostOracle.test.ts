@@ -30,6 +30,8 @@ describe('VBA test host oracle', () => {
             excelInstance: 'single-owned-instance',
             workbookOpenMode: 'read-only',
             attachToUserExcelByDefault: false,
+            detectsExcelModals: true,
+            dismissesSafeModalsWithoutSendKeys: true,
         });
         expect(validateVbaTestHostOracleTrace(events)).toEqual([]);
     });
@@ -145,6 +147,61 @@ describe('VBA test host oracle', () => {
                 dismissed: true,
             },
             { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.MsgBox', outcome: 'passed' },
+            { kind: 'workbook-closed', excelId: 'xlide-1', filePath: 'C:/work/Book.xlsm', saveChanges: false },
+            { kind: 'excel-quit', excelId: 'xlide-1' },
+        ];
+
+        expect(validateVbaTestHostOracleTrace(events)).toEqual([]);
+    });
+
+    it('accepts multiple safe modal dialogs in a single macro', () => {
+        const events: VbaTestHostOracleEvent[] = [
+            { kind: 'excel-created', excelId: 'xlide-1', owned: true },
+            {
+                kind: 'workbook-opened',
+                excelId: 'xlide-1',
+                filePath: 'C:/work/Book.xlsm',
+                readOnly: true,
+                updateLinks: 0,
+                displayAlerts: false,
+                ignoreReadOnlyRecommended: true,
+            },
+            { kind: 'macro-started', excelId: 'xlide-1', qualifiedName: 'Tests.ChainedMsgBox', timeoutMs: 5000 },
+            {
+                kind: 'modal-detected',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.ChainedMsgBox',
+                title: 'XLIDE Chain',
+                message: 'one',
+                buttons: ['OK'],
+                safeToDismiss: true,
+            },
+            {
+                kind: 'modal-dismissed',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.ChainedMsgBox',
+                title: 'XLIDE Chain',
+                button: 'OK',
+                dismissed: true,
+            },
+            {
+                kind: 'modal-detected',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.ChainedMsgBox',
+                title: 'XLIDE Chain',
+                message: 'two',
+                buttons: ['OK'],
+                safeToDismiss: true,
+            },
+            {
+                kind: 'modal-dismissed',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.ChainedMsgBox',
+                title: 'XLIDE Chain',
+                button: 'OK',
+                dismissed: true,
+            },
+            { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.ChainedMsgBox', outcome: 'passed' },
             { kind: 'workbook-closed', excelId: 'xlide-1', filePath: 'C:/work/Book.xlsm', saveChanges: false },
             { kind: 'excel-quit', excelId: 'xlide-1' },
         ];

@@ -98,6 +98,22 @@ describe('VBA test artifacts', () => {
         expect(JSON.stringify(status)).not.toContain(workbook);
         expect(status.failedTests[0]).not.toHaveProperty('line');
         expect(status.failedTests[0]).not.toHaveProperty('column');
+        expect(status.host).toEqual({
+            eventCount: 0,
+            excel: {
+                created: 0,
+                quitNormally: false,
+                killed: 0,
+                killReasons: [],
+            },
+            modals: {
+                detected: 0,
+                dismissed: 0,
+                blocked: 0,
+                blockedDialogs: [],
+            },
+            phases: [],
+        });
     });
 
     it('treats zero discovered tests as an error for CI consumers', () => {
@@ -123,7 +139,9 @@ describe('VBA test artifacts', () => {
             result('Tests.Passes', 'passed', 10),
         ]);
         const hostEvents: VbaTestHostOracleEvent[] = [
+            { kind: 'host-phase', excelId: 'xlide-1', phase: 'excel-create', outcome: 'passed', durationMs: 120 },
             { kind: 'excel-created', excelId: 'xlide-1', owned: true, pid: 123 },
+            { kind: 'host-phase', excelId: 'xlide-1', phase: 'workbook-open', outcome: 'passed', durationMs: 80 },
             {
                 kind: 'workbook-opened',
                 excelId: 'xlide-1',
@@ -134,9 +152,29 @@ describe('VBA test artifacts', () => {
                 ignoreReadOnlyRecommended: true,
             },
             { kind: 'macro-started', excelId: 'xlide-1', qualifiedName: 'Tests.Passes', timeoutMs: 30000 },
+            {
+                kind: 'modal-detected',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.Passes',
+                title: 'Smoke',
+                message: 'hello',
+                buttons: ['OK'],
+                safeToDismiss: true,
+            },
+            {
+                kind: 'modal-dismissed',
+                excelId: 'xlide-1',
+                qualifiedName: 'Tests.Passes',
+                title: 'Smoke',
+                button: 'OK',
+                dismissed: true,
+            },
             { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.Passes', outcome: 'passed', durationMs: 10 },
-            { kind: 'workbook-closed', excelId: 'xlide-1', filePath: workbook, saveChanges: false },
-            { kind: 'excel-quit', excelId: 'xlide-1' },
+            { kind: 'workbook-closed', excelId: 'xlide-1', filePath: workbook, saveChanges: false, durationMs: 30 },
+            { kind: 'host-phase', excelId: 'xlide-1', phase: 'workbook-close', outcome: 'passed', durationMs: 30 },
+            { kind: 'excel-quit', excelId: 'xlide-1', durationMs: 15 },
+            { kind: 'host-phase', excelId: 'xlide-1', phase: 'excel-quit', outcome: 'passed', durationMs: 15 },
+            { kind: 'host-phase', excelId: 'xlide-1', phase: 'com-release', outcome: 'passed', durationMs: 20 },
         ];
 
         const written = await writeVbaTestRunArtifacts(report, hostEvents, {
@@ -154,15 +192,37 @@ describe('VBA test artifacts', () => {
         });
         const hostTrace = JSON.parse(fs.readFileSync(written.hostTracePath, 'utf8'));
         expect(hostTrace.schemaVersion).toBe(1);
-        expect(hostTrace.events[0]).toMatchObject({ kind: 'excel-created' });
-        expect(hostTrace.events[1]).toMatchObject({ kind: 'workbook-opened', filePath: 'Live Test.xlsm' });
-        expect(hostTrace.events[4]).toMatchObject({ kind: 'workbook-closed', filePath: 'Live Test.xlsm' });
+        expect(hostTrace.events[1]).toMatchObject({ kind: 'excel-created' });
+        expect(hostTrace.events[3]).toMatchObject({ kind: 'workbook-opened', filePath: 'Live Test.xlsm' });
+        expect(hostTrace.events[8]).toMatchObject({ kind: 'workbook-closed', filePath: 'Live Test.xlsm' });
         expect(fs.readFileSync(written.outputLogPath, 'utf8')).toContain('Status: pass (passed)');
         expect(JSON.parse(fs.readFileSync(written.statusPath, 'utf8'))).toMatchObject({
             status: 'pass',
             reason: 'passed',
             paths: {
                 summary: 'tests/Live_Test_2026-06-03_212233/summary.json',
+            },
+            host: {
+                eventCount: 13,
+                excel: {
+                    created: 1,
+                    quitNormally: true,
+                    killed: 0,
+                    killReasons: [],
+                },
+                modals: {
+                    detected: 1,
+                    dismissed: 1,
+                    blocked: 0,
+                    blockedDialogs: [],
+                },
+                phases: [
+                    { phase: 'com-release', count: 1, failed: 0, totalDurationMs: 20, maxDurationMs: 20 },
+                    { phase: 'excel-create', count: 1, failed: 0, totalDurationMs: 120, maxDurationMs: 120 },
+                    { phase: 'excel-quit', count: 1, failed: 0, totalDurationMs: 15, maxDurationMs: 15 },
+                    { phase: 'workbook-close', count: 1, failed: 0, totalDurationMs: 30, maxDurationMs: 30 },
+                    { phase: 'workbook-open', count: 1, failed: 0, totalDurationMs: 80, maxDurationMs: 80 },
+                ],
             },
         });
     });

@@ -41,6 +41,13 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('safeToDismiss');
         expect(script).toContain('[XlideTestModalWatcher]::Start');
         expect(script).toContain('[XlideTestModalWatcher]::Stop');
+        expect(script).toContain('Emit-XlideTestHostEvent "host-phase"');
+        expect(script).toContain('Emit-XlideHostPhase "excel-create" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "workbook-open" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "workbook-close" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "excel-quit" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "com-release" "passed"');
+        expect(script).toContain('durationMs = [int]$phaseSw.ElapsedMilliseconds');
         expect(script).not.toContain('SendKeys');
         expect(script).toContain('if ($failFast -and -not $expectedFailure) { break }');
     });

@@ -64,7 +64,41 @@ export interface VbaTestCiStatus {
         xpass: number;
     };
     failedTests: VbaTestCiFailedTest[];
+    host: VbaTestCiHostMetadata;
     durationMs: number;
+}
+
+export interface VbaTestCiHostMetadata {
+    eventCount: number;
+    excel: {
+        created: number;
+        quitNormally: boolean;
+        killed: number;
+        killReasons: string[];
+    };
+    modals: {
+        detected: number;
+        dismissed: number;
+        blocked: number;
+        blockedDialogs: VbaTestCiBlockedModal[];
+    };
+    phases: VbaTestCiHostPhaseSummary[];
+}
+
+export interface VbaTestCiBlockedModal {
+    qualifiedName: string;
+    title?: string;
+    message?: string;
+    buttons?: string[];
+    reason: string;
+}
+
+export interface VbaTestCiHostPhaseSummary {
+    phase: string;
+    count: number;
+    failed: number;
+    totalDurationMs: number;
+    maxDurationMs: number;
 }
 
 export interface VbaTestCiFailedTest {
@@ -79,6 +113,10 @@ export interface VbaTestCiFailedTest {
 export interface VbaTestRunArtifactOptions {
     outputFolder?: string;
     generatedAt?: Date;
+}
+
+export interface VbaTestCiStatusOptions extends Pick<VbaTestRunArtifactOptions, 'generatedAt'> {
+    hostEvents?: readonly VbaTestHostOracleEvent[];
 }
 
 export interface VbaTestRunArtifactWriteResult extends VbaTestRunArtifactPaths {
@@ -121,7 +159,7 @@ export function buildVbaTestRunArtifactPaths(
 export function createVbaTestCiStatus(
     report: VbaTestRunReport,
     paths: VbaTestRunArtifactPaths,
-    options: Pick<VbaTestRunArtifactOptions, 'generatedAt'> = {},
+    options: VbaTestCiStatusOptions = {},
 ): VbaTestCiStatus {
     const summary = summarizeVbaTestRun(report);
     const classification = classifyCiStatus(summary);
@@ -153,6 +191,7 @@ export function createVbaTestCiStatus(
         failedTests: report.results
             .filter((result) => CI_FAILURE_STATUSES.has(result.status))
             .map(ciFailedTest),
+        host: summarizeHostEventsForCi(options.hostEvents ?? []),
         durationMs: report.durationMs,
     };
 }
@@ -193,10 +232,14 @@ export async function writeVbaTestRunArtifacts(
     options: VbaTestRunArtifactOptions = {},
 ): Promise<VbaTestRunArtifactWriteResult> {
     const paths = buildVbaTestRunArtifactPaths(report, options);
-    const ciStatus = createVbaTestCiStatus(report, paths, options);
+    const sanitizedEvents = sanitizeVbaTestHostTraceForArtifacts(hostEvents, report.filePath);
+    const ciStatus = createVbaTestCiStatus(report, paths, {
+        ...options,
+        hostEvents: sanitizedEvents,
+    });
     const sanitizedHostTrace = {
         schemaVersion: 1,
-        events: sanitizeVbaTestHostTraceForArtifacts(hostEvents, report.filePath),
+        events: sanitizedEvents,
     };
 
     await fs.promises.mkdir(paths.runDirectory, { recursive: true });
@@ -265,6 +308,59 @@ function sanitizeCiMessage(value: string | undefined): string | undefined {
         return sanitized;
     }
     return `${sanitized.slice(0, MAX_CI_MESSAGE_LENGTH - 3)}...`;
+}
+
+function summarizeHostEventsForCi(events: readonly VbaTestHostOracleEvent[]): VbaTestCiHostMetadata {
+    const killReasons = events
+        .filter((event): event is Extract<VbaTestHostOracleEvent, { kind: 'excel-killed' }> => event.kind === 'excel-killed')
+        .map((event) => event.reason);
+    const blockedDialogs = events
+        .filter((event): event is Extract<VbaTestHostOracleEvent, { kind: 'modal-blocked' }> => event.kind === 'modal-blocked')
+        .map((event) => ({
+            qualifiedName: event.qualifiedName,
+            ...(sanitizeCiMessage(event.title) ? { title: sanitizeCiMessage(event.title) } : {}),
+            ...(sanitizeCiMessage(event.message) ? { message: sanitizeCiMessage(event.message) } : {}),
+            ...(event.buttons?.length ? { buttons: event.buttons.map((button) => sanitizeCiMessage(button) ?? '') } : {}),
+            reason: sanitizeCiMessage(event.reason) ?? 'unknown',
+        }));
+    return {
+        eventCount: events.length,
+        excel: {
+            created: events.filter((event) => event.kind === 'excel-created').length,
+            quitNormally: events.some((event) => event.kind === 'excel-quit'),
+            killed: killReasons.length,
+            killReasons,
+        },
+        modals: {
+            detected: events.filter((event) => event.kind === 'modal-detected').length,
+            dismissed: events.filter((event) => event.kind === 'modal-dismissed').length,
+            blocked: blockedDialogs.length,
+            blockedDialogs,
+        },
+        phases: summarizeHostPhaseDurations(events),
+    };
+}
+
+function summarizeHostPhaseDurations(events: readonly VbaTestHostOracleEvent[]): VbaTestCiHostPhaseSummary[] {
+    const summaries = new Map<string, VbaTestCiHostPhaseSummary>();
+    for (const event of events) {
+        if (event.kind !== 'host-phase') {
+            continue;
+        }
+        const current = summaries.get(event.phase) ?? {
+            phase: event.phase,
+            count: 0,
+            failed: 0,
+            totalDurationMs: 0,
+            maxDurationMs: 0,
+        };
+        current.count += 1;
+        current.failed += event.outcome === 'failed' ? 1 : 0;
+        current.totalDurationMs += event.durationMs;
+        current.maxDurationMs = Math.max(current.maxDurationMs, event.durationMs);
+        summaries.set(event.phase, current);
+    }
+    return [...summaries.values()].sort((left, right) => left.phase.localeCompare(right.phase));
 }
 
 function artifactSafeWorkbookPath(value: string, workbookPath: string): string {

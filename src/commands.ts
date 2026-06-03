@@ -175,6 +175,7 @@ interface OwnedReadOnlyExcelHostTestResult {
 }
 
 type OwnedExcelKillReason = 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed';
+const DEFAULT_VBA_TEST_CLEANUP_GRACE_MS = 5000;
 
 type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
 
@@ -763,7 +764,11 @@ export function registerCommands(
             let currentModalBlocker: Extract<VbaTestHostOracleEvent, { kind: 'modal-blocked' }> | undefined;
             let currentTimer: ReturnType<typeof setTimeout> | undefined;
             let startupTimer: ReturnType<typeof setTimeout> | undefined;
+            let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
             let ownedExcelPid: number | undefined;
+            let ownedExcelKilled = false;
+            let sawWorkbookClosed = false;
+            let sawExcelQuit = false;
             let timedOutAfter: string | undefined;
             let settled = false;
             let hostScriptCleaned = false;
@@ -778,6 +783,12 @@ export function registerCommands(
                 if (startupTimer) {
                     clearTimeout(startupTimer);
                     startupTimer = undefined;
+                }
+            };
+            const clearCleanupTimer = () => {
+                if (cleanupTimer) {
+                    clearTimeout(cleanupTimer);
+                    cleanupTimer = undefined;
                 }
             };
             const cleanupHostScript = () => {
@@ -839,6 +850,7 @@ export function registerCommands(
                 settled = true;
                 clearCurrentTimer();
                 clearStartupTimer();
+                clearCleanupTimer();
                 cleanupHostScript();
                 const resultsByName = new Map<string, OwnedReadOnlyExcelHostTestResult>();
                 for (const event of events) {
@@ -860,15 +872,35 @@ export function registerCommands(
             };
 
             const killOwnedExcel = (reason: OwnedExcelKillReason) => {
-                if (!ownedExcelPid) {
+                if (!ownedExcelPid || ownedExcelKilled) {
                     return;
                 }
+                ownedExcelKilled = true;
                 log(`[runVbaTests] Killing owned Excel process ${ownedExcelPid} after ${reason}.`);
                 cp.spawn('taskkill.exe', ['/PID', String(ownedExcelPid), '/T', '/F']);
                 const excelId = currentMacro?.excelId ?? events.find((event) => event.kind === 'excel-created')?.excelId;
                 if (excelId) {
                     events.push({ kind: 'excel-killed', excelId, reason });
                 }
+            };
+
+            const armCleanupWatchdog = (stage: 'workbook-closed' | 'excel-quit') => {
+                clearCleanupTimer();
+                cleanupTimer = setTimeout(() => {
+                    if (settled) {
+                        return;
+                    }
+                    const elapsedDescription = `${DEFAULT_VBA_TEST_CLEANUP_GRACE_MS} ms`;
+                    if (!sawExcelQuit) {
+                        log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} after workbook close; killing owned Excel.`);
+                        killOwnedExcel('cleanup-failed');
+                    } else {
+                        log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} after Excel quit; stopping host script.`);
+                    }
+                    child.kill();
+                    finish();
+                }, DEFAULT_VBA_TEST_CLEANUP_GRACE_MS);
+                log(`[runVbaTests] Cleanup watchdog armed after ${stage} (${DEFAULT_VBA_TEST_CLEANUP_GRACE_MS} ms).`);
             };
 
             startupTimer = setTimeout(() => {
@@ -934,6 +966,8 @@ export function registerCommands(
                 if (event.kind === 'excel-created') {
                     ownedExcelPid = event.pid;
                     log(`[runVbaTests host] excel-created pid=${ownedExcelPid ?? 'unknown'}`);
+                } else if (event.kind === 'host-phase') {
+                    log(`[runVbaTests host] phase ${event.phase} ${event.outcome} (${event.durationMs} ms)`);
                 } else if (event.kind === 'macro-started') {
                     log(`[runVbaTests host] macro-started ${event.qualifiedName} timeoutMs=${event.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS}`);
                     currentModalBlocker = undefined;
@@ -955,6 +989,16 @@ export function registerCommands(
                     clearCurrentTimer();
                     currentMacro = undefined;
                     currentModalBlocker = undefined;
+                } else if (event.kind === 'workbook-closed') {
+                    sawWorkbookClosed = true;
+                    log(`[runVbaTests host] workbook-closed durationMs=${event.durationMs ?? 'unknown'}`);
+                    armCleanupWatchdog('workbook-closed');
+                } else if (event.kind === 'excel-quit') {
+                    sawExcelQuit = true;
+                    log(`[runVbaTests host] excel-quit durationMs=${event.durationMs ?? 'unknown'}`);
+                    if (sawWorkbookClosed) {
+                        armCleanupWatchdog('excel-quit');
+                    }
                 }
             };
 

@@ -37,10 +37,24 @@ export interface VbaTestHostOracleIssue {
 }
 
 export type VbaTestMacroOutcome = 'passed' | 'failed' | 'timeout' | 'hung' | 'modal-blocked' | 'runner-error';
+export type VbaTestHostPhase =
+    | 'excel-create'
+    | 'workbook-open'
+    | 'workbook-close'
+    | 'excel-quit'
+    | 'com-release';
 
 export type VbaTestHostOracleEvent =
     | { kind: 'excel-created'; excelId: string; owned: boolean; pid?: number; visible?: boolean }
     | { kind: 'excel-attached'; excelId: string }
+    | {
+        kind: 'host-phase';
+        excelId: string;
+        phase: VbaTestHostPhase;
+        outcome: 'passed' | 'failed';
+        durationMs: number;
+        message?: string;
+    }
     | {
         kind: 'workbook-opened';
         excelId: string;
@@ -89,8 +103,8 @@ export type VbaTestHostOracleEvent =
         durationMs?: number;
         message?: string;
     }
-    | { kind: 'workbook-closed'; excelId: string; filePath?: string; saveChanges: boolean }
-    | { kind: 'excel-quit'; excelId: string }
+    | { kind: 'workbook-closed'; excelId: string; filePath?: string; saveChanges: boolean; durationMs?: number }
+    | { kind: 'excel-quit'; excelId: string; durationMs?: number }
     | { kind: 'excel-killed'; excelId: string; reason: 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed' };
 
 export function validateVbaTestHostOracleTrace(
