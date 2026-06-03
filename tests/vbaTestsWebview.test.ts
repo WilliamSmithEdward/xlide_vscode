@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode', () => ({
-    ViewColumn: { Beside: 2 },
+    ViewColumn: { Active: -1 },
     window: {
         createWebviewPanel: vi.fn(),
     },
@@ -22,7 +22,7 @@ describe('VBA tests webview', () => {
 
         expect(first).toBe(second);
         expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
-        expect(panel.reveal).toHaveBeenCalledWith(vscode.ViewColumn.Beside);
+        expect(panel.reveal).toHaveBeenCalledWith(vscode.ViewColumn.Active);
         panel.disposePanel();
     });
 

@@ -91,7 +91,7 @@ export function openVbaTestsPanel(
     const existing = openVbaTestsPanels.get(panelKey);
     if (existing) {
         existing.options = options;
-        existing.panel.reveal(vscode.ViewColumn.Beside);
+        existing.panel.reveal(vscode.ViewColumn.Active);
         void existing.refresh().catch((err) => {
             const error = err instanceof Error ? err.message : String(err);
             void existing.panel.webview.postMessage({ type: 'error', error });
@@ -105,7 +105,7 @@ export function openVbaTestsPanel(
     const panel = vscode.window.createWebviewPanel(
         'xlideVbaTests',
         `XLIDE Tests: ${path.basename(filePath)}`,
-        vscode.ViewColumn.Beside,
+        vscode.ViewColumn.Active,
         {
             enableScripts: true,
             retainContextWhenHidden: true,
