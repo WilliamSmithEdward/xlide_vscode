@@ -783,13 +783,14 @@ Definition of done:
 Purpose: let workbook developers write and run deterministic tests for their own
 VBA code from XLIDE, using Excel COM as the execution host.
 
-- [ ] Define an explicit VBA test discovery contract. Discovery must be
+- [x] Define an explicit VBA test discovery contract. Discovery must be
   annotation-driven or manifest-driven, not naming-heuristic-driven.
-- [ ] Add a developer-facing `xlide.runVbaTests` command that runs selected
-  tests through Excel COM.
+- [x] Add a developer-facing `xlide.runVbaTests` command that runs selected
+  tests through Excel COM. First slice runs all discovered tests in the target
+  workbook.
 - [ ] Run tests against a disposable workbook/session by default so test runs do
   not mutate the developer's open workbook unexpectedly.
-- [ ] Reuse the workbook close/reopen/reset discipline from macro execution and
+- [x] Reuse the workbook close/reopen/reset discipline from macro execution and
   warn when a workbook cannot be safely reopened in XLIDE's context.
 - [ ] Add a small VBA assertion/support module or equivalent injected test
   runtime for assertions such as equality, truth, expected error, and expected
@@ -826,11 +827,11 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - timeout and teardown failures
 - [ ] Support tests that assert expected output, expected state, expected thrown
   error, and expected absence of errors.
-- [ ] Return machine-readable JSON results for automation and render a concise
+- [x] Return machine-readable JSON results for automation and render a concise
   Problems/Test Results view in VS Code.
 - [ ] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
-- [ ] Add fixture tests before enabling broad adoption.
+- [x] Add fixture tests before enabling broad adoption.
 - [ ] Add a full developer VBA test GUI, not just a command/output stream. It
   should be callable from workbook/module/procedure right-click menus and the
   XLIDE Activity Bar/sidebar, show discovered tests with check/uncheck
@@ -981,7 +982,7 @@ development.
   sidebar changes should preserve the section order and layout unless there is a
   specific product reason to revisit it; prefer additive workflow buttons tied
   to implemented functionality.
-- [ ] Add a Unit Tests button to Workbook Actions once the VBA test runner is
+- [x] Add a Unit Tests button to Workbook Actions once the VBA test runner is
   implemented. It should run against the sidebar target workbook and follow the
   same no-target/runner-not-ready disabled-state contract as the existing
   workbook-scoped actions.
@@ -1329,9 +1330,10 @@ Definition of done:
    broad unknown external reference names deferred.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
    they become relevant to analyzer behavior.
-4. Keep the VBA test runner as a planned workstream until its specs and fixture
-   coverage are ready, and continue promoting small `CANARY_*` cases only when
-   they become relevant to analyzer behavior.
+4. Continue hardening the VBA test runner beyond the first explicit
+   `@xlide-test` run-all slice: assertion support, richer metadata,
+   selection/filtering, disposable workbook/session behavior, and full workflow
+   documentation remain before calling it shipped.
 5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
    for analysis, test, setup, sync, and workbook actions; avoid using the Output
    channel as the primary UX for actionable workflow results.

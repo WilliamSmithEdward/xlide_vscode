@@ -225,6 +225,12 @@
         "icon": "$(run)"
       },
       {
+        "command": "xlide.runVbaTests",
+        "title": "Run VBA Unit Tests",
+        "category": "XLIDE",
+        "icon": "$(beaker)"
+      },
+      {
         "command": "xlide.validateWorkbook",
         "title": "Validate VBA Project",
         "category": "XLIDE",
@@ -356,6 +362,11 @@
           "command": "xlide.analyzeWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
           "group": "4_analyze@1"
+        },
+        {
+          "command": "xlide.runVbaTests",
+          "when": "view == xlide.explorer && viewItem == xlsm",
+          "group": "4_analyze@2"
         },
         {
           "command": "xlide.exportModulesToFolder",

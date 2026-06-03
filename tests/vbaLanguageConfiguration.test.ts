@@ -228,6 +228,7 @@ describe('VBA language configuration', () => {
 		const command = commands.find((entry) => entry.command === 'xlide.openWorkbookSettings');
 		const globalCommand = commands.find((entry) => entry.command === 'xlide.openGlobalSettings');
 		const downloadPythonCommand = commands.find((entry) => entry.command === 'xlide.downloadPython');
+		const runVbaTestsCommand = commands.find((entry) => entry.command === 'xlide.runVbaTests');
 
 		expect(command).toMatchObject({
 			command: 'xlide.openWorkbookSettings',
@@ -244,6 +245,11 @@ describe('VBA language configuration', () => {
 			title: 'Download Python',
 			category: 'XLIDE',
 		});
+		expect(runVbaTestsCommand).toMatchObject({
+			command: 'xlide.runVbaTests',
+			title: 'Run VBA Unit Tests',
+			category: 'XLIDE',
+		});
 	});
 
 	it('keeps Validate VBA Project out of workbook tree context actions', () => {
@@ -255,6 +261,7 @@ describe('VBA language configuration', () => {
 			.map((entry) => entry.command) ?? [];
 
 		expect(workbookTreeCommands).toContain('xlide.analyzeWorkbook');
+		expect(workbookTreeCommands).toContain('xlide.runVbaTests');
 		expect(workbookTreeCommands).not.toContain('xlide.validateWorkbook');
 	});
 });

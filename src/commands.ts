@@ -30,6 +30,15 @@ import {
     openWorkbookAnalysisResults,
     type WorkbookAnalysisSuppressScope,
 } from './workbookAnalysisWebview';
+import {
+    createVbaTestRunReport,
+    discoverWorkbookVbaTests,
+    summarizeVbaTestRun,
+    vbaTestFailureMessage,
+    type VbaTestRunItem,
+    type VbaTestRunReport,
+} from './vbaTestRunner';
+import { openVbaTestResults } from './vbaTestResultsWebview';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import {
     resolvedXlideGlobalSettingsFromConfig,
@@ -667,6 +676,102 @@ export function registerCommands(
                 reject(new Error(message));
             });
         });
+    }
+
+    async function runWorkbookVbaTests(
+        filePath: string,
+        progress?: vscode.Progress<{ message?: string; increment?: number }>,
+    ): Promise<VbaTestRunReport> {
+        const startedAt = new Date();
+        const startedMs = Date.now();
+        progress?.report({ message: 'Discovering tests...' });
+        const discovery = await discoverWorkbookVbaTests(bridge, filePath);
+        const results: VbaTestRunItem[] = [];
+
+        if (discovery.tests.length === 0) {
+            return createVbaTestRunReport({
+                filePath,
+                startedAt,
+                durationMs: Date.now() - startedMs,
+                discovery,
+                results,
+            });
+        }
+
+        if (process.platform !== 'win32') {
+            const message = 'VBA test execution currently requires Excel COM on Windows.';
+            for (const test of discovery.tests) {
+                results.push({
+                    test,
+                    status: 'skipped',
+                    durationMs: 0,
+                    error: message,
+                });
+            }
+            return createVbaTestRunReport({
+                filePath,
+                startedAt,
+                durationMs: Date.now() - startedMs,
+                discovery,
+                results,
+            });
+        }
+
+        const attachToRunning = shouldAttachToRunningExcel();
+        log(`[runVbaTests] attachToRunningExcel=${attachToRunning}`);
+        for (let index = 0; index < discovery.tests.length; index++) {
+            const test = discovery.tests[index];
+            const testStartedMs = Date.now();
+            progress?.report({
+                message: `${index + 1}/${discovery.tests.length} ${test.qualifiedName}`,
+                increment: 100 / discovery.tests.length,
+            });
+            try {
+                await runWindowsExcelMacroReadOnly(filePath, test.qualifiedName, attachToRunning);
+                const durationMs = Date.now() - testStartedMs;
+                results.push({ test, status: 'passed', durationMs });
+                log(`[runVbaTests] PASS ${test.qualifiedName} (${durationMs} ms)`);
+            } catch (err) {
+                const durationMs = Date.now() - testStartedMs;
+                const message = vbaTestFailureMessage(err);
+                results.push({ test, status: 'failed', durationMs, error: message });
+                log(`[runVbaTests] FAIL ${test.qualifiedName} (${durationMs} ms): ${message}`);
+            }
+        }
+
+        return createVbaTestRunReport({
+            filePath,
+            startedAt,
+            durationMs: Date.now() - startedMs,
+            discovery,
+            results,
+        });
+    }
+
+    function showVbaTestRunOutcome(report: VbaTestRunReport): void {
+        const summary = summarizeVbaTestRun(report);
+        const label = path.basename(report.filePath);
+        if (summary.total === 0) {
+            void vscode.window.showInformationMessage(
+                `XLIDE: No VBA tests were discovered in "${label}". Add '@xlide-test' above a no-argument standard-module Sub.`,
+            );
+            return;
+        }
+        if (summary.failed > 0) {
+            void vscode.window.showWarningMessage(
+                `XLIDE: "${label}" VBA tests finished with ${summary.failed} failed, ${summary.passed} passed, ${summary.skipped} skipped.`,
+            );
+            return;
+        }
+        if (summary.skipped > 0) {
+            void vscode.window.showWarningMessage(
+                `XLIDE: "${label}" VBA tests were discovered but ${summary.skipped} were skipped.`,
+            );
+            return;
+        }
+        void vscode.window.showInformationMessage(
+            `XLIDE: "${label}" passed ${summary.passed} VBA test(s).`,
+        );
     }
 
     function resolveWorkbookPath(node?: XlideNode): string | undefined {
@@ -2169,6 +2274,35 @@ export function registerCommands(
                     }
                 },
             );
+        }),
+
+        // Discover and run annotated workbook VBA tests through the Excel COM host.
+        registerXlideCommand('xlide.runVbaTests', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) {
+                vscode.window.showWarningMessage('XLIDE: No workbook selected to test.');
+                return;
+            }
+            const name = path.basename(filePath);
+            try {
+                let report: VbaTestRunReport | undefined;
+                await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Notification, title: `XLIDE: Running VBA tests for "${name}"...`, cancellable: false },
+                    async (progress) => {
+                        report = await runWorkbookVbaTests(filePath, progress);
+                    },
+                );
+                if (!report) {
+                    return;
+                }
+                log(`[runVbaTests] Report JSON:\n${JSON.stringify(report, null, 2)}`);
+                openVbaTestResults(context, report);
+                showVbaTestRunOutcome(report);
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                log(`[runVbaTests] FAILED: ${msg}`);
+                vscode.window.showErrorMessage(`XLIDE: VBA tests failed: ${msg}`);
+            }
         }),
 
         // Create a new, empty macro-enabled workbook

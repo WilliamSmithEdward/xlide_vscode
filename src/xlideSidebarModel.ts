@@ -113,6 +113,15 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 workbookArg,
             ),
             workbookActionNode(
+                'workbookActions.runVbaTests',
+                'Unit Tests',
+                undefined,
+                'xlide.runVbaTests',
+                'Run annotated VBA unit tests in the selected target workbook.',
+                'beaker',
+                workbookArg,
+            ),
+            workbookActionNode(
                 'workbookActions.exportModules',
                 'Export Modules',
                 undefined,

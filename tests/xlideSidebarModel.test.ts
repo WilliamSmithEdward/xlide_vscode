@@ -25,6 +25,7 @@ describe('xlideSidebarModel', () => {
         expect(model[2].children?.map((node) => node.label)).toEqual([
             'Target Workbook',
             'Analyze Workbook',
+            'Unit Tests',
             'Export Modules',
             'Import Modules',
             'Open Workbook In Excel',
@@ -184,6 +185,7 @@ describe('xlideSidebarModel', () => {
 
         for (const id of [
             'workbookActions.analyzeWorkbook',
+            'workbookActions.runVbaTests',
             'workbookActions.importModules',
             'workbookActions.exportModules',
             'workbookActions.openWorkbook',
