@@ -55,10 +55,12 @@ interface OwnedReadOnlyExcelHostRunResult {
     timedOutAfter?: string;
 }
 
-interface OwnedReadOnlyExcelHostTestResult {
+export interface OwnedReadOnlyExcelHostTestResult {
     outcome: 'passed' | 'failed' | 'timeout' | 'modal-blocked' | 'runner-error';
     durationMs: number;
     message?: string;
+    errorNumber?: number;
+    errorSource?: string;
 }
 
 type OwnedExcelKillReason = 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed';
@@ -301,6 +303,8 @@ async function runOwnedReadOnlyExcelTestHost(
                     outcome: event.outcome,
                     durationMs: event.durationMs ?? 0,
                     message: event.message,
+                    errorNumber: event.errorNumber,
+                    errorSource: event.errorSource,
                 };
             }
             if (event.outcome === 'timeout' || event.outcome === 'hung') {
@@ -586,27 +590,20 @@ async function runOwnedReadOnlyExcelTestHost(
     });
 }
 
-function vbaTestRunItemFromHostResult(
+export function vbaTestRunItemFromHostResult(
     test: VbaTestCase,
     hostResult: OwnedReadOnlyExcelHostTestResult,
 ): VbaTestRunItem {
     const message = hostResult.message ? vbaTestFailureMessage(new Error(hostResult.message)) : undefined;
+    const expectedError = expectedVbaErrorExpectation(test.metadata.expectedError);
+    if (expectedError !== undefined && (hostResult.outcome === 'passed' || hostResult.outcome === 'failed')) {
+        return vbaTestRunItemFromExpectedError(test, hostResult, expectedError, message);
+    }
     if (hostResult.outcome === 'passed') {
-        if (test.metadata.xfailReason) {
-            return {
-                test,
-                status: 'xpass',
-                durationMs: hostResult.durationMs,
-                error: `Expected failure did not occur: ${test.metadata.xfailReason}`,
-            };
-        }
-        return { test, status: 'passed', durationMs: hostResult.durationMs };
+        return passedVbaTestRunItem(test, hostResult.durationMs);
     }
     if (hostResult.outcome === 'failed') {
-        if (test.metadata.xfailReason) {
-            return { test, status: 'xfail', durationMs: hostResult.durationMs, error: message };
-        }
-        return { test, status: 'failed', durationMs: hostResult.durationMs, error: message };
+        return failedVbaTestRunItem(test, hostResult.durationMs, message);
     }
     if (hostResult.outcome === 'timeout') {
         return {
@@ -630,6 +627,72 @@ function vbaTestRunItemFromHostResult(
         durationMs: hostResult.durationMs,
         error: message ?? 'The Excel test host failed while running this test.',
     };
+}
+
+function vbaTestRunItemFromExpectedError(
+    test: VbaTestCase,
+    hostResult: OwnedReadOnlyExcelHostTestResult,
+    expectedError: number | 'any',
+    failureMessage: string | undefined,
+): VbaTestRunItem {
+    if (hostResult.outcome === 'passed') {
+        return failedVbaTestRunItem(
+            test,
+            hostResult.durationMs,
+            expectedError === 'any'
+                ? 'Expected a VBA error, but no error was raised.'
+                : `Expected VBA error ${expectedError}, but no error was raised.`,
+        );
+    }
+    if (expectedError === 'any') {
+        return passedVbaTestRunItem(test, hostResult.durationMs);
+    }
+    if (hostResult.errorNumber === expectedError) {
+        return passedVbaTestRunItem(test, hostResult.durationMs);
+    }
+    const actual = hostResult.errorNumber !== undefined
+        ? `VBA error ${hostResult.errorNumber}`
+        : 'a failure without a deterministic VBA error number';
+    return failedVbaTestRunItem(
+        test,
+        hostResult.durationMs,
+        `Expected VBA error ${expectedError}, but got ${actual}${failureMessage ? `: ${failureMessage}` : '.'}`,
+    );
+}
+
+function passedVbaTestRunItem(test: VbaTestCase, durationMs: number): VbaTestRunItem {
+    if (test.metadata.xfailReason) {
+        return {
+            test,
+            status: 'xpass',
+            durationMs,
+            error: `Expected failure did not occur: ${test.metadata.xfailReason}`,
+        };
+    }
+    return { test, status: 'passed', durationMs };
+}
+
+function failedVbaTestRunItem(
+    test: VbaTestCase,
+    durationMs: number,
+    error: string | undefined,
+): VbaTestRunItem {
+    if (test.metadata.xfailReason) {
+        return { test, status: 'xfail', durationMs, error };
+    }
+    return { test, status: 'failed', durationMs, error };
+}
+
+function expectedVbaErrorExpectation(value: string | undefined): number | 'any' | undefined {
+    const normalized = value?.trim().toLowerCase();
+    if (normalized === 'any') {
+        return 'any';
+    }
+    if (!normalized || !/^\d+$/.test(normalized)) {
+        return undefined;
+    }
+    const parsed = Number(normalized);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function logVbaTestRunItem(result: VbaTestRunItem, log: (message: string) => void): void {

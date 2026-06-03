@@ -75,6 +75,10 @@ Current marker rules:
 - Tests must be standard-module `Sub` procedures with no parameters.
 - Supported key/value metadata: `tags`, `owner`, `requirement`, `timeout`,
   `expected-error`, and `reason` on skip/xfail markers.
+- `expected-error=<number>` is execution metadata, not just documentation: a
+  matching VBA `Err.Number` passes; no error or a different error number fails.
+- `expected-error` and `expected-error=any` pass when the test raises any caught
+  VBA error and fail when the test completes normally.
 - Malformed test markers, malformed metadata, unsupported metadata keys,
   detached markers, non-standard-module markers, Functions, Properties, and
   parameterized Subs are reported through the `vba-test-directive` warning in

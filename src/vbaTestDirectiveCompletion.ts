@@ -272,11 +272,19 @@ function metadataCompletionTemplates(kind: TestDirectiveKind): TestDirectiveMeta
             canonicalKey: 'timeout',
         },
         {
+            label: 'expected-error',
+            insertText: 'expected-error',
+            detail: 'XLIDE test metadata',
+            documentation: 'Passes only when the test raises any caught VBA error.',
+            sortText: '5:expected-error:any',
+            canonicalKey: 'expected-error',
+        },
+        {
             label: 'expected-error=',
             insertText: 'expected-error=${1:13}',
             detail: 'XLIDE test metadata',
-            documentation: 'Records the expected VBA error number for tests that intentionally exercise an error path.',
-            sortText: '5:expected-error',
+            documentation: 'Records the expected VBA error number for tests that intentionally exercise an error path. Use expected-error=any when any caught VBA error should pass.',
+            sortText: '6:expected-error:number',
             canonicalKey: 'expected-error',
         },
     ];
@@ -333,7 +341,10 @@ function valueCompletionTemplates(
         case 'requirement':
             return [valueCompletion('REQ-001', '${1:REQ-001}', 'XLIDE test requirement', 'Use a requirement or tracking identifier.', '0:requirement')];
         case 'expected-error':
-            return [valueCompletion('13', '${1:13}', 'XLIDE expected error', 'Use the expected VBA error number.', '0:expected-error')];
+            return [
+                valueCompletion('13', '${1:13}', 'XLIDE expected error', 'Use the expected VBA error number.', '0:expected-error:number'),
+                valueCompletion('any', 'any', 'XLIDE expected error', 'Pass when any caught VBA error is raised.', '1:expected-error:any'),
+            ];
     }
 }
 
@@ -362,6 +373,12 @@ function usedMetadataKeys(metadataText: string): Set<TestDirectiveMetadataKey> {
     while ((match = re.exec(metadataText)) !== null) {
         const canonical = canonicalMetadataKey(match[1]);
         if (canonical) {
+            keys.add(canonical);
+        }
+    }
+    for (const token of metadataText.split(/\s+/)) {
+        const canonical = canonicalMetadataKey(token);
+        if (canonical === 'expected-error') {
             keys.add(canonical);
         }
     }

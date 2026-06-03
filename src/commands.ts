@@ -35,6 +35,7 @@ import {
     discoverWorkbookVbaTests,
     summarizeVbaTestTags,
     summarizeVbaTestRun,
+    type VbaTestCase,
     type VbaTestRunItem,
     type VbaTestRunReport,
     type VbaTestSelectionOptions,
@@ -793,6 +794,18 @@ export function registerCommands(
         });
     }
 
+    async function openVbaTestCase(filePath: string, test: VbaTestCase): Promise<void> {
+        const uri = encodeModuleUri(filePath, test.moduleName);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        const editor = await showAnalysisSourceDocument(doc);
+        const line = Math.max(0, test.line - 1);
+        const column = Math.max(0, test.column - 1);
+        const position = new vscode.Position(line, column);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }
+
     async function runVbaTestsForWorkbook(
         filePath: string,
         options: VbaTestRunOptions = {},
@@ -855,6 +868,7 @@ export function registerCommands(
             updateLastFailedVbaTestRun(report);
             openVbaTestResults(context, report, {
                 onRerunFailed: () => rerunFailedVbaTestsForWorkbook(filePath),
+                onOpenTest: (test) => openVbaTestCase(filePath, test),
             });
             showVbaTestRunOutcome(report);
         } catch (err) {

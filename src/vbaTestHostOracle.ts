@@ -105,6 +105,8 @@ export type VbaTestHostOracleEvent =
         outcome: VbaTestMacroOutcome;
         durationMs?: number;
         message?: string;
+        errorNumber?: number;
+        errorSource?: string;
     }
     | { kind: 'workbook-closed'; excelId: string; filePath?: string; saveChanges: boolean; durationMs?: number }
     | { kind: 'excel-quit'; excelId: string; durationMs?: number }

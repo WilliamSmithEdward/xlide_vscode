@@ -844,14 +844,14 @@ VBA code from XLIDE, using Excel COM as the execution host.
 - [x] Add a small VBA assertion/support module or equivalent injected test
   runtime for assertions such as equality, truth, expected error, and expected
   no error.
-- [ ] Support rich explicit test metadata:
+- [x] Support rich explicit test metadata:
   - [x] tags/categories
   - [x] skip reason
   - [x] expected failure (`xfail`) reason
   - [x] per-test timeout metadata
   - [x] owner or requirement id
-  - [x] expected error metadata
-  - output/state assertions
+  - [x] expected error metadata, validated as a positive VBA error number and
+    enforced by test execution rather than treated as decorative metadata
 - [x] Support developer-friendly test selection and execution modes:
   - [x] run all
   - [x] run current test
@@ -897,8 +897,8 @@ VBA code from XLIDE, using Excel COM as the execution host.
   the writer prunes only matching XLIDE run directories for the same workbook
   and keeps `status_for_ci.json` as the latest-run pointer instead of
   symlinks/junctions.
-- [ ] Support tests that assert expected output, expected state, expected thrown
-  error, and expected absence of errors.
+- [ ] Support richer expected output/state assertions beyond the current
+  `expected-error` metadata and `XlideAssert.Throws`/`DoesNotThrow` helpers.
 - [x] Return machine-readable JSON results for automation and render a concise
   Problems/Test Results view in VS Code.
 - [x] Surface clean developer-facing failure details in test results. The
@@ -914,11 +914,11 @@ VBA code from XLIDE, using Excel COM as the execution host.
 - [x] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
 - [x] Add fixture tests before enabling broad adoption.
-- [ ] Add a full developer VBA test GUI, not just a command/output stream. It
-  should be callable from the XLIDE Activity Bar/sidebar, show discovered tests
-  with check/uncheck selection, support run-all/filter/rerun-failed workflows,
-  add current-module/current-test controls inside the GUI, and render rich
-  pass/fail/skip/xfail results in a reusable UI surface.
+- [ ] Complete the developer VBA test GUI. The workbook-scoped Tests GUI is now
+  callable from the XLIDE Activity Bar/sidebar, supports run-all/tag-filtered
+  runs, fail-fast, rerun-failed, support-module install/update, and reusable
+  results. Remaining polish: discovered-test checkbox selection plus
+  current-module/current-test controls inside the GUI.
 - [ ] Fully document the downstream developer workflow before calling the test
   runner shipped in public-facing `user_guides/testing.md`:
   - how to author tests

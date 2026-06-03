@@ -1,15 +1,17 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import type { VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
+import type { VbaTestCase, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
 
 export interface VbaTestResultsOptions {
     onRerunFailed?: () => Promise<void>;
+    onOpenTest?: (test: VbaTestCase) => Promise<void>;
 }
 
 interface OpenVbaTestResultsPanelEntry {
     panel: vscode.WebviewPanel;
     options: VbaTestResultsOptions;
+    report: VbaTestRunReport;
 }
 
 interface VbaTestResultsRenderOptions {
@@ -18,6 +20,7 @@ interface VbaTestResultsRenderOptions {
 
 interface VbaTestResultsWebviewMessage {
     type?: string;
+    index?: number;
 }
 
 const openVbaTestResultsPanels = new Map<string, OpenVbaTestResultsPanelEntry>();
@@ -31,6 +34,7 @@ export function openVbaTestResults(
     const existing = openVbaTestResultsPanels.get(panelKey);
     if (existing) {
         existing.options = options;
+        existing.report = report;
         existing.panel.title = `XLIDE Test Results: ${report.workbookName}`;
         existing.panel.webview.html = renderVbaTestResultsHtml(existing.panel.webview, report, {
             canRerunFailed: Boolean(options.onRerunFailed),
@@ -51,16 +55,28 @@ export function openVbaTestResults(
     const entry: OpenVbaTestResultsPanelEntry = {
         panel,
         options,
+        report,
     };
     openVbaTestResultsPanels.set(panelKey, entry);
     panel.onDidDispose(() => {
         openVbaTestResultsPanels.delete(panelKey);
     });
     panel.webview.onDidReceiveMessage(async (message: VbaTestResultsWebviewMessage) => {
-        if (message.type !== 'rerunFailed') {
-            return;
-        }
         try {
+            if (message.type === 'openTest') {
+                const test = typeof message.index === 'number'
+                    ? entry.report.results[message.index]?.test
+                    : undefined;
+                if (!test || !entry.options.onOpenTest) {
+                    await panel.webview.postMessage({ type: 'error', error: 'XLIDE test navigation is not available.' });
+                    return;
+                }
+                await entry.options.onOpenTest(test);
+                return;
+            }
+            if (message.type !== 'rerunFailed') {
+                return;
+            }
             if (!entry.options.onRerunFailed) {
                 await panel.webview.postMessage({ type: 'error', error: 'XLIDE rerun failed is not available.' });
                 return;
@@ -101,11 +117,16 @@ export function renderVbaTestResultsHtml(
     const timing = runTimingSummary(report);
     const rerunFailedCount = report.results.filter((result) => isRerunnableFailureStatus(result.status)).length;
     const canRerunFailed = Boolean(options.canRerunFailed && rerunFailedCount > 0);
-    const rows = report.results.map((result) => `
+    const rows = report.results.map((result, index) => `
         <tr class="${escapeAttr(result.status)}">
             <td><span class="status">${escapeHtml(statusLabel(result.status))}</span></td>
             <td>
-                <div class="testName">${escapeHtml(result.test.qualifiedName)}</div>
+                <button
+                    class="testNameLink"
+                    type="button"
+                    data-open-test-index="${index}"
+                    title="Open ${escapeAttr(result.test.qualifiedName)}"
+                >${escapeHtml(result.test.qualifiedName)}</button>
                 <div class="meta">${escapeHtml(`${result.test.moduleName}:${result.test.line}:${result.test.column}`)}</div>
             </td>
             <td class="tagCell">${testMetadataHtml(result.test.metadata)}</td>
@@ -266,8 +287,23 @@ export function renderVbaTestResultsHtml(
         tr:last-child td {
             border-bottom: 0;
         }
-        .testName {
+        .testNameLink {
+            display: inline;
+            border: 0;
+            padding: 0;
+            color: var(--vscode-textLink-foreground);
+            background: transparent;
+            font: inherit;
             font-weight: 650;
+            text-align: left;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .testNameLink:hover,
+        .testNameLink:focus {
+            color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+            outline: none;
         }
         th:nth-child(1),
         td:nth-child(1) {
@@ -281,7 +317,7 @@ export function renderVbaTestResultsHtml(
         td:nth-child(4) {
             width: 84px;
         }
-        .testName,
+        .testNameLink,
         .meta {
             overflow-wrap: anywhere;
         }
@@ -329,12 +365,13 @@ export function renderVbaTestResultsHtml(
             margin: 0;
         }
         .tag {
-            border: 1px solid color-mix(in srgb, var(--vscode-badge-foreground, #ffffff) 28%, transparent);
+            border: 1px solid var(--vscode-panel-border);
             border-radius: 999px;
-            padding: 1px 7px;
-            color: var(--vscode-badge-foreground, #ffffff);
-            background: var(--vscode-badge-background, var(--vscode-button-background));
+            padding: 1px 8px;
+            color: var(--vscode-descriptionForeground);
+            background: color-mix(in srgb, var(--xlide-accent-blue) 14%, transparent);
             font-weight: 600;
+            line-height: 1.45;
         }
         .contract {
             margin-top: 16px;
@@ -426,6 +463,14 @@ export function renderVbaTestResultsHtml(
         }
 
         document.addEventListener('click', (event) => {
+            const testLink = event.target.closest?.('[data-open-test-index]');
+            if (testLink) {
+                vscode.postMessage({
+                    type: 'openTest',
+                    index: Number(testLink.dataset.openTestIndex),
+                });
+                return;
+            }
             const button = event.target.closest?.('button[data-action="rerunFailed"]');
             if (!button || button.disabled) {
                 return;
@@ -551,7 +596,6 @@ function testMetadataHtml(metadata: {
         metadata.requirement ? `req:${metadata.requirement}` : '',
         metadata.timeoutMs ? `timeout:${metadata.timeoutMs}ms` : '',
         metadata.expectedError ? `expected-error:${metadata.expectedError}` : '',
-        metadata.xfailReason ? 'xfail' : '',
     ].filter(Boolean);
     if (tags.length === 0) {
         return '';

@@ -59,6 +59,7 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('function Format-XlideHResult');
         expect(script).toContain('function Convert-XlideVbaRunResult');
         expect(script).toContain('function Format-XlideVbaRunResult');
+        expect(script).toContain('function Convert-XlideNullableInt');
         expect(script).toContain('function Format-XlideRunException');
         expect(script).toContain('$hex = Format-XlideHResult $exception.HResult');
         expect(script).not.toContain('[uint32]$exception.HResult');
@@ -71,6 +72,8 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('Excel automation became unavailable while running the test');
         expect(script).not.toContain('InvocationInfo.PositionMessage');
         expect(script).toContain('$message = "RUN_FAILED|" + (Format-XlideVbaRunResult $vbaRunResult)');
+        expect(script).toContain('$errorNumber = Convert-XlideNullableInt $vbaRunResult.number');
+        expect(script).toContain('$payload["errorNumber"] = $errorNumber');
         expect(script).toContain('$message = "RUN_FAILED|" + (Format-XlideRunException $_)');
         expect(script).toContain('outcome = "runner-error"');
         expect(script).toContain('      break');
@@ -140,12 +143,14 @@ describe('VBA test Excel host script', () => {
             qualifiedName: 'Tests.Pass',
             outcome: 'passed',
             durationMs: 12,
+            errorNumber: 13,
         })}`)).toEqual({
             kind: 'macro-finished',
             excelId: 'xlide-1',
             qualifiedName: 'Tests.Pass',
             outcome: 'passed',
             durationMs: 12,
+            errorNumber: 13,
         });
     });
 });

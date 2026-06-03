@@ -546,7 +546,7 @@ function parseDirectiveKeyValues(text: string): ParsedDirectiveKeyValues {
     while ((match = re.exec(metadataText)) !== null) {
         const gap = metadataText.slice(cursor, match.index).trim();
         if (gap.length > 0) {
-            malformedSegments.push(gap);
+            consumeStandaloneMetadata(gap, values, entries, malformedSegments);
         }
         const key = match[1].toLowerCase();
         const value = match[2] ?? match[3] ?? match[4] ?? '';
@@ -556,9 +556,30 @@ function parseDirectiveKeyValues(text: string): ParsedDirectiveKeyValues {
     }
     const tail = metadataText.slice(cursor).trim();
     if (tail.length > 0) {
-        malformedSegments.push(tail);
+        consumeStandaloneMetadata(tail, values, entries, malformedSegments);
     }
     return { values, entries, malformedSegments };
+}
+
+function consumeStandaloneMetadata(
+    text: string,
+    values: Record<string, string>,
+    entries: Array<{ key: string; value: string }>,
+    malformedSegments: string[],
+): void {
+    const malformed: string[] = [];
+    for (const token of text.split(/\s+/).filter(Boolean)) {
+        const key = token.toLowerCase();
+        if (key === 'expected-error' || key === 'expectederror') {
+            values['expected-error'] = 'any';
+            entries.push({ key: 'expected-error', value: 'any' });
+        } else {
+            malformed.push(token);
+        }
+    }
+    if (malformed.length > 0) {
+        malformedSegments.push(malformed.join(' '));
+    }
 }
 
 function stripInlineMetadataComment(text: string): string {
@@ -674,6 +695,14 @@ function validateTestDirectiveMetadata(
         issues.push(testDirectiveIssue(candidate, 'XLIDE test timeout must be a positive integer with optional ms or s suffix.'));
     }
 
+    const expectedErrorValue = directive.values['expected-error'] ?? directive.values.expectederror;
+    if (
+        (hasMetadataKey(directive.values, 'expected-error') || hasMetadataKey(directive.values, 'expectederror')) &&
+        parseExpectedVbaErrorMetadata(expectedErrorValue) === undefined
+    ) {
+        issues.push(testDirectiveIssue(candidate, 'XLIDE expected-error metadata must be a positive VBA error number or any.'));
+    }
+
     if (
         (directive.kind === 'skip' || directive.kind === 'xfail') &&
         !directive.values.reason?.trim()
@@ -753,7 +782,8 @@ function mergeDirectiveMetadata(metadata: VbaTestMetadata, directive: ParsedTest
     }
     metadata.owner = directive.values.owner ?? metadata.owner;
     metadata.requirement = directive.values.requirement ?? directive.values.req ?? metadata.requirement;
-    metadata.expectedError = directive.values['expected-error'] ?? directive.values.expectederror ?? metadata.expectedError;
+    const expectedError = parseExpectedVbaErrorMetadata(directive.values['expected-error'] ?? directive.values.expectederror);
+    metadata.expectedError = expectedError ?? metadata.expectedError;
     const timeoutMs = parseTimeoutMs(directive.values.timeout ?? directive.values.timeoutms);
     if (timeoutMs !== undefined) {
         metadata.timeoutMs = timeoutMs;
@@ -789,6 +819,24 @@ function parseTimeoutMs(value: string | undefined): number | undefined {
         return undefined;
     }
     return match[2] === 's' ? amount * 1000 : amount;
+}
+
+function parseExpectedVbaErrorNumber(value: string | undefined): number | undefined {
+    const normalized = value?.trim();
+    if (!normalized || !/^\d+$/.test(normalized)) {
+        return undefined;
+    }
+    const amount = Number(normalized);
+    return Number.isSafeInteger(amount) && amount > 0 ? amount : undefined;
+}
+
+function parseExpectedVbaErrorMetadata(value: string | undefined): string | undefined {
+    const normalized = value?.trim().toLowerCase();
+    if (normalized === 'any') {
+        return 'any';
+    }
+    const amount = parseExpectedVbaErrorNumber(value);
+    return amount !== undefined ? String(amount) : undefined;
 }
 
 function offsetToLineColumn(

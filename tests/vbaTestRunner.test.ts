@@ -84,6 +84,27 @@ describe('VBA test runner discovery', () => {
         ]);
     });
 
+    it('discovers expected-error metadata for any caught VBA error', () => {
+        const tests = discoverVbaTestsFromModule({
+            name: 'ExpectedErrorTests',
+            type: 'standard',
+            source: [
+                "' @xlide-test expected-error",
+                'Sub AnyErrorBare()',
+                'End Sub',
+                '',
+                "' @xlide-test expected-error=any",
+                'Sub AnyErrorValue()',
+                'End Sub',
+            ].join('\n'),
+        });
+
+        expect(tests.map((test) => [test.procedureName, test.metadata.expectedError])).toEqual([
+            ['AnyErrorBare', 'any'],
+            ['AnyErrorValue', 'any'],
+        ]);
+    });
+
     it('ignores annotations in modules Excel cannot run as standard macros', async () => {
         const bridge = bridgeForModules([
             {
@@ -238,16 +259,21 @@ describe('VBA test runner discovery', () => {
                 "' @xlide-test tags=,",
                 'Sub EmptyTags()',
                 'End Sub',
+                '',
+                "' @xlide-test expected-error=abc",
+                'Sub BadExpectedError()',
+                'End Sub',
             ].join('\n'),
         });
 
-        expect(issues.map((issue) => issue.code)).toEqual(Array(5).fill(VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE));
+        expect(issues.map((issue) => issue.code)).toEqual(Array(6).fill(VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE));
         expect(issues.map((issue) => `${issue.line}:${issue.message}`)).toEqual([
             '1:Unknown XLIDE test directive. Supported directives are @xlide-test, @xlide-test-skip, and @xlide-test-xfail.',
             '5:Malformed XLIDE test metadata. Use key=value pairs and quote values that contain spaces.',
             '5:XLIDE test timeout must be a positive integer with optional ms or s suffix.',
             '9:XLIDE skip test directives should include reason="...".',
             '13:XLIDE test metadata key tags must list at least one tag.',
+            '17:XLIDE expected-error metadata must be a positive VBA error number or any.',
         ]);
     });
 

@@ -74,16 +74,28 @@ describe('VBA test directive completion', () => {
         expect(test.map((item) => item.label)).toEqual(['requirement=']);
     });
 
+    it('offers exact and any-error expected-error metadata forms', () => {
+        const line = "' @xlide-test expected";
+        const got = resolveVbaTestDirectiveCompletions(line, line.length);
+
+        expect(got.map((item) => item.label)).toEqual(['expected-error', 'expected-error=']);
+        expect(got[0].insertText).toBe('expected-error');
+        expect(got[1].insertText).toBe('expected-error=${1:13}');
+    });
+
     it('offers deterministic value snippets for constrained metadata values', () => {
         const timeoutLine = "' @xlide-test timeout=";
         const timeout = resolveVbaTestDirectiveCompletions(timeoutLine, timeoutLine.length);
         const reasonLine = "' @xlide-test-xfail reason=\"";
         const reason = resolveVbaTestDirectiveCompletions(reasonLine, reasonLine.length);
+        const expectedErrorLine = "' @xlide-test expected-error=";
+        const expectedError = resolveVbaTestDirectiveCompletions(expectedErrorLine, expectedErrorLine.length);
 
         expect(timeout.map((item) => item.label)).toEqual(['10s', '30s', '2500ms']);
         expect(timeout[0].range).toEqual({ start: timeoutLine.length, end: timeoutLine.length });
         expect(reason.map((item) => item.label)).toEqual(['"Known issue pending fix"']);
         expect(reason[0].range).toEqual({ start: "' @xlide-test-xfail reason=".length, end: reasonLine.length });
+        expect(expectedError.map((item) => item.label)).toEqual(['13', 'any']);
     });
 
     it('does not repeat completed metadata keys', () => {
@@ -91,6 +103,13 @@ describe('VBA test directive completion', () => {
         const got = resolveVbaTestDirectiveCompletions(line, line.length);
 
         expect(got.map((item) => item.label)).toEqual(['timeout=']);
+    });
+
+    it('does not repeat bare expected-error metadata keys', () => {
+        const line = "' @xlide-test expected-error e";
+        const got = resolveVbaTestDirectiveCompletions(line, line.length);
+
+        expect(got.map((item) => item.label)).toEqual([]);
     });
 
     it('does not offer directives in code, doc comments, quoted metadata, or non-test directives', () => {

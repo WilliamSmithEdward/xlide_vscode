@@ -40,7 +40,17 @@ Supported metadata:
 - `requirement=INV-104` or `req=INV-104`
 - `timeout=10s` or `timeout=2500ms`
 - `expected-error=13`
+- `expected-error` or `expected-error=any`
 - `reason="..."` on skip and expected-failure markers
+
+`expected-error=13` makes the test pass only when the test procedure raises VBA
+error 13. If the procedure raises no error, or raises a different VBA error
+number, XLIDE records the test as failed. `expected-error` and
+`expected-error=any` make the test pass when the procedure raises any caught VBA
+error, and fail when it completes normally. Prefer a specific error number when
+the expected failure path has a deterministic `Err.Number`. Use
+`XlideAssert.Throws` inside a test when you want a single assertion to verify
+that another procedure raises a specific error.
 
 XLIDE reports invalid marker syntax as a `vba-test-directive` warning in live
 diagnostics and workbook analysis. This catches typos, unsupported metadata
@@ -113,6 +123,6 @@ unrelated folders in the output directory are left alone.
 ## Current Limitations
 
 Excel COM execution is Windows-only. The first shipped path uses the selected
-workbook and standard-module VBA tests; setup/teardown helpers, richer expected
-output/state assertions, selected-test checkbox execution, and module/current-test
-run controls inside the Tests GUI are planned follow-ups.
+workbook and standard-module VBA tests; richer expected output/state assertions,
+selected-test checkbox execution, and module/current-test run controls inside the
+Tests GUI are planned follow-ups.

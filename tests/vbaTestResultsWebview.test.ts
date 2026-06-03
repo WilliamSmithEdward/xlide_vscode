@@ -80,10 +80,17 @@ describe('VBA test results webview', () => {
         expect(html).toContain('<th>Tags</th>');
         expect(html).toContain('class="tagCell"');
         expect(html).toContain('class="detailsCell"');
+        expect(html).toContain('class="testNameLink"');
+        expect(html).toContain('data-open-test-index="0"');
+        expect(html).toContain('cursor: pointer');
+        expect(html).toContain('type: \'openTest\'');
         expect(html).toContain('white-space: pre-wrap');
-        expect(html).toContain('var(--vscode-badge-foreground');
+        expect(html).toContain('color: var(--vscode-descriptionForeground)');
+        expect(html).toContain('background: color-mix(in srgb, var(--xlide-accent-blue) 14%, transparent)');
         expect(html).toContain('owner:finance');
         expect(html).toContain('smoke');
+        expect(html).toContain('<span class="tag">known-bug</span>');
+        expect(html).not.toContain('<span class="tag">xfail</span>');
         expect(html).toContain('&lt;boom&gt;');
         expect(html).toContain('@xlide-test');
     });
@@ -111,16 +118,55 @@ describe('VBA test results webview', () => {
         expect(html).not.toContain('$excel.Run');
         expect(html).not.toContain('0x80131501');
     });
+
+    it('opens the clicked test from the latest rendered report', async () => {
+        const panel = fakeWebviewPanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+        const firstOpen = vi.fn(async () => undefined);
+        const secondOpen = vi.fn(async () => undefined);
+        const firstReport = reportFixture();
+        const secondReport = {
+            ...reportFixture(),
+            results: [{
+                ...reportFixture().results[0],
+                test: {
+                    ...reportFixture().results[0].test,
+                    qualifiedName: 'Tests.Latest',
+                    procedureName: 'Latest',
+                    line: 42,
+                },
+            }],
+        };
+
+        openVbaTestResults(context, firstReport, { onOpenTest: firstOpen });
+        openVbaTestResults(context, secondReport, { onOpenTest: secondOpen });
+        await panel.emitMessage({ type: 'openTest', index: 0 });
+
+        expect(firstOpen).not.toHaveBeenCalled();
+        expect(secondOpen).toHaveBeenCalledWith(expect.objectContaining({
+            qualifiedName: 'Tests.Latest',
+            line: 42,
+        }));
+        panel.disposePanel();
+    });
 });
 
-function fakeWebviewPanel(): vscode.WebviewPanel & { disposePanel: () => void } {
+function fakeWebviewPanel(): vscode.WebviewPanel & {
+    disposePanel: () => void;
+    emitMessage: (message: unknown) => Promise<void>;
+} {
     let disposeHandler: (() => void) | undefined;
+    let messageHandler: ((message: unknown) => unknown) | undefined;
     return {
         title: '',
         webview: {
             cspSource: 'vscode-resource:',
             html: '',
-            onDidReceiveMessage: vi.fn(() => ({ dispose: vi.fn() })),
+            onDidReceiveMessage: vi.fn((handler: (message: unknown) => unknown) => {
+                messageHandler = handler;
+                return { dispose: vi.fn() };
+            }),
             postMessage: vi.fn(async () => true),
         },
         reveal: vi.fn(),
@@ -129,7 +175,13 @@ function fakeWebviewPanel(): vscode.WebviewPanel & { disposePanel: () => void } 
             return { dispose: vi.fn() };
         }),
         disposePanel: () => disposeHandler?.(),
-    } as unknown as vscode.WebviewPanel & { disposePanel: () => void };
+        emitMessage: async (message: unknown) => {
+            await messageHandler?.(message);
+        },
+    } as unknown as vscode.WebviewPanel & {
+        disposePanel: () => void;
+        emitMessage: (message: unknown) => Promise<void>;
+    };
 }
 
 function reportFixture(): VbaTestRunReport {

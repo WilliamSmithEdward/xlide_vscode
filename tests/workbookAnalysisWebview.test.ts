@@ -194,8 +194,8 @@ describe('workbook analysis webview', () => {
         expect(html).toContain('data-line="4"');
         expect(html).toContain('data-column="2"');
         expect(html).toContain('data-end-column="8"');
-        expect(html).toContain('moduleName: problemRow.dataset.module');
-        expect(html).toContain('endColumn: Number(problemRow.dataset.endColumn)');
+        expect(html).toContain('moduleName: row.dataset.module');
+        expect(html).toContain('endColumn: Number(row.dataset.endColumn)');
     });
 
     it('labels globally untracked rule rows distinctly', () => {
