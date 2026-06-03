@@ -61,7 +61,21 @@ describe('globalSettingsWebview', () => {
         expect(html).toContain('Option Explicit is not specified');
         expect(html).toContain('option-explicit-missing');
         expect(html).toContain('Source: Machine');
+        expect(html).toContain('color: var(--vscode-foreground)');
+        expect(html).toContain('background: var(--vscode-editorWidget-background, var(--vscode-input-background))');
         expect(html).not.toContain('Add Item');
+    });
+
+    it('sorts rule severity overrides by human rule title', () => {
+        const html = renderXlideGlobalSettingsHtml(buildXlideGlobalSettingsModel(fakeConfig(validSettings)));
+        const overridesHtml = html.slice(html.indexOf('Rule Severity Overrides'));
+
+        expect(overridesHtml.indexOf('Argument type mismatch')).toBeLessThan(
+            overridesHtml.indexOf('Invalid XLIDE analysis suppression directive'),
+        );
+        expect(overridesHtml.indexOf('Assignment type mismatch')).toBeLessThan(
+            overridesHtml.indexOf('Invalid XLIDE analysis suppression directive'),
+        );
     });
 
     it('surfaces validation problems for malformed global analysis settings', () => {

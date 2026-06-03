@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildXlideSidebarModel } from '../src/xlideSidebarModel';
+import { buildXlideSidebarModel, isXlideSetupComplete } from '../src/xlideSidebarModel';
 
 describe('xlideSidebarModel', () => {
     it('builds the sidebar sections in the product order with title-case labels', () => {
@@ -8,6 +8,7 @@ describe('xlideSidebarModel', () => {
                 { label: 'BookA.xlsm', filePath: 'C:\\work\\BookA.xlsm' },
                 { label: 'BookB.xlsm', filePath: 'C:\\work\\BookB.xlsm' },
             ],
+            setupStatus: completeSetupStatus(),
         });
 
         expect(model.map((section) => section.label)).toEqual([
@@ -47,20 +48,9 @@ describe('xlideSidebarModel', () => {
         expect(model[5].children?.[2]?.command?.command).toBe('xlide.openCashAppDonateLink');
     });
 
-    it('renders two setup rows with disabled action buttons once they are green', () => {
+    it('renders setup rows with Installed buttons once they are green', () => {
         const model = buildXlideSidebarModel({
-            setupStatus: {
-                pythonExecutable: {
-                    status: 'pass',
-                    description: 'C:\\Python\\python.exe',
-                    tooltip: 'Python is ready.',
-                },
-                pythonLibraries: {
-                    status: 'pass',
-                    description: 'Installed',
-                    tooltip: 'Required libraries are installed.',
-                },
-            },
+            setupStatus: completeSetupStatus(),
         });
         const setup = model[1];
 
@@ -69,18 +59,19 @@ describe('xlideSidebarModel', () => {
             ['setup.pythonLibraries', 'Required Python Libraries', 'Installed', 'pass'],
         ]);
         expect(setup.children?.map((node) => [node.command?.command, node.command?.title, node.disabled])).toEqual([
-            ['workbench.action.openSettings', 'Set Path', true],
-            ['xlide.setup', 'Install', true],
+            ['xlide.downloadPython', 'Installed', true],
+            ['xlide.setup', 'Installed', true],
         ]);
     });
 
-    it('enables setup action buttons when Python health needs attention', () => {
+    it('offers Download when Python is missing and Install when libraries are missing', () => {
         const model = buildXlideSidebarModel({
             setupStatus: {
                 pythonExecutable: {
                     status: 'warn',
                     description: 'Not Found',
                     tooltip: 'Python was not found.',
+                    action: 'downloadPython',
                 },
                 pythonLibraries: {
                     status: 'warn',
@@ -90,10 +81,45 @@ describe('xlideSidebarModel', () => {
             },
         });
 
-        expect(model[1].children?.map((node) => [node.label, node.status, node.disabled])).toEqual([
-            ['Python Executable', 'warn', false],
-            ['Required Python Libraries', 'warn', false],
+        expect(model.map((section) => section.label)).toEqual(['Welcome', 'Setup']);
+        expect(model[0].children?.map((node) => [node.label, node.description])).toEqual([
+            ['Setup Required', 'Please see Setup below to proceed.'],
         ]);
+        expect(model[1].children?.map((node) => [node.label, node.status, node.command?.command, node.command?.title, node.disabled])).toEqual([
+            ['Python Executable', 'warn', 'xlide.downloadPython', 'Download', false],
+            ['Required Python Libraries', 'warn', 'xlide.setup', 'Install', false],
+        ]);
+        const pythonCommand = model[1].children?.[0]?.command;
+        expect(pythonCommand).toMatchObject({
+            tooltip: expect.stringContaining('Setup has two gates'),
+            ctrlCommand: 'xlide.browsePythonPath',
+            ctrlTitle: 'Browse',
+        });
+        expect(model[1].children?.[1]?.command?.ctrlCommand).toBeUndefined();
+    });
+
+    it('offers Set Path when Python is installed but not available to XLIDE', () => {
+        const model = buildXlideSidebarModel({
+            setupStatus: {
+                pythonExecutable: {
+                    status: 'warn',
+                    description: 'Not On PATH',
+                    tooltip: 'Set xlide.pythonPath.',
+                    action: 'setPythonPath',
+                },
+                pythonLibraries: {
+                    status: 'unknown',
+                    description: 'Waiting For Python',
+                    tooltip: 'Set Python first.',
+                },
+            },
+        });
+
+        expect(model[1].children?.map((node) => [node.label, node.status, node.command?.command, node.command?.title, node.disabled])).toEqual([
+            ['Python Executable', 'warn', 'workbench.action.openSettings', 'Set Path', false],
+            ['Required Python Libraries', 'unknown', 'xlide.setup', 'Install', false],
+        ]);
+        expect(model[1].children?.[0]?.command?.ctrlCommand).toBeUndefined();
     });
 
     it('always uses a selector for workspace workbook choices', () => {
@@ -101,6 +127,7 @@ describe('xlideSidebarModel', () => {
             workbookChoices: [
                 { label: 'Book.xlsm', filePath: 'C:\\work\\Book.xlsm' },
             ],
+            setupStatus: completeSetupStatus(),
             activeWorkbook: {
                 label: 'Book.xlsm',
                 filePath: 'C:\\work\\Book.xlsm',
@@ -124,6 +151,7 @@ describe('xlideSidebarModel', () => {
             workbookChoices: [
                 { label: 'Book.xlsm', filePath: 'C:\\work\\Book.xlsm' },
             ],
+            setupStatus: completeSetupStatus(),
             activeWorkbook: {
                 label: 'Book.xlsm',
                 filePath: 'C:\\work\\Book.xlsm',
@@ -144,6 +172,7 @@ describe('xlideSidebarModel', () => {
                 { label: 'First.xlsm', filePath: 'C:\\work\\First.xlsm' },
                 { label: 'Second.xlsm', filePath: 'C:\\work\\Second.xlsm' },
             ],
+            setupStatus: completeSetupStatus(),
             activeWorkbook: {
                 label: 'Second.xlsm',
                 filePath: 'C:\\work\\Second.xlsm',
@@ -168,4 +197,31 @@ describe('xlideSidebarModel', () => {
         }
         expect(model[2].children?.map((node) => node.id)).not.toContain('workbookActions.validateWorkbook');
     });
+
+    it('treats setup as complete only when both dependency rows are green', () => {
+        expect(isXlideSetupComplete(completeSetupStatus())).toBe(true);
+        expect(isXlideSetupComplete({
+            ...completeSetupStatus(),
+            pythonLibraries: {
+                status: 'warn',
+                description: 'Missing',
+                tooltip: 'Libraries missing.',
+            },
+        })).toBe(false);
+    });
 });
+
+function completeSetupStatus() {
+    return {
+        pythonExecutable: {
+            status: 'pass' as const,
+            description: 'C:\\Python\\python.exe',
+            tooltip: 'Python is ready.',
+        },
+        pythonLibraries: {
+            status: 'pass' as const,
+            description: 'Installed',
+            tooltip: 'Required libraries are installed.',
+        },
+    };
+}

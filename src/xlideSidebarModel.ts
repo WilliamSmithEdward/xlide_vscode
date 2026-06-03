@@ -1,5 +1,6 @@
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
+type XlideSidebarSetupAction = 'downloadPython' | 'setPythonPath';
 
 interface XlideSidebarActiveWorkbook {
     label: string;
@@ -20,6 +21,11 @@ interface XlideSidebarCommand {
     command: string;
     title: string;
     arguments?: unknown[];
+    tooltip?: string;
+    ctrlCommand?: string;
+    ctrlTitle?: string;
+    ctrlArguments?: unknown[];
+    ctrlTooltip?: string;
 }
 
 interface XlideSidebarSelectOption {
@@ -32,6 +38,7 @@ interface XlideSidebarDependencyStatus {
     status: XlideSidebarStatus;
     description: string;
     tooltip: string;
+    action?: XlideSidebarSetupAction;
 }
 
 interface XlideSidebarSetupStatus {
@@ -63,16 +70,9 @@ interface XlideSidebarModelInput {
 function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode[] {
     const workbookArg = input.activeWorkbook ? workbookCommandArg(input.activeWorkbook) : undefined;
     const setupStatus = input.setupStatus ?? defaultSetupStatus();
-    return [
-        section('welcome', 'Welcome', [
-            statusNode(
-                'welcome.tree',
-                'Workbook Tree',
-                'Find workbook and module navigation in Explorer > XLIDE.',
-                'unknown',
-                'The XLIDE workbook tree stays in the VS Code Explorer so workbook navigation and sidebar actions remain separate.',
-            ),
-        ]),
+    const setupComplete = isXlideSetupComplete(setupStatus);
+    const setupSections = [
+        welcomeSection(setupComplete),
         section('setup', 'Setup', [
             statusNode(
                 'setup.pythonExecutable',
@@ -81,11 +81,7 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 setupStatus.pythonExecutable.status,
                 setupStatus.pythonExecutable.tooltip,
                 undefined,
-                {
-                    command: 'workbench.action.openSettings',
-                    title: 'Set Path',
-                    arguments: ['xlide.pythonPath'],
-                },
+                pythonExecutableSetupCommand(setupStatus.pythonExecutable),
                 setupStatus.pythonExecutable.status === 'pass',
             ),
             statusNode(
@@ -95,10 +91,16 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 setupStatus.pythonLibraries.status,
                 setupStatus.pythonLibraries.tooltip,
                 undefined,
-                { command: 'xlide.setup', title: 'Install' },
+                pythonLibrariesSetupCommand(setupStatus.pythonLibraries),
                 setupStatus.pythonLibraries.status === 'pass',
             ),
         ]),
+    ];
+    if (!setupComplete) {
+        return setupSections;
+    }
+    return [
+        ...setupSections,
         section('workbookActions', 'Workbook Actions', [
             targetWorkbookNode(input.workbookChoices ?? [], input.activeWorkbook),
             workbookActionNode(
@@ -202,6 +204,61 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
             ),
         ]),
     ];
+}
+
+function welcomeSection(setupComplete: boolean): XlideSidebarNode {
+    if (!setupComplete) {
+        return section('welcome', 'Welcome', [
+            statusNode(
+                'welcome.setupRequired',
+                'Setup Required',
+                'Please see Setup below to proceed.',
+                'warn',
+                'Complete Python executable and required library setup before XLIDE shows workbook navigation and actions.',
+            ),
+        ]);
+    }
+    return section('welcome', 'Welcome', [
+        statusNode(
+            'welcome.tree',
+            'Workbook Tree',
+            'Find workbook and module navigation in Explorer > XLIDE.',
+            'unknown',
+            'The XLIDE workbook tree stays in the VS Code Explorer so workbook navigation and sidebar actions remain separate.',
+        ),
+    ]);
+}
+
+function isXlideSetupComplete(setupStatus: XlideSidebarSetupStatus): boolean {
+    return setupStatus.pythonExecutable.status === 'pass' && setupStatus.pythonLibraries.status === 'pass';
+}
+
+function pythonExecutableSetupCommand(status: XlideSidebarDependencyStatus): XlideSidebarCommand {
+    if (status.status === 'pass') {
+        return { command: 'xlide.downloadPython', title: 'Installed' };
+    }
+    if (status.action === 'downloadPython') {
+        return {
+            command: 'xlide.downloadPython',
+            title: 'Download',
+            tooltip: 'Setup has two gates: Python Executable and Required Python Libraries. Click to download Python from python.org. Ctrl+click to browse for an installed Python executable.',
+            ctrlCommand: 'xlide.browsePythonPath',
+            ctrlTitle: 'Browse',
+            ctrlTooltip: 'Browse for an installed Python executable on this machine.',
+        };
+    }
+    return {
+        command: 'workbench.action.openSettings',
+        title: 'Set Path',
+        arguments: ['xlide.pythonPath'],
+    };
+}
+
+function pythonLibrariesSetupCommand(status: XlideSidebarDependencyStatus): XlideSidebarCommand {
+    return {
+        command: 'xlide.setup',
+        title: status.status === 'pass' ? 'Installed' : 'Install',
+    };
 }
 
 function defaultSetupStatus(): XlideSidebarSetupStatus {
@@ -373,12 +430,14 @@ function statusIcon(status: XlideSidebarStatus): string {
 
 export {
     buildXlideSidebarModel,
+    isXlideSetupComplete,
     type XlideSidebarActiveWorkbook,
     type XlideSidebarCommand,
     type XlideSidebarDependencyStatus,
     type XlideSidebarModelInput,
     type XlideSidebarNode,
     type XlideSidebarNodeKind,
+    type XlideSidebarSetupAction,
     type XlideSidebarSetupStatus,
     type XlideSidebarWorkbookChoice,
     type XlideSidebarStatus,

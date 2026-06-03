@@ -129,6 +129,12 @@
         "category": "XLIDE"
       },
       {
+        "command": "xlide.downloadPython",
+        "title": "Download Python",
+        "category": "XLIDE",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "xlide.previewErrors",
         "title": "Preview Error Notifications (dev)",
         "category": "XLIDE"
@@ -285,7 +291,13 @@
     "viewsWelcome": [
       {
         "view": "xlide.explorer",
-        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)\n\nLive Share notes:\n- Guests can view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- Guests do not need XLIDE installed to participate."
+        "contents": "XLIDE setup is not complete.\n[Open Sidebar](command:xlide.sidebar.focus)\n\nComplete Python Executable and Required Python Libraries setup before workbook navigation appears.",
+        "when": "!xlide.setupComplete"
+      },
+      {
+        "view": "xlide.explorer",
+        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)\n\nLive Share notes:\n- Guests can view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- Guests do not need XLIDE installed to participate.",
+        "when": "xlide.setupComplete"
       }
     ],
     "menus": {

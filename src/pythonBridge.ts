@@ -32,6 +32,7 @@ export class PythonBridge implements vscode.Disposable {
     private _readyResolve: (() => void) | undefined;
     private _readyReject: ((err: Error) => void) | undefined;
     private _stderrLines: string[] = [];
+    private _stopping = false;
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -40,6 +41,46 @@ export class PythonBridge implements vscode.Disposable {
 
     /** Exposed so callers can run pip install against the same Python. */
     resolvePython(): string { return this._resolvePython(); }
+
+    async restart(): Promise<void> {
+        await this.stop();
+        return this.start();
+    }
+
+    async stop(): Promise<void> {
+        const proc = this._proc;
+        this._stopping = true;
+        this._ready = false;
+        this._startPromise = undefined;
+        this._readyResolve = undefined;
+        this._readyReject?.(new Error('Python bridge stopped.'));
+        this._readyReject = undefined;
+        this._rejectAll(new Error('Python bridge stopped.'));
+        if (!proc) {
+            this._stopping = false;
+            return;
+        }
+        await new Promise<void>((resolve) => {
+            let settled = false;
+            const done = () => {
+                if (!settled) {
+                    settled = true;
+                    resolve();
+                }
+            };
+            proc.once('exit', done);
+            proc.once('error', done);
+            if (proc.exitCode !== null) {
+                done();
+                return;
+            }
+            proc.kill();
+        });
+        if (this._proc === proc) {
+            this._proc = undefined;
+        }
+        this._stopping = false;
+    }
 
     async start(): Promise<void> {
         // Reset state so start() can be called again after a failed attempt.
@@ -60,25 +101,32 @@ export class PythonBridge implements vscode.Disposable {
             this._readyResolve = resolve;
             this._readyReject = reject;
 
-            this._proc = cp.spawn(pythonPath, [serverScript], {
+            const proc = cp.spawn(pythonPath, [serverScript], {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 cwd: serverDir,
             });
+            this._proc = proc;
 
-            this._proc.on('error', (err) => {
+            proc.on('error', (err) => {
                 this._out.appendLine(`Process error: ${err.message}`);
-                this._readyReject?.(new Error(`Cannot start Python: ${err.message}`));
+                if (!this._stopping) {
+                    this._readyReject?.(new Error(`Cannot start Python: ${err.message}`));
+                }
                 this._rejectAll(new Error(`Python process error: ${err.message}`));
             });
 
-            this._proc.on('exit', (code) => {
+            proc.on('exit', (code) => {
                 this._out.appendLine(`Python backend exited with code ${code}`);
+                const wasStopping = this._stopping;
                 const wasReady = this._ready;
                 // Reset state so the next call() doesn't hang on a dead bridge.
                 this._ready = false;
                 this._startPromise = undefined;
                 this._readyResolve = undefined;
-                if (!wasReady) {
+                if (this._proc === proc) {
+                    this._proc = undefined;
+                }
+                if (!wasReady && !wasStopping) {
                     const stderr = this._stderrLines.join('\n');
                     this._readyReject?.(
                         new Error(`Python backend exited (code ${code}).\n${stderr}`),
@@ -86,7 +134,7 @@ export class PythonBridge implements vscode.Disposable {
                 }
                 this._readyReject = undefined;
                 this._rejectAll(new Error(`Python backend exited with code ${code}`));
-                if (wasReady) {
+                if (wasReady && !wasStopping) {
                     // Surface unexpected crash to the user.
                     void vscode.window.showWarningMessage(
                         `XLIDE: Python backend exited unexpectedly (code ${code}). Run "XLIDE: Reload Window" or set xlide.pythonPath, then try again.`,
@@ -102,7 +150,7 @@ export class PythonBridge implements vscode.Disposable {
                 }
             });
 
-            this._proc.stderr!.on('data', (chunk: Buffer) => {
+            proc.stderr!.on('data', (chunk: Buffer) => {
                 const text = chunk.toString().trim();
                 if (text) {
                     this._out.appendLine(`[python] ${text}`);
@@ -110,7 +158,7 @@ export class PythonBridge implements vscode.Disposable {
                 }
             });
 
-            const rl = readline.createInterface({ input: this._proc.stdout! });
+            const rl = readline.createInterface({ input: proc.stdout! });
             rl.on('line', (line) => this._onLine(line));
         });
         return this._startPromise;
@@ -202,6 +250,6 @@ export class PythonBridge implements vscode.Disposable {
     }
 
     dispose(): void {
-        this._proc?.kill();
+        void this.stop();
     }
 }

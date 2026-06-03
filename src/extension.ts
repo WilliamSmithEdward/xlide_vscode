@@ -14,8 +14,11 @@ import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { createRecordedOutputChannel } from './xlideOutputLog';
 import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
+import { setXlideGlobalSettingValue, xlidePythonPathFromConfig } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
-import type { XlideSidebarSetupStatus } from './xlideSidebarModel';
+import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
+
+const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/';
 
 // ---------------------------------------------------------------------------
 // Dependency installer
@@ -86,6 +89,25 @@ export function activate(context: vscode.ExtensionContext): void {
     const isPythonNotFound = (msg: string) =>
         /python.*not found|not recognized|cannot find|no such file|ENOENT|spawn.*python/i.test(msg);
 
+    const configuredPythonPath = () =>
+        xlidePythonPathFromConfig(vscode.workspace.getConfiguration('xlide')).value;
+
+    const pythonLauncherDetectsPython = (): boolean => {
+        if (process.platform !== 'win32') {
+            return false;
+        }
+        try {
+            const result = cp.spawnSync('py', ['-0p'], {
+                encoding: 'utf8',
+                timeout: 1500,
+                windowsHide: true,
+            });
+            return result.status === 0 && /python(?:\.exe)?/i.test(`${result.stdout}\n${result.stderr}`);
+        } catch {
+            return false;
+        }
+    };
+
     const checkingSetupStatus = (): XlideSidebarSetupStatus => ({
         pythonExecutable: {
             status: 'unknown',
@@ -105,8 +127,12 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     const setSetupStatus = (status: XlideSidebarSetupStatus) => {
         setupStatus = status;
+        const setupComplete = isXlideSetupComplete(status);
+        explorer.setSetupComplete(setupComplete);
+        void vscode.commands.executeCommand('setContext', 'xlide.setupComplete', setupComplete);
         sidebar.refresh();
     };
+    setSetupStatus(setupStatus);
     const pythonBackendReady = () => setSetupStatus({
         pythonExecutable: {
             status: 'pass',
@@ -121,11 +147,21 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     const pythonBackendNeedsAttention = (err: Error) => {
         if (isPythonNotFound(err.message)) {
+            const configured = configuredPythonPath();
+            const installedOutsidePath = !configured && pythonLauncherDetectsPython();
+            const shouldSetPath = Boolean(configured) || installedOutsidePath;
             setSetupStatus({
                 pythonExecutable: {
                     status: 'warn',
-                    description: 'Not Found',
-                    tooltip: err.message,
+                    description: configured
+                        ? 'Path Not Found'
+                        : installedOutsidePath
+                            ? 'Not On PATH'
+                            : 'Not Found',
+                    tooltip: shouldSetPath
+                        ? 'Python appears to be installed, but XLIDE cannot start it from the current path. Set xlide.pythonPath to the Python executable.'
+                        : err.message,
+                    action: shouldSetPath ? 'setPythonPath' : 'downloadPython',
                 },
                 pythonLibraries: {
                     status: 'unknown',
@@ -163,6 +199,18 @@ export function activate(context: vscode.ExtensionContext): void {
             },
         });
     };
+    const recheckPythonBackend = () => {
+        setSetupStatus(checkingSetupStatus());
+        void bridge.restart()
+            .then(() => {
+                out.appendLine('XLIDE ready after Python path change.');
+                pythonBackendReady();
+            })
+            .catch((err: Error) => {
+                out.appendLine(`ERROR: Python backend failed after path change - ${err.message}`);
+                pythonBackendNeedsAttention(err);
+            });
+    };
 
     // Mirror Live Share guest state into a context key so the explorer welcome view
     // can show a "not supported" message instead of the generic empty-workspace one.
@@ -197,6 +245,13 @@ export function activate(context: vscode.ExtensionContext): void {
         registerXlideDirtyModuleBackups(context, out),
 
         treeView,
+
+        vscode.workspace.onDidChangeConfiguration((event) => {
+            if (event.affectsConfiguration('xlide.pythonPath')) {
+                out.appendLine('XLIDE Python path changed; rechecking Python backend.');
+                recheckPythonBackend();
+            }
+        }),
 
         // Item 6: Reveal active module in the XLIDE Explorer tree.
         // Also drives accordion collapse: only the active module stays expanded.
@@ -313,6 +368,34 @@ export function activate(context: vscode.ExtensionContext): void {
                 });
             }),
         ),
+
+        registerXlideCommand('xlide.downloadPython', () => {
+            void vscode.env.openExternal(vscode.Uri.parse(PYTHON_DOWNLOAD_URL));
+        }),
+
+        registerXlideCommand('xlide.browsePythonPath', async () => {
+            const configured = configuredPythonPath();
+            const selected = await vscode.window.showOpenDialog({
+                title: 'XLIDE: Select Python Executable',
+                openLabel: 'Use Python',
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                defaultUri: configured ? vscode.Uri.file(configured) : undefined,
+                filters: process.platform === 'win32'
+                    ? { 'Python Executable': ['exe'], 'All Files': ['*'] }
+                    : undefined,
+            });
+            const pythonPath = selected?.[0]?.fsPath;
+            if (!pythonPath) {
+                return;
+            }
+            await setXlideGlobalSettingValue(
+                vscode.workspace.getConfiguration('xlide'),
+                'pythonPath',
+                pythonPath,
+            );
+        }),
 
         // Show the XLIDE output channel (used by the explorer welcome view).
         registerXlideCommand('xlide.showOutput', () => {

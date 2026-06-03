@@ -12,10 +12,11 @@ development in VS Code.
   `xlide.sidebar` WebviewView.
 - `src/xlideSidebarModel.ts` owns the testable sidebar section model.
 - `src/xlideSidebar.ts` owns VS Code rendering and refresh behavior.
-- The current sidebar shows a compact welcome note that points users to the
-  Explorer-hosted XLIDE workbook tree, setup/dependency health with green/yellow
-  status dots, a dedicated target-workbook action group, core XLIDE actions,
-  compact settings launchers, and support actions.
+- The current sidebar shows a compact setup-required welcome state plus
+  setup/dependency health until Python Executable and Required Python Libraries
+  are both ready. Once setup is complete, it unlocks the Explorer-hosted XLIDE
+  workbook tree, target-workbook action group, core XLIDE actions, compact
+  settings launchers, and support actions.
 - Global/editor settings are opened through the dedicated XLIDE Global Settings
   GUI and still persist to VS Code machine/profile settings. Workbook-scoped
   settings continue to live in `<workbook>.xlide_settings.json` and are edited
@@ -87,15 +88,23 @@ The icon should live in a stable media asset path and be referenced through the
 Recommended sections:
 
 1. **Welcome**
-   - A compact note explaining that workbook/module navigation lives in
+   - Before setup is complete, show a compact setup-required note such as
+     "Please see Setup below to proceed."
+   - Once setup is complete, explain that workbook/module navigation lives in
      Explorer > XLIDE.
 
 2. **Setup Health**
    - Python Executable
    - Required Python Libraries
    - Pass/warn/fail/unknown indicators
-   - A Set Path button next to Python Executable, disabled when ready
-   - An Install button next to Required Python Libraries, disabled when ready
+   - Python Executable action: Download when Python is not detected, Set Path
+     when Python appears installed but XLIDE cannot start it from PATH/current
+     configuration, and Installed when ready.
+   - Only in the Download state, Ctrl+click should switch to Browse and let the
+     user select an installed Python executable. This writes the same
+     machine-scoped `xlide.pythonPath` setting used by the Global Settings GUI.
+   - Required Python Libraries action: Install when dependencies need setup,
+     and Installed when ready.
 
 3. **Workbook Actions**
    - Target workbook picker for workbook-scoped sidebar actions

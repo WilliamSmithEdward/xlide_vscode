@@ -387,8 +387,16 @@ events, and `.xlide_settings.json` sidecar changes, and does not require Excel
 COM to render.
 
 The Setup section exposes only two dependency rows today: Python Executable and
-Required Python Libraries. Each row has an action button that is disabled when
-the row is already green. The Workbook Actions section lets the user pick the
+Required Python Libraries. Python Executable offers Download when Python is not
+detected, Set Path when Python appears installed but is not available to XLIDE,
+and a disabled Installed button when ready. Required Python Libraries offers
+Install until dependencies are ready, then a disabled Installed button. Changes
+to `xlide.pythonPath` trigger a Python bridge restart/recheck so the sidebar
+health rows reflect the newly configured executable without requiring a window
+reload. In the Python Executable Download state only, Ctrl+click routes to a
+Browse action that writes the same machine-scoped `xlide.pythonPath` setting as
+the XLIDE Global Settings GUI. The
+Workbook Actions section lets the user pick the
 target workbook and keeps workbook-scoped actions directly under that picker. If
 no explicit sidebar target is selected, the context can fall back to the active
 `xlide-vba://` editor or a single-workbook workspace; if no target exists,

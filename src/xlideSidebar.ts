@@ -473,16 +473,43 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
     </main>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+        let ctrlMode = false;
+        function setCtrlMode(next) {
+            if (ctrlMode === next) {
+                return;
+            }
+            ctrlMode = next;
+            document.querySelectorAll('[data-ctrl-command-label]').forEach((button) => {
+                button.textContent = ctrlMode ? button.dataset.ctrlCommandLabel : button.dataset.commandLabel;
+                button.title = ctrlMode ? button.dataset.ctrlCommandTitle : button.dataset.commandTitle;
+            });
+        }
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Control') {
+                setCtrlMode(true);
+            }
+        });
+        document.addEventListener('keyup', (event) => {
+            if (event.key === 'Control') {
+                setCtrlMode(false);
+            }
+        });
+        document.addEventListener('mousemove', (event) => setCtrlMode(event.ctrlKey === true));
+        window.addEventListener('blur', () => setCtrlMode(false));
+        document.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+        });
         document.addEventListener('click', (event) => {
             const button = event.target.closest('[data-command]');
             if (!button) {
                 return;
             }
             const payload = JSON.parse(button.dataset.command);
+            const useCtrlCommand = event.ctrlKey && payload.ctrlCommand;
             vscode.postMessage({
                 type: 'runCommand',
-                command: payload.command,
-                arguments: payload.arguments || []
+                command: useCtrlCommand ? payload.ctrlCommand : payload.command,
+                arguments: useCtrlCommand ? payload.ctrlArguments || [] : payload.arguments || []
             });
         });
         document.addEventListener('change', (event) => {
@@ -559,8 +586,9 @@ function renderRowNode(node: XlideSidebarNode, sectionId: string): string {
     const status = node.status ?? 'unknown';
     const showDot = sectionId === 'setup' && node.kind === 'status';
     const rowClass = showDot ? 'row' : 'row noDotRow';
+    const commandTitle = node.command?.tooltip ?? node.command?.title ?? node.label;
     const command = node.command
-        ? `<button class="secondary"${node.disabled ? ' disabled' : ` data-command="${commandAttr(node.command)}"`}>${escapeHtml(node.command.title)}</button>`
+        ? `<button class="secondary"${node.disabled ? ' disabled' : ` data-command="${commandAttr(node.command)}"`}${commandButtonStateAttrs(node.command, commandTitle)}>${escapeHtml(node.command.title)}</button>`
         : '';
     return `<div class="${rowClass}" title="${escapeAttr(node.tooltip ?? node.label)}">
         ${showDot ? `<span class="dot ${escapeAttr(status)}" aria-hidden="true"></span>` : ''}
@@ -570,6 +598,15 @@ function renderRowNode(node: XlideSidebarNode, sectionId: string): string {
         </div>
         ${command}
     </div>`;
+}
+
+function commandButtonStateAttrs(command: XlideSidebarCommand, title: string): string {
+    const base = ` title="${escapeAttr(title)}" data-command-label="${escapeAttr(command.title)}" data-command-title="${escapeAttr(title)}"`;
+    if (!command.ctrlCommand || !command.ctrlTitle) {
+        return base;
+    }
+    const ctrlTitle = command.ctrlTooltip ?? command.ctrlTitle;
+    return `${base} data-ctrl-command-label="${escapeAttr(command.ctrlTitle)}" data-ctrl-command-title="${escapeAttr(ctrlTitle)}"`;
 }
 
 function renderSelectNode(node: XlideSidebarNode, sectionId: string): string {

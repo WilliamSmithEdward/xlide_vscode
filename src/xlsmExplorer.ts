@@ -47,12 +47,21 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     private _protectionCache = new Map<string, { isPasswordProtected: boolean; isSigned: boolean }>();
     // Accordion: only one module node is expanded at a time.
     private _activeModuleKey: string | undefined;
+    private _setupComplete = false;
 
     constructor(private readonly _bridge: PythonBridge) {}
 
     setLiveShare(liveShare: LiveShareIntegration): void {
         this._liveShare = liveShare;
         liveShare.onDidChange(() => this.refresh());
+    }
+
+    setSetupComplete(setupComplete: boolean): void {
+        if (this._setupComplete === setupComplete) {
+            return;
+        }
+        this._setupComplete = setupComplete;
+        this.refresh();
     }
 
     refresh(): void {
@@ -231,6 +240,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
 
     async getChildren(node?: XlideNode): Promise<XlideNode[]> {
         if (!node) {
+            if (!this._setupComplete) {
+                return [];
+            }
             // Live Share guest sees the host's workbooks; local files are not visible.
             // Use isInGuestSession (session role) rather than isGuest (proxy ready)
             // so we don't briefly render the host's vsls:// URIs as broken local nodes

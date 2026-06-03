@@ -51,6 +51,7 @@ interface PackageView {
 interface PackageViewWelcome {
 	view?: string;
 	contents?: string;
+	when?: string;
 }
 
 interface PackageCommand {
@@ -208,6 +209,16 @@ describe('VBA language configuration', () => {
 			'onView:xlide.explorer',
 		]));
 		expect(contributes?.viewsWelcome?.map((entry) => entry.view)).not.toContain('xlide.sidebar');
+		expect(contributes?.viewsWelcome?.filter((entry) => entry.view === 'xlide.explorer')).toEqual([
+			expect.objectContaining({
+				when: '!xlide.setupComplete',
+				contents: expect.stringContaining('XLIDE setup is not complete.'),
+			}),
+			expect.objectContaining({
+				when: 'xlide.setupComplete',
+				contents: expect.stringContaining('No Excel workbooks'),
+			}),
+		]);
 	});
 
 	it('contributes the workbook settings command used by the XLIDE sidebar', () => {
@@ -216,6 +227,7 @@ describe('VBA language configuration', () => {
 			?.commands ?? [];
 		const command = commands.find((entry) => entry.command === 'xlide.openWorkbookSettings');
 		const globalCommand = commands.find((entry) => entry.command === 'xlide.openGlobalSettings');
+		const downloadPythonCommand = commands.find((entry) => entry.command === 'xlide.downloadPython');
 
 		expect(command).toMatchObject({
 			command: 'xlide.openWorkbookSettings',
@@ -225,6 +237,11 @@ describe('VBA language configuration', () => {
 		expect(globalCommand).toMatchObject({
 			command: 'xlide.openGlobalSettings',
 			title: 'Open Global Settings',
+			category: 'XLIDE',
+		});
+		expect(downloadPythonCommand).toMatchObject({
+			command: 'xlide.downloadPython',
+			title: 'Download Python',
 			category: 'XLIDE',
 		});
 	});

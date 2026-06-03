@@ -366,8 +366,8 @@ function renderXlideGlobalSettingsHtml(
             border: 1px solid var(--vscode-panel-border);
             border-radius: 4px;
             padding: 2px 6px;
-            color: var(--vscode-descriptionForeground);
-            background: var(--vscode-badge-background);
+            color: var(--vscode-foreground);
+            background: var(--vscode-editorWidget-background, var(--vscode-input-background));
             font-size: 12px;
             white-space: nowrap;
         }
@@ -654,7 +654,9 @@ function renderRuleSeverityOverridesSetting(
         'analysis.ruleSeverityOverrides',
         {},
     );
-    const rules = model.rules.filter((rule) => rule.allowedSeverityOverrides.length > 0);
+    const rules = model.rules
+        .filter((rule) => rule.allowedSeverityOverrides.length > 0)
+        .sort((left, right) => left.title.localeCompare(right.title) || left.code.localeCompare(right.code));
     const rows = rules.map((rule) => `<div class="overrideRow">
         <div>
             <div class="ruleTitle">${escapeHtml(rule.title)}</div>
