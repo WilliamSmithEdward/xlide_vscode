@@ -117,7 +117,7 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'Unit Tests',
                 undefined,
                 'xlide.runVbaTests',
-                'Run annotated VBA unit tests in the selected target workbook.',
+                'Open the VBA unit tests GUI for the selected target workbook.',
                 'beaker',
                 workbookArg,
             ),

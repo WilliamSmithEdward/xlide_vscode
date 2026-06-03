@@ -230,14 +230,6 @@ describe('VBA language configuration', () => {
 		const globalCommand = commands.find((entry) => entry.command === 'xlide.openGlobalSettings');
 		const downloadPythonCommand = commands.find((entry) => entry.command === 'xlide.downloadPython');
 		const runVbaTestsCommand = commands.find((entry) => entry.command === 'xlide.runVbaTests');
-		const runVbaTestsWithFiltersCommand = commands.find(
-			(entry) => entry.command === 'xlide.runVbaTestsWithFilters',
-		);
-		const runVbaTestsInCurrentModuleCommand = commands.find(
-			(entry) => entry.command === 'xlide.runVbaTestsInCurrentModule',
-		);
-		const runVbaTestAtCursorCommand = commands.find((entry) => entry.command === 'xlide.runVbaTestAtCursor');
-		const installVbaTestSupportCommand = commands.find((entry) => entry.command === 'xlide.installVbaTestSupport');
 
 		expect(command).toMatchObject({
 			command: 'xlide.openWorkbookSettings',
@@ -256,32 +248,18 @@ describe('VBA language configuration', () => {
 		});
 		expect(runVbaTestsCommand).toMatchObject({
 			command: 'xlide.runVbaTests',
-			title: 'Run VBA Unit Tests',
+			title: 'Unit Tests',
 			category: 'XLIDE',
 		});
-		expect(runVbaTestsWithFiltersCommand).toMatchObject({
-			command: 'xlide.runVbaTestsWithFilters',
-			title: 'Run VBA Unit Tests with Filters',
-			category: 'XLIDE',
-		});
-		expect(runVbaTestsInCurrentModuleCommand).toMatchObject({
-			command: 'xlide.runVbaTestsInCurrentModule',
-			title: 'Run VBA Unit Tests in Current Module',
-			category: 'XLIDE',
-		});
-		expect(runVbaTestAtCursorCommand).toMatchObject({
-			command: 'xlide.runVbaTestAtCursor',
-			title: 'Run VBA Unit Test at Cursor',
-			category: 'XLIDE',
-		});
-		expect(installVbaTestSupportCommand).toMatchObject({
-			command: 'xlide.installVbaTestSupport',
-			title: 'Install VBA Test Support Module',
-			category: 'XLIDE',
-		});
+		expect(commands.map((entry) => entry.command)).not.toEqual(expect.arrayContaining([
+			'xlide.runVbaTestsWithFilters',
+			'xlide.runVbaTestsInCurrentModule',
+			'xlide.runVbaTestAtCursor',
+			'xlide.installVbaTestSupport',
+		]));
 	});
 
-	it('keeps Validate VBA Project out of workbook tree context actions', () => {
+	it('keeps workbook tree tests centralized through the Unit Tests GUI', () => {
 		const workbookTreeCommands = loadPackage()
 			.contributes
 			?.menus
@@ -291,8 +269,8 @@ describe('VBA language configuration', () => {
 
 		expect(workbookTreeCommands).toContain('xlide.analyzeWorkbook');
 		expect(workbookTreeCommands).toContain('xlide.runVbaTests');
-		expect(workbookTreeCommands).toContain('xlide.runVbaTestsWithFilters');
-		expect(workbookTreeCommands).toContain('xlide.installVbaTestSupport');
+		expect(workbookTreeCommands).not.toContain('xlide.runVbaTestsWithFilters');
+		expect(workbookTreeCommands).not.toContain('xlide.installVbaTestSupport');
 		expect(workbookTreeCommands).not.toContain('xlide.validateWorkbook');
 
 		const editorContextCommands = loadPackage()
@@ -301,7 +279,7 @@ describe('VBA language configuration', () => {
 			?.['editor/context']
 			?.filter((entry) => entry.when === 'editorLangId == vba && resourceScheme == xlide-vba')
 			.map((entry) => entry.command) ?? [];
-		expect(editorContextCommands).toContain('xlide.runVbaTestsInCurrentModule');
-		expect(editorContextCommands).toContain('xlide.runVbaTestAtCursor');
+		expect(editorContextCommands).not.toContain('xlide.runVbaTestsInCurrentModule');
+		expect(editorContextCommands).not.toContain('xlide.runVbaTestAtCursor');
 	});
 });

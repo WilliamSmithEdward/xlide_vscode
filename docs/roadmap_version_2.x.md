@@ -810,9 +810,10 @@ VBA code from XLIDE, using Excel COM as the execution host.
   include/exclude tag filters, and fail-fast mode on the same runner path.
 - [x] Run tests by default in one dedicated XLIDE-owned Excel instance that
   opens the target workbook read-only, runs all selected tests in that same
-  instance, closes without saving, and never attaches to the user's normal Excel
-  session unless explicitly opted in. Disposable workbook/session isolation can
-  be added later as a stronger safety mode, not as the default contract.
+  hidden instance, closes without saving, and never attaches to the user's
+  normal Excel session unless explicitly opted in. Disposable workbook/session
+  isolation can be added later as a stronger safety mode, not as the default
+  contract.
 - [x] Add a unit-test oracle surface for the default Excel host lifecycle.
   `src/vbaTestHostOracle.ts` validates simple lifecycle traces for one owned
   read-only Excel instance, prompt/hang safeguards, close-without-saving, and
@@ -1061,9 +1062,15 @@ development.
   specific product reason to revisit it; prefer additive workflow buttons tied
   to implemented functionality.
 - [x] Add a Unit Tests button to Workbook Actions once the VBA test runner is
-  implemented. It should run against the sidebar target workbook and follow the
-  same no-target/runner-not-ready disabled-state contract as the existing
-  workbook-scoped actions.
+  implemented. It opens the workbook-scoped Tests GUI for the sidebar target
+  workbook and follows the same no-target disabled-state contract as the
+  existing workbook-scoped actions.
+- [x] Centralize test run controls in the Tests GUI: workbook-tree right click
+  keeps a single Unit Tests entry point, editor/module right-click run commands
+  are removed from contributed menus, and the GUI blocks runs until the bundled
+  `XlideAssert.bas` support module is installed or updated. The GUI also blocks
+  runs when Excel COM is not registered on the machine; this registration check
+  does not launch Excel.
 - [ ] Add primary action buttons:
   - analyze workbook against the sidebar target workbook
   - open the full VBA test runner GUI

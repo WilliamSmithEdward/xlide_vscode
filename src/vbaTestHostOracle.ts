@@ -34,7 +34,7 @@ export interface VbaTestHostOracleIssue {
 export type VbaTestMacroOutcome = 'passed' | 'failed' | 'timeout' | 'hung' | 'runner-error';
 
 export type VbaTestHostOracleEvent =
-    | { kind: 'excel-created'; excelId: string; owned: boolean; pid?: number }
+    | { kind: 'excel-created'; excelId: string; owned: boolean; pid?: number; visible?: boolean }
     | { kind: 'excel-attached'; excelId: string }
     | {
         kind: 'workbook-opened';

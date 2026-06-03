@@ -53,6 +53,12 @@ import {
 } from './vbaTestHostOracle';
 import { writeVbaTestRunArtifacts } from './vbaTestArtifacts';
 import { openVbaTestResults } from './vbaTestResultsWebview';
+import { checkExcelComAvailability } from './excelComAvailability';
+import {
+    openVbaTestsPanel,
+    type VbaTestSupportStatusModel,
+    type VbaTestsPanelModel,
+} from './vbaTestsWebview';
 import {
     normalizeVbaTestSupportModuleSource,
     XLIDE_ASSERT_MODULE_NAME,
@@ -1157,6 +1163,20 @@ export function registerCommands(
         const selectionDescription = describeVbaTestSelection(options.selection);
         const runScope = selectionDescription ? ` (${selectionDescription})` : '';
         try {
+            const support = await vbaTestSupportStatus(filePath);
+            if (!support.canRun) {
+                openVbaTestsForWorkbook(filePath);
+                void vscode.window.showWarningMessage(
+                    `XLIDE: Install XlideAssert.bas from the Unit Tests GUI before running tests for "${name}".`,
+                );
+                return;
+            }
+            const runtime = await checkExcelComAvailability();
+            if (!runtime.canRun) {
+                openVbaTestsForWorkbook(filePath);
+                void vscode.window.showWarningMessage(`XLIDE: ${runtime.description}`);
+                return;
+            }
             let execution: VbaTestRunExecution | undefined;
             await vscode.window.withProgress(
                 {
@@ -1189,6 +1209,109 @@ export function registerCommands(
             log(`[runVbaTests] FAILED: ${msg}`);
             vscode.window.showErrorMessage(`XLIDE: VBA tests failed: ${msg}`);
         }
+    }
+
+    function openVbaTestsForWorkbook(filePath: string): void {
+        openVbaTestsPanel(context, filePath, {
+            getModel: () => vbaTestsPanelModel(filePath),
+            onInstallSupport: async () => {
+                await installVbaTestSupportModule(filePath);
+            },
+            onRunAll: async () => {
+                await runVbaTestsForWorkbook(filePath);
+            },
+            onRunWithFilters: async () => {
+                const options = await promptVbaTestRunOptions();
+                if (options) {
+                    await runVbaTestsForWorkbook(filePath, options);
+                }
+            },
+            onDidChangeWorkbookTree: explorer.onDidChangeTreeData,
+        });
+    }
+
+    async function vbaTestsPanelModel(filePath: string): Promise<VbaTestsPanelModel> {
+        const [support, runtime] = await Promise.all([
+            vbaTestSupportStatus(filePath),
+            checkExcelComAvailability(),
+        ]);
+        return {
+            filePath,
+            workbookName: path.basename(filePath),
+            support,
+            runtime,
+        };
+    }
+
+    async function vbaTestSupportStatus(filePath: string): Promise<VbaTestSupportStatusModel> {
+        try {
+            const modules = await bridge.call<Array<{ name: string; type: string }>>(
+                'listModules',
+                { path: filePath },
+            );
+            const existing = modules.find(
+                (module) => module.name.toLowerCase() === XLIDE_ASSERT_MODULE_NAME.toLowerCase(),
+            );
+            if (!existing) {
+                return {
+                    state: 'missing',
+                    title: 'XlideAssert.bas Not Installed',
+                    description: 'The bundled test support module must be installed before XLIDE can run workbook tests.',
+                    actionLabel: 'Install',
+                    canInstall: true,
+                    canRun: false,
+                };
+            }
+            if (existing.type !== 'standard') {
+                return {
+                    state: 'blocked',
+                    title: `${XLIDE_ASSERT_MODULE_NAME} Name Conflict`,
+                    description: `"${XLIDE_ASSERT_MODULE_NAME}" exists as a ${existing.type} module. Rename it before installing the XLIDE test support module.`,
+                    actionLabel: 'Blocked',
+                    canInstall: false,
+                    canRun: false,
+                };
+            }
+
+            const current = await bridge.call<{ source?: string } | string>(
+                'readModule',
+                { path: filePath, module: existing.name },
+            );
+            const installed = normalizeVbaTestSupportModuleSource(moduleSourceFromReadResult(current)) ===
+                normalizeVbaTestSupportModuleSource(XLIDE_ASSERT_MODULE_SOURCE);
+            if (installed) {
+                return {
+                    state: 'installed',
+                    title: 'XlideAssert.bas Installed',
+                    description: 'Workbook tests can run through the XLIDE-owned read-only Excel test host.',
+                    actionLabel: 'Installed',
+                    canInstall: false,
+                    canRun: true,
+                };
+            }
+            return {
+                state: 'outdated',
+                title: 'XlideAssert.bas Needs Update',
+                description: 'The workbook has an XlideAssert standard module, but it does not match the bundled XLIDE test support module.',
+                actionLabel: 'Update',
+                canInstall: true,
+                canRun: false,
+            };
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            return {
+                state: 'unknown',
+                title: 'Test Support Unknown',
+                description: `XLIDE could not inspect the workbook test support module: ${message}`,
+                actionLabel: 'Refresh',
+                canInstall: false,
+                canRun: false,
+            };
+        }
+    }
+
+    function moduleSourceFromReadResult(result: { source?: string } | string): string {
+        return typeof result === 'string' ? result : result.source ?? '';
     }
 
     function showVbaTestRunOutcome(report: VbaTestRunReport): void {
@@ -2919,14 +3042,14 @@ export function registerCommands(
             );
         }),
 
-        // Discover and run annotated workbook VBA tests through the Excel COM host.
+        // Open the workbook-scoped VBA tests GUI.
         registerXlideCommand('xlide.runVbaTests', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) {
                 vscode.window.showWarningMessage('XLIDE: No workbook selected to test.');
                 return;
             }
-            await runVbaTestsForWorkbook(filePath);
+            openVbaTestsForWorkbook(filePath);
         }),
 
         // Run workbook VBA tests with tag include/exclude filters and fail-fast mode.

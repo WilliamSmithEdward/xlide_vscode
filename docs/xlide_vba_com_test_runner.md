@@ -18,13 +18,15 @@ before the test runner is considered shipped.
 ## Intended Developer Workflow
 
 1. Open the workbook/project in XLIDE.
-2. Run `XLIDE: Install VBA Test Support Module` if you want the built-in
-   `XlideAssert` helpers.
-3. Create VBA test procedures using an explicit XLIDE test marker.
-4. Run all tests, filtered tests, the current module's tests, or the test at
-   the cursor.
-5. Review test results in VS Code.
-6. Open failing tests, assertion messages, runtime errors, and logs from the
+2. Open the workbook-scoped Unit Tests GUI from the sidebar or workbook-tree
+   context menu.
+3. Install or update the bundled `XlideAssert.bas` support module from the
+   Tests GUI. Test runs are blocked until that module is installed.
+4. Create VBA test procedures using an explicit XLIDE test marker.
+5. Run all tests or a filtered run from the Tests GUI. Module/current-test
+   controls should live in this GUI as the runner matures.
+6. Review test results in VS Code.
+7. Open failing tests, assertion messages, runtime errors, and logs from the
    result view.
 
 Discovery must be explicit. XLIDE should not discover tests by guessing from
@@ -156,14 +158,15 @@ The current runner supports:
   that cannot discover a runnable test
 - a concise VS Code test results panel
 - command palette and workbook-tree entry points
+- Tests GUI runtime gating for Excel COM registration without launching Excel
 - non-Windows discovery with skipped execution because Excel COM is Windows-only
 
 ## Locked Default Excel Host Contract
 
 The default Excel host runs each selected test suite in one dedicated
 XLIDE-owned Excel instance. It opens the target workbook read-only, runs all
-selected tests in that same instance, closes the workbook without saving, and
-quits or kills only the Excel instance XLIDE created.
+selected tests in that same hidden instance, closes the workbook without saving,
+and quits or kills only the Excel instance XLIDE created.
 
 By default, the test runner does not attach to the user's normal Excel session.
 Attaching to an existing Excel instance can be a future explicit opt-in mode,
@@ -289,8 +292,8 @@ Candidate scopes:
 
 ## Current Assertion Surface
 
-Run `XLIDE: Install VBA Test Support Module` on a workbook to install/update the
-standard `XlideAssert` module. The current API is:
+Use the workbook-scoped Unit Tests GUI to install/update the standard
+`XlideAssert` module. The current API is:
 
 ```vba
 XlideAssert.AreEqual expected, actual

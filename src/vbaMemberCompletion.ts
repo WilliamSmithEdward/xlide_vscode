@@ -177,8 +177,11 @@ class VbaMemberCompletionProvider
 		document: vscode.TextDocument,
 		position: vscode.Position,
 	): Promise<vscode.CompletionItem[]> {
-		const directiveItems = this._testDirectiveItems(document, position);
-		if (directiveItems.length > 0) {
+		const directiveCompletions = this._testDirectiveCompletions(document, position);
+		const directiveItems = directiveCompletions.map(
+			(completion) => this._toTestDirectiveItem(completion, position.line),
+		);
+		if (directiveCompletions.some((completion) => completion.exclusive)) {
 			return directiveItems;
 		}
 
@@ -209,12 +212,16 @@ class VbaMemberCompletionProvider
 			blockLayout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
 		});
 		if (keywords.exclusive) {
-			return keywords.items.map((item) => this._toKeywordItem(item, range, document));
+			return [
+				...directiveItems,
+				...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
+			];
 		}
 
 		const identCtx = this._identifierContext(projectCtx);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
 		return [
+			...directiveItems,
 			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		];
@@ -702,14 +709,14 @@ class VbaMemberCompletionProvider
 		return item;
 	}
 
-	private _testDirectiveItems(
+	private _testDirectiveCompletions(
 		document: vscode.TextDocument,
 		position: vscode.Position,
-	): vscode.CompletionItem[] {
+	): VbaTestDirectiveCompletion[] {
 		return resolveVbaTestDirectiveCompletions(
 			document.lineAt(position.line).text,
 			position.character,
-		).map((completion) => this._toTestDirectiveItem(completion, position.line));
+		);
 	}
 
 	private _toTestDirectiveItem(

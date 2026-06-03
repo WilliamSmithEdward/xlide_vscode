@@ -27,4 +27,16 @@ describe('VBA test support module', () => {
         expect(normalizeVbaTestSupportModuleSource('Option Explicit\r\n\r\n')).toBe('Option Explicit');
         expect(normalizeVbaTestSupportModuleSource('Option Explicit\n')).toBe('Option Explicit');
     });
+
+    it('treats the workbook-visible body as matching the bundled support module', () => {
+        const visibleBody = XLIDE_ASSERT_MODULE_SOURCE
+            .replace(/\r\n|\r/g, '\n')
+            .split('\n')
+            .filter((line) => !/^Attribute\s+VB_/i.test(line))
+            .join('\n');
+
+        expect(normalizeVbaTestSupportModuleSource(visibleBody)).toBe(
+            normalizeVbaTestSupportModuleSource(XLIDE_ASSERT_MODULE_SOURCE),
+        );
+    });
 });

@@ -23,6 +23,30 @@ EVIDENCE_OUTCOMES = {"accepted", "rejected"}
 DEFAULT_TIMEOUT_RETRIES = 2
 
 
+def excel_com_registered() -> bool:
+    try:
+        completed = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                (
+                    '$type = [type]::GetTypeFromProgID("Excel.Application"); '
+                    'if ($null -eq $type) { exit 2 }'
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return completed.returncode == 0
+
+
 def load_cases(path: Path) -> list[dict[str, Any]]:
     return load_cases_document(path)["cases"]
 
@@ -401,6 +425,12 @@ def main(argv: list[str]) -> int:
 
     if os.name != "nt":
         print("Excel/VBE oracle tests require Windows.", file=sys.stderr)
+        return 2
+    if not excel_com_registered():
+        print(
+            "Excel/VBE oracle tests require Microsoft Excel COM registration.",
+            file=sys.stderr,
+        )
         return 2
 
     document = load_cases_document(args.cases)

@@ -49,10 +49,17 @@ Functions, Properties, and parameterized Subs.
 
 ## Run Tests
 
-Use the XLIDE Unit Tests workbook action or command palette test commands to run
-tests for the selected workbook. The runner supports all discovered tests,
-current module/current test selection, tag include/exclude filters, and fail-fast
-mode.
+Use the XLIDE Unit Tests workbook action or the workbook-tree Unit Tests context
+menu to open the Tests GUI for the selected workbook. Install or update the
+bundled `XlideAssert.bas` support module from that GUI first; run buttons stay
+disabled until the installed module matches the version bundled with XLIDE.
+The GUI also checks for Microsoft Excel COM registration before enabling runs.
+That check does not launch Excel.
+
+The Tests GUI currently runs all discovered tests or opens the filtered-run
+prompt for tag include/exclude filters and fail-fast mode. It refreshes with the
+XLIDE workbook tree, so installing/removing modules or refreshing the tree
+updates the support gate without reopening the panel.
 
 By default XLIDE creates one XLIDE-owned Excel instance, opens the workbook
 read-only, runs the selected tests, closes without saving, and cleans up the
@@ -82,4 +89,4 @@ overwritten on each run with compact latest-run metadata for downstream CI.
 Excel COM execution is Windows-only. The first shipped path uses the selected
 workbook and standard-module VBA tests; setup/teardown helpers, richer expected
 output/state assertions, configurable artifact folders, retention policies, and
-a full test runner GUI are planned follow-ups.
+module/current-test run controls inside the Tests GUI are planned follow-ups.

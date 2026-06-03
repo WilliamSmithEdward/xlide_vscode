@@ -134,5 +134,10 @@ export const XLIDE_ASSERT_MODULE_SOURCE = [
 ].join('\r\n');
 
 export function normalizeVbaTestSupportModuleSource(source: string): string {
-    return source.replace(/\r\n|\r/g, '\n').trim();
+    return source
+        .replace(/\r\n|\r/g, '\n')
+        .split('\n')
+        .filter((line) => !/^\s*Attribute\s+VB_/i.test(line))
+        .join('\n')
+        .trim();
 }

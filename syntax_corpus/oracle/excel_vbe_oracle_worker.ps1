@@ -631,9 +631,10 @@ $result = [ordered]@{
 try {
     Set-Stage "start_excel"
     $excel = New-Object -ComObject Excel.Application
-    $excel.Visible = $true
+    $excel.Visible = $false
     $excel.DisplayAlerts = $false
     $excel.EnableEvents = $false
+    try { $excel.ScreenUpdating = $false } catch { }
     # msoAutomationSecurityLow. This applies only to the disposable Excel
     # instance created by this worker.
     try { $excel.AutomationSecurity = 1 } catch { }
@@ -677,7 +678,8 @@ try {
 
     if ($mode -eq "compile") {
         Set-Stage "compile"
-        $excel.Visible = $true
+        # Compile probes use VBE command bars, but the Excel application window
+        # itself should stay hidden.
         $excel.VBE.MainWindow.Visible = $true
 
         [void]$component.Activate()
