@@ -35,6 +35,7 @@ import {
     createVbaTestRunReport,
     describeVbaTestSelection,
     discoverWorkbookVbaTests,
+    summarizeVbaTestTags,
     summarizeVbaTestRun,
     vbaTestFailureMessage,
     type VbaTestCase,
@@ -57,6 +58,7 @@ import { openVbaTestResults } from './vbaTestResultsWebview';
 import { checkExcelComAvailability } from './excelComAvailability';
 import {
     openVbaTestsPanel,
+    type VbaTestsRunFilterRequest,
     type VbaTestSupportStatusModel,
     type VbaTestsPanelModel,
 } from './vbaTestsWebview';
@@ -1346,26 +1348,62 @@ export function registerCommands(
             onRunAll: async () => {
                 await runVbaTestsForWorkbook(filePath);
             },
-            onRunWithFilters: async () => {
-                const options = await promptVbaTestRunOptions();
-                if (options) {
-                    await runVbaTestsForWorkbook(filePath, options);
-                }
+            onRunWithFilters: async (filters) => {
+                await runVbaTestsForWorkbook(filePath, vbaTestRunOptionsFromFilters(filters));
             },
             onDidChangeWorkbookTree: explorer.onDidChangeTreeData,
         });
     }
 
     async function vbaTestsPanelModel(filePath: string): Promise<VbaTestsPanelModel> {
-        const [support, runtime] = await Promise.all([
+        const [support, runtime, discovery] = await Promise.all([
             vbaTestSupportStatus(filePath),
             checkExcelComAvailability(),
+            vbaTestsDiscoveryStatus(filePath),
         ]);
         return {
             filePath,
             workbookName: path.basename(filePath),
             support,
             runtime,
+            discovery,
+        };
+    }
+
+    async function vbaTestsDiscoveryStatus(filePath: string): Promise<VbaTestsPanelModel['discovery']> {
+        try {
+            const discovery = await discoverWorkbookVbaTests(bridge, filePath);
+            const tags = summarizeVbaTestTags(discovery.tests);
+            const taggedTests = discovery.tests.filter((test) => test.metadata.tags.length > 0).length;
+            return {
+                totalTests: discovery.tests.length,
+                taggedTests,
+                untaggedTests: Math.max(0, discovery.tests.length - taggedTests),
+                tags,
+            };
+        } catch (err) {
+            const error = err instanceof Error ? err.message : String(err);
+            return {
+                totalTests: 0,
+                taggedTests: 0,
+                untaggedTests: 0,
+                tags: [],
+                error,
+            };
+        }
+    }
+
+    function vbaTestRunOptionsFromFilters(filters: VbaTestsRunFilterRequest): VbaTestRunOptions {
+        const selection: VbaTestSelectionOptions = {};
+        if (filters.includeTags.length > 0) {
+            selection.includeTags = filters.includeTags;
+        }
+        if (filters.excludeTags.length > 0) {
+            selection.excludeTags = filters.excludeTags;
+        }
+        return {
+            selection,
+            failFast: filters.failFast,
         };
     }
 

@@ -60,6 +60,11 @@ export interface VbaTestSelectionOptions {
     excludeTags?: readonly string[];
 }
 
+export interface VbaTestTagSummary {
+    name: string;
+    testCount: number;
+}
+
 export interface VbaTestDiscoveryResult {
     filePath: string;
     tests: VbaTestCase[];
@@ -264,6 +269,24 @@ export function filterVbaTests(
         }
         return true;
     });
+}
+
+export function summarizeVbaTestTags(tests: readonly VbaTestCase[]): VbaTestTagSummary[] {
+    const counts = new Map<string, Set<string>>();
+    for (const test of tests) {
+        for (const tag of test.metadata.tags) {
+            const normalized = normalizeTag(tag);
+            if (!normalized) {
+                continue;
+            }
+            const bucket = counts.get(normalized) ?? new Set<string>();
+            bucket.add(test.id);
+            counts.set(normalized, bucket);
+        }
+    }
+    return [...counts.entries()]
+        .map(([name, testIds]) => ({ name, testCount: testIds.size }))
+        .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
 }
 
 export function describeVbaTestSelection(selection?: VbaTestSelectionOptions): string {

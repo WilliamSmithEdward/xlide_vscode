@@ -34,8 +34,8 @@ export function renderVbaTestResultsHtml(
             <td>
                 <div class="testName">${escapeHtml(result.test.qualifiedName)}</div>
                 <div class="meta">${escapeHtml(`${result.test.moduleName}:${result.test.line}:${result.test.column}`)}</div>
-                ${testMetadataHtml(result.test.metadata)}
             </td>
+            <td class="tagCell">${testMetadataHtml(result.test.metadata)}</td>
             <td>${escapeHtml(`${result.durationMs} ms`)}</td>
             <td>${result.error ? escapeHtml(result.error) : ''}</td>
         </tr>
@@ -106,6 +106,7 @@ export function renderVbaTestResultsHtml(
             width: 100%;
             border-collapse: collapse;
             border: 1px solid var(--vscode-panel-border);
+            table-layout: fixed;
         }
         th,
         td {
@@ -124,6 +125,22 @@ export function renderVbaTestResultsHtml(
         }
         .testName {
             font-weight: 650;
+        }
+        th:nth-child(1),
+        td:nth-child(1) {
+            width: 90px;
+        }
+        th:nth-child(3),
+        td:nth-child(3) {
+            width: 210px;
+        }
+        th:nth-child(4),
+        td:nth-child(4) {
+            width: 84px;
+        }
+        .testName,
+        .meta {
+            overflow-wrap: anywhere;
         }
         .status {
             display: inline-block;
@@ -162,14 +179,15 @@ export function renderVbaTestResultsHtml(
             display: flex;
             flex-wrap: wrap;
             gap: 5px;
-            margin-top: 6px;
+            margin: 0;
         }
         .tag {
-            border: 1px solid var(--vscode-panel-border);
+            border: 1px solid color-mix(in srgb, var(--vscode-badge-foreground, #ffffff) 28%, transparent);
             border-radius: 999px;
             padding: 1px 7px;
-            color: var(--vscode-descriptionForeground);
-            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground, #ffffff);
+            background: var(--vscode-badge-background, var(--vscode-button-background));
+            font-weight: 600;
         }
         .contract {
             margin-top: 16px;
@@ -207,6 +225,7 @@ export function renderVbaTestResultsHtml(
                 <tr>
                     <th>Status</th>
                     <th>Test</th>
+                    <th>Tags</th>
                     <th>Duration</th>
                     <th>Details</th>
                 </tr>

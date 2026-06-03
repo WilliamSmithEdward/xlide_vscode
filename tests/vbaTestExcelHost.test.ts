@@ -17,6 +17,7 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('New-Object -ComObject Excel.Application');
         expect(script).not.toContain('GetActiveObject');
         expect(script).toContain('$excel.DisplayAlerts = $false');
+        expect(script).toContain('$excel.AskToUpdateLinks = $false');
         expect(script).toContain('$excel.Visible = $false');
         expect(script).toContain('$excel.ScreenUpdating = $false');
         expect(script).not.toContain('$excel.Visible = $true');

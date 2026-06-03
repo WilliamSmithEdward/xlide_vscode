@@ -23,6 +23,9 @@ describe('VBA test results webview', () => {
         expect(html).toContain('Timeout');
         expect(html).toContain('Host Errors');
         expect(html).toContain('XFail');
+        expect(html).toContain('<th>Tags</th>');
+        expect(html).toContain('class="tagCell"');
+        expect(html).toContain('var(--vscode-badge-foreground');
         expect(html).toContain('owner:finance');
         expect(html).toContain('smoke');
         expect(html).toContain('&lt;boom&gt;');

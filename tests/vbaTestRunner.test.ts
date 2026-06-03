@@ -5,6 +5,7 @@ import {
     VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE,
     discoverVbaTestsFromModule,
     discoverWorkbookVbaTests,
+    summarizeVbaTestTags,
     summarizeVbaTestRun,
     validateVbaTestDirectivesFromModule,
     vbaTestFailureMessage,
@@ -180,6 +181,28 @@ describe('VBA test runner discovery', () => {
         });
         expect(procedureResult.unfilteredTestCount).toBe(1);
         expect(procedureResult.tests.map((test) => test.qualifiedName)).toEqual(['BetaTests.BetaSmoke']);
+    });
+
+    it('summarizes discovered tags by name for workbook filter UI', () => {
+        const tests = discoverVbaTestsFromModule({
+            name: 'TagTests',
+            type: 'standard',
+            source: [
+                "' @xlide-test tags=Smoke,fast,smoke",
+                'Sub SmokeFast()',
+                'End Sub',
+                '',
+                "' @xlide-test tags=slow",
+                'Sub SlowScenario()',
+                'End Sub',
+            ].join('\n'),
+        });
+
+        expect(summarizeVbaTestTags(tests)).toEqual([
+            { name: 'fast', testCount: 1 },
+            { name: 'slow', testCount: 1 },
+            { name: 'smoke', testCount: 1 },
+        ]);
     });
 
     it('validates malformed test directive syntax and metadata', () => {
