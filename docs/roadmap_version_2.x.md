@@ -857,7 +857,7 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - [x] run current test
   - [x] run current module
   - [x] include/exclude tags
-  - rerun failed
+  - [x] rerun failed
   - [x] fail fast
   - [x] persisted default run artifacts plus latest CI status JSON
   - explicit headless/automation runner mode
@@ -901,15 +901,20 @@ VBA code from XLIDE, using Excel COM as the execution host.
   error, and expected absence of errors.
 - [x] Return machine-readable JSON results for automation and render a concise
   Problems/Test Results view in VS Code.
+- [x] Surface clean developer-facing failure details in test results. The
+  bundled `XlideAssert` module records normal assertion failures and runs tests
+  through an internal VBA wrapper so assertion/runtime details are captured
+  before Excel Automation can collapse them into generic `Run` HRESULTs; generic
+  host failures still collapse to terse actionable text instead of raw
+  host-script stack output.
 - [x] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
 - [x] Add fixture tests before enabling broad adoption.
 - [ ] Add a full developer VBA test GUI, not just a command/output stream. It
-  should be callable from workbook/module/procedure right-click menus and the
-  XLIDE Activity Bar/sidebar, show discovered tests with check/uncheck
-  selection, support run-all/current-module/current-test/filter/rerun-failed
-  workflows, and render rich pass/fail/skip/xfail results in a reusable UI
-  surface.
+  should be callable from the XLIDE Activity Bar/sidebar, show discovered tests
+  with check/uncheck selection, support run-all/filter/rerun-failed workflows,
+  add current-module/current-test controls inside the GUI, and render rich
+  pass/fail/skip/xfail results in a reusable UI surface.
 - [ ] Fully document the downstream developer workflow before calling the test
   runner shipped in public-facing `user_guides/testing.md`:
   - how to author tests
@@ -1420,8 +1425,8 @@ Definition of done:
    they become relevant to analyzer behavior.
 4. Continue hardening the VBA test runner beyond the explicit `@xlide-test`
    run-all/current-scope/single-host slice: disposable-session safety,
-   rerun-failed/automation flows, setup/teardown, compile-error capture, suite
-   timeouts, and full workflow documentation before calling it shipped.
+   automation flows, setup/teardown, compile-error capture, suite timeouts, and
+   full workflow documentation before calling it shipped.
 5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
    for analysis, test, setup, sync, and workbook actions; avoid using the Output
    channel as the primary UX for actionable workflow results.

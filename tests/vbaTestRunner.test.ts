@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PythonBridge } from '../src/pythonBridge';
 import {
     createVbaTestRunReport,
+    describeVbaTestSelection,
     VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE,
     discoverVbaTestsFromModule,
     discoverWorkbookVbaTests,
@@ -181,6 +182,18 @@ describe('VBA test runner discovery', () => {
         });
         expect(procedureResult.unfilteredTestCount).toBe(1);
         expect(procedureResult.tests.map((test) => test.qualifiedName)).toEqual(['BetaTests.BetaSmoke']);
+
+        const idResult = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm', {
+            testIds: ['betatests.betasmoke', 'AlphaTests.FastSmoke'],
+        });
+        expect(idResult.selection).toEqual({
+            testIds: ['betatests.betasmoke', 'AlphaTests.FastSmoke'],
+        });
+        expect(idResult.tests.map((test) => test.qualifiedName)).toEqual([
+            'AlphaTests.FastSmoke',
+            'BetaTests.BetaSmoke',
+        ]);
+        expect(describeVbaTestSelection(idResult.selection)).toBe('2 selected tests');
     });
 
     it('summarizes discovered tags by name for workbook filter UI', () => {
@@ -322,6 +335,34 @@ describe('VBA test runner reporting', () => {
             hostError: 1,
         });
         expect(vbaTestFailureMessage(new Error('RUN_FAILED|Assertion failed'))).toBe('Assertion failed');
+        expect(vbaTestFailureMessage(new Error([
+            'RUN_FAILED|Exception calling "Run" with "1" argument(s):',
+            '"Exception from HRESULT: 0x800A9C68"',
+            'HRESULT: 0x80131501',
+            'Inner: Exception from HRESULT: 0x800A9C68',
+            'Inner HRESULT: 0x800A9C68',
+            'At C:\\Users\\William\\AppData\\Local\\Temp\\xlide-vba-test-host-DDT6Nq\\run-vba-tests.ps1:677 char:4587',
+            '+ ... tPrefix, $excelId, $macroName) }; $excel.Run($macroRef);',
+            '+                       ~~~~~~~~~~~~~~~~~~~~',
+        ].join('\n')))).toBe(
+            'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.',
+        );
+        expect(vbaTestFailureMessage('A user message with | punctuation')).toBe('A user message with | punctuation');
+        expect(vbaTestFailureMessage([
+            'RUN_FAILED|HRESULT: 0x80131501',
+            'Exception calling "Run" with "2" argument(s): "The remote procedure call failed. (Exception from HRESULT: 0x800706BE)"',
+            'Inner: The remote procedure call failed. (Exception from HRESULT: 0x800706BE)',
+            'Inner HRESULT: 0x800706BE',
+        ].join('\n'))).toBe(
+            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BE.',
+        );
+        expect(vbaTestFailureMessage([
+            'RUN_FAILED|HRESULT: 0x80131501',
+            'Exception calling "Run" with "2" argument(s): "The RPC server is unavailable. (Exception from HRESULT: 0x800706BA)"',
+            'Inner HRESULT: 0x800706BA',
+        ].join('\n'))).toBe(
+            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BA.',
+        );
     });
 });
 

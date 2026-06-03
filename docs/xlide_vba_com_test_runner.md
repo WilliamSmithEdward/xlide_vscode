@@ -23,8 +23,9 @@ before the test runner is considered shipped.
 3. Install or update the bundled `XlideAssert.bas` support module from the
    Tests GUI. Test runs are blocked until that module is installed.
 4. Create VBA test procedures using an explicit XLIDE test marker.
-5. Run all tests or a filtered run from the Tests GUI. Module/current-test
-   controls should live in this GUI as the runner matures.
+5. Run all tests, a filtered tag run, or rerun the last failed tests from the
+   Tests GUI. Module/current-test controls should live in this GUI as the runner
+   matures.
 6. Review test results in VS Code.
 7. Open failing tests, assertion messages, runtime errors, and logs from the
    result view.
@@ -139,6 +140,8 @@ The current runner supports:
 
 - run all discovered tests in the target workbook
 - run all discovered tests that match include/exclude tag filters
+- rerun failed, timed-out, host-error, and unexpected-pass tests from the last
+  run using stable discovered test ids
 - run all discovered tests in the current module from editor context
 - run the discovered test at the cursor from editor context
 - fail fast after the first failure or unexpected pass
@@ -150,6 +153,8 @@ The current runner supports:
   states become timeout or host-error outcomes instead of indefinite runs
 - pass/fail/skip/xfail/xpass accounting
 - timeout and host-error accounting
+- clean assertion details from the bundled `XlideAssert` support module, with
+  terse fallback text for generic Excel automation `Run` failures
 - JSON report logging in the XLIDE Output channel
 - persisted default run artifacts under `tests` beside the workbook:
   `summary.json`, `host-trace.json`, `output.log`, and latest
@@ -268,8 +273,7 @@ bounded host failures with owned-process cleanup rather than indefinite runs.
 
 Remaining shipped-runner execution features include:
 
-- run selected tests by manifest id
-- rerun failed tests
+- GUI selected-test checkbox/list execution
 - suite timeout
 - comprehensive popup/blocker matrix with deterministic handling or host-error
   classification
@@ -309,8 +313,13 @@ XlideAssert.Fail "message"
 XlideAssert.AssertionErrorNumber()
 ```
 
-Assertion failures raise `vbObjectError + 513` with source `XLIDE.Assert`, so
-the COM runner records them as failed tests.
+Assertion failures are recorded inside the bundled support module instead of
+being raised as normal VBA runtime errors. The COM runner invokes tests through
+an XLIDE-owned internal `XlideAssert.RunTest` wrapper so assertion failures can
+return as structured failed-test results, while unexpected runtime errors are
+still caught and reported before Excel Automation can collapse them into
+generic `Run` HRESULTs. That wrapper is for runner integration, not the
+documented authoring API.
 
 ## Planned Assertion Surface
 

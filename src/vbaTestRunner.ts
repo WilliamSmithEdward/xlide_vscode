@@ -56,6 +56,7 @@ export interface VbaTestDirectiveIssue {
 export interface VbaTestSelectionOptions {
     moduleName?: string;
     procedureName?: string;
+    testIds?: readonly string[];
     includeTags?: readonly string[];
     excludeTags?: readonly string[];
 }
@@ -248,8 +249,14 @@ export function filterVbaTests(
 
     const includeTags = normalizedSelection.includeTags?.map(normalizeTag) ?? [];
     const excludeTags = normalizedSelection.excludeTags?.map(normalizeTag) ?? [];
+    const testIds = normalizedSelection.testIds
+        ? new Set(normalizedSelection.testIds.map(normalizeTestId))
+        : undefined;
 
     return tests.filter((test) => {
+        if (testIds && !testIds.has(normalizeTestId(test.id))) {
+            return false;
+        }
         if (normalizedSelection.moduleName && !equalsIgnoreCase(test.moduleName, normalizedSelection.moduleName)) {
             return false;
         }
@@ -302,6 +309,9 @@ export function describeVbaTestSelection(selection?: VbaTestSelectionOptions): s
     if (normalizedSelection.procedureName) {
         parts.push(`test ${normalizedSelection.procedureName}`);
     }
+    if (normalizedSelection.testIds?.length) {
+        parts.push(`${normalizedSelection.testIds.length} selected test${normalizedSelection.testIds.length === 1 ? '' : 's'}`);
+    }
     if (normalizedSelection.includeTags?.length) {
         parts.push(`tags ${normalizedSelection.includeTags.join(', ')}`);
     }
@@ -351,21 +361,53 @@ export function summarizeVbaTestRun(report: Pick<VbaTestRunReport, 'results'>): 
 
 export function vbaTestFailureMessage(error: unknown): string {
     const raw = error instanceof Error ? error.message : String(error);
-    const pipe = raw.indexOf('|');
-    return pipe >= 0 ? raw.slice(pipe + 1) : raw;
+    const unwrapped = raw.replace(/^(?:RUN_FAILED|OPEN_FAILED|RUNNER_FAILED|TIMEOUT|HOST_ERROR)\|/, '');
+    return cleanVbaTestFailureMessage(unwrapped);
+}
+
+function cleanVbaTestFailureMessage(raw: string): string {
+    const text = raw.replace(/\r\n|\r/g, '\n').trim();
+    if (!text) {
+        return text;
+    }
+    const rpcHresult = /0x800706(?:BE|BA)/i.exec(text)?.[0];
+    if (rpcHresult && /Exception calling "Run"|RPC server|remote procedure call|HRESULT:/i.test(text)) {
+        return `Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x${rpcHresult.slice(2).toUpperCase()}.`;
+    }
+    if (/0x800A9C68/i.test(text) && /Exception calling "Run"|Exception from HRESULT|run-vba-tests\.ps1|HRESULT:/i.test(text)) {
+        return 'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.';
+    }
+    const lines = text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !isNoisyPowerShellDetail(line));
+    if (lines.length === 0) {
+        return text;
+    }
+    return [...new Set(lines)].join('\n');
+}
+
+function isNoisyPowerShellDetail(line: string): boolean {
+    return /^At .*run-vba-tests\.ps1:\d+ char:\d+/i.test(line) ||
+        /^\+ /.test(line) ||
+        /^~{6,}$/.test(line) ||
+        /^CategoryInfo\s*:/i.test(line) ||
+        /^FullyQualifiedErrorId\s*:/i.test(line);
 }
 
 function normalizeVbaTestSelection(selection?: VbaTestSelectionOptions): VbaTestSelectionOptions | undefined {
     const moduleName = normalizeOptionalText(selection?.moduleName);
     const procedureName = normalizeOptionalText(selection?.procedureName);
+    const testIds = normalizeTestIdList(selection?.testIds);
     const includeTags = normalizeTagList(selection?.includeTags);
     const excludeTags = normalizeTagList(selection?.excludeTags);
-    if (!moduleName && !procedureName && includeTags.length === 0 && excludeTags.length === 0) {
+    if (!moduleName && !procedureName && testIds.length === 0 && includeTags.length === 0 && excludeTags.length === 0) {
         return undefined;
     }
     return {
         ...(moduleName ? { moduleName } : {}),
         ...(procedureName ? { procedureName } : {}),
+        ...(testIds.length > 0 ? { testIds } : {}),
         ...(includeTags.length > 0 ? { includeTags } : {}),
         ...(excludeTags.length > 0 ? { excludeTags } : {}),
     };
@@ -380,6 +422,16 @@ function normalizeTagList(values: readonly string[] | undefined): string[] {
     return [...new Set((values ?? [])
         .map((value) => value.trim())
         .filter((value) => value.length > 0))];
+}
+
+function normalizeTestIdList(values: readonly string[] | undefined): string[] {
+    return [...new Set((values ?? [])
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0))];
+}
+
+function normalizeTestId(value: string): string {
+    return value.trim().toLowerCase();
 }
 
 function normalizeTag(value: string): string {

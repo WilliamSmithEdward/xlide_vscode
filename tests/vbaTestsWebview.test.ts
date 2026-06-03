@@ -61,6 +61,7 @@ describe('VBA tests webview', () => {
         expect(html).toContain('data-action="installSupport" title="Workbook tests can run through the XLIDE-owned read-only Excel test host." disabled');
         expect(html).toContain('data-action="runAll" >Run All Tests</button>');
         expect(html).toContain('data-action="runWithFilters" title="Run selected tag filters" >Run With Filters</button>');
+        expect(html).toContain('data-action="rerunFailed" title="No failed tests from the last run." disabled');
         expect(html).toContain('Include Tags');
         expect(html).toContain('Exclude Tags');
         expect(html).toContain('data-filter-action="selectAll" data-filter-kind="include"');
@@ -69,6 +70,19 @@ describe('VBA tests webview', () => {
         expect(html).toContain('Fail Fast');
         expect(html).toContain('let running = false;');
         expect(html).toContain('setRunning(true);');
+    });
+
+    it('enables rerun failed when the last run has failing tests', () => {
+        const html = renderVbaTestsHtml(model(installedSupport(), undefined, undefined, {
+            count: 2,
+            tests: [
+                { id: 'Tests.Fail', qualifiedName: 'Tests.Fail', status: 'failed' },
+                { id: 'Tests.XPass', qualifiedName: 'Tests.XPass', status: 'xpass' },
+            ],
+        }));
+
+        expect(html).toContain('data-action="rerunFailed" title="Rerun 2 failed, timed out, host-error, or unexpected-pass tests from the last run." >Rerun Failed (2)</button>');
+        expect(html).toContain('vscode.postMessage({ type: \'rerunFailed\' });');
     });
 
     it('disables filtered runs when the workbook has no tag filters', () => {
@@ -181,6 +195,7 @@ function model(
             { name: 'smoke', testCount: 2 },
         ],
     },
+    lastFailed?: VbaTestsPanelModel['lastFailed'],
 ): VbaTestsPanelModel {
     return {
         filePath: 'C:\\work\\Book.xlsm',
@@ -188,5 +203,6 @@ function model(
         support,
         runtime,
         discovery,
+        lastFailed,
     };
 }

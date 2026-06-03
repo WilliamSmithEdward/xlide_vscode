@@ -56,10 +56,11 @@ disabled until the installed module matches the version bundled with XLIDE.
 The GUI also checks for Microsoft Excel COM registration before enabling runs.
 That check does not launch Excel.
 
-The Tests GUI currently runs all discovered tests or opens the filtered-run
-prompt for tag include/exclude filters and fail-fast mode. It refreshes with the
-XLIDE workbook tree, so installing/removing modules or refreshing the tree
-updates the support gate without reopening the panel.
+The Tests GUI currently runs all discovered tests, runs selected include/exclude
+tag filters from discovered tag checkboxes, supports fail-fast mode, and can
+rerun failed/timed-out/host-error/unexpected-pass tests from the previous run.
+It refreshes with the XLIDE workbook tree, so installing/removing modules or
+refreshing the tree updates the support gate without reopening the panel.
 
 By default XLIDE creates one XLIDE-owned Excel instance, opens the workbook
 read-only, runs the selected tests, closes without saving, and cleans up the
@@ -68,8 +69,10 @@ owned Excel process. It does not attach to your normal Excel session by default.
 ## Results And Artifacts
 
 Results include passed, failed, skipped, expected-failure, unexpected-pass,
-timeout, and host-error outcomes. Each run writes artifacts beside the workbook
-under the default `tests` folder:
+timeout, and host-error outcomes. Assertion failures from the bundled
+`XlideAssert.bas` module show concise assertion details in the results view
+instead of raw Excel automation stack output. Each run writes artifacts beside
+the workbook under the default `tests` folder:
 
 ```text
 tests/
@@ -105,5 +108,5 @@ unrelated folders in the output directory are left alone.
 
 Excel COM execution is Windows-only. The first shipped path uses the selected
 workbook and standard-module VBA tests; setup/teardown helpers, richer expected
-output/state assertions, and module/current-test run controls inside the Tests
-GUI are planned follow-ups.
+output/state assertions, selected-test checkbox execution, and module/current-test
+run controls inside the Tests GUI are planned follow-ups.

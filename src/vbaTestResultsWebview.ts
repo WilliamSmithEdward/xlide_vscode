@@ -1,21 +1,42 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
-import { describeVbaTestSelection, summarizeVbaTestRun } from './vbaTestRunner';
+import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
 
-const openVbaTestResultsPanels = new Map<string, vscode.WebviewPanel>();
+export interface VbaTestResultsOptions {
+    onRerunFailed?: () => Promise<void>;
+}
+
+interface OpenVbaTestResultsPanelEntry {
+    panel: vscode.WebviewPanel;
+    options: VbaTestResultsOptions;
+}
+
+interface VbaTestResultsRenderOptions {
+    canRerunFailed?: boolean;
+}
+
+interface VbaTestResultsWebviewMessage {
+    type?: string;
+}
+
+const openVbaTestResultsPanels = new Map<string, OpenVbaTestResultsPanelEntry>();
 
 export function openVbaTestResults(
     context: vscode.ExtensionContext,
     report: VbaTestRunReport,
+    options: VbaTestResultsOptions = {},
 ): vscode.WebviewPanel {
     const panelKey = vbaTestResultsPanelKey(report.filePath);
     const existing = openVbaTestResultsPanels.get(panelKey);
     if (existing) {
-        existing.title = `XLIDE Test Results: ${report.workbookName}`;
-        existing.webview.html = renderVbaTestResultsHtml(existing.webview, report);
-        existing.reveal(vscode.ViewColumn.Beside);
-        return existing;
+        existing.options = options;
+        existing.panel.title = `XLIDE Test Results: ${report.workbookName}`;
+        existing.panel.webview.html = renderVbaTestResultsHtml(existing.panel.webview, report, {
+            canRerunFailed: Boolean(options.onRerunFailed),
+        });
+        existing.panel.reveal(vscode.ViewColumn.Beside);
+        return existing.panel;
     }
 
     const panel = vscode.window.createWebviewPanel(
@@ -23,15 +44,37 @@ export function openVbaTestResults(
         `XLIDE Test Results: ${report.workbookName}`,
         vscode.ViewColumn.Beside,
         {
-            enableScripts: false,
+            enableScripts: true,
             retainContextWhenHidden: true,
         },
     );
-    openVbaTestResultsPanels.set(panelKey, panel);
+    const entry: OpenVbaTestResultsPanelEntry = {
+        panel,
+        options,
+    };
+    openVbaTestResultsPanels.set(panelKey, entry);
     panel.onDidDispose(() => {
         openVbaTestResultsPanels.delete(panelKey);
     });
-    panel.webview.html = renderVbaTestResultsHtml(panel.webview, report);
+    panel.webview.onDidReceiveMessage(async (message: VbaTestResultsWebviewMessage) => {
+        if (message.type !== 'rerunFailed') {
+            return;
+        }
+        try {
+            if (!entry.options.onRerunFailed) {
+                await panel.webview.postMessage({ type: 'error', error: 'XLIDE rerun failed is not available.' });
+                return;
+            }
+            await entry.options.onRerunFailed();
+            await panel.webview.postMessage({ type: 'rerunComplete' });
+        } catch (err) {
+            const error = err instanceof Error ? err.message : String(err);
+            await panel.webview.postMessage({ type: 'error', error });
+        }
+    });
+    panel.webview.html = renderVbaTestResultsHtml(panel.webview, report, {
+        canRerunFailed: Boolean(options.onRerunFailed),
+    });
     context.subscriptions.push(panel);
     return panel;
 }
@@ -39,12 +82,17 @@ export function openVbaTestResults(
 export function renderVbaTestResultsHtml(
     webviewOrReport: vscode.Webview | VbaTestRunReport,
     maybeReport?: VbaTestRunReport,
+    options: VbaTestResultsRenderOptions = {},
 ): string {
     const report = maybeReport ?? webviewOrReport as VbaTestRunReport;
     const webview = maybeReport ? webviewOrReport as vscode.Webview : undefined;
+    const nonce = randomNonce();
+    const cspSource = webview?.cspSource ?? 'vscode-resource:';
     const summary = summarizeVbaTestRun(report);
     const selectionDescription = describeVbaTestSelection(report.discovery.selection);
     const timing = runTimingSummary(report);
+    const rerunFailedCount = report.results.filter((result) => isRerunnableFailureStatus(result.status)).length;
+    const canRerunFailed = Boolean(options.canRerunFailed && rerunFailedCount > 0);
     const rows = report.results.map((result) => `
         <tr class="${escapeAttr(result.status)}">
             <td><span class="status">${escapeHtml(statusLabel(result.status))}</span></td>
@@ -54,7 +102,7 @@ export function renderVbaTestResultsHtml(
             </td>
             <td class="tagCell">${testMetadataHtml(result.test.metadata)}</td>
             <td>${escapeHtml(`${result.durationMs} ms`)}</td>
-            <td class="detailsCell">${result.error ? escapeHtml(result.error) : ''}</td>
+            <td class="detailsCell">${result.error ? escapeHtml(vbaTestFailureMessage(result.error)) : ''}</td>
         </tr>
     `).join('');
 
@@ -62,7 +110,7 @@ export function renderVbaTestResultsHtml(
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview?.cspSource ?? "'unsafe-inline'"} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLIDE VBA Test Results</title>
     <style>
@@ -87,6 +135,11 @@ export function renderVbaTestResultsHtml(
             gap: 16px;
             padding-bottom: 18px;
             border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .headerRight {
+            display: grid;
+            gap: 12px;
+            justify-items: end;
         }
         h1 {
             margin: 0;
@@ -116,6 +169,49 @@ export function renderVbaTestResultsHtml(
         }
         .runTimingValue {
             font-weight: 650;
+        }
+        .actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        button {
+            min-height: 32px;
+            border: 1px solid var(--vscode-button-border, transparent);
+            border-radius: 4px;
+            padding: 5px 12px;
+            color: var(--vscode-button-foreground);
+            background: var(--vscode-button-background);
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover:not(:disabled) {
+            background: var(--vscode-button-hoverBackground);
+        }
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+        .toast {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            max-width: 360px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--vscode-notifications-foreground);
+            background: var(--vscode-notifications-background);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 120ms ease, transform 120ms ease;
+            pointer-events: none;
+        }
+        .toast.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
         .stats {
             display: grid;
@@ -259,19 +355,24 @@ export function renderVbaTestResultsHtml(
                         : report.workbookName,
                 )}</div>
             </div>
-            <div class="runTiming" aria-label="Run timing">
-                <div class="runTimingRow">
-                    <span class="runTimingLabel">Started</span>
-                    <span class="runTimingValue" title="${escapeAttr(timing.startedIso)}">${escapeHtml(timing.startedLabel)}</span>
+            <div class="headerRight">
+                <div class="runTiming" aria-label="Run timing">
+                    <div class="runTimingRow">
+                        <span class="runTimingLabel">Started</span>
+                        <span class="runTimingValue" title="${escapeAttr(timing.startedIso)}">${escapeHtml(timing.startedLabel)}</span>
+                    </div>
+                    <div class="runTimingRow">
+                        <span class="runTimingLabel">Stopped</span>
+                        <span class="runTimingValue" title="${escapeAttr(timing.stoppedIso)}">${escapeHtml(timing.stoppedLabel)}</span>
+                    </div>
+                    <div class="runTimingRow">
+                        <span class="runTimingLabel">Elapsed</span>
+                        <span class="runTimingValue">${escapeHtml(`${report.durationMs} ms total`)}</span>
+                    </div>
                 </div>
-                <div class="runTimingRow">
-                    <span class="runTimingLabel">Stopped</span>
-                    <span class="runTimingValue" title="${escapeAttr(timing.stoppedIso)}">${escapeHtml(timing.stoppedLabel)}</span>
-                </div>
-                <div class="runTimingRow">
-                    <span class="runTimingLabel">Elapsed</span>
-                    <span class="runTimingValue">${escapeHtml(`${report.durationMs} ms total`)}</span>
-                </div>
+                ${canRerunFailed ? `<div class="actions">
+                    <button type="button" data-action="rerunFailed" title="${escapeAttr(`Rerun ${rerunFailedCount} failed, timed out, host-error, or unexpected-pass test${rerunFailedCount === 1 ? '' : 's'} from this result.`)}">Rerun Failed (${rerunFailedCount})</button>
+                </div>` : ''}
             </div>
         </header>
         ${renderSummary(summary)}
@@ -291,6 +392,45 @@ export function renderVbaTestResultsHtml(
         : `<div class="empty">${escapeHtml(emptyResultsMessage(report, selectionDescription))}</div>`}
         <div class="contract">${escapeHtml(report.discovery.contract)}</div>
     </main>
+    <div class="toast" id="toast"></div>
+    <script nonce="${nonce}">
+        const vscode = acquireVsCodeApi();
+        const toast = document.getElementById('toast');
+        let toastTimer;
+        let running = false;
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('visible');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('visible'), 2600);
+        }
+
+        function setRunning(next) {
+            running = next;
+            document.querySelectorAll('button[data-action="rerunFailed"]').forEach((button) => {
+                button.disabled = running;
+            });
+        }
+
+        document.addEventListener('click', (event) => {
+            const button = event.target.closest?.('button[data-action="rerunFailed"]');
+            if (!button || button.disabled) {
+                return;
+            }
+            setRunning(true);
+            vscode.postMessage({ type: 'rerunFailed' });
+        });
+
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'error') {
+                setRunning(false);
+                showToast(event.data.error || 'XLIDE test action failed');
+            } else if (event.data?.type === 'rerunComplete') {
+                setRunning(false);
+            }
+        });
+    </script>
 </body>
 </html>`;
 }
@@ -375,6 +515,13 @@ function statusLabel(status: string): string {
     }
 }
 
+function isRerunnableFailureStatus(status: string): boolean {
+    return status === 'failed' ||
+        status === 'timeout' ||
+        status === 'host-error' ||
+        status === 'xpass';
+}
+
 function testMetadataHtml(metadata: {
     tags: readonly string[];
     owner?: string;
@@ -396,6 +543,15 @@ function testMetadataHtml(metadata: {
         return '';
     }
     return `<div class="tagSet">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`;
+}
+
+function randomNonce(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let nonce = '';
+    for (let i = 0; i < 32; i++) {
+        nonce += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return nonce;
 }
 
 function escapeHtml(value: unknown): string {

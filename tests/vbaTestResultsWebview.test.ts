@@ -33,6 +33,16 @@ describe('VBA test results webview', () => {
         panel.disposePanel();
     });
 
+    it('renders a rerun failed action when the command surface provides one', () => {
+        const html = renderVbaTestResultsHtml(reportFixture(), undefined, {
+            canRerunFailed: true,
+        });
+
+        expect(html).toContain('data-action="rerunFailed"');
+        expect(html).toContain('Rerun Failed (2)');
+        expect(html).toContain('vscode.postMessage({ type: \'rerunFailed\' });');
+    });
+
     it('renders summary stats, discovered tests, and escaped failure details', () => {
         const html = renderVbaTestResultsHtml(reportFixture());
 
@@ -60,6 +70,30 @@ describe('VBA test results webview', () => {
         expect(html).toContain('&lt;boom&gt;');
         expect(html).toContain('@xlide-test');
     });
+
+    it('renders developer-friendly details for raw Excel automation run failures', () => {
+        const report = reportFixture();
+        report.results[1] = {
+            ...report.results[1],
+            error: [
+                'RUN_FAILED|Exception calling "Run" with "1" argument(s):',
+                '"Exception from HRESULT: 0x800A9C68"',
+                'HRESULT: 0x80131501',
+                'Inner: Exception from HRESULT: 0x800A9C68',
+                'Inner HRESULT: 0x800A9C68',
+                'At C:\\Users\\William\\AppData\\Local\\Temp\\xlide-vba-test-host-DDT6Nq\\run-vba-tests.ps1:677 char:4587',
+                '+ ... tPrefix, $excelId, $macroName) }; $excel.Run($macroRef);',
+                '+                       ~~~~~~~~~~~~~~~~~~~~',
+            ].join('\n'),
+        };
+
+        const html = renderVbaTestResultsHtml(report);
+
+        expect(html).toContain('Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.');
+        expect(html).not.toContain('run-vba-tests.ps1');
+        expect(html).not.toContain('$excel.Run');
+        expect(html).not.toContain('0x80131501');
+    });
 });
 
 function fakeWebviewPanel(): vscode.WebviewPanel & { disposePanel: () => void } {
@@ -69,6 +103,8 @@ function fakeWebviewPanel(): vscode.WebviewPanel & { disposePanel: () => void } 
         webview: {
             cspSource: 'vscode-resource:',
             html: '',
+            onDidReceiveMessage: vi.fn(() => ({ dispose: vi.fn() })),
+            postMessage: vi.fn(async () => true),
         },
         reveal: vi.fn(),
         onDidDispose: vi.fn((handler: () => void) => {

@@ -159,6 +159,15 @@ interface VbaTestRunOptions {
     failFast?: boolean;
 }
 
+interface VbaTestLastFailedRun {
+    testIds: string[];
+    tests: Array<{
+        id: string;
+        qualifiedName: string;
+        status: VbaTestRunItem['status'];
+    }>;
+}
+
 interface OwnedReadOnlyExcelHostRunResult {
     events: VbaTestHostOracleEvent[];
     resultsByName: Map<string, OwnedReadOnlyExcelHostTestResult>;
@@ -179,6 +188,12 @@ interface OwnedReadOnlyExcelHostTestResult {
 
 type OwnedExcelKillReason = 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed';
 const DEFAULT_VBA_TEST_CLEANUP_GRACE_MS = 5000;
+const VBA_TEST_RERUN_FAILED_STATUSES = new Set<VbaTestRunItem['status']>([
+    'failed',
+    'timeout',
+    'host-error',
+    'xpass',
+]);
 
 type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
 
@@ -335,6 +350,8 @@ export function registerCommands(
     out: vscode.OutputChannel,
     vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
+    const lastFailedVbaTestRuns = new Map<string, VbaTestLastFailedRun>();
+
     function log(msg: string): void {
         out.appendLine(msg);
     }
@@ -1284,6 +1301,49 @@ export function registerCommands(
                 result.status === 'host-error');
     }
 
+    function workbookStateKey(filePath: string): string {
+        const normalized = path.normalize(filePath);
+        return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+    }
+
+    function updateLastFailedVbaTestRun(report: VbaTestRunReport): void {
+        const failed = report.results
+            .filter((result) => VBA_TEST_RERUN_FAILED_STATUSES.has(result.status))
+            .map((result) => ({
+                id: result.test.id,
+                qualifiedName: result.test.qualifiedName,
+                status: result.status,
+            }));
+        const key = workbookStateKey(report.filePath);
+        if (failed.length === 0) {
+            lastFailedVbaTestRuns.delete(key);
+            return;
+        }
+        lastFailedVbaTestRuns.set(key, {
+            testIds: failed.map((test) => test.id),
+            tests: failed,
+        });
+    }
+
+    function lastFailedRunForWorkbook(filePath: string): VbaTestLastFailedRun | undefined {
+        return lastFailedVbaTestRuns.get(workbookStateKey(filePath));
+    }
+
+    async function rerunFailedVbaTestsForWorkbook(filePath: string): Promise<void> {
+        const failed = lastFailedRunForWorkbook(filePath);
+        if (!failed || failed.testIds.length === 0) {
+            void vscode.window.showInformationMessage(
+                `XLIDE: No failed VBA tests to rerun for "${path.basename(filePath)}".`,
+            );
+            return;
+        }
+        await runVbaTestsForWorkbook(filePath, {
+            selection: {
+                testIds: failed.testIds,
+            },
+        });
+    }
+
     async function runVbaTestsForWorkbook(
         filePath: string,
         options: VbaTestRunOptions = {},
@@ -1336,7 +1396,10 @@ export function registerCommands(
                 log(`[runVbaTests] Artifact write failed: ${message}`);
                 void vscode.window.showWarningMessage(`XLIDE: VBA test artifacts could not be written: ${message}`);
             }
-            openVbaTestResults(context, report);
+            updateLastFailedVbaTestRun(report);
+            openVbaTestResults(context, report, {
+                onRerunFailed: () => rerunFailedVbaTestsForWorkbook(filePath),
+            });
             showVbaTestRunOutcome(report);
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -1357,6 +1420,9 @@ export function registerCommands(
             onRunWithFilters: async (filters) => {
                 await runVbaTestsForWorkbook(filePath, vbaTestRunOptionsFromFilters(filters));
             },
+            onRerunFailed: async () => {
+                await rerunFailedVbaTestsForWorkbook(filePath);
+            },
             onDidChangeWorkbookTree: explorer.onDidChangeTreeData,
         });
     }
@@ -1367,12 +1433,19 @@ export function registerCommands(
             checkExcelComAvailability(),
             vbaTestsDiscoveryStatus(filePath),
         ]);
+        const lastFailed = lastFailedRunForWorkbook(filePath);
         return {
             filePath,
             workbookName: path.basename(filePath),
             support,
             runtime,
             discovery,
+            lastFailed: lastFailed
+                ? {
+                    count: lastFailed.testIds.length,
+                    tests: lastFailed.tests,
+                }
+                : undefined,
         };
     }
 

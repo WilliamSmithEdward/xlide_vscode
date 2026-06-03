@@ -34,12 +34,22 @@ export interface VbaTestDiscoveryStatusModel {
     error?: string;
 }
 
+export interface VbaTestLastFailedModel {
+    count: number;
+    tests: Array<{
+        id: string;
+        qualifiedName: string;
+        status: string;
+    }>;
+}
+
 export interface VbaTestsPanelModel {
     filePath: string;
     workbookName: string;
     support: VbaTestSupportStatusModel;
     runtime: VbaTestRuntimeStatusModel;
     discovery: VbaTestDiscoveryStatusModel;
+    lastFailed?: VbaTestLastFailedModel;
 }
 
 export interface VbaTestsRunFilterRequest {
@@ -53,6 +63,7 @@ export interface VbaTestsPanelOptions {
     onInstallSupport?: () => Promise<void>;
     onRunAll?: () => Promise<void>;
     onRunWithFilters?: (request: VbaTestsRunFilterRequest) => Promise<void>;
+    onRerunFailed?: () => Promise<void>;
     onDidChangeWorkbookTree?: vscode.Event<unknown>;
 }
 
@@ -177,6 +188,10 @@ export function openVbaTestsPanel(
                         : undefined,
                     'XLIDE filtered test execution is not available.',
                 );
+                return;
+            }
+            if (message.type === 'rerunFailed') {
+                await runAndRefresh(entry.options.onRerunFailed, 'XLIDE rerun failed is not available.');
             }
         } catch (err) {
             const error = err instanceof Error ? err.message : String(err);
@@ -226,16 +241,25 @@ export function renderVbaTestsHtml(
             ? model.runtime.description
             : '';
     const hasTagFilters = model.discovery.tags.length > 0;
+    const failedCount = model.lastFailed?.count ?? 0;
+    const hasLastFailed = failedCount > 0;
     const filterRunDisabled = runEnabled && hasTagFilters ? '' : 'disabled';
+    const rerunFailedDisabled = runEnabled && hasLastFailed ? '' : 'disabled';
     const filterRunTitle = !runEnabled
         ? runHelp
         : hasTagFilters
             ? 'Run selected tag filters'
             : 'No test tags discovered in this workbook.';
+    const rerunFailedTitle = !runEnabled
+        ? runHelp
+        : hasLastFailed
+            ? `Rerun ${failedCount} failed, timed out, host-error, or unexpected-pass test${failedCount === 1 ? '' : 's'} from the last run.`
+            : 'No failed tests from the last run.';
     const tagNamesJson = scriptJson(model.discovery.tags.map((tag) => tag.name));
     const workbookPathJson = scriptJson(model.filePath);
     const canRunJson = JSON.stringify(runEnabled);
     const hasTagsJson = JSON.stringify(hasTagFilters);
+    const hasLastFailedJson = JSON.stringify(hasLastFailed);
 
     return /* html */`<!DOCTYPE html>
 <html lang="en">
@@ -538,6 +562,7 @@ export function renderVbaTestsHtml(
                     <div class="runGrid">
                         <button class="runButton" type="button" data-action="runAll" ${runDisabled}>Run All Tests</button>
                         <button class="runButton" type="button" data-action="runWithFilters" title="${escapeAttr(filterRunTitle)}" ${filterRunDisabled}>Run With Filters</button>
+                        <button class="runButton" type="button" data-action="rerunFailed" title="${escapeAttr(rerunFailedTitle)}" ${rerunFailedDisabled}>Rerun Failed${hasLastFailed ? ` (${failedCount})` : ''}</button>
                     </div>
                     ${runHelp ? `<p class="helpText">${escapeHtml(runHelp)}</p>` : ''}
                     ${renderTagFilters(model)}
@@ -553,6 +578,7 @@ export function renderVbaTestsHtml(
         const tagNames = ${tagNamesJson};
         const canRun = ${canRunJson};
         const hasTags = ${hasTagsJson};
+        const hasLastFailed = ${hasLastFailedJson};
         let toastTimer;
         let filterState = initialFilterState();
         let running = false;
@@ -626,6 +652,10 @@ export function renderVbaTestsHtml(
                 runWithFilters.disabled = running ||
                     (filterState.includeTags.length === 0 && filterState.excludeTags.length === 0);
             }
+            const rerunFailed = document.querySelector('button[data-action="rerunFailed"]');
+            if (rerunFailed && canRun && hasLastFailed) {
+                rerunFailed.disabled = running;
+            }
         }
 
         function setFilterTags(kind, values) {
@@ -690,6 +720,11 @@ export function renderVbaTestsHtml(
                     excludeTags: filterState.excludeTags,
                     failFast: filterState.failFast,
                 });
+                return;
+            }
+            if (button.dataset.action === 'rerunFailed') {
+                setRunning(true);
+                vscode.postMessage({ type: 'rerunFailed' });
                 return;
             }
             vscode.postMessage({ type: button.dataset.action });
