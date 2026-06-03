@@ -2969,6 +2969,10 @@ function inferExpressionType(
 	if (unwrapped !== toks) {
 		return inferExpressionType(unwrapped, sliceStart, env, moduleSignatures);
 	}
+	const signedNumericLiteral = inferSignedNumericLiteral(toks, sliceStart);
+	if (signedNumericLiteral) {
+		return signedNumericLiteral;
+	}
 	const concatenation = inferStringConcatenationExpressionType(
 		toks,
 		sliceStart,
@@ -2983,6 +2987,36 @@ function inferExpressionType(
 		return arithmetic;
 	}
 	return inferAtomicExpressionType(toks, sliceStart, env, moduleSignatures);
+}
+
+function inferSignedNumericLiteral(
+	toks: VbaToken[],
+	sliceStart: number,
+): InferredArgumentType | undefined {
+	if (toks.length !== 2 || toks[0].kind !== 'operator') {
+		return undefined;
+	}
+	const sign = toks[0].rawText;
+	if (sign !== '+' && sign !== '-') {
+		return undefined;
+	}
+	const literal = toks[1];
+	if (literal.kind !== 'integerLiteral') {
+		return undefined;
+	}
+	const value = parseDecimalIntegerLiteral(literal.rawText);
+	if (value === undefined) {
+		return undefined;
+	}
+	const signed = sign === '-' ? -value : value;
+	const text = `${sign}${literal.rawText}`;
+	return {
+		type: 'Double',
+		label: `numeric literal ${text}`,
+		span: { start: sliceStart + toks[0].start, end: sliceStart + literal.end },
+		numericValue: signed,
+		numericText: text,
+	};
 }
 
 function inferAtomicExpressionType(

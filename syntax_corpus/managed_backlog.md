@@ -166,10 +166,10 @@ Near-term candidates:
   promoted through `parameter-default-type-mismatch`; continue with broader
   default expressions, Date defaults, object/array invalid defaults, missing
   optional argument slots, and named optional args.
-- Numeric literal bounds. First positive decimal Byte/Integer runtime overflow
+- Numeric literal bounds. First decimal Byte/Integer runtime overflow
   slice is promoted through `assignment-type-mismatch` and
-  `argument-type-mismatch`; continue with negative bounds, suffixes, hex/octal
-  literals, Long/LongLong/LongPtr ranges, and floating/Currency/Decimal edges.
+  `argument-type-mismatch`; continue with suffixes, hex/octal literals,
+  Long/LongLong/LongPtr ranges, and floating/Currency/Decimal edges.
 - `ParamArray` placement and element typing.
 - Return assignment inside `Function` and `Property Get`.
 - Object assignment without `Set` where receiver type is statically known.

@@ -469,6 +469,50 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value = 32768\nEnd Sub\n"
     },
     {
+      "id": "byte_assignment_min_literal_runtime",
+      "description": "Runtime control: assigning the minimum Byte literal stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Byte\n    value = 0\nEnd Sub\n"
+    },
+    {
+      "id": "byte_assignment_negative_literal_runtime",
+      "description": "Runtime probe: assigning a negative decimal literal below the Byte range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Byte\n    value = -1\nEnd Sub\n"
+    },
+    {
+      "id": "integer_assignment_min_literal_runtime",
+      "description": "Runtime control: assigning the minimum Integer literal stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value = -32768\nEnd Sub\n"
+    },
+    {
+      "id": "integer_assignment_below_min_literal_runtime",
+      "description": "Runtime probe: assigning a negative decimal literal below the Integer range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value = -32769\nEnd Sub\n"
+    },
+    {
       "id": "byte_argument_max_literal_runtime",
       "description": "Runtime control: passing the maximum Byte literal to a Byte parameter stays within range.",
       "provenance": "vbe-oracle-verified",
@@ -511,6 +555,50 @@
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error",
       "source": "Public Sub TakesInteger(ByVal value As Integer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesInteger 32768\nEnd Sub\n"
+    },
+    {
+      "id": "byte_argument_min_literal_runtime",
+      "description": "Runtime control: passing the minimum Byte literal to a Byte parameter stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub TakesByte(ByVal value As Byte)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesByte 0\nEnd Sub\n"
+    },
+    {
+      "id": "byte_argument_negative_literal_runtime",
+      "description": "Runtime probe: passing a negative decimal literal below the Byte range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub TakesByte(ByVal value As Byte)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesByte -1\nEnd Sub\n"
+    },
+    {
+      "id": "integer_argument_min_literal_runtime",
+      "description": "Runtime control: passing the minimum Integer literal to an Integer parameter stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub TakesInteger(ByVal value As Integer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesInteger -32768\nEnd Sub\n"
+    },
+    {
+      "id": "integer_argument_below_min_literal_runtime",
+      "description": "Runtime probe: passing a negative decimal literal below the Integer range raises Overflow.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub TakesInteger(ByVal value As Integer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesInteger -32769\nEnd Sub\n"
     },
     {
       "id": "number_to_string_assignment_runtime",
