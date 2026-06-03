@@ -1425,16 +1425,6 @@ export function registerCommands(
             };
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
-            if (isVbaProjectAccessBlockedMessage(message)) {
-                return {
-                    state: 'blocked',
-                    title: 'VBA Project Access Blocked',
-                    description: 'Enable "Trust access to the VBA project object model" in Excel Trust Center before installing or running workbook tests.',
-                    actionLabel: 'Blocked',
-                    canInstall: false,
-                    canRun: false,
-                };
-            }
             return {
                 state: 'unknown',
                 title: 'Test Support Unknown',
@@ -1444,12 +1434,6 @@ export function registerCommands(
                 canRun: false,
             };
         }
-    }
-
-    function isVbaProjectAccessBlockedMessage(message: string): boolean {
-        return /programmatic access to visual basic project is not trusted/i.test(message) ||
-            /access to the vba project object model/i.test(message) ||
-            /trust access to the vba project object model/i.test(message);
     }
 
     function moduleSourceFromReadResult(result: { source?: string } | string): string {

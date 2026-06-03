@@ -110,6 +110,30 @@ describe('VBA test runner discovery', () => {
         expect(result.contract).toContain('@xlide-test');
     });
 
+    it('discovers workbook tests through pyopenvba bridge reads only', async () => {
+        const calls: string[] = [];
+        const bridge = {
+            async call<T>(method: string, params: { module?: string }): Promise<T> {
+                calls.push(params.module ? `${method}:${params.module}` : method);
+                if (method === 'listModules') {
+                    return [
+                        { name: 'Tests', type: 'standard' },
+                        { name: 'Sheet1', type: 'document' },
+                    ] as T;
+                }
+                if (method === 'readModule' && params.module === 'Tests') {
+                    return { source: "' @xlide-test\nSub Runs()\nEnd Sub\n" } as T;
+                }
+                throw new Error(`Unexpected bridge call ${method}`);
+            },
+        } as unknown as PythonBridge;
+
+        const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
+
+        expect(result.tests.map((test) => test.qualifiedName)).toEqual(['Tests.Runs']);
+        expect(calls).toEqual(['listModules', 'readModule:Tests']);
+    });
+
     it('filters discovered workbook tests by module, procedure, and tags', async () => {
         const bridge = bridgeForModules([
             {

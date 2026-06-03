@@ -67,6 +67,26 @@ describe('VBA tests webview', () => {
         expect(html).toContain('data-action="runWithFilters" disabled');
         expect(html).toContain('Install Microsoft Excel before running workbook tests through XLIDE.');
     });
+
+    it('keeps support install available when Excel COM is unavailable', () => {
+        const html = renderVbaTestsHtml(model({
+            state: 'missing',
+            title: 'XlideAssert.bas Not Installed',
+            description: 'The bundled test support module is installed with pyopenvba before XLIDE runs workbook tests.',
+            actionLabel: 'Install',
+            canInstall: true,
+            canRun: false,
+        }, {
+            state: 'missing',
+            title: 'Excel COM Not Found',
+            description: 'Install Microsoft Excel before running workbook tests through XLIDE.',
+            canRun: false,
+        }));
+
+        expect(html).toContain('data-action="installSupport" title="Install Book.xlsm" >Install</button>');
+        expect(html).toContain('data-action="runAll" disabled');
+        expect(html).toContain('data-action="runWithFilters" disabled');
+    });
 });
 
 function model(

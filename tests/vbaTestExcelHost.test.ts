@@ -21,6 +21,11 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('$excel.ScreenUpdating = $false');
         expect(script).not.toContain('$excel.Visible = $true');
         expect(script).toContain('$excel.Workbooks.Open($targetPath, 0, $true');
+        expect(script).toContain('$excel.Run($macroRef)');
+        expect(script).not.toContain('VBProject');
+        expect(script).not.toContain('VBComponents');
+        expect(script).not.toContain('$excel.VBE');
+        expect(script).not.toContain('Trust access');
         expect(script).toContain('[Type]::Missing, [Type]::Missing, [Type]::Missing, $true');
         expect(script).toContain('$workbook.Close($false)');
         expect(script).toContain('$excel.Quit()');
