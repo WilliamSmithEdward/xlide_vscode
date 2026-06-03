@@ -8,7 +8,7 @@ vi.mock('vscode', () => ({
     },
 }));
 
-import { openVbaTestResults, renderVbaTestResultsHtml } from '../src/vbaTestResultsWebview';
+import { openVbaTestResults, renderVbaTestResultsHtml, setVbaTestResultsRunning } from '../src/vbaTestResultsWebview';
 import type { VbaTestRunReport } from '../src/vbaTestRunner';
 
 describe('VBA test results webview', () => {
@@ -33,6 +33,21 @@ describe('VBA test results webview', () => {
         panel.disposePanel();
     });
 
+    it('posts running state updates to an open results panel', () => {
+        const panel = fakeWebviewPanel();
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+        const report = reportFixture();
+
+        openVbaTestResults(context, report);
+        setVbaTestResultsRunning(report.filePath, true);
+        setVbaTestResultsRunning(report.filePath, false);
+
+        expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'setRunning', running: true });
+        expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'setRunning', running: false });
+        panel.disposePanel();
+    });
+
     it('renders a rerun failed action when the command surface provides one', () => {
         const html = renderVbaTestResultsHtml(reportFixture(), undefined, {
             canRerunFailed: true,
@@ -41,6 +56,8 @@ describe('VBA test results webview', () => {
         expect(html).toContain('data-action="rerunFailed"');
         expect(html).toContain('Rerun Failed (2)');
         expect(html).toContain('vscode.postMessage({ type: \'rerunFailed\' });');
+        expect(html).toContain("event.data?.type === 'setRunning'");
+        expect(html).toContain('setRunning(Boolean(event.data.running));');
     });
 
     it('renders summary stats, discovered tests, and escaped failure details', () => {

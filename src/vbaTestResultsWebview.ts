@@ -79,6 +79,14 @@ export function openVbaTestResults(
     return panel;
 }
 
+export function setVbaTestResultsRunning(filePath: string, running: boolean): void {
+    const entry = openVbaTestResultsPanels.get(vbaTestResultsPanelKey(filePath));
+    if (!entry) {
+        return;
+    }
+    void entry.panel.webview.postMessage({ type: 'setRunning', running });
+}
+
 export function renderVbaTestResultsHtml(
     webviewOrReport: vscode.Webview | VbaTestRunReport,
     maybeReport?: VbaTestRunReport,
@@ -428,6 +436,8 @@ export function renderVbaTestResultsHtml(
                 showToast(event.data.error || 'XLIDE test action failed');
             } else if (event.data?.type === 'rerunComplete') {
                 setRunning(false);
+            } else if (event.data?.type === 'setRunning') {
+                setRunning(Boolean(event.data.running));
             }
         });
     </script>

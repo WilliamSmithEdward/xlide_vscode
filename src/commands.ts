@@ -54,7 +54,7 @@ import {
     type VbaTestHostOracleEvent,
 } from './vbaTestHostOracle';
 import { writeVbaTestRunArtifacts } from './vbaTestArtifacts';
-import { openVbaTestResults } from './vbaTestResultsWebview';
+import { openVbaTestResults, setVbaTestResultsRunning } from './vbaTestResultsWebview';
 import { checkExcelComAvailability } from './excelComAvailability';
 import {
     openVbaTestsPanel,
@@ -1351,6 +1351,7 @@ export function registerCommands(
         const name = path.basename(filePath);
         const selectionDescription = describeVbaTestSelection(options.selection);
         const runScope = selectionDescription ? ` (${selectionDescription})` : '';
+        let resultsPanelRunning = false;
         try {
             const support = await vbaTestSupportStatus(filePath);
             if (!support.canRun) {
@@ -1366,6 +1367,8 @@ export function registerCommands(
                 void vscode.window.showWarningMessage(`XLIDE: ${runtime.description}`);
                 return;
             }
+            resultsPanelRunning = true;
+            setVbaTestResultsRunning(filePath, true);
             let execution: VbaTestRunExecution | undefined;
             await vscode.window.withProgress(
                 {
@@ -1405,6 +1408,10 @@ export function registerCommands(
             const msg = err instanceof Error ? err.message : String(err);
             log(`[runVbaTests] FAILED: ${msg}`);
             vscode.window.showErrorMessage(`XLIDE: VBA tests failed: ${msg}`);
+        } finally {
+            if (resultsPanelRunning) {
+                setVbaTestResultsRunning(filePath, false);
+            }
         }
     }
 
