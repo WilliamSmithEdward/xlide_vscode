@@ -43,6 +43,9 @@ describe('VBA tests webview', () => {
         expect(html).toContain('data-action="installSupport"');
         expect(html).not.toContain('data-action="refresh"');
         expect(html).toContain('data-action="runAll" disabled');
+        expect(html).toContain('data-action="runSelected"');
+        expect(html).toMatch(/data-action="runCurrentModule"[^>]*disabled/);
+        expect(html).toMatch(/data-action="runCurrentTest"[^>]*disabled/);
         expect(html).toMatch(/data-action="runWithFilters"[^>]*disabled/);
         expect(html).toContain('class="statusGrid"');
     });
@@ -60,8 +63,15 @@ describe('VBA tests webview', () => {
         expect(html).toContain('XlideAssert.bas Installed');
         expect(html).toContain('data-action="installSupport" title="Workbook tests can run through the XLIDE-owned read-only Excel test host." disabled');
         expect(html).toContain('data-action="runAll" >Run All Tests</button>');
+        expect(html).toContain('data-action="runSelected" title="Run the checked tests below" >Run Selected</button>');
+        expect(html).toContain('data-action="runCurrentModule" title="Use the active editor if it belongs to Book.xlsm." >Run Current Module</button>');
+        expect(html).toContain('data-action="runCurrentTest" title="Use the active editor if it belongs to Book.xlsm." >Run Current Test</button>');
         expect(html).toContain('data-action="runWithFilters" title="Run selected tag filters" >Run With Filters</button>');
         expect(html).toContain('data-action="rerunFailed" title="No failed tests from the last run." disabled');
+        expect(html).toContain('Tests.Test_Pass');
+        expect(html).toContain('data-test-id="Tests.Test_Pass" checked');
+        expect(html).toContain('data-test-action="selectAll"');
+        expect(html).toContain('data-test-action="clear"');
         expect(html).toContain('Include Tags');
         expect(html).toContain('Exclude Tags');
         expect(html).toContain('data-filter-action="selectAll" data-filter-kind="include"');
@@ -70,6 +80,9 @@ describe('VBA tests webview', () => {
         expect(html).toContain('Fail Fast');
         expect(html).toContain('let running = false;');
         expect(html).toContain('setRunning(true);');
+        expect(html).toContain('type: \'runSelected\'');
+        expect(html).toContain('type: \'runCurrentModule\'');
+        expect(html).toContain('type: \'runCurrentTest\'');
     });
 
     it('enables rerun failed when the last run has failing tests', () => {
@@ -98,6 +111,16 @@ describe('VBA tests webview', () => {
             taggedTests: 0,
             untaggedTests: 1,
             tags: [],
+            tests: [
+                {
+                    id: 'Tests.Only',
+                    qualifiedName: 'Tests.Only',
+                    moduleName: 'Tests',
+                    procedureName: 'Only',
+                    line: 4,
+                    tags: [],
+                },
+            ],
         }));
 
         expect(html).toContain('data-action="runAll" >Run All Tests</button>');
@@ -193,6 +216,32 @@ function model(
         tags: [
             { name: 'fast', testCount: 1 },
             { name: 'smoke', testCount: 2 },
+        ],
+        tests: [
+            {
+                id: 'Tests.Test_Pass',
+                qualifiedName: 'Tests.Test_Pass',
+                moduleName: 'Tests',
+                procedureName: 'Test_Pass',
+                line: 4,
+                tags: [],
+            },
+            {
+                id: 'Tests.Test_Tagged',
+                qualifiedName: 'Tests.Test_Tagged',
+                moduleName: 'Tests',
+                procedureName: 'Test_Tagged',
+                line: 10,
+                tags: ['smoke'],
+            },
+            {
+                id: 'MoreTests.Test_Fast',
+                qualifiedName: 'MoreTests.Test_Fast',
+                moduleName: 'MoreTests',
+                procedureName: 'Test_Fast',
+                line: 3,
+                tags: ['fast'],
+            },
         ],
     },
     lastFailed?: VbaTestsPanelModel['lastFailed'],

@@ -78,11 +78,13 @@ VBA runtime errors are reported as failed tests without requiring "Trust access
 to the VBA project object model" through COM. The original workbook is not
 modified by the run.
 
-The Tests GUI currently runs all discovered tests, runs selected include/exclude
-tag filters from discovered tag checkboxes, supports fail-fast mode, and can
-rerun failed/timed-out/host-error/unexpected-pass tests from the previous run.
-It refreshes with the XLIDE workbook tree, so installing/removing modules or
-refreshing the tree updates the support gate without reopening the panel.
+The Tests GUI runs all discovered tests, checked tests from the discovered test
+list, current-module/current-test scopes from the active workbook editor,
+selected include/exclude tag filters from discovered tag checkboxes, fail-fast
+mode, and reruns failed/timed-out/host-error/unexpected-pass tests from the
+previous run. It refreshes with the XLIDE workbook tree, so installing/removing
+modules or refreshing the tree updates the support gate without reopening the
+panel.
 
 By default XLIDE creates one XLIDE-owned Excel instance, opens the workbook
 read-only, runs the selected tests, closes without saving, and cleans up the
@@ -135,6 +137,6 @@ latest CI status payload.
 ## Current Limitations
 
 Excel COM execution is Windows-only. The first shipped path uses the selected
-workbook and standard-module VBA tests; richer expected output/state assertions,
-selected-test checkbox execution, and module/current-test run controls inside the
-Tests GUI are planned follow-ups.
+workbook and standard-module VBA tests. Richer expected output/state assertions
+beyond `expected-error`, `XlideAssert.Throws`, and `XlideAssert.DoesNotThrow`
+remain planned follow-ups.

@@ -8,6 +8,7 @@ import {
     XlideFileSystemProvider,
     encodeModuleUri,
     decodeModuleUri,
+    sameWorkbookPath,
     XLIDE_SCHEME,
     notifySignatureDropped,
 } from './xlideFileSystem';
@@ -51,6 +52,7 @@ import { checkExcelComAvailability } from './excelComAvailability';
 import {
     openVbaTestsPanel,
     type VbaTestsRunFilterRequest,
+    type VbaTestsRunSelectedRequest,
     type VbaTestSupportStatusModel,
     type VbaTestsPanelModel,
 } from './vbaTestsWebview';
@@ -894,6 +896,15 @@ export function registerCommands(
             onRunWithFilters: async (filters) => {
                 await runVbaTestsForWorkbook(filePath, vbaTestRunOptionsFromFilters(filters));
             },
+            onRunSelected: async (selection) => {
+                await runSelectedVbaTestsForWorkbook(filePath, selection);
+            },
+            onRunCurrentModule: async (request) => {
+                await runCurrentModuleVbaTestsForWorkbook(filePath, request.failFast);
+            },
+            onRunCurrentTest: async (request) => {
+                await runCurrentTestForWorkbook(filePath, request.failFast);
+            },
             onRerunFailed: async () => {
                 await rerunFailedVbaTestsForWorkbook(filePath);
             },
@@ -933,6 +944,14 @@ export function registerCommands(
                 taggedTests,
                 untaggedTests: Math.max(0, discovery.tests.length - taggedTests),
                 tags,
+                tests: discovery.tests.map((test) => ({
+                    id: test.id,
+                    qualifiedName: test.qualifiedName,
+                    moduleName: test.moduleName,
+                    procedureName: test.procedureName,
+                    line: test.line,
+                    tags: test.metadata.tags,
+                })),
             };
         } catch (err) {
             const error = err instanceof Error ? err.message : String(err);
@@ -941,6 +960,7 @@ export function registerCommands(
                 taggedTests: 0,
                 untaggedTests: 0,
                 tags: [],
+                tests: [],
                 error,
             };
         }
@@ -958,6 +978,24 @@ export function registerCommands(
             selection,
             failFast: filters.failFast,
         };
+    }
+
+    async function runSelectedVbaTestsForWorkbook(
+        filePath: string,
+        request: VbaTestsRunSelectedRequest,
+    ): Promise<void> {
+        if (request.testIds.length === 0) {
+            void vscode.window.showInformationMessage(
+                `XLIDE: Select at least one VBA test to run for "${path.basename(filePath)}".`,
+            );
+            return;
+        }
+        await runVbaTestsForWorkbook(filePath, {
+            selection: {
+                testIds: request.testIds,
+            },
+            failFast: request.failFast,
+        });
     }
 
     async function vbaTestSupportStatus(filePath: string): Promise<VbaTestSupportStatusModel> {
@@ -1162,42 +1200,89 @@ export function registerCommands(
     }
 
     async function runCurrentModuleVbaTests(): Promise<void> {
-        const editor = activeLocalVbaEditor();
-        if (!editor) {
-            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run module tests.');
+        const active = await activeVbaTestEditorContext();
+        if (!active) {
             return;
         }
-        if (editor.document.isDirty) {
-            await editor.document.save();
-        }
-        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
-        await runVbaTestsForWorkbook(xlsmPath, {
-            selection: { moduleName },
+        await runVbaTestsForWorkbook(active.xlsmPath, {
+            selection: { moduleName: active.moduleName },
         });
     }
 
     async function runVbaTestAtCursor(): Promise<void> {
-        const editor = activeLocalVbaEditor();
-        if (!editor) {
-            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run the test at the cursor.');
+        const active = await activeVbaTestEditorContext();
+        if (!active) {
             return;
         }
 
-        const procedureName = procedureNameAtCursor(editor);
+        const procedureName = procedureNameAtCursor(active.editor);
         if (!procedureName) {
             vscode.window.showWarningMessage('XLIDE: Cursor is not inside a VBA procedure.');
             return;
         }
-        if (editor.document.isDirty) {
-            await editor.document.save();
-        }
-        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
-        await runVbaTestsForWorkbook(xlsmPath, {
+        await runVbaTestsForWorkbook(active.xlsmPath, {
             selection: {
-                moduleName,
+                moduleName: active.moduleName,
                 procedureName,
             },
         });
+    }
+
+    async function runCurrentModuleVbaTestsForWorkbook(filePath: string, failFast = false): Promise<void> {
+        const active = await activeVbaTestEditorContext(filePath);
+        if (!active) {
+            return;
+        }
+        await runVbaTestsForWorkbook(filePath, {
+            selection: { moduleName: active.moduleName },
+            failFast,
+        });
+    }
+
+    async function runCurrentTestForWorkbook(filePath: string, failFast = false): Promise<void> {
+        const active = await activeVbaTestEditorContext(filePath);
+        if (!active) {
+            return;
+        }
+        const procedureName = procedureNameAtCursor(active.editor);
+        if (!procedureName) {
+            vscode.window.showWarningMessage('XLIDE: Cursor is not inside a VBA procedure.');
+            return;
+        }
+        await runVbaTestsForWorkbook(filePath, {
+            selection: {
+                moduleName: active.moduleName,
+                procedureName,
+            },
+            failFast,
+        });
+    }
+
+    async function activeVbaTestEditorContext(expectedWorkbookPath?: string): Promise<{
+        editor: vscode.TextEditor;
+        xlsmPath: string;
+        moduleName: string;
+    } | undefined> {
+        const editor = activeLocalVbaEditor();
+        if (!editor) {
+            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run module tests.');
+            return undefined;
+        }
+        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        if (expectedWorkbookPath && !sameWorkbookPath(xlsmPath, expectedWorkbookPath)) {
+            vscode.window.showWarningMessage(
+                `XLIDE: Open a VBA module from "${path.basename(expectedWorkbookPath)}" before running current-scope tests from this panel.`,
+            );
+            return undefined;
+        }
+        if (editor.document.isDirty) {
+            const saved = await editor.document.save();
+            if (!saved) {
+                vscode.window.showWarningMessage('XLIDE: Save the current module before running VBA tests.');
+                return undefined;
+            }
+        }
+        return { editor, xlsmPath, moduleName };
     }
 
     async function resolveWorkbookExportFolder(

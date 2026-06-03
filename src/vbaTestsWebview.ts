@@ -26,11 +26,21 @@ export interface VbaTestTagFilterModel {
     testCount: number;
 }
 
+export interface VbaTestListItemModel {
+    id: string;
+    qualifiedName: string;
+    moduleName: string;
+    procedureName: string;
+    line: number;
+    tags: string[];
+}
+
 export interface VbaTestDiscoveryStatusModel {
     totalTests: number;
     taggedTests: number;
     untaggedTests: number;
     tags: VbaTestTagFilterModel[];
+    tests: VbaTestListItemModel[];
     error?: string;
 }
 
@@ -58,11 +68,23 @@ export interface VbaTestsRunFilterRequest {
     failFast: boolean;
 }
 
+export interface VbaTestsRunSelectedRequest {
+    testIds: string[];
+    failFast: boolean;
+}
+
+export interface VbaTestsRunModeRequest {
+    failFast: boolean;
+}
+
 export interface VbaTestsPanelOptions {
     getModel: () => Promise<VbaTestsPanelModel>;
     onInstallSupport?: () => Promise<void>;
     onRunAll?: () => Promise<void>;
     onRunWithFilters?: (request: VbaTestsRunFilterRequest) => Promise<void>;
+    onRunSelected?: (request: VbaTestsRunSelectedRequest) => Promise<void>;
+    onRunCurrentModule?: (request: VbaTestsRunModeRequest) => Promise<void>;
+    onRunCurrentTest?: (request: VbaTestsRunModeRequest) => Promise<void>;
     onRerunFailed?: () => Promise<void>;
     onDidChangeWorkbookTree?: vscode.Event<unknown>;
 }
@@ -71,6 +93,7 @@ interface VbaTestsWebviewMessage {
     type?: string;
     includeTags?: unknown;
     excludeTags?: unknown;
+    testIds?: unknown;
     failFast?: unknown;
 }
 
@@ -190,6 +213,36 @@ export function openVbaTestsPanel(
                 );
                 return;
             }
+            if (message.type === 'runSelected') {
+                const request = runSelectedRequestFromMessage(message);
+                await runAndRefresh(
+                    entry.options.onRunSelected
+                        ? () => entry.options.onRunSelected?.(request) ?? Promise.resolve()
+                        : undefined,
+                    'XLIDE selected test execution is not available.',
+                );
+                return;
+            }
+            if (message.type === 'runCurrentModule') {
+                const request = runModeRequestFromMessage(message);
+                await runAndRefresh(
+                    entry.options.onRunCurrentModule
+                        ? () => entry.options.onRunCurrentModule?.(request) ?? Promise.resolve()
+                        : undefined,
+                    'XLIDE current-module test execution is not available.',
+                );
+                return;
+            }
+            if (message.type === 'runCurrentTest') {
+                const request = runModeRequestFromMessage(message);
+                await runAndRefresh(
+                    entry.options.onRunCurrentTest
+                        ? () => entry.options.onRunCurrentTest?.(request) ?? Promise.resolve()
+                        : undefined,
+                    'XLIDE current-test execution is not available.',
+                );
+                return;
+            }
             if (message.type === 'rerunFailed') {
                 await runAndRefresh(entry.options.onRerunFailed, 'XLIDE rerun failed is not available.');
             }
@@ -243,22 +296,34 @@ export function renderVbaTestsHtml(
     const hasTagFilters = model.discovery.tags.length > 0;
     const failedCount = model.lastFailed?.count ?? 0;
     const hasLastFailed = failedCount > 0;
+    const hasTests = model.discovery.tests.length > 0;
     const filterRunDisabled = runEnabled && hasTagFilters ? '' : 'disabled';
+    const selectedRunDisabled = runEnabled && hasTests ? '' : 'disabled';
     const rerunFailedDisabled = runEnabled && hasLastFailed ? '' : 'disabled';
     const filterRunTitle = !runEnabled
         ? runHelp
         : hasTagFilters
             ? 'Run selected tag filters'
             : 'No test tags discovered in this workbook.';
+    const selectedRunTitle = !runEnabled
+        ? runHelp
+        : hasTests
+            ? 'Run the checked tests below'
+            : 'No tests discovered in this workbook.';
+    const currentScopeTitle = !runEnabled
+        ? runHelp
+        : `Use the active editor if it belongs to ${model.workbookName}.`;
     const rerunFailedTitle = !runEnabled
         ? runHelp
         : hasLastFailed
             ? `Rerun ${failedCount} failed, timed out, host-error, or unexpected-pass test${failedCount === 1 ? '' : 's'} from the last run.`
             : 'No failed tests from the last run.';
     const tagNamesJson = scriptJson(model.discovery.tags.map((tag) => tag.name));
+    const testIdsJson = scriptJson(model.discovery.tests.map((test) => test.id));
     const workbookPathJson = scriptJson(model.filePath);
     const canRunJson = JSON.stringify(runEnabled);
     const hasTagsJson = JSON.stringify(hasTagFilters);
+    const hasTestsJson = JSON.stringify(hasTests);
     const hasLastFailedJson = JSON.stringify(hasLastFailed);
 
     return /* html */`<!DOCTYPE html>
@@ -415,6 +480,7 @@ export function renderVbaTestsHtml(
         .filterHeader,
         .filterColumnHeader,
         .filterActions,
+        .testListHeader,
         .checkRow {
             display: flex;
             align-items: center;
@@ -422,6 +488,10 @@ export function renderVbaTestsHtml(
         }
         .filterHeader {
             justify-content: space-between;
+        }
+        .testListHeader {
+            justify-content: space-between;
+            min-height: 30px;
         }
         .filterTitle {
             font-weight: 700;
@@ -460,6 +530,13 @@ export function renderVbaTestsHtml(
             display: grid;
             gap: 6px;
         }
+        .testList {
+            display: grid;
+            gap: 6px;
+            max-height: 290px;
+            overflow: auto;
+            padding-right: 2px;
+        }
         .tagChoice {
             display: grid;
             grid-template-columns: auto minmax(0, 1fr) auto;
@@ -471,7 +548,20 @@ export function renderVbaTestsHtml(
             padding: 5px 8px;
             background: var(--vscode-editor-background);
         }
+        .testChoice {
+            display: grid;
+            grid-template-columns: auto minmax(180px, 1fr) minmax(120px, 0.55fr);
+            gap: 10px;
+            align-items: center;
+            min-height: 32px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 7px 8px;
+            background: var(--vscode-editor-background);
+            min-width: 0;
+        }
         .tagChoice input,
+        .testChoice input,
         .checkRow input {
             accent-color: var(--vscode-checkbox-selectBackground, var(--xlide-accent-background));
         }
@@ -484,6 +574,32 @@ export function renderVbaTestsHtml(
         .tagCount {
             color: var(--vscode-descriptionForeground);
             font-size: 12px;
+        }
+        .testName {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 700;
+        }
+        .testMeta,
+        .testTags {
+            overflow: hidden;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .testTags {
+            text-align: right;
+        }
+        .testTag {
+            display: inline-block;
+            margin-left: 4px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 999px;
+            padding: 1px 6px;
+            color: var(--vscode-descriptionForeground);
+            background: color-mix(in srgb, var(--vscode-sideBar-background) 80%, var(--vscode-button-secondaryBackground));
         }
         .emptyState {
             border: 1px dashed var(--vscode-panel-border);
@@ -518,6 +634,13 @@ export function renderVbaTestsHtml(
             header,
             .sectionHeader {
                 display: grid;
+            }
+            .testChoice {
+                grid-template-columns: auto minmax(0, 1fr);
+            }
+            .testTags {
+                grid-column: 2;
+                text-align: left;
             }
         }
     </style>
@@ -569,10 +692,14 @@ export function renderVbaTestsHtml(
                 <div class="sectionBody">
                     <div class="runGrid">
                         <button class="runButton" type="button" data-action="runAll" ${runDisabled}>Run All Tests</button>
+                        <button class="runButton" type="button" data-action="runSelected" title="${escapeAttr(selectedRunTitle)}" ${selectedRunDisabled}>Run Selected</button>
+                        <button class="runButton" type="button" data-action="runCurrentModule" title="${escapeAttr(currentScopeTitle)}" ${runDisabled}>Run Current Module</button>
+                        <button class="runButton" type="button" data-action="runCurrentTest" title="${escapeAttr(currentScopeTitle)}" ${runDisabled}>Run Current Test</button>
                         <button class="runButton" type="button" data-action="runWithFilters" title="${escapeAttr(filterRunTitle)}" ${filterRunDisabled}>Run With Filters</button>
                         <button class="runButton" type="button" data-action="rerunFailed" title="${escapeAttr(rerunFailedTitle)}" ${rerunFailedDisabled}>Rerun Failed${hasLastFailed ? ` (${failedCount})` : ''}</button>
                     </div>
                     ${runHelp ? `<p class="helpText">${escapeHtml(runHelp)}</p>` : ''}
+                    ${renderTestSelection(model)}
                     ${renderTagFilters(model)}
                 </div>
             </section>
@@ -584,8 +711,10 @@ export function renderVbaTestsHtml(
         const toast = document.getElementById('toast');
         const workbookPath = ${workbookPathJson};
         const tagNames = ${tagNamesJson};
+        const testIds = ${testIdsJson};
         const canRun = ${canRunJson};
         const hasTags = ${hasTagsJson};
+        const hasTests = ${hasTestsJson};
         const hasLastFailed = ${hasLastFailedJson};
         let toastTimer;
         let filterState = initialFilterState();
@@ -605,6 +734,9 @@ export function renderVbaTestsHtml(
                     workbookPath,
                     includeTags: reconcileTags(saved.includeTags),
                     excludeTags: reconcileTags(saved.excludeTags),
+                    selectedTestIds: Array.isArray(saved.selectedTestIds)
+                        ? reconcileTestIds(saved.selectedTestIds)
+                        : [...testIds],
                     failFast: Boolean(saved.failFast),
                 };
             }
@@ -612,6 +744,7 @@ export function renderVbaTestsHtml(
                 workbookPath,
                 includeTags: [...tagNames],
                 excludeTags: [],
+                selectedTestIds: [...testIds],
                 failFast: false,
             };
         }
@@ -622,6 +755,14 @@ export function renderVbaTestsHtml(
             }
             const available = new Set(tagNames);
             return [...new Set(value.map((tag) => String(tag).trim()).filter((tag) => available.has(tag)))];
+        }
+
+        function reconcileTestIds(value) {
+            if (!Array.isArray(value)) {
+                return [];
+            }
+            const available = new Set(testIds);
+            return [...new Set(value.map((id) => String(id).trim()).filter((id) => available.has(id)))];
         }
 
         function saveFilterState() {
@@ -638,6 +779,9 @@ export function renderVbaTestsHtml(
                 const list = input.dataset.filterKind === 'exclude' ? filterState.excludeTags : filterState.includeTags;
                 input.checked = list.includes(input.dataset.tag);
             });
+            document.querySelectorAll('input[data-test-id]').forEach((input) => {
+                input.checked = filterState.selectedTestIds.includes(input.dataset.testId);
+            });
             const failFast = document.getElementById('failFast');
             if (failFast) {
                 failFast.checked = filterState.failFast;
@@ -648,13 +792,27 @@ export function renderVbaTestsHtml(
                 const excludeCount = filterState.excludeTags.length;
                 summary.textContent = includeCount + ' include, ' + excludeCount + ' exclude';
             }
-            document.querySelectorAll('[data-filter-action], input[data-filter-kind], #failFast').forEach((control) => {
+            const selectedSummary = document.getElementById('selectedTestSummary');
+            if (selectedSummary) {
+                const count = filterState.selectedTestIds.length;
+                selectedSummary.textContent = count + ' selected, ' + testIds.length + ' discovered';
+            }
+            document.querySelectorAll('[data-filter-action], [data-test-action], input[data-filter-kind], input[data-test-id], #failFast').forEach((control) => {
                 control.disabled = running;
             });
             const runAll = document.querySelector('button[data-action="runAll"]');
             if (runAll && canRun) {
                 runAll.disabled = running;
             }
+            const runSelected = document.querySelector('button[data-action="runSelected"]');
+            if (runSelected && canRun && hasTests) {
+                runSelected.disabled = running || filterState.selectedTestIds.length === 0;
+            }
+            document.querySelectorAll('button[data-action="runCurrentModule"], button[data-action="runCurrentTest"]').forEach((button) => {
+                if (canRun) {
+                    button.disabled = running;
+                }
+            });
             const runWithFilters = document.querySelector('button[data-action="runWithFilters"]');
             if (runWithFilters && canRun && hasTags) {
                 runWithFilters.disabled = running ||
@@ -679,6 +837,19 @@ export function renderVbaTestsHtml(
             syncFilterUi();
         }
 
+        function setSelectedTestIds(values) {
+            filterState.selectedTestIds = reconcileTestIds(values);
+            saveFilterState();
+            syncFilterUi();
+        }
+
+        function toggleSelectedTest(id, checked) {
+            const next = checked
+                ? [...new Set([...filterState.selectedTestIds, id])]
+                : filterState.selectedTestIds.filter((candidate) => candidate !== id);
+            setSelectedTestIds(next);
+        }
+
         function toggleFilterTag(kind, tag, checked) {
             const list = kind === 'exclude' ? filterState.excludeTags : filterState.includeTags;
             const next = checked
@@ -696,10 +867,24 @@ export function renderVbaTestsHtml(
             if (event.target?.id === 'failFast') {
                 filterState.failFast = Boolean(event.target.checked);
                 saveFilterState();
+                return;
+            }
+            const testInput = event.target.closest?.('input[data-test-id]');
+            if (testInput) {
+                toggleSelectedTest(testInput.dataset.testId, testInput.checked);
             }
         });
 
         document.addEventListener('click', (event) => {
+            const testButton = event.target.closest?.('[data-test-action]');
+            if (testButton) {
+                if (testButton.dataset.testAction === 'selectAll') {
+                    setSelectedTestIds(testIds);
+                } else if (testButton.dataset.testAction === 'clear') {
+                    setSelectedTestIds([]);
+                }
+                return;
+            }
             const filterButton = event.target.closest?.('[data-filter-action]');
             if (filterButton) {
                 const action = filterButton.dataset.filterAction;
@@ -718,6 +903,31 @@ export function renderVbaTestsHtml(
             if (button.dataset.action === 'runAll') {
                 setRunning(true);
                 vscode.postMessage({ type: 'runAll' });
+                return;
+            }
+            if (button.dataset.action === 'runSelected') {
+                setRunning(true);
+                vscode.postMessage({
+                    type: 'runSelected',
+                    testIds: filterState.selectedTestIds,
+                    failFast: filterState.failFast,
+                });
+                return;
+            }
+            if (button.dataset.action === 'runCurrentModule') {
+                setRunning(true);
+                vscode.postMessage({
+                    type: 'runCurrentModule',
+                    failFast: filterState.failFast,
+                });
+                return;
+            }
+            if (button.dataset.action === 'runCurrentTest') {
+                setRunning(true);
+                vscode.postMessage({
+                    type: 'runCurrentTest',
+                    failFast: filterState.failFast,
+                });
                 return;
             }
             if (button.dataset.action === 'runWithFilters') {
@@ -796,6 +1006,46 @@ function renderVbaTestsErrorHtml(webview: vscode.Webview, workbookName: string, 
 </html>`;
 }
 
+function renderTestSelection(model: VbaTestsPanelModel): string {
+    const discovery = model.discovery;
+    const testSummary = discovery.error
+        ? escapeHtml(discovery.error)
+        : `${discovery.tests.length} discovered`;
+    return /* html */`<div class="filterPanel">
+        <div class="testListHeader">
+            <div>
+                <div class="filterTitle">Tests</div>
+                <div class="filterSummary" id="selectedTestSummary">${testSummary}</div>
+            </div>
+            <span class="filterTools">
+                <button class="secondary compact" type="button" data-test-action="selectAll">Select All</button>
+                <button class="secondary compact" type="button" data-test-action="clear">Clear</button>
+            </span>
+        </div>
+        ${discovery.tests.length > 0 ? /* html */`
+            <div class="testList">
+                ${discovery.tests.map(renderTestChoice).join('')}
+            </div>
+        ` : /* html */`
+            <div class="emptyState">No tests discovered</div>
+        `}
+    </div>`;
+}
+
+function renderTestChoice(test: VbaTestListItemModel): string {
+    const tags = test.tags.length > 0
+        ? test.tags.map((tag) => `<span class="testTag">${escapeHtml(tag)}</span>`).join('')
+        : '<span class="subtle">untagged</span>';
+    return /* html */`<label class="testChoice" title="${escapeAttr(`${test.qualifiedName} at line ${test.line}`)}">
+        <input type="checkbox" data-test-id="${escapeAttr(test.id)}" checked>
+        <span>
+            <span class="testName">${escapeHtml(test.qualifiedName)}</span>
+            <span class="testMeta">${escapeHtml(test.moduleName)}:${test.line}</span>
+        </span>
+        <span class="testTags">${tags}</span>
+    </label>`;
+}
+
 function renderTagFilters(model: VbaTestsPanelModel): string {
     const discovery = model.discovery;
     const tagSummary = discovery.error
@@ -860,6 +1110,19 @@ function runFilterRequestFromMessage(message: VbaTestsWebviewMessage): VbaTestsR
     return {
         includeTags: stringListFromUnknown(message.includeTags),
         excludeTags: stringListFromUnknown(message.excludeTags),
+        failFast: Boolean(message.failFast),
+    };
+}
+
+function runSelectedRequestFromMessage(message: VbaTestsWebviewMessage): VbaTestsRunSelectedRequest {
+    return {
+        testIds: stringListFromUnknown(message.testIds),
+        failFast: Boolean(message.failFast),
+    };
+}
+
+function runModeRequestFromMessage(message: VbaTestsWebviewMessage): VbaTestsRunModeRequest {
+    return {
         failFast: Boolean(message.failFast),
     };
 }

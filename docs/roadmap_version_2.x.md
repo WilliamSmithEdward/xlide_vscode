@@ -919,11 +919,11 @@ VBA code from XLIDE, using Excel COM as the execution host.
 - [x] Keep the product test runner separate from the Excel/VBE oracle. The
   oracle validates XLIDE behavior; the test runner validates user VBA projects.
 - [x] Add fixture tests before enabling broad adoption.
-- [ ] Complete the developer VBA test GUI. The workbook-scoped Tests GUI is now
-  callable from the XLIDE Activity Bar/sidebar, supports run-all/tag-filtered
-  runs, fail-fast, rerun-failed, support-module install/update, and reusable
-  results. Remaining polish: discovered-test checkbox selection plus
-  current-module/current-test controls inside the GUI.
+- [x] Complete the developer VBA test GUI. The workbook-scoped Tests GUI is now
+  callable from the XLIDE Activity Bar/sidebar, supports run-all, checked-test
+  selection from discovered tests, current-module/current-test scopes from the
+  active editor when it belongs to the panel workbook, tag-filtered runs,
+  fail-fast, rerun-failed, support-module install/update, and reusable results.
 - [ ] Fully document the downstream developer workflow before calling the test
   runner shipped in public-facing `user_guides/testing.md`:
   - how to author tests
