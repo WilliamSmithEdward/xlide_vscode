@@ -527,7 +527,7 @@
       {
         "name": "xlide_runVbaTests",
         "displayName": "Run XLIDE VBA Tests",
-        "modelDescription": "Runs discovered '@xlide-test' VBA tests in a workbook through XLIDE's production owned read-only Excel test oracle and returns JSON {ok, summary, report}. Use this after editing workbook VBA to verify tests pass without opening the Tests GUI. Requires the workbook to have the current XlideAssert.bas support module installed and Microsoft Excel COM to be available. Supports narrowing by moduleName, procedureName, testIds, includeTags, excludeTags, and failFast. Set includeHostEvents true only when diagnosing host/oracle behavior.",
+        "modelDescription": "Runs discovered '@xlide-test' VBA tests in a workbook through XLIDE's production owned read-only Excel test oracle, writes the same timestamped artifacts/status_for_ci.json as the Tests GUI, and returns JSON {ok, summary, artifacts, report}. Use this after editing workbook VBA to verify tests pass without opening the Tests GUI. Requires the workbook to have the current XlideAssert.bas support module installed and Microsoft Excel COM to be available. Supports narrowing by moduleName, procedureName, testIds, includeTags, excludeTags, and failFast. Set includeHostEvents true only when diagnosing host/oracle behavior.",
         "toolReferenceName": "xlideRunVbaTests",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

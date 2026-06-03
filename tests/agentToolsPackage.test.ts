@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 interface PackageToolContribution {
     name: string;
     toolReferenceName: string;
+    modelDescription?: string;
     inputSchema?: {
         required?: string[];
         properties?: Record<string, unknown>;
@@ -33,6 +34,8 @@ describe('XLIDE agent tool manifest', () => {
         expect(tool).toEqual(expect.objectContaining({
             toolReferenceName: 'xlideRunVbaTests',
         }));
+        expect(tool?.modelDescription).toContain('artifacts');
+        expect(tool?.modelDescription).toContain('status_for_ci.json');
         expect(tool?.inputSchema?.required).toContain('filePath');
         expect(tool?.inputSchema?.properties).toEqual(expect.objectContaining({
             includeTags: expect.any(Object),

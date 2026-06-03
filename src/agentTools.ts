@@ -11,6 +11,7 @@ import { analyzeWorkbook } from './vbaWorkbookAnalysis';
 import { checkExcelComAvailability } from './excelComAvailability';
 import { runWorkbookVbaTests } from './vbaTestExecution';
 import { getVbaTestSupportStatus } from './vbaTestSupportStatus';
+import { writeAgentVbaTestArtifacts } from './agentVbaTestArtifacts';
 import {
     describeVbaTestSelection,
     summarizeVbaTestRun,
@@ -391,9 +392,11 @@ export function registerAgentTools(
                     summary.timeout === 0 &&
                     summary.hostError === 0 &&
                     summary.xpass === 0;
+                const artifacts = await writeAgentVbaTestArtifacts(execution.report, execution.hostEvents);
                 return textResult(JSON.stringify({
                     ok,
                     summary,
+                    artifacts,
                     report: execution.report,
                     ...(includeHostEvents ? { hostEvents: execution.hostEvents } : {}),
                 }, null, 2));

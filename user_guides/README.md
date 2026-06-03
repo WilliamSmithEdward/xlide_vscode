@@ -9,6 +9,7 @@ extension users to read directly.
 Available guides:
 
 - `testing.md` - writing, running, reviewing, and automating workbook tests
+- `automation.md` - AI-agent workbook analysis, test runs, and CI artifact flow
 
 Planned guides:
 

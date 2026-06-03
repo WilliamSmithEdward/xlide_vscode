@@ -126,6 +126,12 @@ workbook sidecar file `<workbook>.xlide_settings.json`:
 workbook. Cleanup only targets generated run folders that contain `summary.json`;
 unrelated folders in the output directory are left alone.
 
+The `xlide_runVbaTests` AI agent tool uses the same artifact writer and workbook
+test settings as the Tests GUI. When an agent run is not blocked by setup or
+Excel availability, its JSON response includes an `artifacts` object with the
+run directory, `status_for_ci.json` path, effective artifact settings, and the
+latest CI status payload.
+
 ## Current Limitations
 
 Excel COM execution is Windows-only. The first shipped path uses the selected

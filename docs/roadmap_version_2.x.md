@@ -860,7 +860,8 @@ VBA code from XLIDE, using Excel COM as the execution host.
   - [x] rerun failed
   - [x] fail fast
   - [x] persisted default run artifacts plus latest CI status JSON
-  - explicit headless/automation runner mode
+  - [x] explicit headless/automation runner mode through the AI-agent
+    `xlide_runVbaTests` tool
 - [x] Support setup/teardown patterns:
   - per-test setup and teardown
   - per-module setup and teardown
@@ -901,6 +902,10 @@ VBA code from XLIDE, using Excel COM as the execution host.
   `expected-error` metadata and `XlideAssert.Throws`/`DoesNotThrow` helpers.
 - [x] Return machine-readable JSON results for automation and render a concise
   Problems/Test Results view in VS Code.
+- [x] Keep AI-agent VBA test runs artifact-equivalent to GUI runs.
+  `xlide_runVbaTests` writes the same timestamped run folder and latest
+  `status_for_ci.json` using workbook test settings, and returns artifact paths
+  plus the CI status payload in its JSON response.
 - [x] Surface clean developer-facing failure details in test results. The
   bundled `XlideAssert` module records normal assertion failures, and each run
   injects an XLIDE-owned direct-call dispatcher into a temporary workbook copy
@@ -943,6 +948,9 @@ VBA code from XLIDE, using Excel COM as the execution host.
 - [x] Add the first topical public testing guide in `user_guides/testing.md`
   covering authoring, marker syntax, diagnostics for invalid markers, running
   tests, reviewing results, artifacts, CI status, and current limitations.
+- [x] Add a topical public automation and CI guide in
+  `user_guides/automation.md` covering the AI-agent analyze/test flow and CI
+  artifact consumption.
 
 Definition of done:
 
@@ -1439,6 +1447,7 @@ Definition of done:
 - `docs/xlide_development_principles.md`
 - `user_guides/README.md`
 - `user_guides/testing.md`
+- `user_guides/automation.md`
 - `src/vbaModuleAnalysis.ts`
 - `src/vbaTestExcelHost.ts`
 - `src/vbaTestHostOracle.ts`
