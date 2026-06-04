@@ -1,16 +1,43 @@
 # XLIDE Roadmap Version 3.x
 
 Forward backlog for work intentionally moved out of Version 2.x closeout.
-Version 2.x is closed around its launch-hardening scope; Version 3.x is for
-deeper language-modeling, object-metadata, performance hardening, and
-cross-workbook workflows that should not block v2 release readiness.
+Version 2.x is closed around its launch-hardening scope; Version 3.x is ordered
+by expected developer-experience impact. The highest-priority work protects the
+daily edit loop first, then expands deterministic language intelligence,
+metadata authoring, and workbook workflows.
 
 ## North Star
 
-V3 should extend XLIDE's deterministic VBA understanding without weakening the
-core rule: no hard diagnostics from guesses. Every new binder, metadata, object,
-or workflow surface must be backed by source facts, generated metadata with
-provenance, the Microsoft specification, or focused VBE/Excel oracle evidence.
+V3 should make XLIDE feel faster, more trustworthy, and more useful while
+preserving the core rule: no hard diagnostics from guesses. Every new binder,
+metadata, object, or workflow surface must be backed by source facts, generated
+metadata with provenance, the Microsoft specification, or focused VBE/Excel
+oracle evidence.
+
+## Priority Model
+
+Developer-experience priority is based on:
+
+- How often a VBA developer feels the improvement during normal editing.
+- Whether it increases trust in diagnostics, completions, navigation, and
+  workbook operations.
+- How many later v3 features it unblocks.
+- Whether the work can be delivered as deterministic, testable vertical slices.
+- Whether it reduces support burden by making state, provenance, and failures
+  visible to the user.
+
+Recommended sequencing:
+
+1. Protect responsiveness and stale-result safety before adding much deeper
+   analyzer cost.
+2. Deepen binding and expression resolution because it improves completions,
+   hover, navigation, rename, and diagnostic precision at once.
+3. Expand object/event authoring where XLIDE can prove source or designer facts.
+4. Give downstream developers a supported metadata path for gaps XLIDE cannot
+   infer from workbook source.
+5. Broaden host metadata type by type after coverage and provenance make absence
+   diagnostics safe.
+6. Add workbook-to-workbook transfer after the core authoring loop is stronger.
 
 ## Related Open Roadmaps and Evidence
 
@@ -37,148 +64,20 @@ the linked sub-roadmap or evidence file in the same change. If this roadmap and
 a more specific evidence file disagree, the more specific file wins until this
 roadmap is corrected.
 
-## Workstream A: Binder Shadowing and Expression Binding
+## Priority 1: Responsive, Trustworthy Feedback
 
-Purpose: refine the broad v2 backlog item into implementable binder slices.
+Purpose: make XLIDE feel dependable on large real-world workbooks before deeper
+semantic analysis adds more work to the live editing path.
 
-- [ ] Define the exact bare-identifier precedence ladder for expression
-  contexts:
-  - procedure locals and parameters
-  - procedure labels where syntactically relevant
-  - procedure return variables
-  - same-module private/public declarations
-  - exported standard-module members
-  - enum members and UDT/type names where expression use is valid
-  - class/document/UserForm code names
-  - runtime, host, and external reference symbols
-- [ ] Model shadowing separately for declaration contexts, call contexts,
-  assignment targets, member receivers, type positions, and `New` positions.
-- [ ] Preserve no-diagnostic behavior for ambiguous exported names and unknown
-  external references until the resolver can prove the target.
-- [ ] Add external-reference constants and globals as an explicit metadata-backed
-  identifier source, with provenance and ambiguity behavior.
-- [ ] Add deterministic arbitrary-expression binding only for proven expression
-  shapes:
-  - parenthesized expressions
-  - known function/property return values
-  - known member chains
-  - collection/default-member calls where metadata proves the returned type
-  - `With` receivers and nested `With` receiver stacks
-- [ ] Add workbook fixture scenarios covering shadowing, duplicates,
-  multi-workbook isolation, live-source overlays, and unresolved external names.
+Developer-experience impact:
 
-Definition of done:
+- Keeps typing, diagnostics, completion setup, and workbook analysis responsive.
+- Prevents older async results from overwriting newer source state.
+- Makes slow workbook operations cancellable, visible, and easier to trust.
+- Creates the fixture and budget base needed to prove later semantic work does
+  not regress the edit loop.
 
-- The binder can explain why a name resolves, why it is ambiguous, or why XLIDE
-  intentionally stays silent.
-
-## Workstream B: Object Member Model
-
-Purpose: broaden object-member authoring and diagnostics beyond the v2 shipped
-source-backed and generated Excel slices.
-
-- [ ] Add designer-backed UserForm metadata ingestion sufficient to prove form
-  controls, control types, and control event surfaces.
-- [ ] Offer UserForm form/control event handlers only when designer-backed
-  metadata proves the control/event surface.
-- [ ] Model declared `Event` members with declarations, signatures, visibility,
-  and source spans.
-- [ ] Model `WithEvents` bindings and their event handler authoring surface.
-- [ ] Verify default-member/direct object-expression behavior, including
-  `VB_UserMemId = 0`, before inferring direct object usage such as
-  `textValue = p`.
-- [ ] Extend source member signatures with richer parameter metadata,
-  declaration spans, return/write types, docs, and provenance.
-- [ ] Add document/UserForm designer-backed members to the same object-member
-  contract used by source-backed classes and host metadata.
-
-Definition of done:
-
-- UserForm/document member and event surfaces are deterministic and do not invent
-  controls, events, or members from names alone.
-
-## Workstream C: External Object/Member Metadata
-
-Purpose: let downstream developers describe referenced libraries, add-ins, and
-host extensions that XLIDE cannot parse from workbook source.
-
-- [ ] Define a versioned external object/member metadata schema.
-- [ ] Support member names, kinds, signatures, parameter docs/types, return
-  types, examples, mutability, exhaustiveness, and provenance.
-- [ ] Define reload behavior and validation diagnostics for malformed metadata.
-- [ ] Define deterministic precedence:
-  - workbook source symbols win for workbook-owned members
-  - inline docs enrich source symbols
-  - external metadata describes explicitly declared external/extension members
-  - curated host/runtime metadata remains the built-in fallback
-- [ ] Add completion, hover, signature help, member-call diagnostics, assignment
-  diagnostics, and no-diagnostic controls for external metadata.
-- [ ] Ship downstream developer documentation with schema examples,
-  troubleshooting, provenance rules, and verification steps.
-
-Definition of done:
-
-- A downstream developer can author metadata, reload it, verify `object.`
-  completion, and troubleshoot missing members without reading XLIDE source.
-
-## Workstream D: Host Metadata Completeness
-
-Purpose: make generated host metadata broad, auditable, and safe enough to power
-hard diagnostics type by type.
-
-- [ ] Normalize the repo-local `reference/` dump corpus into generated metadata
-  that production extension code can consume without reading `reference/` at
-  runtime.
-- [ ] Preserve Office/version/source provenance for every type, member,
-  signature, return type, enum, event, default member, and writable/read-only
-  fact.
-- [ ] Diff generated dumps against curated metadata and official documentation
-  where available.
-- [ ] Add oracle spot checks for behavior a reference dump cannot answer.
-- [ ] Produce coverage reports by host/library type so gaps are visible.
-- [ ] Resolve remaining Excel object receiver chains beyond the v2 simple
-  return-type and collection-default `Item` paths.
-- [ ] Promote generated host types into hard `member-not-found` only
-  type-by-type after coverage reports and representative oracle controls prove
-  the surface complete enough for red diagnostics.
-- [ ] Require every host metadata expansion to add coverage for completion,
-  hover/signature docs where applicable, member-call arity/type, assignment
-  validation, `member-not-found`, and no-diagnostic controls for incomplete or
-  non-exhaustive surfaces.
-
-Definition of done:
-
-- Host metadata has auditable provenance and hard absence diagnostics only come
-  from exhaustive receiver surfaces.
-
-## Workstream E: Workbook-To-Workbook Transfer
-
-Purpose: support explicit module transfer between workbooks without crossing
-analysis scopes or guessing user intent.
-
-- [ ] Add source workbook and destination workbook selection.
-- [ ] Add module/class selection with a side-by-side preview.
-- [ ] Add conflict handling for existing destination modules.
-- [ ] Add backup/snapshot hooks before destination workbook mutation where
-  practical.
-- [ ] Preserve multi-workbook analysis isolation; transfer previews must not
-  imply cross-workbook project binding.
-- [ ] Record write-audit entries and changed/skipped/failed summaries.
-
-Definition of done:
-
-- Workbook-to-workbook transfer is explicit, previewed, auditable, and
-  recoverable.
-
-## Workstream F: Performance and Scale
-
-Purpose: make XLIDE faster on large workbooks without changing diagnostic
-meaning, skipping modules, or introducing stale symbols.
-
-Safety rule: performance work must prove equivalent results before it changes
-the analyzer, project index, completion, or workbook sync behavior. Prefer
-measurement, stale-result protection, progress, and cancellation before
-incremental parsing/indexing.
+Scope:
 
 - [ ] Add large-workbook fixture coverage or a deterministic synthetic project
   generator that exercises parser, symbol graph, diagnostics, completion setup,
@@ -207,6 +106,193 @@ Definition of done:
   measurable budgets, cancellation, and visible progress.
 - Performance improvements are correctness-preserving and do not silently skip
   diagnostics, project symbols, workbook modules, or metadata.
+
+## Priority 2: Expression Binding and Name Resolution
+
+Purpose: make the core language service explainable across the daily authoring
+loop: completion, hover, go-to-definition, rename, find references, and
+diagnostics.
+
+Developer-experience impact:
+
+- Reduces false positives and missing completions caused by unresolved or
+  mis-prioritized names.
+- Gives developers consistent answers for "what does this name mean here?"
+- Unlocks safer diagnostics and richer editor features across later object,
+  host, and external metadata work.
+
+Scope:
+
+- [ ] Define the exact bare-identifier precedence ladder for expression
+  contexts:
+  - procedure locals and parameters
+  - procedure labels where syntactically relevant
+  - procedure return variables
+  - same-module private/public declarations
+  - exported standard-module members
+  - enum members and UDT/type names where expression use is valid
+  - class/document/UserForm code names
+  - runtime, host, and external reference symbols
+- [ ] Model shadowing separately for declaration contexts, call contexts,
+  assignment targets, member receivers, type positions, and `New` positions.
+- [ ] Preserve no-diagnostic behavior for ambiguous exported names and unknown
+  external references until the resolver can prove the target.
+- [ ] Add external-reference constants and globals as an explicit
+  metadata-backed identifier source, with provenance and ambiguity behavior.
+- [ ] Add deterministic arbitrary-expression binding only for proven expression
+  shapes:
+  - parenthesized expressions
+  - known function/property return values
+  - known member chains
+  - collection/default-member calls where metadata proves the returned type
+  - `With` receivers and nested `With` receiver stacks
+- [ ] Add workbook fixture scenarios covering shadowing, duplicates,
+  multi-workbook isolation, live-source overlays, and unresolved external names.
+
+Definition of done:
+
+- The binder can explain why a name resolves, why it is ambiguous, or why XLIDE
+  intentionally stays silent.
+
+## Priority 3: Object Member and Event Authoring
+
+Purpose: make source-backed classes, document modules, UserForms, and events
+feel native in the editor without inventing members from names alone.
+
+Developer-experience impact:
+
+- Improves completion and handler authoring for common VBA UI workflows.
+- Makes event signatures, `WithEvents`, and designer-backed controls easier to
+  discover and less error-prone.
+- Extends object intelligence using facts developers already maintain in the
+  workbook.
+
+Scope:
+
+- [ ] Add designer-backed UserForm metadata ingestion sufficient to prove form
+  controls, control types, and control event surfaces.
+- [ ] Offer UserForm form/control event handlers only when designer-backed
+  metadata proves the control/event surface.
+- [ ] Model declared `Event` members with declarations, signatures, visibility,
+  and source spans.
+- [ ] Model `WithEvents` bindings and their event handler authoring surface.
+- [ ] Verify default-member/direct object-expression behavior, including
+  `VB_UserMemId = 0`, before inferring direct object usage such as
+  `textValue = p`.
+- [ ] Extend source member signatures with richer parameter metadata,
+  declaration spans, return/write types, docs, and provenance.
+- [ ] Add document/UserForm designer-backed members to the same object-member
+  contract used by source-backed classes and host metadata.
+
+Definition of done:
+
+- UserForm/document member and event surfaces are deterministic and do not invent
+  controls, events, or members from names alone.
+
+## Priority 4: External Metadata Authoring and Reload
+
+Purpose: let downstream developers describe referenced libraries, add-ins, and
+host extensions that XLIDE cannot parse from workbook source.
+
+Developer-experience impact:
+
+- Gives teams a practical path to improve completion, hover, signature help, and
+  diagnostics for private or third-party dependencies.
+- Lets advanced users close gaps without waiting for a full XLIDE release.
+- Makes missing or malformed metadata visible through validation and reload
+  feedback instead of silent failure.
+
+Scope:
+
+- [ ] Define a versioned external object/member metadata schema.
+- [ ] Support member names, kinds, signatures, parameter docs/types, return
+  types, examples, mutability, exhaustiveness, and provenance.
+- [ ] Define reload behavior and validation diagnostics for malformed metadata.
+- [ ] Define deterministic precedence:
+  - workbook source symbols win for workbook-owned members
+  - inline docs enrich source symbols
+  - external metadata describes explicitly declared external/extension members
+  - curated host/runtime metadata remains the built-in fallback
+- [ ] Add completion, hover, signature help, member-call diagnostics, assignment
+  diagnostics, and no-diagnostic controls for external metadata.
+- [ ] Ship downstream developer documentation with schema examples,
+  troubleshooting, provenance rules, and verification steps.
+
+Definition of done:
+
+- A downstream developer can author metadata, reload it, verify `object.`
+  completion, and troubleshoot missing members without reading XLIDE source.
+
+## Priority 5: Host Metadata Completeness
+
+Purpose: broaden generated Excel/Office metadata safely enough to power rich
+language features, then hard diagnostics type by type.
+
+Developer-experience impact:
+
+- Expands completion, hover, signature help, and member validation across more
+  of the Excel/Office object model.
+- Turns reference coverage into visible product confidence instead of an opaque
+  internal corpus.
+- Keeps red `member-not-found` diagnostics limited to receiver surfaces that are
+  proven exhaustive.
+
+Scope:
+
+- [ ] Normalize the repo-local `reference/` dump corpus into generated metadata
+  that production extension code can consume without reading `reference/` at
+  runtime.
+- [ ] Preserve Office/version/source provenance for every type, member,
+  signature, return type, enum, event, default member, and writable/read-only
+  fact.
+- [ ] Diff generated dumps against curated metadata and official documentation
+  where available.
+- [ ] Add oracle spot checks for behavior a reference dump cannot answer.
+- [ ] Produce coverage reports by host/library type so gaps are visible.
+- [ ] Resolve remaining Excel object receiver chains beyond the v2 simple
+  return-type and collection-default `Item` paths.
+- [ ] Promote generated host types into hard `member-not-found` only
+  type-by-type after coverage reports and representative oracle controls prove
+  the surface complete enough for red diagnostics.
+- [ ] Require every host metadata expansion to add coverage for completion,
+  hover/signature docs where applicable, member-call arity/type, assignment
+  validation, `member-not-found`, and no-diagnostic controls for incomplete or
+  non-exhaustive surfaces.
+
+Definition of done:
+
+- Host metadata has auditable provenance and hard absence diagnostics only come
+  from exhaustive receiver surfaces.
+
+## Priority 6: Workbook-To-Workbook Transfer
+
+Purpose: support explicit module transfer between workbooks without crossing
+analysis scopes or guessing user intent.
+
+Developer-experience impact:
+
+- Improves a useful project-maintenance workflow, especially when moving modules
+  between real workbooks.
+- Keeps workbook mutation explicit, previewed, auditable, and recoverable.
+- Has lower daily edit-loop impact than responsiveness, binding, and metadata,
+  so it should follow the core authoring improvements unless customer demand
+  changes.
+
+Scope:
+
+- [ ] Add source workbook and destination workbook selection.
+- [ ] Add module/class selection with a side-by-side preview.
+- [ ] Add conflict handling for existing destination modules.
+- [ ] Add backup/snapshot hooks before destination workbook mutation where
+  practical.
+- [ ] Preserve multi-workbook analysis isolation; transfer previews must not
+  imply cross-workbook project binding.
+- [ ] Record write-audit entries and changed/skipped/failed summaries.
+
+Definition of done:
+
+- Workbook-to-workbook transfer is explicit, previewed, auditable, and
+  recoverable.
 
 ## Files To Keep In Sync
 
