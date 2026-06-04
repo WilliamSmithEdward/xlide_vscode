@@ -52,6 +52,21 @@ function analysisAction(source: string, problem: VbaStructuralDiagnostic) {
 		message: problem.message,
 		expectedClose: problem.expectedClose,
 		insertLine: problem.insertLine,
+		expectedCloseReplacementSpan: problem.expectedCloseReplacement
+			? {
+				start: offsetAt(
+					source,
+					problem.expectedCloseReplacement.line,
+					problem.expectedCloseReplacement.startCol,
+				),
+				end: offsetAt(
+					source,
+					problem.expectedCloseReplacement.line,
+					problem.expectedCloseReplacement.endCol,
+				),
+			}
+			: undefined,
+		expectedCloseReplacementText: problem.expectedCloseReplacement?.text,
 		span: {
 			start: offsetAt(source, problem.line, problem.startCol),
 			end: offsetAt(source, problem.line, problem.endCol),
@@ -134,6 +149,27 @@ describe('resolveDiagnosticCodeActions', () => {
 		expect(actions[0].title).toBe("Insert 'End If'");
 		expect(applyEdits(source, actions[0].edits)).toBe(
 			'Sub Foo()\n    If x Then\n        y = 1\n    End If\nEnd Sub\n',
+		);
+	});
+
+	it('replaces an obvious mismatched procedure closer instead of inserting a new closer', () => {
+		const source =
+			'Public Property Get Measurement() As Double\n' +
+			'    Measurement = 1\n' +
+			'End Function\n';
+		const problem = analyzeVbaStructure(source).find(
+			(candidate) => candidate.expectedClose === 'End Property',
+		);
+		expect(problem).toBeTruthy();
+
+		const actions = analysisAction(source, problem!);
+
+		expect(actions).toHaveLength(1);
+		expect(actions[0].title).toBe("Replace 'End Function' with 'End Property'");
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Public Property Get Measurement() As Double\n' +
+			'    Measurement = 1\n' +
+			'End Property\n',
 		);
 	});
 

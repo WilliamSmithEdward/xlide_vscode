@@ -67,6 +67,8 @@ export interface WorkbookAnalysisProblem {
     data?: VbaDiagnosticData;
     expectedClose?: string;
     insertLine?: number;
+    expectedCloseReplacementSpan?: VbaModuleAnalysisDiagnostic['expectedCloseReplacementSpan'];
+    expectedCloseReplacementText?: string;
     quickFixAvailable?: boolean;
     quickFixTitles?: string[];
     suppressionScopes: AnalysisSuppressionScope[];
@@ -197,6 +199,8 @@ export function workbookProblemsForModule(
                 span: diagnostic.span,
                 expectedClose: diagnostic.expectedClose,
                 insertLine: diagnostic.insertLine,
+                expectedCloseReplacementSpan: diagnostic.expectedCloseReplacementSpan,
+                expectedCloseReplacementText: diagnostic.expectedCloseReplacementText,
                 data: diagnostic.data,
                 includeSuppressionAction: false,
             })
@@ -212,6 +216,8 @@ export function workbookProblemsForModule(
             data: diagnostic.data,
             expectedClose: diagnostic.expectedClose,
             insertLine: diagnostic.insertLine,
+            expectedCloseReplacementSpan: diagnostic.expectedCloseReplacementSpan,
+            expectedCloseReplacementText: diagnostic.expectedCloseReplacementText,
             quickFixAvailable: quickFixes.length > 0,
             quickFixTitles: quickFixes.map((fix) => fix.title),
             suppressionScopes,

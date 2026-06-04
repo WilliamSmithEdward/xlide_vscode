@@ -27,6 +27,8 @@ export interface VbaModuleAnalysisDiagnostic {
     data?: VbaDiagnosticData;
     expectedClose?: VbaStructuralDiagnostic['expectedClose'];
     insertLine?: VbaStructuralDiagnostic['insertLine'];
+    expectedCloseReplacementSpan?: Span;
+    expectedCloseReplacementText?: string;
 }
 
 export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
@@ -139,6 +141,15 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
                 span,
                 expectedClose: problem.expectedClose,
                 insertLine: problem.insertLine,
+                expectedCloseReplacementSpan: problem.expectedCloseReplacement
+                    ? {
+                        start: (starts[problem.expectedCloseReplacement.line] ?? 0) +
+                            problem.expectedCloseReplacement.startCol,
+                        end: (starts[problem.expectedCloseReplacement.line] ?? 0) +
+                            problem.expectedCloseReplacement.endCol,
+                    }
+                    : undefined,
+                expectedCloseReplacementText: problem.expectedCloseReplacement?.text,
             };
             if (suppressions.isDiagnosticSuppressed(problem.code, span)) {
                 suppressedDiagnostics.push(diagnostic);

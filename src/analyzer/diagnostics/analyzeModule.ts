@@ -382,7 +382,7 @@ function runRules(
 		push,
 	);
 	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
-	checkMissingReturnAssignments(source, mod, activity, push);
+	checkMissingReturnAssignments(source, mod, symbols, activity, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(
 			source,
@@ -2975,9 +2975,11 @@ function checkAssignmentTypes(
 function checkMissingReturnAssignments(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (
 			member.kind !== 'Procedure' ||
@@ -2991,7 +2993,7 @@ function checkMissingReturnAssignments(
 		if (member.returnType) {
 			continue;
 		}
-		if (procedureHasReturnAssignment(source, member, activity)) {
+		if (procedureHasReturnAssignment(source, member, activity, moduleSignatures)) {
 			continue;
 		}
 		const procLabel = member.procKind === 'PropertyGet' ? 'Property Get' : 'Function';
@@ -3007,6 +3009,7 @@ function procedureHasReturnAssignment(
 	source: string,
 	proc: ProcedureNode,
 	activity: ConditionalActivityTracker | undefined,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 ): boolean {
 	const lower = proc.name.toLowerCase();
 	let found = false;
@@ -3022,9 +3025,48 @@ function procedureHasReturnAssignment(
 		const set = setAssignmentTarget(source, stmt.span);
 		if (set?.name.toLowerCase() === lower) {
 			found = true;
+			return;
+		}
+		const call = extractCall(source, stmt.span);
+		if (call && callPassesNameToByRefParam(call, lower, moduleSignatures)) {
+			found = true;
 		}
 	}, activity);
 	return found;
+}
+
+function callPassesNameToByRefParam(
+	call: CallArguments,
+	lowerName: string,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): boolean {
+	const sig = callableSignatureForCall(call, moduleSignatures);
+	if (!sig) {
+		return false;
+	}
+	let positionalIndex = 0;
+	for (const slot of call.slots) {
+		const named = namedArgumentSlot(slot);
+		let param: CallableParamType | undefined;
+		let valueSlot = slot;
+		if (named) {
+			param = sig.params.find((p) => stripHeaderBrackets(p.name).toLowerCase() === named.name.toLowerCase());
+			valueSlot = named.value;
+		} else {
+			param = sig.params[Math.min(positionalIndex, sig.params.length - 1)];
+			positionalIndex++;
+		}
+		if (!param?.byRef || !singleSlotNameEquals(valueSlot, lowerName)) {
+			continue;
+		}
+		return true;
+	}
+	return false;
+}
+
+function singleSlotNameEquals(slot: readonly VbaToken[], lowerName: string): boolean {
+	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	return toks.length === 1 && tokenName(toks[0])?.toLowerCase() === lowerName;
 }
 
 function checkMemberAssignmentTypes(

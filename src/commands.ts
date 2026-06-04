@@ -484,6 +484,8 @@ export function registerCommands(
             span,
             expectedClose: problem.expectedClose,
             insertLine: problem.insertLine,
+            expectedCloseReplacementSpan: problem.expectedCloseReplacementSpan,
+            expectedCloseReplacementText: problem.expectedCloseReplacementText,
             data: problem.data,
             includeSuppressionAction: false,
         });

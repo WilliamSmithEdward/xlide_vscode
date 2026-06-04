@@ -3732,6 +3732,23 @@ describe('analyzeModule - missing Function return assignment', () => {
 		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
 	});
 
+	it('accepts Function return variables passed to known ByRef helper parameters', () => {
+		const src =
+			'Public Function Run(ParamArray params() As Variant)\n' +
+			'    Call CopyVariant(Run, RunEx(params))\n' +
+			'End Function\n' +
+			'\n' +
+			'Private Function RunEx(ByVal values As Variant) As Variant\n' +
+			'    RunEx = values\n' +
+			'End Function\n' +
+			'\n' +
+			'Private Sub CopyVariant(ByRef dest As Variant, ByVal value As Variant)\n' +
+			'    dest = value\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
+	});
+
 	it('accepts return assignments in the active default VBA7 branch', () => {
 		const src =
 			'Public Function HandleValue()\n' +

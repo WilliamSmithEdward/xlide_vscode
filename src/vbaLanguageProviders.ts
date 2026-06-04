@@ -1388,6 +1388,19 @@ class VbaCodeActionProvider implements vscode.CodeActionProvider {
                 message: diagnostic.message,
                 expectedClose: structuralDiagnostic?.expectedClose,
                 insertLine: structuralDiagnostic?.insertLine,
+                expectedCloseReplacementSpan: structuralDiagnostic?.expectedCloseReplacement
+                    ? {
+                        start: document.offsetAt(new vscode.Position(
+                            structuralDiagnostic.expectedCloseReplacement.line,
+                            structuralDiagnostic.expectedCloseReplacement.startCol,
+                        )),
+                        end: document.offsetAt(new vscode.Position(
+                            structuralDiagnostic.expectedCloseReplacement.line,
+                            structuralDiagnostic.expectedCloseReplacement.endCol,
+                        )),
+                    }
+                    : undefined,
+                expectedCloseReplacementText: structuralDiagnostic?.expectedCloseReplacement?.text,
                 span: {
                     start: document.offsetAt(diagnostic.range.start),
                     end: document.offsetAt(diagnostic.range.end),

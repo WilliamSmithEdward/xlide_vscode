@@ -46,6 +46,25 @@ describe('analyzeVbaStructure', () => {
         expect(problems[0].endCol).toBe('Function'.length);
     });
 
+    it('records an in-place replacement for mismatched procedure closers', () => {
+        const src =
+            'Public Property Get Measurement() As Double\n' +
+            '    Measurement = 1\n' +
+            'End Function\n';
+        const problem = analyzeVbaStructure(src).find((p) => p.expectedClose === 'End Property');
+
+        expect(problem).toMatchObject({
+            code: 'missing-block-closer',
+            expectedClose: 'End Property',
+            expectedCloseReplacement: {
+                line: 2,
+                startCol: 0,
+                endCol: 'End Function'.length,
+                text: 'End Property',
+            },
+        });
+    });
+
     it('flags a stray End If', () => {
         const src = 'Sub Foo()\n    End If\nEnd Sub\n';
         const problems = analyzeVbaStructure(src);

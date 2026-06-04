@@ -92,4 +92,26 @@ describe('analyzeWorkbook metadata summary', () => {
 		expect(result.summary.vbeCompileEquivalentCount).toBe(2);
 		expect(result.summary.nonVbeCompileEquivalentCount).toBe(1);
 	});
+
+	it('surfaces replacement quick fixes for mismatched procedure closers', async () => {
+		const bridge = bridgeForModules([
+			{
+				name: 'Performance',
+				type: 'class',
+				source:
+					'Public Property Get Measurement() As Double\n' +
+					'    Measurement = 1\n' +
+					'End Function\n',
+			},
+		]);
+
+		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+		const problem = result.problems.find((item) => item.code === 'missing-block-closer');
+
+		expect(problem).toMatchObject({
+			expectedClose: 'End Property',
+			quickFixAvailable: true,
+			quickFixTitles: ["Replace 'End Function' with 'End Property'"],
+		});
+	});
 });

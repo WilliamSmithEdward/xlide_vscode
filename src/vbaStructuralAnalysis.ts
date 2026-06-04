@@ -15,6 +15,13 @@ export interface VbaStructuralDiagnostic {
     expectedClose?: string;
     /** 0-based physical line before which the missing closer should be inserted. */
     insertLine?: number;
+    /** Token replacement that can repair an obvious mismatched closer. */
+    expectedCloseReplacement?: {
+        line: number;
+        startCol: number;
+        endCol: number;
+        text: string;
+    };
     message: string;
     severity: 'error' | 'warning';
 }
@@ -507,7 +514,7 @@ function matchOpener(t: string): OpenBlock | undefined {
 
 function fullLineProblem(
     physical: string[], line: number, message: string, severity: 'error' | 'warning',
-    details: Pick<VbaStructuralDiagnostic, 'code' | 'expectedClose' | 'insertLine'> = {},
+    details: Pick<VbaStructuralDiagnostic, 'code' | 'expectedClose' | 'insertLine' | 'expectedCloseReplacement'> = {},
     span = defaultDiagnosticColumnSpan(physical[line] ?? ''),
 ): VbaStructuralDiagnostic {
     return {
@@ -720,6 +727,7 @@ export function analyzeVbaStructure(
             ));
             const top = stack[stack.length - 1];
             if (top && isProcedureBlockKind(top.kind) && isProcedureBlockKind(closerKind)) {
+                const closerSpan = blockCloserColumnSpan(physical[line] ?? '', closerKind);
                 problems.push(fullLineProblem(
                     physical, top.line,
                     `Missing '${CLOSE_PHRASE[top.kind]}' for '${top.label}'.`,
@@ -728,6 +736,14 @@ export function analyzeVbaStructure(
                         code: 'missing-block-closer',
                         expectedClose: CLOSE_PHRASE[top.kind],
                         insertLine: line,
+                        expectedCloseReplacement: closerSpan
+                            ? {
+                                line,
+                                startCol: closerSpan.startCol,
+                                endCol: closerSpan.endCol,
+                                text: CLOSE_PHRASE[top.kind],
+                            }
+                            : undefined,
                     },
                     blockOpenerColumnSpan(physical[top.line] ?? '', top.kind),
                 ));

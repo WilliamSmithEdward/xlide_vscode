@@ -15,6 +15,8 @@ export interface VbaDiagnosticCodeActionInput {
 	span: Span;
 	expectedClose?: string;
 	insertLine?: number;
+	expectedCloseReplacementSpan?: Span;
+	expectedCloseReplacementText?: string;
 	includeSuppressionAction?: boolean;
 	data?: VbaDiagnosticData;
 }
@@ -261,6 +263,25 @@ function missingBlockCloserActions(
 	const expectedClose = diagnostic.expectedClose;
 	if (!expectedClose || !SAFE_BLOCK_CLOSERS.has(expectedClose)) {
 		return [];
+	}
+	if (
+		diagnostic.expectedCloseReplacementSpan &&
+		diagnostic.expectedCloseReplacementText === expectedClose &&
+		SAFE_BLOCK_CLOSERS.has(diagnostic.expectedCloseReplacementText)
+	) {
+		const current = source.slice(
+			diagnostic.expectedCloseReplacementSpan.start,
+			diagnostic.expectedCloseReplacementSpan.end,
+		);
+		return [{
+			title: `Replace '${current}' with '${expectedClose}'`,
+			kind: 'quickfix',
+			isPreferred: true,
+			edits: [{
+				span: diagnostic.expectedCloseReplacementSpan,
+				newText: expectedClose,
+			}],
+		}];
 	}
 
 	const openerLine = physicalLineSpan(source, diagnostic.span.start);
