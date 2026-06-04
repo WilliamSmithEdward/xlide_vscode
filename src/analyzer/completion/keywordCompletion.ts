@@ -62,6 +62,9 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('Option Explicit', 'Option Explicit', 'Option statement'),
 	snippet('Dim', 'Dim ${1:name} As ${2:Variant}', 'Variable declaration'),
 	snippet('Set', 'Set ${1:object} = ${2:value}', 'Object assignment statement'),
+	snippet('Let', 'Let ${1:variable} = ${2:value}', 'Explicit value assignment statement'),
+	snippet('LSet', 'LSet ${1:target} = ${2:value}', 'Left-align string assignment'),
+	snippet('RSet', 'RSet ${1:target} = ${2:value}', 'Right-align string assignment'),
 	snippet('ReDim', 'ReDim ${1:array}(${2:upperBound})', 'Dynamic array allocation'),
 	snippet(
 		'ReDim Preserve',
@@ -75,6 +78,13 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('Exit Property', 'Exit Property', 'Property exit statement'),
 	snippet('Exit For', 'Exit For', 'For loop exit statement'),
 	snippet('Exit Do', 'Exit Do', 'Do loop exit statement'),
+	snippet('Call', 'Call ${1:ProcedureName}($0)', 'Explicit procedure call statement'),
+	snippet('GoTo', 'GoTo ${1:label}', 'Branch to a procedure label'),
+	snippet('GoSub', 'GoSub ${1:label}', 'Branch to a procedure subroutine label'),
+	snippet('Resume', 'Resume ${1:label}', 'Resume at an error-handling label'),
+	snippet('Resume Next', 'Resume Next', 'Resume after the statement that raised an error'),
+	snippet('Erase', 'Erase ${1:array}', 'Erase array contents'),
+	keyword('Stop', 'Break execution'),
 	snippet('On Error Resume Next', 'On Error Resume Next', 'Error-handling statement'),
 	snippet('On Error GoTo 0', 'On Error GoTo 0', 'Error-handling statement'),
 	snippet(
@@ -96,6 +106,7 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 const MODIFIER_SNIPPETS: readonly KeywordSpec[] = [
 	keyword('Const', 'Constant declaration'),
 	keyword('Dim', 'Variable declaration'),
+	keyword('WithEvents', 'Object variable event declaration'),
 	snippet(
 		'Declare PtrSafe Sub',
 		'Declare PtrSafe Sub ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:LongPtr})',
@@ -143,11 +154,56 @@ const ON_SNIPPETS: readonly KeywordSpec[] = [
 	keyword('Error', 'On Error statement'),
 ];
 
+const ON_BRANCH_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('GoTo', 'On expression GoTo label list'),
+	keyword('GoSub', 'On expression GoSub label list'),
+];
+
 const ON_ERROR_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('GoTo 0', 'GoTo 0', 'Disable active error handler'),
 	snippet('GoTo -1', 'GoTo -1', 'Clear current error state'),
 	snippet('GoTo label', 'GoTo ${1:label}', 'Branch to an error handler label'),
 	snippet('Resume Next', 'Resume Next', 'Continue after the statement that raised an error'),
+];
+
+const AS_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('As', 'Declaration type clause'),
+];
+
+const PARAMETER_MODIFIER_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('ByVal', 'Pass parameter by value'),
+	keyword('ByRef', 'Pass parameter by reference'),
+	keyword('Optional', 'Optional parameter'),
+	keyword('ParamArray', 'Variable-length parameter list'),
+];
+
+const PARAMETER_PASSING_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('ByVal', 'Pass parameter by value'),
+	keyword('ByRef', 'Pass parameter by reference'),
+];
+
+const THEN_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('Then', 'If condition terminator'),
+];
+
+const FOR_TO_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('To', 'For loop upper bound'),
+];
+
+const FOR_STEP_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('Step', 'For loop increment'),
+];
+
+const REDIM_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('Preserve', 'Preserve dynamic array values'),
+];
+
+const SET_ASSIGNMENT_SNIPPETS: readonly KeywordSpec[] = [
+	snippet('New', 'New ${1:ClassName}', 'Object creation expression'),
+];
+
+const RESUME_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('Next', 'Resume Next'),
 ];
 
 const EXIT_SNIPPETS: readonly KeywordSpec[] = [
@@ -179,6 +235,26 @@ const CASE_SNIPPETS: readonly KeywordSpec[] = [
 
 const FOR_EACH_ITEM_SNIPPETS: readonly KeywordSpec[] = [
 	keyword('In', 'For Each item In collection'),
+];
+
+const IF_BRANCH_SNIPPETS: readonly KeywordSpec[] = [
+	snippet('ElseIf', 'ElseIf ${1:condition} Then', 'ElseIf branch'),
+	keyword('Else', 'Else branch'),
+];
+
+const SELECT_BRANCH_SNIPPETS: readonly KeywordSpec[] = [
+	snippet('Case', 'Case ${1:value}', 'Select Case branch'),
+	snippet('Case Is', 'Case Is ${1:operator} ${2:value}', 'Select Case comparison branch'),
+	keyword('Case Else', 'Select Case fallback branch'),
+];
+
+const DO_CLOSE_SNIPPETS: readonly KeywordSpec[] = [
+	snippet('Loop Until', 'Loop Until ${1:condition}', 'Close Do block with an Until condition'),
+	snippet('Loop While', 'Loop While ${1:condition}', 'Close Do block with a While condition'),
+];
+
+const DIRECTIVE_END_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('If', '#End If'),
 ];
 
 const DIRECTIVE_SNIPPETS: readonly KeywordSpec[] = [
@@ -256,7 +332,19 @@ export function resolveKeywordCompletions(
 		if (second === 'error') {
 			return complete(ON_ERROR_SNIPPETS, ctx.partial, true);
 		}
-		return complete(ON_SNIPPETS, ctx.partial, true);
+		if (ctx.prefix.length === 1) {
+			return complete(ON_SNIPPETS, ctx.partial, true);
+		}
+		if (isOnExpressionBranchContext(ctx)) {
+			return completeNarrow(ON_BRANCH_SNIPPETS, ctx.partial);
+		}
+		return { items: [], exclusive: false };
+	}
+	if (isThenContext(ctx)) {
+		return completeNarrow(THEN_SNIPPETS, ctx.partial);
+	}
+	if (first === 'resume' && ctx.prefix.length === 1) {
+		return complete(RESUME_SNIPPETS, ctx.partial, false);
 	}
 	if (first === 'exit' && ctx.prefix.length === 1) {
 		return complete(EXIT_SNIPPETS, ctx.partial, true);
@@ -276,7 +364,33 @@ export function resolveKeywordCompletions(
 	if (first === 'for' && second === 'each' && ctx.prefix.length === 3) {
 		return complete(FOR_EACH_ITEM_SNIPPETS, ctx.partial, true);
 	}
+	const forCountingCompletion = forCountingCompletionKind(ctx);
+	if (forCountingCompletion === 'to') {
+		return completeNarrow(FOR_TO_SNIPPETS, ctx.partial);
+	}
+	if (forCountingCompletion === 'step') {
+		return completeNarrow(FOR_STEP_SNIPPETS, ctx.partial);
+	}
+	if (first === 'redim' && ctx.prefix.length === 1) {
+		return complete(REDIM_SNIPPETS, ctx.partial, false);
+	}
+	const parameterModifierSnippets = parameterModifierSnippetsForContext(ctx);
+	if (parameterModifierSnippets) {
+		return complete(parameterModifierSnippets, ctx.partial, false);
+	}
+	if (isDeclarationAsContext(ctx) || isParameterAsContext(ctx) || isReturnAsContext(ctx)) {
+		return complete(AS_SNIPPETS, ctx.partial, false);
+	}
+	if (isSetNewContext(ctx)) {
+		return complete(SET_ASSIGNMENT_SNIPPETS, ctx.partial, false);
+	}
 	if (first === '#') {
+		if (second === 'end') {
+			return complete(DIRECTIVE_END_SNIPPETS, ctx.partial, true);
+		}
+		if (ctx.prefix.length > 1) {
+			return { items: [], exclusive: false };
+		}
 		return complete(directiveSnippets(blockLayout), ctx.partial, true);
 	}
 	if (ctx.prefix.length === 1 && isAccessModifier(first)) {
@@ -284,8 +398,9 @@ export function resolveKeywordCompletions(
 	}
 	if (ctx.atStatementStart) {
 		const close = closingCompletion(source, ctx.statementStart);
+		const branchSnippets = branchSnippetsBefore(source, ctx.statementStart);
 		const snippets = statementSnippets(blockLayout);
-		return complete(close ? [close, ...snippets] : snippets, ctx.partial, false);
+		return complete(close ? [close, ...branchSnippets, ...snippets] : [...branchSnippets, ...snippets], ctx.partial, false);
 	}
 	return { items: [], exclusive: false };
 }
@@ -304,7 +419,7 @@ function completionContext(source: string, offset: number): CompletionContext | 
 	const safeOffset = Math.max(0, Math.min(offset, source.length));
 	const tokens = tokenize(source.slice(0, safeOffset));
 	const last = tokens[tokens.length - 1];
-	if (last?.kind === 'comment' || last?.kind === 'stringLiteral') {
+	if ((last?.kind === 'comment' || last?.kind === 'stringLiteral') && last.end === safeOffset) {
 		return undefined;
 	}
 
@@ -322,9 +437,6 @@ function completionContext(source: string, offset: number): CompletionContext | 
 
 	const prefix = statementTokens;
 	const atStatementStart = prefix.length === 0;
-	if (!atStatementStart && !isKeywordPrefix(prefix)) {
-		return undefined;
-	}
 	return { partial, prefix, atStatementStart, statementStart };
 }
 
@@ -335,15 +447,6 @@ function currentStatementStart(tokens: readonly VbaToken[], fallback: number): n
 		}
 	}
 	return 0;
-}
-
-function isKeywordPrefix(tokens: readonly VbaToken[]): boolean {
-	return tokens.every((token, idx) => {
-		if (idx === 0 && token.rawText === '#') {
-			return true;
-		}
-		return isIdentLike(token);
-	});
 }
 
 function statementSnippets(layout: VbaSmartBlockLayout | undefined): readonly KeywordSpec[] {
@@ -390,6 +493,16 @@ function complete(
 	return { items, exclusive };
 }
 
+function completeNarrow(
+	specs: readonly KeywordSpec[],
+	partial: string,
+): KeywordCompletionResult {
+	const result = complete(specs, partial, true);
+	return result.items.length > 0
+		? result
+		: { items: [], exclusive: false };
+}
+
 function exactAliasMatch(spec: KeywordSpec, lowerPartial: string): boolean {
 	return (spec.matchText ?? []).some((alias) => alias.toLowerCase() === lowerPartial);
 }
@@ -415,6 +528,236 @@ function compactKeywordText(text: string): string {
 	return text.replace(/\s+/g, '');
 }
 
+function isThenContext(ctx: CompletionContext): boolean {
+	const first = word(ctx.prefix[0]);
+	const second = word(ctx.prefix[1]);
+	if ((first === 'if' || first === 'elseif') && ctx.prefix.length > 1) {
+		return !containsWord(ctx.prefix, 'then') && canEndExpression(ctx.prefix[ctx.prefix.length - 1]);
+	}
+	if (first === '#' && (second === 'if' || second === 'elseif') && ctx.prefix.length > 2) {
+		return !containsWord(ctx.prefix, 'then') && canEndExpression(ctx.prefix[ctx.prefix.length - 1]);
+	}
+	return false;
+}
+
+function isOnExpressionBranchContext(ctx: CompletionContext): boolean {
+	if (word(ctx.prefix[0]) !== 'on') {
+		return false;
+	}
+	if (containsWord(ctx.prefix, 'goto') || containsWord(ctx.prefix, 'gosub')) {
+		return false;
+	}
+	return ctx.prefix.length > 1 && canEndExpression(ctx.prefix[ctx.prefix.length - 1]);
+}
+
+function forCountingCompletionKind(ctx: CompletionContext): 'to' | 'step' | undefined {
+	if (word(ctx.prefix[0]) !== 'for' || word(ctx.prefix[1]) === 'each') {
+		return undefined;
+	}
+	const eqIndex = ctx.prefix.findIndex((token) => token.rawText === '=');
+	if (eqIndex < 2) {
+		return undefined;
+	}
+	const toIndex = findWordIndex(ctx.prefix, 'to', eqIndex + 1);
+	if (toIndex < 0) {
+		return hasExpressionAfter(ctx.prefix, eqIndex) ? 'to' : undefined;
+	}
+	if (findWordIndex(ctx.prefix, 'step', toIndex + 1) >= 0) {
+		return undefined;
+	}
+	return hasExpressionAfter(ctx.prefix, toIndex) ? 'step' : undefined;
+}
+
+function hasExpressionAfter(tokens: readonly VbaToken[], index: number): boolean {
+	return tokens.length > index + 1 && canEndExpression(tokens[tokens.length - 1]);
+}
+
+function isDeclarationAsContext(ctx: CompletionContext): boolean {
+	const nameStart = declarationNameStart(ctx.prefix);
+	if (nameStart === undefined) {
+		return false;
+	}
+	return declarationSegmentNeedsAs(ctx.prefix, nameStart);
+}
+
+function declarationNameStart(tokens: readonly VbaToken[]): number | undefined {
+	let i = 0;
+	while (isDeclarationPrefixModifier(word(tokens[i]))) {
+		i += 1;
+	}
+	const head = word(tokens[i]);
+	if (head === 'dim' || head === 'const' || head === 'static') {
+		return i + 1;
+	}
+	if (i > 0 && isNameLike(tokens[i])) {
+		return i;
+	}
+	return undefined;
+}
+
+function declarationSegmentNeedsAs(tokens: readonly VbaToken[], nameStart: number): boolean {
+	const comma = lastRawIndex(tokens, ',', nameStart);
+	const segmentStart = comma >= 0 ? comma + 1 : nameStart;
+	const segment = tokens.slice(segmentStart);
+	if (segment.length === 0 || containsWord(segment, 'as')) {
+		return false;
+	}
+	return segment.some(isNameLike) && canEndDeclarator(segment[segment.length - 1]);
+}
+
+function parameterModifierSnippetsForContext(ctx: CompletionContext): readonly KeywordSpec[] | undefined {
+	const segment = currentParameterSegment(ctx.prefix);
+	if (!segment || containsWord(segment, 'as')) {
+		return undefined;
+	}
+	const words = segment.map(word).filter(Boolean);
+	if (words.length === 0) {
+		return PARAMETER_MODIFIER_SNIPPETS;
+	}
+	if (words.length === 1 && words[0] === 'optional') {
+		return PARAMETER_PASSING_SNIPPETS;
+	}
+	return undefined;
+}
+
+function isParameterAsContext(ctx: CompletionContext): boolean {
+	const segment = currentParameterSegment(ctx.prefix);
+	if (!segment || segment.length === 0 || containsWord(segment, 'as')) {
+		return false;
+	}
+	const nameTokens = segment.filter((token) => !isParameterModifier(word(token)));
+	return nameTokens.some(isNameLike) && canEndDeclarator(segment[segment.length - 1]);
+}
+
+function currentParameterSegment(tokens: readonly VbaToken[]): readonly VbaToken[] | undefined {
+	const open = lastUnclosedParenIndex(tokens);
+	if (open < 0 || !hasProcedureHeaderBefore(tokens, open)) {
+		return undefined;
+	}
+	const comma = lastRawIndex(tokens, ',', open + 1);
+	const start = comma >= 0 ? comma + 1 : open + 1;
+	return tokens.slice(start);
+}
+
+function isReturnAsContext(ctx: CompletionContext): boolean {
+	const close = lastRawIndex(ctx.prefix, ')');
+	if (close < 0 || close !== ctx.prefix.length - 1) {
+		return false;
+	}
+	const beforeClose = ctx.prefix.slice(0, close);
+	if (!hasReturnableProcedureHeader(beforeClose)) {
+		return false;
+	}
+	return !containsWord(ctx.prefix.slice(close + 1), 'as');
+}
+
+function isSetNewContext(ctx: CompletionContext): boolean {
+	return word(ctx.prefix[0]) === 'set' && ctx.prefix[ctx.prefix.length - 1]?.rawText === '=';
+}
+
+function hasProcedureHeaderBefore(tokens: readonly VbaToken[], openIndex: number): boolean {
+	const beforeOpen = tokens.slice(0, openIndex);
+	return (
+		containsWord(beforeOpen, 'sub') ||
+		containsWord(beforeOpen, 'function') ||
+		containsWord(beforeOpen, 'property') ||
+		containsWord(beforeOpen, 'declare')
+	);
+}
+
+function hasReturnableProcedureHeader(tokens: readonly VbaToken[]): boolean {
+	if (containsWord(tokens, 'function')) {
+		return true;
+	}
+	const propertyIndex = findWordIndex(tokens, 'property');
+	return propertyIndex >= 0 && word(tokens[propertyIndex + 1]) === 'get';
+}
+
+function lastUnclosedParenIndex(tokens: readonly VbaToken[]): number {
+	const stack: number[] = [];
+	for (let i = 0; i < tokens.length; i += 1) {
+		const raw = tokens[i].rawText;
+		if (raw === '(') {
+			stack.push(i);
+		} else if (raw === ')') {
+			stack.pop();
+		}
+	}
+	return stack[stack.length - 1] ?? -1;
+}
+
+function lastRawIndex(tokens: readonly VbaToken[], rawText: string, start = 0): number {
+	for (let i = tokens.length - 1; i >= start; i -= 1) {
+		if (tokens[i].rawText === rawText) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+function findWordIndex(tokens: readonly VbaToken[], target: string, start = 0): number {
+	for (let i = start; i < tokens.length; i += 1) {
+		if (word(tokens[i]) === target) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+function containsWord(tokens: readonly VbaToken[], target: string): boolean {
+	return findWordIndex(tokens, target) >= 0;
+}
+
+function canEndExpression(token: VbaToken | undefined): boolean {
+	if (!token) {
+		return false;
+	}
+	return (
+		isNameLike(token) ||
+		isExpressionEndingKeyword(word(token)) ||
+		token.kind === 'integerLiteral' ||
+		token.kind === 'floatLiteral' ||
+		token.kind === 'dateLiteral' ||
+		token.kind === 'stringLiteral' ||
+		token.rawText === ')'
+	);
+}
+
+function isExpressionEndingKeyword(wordText: string): boolean {
+	return (
+		wordText === 'empty' ||
+		wordText === 'false' ||
+		wordText === 'me' ||
+		wordText === 'nothing' ||
+		wordText === 'null' ||
+		wordText === 'true'
+	);
+}
+
+function canEndDeclarator(token: VbaToken | undefined): boolean {
+	return canEndExpression(token);
+}
+
+function isDeclarationPrefixModifier(wordText: string): boolean {
+	return wordText === 'private' || wordText === 'public' || wordText === 'friend' || wordText === 'global';
+}
+
+function isParameterModifier(wordText: string): boolean {
+	return (
+		wordText === 'byval' ||
+		wordText === 'byref' ||
+		wordText === 'optional' ||
+		wordText === 'paramarray'
+	);
+}
+
+function isNameLike(token: VbaToken | undefined): boolean {
+	return Boolean(token && (
+		token.kind === 'identifier' ||
+		token.kind === 'bracketedIdentifier'
+	));
+}
+
 function endCompletions(source: string, statementStart: number): KeywordSpec[] {
 	const stack = openBlockClosers(source, statementStart);
 	const top = stack[stack.length - 1];
@@ -436,6 +779,21 @@ function endCompletions(source: string, statementStart: number): KeywordSpec[] {
 	];
 }
 
+function branchSnippetsBefore(source: string, statementStart: number): readonly KeywordSpec[] {
+	const stack = openBlockClosers(source, statementStart);
+	const top = stack[stack.length - 1];
+	if (top === 'End If') {
+		return IF_BRANCH_SNIPPETS;
+	}
+	if (top === 'End Select') {
+		return SELECT_BRANCH_SNIPPETS;
+	}
+	if (top === 'Loop') {
+		return DO_CLOSE_SNIPPETS;
+	}
+	return [];
+}
+
 function closingCompletion(source: string, statementStart: number): KeywordSpec | undefined {
 	const closers = openBlockClosers(source, statementStart);
 	const closer = closers[closers.length - 1];
@@ -451,7 +809,13 @@ function word(token: VbaToken | undefined): string {
 }
 
 function isAccessModifier(wordText: string): boolean {
-	return wordText === 'private' || wordText === 'public' || wordText === 'friend' || wordText === 'static';
+	return (
+		wordText === 'private' ||
+		wordText === 'public' ||
+		wordText === 'friend' ||
+		wordText === 'global' ||
+		wordText === 'static'
+	);
 }
 
 function isIdentLike(token: VbaToken): boolean {

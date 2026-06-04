@@ -941,11 +941,15 @@ Do not ship low-confidence diagnostics by default.
 > statement start (`If`, `With`, `For`, `For Each`, `Do`, `While`,
 > `Select Case`, procedure blocks), exclusive grammar completions after
 > `Option`, `End`, `On Error`, `Exit`, `Do`, `Loop`, `Select`, `For Each item`,
+> counted `For` expressions, `If` / `ElseIf` expressions, declaration `As`
+> clauses, procedure parameters, return types, `On n GoTo` / `On n GoSub`,
 > access modifiers, and `#` conditional compilation markers, including
 > `Declare PtrSafe` and `#If VBA7` / `#If Win64` migration snippets for external
 > declarations. It also covers common one-line syntax snippets (`Dim`, `Set`,
-> `ReDim`, `ReDim Preserve`, `Exit ...`) and additive `Case` helpers, with
-> innermost-block-aware close suggestions. Remaining:
+> `Set ... = New`, `Let`, `LSet`, `RSet`, `Call`, `GoTo`, `GoSub`, `Resume`,
+> `Erase`, `Stop`, `ReDim`, `ReDim Preserve`, `Exit ...`) plus active-block
+> branch helpers (`ElseIf`, `Else`, `Case`, `Case Else`, `Loop Until`,
+> `Loop While`), with innermost-block-aware close suggestions. Remaining:
 > optional enter-time auto-block insertion after manually typed block headers.
 
 ### Goal

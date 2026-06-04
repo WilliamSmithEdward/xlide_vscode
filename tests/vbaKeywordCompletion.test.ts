@@ -123,7 +123,26 @@ describe('keyword completion - statement snippets', () => {
 		const result = resolveKeywordCompletions(src, at(src, '    '));
 		const itemLabels = result.items.map((item) => item.label);
 
-		for (const label of ['Dim', 'Set', 'ReDim', 'ReDim Preserve', 'Exit Sub', 'Exit Function', 'Exit For', 'Exit Do']) {
+		for (const label of [
+			'Dim',
+			'Set',
+			'Let',
+			'LSet',
+			'RSet',
+			'ReDim',
+			'ReDim Preserve',
+			'Exit Sub',
+			'Exit Function',
+			'Exit For',
+			'Exit Do',
+			'Call',
+			'GoTo',
+			'GoSub',
+			'Resume',
+			'Resume Next',
+			'Erase',
+			'Stop',
+		]) {
 			expect(itemLabels, label).toContain(label);
 		}
 		expect(result.items.find((item) => item.label === 'Dim')?.insertText).toBe(
@@ -131,6 +150,9 @@ describe('keyword completion - statement snippets', () => {
 		);
 		expect(result.items.find((item) => item.label === 'Set')?.insertText).toBe(
 			'Set ${1:object} = ${2:value}',
+		);
+		expect(result.items.find((item) => item.label === 'Call')?.insertText).toBe(
+			'Call ${1:ProcedureName}($0)',
 		);
 	});
 
@@ -200,6 +222,7 @@ describe('keyword completion - narrow grammar contexts', () => {
 		const result = resolveKeywordCompletions(src, at(src, 'Private '));
 		expect(result.exclusive).toBe(true);
 		expect(result.items.map((item) => item.label)).toContain('Sub');
+		expect(result.items.map((item) => item.label)).toContain('WithEvents');
 		expect(result.items.find((item) => item.label === 'Property Get')?.insertText).toContain(
 			'End Property',
 		);
@@ -228,6 +251,26 @@ describe('keyword completion - narrow grammar contexts', () => {
 			'GoTo label',
 			'Resume Next',
 		]);
+	});
+
+	it('offers On expression branch continuations without overriding On Error', () => {
+		const result = resolveKeywordCompletions('Sub T()\n    On n ', at('Sub T()\n    On n ', 'On n '));
+		expect(result.exclusive).toBe(true);
+		expect(result.items.map((item) => item.label)).toEqual(['GoTo', 'GoSub']);
+		expect(labels('Sub T()\n    On n G\nEnd Sub\n', 'On n G')).toEqual(['GoTo', 'GoSub']);
+
+		const incomplete = resolveKeywordCompletions('Sub T()\n    On n + ', at('Sub T()\n    On n + ', 'On n + '));
+		expect(incomplete.exclusive).toBe(false);
+		expect(incomplete.items).toEqual([]);
+		expect(resolveKeywordCompletions('Sub T()\n    On n GoTo ', at('Sub T()\n    On n GoTo ', 'On n GoTo ')).items)
+			.toEqual([]);
+	});
+
+	it('offers Resume Next without hiding label completions', () => {
+		const result = resolveKeywordCompletions('Sub T()\n    Resume ', at('Sub T()\n    Resume ', 'Resume '));
+		expect(result.exclusive).toBe(false);
+		expect(result.items.map((item) => item.label)).toEqual(['Next']);
+		expect(labels('Sub T()\n    Resume N\nEnd Sub\n', 'Resume N')).toEqual(['Next']);
 	});
 
 	it('offers Exit targets after Exit', () => {
@@ -280,6 +323,145 @@ describe('keyword completion - narrow grammar contexts', () => {
 		expect(result.items.find((item) => item.label === 'Is')?.insertText).toBe(
 			'Is ${1:operator} ${2:value}',
 		);
+	});
+
+	it('offers Then after common If and ElseIf condition expressions', () => {
+		const ifResult = resolveKeywordCompletions('Sub T()\n    If value > 0 ', at('Sub T()\n    If value > 0 ', 'If value > 0 '));
+		expect(ifResult.exclusive).toBe(true);
+		expect(ifResult.items.map((item) => item.label)).toEqual(['Then']);
+		expect(labels('Sub T()\n    If True T\nEnd Sub\n', 'If True T')).toEqual(['Then']);
+		expect(labels('Sub T()\n    ElseIf value = "" T\nEnd Sub\n', 'ElseIf value = "" T')).toEqual(['Then']);
+
+		const incomplete = resolveKeywordCompletions('Sub T()\n    If value + ', at('Sub T()\n    If value + ', 'If value + '));
+		expect(incomplete.exclusive).toBe(false);
+		expect(incomplete.items).toEqual([]);
+		expect(resolveKeywordCompletions('Sub T()\n    If value Then ', at('Sub T()\n    If value Then ', 'If value Then ')).items)
+			.toEqual([]);
+	});
+
+	it('offers Then and If in conditional-compilation directive slots', () => {
+		const thenResult = resolveKeywordCompletions('#If VBA7 ', at('#If VBA7 ', '#If VBA7 '));
+		expect(thenResult.exclusive).toBe(true);
+		expect(thenResult.items.map((item) => item.label)).toEqual(['Then']);
+
+		const endResult = resolveKeywordCompletions('#End ', at('#End ', '#End '));
+		expect(endResult.exclusive).toBe(true);
+		expect(endResult.items.map((item) => item.label)).toEqual(['If']);
+	});
+
+	it('offers To and Step while writing counted For loops', () => {
+		const toResult = resolveKeywordCompletions('Sub T()\n    For i = 1 ', at('Sub T()\n    For i = 1 ', 'For i = 1 '));
+		expect(toResult.exclusive).toBe(true);
+		expect(toResult.items.map((item) => item.label)).toEqual(['To']);
+		expect(labels('Sub T()\n    For i = 1 T\nEnd Sub\n', 'For i = 1 T')).toEqual(['To']);
+
+		const stepResult = resolveKeywordCompletions('Sub T()\n    For i = 1 To 10 ', at('Sub T()\n    For i = 1 To 10 ', 'For i = 1 To 10 '));
+		expect(stepResult.exclusive).toBe(true);
+		expect(stepResult.items.map((item) => item.label)).toEqual(['Step']);
+
+		const incomplete = resolveKeywordCompletions('Sub T()\n    For i = start + ', at('Sub T()\n    For i = start + ', 'For i = start + '));
+		expect(incomplete.exclusive).toBe(false);
+		expect(incomplete.items).toEqual([]);
+		expect(resolveKeywordCompletions('Sub T()\n    For i = 1 To 10 Step ', at('Sub T()\n    For i = 1 To 10 Step ', 'For i = 1 To 10 Step ')).items)
+			.toEqual([]);
+	});
+
+	it('offers As in common declaration type-clause slots', () => {
+		for (const [src, marker] of [
+			['Sub T()\n    Dim value ', 'Dim value '],
+			['Sub T()\n    Dim a As Long, b ', 'Long, b '],
+			['Private value ', 'Private value '],
+			['Static counter ', 'Static counter '],
+			['Const MaxRows ', 'Const MaxRows '],
+		]) {
+			const result = resolveKeywordCompletions(src, at(src, marker));
+			expect(result.exclusive, marker).toBe(false);
+			expect(result.items.map((item) => item.label), marker).toEqual(['As']);
+		}
+	});
+
+	it('offers parameter modifiers and parameter As clauses in procedure headers', () => {
+		const startResult = resolveKeywordCompletions('Sub T(', at('Sub T(', 'Sub T('));
+		expect(startResult.exclusive).toBe(false);
+		expect(startResult.items.map((item) => item.label)).toEqual([
+			'ByVal',
+			'ByRef',
+			'Optional',
+			'ParamArray',
+		]);
+		expect(labels('Sub T(By', 'Sub T(By')).toEqual(['ByVal', 'ByRef']);
+		expect(labels('Sub T(Optional ', 'Optional ')).toEqual(['ByVal', 'ByRef']);
+
+		for (const [src, marker] of [
+			['Sub T(value ', 'value '],
+			['Sub T(ByVal value ', 'ByVal value '],
+			['Sub T(ByVal first As Long, second ', 'second '],
+		]) {
+			const result = resolveKeywordCompletions(src, at(src, marker));
+			expect(result.exclusive, marker).toBe(false);
+			expect(result.items.map((item) => item.label), marker).toEqual(['As']);
+		}
+	});
+
+	it('offers As for return-typed functions and property getters', () => {
+		for (const [src, marker] of [
+			['Function Total() ', 'Function Total() '],
+			['Function Total(ByVal value As Long) ', 'Function Total(ByVal value As Long) '],
+			['Property Get Name() ', 'Property Get Name() '],
+			['Declare PtrSafe Function GetTickCount Lib "kernel32" () ', 'Declare PtrSafe Function GetTickCount Lib "kernel32" () '],
+		]) {
+			const result = resolveKeywordCompletions(src, at(src, marker));
+			expect(result.exclusive, marker).toBe(false);
+			expect(result.items.map((item) => item.label), marker).toEqual(['As']);
+		}
+		expect(resolveKeywordCompletions('Sub T() ', at('Sub T() ', 'Sub T() ')).items).toEqual([]);
+		expect(resolveKeywordCompletions('Property Let Name(value As String) ', at('Property Let Name(value As String) ', 'Property Let Name(value As String) ')).items)
+			.toEqual([]);
+	});
+
+	it('offers common continuation keywords for ReDim and Set statements', () => {
+		const redimResult = resolveKeywordCompletions('Sub T()\n    ReDim ', at('Sub T()\n    ReDim ', 'ReDim '));
+		expect(redimResult.exclusive).toBe(false);
+		expect(redimResult.items.map((item) => item.label)).toEqual(['Preserve']);
+
+		const setResult = resolveKeywordCompletions('Sub T()\n    Set customer = ', at('Sub T()\n    Set customer = ', 'Set customer = '));
+		expect(setResult.exclusive).toBe(false);
+		expect(setResult.items.map((item) => item.label)).toEqual(['New']);
+		expect(setResult.items[0]?.insertText).toBe('New ${1:ClassName}');
+	});
+
+	it('offers active If branch snippets near an open If block', () => {
+		const src = 'Sub T()\n    If ready Then\n        \n';
+		const result = resolveKeywordCompletions(src, at(src, '        '));
+		expect(result.exclusive).toBe(false);
+		expect(result.items[0]?.label).toBe('End If');
+		expect(result.items[1]?.label).toBe('ElseIf');
+		expect(result.items[2]?.label).toBe('Else');
+		expect(result.items.find((item) => item.label === 'ElseIf')?.insertText).toBe(
+			'ElseIf ${1:condition} Then',
+		);
+		expect(labels('Sub T()\n    If ready Then\n        ElseI\n', 'ElseI')).toEqual(['ElseIf']);
+	});
+
+	it('offers active Select Case branch snippets near an open Select block', () => {
+		const src = 'Sub T()\n    Select Case value\n        \n';
+		const result = resolveKeywordCompletions(src, at(src, '        '));
+		expect(result.exclusive).toBe(false);
+		expect(result.items[0]?.label).toBe('End Select');
+		expect(result.items.map((item) => item.label)).toContain('Case');
+		expect(result.items.map((item) => item.label)).toContain('Case Is');
+		expect(result.items.map((item) => item.label)).toContain('Case Else');
+		expect(labels('Sub T()\n    Select Case value\n        caseis\n', 'caseis')).toEqual(['Case Is']);
+	});
+
+	it('offers conditional Loop closers near an open Do block', () => {
+		const src = 'Sub T()\n    Do\n        \n';
+		const result = resolveKeywordCompletions(src, at(src, '        '));
+		expect(result.exclusive).toBe(false);
+		expect(result.items[0]?.label).toBe('Loop');
+		expect(result.items.map((item) => item.label)).toContain('Loop Until');
+		expect(result.items.map((item) => item.label)).toContain('Loop While');
+		expect(labels('Sub T()\n    Do\n        loopu\n', 'loopu')).toEqual(['Loop Until']);
 	});
 
 	it('suggests the matching End form after End', () => {
