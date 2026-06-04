@@ -1969,7 +1969,7 @@ function checkArgumentTypes(
 }
 
 interface RuntimeArgumentValueSpec {
-	canonicalName: 'Left' | 'Right' | 'String' | 'Space' | 'Mid';
+	canonicalName: 'Left' | 'Right' | 'String' | 'Space' | 'Mid' | 'Replace';
 	parameterName: string;
 	argumentIndex: number;
 	minimum: number;
@@ -2086,6 +2086,9 @@ function runtimeArgumentValueCallAt(
 	if (specs.length === 0) {
 		return undefined;
 	}
+	if (suffix && !runtimeArgumentValueAllowsStringSuffix(specs[0].canonicalName)) {
+		return undefined;
+	}
 	const lower = specs[0].canonicalName.toLowerCase();
 	if (!qualifier && (moduleSignatures.has(lower) || env.has(lower))) {
 		return undefined;
@@ -2119,9 +2122,18 @@ function runtimeArgumentValueSpecs(name: string): readonly RuntimeArgumentValueS
 				{ canonicalName: 'Mid', parameterName: 'Start', argumentIndex: 1, minimum: 1 },
 				{ canonicalName: 'Mid', parameterName: 'Length', argumentIndex: 2, minimum: 0 },
 			];
+		case 'replace':
+			return [
+				{ canonicalName: 'Replace', parameterName: 'Start', argumentIndex: 3, minimum: 1 },
+				{ canonicalName: 'Replace', parameterName: 'Count', argumentIndex: 4, minimum: -1 },
+			];
 		default:
 			return [];
 	}
+}
+
+function runtimeArgumentValueAllowsStringSuffix(name: RuntimeArgumentValueSpec['canonicalName']): boolean {
+	return name !== 'Replace';
 }
 
 function runtimeArgumentValueSlot(

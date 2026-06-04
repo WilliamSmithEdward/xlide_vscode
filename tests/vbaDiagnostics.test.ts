@@ -1864,6 +1864,22 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[6].message).toContain('Length');
 	});
 
+	it('flags oracle-backed runtime argument bounds for Replace', () => {
+		const src =
+			'Sub T()\n' +
+			'    a = Replace("abcdef", "a", "z", 0)\n' +
+			'    b = Replace("abcdef", "a", "z", -1)\n' +
+			'    c = Replace("aaaa", "a", "z", 1, -2)\n' +
+			'    d = Replace("aaaa", "a", "z", Count:=-2, Start:=1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+		expect(hits).toHaveLength(4);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '-1', '-2', '-2']);
+		expect(hits[0].message).toContain('Replace');
+		expect(hits[0].message).toContain('Start');
+		expect(hits[2].message).toContain('Count');
+	});
+
 	it('accepts zero and unknown runtime argument values for selected native bounds', () => {
 		const src =
 			'Sub T()\n' +
@@ -1878,6 +1894,11 @@ describe('analyzeModule - argument type validation', () => {
 			'    h = Space(count)\n' +
 			'    i = Mid$("abcdef", 1, 0)\n' +
 			'    j = Mid("abcdef", count, count)\n' +
+			'    k = Replace("abcdef", "a", "z", 1)\n' +
+			'    l = Replace("aaaa", "a", "z", 1, -1)\n' +
+			'    m = Replace("aaaa", "a", "z", 1, 0)\n' +
+			'    n = Replace("aaaa", "a", "z", count, count)\n' +
+			'    o = Replace$("aaaa", "a", "z", 0)\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'runtime-argument-value')).toHaveLength(0);
 	});

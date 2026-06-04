@@ -209,10 +209,10 @@ Near-term candidates:
   `On Error Resume Next` policy, cross-module enum constants, and broader
   expression-value folding.
 - Literal argument-value bounds for `Left`/`Left$`, `Right`/`Right$`,
-  `String`/`String$`, `Space`/`Space$`, and `Mid`/`Mid$` are promoted through
-  `runtime-argument-value`; continue with additional runtime functions such as
-  `Replace`, named-argument edge cases, and constant-expression folding only
-  after focused oracle probes.
+  `String`/`String$`, `Space`/`Space$`, `Mid`/`Mid$`, and `Replace` are
+  promoted through `runtime-argument-value`; continue with nonliteral
+  constant-expression folding, additional named-argument edge cases, and
+  reachability policy only after focused oracle probes.
 - `IIf` eager branch evaluation: oracle cases prove both TruePart and FalsePart
   can raise deterministic runtime errors even when not selected; promote only
   when the branch expression itself is proven fatal.

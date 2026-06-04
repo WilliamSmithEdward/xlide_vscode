@@ -942,6 +942,72 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", 1, 0)\nEnd Sub\n"
     },
     {
+      "id": "replace_zero_start_runtime",
+      "description": "Runtime probe: passing zero Start to Replace isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"abcdef\", \"a\", \"z\", 0)\nEnd Sub\n"
+    },
+    {
+      "id": "replace_negative_start_runtime",
+      "description": "Runtime probe: passing negative Start to Replace isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"abcdef\", \"a\", \"z\", -1)\nEnd Sub\n"
+    },
+    {
+      "id": "replace_one_start_runtime",
+      "description": "Runtime control: passing Start 1 to Replace should verify the lower bound.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"abcdef\", \"a\", \"z\", 1)\nEnd Sub\n"
+    },
+    {
+      "id": "replace_negative_two_count_runtime",
+      "description": "Runtime probe: passing Count below the all-occurrences sentinel to Replace isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"aaaa\", \"a\", \"z\", 1, -2)\nEnd Sub\n"
+    },
+    {
+      "id": "replace_negative_one_count_runtime",
+      "description": "Runtime control: passing Count -1 to Replace should verify the all-occurrences sentinel.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"aaaa\", \"a\", \"z\", 1, -1)\nEnd Sub\n"
+    },
+    {
+      "id": "replace_zero_count_runtime",
+      "description": "Runtime control: passing Count 0 to Replace should verify zero replacements are valid.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"aaaa\", \"a\", \"z\", 1, 0)\nEnd Sub\n"
+    },
+    {
       "id": "colon_separated_dim_statements_compile",
       "description": "Compile control: colon separates multiple Dim statements on one physical line.",
       "provenance": "vbe-oracle-verified",

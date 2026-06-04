@@ -381,11 +381,17 @@
         "mid_string_suffix_zero_start_runtime",
         "mid_negative_start_runtime",
         "mid_string_suffix_negative_length_runtime",
-        "mid_string_suffix_zero_length_runtime"
+        "mid_string_suffix_zero_length_runtime",
+        "replace_zero_start_runtime",
+        "replace_negative_start_runtime",
+        "replace_one_start_runtime",
+        "replace_negative_two_count_runtime",
+        "replace_negative_one_count_runtime",
+        "replace_zero_count_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer literals for Left/Left$, Right/Right$, String/String$, Space/Space$, and Mid/Mid$ compile successfully and deterministically raise runtime error 5, while zero/nonzero controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals outside proven runtime bounds, respects bare-call shadowing by source symbols and local declarations, and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer literals for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, and Replace compile successfully and deterministically raise runtime error 5, while zero/nonzero controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals outside proven runtime bounds, maps named argument slots, respects bare-call shadowing by source symbols and local declarations, and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
