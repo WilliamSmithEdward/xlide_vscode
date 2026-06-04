@@ -203,13 +203,28 @@ signature is ever invented, so an unknown callee yields no tip.
 |---|---|---|---|---|
 | Caret-to-active-call resolution (paren + parenless) | src/analyzer/signature/signatureHelp.ts | tests/vbaSignatureHelp.test.ts | MS-VBAL 5.4.2 (call statements) | Verified |
 | Host-member call signatures (`Workbooks.Open`, `Range.Offset`, ...) | src/analyzer/host/excelObjectModel.ts (`memberSignatures`) | tests/vbaSignatureHelp.test.ts | Office VBA object-model reference (learn.microsoft.com) | Verified |
-| User procedure/Declare signatures (from AST) | src/analyzer/signature/signatureHelp.ts | tests/vbaSignatureHelp.test.ts | n/a (built from parsed `ProcedureNode` / `DeclareNode`) | Verified |
+| User procedure/Declare signatures and Declare Lib/Alias call-tip details (from AST) | src/analyzer/signature/signatureHelp.ts | tests/vbaSignatureHelp.test.ts | n/a (built from parsed `ProcedureNode` / `DeclareNode`; Declare grammar row above covers MS-VBAL 5.2.3.5) | Verified |
 | Runtime built-in signatures | src/analyzer/runtime/vbaRuntime.ts | tests/vbaSignatureHelp.test.ts | learn.microsoft.com/office/vba/language + MS-VBAL | Verified |
 
 Verification rule: host-member signatures are transcribed from the Office VBA
 object-model reference. Where a method has a large variadic tail (e.g.
 `Application.Run` takes Arg1..Arg30) only the leading commonly-used parameters
 are listed rather than inventing a synthetic `...` token.
+
+---
+
+## Addendum - VBA7 / PtrSafe Completion Snippets
+
+Phase 6 adds migration snippets for common external declaration patterns. These
+snippets are editor affordances rather than diagnostics: they follow Microsoft
+Learn's `PtrSafe` guidance that VBA7 compatibility uses `#If VBA7 Then ...
+#Else ... #End If`, that 64-bit Office `Declare` statements require `PtrSafe`,
+and that pointer/handle-sized parameters or returns should use `LongPtr`.
+
+| Feature | Implementation File | Fixture | Source | Status |
+|---|---|---|---|---|
+| Access-modifier `Declare PtrSafe` Sub/Function snippets | src/analyzer/completion/keywordCompletion.ts | tests/vbaKeywordCompletion.test.ts | Microsoft Learn `PtrSafe keyword (VBA)` | Verified |
+| `#If VBA7` / `#If Win64` conditional-compilation snippets with `Declare PtrSafe` templates | src/analyzer/completion/keywordCompletion.ts | tests/vbaKeywordCompletion.test.ts | Microsoft Learn `PtrSafe keyword (VBA)` + `Compiler constants (VBA)` | Verified |
 
 ---
 

@@ -57,10 +57,14 @@ export interface SignatureInfo {
 	activeParameter: number;
 	/** Markdown summary (summary/returns/remarks) for the whole signature. */
 	documentation?: string;
+	/** Plain detail lines for metadata such as external Declare Lib/Alias. */
+	details?: string[];
 }
 
 /** Context for signature resolution. */
 export interface SignatureHelpContext extends MemberCompletionContext {
+	/** Name of the module being edited, used for Declare call-tip detail text. */
+	moduleName?: string;
 	/**
 	 * Source of the module that owns user procedures to match bare callees
 	 * against. Defaults to the analysed `source` when omitted (the common case
@@ -275,6 +279,7 @@ export function resolveSignatureHelp(
 			return undefined;
 		}
 		const doc = docForCallee(site, source, ctx);
+		const details = signatureDetailsForCallee(site, source, ctx);
 		// External metadata can supply a signature for a callee the curated
 		// library cannot resolve (developer-defined overrides the library).
 		const sig = signatureForCallee(site, source, ctx) ?? doc?.signature;
@@ -298,13 +303,78 @@ export function resolveSignatureHelp(
 				documentation: paramDocFor(doc, p),
 			})),
 			activeParameter: active,
-			documentation: hasDocContent(doc)
-				? renderSignatureDocMarkdown(doc) || undefined
-				: undefined,
+			documentation: signatureDocumentation(doc, details),
+			details: details.length > 0 ? details : undefined,
 		};
 	} catch {
 		return undefined;
 	}
+}
+
+function signatureDocumentation(
+	doc: VbaDoc | undefined,
+	details: readonly string[],
+): string | undefined {
+	const renderedDoc = hasDocContent(doc)
+		? renderSignatureDocMarkdown(doc) || undefined
+		: undefined;
+	if (details.length === 0) {
+		return renderedDoc;
+	}
+	const renderedDetails = details.join('  \n');
+	return renderedDoc
+		? `${renderedDoc}\n\n${renderedDetails}`
+		: renderedDetails;
+}
+
+function signatureDetailsForCallee(
+	site: CallSite,
+	source: string,
+	ctx: SignatureHelpContext,
+): string[] {
+	if (site.isMember) {
+		return [];
+	}
+	const moduleSource = ctx.moduleSource ?? source;
+	const declare = findUserDeclare(moduleSource, site.calleeName);
+	if (declare) {
+		return declareDetails({
+			moduleName: ctx.moduleName,
+			visibility: declare.visibility,
+			libName: declare.libName,
+			aliasName: declare.aliasName,
+		});
+	}
+	const projectProc = findProjectProcedure(ctx.projectProcedures, site.calleeName);
+	if (!projectProc?.external) {
+		return [];
+	}
+	return declareDetails({
+		moduleName: projectProc.moduleName,
+		visibility: projectProc.visibility,
+		libName: projectProc.libName,
+		aliasName: projectProc.aliasName,
+	});
+}
+
+function declareDetails(info: {
+	moduleName?: string;
+	visibility?: string;
+	libName?: string;
+	aliasName?: string;
+}): string[] {
+	const details: string[] = ['External declaration'];
+	if (info.moduleName) {
+		details.push(`Declared in Module: ${info.moduleName}`);
+	}
+	details.push(`Visibility: ${info.visibility ?? 'Public'}`);
+	if (info.libName) {
+		details.push(`Lib: ${info.libName}`);
+	}
+	if (info.aliasName) {
+		details.push(`Alias: ${info.aliasName}`);
+	}
+	return details;
 }
 
 function isForbiddenExplicitRuntimeCall(site: CallSite): boolean {

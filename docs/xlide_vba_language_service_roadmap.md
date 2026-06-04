@@ -941,11 +941,10 @@ Do not ship low-confidence diagnostics by default.
 > statement start (`If`, `With`, `For`, `For Each`, `Do`, `While`,
 > `Select Case`, procedure blocks), exclusive grammar completions after
 > `Option`, `End`, `On Error`, access modifiers, and `#` conditional
-> compilation markers, with innermost-block-aware close suggestions. Remaining:
+> compilation markers, including `Declare PtrSafe` and `#If VBA7` / `#If Win64`
+> migration snippets for external declarations, with innermost-block-aware close
+> suggestions. Remaining:
 > optional enter-time auto-block insertion after manually typed block headers.
-> Current next slice: branch-aware conditional compilation for `VBA7`,
-> `Win64`, `Win32`, `PtrSafe`, `LongPtr`, and related 32/64-bit Office patterns
-> on top of the shared `Declare` metadata now in place.
 
 ### Goal
 
@@ -1016,6 +1015,8 @@ statements now parse visibility, `PtrSafe`, `Sub`/`Function`, name, `Lib`,
 `Alias`, parameters, and return type. That metadata is indexed as a
 bare-callable signature and feeds same-module/project completion, hover,
 signature help, argument-count diagnostics, and argument-type diagnostics.
+Hover and signature help surface external declaration metadata, including
+declaring module, visibility, `Lib`, and `Alias` details when present.
 Conditional-compilation directives now parse into the AST at module and
 procedure scope, and `src/analyzer/conditional/conditionalCompilation.ts`
 collects them in source order, indexes `#Const` definitions, evaluates
@@ -1062,11 +1063,11 @@ Required behavior:
 - [Done first slice] Make branch-aware analysis suppress false positives from
   mutually exclusive 32-bit and 64-bit declarations across the shared symbol
   graph and active diagnostics.
-- Provide snippets for common patterns such as `#If VBA7 Then ... #Else ...
-  #End If` and `#If Win64 Then ... #Else ... #End If` with `Declare PtrSafe`
-  templates.
-- Surface `Declare` hovers and signature help from parsed metadata, including
-  `Lib` / `Alias` details when present.
+- [Done] Provide snippets for common patterns such as `#If VBA7 Then ... #Else ...
+  #End If`, `#If Win64 Then ... #End If`, and VBA7/VBA6-compatible
+  `Declare PtrSafe` templates.
+- [Done] Surface `Declare` hovers and signature help from parsed metadata,
+  including `Lib` / `Alias` details when present.
 - Record MS-VBAL and Microsoft Learn verification notes before enabling new
   diagnostics by default.
 

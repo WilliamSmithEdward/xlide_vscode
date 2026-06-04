@@ -216,17 +216,27 @@ describe('signature help - user procedures', () => {
 	it('uses current-module Declare signatures', () => {
 		const info = help(
 			[
-				'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+				'Private Declare PtrSafe Sub Sleep Lib "kernel32" Alias "Sleep" (ByVal Milliseconds As LongPtr)',
 				'Sub Caller()',
 				'    Sleep |',
 				'End Sub',
 			].join('\n'),
+			{ moduleName: 'NativeApi' },
 		);
 
 		expect(info?.label).toBe(
-			'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+			'Declare PtrSafe Sub Sleep Lib "kernel32" Alias "Sleep" (ByVal Milliseconds As LongPtr)',
 		);
 		expect(info?.parameters[0].label).toBe('ByVal Milliseconds As LongPtr');
+		expect(info?.details).toEqual([
+			'External declaration',
+			'Declared in Module: NativeApi',
+			'Visibility: Private',
+			'Lib: kernel32',
+			'Alias: Sleep',
+		]);
+		expect(info?.documentation).toContain('Lib: kernel32');
+		expect(info?.documentation).toContain('Alias: Sleep');
 	});
 
 	it('uses exported project Declare signatures', () => {
@@ -249,14 +259,18 @@ describe('signature help - user procedures', () => {
 					external: true,
 					ptrSafe: true,
 					libName: 'kernel32',
+					aliasName: 'Sleep',
+					visibility: 'Public',
 				},
 			],
 		});
 
 		expect(info?.label).toBe(
-			'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal Milliseconds As LongPtr)',
+			'Declare PtrSafe Sub Sleep Lib "kernel32" Alias "Sleep" (ByVal Milliseconds As LongPtr)',
 		);
 		expect(info?.parameters[0].label).toBe('ByVal Milliseconds As LongPtr');
+		expect(info?.documentation).toContain('Declared in Module: NativeApi');
+		expect(info?.documentation).toContain('Alias: Sleep');
 	});
 });
 

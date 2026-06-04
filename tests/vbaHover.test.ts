@@ -75,17 +75,18 @@ describe('hover - user symbols', () => {
 
 	it('describes external Declare callables from the current module', () => {
 		const src =
-			'Private Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long\n' +
+			'Private Declare PtrSafe Function GetTickCount Lib "kernel32" Alias "GetTickCount64" () As Long\n' +
 			'Sub Caller()\n    value = GetTickCount()\nEnd Sub\n';
 		const info = resolveHover(src, src.indexOf('GetTickCount()') + 2, {
 			moduleName: 'NativeApi',
 		});
 
 		expect(info?.signature).toBe(
-			'Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long',
+			'Declare PtrSafe Function GetTickCount Lib "kernel32" Alias "GetTickCount64" () As Long',
 		);
 		expect(info?.details).toContain('External declaration');
 		expect(info?.details).toContain('Lib: kernel32');
+		expect(info?.details).toContain('Alias: GetTickCount64');
 	});
 
 	it('describes exported project Declare callables from other standard modules', () => {

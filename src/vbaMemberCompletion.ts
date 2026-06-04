@@ -422,6 +422,7 @@ class VbaMemberCompletionProvider
 	): SignatureHelpContext {
 		return {
 			...this._memberContext(ctx),
+			moduleName: ctx.moduleName,
 			moduleSource: source,
 			projectProcedures: ctx.projectProcedures,
 			docRegistry: this._docs,

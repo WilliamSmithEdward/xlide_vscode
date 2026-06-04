@@ -81,6 +81,34 @@ const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 const MODIFIER_SNIPPETS: readonly KeywordSpec[] = [
 	keyword('Const', 'Constant declaration'),
 	keyword('Dim', 'Variable declaration'),
+	snippet(
+		'Declare PtrSafe Sub',
+		'Declare PtrSafe Sub ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:LongPtr})',
+		'64-bit-safe external Sub declaration',
+		undefined,
+		['declareptrsafesub', 'ptrsafesub'],
+	),
+	snippet(
+		'Declare PtrSafe Function',
+		'Declare PtrSafe Function ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:LongPtr}) As ${5:LongPtr}',
+		'64-bit-safe external Function declaration',
+		undefined,
+		['declareptrsafefunction', 'ptrsafefunction'],
+	),
+	snippet(
+		'Declare Sub',
+		'Declare Sub ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:Long})',
+		'External Sub declaration',
+		undefined,
+		['declaresub'],
+	),
+	snippet(
+		'Declare Function',
+		'Declare Function ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:Long}) As ${5:Long}',
+		'External Function declaration',
+		undefined,
+		['declarefunction'],
+	),
 ];
 
 const OPTION_SNIPPETS: readonly KeywordSpec[] = [
@@ -109,6 +137,48 @@ const ON_ERROR_SNIPPETS: readonly KeywordSpec[] = [
 
 const DIRECTIVE_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('#Const', '#Const ${1:name} = ${2:value}', 'Conditional compilation constant'),
+	snippet(
+		'#If VBA7 Then',
+		blockText('#If VBA7 Then', I + '$0', '#End If'),
+		'VBA7 conditional compilation block',
+		undefined,
+		['vba7', 'ifvba7'],
+	),
+	snippet(
+		'#If Win64 Then',
+		blockText('#If Win64 Then', I + '$0', '#End If'),
+		'64-bit Office conditional compilation block',
+		undefined,
+		['win64', 'ifwin64'],
+	),
+	// Microsoft PtrSafe guidance recommends #If VBA7 for compatibility with VBA6
+	// and PtrSafe + LongPtr for pointer/handle-sized values in VBA7.
+	snippet(
+		'#If VBA7 Declare Sub',
+		blockText(
+			'#If VBA7 Then',
+			'Public Declare PtrSafe Sub ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:LongPtr})',
+			'#Else',
+			'Public Declare Sub ${1/(.*)/$1/} Lib "${2/(.*)/$1/}" (ByVal ${3/(.*)/$1/} As ${5:Long})',
+			'#End If',
+		),
+		'VBA7/VBA6-compatible external Sub declaration',
+		undefined,
+		['vba7declare', 'vba7declaresub', 'ptrsafedeclare'],
+	),
+	snippet(
+		'#If VBA7 Declare Function',
+		blockText(
+			'#If VBA7 Then',
+			'Public Declare PtrSafe Function ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:LongPtr}) As ${5:LongPtr}',
+			'#Else',
+			'Public Declare Function ${1/(.*)/$1/} Lib "${2/(.*)/$1/}" (ByVal ${3/(.*)/$1/} As ${6:Long}) As ${7:Long}',
+			'#End If',
+		),
+		'VBA7/VBA6-compatible external Function declaration',
+		undefined,
+		['vba7declarefunction', 'ptrsafefunctiondeclare'],
+	),
 	keyword('#ElseIf', 'Conditional compilation branch'),
 	keyword('#Else', 'Conditional compilation branch'),
 	keyword('#End If', 'End conditional compilation block'),

@@ -179,6 +179,19 @@ describe('keyword completion - narrow grammar contexts', () => {
 		expect(result.items.find((item) => item.label === 'Property Get')?.insertText).toContain(
 			'End Property',
 		);
+		expect(result.items.map((item) => item.label)).toContain('Declare PtrSafe Function');
+		expect(result.items.find((item) => item.label === 'Declare PtrSafe Function')?.insertText)
+			.toBe('Declare PtrSafe Function ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:LongPtr}) As ${5:LongPtr}');
+	});
+
+	it('offers pointer-safe Declare aliases after access modifiers', () => {
+		const src = 'Public ptrsafe';
+		const result = resolveKeywordCompletions(src, at(src, 'Public ptrsafe'));
+		expect(result.exclusive).toBe(true);
+		expect(result.items.map((item) => item.label)).toEqual([
+			'Declare PtrSafe Sub',
+			'Declare PtrSafe Function',
+		]);
 	});
 
 	it('offers On Error continuations', () => {
@@ -213,9 +226,26 @@ describe('keyword completion - narrow grammar contexts', () => {
 		const result = resolveKeywordCompletions(src, at(src, '#'));
 		expect(result.exclusive).toBe(true);
 		expect(result.items.map((item) => item.label)).toContain('#If');
+		expect(result.items.map((item) => item.label)).toContain('#If VBA7 Declare Function');
+		expect(result.items.map((item) => item.label)).toContain('#If Win64 Then');
 		expect(result.items.find((item) => item.label === '#If')?.insertText).toBe(
 			'#If ${1:condition} Then\n\n\t$0\n\n#End If',
 		);
+		expect(result.items.find((item) => item.label === '#If VBA7 Declare Sub')?.insertText).toBe(
+			[
+				'#If VBA7 Then',
+				'Public Declare PtrSafe Sub ${1:ProcedureName} Lib "${2:library}" (ByVal ${3:argument} As ${4:LongPtr})',
+				'#Else',
+				'Public Declare Sub ${1/(.*)/$1/} Lib "${2/(.*)/$1/}" (ByVal ${3/(.*)/$1/} As ${5:Long})',
+				'#End If',
+			].join('\n'),
+		);
+	});
+
+	it('matches conditional Declare snippets through compact aliases', () => {
+		const src = '#vba7declare';
+		const result = resolveKeywordCompletions(src, at(src, '#vba7declare'));
+		expect(result.items.map((item) => item.label)).toEqual(['#If VBA7 Declare Sub']);
 	});
 });
 
