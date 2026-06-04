@@ -4197,7 +4197,7 @@ class IntegerConstantExpressionParser {
 		}
 		if (token.kind === 'integerLiteral') {
 			this.index++;
-			return parseDecimalIntegerLiteral(token.rawText);
+			return parseVbaIntegerLiteral(token.rawText);
 		}
 		const name = normalizeFixedLengthConstantName(token.rawText);
 		if (name) {
@@ -4226,6 +4226,21 @@ function parseDecimalIntegerLiteral(raw: string): number | undefined {
 	}
 	const value = Number(raw);
 	return Number.isSafeInteger(value) ? value : undefined;
+}
+
+function parseVbaIntegerLiteral(raw: string): number | undefined {
+	const text = raw.trim().replace(/[%&^]$/, '');
+	const hex = /^&[hH]([0-9A-Fa-f]+)$/.exec(text);
+	if (hex) {
+		const value = Number.parseInt(hex[1], 16);
+		return Number.isSafeInteger(value) ? value : undefined;
+	}
+	const octal = /^&[oO]([0-7]+)$/.exec(text);
+	if (octal) {
+		const value = Number.parseInt(octal[1], 8);
+		return Number.isSafeInteger(value) ? value : undefined;
+	}
+	return parseDecimalIntegerLiteral(text);
 }
 
 function safeInteger(value: number): number | undefined {

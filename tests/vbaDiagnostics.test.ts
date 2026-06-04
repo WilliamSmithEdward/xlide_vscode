@@ -2947,6 +2947,34 @@ describe('analyzeModule - division by zero', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['&H0', '&O0']);
 	});
 
+	it('errors on hex and octal Const zero divisors', () => {
+		const src =
+			'Private Const ModuleHexZero As Long = &H0\n' +
+			'Public Sub T()\n' +
+			'    Const LocalOctalZero As Long = &O0\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / ModuleHexZero\n' +
+			'    a = 1 \\ LocalOctalZero\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['ModuleHexZero', 'LocalOctalZero']);
+	});
+
+	it('folds hex Const expressions for zero divisor checks', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Const HexZero As Long = &H1 - &H1\n' +
+			'    Const HexOne As Long = &H1\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / HexZero\n' +
+			'    a = 1 Mod HexOne\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('HexZero');
+	});
+
 	it('errors on zero-valued module and local Const divisors', () => {
 		const src =
 			'Private Const ModuleZero As Long = 0\n' +
@@ -3421,6 +3449,22 @@ describe('analyzeModule - fixed-length String bounds', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['HeaderCodeLength', 'LocalTooSmall']);
 		expect(hits[0].message).toContain('got 65527');
 		expect(hits[1].message).toContain('got 0');
+	});
+
+	it('resolves non-decimal integer Consts used as fixed-length String sizes', () => {
+		const src =
+			'Private Const HeaderCodeLength As Long = &H14\n' +
+			'Private Type Header\n' +
+			'    Code As String * HeaderCodeLength\n' +
+			'End Type\n' +
+			'Sub T()\n' +
+			'    Const LocalTooSmall As Long = &O0\n' +
+			'    Dim localName As String * LocalTooSmall\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('LocalTooSmall');
+		expect(hits[0].message).toContain('got 0');
 	});
 
 	it('defers unknown and non-deterministic Const length expressions', () => {

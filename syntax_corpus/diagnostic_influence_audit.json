@@ -345,11 +345,15 @@
         "division_by_module_const_zero_runtime",
         "division_by_local_const_zero_runtime",
         "division_by_const_expression_zero_runtime",
-        "division_by_const_expression_nonzero_runtime"
+        "division_by_const_expression_nonzero_runtime",
+        "division_by_hex_const_zero_runtime",
+        "integer_division_by_octal_const_zero_runtime",
+        "mod_by_hex_const_nonzero_runtime",
+        "division_by_hex_const_expression_zero_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, and reducible integer Const-expression zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal and Const-expression controls run. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, and broader expression folding until flow/reachability handling is broader.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, and reducible integer Const-expression zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal and Const-expression controls run. Const folding includes decimal/hex/octal integer literals where the expression remains deterministic. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, and broader expression folding until flow/reachability handling is broader.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
