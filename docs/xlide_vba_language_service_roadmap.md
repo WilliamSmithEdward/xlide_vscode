@@ -653,9 +653,11 @@ Recovery rules:
 > Definition, Find All References, and Rename providers in
 > `src/vbaLanguageProviders.ts` via `resolveDefinition`,
 > `resolveQualifiedDefinition`, and `referenceScope` (scope-restricted
-> occurrence search). Remaining: wiring the AST index into the live VS Code
-> Document/Workspace symbol providers (still served by the interim regex index
-> in `src/vbaSymbolIndex.ts`), and richer block/UDT/class member scope
+> occurrence search). The AST index also drives the live VS Code Document
+> Symbol and Workspace Symbol providers via `src/vbaSymbolPresentation.ts`:
+> Outline/breadcrumbs include nested params, locals, enum members, and UDT
+> fields, while workspace symbol search spans loaded workbook-backed projects
+> plus open standalone VBA files. Remaining: richer block/UDT/class member scope
 > resolution.
 
 ### Goal

@@ -7,7 +7,7 @@ import {
     encodeModuleUri,
     moduleIdentityKey,
 } from './xlideFileSystem';
-import { VbaSymbol, VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
+import { VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
 import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import {
     analyzeVbaStructure,
@@ -28,7 +28,6 @@ import {
     EventHandlerDocumentType,
     eventHandlerDocumentTypeForContext,
     isXlideDiagnosticSource,
-    ModuleSymbolKind,
     normalizeDiagnosticCode,
     ProjectIndex,
     ReferenceScope,
@@ -41,7 +40,10 @@ import {
     type VbaDiagnosticData,
     type VbaProjectClassMember,
     type VbaProjectClassMemberDefinition,
+    type ModuleSymbolKind,
+    type Span,
     VbaSymbol as AstSymbol,
+    type VbaSymbolKind,
 } from './analyzer';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
@@ -59,6 +61,12 @@ import {
     projectProcedureSignatures,
     type VbaProjectAnalysisOptions,
 } from './vbaProjectAnalysis';
+import {
+    documentOutlineSymbolsForSource,
+    workspaceSymbols as presentedWorkspaceSymbols,
+    type VbaPresentedSymbol,
+    type VbaPresentedWorkspaceSymbol,
+} from './vbaSymbolPresentation';
 import {
     isAnalysisRuleTracked,
 } from './analysisSettingsCore';
@@ -85,37 +93,58 @@ type XlideDiagnosticWithData = vscode.Diagnostic & {
     [XLIDE_DIAGNOSTIC_DATA]?: VbaDiagnosticData;
 };
 
-function symbolKindToVscode(kind: VbaSymbol['kind']): vscode.SymbolKind {
+function astSymbolKindToVscode(kind: VbaSymbolKind): vscode.SymbolKind {
     switch (kind) {
-        case 'Sub': return vscode.SymbolKind.Method;
-        case 'Function': return vscode.SymbolKind.Function;
-        case 'PropertyGet':
-        case 'PropertyLet':
-        case 'PropertySet':
+        case 'module': return vscode.SymbolKind.Module;
+        case 'sub': return vscode.SymbolKind.Method;
+        case 'function': return vscode.SymbolKind.Function;
+        case 'propertyGet':
+        case 'propertyLet':
+        case 'propertySet':
             return vscode.SymbolKind.Property;
-        case 'Const': return vscode.SymbolKind.Constant;
-        case 'Enum': return vscode.SymbolKind.Enum;
-        case 'Type': return vscode.SymbolKind.Struct;
+        case 'parameter':
+        case 'localVariable':
+            return vscode.SymbolKind.Variable;
+        case 'moduleVariable':
+        case 'typeField':
+            return vscode.SymbolKind.Field;
+        case 'constant': return vscode.SymbolKind.Constant;
+        case 'enum': return vscode.SymbolKind.Enum;
+        case 'enumMember': return vscode.SymbolKind.EnumMember;
+        case 'type': return vscode.SymbolKind.Struct;
+        case 'declare': return vscode.SymbolKind.Function;
     }
 }
 
-function symbolDetail(symbol: VbaSymbol): string {
-    switch (symbol.kind) {
-        case 'PropertyGet': return 'Property Get';
-        case 'PropertyLet': return 'Property Let';
-        case 'PropertySet': return 'Property Set';
-        default: return symbol.kind;
-    }
-}
-
-function symbolRange(symbol: VbaSymbol): vscode.Range {
-    return new vscode.Range(symbol.startLine, 0, symbol.endLine, Number.MAX_SAFE_INTEGER);
-}
-
-function selectionRange(symbol: VbaSymbol): vscode.Range {
+function spanRange(source: string, span: Span): vscode.Range {
     return new vscode.Range(
-        symbol.line, symbol.column,
-        symbol.line, symbol.column + symbol.length,
+        offsetToPosition(source, span.start),
+        offsetToPosition(source, span.end),
+    );
+}
+
+function documentSymbolToVscode(source: string, symbol: VbaPresentedSymbol): vscode.DocumentSymbol {
+    const out = new vscode.DocumentSymbol(
+        symbol.name,
+        symbol.detail,
+        astSymbolKindToVscode(symbol.kind),
+        spanRange(source, symbol.fullSpan),
+        spanRange(source, symbol.nameSpan),
+    );
+    out.children = symbol.children.map((child) => documentSymbolToVscode(source, child));
+    return out;
+}
+
+function workspaceSymbolToVscode(
+    uri: vscode.Uri,
+    source: string,
+    symbol: VbaPresentedWorkspaceSymbol,
+): vscode.SymbolInformation {
+    return new vscode.SymbolInformation(
+        symbol.name,
+        astSymbolKindToVscode(symbol.kind),
+        symbol.containerName,
+        new vscode.Location(uri, spanRange(source, symbol.nameSpan)),
     );
 }
 
@@ -452,15 +481,87 @@ function occurrencesInScope(
 // Provider implementations
 // ---------------------------------------------------------------------------
 
-class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider {    provideDocumentSymbols(document: vscode.TextDocument): vscode.DocumentSymbol[] {
-        const symbols = parseVbaModule(document.getText());
-        return symbols.map((s) => new vscode.DocumentSymbol(
-            s.name,
-            symbolDetail(s),
-            symbolKindToVscode(s.kind),
-            symbolRange(s),
-            selectionRange(s),
-        ));
+class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
+    provideDocumentSymbols(
+        document: vscode.TextDocument,
+        token: vscode.CancellationToken,
+    ): vscode.DocumentSymbol[] {
+        if (!isVbaDocument(document)) { return []; }
+        if (token.isCancellationRequested) { return []; }
+        const source = document.getText();
+        const moduleName = moduleNameFromDocument(document);
+        return documentOutlineSymbolsForSource(
+            moduleName,
+            moduleKindFromDocument(document),
+            source,
+        ).map((symbol) => documentSymbolToVscode(source, symbol));
+    }
+}
+
+class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
+    constructor(private readonly _index: VbaSymbolIndex) {}
+
+    async provideWorkspaceSymbols(
+        query: string,
+        token: vscode.CancellationToken,
+    ): Promise<vscode.SymbolInformation[]> {
+        const out: vscode.SymbolInformation[] = [];
+        const workbookPaths = new Set<string>();
+        for (const document of vscode.workspace.textDocuments) {
+            if (document.uri.scheme !== XLIDE_SCHEME) {
+                continue;
+            }
+            try {
+                workbookPaths.add(decodeModuleUri(document.uri).xlsmPath);
+            } catch {
+                // Ignore malformed XLIDE URIs.
+            }
+        }
+
+        for (const xlsmPath of workbookPaths) {
+            if (token.isCancellationRequested) { return out; }
+            try {
+                const modules = applyOpenDocumentSources(
+                    await this._index.getAllModules(xlsmPath),
+                    xlsmPath,
+                );
+                const project = buildLiveVbaProjectIndex(modules);
+                const byModule = new Map(modules.map((mod) => [
+                    mod.moduleName.toLowerCase(),
+                    mod,
+                ]));
+                for (const symbol of presentedWorkspaceSymbols(project, query)) {
+                    const mod = byModule.get(symbol.moduleName.toLowerCase());
+                    if (!mod) { continue; }
+                    out.push(workspaceSymbolToVscode(
+                        encodeModuleUri(xlsmPath, mod.moduleName),
+                        mod.source,
+                        symbol,
+                    ));
+                }
+            } catch {
+                // Workspace symbols are best-effort; skip workbooks that fail to read.
+            }
+        }
+
+        for (const document of vscode.workspace.textDocuments) {
+            if (token.isCancellationRequested) { return out; }
+            if (!isStandaloneVbaDocument(document)) {
+                continue;
+            }
+            const source = document.getText();
+            const moduleName = moduleNameFromDocument(document);
+            const project = buildLiveVbaProjectIndex([], {
+                moduleName,
+                moduleKind: moduleKindFromDocument(document),
+                source,
+            });
+            for (const symbol of presentedWorkspaceSymbols(project, query)) {
+                out.push(workspaceSymbolToVscode(document.uri, source, symbol));
+            }
+        }
+
+        return out;
     }
 }
 
@@ -857,6 +958,10 @@ function isVbaDocument(document: vscode.TextDocument): boolean {
     return document.languageId === 'vba' || document.uri.scheme === XLIDE_SCHEME;
 }
 
+function isStandaloneVbaDocument(document: vscode.TextDocument): boolean {
+    return document.uri.scheme !== XLIDE_SCHEME && document.languageId === 'vba';
+}
+
 function moduleNameFromDocument(document: vscode.TextDocument): string {
     if (document.uri.scheme === XLIDE_SCHEME) {
         try {
@@ -867,6 +972,46 @@ function moduleNameFromDocument(document: vscode.TextDocument): string {
     }
     const base = document.uri.path.split('/').pop() ?? 'Module';
     return base.replace(/\.[^.]+$/, '') || 'Module';
+}
+
+function moduleKindFromDocument(document: vscode.TextDocument): ModuleSymbolKind {
+    const fileName = document.uri.path.split('/').pop() ?? '';
+    if (/\.cls$/i.test(fileName)) {
+        return 'class';
+    }
+    if (/\.frm$/i.test(fileName)) {
+        return 'userform';
+    }
+    return 'standard';
+}
+
+async function liveProjectIndexForDocument(
+    index: VbaSymbolIndex,
+    document: vscode.TextDocument,
+    source: string,
+    moduleName: string,
+): Promise<ProjectIndex> {
+    if (document.uri.scheme !== XLIDE_SCHEME) {
+        return buildLiveVbaProjectIndex([], {
+            moduleName,
+            moduleKind: moduleKindFromDocument(document),
+            source,
+        });
+    }
+
+    const decoded = decodeModuleUri(document.uri);
+    const modules = applyOpenDocumentSources(
+        await index.getAllModules(decoded.xlsmPath),
+        decoded.xlsmPath,
+    );
+    const current = modules.find(
+        (m) => m.moduleName.toLowerCase() === moduleName.toLowerCase(),
+    );
+    return buildLiveVbaProjectIndex(modules, {
+        moduleName,
+        moduleKind: moduleKindFromType(current?.type),
+        source,
+    });
 }
 
 const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
@@ -891,7 +1036,12 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         const moduleName = moduleNameFromDocument(document);
         let projectTypes: VbaProjectAnalysisOptions['projectTypes'] = [];
         try {
-            const project = await this._projectIndexForDocument(document, source, moduleName);
+            const project = await liveProjectIndexForDocument(
+                this._index,
+                document,
+                source,
+                moduleName,
+            );
             projectTypes = projectAnalysisOptionsForModule(project, moduleName).projectTypes ?? [];
         } catch {
             projectTypes = [];
@@ -909,34 +1059,6 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
             );
         }
         return builder.build();
-    }
-
-    private async _projectIndexForDocument(
-        document: vscode.TextDocument,
-        source: string,
-        moduleName: string,
-    ): Promise<ProjectIndex> {
-        if (document.uri.scheme !== XLIDE_SCHEME) {
-            return buildLiveVbaProjectIndex([], {
-                moduleName,
-                moduleKind: 'standard',
-                source,
-            });
-        }
-
-        const decoded = decodeModuleUri(document.uri);
-        const modules = applyOpenDocumentSources(
-            await this._index.getAllModules(decoded.xlsmPath),
-            decoded.xlsmPath,
-        );
-        const current = modules.find(
-            (m) => m.moduleName.toLowerCase() === moduleName.toLowerCase(),
-        );
-        return buildLiveVbaProjectIndex(modules, {
-            moduleName,
-            moduleKind: moduleKindFromType(current?.type),
-            source,
-        });
     }
 }
 
@@ -1505,6 +1627,9 @@ export function registerVbaLanguageProviders(
             VBA_SELECTOR,
             new VbaDocumentSymbolProvider(),
             { label: 'XLIDE VBA' },
+        ),
+        vscode.languages.registerWorkspaceSymbolProvider(
+            new VbaWorkspaceSymbolProvider(index),
         ),
         vscode.languages.registerDefinitionProvider(
             VBA_SELECTOR,
