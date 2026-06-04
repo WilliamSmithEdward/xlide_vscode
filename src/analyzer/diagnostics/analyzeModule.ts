@@ -1982,10 +1982,13 @@ function checkArgumentTypes(
 }
 
 interface RuntimeArgumentValueSpec {
-	canonicalName: 'Left' | 'Right' | 'String' | 'Space' | 'Mid' | 'Replace';
+	canonicalName: 'Left' | 'Right' | 'String' | 'Space' | 'Mid' | 'Replace' | 'InStr' | 'Chr' | 'ChrW';
 	parameterName: string;
 	argumentIndex: number;
-	minimum: number;
+	minimum?: number;
+	maximum?: number;
+	minimumSlotCount?: number;
+	allowNamed?: boolean;
 }
 
 interface RuntimeArgumentValueHit {
@@ -2052,7 +2055,7 @@ function runtimeArgumentValueHits(
 		for (const spec of call.specs) {
 			const slot = runtimeArgumentValueSlot(call.slots, spec);
 			const literal = slot
-				? integerArgumentBelowMinimum(source, slot, span.start, spec.minimum, constants)
+				? integerArgumentOutsideBounds(source, slot, span.start, spec, constants)
 				: undefined;
 			if (!literal) {
 				continue;
@@ -2148,23 +2151,44 @@ function runtimeArgumentValueSpecs(name: string): readonly RuntimeArgumentValueS
 				{ canonicalName: 'Replace', parameterName: 'Start', argumentIndex: 3, minimum: 1 },
 				{ canonicalName: 'Replace', parameterName: 'Count', argumentIndex: 4, minimum: -1 },
 			];
+		case 'instr':
+			return [
+				{
+					canonicalName: 'InStr',
+					parameterName: 'Start',
+					argumentIndex: 0,
+					minimum: 1,
+					minimumSlotCount: 3,
+					allowNamed: false,
+				},
+			];
+		case 'chr':
+			return [{ canonicalName: 'Chr', parameterName: 'CharCode', argumentIndex: 0, minimum: 0, maximum: 255 }];
+		case 'chrw':
+			return [{ canonicalName: 'ChrW', parameterName: 'CharCode', argumentIndex: 0, maximum: 65535 }];
 		default:
 			return [];
 	}
 }
 
 function runtimeArgumentValueAllowsStringSuffix(name: RuntimeArgumentValueSpec['canonicalName']): boolean {
-	return name !== 'Replace';
+	return name === 'Left' || name === 'Right' || name === 'String' || name === 'Space' || name === 'Mid';
 }
 
 function runtimeArgumentValueSlot(
 	slots: readonly VbaToken[][],
 	spec: RuntimeArgumentValueSpec,
 ): VbaToken[] | undefined {
+	if (spec.minimumSlotCount !== undefined && slots.length < spec.minimumSlotCount) {
+		return undefined;
+	}
 	let positionalIndex = 0;
 	for (const slot of slots) {
 		const named = namedArgumentSlot(slot);
 		if (named) {
+			if (spec.allowNamed === false) {
+				continue;
+			}
 			if (named.name.toLowerCase() === spec.parameterName.toLowerCase()) {
 				return named.value;
 			}
@@ -2178,11 +2202,11 @@ function runtimeArgumentValueSlot(
 	return undefined;
 }
 
-function integerArgumentBelowMinimum(
+function integerArgumentOutsideBounds(
 	source: string,
 	slot: readonly VbaToken[],
 	sliceStart: number,
-	minimum: number,
+	spec: RuntimeArgumentValueSpec,
 	constants: ReadonlyMap<string, number | undefined>,
 ): { value: number; span: Span } | undefined {
 	const toks = unwrapOuterParens(
@@ -2208,7 +2232,7 @@ function integerArgumentBelowMinimum(
 		}
 	}
 	if (literalValue !== undefined) {
-		if (literalValue >= minimum) {
+		if (integerArgumentValueInBounds(literalValue, spec)) {
 			return undefined;
 		}
 		return {
@@ -2221,13 +2245,26 @@ function integerArgumentBelowMinimum(
 		source.slice(sliceStart + toks[0].start, sliceStart + toks[toks.length - 1].end),
 		constants,
 	);
-	if (expressionValue === undefined || expressionValue >= minimum) {
+	if (expressionValue === undefined || integerArgumentValueInBounds(expressionValue, spec)) {
 		return undefined;
 	}
 	return {
 		value: expressionValue,
 		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end },
 	};
+}
+
+function integerArgumentValueInBounds(
+	value: number,
+	spec: RuntimeArgumentValueSpec,
+): boolean {
+	if (spec.minimum !== undefined && value < spec.minimum) {
+		return false;
+	}
+	if (spec.maximum !== undefined && value > spec.maximum) {
+		return false;
+	}
+	return true;
 }
 
 function isRuntimeStringFunctionSuffix(tok: VbaToken | undefined): boolean {

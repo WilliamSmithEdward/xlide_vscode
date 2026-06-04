@@ -206,17 +206,20 @@ Near-term candidates:
   `division-by-zero`, including decimal/hex/octal literals, same-module or
   same-procedure decimal/hex/octal integer `Const` expressions, current-module
   Enum member values, and bare/module-qualified visible exported standard-module
-  `Const`/Enum member values when workbook project context is available; continue
-  with reachability, `On Error Resume Next` policy, hidden-helper constant
-  dependencies, and broader expression-value folding.
+  `Const`/Enum member values when workbook project context is available,
+  including exported constants that depend on private same-module integer helper
+  constants; continue with reachability, `On Error Resume Next` policy, and
+  broader expression-value folding.
 - Literal argument-value bounds for `Left`/`Left$`, `Right`/`Right$`,
-  `String`/`String$`, `Space`/`Space$`, `Mid`/`Mid$`, and `Replace` are
-  promoted through `runtime-argument-value`, including reducible integer
-  expressions, same-module/procedure `Const` values, and current-module Enum
-  members plus bare/module-qualified visible exported standard-module
-  `Const`/Enum members; continue with additional named-argument edge cases,
-  hidden-helper constant dependencies, and reachability policy only after
-  focused oracle probes.
+  `String`/`String$`, `Space`/`Space$`, `Mid`/`Mid$`, `Replace`,
+  three-or-more-argument `InStr`, `Chr`, and `ChrW` are promoted through
+  `runtime-argument-value`,
+  including reducible integer expressions, same-module/procedure `Const` values,
+  and current-module Enum members plus bare/module-qualified visible exported
+  standard-module `Const`/Enum members, including exported constants that depend
+  on private same-module integer helper constants; continue with additional
+  runtime-function bounds and reachability policy only after focused oracle
+  probes.
 - `IIf` eager branch evaluation: oracle cases prove both TruePart and FalsePart
   can raise deterministic runtime errors even when not selected; promote only
   when the branch expression itself is proven fatal.

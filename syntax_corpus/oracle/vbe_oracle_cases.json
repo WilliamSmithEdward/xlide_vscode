@@ -1008,6 +1008,127 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"aaaa\", \"a\", \"z\", 1, 0)\nEnd Sub\n"
     },
     {
+      "id": "instr_zero_start_runtime",
+      "description": "Discovery probe: InStr Start zero may be a deterministic invalid procedure call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = InStr(0, \"abcdef\", \"a\")\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "instr_negative_start_runtime",
+      "description": "Discovery probe: InStr Start negative may be a deterministic invalid procedure call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = InStr(-1, \"abcdef\", \"a\")\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "instr_one_start_runtime",
+      "description": "Discovery control: InStr Start one should run successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = InStr(1, \"abcdef\", \"a\")\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "instr_named_zero_start_runtime",
+      "description": "Discovery probe: InStr named Start zero may be a deterministic invalid procedure call.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = InStr(Start:=0, String1:=\"abcdef\", String2:=\"a\")\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "chr_negative_charcode_runtime",
+      "description": "Discovery probe: Chr with a negative CharCode may be a deterministic invalid procedure call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Chr(-1)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "chr_zero_charcode_runtime",
+      "description": "Discovery control: Chr with CharCode zero should establish the lower valid boundary.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Chr(0)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "chr_255_charcode_runtime",
+      "description": "Discovery control: Chr with CharCode 255 should establish the upper valid boundary.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Chr(255)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "chr_256_charcode_runtime",
+      "description": "Discovery probe: Chr with CharCode 256 may be a deterministic invalid procedure call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Chr(256)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "chrw_negative_one_charcode_runtime",
+      "description": "Discovery probe: ChrW with CharCode -1 should establish whether negative Unicode values are valid on this host.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = ChrW(-1)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "chrw_65535_charcode_runtime",
+      "description": "Discovery control: ChrW with CharCode 65535 should establish the upper valid boundary.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = ChrW(65535)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "chrw_65536_charcode_runtime",
+      "description": "Discovery probe: ChrW with CharCode 65536 may be a deterministic invalid procedure call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = ChrW(65536)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
       "id": "runtime_arg_const_negative_left_length_runtime",
       "description": "Runtime probe: a module Const negative Length passed to Left$ isolates deterministic constant-folded runtime argument validation.",
       "provenance": "vbe-oracle-verified",

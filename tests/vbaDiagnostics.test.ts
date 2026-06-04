@@ -1918,6 +1918,69 @@ describe('analyzeModule - argument type validation', () => {
 		]);
 	});
 
+	it('flags oracle-backed InStr Start values below one without flagging two-argument calls', () => {
+		const src =
+			'Sub T()\n' +
+			'    Const BadStart As Long = 0\n' +
+			'    a = InStr(0, "abcdef", "a")\n' +
+			'    b = InStr(-1, "abcdef", "a")\n' +
+			'    c = InStr(1, "abcdef", "a")\n' +
+			'    d = InStr("abcdef", "a")\n' +
+			'    e = InStr(BadStart, "abcdef", "a")\n' +
+			'    f = InStr(Start:=0, String1:="abcdef", String2:="a")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '-1', 'BadStart']);
+		expect(hits.map((hit) => hit.message)).toEqual([
+			expect.stringContaining("'Start' of 'InStr' is 0"),
+			expect.stringContaining("'Start' of 'InStr' is -1"),
+			expect.stringContaining("'Start' of 'InStr' is 0"),
+		]);
+	});
+
+	it('flags oracle-backed Chr and ChrW CharCode values outside proven bounds', () => {
+		const src =
+			'Sub T()\n' +
+			'    Const BadChrLow As Long = -1\n' +
+			'    Const BadChrHigh As Long = 256\n' +
+			'    Const BadChrWHigh As Long = 65536\n' +
+			'    a = Chr(-1)\n' +
+			'    b = Chr(0)\n' +
+			'    c = Chr(255)\n' +
+			'    d = Chr(256)\n' +
+			'    e = Chr(BadChrLow)\n' +
+			'    f = Chr(BadChrHigh)\n' +
+			'    g = ChrW(-1)\n' +
+			'    h = ChrW(65535)\n' +
+			'    i = ChrW(65536)\n' +
+			'    j = ChrW(BadChrWHigh)\n' +
+			'    k = VBA.Chr(256)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+
+		expect(hits).toHaveLength(7);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'-1',
+			'256',
+			'BadChrLow',
+			'BadChrHigh',
+			'65536',
+			'BadChrWHigh',
+			'256',
+		]);
+		expect(hits.map((hit) => hit.message)).toEqual([
+			expect.stringContaining("'CharCode' of 'Chr' is -1"),
+			expect.stringContaining("'CharCode' of 'Chr' is 256"),
+			expect.stringContaining("'CharCode' of 'Chr' is -1"),
+			expect.stringContaining("'CharCode' of 'Chr' is 256"),
+			expect.stringContaining("'CharCode' of 'ChrW' is 65536"),
+			expect.stringContaining("'CharCode' of 'ChrW' is 65536"),
+			expect.stringContaining("'CharCode' of 'Chr' is 256"),
+		]);
+	});
+
 	it('folds visible cross-module Const and Enum values for runtime argument bounds', () => {
 		const caller =
 			'Sub T()\n' +
