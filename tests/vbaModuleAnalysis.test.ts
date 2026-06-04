@@ -158,10 +158,11 @@ describe('analyzeVbaModuleSource', () => {
 			'End Sub\n';
 
 		const result = analyzeVbaModuleSource({ source, moduleName: 'Person' });
+		const codes = result.diagnostics.map((diag) => diag.code);
 
-		expect(result.diagnostics.map((diag) => diag.code)).toContain('missing-block-closer');
-		expect(result.diagnostics.map((diag) => diag.code)).toContain('unmatched-block-closer');
-		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('module-declaration-in-procedure');
+		expect(codes.filter((code) => code === 'missing-block-closer')).toHaveLength(1);
+		expect(codes).not.toContain('unmatched-block-closer');
+		expect(codes).not.toContain('module-declaration-in-procedure');
 	});
 
 	it('allows VBA test directive diagnostics to be suppressed explicitly', () => {

@@ -718,13 +718,6 @@ export function analyzeVbaStructure(
             if (stack[k].kind === closerKind) { idx = k; break; }
         }
         if (idx === -1) {
-            problems.push(fullLineProblem(
-                physical, line,
-                `'${closerWord}' has no matching '${OPEN_WORD[closerKind]}'.`,
-                'error',
-                { code: 'unmatched-block-closer' },
-                blockCloserColumnSpan(physical[line] ?? '', closerKind),
-            ));
             const top = stack[stack.length - 1];
             if (top && isProcedureBlockKind(top.kind) && isProcedureBlockKind(closerKind)) {
                 const closerSpan = blockCloserColumnSpan(physical[line] ?? '', closerKind);
@@ -748,7 +741,15 @@ export function analyzeVbaStructure(
                     blockOpenerColumnSpan(physical[top.line] ?? '', top.kind),
                 ));
                 stack.pop();
+                return;
             }
+            problems.push(fullLineProblem(
+                physical, line,
+                `'${closerWord}' has no matching '${OPEN_WORD[closerKind]}'.`,
+                'error',
+                { code: 'unmatched-block-closer' },
+                blockCloserColumnSpan(physical[line] ?? '', closerKind),
+            ));
             return;
         }
         // Anything above the matched opener was never closed.

@@ -73,6 +73,12 @@ export interface VbaProjectFixtureDiagnosticAssertion {
 	codes: VbaProjectFixtureDiagnosticCodeAssertion[];
 }
 
+export interface VbaProjectFixtureWorkbookAnalysisAssertion {
+	problemCount?: number;
+	codes?: VbaProjectFixtureDiagnosticCodeAssertion[];
+	absentCodes?: string[];
+}
+
 export interface VbaProjectFixtureSemanticTokenAssertion {
 	text: string;
 	type: string;
@@ -105,6 +111,7 @@ export interface VbaProjectFixtureAssertions {
 	typeCompletions?: VbaProjectFixtureTypeCompletionAssertion[];
 	identifierCompletions?: VbaProjectFixtureIdentifierCompletionAssertion[];
 	diagnostics?: VbaProjectFixtureDiagnosticAssertion[];
+	workbookAnalysis?: VbaProjectFixtureWorkbookAnalysisAssertion;
 	semanticTokens?: VbaProjectFixtureSemanticTokensAssertion[];
 	signatureHelp?: VbaProjectFixtureSignatureHelpAssertion[];
 	hovers?: VbaProjectFixtureHoverAssertion[];

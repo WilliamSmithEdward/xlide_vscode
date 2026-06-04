@@ -162,6 +162,12 @@ Progress:
   common compare aliases, and typed Function/Property Get fallthrough or
   recovered conditionally split `#If VBA7` Function headers no longer emit a
   return-assignment warning.
+- [x] Workbook-analysis fixture slice: machine-readable project fixtures can now
+  assert flattened workbook diagnostics. The first stdvba canary keeps one real
+  `Property Get ... End Function` structural error visible while guarding
+  against false positives from module-qualified constants, project-visible
+  ByRef return assignment helpers, default Win64 conditional branches, and
+  verified `Worksheet.Buttons` host metadata.
 
 Definition of done:
 

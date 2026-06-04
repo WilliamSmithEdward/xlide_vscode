@@ -3749,6 +3749,89 @@ describe('analyzeModule - missing Function return assignment', () => {
 		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
 	});
 
+	it('accepts Function return variables passed to project-visible ByRef helper parameters', () => {
+		const runSrc =
+			'Option Explicit\n' +
+			'Public Function Run()\n' +
+			'    Call CopyVariant(dest:=Run, value:=1)\n' +
+			'End Function\n';
+		const helpersSrc =
+			'Option Explicit\n' +
+			'Public Sub CopyVariant(ByRef dest As Variant, ByVal value As Variant)\n' +
+			'    dest = value\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeProjectModule(
+			runSrc,
+			[
+				{ moduleName: 'Runner', source: runSrc },
+				{ moduleName: 'Helpers', source: helpersSrc },
+			],
+			'Runner',
+		), 'missing-return-assignment')).toHaveLength(0);
+	});
+
+	it('accepts Function return variables passed to module-qualified ByRef helper parameters', () => {
+		const runSrc =
+			'Option Explicit\n' +
+			'Public Function Run()\n' +
+			'    Helpers.CopyVariant Run, 1\n' +
+			'End Function\n';
+		const helpersSrc =
+			'Option Explicit\n' +
+			'Public Sub CopyVariant(ByRef dest As Variant, ByVal value As Variant)\n' +
+			'    dest = value\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeProjectModule(
+			runSrc,
+			[
+				{ moduleName: 'Runner', source: runSrc },
+				{ moduleName: 'Helpers', source: helpersSrc },
+			],
+			'Runner',
+		), 'missing-return-assignment')).toHaveLength(0);
+	});
+
+	it('does not count ByVal or ambiguous project helper arguments as return assignments', () => {
+		const byValRunSrc =
+			'Option Explicit\n' +
+			'Public Function Run()\n' +
+			'    CopyVariant Run, 1\n' +
+			'End Function\n';
+		const byValHelperSrc =
+			'Option Explicit\n' +
+			'Public Sub CopyVariant(ByVal dest As Variant, ByVal value As Variant)\n' +
+			'End Sub\n';
+		const ambiguousRunSrc =
+			'Option Explicit\n' +
+			'Public Function Run()\n' +
+			'    CopyVariant Run, 1\n' +
+			'End Function\n';
+		const byRefHelperSrc =
+			'Option Explicit\n' +
+			'Public Sub CopyVariant(ByRef dest As Variant, ByVal value As Variant)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeProjectModule(
+			byValRunSrc,
+			[
+				{ moduleName: 'Runner', source: byValRunSrc },
+				{ moduleName: 'Helpers', source: byValHelperSrc },
+			],
+			'Runner',
+		), 'missing-return-assignment')).toHaveLength(1);
+		expect(byCode(analyzeProjectModule(
+			ambiguousRunSrc,
+			[
+				{ moduleName: 'Runner', source: ambiguousRunSrc },
+				{ moduleName: 'HelpersA', source: byRefHelperSrc },
+				{ moduleName: 'HelpersB', source: byRefHelperSrc },
+			],
+			'Runner',
+		), 'missing-return-assignment')).toHaveLength(1);
+	});
+
 	it('accepts return assignments in the active default VBA7 branch', () => {
 		const src =
 			'Public Function HandleValue()\n' +

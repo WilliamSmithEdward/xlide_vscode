@@ -382,7 +382,7 @@ function runRules(
 		push,
 	);
 	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
-	checkMissingReturnAssignments(source, mod, symbols, activity, push);
+	checkMissingReturnAssignments(source, mod, symbols, opts.projectProcedures, activity, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(
 			source,
@@ -2976,10 +2976,11 @@ function checkMissingReturnAssignments(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleSignatures = buildModuleTypeSignatures(symbols);
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (
 			member.kind !== 'Procedure' ||
@@ -3028,7 +3029,11 @@ function procedureHasReturnAssignment(
 			return;
 		}
 		const call = extractCall(source, stmt.span);
-		if (call && callPassesNameToByRefParam(call, lower, moduleSignatures)) {
+		const qualifiedCall = call
+			? undefined
+			: extractQualifiedCall(source, stmt.span, moduleSignatures);
+		const effectiveCall = call ?? qualifiedCall;
+		if (effectiveCall && callPassesNameToByRefParam(effectiveCall, lower, moduleSignatures)) {
 			found = true;
 		}
 	}, activity);

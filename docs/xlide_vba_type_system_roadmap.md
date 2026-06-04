@@ -256,6 +256,12 @@ Landed first:
   `TextCompare`, and typed Function/Property Get fallthrough or recovered
   conditionally split `#If VBA7` Function headers are no longer warned as
   missing return assignments.
+- Landed workbook-analysis fixture slice: `tests/fixtures/vbaProjects` now
+  supports flattened workbook diagnostic assertions. The stdvba canary fixture
+  captures the current no-hacks strategy by combining a real structural error
+  with no-diagnostic controls for module-qualified constants, project-visible
+  ByRef return assignment helpers, default Win64 branch filtering, and verified
+  Worksheet host members.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

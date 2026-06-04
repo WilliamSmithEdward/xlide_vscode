@@ -51,8 +51,10 @@ describe('analyzeVbaStructure', () => {
             'Public Property Get Measurement() As Double\n' +
             '    Measurement = 1\n' +
             'End Function\n';
-        const problem = analyzeVbaStructure(src).find((p) => p.expectedClose === 'End Property');
+        const problems = analyzeVbaStructure(src);
+        const problem = problems.find((p) => p.expectedClose === 'End Property');
 
+        expect(problems).toHaveLength(1);
         expect(problem).toMatchObject({
             code: 'missing-block-closer',
             expectedClose: 'End Property',

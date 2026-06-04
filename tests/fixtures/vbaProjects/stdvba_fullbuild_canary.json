@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "id": "stdvba-fullbuild-canary",
+  "description": "Workbook-level canary distilled from stdvba/fullBuild live-testing lessons: keep real structural errors visible while suppressing project-binder, conditional-compilation, ByRef-return, and host metadata false positives.",
+  "modules": [
+    {
+      "name": "stdPerformance",
+      "type": "class",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Property Get Measurement(ByVal sKey As String) As Double",
+        "    Measurement = 1",
+        "End Function"
+      ]
+    },
+    {
+      "name": "stdCallback",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Function Run()",
+        "    stdHelpers.CopyVariant Run, 1",
+        "End Function"
+      ]
+    },
+    {
+      "name": "stdHelpers",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub CopyVariant(ByRef dest As Variant, ByVal value As Variant)",
+        "    dest = value",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "stdGlobals",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Const SharedConst As Long = 1"
+      ]
+    },
+    {
+      "name": "stdPlatform",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "#If Win64 Then",
+        "Public Type RuntimeHandle",
+        "    Ptr As LongPtr",
+        "End Type",
+        "#Else",
+        "Public Type RuntimeHandle",
+        "    Ptr As Long",
+        "End Type",
+        "#End If"
+      ]
+    },
+    {
+      "name": "stdConsumer",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub TouchWorkbookSurface()",
+        "    Dim value As Long",
+        "    Dim ws As Worksheet",
+        "",
+        "    value = stdGlobals.SharedConst",
+        "    Set ws = ActiveSheet",
+        "    ws.Buttons",
+        "End Sub"
+      ]
+    }
+  ],
+  "assertions": {
+    "workbookAnalysis": {
+      "problemCount": 1,
+      "codes": [
+        {
+          "code": "missing-block-closer",
+          "count": 1,
+          "messagesContain": ["End Property", "Measurement"]
+        },
+        {
+          "code": "missing-return-assignment",
+          "count": 0
+        },
+        {
+          "code": "duplicate-declaration",
+          "count": 0
+        },
+        {
+          "code": "undeclared-variable",
+          "count": 0
+        },
+        {
+          "code": "member-not-found",
+          "count": 0
+        }
+      ],
+      "absentCodes": [
+        "ambiguous-type-name",
+        "duplicate-procedure",
+        "option-explicit-missing"
+      ]
+    }
+  }
+}

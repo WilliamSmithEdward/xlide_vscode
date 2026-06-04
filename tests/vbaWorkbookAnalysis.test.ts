@@ -114,4 +114,31 @@ describe('analyzeWorkbook metadata summary', () => {
 			quickFixTitles: ["Replace 'End Function' with 'End Property'"],
 		});
 	});
+
+	it('uses project ByRef helper signatures for workbook return-assignment analysis', async () => {
+		const bridge = bridgeForModules([
+			{
+				name: 'Runner',
+				type: 'standard',
+				source:
+					'Option Explicit\n' +
+					'Public Function Run()\n' +
+					'    Helpers.CopyVariant Run, 1\n' +
+					'End Function\n',
+			},
+			{
+				name: 'Helpers',
+				type: 'standard',
+				source:
+					'Option Explicit\n' +
+					'Public Sub CopyVariant(ByRef dest As Variant, ByVal value As Variant)\n' +
+					'    dest = value\n' +
+					'End Sub\n',
+			},
+		]);
+
+		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+
+		expect(result.problems.filter((item) => item.code === 'missing-return-assignment')).toEqual([]);
+	});
 });
