@@ -1,10 +1,10 @@
 ﻿# XLIDE - VBA for VS Code
 
-Edit VBA code directly in VS Code. Browse modules in a sidebar tree,
-edit with syntax highlighting and symbol navigation (Go to Definition,
-Find All References, Rename Symbol), save changes back to files
-with Ctrl+S, and allow GitHub Copilot to interface with them via 
-the Language Model API.
+Edit Excel VBA projects directly in VS Code. Browse workbook modules, edit with
+syntax highlighting, Smart Enter, IntelliSense, diagnostics, symbol navigation
+(Go to Definition, Find All References, Rename Symbol), save changes back to
+workbooks, run workbook analysis and tests, and use AI-agent tools for
+workbook-aware automation.
 
 <a href="https://github.com/sponsors/WilliamSmithEdward"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?style=for-the-badge" alt="Sponsor WilliamSmithEdward"></a>
 
@@ -16,10 +16,15 @@ the Language Model API.
 - **Python 3.10+** -- the VBA read/write backend runs as a child process
 - Python packages: `pyOpenVBA >= 3.0.1`, `openpyxl >= 3.1.0`
 
-No COM automation, no Office installation, no win32com -- works on Windows,
-macOS, Linux, and remote containers.
+Reading, editing, analyzing, importing, and exporting workbook VBA use the
+Python backend and do not require Excel COM automation.
 
-Nothing else is needed to get the extension up and running. The remaining documentation here is for further development of the XLIDE extension development purposes only.
+Microsoft Excel COM is required for workflows that execute VBA, such as running
+a macro or running workbook tests. Those execution workflows are Windows-only.
+
+Start with the [getting started guide](user_guides/getting_started.md) for the
+normal user workflow. The remaining development notes below are useful when
+building or packaging the extension itself.
 
 ---
 
@@ -177,5 +182,9 @@ Related upstream issue: [microsoft/live-share#4877](https://github.com/microsoft
 ## Further reading
 
 - [docs/architecture.md](docs/architecture.md) -- full architecture reference
+- [Getting started guide](user_guides/getting_started.md) -- first-hour XLIDE workflow
+- [Safety and support guide](user_guides/support.md) -- trust model, Excel setup, and recovery
+- [Testing guide](user_guides/testing.md) -- workbook test authoring and execution
+- [Automation guide](user_guides/automation.md) -- agent and CI workflows
 - [MS-VBAL specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/)
 - [pyOpenVBA](https://github.com/WilliamSmithEdward/pyOpenVBA)

@@ -1143,7 +1143,7 @@ Definition of done:
 Purpose: make workbook mutation, COM execution, and macro/test workflows safe,
 auditable, and recoverable for real user projects.
 
-- [ ] Define XLIDE's trust model for workbook read, write, run, and test
+- [x] Define XLIDE's trust model for workbook read, write, run, and test
   workflows.
 - [ ] Require explicit user action for operations that mutate workbook contents
   or execute VBA.
@@ -1188,7 +1188,7 @@ auditable, and recoverable for real user projects.
   `<workbook>.xlide_settings.json`. Do not preserve legacy JSON names or
   compatibility shims. Route older folder/mode commands to the same workbook
   settings writer or retire them so settings are not edited in multiple places.
-- [ ] Document trust-center, macro security, and VBA project access
+- [x] Document trust-center, macro security, and VBA project access
   requirements without hiding them behind vague failures.
 
 Definition of done:
@@ -1340,12 +1340,12 @@ Definition of done:
 
 Purpose: keep XLIDE responsive on large workbooks and during active typing.
 
-- [ ] Define performance budgets for:
-  - keystroke diagnostics
-  - module parse/analyze
-  - workbook-wide analysis
-  - project index rebuild
-  - sidebar health refresh
+- [x] Define performance budgets for:
+  - [x] keystroke diagnostics
+  - [x] module parse/analyze
+  - [x] workbook-wide analysis
+  - [x] project index rebuild
+  - [x] sidebar health refresh
 - [ ] Add incremental parsing/indexing where deterministic and measurable.
 - [ ] Add cache invalidation rules for source text, workbook state, metadata,
   and project symbol graph changes.
@@ -1373,17 +1373,17 @@ of development.
   - screenshots
   - feature bullets
   - short walkthrough media or GIFs
-- [ ] Add getting-started documentation.
+- [x] Add getting-started documentation.
 - [ ] Add a sample workbook/project repo for demos and regression examples.
 - [ ] Add feature walkthroughs:
-  - opening a workbook
-  - editing modules
-  - analysis
-  - running macros
-  - running VBA tests
-  - using doc comments and metadata
+  - [x] opening a workbook
+  - [x] editing modules
+  - [x] analysis
+  - [x] running macros
+  - [x] running VBA tests
+  - [x] using doc comments and metadata
   - adding external object/member metadata for `object.` completion
-  - interpreting setup health
+  - [x] interpreting setup health
 - [ ] Ship a full downstream developer how-to for external object/member
   metadata, including schema, examples, precedence, reload behavior, and
   troubleshooting.
@@ -1458,7 +1458,10 @@ Definition of done:
 - `docs/xlide_external_member_metadata.md`
 - `docs/xlide_sidebar_panel.md`
 - `docs/xlide_development_principles.md`
+- `docs/xlide_performance_budgets.md`
 - `user_guides/README.md`
+- `user_guides/getting_started.md`
+- `user_guides/support.md`
 - `user_guides/testing.md`
 - `user_guides/automation.md`
 - `src/vbaModuleAnalysis.ts`
