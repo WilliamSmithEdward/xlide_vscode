@@ -27,6 +27,7 @@ import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	ModuleSymbolKind,
 	VbaProcedureSignature,
+	VbaProjectClassMembers,
 	VbaSymbol,
 	procedureDeclarationSignature,
 	procedureSignatureFromSymbol,
@@ -50,6 +51,7 @@ export type IdentifierCompletionKind =
 	| 'constant'
 	| 'value'
 	| 'procedure'
+	| 'module'
 	| 'enum'
 	| 'enumMember'
 	| 'type'
@@ -67,6 +69,8 @@ export interface IdentifierCompletion {
 export interface IdentifierCompletionContext {
 	/** Canonical worksheet/document code names of the workbook project. */
 	codeNames?: string[];
+	/** Source-backed standard modules available as module-qualified receivers. */
+	projectMemberSurfaces?: readonly VbaProjectClassMembers[];
 	/** Exported project procedures/Declares visible as bare calls from this module. */
 	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Source-backed project declarations visible as bare identifiers from this module. */
@@ -200,6 +204,7 @@ export function resolveIdentifierCompletions(
 		add(name, 'codeName', 'Worksheet object');
 	}
 
+	addProjectModules(ctx.projectMemberSurfaces, add);
 	addProjectProcedures(ctx.projectProcedures, add);
 	addProjectSymbols(ctx.projectSymbols, add);
 
@@ -332,6 +337,21 @@ function addProjectProcedures(
 	for (const procedure of procedures ?? []) {
 		const detail = `${procedureDeclarationSignature(procedure)} in ${procedure.moduleName}`;
 		add(procedure.name, 'procedure', detail, projectProcedureDocumentation(procedure));
+	}
+}
+
+function addProjectModules(
+	surfaces: readonly VbaProjectClassMembers[] | undefined,
+	add: AddFn,
+): void {
+	for (const surface of surfaces ?? []) {
+		if (surface.kind !== 'standardModule') {
+			continue;
+		}
+		const documentation = hasDocContent(surface.doc)
+			? renderDocMarkdown(surface.doc)
+			: undefined;
+		add(surface.name, 'module', 'Standard module', documentation);
 	}
 }
 

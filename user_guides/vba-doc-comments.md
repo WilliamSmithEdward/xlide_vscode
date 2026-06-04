@@ -55,9 +55,8 @@ Rules:
 Documentable declarations: `Sub`, `Function`, `Property Get/Let/Set`, `Type`,
 `Enum`, `Declare`, and module-level `Dim`/`Public`/`Private`/`Const` variables.
 
-Object modules do not have a source-level `Class Person` declaration in VBA, so
-XLIDE uses one explicit module-header convention for class/document/UserForm
-docs: put the `'''` block directly above the first `Option` directive.
+Modules do not have a source-level declaration that can carry documentation, so
+XLIDE supports module-header docs with the same XML comment syntax.
 
 ```vba
 ''' <summary>Represents a person in the workbook domain.</summary>
@@ -67,8 +66,24 @@ Public Property Get Name() As String
 End Property
 ```
 
-That summary appears when completing or hovering the project type name, such as
-`Dim p As Person` or `Set p = New Person`.
+When the module has no `Option` directive, put the module doc block at the top
+of the module and separate it from the first declaration with a blank line or an
+ordinary single-apostrophe comment. Without that separator, a doc block directly
+above the first declaration documents that declaration.
+
+```vba
+''' <summary>Finance helper module.</summary>
+''' <remarks>Shared workbook calculations.</remarks>
+
+''' <summary>Calculates the invoice total.</summary>
+Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency
+End Function
+```
+
+For class/document/UserForm modules, the module summary appears when completing
+or hovering the project type name, such as `Dim p As Person` or
+`Set p = New Person`. For standard modules, the module summary appears when
+completing or hovering the module qualifier, such as `Finance.InvoiceTotal`.
 
 ---
 

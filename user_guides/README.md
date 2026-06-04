@@ -17,6 +17,8 @@ Available guides:
   suppression comments.
 - [sync.md](sync.md) - exporting, importing, true-up modes, workbook sync
   settings, and safe module synchronization with `.bas`/`.cls` files.
+- [vba-doc-comments.md](vba-doc-comments.md) - inline `'''` XML documentation
+  comments, module-header docs, and external `.vbref.xml` IntelliSense metadata.
 - [testing.md](testing.md) - writing, running, filtering, reviewing, and automating
   `@xlide-test` workbook tests.
 - [automation.md](automation.md) - AI-agent workbook discovery, editing, analysis, test runs,

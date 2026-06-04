@@ -18,7 +18,7 @@
 // A `name` is either qualified (`Module.Symbol`) or bare (`Symbol`). Parsing is
 // lenient and regex-based so a single malformed member never discards the rest
 // of the file. Pure analyzer code: no `vscode` dependency. See
-// docs/vba-doc-comments.md.
+// user_guides/vba-doc-comments.md.
 
 import { VbaDoc } from './docModel';
 import { parseDocBody } from './docComment';

@@ -35,6 +35,9 @@ export interface TypeSemanticToken {
 
 export interface ResolvedTypeReference extends TypeCompletion {
 	span: Span;
+	qualifier?: string;
+	qualifierSpan?: Span;
+	fullSpan?: Span;
 }
 
 export type TypeNameReferenceKind =
@@ -46,7 +49,10 @@ export type TypeNameReferenceKind =
 
 export interface TypeNameReference {
 	name: string;
+	qualifier?: string;
+	qualifierSpan?: Span;
 	span: Span;
+	fullSpan?: Span;
 	kind: TypeNameReferenceKind;
 }
 
@@ -63,6 +69,7 @@ function tokenTypeForCompletionKind(kind: TypeCompletionKind): TypeSemanticToken
 			return 'struct';
 		case 'primitive':
 		case 'ambiguous':
+		case 'module':
 			return 'type';
 	}
 }
@@ -86,6 +93,47 @@ function tokenName(tok: VbaToken | undefined): string | undefined {
 	return undefined;
 }
 
+function typeNameReferenceFromTokens(
+	toks: readonly VbaToken[],
+	typeIndex: number,
+	base: number,
+	kind: TypeNameReferenceKind,
+): TypeNameReference | undefined {
+	const firstName = tokenName(toks[typeIndex]);
+	if (!firstName) {
+		return undefined;
+	}
+	const firstSpan = {
+		start: base + toks[typeIndex].start,
+		end: base + toks[typeIndex].end,
+	};
+	const memberName = toks[typeIndex + 1]?.rawText === '.'
+		? tokenName(toks[typeIndex + 2])
+		: undefined;
+	if (!memberName) {
+		return {
+			name: firstName,
+			span: firstSpan,
+			kind,
+		};
+	}
+	const memberSpan = {
+		start: base + toks[typeIndex + 2].start,
+		end: base + toks[typeIndex + 2].end,
+	};
+	return {
+		name: memberName,
+		qualifier: firstName,
+		qualifierSpan: firstSpan,
+		span: memberSpan,
+		fullSpan: {
+			start: firstSpan.start,
+			end: memberSpan.end,
+		},
+		kind,
+	};
+}
+
 function typeNameSpanAfterAs(source: string, span: Span): TypeNameReference | undefined {
 	const toks = codeTokens(source, span);
 	for (let i = 0; i < toks.length; i++) {
@@ -98,18 +146,10 @@ function typeNameSpanAfterAs(source: string, span: Span): TypeNameReference | un
 			typeIndex++;
 			kind = 'newDeclaration';
 		}
-		const name = tokenName(toks[typeIndex]);
-		if (!name) {
-			continue;
+		const ref = typeNameReferenceFromTokens(toks, typeIndex, span.start, kind);
+		if (ref) {
+			return ref;
 		}
-		return {
-			name,
-			span: {
-				start: span.start + toks[typeIndex].start,
-				end: span.start + toks[typeIndex].end,
-			},
-			kind,
-		};
 	}
 	return undefined;
 }
@@ -121,18 +161,10 @@ function typeNameSpansAfterNew(source: string, span: Span): TypeNameReference[] 
 		if ((toks[i].canonicalText ?? toks[i].rawText).toLowerCase() !== 'new') {
 			continue;
 		}
-		const name = tokenName(toks[i + 1]);
-		if (!name) {
-			continue;
+		const ref = typeNameReferenceFromTokens(toks, i + 1, span.start, 'newExpression');
+		if (ref) {
+			out.push(ref);
 		}
-		out.push({
-			name,
-			span: {
-				start: span.start + toks[i + 1].start,
-				end: span.start + toks[i + 1].end,
-			},
-			kind: 'newExpression',
-		});
 	}
 	return out;
 }
@@ -150,18 +182,10 @@ function typeNameSpansAfterTypeOfIs(source: string, span: Span): TypeNameReferen
 		if (!sawTypeOf || lower !== 'is') {
 			continue;
 		}
-		const name = tokenName(toks[i + 1]);
-		if (!name) {
-			continue;
+		const ref = typeNameReferenceFromTokens(toks, i + 1, span.start, 'typeOfIs');
+		if (ref) {
+			out.push(ref);
 		}
-		out.push({
-			name,
-			span: {
-				start: span.start + toks[i + 1].start,
-				end: span.start + toks[i + 1].end,
-			},
-			kind: 'typeOfIs',
-		});
 		sawTypeOf = false;
 	}
 	return out;
@@ -192,18 +216,11 @@ function returnTypeNameSpan(source: string, proc: ProcedureNode): TypeNameRefere
 		if (depth !== 0 || (toks[i].canonicalText ?? raw).toLowerCase() !== 'as') {
 			continue;
 		}
-		const name = tokenName(toks[i + 1]);
-		if (!name) {
+		const ref = typeNameReferenceFromTokens(toks, i + 1, header.start, 'declaration');
+		if (!ref) {
 			return undefined;
 		}
-		return {
-			name,
-			span: {
-				start: header.start + toks[i + 1].start,
-				end: header.start + toks[i + 1].end,
-			},
-			kind: 'declaration',
-		};
+		return ref;
 	}
 	return undefined;
 }
@@ -292,15 +309,35 @@ function collectImplements(source: string, out: TypeNameReference[]): void {
 			line = line.slice(0, -1);
 		}
 		const code = line.replace(/'.*$/, '');
-		const match = /^\s*Implements\s+([A-Za-z_][A-Za-z0-9_]*)\b/i.exec(code);
+		const match = /^\s*Implements\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\b/i.exec(code);
 		if (match) {
-			const column = line.indexOf(match[1], match.index);
-			if (column >= 0) {
+			const rawName = match[1];
+			const column = line.indexOf(rawName, match.index);
+			const dot = rawName.indexOf('.');
+			if (column >= 0 && dot > 0) {
 				out.push({
-					name: match[1],
+					name: rawName.slice(dot + 1),
+					qualifier: rawName.slice(0, dot),
+					qualifierSpan: {
+						start: lineStart + column,
+						end: lineStart + column + dot,
+					},
+					span: {
+						start: lineStart + column + dot + 1,
+						end: lineStart + column + rawName.length,
+					},
+					fullSpan: {
+						start: lineStart + column,
+						end: lineStart + column + rawName.length,
+					},
+					kind: 'implements',
+				});
+			} else if (column >= 0) {
+				out.push({
+					name: rawName,
 					span: {
 						start: lineStart + column,
-						end: lineStart + column + match[1].length,
+						end: lineStart + column + rawName.length,
 					},
 					kind: 'implements',
 				});
@@ -360,7 +397,7 @@ function semanticTokenForHit(
 	ctx: TypeCompletionContext,
 	hit: TypeNameReference,
 ): TypeSemanticToken | undefined {
-	const resolved = resolveTypeName(hit.name, ctx);
+	const resolved = resolveTypeName(typeReferenceLookupName(hit), ctx);
 	if (!resolved) {
 		return undefined;
 	}
@@ -369,6 +406,10 @@ function semanticTokenForHit(
 		tokenType: tokenTypeForCompletionKind(resolved.kind),
 		span: hit.span,
 	};
+}
+
+export function typeReferenceLookupName(hit: TypeNameReference): string {
+	return hit.qualifier ? `${hit.qualifier}.${hit.name}` : hit.name;
 }
 
 export function collectTypeNameReferences(source: string): TypeNameReference[] {
@@ -395,9 +436,15 @@ export function resolveTypeReferenceAt(
 	if (!hit) {
 		return undefined;
 	}
-	const resolved = resolveTypeName(hit.name, ctx);
+	const resolved = resolveTypeName(typeReferenceLookupName(hit), ctx);
 	if (!resolved) {
 		return undefined;
 	}
-	return { ...resolved, span: hit.span };
+	return {
+		...resolved,
+		span: hit.span,
+		qualifier: hit.qualifier,
+		qualifierSpan: hit.qualifierSpan,
+		fullSpan: hit.fullSpan,
+	};
 }

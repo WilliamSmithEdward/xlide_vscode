@@ -8,7 +8,7 @@
 // those descriptions appear in tooltips.
 //
 // Files are reloaded automatically when created, changed, or deleted. See
-// docs/vba-doc-comments.md.
+// user_guides/vba-doc-comments.md.
 
 import * as vscode from 'vscode';
 import { DocRegistry, parseMetadataFile } from './analyzer';

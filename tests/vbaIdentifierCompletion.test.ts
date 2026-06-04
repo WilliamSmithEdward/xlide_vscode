@@ -83,6 +83,32 @@ describe('identifier completion - code names', () => {
 		const got = names(src, '    This', ctx);
 		expect(got.filter((n) => n.toLowerCase() === 'thisworkbook')).toHaveLength(1);
 	});
+
+	it('offers standard module names as module-qualified receivers', () => {
+		const project = new ProjectIndex();
+		const src = 'Sub Test()\n    Fin\nEnd Sub\n';
+		project.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: src });
+		project.setModule({
+			moduleName: 'Finance',
+			moduleKind: 'standard',
+			source: [
+				"''' <summary>Finance helper module.</summary>",
+				'',
+				'Public Function InvoiceTotal() As Currency',
+				'End Function',
+			].join('\n'),
+		});
+
+		const got = resolveIdentifierCompletions(src, at(src, '    Fin'), {
+			projectMemberSurfaces: project.projectMemberSurfaces('Caller'),
+			includeGlobals: false,
+			includeRuntime: false,
+		});
+		const finance = got.find((item) => item.name === 'Finance');
+		expect(finance?.kind).toBe('module');
+		expect(finance?.detail).toBe('Standard module');
+		expect(finance?.documentation).toContain('Finance helper module.');
+	});
 });
 
 describe('identifier completion - in-scope declarations', () => {

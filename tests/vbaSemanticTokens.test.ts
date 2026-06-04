@@ -121,6 +121,29 @@ describe('project type semantic tokens', () => {
 			{ text: 'Status', type: 'enum' },
 		]);
 	});
+
+	it('marks qualified project type names in As, New, and TypeOf positions', () => {
+		const source = [
+			'Public Sub T()',
+			'    Dim point As Geometry.TPoint',
+			'    Dim state As Workflow.Status',
+			'    Set point = New Geometry.TPoint',
+			'    If TypeOf point Is Geometry.TPoint Then Debug.Print "ok"',
+			'End Sub',
+		].join('\n');
+		const projectTypes: VbaProjectTypeName[] = [
+			{ name: 'TPoint', kind: 'class', moduleName: 'Geometry' },
+			{ name: 'Status', kind: 'enum', moduleName: 'Workflow' },
+			{ name: 'TPoint', kind: 'class', moduleName: 'OtherGeometry' },
+		];
+
+		expect(tokenTexts(source, { projectTypes })).toEqual([
+			{ text: 'TPoint', type: 'class' },
+			{ text: 'Status', type: 'enum' },
+			{ text: 'TPoint', type: 'class' },
+			{ text: 'TPoint', type: 'class' },
+		]);
+	});
 });
 
 describe('type semantic tokens', () => {

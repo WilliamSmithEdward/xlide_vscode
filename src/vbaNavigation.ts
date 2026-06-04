@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { encodeModuleUri } from './xlideFileSystem';
 import {
-    resolveTypeSemanticTokens,
+    collectTypeNameReferences,
     type ProjectIndex,
     type VbaProjectTypeName,
 } from './analyzer';
@@ -92,22 +92,20 @@ export function typeReferenceLocations(
     }
 
     for (const mod of byModule.values()) {
-        const visibleMatches = project.resolveTypeDefinitions(mod.moduleName, typeName);
-        if (!visibleMatches.some((definition) => targetKeys.has(typeDefinitionKey(definition)))) {
-            continue;
-        }
         const uri = encodeModuleUri(xlsmPath, mod.moduleName);
-        for (const token of resolveTypeSemanticTokens(mod.source, {
-            projectTypes: project.visibleTypeNames(mod.moduleName),
-        })) {
-            if (token.name.toLowerCase() !== lower) {
+        for (const ref of collectTypeNameReferences(mod.source)) {
+            if (ref.name.toLowerCase() !== lower) {
+                continue;
+            }
+            const visibleMatches = typeDefinitionsForReference(project, mod.moduleName, ref);
+            if (!visibleMatches.some((definition) => targetKeys.has(typeDefinitionKey(definition)))) {
                 continue;
             }
             push(new vscode.Location(
                 uri,
                 new vscode.Range(
-                    offsetToPosition(mod.source, token.span.start),
-                    offsetToPosition(mod.source, token.span.end),
+                    offsetToPosition(mod.source, ref.span.start),
+                    offsetToPosition(mod.source, ref.span.end),
                 ),
             ));
         }
@@ -115,7 +113,22 @@ export function typeReferenceLocations(
     return out;
 }
 
-export function retargetClassModuleLocation(
+export function typeDefinitionsForReference(
+    project: ProjectIndex,
+    moduleName: string,
+    ref: { name: string; qualifier?: string },
+): VbaProjectTypeName[] {
+    const definitions = project.resolveTypeDefinitions(moduleName, ref.name);
+    if (!ref.qualifier) {
+        return definitions;
+    }
+    const lowerQualifier = ref.qualifier.toLowerCase();
+    return definitions.filter(
+        (definition) => definition.moduleName.toLowerCase() === lowerQualifier,
+    );
+}
+
+export function retargetModuleLocation(
     location: vscode.Location,
     xlsmPath: string,
     oldName: string,
@@ -129,6 +142,15 @@ export function retargetClassModuleLocation(
         encodeModuleUri(xlsmPath, newName),
         location.range,
     );
+}
+
+export function retargetClassModuleLocation(
+    location: vscode.Location,
+    xlsmPath: string,
+    oldName: string,
+    newName: string,
+): vscode.Location {
+    return retargetModuleLocation(location, xlsmPath, oldName, newName);
 }
 
 export function projectClassReferenceLocations(

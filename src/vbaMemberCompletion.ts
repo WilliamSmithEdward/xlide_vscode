@@ -192,16 +192,16 @@ class VbaMemberCompletionProvider
 		const range = this._completionRange(document, position);
 		const projectCtx = await this._buildEditorProjectContext(document, source);
 
-		const memberCtx = this._memberContext(projectCtx);
-		const members = resolveMemberCompletions(source, offset, memberCtx);
-		if (members.length > 0) {
-			return members.map((mem) => this._toItem(mem, range, source, offset));
-		}
-
 		const typeCtx = this._typeContext(projectCtx);
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
 			return types.map((t) => this._toTypeItem(t, range));
+		}
+
+		const memberCtx = this._memberContext(projectCtx);
+		const members = resolveMemberCompletions(source, offset, memberCtx);
+		if (members.length > 0) {
+			return members.map((mem) => this._toItem(mem, range, source, offset));
 		}
 
 		const eventCtx = this._eventHandlerContext(projectCtx);
@@ -400,6 +400,7 @@ class VbaMemberCompletionProvider
 			codeNames: ctx.codeNameList,
 			moduleName: ctx.moduleName,
 			moduleKind: ctx.moduleKind,
+			projectMemberSurfaces: ctx.projectClassMembers,
 			projectProcedures: ctx.projectProcedures,
 			projectSymbols: ctx.projectSymbols,
 		};
@@ -640,6 +641,8 @@ class VbaMemberCompletionProvider
 			case 'document':
 			case 'userform':
 				return vscode.CompletionItemKind.Class;
+			case 'module':
+				return vscode.CompletionItemKind.Module;
 			default:
 				return vscode.CompletionItemKind.Struct;
 		}
@@ -809,6 +812,8 @@ class VbaMemberCompletionProvider
 		switch (id.kind) {
 			case 'procedure':
 				return vscode.CompletionItemKind.Method;
+			case 'module':
+				return vscode.CompletionItemKind.Module;
 			case 'runtime':
 				return vscode.CompletionItemKind.Function;
 			case 'constant':

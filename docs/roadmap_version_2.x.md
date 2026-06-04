@@ -164,11 +164,11 @@ heuristic diagnostics.
   member binder before textual fallback, so same-named members in different
   classes do not share a reference set.
 - Source-backed workbook class member rename now uses that same binder, including
-  declarations and function/property return-name occurrences. Project-defined
-  class component rename is tree-only because VBA derives the class name from
-  the class module/component name; the tree rename action calls pyOpenVBA
-  `renameModule` and updates bound `As`/`New`/
-  `TypeOf ... Is`/`Implements` references.
+  declarations and function/property return-name occurrences. VBA component
+  rename is tree-only because standard and class module names are workbook
+  component names rather than in-source declarations; the tree rename action
+  calls pyOpenVBA `renameModule` and updates bound class type references plus
+  standard-module qualified member/type qualifier references.
 - `unknown-call` now consumes current-module-visible procedure names, so a
   `Private Sub` in another standard module or a public class member no longer
   suppresses a bare-call diagnostic.
@@ -458,7 +458,7 @@ Purpose: move from same-module checks to workbook-aware analysis.
   path.
 - [x] Add a shared same-workbook open-document source overlay helper and route
   completion, hover, signature help, live diagnostics, semantic coloring,
-  definition/reference/rename, current-module analysis, and tree-level class rename
+  definition/reference/rename, current-module analysis, and tree-level module rename
   through it so unsaved open modules participate consistently without crossing
   workbook boundaries.
 - [x] Add explicit multi-workbook isolation fixtures: two open workbooks with

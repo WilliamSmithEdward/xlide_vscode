@@ -53,6 +53,7 @@ import {
     moduleKindFromType,
     offsetToPosition,
     projectTypeDefinitionToLocation,
+    typeDefinitionsForReference,
     typeReferenceLocations,
 } from './vbaNavigation';
 import {
@@ -640,7 +641,7 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
                 { projectTypes: project.visibleTypeNames(moduleName) },
             );
             if (typeReference) {
-                const typeDefinitions = project.resolveTypeDefinitions(moduleName, typeReference.name);
+                const typeDefinitions = typeDefinitionsForReference(project, moduleName, typeReference);
                 const locations = typeDefinitions
                     .map((definition) => projectTypeDefinitionToLocation(xlsmPath, byModule, definition))
                     .filter((loc): loc is vscode.Location => Boolean(loc));
@@ -759,7 +760,7 @@ class VbaReferenceProvider implements vscode.ReferenceProvider {
             { projectTypes: project.visibleTypeNames(moduleName) },
         );
         if (typeReference) {
-            const definitions = project.resolveTypeDefinitions(moduleName, typeReference.name);
+            const definitions = typeDefinitionsForReference(project, moduleName, typeReference);
             if (definitions.length > 0) {
                 return typeReferenceLocations(
                     xlsmPath,

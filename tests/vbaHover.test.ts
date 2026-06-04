@@ -186,6 +186,57 @@ describe('hover - user symbols', () => {
 	});
 });
 
+describe('hover - standard module-qualified symbols', () => {
+	it('describes the module qualifier and qualified members', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Finance',
+			moduleKind: 'standard',
+			source: [
+				"''' <summary>Finance helper module.</summary>",
+				"''' <remarks>Shared workbook calculations.</remarks>",
+				'',
+				"''' <summary>Calculates the invoice total.</summary>",
+				'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency',
+				'End Function',
+				'Public Const DefaultTaxRate As Double = 0.08',
+				'Public Enum SharedMode',
+				'    SharedOnly',
+				'End Enum',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+		const ctx = { projectClassMembers: index.projectMemberSurfaces('Caller') };
+		const src =
+			'Sub T()\n' +
+			'    total = Finance.InvoiceTotal(100)\n' +
+			'    rate = Finance.DefaultTaxRate\n' +
+			'    mode = Finance.SharedOnly\n' +
+			'End Sub\n';
+
+		const moduleHover = resolveHover(src, src.indexOf('Finance.InvoiceTotal') + 2, ctx);
+		expect(moduleHover?.signature).toBe('Module Finance');
+		expect(moduleHover?.details).toContain('Standard module');
+		expect(moduleHover?.documentation).toContain('Finance helper module.');
+		expect(moduleHover?.documentation).toContain('Shared workbook calculations.');
+
+		const functionHover = resolveHover(src, src.indexOf('InvoiceTotal') + 2, ctx);
+		expect(functionHover?.signature).toBe(
+			'Finance.InvoiceTotal(Subtotal As Currency) As Currency',
+		);
+		expect(functionHover?.details).toContain('Finance method');
+		expect(functionHover?.documentation).toContain('Calculates the invoice total.');
+
+		const constantHover = resolveHover(src, src.indexOf('DefaultTaxRate') + 2, ctx);
+		expect(constantHover?.signature).toBe('Finance.DefaultTaxRate As Double');
+		expect(constantHover?.details).toContain('Finance property');
+
+		const enumMemberHover = resolveHover(src, src.indexOf('SharedOnly') + 2, ctx);
+		expect(enumMemberHover?.signature).toBe('Finance.SharedOnly As SharedMode');
+		expect(enumMemberHover?.details).toContain('Finance property');
+	});
+});
+
 describe('hover - host symbols', () => {
 	it('describes a host global', () => {
 		const src = 'Sub T()\n    ThisWorkbook.Save\nEnd Sub\n';
@@ -402,6 +453,30 @@ describe('hover - type names', () => {
 		});
 		expect(info?.signature).toBe('Class Person');
 		expect(info?.documentation).toContain('Represents a person.');
+	});
+
+	it('describes qualified project type names in declaration positions', () => {
+		const src = 'Sub T()\n    Dim p As Geometry.TPoint\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('TPoint') + 2, {
+			moduleName: 'M',
+			projectTypes: [
+				{
+					name: 'TPoint',
+					kind: 'userType',
+					moduleName: 'Geometry',
+					doc: {
+						summary: 'A shared coordinate payload.',
+						params: [],
+						source: 'inline',
+					},
+				},
+				{ name: 'TPoint', kind: 'userType', moduleName: 'OtherGeometry' },
+			],
+		});
+
+		expect(info?.signature).toBe('Type TPoint');
+		expect(info?.details).toContain('User type');
+		expect(info?.documentation).toContain('A shared coordinate payload.');
 	});
 
 	it('keeps colliding project type hovers generic', () => {

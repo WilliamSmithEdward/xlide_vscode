@@ -215,6 +215,30 @@ Landed first:
   `unknown-call`.
 - Landed type-name binder groundwork: `ProjectIndex.visibleTypeNames()` exposes
   visible project-defined type names to the shared `As`/`New` type resolver.
+- Landed call-target binder slice: project-visible exported non-callable
+  symbols now feed the `non-callable-call` diagnostic, so cross-module variables,
+  constants, enum types, and enum members used as call statements get the same
+  precise red squiggle as local and same-module non-callable targets. The
+  resolver stays silent when a visible procedure shares the name or duplicate
+  non-callable project bindings would make the target ambiguous.
+- Landed expression-call binder slice: `expression-call-requires-parens` now
+  uses unique exported project `Function` signatures, including
+  module-qualified standard-module calls. Ambiguous bare project `Function`
+  names stay silent.
+- Landed module-qualified IntelliSense slice: standard module names are offered
+  as qualifier completions, and `ModuleName.` completion, hover, signature help,
+  canonical casing, and source definitions now share the exported
+  standard-module member surface for procedures, Declares, globals, constants,
+  enum types, and enum members.
+- Landed qualified type-name slice: `ModuleName.TypeName` in declaration type
+  positions now resolves through the same visible project type binder as bare
+  names. Completion after `ModuleName.`, hover, semantic coloring, canonical
+  casing, definition/reference matching, and `New` diagnostics all use the
+  qualified type reference.
+- Landed standard-module tree rename slice: renaming a standard module now
+  rewrites bound module-qualified member and type qualifier tokens, including
+  renamed-module self-references, without touching comments, strings, or
+  unrelated modules that happen to expose the same member name.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

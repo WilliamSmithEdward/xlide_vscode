@@ -86,6 +86,10 @@ import {
     projectClassReferenceEdit,
     renameProjectClassModule,
 } from './vbaClassRename';
+import {
+    projectStandardModuleReferenceEdit,
+    renameProjectStandardModule,
+} from './vbaStandardModuleRename';
 import { resolveDiagnosticCodeActions } from './analyzer';
 import {
     anonymizedWorkbookAnalysisReportFromResult,
@@ -2401,12 +2405,9 @@ export function registerCommands(
         registerXlideCommand('xlide.renameModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
             const validateInput = (v: string): string | undefined => {
-                if (node.moduleType === 'class') {
-                    return VBA_IDENTIFIER_NAME_RE.test(v)
-                        ? undefined
-                        : 'Class module names must be valid VBA identifiers';
-                }
-                return /^\w+$/.test(v) ? undefined : 'Module names must be alphanumeric';
+                return VBA_IDENTIFIER_NAME_RE.test(v)
+                    ? undefined
+                    : 'Module names must be valid VBA identifiers';
             };
             const newName = await vscode.window.showInputBox({
                 prompt: `Rename "${node.moduleName}" to`,
@@ -2454,17 +2455,32 @@ export function registerCommands(
                         }
                     }
                 } else {
-                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                        'renameModule',
-                        {
-                            path: node.filePath,
-                            module: node.moduleName,
-                            newName,
-                        },
+                    const modules = applyOpenDocumentSources(
+                        await vbaIndex.getAllModules(node.filePath),
+                        node.filePath,
                     );
+                    const project = buildVbaProjectIndex(modules);
+                    const byModule = new Map(modules.map((mod) => [mod.moduleName.toLowerCase(), mod]));
+                    const references = projectStandardModuleReferenceEdit(
+                        node.filePath,
+                        byModule,
+                        project,
+                        node.moduleName,
+                        newName,
+                    );
+                    await renameProjectStandardModule(bridge, node.filePath, node.moduleName, newName);
                     moduleRenamed = true;
-                    notifySignatureDropped(node.filePath, result.signatureDropped);
                     vbaIndex.invalidate(node.filePath);
+                    if (references.count > 0) {
+                        for (const uri of references.uris) {
+                            const doc = await vscode.workspace.openTextDocument(uri);
+                            await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+                        }
+                        const applied = await vscode.workspace.applyEdit(references.edit);
+                        if (!applied) {
+                            throw new Error('VS Code did not apply the standard module reference edits.');
+                        }
+                    }
                 }
                 const summaryText = logChangeSummary('renameModule', {
                     operation: 'Rename module',

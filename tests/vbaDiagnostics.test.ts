@@ -910,6 +910,60 @@ describe('analyzeModule - non-callable call statements', () => {
 		expect(hits[0].message).toContain('parameter');
 	});
 
+	it('flags project-visible exported non-callables used as call statements', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    SharedValue\n' +
+			'    MaxValue 1\n' +
+			'    Call SharedMode\n' +
+			'    Active\n' +
+			'End Sub\n';
+		const helpers =
+			'Public SharedValue As Long\n' +
+			'Public Const MaxValue As Long = 10\n' +
+			'Public Enum SharedMode\n' +
+			'    Active\n' +
+			'End Enum\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Helpers', source: helpers },
+		], 'Caller');
+		const hits = byCode(diagnostics, 'non-callable-call');
+
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual([
+			'SharedValue',
+			'MaxValue',
+			'SharedMode',
+			'Active',
+		]);
+		expect(hits[0].message).toContain('module variable');
+		expect(hits[1].message).toContain('constant');
+		expect(hits[2].message).toContain('enum type');
+		expect(hits[3].message).toContain('enum member');
+		expect(byCode(diagnostics, 'unknown-call')).toHaveLength(0);
+	});
+
+	it('keeps project non-callables silent when a visible procedure shares the name', () => {
+		const caller = 'Sub Main()\n    SharedName\nEnd Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedName As Long\n' },
+			{ moduleName: 'Helpers', source: 'Public Sub SharedName()\nEnd Sub\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'non-callable-call')).toHaveLength(0);
+		expect(byCode(diagnostics, 'unknown-call')).toHaveLength(0);
+	});
+
+	it('keeps duplicate project non-callables silent instead of unknown', () => {
+		const caller = 'Sub Main()\n    SharedName\nEnd Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedName As Long\n' },
+			{ moduleName: 'OtherGlobals', source: 'Public Const SharedName As Long = 1\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'non-callable-call')).toHaveLength(0);
+		expect(byCode(diagnostics, 'unknown-call')).toHaveLength(0);
+	});
+
 	it('does not flag callable procedures or runtime statements', () => {
 		const src = 'Sub Main()\n    Helper "ok"\n    Beep\nEnd Sub\nSub Helper(ByVal s As String)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'non-callable-call')).toHaveLength(0);
@@ -3806,6 +3860,35 @@ describe('analyzeModule - As type name validation', () => {
 		).toHaveLength(0);
 	});
 
+	it('accepts qualified visible project type names in declaration positions', () => {
+		const src =
+			'Public Type Payload\n' +
+			'    Location As Geometry.TPoint\n' +
+			'End Type\n' +
+			'\n' +
+			'Public Sub T(ByVal state As Workflow.Status)\n' +
+			'    Dim p As Geometry.TPoint\n' +
+			'End Sub\n';
+		const modules = [
+			{
+				moduleName: 'Geometry',
+				source: 'Public Type TPoint\n    X As Long\nEnd Type\n',
+			},
+			{
+				moduleName: 'Workflow',
+				source: 'Public Enum Status\n    Active\nEnd Enum\n',
+			},
+			{
+				moduleName: 'OtherGeometry',
+				source: 'Public Type TPoint\n    Y As Long\nEnd Type\n',
+			},
+		];
+
+		expect(
+			byCode(analyzeProjectModule(src, modules, 'Consumer'), 'invalid-as-type-name'),
+		).toHaveLength(0);
+	});
+
 	it('accepts creatable project classes and UserForms after New', () => {
 		const src =
 			'Public Sub T()\n' +
@@ -3861,6 +3944,28 @@ describe('analyzeModule - As type name validation', () => {
 			'Long',
 		]);
 		expect(byCode(diags, 'invalid-as-type-name')).toHaveLength(0);
+	});
+
+	it('flags qualified non-creatable project types after New', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim value As Object\n' +
+			'    Set value = New Geometry.TPoint\n' +
+			'    Set value = New Workflow.Status\n' +
+			'End Sub\n';
+		const modules = [
+			{
+				moduleName: 'Geometry',
+				source: 'Public Type TPoint\n    X As Long\nEnd Type\n',
+			},
+			{
+				moduleName: 'Workflow',
+				source: 'Public Enum Status\n    Active\nEnd Enum\n',
+			},
+		];
+
+		const hits = byCode(analyzeProjectModule(src, modules, 'Consumer'), 'invalid-new-type-name');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['TPoint', 'Status']);
 	});
 
 	it('defers unresolved New type names to the project-wide binder and external references', () => {
@@ -4683,6 +4788,76 @@ describe('analyzeModule - expression call requires parentheses', () => {
 		const hits = byCode(analyzeModule(src), 'expression-call-requires-parens');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('MsgBox');
+	});
+
+	it('flags a unique exported project Function called with parenless arguments in an assignment', () => {
+		const caller =
+			'Public Sub TestInvoiceTotal()\n' +
+			'    Dim total As Double\n' +
+			'    total = InvoiceTotal 100, 0.08\n' +
+			'End Sub\n';
+		const invoices =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Invoices', source: invoices },
+			], 'Caller'),
+			'expression-call-requires-parens',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('InvoiceTotal');
+	});
+
+	it('flags a module-qualified project Function called with parenless arguments in an assignment', () => {
+		const caller =
+			'Public Sub TestInvoiceTotal()\n' +
+			'    Dim total As Double\n' +
+			'    total = Invoices.InvoiceTotal 100, 0.08\n' +
+			'End Sub\n';
+		const invoices =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Invoices', source: invoices },
+			], 'Caller'),
+			'expression-call-requires-parens',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('InvoiceTotal');
+	});
+
+	it('does not guess when a bare exported project Function name is ambiguous', () => {
+		const caller =
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = InvoiceTotal 100, 0.08\n' +
+			'End Sub\n';
+		const first =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
+			'End Function\n';
+		const second =
+			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeProjectModule(caller, [
+			{ moduleName: 'Invoices', source: first },
+			{ moduleName: 'AlternateInvoices', source: second },
+		], 'Caller'), 'expression-call-requires-parens')).toHaveLength(0);
+	});
+
+	it('does not treat exported project Subs as expression Functions', () => {
+		const caller =
+			'Public Sub TestInvoiceTotal()\n' +
+			'    total = PrintTotal 100\n' +
+			'End Sub\n';
+		const helpers = 'Public Sub PrintTotal(ByVal amount As Currency)\nEnd Sub\n';
+
+		expect(byCode(analyzeProjectModule(caller, [
+			{ moduleName: 'Helpers', source: helpers },
+		], 'Caller'), 'expression-call-requires-parens')).toHaveLength(0);
 	});
 
 	it('accepts a parenthesized Function call in an assignment', () => {

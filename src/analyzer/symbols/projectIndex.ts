@@ -27,6 +27,7 @@ import {
 	type VbaSymbolAttribute,
 	type VbaProcedureSignature,
 	formatProcedureParamLabel,
+	procedureSignatureLabel,
 	procedureParamsFromSymbol,
 	procedureSignatureFromSymbol,
 } from './symbolModel';
@@ -384,6 +385,13 @@ function isVisibleStandardModuleMember(
 	if (sameModule) {
 		return true;
 	}
+	if (symbol.kind === 'enum') {
+		return isTypeExported(symbol);
+	}
+	if (symbol.kind === 'enumMember') {
+		const container = enumContainerForMember(mod, symbol);
+		return container ? isEnumMemberExported(container, mod.moduleKind) : false;
+	}
 	return isExported(symbol, mod.moduleKind);
 }
 
@@ -391,11 +399,15 @@ function projectObjectMemberKind(symbol: VbaSymbol): VbaProjectClassMember['kind
 	switch (symbol.kind) {
 		case 'sub':
 		case 'function':
+		case 'declare':
 			return 'method';
 		case 'propertyGet':
 		case 'propertyLet':
 		case 'propertySet':
 		case 'moduleVariable':
+		case 'constant':
+		case 'enum':
+		case 'enumMember':
 			return 'property';
 		default:
 			return undefined;
@@ -409,6 +421,9 @@ function projectObjectMemberWritable(symbol: VbaSymbol): boolean | undefined {
 		case 'moduleVariable':
 			return true;
 		case 'propertyGet':
+		case 'constant':
+		case 'enum':
+		case 'enumMember':
 			return false;
 		default:
 			return undefined;
@@ -425,6 +440,26 @@ function projectObjectMemberWriteType(symbol: VbaSymbol): string | undefined {
 		default:
 			return undefined;
 	}
+}
+
+function enumContainerForMember(
+	mod: ModuleSymbols,
+	member: VbaSymbol,
+): VbaSymbol | undefined {
+	const lower = member.containerName?.toLowerCase();
+	if (!lower) {
+		return undefined;
+	}
+	return (mod.root.children ?? []).find(
+		(symbol) => symbol.kind === 'enum' && symbol.name.toLowerCase() === lower,
+	);
+}
+
+function projectObjectMemberReturnType(symbol: VbaSymbol): string | undefined {
+	if (symbol.kind === 'enumMember') {
+		return symbol.containerName;
+	}
+	return symbol.asType;
 }
 
 function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMemberDefinition {
@@ -489,11 +524,11 @@ function lastParameter(symbol: VbaSymbol): VbaSymbol | undefined {
 }
 
 function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
-	if (
-		symbol.kind !== 'sub' &&
-		symbol.kind !== 'function' &&
-		symbol.kind !== 'propertyGet'
-	) {
+	const procedure = procedureSignatureFromSymbol(symbol);
+	if (procedure) {
+		return procedureSignatureLabel(procedure);
+	}
+	if (symbol.kind !== 'propertyGet') {
 		return undefined;
 	}
 	const params = procedureParamsFromSymbol(symbol)
@@ -501,6 +536,20 @@ function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 		.join(', ');
 	const returns = symbol.asType ? ` As ${symbol.asType}` : '';
 	return `${symbol.name}(${params})${returns}`;
+}
+
+function projectMemberCandidateSymbols(
+	mod: ModuleSymbols,
+	includeEnumMembers: boolean,
+): VbaSymbol[] {
+	const out: VbaSymbol[] = [];
+	for (const symbol of mod.root.children ?? []) {
+		out.push(symbol);
+		if (includeEnumMembers && symbol.kind === 'enum') {
+			out.push(...(symbol.children ?? []));
+		}
+	}
+	return out;
 }
 
 function userTypeFieldSignature(symbol: VbaSymbol): string {
@@ -1226,15 +1275,17 @@ export class ProjectIndex {
 		return this.visibleProjectMembers(
 			mod,
 			(symbol) => isVisibleStandardModuleMember(symbol, mod, sameModule),
+			{ includeEnumMembers: true },
 		);
 	}
 
 	private visibleProjectMembers(
 		mod: ModuleSymbols,
 		isVisible: (symbol: VbaSymbol) => boolean,
+		options: { includeEnumMembers?: boolean } = {},
 	): VbaProjectClassMember[] {
 		const byName = new Map<string, VbaProjectClassMember>();
-		for (const symbol of mod.root.children ?? []) {
+		for (const symbol of projectMemberCandidateSymbols(mod, options.includeEnumMembers === true)) {
 			if (!isVisible(symbol)) {
 				continue;
 			}
@@ -1245,8 +1296,9 @@ export class ProjectIndex {
 			const key = symbol.name.toLowerCase();
 			const existing = byName.get(key);
 			if (existing) {
-				if (!existing.returns && symbol.asType) {
-					existing.returns = symbol.asType;
+				const returns = projectObjectMemberReturnType(symbol);
+				if (!existing.returns && returns) {
+					existing.returns = returns;
 				}
 				const writable = projectObjectMemberWritable(symbol);
 				if (writable === true) {
@@ -1276,7 +1328,7 @@ export class ProjectIndex {
 			byName.set(key, {
 				name: symbol.name,
 				kind,
-				returns: symbol.asType,
+				returns: projectObjectMemberReturnType(symbol),
 				signature: projectObjectMemberSignature(symbol),
 				writable: projectObjectMemberWritable(symbol),
 				writeType: projectObjectMemberWriteType(symbol),

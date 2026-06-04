@@ -33,6 +33,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectProcedures'
     | 'projectClassMembers'
     | 'projectTypes'
+    | 'projectVisibleSymbols'
     | 'projectIntegerConstants'
 >;
 
@@ -119,6 +120,7 @@ export function projectAnalysisOptionsForModule(
         options.knownIdentifiers = project.visibleIdentifierNames(moduleName);
         options.knownNonTypeNames = project.visibleNonTypeNames(moduleName);
         options.projectTypes = project.visibleTypeNames(moduleName);
+        options.projectVisibleSymbols = project.visibleIdentifierSymbols(moduleName);
         options.projectClassMembers = project.projectMemberSurfaces(moduleName);
         options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
     } catch {

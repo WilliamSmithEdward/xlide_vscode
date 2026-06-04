@@ -50,12 +50,14 @@ import {
 import {
 	projectClassModuleDefinition,
 	projectClassReferenceLocations,
+	typeReferenceLocations,
 	type VbaNavigationModule,
 } from '../src/vbaNavigation';
 import {
 	applyOpenDocumentSources,
 	type VbaOpenDocumentLike,
 } from '../src/vbaOpenDocuments';
+import { projectStandardModuleReferenceLocations } from '../src/vbaStandardModuleRename';
 
 function doc(path: string, source: string): VbaOpenDocumentLike {
 	return {
@@ -202,5 +204,107 @@ describe('multi-workbook isolation', () => {
 			'xlide-vba:/one/book.xlsm/Caller.bas',
 		]);
 		expect(references.map((ref) => ref.range.start.line)).toEqual([1, 2]);
+	});
+
+	it('keeps qualified type reference locations bound to the named module', () => {
+		const workbookOne = path.join(path.sep, 'one', 'book.xlsm');
+		const caller = [
+			'Public Sub Main()',
+			'    Dim a As Geometry.TPoint',
+			'    Dim b As OtherGeometry.TPoint',
+			'    Dim c As Geometry.TPoint',
+			'End Sub',
+		].join('\n');
+		const modules: VbaProjectModuleInput[] = [
+			{ moduleName: 'Caller', type: 'standard', source: caller },
+			{
+				moduleName: 'Geometry',
+				type: 'standard',
+				source: 'Public Type TPoint\n    X As Long\nEnd Type\n',
+			},
+			{
+				moduleName: 'OtherGeometry',
+				type: 'standard',
+				source: 'Public Type TPoint\n    Y As Long\nEnd Type\n',
+			},
+		];
+		const project = buildVbaProjectIndex(modules);
+		const byModule = new Map<string, VbaNavigationModule>(
+			modules.map((mod) => [mod.moduleName.toLowerCase(), mod]),
+		);
+		const definitions = project.resolveTypeDefinitions('Caller', 'TPoint')
+			.filter((definition) => definition.moduleName === 'Geometry');
+
+		const references = typeReferenceLocations(
+			workbookOne,
+			byModule,
+			project,
+			'TPoint',
+			definitions,
+			false,
+		);
+
+		expect(references).toHaveLength(2);
+		expect(references.map((ref) => ref.range.start.line)).toEqual([1, 3]);
+	});
+
+	it('finds bound standard-module qualifier references for tree rename edits', () => {
+		const workbookOne = path.join(path.sep, 'one', 'book.xlsm');
+		const caller = [
+			'Public Sub Main()',
+			'    Helpers.PrintTotal 100',
+			'    Alternate.PrintTotal 100',
+			'    Debug.Print Helpers.DefaultTaxRate',
+			'    Dim p As Helpers.TPoint',
+			'    Dim mode As Helpers.SharedMode',
+			'    Debug.Print "Helpers.PrintTotal"',
+			"    ' Helpers.PrintTotal",
+			'End Sub',
+		].join('\n');
+		const helpers = [
+			'Public Const DefaultTaxRate As Double = 0.08',
+			'Public Enum SharedMode',
+			'    SharedOnly',
+			'End Enum',
+			'Public Type TPoint',
+			'    X As Long',
+			'End Type',
+			'Public Sub PrintTotal(ByVal amount As Currency)',
+			'End Sub',
+			'Public Sub SelfCall()',
+			'    Helpers.PrintTotal 1',
+			'End Sub',
+		].join('\n');
+		const modules: VbaProjectModuleInput[] = [
+			{ moduleName: 'Caller', type: 'standard', source: caller },
+			{ moduleName: 'Helpers', type: 'standard', source: helpers },
+			{
+				moduleName: 'Alternate',
+				type: 'standard',
+				source: 'Public Sub PrintTotal(ByVal amount As Currency)\nEnd Sub\n',
+			},
+		];
+		const project = buildVbaProjectIndex(modules);
+		const byModule = new Map<string, VbaNavigationModule>(
+			modules.map((mod) => [mod.moduleName.toLowerCase(), mod]),
+		);
+
+		const references = projectStandardModuleReferenceLocations(
+			workbookOne,
+			byModule,
+			project,
+			'Helpers',
+			'RenamedHelpers',
+		);
+
+		expect(references.map((ref) =>
+			`${ref.uri.toString()}:${ref.range.start.line}:${ref.range.start.character}`,
+		)).toEqual([
+			'xlide-vba:/one/book.xlsm/Caller.bas:1:4',
+			'xlide-vba:/one/book.xlsm/Caller.bas:3:16',
+			'xlide-vba:/one/book.xlsm/Caller.bas:4:13',
+			'xlide-vba:/one/book.xlsm/Caller.bas:5:16',
+			'xlide-vba:/one/book.xlsm/RenamedHelpers.bas:10:4',
+		]);
 	});
 });

@@ -12,7 +12,7 @@
 // The overall tooltip precedence (developer overrides library) is enforced at
 // the call sites: an inline `'''` comment on a symbol wins over this registry,
 // and this registry wins over the curated host/runtime library. See
-// docs/vba-doc-comments.md.
+// user_guides/vba-doc-comments.md.
 
 import { VbaDoc } from './docModel';
 import { ExternalDocEntry } from './externalDoc';

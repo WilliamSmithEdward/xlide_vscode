@@ -10,7 +10,7 @@
 // intentionally lenient (regex-based, no XML dependency) so a partially written
 // or slightly malformed block still yields useful text.
 //
-// Pure analyzer code: no `vscode` dependency. See docs/vba-doc-comments.md.
+// Pure analyzer code: no `vscode` dependency. See user_guides/vba-doc-comments.md.
 
 import { VbaDoc, VbaDocParam, VbaDocSource } from './docModel';
 
@@ -143,6 +143,123 @@ export function parseDocBody(body: string, source: VbaDocSource): VbaDoc {
 	return doc;
 }
 
+function hasAnyDocContent(doc: VbaDoc): boolean {
+	return !!doc.summary ||
+		doc.params.length > 0 ||
+		!!doc.returns ||
+		!!doc.remarks ||
+		!!doc.example ||
+		!!doc.signature;
+}
+
+function docFromLines(docLines: readonly string[]): VbaDoc | undefined {
+	if (docLines.length === 0) {
+		return undefined;
+	}
+	const doc = parseDocBody(docLines.join('\n'), 'inline');
+	return hasAnyDocContent(doc) ? doc : undefined;
+}
+
+function stripDocPrefix(trimmed: string): string {
+	let rest = trimmed.slice(3);
+	if (rest.startsWith(' ')) {
+		rest = rest.slice(1);
+	}
+	return rest;
+}
+
+interface SourceLine {
+	text: string;
+	start: number;
+	end: number;
+}
+
+function sourceLines(source: string): SourceLine[] {
+	const rawLines = source.split('\n');
+	const out: SourceLine[] = [];
+	let offset = 0;
+	for (const raw of rawLines) {
+		const text = raw.replace(/\r$/, '');
+		out.push({
+			text,
+			start: offset,
+			end: offset + raw.length,
+		});
+		offset += raw.length + 1;
+	}
+	return out;
+}
+
+function firstLineIndexAtOrAfter(lines: readonly SourceLine[], offset: number): number {
+	const safeOffset = Math.max(0, offset);
+	for (let i = 0; i < lines.length; i += 1) {
+		const line = lines[i];
+		if (line.start >= safeOffset) {
+			return i;
+		}
+		if (safeOffset <= line.end) {
+			return i + 1;
+		}
+	}
+	return lines.length;
+}
+
+function isOrdinaryComment(trimmed: string): boolean {
+	return trimmed.startsWith("'") && !trimmed.startsWith("'''");
+}
+
+function isModuleHeaderBoundary(trimmed: string): boolean {
+	return trimmed === '' ||
+		isOrdinaryComment(trimmed) ||
+		/^Option\b/i.test(trimmed);
+}
+
+/**
+ * Extracts a module-header documentation block from the top of a module. This
+ * supports both object modules with a block directly above `Option Explicit`
+ * and standard modules that have no `Option` directive by requiring the header
+ * block to be visually separated from the first declaration by a blank line or
+ * ordinary comment. A block immediately above a declaration remains declaration
+ * documentation.
+ */
+export function extractModuleHeaderDoc(
+	source: string,
+	startOffset = 0,
+): VbaDoc | undefined {
+	const lines = sourceLines(source);
+	let i = firstLineIndexAtOrAfter(lines, startOffset);
+	while (i < lines.length) {
+		const trimmed = lines[i].text.trimStart();
+		if (trimmed === '' || isOrdinaryComment(trimmed)) {
+			i += 1;
+			continue;
+		}
+		break;
+	}
+	if (i >= lines.length || !lines[i].text.trimStart().startsWith("'''")) {
+		return undefined;
+	}
+
+	const docLines: string[] = [];
+	while (i < lines.length) {
+		const trimmed = lines[i].text.trimStart();
+		if (!trimmed.startsWith("'''")) {
+			break;
+		}
+		docLines.push(stripDocPrefix(trimmed));
+		i += 1;
+	}
+
+	if (i < lines.length) {
+		const next = lines[i].text.trimStart();
+		if (!isModuleHeaderBoundary(next)) {
+			return undefined;
+		}
+	}
+
+	return docFromLines(docLines);
+}
+
 /**
  * Scans upward from the start of a declaration to collect a contiguous run of
  * `'''` documentation-comment lines, and parses them into a {@link VbaDoc}.
@@ -167,23 +284,8 @@ export function extractLeadingDoc(
 		if (!trimmed.startsWith("'''")) {
 			break;
 		}
-		let rest = trimmed.slice(3);
-		if (rest.startsWith(' ')) {
-			rest = rest.slice(1);
-		}
-		docLines.push(rest);
-	}
-	if (docLines.length === 0) {
-		return undefined;
+		docLines.push(stripDocPrefix(trimmed));
 	}
 	docLines.reverse();
-	const doc = parseDocBody(docLines.join('\n'), 'inline');
-	return doc.summary ||
-		doc.params.length > 0 ||
-		doc.returns ||
-		doc.remarks ||
-		doc.example ||
-		doc.signature
-		? doc
-		: undefined;
+	return docFromLines(docLines);
 }

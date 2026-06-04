@@ -9,7 +9,7 @@
 // This module is the host-agnostic data model shared by the inline parser
 // (docComment.ts), the external-file parser (externalDoc.ts), and the lookup
 // registry (docRegistry.ts). It carries no `vscode` dependency. See
-// docs/vba-doc-comments.md for the full standard and usage paths.
+// user_guides/vba-doc-comments.md for the full standard and usage paths.
 
 /** Where a {@link VbaDoc} was authored. */
 export type VbaDocSource = 'inline' | 'external';

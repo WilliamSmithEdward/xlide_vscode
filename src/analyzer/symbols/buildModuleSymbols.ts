@@ -27,7 +27,7 @@ import type {
 	VariableGroupNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
-import { extractLeadingDoc } from '../docs/docComment';
+import { extractLeadingDoc, extractModuleHeaderDoc } from '../docs/docComment';
 import type { VbaDoc } from '../docs/docModel';
 import type {
 	ModuleSymbolKind,
@@ -139,6 +139,11 @@ function attachMemberAttributes(
 }
 
 function extractModuleDoc(source: string, module: ModuleNode): VbaDoc | undefined {
+	const headerStart = leadingAttributeEnd(module);
+	const headerDoc = extractModuleHeaderDoc(source, headerStart);
+	if (headerDoc) {
+		return headerDoc;
+	}
 	const firstNonAttribute = module.members.find(
 		(member): member is Exclude<ModuleMember, AttributeNode> => member.kind !== 'Attribute',
 	);
@@ -147,6 +152,17 @@ function extractModuleDoc(source: string, module: ModuleNode): VbaDoc | undefine
 	return firstNonAttribute?.kind === 'Option'
 		? extractLeadingDoc(source, firstNonAttribute.span.start)
 		: undefined;
+}
+
+function leadingAttributeEnd(module: ModuleNode): number {
+	let end = module.span.start;
+	for (const member of module.members) {
+		if (member.kind !== 'Attribute') {
+			break;
+		}
+		end = member.span.end;
+	}
+	return end;
 }
 
 /**

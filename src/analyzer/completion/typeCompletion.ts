@@ -29,6 +29,7 @@ import {
 export type TypeCompletionKind =
 	| 'primitive'
 	| 'host'
+	| 'module'
 	| 'class'
 	| 'document'
 	| 'userform'
@@ -42,6 +43,8 @@ export interface TypeCompletion {
 	kind: TypeCompletionKind;
 	/** Short human-readable origin, e.g. "VBA type" or "Excel type". */
 	detail: string;
+	/** Project module that owns the type, when known. */
+	moduleName?: string;
 	/** Markdown documentation from inline or external metadata, when available. */
 	documentation?: string;
 }
@@ -50,6 +53,7 @@ export interface TypeCompletion {
 export interface ProjectTypeName {
 	name: string;
 	kind: VbaProjectTypeKind;
+	moduleName?: string;
 	doc?: VbaDoc;
 }
 
@@ -111,23 +115,77 @@ function isWordToken(tok: VbaToken): boolean {
  */
 type TypePositionMode = 'declaration' | 'newDeclaration' | 'newExpression';
 
-function detectTypePosition(slice: string): { prefix: string; mode: TypePositionMode } | undefined {
+interface TypePosition {
+	prefix: string;
+	mode: TypePositionMode;
+	qualifier?: string;
+	memberPrefix?: string;
+}
+
+function tokenName(tok: VbaToken | undefined): string | undefined {
+	if (!tok) {
+		return undefined;
+	}
+	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
+		return tok.rawText;
+	}
+	if (tok.kind === 'bracketedIdentifier') {
+		return tok.rawText.slice(1, -1);
+	}
+	return undefined;
+}
+
+function readPartialTypeName(tokens: readonly VbaToken[]): {
+	prefix: string;
+	qualifier?: string;
+	memberPrefix?: string;
+	beforeIndex: number;
+} {
+	let i = tokens.length - 1;
+	let prefix = '';
+	let qualifier: string | undefined;
+	let memberPrefix: string | undefined;
+
+	if (tokens[i]?.rawText === '.') {
+		const qualifierName = tokenName(tokens[i - 1]);
+		if (qualifierName) {
+			qualifier = qualifierName;
+			memberPrefix = '';
+			prefix = `${qualifierName}.`;
+			i -= 2;
+		}
+		return { prefix, qualifier, memberPrefix, beforeIndex: i };
+	}
+
+	const last = tokens[i];
+	if (last && isWordToken(last)) {
+		const lower = last.rawText.toLowerCase();
+		if (lower !== 'as' && lower !== 'new') {
+			const name = tokenName(last) ?? last.rawText;
+			prefix = name;
+			memberPrefix = name;
+			i--;
+			const qualifierName = tokens[i]?.rawText === '.'
+				? tokenName(tokens[i - 1])
+				: undefined;
+			if (qualifierName) {
+				qualifier = qualifierName;
+				prefix = `${qualifierName}.${name}`;
+				i -= 2;
+			}
+		}
+	}
+
+	return { prefix, qualifier, memberPrefix, beforeIndex: i };
+}
+
+function detectTypePosition(slice: string): TypePosition | undefined {
 	const tokens = meaningfulTokens(slice);
 	if (tokens.length === 0) {
 		return undefined;
 	}
-	let i = tokens.length - 1;
-	let prefix = '';
-
-	// A partial type identifier currently being typed (not `As`/`New`).
-	const last = tokens[i];
-	if (isWordToken(last)) {
-		const lower = last.rawText.toLowerCase();
-		if (lower !== 'as' && lower !== 'new') {
-			prefix = last.rawText;
-			i--;
-		}
-	}
+	const partial = readPartialTypeName(tokens);
+	let i = partial.beforeIndex;
 	if (i < 0) {
 		return undefined;
 	}
@@ -136,16 +194,16 @@ function detectTypePosition(slice: string): { prefix: string; mode: TypePosition
 	if (tokens[i].kind === 'keyword' && tokens[i].rawText.toLowerCase() === 'new') {
 		i--;
 		if (i < 0 || tokens[i].rawText.toLowerCase() !== 'as') {
-			return { prefix, mode: 'newExpression' };
+			return { ...partial, mode: 'newExpression' };
 		}
-		return { prefix, mode: 'newDeclaration' };
+		return { ...partial, mode: 'newDeclaration' };
 	}
 	if (i < 0) {
 		return undefined;
 	}
 
 	if (tokens[i].rawText.toLowerCase() === 'as') {
-		return { prefix, mode: 'declaration' };
+		return { ...partial, mode: 'declaration' };
 	}
 	return undefined;
 }
@@ -175,6 +233,7 @@ function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCo
 		name: string;
 		kinds: Set<VbaProjectTypeKind>;
 		count: number;
+		moduleName?: string;
 		doc?: VbaDoc;
 	}>();
 	for (const projectType of projectTypes) {
@@ -183,9 +242,13 @@ function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCo
 			name: projectType.name,
 			kinds: new Set<VbaProjectTypeKind>(),
 			count: 0,
+			moduleName: projectType.moduleName,
 		};
 		group.kinds.add(projectType.kind);
 		group.count++;
+		if (!group.moduleName && projectType.moduleName) {
+			group.moduleName = projectType.moduleName;
+		}
 		if (!group.doc && hasDocContent(projectType.doc)) {
 			group.doc = projectType.doc;
 		}
@@ -204,6 +267,7 @@ function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCo
 			name: group.name,
 			kind,
 			detail: PROJECT_KIND_DETAIL[kind],
+			moduleName: group.moduleName,
 			documentation: group.doc ? renderDocMarkdown(group.doc) : undefined,
 		};
 	});
@@ -219,6 +283,7 @@ export function typeCompletionCandidates(
 		name: string,
 		kind: TypeCompletionKind,
 		detail: string,
+		moduleName?: string,
 		documentation?: string,
 	): void => {
 		const key = name.toLowerCase();
@@ -226,12 +291,12 @@ export function typeCompletionCandidates(
 			return;
 		}
 		seen.add(key);
-		out.push({ name, kind, detail, documentation });
+		out.push({ name, kind, detail, moduleName, documentation });
 	};
 
 	// 1. Project-defined types take precedence (can shadow a built-in name).
 	for (const t of projectTypeCandidates(ctx.projectTypes ?? [])) {
-		add(t.name, t.kind, t.detail, t.documentation);
+		add(t.name, t.kind, t.detail, t.moduleName, t.documentation);
 	}
 	// 2. VBA built-in data types.
 	for (const name of VBA_PRIMITIVE_TYPES) {
@@ -245,6 +310,51 @@ export function typeCompletionCandidates(
 	return out;
 }
 
+function qualifiedTypeName(name: string): { qualifier: string; member: string } | undefined {
+	const dot = name.indexOf('.');
+	if (dot <= 0 || dot >= name.length - 1) {
+		return undefined;
+	}
+	return {
+		qualifier: name.slice(0, dot),
+		member: name.slice(dot + 1),
+	};
+}
+
+function projectTypeCandidatesInModule(
+	moduleName: string,
+	projectTypes: readonly ProjectTypeName[] | undefined,
+): TypeCompletion[] {
+	const lowerModule = moduleName.toLowerCase();
+	return projectTypeCandidates(
+		(projectTypes ?? []).filter((type) => type.moduleName?.toLowerCase() === lowerModule),
+	).map((candidate) => ({ ...candidate, moduleName }));
+}
+
+function projectModuleQualifierCandidates(
+	projectTypes: readonly ProjectTypeName[] | undefined,
+): TypeCompletion[] {
+	const seen = new Set<string>();
+	const out: TypeCompletion[] = [];
+	for (const type of projectTypes ?? []) {
+		if (!type.moduleName) {
+			continue;
+		}
+		const key = type.moduleName.toLowerCase();
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		out.push({
+			name: type.moduleName,
+			kind: 'module',
+			detail: 'Module qualifier',
+			moduleName: type.moduleName,
+		});
+	}
+	return out;
+}
+
 export function isCreatableTypeCompletion(candidate: TypeCompletion): boolean {
 	return candidate.kind === 'class' || candidate.kind === 'userform';
 }
@@ -253,6 +363,12 @@ export function resolveTypeName(
 	name: string,
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion | undefined {
+	const qualified = qualifiedTypeName(name);
+	if (qualified) {
+		return projectTypeCandidatesInModule(qualified.qualifier, ctx.projectTypes).find(
+			(candidate) => candidate.name.toLowerCase() === qualified.member.toLowerCase(),
+		);
+	}
 	const lower = name.toLowerCase();
 	return typeCompletionCandidates(ctx).find((candidate) => (
 		candidate.name.toLowerCase() === lower
@@ -276,8 +392,22 @@ export function resolveTypeCompletions(
 		return [];
 	}
 	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
+	if (pos.qualifier !== undefined) {
+		const memberPrefix = (pos.memberPrefix ?? '').toLowerCase();
+		return projectTypeCandidatesInModule(pos.qualifier, ctx.projectTypes)
+			.filter((candidate) => pos.mode === 'declaration' || isCreatableTypeCompletion(candidate))
+			.filter((candidate) => !memberPrefix || candidate.name.toLowerCase().startsWith(memberPrefix));
+	}
 	const prefix = pos.prefix.toLowerCase();
-	return typeCompletionCandidates({ ...ctx, model })
+	const candidates = typeCompletionCandidates({ ...ctx, model })
 		.filter((candidate) => pos.mode === 'declaration' || isCreatableTypeCompletion(candidate))
 		.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix));
+	if (pos.mode !== 'declaration') {
+		return candidates;
+	}
+	return [
+		...candidates,
+		...projectModuleQualifierCandidates(ctx.projectTypes)
+			.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix)),
+	];
 }

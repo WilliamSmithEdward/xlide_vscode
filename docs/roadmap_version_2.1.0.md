@@ -120,6 +120,32 @@ Scope:
 - [ ] Add workbook fixture scenarios covering shadowing, duplicates,
   multi-workbook isolation, live-source overlays, and unresolved external names.
 
+Progress:
+
+- [x] Call-context binder slice: project-visible exported variables, constants,
+  enum types, and enum members now resolve as `non-callable-call` targets
+  instead of vague `unknown-call` misses. The rule stays silent when a visible
+  procedure shares the same bare name or when duplicate non-callable project
+  bindings make the target ambiguous.
+- [x] Expression-call binder slice: unique exported project `Function`
+  signatures now trigger `expression-call-requires-parens` for parenless
+  argument calls in expression context, including module-qualified
+  standard-module calls. Ambiguous bare project `Function` names stay silent.
+- [x] Module-qualified IntelliSense slice: standard module names now appear as
+  qualifier completions, and `ModuleName.` member completion, hover, signature
+  help, canonical casing, and source definitions use the same exported
+  standard-module surface for procedures, Declares, globals, constants, enum
+  types, and enum members.
+- [x] Qualified type-name slice: declaration type positions now resolve and
+  complete `ModuleName.TypeName` for visible project UDTs/enums/classes, with
+  hover, semantic coloring, canonical casing, definition/reference matching,
+  and `New` diagnostics all sharing the qualified type resolver.
+- [x] Standard-module tree rename slice: renaming a standard module from the
+  Explorer tree now rewrites bound `ModuleName.MemberName` and
+  `ModuleName.TypeName` qualifier tokens, including self-references retargeted
+  to the renamed module URI, while comments, strings, and unrelated modules
+  remain untouched.
+
 Definition of done:
 
 - The binder can explain why a name resolves, why it is ambiguous, or why XLIDE

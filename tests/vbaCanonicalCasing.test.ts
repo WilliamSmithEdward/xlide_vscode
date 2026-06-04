@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	canonicalCaseBoundaryKind,
+	ProjectIndex,
 	resolveCanonicalCaseEdit,
 	resolveCanonicalCaseEdits,
 	type CanonicalCaseContext,
@@ -83,6 +84,53 @@ describe('canonical casing edits', () => {
 			},
 		});
 		expect(edit?.text).toBe('Save');
+	});
+
+	it('canonicalizes standard module qualifiers and qualified members', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Finance',
+			moduleKind: 'standard',
+			source: [
+				'Public Function InvoiceTotal() As Currency',
+				'End Function',
+				'Public Const DefaultTaxRate As Double = 0.08',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+		const projectMemberSurfaces = index.projectMemberSurfaces('Caller');
+		const ctx: CanonicalCaseContext = {
+			identifier: {
+				projectMemberSurfaces,
+				includeGlobals: false,
+				includeRuntime: false,
+			},
+			member: {
+				projectClassMembers: projectMemberSurfaces,
+			},
+		};
+
+		expect(editAtMarker('Sub T()\n    finance|.InvoiceTotal\nEnd Sub\n', ctx)?.text)
+			.toBe('Finance');
+		expect(editAtMarker('Sub T()\n    Finance.invoicetotal|\nEnd Sub\n', ctx)?.text)
+			.toBe('InvoiceTotal');
+		expect(editAtMarker('Sub T()\n    Finance.defaulttaxrate|\nEnd Sub\n', ctx)?.text)
+			.toBe('DefaultTaxRate');
+	});
+
+	it('canonicalizes qualified project type names', () => {
+		const ctx: CanonicalCaseContext = {
+			type: {
+				projectTypes: [
+					{ name: 'TPoint', kind: 'userType', moduleName: 'Geometry' },
+				],
+			},
+		};
+
+		expect(editAtMarker('Sub T()\n    Dim p As geometry|.TPoint\nEnd Sub\n', ctx)?.text)
+			.toBe('Geometry');
+		expect(editAtMarker('Sub T()\n    Dim p As Geometry.tpoint|\nEnd Sub\n', ctx)?.text)
+			.toBe('TPoint');
 	});
 
 	it('canonicalizes keywords without touching comments or strings', () => {

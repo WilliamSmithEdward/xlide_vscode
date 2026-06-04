@@ -109,6 +109,18 @@ export function resolveHover(
 	const span: Span = { start: token.start, end: token.end };
 	const name = token.rawText;
 
+	// Type names in declarations and `New` expressions: primitives, host types,
+	// and project-defined classes/enums/UDTs share the type resolver. This must
+	// run before member access so qualified type names such as `Types.TPoint`
+	// hover the type token rather than treating it as an expression member.
+	const typeHover = resolveTypeReferenceAt(source, offset, {
+		projectTypes: ctx.projectTypes,
+		model: ctx.model,
+	});
+	if (typeHover) {
+		return buildTypeHover(typeHover);
+	}
+
 	// Member access: `receiver.member` - describe the host or project member.
 	if (idx > 0 && tokens[idx - 1].rawText === '.') {
 		const member = resolveMemberCompletions(source, token.end, ctx).find(
@@ -121,25 +133,24 @@ export function resolveHover(
 		return undefined;
 	}
 
-	// Type names in declarations and `New` expressions: primitives, host types,
-	// and project-defined classes/enums/UDTs share the type resolver.
-	const typeHover = resolveTypeReferenceAt(source, offset, {
-		projectTypes: ctx.projectTypes,
-		model: ctx.model,
-	});
-	if (typeHover) {
-		return buildTypeHover(typeHover);
-	}
-
 	// User symbol declared in the current module (live, no save required).
 	const userHover = resolveUserSymbol(source, offset, name, ctx, span);
 	if (userHover) {
 		return userHover;
 	}
 
+	const projectModuleHover = resolveProjectModuleHover(name, ctx, span);
+	if (projectModuleHover && tokens[idx + 1]?.rawText === '.') {
+		return projectModuleHover;
+	}
+
 	const projectProcedureHover = resolveProjectProcedureHover(name, ctx, span);
 	if (projectProcedureHover) {
 		return projectProcedureHover;
+	}
+
+	if (projectModuleHover) {
+		return projectModuleHover;
 	}
 
 	// Host global identifier (e.g. ThisWorkbook, Application).
@@ -387,6 +398,29 @@ function resolveProjectProcedureHover(
 		info.documentation = renderDocMarkdown(doc);
 	}
 	return info;
+}
+
+function resolveProjectModuleHover(
+	name: string,
+	ctx: HoverContext,
+	span: Span,
+): HoverInfo | undefined {
+	const surface = (ctx.projectClassMembers ?? []).find(
+		(item) => item.kind === 'standardModule' &&
+			item.name.toLowerCase() === name.toLowerCase(),
+	);
+	if (!surface) {
+		return undefined;
+	}
+	const doc = hasDocContent(surface.doc)
+		? renderDocMarkdown(surface.doc)
+		: externalDocMarkdown(ctx, surface.name);
+	return {
+		signature: `Module ${surface.name}`,
+		details: ['Standard module'],
+		span,
+		documentation: doc,
+	};
 }
 
 /** Finds the user symbol the cursor resolves to, or undefined. */

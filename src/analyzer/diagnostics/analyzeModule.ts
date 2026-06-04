@@ -100,6 +100,7 @@ import {
 } from '../completion/eventHandlers';
 import {
 	collectTypeNameReferences,
+	typeReferenceLookupName,
 	type TypeNameReferenceKind,
 } from '../semantic/typeSemanticTokens';
 import {
@@ -184,6 +185,12 @@ export interface AnalyzeModuleOptions {
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Source-declared workbook type names visible to this module. */
 	projectTypes?: readonly ProjectTypeName[];
+	/**
+	 * Source-backed module-level symbols visible as bare identifiers from this
+	 * module. Used by call-target diagnostics to distinguish "not found" from
+	 * "found, but not callable" across modules.
+	 */
+	projectVisibleSymbols?: readonly VbaSymbol[];
 	/** Lowercased visible declaration names known not to be type names. */
 	knownNonTypeNames?: ReadonlySet<string>;
 	/**
@@ -322,14 +329,22 @@ function runRules(
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
 	checkInvalidAsTypeNames(source, activity, opts, push);
 	checkCallParens(source, mod, symbols, opts.projectProcedures, memberCtx, activity, push);
-	checkExpressionCallParens(source, mod, symbols, activity, push);
+	checkExpressionCallParens(source, mod, symbols, opts.projectProcedures, activity, push);
 	checkSetAssignments(source, mod, symbols, memberCtx, activity, push);
 	checkExitStatements(source, mod, activity, push);
 	checkUndefinedLabels(source, mod, activity, push);
 	checkStatementContext(source, mod, activity, push);
 	checkScalarMemberAccess(source, mod, symbols, activity, push);
 	checkMemberNotFound(source, mod, memberCtx, activity, push);
-	checkNonCallableCallStatement(source, mod, symbols, activity, push);
+	checkNonCallableCallStatement(
+		source,
+		mod,
+		symbols,
+		activity,
+		opts.knownProcedures,
+		opts.projectVisibleSymbols,
+		push,
+	);
 	checkArgumentCount(
 		source,
 		mod,
@@ -360,7 +375,15 @@ function runRules(
 	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
 	checkMissingReturnAssignments(source, mod, activity, push);
 	if (opts.knownProcedures) {
-		checkUnknownCallStatement(source, mod, symbols, activity, opts.knownProcedures, push);
+		checkUnknownCallStatement(
+			source,
+			mod,
+			symbols,
+			activity,
+			opts.knownProcedures,
+			opts.projectVisibleSymbols,
+			push,
+		);
 	}
 
 	return out;
@@ -984,6 +1007,7 @@ function checkUnknownCallStatement(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	knownProcedures: ReadonlySet<string>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): void {
 	// Names visible module-wide: every module-level declaration (including a
@@ -1004,12 +1028,14 @@ function checkUnknownCallStatement(
 	const appMembers = new Set(
 		(appType ? getHostMembers(appType) : []).map((mm) => mm.name.toLowerCase()),
 	);
+	const projectNonCallableNames = projectVisibleNonCallableNames(projectVisibleSymbols);
 
 	const isKnown = (name: string, locals: ReadonlySet<string>): boolean => {
 		const lower = name.toLowerCase();
 		return (
 			knownProcedures.has(lower) ||
 			moduleNames.has(lower) ||
+			projectNonCallableNames.has(lower) ||
 			locals.has(lower) ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name) !== undefined ||
@@ -1126,9 +1152,15 @@ function checkNonCallableCallStatement(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
+	knownProcedures: ReadonlySet<string> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): void {
 	const moduleNonCallables = moduleNonCallableSymbols(symbols);
+	const projectNonCallables = projectNonCallableSymbols(
+		projectVisibleSymbols,
+		knownProcedures,
+	);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1148,7 +1180,9 @@ function checkNonCallableCallStatement(
 				return;
 			}
 			const lower = call.name.toLowerCase();
-			const target = localNonCallables.get(lower) ?? moduleNonCallables.get(lower);
+			const target = localNonCallables.get(lower) ??
+				moduleNonCallables.get(lower) ??
+				projectNonCallables.get(lower);
 			if (!target) {
 				return;
 			}
@@ -1159,6 +1193,42 @@ function checkNonCallableCallStatement(
 			);
 		}, activity);
 	}
+}
+
+function projectNonCallableSymbols(
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	knownProcedures: ReadonlySet<string> | undefined,
+): Map<string, VbaSymbol> {
+	const out = new Map<string, VbaSymbol>();
+	const ambiguous = new Set<string>();
+	for (const sym of projectVisibleSymbols ?? []) {
+		if (!isNonCallableSymbol(sym)) {
+			continue;
+		}
+		const key = sym.name.toLowerCase();
+		if (knownProcedures?.has(key) || ambiguous.has(key)) {
+			continue;
+		}
+		if (out.has(key)) {
+			out.delete(key);
+			ambiguous.add(key);
+			continue;
+		}
+		out.set(key, sym);
+	}
+	return out;
+}
+
+function projectVisibleNonCallableNames(
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): Set<string> {
+	const out = new Set<string>();
+	for (const sym of projectVisibleSymbols ?? []) {
+		if (isNonCallableSymbol(sym)) {
+			out.add(sym.name.toLowerCase());
+		}
+	}
+	return out;
 }
 
 function moduleNonCallableSymbols(symbols: ReturnType<typeof buildModuleSymbols>): Map<string, VbaSymbol> {
@@ -5336,7 +5406,8 @@ function checkInvalidAsTypeNames(
 		if (activity?.isInactive(ref.span)) {
 			continue;
 		}
-		const resolved = resolveTypeName(ref.name, {
+		const lookupName = typeReferenceLookupName(ref);
+		const resolved = resolveTypeName(lookupName, {
 			projectTypes: opts.projectTypes,
 			model: opts.hostModel,
 		});
@@ -5560,6 +5631,8 @@ function typeKindLabelForNew(kind: TypeCompletionKind): string {
 			return 'a user-defined Type';
 		case 'ambiguous':
 			return 'an ambiguous project type';
+		case 'module':
+			return 'a module qualifier';
 		case 'class':
 		case 'userform':
 			return 'a creatable project type';
@@ -6064,25 +6137,17 @@ function checkExpressionCallParens(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleFunctions = new Set<string>();
-	for (const member of symbols.root.children ?? []) {
-		if (
-			member.kind === 'function' ||
-			member.kind === 'propertyGet'
-		) {
-			moduleFunctions.add(member.name.toLowerCase());
-		}
-	}
-
+	const functions = expressionCallableFunctionNames(symbols, projectProcedures);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		forEachStatement(member.body, (stmt) => {
-			const hit = parenlessExpressionCall(source, stmt.span, moduleFunctions);
+			const hit = parenlessExpressionCall(source, stmt.span, functions);
 			if (hit) {
 				push(
 					'expressionCallRequiresParens',
@@ -6094,10 +6159,39 @@ function checkExpressionCallParens(
 	}
 }
 
+interface ExpressionCallableFunctions {
+	bare: Set<string>;
+	qualified: Set<string>;
+}
+
+function expressionCallableFunctionNames(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+): ExpressionCallableFunctions {
+	const bare = new Set<string>();
+	const qualified = new Set<string>();
+	for (const member of symbols.root.children ?? []) {
+		if (member.kind === 'function' || member.kind === 'propertyGet') {
+			bare.add(member.name.toLowerCase());
+		}
+	}
+	for (const [key, candidates] of projectProcedures ?? []) {
+		if (candidates.length !== 1 || candidates[0].kind !== 'function') {
+			continue;
+		}
+		if (key.includes('.')) {
+			qualified.add(key);
+		} else if (!bare.has(key)) {
+			bare.add(key);
+		}
+	}
+	return { bare, qualified };
+}
+
 function parenlessExpressionCall(
 	source: string,
 	span: Span,
-	moduleFunctions: ReadonlySet<string>,
+	functions: ExpressionCallableFunctions,
 ): { name: string; span: Span } | undefined {
 	const toks = statementTokens(source, span);
 	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[0]))) {
@@ -6111,11 +6205,14 @@ function parenlessExpressionCall(
 	for (let i = eq + 1; i < toks.length - 1; i++) {
 		const tok = toks[i];
 		const name = tokenName(tok);
-		if (!name || !isExpressionCallable(name, moduleFunctions)) {
+		if (!name || !isExpressionCallableAt(toks, i, name, functions)) {
 			continue;
 		}
 		if (i > eq + 1 && toks[i - 1].rawText === '.') {
-			continue; // member calls need receiver typing before we can be precise
+			const qualifier = tokenName(toks[i - 2]);
+			if (!qualifier || !functions.qualified.has(qualifiedProcedureKey(qualifier, name))) {
+				continue; // object member calls need receiver typing before we can be precise
+			}
 		}
 		const next = toks[i + 1];
 		if (!isParenlessArgumentStart(next)) {
@@ -6133,12 +6230,22 @@ function parenlessExpressionCall(
 	return undefined;
 }
 
-function isExpressionCallable(
+function isExpressionCallableAt(
+	toks: readonly VbaToken[],
+	index: number,
 	name: string,
-	moduleFunctions: ReadonlySet<string>,
+	functions: ExpressionCallableFunctions,
 ): boolean {
-	const lower = name.toLowerCase();
-	if (moduleFunctions.has(lower)) {
+	if (index > 1 && toks[index - 1].rawText === '.') {
+		const qualifier = tokenName(toks[index - 2]);
+		return qualifier
+			? functions.qualified.has(qualifiedProcedureKey(qualifier, name))
+			: false;
+	}
+	if (index > 0 && toks[index - 1].rawText === '.') {
+		return false;
+	}
+	if (functions.bare.has(name.toLowerCase())) {
 		return true;
 	}
 	return resolveRuntimeFunction(name)?.kind === 'function';

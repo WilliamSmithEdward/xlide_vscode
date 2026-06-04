@@ -123,7 +123,9 @@ End Function
 ```
 
 External `.vbref.xml` metadata can describe APIs whose source XLIDE cannot see.
-Use `xlide.docs.metadataGlob` to control discovery.
+Use `xlide.docs.metadataGlob` to control discovery. See
+[vba-doc-comments.md](vba-doc-comments.md) for module-header docs, supported XML
+tags, and metadata-file examples.
 
 ## Troubleshooting Setup
 

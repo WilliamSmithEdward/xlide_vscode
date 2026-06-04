@@ -134,6 +134,7 @@ export {
 	TypeNameReferenceKind,
 	TypeSemanticToken,
 	TypeSemanticTokenType,
+	typeReferenceLookupName,
 } from './semantic/typeSemanticTokens';
 export {
 	HoverContext,
@@ -169,7 +170,7 @@ export {
 	VbaDocParam,
 	VbaDocSource,
 } from './docs/docModel';
-export { extractLeadingDoc, parseDocBody } from './docs/docComment';
+export { extractLeadingDoc, extractModuleHeaderDoc, parseDocBody } from './docs/docComment';
 export { ExternalDocEntry, parseMetadataFile } from './docs/externalDoc';
 export { DocRegistry } from './docs/docRegistry';
 export {

@@ -334,6 +334,40 @@ describe('signature help - project class members', () => {
 	});
 });
 
+describe('signature help - standard module-qualified members', () => {
+	it('uses source-backed standard-module function signatures', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Finance',
+			moduleKind: 'standard',
+			source: [
+				"''' <summary>Calculates the invoice total.</summary>",
+				"''' <param name=\"Subtotal\">Pre-tax amount.</param>",
+				'Public Function InvoiceTotal(' +
+					'ByVal Subtotal As Currency, ' +
+					'Optional ByVal TaxRate As Double = 0.08' +
+				') As Currency',
+				'End Function',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+
+		const info = help('Sub Caller()\n    total = Finance.InvoiceTotal(|\nEnd Sub\n', {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+
+		expect(info?.label).toBe(
+			'InvoiceTotal(Subtotal As Currency, [TaxRate As Double = 0.08]) As Currency',
+		);
+		expect(info?.parameters.map((param) => param.label)).toEqual([
+			'Subtotal As Currency',
+			'[TaxRate As Double = 0.08]',
+		]);
+		expect(info?.documentation).toContain('Calculates the invoice total.');
+		expect(info?.parameters[0].documentation).toBe('Pre-tax amount.');
+	});
+});
+
 describe('signature help - negative cases', () => {
 	it('returns undefined for a grouping paren', () => {
 		const info = help('Sub T()\nx = (1 + |\nEnd Sub');

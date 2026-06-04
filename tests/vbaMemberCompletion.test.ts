@@ -322,6 +322,63 @@ describe('member completion - standard modules', () => {
 			'Contains(actual As Variant, expectedSubstring As Variant, [message As String = ""])',
 		);
 	});
+
+	it('offers exported procedures, constants, enums, enum members, and declares after ModuleName.', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Finance',
+			moduleKind: 'standard',
+			source: [
+				'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency',
+				'End Function',
+				'Public Const DefaultTaxRate As Double = 0.08',
+				'Public Enum SharedMode',
+				'    SharedOnly',
+				'End Enum',
+				'Private Const HiddenTaxRate As Double = 0.99',
+				'Private Enum HiddenMode',
+				'    HiddenOnly',
+				'End Enum',
+				'Public Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+
+		const src = 'Sub TestInvoice()\n    Finance.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Finance.'), {
+			projectClassMembers: index.projectMemberSurfaces('Caller'),
+		});
+		const names = got.map((member) => member.name);
+		const invoiceTotal = got.find((member) => member.name === 'InvoiceTotal');
+		const defaultTaxRate = got.find((member) => member.name === 'DefaultTaxRate');
+		const sharedOnly = got.find((member) => member.name === 'SharedOnly');
+		const getTickCount = got.find((member) => member.name === 'GetTickCount');
+
+		expect(names).toEqual([
+			'InvoiceTotal',
+			'DefaultTaxRate',
+			'SharedMode',
+			'SharedOnly',
+			'GetTickCount',
+		]);
+		expect(invoiceTotal?.kind).toBe('method');
+		expect(invoiceTotal?.signature).toBe('InvoiceTotal(Subtotal As Currency) As Currency');
+		expect(defaultTaxRate).toMatchObject({
+			kind: 'property',
+			returns: 'Double',
+			writable: false,
+			owner: 'Finance',
+		});
+		expect(sharedOnly).toMatchObject({
+			kind: 'property',
+			returns: 'SharedMode',
+			writable: false,
+		});
+		expect(getTickCount?.kind).toBe('method');
+		expect(getTickCount?.signature).toBe('GetTickCount() As Long');
+		expect(names).not.toContain('HiddenTaxRate');
+		expect(names).not.toContain('HiddenOnly');
+	});
 });
 
 describe('member completion - code names and Me', () => {

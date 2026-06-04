@@ -1172,8 +1172,17 @@ describe('ProjectIndex project class members', () => {
 				'End Sub',
 				'Sub IsTrue(condition As Boolean)',
 				'End Sub',
+				'Public Const DefaultTimeout As Long = 1000',
+				'Public Enum SharedMode',
+				'    SharedOnly',
+				'End Enum',
+				'Public Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long',
 				'Private Sub Hidden()',
 				'End Sub',
+				'Private Const HiddenValue As Long = 0',
+				'Private Enum HiddenMode',
+				'    HiddenOnly',
+				'End Enum',
 			].join('\n'),
 		});
 		index.setModule({ moduleName: 'Tests', moduleKind: 'standard', source: '' });
@@ -1182,10 +1191,25 @@ describe('ProjectIndex project class members', () => {
 			.find((item) => item.name === 'XlideAssert');
 		expect(surface?.kind).toBe('standardModule');
 		expect(surface?.exhaustive).toBe(true);
-		expect(surface?.members.map((member) => member.name)).toEqual(['AreEqual', 'IsTrue']);
+		expect(surface?.members.map((member) => member.name)).toEqual([
+			'AreEqual',
+			'IsTrue',
+			'DefaultTimeout',
+			'SharedMode',
+			'SharedOnly',
+			'GetTickCount',
+		]);
 		expect(surface?.members.find((member) => member.name === 'AreEqual')?.signature)
 			.toBe('AreEqual(expected As Variant, actual As Variant)');
+		expect(surface?.members.find((member) => member.name === 'DefaultTimeout'))
+			.toMatchObject({ kind: 'property', returns: 'Long', writable: false });
+		expect(surface?.members.find((member) => member.name === 'SharedOnly'))
+			.toMatchObject({ kind: 'property', returns: 'SharedMode', writable: false });
+		expect(surface?.members.find((member) => member.name === 'GetTickCount')?.signature)
+			.toBe('GetTickCount() As Long');
 		expect(surface?.members.find((member) => member.name === 'Hidden')).toBeUndefined();
+		expect(surface?.members.find((member) => member.name === 'HiddenValue')).toBeUndefined();
+		expect(surface?.members.find((member) => member.name === 'HiddenOnly')).toBeUndefined();
 		expect(index.resolveTypeDefinitions('Tests', 'XlideAssert')).toEqual([]);
 	});
 });

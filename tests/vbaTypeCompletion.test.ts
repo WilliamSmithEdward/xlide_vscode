@@ -205,6 +205,45 @@ describe('project-defined types', () => {
 		expect(person?.documentation).toContain('Represents a person.');
 		expect(person?.documentation).toContain('Stored in the workbook domain model.');
 	});
+
+	it('offers module qualifiers and qualified project types in declaration type positions', () => {
+		const projectTypes: ProjectTypeName[] = [
+			{ name: 'TPoint', kind: 'userType', moduleName: 'Geometry' },
+			{ name: 'Status', kind: 'enum', moduleName: 'Workflow' },
+			{ name: 'Person', kind: 'class', moduleName: 'Person' },
+		];
+
+		const modules = resolveTypeCompletions('Dim x As Geo', endOf('Dim x As Geo', 'Geo'), {
+			projectTypes,
+		});
+		expect(modules.find((item) => item.name === 'Geometry')).toMatchObject({
+			kind: 'module',
+			detail: 'Module qualifier',
+		});
+
+		const qualified = resolveTypeCompletions('Dim x As Geometry.', endOf('Dim x As Geometry.', 'Geometry.'), {
+			projectTypes,
+		});
+		expect(qualified.map((item) => `${item.name}:${item.kind}:${item.moduleName}`)).toEqual([
+			'TPoint:userType:Geometry',
+		]);
+
+		const filtered = names('Dim x As Geometry.TP', 'Geometry.TP', { projectTypes });
+		expect(filtered).toEqual(['TPoint']);
+	});
+
+	it('resolves qualified project type names to the named module', () => {
+		const result = resolveTypeCompletions('Dim x As Workflow.Status', endOf('Dim x As Workflow.Status', 'Status'), {
+			projectTypes: [
+				{ name: 'Status', kind: 'enum', moduleName: 'Workflow' },
+				{ name: 'Status', kind: 'class', moduleName: 'Status' },
+			],
+		});
+
+		expect(result.map((item) => `${item.name}:${item.kind}:${item.moduleName}`)).toEqual([
+			'Status:enum:Workflow',
+		]);
+	});
 });
 
 describe('verified candidate set', () => {

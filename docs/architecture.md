@@ -472,7 +472,7 @@ and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 | `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
 | `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations, including enum members exported by their containing `Enum`) |
 | `ReferenceProvider` | Uses semantic binding before textual search: source-backed `object.Member` references are matched by their resolved class-member definition spans, project type-name tokens are matched through `resolveTypeDefinitions`, and ordinary identifiers still use `ProjectIndex.referenceScope` plus word-boundary search restricted to the binding scope; honors VS Code's include-declaration toggle |
-| `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; class component rename is intentionally tree-only because the VBA class name is the module/component name rather than an in-source declaration |
+| `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; VBA component/module rename is intentionally tree-only because standard and class module names are workbook component names rather than in-source declarations |
 | `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, add/remove `Set` for proven object/scalar assignments, and expose an XLIDE source action for analyzing the current workbook-backed module. Call-related quick fixes consume shared `callContext` range helpers so diagnostics and repairs do not parse chained callees, empty parentheses, or invalid explicit `Call` syntax differently |
 | Diagnostics | Debounced `vbaModuleAnalysis` results merge structural block-balance, semantic analysis, and suppression directives before rendering VS Code diagnostics; live diagnostics pass the active cursor offset through the shared incomplete-expression detector so dangling member access, trailing binary operators, and unmatched opening parentheses are hidden only while their active statement is being edited, then restored on selection/editor change, current-module analysis, or workbook analysis. Structural block diagnostics pin ranges to the opener/closer syntax phrase, and analyzer declaration-order rules prefer the exact offending token over whole-line or whole-parameter spans |
 | Smart enter (auto-block) | Pressing Enter after a safe block opener inserts the matching closer through the shared smart-block helper. The default `xlide.editor.blockLayout = "comfy"` layout uses a spacer line, one editable body line one real tab deeper than the opener, another spacer line, then the closer at opener indentation; `"compact"` places the editable body directly above the closer. If a matching closer already exists ahead, Smart Enter only normalizes the newly created body line indentation. Supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion. Pressing Enter after a leading-dot member line inside an active `With` block keeps the same indentation and seeds another leading `.` |
@@ -498,9 +498,11 @@ sources on each query, with the live editor text overlaid for the current
 module. Offset-based symbol spans are converted to editor ranges in the shared
 `vbaNavigation.ts` helpers and provider wiring. `VbaSymbolIndex` still backs the
 `DocumentSymbolProvider` outline and the workbook-scoped source cache.
-Tree-level class module rename uses the same project type-reference helpers:
-the component name is changed through `renameModule`, and VS Code reference edits
-are applied for the workbook's project-defined class type tokens.
+Tree-level module rename uses source-backed project helpers before changing the
+component name through `renameModule`: class modules rewrite workbook
+project-defined class type tokens, while standard modules rewrite bound
+module-qualified qualifier tokens for exported members and visible qualified
+type names.
 
 Project-aware diagnostics, analysis surfaces, semantic type coloring, completion,
 and hover derive project context through `src/vbaProjectAnalysis.ts`. That
@@ -514,7 +516,7 @@ the provider-facing bridge for external project procedures/symbols plus the
 analysis options used by editor surfaces. `src/vbaMemberCompletion.ts` builds a
 single workbook-aware project context per completion/hover/signature/casing
 request, then projects it into member, type, identifier, hover, signature-help,
-event-handler, and canonical-casing resolver contexts. Rename and tree-level class rename are the deliberate
+event-handler, and canonical-casing resolver contexts. Rename and tree-level module rename are the deliberate
 mutation-safety exception: they use strict project indexes so reference edits do
 not silently skip modules that cannot be parsed.
 Before those project indexes are built for live editor providers, workbook
@@ -824,7 +826,7 @@ in the workspace via the `xlide.docs.metadataGlob` setting (default
 `**/*.vbref.xml`), parses them into a live `DocRegistry`, and reloads on file
 change; the registry is passed into the hover and signature-help contexts by
 `src/vbaMemberCompletion.ts`. The full standard and usage paths live in
-`docs/vba-doc-comments.md`.
+`user_guides/vba-doc-comments.md`.
 
 **Active diagnostics engine** — `src/analyzer/diagnostics/` computes
 high-confidence semantic problems directly from module text:
@@ -1191,5 +1193,5 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New analysis suppression directive behavior | `src/analyzer/diagnostics/analysisSuppressions.ts`, `src/vbaLanguageProviders.ts`, `src/vbaWorkbookAnalysis.ts`, `src/commands.ts`, `tests/vbaAnalysisSuppressions.test.ts`, `docs/xlide_vba_analysis_suppression_comments.md`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
-| New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/vbaDocComments.test.ts`, `docs/vba-doc-comments.md`, `docs/architecture.md` |
+| New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/vbaDocComments.test.ts`, `user_guides/vba-doc-comments.md`, `docs/architecture.md` |
 | Live Share RPC surface change | `src/liveShare.ts`, `docs/architecture.md` |

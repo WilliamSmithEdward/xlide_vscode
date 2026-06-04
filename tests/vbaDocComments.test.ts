@@ -3,6 +3,7 @@ import {
 	buildModuleSymbols,
 	DocRegistry,
 	extractLeadingDoc,
+	extractModuleHeaderDoc,
 	parseDocBody,
 	parseMetadataFile,
 	renderDocMarkdown,
@@ -114,6 +115,32 @@ describe('extractLeadingDoc', () => {
 	});
 });
 
+describe('extractModuleHeaderDoc', () => {
+	it('captures a top-of-module XML doc block without requiring Option Explicit', () => {
+		const src = [
+			"''' <summary>Finance helper module.</summary>",
+			"''' <remarks>Shared workbook calculations.</remarks>",
+			'',
+			'Public Function InvoiceTotal() As Currency',
+			'End Function',
+		].join('\n');
+		const doc = extractModuleHeaderDoc(src);
+		expect(doc?.summary).toBe('Finance helper module.');
+		expect(doc?.remarks).toBe('Shared workbook calculations.');
+	});
+
+	it('leaves a doc block immediately above the first declaration for that declaration', () => {
+		const src = [
+			"''' <summary>Adds two numbers.</summary>",
+			'Public Function Add(A As Long, B As Long) As Long',
+			'End Function',
+		].join('\n');
+		expect(extractModuleHeaderDoc(src)).toBeUndefined();
+		expect(extractLeadingDoc(src, src.indexOf('Public Function'))?.summary)
+			.toBe('Adds two numbers.');
+	});
+});
+
 describe('buildModuleSymbols inline docs', () => {
 	it('attaches docs to procedures and module variables', () => {
 		const src = [
@@ -130,6 +157,20 @@ describe('buildModuleSymbols inline docs', () => {
 		const add = mod.root.children?.find((c) => c.name === 'Add');
 		expect(total?.doc?.summary).toBe('The running total.');
 		expect(add?.doc?.summary).toBe('Adds to the total.');
+	});
+
+	it('attaches separated top-of-module docs to the module root', () => {
+		const src = [
+			"''' <summary>Finance helper module.</summary>",
+			'',
+			"''' <summary>Calculates the invoice total.</summary>",
+			'Public Function InvoiceTotal() As Currency',
+			'End Function',
+		].join('\n');
+		const mod = buildModuleSymbols('Finance', 'standard', src);
+		const invoiceTotal = mod.root.children?.find((child) => child.name === 'InvoiceTotal');
+		expect(mod.root.doc?.summary).toBe('Finance helper module.');
+		expect(invoiceTotal?.doc?.summary).toBe('Calculates the invoice total.');
 	});
 });
 
