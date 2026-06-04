@@ -52,6 +52,6 @@ Quality-of-life and polish backlog, ordered by **impact-per-effort**. Items alre
 ## Files to Keep Up To Date
 
 - `docs/architecture.md` — structure changes
-- `docs/roadmap.md` — this file
+- `docs/roadmap_version_1.x.md` — this file
 - `README.md` — dev-facing docs and marketplace listing
 - `CHANGELOG.md` — when added

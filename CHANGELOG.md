@@ -2,96 +2,180 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [Unreleased]
+## [2.0.0] - 2026-06-04
+
+Version 2 turns XLIDE from a workbook/module bridge into a fuller VBA
+development environment for VS Code: project-aware editing, deterministic
+analysis, previewable sync, workbook tests, safer workbook mutation, and
+agent-verifiable workflows.
 
 ### Added
-- **Lint all modules in a workbook (one-click + agent tool)** — a new "Lint All Modules in Workbook" command (workbook right-click menu in the XLIDE Explorer, under the workbook group) runs XLIDE's real-time VBA analyzer across *every* module in the workbook and prints a formatted, scannable report to the XLIDE Output channel. The report is grouped by module with a banner and generous blank space above it for easy visual scanning, lists each problem's severity, message, and rule code, and gives every finding a clickable location link (an `xlide-vba://...#L<line>,<col>` link) that pops you straight to the offending line in the module. You are switched to the Output view automatically when the lint completes, and a summary notification reports the error/warning counts. The same capability is exposed to AI agents as the `xlide_lintWorkbook` tool, which returns a structured JSON report `{filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}` so an agent can verify lint passes in real time after writing or editing modules. Both surfaces reuse the exact same false-positive-free engine that powers the live editor diagnostics (`src/vbaWorkbookLint.ts` wraps `lintVbaSource` + `analyzeModule`).
-- **Developer documentation (XML doc-comments + external metadata)** — you can now give your VBA symbols Visual-Studio-style IntelliSense documentation that shows up in hovers and call tips. Write a `'''` XML doc-comment block directly above any `Sub`/`Function`/`Property`/`Type`/`Enum`/`Declare`/module-variable — using the same tags as C# `///` (`<summary>`, `<param name="...">`, `<returns>`, `<remarks>`, `<example>`) — and the description renders live as you edit (no save required). The plain-text form (`''' Adds an item.`) is treated as a summary. For symbols you do not own (host members, runtime functions) or to share docs across a team, drop external metadata files anywhere in the workspace (default glob `**/*.vbref.xml`, configurable via `xlide.docs.metadataGlob`) that document `<member name="Module.Symbol">` (or bare `Symbol`) entries with the **same** XML vocabulary; external files are discovered on startup and reloaded automatically on change. External `<signature>` can even give a call tip to a procedure XLIDE cannot otherwise resolve. Precedence is **inline comment > external metadata > built-in curated library** — developer-defined metadata overrides the library. The engine is pure and `vscode`-free (`src/analyzer/docs/**`), wired through hover and signature help with per-parameter notes, and covered by `tests/vbaDocComments.test.ts` (16 tests). Two settings: `xlide.docs.enabled` (default true) and `xlide.docs.metadataGlob`. Full standard and usage paths in `docs/vba-doc-comments.md`.
-- **Broader Excel object model + VBA runtime (IntelliSense robustness)** — the curated host object model and runtime function catalogue were substantially widened using the Excel COM type library and Office VBA reference as transcription sources (the `reference/` corpus is never bundled or generated into the extension). The host model gains the commonly used `Window(s)`, `Name(s)`, `Comment(s)`, `ListObject`/`ListRow(s)`/`ListColumn(s)`, `PivotTable(s)`, `Chart(s)`/`ChartObject(s)`, `Shape(s)`, `Font`, `Interior`, `Border(s)`, `Areas`, `Hyperlink(s)`, `WorksheetFunction`, `Style(s)`, `PageSetup` and `Validation` types, all registered as `As`-type aliases, with return types wired so member-access chaining flows into them (e.g. `Range.Font.`, `ws.ListObjects(1).Range.`, `Application.WorksheetFunction.`). The runtime catalogue gains verified built-ins that were previously missing — string helpers (`StrReverse`, `Filter`, `Format{Currency,Number,Percent,DateTime}`, `LenB`, `Str`), file-system functions/statements (`Dir`, `FreeFile`, `EOF`, `LOF`, `Loc`, `Seek`, `FileLen`, `FileDateTime`, `GetAttr`, `CurDir`, `Kill`, `MkDir`, `RmDir`, `ChDir`, `ChDrive`, `FileCopy`, `SetAttr`), registry/interaction (`Command`, `Partition`, `CallByName`, `GetSetting`/`GetAllSettings`, `SaveSetting`/`DeleteSetting`, `AppActivate`, `SendKeys`), the full financial set (`PV`, `FV`, `Pmt`, `IPmt`, `PPmt`, `NPer`, `Rate`, `NPV`, `IRR`, `MIRR`, `SLN`, `SYD`, `DDB`), and `QBColor`/`IsMissing`/`CVErr`. All entries remain hand-curated and verified; nothing is LLM-invented. Covered by `tests/vbaMemberCompletion.test.ts` and `tests/vbaRuntime.test.ts`.
-- **"Unbalanced parentheses" diagnostic** — every `(` must be matched within its logical statement (VBA closes parentheses before the line ends unless a `_` continuation joins the next physical line, which the lexer already folds in), so a dangling `(` at a statement boundary or a `)` with no matching `(` is flagged as an error (`MS-VBAL 3.3.1`). The scan tracks paren depth over the token stream and resets at each statement boundary (a newline or a depth-0 `:` separator); parentheses inside strings, comments, date literals, and `[bracketed]` names are distinct token kinds and can never be miscounted, so the rule is false-positive-free. At most one diagnostic per statement. Covered by `tests/vbaDiagnostics.test.ts` (`unbalanced-parens`).
-- **Six new structural VBA diagnostics (declaration & call hygiene)** — each is computed straight from the AST/token stream so it fires only when the language guarantees an error, keeping the no-false-positive rule intact: (1) `dim-initializer` flags a VB.NET-style inline initializer on a declaration (`Dim x As Long = 1`), a top-of-list source of "this isn't VB.NET" mistakes, while leaving `Const` (which requires `=`) alone (`MS-VBAL 5.2.3.1`); (2) `call-requires-parens` flags a `Call` statement whose arguments are not parenthesised (`Call MsgBox "hi"`) by consuming the full callee chain and reporting any leftover token (`MS-VBAL 5.4.2.1`); (3) `required-param-after-optional` flags a required parameter that follows an `Optional` one (`MS-VBAL 5.3.1.5`); (4) `paramarray-not-last` flags a `ParamArray` that is not the final parameter (`MS-VBAL 5.3.1.6`); (5) `exit-wrong-proc` flags an `Exit Sub`/`Exit Function`/`Exit Property` that does not match the enclosing procedure kind (the three Property accessors map to `Property`; `Exit Do`/`Exit For` are ignored) (`MS-VBAL 5.4.1.3`); (6) `option-after-declaration` flags an `Option` statement that appears after a declaration or procedure, since only `Attribute` lines may precede it (`MS-VBAL 5.2.1`). All six were transcription-scaffolded from the `syntax_corpus/` coverage notes and individually verified against MS-VBAL before shipping. Covered by `tests/vbaDiagnostics.test.ts`.
-- **"Wrong number of arguments" diagnostic** — a call to a `Sub`/`Function` defined in the *same module* is now checked against that procedure's parameter list. Too few or too many arguments are flagged (`MS-VBAL 5.4.2.1`), honouring `Optional` (lowers the minimum) and `ParamArray` (removes the maximum). It validates only the unambiguous call-statement forms the analyzer already resolves — the parenless `Greet "a", "b"` and the explicit `Call Greet(...)` — and only current-module Sub/Function procedures, where the AST gives a ground-truth parameter list; host members, runtime functions, cross-module procedures, property accessors, and any duplicated/ambiguous name are deliberately left unchecked to stay false-positive-free. When a call uses named arguments (`Greet who:="Ann"`), each name is validated against the parameter names ("Named argument not found") and the positional count check is skipped. Covered by `tests/vbaDiagnostics.test.ts` (`argument-count`).
-- **"Sub or Function not defined" diagnostic** — a call statement whose callee is a bare (non-member) identifier is now flagged as an error when the name resolves to nothing anywhere: no procedure in any module of the project, no VBA runtime function/statement, no host global or `Application` member, and no in-scope declaration. This mirrors the VBE compile error. It recognises the three unambiguous call forms — a lone identifier (a mistyped `asdfjalsdkfjas`), a parenless call with arguments (`msrbox ""`, `Frobnicate 1, 2, 3`), and an explicit `Call DoesNotExist(1)` — while leaving assignments, member calls (`Debug.Print`), line labels, and the implicit-host-member form `Cells(1, 1)` / `Range("A1")` untouched so it stays false-positive-free. The rule runs only with whole-project context (the live providers pass every project procedure name from the AST `ProjectIndex.procedureNames()`); a not-yet-saved procedure in the module you are editing still counts as defined. Covered by `tests/vbaDiagnostics.test.ts` (`unknown-call`).
-- **"Invalid procedure declaration" diagnostic** — a malformed `Sub`/`Function`/`Property` header is now flagged as an error. Once the procedure name is read, the only thing that may legally follow is `(` (the parameter list) or, for a `Function`/`Property Get`, `As` (the return type); any other token — most commonly a second word, as in `Sub My Sub` where the name was meant to contain a space, or `Function Calc Total()` — is reported at the offending token (`MS-VBAL 5.3.1`). Valid parameterless subs (`Sub Run`), parameterised subs, return-typed functions, and `Property Get ... As` headers are left clean. Covered by `tests/vbaDiagnostics.test.ts` (`invalid-proc-header`).
-- **AST-backed Go to Definition, Find All References, and Rename** — the live language providers now build a project-wide AST symbol index (`src/analyzer/symbols/projectIndex.ts`) per query instead of relying on plain whole-word text matching. Go to Definition uses scope-aware resolution (a local/parameter shadows a same-named module member, which shadows an exported declaration in another module), and honors a `Module.Member` qualifier so only that module's exported member is offered. Find All References and Rename use a new `referenceScope` analysis that restricts the occurrence search to exactly where the name binds: a procedure-local stays inside its procedure, a `Private` module member stays inside its module, and an exported symbol spans the whole project — but excludes any module that re-declares the name privately and any procedure whose own local shadows it. This means renaming a local `i` no longer rewrites unrelated `i`s in other procedures or modules. References honor the "include declaration" toggle, and Rename refuses identifiers that do not resolve to a known declaration (so it will not blindly rewrite a host member like `Range`). Covered by new `referenceScope` and `resolveQualifiedDefinition` cases in `tests/vbaSymbolGraph.test.ts`.
-- **Signature help (parameter info / call tips)** — typing `(` or a space after a callable now shows the VBE-style Quick Info popup with the full signature and the active parameter bolded, advancing as you type commas. Three signature sources are consulted in order: verified Excel host-member signatures (e.g. the complete `Workbooks.Open(Filename As String, [UpdateLinks], [ReadOnly], ...) As Workbook`, plus `Workbooks.Add`, `Worksheets.Add`, `Range.Offset/Resize/Find/Cells/Range/SpecialCells/AutoFilter/PasteSpecial`, `Workbook.Close/SaveAs/Protect`, `Worksheet.Range/Cells/Protect`, `Application.InputBox/Intersect/Union/OnTime`, ...), your own `Sub`/`Function`/`Property` procedures (built from the parsed AST so `Optional`/`ParamArray`/default-value detail is exact and shown in VBE bracket form), and the built-in runtime functions (`MsgBox`, `Left`, ...). Both parenthesized calls (`Workbooks.Open(`) and parenless call statements (`Workbooks.Open "file", `) are recognised, matching the VBE which shows the tip in both forms. Signatures are never invented — a callee with no verified signature simply yields no tip, and grouping parens, assignments, and file-I/O statements (`Open ... For Input`) are correctly excluded. Host-member signatures are transcribed from the Office VBA object-model reference. The engine is pure and `vscode`-free (`src/analyzer/signature/signatureHelp.ts`) and covered by `tests/vbaSignatureHelp.test.ts` (19 tests).
-- **Excel collection IntelliSense** — typing `.` after a collection now lists its verified members. The `Workbooks`, `Worksheets`, and `Sheets` collections are modeled and registered as host globals, so `Workbooks.`, `Worksheets.`, and `ThisWorkbook.Worksheets.` all offer completion (`Item`, `Add`, `Open`, `Count`, ...). Chaining follows the element type — `Workbooks.Item(1).` resolves to a `Workbook` and `Worksheets.Item(1).` to a `Worksheet` — while `Sheets.Item` is intentionally left unchained because a `Sheets` collection mixes worksheets and charts (`Object`). Members are transcribed from the Office VBA object-model reference, never invented.
-- **Live active diagnostics (IntelliSense-grade)** — beyond the structural block-balance linter, XLIDE now surfaces high-confidence *semantic* problems as you type, computed entirely from the editor text (no save, no Python round-trip, works on virtual `xlide-vba` module documents). Shipped rules: unterminated string literal, duplicate procedure name in a module (while correctly allowing `Property Get`/`Let`/`Set` to share a name), duplicate declaration in a procedure scope (parameter/local collisions, flat across branches), duplicate module-level variable, assignment to a `Const` (excluding member access, indexing, `Set`, and comparisons), and a configurable `Option Explicit`-missing reminder (silent on empty/attribute-only modules). Each rule carries an MS-VBAL spec reference. The engine is pure and `vscode`-free (`src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts`), self-guards so a parse hiccup never breaks editing, and is covered by `tests/vbaDiagnostics.test.ts` (92 tests). Two settings control it: `xlide.diagnostics.enabled` (default true) and `xlide.diagnostics.optionExplicit` (off/hint/information/warning/error, default warning). The bare/parenless/`Call` "Sub or Function not defined" case and the malformed procedure-header case ship as their own rules (see above); the broader variable-used-but-not-declared and arbitrary-expression unknown-call diagnostics remain intentionally deferred until they can be proven free of false positives (they require a full expression binder and host catalogue).
-- **Built-in VBA runtime IntelliSense** — hovering a built-in VBA function or statement (`MsgBox`, `Left`, `CLng`, `Now`, `Array`, `RGB`, ...) now shows its verified signature and return type, and those built-ins also appear in the bare-identifier completion menu — just like resting on an intrinsic function in Visual Studio. The metadata is a curated, verified subset (~85 entries) transcribed from the Microsoft VBA language reference and MS-VBAL, never LLM-invented; names that collide with intrinsic data types (`Date`, `Time`, `String`, `Error`) are deliberately excluded so a type in an `As` position is never read as a function. A user declaration of the same name correctly shadows the built-in. The metadata lives in the pure analyzer layer (`src/analyzer/runtime/vbaRuntime.ts`) and is covered by `tests/vbaRuntime.test.ts`.
-- **Hover (IntelliSense)** — hovering an identifier now shows a VBA signature and description, like resting the pointer over a symbol in Visual Studio. It describes `receiver.member` host members (e.g. `Workbook.Worksheets`), host-injected globals (`ThisWorkbook As Workbook`), worksheet/document code names (`Sheet1 As Worksheet`), and your own declarations resolved live from the module symbol graph (no save required): procedure signatures with parameters and return type, variables/parameters/constants with their `As` type, enums and members, and user types and fields — annotated with the declaring module and visibility. Unknown members are never guessed. The resolver is pure (`src/analyzer/hover/resolveHover.ts`) and covered by `tests/vbaHover.test.ts`.
-- **Identifier completion (IntelliSense)** — typing a bare identifier (at a statement or expression position, not after `.` or `As`) now shows a menu of the existing objects you can reference: host-injected globals (`ThisWorkbook`, `ActiveWorkbook`, `ActiveSheet`, `ActiveCell`, `Selection`, `Application`), the workbook's worksheet/document code names (`Sheet1`, `Sheet3`, ...), and your own in-scope declarations — parameters and locals of the enclosing procedure plus module-level variables, constants, procedures, enums (and their members), and user-defined types. Candidates are filtered by what you have typed and suppressed where they would be wrong (after a member-access dot, in an `As` type position, or when naming a new declaration after `Dim`/`Const`/`Public`/`Sub`/...). The resolver is pure (`src/analyzer/completion/identifierCompletion.ts`) and covered by `tests/vbaIdentifierCompletion.test.ts`.
-- **Type-name completion (IntelliSense)** — in a declaration type position (after `As` or `As New`, including parameters, function/property return types, and subsequent items in a `Dim` list), XLIDE now offers a menu of known types: the VBA built-in data types (`Long`, `String`, `Boolean`, `Object`, `Variant`, ...), the Excel host types (`Workbook`, `Worksheet`, `Range`, `Application`), and the project's own types — user `Type`s and `Enum`s declared in the current module, public (non-`Private`) `Type`s and `Enum`s declared in the workbook's other modules (read on demand and cached per workbook), plus class and UserForm module names. Candidates are filtered by what you have typed, project-defined types are listed first and can shadow a built-in of the same name, and `Decimal` is intentionally excluded because it is not directly declarable in VBA. The resolver is pure (`src/analyzer/completion/typeCompletion.ts`) and covered by `tests/vbaTypeCompletion.test.ts`.
-- **Project-wide VBA symbol graph (analyzer)** — a new pure, `vscode`-free symbol layer under `src/analyzer/symbols/` builds on the AST to model every named declaration in a workbook's VBA project: modules, `Sub`/`Function`/`Property` procedures (with parameter and block-nested local children), module variables and constants, `Type` fields, `Enum` members, and `Declare` statements. The `ProjectIndex` answers hierarchical document symbols, filtered workspace symbols, conservative go-to-definition name resolution (locals/parameters, then same-module declarations, then exported `Public`/`Global` declarations in other modules), and duplicate-procedure detection — with cross-module visibility following MS-VBAL (default-`Public` procedures are exported; `Private`/`Dim`/`Friend` module members stay private). Identifier spans are located with the real lexer so a go-to-definition target never lands inside a comment or string. Covered by `tests/vbaSymbolGraph.test.ts`.
-- **Host-context member completion (IntelliSense)** — typing `.` after a host object now shows a completion popup of verified Excel object-model members. It resolves host-injected globals (`ThisWorkbook`, `ActiveWorkbook`, `Application`, `ActiveSheet`, `ActiveCell`, `Selection`), worksheet/document code names (`Sheet1`, by VBA-project code name rather than tab name), `Me` by module kind (worksheet vs workbook document module), and user-declared variables/parameters/module variables typed `As Workbook`/`Worksheet`/`Range`/`Application`. Member-access chains are followed through return types, including across call parentheses (e.g. `ws.Range("A1").Offset(1, 0).`). Member metadata is transcribed from the official Microsoft Office VBA object-model reference (verified 2026-05-30) and is never LLM-generated; the resolver lives in the pure analyzer layer (`src/analyzer/host/`, `src/analyzer/completion/memberAccess.ts`) and is covered by `tests/vbaMemberCompletion.test.ts`.
-- **VBA language analyzer (foundation)** — a new pure, `vscode`-free analyzer layer under `src/analyzer/`, verified against the official Microsoft VBA Language Specification (`[MS-VBAL]`, v20250520). Phase 1 ships a loss-aware, round-trippable tokenizer (`analyzer/lexer/tokenize.ts`) covering identifiers, keywords, numeric/string/date literals, comments, line continuations, separators, operators, bracketed names, and conditional-compilation markers; Phase 2 ships the spec-verified canonical keyword table (`analyzer/lexer/keywordTable.ts`) with correct VBE capitalization; Phase 3 ships an error-tolerant parser (`analyzer/parser/parseModule.ts`) that builds a `ModuleNode` AST — attributes, `Option` directives, module/`Const` declarations, `Type`/`Enum` blocks, `Sub`/`Function`/`Property` procedures with full parameter lists, and nested `If`/`For`/`Do`/`While`/`With`/`Select` block statements — never throws on malformed input, and emits block-mismatch diagnostics with source spans. Spec coverage and deviations are tracked in `docs/spec/MS-VBAL.verification-map.md`.
-- **Live VBA linting** — a structural block-balance analyzer (`src/vbaLinter.ts`) reports unbalanced constructs as diagnostics while you type: missing `End Sub`/`End Function`/`End Property`/`End If`/`End With`/`End Select`/`End Type`/`End Enum`/`Next`/`Loop`/`Wend`, stray closers with no opener, and inner blocks left unclosed. Strings, comments, and `_` line continuations are handled.
-- **Smart Enter (auto-block)** — typing a `Sub`/`Function`/`Property` header and pressing Enter auto-inserts the matching `End ...` below, leaving the caret on the indented body line, just like the VBA IDE.
-- **Protected-workbook editing** — VBA module writes/renames/deletes now save with `allow_protected=True`, so password-locked VBA projects can be edited without errors.
-- **Signature-invalidation notice** — when an edit drops a workbook's VBA digital signature, XLIDE surfaces a one-time warning (per workbook, per session) prompting the user to re-sign externally. The signature state is captured via `signatureDropped` from the Python layer rather than silently discarded.
-- **Protection/signature badges** in the XLIDE Explorer — workbook nodes now show `[locked]` and/or `[signed]` tags (lazily probed) so the project's protection state is visible at a glance.
-- **Validate VBA Project** command + `xlide_validateWorkbook` agent tool — audits a workbook's VBA project for cross-structure inconsistencies and reports any issues to the XLIDE Output channel.
-- **New Macro-Enabled Workbook** command (view title + Command Palette) + `xlide_createWorkbook` agent tool — creates a fresh `.xlsm`/`.xlsb` with an empty VBA project from pyOpenVBA's baked-in template.
-- **`getProtectionInfo` / `validateWorkbook` / `createWorkbook`** JSON-RPC handlers in the Python server; `get_workbook_info` now also returns `isPasswordProtected` and `isSigned`.
+
+- **XLIDE Activity Bar/sidebar** - dedicated setup health, selected-workbook
+  actions, global settings, support commands, and a stable workbook-action
+  surface while keeping workbook/module navigation in the VS Code Explorer.
+- **Workbook-wide VBA analysis** - `XLIDE: Analyze Workbook` opens a dedicated
+  results UI with module grouping, severity filters, counts, copy/export
+  actions, workbook/global rule settings, tracking controls, and click-through
+  navigation.
+- **Agent analysis verification** - `xlide_analyzeWorkbook` returns the same
+  workbook analysis shape used by the UI:
+  `{filePath, moduleCount, errorCount, warningCount, problems: [...]}`.
+- **Deterministic diagnostic metadata** - rules now carry category,
+  VBE-compile-equivalence, diagnostic kind, stable codes, and source labels so
+  red diagnostics stay reserved for proven compile/runtime errors.
+- **Expanded VBA diagnostics** - v2 adds and hardens high-confidence checks for
+  block balance, unterminated strings, duplicate declarations, `Const`
+  assignment, invalid procedure headers, unbalanced parentheses, declaration and
+  call hygiene, argument counts and type mismatches, unknown calls, invalid
+  declaration names, scalar member access, object/scalar `Set` usage, return
+  assignment warnings, test marker syntax, and source-backed `member-not-found`.
+- **Project-aware language service** - completions, hover, signature help,
+  go-to-definition, find references, rename, semantic type coloring, and code
+  actions now use the shared analyzer/project model where XLIDE can bind the
+  target deterministically.
+- **Syntax and editor hardening** - Smart Enter, block snippets, close-keyword
+  completions, keyword casing, comment continuation, paired `For`/`Next`
+  iterator edits, parser recovery, and MS-VBAL-backed keyword/token handling
+  were expanded for common VBA editing flows.
+- **Source-backed object/member understanding** - project classes, public
+  fields, properties, return-name assignments, UDT fields, document/UserForm
+  code names, known runtime signatures, and the first generated Excel host
+  surfaces participate in completion, hover, navigation, diagnostics, and
+  assignment validation where the surface is proven.
+- **Documentation metadata** - inline `'''` XML doc comments and external
+  `.vbref.xml` metadata enrich hover, completion, and signature help for
+  source-backed and externally documented symbols.
+- **Generated host/reference metadata slice** - generated Excel reference
+  metadata is now used for the proven Excel `Workbook` surface, with coverage
+  and provenance tracked separately from runtime extension code.
+- **Workbook VBA test runner** - marked `@xlide-test` procedures run through an
+  XLIDE-owned read-only Excel host, with `XlideAssert.bas` support, skip/xfail
+  metadata, tag filters, current-module/current-test commands, rerun flows,
+  output capture, artifacts, and `status_for_ci.json`.
+- **Agent test execution** - `xlide_runVbaTests` runs the same workbook tests
+  headlessly and returns `{ok, summary, artifacts, report}` for AI-agent and CI
+  verification.
+- **Previewable import/export sync** - bulk export/import and current-module
+  export use diff previews, explicit apply steps, changed/skipped/removed/failed
+  summaries, safe true-up behavior, and one workbook settings owner.
+- **Workbook and global settings surfaces** - `xlide.openGlobalSettings`,
+  workbook-facing analysis/sync settings, guarded severity overrides,
+  untracked-rule controls, strict sidecar parsing, and provenance labels make
+  settings explicit without weakening diagnostic determinism.
+- **Code actions** - deterministic quick fixes/source actions cover the shipped
+  safe edit set, including adding `Option Explicit`, fixing known call syntax,
+  adding/removing `Set`, inserting block closers, moving misplaced `Option`
+  statements, splitting local `Dim` initializers, adding suppression comments,
+  creating safe private stubs, analyzing the current module, and exporting the
+  current module.
+- **Safety, trust, and recovery** - dirty `xlide-vba` backup restoration,
+  explicit mutation/run commands, write audit summaries, workbook lock/open-state
+  checks, COM timeout/cleanup handling, support bundles, copy diagnostics, and
+  redacted support output make workbook operations easier to trust.
+- **Performance budgets** - v2 records launch-facing latency budgets for
+  keystroke diagnostics, module analysis, workbook analysis, project index
+  rebuilds, and sidebar health refreshes; deeper performance hardening moved to
+  the v3 roadmap.
+- **User-facing documentation** - README and user guides now cover setup,
+  workbook workflows, analysis/ignores, import/export sync, testing,
+  automation/CI, safety/support, and the v2 feature surface.
 
 ### Changed
-- **F5 (Run Macro at Cursor)** now saves the active module first when it has unsaved changes, so the macro that runs reflects the current editor source rather than the last-saved version.
-- **Find All References** is now scope-aware (see the AST-backed entry above) and honors VS Code's "include declaration" toggle; added a **Find All References** entry to the Explorer tree-view context menu for Sub/Function nodes.
+
+- Replaced the older dedicated `xlide.diagnostics.optionExplicit` model with
+  guarded global/workbook analysis settings, including `visibleSeverities`,
+  `untrackedRules`, and `ruleSeverityOverrides`.
+- Consolidated workbook-specific configuration under
+  `<workbook>.xlide_settings.json`; older workbook sidecar names are not part of
+  the supported v2 settings contract.
+- Moved remaining binder, designer/UserForm metadata, external metadata,
+  host-metadata completeness, workbook-to-workbook transfer, and performance
+  scale work to `docs/roadmap_version_3.x.md`.
+- Kept hard object-member absence diagnostics limited to exhaustive receiver
+  surfaces; incomplete host/designer/external surfaces can power completion and
+  hover without inventing red `member-not-found` errors.
+- Updated macro/test workflows so execution remains explicit, Windows Excel COM
+  remains execution-only, and normal read/edit/analyze/sync workflows continue
+  to use the Python backend.
+
+### Fixed
+
+- Malformed workbook settings sidecars now report explicit settings errors
+  instead of being silently treated as empty defaults.
+- Tightened Live Share guest messaging around the current supported behavior:
+  guests can edit host-opened VBA buffers, but only the host can browse/open new
+  workbook modules through XLIDE.
+- Refined release docs and roadmap references so v2 is closed and forward
+  scope points to the v3 roadmap and related sub-roadmaps.
 
 ## [1.0.9] - 2026-05-26
 
 ### Added
-- **`xlide_listWorkbooks`** agent tool — discovers all `.xlsm`/`.xlsb`/`.xlam` files in the workspace so the agent never needs to be told a file path.
-- **`xlide_getWorkbookInfo`** agent tool — single round-trip returning sheets, VBA modules, and named ranges together.
-- **`xlide_listSheets`** agent tool — sheet names and used dimensions for cell-range discovery.
-- **`xlide_readFormulas`** agent tool — reads raw formula strings (`=SUM(A1:A10)`) instead of computed values.
-- **`xlide_runOpenpyxl`** agent tool — executes arbitrary openpyxl Python code against a workbook, exposing the full openpyxl API (styling, charts, number formats, conditional formatting, etc.).
-- **`xlide_renameModule`** agent tool — renames a VBA module (Python layer already supported this; now exposed to AI agents).
-- **`xlide_deleteModule`** agent tool — deletes a VBA module (same).
-- **`.github/copilot-instructions.md`** — canonical XLIDE agent workflow loaded automatically by Copilot in every session.
+
+- **`xlide_listWorkbooks`** agent tool - discovers all `.xlsm`, `.xlsb`, and
+  `.xlam` files in the workspace so an agent can find the target workbook.
+- **`xlide_getWorkbookInfo`** agent tool - returns sheets, VBA modules, and
+  named ranges in one round trip.
+- **`xlide_listSheets`** agent tool - lists worksheet names and used dimensions
+  for cell-range discovery.
+- **`xlide_readFormulas`** agent tool - reads raw formula strings instead of
+  computed values.
+- **`xlide_runOpenpyxl`** agent tool - executes arbitrary openpyxl code against
+  a workbook for worksheet-level automation.
+- **`xlide_renameModule`** and **`xlide_deleteModule`** agent tools - expose
+  existing module mutation support to AI agents.
+- **`.github/copilot-instructions.md`** - canonical XLIDE agent workflow loaded
+  automatically by Copilot in the repository.
 
 ### Fixed
-- **`xlide_writeModule` description** clarified that passing a non-existent module name creates the module automatically.
-- **`xlide_readCells` / `xlide_writeCells` descriptions** updated to reference `xlide_listSheets` for sheet discovery.
+
+- Clarified the `xlide_writeModule` tool description: writing a missing module
+  name creates the module.
+- Updated `xlide_readCells` and `xlide_writeCells` descriptions to direct
+  agents through `xlide_listSheets` when the sheet name is unknown.
 
 ## [1.0.8] - 2026-05-26
 
 ### Fixed
-- **Tree view sync after rename/edit** — Renaming a procedure via Rename Symbol (F2) or by editing the source manually now refreshes the affected module's sub list in the XLIDE Explorer on save, instead of showing the old name until a full refresh.
+
+- Refreshed the affected module's procedure list after Rename Symbol or manual
+  source edits so the XLIDE Explorer no longer shows stale procedure names until
+  a full refresh.
 
 ## [1.0.7] - 2026-05-26
 
 ### Changed
-- Unified the XLIDE Explorer welcome message: a single entry shown in all sessions (host and Live Share guest) with the workbook hint, Refresh link, and brief Live Share notes.
 
-## [Unreleased]
+- Unified the XLIDE Explorer welcome message for host and Live Share guest
+  sessions, including workbook discovery, Refresh, and Live Share notes.
+
+## Earlier Development Notes
+
+These notes predate the current v2 changelog structure and are kept for
+historical context.
 
 ### Added
-- **Module tree accordion** — clicking a module tab or tree node auto-expands that module's procedure list and collapses all others. Closes last tab to collapse everything.
-- **Accordion debounce** — rapid Ctrl+W cycling coalesces into a single tree update (60 ms), eliminating race-condition stragglers.
-- **Add Class Module** command and context menu item with `Class_Initialize` / `Class_Terminate` stub.
-- **Module type detection overhaul** — UserForms identified by two-GUID `VB_Base` pattern (works for both live workbook and exported `.cls` files). Document CLSIDs for Workbook / Worksheet / Chart correctly classified.
-- **COM window focus** — after opening a workbook or running a macro on Windows, Excel is restored and brought to the foreground via P/Invoke (`ShowWindow` + `SetForegroundWindow`).
-- **Symbol kinds** — Outline / breadcrumbs now show Const → Constant, Enum → Enum, Type → Struct icons in addition to Sub / Function / Property.
-- **listModules cache** — module list cached per workbook during a session; cleared on tree refresh to avoid stale data.
-- **Filesystem watcher debounce** — rapid save-storm events coalesce into a single explorer refresh (200 ms).
-- **Cancellation tokens** — `bridge.call()` accepts an optional `CancellationToken`; pending RPC requests are rejected on cancellation.
-- **Smoke test command** (`XLIDE: Run Smoke Test`) — verifies listModules and readModule against a workspace workbook from the command palette.
-- **TS unit tests** — vitest suite covering `parseVbaModule` (Sub/Function/Property/Const/Enum/Type, line spans, visibility) and `decodeModuleUri` (module name decode, URL encoding, extension variants, error cases).
-- **Python unit tests** — pytest suite covering `_split_vba_source` (round-trip, VERSION/BEGIN/END stripping) and `_module_type` (userform two-GUID, document CLSIDs, name heuristics, PredeclaredId).
-- **CI workflow** — GitHub Actions runs `npm run compile` + `npm test` (TypeScript) and `pytest` (Python) on push and pull requests.
-- **Export path fix** — class modules now export as `.cls`; document modules as `.cls`; userforms as `.frm`; standard modules as `.bas`.
-- **Import UX** — `.frm` / document / userform files that don't exist in the live workbook are shown with an explanatory detail in the QuickPick and cannot be selected.
-- **Live Share** — module type surfaced for remote modules; userform icon and sort order applied consistently.
-- **Status bar** — shows active workbook / module name; Live Share guest count.
-- **VBA snippets** — 21 snippet entries (`sub`, `func`, `for`, `forEach`, `with`, `select`, `class`, `prop`, …).
-- **onEnterRules** — auto-insert `End Sub` / `End Function` / `End If` / `Next` / `Loop` / `Wend` on Enter, matching VBE behaviour.
-- **Bridge auto-restart** — unexpected Python child-process exit marks the bridge stopped; next call shows a clear actionable error.
-- **Workbook-locked UX** — WinError 32 / sharing violation detected and surfaced as a warning with a Retry action.
-- **Marketplace display name** updated to `XLIDE: VBA for VS Code`.
+
+- Module tree accordion behavior and debounce.
+- Add Class Module command and context-menu entry.
+- Improved module type detection for UserForms and document modules.
+- COM window restore/focus after opening a workbook or running a macro.
+- Outline/breadcrumb symbol-kind polish for VBA declarations.
+- Per-workbook module-list caching, filesystem watcher debounce, and RPC
+  cancellation token support.
+- Smoke test command, TypeScript/Python unit tests, and CI workflow.
+- Protected-workbook editing, signature-invalidation notices, protection and
+  signature badges, Validate VBA Project, and New Macro-Enabled Workbook.
+- Early VBA snippets, enter-time block closing, status bar items, workbook-locked
+  error UX, and marketplace display-name polish.
 
 ### Changed
-- Context menu reorganised into logical groups: create, edit, workbook, transfer, settings.
-- `xlide.newClassModule` replaces the generic new-module path for class modules.
+
+- Reorganized context menus into create, edit, workbook, transfer, and settings
+  groups.
+- Split class-module creation into `xlide.newClassModule` instead of routing it
+  through the generic new-module path.
 
 ---
 

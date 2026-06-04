@@ -1386,6 +1386,7 @@ of development.
   - [x] opening a workbook
   - [x] editing modules
   - [x] analysis
+  - [x] import/export module sync
   - [x] running macros
   - [x] running VBA tests
   - [x] using doc comments and metadata
@@ -1460,7 +1461,9 @@ Definition of done:
 - `docs/xlide_development_principles.md`
 - `docs/xlide_performance_budgets.md`
 - `user_guides/README.md`
+- `user_guides/analysis.md`
 - `user_guides/getting_started.md`
+- `user_guides/sync.md`
 - `user_guides/support.md`
 - `user_guides/testing.md`
 - `user_guides/automation.md`

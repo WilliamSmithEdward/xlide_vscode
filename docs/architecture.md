@@ -2,7 +2,7 @@
 
 ## Overview
 
-XLIDE is a VS Code extension that turns Excel macro files (`.xlsm`, `.xlsb`, `.xlam`) into first-class editable documents. VBA modules open in the editor like normal source files, Ctrl+S writes them back into the workbook, and 15 Language Model tools expose every operation to Copilot and other VS Code AI agents.
+XLIDE is a VS Code extension that turns Excel macro files (`.xlsm`, `.xlsb`, `.xlam`) into first-class editable documents. VBA modules open in the editor like normal source files, Ctrl+S writes them back into the workbook, and 19 VS Code language model tools expose workbook-aware operations to Copilot and compatible agents.
 
 The extension is split into two layers connected by a long-lived child process:
 
@@ -74,7 +74,8 @@ xlide_vscode/
 
   docs/
     architecture.md     This file
-    roadmap.md          Feature roadmap
+    roadmap_version_2.x.md    Closed v2 launch-hardening roadmap
+    roadmap_version_3.x.md    Forward backlog
 
   package.json          Extension manifest, contributes, LM tool declarations
   tsconfig.json         Strict TypeScript config (module: Node16)
@@ -333,6 +334,8 @@ to operate on export files.
 | `xlide_listSheets` | `#xlideListSheets` | none | No |
 | `xlide_getWorkbookInfo` | `#xlideGetWorkbookInfo` | none | No |
 | `xlide_validateWorkbook` | `#xlideValidateWorkbook` | none | No |
+| `xlide_analyzeWorkbook` | `#xlideAnalyzeWorkbook` | none | No |
+| `xlide_runVbaTests` | `#xlideRunVbaTests` | runs tests + writes artifacts | Yes |
 | `xlide_createWorkbook` | `#xlideCreateWorkbook` | creates/overwrites .xlsm | Yes |
 | `xlide_readCells` | `#xlideReadCells` | none | No |
 | `xlide_readFormulas` | `#xlideReadFormulas` | none | No |

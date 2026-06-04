@@ -635,7 +635,7 @@ Diagnostic codes should be stable.
     "test:core": "vitest run",
     "test:fixtures": "vitest run tests/vbaAnalysisFixtures.test.ts",
     "test:vscode": "vscode-test",
-    "test:oracle:vbe": "node ./scripts/run-vbe-oracle.js",
+    "test:oracle:vbe": "python syntax_corpus/oracle/run_excel_vbe_oracle.py",
     "check-types": "tsc --noEmit",
     "compile": "npm run check-types && node esbuild.js"
   }

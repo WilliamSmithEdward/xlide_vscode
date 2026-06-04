@@ -67,6 +67,8 @@ quality signals.
 Workbook analysis settings can be adjusted per workbook from the Analysis
 results/settings UI. Global defaults live in XLIDE Global Settings; workbook
 overrides live beside the workbook in `<workbook>.xlide_settings.json`.
+See [analysis.md](analysis.md) for diagnostic tracking, severity controls,
+untracked rules, and source suppressions.
 
 ## Run A Macro
 
@@ -96,13 +98,15 @@ Use export/import actions when you want normal `.bas` and `.cls` files on disk
 for review, source control, or external tooling.
 
 - **Export All Modules to Folder** writes workbook modules to a chosen folder.
-- **Import Modules From Folder** previews changes before applying them back to
+- **Import Modules from Folder** previews changes before applying them back to
   the workbook.
 - **Export/Sync Current Module** exports only the active workbook module.
 
 The import/export diff GUI is the safest place to configure workbook-specific
 sync folders and modes. XLIDE stores those choices in
 `<workbook>.xlide_settings.json`.
+See [sync.md](sync.md) for export/import modes, true-up behavior, skipped import
+cases, and sync settings.
 
 ## Documentation Comments And Metadata
 

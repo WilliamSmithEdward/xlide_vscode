@@ -18,3 +18,9 @@ Thumbs.db
 
 # Reference corpus (transcription source only - never bundled/generated)
 reference/
+
+# Excel files
+*.xlsx
+*.xlsm
+*.xlsb
+*.xlam

@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "1.0.9",
+  "version": "2.0.0",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
   "repository": {
@@ -866,7 +866,7 @@
       {
         "name": "xlide_exportModules",
         "displayName": "Export VBA Modules to Folder",
-        "modelDescription": "Exports all VBA modules from an Excel VBA workbook to a folder using workbookname.xlide_settings.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the workbook).",
+        "modelDescription": "Exports all VBA modules from an Excel VBA workbook to a folder using <workbook>.xlide_settings.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the workbook).",
         "toolReferenceName": "xlideExportModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -878,7 +878,7 @@
             },
             "exportFolder": {
               "type": "string",
-              "description": "Optional absolute folder path. If omitted, uses the workbook-specific exportFolder from workbookname.xlide_settings.json"
+              "description": "Optional absolute folder path. If omitted, uses the workbook-specific exportFolder from <workbook>.xlide_settings.json"
             },
             "exportMode": {
               "type": "string",
@@ -897,7 +897,7 @@
       {
         "name": "xlide_configureExportMode",
         "displayName": "Configure VBA Export Mode",
-        "modelDescription": "Sets the persistent workbook-specific exportMode in workbookname.xlide_settings.json beside the Excel VBA workbook. Use exportAll by default unless the user explicitly asks to delete stale .bas/.cls module files missing from the workbook.",
+        "modelDescription": "Sets the persistent workbook-specific exportMode in <workbook>.xlide_settings.json beside the Excel VBA workbook. Use exportAll by default unless the user explicitly asks to delete stale .bas/.cls module files missing from the workbook.",
         "toolReferenceName": "xlideConfigureExportMode",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -913,7 +913,7 @@
                 "exportAll",
                 "trueUp"
               ],
-              "description": "Persistent workbook-specific export mode to store in workbookname.xlide_settings.json"
+              "description": "Persistent workbook-specific export mode to store in <workbook>.xlide_settings.json"
             }
           },
           "required": [
