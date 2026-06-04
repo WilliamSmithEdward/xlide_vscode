@@ -1477,6 +1477,83 @@
       "diagnosticMeaning": "runtime-valid"
     },
     {
+      "id": "hex_division_by_zero_literal_runtime",
+      "description": "Runtime probe: division by a hexadecimal zero literal raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / &H0\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "octal_integer_division_by_zero_literal_runtime",
+      "description": "Runtime probe: integer division by an octal zero literal raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 \\ &O0\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "mod_by_hex_nonzero_literal_runtime",
+      "description": "Runtime control: Mod by a nonzero hexadecimal literal runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 Mod &H1\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "division_by_module_const_zero_runtime",
+      "description": "Runtime probe: division by a module-level Const whose value is zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Private Const ZeroDenominator As Long = 0\n\nPublic Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / ZeroDenominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_local_const_zero_runtime",
+      "description": "Runtime probe: division by a procedure-local Const whose value is zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Const ZeroDenominator As Long = 0\n    Dim value As Double\n    value = 1 / ZeroDenominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_const_expression_zero_runtime",
+      "description": "Runtime probe: division by a Const expression reduced to zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Const ZeroDenominator As Long = 1 - 1\n    Dim value As Double\n    value = 1 / ZeroDenominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_const_expression_nonzero_runtime",
+      "description": "Runtime control: division by a Const expression reduced to a nonzero value runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Const Denominator As Long = 0 + 1\n    Dim value As Double\n    value = 1 / Denominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
       "id": "string_scalar_member_access_compile",
       "description": "Compile probe for a trailing member-access dot on a String variable; explicit VBE focus retest rejects this as Syntax error.",
       "provenance": "vbe-oracle-verified",

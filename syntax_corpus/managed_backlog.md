@@ -203,8 +203,10 @@ Promotion path:
 Near-term candidates:
 
 - Division, integer division, and `Mod` by literal zero are promoted through
-  `division-by-zero`; continue with named constants, constant expressions,
-  non-decimal zero literals, reachability, and `On Error Resume Next` policy.
+  `division-by-zero`, including decimal/hex/octal literals and same-module or
+  same-procedure integer `Const` expressions; continue with reachability,
+  `On Error Resume Next` policy, enum constants, hex/octal `Const` folding, and
+  broader expression-value folding.
 - Negative literal arguments to curated runtime functions such as `Left$` and
   `String$`.
 - `IIf` eager branch evaluation: oracle cases prove both TruePart and FalsePart

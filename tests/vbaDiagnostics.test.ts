@@ -2934,6 +2934,49 @@ describe('analyzeModule - division by zero', () => {
 		expect(spanText(src, hits[0])).toBe('-0');
 	});
 
+	it('errors on non-decimal zero literal divisors', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a As Long\n' +
+			'    a = 1 / &H0\n' +
+			'    a = 1 \\ &O0\n' +
+			'    a = 1 Mod &H1\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['&H0', '&O0']);
+	});
+
+	it('errors on zero-valued module and local Const divisors', () => {
+		const src =
+			'Private Const ModuleZero As Long = 0\n' +
+			'Private Const ModuleOne As Long = 0 + 1\n' +
+			'Public Sub T()\n' +
+			'    Const LocalZero As Long = 1 - 1\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / ModuleZero\n' +
+			'    a = 1 / LocalZero\n' +
+			'    a = 1 / ModuleOne\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['ModuleZero', 'LocalZero']);
+	});
+
+	it('folds parenthesized Const expressions used as divisors', () => {
+		const src =
+			'Private Const Zero As Long = 0\n' +
+			'Private Const One As Long = 1\n' +
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / (Zero + 0)\n' +
+			'    a = 1 / (Zero + One)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Zero + 0');
+	});
+
 	it('does not flag nonzero literals, variables, or nonzero parenthesized expressions', () => {
 		const src =
 			'Public Sub T()\n' +
