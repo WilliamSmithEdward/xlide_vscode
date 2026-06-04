@@ -210,9 +210,10 @@ Near-term candidates:
   expression-value folding.
 - Literal argument-value bounds for `Left`/`Left$`, `Right`/`Right$`,
   `String`/`String$`, `Space`/`Space$`, `Mid`/`Mid$`, and `Replace` are
-  promoted through `runtime-argument-value`; continue with nonliteral
-  constant-expression folding, additional named-argument edge cases, and
-  reachability policy only after focused oracle probes.
+  promoted through `runtime-argument-value`, including reducible integer
+  expressions, same-module/procedure `Const` values, and current-module Enum
+  members; continue with additional named-argument edge cases, cross-module
+  constants/enums, and reachability policy only after focused oracle probes.
 - `IIf` eager branch evaluation: oracle cases prove both TruePart and FalsePart
   can raise deterministic runtime errors even when not selected; promote only
   when the branch expression itself is proven fatal.

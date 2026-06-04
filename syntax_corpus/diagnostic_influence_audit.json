@@ -387,11 +387,19 @@
         "replace_one_start_runtime",
         "replace_negative_two_count_runtime",
         "replace_negative_one_count_runtime",
-        "replace_zero_count_runtime"
+        "replace_zero_count_runtime",
+        "runtime_arg_const_negative_left_length_runtime",
+        "runtime_arg_const_zero_left_length_runtime",
+        "runtime_arg_expression_negative_left_length_runtime",
+        "runtime_arg_expression_zero_right_length_runtime",
+        "runtime_arg_local_const_replace_zero_start_runtime",
+        "runtime_arg_local_const_replace_negative_two_count_runtime",
+        "runtime_arg_local_const_replace_negative_one_count_runtime",
+        "runtime_arg_enum_zero_mid_start_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer literals for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, and Replace compile successfully and deterministically raise runtime error 5, while zero/nonzero controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals outside proven runtime bounds, maps named argument slots, respects bare-call shadowing by source symbols and local declarations, and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, and Replace compile successfully and deterministically raise runtime error 5, while zero/nonzero controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, and current-module Enum members outside proven runtime bounds; maps named argument slots; respects bare-call shadowing by source symbols and local declarations; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

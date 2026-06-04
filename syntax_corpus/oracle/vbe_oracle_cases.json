@@ -1008,6 +1008,94 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Replace(\"aaaa\", \"a\", \"z\", 1, 0)\nEnd Sub\n"
     },
     {
+      "id": "runtime_arg_const_negative_left_length_runtime",
+      "description": "Runtime probe: a module Const negative Length passed to Left$ isolates deterministic constant-folded runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Private Const BadLength As Long = -1\n\nPublic Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", BadLength)\nEnd Sub\n"
+    },
+    {
+      "id": "runtime_arg_const_zero_left_length_runtime",
+      "description": "Runtime control: a module Const zero Length passed to Left$ should verify the folded lower bound control.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Private Const GoodLength As Long = 0\n\nPublic Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", GoodLength)\nEnd Sub\n"
+    },
+    {
+      "id": "runtime_arg_expression_negative_left_length_runtime",
+      "description": "Runtime probe: an argument expression folding to negative Length passed to Left$ isolates deterministic expression-folded runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", 1 - 2)\nEnd Sub\n"
+    },
+    {
+      "id": "runtime_arg_expression_zero_right_length_runtime",
+      "description": "Runtime control: an argument expression folding to zero Length passed to Right$ should verify the folded lower bound control.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Right$(\"abcdef\", 1 - 1)\nEnd Sub\n"
+    },
+    {
+      "id": "runtime_arg_local_const_replace_zero_start_runtime",
+      "description": "Runtime probe: a local Const expression folding to zero Start passed to Replace isolates deterministic constant-folded runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Const BadStart As Long = 1 - 1\n    Dim value As String\n    value = Replace(\"abcdef\", \"a\", \"z\", BadStart)\nEnd Sub\n"
+    },
+    {
+      "id": "runtime_arg_local_const_replace_negative_two_count_runtime",
+      "description": "Runtime probe: a local Const expression folding below Replace Count's sentinel isolates deterministic constant-folded runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Const BadCount As Long = -1 - 1\n    Dim value As String\n    value = Replace(\"aaaa\", \"a\", \"z\", 1, BadCount)\nEnd Sub\n"
+    },
+    {
+      "id": "runtime_arg_local_const_replace_negative_one_count_runtime",
+      "description": "Runtime control: a local Const expression folding to Count -1 should verify Replace's all-occurrences sentinel.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Const GoodCount As Long = 0 - 1\n    Dim value As String\n    value = Replace(\"aaaa\", \"a\", \"z\", 1, GoodCount)\nEnd Sub\n"
+    },
+    {
+      "id": "runtime_arg_enum_zero_mid_start_runtime",
+      "description": "Runtime probe: an Enum member folding to zero Start passed to Mid$ isolates deterministic constant-folded runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Private Enum RuntimeArgStart\n    BadStart = 0\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", BadStart, 1)\nEnd Sub\n"
+    },
+    {
       "id": "colon_separated_dim_statements_compile",
       "description": "Compile control: colon separates multiple Dim statements on one physical line.",
       "provenance": "vbe-oracle-verified",

@@ -1985,7 +1985,7 @@ interface RuntimeArgumentValueHit {
 /**
  * Rule: some runtime-library arguments have deterministic value bounds even
  * when the argument type itself is valid. This slice is VBE-oracle-backed for
- * literal bounds on selected string runtime functions, which compile but raise
+ * integer bounds on selected string runtime functions, which compile but raise
  * Run-time error 5 when the value is outside the proven range.
  */
 function checkRuntimeArgumentValues(
@@ -1997,13 +1997,16 @@ function checkRuntimeArgumentValues(
 	push: PushFn,
 ): void {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const procedureConstants = new Map(moduleConstants);
+		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
 		forEachStatement(member.body, (stmt) => {
-			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env)) {
+			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, procedureConstants)) {
 				push(
 					'runtimeArgumentValue',
 					`Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error '5': Invalid procedure call or argument.`,
@@ -2019,6 +2022,7 @@ function runtimeArgumentValueHits(
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	env: ReadonlyMap<string, string>,
+	constants: ReadonlyMap<string, number | undefined>,
 ): RuntimeArgumentValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -2032,7 +2036,9 @@ function runtimeArgumentValueHits(
 		}
 		for (const spec of call.specs) {
 			const slot = runtimeArgumentValueSlot(call.slots, spec);
-			const literal = slot ? integerLiteralArgumentBelowMinimum(slot, span.start, spec.minimum) : undefined;
+			const literal = slot
+				? integerArgumentBelowMinimum(source, slot, span.start, spec.minimum, constants)
+				: undefined;
 			if (!literal) {
 				continue;
 			}
@@ -2157,38 +2163,55 @@ function runtimeArgumentValueSlot(
 	return undefined;
 }
 
-function integerLiteralArgumentBelowMinimum(
+function integerArgumentBelowMinimum(
+	source: string,
 	slot: readonly VbaToken[],
 	sliceStart: number,
 	minimum: number,
+	constants: ReadonlyMap<string, number | undefined>,
 ): { value: number; span: Span } | undefined {
 	const toks = unwrapOuterParens(
 		slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
 	);
+	if (toks.length === 0) {
+		return undefined;
+	}
 	let sign = 1;
 	let literal = toks[0];
 	let start = literal?.start;
-	if (toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+')) {
+	let literalValue: number | undefined;
+	const signedLiteral = toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+');
+	if (signedLiteral) {
 		sign = toks[0].rawText === '-' ? -1 : 1;
 		literal = toks[1];
 		start = toks[0].start;
-	} else if (toks.length !== 1) {
-		return undefined;
 	}
-	if (!literal || literal.kind !== 'integerLiteral' || start === undefined) {
-		return undefined;
+	if (literal?.kind === 'integerLiteral' && start !== undefined && (toks.length === 1 || signedLiteral)) {
+		const rawValue = parseVbaIntegerLiteral(literal.rawText);
+		if (rawValue !== undefined) {
+			literalValue = sign * rawValue;
+		}
 	}
-	const rawValue = parseVbaIntegerLiteral(literal.rawText);
-	if (rawValue === undefined) {
-		return undefined;
+	if (literalValue !== undefined) {
+		if (literalValue >= minimum) {
+			return undefined;
+		}
+		return {
+			value: literalValue,
+			span: { start: sliceStart + start!, end: sliceStart + literal.end },
+		};
 	}
-	const value = sign * rawValue;
-	if (value >= minimum) {
+
+	const expressionValue = evaluateIntegerConstantExpression(
+		source.slice(sliceStart + toks[0].start, sliceStart + toks[toks.length - 1].end),
+		constants,
+	);
+	if (expressionValue === undefined || expressionValue >= minimum) {
 		return undefined;
 	}
 	return {
-		value,
-		span: { start: sliceStart + start, end: sliceStart + literal.end },
+		value: expressionValue,
+		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end },
 	};
 }
 

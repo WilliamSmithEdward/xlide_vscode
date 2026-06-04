@@ -1880,6 +1880,44 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[2].message).toContain('Count');
 	});
 
+	it('folds deterministic Const Enum and integer expressions for runtime argument bounds', () => {
+		const src =
+			'Private Const BadLength As Long = -1\n' +
+			'Private Const GoodLength As Long = 0\n' +
+			'Private Enum RuntimeArgStart\n' +
+			'    EnumBadStart = 0\n' +
+			'End Enum\n' +
+			'Sub T()\n' +
+			'    Const BadStart As Long = 1 - 1\n' +
+			'    Const BadCount As Long = -1 - 1\n' +
+			'    Const GoodCount As Long = 0 - 1\n' +
+			'    a = Left$("abcdef", BadLength)\n' +
+			'    b = Left$("abcdef", GoodLength)\n' +
+			'    c = Left$("abcdef", 1 - 2)\n' +
+			'    d = Right$("abcdef", 1 - 1)\n' +
+			'    e = Replace("abcdef", "a", "z", BadStart)\n' +
+			'    f = Replace("aaaa", "a", "z", 1, BadCount)\n' +
+			'    g = Replace("aaaa", "a", "z", 1, GoodCount)\n' +
+			'    h = Mid$("abcdef", EnumBadStart, 1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+		expect(hits).toHaveLength(5);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'BadLength',
+			'1 - 2',
+			'BadStart',
+			'BadCount',
+			'EnumBadStart',
+		]);
+		expect(hits.map((hit) => hit.message)).toEqual([
+			expect.stringContaining('is -1'),
+			expect.stringContaining('is -1'),
+			expect.stringContaining('is 0'),
+			expect.stringContaining('is -2'),
+			expect.stringContaining('is 0'),
+		]);
+	});
+
 	it('accepts zero and unknown runtime argument values for selected native bounds', () => {
 		const src =
 			'Sub T()\n' +
