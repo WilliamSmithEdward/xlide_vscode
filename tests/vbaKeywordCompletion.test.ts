@@ -118,6 +118,30 @@ describe('keyword completion - statement snippets', () => {
 		expect(labels('Sub T()\n    onerror\nEnd Sub\n', '    onerror')).toEqual(['On Error GoTo Handler']);
 	});
 
+	it('offers common single-line statement snippets', () => {
+		const src = 'Sub T()\n    \nEnd Sub\n';
+		const result = resolveKeywordCompletions(src, at(src, '    '));
+		const itemLabels = result.items.map((item) => item.label);
+
+		for (const label of ['Dim', 'Set', 'ReDim', 'ReDim Preserve', 'Exit Sub', 'Exit Function', 'Exit For', 'Exit Do']) {
+			expect(itemLabels, label).toContain(label);
+		}
+		expect(result.items.find((item) => item.label === 'Dim')?.insertText).toBe(
+			'Dim ${1:name} As ${2:Variant}',
+		);
+		expect(result.items.find((item) => item.label === 'Set')?.insertText).toBe(
+			'Set ${1:object} = ${2:value}',
+		);
+	});
+
+	it('matches common compact single-line statement aliases', () => {
+		expect(labels('Sub T()\n    redimpreserve\nEnd Sub\n', 'redimpreserve')).toEqual(['ReDim Preserve']);
+		expect(labels('Sub T()\n    exitf\nEnd Sub\n', 'exitf')).toEqual([
+			'Exit Function',
+			'Exit For',
+		]);
+	});
+
 	it('owns former declaration snippets in the analyzer', () => {
 		expect(labels('Ty', 'Ty')).toEqual(['Type']);
 		expect(labels('En', 'En')).toEqual(['Enum']);
@@ -204,6 +228,58 @@ describe('keyword completion - narrow grammar contexts', () => {
 			'GoTo label',
 			'Resume Next',
 		]);
+	});
+
+	it('offers Exit targets after Exit', () => {
+		const src = 'Sub T()\n    Exit ';
+		const result = resolveKeywordCompletions(src, at(src, 'Exit '));
+		expect(result.exclusive).toBe(true);
+		expect(result.items.map((item) => item.label)).toEqual([
+			'Sub',
+			'Function',
+			'Property',
+			'For',
+			'Do',
+		]);
+		expect(labels('Sub T()\n    Exit F\nEnd Sub\n', 'Exit F')).toEqual(['Function', 'For']);
+		expect(resolveKeywordCompletions('Sub T()\n    Exit For ', at('Sub T()\n    Exit For ', 'Exit For ')).items)
+			.toEqual([]);
+	});
+
+	it('offers Do and Loop condition forms in their keyword slots', () => {
+		const doResult = resolveKeywordCompletions('Sub T()\n    Do ', at('Sub T()\n    Do ', 'Do '));
+		expect(doResult.exclusive).toBe(true);
+		expect(doResult.items.map((item) => item.label)).toEqual(['While', 'Until']);
+		expect(doResult.items.find((item) => item.label === 'While')?.insertText).toBe(
+			'While ${1:condition}',
+		);
+
+		const loopResult = resolveKeywordCompletions('Sub T()\n    Loop ', at('Sub T()\n    Loop ', 'Loop '));
+		expect(loopResult.exclusive).toBe(true);
+		expect(loopResult.items.map((item) => item.label)).toEqual(['While', 'Until']);
+	});
+
+	it('offers Select Case and For Each In continuations', () => {
+		const selectResult = resolveKeywordCompletions('Sub T()\n    Select ', at('Sub T()\n    Select ', 'Select '));
+		expect(selectResult.exclusive).toBe(true);
+		expect(selectResult.items.map((item) => item.label)).toEqual(['Case']);
+
+		const forEachResult = resolveKeywordCompletions(
+			'Sub T()\n    For Each cell ',
+			at('Sub T()\n    For Each cell ', 'For Each cell '),
+		);
+		expect(forEachResult.exclusive).toBe(true);
+		expect(forEachResult.items.map((item) => item.label)).toEqual(['In']);
+	});
+
+	it('offers Case helpers without hiding expression completions', () => {
+		const src = 'Sub T()\n    Select Case value\n        Case ';
+		const result = resolveKeywordCompletions(src, at(src, '        Case '));
+		expect(result.exclusive).toBe(false);
+		expect(result.items.map((item) => item.label)).toEqual(['Else', 'Is']);
+		expect(result.items.find((item) => item.label === 'Is')?.insertText).toBe(
+			'Is ${1:operator} ${2:value}',
+		);
 	});
 
 	it('suggests the matching End form after End', () => {

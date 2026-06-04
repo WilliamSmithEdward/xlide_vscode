@@ -940,10 +940,12 @@ Do not ship low-confidence diagnostics by default.
 > `src/analyzer/completion/keywordCompletion.ts`: additive block snippets at
 > statement start (`If`, `With`, `For`, `For Each`, `Do`, `While`,
 > `Select Case`, procedure blocks), exclusive grammar completions after
-> `Option`, `End`, `On Error`, access modifiers, and `#` conditional
-> compilation markers, including `Declare PtrSafe` and `#If VBA7` / `#If Win64`
-> migration snippets for external declarations, with innermost-block-aware close
-> suggestions. Remaining:
+> `Option`, `End`, `On Error`, `Exit`, `Do`, `Loop`, `Select`, `For Each item`,
+> access modifiers, and `#` conditional compilation markers, including
+> `Declare PtrSafe` and `#If VBA7` / `#If Win64` migration snippets for external
+> declarations. It also covers common one-line syntax snippets (`Dim`, `Set`,
+> `ReDim`, `ReDim Preserve`, `Exit ...`) and additive `Case` helpers, with
+> innermost-block-aware close suggestions. Remaining:
 > optional enter-time auto-block insertion after manually typed block headers.
 
 ### Goal

@@ -60,6 +60,21 @@ const I = VBA_BLOCK_INDENT_UNIT;
 
 const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('Option Explicit', 'Option Explicit', 'Option statement'),
+	snippet('Dim', 'Dim ${1:name} As ${2:Variant}', 'Variable declaration'),
+	snippet('Set', 'Set ${1:object} = ${2:value}', 'Object assignment statement'),
+	snippet('ReDim', 'ReDim ${1:array}(${2:upperBound})', 'Dynamic array allocation'),
+	snippet(
+		'ReDim Preserve',
+		'ReDim Preserve ${1:array}(${2:upperBound})',
+		'Resize a dynamic array while preserving values',
+		undefined,
+		['redimpreserve'],
+	),
+	snippet('Exit Sub', 'Exit Sub', 'Procedure exit statement'),
+	snippet('Exit Function', 'Exit Function', 'Function exit statement'),
+	snippet('Exit Property', 'Exit Property', 'Property exit statement'),
+	snippet('Exit For', 'Exit For', 'For loop exit statement'),
+	snippet('Exit Do', 'Exit Do', 'Do loop exit statement'),
 	snippet('On Error Resume Next', 'On Error Resume Next', 'Error-handling statement'),
 	snippet('On Error GoTo 0', 'On Error GoTo 0', 'Error-handling statement'),
 	snippet(
@@ -133,6 +148,37 @@ const ON_ERROR_SNIPPETS: readonly KeywordSpec[] = [
 	snippet('GoTo -1', 'GoTo -1', 'Clear current error state'),
 	snippet('GoTo label', 'GoTo ${1:label}', 'Branch to an error handler label'),
 	snippet('Resume Next', 'Resume Next', 'Continue after the statement that raised an error'),
+];
+
+const EXIT_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('Sub', 'Exit Sub'),
+	keyword('Function', 'Exit Function'),
+	keyword('Property', 'Exit Property'),
+	keyword('For', 'Exit For'),
+	keyword('Do', 'Exit Do'),
+];
+
+const DO_SNIPPETS: readonly KeywordSpec[] = [
+	snippet('While', 'While ${1:condition}', 'Do While condition'),
+	snippet('Until', 'Until ${1:condition}', 'Do Until condition'),
+];
+
+const LOOP_SNIPPETS: readonly KeywordSpec[] = [
+	snippet('While', 'While ${1:condition}', 'Loop While condition'),
+	snippet('Until', 'Until ${1:condition}', 'Loop Until condition'),
+];
+
+const SELECT_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('Case', 'Select Case'),
+];
+
+const CASE_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('Else', 'Case Else'),
+	snippet('Is', 'Is ${1:operator} ${2:value}', 'Case Is comparison'),
+];
+
+const FOR_EACH_ITEM_SNIPPETS: readonly KeywordSpec[] = [
+	keyword('In', 'For Each item In collection'),
 ];
 
 const DIRECTIVE_SNIPPETS: readonly KeywordSpec[] = [
@@ -211,6 +257,24 @@ export function resolveKeywordCompletions(
 			return complete(ON_ERROR_SNIPPETS, ctx.partial, true);
 		}
 		return complete(ON_SNIPPETS, ctx.partial, true);
+	}
+	if (first === 'exit' && ctx.prefix.length === 1) {
+		return complete(EXIT_SNIPPETS, ctx.partial, true);
+	}
+	if (first === 'do' && ctx.prefix.length === 1) {
+		return complete(DO_SNIPPETS, ctx.partial, true);
+	}
+	if (first === 'loop' && ctx.prefix.length === 1) {
+		return complete(LOOP_SNIPPETS, ctx.partial, true);
+	}
+	if (first === 'select' && ctx.prefix.length === 1) {
+		return complete(SELECT_SNIPPETS, ctx.partial, true);
+	}
+	if (first === 'case' && ctx.prefix.length === 1) {
+		return complete(CASE_SNIPPETS, ctx.partial, false);
+	}
+	if (first === 'for' && second === 'each' && ctx.prefix.length === 3) {
+		return complete(FOR_EACH_ITEM_SNIPPETS, ctx.partial, true);
 	}
 	if (first === '#') {
 		return complete(directiveSnippets(blockLayout), ctx.partial, true);
