@@ -704,6 +704,46 @@ describe('ProjectIndex visible identifier names', () => {
 
 		expect(index.visibleIdentifierNames('Caller')).toEqual(new Set<string>());
 	});
+
+	it('exposes visible external integer constant expressions without guessing duplicates', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source: 'Public Const LocalBadLength As Long = -1\n',
+		});
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source:
+				'Public Const SharedBadLength As Long = -1\n' +
+				'Public Const SharedGoodLength As Long = 2\n' +
+				'Private Const HiddenBadLength As Long = -1\n' +
+				'Public Enum SharedStart\n' +
+				'    SharedBadStart = 0\n' +
+				'    SharedNextStart\n' +
+				'End Enum\n',
+		});
+		index.setModule({
+			moduleName: 'MoreGlobals',
+			moduleKind: 'standard',
+			source: 'Public Const SharedBadLength As Long = 0\n',
+		});
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: 'Public Const ClassValue As Long = -1\n',
+		});
+
+		const constants = index.visibleExternalIntegerConstantExpressions('Caller');
+		expect(constants.get('localbadlength')).toBeUndefined();
+		expect(constants.get('hiddenbadlength')).toBeUndefined();
+		expect(constants.get('classvalue')).toBeUndefined();
+		expect(constants.get('sharedbadlength')).toBeUndefined();
+		expect(constants.get('sharedgoodlength')).toBe('2');
+		expect(constants.get('sharedbadstart')).toBe('0');
+		expect(constants.get('sharednextstart')).toBe('SharedBadStart + 1');
+	});
 });
 
 describe('ProjectIndex visible non-type names', () => {

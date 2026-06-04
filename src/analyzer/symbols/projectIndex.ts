@@ -442,6 +442,45 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * Raw integer constant expressions exported from other standard modules and
+	 * visible as bare identifiers from `moduleName`. Duplicate visible names are
+	 * kept with an unknown value so diagnostics never guess a binding.
+	 */
+	visibleExternalIntegerConstantExpressions(moduleName: string): Map<string, string | undefined> {
+		const currentLower = moduleName.toLowerCase();
+		const out = new Map<string, string | undefined>();
+		const seen = new Set<string>();
+		const add = (name: string, raw: string | undefined): void => {
+			const key = name.toLowerCase();
+			if (seen.has(key)) {
+				out.set(key, undefined);
+				return;
+			}
+			seen.add(key);
+			out.set(key, raw);
+		};
+		for (const mod of this.modules.values()) {
+			if (mod.moduleName.toLowerCase() === currentLower || mod.moduleKind !== 'standard') {
+				continue;
+			}
+			for (const symbol of mod.root.children ?? []) {
+				if (symbol.kind === 'constant' && isExported(symbol, mod.moduleKind)) {
+					add(symbol.name, symbol.defaultRaw);
+					continue;
+				}
+				if (symbol.kind === 'enum' && isEnumMemberExported(symbol, mod.moduleKind)) {
+					let previousName: string | undefined;
+					for (const member of symbol.children ?? []) {
+						add(member.name, member.defaultRaw ?? (previousName ? `${previousName} + 1` : '0'));
+						previousName = member.name;
+					}
+				}
+			}
+		}
+		return out;
+	}
+
+	/**
 	 * Lowercased visible declaration names that are known not to be type names.
 	 * Used by type-position diagnostics after the type resolver has failed, so
 	 * project/primitive/host type names still take precedence over value names.

@@ -371,6 +371,7 @@ function buildEnum(
 			fullSpan: member.span,
 			moduleName,
 			containerName: node.name,
+			defaultRaw: member.valueRaw,
 		};
 		children.push(memberSymbol);
 		flat.push(memberSymbol);

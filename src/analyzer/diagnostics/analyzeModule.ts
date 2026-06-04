@@ -186,6 +186,11 @@ export interface AnalyzeModuleOptions {
 	projectTypes?: readonly ProjectTypeName[];
 	/** Lowercased visible declaration names known not to be type names. */
 	knownNonTypeNames?: ReadonlySet<string>;
+	/**
+	 * Raw integer constant expressions exported from other visible project modules.
+	 * Used as a conservative base for deterministic runtime-value diagnostics.
+	 */
+	projectIntegerConstants?: ReadonlyMap<string, string | undefined>;
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
 	/**
@@ -340,7 +345,15 @@ function runRules(
 		activity,
 		push,
 	);
-	checkRuntimeArgumentValues(source, mod, symbols, opts.projectProcedures, activity, push);
+	checkRuntimeArgumentValues(
+		source,
+		mod,
+		symbols,
+		opts.projectProcedures,
+		opts.projectIntegerConstants,
+		activity,
+		push,
+	);
 	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
 	checkMissingReturnAssignments(source, mod, activity, push);
 	if (opts.knownProcedures) {
@@ -1993,11 +2006,13 @@ function checkRuntimeArgumentValues(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectIntegerConstants: ReadonlyMap<string, string | undefined> | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity);
+	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
+	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -4280,6 +4295,7 @@ function checkFixedLengthStringBounds(
 function collectModuleLiteralIntegerConstants(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
+	base: ReadonlyMap<string, number | undefined> = new Map(),
 ): Map<string, number | undefined> {
 	const rawConstants = new Map<string, string | undefined>();
 	const seen = new Set<string>();
@@ -4290,7 +4306,11 @@ function collectModuleLiteralIntegerConstants(
 			addRawEnumIntegerConstants(member, rawConstants, seen);
 		}
 	}
-	return resolveRawIntegerConstants(rawConstants, new Map());
+	const resolved = new Map(base);
+	for (const [name, value] of resolveRawIntegerConstants(rawConstants, base)) {
+		resolved.set(name, value);
+	}
+	return resolved;
 }
 
 function collectBodyLiteralIntegerConstants(

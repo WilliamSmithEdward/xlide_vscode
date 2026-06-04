@@ -212,8 +212,10 @@ Near-term candidates:
   `String`/`String$`, `Space`/`Space$`, `Mid`/`Mid$`, and `Replace` are
   promoted through `runtime-argument-value`, including reducible integer
   expressions, same-module/procedure `Const` values, and current-module Enum
-  members; continue with additional named-argument edge cases, cross-module
-  constants/enums, and reachability policy only after focused oracle probes.
+  members plus visible exported standard-module `Const`/Enum members; continue
+  with additional named-argument edge cases, module-qualified constants,
+  hidden-helper constant dependencies, and reachability policy only after
+  focused oracle probes.
 - `IIf` eager branch evaluation: oracle cases prove both TruePart and FalsePart
   can raise deterministic runtime errors even when not selected; promote only
   when the branch expression itself is proven fatal.

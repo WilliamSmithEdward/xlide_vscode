@@ -1918,6 +1918,85 @@ describe('analyzeModule - argument type validation', () => {
 		]);
 	});
 
+	it('folds visible cross-module Const and Enum values for runtime argument bounds', () => {
+		const caller =
+			'Sub T()\n' +
+			'    a = Left$("abcdef", SharedBadLength)\n' +
+			'    b = Left$("abcdef", SharedGoodLength)\n' +
+			'    c = Mid$("abcdef", SharedBadStart, 1)\n' +
+			'    d = Replace("aaaa", "a", "z", 1, SharedBadCount)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{
+					moduleName: 'SharedRuntimeArgs',
+					source:
+						'Public Const SharedBadLength As Long = -1\n' +
+						'Public Const SharedGoodLength As Long = 0\n' +
+						'Public Const SharedBadCount As Long = -2\n' +
+						'Public Enum SharedRuntimeStart\n' +
+						'    SharedBadStart = 0\n' +
+						'End Enum\n',
+				},
+			], 'Caller'),
+			'runtime-argument-value',
+		);
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual([
+			'SharedBadLength',
+			'SharedBadStart',
+			'SharedBadCount',
+		]);
+	});
+
+	it('defers hidden and ambiguous cross-module Const values for runtime argument bounds', () => {
+		const caller =
+			'Sub T()\n' +
+			'    a = Left$("abcdef", HiddenBadLength)\n' +
+			'    b = Left$("abcdef", AmbiguousLength)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{
+					moduleName: 'PrivateGlobals',
+					source:
+						'Private Const HiddenBadLength As Long = -1\n' +
+						'Public Const AmbiguousLength As Long = -1\n',
+				},
+				{
+					moduleName: 'MoreGlobals',
+					source: 'Public Const AmbiguousLength As Long = 0\n',
+				},
+			], 'Caller'),
+			'runtime-argument-value',
+		);
+		expect(hits).toHaveLength(0);
+	});
+
+	it('lets current-module and local Const values shadow cross-module runtime argument bounds', () => {
+		const caller =
+			'Private Const SharedBadLength As Long = 0\n' +
+			'Sub T()\n' +
+			'    Const SharedBadStart As Long = 1\n' +
+			'    a = Left$("abcdef", SharedBadLength)\n' +
+			'    b = Mid$("abcdef", SharedBadStart, 1)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{
+					moduleName: 'SharedRuntimeArgs',
+					source:
+						'Public Const SharedBadLength As Long = -1\n' +
+						'Public Enum SharedRuntimeStart\n' +
+						'    SharedBadStart = 0\n' +
+						'End Enum\n',
+				},
+			], 'Caller'),
+			'runtime-argument-value',
+		);
+		expect(hits).toHaveLength(0);
+	});
+
 	it('accepts zero and unknown runtime argument values for selected native bounds', () => {
 		const src =
 			'Sub T()\n' +

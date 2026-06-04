@@ -1096,6 +1096,75 @@
       "source": "Private Enum RuntimeArgStart\n    BadStart = 0\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", BadStart, 1)\nEnd Sub\n"
     },
     {
+      "id": "runtime_arg_cross_module_const_negative_left_length_runtime",
+      "description": "Runtime probe: an exported standard-module Const negative Length passed from another module to Left$ isolates deterministic cross-module runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Public Const SharedBadLength As Long = -1\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", SharedBadLength)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "runtime_arg_cross_module_const_zero_left_length_runtime",
+      "description": "Runtime control: an exported standard-module Const zero Length passed from another module to Left$ should verify the folded lower bound control.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Public Const SharedGoodLength As Long = 0\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", SharedGoodLength)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "runtime_arg_cross_module_enum_zero_mid_start_runtime",
+      "description": "Runtime probe: an exported standard-module Enum member folding to zero Start passed from another module to Mid$ isolates deterministic cross-module runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Public Enum SharedRuntimeStart\n    SharedBadStart = 0\nEnd Enum\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", SharedBadStart, 1)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
       "id": "colon_separated_dim_statements_compile",
       "description": "Compile control: colon separates multiple Dim statements on one physical line.",
       "provenance": "vbe-oracle-verified",

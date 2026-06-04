@@ -33,6 +33,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectProcedures'
     | 'projectClassMembers'
     | 'projectTypes'
+    | 'projectIntegerConstants'
 >;
 
 export interface VbaProjectEditorSymbolContext {
@@ -119,6 +120,7 @@ export function projectAnalysisOptionsForModule(
         options.knownNonTypeNames = project.visibleNonTypeNames(moduleName);
         options.projectTypes = project.visibleTypeNames(moduleName);
         options.projectClassMembers = project.projectMemberSurfaces(moduleName);
+        options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
     } catch {
         // Leave every project-sensitive option absent when the index cannot
         // answer the module-specific question. Single-module analysis remains
