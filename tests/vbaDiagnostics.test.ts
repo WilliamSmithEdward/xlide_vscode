@@ -1841,6 +1841,29 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[2].message).toContain('Number');
 	});
 
+	it('flags oracle-backed runtime argument bounds for Right Space and Mid', () => {
+		const src =
+			'Sub T()\n' +
+			'    a = Right$("abcdef", -1)\n' +
+			'    b = Right("abcdef", -2)\n' +
+			'    c = Space$(-3)\n' +
+			'    d = Space(-4)\n' +
+			'    e = Mid$("abcdef", 0, 1)\n' +
+			'    f = Mid("abcdef", -1, 1)\n' +
+			'    g = Mid$("abcdef", 1, -5)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+		expect(hits).toHaveLength(7);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['-1', '-2', '-3', '-4', '0', '-1', '-5']);
+		expect(hits[0].message).toContain('Right$');
+		expect(hits[0].message).toContain('Length');
+		expect(hits[2].message).toContain('Space$');
+		expect(hits[2].message).toContain('Number');
+		expect(hits[4].message).toContain('Mid$');
+		expect(hits[4].message).toContain('Start');
+		expect(hits[6].message).toContain('Length');
+	});
+
 	it('accepts zero and unknown runtime argument values for selected native bounds', () => {
 		const src =
 			'Sub T()\n' +
@@ -1849,6 +1872,12 @@ describe('analyzeModule - argument type validation', () => {
 			'    b = Left("abcdef", count)\n' +
 			'    c = String$(0, "x")\n' +
 			'    d = String(count, "x")\n' +
+			'    e = Right$("abcdef", 0)\n' +
+			'    f = Right("abcdef", count)\n' +
+			'    g = Space$(0)\n' +
+			'    h = Space(count)\n' +
+			'    i = Mid$("abcdef", 1, 0)\n' +
+			'    j = Mid("abcdef", count, count)\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'runtime-argument-value')).toHaveLength(0);
 	});

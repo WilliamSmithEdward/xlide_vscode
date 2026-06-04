@@ -1969,9 +1969,10 @@ function checkArgumentTypes(
 }
 
 interface RuntimeArgumentValueSpec {
-	canonicalName: 'Left' | 'String';
+	canonicalName: 'Left' | 'Right' | 'String' | 'Space' | 'Mid';
 	parameterName: string;
 	argumentIndex: number;
+	minimum: number;
 }
 
 interface RuntimeArgumentValueHit {
@@ -1984,8 +1985,8 @@ interface RuntimeArgumentValueHit {
 /**
  * Rule: some runtime-library arguments have deterministic value bounds even
  * when the argument type itself is valid. This slice is VBE-oracle-backed for
- * negative literal Length/Number arguments to Left/Left$ and String/String$,
- * which compile but raise Run-time error 5.
+ * literal bounds on selected string runtime functions, which compile but raise
+ * Run-time error 5 when the value is outside the proven range.
  */
 function checkRuntimeArgumentValues(
 	source: string,
@@ -2029,17 +2030,19 @@ function runtimeArgumentValueHits(
 		if (!call) {
 			continue;
 		}
-		const slot = runtimeArgumentValueSlot(call.slots, call.spec);
-		const literal = slot ? negativeIntegerLiteralArgument(slot, span.start) : undefined;
-		if (!literal) {
-			continue;
+		for (const spec of call.specs) {
+			const slot = runtimeArgumentValueSlot(call.slots, spec);
+			const literal = slot ? integerLiteralArgumentBelowMinimum(slot, span.start, spec.minimum) : undefined;
+			if (!literal) {
+				continue;
+			}
+			hits.push({
+				displayName: call.displayName,
+				parameterName: spec.parameterName,
+				value: literal.value,
+				span: literal.span,
+			});
 		}
-		hits.push({
-			displayName: call.displayName,
-			parameterName: call.spec.parameterName,
-			value: literal.value,
-			span: literal.span,
-		});
 	}
 	return hits;
 }
@@ -2052,7 +2055,7 @@ function runtimeArgumentValueCallAt(
 	env: ReadonlyMap<string, string>,
 ): {
 	displayName: string;
-	spec: RuntimeArgumentValueSpec;
+	specs: readonly RuntimeArgumentValueSpec[];
 	slots: VbaToken[][];
 } | undefined {
 	const name = tokenName(toks[index]);
@@ -2079,11 +2082,11 @@ function runtimeArgumentValueCallAt(
 		return undefined;
 	}
 
-	const spec = runtimeArgumentValueSpec(name);
-	if (!spec) {
+	const specs = runtimeArgumentValueSpecs(name);
+	if (specs.length === 0) {
 		return undefined;
 	}
-	const lower = spec.canonicalName.toLowerCase();
+	const lower = specs[0].canonicalName.toLowerCase();
 	if (!qualifier && (moduleSignatures.has(lower) || env.has(lower))) {
 		return undefined;
 	}
@@ -2095,20 +2098,29 @@ function runtimeArgumentValueCallAt(
 	const inner = toks.slice(parenIndex + 1, close);
 	const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
 	return {
-		displayName: `${spec.canonicalName}${suffix}`,
-		spec,
+		displayName: `${specs[0].canonicalName}${suffix}`,
+		specs,
 		slots: split.slots,
 	};
 }
 
-function runtimeArgumentValueSpec(name: string): RuntimeArgumentValueSpec | undefined {
+function runtimeArgumentValueSpecs(name: string): readonly RuntimeArgumentValueSpec[] {
 	switch (name.toLowerCase()) {
 		case 'left':
-			return { canonicalName: 'Left', parameterName: 'Length', argumentIndex: 1 };
+			return [{ canonicalName: 'Left', parameterName: 'Length', argumentIndex: 1, minimum: 0 }];
+		case 'right':
+			return [{ canonicalName: 'Right', parameterName: 'Length', argumentIndex: 1, minimum: 0 }];
 		case 'string':
-			return { canonicalName: 'String', parameterName: 'Number', argumentIndex: 0 };
+			return [{ canonicalName: 'String', parameterName: 'Number', argumentIndex: 0, minimum: 0 }];
+		case 'space':
+			return [{ canonicalName: 'Space', parameterName: 'Number', argumentIndex: 0, minimum: 0 }];
+		case 'mid':
+			return [
+				{ canonicalName: 'Mid', parameterName: 'Start', argumentIndex: 1, minimum: 1 },
+				{ canonicalName: 'Mid', parameterName: 'Length', argumentIndex: 2, minimum: 0 },
+			];
 		default:
-			return undefined;
+			return [];
 	}
 }
 
@@ -2133,27 +2145,38 @@ function runtimeArgumentValueSlot(
 	return undefined;
 }
 
-function negativeIntegerLiteralArgument(
+function integerLiteralArgumentBelowMinimum(
 	slot: readonly VbaToken[],
 	sliceStart: number,
+	minimum: number,
 ): { value: number; span: Span } | undefined {
 	const toks = unwrapOuterParens(
 		slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
 	);
-	if (toks.length !== 2 || toks[0].rawText !== '-' || toks[1].kind !== 'integerLiteral') {
+	let sign = 1;
+	let literal = toks[0];
+	let start = literal?.start;
+	if (toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+')) {
+		sign = toks[0].rawText === '-' ? -1 : 1;
+		literal = toks[1];
+		start = toks[0].start;
+	} else if (toks.length !== 1) {
 		return undefined;
 	}
-	const rawValue = parseVbaIntegerLiteral(toks[1].rawText);
+	if (!literal || literal.kind !== 'integerLiteral' || start === undefined) {
+		return undefined;
+	}
+	const rawValue = parseVbaIntegerLiteral(literal.rawText);
 	if (rawValue === undefined) {
 		return undefined;
 	}
-	const value = -rawValue;
-	if (value >= 0) {
+	const value = sign * rawValue;
+	if (value >= minimum) {
 		return undefined;
 	}
 	return {
 		value,
-		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[1].end },
+		span: { start: sliceStart + start, end: sliceStart + literal.end },
 	};
 }
 

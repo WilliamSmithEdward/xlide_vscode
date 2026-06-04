@@ -832,6 +832,116 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = String$(0, \"x\")\nEnd Sub\n"
     },
     {
+      "id": "right_string_suffix_negative_length_runtime",
+      "description": "Runtime probe: passing a negative literal Length to Right$ isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Right$(\"abcdef\", -1)\nEnd Sub\n"
+    },
+    {
+      "id": "right_negative_length_runtime",
+      "description": "Runtime probe: passing a negative literal Length to Right isolates deterministic runtime argument-value validation without a type suffix.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Right(\"abcdef\", -1)\nEnd Sub\n"
+    },
+    {
+      "id": "right_string_suffix_zero_length_runtime",
+      "description": "Runtime control: passing zero Length to Right$ should verify the boundary behavior for empty-string output.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Right$(\"abcdef\", 0)\nEnd Sub\n"
+    },
+    {
+      "id": "space_string_suffix_negative_count_runtime",
+      "description": "Runtime probe: passing a negative literal count to Space$ isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Space$(-1)\nEnd Sub\n"
+    },
+    {
+      "id": "space_negative_count_runtime",
+      "description": "Runtime probe: passing a negative literal count to Space isolates deterministic runtime argument-value validation without a type suffix.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Space(-1)\nEnd Sub\n"
+    },
+    {
+      "id": "space_string_suffix_zero_count_runtime",
+      "description": "Runtime control: passing zero count to Space$ should verify the boundary behavior for empty-string output.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Space$(0)\nEnd Sub\n"
+    },
+    {
+      "id": "mid_string_suffix_zero_start_runtime",
+      "description": "Runtime probe: passing zero Start to Mid$ isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", 0, 1)\nEnd Sub\n"
+    },
+    {
+      "id": "mid_negative_start_runtime",
+      "description": "Runtime probe: passing a negative Start to Mid isolates deterministic runtime argument-value validation without a type suffix.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid(\"abcdef\", -1, 1)\nEnd Sub\n"
+    },
+    {
+      "id": "mid_string_suffix_negative_length_runtime",
+      "description": "Runtime probe: passing a negative literal Length to Mid$ isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", 1, -1)\nEnd Sub\n"
+    },
+    {
+      "id": "mid_string_suffix_zero_length_runtime",
+      "description": "Runtime control: passing zero Length to Mid$ should verify the boundary behavior for empty-string output.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", 1, 0)\nEnd Sub\n"
+    },
+    {
       "id": "colon_separated_dim_statements_compile",
       "description": "Compile control: colon separates multiple Dim statements on one physical line.",
       "provenance": "vbe-oracle-verified",
