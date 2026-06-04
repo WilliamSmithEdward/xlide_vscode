@@ -1,9 +1,9 @@
 # XLIDE Roadmap Version 3.x
 
 Forward backlog for work intentionally moved out of Version 2.x closeout.
-Version 2.x remains the launch-hardening track; Version 3.x is for deeper
-language-modeling, object-metadata, and cross-workbook workflows that should not
-block the current v2 completion push.
+Version 2.x is closed around its launch-hardening scope; Version 3.x is for
+deeper language-modeling, object-metadata, performance hardening, and
+cross-workbook workflows that should not block v2 release readiness.
 
 ## North Star
 
@@ -11,6 +11,31 @@ V3 should extend XLIDE's deterministic VBA understanding without weakening the
 core rule: no hard diagnostics from guesses. Every new binder, metadata, object,
 or workflow surface must be backed by source facts, generated metadata with
 provenance, the Microsoft specification, or focused VBE/Excel oracle evidence.
+
+## Related Open Roadmaps and Evidence
+
+V3 workstreams should point to the more specific sub-roadmaps and evidence files
+that already own detailed backlog, provenance, and verification decisions. Use
+this roadmap for product-level scope, and use the files below as the active
+detail layer.
+
+| Area | Source | Use in v3 |
+| --- | --- | --- |
+| Syntax corpus and pending edge cases | `syntax_corpus/managed_backlog.md`, `syntax_corpus/README.md` | Promote cases only through provenance, spec, oracle, or deterministic XLIDE-owned evidence; do not treat pending Markdown cases as authority. |
+| VBE/Excel oracle workflow | `syntax_corpus/oracle/README.md`, `syntax_corpus/oracle/vbe_oracle_cases.json` | Add focused canaries and verification cases for disputed VBA behavior before adding hard diagnostics. |
+| MS-VBAL alignment | `docs/spec/MS-VBAL.version.md`, `docs/spec/MS-VBAL.verification-map.md`, `docs/xlide_vba_language_service_roadmap.md` | Keep grammar, parser recovery, and diagnostic behavior tied to the recorded spec version and verification map. |
+| Type-analysis coverage | `docs/type_analysis_corpus_coverage.md`, `docs/xlide_vba_type_system_roadmap.md` | Choose binder, type, and object slices from pending or partial coverage instead of broad guesses. |
+| Diagnostic evidence and test strategy | `docs/xlide_vba_analysis_test_strategy.md`, `syntax_corpus/diagnostic_influence_audit.json`, `syntax_corpus/corpus_provenance.json` | Preserve rule provenance and evidence before adding or changing hard diagnostics. |
+| External metadata | `docs/xlide_external_member_metadata.md` | Keep external object/member schema, authoring, reload, validation, and troubleshooting details in one source of truth. |
+| Host/reference metadata | `docs/excel_reference_coverage.md`, `scripts/generate-excel-reference-metadata.mjs`, `scripts/generate-office-reference-metadata.mjs` | Track generated metadata provenance and coverage before promoting host surfaces into hard diagnostics. |
+| COM/test runner | `docs/xlide_vba_com_test_runner.md` | Preserve owned-host, read-only, timeout, cleanup, and no-SendKeys safety contracts while expanding test surfaces. |
+| Performance | `docs/xlide_performance_budgets.md` | Use measured budgets and correctness-preserving safety rules before optimizing analyzer or workbook paths. |
+| Development principles | `docs/xlide_development_principles.md` | Keep v3 changes deterministic, provenance-backed, scoped, and aligned with XLIDE's source-of-truth rules. |
+
+When a v3 workstream changes one of these areas, update both this roadmap and
+the linked sub-roadmap or evidence file in the same change. If this roadmap and
+a more specific evidence file disagree, the more specific file wins until this
+roadmap is corrected.
 
 ## Workstream A: Binder Shadowing and Expression Binding
 
@@ -145,14 +170,73 @@ Definition of done:
 - Workbook-to-workbook transfer is explicit, previewed, auditable, and
   recoverable.
 
+## Workstream F: Performance and Scale
+
+Purpose: make XLIDE faster on large workbooks without changing diagnostic
+meaning, skipping modules, or introducing stale symbols.
+
+Safety rule: performance work must prove equivalent results before it changes
+the analyzer, project index, completion, or workbook sync behavior. Prefer
+measurement, stale-result protection, progress, and cancellation before
+incremental parsing/indexing.
+
+- [ ] Add large-workbook fixture coverage or a deterministic synthetic project
+  generator that exercises parser, symbol graph, diagnostics, completion setup,
+  and workbook-wide analysis.
+- [ ] Add stress tests for many modules, large modules, and diagnostic-heavy
+  modules without changing expected diagnostics.
+- [ ] Add timing/budget assertions for pure analyzer paths where results are
+  stable enough across machines.
+- [ ] Add stale-result protection for live diagnostics so older async analysis
+  cannot overwrite newer document results.
+- [ ] Add cache invalidation rules for source text, workbook identity, module
+  identity, workbook state, settings, metadata version, and project symbol graph
+  changes.
+- [ ] Ensure live diagnostics never block typing; any optimization must preserve
+  the same diagnostic set for the same source/settings/project inputs.
+- [ ] Add cancellation for long-running workbook analysis, test discovery, and
+  sync preview work where VS Code can abandon stale operations safely.
+- [ ] Add status/progress reporting for work that exceeds the v2 latency
+  thresholds in `docs/xlide_performance_budgets.md`.
+- [ ] Add incremental parsing/indexing only after fixture and cache-invalidation
+  coverage can prove equivalent symbols and diagnostics.
+
+Definition of done:
+
+- XLIDE stays responsive on large real-world workbooks, and slow paths have
+  measurable budgets, cancellation, and visible progress.
+- Performance improvements are correctness-preserving and do not silently skip
+  diagnostics, project symbols, workbook modules, or metadata.
+
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.x.md`
 - `docs/roadmap_version_3.x.md`
+- `docs/spec/MS-VBAL.version.md`
+- `docs/spec/MS-VBAL.verification-map.md`
+- `docs/xlide_vba_language_service_roadmap.md`
+- `docs/type_analysis_corpus_coverage.md`
+- `docs/xlide_vba_type_system_roadmap.md`
+- `docs/xlide_vba_analysis_test_strategy.md`
+- `docs/xlide_vba_com_test_runner.md`
+- `docs/xlide_development_principles.md`
+- `docs/xlide_performance_budgets.md`
 - `docs/xlide_external_member_metadata.md`
 - `docs/excel_reference_coverage.md`
+- `scripts/generate-excel-reference-metadata.mjs`
+- `scripts/generate-office-reference-metadata.mjs`
 - `src/analyzer/symbols/projectIndex.ts`
 - `src/analyzer/completion/memberAccess.ts`
 - `src/analyzer/host/excelReferenceMembers.ts`
 - `src/analyzer/host/excelObjectModel.ts`
+- `src/vbaLanguageProviders.ts`
+- `src/vbaModuleAnalysis.ts`
+- `src/vbaProjectAnalysis.ts`
+- `src/vbaWorkbookAnalysis.ts`
 - `tests/fixtures/vbaProjects/`
+- `syntax_corpus/README.md`
+- `syntax_corpus/managed_backlog.md`
+- `syntax_corpus/corpus_provenance.json`
+- `syntax_corpus/diagnostic_influence_audit.json`
+- `syntax_corpus/oracle/README.md`
+- `syntax_corpus/oracle/vbe_oracle_cases.json`

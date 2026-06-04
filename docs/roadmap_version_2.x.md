@@ -1,8 +1,12 @@
 # XLIDE Roadmap Version 2.x
 
-Unified development roadmap for the current XLIDE workstream: realtime VBA
-analysis, language service hardening, type analysis, corpus coverage, and
-Excel/VBE compatibility validation.
+Closed Version 2.x roadmap for XLIDE's realtime VBA analysis, language service
+hardening, type analysis, corpus coverage, and Excel/VBE compatibility
+validation work.
+
+Status: Version 2.x scope is closed. Future binder, object/member metadata,
+performance and scale, and workbook-transfer work is tracked in
+`docs/roadmap_version_3.x.md`.
 
 ## North Star
 
@@ -1031,8 +1035,8 @@ development.
   inspection/editing into dedicated GUIs.
 - [x] Replace detailed VS Code/machine setting rows in the sidebar with a single
   clear global settings launcher. Global/editor settings still live in VS Code
-  machine/profile settings, not JSON files. A dedicated XLIDE Global Settings
-  GUI remains tracked in Workstream L.
+  machine/profile settings, not JSON files. The dedicated XLIDE Global Settings
+  GUI is implemented and tracked in Workstream L.
 - [x] Render the sidebar as a polished WebviewView with real spacing, section
   borders/dividers, compact status dots, and button-style action rows rather
   than trying to fake layout polish through TreeView rows.
@@ -1354,22 +1358,15 @@ Purpose: keep XLIDE responsive on large workbooks and during active typing.
   - [x] workbook-wide analysis
   - [x] project index rebuild
   - [x] sidebar health refresh
-- [ ] Add incremental parsing/indexing where deterministic and measurable.
-- [ ] Add cache invalidation rules for source text, workbook state, metadata,
-  and project symbol graph changes.
-- [ ] Ensure live diagnostics never block typing.
-- [ ] Add large-workbook fixture coverage.
-- [ ] Add stress tests for many modules, large modules, and many diagnostics.
-- [ ] Add cancellation for long-running analysis/test/sync operations.
-- [ ] Add status/progress reporting for work that exceeds user-visible latency
-  thresholds.
+- [x] Move remaining performance hardening to `docs/roadmap_version_3.x.md`:
+  incremental parsing/indexing, cache invalidation rules, non-blocking live
+  diagnostics, large-workbook fixtures, stress tests, cancellation, and
+  progress/status reporting for slow work.
 
 Definition of done:
 
-- XLIDE remains responsive on large real-world workbooks, and slow paths have
-  measurable budgets, cancellation, and progress.
-- Performance improvements remain deterministic and do not skip diagnostics
-  silently.
+- V2 has documented performance budgets and keeps correctness ahead of speed.
+- Deeper performance hardening is a v3 workflow, not a v2 launch gate.
 
 ## Workstream O: Release and Documentation Polish
 
@@ -1385,16 +1382,16 @@ of development.
 - [x] Accept the existing docs, tests, and fixtures as the v2 demo/regression
   example surface. A separate sample workbook/project repo is no longer a v2
   launch gate.
-- [x] Add feature walkthroughs:
+- [x] Add feature walkthroughs for accepted v2 workflows:
   - [x] opening a workbook
   - [x] editing modules
   - [x] analysis
   - [x] running macros
   - [x] running VBA tests
   - [x] using doc comments and metadata
-  - [x] adding external object/member metadata for `object.` completion is
-    moved to `docs/roadmap_version_3.x.md`
   - [x] interpreting setup health
+- [x] Move the external object/member metadata walkthrough for `object.`
+  completion to `docs/roadmap_version_3.x.md`.
 - [x] Move the full downstream developer how-to for external object/member
   metadata to `docs/roadmap_version_3.x.md`, including schema, examples,
   precedence, reload behavior, and troubleshooting.
@@ -1441,12 +1438,12 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Finish Workstream N: Performance and Scale for v2 launch confidence.
-2. Keep v2 verification focused on compile/test stability and performance
-   evidence rather than expanding language-model scope.
-3. Use `docs/roadmap_version_3.x.md` for deferred binder, object-member,
-   external metadata, host metadata, and workbook-transfer work.
-4. Promote small `CANARY_*` cases through observe-only oracle fixtures only when
+1. Keep v2 verification focused on compile/test stability and packaging
+   readiness rather than expanding product scope.
+2. Use `docs/roadmap_version_3.x.md` for deferred binder, object-member,
+   external metadata, host metadata, workbook-transfer, and performance/scale
+   work.
+3. Promote small `CANARY_*` cases through observe-only oracle fixtures only when
    they become relevant to active analyzer behavior.
 
 ## Files To Keep In Sync
