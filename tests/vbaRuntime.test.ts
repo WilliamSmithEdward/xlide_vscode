@@ -79,6 +79,7 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeConstant('vbOKOnly')?.type).toBe('VbMsgBoxStyle');
 		expect(resolveRuntimeConstant('VBOKONLY')?.name).toBe('vbOKOnly');
 		expect(resolveRuntimeConstant('vbCrLf')?.type).toBe('String');
+		expect(resolveRuntimeConstant('TextCompare')?.value).toBe(1);
 		expect(resolveRuntimeConstant('notAConstant')).toBeUndefined();
 	});
 

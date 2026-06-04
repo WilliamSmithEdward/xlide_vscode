@@ -248,6 +248,25 @@ describe('analyzeModule - duplicate procedures', () => {
 			'Property Get Item() As Long\nEnd Property\n';
 		expect(byCode(analyzeModule(src), 'duplicate-procedure')).toHaveLength(1);
 	});
+
+	it('filters duplicate procedures in default VBA7 conditional branches', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Public Sub Configure()\nEnd Sub\n' +
+			'#Else\n' +
+			'Public Sub Configure()\nEnd Sub\n' +
+			'#End If\n';
+
+		expect(byCode(analyzeModule(src), 'duplicate-procedure')).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'duplicate-procedure',
+			),
+		).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - duplicate declarations in scope', () => {
@@ -276,7 +295,7 @@ describe('analyzeModule - duplicate declarations in scope', () => {
 		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(1);
 	});
 
-	it('filters duplicate declarations in proven-inactive conditional branches', () => {
+	it('filters duplicate declarations in default VBA7 conditional branches', () => {
 		const src =
 			'Sub T()\n' +
 			'#If VBA7 Then\n' +
@@ -286,11 +305,19 @@ describe('analyzeModule - duplicate declarations in scope', () => {
 			'#End If\n' +
 			'End Sub\n';
 
-		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(1);
+		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(0);
 		expect(
 			byCode(
 				analyzeModule(src, {
 					conditionalCompilation: { compilerConstants: { VBA7: true } },
+				}),
+				'duplicate-declaration',
+			),
+		).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
 				}),
 				'duplicate-declaration',
 			),
@@ -307,6 +334,44 @@ describe('analyzeModule - duplicate module members', () => {
 	it('flags the same module variable declared twice', () => {
 		const src = 'Private Total As Long\nPublic Total As String\n';
 		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(1);
+	});
+
+	it('filters duplicate module variables in default VBA7 conditional branches', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Private activeSheetPtr As LongPtr\n' +
+			'#Else\n' +
+			'Private activeSheetPtr As Long\n' +
+			'#End If\n';
+
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'duplicate-module-variable',
+			),
+		).toHaveLength(0);
+	});
+
+	it('filters duplicate module variables in default Win64 conditional branches', () => {
+		const src =
+			'#If Win64 Then\n' +
+			'Private nativeHandle As LongPtr\n' +
+			'#Else\n' +
+			'Private nativeHandle As Long\n' +
+			'#End If\n';
+
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { Win64: false } },
+				}),
+				'duplicate-module-variable',
+			),
+		).toHaveLength(0);
 	});
 
 	it('does not flag distinct module variables', () => {
@@ -551,6 +616,20 @@ describe('analyzeModule - Option Explicit', () => {
 		).toHaveLength(0);
 	});
 
+	it('accepts the VBA namespace and compare aliases under Option Explicit', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Dim seen As Scripting.Dictionary\n' +
+			'    Set seen = New Scripting.Dictionary\n' +
+			'    seen.CompareMode = TextCompare\n' +
+			'    MsgBox VBA.CStr(1)\n' +
+			'End Sub\n';
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
 	it('accepts Erl in line-numbered error handlers under Option Explicit', () => {
 		const src =
 			'Option Explicit\n' +
@@ -611,6 +690,58 @@ describe('analyzeModule - Option Explicit', () => {
 			'Caller',
 		);
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('accepts module-qualified Function calls on a Set assignment right-hand side', () => {
+		const caller =
+			'Option Explicit\n' +
+			'Public Sub T()\n' +
+			'    Dim item As Object\n' +
+			'    Set item = Factories.MakeItem()\n' +
+			'    Set item = Factories.MakeOther\n' +
+			'End Sub\n';
+		const factories =
+			'Public Function MakeItem() As Object\n' +
+			'End Function\n' +
+			'Public Function MakeOther() As Object\n' +
+			'End Function\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Factories', source: factories },
+		], 'Caller');
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('accepts module-qualified standard-module values on expression right-hand sides', () => {
+		const caller =
+			'Option Explicit\n' +
+			'Public Sub T()\n' +
+			'    Dim value As Long\n' +
+			'    value = Globals.SharedConst + Settings.SomePublicValue + Globals.SharedOnly\n' +
+			'End Sub\n';
+		const globals =
+			'Public Const SharedConst As Long = 1\n' +
+			'Public Enum SharedMode\n' +
+			'    SharedOnly\n' +
+			'End Enum\n';
+		const settings = 'Public SomePublicValue As Long\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: globals },
+			{ moduleName: 'Settings', source: settings },
+		], 'Caller');
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('keeps unknown module-qualified value qualifiers visible under Option Explicit', () => {
+		const caller =
+			'Option Explicit\n' +
+			'Public Sub T()\n' +
+			'    Dim value As Long\n' +
+			'    value = MissingModule.SharedConst\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [], 'Caller');
+		const hits = byCode(diagnostics, 'undeclared-variable');
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('MissingModule');
 	});
 
 	it('can be switched off', () => {
@@ -3313,6 +3444,20 @@ describe('analyzeModule - assignment type validation', () => {
 			'Public Sub T()\n' +
 			'    ActiveSheet.asdf\n' +
 			'    ActiveSheet.Range("A1")\n' +
+			'    ActiveSheet.Buttons\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('asdf');
+		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+	});
+
+	it('uses the exhaustive Worksheet host surface through workbook worksheet chains', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Workbooks(1).Worksheets(1).asdf\n' +
+			'    Workbooks(1).Worksheets(1).Range("A1")\n' +
+			'    Workbooks(1).Worksheets(1).Buttons\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'member-not-found');
 		expect(hits).toHaveLength(1);
@@ -3356,6 +3501,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Set ws = ActiveSheet\n' +
 			'    ws.asdf\n' +
 			'    ws.Range("A1")\n' +
+			'    ws.Buttons\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'member-not-found');
 		expect(hits).toHaveLength(1);
@@ -3448,7 +3594,7 @@ describe('analyzeModule - assignment type validation', () => {
 describe('analyzeModule - missing Function return assignment', () => {
 	it('warns when a Function never assigns its return variable', () => {
 		const src =
-			'Public Function myFunction() As String\n' +
+			'Public Function myFunction()\n' +
 			'\n' +
 			'End Function\n';
 		const hits = byCode(analyzeModule(src), 'missing-return-assignment');
@@ -3456,7 +3602,18 @@ describe('analyzeModule - missing Function return assignment', () => {
 		expect(hits).toHaveLength(1);
 		expect(hits[0].severity).toBe('warning');
 		expect(spanText(src, hits[0])).toBe('myFunction');
-		expect(hits[0].message).toContain('default value As String');
+		expect(hits[0].message).toContain('default value');
+	});
+
+	it('does not warn when a typed Function or Property Get falls through', () => {
+		const src =
+			'Public Function Label() As String\n' +
+			'End Function\n' +
+			'\n' +
+			'Public Property Get Name() As String\n' +
+			'End Property\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
 	});
 
 	it('accepts scalar and object Function return assignments', () => {
@@ -3472,9 +3629,66 @@ describe('analyzeModule - missing Function return assignment', () => {
 		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
 	});
 
+	it('accepts return assignments in the active default VBA7 branch', () => {
+		const src =
+			'Public Function HandleValue()\n' +
+			'#If VBA7 Then\n' +
+			'    HandleValue = 7\n' +
+			'#Else\n' +
+			'    HandleValue = 6\n' +
+			'#End If\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
+	});
+
+	it('accepts active VBA7 return assignments with blank lines before #End If', () => {
+		const src =
+			'Public Function HandleValue()\n' +
+			'#If VBA7 Then\n' +
+			' HandleValue = 0\n' +
+			'#Else\n' +
+			'HandleValue = 1\n' +
+			'\n' +
+			'\n' +
+			'#End If\n' +
+			'    \n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
+	});
+
+	it('does not count return assignments from inactive default VBA7 branches', () => {
+		const src =
+			'Public Function HandleValue()\n' +
+			'#If VBA7 Then\n' +
+			'    Debug.Print "active branch"\n' +
+			'#Else\n' +
+			'    HandleValue = 6\n' +
+			'#End If\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'missing-return-assignment');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('HandleValue');
+	});
+
+	it('does not warn on conditionally split VBA7 Function headers with a shared body', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Public Function HandleValue()\n' +
+			'#Else\n' +
+			'Public Function HandleValue()\n' +
+			'#End If\n' +
+			'    HandleValue = 1\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
+	});
+
 	it('checks Property Get procedures and ignores Subs', () => {
 		const src =
-			'Public Property Get Name() As String\n' +
+			'Public Property Get Name()\n' +
 			'End Property\n' +
 			'\n' +
 			'Public Sub Refresh()\n' +
@@ -3858,6 +4072,34 @@ describe('analyzeModule - As type name validation', () => {
 		expect(
 			byCode(analyzeProjectModule(src, modules, 'Consumer'), 'invalid-as-type-name'),
 		).toHaveLength(0);
+	});
+
+	it('uses the default VBA7 branch for project types defined in paired branches', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim item As Payload\n' +
+			'End Sub\n';
+		const types =
+			'#If VBA7 Then\n' +
+			'Public Type Payload\n' +
+			'    Id As LongPtr\n' +
+			'End Type\n' +
+			'#Else\n' +
+			'Public Type Payload\n' +
+			'    Id As Long\n' +
+			'End Type\n' +
+			'#End If\n';
+		const modules = [
+			{ moduleName: 'Consumer', source: src },
+			{ moduleName: 'Types', source: types },
+		];
+
+		const diagnostics = analyzeModule(src, {
+			moduleName: 'Consumer',
+			projectTypes: visibleProjectTypes(modules, 'Consumer'),
+			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
+		});
+		expect(byCode(diagnostics, 'invalid-as-type-name')).toHaveLength(0);
 	});
 
 	it('accepts qualified visible project type names in declaration positions', () => {

@@ -41,6 +41,25 @@ export interface ConditionalActivityTracker {
 	isInactive(span: Span): boolean;
 }
 
+const DEFAULT_COMPILER_CONSTANTS: Readonly<Record<string, ConditionalValue>> = {
+	VBA7: true,
+	Win64: true,
+	Win32: false,
+	Mac: false,
+};
+
+function effectiveConditionalCompilationEnvironment(
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalCompilationEnvironment {
+	return {
+		compilerConstants: {
+			...DEFAULT_COMPILER_CONSTANTS,
+			...(env.compilerConstants ?? {}),
+		},
+		projectConstants: env.projectConstants,
+	};
+}
+
 export function createConditionalActivityTracker(
 	module: ModuleNode,
 	env: ConditionalCompilationEnvironment = {},
@@ -48,13 +67,14 @@ export function createConditionalActivityTracker(
 	if (!moduleHasConditionalDirectives(module)) {
 		return undefined;
 	}
+	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
 	const cache = new Map<number, ConditionalActivity>();
 	const activityForSpan = (span: Span): ConditionalActivity => {
 		const cached = cache.get(span.start);
 		if (cached !== undefined) {
 			return cached;
 		}
-		const activity = conditionalActivityForSpan(module, span, env);
+		const activity = conditionalActivityForSpan(module, span, effectiveEnv);
 		cache.set(span.start, activity);
 		return activity;
 	};
@@ -81,7 +101,10 @@ export function indexConditionalCompilation(
 	env: ConditionalCompilationEnvironment = {},
 ): ConditionalCompilationIndex {
 	const directives = collectConditionalDirectives(module);
-	const constants = collectConditionalConstants(directives, env);
+	const constants = collectConditionalConstants(
+		directives,
+		effectiveConditionalCompilationEnvironment(env),
+	);
 	return { directives, constants };
 }
 
@@ -131,9 +154,10 @@ export function conditionalActivityAtOffset(
 	offset: number,
 	env: ConditionalCompilationEnvironment = {},
 ): ConditionalActivity {
+	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
 	const directives = collectConditionalDirectives(module);
 	const projectConstants = new Map<string, ConditionalValue>();
-	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
+	for (const [name, value] of Object.entries(effectiveEnv.projectConstants ?? {})) {
 		projectConstants.set(name.toLowerCase(), value);
 	}
 	const stack: ConditionalFrame[] = [];
@@ -148,7 +172,7 @@ export function conditionalActivityAtOffset(
 				if (current === 'active' && directive.name) {
 					const value = evaluateWithProjectConstants(
 						directive.valueRaw,
-						env,
+						effectiveEnv,
 						projectConstants,
 					);
 					if (value !== undefined) {
@@ -158,7 +182,7 @@ export function conditionalActivityAtOffset(
 				break;
 			}
 			case 'If': {
-				const condition = conditionActivity(directive, env, projectConstants);
+				const condition = conditionActivity(directive, effectiveEnv, projectConstants);
 				const frame: ConditionalFrame = {
 					parent: current,
 					current: combineActivity(current, condition),
@@ -174,7 +198,7 @@ export function conditionalActivityAtOffset(
 				if (!frame) {
 					break;
 				}
-				const condition = conditionActivity(directive, env, projectConstants);
+				const condition = conditionActivity(directive, effectiveEnv, projectConstants);
 				if (frame.seenTrue) {
 					frame.current = 'inactive';
 				} else if (frame.seenUnknown && condition !== 'inactive') {

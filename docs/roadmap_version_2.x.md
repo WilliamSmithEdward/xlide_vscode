@@ -174,11 +174,17 @@ heuristic diagnostics.
   suppresses a bare-call diagnostic.
 - `undeclared-variable` now covers project-backed `Option Explicit` write/read
   positions: bare assignment/`Set` targets, RHS and call-argument reads,
-  control-flow block headers, member receivers, and indexed bases. Missing
-  `Option Explicit` continues to allow implicit Variant assignment.
-- `missing-return-assignment` warns when a `Function` or `Property Get` never
-  assigns its return variable. This is intentionally a type-safety warning:
-  VBA falls through to the default value rather than raising a VBE compile error.
+  module-qualified project procedure/value qualifiers, control-flow block
+  headers, member receivers, and indexed bases. Missing `Option Explicit`
+  continues to allow implicit Variant assignment.
+- Conditional branch activity defaults to modern Windows Office (`VBA7 = True`,
+  `Win64 = True`, `Win32 = False`, `Mac = False`) for live/project analysis,
+  while explicit compiler-constant overrides still win.
+- `missing-return-assignment` warns when a closed untyped `Function` or
+  `Property Get` never assigns its return variable. This is intentionally a
+  type-safety warning: VBA falls through to the default value rather than
+  raising a VBE compile error, and parser-recovered conditional header forms
+  stay silent until XLIDE can prove the compiled body.
 - `invalid-declaration-name` flags unbracketed reserved VBA identifiers such as
   `Dim` or `In` when they are used as procedure, variable, parameter, `Type`,
   `Enum`, field, or enum-member declaration names.

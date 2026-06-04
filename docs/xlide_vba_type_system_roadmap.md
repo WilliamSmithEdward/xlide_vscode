@@ -225,6 +225,14 @@ Landed first:
   uses unique exported project `Function` signatures, including
   module-qualified standard-module calls. Ambiguous bare project `Function`
   names stay silent.
+- Landed Option Explicit project-call slice: known module-qualified project
+  procedures no longer flag their standard-module qualifier as an undeclared
+  variable in expression reads, including `Set item = ModuleName.Function()`
+  and parameterless `Set item = ModuleName.Function` right-hand sides.
+- Landed Option Explicit qualified-value slice: known module-qualified exported
+  standard-module constants, variables, enum types, and enum members no longer
+  flag their module qualifier as undeclared in expression reads, while unknown
+  qualifiers remain visible as undeclared variables.
 - Landed module-qualified IntelliSense slice: standard module names are offered
   as qualifier completions, and `ModuleName.` completion, hover, signature help,
   canonical casing, and source definitions now share the exported
@@ -239,6 +247,15 @@ Landed first:
   rewrites bound module-qualified member and type qualifier tokens, including
   renamed-module self-references, without touching comments, strings, or
   unrelated modules that happen to expose the same member name.
+- Landed live red-squiggly hardening slice: project indexing and diagnostics
+  now default conditional activity to modern Windows Office (`VBA7 = True`,
+  `Win64 = True`, `Win32 = False`, `Mac = False`), preventing paired `#If VBA7`
+  and `#If Win64` declarations from creating duplicate or ambiguous active
+  symbols while still honoring explicit compiler-constant overrides. `Option
+  Explicit` recognizes the `VBA` namespace and compare aliases such as
+  `TextCompare`, and typed Function/Property Get fallthrough or recovered
+  conditionally split `#If VBA7` Function headers are no longer warned as
+  missing return assignments.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 
@@ -255,6 +272,13 @@ Landed first:
 
 - Broaden curated VBA runtime signatures.
 - Broaden Excel object model signatures.
+- Landed Worksheet metadata gap fix: `Excel.Worksheet.Buttons` is included in
+  the curated Worksheet surface so hard `member-not-found` stays quiet for
+  `ActiveSheet.Buttons` and declared `Worksheet` receivers.
+- Landed host receiver-chain triage slice: hard `member-not-found` coverage now
+  proves common chained Worksheet receivers such as
+  `Workbooks(1).Worksheets(1)` against the exhaustive Worksheet surface, while
+  later collection/object promotions stay gated on generated coverage.
 - Support external `.vbref.xml` metadata as a first-class type-signature and
   object/member completion source for explicitly declared external APIs.
 - Keep metadata provenance auditable.

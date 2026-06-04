@@ -338,6 +338,9 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbBinaryCompare', 'VbCompareMethod', 0),
 	c('vbTextCompare', 'VbCompareMethod', 1),
 	c('vbDatabaseCompare', 'VbCompareMethod', 2),
+	c('BinaryCompare', 'VbCompareMethod', 0),
+	c('TextCompare', 'VbCompareMethod', 1),
+	c('DatabaseCompare', 'VbCompareMethod', 2),
 
 	c('vbUseDefault', 'VbTriState', -2),
 	c('vbTrue', 'VbTriState', -1),

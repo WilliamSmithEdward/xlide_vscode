@@ -310,7 +310,16 @@ function runRules(
 	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
 	checkConstAssignment(source, mod, symbols, activity, push);
 	checkOptionExplicit(source, mod, activity, push);
-	checkUndeclaredVariables(source, mod, symbols, activity, opts.knownIdentifiers, push);
+	checkUndeclaredVariables(
+		source,
+		mod,
+		symbols,
+		activity,
+		opts.knownIdentifiers,
+		opts.projectProcedures,
+		opts.projectClassMembers,
+		push,
+	);
 	checkOptionPlacement(source, mod, activity, push);
 	checkProcedureHeader(source, mod, activity, push);
 	checkInvalidIdentifierStarts(source, mod, activity, push);
@@ -2873,8 +2882,9 @@ function checkAssignmentTypes(
 /**
  * Rule: a Function/Property Get returns through its hidden return variable.
  * Falling through without assigning that variable is legal VBA, but it silently
- * returns the default value for the declared type, so XLIDE surfaces it as a
- * type-safety warning rather than a VBE compile-error equivalent.
+ * returns the default value. XLIDE only surfaces this for untyped returns, where
+ * the implicit Variant fallthrough is more likely to be accidental than an
+ * intentional typed default value.
  */
 function checkMissingReturnAssignments(
 	source: string,
@@ -2889,14 +2899,19 @@ function checkMissingReturnAssignments(
 		) {
 			continue;
 		}
+		if (!member.closed) {
+			continue;
+		}
+		if (member.returnType) {
+			continue;
+		}
 		if (procedureHasReturnAssignment(source, member, activity)) {
 			continue;
 		}
 		const procLabel = member.procKind === 'PropertyGet' ? 'Property Get' : 'Function';
-		const typeLabel = member.returnType ? ` As ${member.returnType}` : '';
 		push(
 			'missingReturnAssignment',
-			`${procLabel} '${member.name}' has no return assignment; VBA will return the default value${typeLabel}. Assign to '${member.name}' before exit if a value is intended.`,
+			`${procLabel} '${member.name}' has no return assignment; VBA will return the default value. Assign to '${member.name}' before exit if a value is intended.`,
 			declaredNameSpan(source, member.span, member.name),
 		);
 	}
@@ -4377,6 +4392,8 @@ function checkUndeclaredVariables(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	knownIdentifiers: ReadonlySet<string> | undefined,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 	push: PushFn,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
@@ -4384,6 +4401,7 @@ function checkUndeclaredVariables(
 	}
 
 	const moduleNames = moduleLevelIdentifierNames(symbols);
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const appType = resolveHostGlobal('Application');
 	const appMembers = new Set(
 		(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
@@ -4391,6 +4409,7 @@ function checkUndeclaredVariables(
 	const isKnown = (name: string, locals: ReadonlySet<string>): boolean => {
 		const lower = name.toLowerCase();
 		return (
+			lower === 'vba' ||
 			locals.has(lower) ||
 			moduleNames.has(lower) ||
 			knownIdentifiers.has(lower) ||
@@ -4434,7 +4453,13 @@ function checkUndeclaredVariables(
 			if (target) {
 				report(target.name, target.span, 'assigning to it');
 			}
-			for (const ref of undeclaredReadReferences(source, span, (name) => isKnown(name, locals))) {
+			for (const ref of undeclaredReadReferences(
+				source,
+				span,
+				(name) => isKnown(name, locals),
+				moduleSignatures,
+				projectMembers,
+			)) {
 				report(ref.name, ref.span, 'using it');
 			}
 		}, activity);
@@ -4496,10 +4521,19 @@ function undeclaredReadReferences(
 	source: string,
 	span: Span,
 	isKnown: (name: string) => boolean,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 ): Array<{ name: string; span: Span }> {
 	const toks = statementTokens(source, span);
 	const out: Array<{ name: string; span: Span }> = [];
-	const skip = undeclaredReferenceSkipIndexes(source, span, toks, isKnown);
+	const skip = undeclaredReferenceSkipIndexes(
+		source,
+		span,
+		toks,
+		isKnown,
+		moduleSignatures,
+		projectMembers,
+	);
 	for (let i = 0; i < toks.length; i++) {
 		if (skip.has(i) || !isPotentialVariableReferenceToken(toks[i])) {
 			continue;
@@ -4524,6 +4558,8 @@ function undeclaredReferenceSkipIndexes(
 	span: Span,
 	toks: readonly VbaToken[],
 	isKnown: (name: string) => boolean,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 ): Set<number> {
 	const skip = new Set<number>();
 	if (toks.length === 0) {
@@ -4555,6 +4591,12 @@ function undeclaredReferenceSkipIndexes(
 
 	for (let i = 0; i < toks.length; i++) {
 		const word = tokenText(toks[i]);
+		if (
+			isQualifiedProjectCallableQualifier(toks, i, moduleSignatures) ||
+			isQualifiedProjectMemberQualifier(toks, i, projectMembers)
+		) {
+			skip.add(i);
+		}
 		if (word === 'new' && isPotentialVariableReferenceToken(toks[i + 1])) {
 			skip.add(i + 1);
 		}
@@ -4576,6 +4618,60 @@ function undeclaredReferenceSkipIndexes(
 	}
 
 	return skip;
+}
+
+function isQualifiedProjectCallableQualifier(
+	toks: readonly VbaToken[],
+	index: number,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): boolean {
+	if (!isPotentialVariableReferenceToken(toks[index]) || toks[index + 1]?.rawText !== '.') {
+		return false;
+	}
+	if (!isPotentialVariableReferenceToken(toks[index + 2])) {
+		return false;
+	}
+	const qualifier = tokenName(toks[index]);
+	const member = tokenName(toks[index + 2]);
+	if (!qualifier || !member) {
+		return false;
+	}
+	return moduleSignatures.has(qualifiedProcedureKey(qualifier, member));
+}
+
+function isQualifiedProjectMemberQualifier(
+	toks: readonly VbaToken[],
+	index: number,
+	projectMembers: readonly VbaProjectClassMembers[] | undefined,
+): boolean {
+	if (
+		!projectMembers ||
+		!isPotentialVariableReferenceToken(toks[index]) ||
+		toks[index + 1]?.rawText !== '.'
+	) {
+		return false;
+	}
+	if (!isPotentialVariableReferenceToken(toks[index + 2])) {
+		return false;
+	}
+	const qualifier = tokenName(toks[index]);
+	const member = tokenName(toks[index + 2]);
+	if (!qualifier || !member) {
+		return false;
+	}
+	const qualifierLower = qualifier.toLowerCase();
+	const memberLower = member.toLowerCase();
+	let surface: VbaProjectClassMembers | undefined;
+	for (const candidate of projectMembers) {
+		if (candidate.name.toLowerCase() !== qualifierLower) {
+			continue;
+		}
+		if (surface) {
+			return false;
+		}
+		surface = candidate;
+	}
+	return surface?.members.some((candidate) => candidate.name.toLowerCase() === memberLower) ?? false;
 }
 
 function simpleAssignmentLhsIdentifierIndex(toks: readonly VbaToken[]): number {

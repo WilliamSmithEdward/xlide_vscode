@@ -52,7 +52,7 @@ describe('analyzeWorkbook metadata summary', () => {
 			{
 				name: 'RuntimeRisk',
 				type: 'standard',
-				source: 'Option Explicit\nFunction NeedsReturn() As String\nEnd Function\n',
+				source: 'Option Explicit\nFunction NeedsReturn()\nEnd Function\n',
 			},
 		]);
 

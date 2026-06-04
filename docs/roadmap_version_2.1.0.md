@@ -131,6 +131,14 @@ Progress:
   signatures now trigger `expression-call-requires-parens` for parenless
   argument calls in expression context, including module-qualified
   standard-module calls. Ambiguous bare project `Function` names stay silent.
+- [x] Option Explicit project-call slice: known module-qualified project
+  procedures no longer flag their standard-module qualifier as an undeclared
+  variable in expression reads, including `Set item = ModuleName.Function()`
+  and parameterless `Set item = ModuleName.Function` right-hand sides.
+- [x] Option Explicit qualified-value slice: known module-qualified exported
+  standard-module constants, variables, enum types, and enum members no longer
+  flag their module qualifier as undeclared in expression reads, while unknown
+  qualifiers still surface a useful `Variable not defined` diagnostic.
 - [x] Module-qualified IntelliSense slice: standard module names now appear as
   qualifier completions, and `ModuleName.` member completion, hover, signature
   help, canonical casing, and source definitions use the same exported
@@ -145,6 +153,15 @@ Progress:
   `ModuleName.TypeName` qualifier tokens, including self-references retargeted
   to the renamed module URI, while comments, strings, and unrelated modules
   remain untouched.
+- [x] Live red-squiggly hardening slice: diagnostics and project indexing now
+  default conditional activity to modern Windows Office (`VBA7 = True`,
+  `Win64 = True`, `Win32 = False`, `Mac = False`) while preserving explicit
+  compiler-constant overrides, so paired `#If VBA7` and `#If Win64`
+  declarations do not leak duplicate or ambiguous symbols into the active
+  analysis path. `Option Explicit` also recognizes the `VBA` namespace and
+  common compare aliases, and typed Function/Property Get fallthrough or
+  recovered conditionally split `#If VBA7` Function headers no longer emit a
+  return-assignment warning.
 
 Definition of done:
 
@@ -189,6 +206,17 @@ Scope:
   hover/signature docs where applicable, member-call arity/type, assignment
   validation, `member-not-found`, and no-diagnostic controls for incomplete or
   non-exhaustive surfaces.
+
+Progress:
+
+- [x] Worksheet host-surface gap: `Excel.Worksheet.Buttons` is now part of the
+  curated exhaustive Worksheet surface with regression coverage for
+  `ActiveSheet.Buttons` and declared `Worksheet` receivers.
+- [x] Host receiver-chain triage slice: exhaustive `Workbook`/`Worksheet`
+  absence diagnostics now have regression coverage through
+  `Workbooks(1).Worksheets(1)`, keeping common chained Worksheet receivers on
+  the same proven `member-not-found` surface while later collection/object types
+  remain gated on generated coverage and oracle controls.
 
 Definition of done:
 

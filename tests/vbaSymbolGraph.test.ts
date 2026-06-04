@@ -189,8 +189,10 @@ describe('buildModuleSymbols', () => {
 			'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n' +
 			'#End If\n';
 
-		const unknown = buildModuleSymbols('NativeApi', 'standard', src);
-		expect(unknown.root.children?.filter((sym) => sym.name === 'Sleep')).toHaveLength(2);
+		const defaultVba7 = buildModuleSymbols('NativeApi', 'standard', src);
+		const defaultSleep = defaultVba7.root.children?.filter((sym) => sym.name === 'Sleep') ?? [];
+		expect(defaultSleep).toHaveLength(1);
+		expect(defaultSleep[0].ptrSafe).toBe(true);
 
 		const vba7 = buildModuleSymbols('NativeApi', 'standard', src, {
 			conditionalCompilation: { compilerConstants: { VBA7: true } },
@@ -199,6 +201,13 @@ describe('buildModuleSymbols', () => {
 		expect(sleep).toHaveLength(1);
 		expect(sleep[0].ptrSafe).toBe(true);
 		expect(sleep[0].children?.[0].asType).toBe('LongPtr');
+
+		const legacy = buildModuleSymbols('NativeApi', 'standard', src, {
+			conditionalCompilation: { compilerConstants: { VBA7: false } },
+		});
+		const legacySleep = legacy.root.children?.filter((sym) => sym.name === 'Sleep') ?? [];
+		expect(legacySleep).toHaveLength(1);
+		expect(legacySleep[0].ptrSafe).toBe(false);
 	});
 });
 

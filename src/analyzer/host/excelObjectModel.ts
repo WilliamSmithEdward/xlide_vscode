@@ -381,6 +381,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('UsedRange', RANGE),
 				p('Visible'),
 				m('Activate'),
+				m('Buttons'),
 				m('Calculate'),
 				m('ChartObjects', CHARTOBJECTS),
 				m('CheckSpelling'),
@@ -1218,6 +1219,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				'[PrintToFile], [Collate], [PrToFileName], [IgnorePrintAreas])',
 		},
 		[WORKSHEET]: {
+			buttons: 'Buttons([Index])',
 			range: 'Range(Cell1, [Cell2]) As Range',
 			cells: 'Cells([RowIndex], [ColumnIndex]) As Range',
 			protect:

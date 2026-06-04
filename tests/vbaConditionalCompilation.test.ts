@@ -87,6 +87,51 @@ describe('conditional compilation branch activity', () => {
 		);
 	});
 
+	it('defaults VBA7 branch activity to modern VBA for analyzer callers', () => {
+		const source =
+			'#If VBA7 Then\n' +
+			'Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n' +
+			'#Else\n' +
+			'Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n' +
+			'#End If\n';
+		const module = parseModule(source);
+		expect(conditionalActivityAtOffset(module, source.indexOf('PtrSafe'))).toBe('active');
+		expect(conditionalActivityAtOffset(module, source.lastIndexOf('Declare Sub'))).toBe(
+			'inactive',
+		);
+	});
+
+	it('defaults platform branch activity to modern Windows 64-bit Office', () => {
+		const source =
+			'#If Win64 Then\n' +
+			'Dim platform As LongPtr\n' +
+			'#ElseIf Win32 Then\n' +
+			'Dim platform As Long\n' +
+			'#ElseIf Mac Then\n' +
+			'Dim platform As Variant\n' +
+			'#End If\n';
+		const module = parseModule(source);
+		expect(conditionalActivityAtOffset(module, source.indexOf('LongPtr'))).toBe('active');
+		expect(conditionalActivityAtOffset(module, source.indexOf('Long\n'))).toBe('inactive');
+		expect(conditionalActivityAtOffset(module, source.indexOf('Variant'))).toBe('inactive');
+	});
+
+	it('allows callers to override platform defaults for branch activity', () => {
+		const source =
+			'#If Win64 Then\n' +
+			'Dim platform As LongPtr\n' +
+			'#ElseIf Win32 Then\n' +
+			'Dim platform As Long\n' +
+			'#ElseIf Mac Then\n' +
+			'Dim platform As Variant\n' +
+			'#End If\n';
+		const module = parseModule(source);
+		const env = { compilerConstants: { Win64: false, Win32: false, Mac: true } };
+		expect(conditionalActivityAtOffset(module, source.indexOf('LongPtr'), env)).toBe('inactive');
+		expect(conditionalActivityAtOffset(module, source.indexOf('Long\n'), env)).toBe('inactive');
+		expect(conditionalActivityAtOffset(module, source.indexOf('Variant'), env)).toBe('active');
+	});
+
 	it('uses preceding active #Const values for later branches', () => {
 		const source = '#Const DEBUGGING = True\n#If DEBUGGING Then\nDebug.Print "on"\n#End If\n';
 		const module = parseModule(source);
