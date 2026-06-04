@@ -6,7 +6,7 @@ validation work.
 
 Status: Version 2.x scope is closed. Future binder, object/member metadata,
 performance and scale, and workbook-transfer work is tracked in
-`docs/roadmap_version_3.x.md`.
+`docs/roadmap_version_2.1.0.md`.
 
 ## North Star
 
@@ -434,7 +434,7 @@ Purpose: move from same-module checks to workbook-aware analysis.
 - [x] Close v2 project-wide binder at the deterministic project-aware slice.
   Full identifier shadowing, arbitrary-expression binding,
   external-reference constants/globals, and ambiguous external-reference
-  behavior are refined and moved to `docs/roadmap_version_3.x.md`.
+  behavior are refined and moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
 - [x] Resolve enums and enum members across modules: public/default-public
@@ -578,7 +578,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   `textValue = p`. The parser keeps dotted attribute names, the symbol graph
   attaches member attributes with source spans, and project member surfaces expose
   a `defaultMember` fact for `VB_UserMemId = 0`; direct object-expression
-  inference is moved to `docs/roadmap_version_3.x.md`.
+  inference is moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Define and implement deterministic class/module-level documentation for
   workbook object modules. VBA has no source-level `Class Person` declaration,
   so XLIDE uses one explicit convention: a module-header `'''` block directly
@@ -612,12 +612,12 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   - [x] Chart document modules offer chart handlers from the same
     module-scoped event surface as workbook/worksheet handlers.
   - [x] UserForm form/control event handler authoring requires designer-backed
-    metadata and is moved to `docs/roadmap_version_3.x.md`.
+    metadata and is moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Close the v2 source member model slice with public/default-public members,
   public fields, inline docs, signatures, navigation, current-object resolution,
   and deterministic object assignment behavior. Declared `Event` members,
   richer spans/signatures, `WithEvents` bindings, and designer-backed members
-  are moved to `docs/roadmap_version_3.x.md`.
+  are moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Feed workbook class-member resolution into signature help for
   source-backed method/function members, including inline XML summary and
   parameter docs.
@@ -628,14 +628,14 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   when the current module has one.
 - [x] Keep explicit external object/member metadata out of the v2 runtime path.
   Referenced-library, add-in, and host-extension metadata authoring is moved to
-  `docs/roadmap_version_3.x.md`.
+  `docs/roadmap_version_2.1.0.md`.
 - [x] Move rich external metadata fields -- member names, kinds, signatures,
   parameter docs/types, return types, examples, and provenance -- to
-  `docs/roadmap_version_3.x.md`.
+  `docs/roadmap_version_2.1.0.md`.
 - [x] Close v2 host/object member curation at the generated Excel metadata
   slice. Broader `reference/` dump normalization, provenance expansion, coverage
   reports, oracle spot checks, and type-by-type exhaustive promotion are moved to
-  `docs/roadmap_version_3.x.md`.
+  `docs/roadmap_version_2.1.0.md`.
 - [x] Keep generated/reference metadata separate from source-backed workbook
   symbols, then merge through the unified object-member contract. Source stays
   authoritative for workbook-owned classes/modules; dump-backed metadata becomes
@@ -644,22 +644,22 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   source-backed classes/UDTs and promoted Excel surfaces carry explicit
   exhaustiveness, mutability, value type, and diagnostic evidence. The
   generalized contract for designer-backed and external metadata surfaces is
-  moved to `docs/roadmap_version_3.x.md`.
+  moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Require v2 curated host/object metadata expansions to add coverage for
   completion, hover/signature docs where applicable, member-call arity/type,
   assignment validation, `member-not-found`, and no-diagnostic controls for
   incomplete or non-exhaustive surfaces. Future expansion rules continue in
-  `docs/roadmap_version_3.x.md`.
+  `docs/roadmap_version_2.1.0.md`.
 - [x] Define deterministic v2 precedence for shipped surfaces: source symbols
   win for workbook-owned members, inline docs enrich source, and curated
   host/runtime metadata is the built-in fallback. External metadata precedence
-  is moved to `docs/roadmap_version_3.x.md`.
+  is moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Resolve Excel object model receiver chains for the v2 supported slice:
   simple return-type paths and collection-default `Item` paths. Remaining
-  receiver chains are moved to `docs/roadmap_version_3.x.md`.
+  receiver chains are moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Promote dump-backed exhaustive Excel object types into hard
   `member-not-found` for the v2 supported slice. Additional type-by-type
-  exhaustive promotions are moved to `docs/roadmap_version_3.x.md`.
+  exhaustive promotions are moved to `docs/roadmap_version_2.1.0.md`.
 - [x] Add `member-not-found` only when receiver type is known and source-backed
   workbook class member metadata is unambiguous.
 - [x] Add `set-required` and `set-forbidden`-family checks for deterministic
@@ -671,13 +671,13 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   Property Get return names now use the same scalar/object assignment path.
 - [x] Keep downstream developer documentation for external object metadata out
   of v2 closeout. The author-facing metadata workflow and how-to are moved to
-  `docs/roadmap_version_3.x.md`.
+  `docs/roadmap_version_2.1.0.md`.
 
 Definition of done:
 
 - Object diagnostics do not guess from names.
 - Shipped host metadata has auditable provenance.
-- External object/member metadata authoring is a v3 workflow, not a v2 launch
+- External object/member metadata authoring is a v2.1.0 workflow, not a v2 launch
   gate.
 
 ## Workstream G: Realtime Experience
@@ -1165,7 +1165,7 @@ auditable, and recoverable for real user projects.
   lock warnings and macro reopen failures now tell users to close the workbook in
   Excel and retry rather than failing silently.
 - [x] Move explicit workbook-to-workbook module transfer workflows to
-  `docs/roadmap_version_3.x.md`. The v3 workflow will cover copying/exporting
+  `docs/roadmap_version_2.1.0.md`. The v2.1.0 workflow will cover copying/exporting
   selected modules/classes from a source workbook into a destination workbook,
   with source/destination selection, preview, conflict handling,
   backup/snapshot hooks, and no implicit cross-workbook project analysis.
@@ -1357,7 +1357,7 @@ Purpose: keep XLIDE responsive on large workbooks and during active typing.
   - [x] workbook-wide analysis
   - [x] project index rebuild
   - [x] sidebar health refresh
-- [x] Move remaining performance hardening to `docs/roadmap_version_3.x.md`:
+- [x] Move remaining performance hardening to `docs/roadmap_version_2.1.0.md`:
   incremental parsing/indexing, cache invalidation rules, non-blocking live
   diagnostics, large-workbook fixtures, stress tests, cancellation, and
   progress/status reporting for slow work.
@@ -1365,7 +1365,7 @@ Purpose: keep XLIDE responsive on large workbooks and during active typing.
 Definition of done:
 
 - V2 has documented performance budgets and keeps correctness ahead of speed.
-- Deeper performance hardening is a v3 workflow, not a v2 launch gate.
+- Deeper performance hardening is a v2.1.0 workflow, not a v2 launch gate.
 
 ## Workstream O: Release and Documentation Polish
 
@@ -1391,9 +1391,9 @@ of development.
   - [x] using doc comments and metadata
   - [x] interpreting setup health
 - [x] Move the external object/member metadata walkthrough for `object.`
-  completion to `docs/roadmap_version_3.x.md`.
+  completion to `docs/roadmap_version_2.1.0.md`.
 - [x] Move the full downstream developer how-to for external object/member
-  metadata to `docs/roadmap_version_3.x.md`, including schema, examples,
+  metadata to `docs/roadmap_version_2.1.0.md`, including schema, examples,
   precedence, reload behavior, and troubleshooting.
 
 Definition of done:
@@ -1440,7 +1440,7 @@ Definition of done:
 
 1. Keep v2 verification focused on compile/test stability and packaging
    readiness rather than expanding product scope.
-2. Use `docs/roadmap_version_3.x.md` for deferred binder, object-member,
+2. Use `docs/roadmap_version_2.1.0.md` for deferred binder, object-member,
    external metadata, host metadata, workbook-transfer, and performance/scale
    work.
 3. Promote small `CANARY_*` cases through observe-only oracle fixtures only when
@@ -1449,7 +1449,7 @@ Definition of done:
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.x.md`
-- `docs/roadmap_version_3.x.md`
+- `docs/roadmap_version_2.1.0.md`
 - `docs/type_analysis_corpus_coverage.md`
 - `docs/xlide_vba_type_system_roadmap.md`
 - `docs/xlide_vba_analysis_test_strategy.md`

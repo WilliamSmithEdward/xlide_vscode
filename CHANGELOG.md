@@ -99,7 +99,7 @@ agent-verifiable workflows.
 - **Performance budgets** - v2 records launch-facing latency budgets for
   keystroke diagnostics, module analysis, workbook analysis, project index
   rebuilds, and sidebar health refreshes; deeper performance hardening moved to
-  the v3 roadmap.
+  the v2.1.0 roadmap.
 - **User-facing documentation** - README and user guides now cover setup,
   workbook workflows, analysis/ignores, import/export sync, testing,
   automation/CI, safety/support, and the v2 feature surface.
@@ -114,7 +114,7 @@ agent-verifiable workflows.
   the supported v2 settings contract.
 - Moved remaining binder, designer/UserForm metadata, external metadata,
   host-metadata completeness, workbook-to-workbook transfer, and performance
-  scale work to `docs/roadmap_version_3.x.md`.
+  scale work to `docs/roadmap_version_2.1.0.md`.
 - Kept hard object-member absence diagnostics limited to exhaustive receiver
   surfaces; incomplete host/designer/external surfaces can power completion and
   hover without inventing red `member-not-found` errors.
@@ -130,7 +130,7 @@ agent-verifiable workflows.
   guests can edit host-opened VBA buffers, but only the host can browse/open new
   workbook modules through XLIDE.
 - Refined release docs and roadmap references so v2 is closed and forward
-  scope points to the v3 roadmap and related sub-roadmaps.
+  scope points to the v2.1.0 roadmap and related sub-roadmaps.
 
 ## [1.0.9] - 2026-05-26
 

@@ -1,52 +1,63 @@
-# XLIDE Roadmap Version 3.x
+# XLIDE Roadmap Version 2.1.0
 
-Forward backlog for work intentionally moved out of Version 2.x closeout.
-Version 2.x is closed around its launch-hardening scope; Version 3.x is ordered
-by expected developer-experience impact. The highest-priority work protects the
-daily edit loop first, then expands deterministic language intelligence,
-metadata authoring, and workbook workflows.
+Forward backlog for work intentionally moved out of Version 2.0.x closeout.
+Version 2.0.x is closed around its launch-hardening scope; Version 2.1.0 is
+ordered by expected developer-experience impact, with "red squiggly"
+completeness as the primary product bias. The highest-priority work expands
+deterministic hard diagnostic coverage, keeps the daily edit loop as a baseline
+expectation, and then broadens supporting language features and workbook
+workflows.
 
 ## North Star
 
-V3 should make XLIDE feel faster, more trustworthy, and more useful while
-preserving the core rule: no hard diagnostics from guesses. Every new binder,
-metadata, object, or workflow surface must be backed by source facts, generated
-metadata with provenance, the Microsoft specification, or focused VBE/Excel
-oracle evidence.
+Version 2.1.0 should make XLIDE's red squiggles feel increasingly complete and
+trustworthy while preserving the core rule: no hard diagnostics from guesses.
+Every new binder, metadata, object, or workflow surface must be backed by source
+facts, generated metadata with provenance, the Microsoft specification, or
+focused VBE/Excel oracle evidence.
 
 ## Priority Model
 
-Developer-experience priority is based on:
+Developer-experience priority is based first on hard-diagnostic impact:
 
+- Whether it closes an important false-negative gap for compile-equivalent or
+  deterministic runtime diagnostics.
+- Whether it increases trust in red squiggles without increasing false
+  positives.
+- Whether it gives `member-not-found`, call validation, assignment validation,
+  `Set`/object diagnostics, or type mismatch diagnostics a stronger proven
+  receiver/signature/type base.
 - How often a VBA developer feels the improvement during normal editing.
-- Whether it increases trust in diagnostics, completions, navigation, and
-  workbook operations.
-- How many later v3 features it unblocks.
+- How many later roadmap features it unblocks.
 - Whether the work can be delivered as deterministic, testable vertical slices.
 - Whether it reduces support burden by making state, provenance, and failures
   visible to the user.
 
 Recommended sequencing:
 
-1. Protect responsiveness and stale-result safety before adding much deeper
-   analyzer cost.
-2. Deepen binding and expression resolution because it improves completions,
-   hover, navigation, rename, and diagnostic precision at once.
+1. Deepen binding and expression resolution because it improves completions,
+   hover, navigation, rename, and hard-diagnostic precision from the same facts.
+2. Broaden host metadata type by type after coverage and provenance make absence
+   diagnostics safe.
 3. Expand object/event authoring where XLIDE can prove source or designer facts.
 4. Give downstream developers a supported metadata path for gaps XLIDE cannot
    infer from workbook source.
-5. Broaden host metadata type by type after coverage and provenance make absence
-   diagnostics safe.
-6. Add workbook-to-workbook transfer after the core authoring loop is stronger.
+5. Add workbook-to-workbook transfer after the core authoring loop is stronger.
+
+Responsiveness, stale-result safety, cancellation, cache correctness, progress
+reporting, and measured performance remain non-negotiable engineering standards
+for every 2.1.0 slice. They should be implemented as part of the relevant
+feature work and tracked against `docs/xlide_performance_budgets.md`, not
+treated as a separate roadmap priority.
 
 ## Related Open Roadmaps and Evidence
 
-V3 workstreams should point to the more specific sub-roadmaps and evidence files
-that already own detailed backlog, provenance, and verification decisions. Use
-this roadmap for product-level scope, and use the files below as the active
-detail layer.
+Version 2.1.0 workstreams should point to the more specific sub-roadmaps and
+evidence files that already own detailed backlog, provenance, and verification
+decisions. Use this roadmap for product-level scope, and use the files below as
+the active detail layer.
 
-| Area | Source | Use in v3 |
+| Area | Source | Use in 2.1.0 |
 | --- | --- | --- |
 | Syntax corpus and pending edge cases | `syntax_corpus/managed_backlog.md`, `syntax_corpus/README.md` | Promote cases only through provenance, spec, oracle, or deterministic XLIDE-owned evidence; do not treat pending Markdown cases as authority. |
 | VBE/Excel oracle workflow | `syntax_corpus/oracle/README.md`, `syntax_corpus/oracle/vbe_oracle_cases.json` | Add focused canaries and verification cases for disputed VBA behavior before adding hard diagnostics. |
@@ -57,66 +68,26 @@ detail layer.
 | Host/reference metadata | `docs/excel_reference_coverage.md`, `scripts/generate-excel-reference-metadata.mjs`, `scripts/generate-office-reference-metadata.mjs` | Track generated metadata provenance and coverage before promoting host surfaces into hard diagnostics. |
 | COM/test runner | `docs/xlide_vba_com_test_runner.md` | Preserve owned-host, read-only, timeout, cleanup, and no-SendKeys safety contracts while expanding test surfaces. |
 | Performance | `docs/xlide_performance_budgets.md` | Use measured budgets and correctness-preserving safety rules before optimizing analyzer or workbook paths. |
-| Development principles | `docs/xlide_development_principles.md` | Keep v3 changes deterministic, provenance-backed, scoped, and aligned with XLIDE's source-of-truth rules. |
+| Development principles | `docs/xlide_development_principles.md` | Keep 2.1.0 changes deterministic, provenance-backed, scoped, and aligned with XLIDE's source-of-truth rules. |
 
-When a v3 workstream changes one of these areas, update both this roadmap and
-the linked sub-roadmap or evidence file in the same change. If this roadmap and
-a more specific evidence file disagree, the more specific file wins until this
-roadmap is corrected.
+When a 2.1.0 workstream changes one of these areas, update both this roadmap
+and the linked sub-roadmap or evidence file in the same change. If this roadmap
+and a more specific evidence file disagree, the more specific file wins until
+this roadmap is corrected.
 
-## Priority 1: Responsive, Trustworthy Feedback
+## Priority 1: Expression Binding and Name Resolution
 
-Purpose: make XLIDE feel dependable on large real-world workbooks before deeper
-semantic analysis adds more work to the live editing path.
-
-Developer-experience impact:
-
-- Keeps typing, diagnostics, completion setup, and workbook analysis responsive.
-- Prevents older async results from overwriting newer source state.
-- Makes slow workbook operations cancellable, visible, and easier to trust.
-- Creates the fixture and budget base needed to prove later semantic work does
-  not regress the edit loop.
-
-Scope:
-
-- [ ] Add large-workbook fixture coverage or a deterministic synthetic project
-  generator that exercises parser, symbol graph, diagnostics, completion setup,
-  and workbook-wide analysis.
-- [ ] Add stress tests for many modules, large modules, and diagnostic-heavy
-  modules without changing expected diagnostics.
-- [ ] Add timing/budget assertions for pure analyzer paths where results are
-  stable enough across machines.
-- [ ] Add stale-result protection for live diagnostics so older async analysis
-  cannot overwrite newer document results.
-- [ ] Add cache invalidation rules for source text, workbook identity, module
-  identity, workbook state, settings, metadata version, and project symbol graph
-  changes.
-- [ ] Ensure live diagnostics never block typing; any optimization must preserve
-  the same diagnostic set for the same source/settings/project inputs.
-- [ ] Add cancellation for long-running workbook analysis, test discovery, and
-  sync preview work where VS Code can abandon stale operations safely.
-- [ ] Add status/progress reporting for work that exceeds the v2 latency
-  thresholds in `docs/xlide_performance_budgets.md`.
-- [ ] Add incremental parsing/indexing only after fixture and cache-invalidation
-  coverage can prove equivalent symbols and diagnostics.
-
-Definition of done:
-
-- XLIDE stays responsive on large real-world workbooks, and slow paths have
-  measurable budgets, cancellation, and visible progress.
-- Performance improvements are correctness-preserving and do not silently skip
-  diagnostics, project symbols, workbook modules, or metadata.
-
-## Priority 2: Expression Binding and Name Resolution
-
-Purpose: make the core language service explainable across the daily authoring
-loop: completion, hover, go-to-definition, rename, find references, and
-diagnostics.
+Purpose: make the core language service explainable enough to power complete,
+low-noise hard diagnostics across the daily authoring loop. Completion, hover,
+go-to-definition, rename, and find references should consume the same proven
+facts rather than a separate looser resolver.
 
 Developer-experience impact:
 
-- Reduces false positives and missing completions caused by unresolved or
+- Reduces false positives and false negatives caused by unresolved or
   mis-prioritized names.
+- Gives hard diagnostics a shared resolver for ambiguous names, call targets,
+  assignment targets, member receivers, type positions, and `New` positions.
 - Gives developers consistent answers for "what does this name mean here?"
 - Unlocks safer diagnostics and richer editor features across later object,
   host, and external metadata work.
@@ -153,6 +124,50 @@ Definition of done:
 
 - The binder can explain why a name resolves, why it is ambiguous, or why XLIDE
   intentionally stays silent.
+- Any new hard diagnostic that depends on name resolution can point to the
+  resolver evidence it used.
+
+## Priority 2: Host Metadata Completeness
+
+Purpose: broaden generated Excel/Office metadata safely enough to power hard
+diagnostics type by type, with richer language features following from the same
+proven metadata.
+
+Developer-experience impact:
+
+- Expands red-squiggle coverage for common Excel/Office object-model mistakes:
+  missing members, invalid calls, invalid assignments, and object/scalar misuse.
+- Turns reference coverage into visible product confidence instead of an opaque
+  internal corpus.
+- Keeps red `member-not-found` diagnostics limited to receiver surfaces that are
+  proven exhaustive.
+
+Scope:
+
+- [ ] Normalize the repo-local `reference/` dump corpus into generated metadata
+  that production extension code can consume without reading `reference/` at
+  runtime.
+- [ ] Preserve Office/version/source provenance for every type, member,
+  signature, return type, enum, event, default member, and writable/read-only
+  fact.
+- [ ] Diff generated dumps against curated metadata and official documentation
+  where available.
+- [ ] Add oracle spot checks for behavior a reference dump cannot answer.
+- [ ] Produce coverage reports by host/library type so gaps are visible.
+- [ ] Resolve remaining Excel object receiver chains beyond the v2 simple
+  return-type and collection-default `Item` paths.
+- [ ] Promote generated host types into hard `member-not-found` only
+  type-by-type after coverage reports and representative oracle controls prove
+  the surface complete enough for red diagnostics.
+- [ ] Require every host metadata expansion to add coverage for completion,
+  hover/signature docs where applicable, member-call arity/type, assignment
+  validation, `member-not-found`, and no-diagnostic controls for incomplete or
+  non-exhaustive surfaces.
+
+Definition of done:
+
+- Host metadata has auditable provenance and hard absence diagnostics only come
+  from exhaustive receiver surfaces.
 
 ## Priority 3: Object Member and Event Authoring
 
@@ -161,6 +176,8 @@ feel native in the editor without inventing members from names alone.
 
 Developer-experience impact:
 
+- Adds proven source/designer member facts that can safely power
+  `member-not-found`, event signature, and assignment diagnostics.
 - Improves completion and handler authoring for common VBA UI workflows.
 - Makes event signatures, `WithEvents`, and designer-backed controls easier to
   discover and less error-prone.
@@ -196,6 +213,8 @@ host extensions that XLIDE cannot parse from workbook source.
 
 Developer-experience impact:
 
+- Lets teams add proven API surfaces that can safely power hard diagnostics for
+  private or third-party dependencies when the metadata is exhaustive enough.
 - Gives teams a practical path to improve completion, hover, signature help, and
   diagnostics for private or third-party dependencies.
 - Lets advanced users close gaps without waiting for a full XLIDE release.
@@ -223,48 +242,7 @@ Definition of done:
 - A downstream developer can author metadata, reload it, verify `object.`
   completion, and troubleshoot missing members without reading XLIDE source.
 
-## Priority 5: Host Metadata Completeness
-
-Purpose: broaden generated Excel/Office metadata safely enough to power rich
-language features, then hard diagnostics type by type.
-
-Developer-experience impact:
-
-- Expands completion, hover, signature help, and member validation across more
-  of the Excel/Office object model.
-- Turns reference coverage into visible product confidence instead of an opaque
-  internal corpus.
-- Keeps red `member-not-found` diagnostics limited to receiver surfaces that are
-  proven exhaustive.
-
-Scope:
-
-- [ ] Normalize the repo-local `reference/` dump corpus into generated metadata
-  that production extension code can consume without reading `reference/` at
-  runtime.
-- [ ] Preserve Office/version/source provenance for every type, member,
-  signature, return type, enum, event, default member, and writable/read-only
-  fact.
-- [ ] Diff generated dumps against curated metadata and official documentation
-  where available.
-- [ ] Add oracle spot checks for behavior a reference dump cannot answer.
-- [ ] Produce coverage reports by host/library type so gaps are visible.
-- [ ] Resolve remaining Excel object receiver chains beyond the v2 simple
-  return-type and collection-default `Item` paths.
-- [ ] Promote generated host types into hard `member-not-found` only
-  type-by-type after coverage reports and representative oracle controls prove
-  the surface complete enough for red diagnostics.
-- [ ] Require every host metadata expansion to add coverage for completion,
-  hover/signature docs where applicable, member-call arity/type, assignment
-  validation, `member-not-found`, and no-diagnostic controls for incomplete or
-  non-exhaustive surfaces.
-
-Definition of done:
-
-- Host metadata has auditable provenance and hard absence diagnostics only come
-  from exhaustive receiver surfaces.
-
-## Priority 6: Workbook-To-Workbook Transfer
+## Priority 5: Workbook-To-Workbook Transfer
 
 Purpose: support explicit module transfer between workbooks without crossing
 analysis scopes or guessing user intent.
@@ -274,9 +252,8 @@ Developer-experience impact:
 - Improves a useful project-maintenance workflow, especially when moving modules
   between real workbooks.
 - Keeps workbook mutation explicit, previewed, auditable, and recoverable.
-- Has lower daily edit-loop impact than responsiveness, binding, and metadata,
-  so it should follow the core authoring improvements unless customer demand
-  changes.
+- Has lower red-squiggle impact than binding and metadata, so it should follow
+  the core authoring improvements unless customer demand changes.
 
 Scope:
 
@@ -297,7 +274,7 @@ Definition of done:
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.x.md`
-- `docs/roadmap_version_3.x.md`
+- `docs/roadmap_version_2.1.0.md`
 - `docs/spec/MS-VBAL.version.md`
 - `docs/spec/MS-VBAL.verification-map.md`
 - `docs/xlide_vba_language_service_roadmap.md`
