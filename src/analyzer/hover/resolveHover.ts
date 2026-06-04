@@ -263,6 +263,8 @@ function typeDetail(typeRef: ResolvedTypeReference): string {
 			return 'VBA primitive type';
 		case 'host':
 			return 'Excel host type';
+		case 'external':
+			return 'OLE Automation type';
 		default:
 			return typeRef.detail;
 	}

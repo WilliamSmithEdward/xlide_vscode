@@ -39,6 +39,7 @@ export type VbaSymbolKind =
 	| 'enumMember'
 	| 'type'
 	| 'typeField'
+	| 'event'
 	| 'declare';
 
 /** Declaration visibility (MS-VBAL 5.2.3.1 / 5.3.1.1). */

@@ -41,6 +41,7 @@ export type NodeKind =
 	| 'Option'
 	| 'ConditionalDirective'
 	| 'Declare'
+	| 'Event'
 	| 'VariableGroup'
 	| 'VariableDecl'
 	| 'Type'
@@ -125,6 +126,14 @@ export interface DeclareNode extends NodeBase {
 	aliasName?: string;
 	params: ParameterNode[];
 	returnType?: string;
+}
+
+/** Event declaration in a class/document/UserForm module (MS-VBAL 5.2.5). */
+export interface EventNode extends NodeBase {
+	kind: 'Event';
+	name: string;
+	visibility?: string;
+	params: ParameterNode[];
 }
 
 /** Access modifier on a declaration/procedure. */
@@ -275,6 +284,7 @@ export type ModuleMember =
 	| OptionNode
 	| ConditionalDirectiveNode
 	| DeclareNode
+	| EventNode
 	| VariableGroupNode
 	| TypeNode
 	| EnumNode

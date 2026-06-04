@@ -17,6 +17,7 @@ import {
 import type {
 	AttributeNode,
 	BodyNode,
+	EventNode,
 	EnumNode,
 	ModuleNode,
 	ModuleMember,
@@ -328,6 +329,33 @@ function buildDeclare(
 	return symbol;
 }
 
+/** Builds the symbol for one Event declaration, with parameter children. */
+function buildEvent(
+	event: EventNode,
+	source: string,
+	moduleName: string,
+	flat: VbaSymbol[],
+): VbaSymbol {
+	const children: VbaSymbol[] = [];
+	const symbol: VbaSymbol = {
+		name: event.name,
+		kind: 'event',
+		nameSpan: locateName(source, event.span, event.name),
+		fullSpan: event.span,
+		moduleName,
+		visibility: toVisibility(event.visibility),
+		children,
+	};
+
+	for (const param of event.params) {
+		const paramSymbol = buildParameterSymbol(param, source, moduleName, event.name);
+		children.push(paramSymbol);
+		flat.push(paramSymbol);
+	}
+
+	return symbol;
+}
+
 /** Builds the symbol for a Type ... End Type, with field children. */
 function buildType(
 	node: TypeNode,
@@ -484,6 +512,13 @@ export function buildModuleSymbols(
 			}
 			case 'Declare': {
 				const symbol = buildDeclare(member, source, moduleName, flat);
+				symbol.doc = extractLeadingDoc(source, member.span.start);
+				rootChildren.push(symbol);
+				flat.push(symbol);
+				break;
+			}
+			case 'Event': {
+				const symbol = buildEvent(member, source, moduleName, flat);
 				symbol.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(symbol);
 				flat.push(symbol);

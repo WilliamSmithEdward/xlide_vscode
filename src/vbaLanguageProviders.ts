@@ -113,6 +113,7 @@ function astSymbolKindToVscode(kind: VbaSymbolKind): vscode.SymbolKind {
         case 'enum': return vscode.SymbolKind.Enum;
         case 'enumMember': return vscode.SymbolKind.EnumMember;
         case 'type': return vscode.SymbolKind.Struct;
+        case 'event': return vscode.SymbolKind.Event;
         case 'declare': return vscode.SymbolKind.Function;
     }
 }

@@ -62,6 +62,7 @@ function tokenTypeForCompletionKind(kind: TypeCompletionKind): TypeSemanticToken
 		case 'document':
 		case 'userform':
 		case 'host':
+		case 'external':
 			return 'class';
 		case 'enum':
 			return 'enum';

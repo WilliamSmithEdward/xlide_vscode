@@ -101,9 +101,9 @@ class TestModuleType:
     def test_sheet_by_name_pattern(self):
         assert _module_type("Sheet3", "Option Explicit\n") == "document"
 
-    def test_predeclared_id_is_document(self):
+    def test_predeclared_id_alone_is_not_document(self):
         src = "Attribute VB_PredeclaredId = True\n"
-        assert _module_type("Globals", src) == "document"
+        assert _module_type("Globals", src) == "standard"
 
     def test_class_single_non_document_guid_returns_standard(self):
         # _module_type itself returns 'standard' for class modules;

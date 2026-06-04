@@ -181,9 +181,27 @@ describe('project-defined types', () => {
 		});
 		const byName = new Map(result.map((t) => [t.name, t]));
 		expect(byName.get('Long')?.detail).toBe('VBA type');
+		expect(byName.get('IUnknown')?.detail).toBe('OLE Automation type');
 		expect(byName.get('Worksheet')?.detail).toBe('Excel type');
 		expect(byName.get('Customer')?.detail).toBe('Class');
 		expect(byName.get('Color')?.detail).toBe('Enum');
+	});
+
+	it('offers OLE Automation interfaces directly and through stdole', () => {
+		const unqualified = resolveTypeCompletions('Dim unk As IUn', endOf('Dim unk As IUn', 'IUn'));
+		expect(unqualified.map((item) => `${item.name}:${item.kind}:${item.moduleName}`)).toEqual([
+			'IUnknown:external:stdole',
+		]);
+
+		const qualifier = resolveTypeCompletions('Dim unk As std', endOf('Dim unk As std', 'std'));
+		expect(qualifier.map((item) => `${item.name}:${item.kind}:${item.detail}`)).toContain(
+			'stdole:module:External type-library qualifier',
+		);
+
+		const qualified = resolveTypeCompletions('Dim unk As stdole.', endOf('Dim unk As stdole.', 'stdole.'));
+		expect(qualified.map((item) => `${item.name}:${item.kind}:${item.moduleName}`)).toEqual([
+			'IUnknown:external:stdole',
+		]);
 	});
 
 	it('includes rendered documentation for documented project types', () => {

@@ -1195,6 +1195,9 @@ function checkNonCallableCallStatement(
 			if (!target) {
 				return;
 			}
+			if (callTargetFeedsMemberAccess(source, stmt.span, call)) {
+				return;
+			}
 			push(
 				'nonCallableCallStatement',
 				`Cannot call '${call.name}' because it resolves to ${symbolKindLabel(target)}, not a Sub or Function.`,
@@ -1202,6 +1205,19 @@ function checkNonCallableCallStatement(
 			);
 		}, activity);
 	}
+}
+
+function callTargetFeedsMemberAccess(source: string, span: Span, call: CallArguments): boolean {
+	const toks = tokenize(source.slice(span.start, span.end)).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	const relCalleeStart = call.nameSpan.start - span.start;
+	const calleeIdx = toks.findIndex((t) => t.start === relCalleeStart);
+	if (calleeIdx < 0 || toks[calleeIdx + 1]?.rawText !== '(') {
+		return false;
+	}
+	const close = matchParenFrom(toks, calleeIdx + 1);
+	return close >= 0 && toks[close + 1]?.rawText === '.';
 }
 
 function projectNonCallableSymbols(
@@ -1601,12 +1617,79 @@ function checkModuleDeclarationsInProcedureBodies(
 			hit.span,
 		);
 	};
+	const inspectProcedureBody = (procedure: ProcedureNode): void => {
+		let sawConditionalDirective = false;
+		for (const node of procedure.body) {
+			if (node.kind === 'ConditionalDirective') {
+				sawConditionalDirective = true;
+				continue;
+			}
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (node.kind === 'Statement') {
+				if (
+					sawConditionalDirective &&
+					isAlternativeProcedureHeaderStatement(source, node.span, procedure)
+				) {
+					continue;
+				}
+				inspectStatement(node);
+				continue;
+			}
+			if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
+				forEachBodyStatement((node as { body: BodyNode[] }).body, inspectStatement, activity);
+			}
+		}
+	};
 
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure') {
-			forEachBodyStatement(member.body, inspectStatement, activity);
+			inspectProcedureBody(member);
 		}
 	}
+}
+
+function isAlternativeProcedureHeaderStatement(
+	source: string,
+	span: Span,
+	procedure: ProcedureNode,
+): boolean {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	let i = leadingDeclarationModifierCount(toks);
+	const head = tokenText(toks[i]);
+	let kind: ProcedureNode['procKind'] | undefined;
+	if (head === 'property') {
+		const accessor = tokenText(toks[i + 1]);
+		kind =
+			accessor === 'get'
+				? 'PropertyGet'
+				: accessor === 'let'
+					? 'PropertyLet'
+					: accessor === 'set'
+						? 'PropertySet'
+						: undefined;
+		i += 2;
+	} else if (head === 'function') {
+		kind = 'Function';
+		i += 1;
+	} else if (head === 'sub') {
+		kind = 'Sub';
+		i += 1;
+	}
+	const name = tokenName(toks[i]);
+	return !!kind &&
+		kind === procedure.procKind &&
+		!!name &&
+		name.toLowerCase() === procedure.name.toLowerCase();
+}
+
+function leadingDeclarationModifierCount(toks: readonly VbaToken[]): number {
+	let i = 0;
+	while (PROCEDURE_BODY_MODULE_DECLARATION_MODIFIERS.has(tokenText(toks[i]))) {
+		i++;
+	}
+	return i;
 }
 
 function moduleDeclarationStatementInProcedure(
@@ -1648,6 +1731,9 @@ function checkReservedDeclarationNames(
 ): void {
 	const report = (kind: string, hit: NameTokenHit | undefined): void => {
 		if (!hit || hit.bracketed || !isReservedIdentifier(hit.name)) {
+			return;
+		}
+		if (kind === 'type field' && hit.name.toLowerCase() === 'type') {
 			return;
 		}
 		push(
@@ -3399,9 +3485,13 @@ function memberExpressionCalls(
 		) {
 			continue;
 		}
+		const signature = parseRuntimeDisplaySignature(member.name, member.signature);
+		if (isPropertyResultIndexing(member, signature, inner)) {
+			continue;
+		}
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
 		out.push({
-			signature: parseRuntimeDisplaySignature(member.name, member.signature),
+			signature,
 			call: {
 				name: member.name,
 				nameSpan: { start: callSpan.start, end: span.start + toks[i].end },
@@ -3476,6 +3566,16 @@ function memberStatementCalls(
 		break;
 	}
 	return out;
+}
+
+function isPropertyResultIndexing(
+	member: MemberCompletion,
+	signature: CallableTypeSignature,
+	inner: readonly VbaToken[],
+): boolean {
+	return member.kind === 'property' &&
+		signature.params.length === 0 &&
+		inner.length > 0;
 }
 
 function isMemberStatementChainThrough(
@@ -3748,6 +3848,9 @@ function parseRuntimeParamType(raw: string): CallableParamType | undefined {
 	}
 	const optional = text.startsWith('[') && text.endsWith(']');
 	text = text.replace(/^\[/, '').replace(/\]$/, '').trim();
+	const paramArray = /^ParamArray\b/i.test(text);
+	text = text.replace(/^ParamArray\b\s*/i, '');
+	text = text.replace(/^(?:ByVal|ByRef)\b\s*/i, '');
 	text = text.replace(/\s*=\s*.*$/, '').trim();
 	const as = /\bAs\s+([A-Za-z_][A-Za-z0-9_]*(?:\(\))?)/i.exec(text);
 	const first = /[A-Za-z_][A-Za-z0-9_]*/.exec(text)?.[0];
@@ -3758,7 +3861,7 @@ function parseRuntimeParamType(raw: string): CallableParamType | undefined {
 		name: first,
 		type: as?.[1],
 		optional,
-		paramArray: false,
+		paramArray,
 	};
 }
 
@@ -5717,6 +5820,8 @@ function typeKindLabelForNew(kind: TypeCompletionKind): string {
 	switch (kind) {
 		case 'primitive':
 			return 'a VBA primitive type';
+		case 'external':
+			return 'an external interface type';
 		case 'host':
 			return 'an Excel object-model type';
 		case 'document':
@@ -6353,12 +6458,28 @@ function isParenlessArgumentStart(tok: VbaToken | undefined): boolean {
 	}
 	switch (tok.kind) {
 		case 'identifier':
-		case 'keyword':
 		case 'bracketedIdentifier':
 		case 'integerLiteral':
 		case 'floatLiteral':
 		case 'stringLiteral':
 		case 'dateLiteral':
+			return true;
+		case 'keyword':
+			return !isInfixExpressionKeyword(tok.rawText);
+		default:
+			return false;
+	}
+}
+
+function isInfixExpressionKeyword(text: string): boolean {
+	switch (text.toLowerCase()) {
+		case 'and':
+		case 'or':
+		case 'xor':
+		case 'eqv':
+		case 'imp':
+		case 'is':
+		case 'mod':
 			return true;
 		default:
 			return false;

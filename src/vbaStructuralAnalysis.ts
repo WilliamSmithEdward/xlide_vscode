@@ -19,6 +19,15 @@ export interface VbaStructuralDiagnostic {
     severity: 'error' | 'warning';
 }
 
+export interface VbaStructuralAnalysisOptions {
+    /**
+     * Returns true for physical source lines that belong to a proven-inactive
+     * conditional-compilation branch. Preprocessor lines are still analyzed so
+     * #If/#Else/#End If balance remains checked.
+     */
+    isInactiveLine?: (line: number) => boolean;
+}
+
 /** A logical line after string/comment stripping and continuation joining. */
 interface LogicalLine {
     /** Stripped, continuation-joined text. */
@@ -430,10 +439,26 @@ function toLogicalLines(source: string): { stripped: string[]; logical: LogicalL
             text = text.replace(/\s_[ \t]*$/, ' ') + stripped[i + 1];
             i++;
         }
-        logical.push({ text, line: startLine });
+        for (const segment of splitColonStatements(text)) {
+            logical.push({ text: segment, line: startLine });
+        }
         i++;
     }
     return { stripped, logical };
+}
+
+function splitColonStatements(text: string): string[] {
+    const out: string[] = [];
+    let start = 0;
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] !== ':') {
+            continue;
+        }
+        out.push(`${' '.repeat(start)}${text.slice(start, i)}`);
+        start = i + 1;
+    }
+    out.push(`${' '.repeat(start)}${text.slice(start)}`);
+    return out.filter((segment) => segment.trim().length > 0);
 }
 
 /** Detects a block closer on a stripped, trimmed logical line. */
@@ -622,6 +647,34 @@ function activeProcedureBlock(stack: OpenBlock[]): OpenBlock | undefined {
     return undefined;
 }
 
+function isProcedureBlockKind(kind: BlockKind): boolean {
+    return kind === 'Sub' || kind === 'Function' || kind === 'Property';
+}
+
+function isConditionalAlternativeProcedureHeader(
+    stack: readonly OpenBlock[],
+    opener: OpenBlock,
+    preprocessorDepth: number,
+): boolean {
+    if (preprocessorDepth === 0 || !isProcedureBlockKind(opener.kind)) {
+        return false;
+    }
+    const active = stack[stack.length - 1];
+    return !!active &&
+        active.kind === opener.kind &&
+        active.label.toLowerCase() === opener.label.toLowerCase();
+}
+
+function isTypeFieldNamedTypeInsideType(stack: readonly OpenBlock[], opener: OpenBlock, text: string): boolean {
+    return opener.kind === 'Type' &&
+        stack[stack.length - 1]?.kind === 'Type' &&
+        /^Type\s+As\b/i.test(text.trim());
+}
+
+function isPreprocessorLine(trimmed: string): boolean {
+    return /^#\s*(?:Const|If|ElseIf|Else|End\s*If|EndIf)\b/i.test(trimmed);
+}
+
 function capturedColumnSpan(stripped: string, pattern: RegExp): ColumnSpan | undefined {
     const match = pattern.exec(stripped);
     if (!match) {
@@ -642,10 +695,14 @@ function capturedColumnSpan(stripped: string, pattern: RegExp): ColumnSpan | und
  *  - closers with no matching opener (stray `End If`, `Loop`, ...),
  *  - mismatched nesting (an inner block left unclosed).
  */
-export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
+export function analyzeVbaStructure(
+    source: string,
+    options: VbaStructuralAnalysisOptions = {},
+): VbaStructuralDiagnostic[] {
     const physical = source.split(/\r\n|\r|\n/);
     const { logical } = toLogicalLines(source);
     const stack: OpenBlock[] = [];
+    const preprocessorStack: number[] = [];
     const problems: VbaStructuralDiagnostic[] = [];
 
     const closeOne = (closerKind: BlockKind, line: number, closerWord: string): void => {
@@ -661,6 +718,21 @@ export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
                 { code: 'unmatched-block-closer' },
                 blockCloserColumnSpan(physical[line] ?? '', closerKind),
             ));
+            const top = stack[stack.length - 1];
+            if (top && isProcedureBlockKind(top.kind) && isProcedureBlockKind(closerKind)) {
+                problems.push(fullLineProblem(
+                    physical, top.line,
+                    `Missing '${CLOSE_PHRASE[top.kind]}' for '${top.label}'.`,
+                    'error',
+                    {
+                        code: 'missing-block-closer',
+                        expectedClose: CLOSE_PHRASE[top.kind],
+                        insertLine: line,
+                    },
+                    blockOpenerColumnSpan(physical[top.line] ?? '', top.kind),
+                ));
+                stack.pop();
+            }
             return;
         }
         // Anything above the matched opener was never closed.
@@ -684,10 +756,18 @@ export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
     for (const ll of logical) {
         const t = ll.text.trim();
         if (!t) { continue; }
+        if (options.isInactiveLine?.(ll.line) && !isPreprocessorLine(t)) {
+            continue;
+        }
+
+        if (/^#\s*If\b/i.test(t)) {
+            preprocessorStack.push(ll.line);
+            continue;
+        }
 
         const preprocessorBranch = /^(#\s*ElseIf|#\s*Else)\b/i.exec(t);
         if (preprocessorBranch) {
-            if (!stack.some((b) => b.kind === 'PreprocessorIf')) {
+            if (preprocessorStack.length === 0) {
                 problems.push(fullLineProblem(
                     physical, ll.line,
                     `'${preprocessorBranch[1].replace(/\s+/g, ' ')}' has no matching '#If'.`,
@@ -695,6 +775,21 @@ export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
                     { code: 'unmatched-block-closer' },
                     preprocessorBranchColumnSpan(physical[ll.line] ?? ''),
                 ));
+            }
+            continue;
+        }
+
+        if (/^#\s*End\s*If\b/i.test(t) || /^#\s*EndIf\b/i.test(t)) {
+            if (preprocessorStack.length === 0) {
+                problems.push(fullLineProblem(
+                    physical, ll.line,
+                    `'#End If' has no matching '#If'.`,
+                    'error',
+                    { code: 'unmatched-block-closer' },
+                    blockCloserColumnSpan(physical[ll.line] ?? '', 'PreprocessorIf'),
+                ));
+            } else {
+                preprocessorStack.pop();
             }
             continue;
         }
@@ -717,11 +812,14 @@ export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
             continue;
         }
 
+        const opener = matchOpener(t);
+        const isConditionalAlternativeHeader = !!opener &&
+            isConditionalAlternativeProcedureHeader(stack, opener, preprocessorStack.length);
         const activeProcedure = activeProcedureBlock(stack);
         if (activeProcedure) {
             const declaration = moduleDeclarationInProcedureHit(physical[ll.line] ?? '');
             const procedureIndent = leadingWhitespace(physical[activeProcedure.line] ?? '').length;
-            if (declaration && declaration.span.startCol > procedureIndent) {
+            if (declaration && !isConditionalAlternativeHeader && declaration.span.startCol > procedureIndent) {
                 problems.push(fullLineProblem(
                     physical,
                     ll.line,
@@ -733,8 +831,13 @@ export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
             }
         }
 
-        const opener = matchOpener(t);
         if (opener) {
+            if (isTypeFieldNamedTypeInsideType(stack, opener, t)) {
+                continue;
+            }
+            if (isConditionalAlternativeHeader) {
+                continue;
+            }
             stack.push({ ...opener, line: ll.line });
         }
     }
@@ -750,6 +853,19 @@ export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
                 insertLine: physical.length,
             },
             blockOpenerColumnSpan(physical[open.line] ?? '', open.kind),
+        ));
+    }
+    for (const line of preprocessorStack) {
+        problems.push(fullLineProblem(
+            physical, line,
+            `Missing '${CLOSE_PHRASE.PreprocessorIf}' for '#If'.`,
+            'error',
+            {
+                code: 'missing-block-closer',
+                expectedClose: CLOSE_PHRASE.PreprocessorIf,
+                insertLine: physical.length,
+            },
+            blockOpenerColumnSpan(physical[line] ?? '', 'PreprocessorIf'),
         ));
     }
 

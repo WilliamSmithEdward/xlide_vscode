@@ -37,6 +37,7 @@ import {
 	ConditionalDirectiveNode,
 	DeclareNode,
 	DoBlockNode,
+	EventNode,
 	EnumMemberNode,
 	EnumNode,
 	ForBlockNode,
@@ -158,6 +159,8 @@ class Parser {
 				return this.parseOption(this.cursor.next()!, tokens);
 			case 'declare':
 				return this.parseDeclare(this.cursor.next()!, tokens, modIndex);
+			case 'event':
+				return this.parseEvent(this.cursor.next()!, tokens, modIndex);
 			case 'type':
 				return this.parseTypeBlock(modIndex);
 			case 'enum':
@@ -273,6 +276,30 @@ class Parser {
 			aliasName,
 			params,
 			returnType,
+			span: { start: stmt.start, end: stmt.end },
+		};
+	}
+
+	private parseEvent(
+		stmt: LogicalStatement,
+		tokens: VbaToken[],
+		modIndex: number,
+	): EventNode {
+		const visibility = modIndex > 0 ? this.canonical(tokens[0]) : undefined;
+		const nameToken = tokens[modIndex + 1];
+		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
+		let params: ParameterNode[] = [];
+		const lparen = nameToken
+			? tokens.findIndex((t, idx) => idx > modIndex + 1 && t.rawText === '(')
+			: -1;
+		if (lparen >= 0) {
+			params = this.parseParamList(tokens, lparen).params;
+		}
+		return {
+			kind: 'Event',
+			name,
+			visibility,
+			params,
 			span: { start: stmt.start, end: stmt.end },
 		};
 	}
@@ -458,7 +485,7 @@ class Parser {
 				closed = true;
 				break;
 			}
-			if (this.isModuleLevelStarter(stmt)) {
+			if (this.isModuleLevelStarter(stmt) && !this.isTypeFieldStatement(stmt)) {
 				break;
 			}
 			this.cursor.next();
@@ -503,6 +530,18 @@ class Parser {
 			isArray,
 			span: { start: stmt.start, end: stmt.end },
 		};
+	}
+
+	private isTypeFieldStatement(stmt: LogicalStatement): boolean {
+		const tokens = codeTokens(stmt);
+		if (tokens.length === 0) {
+			return false;
+		}
+		const first = tokenWord(tokens[0]);
+		if (first === 'type' && tokenWord(tokens[1]) === 'as') {
+			return true;
+		}
+		return tokens.some((token, index) => index > 0 && tokenWord(token) === 'as');
 	}
 
 	private parseEnumBlock(modIndex: number): EnumNode {
@@ -604,6 +643,7 @@ class Parser {
 		const body: BodyNode[] = [];
 		let closed = false;
 		let endStmt: LogicalStatement | undefined;
+		let sawConditionalDirective = false;
 		while (!this.cursor.atEnd()) {
 			const stmt = this.cursor.peek()!;
 			const ck = this.closerKind(stmt);
@@ -612,13 +652,27 @@ class Parser {
 				closed = true;
 				break;
 			}
+			if (this.isAttribute(codeTokens(stmt))) {
+				this.cursor.next();
+				continue;
+			}
 			// Recovery: a new module-level construct means the End was forgotten.
 			if (this.isModuleLevelStarter(stmt)) {
+				if (
+					sawConditionalDirective &&
+					this.isAlternativeProcedureHeader(stmt, procKind, name)
+				) {
+					this.cursor.next();
+					continue;
+				}
 				break;
 			}
 			const item = this.parseBodyItem(stmt);
 			if (item === undefined) {
 				break;
+			}
+			if (item.kind === 'ConditionalDirective') {
+				sawConditionalDirective = true;
 			}
 			body.push(item);
 		}
@@ -654,6 +708,40 @@ class Parser {
 			return 'endsub';
 		}
 		return 'endproperty';
+	}
+
+	private isAlternativeProcedureHeader(
+		stmt: LogicalStatement,
+		currentKind: ProcKind,
+		currentName: string,
+	): boolean {
+		const tokens = codeTokens(stmt);
+		const modIndex = this.leadingModifierCount(tokens);
+		let i = modIndex;
+		const headWord = tokenWord(tokens[i]);
+		let kind: ProcKind | undefined;
+		if (headWord === 'property') {
+			i++;
+			const accessor = tokenWord(tokens[i]);
+			kind =
+				accessor === 'get'
+					? 'PropertyGet'
+					: accessor === 'set'
+						? 'PropertySet'
+						: accessor === 'let'
+							? 'PropertyLet'
+							: undefined;
+			i++;
+		} else if (headWord === 'function') {
+			kind = 'Function';
+			i++;
+		} else if (headWord === 'sub') {
+			kind = 'Sub';
+			i++;
+		}
+		const nameToken = tokens[i];
+		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
+		return kind === currentKind && name.toLowerCase() === currentName.toLowerCase();
 	}
 
 	private parseParamList(

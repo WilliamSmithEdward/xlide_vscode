@@ -4,6 +4,7 @@ import {
     diagnosticMetadataForCode,
     incompleteExpressionEditSpan,
     normalizeDiagnosticSeverityOverride,
+    conditionalActivityAtOffset,
     parseModule,
     scanAnalysisSuppressions,
     type AnalyzeModuleOptions,
@@ -115,7 +116,8 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     };
 
     try {
-        for (const problem of analyzeVbaStructure(source)) {
+        const isInactiveLine = inactiveConditionalLinePredicate(source, starts, analyzeOptions);
+        for (const problem of analyzeVbaStructure(source, { isInactiveLine })) {
             const span = {
                 start: (starts[problem.line] ?? 0) + problem.startCol,
                 end: (starts[problem.line] ?? 0) + problem.endCol,
@@ -172,6 +174,29 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         suppressedDiagnostics,
         suppressedCount: suppressedDiagnostics.length,
     };
+}
+
+function inactiveConditionalLinePredicate(
+    source: string,
+    starts: readonly number[],
+    analyzeOptions: AnalyzeModuleOptions,
+): ((line: number) => boolean) | undefined {
+    if (!source.includes('#')) {
+        return undefined;
+    }
+    try {
+        const module = parseModule(source);
+        return (line: number): boolean => {
+            const offset = starts[line] ?? source.length;
+            return conditionalActivityAtOffset(
+                module,
+                offset,
+                analyzeOptions.conditionalCompilation,
+            ) === 'inactive';
+        };
+    } catch {
+        return undefined;
+    }
 }
 
 interface ExpectedErrorRuntimeSuppression {

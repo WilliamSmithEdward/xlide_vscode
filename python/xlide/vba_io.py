@@ -122,8 +122,9 @@ def _module_type(name: str, source: str) -> str:
         if any(c in vb_base for c in _DOCUMENT_CLSIDS):
             return "document"
 
-    if re.search(r"^\s*Attribute\s+VB_PredeclaredId\s*=\s*True", source, re.MULTILINE | re.IGNORECASE):
-        return "document"
+    # VB_PredeclaredId=True is shared by Excel document modules and predeclared
+    # class modules. Treating it as document-only misclassifies singleton-style
+    # classes such as stdVBA's stdArray/stdLambda modules.
     # Well-known document-module names across common Excel locales.
     if name == "ThisWorkbook" or re.match(
         r"^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$", name, re.IGNORECASE

@@ -636,6 +636,8 @@ class VbaMemberCompletionProvider
 		switch (t.kind) {
 			case 'enum':
 				return vscode.CompletionItemKind.Enum;
+			case 'external':
+				return vscode.CompletionItemKind.Interface;
 			case 'host':
 			case 'class':
 			case 'document':

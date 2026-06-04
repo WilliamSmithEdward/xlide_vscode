@@ -368,6 +368,9 @@ function isVisibleProjectObjectMember(symbol: VbaSymbol): boolean {
 	if (isProcedureKind(symbol.kind)) {
 		return symbol.visibility !== 'Private';
 	}
+	if (symbol.kind === 'event') {
+		return symbol.visibility !== 'Private';
+	}
 	if (symbol.kind === 'moduleVariable') {
 		return symbol.visibility === 'Public' || symbol.visibility === 'Global';
 	}
@@ -401,6 +404,8 @@ function projectObjectMemberKind(symbol: VbaSymbol): VbaProjectClassMember['kind
 		case 'function':
 		case 'declare':
 			return 'method';
+		case 'event':
+			return 'event';
 		case 'propertyGet':
 		case 'propertyLet':
 		case 'propertySet':
@@ -527,6 +532,12 @@ function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 	const procedure = procedureSignatureFromSymbol(symbol);
 	if (procedure) {
 		return procedureSignatureLabel(procedure);
+	}
+	if (symbol.kind === 'event') {
+		const params = procedureParamsFromSymbol(symbol)
+			.map((param) => formatProcedureParamLabel(param))
+			.join(', ');
+		return `${symbol.name}(${params})`;
 	}
 	if (symbol.kind !== 'propertyGet') {
 		return undefined;

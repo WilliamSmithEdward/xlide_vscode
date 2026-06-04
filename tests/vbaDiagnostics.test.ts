@@ -1041,6 +1041,16 @@ describe('analyzeModule - non-callable call statements', () => {
 		expect(hits[0].message).toContain('parameter');
 	});
 
+	it('does not flag indexed object variables feeding member access', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim buckets As Object\n' +
+			'    Call buckets("ready").Add(1)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'non-callable-call')).toHaveLength(0);
+	});
+
 	it('flags project-visible exported non-callables used as call statements', () => {
 		const caller =
 			'Sub Main()\n' +
@@ -1329,6 +1339,27 @@ describe('analyzeModule - reserved declaration names', () => {
 
 		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
 	});
+
+	it('accepts Event declarations with parameter lists', () => {
+		const src =
+			'Public Event BeforeAdd(ByRef arr As Variant, ByRef cancel As Boolean)\n' +
+			'Public Event AfterAdd(ByRef arr As Variant)\n';
+
+		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(0);
+	});
+
+	it('accepts user-defined type fields named Type', () => {
+		const src =
+			'Private Type PICTDESC\n' +
+			'    size As Long\n' +
+			'    Type As Long\n' +
+			'End Type\n';
+
+		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - unbalanced parentheses', () => {
@@ -1572,6 +1603,14 @@ describe('analyzeModule - argument count', () => {
 			'    Log "a", "b", "c", "d"\n' +
 			'End Sub\n' +
 			'Sub Log(ParamArray items() As Variant)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('treats CallByName trailing args as a runtime ParamArray', () => {
+		const src =
+			'Sub Main()\n' +
+			'    CallByName target, "Run", VbMethod, a0, a1, a2, a3\n' +
+			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
@@ -1877,6 +1916,28 @@ describe('analyzeModule - argument count', () => {
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
+	it('does not treat zero-argument property result indexing as member-call arity', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Dim p As Person\n' +
+			'    Dim child As Object\n' +
+			'    Set child = p.Children(1)\n' +
+			'End Sub\n';
+		const person =
+			'Public Property Get Children() As Collection\n' +
+			'End Property\n';
+		expect(
+			byCode(
+				analyzeModule(caller, {
+					projectClassMembers: projectClassMembers([
+						{ moduleName: 'Person', moduleKind: 'class', source: person },
+					]),
+				}),
+				'argument-count',
+			),
+		).toHaveLength(0);
+	});
+
 	it('flags missing required arguments on source-backed class member calls', () => {
 		const caller =
 			'Sub Main()\n' +
@@ -1898,6 +1959,28 @@ describe('analyzeModule - argument count', () => {
 		expect(spanText(caller, hits[0])).toBe('Save');
 		expect(hits[0].message).toContain('expected 1 argument');
 		expect(hits[0].message).toContain('got 0');
+	});
+
+	it('honours ParamArray on source-backed class member calls', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Dim cb As Callback\n' +
+			'    cb.Run first, second, third\n' +
+			'End Sub\n';
+		const callback =
+			'Public Function Run(ParamArray params() As Variant) As Variant\n' +
+			'End Function\n';
+
+		expect(
+			byCode(
+				analyzeModule(caller, {
+					projectClassMembers: projectClassMembers([
+						{ moduleName: 'Callback', moduleKind: 'class', source: callback },
+					]),
+				}),
+				'argument-count',
+			),
+		).toHaveLength(0);
 	});
 
 	it('validates parenless source-backed class member call statements', () => {
@@ -3706,6 +3789,59 @@ describe('analyzeModule - missing Function return assignment', () => {
 		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
 	});
 
+	it('keeps parsing after conditionally split procedure headers with a shared body', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Public Function Create(ByVal pointer As LongPtr) As Object\n' +
+			'#Else\n' +
+			'Public Function Create(ByVal pointer As Long) As Object\n' +
+			'#End If\n' +
+			'    Set Create = Nothing\n' +
+			'End Function\n' +
+			'Friend Sub Init(ByVal mode As Long)\n' +
+			'    Select Case mode\n' +
+			'        Case 1\n' +
+			'            With Create(0)\n' +
+			'                .Name = "ready"\n' +
+			'            End With\n' +
+			'    End Select\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'case-outside-select')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'member-access-outside-with')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+	});
+
+	it('does not flag unknown-constant alternate procedure headers as declarations in a procedure', () => {
+		const src =
+			'#If FULL_INTELLISENSE Then\n' +
+			'Public Function AsAcc() As stdAcc\n' +
+			'#Else\n' +
+			'Public Function AsAcc() As Object\n' +
+			'#End If\n' +
+			'    Set AsAcc = Nothing\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+	});
+
+	it('ignores exported member Attribute lines while parsing procedure bodies', () => {
+		const src =
+			'Friend Sub Init(ByVal mode As Long)\n' +
+			'Attribute Init.VB_Description = "Initialises this object."\n' +
+			'    Select Case mode\n' +
+			'        Case 1\n' +
+			'            With Nothing\n' +
+			'                .Name = "ready"\n' +
+			'            End With\n' +
+			'    End Select\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'case-outside-select')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'member-access-outside-with')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+	});
+
 	it('checks Property Get procedures and ignores Subs', () => {
 		const src =
 			'Public Property Get Name()\n' +
@@ -4092,6 +4228,16 @@ describe('analyzeModule - As type name validation', () => {
 		expect(
 			byCode(analyzeProjectModule(src, modules, 'Consumer'), 'invalid-as-type-name'),
 		).toHaveLength(0);
+	});
+
+	it('accepts OLE Automation interfaces even when project enum members share the name', () => {
+		const src =
+			'Public Enum EKnownIID\n' +
+			'    IUnknown\n' +
+			'End Enum\n' +
+			'Private Declare PtrSafe Function RegisterActiveObject Lib "oleaut32" (ByVal pUnk As IUnknown) As Long\n' +
+			'Private Declare PtrSafe Function RegisterQualified Lib "oleaut32" (ByVal pUnk As stdole.IUnknown) As Long\n';
+		expect(byCode(analyzeModule(src), 'invalid-as-type-name')).toHaveLength(0);
 	});
 
 	it('uses the default VBA7 branch for project types defined in paired branches', () => {
@@ -5137,6 +5283,17 @@ describe('analyzeModule - expression call requires parentheses', () => {
 			'Public Function CurrentTotal() As Currency\nEnd Function\n' +
 			'Public Sub TestTotal()\n' +
 			'    total = CurrentTotal + 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'expression-call-requires-parens')).toHaveLength(0);
+	});
+
+	it('accepts parameterless property reads followed by keyword operators', () => {
+		const src =
+			'Public Property Get Style() As Long\nEnd Property\n' +
+			'Public Sub T()\n' +
+			'    Dim resizable As Boolean\n' +
+			'    resizable = Style And &H40000\n' +
+			'    resizable = Style Or &H40000\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'expression-call-requires-parens')).toHaveLength(0);
 	});

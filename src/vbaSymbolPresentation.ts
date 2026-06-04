@@ -57,6 +57,8 @@ export function symbolDetail(symbol: Pick<VbaSymbol, 'kind' | 'asType' | 'declar
 			return 'Type';
 		case 'typeField':
 			return symbol.asType ? `Field As ${symbol.asType}` : 'Field';
+		case 'event':
+			return 'Event';
 		case 'declare':
 			return symbol.declareKind === 'Sub'
 				? 'Declare Sub'

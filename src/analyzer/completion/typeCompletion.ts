@@ -28,6 +28,7 @@ import {
 /** Where a candidate type name comes from (drives the UI icon/grouping). */
 export type TypeCompletionKind =
 	| 'primitive'
+	| 'external'
 	| 'host'
 	| 'module'
 	| 'class'
@@ -86,6 +87,16 @@ export const VBA_PRIMITIVE_TYPES: readonly string[] = [
 	'Single',
 	'String',
 	'Variant',
+];
+
+/** External interface types available through VBA's default OLE Automation reference. */
+const OLE_AUTOMATION_TYPES: readonly TypeCompletion[] = [
+	{
+		name: 'IUnknown',
+		kind: 'external',
+		detail: 'OLE Automation type',
+		moduleName: 'stdole',
+	},
 ];
 
 /** Non-trivia, non-comment, non-newline tokens of a prefix slice. */
@@ -302,7 +313,11 @@ export function typeCompletionCandidates(
 	for (const name of VBA_PRIMITIVE_TYPES) {
 		add(name, 'primitive', 'VBA type');
 	}
-	// 3. Excel host object-model types.
+	// 3. OLE Automation interface types from the default stdole reference.
+	for (const t of OLE_AUTOMATION_TYPES) {
+		add(t.name, t.kind, t.detail, t.moduleName, t.documentation);
+	}
+	// 4. Excel host object-model types.
 	for (const name of hostTypeNames(model)) {
 		add(name, 'host', 'Excel type');
 	}
@@ -355,6 +370,22 @@ function projectModuleQualifierCandidates(
 	return out;
 }
 
+function externalTypeCandidatesInModule(moduleName: string): readonly TypeCompletion[] {
+	if (!/^stdole$/i.test(moduleName)) {
+		return [];
+	}
+	return OLE_AUTOMATION_TYPES;
+}
+
+function externalModuleQualifierCandidates(): TypeCompletion[] {
+	return [{
+		name: 'stdole',
+		kind: 'module',
+		detail: 'External type-library qualifier',
+		moduleName: 'stdole',
+	}];
+}
+
 export function isCreatableTypeCompletion(candidate: TypeCompletion): boolean {
 	return candidate.kind === 'class' || candidate.kind === 'userform';
 }
@@ -365,7 +396,10 @@ export function resolveTypeName(
 ): TypeCompletion | undefined {
 	const qualified = qualifiedTypeName(name);
 	if (qualified) {
-		return projectTypeCandidatesInModule(qualified.qualifier, ctx.projectTypes).find(
+		return [
+			...projectTypeCandidatesInModule(qualified.qualifier, ctx.projectTypes),
+			...externalTypeCandidatesInModule(qualified.qualifier),
+		].find(
 			(candidate) => candidate.name.toLowerCase() === qualified.member.toLowerCase(),
 		);
 	}
@@ -394,7 +428,10 @@ export function resolveTypeCompletions(
 	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
 	if (pos.qualifier !== undefined) {
 		const memberPrefix = (pos.memberPrefix ?? '').toLowerCase();
-		return projectTypeCandidatesInModule(pos.qualifier, ctx.projectTypes)
+		return [
+			...projectTypeCandidatesInModule(pos.qualifier, ctx.projectTypes),
+			...externalTypeCandidatesInModule(pos.qualifier),
+		]
 			.filter((candidate) => pos.mode === 'declaration' || isCreatableTypeCompletion(candidate))
 			.filter((candidate) => !memberPrefix || candidate.name.toLowerCase().startsWith(memberPrefix));
 	}
@@ -408,6 +445,8 @@ export function resolveTypeCompletions(
 	return [
 		...candidates,
 		...projectModuleQualifierCandidates(ctx.projectTypes)
+			.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix)),
+		...externalModuleQualifierCandidates()
 			.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix)),
 	];
 }

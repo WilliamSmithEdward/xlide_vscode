@@ -100,6 +100,70 @@ describe('analyzeVbaModuleSource', () => {
 		]);
 	});
 
+	it('ignores inactive conditional procedure headers in structural analysis', () => {
+		const source =
+			'#If VBA7 Then\n' +
+			'Public Function CreateFromPointer(ByVal p As LongPtr) As Object\n' +
+			'#Else\n' +
+			'Public Function CreateFromPointer(ByVal p As Long) As Object\n' +
+			'#End If\n' +
+			'    Set CreateFromPointer = Nothing\n' +
+			'End Function\n';
+
+		const result = analyzeVbaModuleSource({ source, moduleName: 'Callbacks' });
+
+		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('missing-block-closer');
+		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('unmatched-block-closer');
+		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('module-declaration-in-procedure');
+	});
+
+	it('ignores unknown-constant alternate procedure headers in structural analysis', () => {
+		const source =
+			'#If FULL_INTELLISENSE Then\n' +
+			'Public Function AsAcc() As stdAcc\n' +
+			'#Else\n' +
+			'Public Function AsAcc() As Object\n' +
+			'#End If\n' +
+			'    Set AsAcc = Nothing\n' +
+			'End Function\n';
+
+		const result = analyzeVbaModuleSource({ source, moduleName: 'Window' });
+
+		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('missing-block-closer');
+		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('unmatched-block-closer');
+		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('module-declaration-in-procedure');
+	});
+
+	it('accepts colon-separated one-line procedures and block closers', () => {
+		const source =
+			'Public Function Run() As Variant: End Function\n' +
+			'Public Sub Normalize()\n' +
+			'    While InStr(1, value, "  ") > 0: value = Replace(value, "  ", " "): Wend\n' +
+			'End Sub\n';
+
+		const codes = analyzeVbaModuleSource({ source, moduleName: 'InlineBlocks' })
+			.diagnostics.map((diag) => diag.code);
+
+		expect(codes).not.toContain('missing-block-closer');
+		expect(codes).not.toContain('unmatched-block-closer');
+		expect(codes).not.toContain('module-declaration-in-procedure');
+	});
+
+	it('recovers after mismatched procedure closers without cascading into later declarations', () => {
+		const source =
+			'Public Property Get Name() As String\n' +
+			'    Name = "Ada"\n' +
+			'End Function\n' +
+			'Public Sub Save()\n' +
+			'End Sub\n';
+
+		const result = analyzeVbaModuleSource({ source, moduleName: 'Person' });
+
+		expect(result.diagnostics.map((diag) => diag.code)).toContain('missing-block-closer');
+		expect(result.diagnostics.map((diag) => diag.code)).toContain('unmatched-block-closer');
+		expect(result.diagnostics.map((diag) => diag.code)).not.toContain('module-declaration-in-procedure');
+	});
+
 	it('allows VBA test directive diagnostics to be suppressed explicitly', () => {
 		const source =
 			"' @xlide-analysis-disable-next-line vba-test-directive\n" +

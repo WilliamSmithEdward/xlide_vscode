@@ -145,6 +145,17 @@ describe('buildModuleSymbols', () => {
 		]);
 	});
 
+	it('extracts Event declarations with parameters', () => {
+		const src = 'Public Event Changed(ByVal value As Long, ByRef cancel As Boolean)\n';
+		const mod = buildModuleSymbols('Notifier', 'class', src);
+		const event = mod.root.children?.find((child) => child.name === 'Changed');
+
+		expect(event?.kind).toBe('event');
+		expect(event?.visibility).toBe('Public');
+		expect((event?.children ?? []).map((child) => `${child.name}:${child.asType}:${child.byVal}:${child.byRef}`))
+			.toEqual(['value:Long:true:false', 'cancel:Boolean:false:true']);
+	});
+
 	it('records the module root kind', () => {
 		const mod = buildModuleSymbols('Sheet1', 'document', 'Sub A()\nEnd Sub\n');
 		expect(mod.moduleKind).toBe('document');
@@ -1052,6 +1063,19 @@ describe('ProjectIndex project class members', () => {
 
 		const person = index.projectClassMembers().find((t) => t.name === 'Person');
 		expect(person?.doc?.summary).toBe('Represents a person.');
+	});
+
+	it('exposes Event declarations on project class member surfaces', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Notifier',
+			moduleKind: 'class',
+			source: 'Public Event Changed(ByVal value As Long)\nPrivate Event Hidden()\n',
+		});
+
+		const notifier = index.projectClassMembers().find((t) => t.name === 'Notifier');
+		expect(notifier?.members.map((member) => `${member.name}:${member.kind}:${member.signature}`))
+			.toEqual(['Changed:event:Changed(value As Long)']);
 	});
 
 	it('records module-level Implements statements on project class member surfaces', () => {

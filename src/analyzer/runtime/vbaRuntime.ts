@@ -232,7 +232,12 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Choose', 'Choose(Index, ArgList) As Variant', 'Variant'),
 	fn('Switch', 'Switch(ArgList) As Variant', 'Variant'),
 	fn('IsMissing', 'IsMissing(ArgName) As Boolean', 'Boolean'),
-	fn('CallByName', 'CallByName(Object, ProcName As String, CallType As VbCallType, [Args]) As Variant', 'Variant'),
+	fn('CallByName', 'CallByName(Object, ProcName As String, CallType As VbCallType, [Args]) As Variant', 'Variant', [
+		{ name: 'Object', type: 'Object' },
+		{ name: 'ProcName', type: 'String' },
+		{ name: 'CallType', type: 'VbCallType' },
+		{ name: 'Args', type: 'Variant', optional: true, paramArray: true },
+	]),
 
 	// -- Additional string functions ---------------------------------------
 	fn('StrReverse', 'StrReverse(Expression) As String', 'String'),
