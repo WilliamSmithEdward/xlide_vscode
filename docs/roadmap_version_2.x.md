@@ -1145,9 +1145,14 @@ auditable, and recoverable for real user projects.
 
 - [x] Define XLIDE's trust model for workbook read, write, run, and test
   workflows.
-- [ ] Require explicit user action for operations that mutate workbook contents
-  or execute VBA.
-- [ ] Add backup/snapshot strategy before workbook mutation where practical.
+- [x] Require explicit user action for operations that mutate workbook contents
+  or execute VBA. Editor saves, import/export Apply, module create/rename/delete,
+  test-support install/update, macro runs, and test runs all require a direct
+  user command or modal confirmation.
+- [x] Add backup/snapshot strategy before workbook mutation where practical.
+  Persistent dirty-module backups restore unsaved `xlide-vba` edits after
+  interruption, while diff previews plus source-controlled module folders provide
+  the v2 snapshot/recovery path for bulk sync workflows.
 - [x] Add an in-session audit trail for XLIDE writes, surfaced through support
   diagnostics:
   - module changed
@@ -1155,9 +1160,17 @@ auditable, and recoverable for real user projects.
   - timestamp
   - source path/workbook path
   - success/failure
-- [ ] Add crash/timeout recovery for COM operations.
-- [ ] Add workbook lock/open-state checks before write/run/test operations.
-- [ ] Warn when a workbook is open outside XLIDE's controllable context.
+- [x] Add crash/timeout recovery for COM operations. The owned read-only Excel
+  test host has startup/per-test timeouts, modal-blocking detection, owned Excel
+  process cleanup, temp-script cleanup, and a cleanup watchdog; macro execution
+  reports reopen/run failure categories.
+- [x] Add workbook lock/open-state checks before write/run/test operations.
+  Editor read/write failures classify sharing violations, macro execution blocks
+  already-open editable workbooks before reopening read-only, and tests run
+  against a temporary read-only workbook copy.
+- [x] Warn when a workbook is open outside XLIDE's controllable context. Save/read
+  lock warnings and macro reopen failures now tell users to close the workbook in
+  Excel and retry rather than failing silently.
 - [ ] Add explicit workbook-to-workbook module transfer workflows for copying or
   exporting selected modules/classes from a source workbook into a destination
   workbook, with source/destination selection, preview, conflict handling,
