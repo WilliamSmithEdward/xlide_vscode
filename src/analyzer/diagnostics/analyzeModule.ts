@@ -304,6 +304,7 @@ function runRules(
 	checkParameterDefaultValues(source, mod, activity, push);
 	checkUnbalancedParens(source, push);
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
+	checkDivisionByZeroExpressions(source, mod, activity, push);
 	checkDimInitializer(source, mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
@@ -5037,6 +5038,125 @@ function isNonUnaryBinaryOperator(tok: VbaToken | undefined): boolean {
 		return false;
 	}
 	return NON_UNARY_BINARY_OPERATORS.has(tokenText(tok));
+}
+
+function checkDivisionByZeroExpressions(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			for (const hit of divisionByZeroDivisors(source, stmt.span)) {
+				push(
+					'divisionByZero',
+					`Expression uses '${hit.operator}' with a zero divisor. This will raise Run-time error '11': Division by zero.`,
+					hit.span,
+				);
+			}
+		}, activity);
+	}
+}
+
+function divisionByZeroDivisors(
+	source: string,
+	span: Span,
+): Array<{ operator: string; span: Span }> {
+	const toks = statementTokens(source, span);
+	const hits: Array<{ operator: string; span: Span }> = [];
+	for (let i = 0; i < toks.length; i++) {
+		const operator = divisionByZeroOperatorLabel(toks[i]);
+		if (!operator) {
+			continue;
+		}
+		const divisor = zeroDivisorToken(toks, i + 1);
+		if (divisor) {
+			hits.push({ operator, span: absoluteTokenGroupSpan(span, divisor) });
+		}
+	}
+	return hits;
+}
+
+function divisionByZeroOperatorLabel(tok: VbaToken | undefined): string | undefined {
+	const text = tokenText(tok);
+	if (text === '/' || text === '\\') {
+		return text;
+	}
+	return text === 'mod' ? 'Mod' : undefined;
+}
+
+function zeroDivisorToken(
+	toks: VbaToken[],
+	start: number,
+): VbaToken[] | undefined {
+	const first = toks[start];
+	if (!first) {
+		return undefined;
+	}
+	if (first.rawText === '(') {
+		const close = matchParenFrom(toks, start);
+		if (close < 0) {
+			return undefined;
+		}
+		return zeroDivisorExpression(toks, start + 1, close);
+	}
+	if (
+		first.kind === 'operator' &&
+		(first.rawText === '+' || first.rawText === '-') &&
+		isZeroNumericLiteral(toks[start + 1])
+	) {
+		return [first, toks[start + 1]];
+	}
+	return isZeroNumericLiteral(first) ? [first] : undefined;
+}
+
+function zeroDivisorExpression(
+	toks: VbaToken[],
+	start: number,
+	endExclusive: number,
+): VbaToken[] | undefined {
+	if (start >= endExclusive) {
+		return undefined;
+	}
+	if (toks[start]?.rawText === '(') {
+		const close = matchParenFrom(toks, start);
+		if (close === endExclusive - 1) {
+			return zeroDivisorExpression(toks, start + 1, close);
+		}
+	}
+	if (
+		endExclusive === start + 2 &&
+		toks[start]?.kind === 'operator' &&
+		(toks[start].rawText === '+' || toks[start].rawText === '-') &&
+		isZeroNumericLiteral(toks[start + 1])
+	) {
+		return [toks[start], toks[start + 1]];
+	}
+	if (endExclusive === start + 1 && isZeroNumericLiteral(toks[start])) {
+		return [toks[start]];
+	}
+	return undefined;
+}
+
+function isZeroNumericLiteral(tok: VbaToken | undefined): boolean {
+	if (!tok || (tok.kind !== 'integerLiteral' && tok.kind !== 'floatLiteral')) {
+		return false;
+	}
+	const normalized = tok.rawText
+		.replace(/[!#@%&^]$/, '')
+		.replace(/[dD]/g, 'E');
+	if (!/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized)) {
+		return false;
+	}
+	return Number(normalized) === 0;
+}
+
+function absoluteTokenGroupSpan(base: Span, toks: readonly VbaToken[]): Span {
+	return { start: base.start + toks[0].start, end: base.start + toks[toks.length - 1].end };
 }
 
 /**

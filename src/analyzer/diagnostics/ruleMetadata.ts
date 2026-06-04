@@ -336,6 +336,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	divisionByZero: {
+		code: 'division-by-zero',
+		title: 'Division by zero',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 / runtime division by zero',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	unknownCallStatement: {
 		code: 'unknown-call',
 		title: 'Sub or Function not defined',

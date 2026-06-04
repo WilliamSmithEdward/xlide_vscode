@@ -1433,6 +1433,50 @@
       "diagnosticMeaning": "runtime-error"
     },
     {
+      "id": "division_by_zero_literal_runtime",
+      "description": "Runtime probe: floating-point division by a literal zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / 0\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "integer_division_by_zero_literal_runtime",
+      "description": "Runtime probe: integer division by a literal zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 \\ 0\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "mod_by_zero_literal_runtime",
+      "description": "Runtime probe: Mod by a literal zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 Mod 0\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_nonzero_literal_runtime",
+      "description": "Runtime control: division by a nonzero literal runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / 2\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
       "id": "string_scalar_member_access_compile",
       "description": "Compile probe for a trailing member-access dot on a String variable; explicit VBE focus retest rejects this as Syntax error.",
       "provenance": "vbe-oracle-verified",

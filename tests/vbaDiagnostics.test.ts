@@ -2908,6 +2908,61 @@ describe('analyzeModule - string arithmetic coercion', () => {
 	});
 });
 
+describe('analyzeModule - division by zero', () => {
+	it('errors on literal zero divisors for division, integer division, and Mod', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / 0\n' +
+			'    a = 1 \\ 0\n' +
+			'    a = 1 Mod 0\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '0', '0']);
+		expect(hits[0].message).toContain("Run-time error '11'");
+	});
+
+	it('detects parenthesized and signed zero divisors inside nested expressions', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a As Variant\n' +
+			'    a = IIf(True, 1, 1 / (-0))\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('-0');
+	});
+
+	it('does not flag nonzero literals, variables, or nonzero parenthesized expressions', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    Dim denominator As Double\n' +
+			'    a = 1 / 2\n' +
+			'    a = 1 / denominator\n' +
+			'    a = 1 / (0 + 1)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'division-by-zero')).toHaveLength(0);
+	});
+
+	it('ignores literal zero divisors in inactive conditional-compilation branches', () => {
+		const src =
+			'#Const Enabled = False\n' +
+			'Public Sub T()\n' +
+			'#If Enabled Then\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / 0\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(
+			byCode(analyzeModule(src, {
+				conditionalCompilation: { constants: { Enabled: false } },
+			}), 'division-by-zero'),
+		).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - As type name validation', () => {
 	it('flags runtime functions used as declaration type names', () => {
 		const src =

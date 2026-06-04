@@ -330,6 +330,22 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "division-by-zero",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE literal-divisor expression scan",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "division_by_zero_literal_runtime",
+        "integer_division_by_zero_literal_runtime",
+        "mod_by_zero_literal_runtime",
+        "division_by_nonzero_literal_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by a literal zero compile successfully and deterministically raise runtime error 11, while division by a nonzero literal runs. The active rule is intentionally literal-only and scans settled procedure statements, including nested expressions; variables, constants, and nonliteral expressions remain pending until flow/reachability handling is broader.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "unknown-call",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus project symbol graph",
