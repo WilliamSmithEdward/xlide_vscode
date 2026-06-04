@@ -119,12 +119,6 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
 }
 
 const SELECTED_WORKBOOK_KEY = 'xlide.sidebar.selectedWorkbookPath';
-const XLIDE_SPONSOR_URL = 'https://github.com/sponsors/WilliamSmithEdward';
-const XLIDE_PAYPAL_DONATE_URL =
-    'https://www.paypal.com/donate/?business=ML855BRLNR838&no_recurring=0' +
-    '&item_name=VBA+has+always+treated+me+well.+It+was+how+I+first+grew+professional+as+a+programmer%2C+I%27m+happy+to+show+it+some+love+%E2%9D%A4%EF%B8%8F' +
-    '&currency_code=USD';
-const XLIDE_CASH_APP_DONATE_URL = 'https://cash.app/$williamesmithjcil';
 
 function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRegistration {
     const provider = new XlideSidebarProvider(options);
@@ -157,9 +151,6 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 vscode.window.showErrorMessage(`XLIDE: Could not open workbook settings: ${message}`);
             }
         }),
-        registerExternalLinkCommand('xlide.openSponsorLink', XLIDE_SPONSOR_URL),
-        registerExternalLinkCommand('xlide.openPayPalDonateLink', XLIDE_PAYPAL_DONATE_URL),
-        registerExternalLinkCommand('xlide.openCashAppDonateLink', XLIDE_CASH_APP_DONATE_URL),
         (() => {
             let timer: ReturnType<typeof setTimeout> | undefined;
             const refresh = () => {
@@ -199,10 +190,6 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
         disposables,
         refresh: () => provider.refresh(),
     };
-}
-
-function registerExternalLinkCommand(command: string, url: string): vscode.Disposable {
-    return registerXlideCommand(command, () => vscode.env.openExternal(vscode.Uri.parse(url)));
 }
 
 async function workbookFileCount(): Promise<number> {
@@ -680,8 +667,7 @@ function renderSection(section: XlideSidebarNode): string {
     const children = section.children ?? [];
     const isActionSection = section.id === 'workbookActions' ||
         section.id === 'settings' ||
-        section.id === 'support' ||
-        section.id === 'donate';
+        section.id === 'support';
     const sectionClass = children.some((child) => child.kind === 'select') ? 'section hasCustomSelect' : 'section';
     return `<section class="${sectionClass}" aria-label="${escapeAttr(section.label)}">
         <div class="sectionHeader">${escapeHtml(section.label)}</div>

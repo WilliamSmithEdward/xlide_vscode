@@ -186,32 +186,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'archive',
             ),
         ]),
-        section('donate', 'Donate', [
-            actionNode(
-                'donate.cashApp',
-                'Donate',
-                'Cash App: $williamesmithjcil 💵',
-                'xlide.openCashAppDonateLink',
-                'Support XLIDE with a Cash App donation.',
-                'heart',
-            ),
-            actionNode(
-                'donate.githubSponsors',
-                'Donate',
-                'GitHub Sponsors ❤️',
-                'xlide.openSponsorLink',
-                'Support XLIDE through GitHub Sponsors.',
-                'heart',
-            ),
-            actionNode(
-                'donate.paypal',
-                'Donate',
-                'PayPal 💳',
-                'xlide.openPayPalDonateLink',
-                'Support XLIDE with a PayPal donation.',
-                'heart',
-            ),
-        ]),
     ];
 }
 

@@ -17,7 +17,6 @@ describe('xlideSidebarModel', () => {
             'Workbook Actions',
             'Settings',
             'Support',
-            'Donate',
         ]);
         expect(model[0].children?.map((node) => [node.label, node.description, node.kind])).toEqual([
             ['Workbook Tree', 'Find workbook and module navigation in Explorer > XLIDE.', 'status'],
@@ -39,14 +38,6 @@ describe('xlideSidebarModel', () => {
             'Copy Diagnostics',
             'Export Support Bundle',
         ]);
-        expect(model[5].children?.map((node) => [node.label, node.description])).toEqual([
-            ['Donate', 'Cash App: $williamesmithjcil 💵'],
-            ['Donate', 'GitHub Sponsors ❤️'],
-            ['Donate', 'PayPal 💳'],
-        ]);
-        expect(model[5].children?.[0]?.command?.command).toBe('xlide.openCashAppDonateLink');
-        expect(model[5].children?.[1]?.command?.command).toBe('xlide.openSponsorLink');
-        expect(model[5].children?.[2]?.command?.command).toBe('xlide.openPayPalDonateLink');
     });
 
     it('renders setup rows with Installed buttons once they are green', () => {

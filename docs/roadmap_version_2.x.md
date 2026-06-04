@@ -1079,12 +1079,11 @@ development.
   are edited through workbook-facing GUIs instead of permanent sidebar rows.
 - [x] Add `Open Workbook Read Only` beside the normal open action in the
   workbook-scoped sidebar action group.
-- [x] Add a dedicated bottom Donate section with donation actions for
-  [GitHub Sponsors](https://github.com/sponsors/WilliamSmithEdward), PayPal,
-  and Cash App. Each donation card uses `Donate` as the title and moves the
-  platform detail into the subtitle.
+- [x] Keep the XLIDE sidebar product shell focused on product workflows. The
+  product shell ends with Support actions instead of external contribution
+  links.
 - [x] Lock the current sidebar information architecture as stable:
-  Welcome, Setup, Workbook Actions, Settings, Support, and Donate. Future
+  Welcome, Setup, Workbook Actions, Settings, and Support. Future
   sidebar changes should preserve the section order and layout unless there is a
   specific product reason to revisit it; prefer additive workflow buttons tied
   to implemented functionality.

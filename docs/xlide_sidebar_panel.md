@@ -34,7 +34,6 @@ Setup
 Workbook Actions
 Settings
 Support
-Donate
 ```
 
 Do not rework the sidebar layout, section order, or status/action split without
@@ -144,11 +143,6 @@ Recommended sections:
    - Copy diagnostics
    - Export support bundle
 
-9. **Donate**
-   - Donate / GitHub Sponsors ❤️
-   - Donate / PayPal 💳
-   - Donate / Cash App: $williamesmithjcil 💵
-
 ## Setup Health Checks
 
 Each check must return a deterministic state:
@@ -212,11 +206,6 @@ disabled states where appropriate:
 - `XLIDE: Reopen Workbook`
 - `XLIDE: Open Global Settings`
 - `XLIDE: Open Logs`
-- `XLIDE: Donate` / GitHub Sponsors opens
-  [GitHub Sponsors](https://github.com/sponsors/WilliamSmithEdward)
-- `XLIDE: Donate` / PayPal opens the PayPal donation page
-- `XLIDE: Donate` / Cash App opens
-  [Cash App](https://cash.app/$williamesmithjcil)
 
 Buttons should not silently run destructive operations. Sync/write actions need
 clear status and should reuse existing safe workbook handling. Workbook-scoped

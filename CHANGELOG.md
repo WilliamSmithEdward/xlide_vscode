@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.0.1] - 2026-06-04
+
+### Changed
+
+- Removed contribution links from the in-extension XLIDE sidebar so the product
+  shell ends with Support actions.
+- Moved open-source support links to the bottom of the repository README.
+- Tightened VSIX packaging excludes so workbook files and test workbook folders
+  stay out of Marketplace packages.
+
 ## [2.0.0] - 2026-06-04
 
 Version 2 turns XLIDE from a workbook/module bridge into a fuller VBA

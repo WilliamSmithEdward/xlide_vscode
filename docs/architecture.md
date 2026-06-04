@@ -409,10 +409,8 @@ setting or workbook sidecar value. The Settings section offers a compact global
 settings launcher that opens `xlide.openGlobalSettings`, a dedicated webview for
 VS Code machine/profile settings, without rendering workbook-scoped
 import/export, analysis, or sidecar rows. The Support section keeps
-troubleshooting actions together. The
-bottom Donate section renders each donation action with `Donate` as the card
-title and the platform details as the subtitle: GitHub Sponsors, PayPal, and
-Cash App. Workbook-facing GUIs read `<workbook-filename>.xlide_settings.json`
+troubleshooting actions together. Workbook-facing GUIs read
+`<workbook-filename>.xlide_settings.json`
 through `workbookSettings.ts` and the effective settings helpers that production
 commands use.
 Workbook-specific settings are not stored globally.

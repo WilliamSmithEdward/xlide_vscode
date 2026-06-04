@@ -6,8 +6,6 @@ first-class development projects: browse workbook modules, edit writable
 analysis, sync modules with files, execute macros and workbook tests through
 Excel when needed, and give AI agents workbook-aware tools.
 
-<a href="https://github.com/sponsors/WilliamSmithEdward"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?style=for-the-badge" alt="Sponsor WilliamSmithEdward"></a>
-
 ---
 
 ## Highlights of What's New In Version 2
@@ -280,3 +278,14 @@ Related upstream issue: [microsoft/live-share#4877](https://github.com/microsoft
 - [docs/architecture.md](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/architecture.md) -- full architecture reference
 - [MS-VBAL specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/)
 - [pyOpenVBA](https://github.com/WilliamSmithEdward/pyOpenVBA)
+
+---
+
+## Support Open Source
+
+XLIDE is open-source software. If it saves you time or helps your team keep VBA
+workbooks maintainable, support helps keep the project moving.
+
+- [GitHub Sponsors](https://github.com/sponsors/WilliamSmithEdward)
+- [PayPal](https://www.paypal.com/donate/?business=ML855BRLNR838&no_recurring=0&item_name=VBA+has+always+treated+me+well.+It+was+how+I+first+grew+professional+as+a+programmer%2C+I%27m+happy+to+show+it+some+love+%E2%9D%A4%EF%B8%8F&currency_code=USD)
+- [Cash App](https://cash.app/$williamesmithjcil)
