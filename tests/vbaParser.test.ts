@@ -300,6 +300,7 @@ describe('parseModule - Type and Enum (MS-VBAL 5.2.3.3 / 5.2.3.4)', () => {
 		expect(e.name).toBe('Color');
 		expect(e.visibility).toBe('Public');
 		expect(e.members.map((x) => x.name)).toEqual(['Red', 'Green', 'Blue']);
+		expect(e.members.map((x) => x.valueRaw)).toEqual([undefined, '2', undefined]);
 	});
 });
 

@@ -46,6 +46,7 @@ import {
 } from '../call/callContext';
 import type {
 	BodyNode,
+	EnumNode,
 	ModuleMember,
 	ModuleNode,
 	ParameterNode,
@@ -339,6 +340,7 @@ function runRules(
 		activity,
 		push,
 	);
+	checkRuntimeArgumentValues(source, mod, symbols, opts.projectProcedures, activity, push);
 	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
 	checkMissingReturnAssignments(source, mod, activity, push);
 	if (opts.knownProcedures) {
@@ -1963,6 +1965,220 @@ function checkArgumentTypes(
 				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, push);
 			}
 		}, activity);
+	}
+}
+
+interface RuntimeArgumentValueSpec {
+	canonicalName: 'Left' | 'String';
+	parameterName: string;
+	argumentIndex: number;
+}
+
+interface RuntimeArgumentValueHit {
+	displayName: string;
+	parameterName: string;
+	value: number;
+	span: Span;
+}
+
+/**
+ * Rule: some runtime-library arguments have deterministic value bounds even
+ * when the argument type itself is valid. This slice is VBE-oracle-backed for
+ * negative literal Length/Number arguments to Left/Left$ and String/String$,
+ * which compile but raise Run-time error 5.
+ */
+function checkRuntimeArgumentValues(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const env = typeEnvironmentFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env)) {
+				push(
+					'runtimeArgumentValue',
+					`Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error '5': Invalid procedure call or argument.`,
+					hit.span,
+				);
+			}
+		}, activity);
+	}
+}
+
+function runtimeArgumentValueHits(
+	source: string,
+	span: Span,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	env: ReadonlyMap<string, string>,
+): RuntimeArgumentValueHit[] {
+	const toks = statementTokens(source, span);
+	if (isDeclarationLikeStatement(toks)) {
+		return [];
+	}
+	const hits: RuntimeArgumentValueHit[] = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		const call = runtimeArgumentValueCallAt(toks, i, span, moduleSignatures, env);
+		if (!call) {
+			continue;
+		}
+		const slot = runtimeArgumentValueSlot(call.slots, call.spec);
+		const literal = slot ? negativeIntegerLiteralArgument(slot, span.start) : undefined;
+		if (!literal) {
+			continue;
+		}
+		hits.push({
+			displayName: call.displayName,
+			parameterName: call.spec.parameterName,
+			value: literal.value,
+			span: literal.span,
+		});
+	}
+	return hits;
+}
+
+function runtimeArgumentValueCallAt(
+	toks: readonly VbaToken[],
+	index: number,
+	span: Span,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	env: ReadonlyMap<string, string>,
+): {
+	displayName: string;
+	spec: RuntimeArgumentValueSpec;
+	slots: VbaToken[][];
+} | undefined {
+	const name = tokenName(toks[index]);
+	if (!name) {
+		return undefined;
+	}
+	const qualifier = index >= 2 && toks[index - 1].rawText === '.'
+		? tokenName(toks[index - 2])
+		: undefined;
+	if (index > 0 && toks[index - 1].rawText === '.' && !qualifier) {
+		return undefined;
+	}
+	if (qualifier && qualifier.toLowerCase() !== 'vba') {
+		return undefined;
+	}
+
+	let parenIndex = index + 1;
+	let suffix = '';
+	if (isRuntimeStringFunctionSuffix(toks[parenIndex])) {
+		suffix = toks[parenIndex].rawText;
+		parenIndex++;
+	}
+	if (toks[parenIndex]?.rawText !== '(') {
+		return undefined;
+	}
+
+	const spec = runtimeArgumentValueSpec(name);
+	if (!spec) {
+		return undefined;
+	}
+	const lower = spec.canonicalName.toLowerCase();
+	if (!qualifier && (moduleSignatures.has(lower) || env.has(lower))) {
+		return undefined;
+	}
+
+	const close = matchParenFrom(toks, parenIndex);
+	if (close < 0) {
+		return undefined;
+	}
+	const inner = toks.slice(parenIndex + 1, close);
+	const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
+	return {
+		displayName: `${spec.canonicalName}${suffix}`,
+		spec,
+		slots: split.slots,
+	};
+}
+
+function runtimeArgumentValueSpec(name: string): RuntimeArgumentValueSpec | undefined {
+	switch (name.toLowerCase()) {
+		case 'left':
+			return { canonicalName: 'Left', parameterName: 'Length', argumentIndex: 1 };
+		case 'string':
+			return { canonicalName: 'String', parameterName: 'Number', argumentIndex: 0 };
+		default:
+			return undefined;
+	}
+}
+
+function runtimeArgumentValueSlot(
+	slots: readonly VbaToken[][],
+	spec: RuntimeArgumentValueSpec,
+): VbaToken[] | undefined {
+	let positionalIndex = 0;
+	for (const slot of slots) {
+		const named = namedArgumentSlot(slot);
+		if (named) {
+			if (named.name.toLowerCase() === spec.parameterName.toLowerCase()) {
+				return named.value;
+			}
+			continue;
+		}
+		if (positionalIndex === spec.argumentIndex) {
+			return slot;
+		}
+		positionalIndex++;
+	}
+	return undefined;
+}
+
+function negativeIntegerLiteralArgument(
+	slot: readonly VbaToken[],
+	sliceStart: number,
+): { value: number; span: Span } | undefined {
+	const toks = unwrapOuterParens(
+		slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
+	);
+	if (toks.length !== 2 || toks[0].rawText !== '-' || toks[1].kind !== 'integerLiteral') {
+		return undefined;
+	}
+	const rawValue = parseVbaIntegerLiteral(toks[1].rawText);
+	if (rawValue === undefined) {
+		return undefined;
+	}
+	const value = -rawValue;
+	if (value >= 0) {
+		return undefined;
+	}
+	return {
+		value,
+		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[1].end },
+	};
+}
+
+function isRuntimeStringFunctionSuffix(tok: VbaToken | undefined): boolean {
+	return tok?.rawText === '$';
+}
+
+function isDeclarationLikeStatement(toks: readonly VbaToken[]): boolean {
+	const first = tokenText(toks[0]);
+	switch (first) {
+		case 'dim':
+		case 'static':
+		case 'const':
+		case 'private':
+		case 'public':
+		case 'friend':
+		case 'declare':
+		case 'sub':
+		case 'function':
+		case 'property':
+		case 'type':
+		case 'enum':
+			return true;
+		default:
+			return false;
 	}
 }
 
@@ -3938,8 +4154,8 @@ const FIXED_LENGTH_STRING_MAX = 65526;
 
 /**
  * Rule: fixed-length String sizes must be in VBE's accepted range when the
- * length is a decimal literal or a same-procedure/module Const whose value can
- * be reduced to a deterministic decimal integer expression. Broader
+ * length is a decimal literal or a same-procedure/module Const/Enum member
+ * whose value can be reduced to a deterministic integer expression. Broader
  * constant-expression semantics remain deferred.
  */
 function checkFixedLengthStringBounds(
@@ -4012,6 +4228,8 @@ function collectModuleLiteralIntegerConstants(
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup' && member.isConst) {
 			addRawIntegerConstants(member, rawConstants, seen);
+		} else if (member.kind === 'Enum') {
+			addRawEnumIntegerConstants(member, rawConstants, seen);
 		}
 	}
 	return resolveRawIntegerConstants(rawConstants, new Map());
@@ -4068,6 +4286,29 @@ function addRawIntegerConstants(
 		}
 		seen.add(key);
 		rawConstants.set(key, decl.defaultRaw);
+	}
+}
+
+function addRawEnumIntegerConstants(
+	en: EnumNode,
+	rawConstants: Map<string, string | undefined>,
+	seen: Set<string>,
+): void {
+	let previousName: string | undefined;
+	for (const member of en.members) {
+		const name = normalizeDeclaredConstantName(member.name);
+		if (!name) {
+			continue;
+		}
+		const key = name.toLowerCase();
+		if (seen.has(key)) {
+			rawConstants.set(key, undefined);
+			previousName = name;
+			continue;
+		}
+		seen.add(key);
+		rawConstants.set(key, member.valueRaw ?? (previousName ? `${previousName} + 1` : '0'));
+		previousName = name;
 	}
 }
 

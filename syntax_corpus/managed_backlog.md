@@ -204,11 +204,14 @@ Near-term candidates:
 
 - Division, integer division, and `Mod` by literal zero are promoted through
   `division-by-zero`, including decimal/hex/octal literals and same-module or
-  same-procedure decimal/hex/octal integer `Const` expressions; continue with
-  reachability, `On Error Resume Next` policy, enum constants, and broader
+  same-procedure decimal/hex/octal integer `Const` expressions plus
+  current-module Enum member values; continue with reachability,
+  `On Error Resume Next` policy, cross-module enum constants, and broader
   expression-value folding.
-- Negative literal arguments to curated runtime functions such as `Left$` and
-  `String$`.
+- Negative literal argument-value bounds for `Left`/`Left$` and
+  `String`/`String$` are promoted through `runtime-argument-value`; continue
+  with additional runtime functions such as `Space`, `Mid`, `Right`, and
+  `Replace`, plus constant-expression folding only after focused oracle probes.
 - `IIf` eager branch evaluation: oracle cases prove both TruePart and FalsePart
   can raise deterministic runtime errors even when not selected; promote only
   when the branch expression itself is proven fatal.

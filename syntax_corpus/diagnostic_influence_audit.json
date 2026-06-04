@@ -349,11 +349,33 @@
         "division_by_hex_const_zero_runtime",
         "integer_division_by_octal_const_zero_runtime",
         "mod_by_hex_const_nonzero_runtime",
-        "division_by_hex_const_expression_zero_runtime"
+        "division_by_hex_const_expression_zero_runtime",
+        "division_by_enum_zero_runtime",
+        "integer_division_by_implicit_enum_zero_runtime",
+        "mod_by_enum_nonzero_runtime",
+        "division_by_enum_expression_zero_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, and reducible integer Const-expression zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal and Const-expression controls run. Const folding includes decimal/hex/octal integer literals where the expression remains deterministic. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, and broader expression folding until flow/reachability handling is broader.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, and current-module Enum member zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, cross-module enum values, and broader expression folding until flow/reachability handling is broader.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "runtime-argument-value",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE runtime-call value-bound scan",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "left_string_suffix_negative_length_runtime",
+        "left_negative_length_runtime",
+        "left_string_suffix_zero_length_runtime",
+        "string_suffix_negative_repeat_runtime",
+        "string_negative_repeat_runtime",
+        "string_suffix_zero_repeat_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show negative literal Length/Number arguments to Left/Left$ and String/String$ compile successfully and deterministically raise runtime error 5, while zero controls run. The active rule is deliberately narrow: it scans settled procedure statements for literal negative integer arguments, respects bare-call shadowing by source symbols and local declarations, and still allows explicit VBA.Left$ to bind to the intrinsic runtime function.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

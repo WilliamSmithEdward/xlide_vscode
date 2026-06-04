@@ -1822,6 +1822,53 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
+	it('flags negative literal values for selected native VBA runtime argument bounds', () => {
+		const src =
+			'Sub T()\n' +
+			'    a = Left$("abcdef", -1)\n' +
+			'    b = Left("abcdef", -2)\n' +
+			'    c = String$(-3, "x")\n' +
+			'    d = String(-4, "x")\n' +
+			'    e = VBA.Left$("abcdef", -5)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+		expect(hits).toHaveLength(5);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['-1', '-2', '-3', '-4', '-5']);
+		expect(hits[0].message).toContain('Left$');
+		expect(hits[0].message).toContain('Length');
+		expect(hits[0].message).toContain("Run-time error '5'");
+		expect(hits[2].message).toContain('String$');
+		expect(hits[2].message).toContain('Number');
+	});
+
+	it('accepts zero and unknown runtime argument values for selected native bounds', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim count As Long\n' +
+			'    a = Left$("abcdef", 0)\n' +
+			'    b = Left("abcdef", count)\n' +
+			'    c = String$(0, "x")\n' +
+			'    d = String(count, "x")\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'runtime-argument-value')).toHaveLength(0);
+	});
+
+	it('does not treat shadowed Left calls as native runtime argument-value checks', () => {
+		const src =
+			'Public Function Left(ByVal text As String, ByVal count As Long) As String\n' +
+			'End Function\n' +
+			'Sub T()\n' +
+			'    Dim localValue As Long\n' +
+			'    Dim Left As Long\n' +
+			'    a = Left("abcdef", -1)\n' +
+			'    b = VBA.Left$("abcdef", -1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('-1');
+		expect(hits[0].message).toContain('Left$');
+	});
+
 	it('does not infer runtime parameter types from display names', () => {
 		const src = 'Sub T()\n    Randomize "bad"\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
@@ -2973,6 +3020,42 @@ describe('analyzeModule - division by zero', () => {
 		const hits = byCode(analyzeModule(src), 'division-by-zero');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('HexZero');
+	});
+
+	it('errors on zero-valued Enum member divisors', () => {
+		const src =
+			'Private Enum Denominator\n' +
+			'    ExplicitZero = 0\n' +
+			'    ImplicitOne\n' +
+			'    ExplicitTwo = 2\n' +
+			'End Enum\n' +
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / ExplicitZero\n' +
+			'    a = 1 / ImplicitOne\n' +
+			'    a = 1 Mod ExplicitTwo\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('ExplicitZero');
+	});
+
+	it('folds implicit and expression Enum member values for zero divisor checks', () => {
+		const src =
+			'Public Enum Denominator\n' +
+			'    ImplicitZero\n' +
+			'    ImplicitOne\n' +
+			'    ExpressionZero = ImplicitOne - 1\n' +
+			'End Enum\n' +
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 \\ ImplicitZero\n' +
+			'    a = 1 / ExpressionZero\n' +
+			'    a = 1 Mod ImplicitOne\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['ImplicitZero', 'ExpressionZero']);
 	});
 
 	it('errors on zero-valued module and local Const divisors', () => {

@@ -179,6 +179,8 @@ export interface EnumNode extends NodeBase {
 export interface EnumMemberNode extends NodeBase {
 	kind: 'EnumMember';
 	name: string;
+	/** Raw member value expression after `=`, when present. */
+	valueRaw?: string;
 }
 
 /** The kind of procedure (MS-VBAL 5.3). */

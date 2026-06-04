@@ -527,9 +527,15 @@ class Parser {
 			this.cursor.next();
 			const mtokens = codeTokens(stmt);
 			if (mtokens.length > 0) {
+				const eqIndex = mtokens.findIndex((t) => t.rawText === '=');
+				const valueRaw =
+					eqIndex >= 0 && eqIndex + 1 < mtokens.length
+						? this.source.slice(mtokens[eqIndex + 1].start, mtokens[mtokens.length - 1].end)
+						: undefined;
 				members.push({
 					kind: 'EnumMember',
 					name: this.stripBrackets(mtokens[0].rawText),
+					valueRaw,
 					span: { start: stmt.start, end: stmt.end },
 				});
 			}

@@ -766,6 +766,72 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left(\"abcdef\", \"2\")\nEnd Sub\n"
     },
     {
+      "id": "left_string_suffix_negative_length_runtime",
+      "description": "Runtime probe: passing a negative literal Length to Left$ isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", -1)\nEnd Sub\n"
+    },
+    {
+      "id": "left_negative_length_runtime",
+      "description": "Runtime probe: passing a negative literal Length to Left isolates deterministic runtime argument-value validation without a type suffix.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left(\"abcdef\", -1)\nEnd Sub\n"
+    },
+    {
+      "id": "left_string_suffix_zero_length_runtime",
+      "description": "Runtime control: passing zero Length to Left$ should verify the boundary behavior for empty-string output.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", 0)\nEnd Sub\n"
+    },
+    {
+      "id": "string_suffix_negative_repeat_runtime",
+      "description": "Runtime probe: passing a negative literal repeat count to String$ isolates deterministic runtime argument-value validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = String$(-1, \"x\")\nEnd Sub\n"
+    },
+    {
+      "id": "string_negative_repeat_runtime",
+      "description": "Runtime probe: passing a negative literal repeat count to String isolates deterministic runtime argument-value validation without a type suffix.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = String(-1, \"x\")\nEnd Sub\n"
+    },
+    {
+      "id": "string_suffix_zero_repeat_runtime",
+      "description": "Runtime control: passing zero repeat count to String$ should verify the boundary behavior for empty-string output.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = String$(0, \"x\")\nEnd Sub\n"
+    },
+    {
       "id": "colon_separated_dim_statements_compile",
       "description": "Compile control: colon separates multiple Dim statements on one physical line.",
       "provenance": "vbe-oracle-verified",
@@ -1594,6 +1660,50 @@
       "mode": "run",
       "entryPoint": "XlideOracleEntry",
       "source": "Public Sub XlideOracleEntry()\n    Const ZeroDenominator As Long = &H1 - &H1\n    Dim value As Double\n    value = 1 / ZeroDenominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_enum_zero_runtime",
+      "description": "Runtime probe: division by an explicit zero-valued Enum member raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Enum Denominator\n    ZeroDenominator = 0\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / ZeroDenominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "integer_division_by_implicit_enum_zero_runtime",
+      "description": "Runtime probe: integer division by the first implicit Enum member raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Enum Denominator\n    ZeroDenominator\n    NonZeroDenominator\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 \\ ZeroDenominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "mod_by_enum_nonzero_runtime",
+      "description": "Runtime control: Mod by a nonzero Enum member runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Enum Denominator\n    ZeroDenominator\n    NonZeroDenominator\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 Mod NonZeroDenominator\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "division_by_enum_expression_zero_runtime",
+      "description": "Runtime probe: division by an Enum member expression reduced to zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Enum Denominator\n    One = 1\n    ZeroDenominator = One - 1\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / ZeroDenominator\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
     },

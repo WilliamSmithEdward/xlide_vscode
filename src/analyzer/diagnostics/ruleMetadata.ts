@@ -348,6 +348,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	runtimeArgumentValue: {
+		code: 'runtime-argument-value',
+		title: 'Invalid runtime argument value',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 / VBA runtime argument bounds and VBE oracle runtime error 5',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	unknownCallStatement: {
 		code: 'unknown-call',
 		title: 'Sub or Function not defined',

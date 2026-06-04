@@ -237,6 +237,7 @@ const RUNTIME_ERROR_NUMBER_BY_DIAGNOSTIC_CODE = new Map<string, number>([
     ['argument-type-mismatch', 13],
     ['assignment-type-mismatch', 13],
     ['string-arithmetic-coercion', 13],
+    ['runtime-argument-value', 5],
 ]);
 
 function runtimeErrorNumberForDiagnostic(diagnostic: VbaModuleAnalysisDiagnostic): number | undefined {
