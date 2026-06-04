@@ -82,6 +82,24 @@ describe('analyzeVbaModuleSource', () => {
 			]);
 	});
 
+	it('surfaces module declarations inside procedures through the shared analysis core', () => {
+		const source =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Type LocalRecord\n' +
+			'        Id As Long\n' +
+			'    End Type\n' +
+			'    Private Declare Function GetTickCount Lib "kernel32" () As Long\n' +
+			'End Sub\n';
+
+		const hits = diagnosticsByCode(source, 'module-declaration-in-procedure');
+
+		expect(hits.map((hit) => source.slice(hit.span.start, hit.span.end))).toEqual([
+			'Type',
+			'Declare',
+		]);
+	});
+
 	it('allows VBA test directive diagnostics to be suppressed explicitly', () => {
 		const source =
 			"' @xlide-analysis-disable-next-line vba-test-directive\n" +

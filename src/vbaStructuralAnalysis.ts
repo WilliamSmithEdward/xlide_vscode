@@ -10,7 +10,7 @@ export interface VbaStructuralDiagnostic {
     /** 0-based end column (exclusive). */
     endCol: number;
     /** Stable diagnostic code for editor integrations. */
-    code?: 'missing-block-closer' | 'unmatched-block-closer';
+    code?: 'missing-block-closer' | 'unmatched-block-closer' | 'module-declaration-in-procedure';
     /** Closing phrase that can repair a missing-block diagnostic. */
     expectedClose?: string;
     /** 0-based physical line before which the missing closer should be inserted. */
@@ -270,6 +270,11 @@ interface OpenBlock {
 interface ColumnSpan {
     startCol: number;
     endCol: number;
+}
+
+interface ModuleDeclarationInProcedureHit {
+    label: string;
+    span: ColumnSpan;
 }
 
 interface PhysicalLine {
@@ -562,6 +567,61 @@ function preprocessorBranchColumnSpan(raw: string): ColumnSpan | undefined {
     return capturedColumnSpan(stripVba(raw), /^(\s*)(#\s*ElseIf|#\s*Else)\b/i);
 }
 
+function moduleDeclarationInProcedureHit(raw: string): ModuleDeclarationInProcedureHit | undefined {
+    const stripped = stripVba(raw);
+    const procedure = capturedColumnSpan(
+        stripped,
+        /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\b/i,
+    );
+    if (procedure) {
+        return { label: 'Procedure declarations', span: procedure };
+    }
+
+    const property = capturedColumnSpan(
+        stripped,
+        /^(\s*)(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Property\s+(?:Get|Let|Set))\b/i,
+    );
+    if (property) {
+        return { label: 'Procedure declarations', span: property };
+    }
+
+    const typeDeclaration = capturedColumnSpan(
+        stripped,
+        /^(\s*)(?:(?:Public|Private|Global)\s+)?(Type)\b/i,
+    );
+    if (typeDeclaration) {
+        return { label: 'Type declarations', span: typeDeclaration };
+    }
+
+    const enumDeclaration = capturedColumnSpan(
+        stripped,
+        /^(\s*)(?:(?:Public|Private|Global)\s+)?(Enum)\b/i,
+    );
+    if (enumDeclaration) {
+        return { label: 'Enum declarations', span: enumDeclaration };
+    }
+
+    const declare = capturedColumnSpan(
+        stripped,
+        /^(\s*)(?:(?:Public|Private)\s+)?(Declare)\b/i,
+    );
+    if (declare) {
+        return { label: 'Declare statements', span: declare };
+    }
+
+    return undefined;
+}
+
+function activeProcedureBlock(stack: OpenBlock[]): OpenBlock | undefined {
+    for (let i = stack.length - 1; i >= 0; i--) {
+        const block = stack[i];
+        if (block.kind === 'Sub' || block.kind === 'Function' || block.kind === 'Property') {
+            return block;
+        }
+    }
+    return undefined;
+}
+
 function capturedColumnSpan(stripped: string, pattern: RegExp): ColumnSpan | undefined {
     const match = pattern.exec(stripped);
     if (!match) {
@@ -655,6 +715,22 @@ export function analyzeVbaStructure(source: string): VbaStructuralDiagnostic[] {
                     : t.split(/\s+/)[0];
             closeOne(closer, ll.line, word);
             continue;
+        }
+
+        const activeProcedure = activeProcedureBlock(stack);
+        if (activeProcedure) {
+            const declaration = moduleDeclarationInProcedureHit(physical[ll.line] ?? '');
+            const procedureIndent = leadingWhitespace(physical[activeProcedure.line] ?? '').length;
+            if (declaration && declaration.span.startCol > procedureIndent) {
+                problems.push(fullLineProblem(
+                    physical,
+                    ll.line,
+                    `${declaration.label} must appear in the module declarations section, not inside a procedure.`,
+                    'error',
+                    { code: 'module-declaration-in-procedure' },
+                    declaration.span,
+                ));
+            }
         }
 
         const opener = matchOpener(t);

@@ -780,9 +780,11 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   return-typed functions, and `Property Get ... As` headers stay clean.
 > - `invalid-identifier-start` - digit-start declaration names such as
 >   `Dim 1bad As Long`, with precise ranges across declaration contexts.
-> - `module-declaration-in-procedure` - completed module-only statement forms
->   such as `Option`, `DefLng`, and `Public value As Long` inside procedure
->   bodies.
+> - `module-declaration-in-procedure` - module-only forms inside procedure
+>   bodies: completed statement forms such as `Option`, `DefLng`, and
+>   `Public value As Long`, plus indented nested `Type`, `Enum`, `Declare`,
+>   and procedure declarations that would otherwise look block-balanced or
+>   break parser recovery.
 > - `unbalanced-parens` - a `(` left open at a statement boundary or a `)` with
 >   no matching `(`, within one logical statement. Token-stream depth scan that
 >   resets at each statement boundary (newline / depth-0 `:`); parentheses in

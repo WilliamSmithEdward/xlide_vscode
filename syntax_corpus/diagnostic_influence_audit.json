@@ -168,7 +168,7 @@
         "excel_vba_analysis_final_hardening_cases.md",
         "xlide_vba_legacy_visible_corpus_edges.md"
       ],
-      "notes": "Active coverage is limited to completed module-only statement forms that remain inside parsed procedure bodies: Option, Attribute, DefType family statements, and Public/Private/Friend/Global declaration forms. Nested Type/Enum/Declare/procedure recovery-boundary cases remain deferred to a structural parser diagnostic so the analyzer does not hand-scan ambiguous broken blocks.",
+      "notes": "Active coverage has two layers: semantic body scans catch completed module-only statement forms that remain inside parsed procedure bodies, including Option, Attribute, DefType family statements, and Public/Private/Friend/Global declaration forms; structural analysis catches indented nested Type, Enum, Declare, and procedure declarations that otherwise look block-balanced or break parser recovery. Same-indent next members remain treated as missing-closer recovery to avoid noisy false positives.",
       "diagnosticKind": "compile-error"
     },
     {

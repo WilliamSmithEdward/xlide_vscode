@@ -125,6 +125,88 @@ describe('analyzeVbaStructure', () => {
         expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
+    it('flags indented module declarations inside procedures', () => {
+        const src = [
+            'Sub Foo()',
+            '    Type TPoint',
+            '        X As Long',
+            '    End Type',
+            '    Enum Color',
+            '        Red',
+            '    End Enum',
+            '    Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)',
+            '    Private Declare Function GetTickCount Lib "kernel32" () As Long',
+            '    Sub Inner()',
+            '    End Sub',
+            '    Function Nested() As Long',
+            '    End Function',
+            '    Property Get Value() As Long',
+            '    End Property',
+            'End Sub',
+            '',
+        ].join('\n');
+
+        const hits = analyzeVbaStructure(src).filter((problem) =>
+            problem.code === 'module-declaration-in-procedure');
+
+        expect(hits.map((hit) => ({
+            line: hit.line,
+            text: src.split('\n')[hit.line].slice(hit.startCol, hit.endCol),
+            message: hit.message,
+        }))).toEqual([
+            {
+                line: 1,
+                text: 'Type',
+                message: 'Type declarations must appear in the module declarations section, not inside a procedure.',
+            },
+            {
+                line: 4,
+                text: 'Enum',
+                message: 'Enum declarations must appear in the module declarations section, not inside a procedure.',
+            },
+            {
+                line: 7,
+                text: 'Declare',
+                message: 'Declare statements must appear in the module declarations section, not inside a procedure.',
+            },
+            {
+                line: 8,
+                text: 'Declare',
+                message: 'Declare statements must appear in the module declarations section, not inside a procedure.',
+            },
+            {
+                line: 9,
+                text: 'Sub',
+                message: 'Procedure declarations must appear in the module declarations section, not inside a procedure.',
+            },
+            {
+                line: 11,
+                text: 'Function',
+                message: 'Procedure declarations must appear in the module declarations section, not inside a procedure.',
+            },
+            {
+                line: 13,
+                text: 'Property Get',
+                message: 'Procedure declarations must appear in the module declarations section, not inside a procedure.',
+            },
+        ]);
+    });
+
+    it('keeps same-indent next members as missing-closer recovery instead of nested declarations', () => {
+        const src = [
+            'Sub First()',
+            '    value = 1',
+            'Sub Second()',
+            'End Sub',
+            '',
+        ].join('\n');
+        const problems = analyzeVbaStructure(src);
+
+        expect(problems.map((problem) => problem.code)).toEqual(['missing-block-closer']);
+        expect(problems[0].message).toContain("Missing 'End Sub'");
+        expect(problems[0].message).toContain('Sub First');
+    });
+
     it('balances conditional compilation #If blocks', () => {
         const src = [
             '#If VBA7 Then',
