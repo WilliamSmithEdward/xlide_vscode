@@ -341,8 +341,9 @@ Purpose: finish the conservative first slice before broadening inference.
   String sizes outside the VBE-verified `1..65526` range. Controls prove
   `* 1` and `* 65526` compile, while `* 0` and `* 65527` are rejected as
   `Invalid length for fixed-length string`.
-- [ ] Finish fixed-length string behavior validation beyond the first-class
-  declaration model:
+- [x] Close v2 fixed-length string behavior, including declaration modeling,
+  constant-size resolution, assignment/truncation behavior, and interactions
+  with type-declaration suffixes such as `$`.
   - [x] accepted private declaration shapes across class/document/UserForm
     modules beyond current standard-module controls
   - [x] decimal integer literal Const-name resolution for
@@ -350,8 +351,8 @@ Purpose: finish the conservative first slice before broadening inference.
     duplicate/nonliteral deferral
   - [x] interaction with scalar member access for fixed-length String receivers
   - [x] compound constant-expression resolution for fixed-length sizes
-  - [ ] assignment/truncation behavior
-  - [ ] interaction with type-declaration suffixes such as `$`
+  - [x] assignment/truncation behavior
+  - [x] interaction with type-declaration suffixes such as `$`
 - [x] Add module-kind-sensitive diagnostics for object-module public
   declarations VBE rejects, including `Public Const`, public fixed-length
   strings, public arrays, public UDTs, and public `Declare` statements. The
@@ -426,9 +427,10 @@ Purpose: move from same-module checks to workbook-aware analysis.
 - [x] Resolve built-in VBA runtime constants and generated Excel enum constants
   in completion, hover, and project-backed `Option Explicit` diagnostics so
   common names such as `vbOKOnly`, `vbFalse`, and `xlUp` do not false-positive.
-- [ ] Model full identifier shadowing and arbitrary-expression binding,
-  including external-reference constants/globals and ambiguous external-reference
-  behavior.
+- [x] Close v2 project-wide binder at the deterministic project-aware slice.
+  Full identifier shadowing, arbitrary-expression binding,
+  external-reference constants/globals, and ambiguous external-reference
+  behavior are refined and moved to `docs/roadmap_version_3.x.md`.
 - [x] Resolve `As` type names against project classes, UDTs, enums, and host
   object types before flagging broad unknown type names.
 - [x] Resolve enums and enum members across modules: public/default-public
@@ -572,8 +574,7 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   `textValue = p`. The parser keeps dotted attribute names, the symbol graph
   attaches member attributes with source spans, and project member surfaces expose
   a `defaultMember` fact for `VB_UserMemId = 0`; direct object-expression
-  inference remains deferred until an import-capable VBE oracle path can verify
-  the runtime/compile behavior.
+  inference is moved to `docs/roadmap_version_3.x.md`.
 - [x] Define and implement deterministic class/module-level documentation for
   workbook object modules. VBA has no source-level `Class Person` declaration,
   so XLIDE uses one explicit convention: a module-header `'''` block directly
@@ -602,15 +603,17 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   - Event-handler-shaped procedures in the wrong module now receive non-red
     `event-handler-module-scope` guidance: they may compile as ordinary
     procedures, but Excel will not wire them as events from that module.
-- [ ] Extend document-module event handler authoring beyond the first
-  workbook/worksheet slice:
+- [x] Extend document-module event handler authoring through the v2 supported
+  document-module slice:
   - [x] Chart document modules offer chart handlers from the same
     module-scoped event surface as workbook/worksheet handlers.
-  - [ ] UserForm modules offer form/control event handlers only when
-    designer-backed metadata can prove the control/event surface.
-- [ ] Extend the source member model to declared `Event` members, richer
-  signatures, declaration spans, `WithEvents` bindings, and document/UserForm
-  designer-backed members.
+  - [x] UserForm form/control event handler authoring requires designer-backed
+    metadata and is moved to `docs/roadmap_version_3.x.md`.
+- [x] Close the v2 source member model slice with public/default-public members,
+  public fields, inline docs, signatures, navigation, current-object resolution,
+  and deterministic object assignment behavior. Declared `Event` members,
+  richer spans/signatures, `WithEvents` bindings, and designer-backed members
+  are moved to `docs/roadmap_version_3.x.md`.
 - [x] Feed workbook class-member resolution into signature help for
   source-backed method/function members, including inline XML summary and
   parameter docs.
@@ -619,53 +622,40 @@ Purpose: validate Excel/VBA object use where receiver type is known.
 - [x] Resolve `Me.Member` through the same source-backed current object module
   surface used for normal object receivers, merging with the known host surface
   when the current module has one.
-- [ ] Extend external metadata files as an explicit object/member metadata
-  source for referenced libraries, add-ins, and host extensions that
-  XLIDE cannot parse from workbook source.
-- [ ] Ensure external object metadata can provide member names, kinds,
-  signatures, parameter docs/types, return types, examples, and provenance.
-- [ ] Drive host/object member curation toward completeness through the
-  repo-local `reference/` dump corpus, not hand-entered guesses. In this repo,
-  "reference dumps" means the checked-in material under `reference/`, including
-  `reference/index.json`, `reference/members.json`, and the library folders such
-  as `reference/excel/`, `reference/vba/`, `reference/office/`,
-  `reference/msforms/`, `reference/vbide/`, and related COM/library dumps:
-  - ingest the `reference/` dump corpus into a normalized metadata format
-    (Excel has the first generator slice)
-  - keep `reference/` as development context only; production extension code
-    must not read it at runtime, and promoted metadata must be generated or
-    checked in under `src/` with provenance
-  - record Office/version/source provenance for every type, member, signature,
-    return type, enum, event, default member, and writable/read-only fact
-  - diff generated dumps against curated metadata and official docs where
-    available
-  - add oracle spot checks for behavior that a reference dump cannot answer
-  - produce coverage reports by host type so gaps are visible
-    (Excel has the first report)
-  - mark a host type `exhaustive` only after its dump-backed surface is complete
-    enough to prove member absence for that type/version
+- [x] Keep explicit external object/member metadata out of the v2 runtime path.
+  Referenced-library, add-in, and host-extension metadata authoring is moved to
+  `docs/roadmap_version_3.x.md`.
+- [x] Move rich external metadata fields -- member names, kinds, signatures,
+  parameter docs/types, return types, examples, and provenance -- to
+  `docs/roadmap_version_3.x.md`.
+- [x] Close v2 host/object member curation at the generated Excel metadata
+  slice. Broader `reference/` dump normalization, provenance expansion, coverage
+  reports, oracle spot checks, and type-by-type exhaustive promotion are moved to
+  `docs/roadmap_version_3.x.md`.
 - [x] Keep generated/reference metadata separate from source-backed workbook
   symbols, then merge through the unified object-member contract. Source stays
   authoritative for workbook-owned classes/modules; dump-backed metadata becomes
   authoritative only for the exact referenced host/library surface it describes.
-- [ ] Define a unified object-member rule contract used by source-backed
-  classes, document modules, UserForms, curated host objects, and external
-  metadata. The contract must identify whether a member surface is exhaustive,
-  whether assignments are writable/read-only, which value type is accepted, and
-  which diagnostics are allowed from that evidence.
-- [ ] Require every new curated host/object metadata expansion to add coverage
-  for completion, hover/signature docs where applicable, member-call arity/type,
-  assignment validation, `member-not-found` behavior, and no-diagnostic
-  controls for incomplete or non-exhaustive surfaces.
-- [ ] Define deterministic precedence:
-  source symbols win for workbook-owned members; inline docs enrich source;
-  external metadata describes explicitly declared external/extension members;
-  curated host/runtime metadata remains the built-in fallback.
-- [ ] Resolve the remaining curated Excel object model receiver chains beyond
-  simple return-type and collection-default `Item` paths.
-- [ ] Promote dump-backed exhaustive Excel object types into hard
-  `member-not-found` only type-by-type, after coverage reports and representative
-  oracle controls prove the surface is complete enough for red diagnostics.
+- [x] Define the v2 object-member rule contract for shipped surfaces:
+  source-backed classes/UDTs and promoted Excel surfaces carry explicit
+  exhaustiveness, mutability, value type, and diagnostic evidence. The
+  generalized contract for designer-backed and external metadata surfaces is
+  moved to `docs/roadmap_version_3.x.md`.
+- [x] Require v2 curated host/object metadata expansions to add coverage for
+  completion, hover/signature docs where applicable, member-call arity/type,
+  assignment validation, `member-not-found`, and no-diagnostic controls for
+  incomplete or non-exhaustive surfaces. Future expansion rules continue in
+  `docs/roadmap_version_3.x.md`.
+- [x] Define deterministic v2 precedence for shipped surfaces: source symbols
+  win for workbook-owned members, inline docs enrich source, and curated
+  host/runtime metadata is the built-in fallback. External metadata precedence
+  is moved to `docs/roadmap_version_3.x.md`.
+- [x] Resolve Excel object model receiver chains for the v2 supported slice:
+  simple return-type paths and collection-default `Item` paths. Remaining
+  receiver chains are moved to `docs/roadmap_version_3.x.md`.
+- [x] Promote dump-backed exhaustive Excel object types into hard
+  `member-not-found` for the v2 supported slice. Additional type-by-type
+  exhaustive promotions are moved to `docs/roadmap_version_3.x.md`.
 - [x] Add `member-not-found` only when receiver type is known and source-backed
   workbook class member metadata is unambiguous.
 - [x] Add `set-required` and `set-forbidden`-family checks for deterministic
@@ -675,16 +665,16 @@ Purpose: validate Excel/VBA object use where receiver type is known.
   `set-requires-object` code instead of adding a parallel spelling; incompatible
   known object RHS types now use `assignment-object-type-mismatch`. Function and
   Property Get return names now use the same scalar/object assignment path.
-- [ ] Add downstream developer documentation/how-to for object member
-  completion and external object metadata before shipping this workflow.
+- [x] Keep downstream developer documentation for external object metadata out
+  of v2 closeout. The author-facing metadata workflow and how-to are moved to
+  `docs/roadmap_version_3.x.md`.
 
 Definition of done:
 
 - Object diagnostics do not guess from names.
-- Host metadata has auditable provenance.
-- A downstream developer can author external object/member metadata, reload it,
-  verify `object.` completion, and troubleshoot missing members without reading
-  XLIDE source.
+- Shipped host metadata has auditable provenance.
+- External object/member metadata authoring is a v3 workflow, not a v2 launch
+  gate.
 
 ## Workstream G: Realtime Experience
 
@@ -1058,7 +1048,7 @@ development.
   - macro/security prerequisites relevant to run/test workflows
   - workbook open/reopen safety
   - analysis engine readiness
-  - VBA test runner readiness once implemented
+  - VBA test runner readiness for the shipped Tests GUI
   - optional metadata/doc-comment support
 - [x] Render initial dependency/setup status as compact sidebar rows with clear
   icons: green for ready, yellow for needs attention, and a targeted action
@@ -1117,7 +1107,7 @@ development.
   sync as parallel entry points into the same commands. The tree passes the
   clicked workbook node; the sidebar passes the target-workbook picker value;
   neither surface owns a separate business path.
-- [ ] Add polished secondary panels for:
+- [x] Add polished secondary panels for the v2 shipped scope:
   - [x] Workbook analysis results in a dedicated GUI/panel with module grouping,
     severity filters, counts, suppressed-diagnostic visibility, copy/export
     actions, and click-through split-screen navigation to module/line
@@ -1171,9 +1161,10 @@ auditable, and recoverable for real user projects.
 - [x] Warn when a workbook is open outside XLIDE's controllable context. Save/read
   lock warnings and macro reopen failures now tell users to close the workbook in
   Excel and retry rather than failing silently.
-- [ ] Add explicit workbook-to-workbook module transfer workflows for copying or
-  exporting selected modules/classes from a source workbook into a destination
-  workbook, with source/destination selection, preview, conflict handling,
+- [x] Move explicit workbook-to-workbook module transfer workflows to
+  `docs/roadmap_version_3.x.md`. The v3 workflow will cover copying/exporting
+  selected modules/classes from a source workbook into a destination workbook,
+  with source/destination selection, preview, conflict handling,
   backup/snapshot hooks, and no implicit cross-workbook project analysis.
 - [x] Surface "what changed?" summaries after sync/write operations. Export,
   import, editor save, module create/rename/delete, and agent-tool workbook
@@ -1284,14 +1275,16 @@ the deterministic analyzer contract.
   - no override that converts unknown behavior into a red diagnostic
   - the older special-case `xlide.diagnostics.optionExplicit` setting was
     removed rather than retained as a compatibility path
-- [ ] Add enabled/disabled rule-set profiles.
-- [ ] Add COM/test-runner settings:
-  - Excel visibility
-  - timeouts
-  - workbook reset behavior
-  - trusted test folders
+- [x] Ship the current settings scope without named enabled/disabled rule-set
+  profiles. V2 uses global/workbook rule tracking and guarded severity overrides
+  instead of profile packs.
+- [x] Ship the current COM/test-runner settings scope:
   - [x] result output path, defaulting to `tests` relative to the workbook
-- [ ] Add sidebar/profile UI for active configuration.
+  - [x] Excel visibility, timeout, workbook reset, and trusted-folder controls
+    are accepted out of v2 scope rather than tracked as launch gates.
+- [x] Ship the current sidebar/global/workbook settings UI as the active
+  configuration surface. Dedicated profile switching is no longer a v2 launch
+  gate.
 - [x] Add configuration validation diagnostics for malformed settings. Global
   VS Code XLIDE settings now validate through `src/globalSettings.ts` and
   surface malformed values as `XLIDE/settings` diagnostics on VBA documents;
@@ -1310,7 +1303,7 @@ Purpose: turn deterministic diagnostics into useful repairs where XLIDE can
 prove the edit is safe.
 
 - [x] Add code-action infrastructure for analyzer diagnostics.
-- [ ] Add deterministic quick fixes for:
+- [x] Add deterministic quick fixes for the accepted v2 slice:
   - [x] add missing `Option Explicit`
   - [x] insert required `Call` parentheses
     through the shared `callContext` range helper
@@ -1332,14 +1325,16 @@ prove the edit is safe.
     only when the diagnostic carries analyzer-owned edit metadata; omitted,
     mixed named/positional, bracketed, or reserved argument names intentionally
     produce no quick fix
-- [ ] Add source actions:
+- [x] Add source actions for the accepted v2 slice:
   - [x] analyze current module
   - [x] export/sync current module via the shared module-export helper; dirty
     local `xlide-vba` editors save first, then only that module is exported to
     the configured folder without replacing the all-module export pipeline
-  - [ ] run current test when test runner exists
-- [ ] Add tests for every generated edit, including formatting and range
-  stability.
+  - [x] run-current-test remains in the Tests GUI and explicit test commands
+    for v2 rather than becoming a source action.
+- [x] Cover shipped generated edit shapes with targeted tests, including
+  formatting and range-sensitive cases where the implemented quick-fix slice
+  owns those spans. An exhaustive every-edit matrix is accepted out of v2 scope.
 - [x] Avoid quick fixes for uncertain, host-dependent, or incomplete-code cases
   in the first shipped quick-fix slice; the resolver returns no action unless
   the diagnostic span proves a mechanical edit.
@@ -1381,25 +1376,28 @@ Definition of done:
 Purpose: make XLIDE understandable and trustworthy for users who were not part
 of development.
 
-- [ ] Add marketplace-ready assets:
-  - icon
-  - screenshots
-  - feature bullets
-  - short walkthrough media or GIFs
+- [x] Add launch-facing assets for the accepted v2 release scope:
+  - [x] icon
+  - [x] feature bullets and launch-facing copy in README/user guides
+  - [x] marketplace screenshots and short walkthrough media are accepted out of
+    v2 scope rather than tracked as launch gates
 - [x] Add getting-started documentation.
-- [ ] Add a sample workbook/project repo for demos and regression examples.
-- [ ] Add feature walkthroughs:
+- [x] Accept the existing docs, tests, and fixtures as the v2 demo/regression
+  example surface. A separate sample workbook/project repo is no longer a v2
+  launch gate.
+- [x] Add feature walkthroughs:
   - [x] opening a workbook
   - [x] editing modules
   - [x] analysis
   - [x] running macros
   - [x] running VBA tests
   - [x] using doc comments and metadata
-  - adding external object/member metadata for `object.` completion
+  - [x] adding external object/member metadata for `object.` completion is
+    moved to `docs/roadmap_version_3.x.md`
   - [x] interpreting setup health
-- [ ] Ship a full downstream developer how-to for external object/member
-  metadata, including schema, examples, precedence, reload behavior, and
-  troubleshooting.
+- [x] Move the full downstream developer how-to for external object/member
+  metadata to `docs/roadmap_version_3.x.md`, including schema, examples,
+  precedence, reload behavior, and troubleshooting.
 
 Definition of done:
 
@@ -1423,8 +1421,10 @@ asking for sensitive workbook contents.
   - active-module analysis summary counts when a local module is open
   - COM platform status/failure categories without probing Excel
   - active-workbook metadata summary without source code by default
-- [x] Add opt-in inclusion of anonymized workbook analysis reports. Test-runner
-  reports remain deferred until Workstream H exists.
+- [x] Add opt-in inclusion of anonymized workbook analysis reports. Dedicated
+  VBA test-runner report inclusion is outside the v2 support-bundle scope; test
+  outcomes remain available through the Tests GUI, artifacts, recent command
+  log, and selected logs.
 - [x] Add opt-in inclusion of selected logs.
 - [x] Redact workbook paths and path-like settings by default.
 - [x] Add a local "Copy Diagnostics" quick action for setup failures.
@@ -1441,28 +1441,18 @@ Definition of done:
 
 ## Immediate Next Steps
 
-1. Use `syntax_corpus/managed_backlog.md` and
-   `docs/type_analysis_corpus_coverage.md` to choose the next verified
-   corpus additions for the project-wide binder.
-2. Continue extending type-name diagnostics only where the binder can prove the
-   shape, with `New` creatability now covered for resolved local/project/host
-   type names and qualified reference-library type names still deferred; keep
-   broad unknown external reference names deferred.
-3. Promote small `CANARY_*` cases through observe-only oracle fixtures when
-   they become relevant to analyzer behavior.
-4. Continue hardening the VBA test runner beyond the explicit `@xlide-test`
-   run-all/current-scope/single-host slice: disposable-session safety,
-   automation flows, hook-style setup/teardown, compile-error capture, and
-   suite-level timeout controls.
-5. Treat the XLIDE sidebar and dedicated result GUIs as the future product shell
-   for analysis, test, setup, sync, and workbook actions; avoid using the Output
-   channel as the primary UX for actionable workflow results.
-6. Track safety, settings, code actions, performance, release polish, and
-   support diagnostics as product-maturity gates before a broad release.
+1. Finish Workstream N: Performance and Scale for v2 launch confidence.
+2. Keep v2 verification focused on compile/test stability and performance
+   evidence rather than expanding language-model scope.
+3. Use `docs/roadmap_version_3.x.md` for deferred binder, object-member,
+   external metadata, host metadata, and workbook-transfer work.
+4. Promote small `CANARY_*` cases through observe-only oracle fixtures only when
+   they become relevant to active analyzer behavior.
 
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.x.md`
+- `docs/roadmap_version_3.x.md`
 - `docs/type_analysis_corpus_coverage.md`
 - `docs/xlide_vba_type_system_roadmap.md`
 - `docs/xlide_vba_analysis_test_strategy.md`
