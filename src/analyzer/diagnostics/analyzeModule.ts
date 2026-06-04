@@ -310,7 +310,7 @@ function runRules(
 	checkParameterDefaultValues(source, mod, activity, push);
 	checkUnbalancedParens(source, push);
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
-	checkDivisionByZeroExpressions(source, mod, activity, push);
+	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
 	checkDimInitializer(source, mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
@@ -4518,12 +4518,29 @@ class IntegerConstantExpressionParser {
 			this.index++;
 			return parseVbaIntegerLiteral(token.rawText);
 		}
+		const qualifiedName = this.qualifiedConstantName();
+		if (qualifiedName) {
+			return this.constants.get(qualifiedName.toLowerCase());
+		}
 		const name = normalizeFixedLengthConstantName(token.rawText);
 		if (name) {
 			this.index++;
 			return this.constants.get(name.toLowerCase());
 		}
 		return undefined;
+	}
+
+	private qualifiedConstantName(): string | undefined {
+		const qualifier = this.current();
+		const dot = this.tokens[this.index + 1];
+		const member = this.tokens[this.index + 2];
+		const qualifierName = qualifier ? normalizeFixedLengthConstantName(qualifier.rawText) : undefined;
+		const memberName = member ? normalizeFixedLengthConstantName(member.rawText) : undefined;
+		if (!qualifierName || dot?.rawText !== '.' || !memberName) {
+			return undefined;
+		}
+		this.index += 3;
+		return `${qualifierName}.${memberName}`;
 	}
 
 	private current(): VbaToken | undefined {
@@ -5377,10 +5394,12 @@ function isNonUnaryBinaryOperator(tok: VbaToken | undefined): boolean {
 function checkDivisionByZeroExpressions(
 	source: string,
 	mod: ModuleNode,
+	projectIntegerConstants: ReadonlyMap<string, string | undefined> | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity);
+	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
+	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -5447,12 +5466,12 @@ function zeroDivisorToken(
 	}
 	if (
 		first.kind === 'operator' &&
-		(first.rawText === '+' || first.rawText === '-') &&
-		isZeroDivisorAtom(toks[start + 1], constants)
+		(first.rawText === '+' || first.rawText === '-')
 	) {
-		return [first, toks[start + 1]];
+		const signed = zeroDivisorAtomTokenGroup(toks, start + 1, constants);
+		return signed ? [first, ...signed] : undefined;
 	}
-	return isZeroDivisorAtom(first, constants) ? [first] : undefined;
+	return zeroDivisorAtomTokenGroup(toks, start, constants);
 }
 
 function zeroDivisorExpression(
@@ -5488,6 +5507,23 @@ function zeroDivisorExpression(
 		return [toks[start]];
 	}
 	return undefined;
+}
+
+function zeroDivisorAtomTokenGroup(
+	toks: readonly VbaToken[],
+	start: number,
+	constants: ReadonlyMap<string, number | undefined>,
+): VbaToken[] | undefined {
+	const first = toks[start];
+	const firstName = first ? tokenName(first) : undefined;
+	const member = toks[start + 2];
+	const memberName = member ? tokenName(member) : undefined;
+	if (firstName && toks[start + 1]?.rawText === '.' && memberName) {
+		return constants.get(`${firstName}.${memberName}`.toLowerCase()) === 0
+			? [first, toks[start + 1], member]
+			: undefined;
+	}
+	return isZeroDivisorAtom(first, constants) ? [first] : undefined;
 }
 
 function isZeroDivisorAtom(

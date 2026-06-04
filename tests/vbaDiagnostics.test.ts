@@ -1949,6 +1949,62 @@ describe('analyzeModule - argument type validation', () => {
 		]);
 	});
 
+	it('folds module-qualified cross-module Const and Enum values for runtime argument bounds', () => {
+		const caller =
+			'Sub T()\n' +
+			'    a = Left$("abcdef", SharedRuntimeArgs.SharedBadLength)\n' +
+			'    b = Left$("abcdef", SharedRuntimeArgs.SharedGoodLength)\n' +
+			'    c = Mid$("abcdef", SharedRuntimeArgs.SharedBadStart, 1)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{
+					moduleName: 'SharedRuntimeArgs',
+					source:
+						'Public Const SharedBadLength As Long = -1\n' +
+						'Public Const SharedGoodLength As Long = 0\n' +
+						'Public Enum SharedRuntimeStart\n' +
+						'    SharedBadStart = 0\n' +
+						'End Enum\n',
+				},
+			], 'Caller'),
+			'runtime-argument-value',
+		);
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual([
+			'SharedRuntimeArgs.SharedBadLength',
+			'SharedRuntimeArgs.SharedBadStart',
+		]);
+	});
+
+	it('folds exported cross-module Const values through private same-module helpers for runtime argument bounds', () => {
+		const caller =
+			'Sub T()\n' +
+			'    a = Left$("abcdef", SharedBadLengthFromHidden)\n' +
+			'    b = Left$("abcdef", SharedGoodLengthFromHidden)\n' +
+			'    c = Left$("abcdef", SharedRuntimeArgs.SharedBadLengthFromHidden)\n' +
+			'    d = Left$("abcdef", SharedRuntimeArgs.SharedGoodLengthFromHidden)\n' +
+			'    e = Left$("abcdef", SharedRuntimeArgs.HiddenBadLength)\n' +
+			'End Sub\n';
+		const shared =
+			'Private Const HiddenBadLength As Long = -1\n' +
+			'Private Const HiddenGoodLength As Long = 0\n' +
+			'Public Const SharedBadLengthFromHidden As Long = HiddenBadLength\n' +
+			'Public Const SharedGoodLengthFromHidden As Long = HiddenGoodLength\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'SharedRuntimeArgs', source: shared, moduleKind: 'standard' },
+			], 'Caller'),
+			'runtime-argument-value',
+		);
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual([
+			'SharedBadLengthFromHidden',
+			'SharedRuntimeArgs.SharedBadLengthFromHidden',
+		]);
+	});
+
 	it('defers hidden and ambiguous cross-module Const values for runtime argument bounds', () => {
 		const caller =
 			'Sub T()\n' +
@@ -3239,6 +3295,146 @@ describe('analyzeModule - division by zero', () => {
 		const hits = byCode(analyzeModule(src), 'division-by-zero');
 		expect(hits).toHaveLength(2);
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['ModuleZero', 'LocalZero']);
+	});
+
+	it('folds visible cross-module Const and Enum values for zero divisor checks', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / SharedZero\n' +
+			'    a = 1 / SharedOne\n' +
+			'    a = 1 \\ SharedZeroDivisor\n' +
+			'    a = 1 \\ SharedOneDivisor\n' +
+			'End Sub\n';
+		const shared =
+			'Public Const SharedZero As Long = 0\n' +
+			'Public Const SharedOne As Long = 1\n' +
+			'Public Enum SharedDivisor\n' +
+			'    SharedZeroDivisor = 0\n' +
+			'    SharedOneDivisor = 1\n' +
+			'End Enum\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Caller', source: caller },
+				{ moduleName: 'SharedDivisors', source: shared, moduleKind: 'standard' },
+			], 'Caller'),
+			'division-by-zero',
+		);
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['SharedZero', 'SharedZeroDivisor']);
+	});
+
+	it('folds module-qualified cross-module Const and Enum values for zero divisor checks', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / SharedDivisors.SharedZero\n' +
+			'    a = 1 / SharedDivisors.SharedOne\n' +
+			'    a = 1 \\ SharedDivisors.SharedZeroDivisor\n' +
+			'    a = 1 \\ SharedDivisors.SharedOneDivisor\n' +
+			'End Sub\n';
+		const shared =
+			'Public Const SharedZero As Long = 0\n' +
+			'Public Const SharedOne As Long = 1\n' +
+			'Public Enum SharedDivisor\n' +
+			'    SharedZeroDivisor = 0\n' +
+			'    SharedOneDivisor = 1\n' +
+			'End Enum\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Caller', source: caller },
+				{ moduleName: 'SharedDivisors', source: shared, moduleKind: 'standard' },
+			], 'Caller'),
+			'division-by-zero',
+		);
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual([
+			'SharedDivisors.SharedZero',
+			'SharedDivisors.SharedZeroDivisor',
+		]);
+	});
+
+	it('folds exported cross-module Const values through private same-module helpers for zero divisor checks', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / SharedZeroFromHidden\n' +
+			'    a = 1 / SharedOneFromHidden\n' +
+			'    a = 1 / SharedDivisors.SharedZeroFromHidden\n' +
+			'    a = 1 / SharedDivisors.SharedOneFromHidden\n' +
+			'    a = 1 / SharedDivisors.HiddenZero\n' +
+			'End Sub\n';
+		const shared =
+			'Private Const HiddenZero As Long = 0\n' +
+			'Private Const HiddenOne As Long = 1\n' +
+			'Public Const SharedZeroFromHidden As Long = HiddenZero\n' +
+			'Public Const SharedOneFromHidden As Long = HiddenOne\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Caller', source: caller },
+				{ moduleName: 'SharedDivisors', source: shared, moduleKind: 'standard' },
+			], 'Caller'),
+			'division-by-zero',
+		);
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual([
+			'SharedZeroFromHidden',
+			'SharedDivisors.SharedZeroFromHidden',
+		]);
+	});
+
+	it('defers hidden and ambiguous cross-module Const values for zero divisor checks', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / HiddenZero\n' +
+			'    a = 1 / AmbiguousZero\n' +
+			'End Sub\n';
+		const hidden =
+			'Private Const HiddenZero As Long = 0\n';
+		const first =
+			'Public Const AmbiguousZero As Long = 0\n';
+		const second =
+			'Public Const AmbiguousZero As Long = 0\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Caller', source: caller },
+				{ moduleName: 'HiddenDivisors', source: hidden, moduleKind: 'standard' },
+				{ moduleName: 'FirstDivisors', source: first, moduleKind: 'standard' },
+				{ moduleName: 'SecondDivisors', source: second, moduleKind: 'standard' },
+			], 'Caller'),
+			'division-by-zero',
+		);
+
+		expect(hits).toHaveLength(0);
+	});
+
+	it('lets current-module and local Const values shadow cross-module zero divisors', () => {
+		const caller =
+			'Private Const SharedZero As Long = 1\n' +
+			'Public Sub T()\n' +
+			'    Const SharedZeroDivisor As Long = 1\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / SharedZero\n' +
+			'    a = 1 \\ SharedZeroDivisor\n' +
+			'End Sub\n';
+		const shared =
+			'Public Const SharedZero As Long = 0\n' +
+			'Public Enum SharedDivisor\n' +
+			'    SharedZeroDivisor = 0\n' +
+			'End Enum\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Caller', source: caller },
+				{ moduleName: 'SharedDivisors', source: shared, moduleKind: 'standard' },
+			], 'Caller'),
+			'division-by-zero',
+		);
+
+		expect(hits).toHaveLength(0);
 	});
 
 	it('folds parenthesized Const expressions used as divisors', () => {

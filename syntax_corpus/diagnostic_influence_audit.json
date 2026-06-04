@@ -332,7 +332,7 @@
     {
       "code": "division-by-zero",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE literal-divisor expression scan",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE integer-divisor expression scan",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "division_by_zero_literal_runtime",
@@ -353,11 +353,19 @@
         "division_by_enum_zero_runtime",
         "integer_division_by_implicit_enum_zero_runtime",
         "mod_by_enum_nonzero_runtime",
-        "division_by_enum_expression_zero_runtime"
+        "division_by_enum_expression_zero_runtime",
+        "division_by_cross_module_const_zero_runtime",
+        "division_by_cross_module_const_nonzero_runtime",
+        "division_by_cross_module_enum_zero_runtime",
+        "division_by_cross_module_enum_nonzero_runtime",
+        "division_by_module_qualified_const_zero_runtime",
+        "division_by_module_qualified_const_nonzero_runtime",
+        "division_by_module_qualified_enum_zero_runtime",
+        "division_by_module_qualified_enum_nonzero_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, and current-module Enum member zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, cross-module enum values, and broader expression folding until flow/reachability handling is broader.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, and bare/module-qualified visible exported standard-module Const/Enum zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, hidden-helper external constant dependencies, ambiguous external constants, and broader expression folding until flow/reachability handling is broader.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -398,11 +406,15 @@
         "runtime_arg_enum_zero_mid_start_runtime",
         "runtime_arg_cross_module_const_negative_left_length_runtime",
         "runtime_arg_cross_module_const_zero_left_length_runtime",
-        "runtime_arg_cross_module_enum_zero_mid_start_runtime"
+        "runtime_arg_cross_module_enum_zero_mid_start_runtime",
+        "runtime_arg_module_qualified_const_negative_left_length_runtime",
+        "runtime_arg_module_qualified_const_zero_left_length_runtime",
+        "runtime_arg_module_qualified_enum_zero_mid_start_runtime",
+        "runtime_arg_module_qualified_enum_one_mid_start_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, and Replace compile successfully and deterministically raise runtime error 5, while zero/nonzero controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, and visible exported standard-module Const/Enum members outside proven runtime bounds; maps named argument slots; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or hidden external constants as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, and Replace compile successfully and deterministically raise runtime error 5, while zero/nonzero controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, and bare/module-qualified visible exported standard-module Const/Enum members outside proven runtime bounds; maps named argument slots; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or hidden external constants as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

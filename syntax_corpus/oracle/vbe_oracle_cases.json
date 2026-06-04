@@ -1165,6 +1165,144 @@
       "diagnosticMeaning": "runtime-error"
     },
     {
+      "id": "runtime_arg_module_qualified_const_negative_left_length_runtime",
+      "description": "Runtime probe: a module-qualified exported standard-module Const negative Length passed from another module to Left$ isolates deterministic runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Public Const SharedBadLength As Long = -1\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", SharedRuntimeArgs.SharedBadLength)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "runtime_arg_module_qualified_const_zero_left_length_runtime",
+      "description": "Runtime control: a module-qualified exported standard-module Const zero Length passed from another module to Left$ should verify the folded lower bound control.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Public Const SharedGoodLength As Long = 0\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", SharedRuntimeArgs.SharedGoodLength)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "runtime_arg_module_qualified_enum_zero_mid_start_runtime",
+      "description": "Runtime probe: a module-qualified exported standard-module Enum member folding to zero Start passed from another module to Mid$ isolates deterministic runtime argument validation.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Public Enum SharedRuntimeStart\n    SharedBadStart = 0\nEnd Enum\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", SharedRuntimeArgs.SharedBadStart, 1)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "runtime_arg_module_qualified_enum_one_mid_start_runtime",
+      "description": "Runtime control: a module-qualified exported standard-module Enum member folding to one Start passed from another module to Mid$ runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Public Enum SharedRuntimeStart\n    SharedBadStart = 0\n    SharedGoodStart = 1\nEnd Enum\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Mid$(\"abcdef\", SharedRuntimeArgs.SharedGoodStart, 1)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "runtime_arg_cross_module_const_private_helper_negative_left_length_runtime",
+      "description": "Runtime probe: an exported standard-module Const that depends on a private same-module helper and folds to negative Length raises through Left$ from another module.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Private Const HiddenBadLength As Long = -1\nPublic Const SharedBadLengthFromHidden As Long = HiddenBadLength\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", SharedBadLengthFromHidden)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "runtime_arg_cross_module_const_private_helper_zero_left_length_runtime",
+      "description": "Runtime control: an exported standard-module Const that depends on a private same-module helper and folds to zero Length runs through Left$ from another module.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedRuntimeArgs",
+          "type": "standard",
+          "source": "Private Const HiddenGoodLength As Long = 0\nPublic Const SharedGoodLengthFromHidden As Long = HiddenGoodLength\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As String\n    value = Left$(\"abcdef\", SharedGoodLengthFromHidden)\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
       "id": "colon_separated_dim_statements_compile",
       "description": "Compile control: colon separates multiple Dim statements on one physical line.",
       "provenance": "vbe-oracle-verified",
@@ -2039,6 +2177,236 @@
       "source": "Public Enum Denominator\n    One = 1\n    ZeroDenominator = One - 1\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / ZeroDenominator\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_cross_module_const_zero_runtime",
+      "description": "Runtime probe: division by an exported standard-module Const zero from another module raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Const SharedZero As Long = 0\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / SharedZero\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_cross_module_const_nonzero_runtime",
+      "description": "Runtime control: division by an exported standard-module Const nonzero from another module runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Const SharedOne As Long = 1\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / SharedOne\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "division_by_cross_module_enum_zero_runtime",
+      "description": "Runtime probe: integer division by an exported standard-module Enum member zero from another module raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Enum SharedDivisor\n    SharedZeroDivisor = 0\nEnd Enum\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 \\ SharedZeroDivisor\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_cross_module_enum_nonzero_runtime",
+      "description": "Runtime control: Mod by an exported standard-module Enum member nonzero from another module runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Enum SharedDivisor\n    SharedZeroDivisor = 0\n    SharedOneDivisor = 1\nEnd Enum\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 Mod SharedOneDivisor\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "division_by_module_qualified_const_zero_runtime",
+      "description": "Discovery probe: division by a module-qualified exported standard-module Const zero from another module.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Const SharedZero As Long = 0\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / SharedDivisors.SharedZero\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_module_qualified_const_nonzero_runtime",
+      "description": "Discovery control: division by a module-qualified exported standard-module Const nonzero from another module.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Const SharedOne As Long = 1\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / SharedDivisors.SharedOne\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "division_by_module_qualified_enum_zero_runtime",
+      "description": "Discovery probe: integer division by a module-qualified exported standard-module Enum member zero from another module.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Enum SharedDivisor\n    SharedZeroDivisor = 0\nEnd Enum\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 \\ SharedDivisors.SharedZeroDivisor\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_module_qualified_enum_nonzero_runtime",
+      "description": "Discovery control: Mod by a module-qualified exported standard-module Enum member nonzero from another module.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Public Enum SharedDivisor\n    SharedZeroDivisor = 0\n    SharedOneDivisor = 1\nEnd Enum\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 1 Mod SharedDivisors.SharedOneDivisor\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "division_by_cross_module_const_private_helper_zero_runtime",
+      "description": "Runtime probe: division by an exported standard-module Const that depends on a private same-module helper and folds to zero raises division by zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Private Const HiddenZero As Long = 0\nPublic Const SharedZeroFromHidden As Long = HiddenZero\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / SharedZeroFromHidden\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "division_by_cross_module_const_private_helper_nonzero_runtime",
+      "description": "Runtime control: division by an exported standard-module Const that depends on a private same-module helper and folds to nonzero runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedDivisors",
+          "type": "standard",
+          "source": "Private Const HiddenOne As Long = 1\nPublic Const SharedOneFromHidden As Long = HiddenOne\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / SharedOneFromHidden\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     },
     {
       "id": "string_scalar_member_access_compile",

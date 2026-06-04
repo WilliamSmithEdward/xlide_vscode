@@ -719,6 +719,8 @@ describe('ProjectIndex visible identifier names', () => {
 				'Public Const SharedBadLength As Long = -1\n' +
 				'Public Const SharedGoodLength As Long = 2\n' +
 				'Private Const HiddenBadLength As Long = -1\n' +
+				'Private Const HiddenBaseLength As Long = -2\n' +
+				'Public Const SharedHiddenLength As Long = HiddenBaseLength + 1\n' +
 				'Public Enum SharedStart\n' +
 				'    SharedBadStart = 0\n' +
 				'    SharedNextStart\n' +
@@ -738,11 +740,19 @@ describe('ProjectIndex visible identifier names', () => {
 		const constants = index.visibleExternalIntegerConstantExpressions('Caller');
 		expect(constants.get('localbadlength')).toBeUndefined();
 		expect(constants.get('hiddenbadlength')).toBeUndefined();
+		expect(constants.get('hiddenbaselength')).toBeUndefined();
+		expect(constants.get('globals.hiddenbaselength')).toBeUndefined();
 		expect(constants.get('classvalue')).toBeUndefined();
 		expect(constants.get('sharedbadlength')).toBeUndefined();
 		expect(constants.get('sharedgoodlength')).toBe('2');
+		expect(constants.get('sharedhiddenlength')).toBe('-1');
 		expect(constants.get('sharedbadstart')).toBe('0');
-		expect(constants.get('sharednextstart')).toBe('SharedBadStart + 1');
+		expect(constants.get('sharednextstart')).toBe('1');
+		expect(constants.get('globals.sharedbadlength')).toBe('-1');
+		expect(constants.get('moreglobals.sharedbadlength')).toBe('0');
+		expect(constants.get('globals.sharedhiddenlength')).toBe('-1');
+		expect(constants.get('globals.sharedbadstart')).toBe('0');
+		expect(constants.get('globals.sharednextstart')).toBe('1');
 	});
 });
 
