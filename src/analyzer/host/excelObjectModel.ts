@@ -402,6 +402,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[RANGE]: {
 			displayName: 'Range',
+			exhaustive: true,
 			members: mergeHostMembers([
 				p('Address'),
 				p('Application', APPLICATION),

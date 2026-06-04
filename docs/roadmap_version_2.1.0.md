@@ -217,6 +217,11 @@ Progress:
   `Workbooks(1).Worksheets(1)`, keeping common chained Worksheet receivers on
   the same proven `member-not-found` surface while later collection/object types
   remain gated on generated coverage and oracle controls.
+- [x] Range host-surface promotion slice: generated `Excel.Range` metadata is
+  now marked exhaustive for hard `member-not-found`, with completion
+  exhaustiveness coverage plus diagnostics for `ActiveCell`, declared `Range`,
+  and chained `Worksheet.Range(...)` receivers while known Range members stay
+  quiet.
 
 Definition of done:
 

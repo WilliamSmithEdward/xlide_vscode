@@ -279,6 +279,9 @@ Landed first:
   proves common chained Worksheet receivers such as
   `Workbooks(1).Worksheets(1)` against the exhaustive Worksheet surface, while
   later collection/object promotions stay gated on generated coverage.
+- Landed Range host-surface promotion slice: generated `Excel.Range` metadata
+  is now marked exhaustive for hard `member-not-found`, with controls for
+  `ActiveCell`, declared `Range`, and chained `Worksheet.Range(...)` receivers.
 - Support external `.vbref.xml` metadata as a first-class type-signature and
   object/member completion source for explicitly declared external APIs.
 - Keep metadata provenance auditable.

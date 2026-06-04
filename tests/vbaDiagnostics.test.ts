@@ -3465,6 +3465,26 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
 	});
 
+	it('uses the exhaustive Range host surface for declared, global, and chained receivers', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim rng As Range\n' +
+			'    ActiveCell.NoSuchMember\n' +
+			'    ActiveCell.Value2\n' +
+			'    rng.DoesNotExist\n' +
+			'    rng.ClearContents\n' +
+			'    Workbooks(1).Worksheets(1).Range("A1").MissingRangeMember\n' +
+			'    Workbooks(1).Worksheets(1).Range("A1").Offset(1, 0).Value = 1\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'NoSuchMember',
+			'DoesNotExist',
+			'MissingRangeMember',
+		]);
+		expect(hits.every((hit) => hit.message.includes('Excel.Range.'))).toBe(true);
+	});
+
 	it('uses the exhaustive runtime object surface for Err', () => {
 		const src =
 			'Public Sub T()\n' +

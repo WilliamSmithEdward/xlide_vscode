@@ -219,7 +219,7 @@ describe('member completion - host globals', () => {
 		expect(accept?.surfaceExhaustive).toBe(true);
 	});
 
-	it('includes generated members on promoted non-exhaustive host surfaces', () => {
+	it('includes generated members on promoted host surfaces with per-type exhaustiveness', () => {
 		const appSrc = 'Sub Test()\n    Application.Centi\nEnd Sub\n';
 		const app = resolveMemberCompletions(appSrc, dotOffset(appSrc, 'Application.Centi'));
 		const centimetersToPoints = app.find((member) => member.name === 'CentimetersToPoints');
@@ -230,7 +230,7 @@ describe('member completion - host globals', () => {
 		const range = resolveMemberCompletions(rangeSrc, dotOffset(rangeSrc, 'rng.Spilling'));
 		const spillingToRange = range.find((member) => member.name === 'SpillingToRange');
 		expect(spillingToRange?.owner).toBe('Excel.Range');
-		expect(spillingToRange?.surfaceExhaustive).toBe(false);
+		expect(spillingToRange?.surfaceExhaustive).toBe(true);
 
 		const sheetSrc = 'Sub Test(ws As Worksheet)\n    ws.Named\nEnd Sub\n';
 		const sheet = resolveMemberCompletions(sheetSrc, dotOffset(sheetSrc, 'ws.Named'));
@@ -1015,6 +1015,14 @@ describe('member completion - negative cases', () => {
 		const namedSheetViews = got.find((member) => member.name === 'NamedSheetViews');
 		expect(namedSheetViews?.owner).toBe('Excel.Worksheet');
 		expect(namedSheetViews?.surfaceExhaustive).toBe(true);
+	});
+
+	it('marks generated Range host member surfaces as exhaustive', () => {
+		const src = 'Sub Test()\n    ActiveCell.Val\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'ActiveCell.Val'));
+		const value2 = got.find((member) => member.name === 'Value2');
+		expect(value2?.owner).toBe('Excel.Range');
+		expect(value2?.surfaceExhaustive).toBe(true);
 	});
 
 	it('marks dump-backed Workbook host member surfaces as exhaustive', () => {
