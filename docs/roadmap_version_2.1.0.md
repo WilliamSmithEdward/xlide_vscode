@@ -163,14 +163,17 @@ Progress:
   recovered conditionally split `#If VBA7` Function headers no longer emit a
   return-assignment warning.
 - [x] Workbook-analysis fixture slice: machine-readable project fixtures can now
-  assert flattened workbook diagnostics. The first stdvba canary keeps one real
-  `Property Get ... End Function` structural error visible while guarding
-  against false positives from module-qualified constants, project-visible
-  ByRef return assignment helpers, default Win64 conditional branches, and
-  verified `Worksheet.Buttons` host metadata. The binder/overlay canary adds
-  ambiguous bare procedure no-diagnostic coverage, module-qualified arity
-  evidence, and same-workbook live-source overlays with cross-workbook overlay
-  isolation.
+  assert flattened workbook diagnostics, including exact module/line/severity
+  and quick-fix evidence for expected problems. The first stdvba canary keeps
+  one real `Property Get ... End Function` structural error visible while
+  guarding against false positives from module-qualified constants,
+  project-visible ByRef return assignment helpers, default Win64 conditional
+  branches, and verified `Worksheet.Buttons` host metadata. The binder/overlay
+  canary adds ambiguous bare procedure no-diagnostic coverage, module-qualified
+  arity evidence, and same-workbook live-source overlays with cross-workbook
+  overlay isolation. The external-reference canary keeps common unresolved
+  `Scripting.Dictionary`, `ADODB.Stream`, `CreateObject`, `TextCompare`, and
+  `VBA.CStr` shapes quiet until explicit external metadata exists.
 
 Definition of done:
 

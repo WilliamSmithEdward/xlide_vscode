@@ -257,13 +257,16 @@ Landed first:
   conditionally split `#If VBA7` Function headers are no longer warned as
   missing return assignments.
 - Landed workbook-analysis fixture slice: `tests/fixtures/vbaProjects` now
-  supports flattened workbook diagnostic assertions. The stdvba canary fixture
+  supports flattened workbook diagnostic assertions, including exact
+  module/line/severity and quick-fix evidence. The stdvba canary fixture
   captures the current no-hacks strategy by combining a real structural error
   with no-diagnostic controls for module-qualified constants, project-visible
   ByRef return assignment helpers, default Win64 branch filtering, and verified
-  Worksheet host members. A binder/overlay canary additionally covers ambiguous
-  bare procedure no-diagnostic behavior, module-qualified arity evidence, and
-  same-workbook live-source overlays without cross-workbook leakage.
+  Worksheet host members. Binder/overlay and external-reference canaries cover
+  ambiguous bare procedure no-diagnostics, module-qualified arity evidence,
+  same-workbook live-source overlays without cross-workbook leakage, and common
+  unresolved reference/library shapes that must stay quiet until explicit
+  metadata exists.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

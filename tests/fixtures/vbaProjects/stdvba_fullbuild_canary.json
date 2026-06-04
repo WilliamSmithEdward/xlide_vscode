@@ -82,6 +82,16 @@
   "assertions": {
     "workbookAnalysis": {
       "problemCount": 1,
+      "problems": [
+        {
+          "moduleName": "stdPerformance",
+          "code": "missing-block-closer",
+          "line": 3,
+          "severity": "error",
+          "messageContains": ["End Property", "Measurement"],
+          "quickFixTitles": ["Replace 'End Function' with 'End Property'"]
+        }
+      ],
       "codes": [
         {
           "code": "missing-block-closer",

@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "id": "workbook-analysis-external-reference-canary",
+  "description": "Workbook-analysis canary for unresolved external/reference-style names that must remain quiet without explicit metadata.",
+  "modules": [
+    {
+      "name": "ExternalConsumer",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub Main()",
+        "    Dim seen As Scripting.Dictionary",
+        "    Dim stream As ADODB.Stream",
+        "    Dim app As Object",
+        "",
+        "    Set seen = New Scripting.Dictionary",
+        "    Set stream = CreateObject(\"ADODB.Stream\")",
+        "    Set app = CreateObject(\"Excel.Application\")",
+        "    seen.CompareMode = TextCompare",
+        "    stream.Open",
+        "    app.Quit",
+        "    MsgBox VBA.CStr(seen.Count)",
+        "End Sub"
+      ]
+    }
+  ],
+  "assertions": {
+    "workbookAnalysis": {
+      "problemCount": 0,
+      "codes": [
+        {
+          "code": "undeclared-variable",
+          "count": 0
+        },
+        {
+          "code": "invalid-as-type-name",
+          "count": 0
+        },
+        {
+          "code": "invalid-new-type-name",
+          "count": 0
+        },
+        {
+          "code": "member-not-found",
+          "count": 0
+        },
+        {
+          "code": "unknown-call",
+          "count": 0
+        }
+      ]
+    }
+  }
+}

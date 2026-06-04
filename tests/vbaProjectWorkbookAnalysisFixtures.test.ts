@@ -14,9 +14,11 @@ vi.mock('vscode', () => ({
 import * as vscode from 'vscode';
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { PythonBridge } from '../src/pythonBridge';
+import type { WorkbookAnalysisProblem } from '../src/vbaWorkbookAnalysis';
 import {
 	fixtureModules,
 	loadVbaProjectFixtures,
+	type VbaProjectFixtureWorkbookProblemAssertion,
 	type VbaProjectFixtureOpenDocumentAssertion,
 	type VbaProjectFixture,
 } from './helpers/vbaProjectFixtures';
@@ -73,6 +75,40 @@ function setOpenDocuments(documents: ReturnType<typeof openDocument>[]): void {
 	(vscode.workspace as unknown as { textDocuments: typeof documents }).textDocuments = documents;
 }
 
+function matchingProblems(
+	problems: readonly WorkbookAnalysisProblem[],
+	expected: VbaProjectFixtureWorkbookProblemAssertion,
+): WorkbookAnalysisProblem[] {
+	return problems.filter((problem) => {
+		if (expected.moduleName && problem.moduleName !== expected.moduleName) {
+			return false;
+		}
+		if (expected.code && problem.code !== expected.code) {
+			return false;
+		}
+		if (expected.line !== undefined && problem.line !== expected.line) {
+			return false;
+		}
+		if (expected.column !== undefined && problem.column !== expected.column) {
+			return false;
+		}
+		if (expected.severity && problem.severity !== expected.severity) {
+			return false;
+		}
+		for (const text of expected.messageContains ?? []) {
+			if (!problem.message.includes(text)) {
+				return false;
+			}
+		}
+		for (const title of expected.quickFixTitles ?? []) {
+			if (!(problem.quickFixTitles ?? []).includes(title)) {
+				return false;
+			}
+		}
+		return true;
+	});
+}
+
 describe('machine-readable VBA workbook analysis fixtures', () => {
 	for (const fixture of loadVbaProjectFixtures().filter((item) => item.assertions.workbookAnalysis)) {
 		it(`matches workbook analysis expectations for ${fixture.id}`, async () => {
@@ -92,6 +128,10 @@ describe('machine-readable VBA workbook analysis fixtures', () => {
 
 			if (assertion?.problemCount !== undefined) {
 				expect(analysis.problems, problemSummary).toHaveLength(assertion.problemCount);
+			}
+			for (const expected of assertion?.problems ?? []) {
+				expect(matchingProblems(analysis.problems, expected), `${JSON.stringify(expected)}\n${problemSummary}`)
+					.toHaveLength(1);
 			}
 			for (const codeAssertion of assertion?.codes ?? []) {
 				const hits = analysis.problems.filter((problem) => problem.code === codeAssertion.code);

@@ -79,6 +79,15 @@
         }
       ],
       "problemCount": 1,
+      "problems": [
+        {
+          "moduleName": "Caller",
+          "code": "argument-count",
+          "line": 7,
+          "severity": "error",
+          "messageContains": ["ModuleA.AmbiguousProc", "expected 2 arguments"]
+        }
+      ],
       "codes": [
         {
           "code": "argument-count",

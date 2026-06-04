@@ -80,9 +80,20 @@ export interface VbaProjectFixtureOpenDocumentAssertion {
 	sourceLines: string[];
 }
 
+export interface VbaProjectFixtureWorkbookProblemAssertion {
+	moduleName?: string;
+	code?: string;
+	line?: number;
+	column?: number;
+	severity?: string;
+	messageContains?: string[];
+	quickFixTitles?: string[];
+}
+
 export interface VbaProjectFixtureWorkbookAnalysisAssertion {
 	problemCount?: number;
 	openDocuments?: VbaProjectFixtureOpenDocumentAssertion[];
+	problems?: VbaProjectFixtureWorkbookProblemAssertion[];
 	codes?: VbaProjectFixtureDiagnosticCodeAssertion[];
 	absentCodes?: string[];
 }
