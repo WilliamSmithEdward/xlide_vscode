@@ -797,18 +797,8 @@ function bareAssignmentTarget(
 	source: string,
 	span: Span,
 ): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-	let i = 0;
-	// Skip a leading line label: `Name:`.
-	if (
-		toks.length >= 2 &&
-		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
-		toks[1].rawText === ':'
-	) {
-		i = 2;
-	}
+	const toks = statementTokens(source, span);
+	let i = firstExecutableTokenIndex(toks);
 	// Skip an explicit `Let`; bail on `Set` (object assignment).
 	if (toks[i] && toks[i].kind === 'keyword') {
 		const kw = toks[i].rawText.toLowerCase();
@@ -845,14 +835,7 @@ function memberAssignmentTarget(
 	usesSet: boolean;
 } | undefined {
 	const toks = statementTokens(source, span);
-	let i = 0;
-	if (
-		toks.length >= 2 &&
-		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
-		toks[1].rawText === ':'
-	) {
-		i = 2;
-	}
+	let i = firstExecutableTokenIndex(toks);
 	const usesSet = tokenText(toks[i]) === 'set';
 	if (usesSet || tokenText(toks[i]) === 'let') {
 		i++;
@@ -1551,7 +1534,7 @@ function moduleDeclarationStatementInProcedure(
 	source: string,
 	span: Span,
 ): { label: string; span: Span } | undefined {
-	const toks = statementTokens(source, span);
+	const toks = statementTokensAfterLeadingLabel(source, span);
 	const first = toks[0];
 	const head = tokenText(first);
 	if (!first) {
@@ -1932,13 +1915,14 @@ function extractCall(source: string, span: Span): CallArguments | undefined {
 	const toks = tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
+	const startIndex = firstExecutableTokenIndex(toks);
 	const relCalleeStart = hit.span.start - sliceStart;
 	const calleeIdx = toks.findIndex((t) => t.start === relCalleeStart);
 	if (calleeIdx < 0) {
 		return undefined;
 	}
 
-	const explicitCall = toks[0].rawText.toLowerCase() === 'call';
+	const explicitCall = tokenText(toks[startIndex]) === 'call';
 	const next = toks[calleeIdx + 1];
 	let argToks: VbaToken[];
 	if (explicitCall) {
@@ -2006,10 +1990,10 @@ function extractQualifiedCall(
 		return undefined;
 	}
 
-	let qualifierIdx = 0;
-	const explicitCall = toks[0].rawText.toLowerCase() === 'call';
+	let qualifierIdx = firstExecutableTokenIndex(toks);
+	const explicitCall = tokenText(toks[qualifierIdx]) === 'call';
 	if (explicitCall) {
-		qualifierIdx = 1;
+		qualifierIdx += 1;
 	}
 	const qualifier = tokenName(toks[qualifierIdx]);
 	const dot = toks[qualifierIdx + 1];
@@ -3094,17 +3078,8 @@ function setAssignmentTarget(
 	source: string,
 	span: Span,
 ): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-	let i = 0;
-	if (
-		toks.length >= 2 &&
-		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
-		toks[1].rawText === ':'
-	) {
-		i = 2;
-	}
+	const toks = statementTokens(source, span);
+	const i = firstExecutableTokenIndex(toks);
 	if (tokenText(toks[i]) !== 'set') {
 		return undefined;
 	}
@@ -3359,7 +3334,7 @@ function memberStatementCalls(
 	span: Span,
 	memberCtx: MemberCompletionContext,
 ): BoundMemberCall[] {
-	const toks = statementTokens(source, span);
+	const toks = statementTokensAfterLeadingLabel(source, span);
 	if (toks.length === 0 || topLevelOperatorIndex(toks, '=') >= 0) {
 		return [];
 	}
@@ -4534,10 +4509,7 @@ function undeclaredReferenceSkipIndexes(
 }
 
 function simpleAssignmentLhsIdentifierIndex(toks: readonly VbaToken[]): number {
-	let start = 0;
-	if (toks[1]?.rawText === ':') {
-		start = 2;
-	}
+	let start = firstExecutableTokenIndex(toks);
 	if (tokenText(toks[start]) === 'let' || tokenText(toks[start]) === 'set') {
 		start++;
 	}
@@ -6346,9 +6318,7 @@ function exitTarget(
 	source: string,
 	span: Span,
 ): { word: string; span: Span } | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	const toks = statementTokensAfterLeadingLabel(source, span);
 	if (toks.length < 2 || toks[0].rawText.toLowerCase() !== 'exit') {
 		return undefined;
 	}
@@ -6499,7 +6469,7 @@ function checkContextStatement(
 	ctx: StatementContext,
 	push: PushFn,
 ): void {
-	const toks = statementTokens(source, stmt.span);
+	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 	const first = toks[0];
 	if (!first) {
 		return;
@@ -6561,6 +6531,26 @@ function statementTokens(source: string, span: Span): VbaToken[] {
 	return tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
+}
+
+function statementTokensAfterLeadingLabel(source: string, span: Span): VbaToken[] {
+	const toks = statementTokens(source, span);
+	const firstExecutable = firstExecutableTokenIndex(toks);
+	return firstExecutable > 0 ? toks.slice(firstExecutable) : toks;
+}
+
+function firstExecutableTokenIndex(toks: readonly VbaToken[]): number {
+	if (toks.length > 1 && toks[0].kind === 'integerLiteral' && /^\d+$/.test(toks[0].rawText)) {
+		return 1;
+	}
+	if (
+		toks.length > 2 &&
+		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
+		toks[1].rawText === ':'
+	) {
+		return 2;
+	}
+	return 0;
 }
 
 function tokenText(token: VbaToken | undefined): string {

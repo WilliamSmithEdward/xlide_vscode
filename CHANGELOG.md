@@ -2,6 +2,19 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.0.2] - 2026-06-04
+
+### Fixed
+
+- Fixed workbook analysis false positives in common line-numbered VBA, including
+  `On Error GoTo 0`, `On Error GoTo -1`, `Erl`, and line-numbered
+  `Select Case`/`Case` blocks.
+- Hardened diagnostics and call analysis around numeric line labels for
+  assignments, `Set` assignments, `Const` writes, procedure calls, argument
+  counts, and mismatched `Exit` statements.
+- Improved workbook analysis result navigation by queueing rapid row clicks and
+  centering the selected finding in the opened module.
+
 ## [2.0.1] - 2026-06-04
 
 ### Changed

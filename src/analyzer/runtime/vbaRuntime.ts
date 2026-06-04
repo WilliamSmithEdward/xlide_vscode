@@ -124,6 +124,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Environ', 'Environ(Expression) As String', 'String'),
 	fn('Shell', 'Shell(PathName, [WindowStyle As VbAppWinStyle = vbMinimizedFocus]) As Double', 'Double'),
 	fn('DoEvents', 'DoEvents() As Integer', 'Integer', undefined, { explicitCall: 'forbidden' }),
+	fn('Erl', 'Erl() As Integer', 'Integer', undefined, { explicitCall: 'forbidden' }),
 	fn('CreateObject', 'CreateObject(Class, [ServerName]) As Object', 'Object'),
 	fn('GetObject', 'GetObject([PathName], [Class]) As Object', 'Object'),
 	stmt('Beep', 'Beep'),

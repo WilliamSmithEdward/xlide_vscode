@@ -46,6 +46,7 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeFunction('FreeFile')?.returns).toBe('Integer');
 		expect(resolveRuntimeFunction('Pmt')?.returns).toBe('Double');
 		expect(resolveRuntimeFunction('CallByName')?.name).toBe('CallByName');
+		expect(resolveRuntimeFunction('Erl')?.returns).toBe('Integer');
 		// File-system commands are statements, not value-returning functions.
 		expect(resolveRuntimeFunction('Kill')?.kind).toBe('statement');
 		expect(resolveRuntimeFunction('MkDir')?.kind).toBe('statement');

@@ -336,6 +336,40 @@ describe('parseModule - block statements (MS-VBAL 5.4)', () => {
 		expect(proc.body.every((n) => n.kind !== 'IfBlock')).toBe(true);
 	});
 
+	it('recognizes block statements after numeric line labels', () => {
+		const src =
+			'Sub F()\n' +
+			'10 If ready Then\n' +
+			'20 End If\n' +
+			'30 For i = 1 To 3\n' +
+			'40 Next i\n' +
+			'50 For Each item In items\n' +
+			'60 Next item\n' +
+			'70 Do\n' +
+			'80 Loop\n' +
+			'90 While flag\n' +
+			'100 Wend\n' +
+			'110 With obj\n' +
+			'120 .Name = "x"\n' +
+			'130 End With\n' +
+			'140 Select Case x\n' +
+			'150 Case 1\n' +
+			'160 End Select\n' +
+			'End Sub\n';
+		const m = parseModule(src);
+		const proc = m.members[0] as ProcedureNode;
+		expect(m.diagnostics).toHaveLength(0);
+		expect(proc.body.map((node) => node.kind)).toEqual([
+			'IfBlock',
+			'ForBlock',
+			'ForBlock',
+			'DoBlock',
+			'WhileBlock',
+			'WithBlock',
+			'SelectBlock',
+		]);
+	});
+
 	it('distinguishes For Each from For', () => {
 		const src = 'Sub F()\n    For Each item In coll\n    Next\nEnd Sub\n';
 		const proc = parseModule(src).members[0] as ProcedureNode;

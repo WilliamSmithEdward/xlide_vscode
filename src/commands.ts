@@ -367,7 +367,10 @@ export function registerCommands(
         problem: WorkbookAnalysisProblem,
         _analysisPanelColumn?: vscode.ViewColumn,
     ): Promise<void> {
-        await queueAnalysisSourceOpen(() => openWorkbookAnalysisProblemNow(filePath, problem));
+        await queueAnalysisSourceOpen(() => openWorkbookAnalysisProblemNow(
+            filePath,
+            problem,
+        ));
     }
 
     async function openWorkbookAnalysisProblemNow(
@@ -385,7 +388,7 @@ export function registerCommands(
         const end = new vscode.Position(line, endColumn);
         const range = new vscode.Range(start, end);
         editor.selection = new vscode.Selection(start, end);
-        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     }
 
     async function suppressWorkbookAnalysisProblem(
@@ -542,7 +545,10 @@ export function registerCommands(
         await run;
     }
 
-    async function showAnalysisSourceDocument(doc: vscode.TextDocument): Promise<vscode.TextEditor> {
+    async function showAnalysisSourceDocument(
+        doc: vscode.TextDocument,
+        viewColumn?: vscode.ViewColumn,
+    ): Promise<vscode.TextEditor> {
         let lastError: unknown;
         let lastEditor: vscode.TextEditor | undefined;
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -550,7 +556,7 @@ export function registerCommands(
                 await delay(50 * attempt);
             }
             try {
-                const editor = await vscode.window.showTextDocument(doc, { preview: false });
+                const editor = await vscode.window.showTextDocument(doc, { preview: false, viewColumn });
                 if (sameDocumentUri(editor.document.uri, doc.uri)) {
                     return editor;
                 }

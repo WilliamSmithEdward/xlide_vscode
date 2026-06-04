@@ -95,6 +95,34 @@ describe('VBA call context', () => {
 			.toMatchObject({ name: 'SaveFile' });
 	});
 
+	it('treats numeric line labels as transparent in call-statement helpers', () => {
+		const source =
+			'Sub T()\n' +
+			'10 MsgBox "hi"\n' +
+			'20 Call SaveFile(1)\n' +
+			'30 Call DoEvents\n' +
+			'40 myFunction()\n' +
+			'End Sub\n';
+
+		expect(bareCallStatementTarget(source, lineSpan(source, '10 MsgBox "hi"')))
+			.toMatchObject({ name: 'MsgBox' });
+		expect(bareCallStatementTarget(source, lineSpan(source, '20 Call SaveFile(1)')))
+			.toMatchObject({ name: 'SaveFile' });
+		expect(explicitCallStatementTarget(source, lineSpan(source, '20 Call SaveFile(1)')))
+			.toMatchObject({ name: 'SaveFile' });
+		expect(explicitCallStatementBareRuntimeRewrite(source, lineSpan(source, '30 Call DoEvents')))
+			.toMatchObject({ name: 'DoEvents' });
+		expect(standaloneEmptyParenthesizedCallStatement(source, lineSpan(source, '40 myFunction()')))
+			.toMatchObject({ name: 'myFunction', isMember: false });
+
+		const { source: activeSource, offset } = at('Sub T()\n50 Call SaveFile(|\nEnd Sub\n');
+		expect(findActiveCallSite(activeSource, offset)).toMatchObject({
+			calleeName: 'SaveFile',
+			isExplicitCall: true,
+			activeParameter: 0,
+		});
+	});
+
 	it('keeps labels, assignments, members, and implicit Application forms out of bare diagnostics', () => {
 		const source =
 			'Sub T()\n' +

@@ -749,7 +749,7 @@ class Parser {
 		if (opener) {
 			return this.parseBlock(opener);
 		}
-		const tokens = codeTokens(stmt);
+		const tokens = codeTokensAfterLineNumber(stmt);
 		if (this.isConditionalDirective(tokens)) {
 			this.cursor.next();
 			return this.parseConditionalDirective(stmt, tokens);
@@ -851,7 +851,7 @@ class Parser {
 	private openerKind(
 		stmt: LogicalStatement,
 	): 'if' | 'for' | 'foreach' | 'do' | 'while' | 'with' | 'select' | undefined {
-		const tokens = codeTokens(stmt);
+		const tokens = codeTokensAfterLineNumber(stmt);
 		const w0 = tokenWord(tokens[0]);
 		switch (w0) {
 			case 'if': {
@@ -877,7 +877,7 @@ class Parser {
 
 	/** Detect a block-closing statement and return its expected-closer tag. */
 	private closerKind(stmt: LogicalStatement): string | undefined {
-		const tokens = codeTokens(stmt);
+		const tokens = codeTokensAfterLineNumber(stmt);
 		const w0 = tokenWord(tokens[0]);
 		if (w0 === 'next') {
 			return 'next';
@@ -1114,4 +1114,13 @@ class Parser {
 			specRef,
 		});
 	}
+}
+
+function codeTokensAfterLineNumber(statement: LogicalStatement): VbaToken[] {
+	const tokens = codeTokens(statement);
+	return tokens.length > 1 && isDecimalLineNumber(tokens[0]) ? tokens.slice(1) : tokens;
+}
+
+function isDecimalLineNumber(token: VbaToken | undefined): boolean {
+	return token?.kind === 'integerLiteral' && /^\d+$/.test(token.rawText);
 }

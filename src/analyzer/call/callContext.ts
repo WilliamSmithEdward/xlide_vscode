@@ -95,15 +95,13 @@ export function bareCallStatementTarget(
 	source: string,
 	span: VbaTextSpan,
 ): BareCallStatementTarget | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	const toks = statementTokensAfterLeadingLineNumber(source, span);
 	if (toks.length === 0) {
 		return undefined;
 	}
 
 	let idx = 0;
-	const explicitCall = toks[0].rawText.toLowerCase() === 'call';
+	const explicitCall = tokenText(toks[0]) === 'call';
 	if (explicitCall) {
 		idx = 1;
 	}
@@ -166,8 +164,8 @@ export function explicitCallStatementTarget(
 	source: string,
 	span: VbaTextSpan,
 ): BareCallStatementTarget | undefined {
-	const toks = statementTokens(source, span);
-	if (toks.length < 2 || toks[0].rawText.toLowerCase() !== 'call') {
+	const toks = statementTokensAfterLeadingLineNumber(source, span);
+	if (toks.length < 2 || tokenText(toks[0]) !== 'call') {
 		return undefined;
 	}
 	const name = tokenName(toks[1]);
@@ -188,14 +186,15 @@ export function explicitCallStatementBareRuntimeRewrite(
 		(t) => t.kind !== 'newline',
 	);
 	const toks = rawToks.filter((t) => t.kind !== 'comment');
-	if (toks.length < 2 || toks[0].rawText.toLowerCase() !== 'call') {
+	const start = leadingLineNumberTokenCount(toks);
+	if (toks.length < start + 2 || tokenText(toks[start]) !== 'call') {
 		return undefined;
 	}
-	const name = tokenName(toks[1]);
+	const name = tokenName(toks[start + 1]);
 	if (!name) {
 		return undefined;
 	}
-	let nextIndex = 2;
+	let nextIndex = start + 2;
 	let emptyParensSpan: VbaTextSpan | undefined;
 	if (toks[nextIndex]?.rawText === '(') {
 		const close = matchParenFrom(toks, nextIndex);
@@ -215,8 +214,14 @@ export function explicitCallStatementBareRuntimeRewrite(
 	}
 	return {
 		name,
-		targetSpan: { start: span.start + toks[1].start, end: span.start + toks[1].end },
-		callPrefixSpan: { start: span.start + toks[0].start, end: span.start + toks[1].start },
+		targetSpan: {
+			start: span.start + toks[start + 1].start,
+			end: span.start + toks[start + 1].end,
+		},
+		callPrefixSpan: {
+			start: span.start + toks[start].start,
+			end: span.start + toks[start + 1].start,
+		},
 		emptyParensSpan,
 	};
 }
@@ -236,11 +241,12 @@ export function explicitCallStatementArgumentListWithoutParens(
 		(t) => t.kind !== 'newline',
 	);
 	const toks = rawToks.filter((t) => t.kind !== 'comment');
-	if (toks.length === 0 || toks[0].rawText.toLowerCase() !== 'call') {
+	const start = leadingLineNumberTokenCount(toks);
+	if (toks.length === start || tokenText(toks[start]) !== 'call') {
 		return undefined;
 	}
-	const consumed = consumeCallableChain(toks, 1);
-	if (!consumed || consumed.nextIndex <= 1) {
+	const consumed = consumeCallableChain(toks, start + 1);
+	if (!consumed || consumed.nextIndex <= start + 1) {
 		return undefined;
 	}
 	const stray = toks[consumed.nextIndex];
@@ -279,10 +285,10 @@ export function standaloneEmptyParenthesizedCallStatement(
 	source: string,
 	span: VbaTextSpan,
 ): ParenthesizedCallStatementTarget | undefined {
-	const toks = statementTokens(source, span);
+	const toks = statementTokensAfterLeadingLineNumber(source, span);
 	if (
 		toks.length < 3 ||
-		toks[0]?.rawText.toLowerCase() === 'call' ||
+		tokenText(toks[0]) === 'call' ||
 		topLevelTokenIndex(toks, '=') >= 0
 	) {
 		return undefined;
@@ -358,13 +364,13 @@ export function callableCompletionShouldInsertParens(
 	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
 		boundary -= 1;
 	}
-	const statement = tokens.slice(boundary + 1, last + 1);
+	const statement = tokensAfterLeadingLineNumber(tokens.slice(boundary + 1, last + 1));
 	if (statement.length === 0) {
 		return false;
 	}
 
-	const prev = statement[statement.length - 1].rawText.toLowerCase();
-	if (prev === 'call' || statement[0].rawText.toLowerCase() === 'call') {
+	const prev = tokenText(statement[statement.length - 1]);
+	if (prev === 'call' || tokenText(statement[0]) === 'call') {
 		return true;
 	}
 	if (statementContainsExpressionIntroducer(statement)) {
@@ -384,8 +390,8 @@ export function isExplicitCallTargetCompletionContext(
 	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
 		boundary -= 1;
 	}
-	const statement = tokens.slice(boundary + 1, last + 1);
-	return statement.length === 1 && statement[0].rawText.toLowerCase() === 'call';
+	const statement = tokensAfterLeadingLineNumber(tokens.slice(boundary + 1, last + 1));
+	return statement.length === 1 && tokenText(statement[0]) === 'call';
 }
 
 /**
@@ -445,12 +451,12 @@ function findParenlessCall(
 			break;
 		}
 	}
-	const stmt = tokens.slice(start);
+	const stmt = tokensAfterLeadingLineNumber(tokens.slice(start));
 	if (stmt.length === 0) {
 		return undefined;
 	}
 	let idx = 0;
-	const isExplicitCall = stmt[0].rawText.toLowerCase() === 'call';
+	const isExplicitCall = tokenText(stmt[0]) === 'call';
 	if (isExplicitCall) {
 		idx = 1;
 	}
@@ -560,6 +566,21 @@ function statementTokens(source: string, span: VbaTextSpan): VbaToken[] {
 	return tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
+}
+
+function statementTokensAfterLeadingLineNumber(source: string, span: VbaTextSpan): VbaToken[] {
+	return tokensAfterLeadingLineNumber(statementTokens(source, span));
+}
+
+function tokensAfterLeadingLineNumber(tokens: readonly VbaToken[]): VbaToken[] {
+	const count = leadingLineNumberTokenCount(tokens);
+	return count > 0 ? [...tokens.slice(count)] : [...tokens];
+}
+
+function leadingLineNumberTokenCount(tokens: readonly VbaToken[]): number {
+	return tokens.length > 1 && tokens[0].kind === 'integerLiteral' && /^\d+$/.test(tokens[0].rawText)
+		? 1
+		: 0;
 }
 
 function tokenName(token: VbaToken | undefined): string | undefined {
@@ -681,7 +702,12 @@ function isExplicitCallTarget(tokens: readonly VbaToken[], calleeIndex: number):
 		}
 		start--;
 	}
-	return tokens[start]?.rawText.toLowerCase() === 'call';
+	const statement = tokensAfterLeadingLineNumber(tokens.slice(start, calleeIndex + 1));
+	return tokenText(statement[0]) === 'call';
+}
+
+function tokenText(token: VbaToken | undefined): string {
+	return (token?.canonicalText ?? token?.rawText ?? '').toLowerCase();
 }
 
 function isStatementBoundary(token: VbaToken): boolean {

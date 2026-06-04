@@ -100,7 +100,7 @@ export function statementLabelReferences(
 	source: string,
 	span: Span,
 ): VbaProcedureLabelReference[] {
-	const toks = statementTokens(source, span);
+	const toks = tokensWithoutLeadingLineNumber(statementTokens(source, span));
 	if (toks.length === 0) {
 		return [];
 	}
@@ -111,6 +111,9 @@ export function statementLabelReferences(
 	for (let i = 0; i < toks.length; i++) {
 		const word = tokenText(toks[i]);
 		if (word === 'goto' || word === 'gosub') {
+			if (word === 'goto' && isOnErrorGotoDisableAt(toks, i)) {
+				continue;
+			}
 			const ref = labelReferenceAfter(toks, span, i + 1, word);
 			if (ref) {
 				refs.push(ref);
@@ -145,7 +148,9 @@ function isProcedureLabelCompletionContext(
 }
 
 function isLabelTargetPrefix(tokens: readonly VbaToken[], prefixLength: number): boolean {
-	let toks = tokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	let toks = tokensWithoutLeadingLineNumber(
+		tokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'),
+	);
 	if (toks.length === 0) {
 		return false;
 	}
@@ -312,6 +317,12 @@ function onErrorGotoDisableTarget(toks: readonly VbaToken[], index: number): boo
 		normalizedDecimalLabel(toks[index + 1].rawText) === '1';
 }
 
+function isOnErrorGotoDisableAt(toks: readonly VbaToken[], gotoIndex: number): boolean {
+	return tokenText(toks[gotoIndex - 2]) === 'on' &&
+		tokenText(toks[gotoIndex - 1]) === 'error' &&
+		onErrorGotoDisableTarget(toks, gotoIndex + 1);
+}
+
 function labelReferenceAfter(
 	toks: readonly VbaToken[],
 	base: Span,
@@ -422,6 +433,13 @@ function statementTokens(source: string, span: Span): VbaToken[] {
 	return tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
+}
+
+function tokensWithoutLeadingLineNumber(tokens: readonly VbaToken[]): VbaToken[] {
+	return tokens.length > 1 && tokens[0].kind === 'integerLiteral' &&
+		normalizedDecimalLabel(tokens[0].rawText) !== undefined
+		? [...tokens.slice(1)]
+		: [...tokens];
 }
 
 function tokenText(token: VbaToken | undefined): string {

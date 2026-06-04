@@ -348,6 +348,17 @@ describe('analyzeModule - assignment to constant', () => {
 			'Sub T()\n    obj.MAX = 5\n    arr(MAX) = 1\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'const-assignment')).toHaveLength(0);
 	});
+
+	it('flags assigning to a Const after a numeric line label', () => {
+		const src =
+			'Const MAX As Long = 10\n' +
+			'Sub T()\n' +
+			'10 MAX = 5\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'const-assignment');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('MAX');
+	});
 });
 
 describe('analyzeModule - Option Explicit', () => {
@@ -538,6 +549,41 @@ describe('analyzeModule - Option Explicit', () => {
 		expect(
 			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
 		).toHaveLength(0);
+	});
+
+	it('accepts Erl in line-numbered error handlers under Option Explicit', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'10 Dim message As String\n' +
+			'20 On Error GoTo Handler\n' +
+			'30 Err.Raise 5\n' +
+			'40 Exit Sub\n' +
+			'Handler:\n' +
+			'50 message = "Error on line " & Erl\n' +
+			'End Sub\n';
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
+	it('handles line-numbered assignment targets under Option Explicit', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Dim declared As Long\n' +
+			'    Dim obj As Object\n' +
+			'10 declared = 1\n' +
+			'20 Set obj = ActiveSheet\n' +
+			'30 missing = 1\n' +
+			'40 Set missingObj = ActiveSheet\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
+			'undeclared-variable',
+		);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['missing', 'missingObj']);
+		expect(hits.every((hit) => hit.message.includes('assigning to it'))).toBe(true);
 	});
 
 	it('does not flag type names, labels, named-argument labels, or unknown external-style calls as reads', () => {
@@ -796,6 +842,16 @@ describe('analyzeModule - unknown call statement', () => {
 		expect(hits[0].data?.createProcedureStub?.edit.newText).toContain(
 			'Private Sub DoesNotExist(ByVal arg1 As Variant)\n',
 		);
+	});
+
+	it('flags unknown calls after numeric line labels', () => {
+		const src =
+			'Sub Main()\n' +
+			'10 DoesNotExist 1\n' +
+			'20 Call AlsoMissing(2)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src, opts), 'unknown-call');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['DoesNotExist', 'AlsoMissing']);
 	});
 
 	it('does not attach procedure-stub metadata for omitted argument slots', () => {
@@ -1164,6 +1220,18 @@ describe('analyzeModule - argument count', () => {
 				newText: ', TODO_b',
 			},
 		});
+	});
+
+	it('checks argument counts for calls after numeric line labels', () => {
+		const src =
+			'Sub Main()\n' +
+			'10 Greet "Ann"\n' +
+			'20 Call Greet("Ann")\n' +
+			'End Sub\n' +
+			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Greet', 'Greet']);
+		expect(hits.every((hit) => hit.message.includes('expected 2 arguments'))).toBe(true);
 	});
 
 	it('flags too many arguments to a same-module Sub', () => {
@@ -4781,6 +4849,13 @@ describe('analyzeModule - Exit statement matches procedure', () => {
 		expect(hits[0].severity).toBe('error');
 	});
 
+	it('flags mismatched Exit statements after numeric line labels', () => {
+		const src = 'Sub T()\n10 Exit Function\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'exit-wrong-proc');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Exit Function');
+	});
+
 	it('flags Exit Sub inside a Function', () => {
 		const src = 'Function F() As Long\n    Exit Sub\nEnd Function\n';
 		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(1);
@@ -4867,6 +4942,17 @@ describe('analyzeModule - procedure labels', () => {
 		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(0);
 	});
 
+	it('accepts On Error disable forms after line numbers and inside single-line If statements', () => {
+		const src =
+			'Sub T(ByVal flag As Boolean)\n' +
+			'10 On Error GoTo 0\n' +
+			'20 If flag Then On Error GoTo 0 Else On Error GoTo Handler\n' +
+			'30 On Error GoTo -1\n' +
+			'Handler:\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(0);
+	});
+
 	it('validates On n GoTo and On n GoSub label lists', () => {
 		const src =
 			'Sub T(ByVal n As Long)\n' +
@@ -4946,6 +5032,19 @@ describe('analyzeModule - statement context', () => {
 			'        Case Else\n' +
 			'            x = 4\n' +
 			'    End Select\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'case-outside-select')).toHaveLength(0);
+	});
+
+	it('accepts line-numbered Case statements inside Select Case', () => {
+		const src =
+			'Sub T()\n' +
+			'10 Select Case x\n' +
+			'20 Case 1, 2\n' +
+			'30 x = 3\n' +
+			'40 Case Else\n' +
+			'50 x = 4\n' +
+			'60 End Select\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'case-outside-select')).toHaveLength(0);
 	});
