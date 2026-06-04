@@ -4844,6 +4844,15 @@ function checkInvalidExpressionSyntax(
 				);
 				return;
 			}
+			const unsupportedQuestion = unsupportedQuestionMarkOperator(source, stmt.span);
+			if (unsupportedQuestion) {
+				push(
+					'invalidExpressionSyntax',
+					"VBA does not support the '?' conditional operator in code modules; use If...Then...Else, or IIf(...) only when both branches are safe to evaluate.",
+					unsupportedQuestion.span,
+				);
+				return;
+			}
 			const hit = invalidOperatorSequence(source, stmt.span);
 			if (hit) {
 				push(
@@ -4908,6 +4917,16 @@ function invalidOperatorSequence(
 		}
 	}
 	return undefined;
+}
+
+function unsupportedQuestionMarkOperator(
+	source: string,
+	span: Span,
+): { span: Span } | undefined {
+	const question = statementTokens(source, span).find(
+		(tok) => tok.kind === 'operator' && tok.rawText === '?',
+	);
+	return question ? { span: absoluteSpan(span, question) } : undefined;
 }
 
 function activeStatementSpanOnLine(source: string, line: Span, offset: number): Span {

@@ -1380,6 +1380,59 @@
       "diagnosticMeaning": "runtime-error"
     },
     {
+      "id": "c_style_ternary_operator_compile",
+      "description": "VBA does not support C-style conditional operator syntax in module code.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim flag As Boolean\n    Dim value As Long\n    value = flag ? 1 : 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "iif_expression_compile",
+      "description": "IIf is the VBA inline conditional function and compiles in expression context.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim flag As Boolean\n    Dim value As Variant\n    value = IIf(flag, 1, 2)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "iif_selected_branch_valid_runtime",
+      "description": "Runtime control: a simple IIf expression with safe branches runs successfully.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Variant\n    value = IIf(True, 1, 2)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "iif_true_evaluates_falsepart_runtime_error",
+      "description": "Runtime probe: IIf evaluates its FalsePart even when the expression is True, so a deterministic false-branch runtime error still fires.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Variant\n    value = IIf(True, 1, 1 / 0)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "iif_false_evaluates_truepart_runtime_error",
+      "description": "Runtime probe: IIf evaluates its TruePart even when the expression is False, so a deterministic true-branch runtime error still fires.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Variant\n    value = IIf(False, 1 / 0, 2)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
       "id": "string_scalar_member_access_compile",
       "description": "Compile probe for a trailing member-access dot on a String variable; explicit VBE focus retest rejects this as Syntax error.",
       "provenance": "vbe-oracle-verified",

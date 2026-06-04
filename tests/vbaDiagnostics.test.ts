@@ -3837,6 +3837,14 @@ describe('analyzeModule - invalid expression syntax', () => {
 		expect(spanText(src, hits[0])).toBe('***');
 	});
 
+	it('flags unsupported C-style ternary syntax', () => {
+		const src = 'Sub T()\n    value = flag ? 1 : 2\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('?');
+		expect(hits[0].message).toContain("'?' conditional operator");
+	});
+
 	it('flags a statement that ends with a binary operator', () => {
 		const src = 'Sub T()\n    total = subtotal *\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
@@ -3894,6 +3902,11 @@ describe('analyzeModule - invalid expression syntax', () => {
 			'    total = subtotal * taxRate\n' +
 			'    message = prefix & suffix\n' +
 			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('accepts IIf as the supported inline conditional function', () => {
+		const src = 'Sub T()\n    value = IIf(flag, 1, 2)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
 	});
 });

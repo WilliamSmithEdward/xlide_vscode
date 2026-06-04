@@ -205,6 +205,9 @@ Near-term candidates:
 - Division, integer division, and `Mod` by literal zero.
 - Negative literal arguments to curated runtime functions such as `Left$` and
   `String$`.
+- `IIf` eager branch evaluation: oracle cases prove both TruePart and FalsePart
+  can raise deterministic runtime errors even when not selected; promote only
+  when the branch expression itself is proven fatal.
 - `On Error Resume Next` suppression boundaries.
 - Conditional reachability for deterministic runtime faults.
 - `Null`, `Empty`, and plus/ampersand coercion controls.

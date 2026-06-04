@@ -555,11 +555,13 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "thisworkbook_trailing_dot_compile",
-        "bare_leading_member_access_inside_with_compile"
+        "bare_leading_member_access_inside_with_compile",
+        "c_style_ternary_operator_compile",
+        "iif_expression_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is deliberately narrow: consecutive non-unary binary operators such as ***, statements ending with a binary operator, and oracle-backed incomplete member access forms such as ThisWorkbook. or a bare . inside an active With block. Live diagnostics suppress incomplete member-access errors while the cursor remains on the active edit line; current-module and workbook validation still report the settled final source.",
+      "notes": "Active coverage is deliberately narrow: consecutive non-unary binary operators such as ***, statements ending with a binary operator, unsupported '?' conditional-operator syntax, and oracle-backed incomplete member access forms such as ThisWorkbook. or a bare . inside an active With block. The IIf compile-valid oracle control confirms the supported inline conditional form remains accepted; separate runtime oracle cases prove IIf branch evaluation behavior for future deterministic-runtime diagnostics. Live diagnostics suppress incomplete member-access errors while the cursor remains on the active edit line; current-module and workbook validation still report the settled final source.",
       "diagnosticKind": "compile-error"
     },
     {
