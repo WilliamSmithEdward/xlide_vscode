@@ -1990,6 +1990,7 @@ function checkArgumentCount(
 			continue;
 		}
 		forEachStatement(member.body, (stmt) => {
+			const projectQualifiedCallSpans = new Set<string>();
 			const statementCall = extractCall(source, stmt.span);
 			const qualifiedStatementCall = statementCall
 				? undefined
@@ -2003,18 +2004,24 @@ function checkArgumentCount(
 					projectSignatures,
 					push,
 				);
+				recordProjectQualifiedCallSpan(effectiveStatementCall, projectQualifiedCallSpans);
 			}
-			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
+			const expressionCallList = expressionCalls(source, stmt.span, moduleSignatures);
+			for (const call of expressionCallList) {
 				if (sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
 				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, push);
+				recordProjectQualifiedCallSpan(call, projectQualifiedCallSpans);
 			}
 			for (const memberCall of memberExpressionCalls(
 				source,
 				stmt.span,
 				memberCtx,
 			)) {
+				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call))) {
+					continue;
+				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
 			}
 			for (const memberCall of memberStatementCalls(
@@ -2022,10 +2029,23 @@ function checkArgumentCount(
 				stmt.span,
 				memberCtx,
 			)) {
+				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call))) {
+					continue;
+				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
 			}
 		}, activity);
 	}
+}
+
+function recordProjectQualifiedCallSpan(call: CallArguments, out: Set<string>): void {
+	if (call.lookupKey) {
+		out.add(callTargetSpanKey(call));
+	}
+}
+
+function callTargetSpanKey(call: CallArguments): string {
+	return `${call.nameSpan.start}:${call.nameSpan.end}`;
 }
 
 function validateCallableArity(
@@ -2335,6 +2355,7 @@ function validateArity(
 	call: CallArguments,
 	push: PushFn,
 ): void {
+	const displayName = callDisplayName(sig, call);
 	const params = sig.params;
 	let required = params.length;
 	for (let k = 0; k < params.length; k++) {
@@ -2356,7 +2377,7 @@ function validateArity(
 			if (!paramNames.has(raw.toLowerCase())) {
 				push(
 					'argumentCount',
-					`Named argument not found: '${raw}' is not a parameter of '${sig.name}'.`,
+					`Named argument not found: '${raw}' is not a parameter of '${displayName}'.`,
 					{
 						start: call.sliceStart + slot[0].start,
 						end: call.sliceStart + slot[0].end,
@@ -2374,7 +2395,7 @@ function validateArity(
 			const placeholder = omittedArgumentPlaceholderData(source, call, param, i);
 			push(
 				'argumentCount',
-				`Argument not optional: '${name}' is required by '${sig.name}'.`,
+				`Argument not optional: '${name}' is required by '${displayName}'.`,
 				call.slotSpans?.[i] ?? call.nameSpan,
 				placeholder,
 			);
@@ -2389,11 +2410,15 @@ function validateArity(
 			: undefined;
 		push(
 			'argumentCount',
-			`Wrong number of arguments to '${sig.name}': expected ${describeArity(required, max)}, but got ${n}.`,
+			`Wrong number of arguments to '${displayName}': expected ${describeArity(required, max)}, but got ${n}.`,
 			call.nameSpan,
 			placeholder,
 		);
 	}
+}
+
+function callDisplayName(sig: CallableTypeSignature, call: CallArguments): string {
+	return call.qualifier ? `${call.qualifier}.${sig.name}` : sig.name;
 }
 
 function omittedArgumentPlaceholderData(

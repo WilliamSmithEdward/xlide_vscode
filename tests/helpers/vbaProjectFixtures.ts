@@ -73,8 +73,16 @@ export interface VbaProjectFixtureDiagnosticAssertion {
 	codes: VbaProjectFixtureDiagnosticCodeAssertion[];
 }
 
+export interface VbaProjectFixtureOpenDocumentAssertion {
+	/** Optional absolute workbook path. When omitted, the fixture workbook path is used. */
+	workbookPath?: string;
+	moduleName: string;
+	sourceLines: string[];
+}
+
 export interface VbaProjectFixtureWorkbookAnalysisAssertion {
 	problemCount?: number;
+	openDocuments?: VbaProjectFixtureOpenDocumentAssertion[];
 	codes?: VbaProjectFixtureDiagnosticCodeAssertion[];
 	absentCodes?: string[];
 }

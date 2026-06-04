@@ -1,4 +1,6 @@
+import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import type * as VscodeType from 'vscode';
 
 vi.mock('vscode', () => ({
 	workspace: {
@@ -9,11 +11,13 @@ vi.mock('vscode', () => ({
 	},
 }));
 
+import * as vscode from 'vscode';
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { PythonBridge } from '../src/pythonBridge';
 import {
 	fixtureModules,
 	loadVbaProjectFixtures,
+	type VbaProjectFixtureOpenDocumentAssertion,
 	type VbaProjectFixture,
 } from './helpers/vbaProjectFixtures';
 
@@ -41,20 +45,56 @@ function bridgeForFixture(fixture: VbaProjectFixture): PythonBridge {
 	} as unknown as PythonBridge;
 }
 
+function fixtureWorkbookPath(fixture: VbaProjectFixture): string {
+	return path.join(path.sep, 'fixtures', `${fixture.id}.xlsm`);
+}
+
+function documentPath(workbookPath: string, moduleName: string): string {
+	return `${workbookPath.replace(/\\/g, '/')}/${encodeURIComponent(moduleName)}.bas`;
+}
+
+function openDocument(
+	fixture: VbaProjectFixture,
+	doc: VbaProjectFixtureOpenDocumentAssertion,
+) {
+	const workbookPath = doc.workbookPath ?? fixtureWorkbookPath(fixture);
+	const uriPath = documentPath(workbookPath, doc.moduleName);
+	return {
+		uri: {
+			scheme: 'xlide-vba',
+			path: uriPath,
+			toString: () => `xlide-vba:${uriPath}`,
+		} as VscodeType.Uri,
+		getText: () => doc.sourceLines.join('\n'),
+	};
+}
+
+function setOpenDocuments(documents: ReturnType<typeof openDocument>[]): void {
+	(vscode.workspace as unknown as { textDocuments: typeof documents }).textDocuments = documents;
+}
+
 describe('machine-readable VBA workbook analysis fixtures', () => {
 	for (const fixture of loadVbaProjectFixtures().filter((item) => item.assertions.workbookAnalysis)) {
 		it(`matches workbook analysis expectations for ${fixture.id}`, async () => {
 			const assertion = fixture.assertions.workbookAnalysis;
-			const result = await analyzeWorkbook(bridgeForFixture(fixture), `${fixture.id}.xlsm`);
-			const problemSummary = result.problems
+			setOpenDocuments((assertion?.openDocuments ?? []).map((doc) => openDocument(fixture, doc)));
+			let result: Awaited<ReturnType<typeof analyzeWorkbook>> | undefined;
+			try {
+				result = await analyzeWorkbook(bridgeForFixture(fixture), fixtureWorkbookPath(fixture));
+			} finally {
+				setOpenDocuments([]);
+			}
+			expect(result).toBeDefined();
+			const analysis = result!;
+			const problemSummary = analysis.problems
 				.map((problem) => `${problem.moduleName}:${problem.line}:${problem.code}: ${problem.message}`)
 				.join('\n');
 
 			if (assertion?.problemCount !== undefined) {
-				expect(result.problems, problemSummary).toHaveLength(assertion.problemCount);
+				expect(analysis.problems, problemSummary).toHaveLength(assertion.problemCount);
 			}
 			for (const codeAssertion of assertion?.codes ?? []) {
-				const hits = result.problems.filter((problem) => problem.code === codeAssertion.code);
+				const hits = analysis.problems.filter((problem) => problem.code === codeAssertion.code);
 				expect(hits, `${codeAssertion.code}\n${problemSummary}`).toHaveLength(codeAssertion.count);
 				const messages = hits.map((hit) => hit.message).join('\n');
 				for (const text of codeAssertion.messagesContain ?? []) {
@@ -62,7 +102,7 @@ describe('machine-readable VBA workbook analysis fixtures', () => {
 				}
 			}
 			for (const code of assertion?.absentCodes ?? []) {
-				expect(result.problems.filter((problem) => problem.code === code), code).toHaveLength(0);
+				expect(analysis.problems.filter((problem) => problem.code === code), code).toHaveLength(0);
 			}
 		});
 	}

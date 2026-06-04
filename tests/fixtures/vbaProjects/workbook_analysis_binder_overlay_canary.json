@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "id": "workbook-analysis-binder-overlay-canary",
+  "description": "Workbook-analysis canary for project binder ambiguity and same-workbook live-source overlays.",
+  "modules": [
+    {
+      "name": "Caller",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub Main()",
+        "    Dim total As Long",
+        "",
+        "    AmbiguousProc 1",
+        "    ModuleA.AmbiguousProc 1",
+        "    total = ModuleA.SharedConst",
+        "    Debug.Print total",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "ModuleA",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Const SharedConst As Long = 1",
+        "",
+        "Public Sub AmbiguousProc(ByVal value As Long, ByVal caption As String)",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "ModuleB",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub AmbiguousProc(ByVal value As Long)",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "OverlayTarget",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Function NeedsLive()",
+        "End Function"
+      ]
+    }
+  ],
+  "assertions": {
+    "workbookAnalysis": {
+      "openDocuments": [
+        {
+          "moduleName": "OverlayTarget",
+          "sourceLines": [
+            "Option Explicit",
+            "",
+            "Public Function NeedsLive()",
+            "    NeedsLive = 1",
+            "End Function"
+          ]
+        },
+        {
+          "workbookPath": "/fixtures/other-workbook.xlsm",
+          "moduleName": "ModuleA",
+          "sourceLines": [
+            "Option Explicit",
+            "",
+            "Public Const SharedConst As Long = 1",
+            "",
+            "Public Sub AmbiguousProc(ByVal value As Long)",
+            "End Sub"
+          ]
+        }
+      ],
+      "problemCount": 1,
+      "codes": [
+        {
+          "code": "argument-count",
+          "count": 1,
+          "messagesContain": ["ModuleA.AmbiguousProc", "expected 2 arguments"]
+        },
+        {
+          "code": "missing-return-assignment",
+          "count": 0
+        },
+        {
+          "code": "undeclared-variable",
+          "count": 0
+        },
+        {
+          "code": "unknown-call",
+          "count": 0
+        }
+      ]
+    }
+  }
+}

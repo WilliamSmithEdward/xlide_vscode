@@ -68,10 +68,12 @@ These are the highest-value additions before the next major binder slice:
 1. **Workbook fixture files**: initial workbook-analysis assertions now run from
    `tests/fixtures/vbaProjects`, including an stdvba canary for real structural
    errors plus no-diagnostic controls around module-qualified constants, ByRef
-   return helpers, default Win64 branch filtering, and Worksheet host metadata.
-   Continue expanding the same fixture format for cross-module calls, classes,
-   UDTs, enums, shadowing, duplicates, unresolved external names, and live-source
-   overlays.
+   return helpers, default Win64 branch filtering, and Worksheet host metadata,
+   plus a binder/overlay canary for ambiguous bare procedure calls,
+   module-qualified arity diagnostics, same-workbook live-source overlays, and
+   cross-workbook overlay isolation. Continue expanding the same fixture format
+   for classes, UDTs, enums, shadowing, duplicates, unresolved external names,
+   and broader overlay scenarios.
 2. **ByRef oracle matrix**: first scalar exactness slice is promoted; continue
    with object references, arrays, Variant behavior, named arguments, and
    runtime mutation behavior.

@@ -261,7 +261,9 @@ Landed first:
   captures the current no-hacks strategy by combining a real structural error
   with no-diagnostic controls for module-qualified constants, project-visible
   ByRef return assignment helpers, default Win64 branch filtering, and verified
-  Worksheet host members.
+  Worksheet host members. A binder/overlay canary additionally covers ambiguous
+  bare procedure no-diagnostic behavior, module-qualified arity evidence, and
+  same-workbook live-source overlays without cross-workbook leakage.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

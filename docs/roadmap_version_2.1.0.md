@@ -167,7 +167,10 @@ Progress:
   `Property Get ... End Function` structural error visible while guarding
   against false positives from module-qualified constants, project-visible
   ByRef return assignment helpers, default Win64 conditional branches, and
-  verified `Worksheet.Buttons` host metadata.
+  verified `Worksheet.Buttons` host metadata. The binder/overlay canary adds
+  ambiguous bare procedure no-diagnostic coverage, module-qualified arity
+  evidence, and same-workbook live-source overlays with cross-workbook overlay
+  isolation.
 
 Definition of done:
 
