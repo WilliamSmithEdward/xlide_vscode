@@ -18,6 +18,20 @@
       "notes": "Project-backed unknown-call uses ProjectIndex.visibleProcedureNames(moduleName), so only same-module procedures and exported standard-module procedures are treated as bare callable names. Private procedures in other modules and object-module members do not suppress the diagnostic."
     },
     {
+      "code": "invalid-line-continuation",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 3.2.2 line-continuation = 1*WSC underscore line-terminator",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_limits_boundary_cases.md",
+        "xlide_vba_visible_analysis_corpus_recommendations.md"
+      ],
+      "notes": "Promotes the settled invalid continuation shapes only: a likely continuation underscore with trailing text/comment, or a likely continuation underscore at a physical line break without required leading whitespace. Dangling final continuations remain a realtime recovery/save-validation candidate.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "duplicate-procedure",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3",
@@ -127,6 +141,34 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "invalid-identifier-start",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 3.3.5 lex-identifier names cannot start with a digit",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "xlide_vba_visible_analysis_corpus_recommendations.md",
+        "excel_vba_analysis_limits_boundary_cases.md"
+      ],
+      "notes": "Active coverage is deliberately limited to digit-start declaration names in declaration contexts. Leading underscore, Unicode, and illegal-character identifier cases remain pending oracle/spec follow-up.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "module-declaration-in-procedure",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2 module declarations and 5.3 procedure declarations",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md",
+        "xlide_vba_legacy_visible_corpus_edges.md"
+      ],
+      "notes": "Active coverage is limited to completed module-only statement forms that remain inside parsed procedure bodies: Option, Attribute, DefType family statements, and Public/Private/Friend/Global declaration forms. Nested Type/Enum/Declare/procedure recovery-boundary cases remain deferred to a structural parser diagnostic so the analyzer does not hand-scan ambiguous broken blocks.",
       "diagnosticKind": "compile-error"
     },
     {

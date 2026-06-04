@@ -297,6 +297,7 @@ function runRules(
 	const memberCtx = diagnosticMemberCompletionContext(opts);
 
 	checkUnterminatedStrings(source, push);
+	checkInvalidLineContinuations(source, push);
 	checkDuplicateProcedures(symbols.root.children ?? [], push);
 	checkDuplicateDeclarations(symbols.root.children ?? [], push);
 	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
@@ -305,6 +306,8 @@ function runRules(
 	checkUndeclaredVariables(source, mod, symbols, activity, opts.knownIdentifiers, push);
 	checkOptionPlacement(source, mod, activity, push);
 	checkProcedureHeader(source, mod, activity, push);
+	checkInvalidIdentifierStarts(source, mod, activity, push);
+	checkModuleDeclarationsInProcedureBodies(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
 	checkParameterOrder(source, mod, activity, push);
 	checkParameterDefaultValues(source, mod, activity, push);
@@ -438,6 +441,186 @@ function checkUnterminatedStrings(source: string, push: PushFn): void {
 			);
 		}
 	}
+}
+
+/**
+ * Rule: VBA line-continuation trivia is strictly `1*WSC "_" line-terminator`.
+ * A likely continuation underscore with trailing text/comment, or without the
+ * required whitespace before it, is a settled compile-time syntax error.
+ */
+function checkInvalidLineContinuations(source: string, push: PushFn): void {
+	let lineStart = 0;
+	while (lineStart < source.length) {
+		let lineEnd = lineStart;
+		while (lineEnd < source.length && source[lineEnd] !== '\r' && source[lineEnd] !== '\n') {
+			lineEnd++;
+		}
+		checkInvalidLineContinuationOnLine(source, lineStart, lineEnd, push);
+		if (lineEnd >= source.length) {
+			break;
+		}
+		lineStart = source[lineEnd] === '\r' && source[lineEnd + 1] === '\n'
+			? lineEnd + 2
+			: lineEnd + 1;
+	}
+}
+
+function checkInvalidLineContinuationOnLine(
+	source: string,
+	lineStart: number,
+	lineEnd: number,
+	push: PushFn,
+): void {
+	const commentStart = physicalLineCommentStart(source, lineStart, lineEnd) ?? lineEnd;
+	const codeLast = lastNonWscOffset(source, lineStart, commentStart);
+	if (codeLast === undefined) {
+		return;
+	}
+	const visibleLineEnd = lastNonWscOffset(source, lineStart, lineEnd);
+	const spanEnd = visibleLineEnd === undefined ? lineEnd : visibleLineEnd + 1;
+
+	for (const underscore of underscoresOutsideStrings(source, lineStart, commentStart)) {
+		const prev = source[underscore - 1];
+		const next = source[underscore + 1];
+		const prevIsWsc = underscore > lineStart && isVbaWsc(prev);
+		const nextStartsIdentifier = next !== undefined && isIdentifierPartChar(next);
+		const hasTrailingText = firstNonWscOffset(source, underscore + 1, lineEnd) !== undefined;
+
+		if (prevIsWsc && hasTrailingText && !nextStartsIdentifier) {
+			push(
+				'invalidLineContinuation',
+				"Line continuation '_' must be the final non-whitespace character on the physical line.",
+				{ start: underscore, end: Math.max(underscore + 1, spanEnd) },
+			);
+			return;
+		}
+
+		if (
+			underscore === codeLast &&
+			lineEnd < source.length &&
+			!prevIsWsc &&
+			!isIdentifierPartChar(prev)
+		) {
+			push(
+				'invalidLineContinuation',
+				"Line continuation '_' must be preceded by whitespace.",
+				{ start: underscore, end: underscore + 1 },
+			);
+			return;
+		}
+	}
+}
+
+function physicalLineCommentStart(
+	source: string,
+	lineStart: number,
+	lineEnd: number,
+): number | undefined {
+	let inString = false;
+	let statementStart = true;
+	for (let i = lineStart; i < lineEnd; i++) {
+		const ch = source[i];
+		if (inString) {
+			if (ch === '"') {
+				if (source[i + 1] === '"') {
+					i++;
+				} else {
+					inString = false;
+				}
+			}
+			continue;
+		}
+		if (ch === '"') {
+			inString = true;
+			statementStart = false;
+			continue;
+		}
+		if (ch === "'") {
+			return i;
+		}
+		if (isVbaWsc(ch)) {
+			continue;
+		}
+		if (ch === ':') {
+			statementStart = true;
+			continue;
+		}
+		if (statementStart && startsRemComment(source, i, lineEnd)) {
+			return i;
+		}
+		statementStart = false;
+	}
+	return undefined;
+}
+
+function underscoresOutsideStrings(
+	source: string,
+	start: number,
+	end: number,
+): number[] {
+	const offsets: number[] = [];
+	let inString = false;
+	for (let i = start; i < end; i++) {
+		const ch = source[i];
+		if (inString) {
+			if (ch === '"') {
+				if (source[i + 1] === '"') {
+					i++;
+				} else {
+					inString = false;
+				}
+			}
+			continue;
+		}
+		if (ch === '"') {
+			inString = true;
+			continue;
+		}
+		if (ch === '_') {
+			offsets.push(i);
+		}
+	}
+	return offsets;
+}
+
+function startsRemComment(source: string, offset: number, end: number): boolean {
+	return offset + 3 <= end &&
+		source.slice(offset, offset + 3).toLowerCase() === 'rem' &&
+		!isIdentifierPartChar(source[offset + 3]);
+}
+
+function firstNonWscOffset(
+	source: string,
+	start: number,
+	end: number,
+): number | undefined {
+	for (let i = start; i < end; i++) {
+		if (!isVbaWsc(source[i])) {
+			return i;
+		}
+	}
+	return undefined;
+}
+
+function lastNonWscOffset(
+	source: string,
+	start: number,
+	end: number,
+): number | undefined {
+	for (let i = end - 1; i >= start; i--) {
+		if (!isVbaWsc(source[i])) {
+			return i;
+		}
+	}
+	return undefined;
+}
+
+function isVbaWsc(ch: string | undefined): boolean {
+	return ch === '\t' || ch === '\u0019' || ch === ' ' || ch === '\u3000';
+}
+
+function isIdentifierPartChar(ch: string | undefined): boolean {
+	return ch !== undefined && /[A-Za-z0-9_]/.test(ch);
 }
 
 /**
@@ -1106,6 +1289,9 @@ function checkProcedureHeader(
 		if (!nameTok) {
 			continue; // malformed in a way the structural analyzer already reports
 		}
+		if (isDigitStartedToken(nameTok)) {
+			continue; // invalid-identifier-start owns the precise declaration-name range
+		}
 		const next = toks[i + 1];
 		if (!next) {
 			continue; // `Sub Foo` with no parameter list is legal
@@ -1127,6 +1313,269 @@ function stripHeaderBrackets(text: string): string {
 	return text.startsWith('[') && text.endsWith(']')
 		? text.slice(1, -1)
 		: text;
+}
+
+function checkInvalidIdentifierStarts(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const report = (kind: string, hit: InvalidIdentifierStartHit | undefined): void => {
+		if (!hit) {
+			return;
+		}
+		push(
+			'invalidIdentifierStart',
+			`Invalid ${kind} name '${hit.name}': identifiers cannot start with a digit.`,
+			hit.span,
+		);
+	};
+
+	const inspectVariableGroup = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			report('variable', invalidDeclarationIdentifierStart(source, decl.span));
+		}
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspectVariableGroup(member);
+			continue;
+		}
+		if (member.kind === 'Type') {
+			report('user-defined type', invalidTypeOrEnumIdentifierStart(source, member.span, 'type'));
+			for (const field of member.fields) {
+				report('type field', invalidDeclarationIdentifierStart(source, field.span));
+			}
+			continue;
+		}
+		if (member.kind === 'Enum') {
+			report('enum', invalidTypeOrEnumIdentifierStart(source, member.span, 'enum'));
+			for (const enumMember of member.members) {
+				report('enum member', invalidDeclarationIdentifierStart(source, enumMember.span));
+			}
+			continue;
+		}
+		if (member.kind === 'Declare') {
+			report('Declare procedure', invalidDeclareIdentifierStart(source, member.span));
+			continue;
+		}
+		if (member.kind === 'ConditionalDirective') {
+			report('conditional compiler constant', invalidConstDirectiveIdentifierStart(source, member.span));
+			continue;
+		}
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		report('procedure', invalidProcedureIdentifierStart(source, member));
+		for (const param of member.params) {
+			report('parameter', invalidParameterIdentifierStart(source, param.span));
+		}
+		forEachVariableGroup(member.body, inspectVariableGroup, activity);
+	}
+}
+
+interface InvalidIdentifierStartHit {
+	name: string;
+	span: Span;
+}
+
+function invalidDeclarationIdentifierStart(
+	source: string,
+	span: Span,
+): InvalidIdentifierStartHit | undefined {
+	const toks = statementTokens(source, span);
+	return invalidDigitIdentifierAt(source, span, toks, 0);
+}
+
+function invalidParameterIdentifierStart(
+	source: string,
+	span: Span,
+): InvalidIdentifierStartHit | undefined {
+	const toks = statementTokens(source, span);
+	let i = 0;
+	while (isParameterModifier(toks[i])) {
+		i++;
+	}
+	return invalidDigitIdentifierAt(source, span, toks, i);
+}
+
+function invalidProcedureIdentifierStart(
+	source: string,
+	proc: ProcedureNode,
+): InvalidIdentifierStartHit | undefined {
+	const header = firstLineSpan(source, proc.span);
+	const toks = statementTokens(source, header);
+	let i = 0;
+	while (i < toks.length && PROC_MODIFIERS.has(tokenText(toks[i]))) {
+		i++;
+	}
+	const head = tokenText(toks[i]);
+	if (head === 'property') {
+		i += 2;
+	} else if (head === 'sub' || head === 'function') {
+		i++;
+	}
+	return invalidDigitIdentifierAt(source, header, toks, i);
+}
+
+function invalidTypeOrEnumIdentifierStart(
+	source: string,
+	span: Span,
+	keyword: 'type' | 'enum',
+): InvalidIdentifierStartHit | undefined {
+	const header = firstLineSpan(source, span);
+	const toks = statementTokens(source, header);
+	let i = 0;
+	if (tokenText(toks[i]) === 'public' || tokenText(toks[i]) === 'private') {
+		i++;
+	}
+	if (tokenText(toks[i]) === keyword) {
+		i++;
+	}
+	return invalidDigitIdentifierAt(source, header, toks, i);
+}
+
+function invalidDeclareIdentifierStart(
+	source: string,
+	span: Span,
+): InvalidIdentifierStartHit | undefined {
+	const toks = statementTokens(source, span);
+	const kindIndex = toks.findIndex(
+		(tok) => tokenText(tok) === 'sub' || tokenText(tok) === 'function',
+	);
+	return invalidDigitIdentifierAt(source, span, toks, kindIndex + 1);
+}
+
+function invalidConstDirectiveIdentifierStart(
+	source: string,
+	span: Span,
+): InvalidIdentifierStartHit | undefined {
+	const toks = statementTokens(source, span);
+	return tokenText(toks[1]) === 'const'
+		? invalidDigitIdentifierAt(source, span, toks, 2)
+		: undefined;
+}
+
+function invalidDigitIdentifierAt(
+	source: string,
+	base: Span,
+	toks: readonly VbaToken[],
+	index: number,
+): InvalidIdentifierStartHit | undefined {
+	const tok = toks[index];
+	if (!tok || !isDigitStartedToken(tok)) {
+		return undefined;
+	}
+	const start = base.start + tok.start;
+	const end = invalidIdentifierTextEnd(source, start, base.end);
+	return {
+		name: source.slice(start, end),
+		span: { start, end },
+	};
+}
+
+function isDigitStartedToken(tok: VbaToken): boolean {
+	return (tok.kind === 'integerLiteral' || tok.kind === 'floatLiteral') && /^\d/.test(tok.rawText);
+}
+
+function invalidIdentifierTextEnd(source: string, start: number, limit: number): number {
+	let end = start;
+	while (end < limit && isInvalidIdentifierTextChar(source[end])) {
+		end++;
+	}
+	return end;
+}
+
+function isInvalidIdentifierTextChar(ch: string | undefined): boolean {
+	return ch !== undefined && /[A-Za-z0-9_]/.test(ch);
+}
+
+function isParameterModifier(tok: VbaToken | undefined): boolean {
+	switch (tokenText(tok)) {
+		case 'optional':
+		case 'byval':
+		case 'byref':
+		case 'paramarray':
+			return true;
+		default:
+			return false;
+	}
+}
+
+const PROCEDURE_BODY_MODULE_DECLARATION_MODIFIERS = new Set(['public', 'private', 'friend', 'global']);
+const DEFTYPE_KEYWORDS = new Set([
+	'defbool',
+	'defbyte',
+	'defcur',
+	'defdate',
+	'defdbl',
+	'defdec',
+	'defint',
+	'deflng',
+	'deflnglng',
+	'deflngptr',
+	'defobj',
+	'defsng',
+	'defstr',
+	'defvar',
+]);
+
+function checkModuleDeclarationsInProcedureBodies(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const inspectStatement = (stmt: StatementNode): void => {
+		const hit = moduleDeclarationStatementInProcedure(source, stmt.span);
+		if (!hit) {
+			return;
+		}
+		push(
+			'moduleDeclarationInProcedure',
+			`${hit.label} must appear in the module declarations section, not inside a procedure.`,
+			hit.span,
+		);
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure') {
+			forEachBodyStatement(member.body, inspectStatement, activity);
+		}
+	}
+}
+
+function moduleDeclarationStatementInProcedure(
+	source: string,
+	span: Span,
+): { label: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	const first = toks[0];
+	const head = tokenText(first);
+	if (!first) {
+		return undefined;
+	}
+	if (head === 'option') {
+		return { label: 'Option statements', span: absoluteSpan(span, first) };
+	}
+	if (head === 'attribute') {
+		return { label: 'Attribute statements', span: absoluteSpan(span, first) };
+	}
+	if (DEFTYPE_KEYWORDS.has(head)) {
+		return {
+			label: `${first.canonicalText ?? first.rawText} statements`,
+			span: absoluteSpan(span, first),
+		};
+	}
+	if (PROCEDURE_BODY_MODULE_DECLARATION_MODIFIERS.has(head)) {
+		return {
+			label: `${first.canonicalText ?? first.rawText} declarations`,
+			span: absoluteSpan(span, first),
+		};
+	}
+	return undefined;
 }
 
 function checkReservedDeclarationNames(
@@ -4676,6 +5125,24 @@ function forEachVariableGroup(
 			visit(node);
 		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
 			forEachVariableGroup((node as { body: BodyNode[] }).body, visit, activity);
+		}
+	}
+}
+
+/** Walks every generic StatementNode in a procedure body, descending into nested blocks. */
+function forEachBodyStatement(
+	body: BodyNode[],
+	visit: (statement: StatementNode) => void,
+	activity?: ConditionalActivityTracker,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'Statement') {
+			visit(node);
+		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
+			forEachBodyStatement((node as { body: BodyNode[] }).body, visit, activity);
 		}
 	}
 }

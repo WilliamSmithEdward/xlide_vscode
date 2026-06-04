@@ -753,6 +753,8 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 > Shipped semantic rules (all high-confidence, spec-referenced in
 > `ruleMetadata.ts` and `docs/spec/MS-VBAL.verification-map.md`):
 > - `unterminated-string` - odd-quote-count detection, handles `""` escapes.
+> - `invalid-line-continuation` - malformed `_` continuations with missing
+>   leading whitespace or trailing text/comment on the physical line.
 > - `duplicate-procedure` - allows Property Get/Let/Set to share a name.
 > - `duplicate-declaration` - param/local collisions, flat procedure scope.
 > - `duplicate-module-variable` - module-level redeclaration.
@@ -776,6 +778,11 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 >   a `Function`/`Property Get`) follows the procedure name, e.g. `Sub My Sub`
 >   or `Function Calc Total()`. Valid parameterless subs, parameterised subs,
 >   return-typed functions, and `Property Get ... As` headers stay clean.
+> - `invalid-identifier-start` - digit-start declaration names such as
+>   `Dim 1bad As Long`, with precise ranges across declaration contexts.
+> - `module-declaration-in-procedure` - completed module-only statement forms
+>   such as `Option`, `DefLng`, and `Public value As Long` inside procedure
+>   bodies.
 > - `unbalanced-parens` - a `(` left open at a statement boundary or a `)` with
 >   no matching `(`, within one logical statement. Token-stream depth scan that
 >   resets at each statement boundary (newline / depth-0 `:`); parentheses in
@@ -826,7 +833,8 @@ Ship useful, high-confidence active analysis.
 Enable these first:
 
 - Unclosed string literal.
-- Invalid line continuation.
+- Invalid line continuation. (Shipped for settled malformed physical-line
+  continuations; dangling final continuations remain realtime/save-policy work.)
 - Missing `End Sub`.
 - Missing `End Function`.
 - Missing `End Property`.

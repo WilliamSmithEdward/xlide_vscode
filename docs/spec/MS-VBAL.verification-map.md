@@ -225,6 +225,7 @@ family) in `registerVbaDiagnostics`.
 | Rule code | Meaning | MS-VBAL | Implementation File | Fixture | Status |
 |---|---|---|---|---|---|
 | `unterminated-string` | String literal with no closing quote | 3.3.4 (string literal token) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `invalid-line-continuation` | A likely line-continuation underscore is missing required leading whitespace, or has trailing text/comment before the physical line ends | 3.2.2 (line-continuation) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `duplicate-procedure` | Two procedures share a name (Get/Let/Set excepted) | 5.3 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `duplicate-declaration` | Param/local redeclared in one procedure scope | 5.2 / 5.3 (declared names) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `duplicate-module-variable` | Module-level variable redeclared | 5.2.3 (module variable declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
@@ -234,6 +235,8 @@ family) in `registerVbaDiagnostics`.
 | `undeclared-variable` | `Option Explicit` module writes to or reads an identifier in a high-confidence value position that resolves to no local/module/project/runtime/host identifier; covered positions include bare assignment/`Set` targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases, while type-name, label, named-argument, and unresolved external-call positions are skipped; runtime constants (`vbOKOnly`) and generated Excel enum constants (`xlUp`) suppress false positives; missing `Option Explicit` remains implicit Variant | 5.2.4.1.1 (Option Explicit) | src/analyzer/diagnostics/analyzeModule.ts + src/analyzer/symbols/projectIndex.ts | tests/vbaDiagnostics.test.ts + tests/vbaSymbolGraph.test.ts + syntax_corpus/oracle/vbe_oracle_cases.json | Verified |
 | `unknown-call` | Call statement whose callee is a bare (non-member) identifier - lone identifier, parenless args (`MsgBox "hi"`), or `Call Foo` - that resolves to no project procedure/Declare, runtime function, host global, `Application` member, or in-scope name | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `invalid-proc-header` | A `Sub`/`Function`/`Property` header where a token other than `(` (or `As` for a `Function`/`Property Get`) follows the procedure name (e.g. `Sub My Sub`) | 5.3.1 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `invalid-identifier-start` | Declaration names that begin with a digit, such as `Dim 1bad As Long`; active coverage is limited to declaration contexts and leaves leading-underscore, Unicode, and illegal-character identifier edge cases deferred | 3.3.5 (lex-identifier) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
+| `module-declaration-in-procedure` | Completed module-only statement forms inside parsed procedure bodies, including `Option`, `Attribute`, `Def*`, and `Public`/`Private`/`Friend`/`Global` declaration forms; nested Type/Enum/Declare/procedure recovery-boundary cases are deferred to structural parsing | 5.2 (module declarations) / 5.3 (procedure declarations) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `invalid-declaration-name` | An unbracketed reserved identifier such as `Dim` or `In` is used where a procedure, variable, parameter, Type, Enum, field, or enum-member declaration name must be an IDENTIFIER; bracketed FOREIGN-NAME forms are accepted | 3.3.5.2 (reserved identifiers) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `unbalanced-parens` | A `(` left open at a statement boundary, or a `)` with no matching `(`, within one logical statement | 3.3.1 (special tokens) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
 | `argument-count` | A call statement to a same-module, unique exported project, module-qualified exported standard-module Sub/Function/Declare, or verified runtime function with an explicit parameter-list signature supplies too few/too many arguments (Optional/ParamArray aware), a named argument names no parameter, or a valid source-backed/host member-call context, parenthesized or parenless, violates a known member signature | 5.4.2.1 (call statement) | src/analyzer/diagnostics/analyzeModule.ts | tests/vbaDiagnostics.test.ts | Verified |
@@ -295,8 +298,9 @@ signatures stays deferred. The
 remaining deferred cases require a full
 expression binder plus a complete host catalogue; without them they would emit
 false positives, which the project's no-false-positive rule forbids. They will
-ship only once they can be proven safe. "Invalid line continuation" is also
-deferred for the same reason.
+ship only once they can be proven safe. The shipped `invalid-line-continuation`
+rule is intentionally limited to settled malformed physical-line shapes; dangling
+final continuations remain a separate realtime-recovery/save-validation policy.
 
 Verification rule: a new diagnostic rule must (1) carry an MS-VBAL
 `specReference` in `ruleMetadata.ts`, (2) be high-confidence, and (3) have

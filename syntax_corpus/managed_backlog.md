@@ -121,8 +121,6 @@ Promotion path:
 
 Near-term candidates:
 
-- Bad line continuation range on `_`.
-- Invalid identifier start range on the identifier.
 - `Set` used with scalar range on the `Set` statement.
 - Missing required argument range on the call site or empty slot.
 

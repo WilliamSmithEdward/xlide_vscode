@@ -158,6 +158,70 @@ describe('analyzeModule - unterminated string', () => {
 	});
 });
 
+describe('analyzeModule - invalid line continuation', () => {
+	it('flags a continuation underscore followed by a trailing comment', () => {
+		const src =
+			'Sub T()\n' +
+			'    Debug.Print "hello" & _ \' bad trailing comment\n' +
+			'        "world"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-line-continuation');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe("_ ' bad trailing comment");
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags a continuation underscore followed by more code on the same line', () => {
+		const src = 'Sub T()\n    total = 1 _ + 2\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-line-continuation');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('_ + 2');
+	});
+
+	it('flags a likely continuation with no whitespace before the underscore', () => {
+		const src =
+			'Sub T()\n' +
+			'    Debug.Print "hello" &_\n' +
+			'        "world"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-line-continuation');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('_');
+	});
+
+	it('accepts valid continuations', () => {
+		const src =
+			'Sub T()\n' +
+			'    Debug.Print "hello" & _\n' +
+			'        "world"\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'invalid-line-continuation')).toHaveLength(0);
+	});
+
+	it('ignores underscores in identifiers, strings, and comments', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim value_name As Long\n' +
+			'    value_name = 1\n' +
+			'    Debug.Print "text _ inside string"\n' +
+			"    ' comment _ at the end\n" +
+			'    Rem comment _ at the end\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'invalid-line-continuation')).toHaveLength(0);
+	});
+
+	it('leaves a final dangling continuation as a realtime recovery case', () => {
+		const src = 'Sub T()\n    Debug.Print "hello" & _';
+
+		expect(byCode(analyzeModule(src), 'invalid-line-continuation')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - duplicate procedures', () => {
 	it('flags two Subs with the same name', () => {
 		const src = 'Sub Foo()\nEnd Sub\nSub Foo()\nEnd Sub\n';
@@ -882,6 +946,102 @@ describe('analyzeModule - invalid procedure header', () => {
 	it('does not flag a Property Get with a return type', () => {
 		const src = 'Property Get Name() As String\nEnd Property\n';
 		expect(byCode(analyzeModule(src), 'invalid-proc-header')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - invalid identifier starts', () => {
+	it('flags digit-start variable and parameter names', () => {
+		const src =
+			'Sub T(ByVal 2bad As Long)\n' +
+			'    Dim 1bad As Long\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-identifier-start');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['2bad', '1bad']);
+		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
+	});
+
+	it('flags digit-start module, procedure, and compiler-constant declaration names', () => {
+		const src =
+			'#Const 1debug = True\n' +
+			'Public Declare Sub 9Sleep Lib "kernel32" ()\n' +
+			'Public Type 3Thing\n' +
+			'    4Field As Long\n' +
+			'End Type\n' +
+			'Public Enum 5Choice\n' +
+			'    6First = 1\n' +
+			'End Enum\n' +
+			'Sub 7Run()\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-identifier-start');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'1debug',
+			'9Sleep',
+			'3Thing',
+			'4Field',
+			'5Choice',
+			'6First',
+			'7Run',
+		]);
+		expect(byCode(analyzeModule(src), 'invalid-proc-header')).toHaveLength(0);
+	});
+
+	it('accepts ordinary and bracketed foreign names', () => {
+		const src =
+			'Sub T(ByVal value1 As Long)\n' +
+			'    Dim value2 As Long\n' +
+			'    Dim [1bad] As Long\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'invalid-identifier-start')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - module declarations inside procedures', () => {
+	it('flags module-only declarations inside procedure bodies', () => {
+		const src =
+			'Sub T()\n' +
+			'    Option Explicit\n' +
+			'    DefLng A-Z\n' +
+			'    Public leakedValue As Long\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-in-procedure');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Option', 'DefLng', 'Public']);
+		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
+	});
+
+	it('checks nested procedure blocks and ignores inactive conditional branches', () => {
+		const src =
+			'Sub T()\n' +
+			'    If True Then\n' +
+			'        DefStr A-Z\n' +
+			'    End If\n' +
+			'    #If Enabled Then\n' +
+			'        DefLng A-Z\n' +
+			'    #End If\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { conditionalCompilation: { compilerConstants: { Enabled: false } } }),
+			'module-declaration-in-procedure',
+		);
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['DefStr']);
+	});
+
+	it('accepts module declarations at module level and procedure-local declarations', () => {
+		const src =
+			'Option Explicit\n' +
+			'DefLng A-Z\n' +
+			'Private moduleValue As Long\n' +
+			'Sub T()\n' +
+			'    Static localValue As Long\n' +
+			'    Const localConst As Long = 1\n' +
+			'    Dim localDim As Long\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
 	});
 });
 
