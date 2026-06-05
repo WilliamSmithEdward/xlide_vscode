@@ -355,6 +355,11 @@ Progress:
   statements now produce a red diagnostic when the name does not match the
   active `For` or `For Each` control variable. Omitted `Next` variables,
   matching names, nested loops, and inactive branches stay quiet.
+- [x] Array ReDim hardening slice: parsed variable declarations now distinguish
+  dynamic array declarators from fixed-bound arrays, and active `ReDim` or
+  `ReDim Preserve` statements now produce a red diagnostic when the target
+  resolves in procedure/module scope to a fixed-size array. Dynamic arrays,
+  undeclared targets, local dynamic shadows, and inactive branches stay quiet.
 
 Definition of done:
 

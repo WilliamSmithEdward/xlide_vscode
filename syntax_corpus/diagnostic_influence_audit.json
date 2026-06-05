@@ -524,6 +524,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "fixed-array-redim",
+      "status": "spec-derived",
+      "sourceOfTruth": "VBA ReDim statement semantics: fixed-size arrays cannot be resized",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage uses parser-backed arrayBounds metadata to distinguish `Dim a()` dynamic arrays from fixed-bound declarations such as `Dim a(1 To 3)`. ReDim targets are resolved conservatively inside the current procedure scope first, then module scope unless shadowed by any local declaration. Dynamic arrays, undeclared ReDim targets, local dynamic shadows, and inactive conditional branches stay silent.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "unexpected-declaration-token",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.2.3.1 plus asserted Excel/VBE oracle case for a trailing identifier after an As type name",

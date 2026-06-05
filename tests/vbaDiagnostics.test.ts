@@ -5019,6 +5019,75 @@ describe('analyzeModule - declaration initializer', () => {
 	});
 });
 
+describe('analyzeModule - array ReDim', () => {
+	it('flags ReDim of a local fixed-size array', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Values(1 To 3) As Long\n' +
+			'    ReDim Values(1 To 10) As Long\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-array-redim');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Values');
+		expect(hits[0].message).toContain('Fixed-size array');
+		expect(hits[0].message).toContain('ReDim');
+	});
+
+	it('flags ReDim Preserve and module-level fixed-size arrays', () => {
+		const src =
+			'Private Values(1 To 3) As Long\n' +
+			'Sub T()\n' +
+			'    ReDim Preserve Values(1 To 10)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-array-redim');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Values');
+	});
+
+	it('accepts dynamic arrays and undeclared ReDim targets', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim dynamicValues() As Long\n' +
+			'    ReDim dynamicValues(1 To 10)\n' +
+			'    ReDim implicitValues(1 To 10)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'fixed-array-redim')).toHaveLength(0);
+	});
+
+	it('lets a local dynamic array shadow a module fixed-size array', () => {
+		const src =
+			'Private Values(1 To 3) As Long\n' +
+			'Sub T()\n' +
+			'    Dim Values() As Long\n' +
+			'    ReDim Values(1 To 10)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'fixed-array-redim')).toHaveLength(0);
+	});
+
+	it('ignores fixed-size arrays in inactive conditional branches', () => {
+		const src =
+			'Sub T()\n' +
+			'#If VBA7 Then\n' +
+			'    Dim Values(1 To 3) As Long\n' +
+			'#Else\n' +
+			'    Dim Values() As Long\n' +
+			'#End If\n' +
+			'    ReDim Values(1 To 10)\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'fixed-array-redim',
+			),
+		).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - unexpected declaration tokens', () => {
 	it('flags a bare identifier after a complete local As type', () => {
 		const src = 'Sub T()\n    Dim s1 As String thisshoulderror\nEnd Sub\n';

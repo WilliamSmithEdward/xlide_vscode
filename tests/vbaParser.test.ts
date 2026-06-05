@@ -225,6 +225,15 @@ describe('parseModule - declarations (MS-VBAL 5.2.3 / 5.2.4)', () => {
 		expect(group.declarations[0].name).toBe('Counter');
 	});
 
+	it('distinguishes fixed and dynamic array declarators', () => {
+		const m = parseModule('Dim fixed(1 To 3) As Long, dynamic() As Long\n');
+		const group = m.members[0] as VariableGroupNode;
+		expect(group.declarations[0].isArray).toBe(true);
+		expect(group.declarations[0].arrayBounds).toBe('1 To 3');
+		expect(group.declarations[1].isArray).toBe(true);
+		expect(group.declarations[1].arrayBounds).toBeUndefined();
+	});
+
 	it('parses Const declarations', () => {
 		const m = parseModule('Const Pi As Double = 3.14159\n');
 		const group = m.members[0] as VariableGroupNode;

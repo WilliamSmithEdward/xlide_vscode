@@ -439,6 +439,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.1',
 		confidence: 'high',
 	},
+	fixedArrayRedim: {
+		code: 'fixed-array-redim',
+		title: 'Fixed-size array cannot be ReDimmed',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL ReDim statement',
+		confidence: 'high',
+	},
 	unexpectedDeclarationToken: {
 		code: 'unexpected-declaration-token',
 		title: 'Unexpected token after declaration type',

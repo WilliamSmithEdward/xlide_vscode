@@ -337,6 +337,7 @@ function runRules(
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
 	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
 	checkDimInitializer(source, mod, activity, push);
+	checkFixedArrayRedim(source, mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
@@ -5499,6 +5500,141 @@ function checkDimInitializer(
 			forEachVariableGroup(member.body, inspect, activity);
 		}
 	}
+}
+
+interface FixedArrayDeclaration {
+	name: string;
+	span: Span;
+}
+
+/**
+ * Rule: ReDim can allocate dynamic arrays, but it cannot resize a variable that
+ * was already declared as a fixed-size array.
+ */
+function checkFixedArrayRedim(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const moduleDeclarations = fixedArrayDeclarationsForModule(mod, activity);
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const localDeclarations = fixedArrayDeclarationsForBody(member.body, activity);
+		const localNames = declarationNamesForBody(member.body, activity);
+		forEachStatement(member.body, (stmt) => {
+			for (const target of redimTargets(source, stmt.span)) {
+				const lower = target.name.toLowerCase();
+				const declaration = localDeclarations.get(lower) ??
+					(localNames.has(lower) ? undefined : moduleDeclarations.get(lower));
+				if (!declaration) {
+					continue;
+				}
+				push(
+					'fixedArrayRedim',
+					`Fixed-size array '${target.name}' cannot be resized with ReDim.`,
+					target.span,
+				);
+			}
+		}, activity);
+	}
+}
+
+function fixedArrayDeclarationsForModule(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, FixedArrayDeclaration> {
+	const declarations = new Map<string, FixedArrayDeclaration>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			addFixedArrayDeclarations(member, declarations);
+		}
+	}
+	return declarations;
+}
+
+function fixedArrayDeclarationsForBody(
+	body: BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, FixedArrayDeclaration> {
+	const declarations = new Map<string, FixedArrayDeclaration>();
+	forEachVariableGroup(body, (group) => addFixedArrayDeclarations(group, declarations), activity);
+	return declarations;
+}
+
+function declarationNamesForBody(
+	body: BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): Set<string> {
+	const names = new Set<string>();
+	forEachVariableGroup(body, (group) => {
+		for (const decl of group.declarations) {
+			names.add(decl.name.toLowerCase());
+		}
+	}, activity);
+	return names;
+}
+
+function addFixedArrayDeclarations(
+	group: VariableGroupNode,
+	out: Map<string, FixedArrayDeclaration>,
+): void {
+	for (const decl of group.declarations) {
+		if (!decl.isArray || !decl.arrayBounds) {
+			continue;
+		}
+		const lower = decl.name.toLowerCase();
+		if (!out.has(lower)) {
+			out.set(lower, { name: decl.name, span: decl.span });
+		}
+	}
+}
+
+function redimTargets(source: string, span: Span): Array<{ name: string; span: Span }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'redim') {
+		return [];
+	}
+	const start = tokenText(toks[1]) === 'preserve' ? 2 : 1;
+	const out: Array<{ name: string; span: Span }> = [];
+	for (const group of splitTopLevelTokenGroups(toks.slice(start), ',')) {
+		const nameTok = group.find((tok) => tok.kind !== 'comment');
+		if (!nameTok) {
+			continue;
+		}
+		const name = tokenName(nameTok);
+		if (!name) {
+			continue;
+		}
+		out.push({ name, span: absoluteSpan(span, nameTok) });
+	}
+	return out;
+}
+
+function splitTopLevelTokenGroups(
+	toks: readonly VbaToken[],
+	separator: string,
+): VbaToken[][] {
+	const groups: VbaToken[][] = [];
+	let current: VbaToken[] = [];
+	let depth = 0;
+	for (const tok of toks) {
+		if (tok.rawText === '(') {
+			depth++;
+		} else if (tok.rawText === ')') {
+			depth = Math.max(0, depth - 1);
+		}
+		if (depth === 0 && tok.rawText === separator) {
+			groups.push(current);
+			current = [];
+			continue;
+		}
+		current.push(tok);
+	}
+	groups.push(current);
+	return groups;
 }
 
 /**

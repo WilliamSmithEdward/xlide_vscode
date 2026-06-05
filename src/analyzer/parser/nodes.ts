@@ -156,6 +156,7 @@ export interface VariableDeclNode extends NodeBase {
 	fixedLength?: string;
 	defaultRaw?: string;
 	isArray: boolean;
+	arrayBounds?: string;
 	isNew: boolean;
 }
 

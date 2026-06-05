@@ -431,9 +431,15 @@ class Parser {
 		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
 		i++;
 		let isArray = false;
+		let arrayBounds: string | undefined;
 		if (group[i] && group[i].rawText === '(') {
 			isArray = true;
-			i = this.skipParens(group, i);
+			const close = this.matchParen(group, i);
+			if (group[close]?.rawText === ')') {
+				const bounds = this.source.slice(group[i].end, group[close].start).trim();
+				arrayBounds = bounds || undefined;
+			}
+			i = close + 1;
 		}
 		let isNew = false;
 		let asType: string | undefined;
@@ -462,6 +468,7 @@ class Parser {
 			fixedLength,
 			defaultRaw,
 			isArray,
+			arrayBounds,
 			isNew,
 			span: { start: first.start, end: last.end },
 		};
