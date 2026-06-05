@@ -6966,9 +6966,57 @@ describe('analyzeModule - parameter default values', () => {
 		expect(hits[1].message).toContain('expects Boolean');
 	});
 
+	it('flags non-Nothing Optional object parameter defaults', () => {
+		const src =
+			'Public Sub NegParam07_OptionalObjectDefaultNonNothing(Optional ByVal obj As Object = 1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('1');
+		expect(hits[0].message).toContain('obj');
+		expect(hits[0].message).toContain('expects Object');
+		expect(hits[0].message).toContain('Nothing');
+	});
+
+	it('flags scalar defaults on Optional array parameters', () => {
+		const src =
+			'Public Sub NegParam08_OptionalArrayDefault(Optional values() As Long = 0)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('0');
+		expect(hits[0].message).toContain('values');
+		expect(hits[0].message).toContain('expects Long()');
+		expect(hits[0].message).toContain('array parameter');
+		expect(hits[0].message).toContain('scalar values');
+	});
+
+	it('flags non-Nothing defaults for known host and project object parameters', () => {
+		const src =
+			'Sub T(Optional ByVal sheet As Worksheet = "Sheet1", Optional ByVal person As Person = True)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: [
+					{ name: 'Person', kind: 'class', moduleName: 'Person', members: [] },
+				],
+			}),
+			'parameter-default-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['"Sheet1"', 'True']);
+		expect(hits[0].message).toContain('Nothing');
+		expect(hits[1].message).toContain('Nothing');
+	});
+
 	it('accepts oracle-backed scalar Optional default controls', () => {
 		const src =
-			'Sub T(Optional ByVal count As Long = 1, Optional ByVal fromText As Long = "1", Optional ByVal label As String = "ok", Optional ByVal enabled As Boolean = True)\nEnd Sub\n';
+			'Sub T(Optional ByVal count As Long = 1, Optional ByVal fromText As Long = "1", Optional ByVal label As String = "ok", Optional ByVal enabled As Boolean = True, Optional ByVal obj As Object = Nothing, Optional ByVal sheet As Worksheet = Nothing, Optional values() As Long)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'parameter-default-type-mismatch')).toHaveLength(0);
 	});
 });

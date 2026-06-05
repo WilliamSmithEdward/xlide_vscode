@@ -348,7 +348,7 @@ function runRules(
 	checkPropertySetterValueParameters(source, mod, activity, opts, push);
 	checkPropertyAccessorSignatures(source, mod, activity, push);
 	checkParameterOrder(source, mod, activity, push);
-	checkParameterDefaultValues(source, mod, activity, push);
+	checkParameterDefaultValues(source, mod, activity, memberCtx, push);
 	checkUnbalancedParens(source, push);
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
 	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
@@ -7726,11 +7726,14 @@ function parameterArrayAsTypeSyntaxHit(
  * declared type when the default expression is deterministic. VBE oracle
  * evidence rejects nonnumeric string defaults for numeric and Boolean
  * parameters as compile-time Type mismatch, while numeric strings remain valid.
+ * Array parameters cannot be initialized from scalar defaults, and object
+ * parameters default only to Nothing when the object type is known.
  */
 function checkParameterDefaultValues(
 	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -7749,13 +7752,13 @@ function checkParameterDefaultValues(
 			if (!actual) {
 				continue;
 			}
-			const reason = parameterDefaultIncompatibilityReason(param.asType, actual);
+			const reason = parameterDefaultIncompatibilityReason(param, actual, memberCtx);
 			if (!reason) {
 				continue;
 			}
 			push(
 				'parameterDefaultTypeMismatch',
-				`Optional parameter '${param.name}' expects ${param.asType}, but its default value is ${actual.label}. ${reason}`,
+				`Optional parameter '${param.name}' expects ${parameterDefaultExpectedLabel(param)}, but its default value is ${actual.label}. ${reason}`,
 				defaultTokens.span,
 			);
 		}
@@ -7781,14 +7784,38 @@ function parameterDefaultTokens(
 }
 
 function parameterDefaultIncompatibilityReason(
-	expectedRaw: string,
+	param: ParameterNode,
 	actual: InferredArgumentType,
+	memberCtx: MemberCompletionContext,
 ): string | undefined {
+	if (param.isArray && isKnownScalarDefaultType(actual.type)) {
+		return 'Optional array parameter defaults cannot be scalar values.';
+	}
+	const expectedRaw = param.asType;
+	if (!expectedRaw) {
+		return undefined;
+	}
+	const expectedObject = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	if (expectedObject) {
+		return normalizeType(actual.type) === 'nothing'
+			? undefined
+			: 'Optional object parameter defaults must be Nothing.';
+	}
 	const reason = incompatibilityReason(expectedRaw, actual);
 	if (!reason || !/string literal/i.test(actual.label)) {
 		return undefined;
 	}
 	return 'This is a VBE compile error: Type mismatch.';
+}
+
+function parameterDefaultExpectedLabel(param: ParameterNode): string {
+	const base = param.asType ?? 'Variant';
+	return param.isArray ? `${base}()` : base;
+}
+
+function isKnownScalarDefaultType(type: string | undefined): boolean {
+	const normalized = normalizeType(type);
+	return !!normalized && isKnownScalarType(normalized);
 }
 
 function isNewTypeReference(kind: TypeNameReferenceKind): boolean {

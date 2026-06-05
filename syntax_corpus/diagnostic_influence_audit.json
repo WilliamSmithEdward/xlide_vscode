@@ -1048,8 +1048,10 @@
         "optional_boolean_nonnumeric_string_default_compile"
       ],
       "observeOnlyOracleCases": [],
-      "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is intentionally narrow: it fires only when an Optional parameter default is a deterministic string literal that VBE rejects for the declared scalar type. Oracle controls prove numeric and numeric-string Long defaults, String defaults, and True Boolean defaults are compile-accepted, so broader default-expression diagnostics remain pending.",
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "The active rule is intentionally narrow: scalar coverage fires only when an Optional parameter default is a deterministic string literal that VBE rejects for the declared scalar type, array coverage fires when an Optional array parameter has a deterministic scalar default such as values() As Long = 0, and object coverage fires when the declared type resolves to Object, a host object, or a visible project object and the deterministic default is not Nothing. Oracle controls prove numeric and numeric-string Long defaults, String defaults, True Boolean defaults, and Nothing object defaults remain accepted; broader default-expression diagnostics remain pending.",
       "diagnosticKind": "compile-error"
     },
     {
