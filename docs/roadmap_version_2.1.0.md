@@ -336,13 +336,25 @@ Progress:
   as any `Optional` argument, and when an explicit `ParamArray` element type is
   not `Variant`. `Property Let`/`Property Set` declarations with no final value
   parameter and `Property Set` declarations whose final value parameter is a
-  known intrinsic scalar now also produce red property-shape diagnostics. The
-  existing `ParamArray` final-position and required-after-optional rules remain
-  separate.
+  known intrinsic scalar now also produce red property-shape diagnostics.
+  Paired `Property Get` and `Property Let`/`Property Set` declarations for the
+  same property now also require matching index-argument count, array shape,
+  passing mode, and known scalar/Variant types before the setter's final value
+  parameter. The existing `ParamArray` final-position and
+  required-after-optional rules remain separate.
 - [x] RaiseEvent target slice: settled `RaiseEvent` statements now produce a red
   diagnostic when the target event is not an active `Event` declaration in the
   same module. Declared same-module events and inactive conditional branches
   stay quiet, while event argument/signature validation remains deferred.
+- [x] Procedure-label hardening slice: active procedure-local label declarations
+  now produce a red diagnostic when the same named label or normalized decimal
+  line label is declared more than once in one procedure. Separate procedures
+  keep independent label scopes, and inactive conditional branches stay quiet.
+- [x] For/Next block hardening slice: parser-backed `ForBlock` metadata now
+  records simple opener and closer control variables, and active `Next name`
+  statements now produce a red diagnostic when the name does not match the
+  active `For` or `For Each` control variable. Omitted `Next` variables,
+  matching names, nested loops, and inactive branches stay quiet.
 
 Definition of done:
 

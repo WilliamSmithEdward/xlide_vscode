@@ -6215,6 +6215,40 @@ describe('analyzeModule - property setter shape', () => {
 		expect(hits[0].message).toContain('Long');
 	});
 
+	it('flags Property Let declarations missing indexed getter parameters', () => {
+		const src =
+			'Public Property Get Item(ByVal index As Long) As String\n' +
+			'End Property\n' +
+			'Public Property Let Item(ByVal value As String)\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-accessor-signature-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Item');
+		expect(hits[0].message).toContain('Property Let');
+		expect(hits[0].message).toContain('Property Get');
+		expect(hits[0].message).toContain('Expected 1 index parameter');
+	});
+
+	it('flags Property Let and Set indexed parameter shape mismatches', () => {
+		const src =
+			'Public Property Get Label(ByVal index As Long) As String\n' +
+			'End Property\n' +
+			'Public Property Let Label(ByVal index As String, ByVal value As String)\n' +
+			'End Property\n' +
+			'Public Property Get Child(ByVal index As Long) As Object\n' +
+			'End Property\n' +
+			'Public Property Set Child(ByRef index As Long, ByVal value As Object)\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-accessor-signature-mismatch');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Label', 'Child']);
+		expect(hits[0].message).toContain('type must match');
+		expect(hits[1].message).toContain('passing mode');
+	});
+
 	it('accepts Property Get and object-shaped setters with value parameters', () => {
 		const src =
 			'Public Property Get Name() As String\n' +
@@ -6227,6 +6261,26 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		expect(byCode(analyzeModule(src), 'property-setter-missing-value')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'property-set-scalar-value')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'property-accessor-signature-mismatch')).toHaveLength(0);
+	});
+
+	it('accepts write-only setters and inactive mismatched property accessors', () => {
+		const src =
+			'Public Property Let Name(ByVal value As String)\n' +
+			'End Property\n' +
+			'#If Win64 Then\n' +
+			'Public Property Get Item(ByVal index As Long) As String\n' +
+			'End Property\n' +
+			'#Else\n' +
+			'Public Property Let Item(ByVal value As String)\n' +
+			'End Property\n' +
+			'#End If\n';
+		expect(
+			byCode(
+				analyzeModule(src, { conditionalCompilation: { Win64: true } }),
+				'property-accessor-signature-mismatch',
+			),
+		).toHaveLength(0);
 	});
 });
 
@@ -6340,6 +6394,45 @@ describe('analyzeModule - procedure labels', () => {
 		expect(spanText(src, hits[0])).toBe('Done');
 	});
 
+	it('flags duplicate named labels in the same procedure', () => {
+		const src =
+			'Sub T()\n' +
+			'StartHere:\n' +
+			'    Debug.Print "first"\n' +
+			'StartHere:\n' +
+			'    Debug.Print "second"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-label');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('StartHere');
+		expect(hits[0].message).toContain('already defined');
+	});
+
+	it('flags duplicate normalized numeric labels in the same procedure', () => {
+		const src =
+			'Sub T()\n' +
+			'010 Debug.Print "first"\n' +
+			'10 Debug.Print "second"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-label');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('10');
+	});
+
+	it('allows the same label name in separate procedures', () => {
+		const src =
+			'Sub A()\n' +
+			'Done:\n' +
+			'End Sub\n' +
+			'Sub B()\n' +
+			'Done:\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-label')).toHaveLength(0);
+	});
+
 	it('accepts explicit On Error forms that do not name a label', () => {
 		const src =
 			'Sub T()\n' +
@@ -6406,6 +6499,24 @@ describe('analyzeModule - procedure labels', () => {
 		);
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('MissingWhenInactive');
+	});
+
+	it('does not treat inactive duplicate labels as active duplicates', () => {
+		const src =
+			'Sub T()\n' +
+			'StartHere:\n' +
+			'#If VBA7 Then\n' +
+			'StartHere:\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'duplicate-label',
+			),
+		).toHaveLength(0);
 	});
 });
 
@@ -6610,6 +6721,69 @@ describe('analyzeModule - statement context', () => {
 			'    Do\n        Exit Do\n    Loop\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'exit-outside-block')).toHaveLength(0);
+	});
+
+	it('flags a Next variable that does not match the active For loop', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim i As Long\n' +
+			'    Dim j As Long\n' +
+			'    For i = 1 To 3\n' +
+			'        Debug.Print i\n' +
+			'    Next j\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'next-variable-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('j');
+		expect(hits[0].message).toContain("'j'");
+		expect(hits[0].message).toContain("'i'");
+	});
+
+	it('flags a Next variable that does not match the active For Each loop', () => {
+		const src =
+			'Sub T()\n' +
+			'    For Each item In items\n' +
+			'    Next other\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'next-variable-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('other');
+	});
+
+	it('accepts omitted, matching, and nested Next variables', () => {
+		const src =
+			'Sub T()\n' +
+			'    For i = 1 To 3\n' +
+			'        For j = 1 To 3\n' +
+			'        Next J\n' +
+			'    Next i\n' +
+			'    For k = 1 To 3\n' +
+			'    Next\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'next-variable-mismatch')).toHaveLength(0);
+	});
+
+	it('does not report Next variable mismatches from inactive branches', () => {
+		const src =
+			'Sub T()\n' +
+			'    For i = 1 To 3\n' +
+			'#If VBA7 Then\n' +
+			'    Next j\n' +
+			'#Else\n' +
+			'    Next i\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'next-variable-mismatch',
+			),
+		).toHaveLength(0);
 	});
 });
 

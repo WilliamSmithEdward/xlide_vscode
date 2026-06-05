@@ -238,6 +238,10 @@ export interface IfBlockNode extends NodeBase {
 export interface ForBlockNode extends NodeBase {
 	kind: 'ForBlock';
 	each: boolean;
+	controlVariable?: string;
+	controlVariableSpan?: Span;
+	nextVariable?: string;
+	nextVariableSpan?: Span;
 	body: BodyNode[];
 	closed: boolean;
 }

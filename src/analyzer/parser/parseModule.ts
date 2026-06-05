@@ -888,7 +888,7 @@ class Parser {
 			);
 		}
 		const span: Span = { start: head.start, end: (endStmt ?? head).end };
-		return this.makeBlockNode(opener, body, closed, span);
+		return this.makeBlockNode(opener, body, closed, span, head, endStmt);
 	}
 
 	private makeBlockNode(
@@ -896,14 +896,32 @@ class Parser {
 		body: BodyNode[],
 		closed: boolean,
 		span: Span,
+		head: LogicalStatement,
+		endStmt: LogicalStatement | undefined,
 	): BodyNode {
 		switch (opener) {
 			case 'if':
 				return { kind: 'IfBlock', body, closed, span } satisfies IfBlockNode;
 			case 'for':
-				return { kind: 'ForBlock', each: false, body, closed, span } satisfies ForBlockNode;
-			case 'foreach':
-				return { kind: 'ForBlock', each: true, body, closed, span } satisfies ForBlockNode;
+			case 'foreach': {
+				const control = this.forControlVariable(opener, head);
+				const next = this.nextControlVariable(endStmt);
+				return {
+					kind: 'ForBlock',
+					each: opener === 'foreach',
+					...(control ? {
+						controlVariable: control.name,
+						controlVariableSpan: control.span,
+					} : {}),
+					...(next ? {
+						nextVariable: next.name,
+						nextVariableSpan: next.span,
+					} : {}),
+					body,
+					closed,
+					span,
+				} satisfies ForBlockNode;
+			}
 			case 'do':
 				return { kind: 'DoBlock', body, closed, span } satisfies DoBlockNode;
 			case 'while':
@@ -913,6 +931,55 @@ class Parser {
 			case 'select':
 				return { kind: 'SelectBlock', body, closed, span } satisfies SelectBlockNode;
 		}
+	}
+
+	private forControlVariable(
+		opener: 'for' | 'foreach',
+		stmt: LogicalStatement,
+	): { name: string; span: Span } | undefined {
+		const tokens = codeTokensAfterLineNumber(stmt);
+		const index = opener === 'foreach' ? 2 : 1;
+		const nameToken = tokens[index];
+		const name = this.simpleNameFromToken(nameToken);
+		if (!name) {
+			return undefined;
+		}
+		if (opener === 'foreach') {
+			if (tokenWord(tokens[index + 1]) !== 'in') {
+				return undefined;
+			}
+		} else if (tokens[index + 1]?.rawText !== '=') {
+			return undefined;
+		}
+		return { name, span: { start: nameToken.start, end: nameToken.end } };
+	}
+
+	private nextControlVariable(
+		stmt: LogicalStatement | undefined,
+	): { name: string; span: Span } | undefined {
+		if (!stmt) {
+			return undefined;
+		}
+		const tokens = codeTokensAfterLineNumber(stmt);
+		if (tokenWord(tokens[0]) !== 'next' || tokens.length !== 2) {
+			return undefined;
+		}
+		const nameToken = tokens[1];
+		const name = this.simpleNameFromToken(nameToken);
+		return name ? { name, span: { start: nameToken.start, end: nameToken.end } } : undefined;
+	}
+
+	private simpleNameFromToken(token: VbaToken | undefined): string | undefined {
+		if (!token) {
+			return undefined;
+		}
+		if (token.kind === 'identifier' || token.kind === 'keyword') {
+			return token.rawText;
+		}
+		if (token.kind === 'bracketedIdentifier') {
+			return this.stripBrackets(token.rawText);
+		}
+		return undefined;
 	}
 
 	private blockCloser(

@@ -47,6 +47,7 @@ import {
 import type {
 	BodyNode,
 	EnumNode,
+	ForBlockNode,
 	ModuleMember,
 	ModuleNode,
 	ParameterNode,
@@ -67,6 +68,7 @@ import {
 	type ConditionalCompilationEnvironment,
 } from '../conditional/conditionalCompilation';
 import {
+	collectProcedureLabelDeclarations,
 	collectProcedureLabelReferences,
 	collectProcedureLabels,
 } from '../flow/procedureLabels';
@@ -328,6 +330,7 @@ function runRules(
 	checkModuleDeclarationsAfterProcedures(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
 	checkPropertySetterValueParameters(source, mod, activity, push);
+	checkPropertyAccessorSignatures(source, mod, activity, push);
 	checkParameterOrder(source, mod, activity, push);
 	checkParameterDefaultValues(source, mod, activity, push);
 	checkUnbalancedParens(source, push);
@@ -349,6 +352,7 @@ function runRules(
 	checkExpressionCallParens(source, mod, symbols, opts.projectProcedures, activity, push);
 	checkSetAssignments(source, mod, symbols, memberCtx, activity, push);
 	checkExitStatements(source, mod, activity, push);
+	checkDuplicateLabels(source, mod, activity, push);
 	checkUndefinedLabels(source, mod, activity, push);
 	checkStatementContext(source, mod, activity, push);
 	checkScalarMemberAccess(source, mod, symbols, activity, push);
@@ -1895,6 +1899,138 @@ function checkPropertySetterValueParameters(
 			declaredNameSpan(source, member.span, member.name),
 		);
 	}
+}
+
+interface PropertyAccessorGroup {
+	name: string;
+	gets: ProcedureNode[];
+	setters: ProcedureNode[];
+}
+
+/**
+ * Rule: paired Property Get and Let/Set declarations for the same property use
+ * the same index-argument shape. Let/Set add a final assigned-value parameter,
+ * which is not part of the index-argument comparison.
+ */
+function checkPropertyAccessorSignatures(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const groups = new Map<string, PropertyAccessorGroup>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (
+			member.kind !== 'Procedure' ||
+			(member.procKind !== 'PropertyGet' &&
+				member.procKind !== 'PropertyLet' &&
+				member.procKind !== 'PropertySet')
+		) {
+			continue;
+		}
+		const key = member.name.toLowerCase();
+		let group = groups.get(key);
+		if (!group) {
+			group = { name: member.name, gets: [], setters: [] };
+			groups.set(key, group);
+		}
+		if (member.procKind === 'PropertyGet') {
+			group.gets.push(member);
+		} else {
+			group.setters.push(member);
+		}
+	}
+
+	for (const group of groups.values()) {
+		if (group.gets.length !== 1) {
+			continue;
+		}
+		const getter = group.gets[0];
+		for (const setter of group.setters) {
+			if (setter.params.length === 0) {
+				continue;
+			}
+			const reason = propertyIndexParameterMismatch(
+				getter.params,
+				setter.params.slice(0, -1),
+			);
+			if (!reason) {
+				continue;
+			}
+			push(
+				'propertyAccessorSignatureMismatch',
+				`${propertyProcedureLabel(setter.procKind)} '${setter.name}' argument list must match Property Get '${getter.name}' before the final value parameter. ${reason}`,
+				declaredNameSpan(source, setter.span, setter.name),
+			);
+		}
+	}
+}
+
+function propertyIndexParameterMismatch(
+	getParams: readonly ParameterNode[],
+	setterIndexParams: readonly ParameterNode[],
+): string | undefined {
+	if (getParams.length !== setterIndexParams.length) {
+		return `Expected ${pluralizeCount(getParams.length, 'index parameter')}, but found ${setterIndexParams.length}.`;
+	}
+	for (let i = 0; i < getParams.length; i++) {
+		const expected = getParams[i];
+		const actual = setterIndexParams[i];
+		if (!expected || !actual) {
+			continue;
+		}
+		if (expected.isArray !== actual.isArray) {
+			return `Index parameter ${i + 1} array shape must match.`;
+		}
+		if (effectivePassingMode(expected) !== effectivePassingMode(actual)) {
+			return `Index parameter ${i + 1} passing mode must match.`;
+		}
+		const typeReason = propertyParameterTypeMismatch(expected, actual, i + 1);
+		if (typeReason) {
+			return typeReason;
+		}
+	}
+	return undefined;
+}
+
+function propertyParameterTypeMismatch(
+	expected: ParameterNode,
+	actual: ParameterNode,
+	index: number,
+): string | undefined {
+	const expectedType = normalizeType(expected.asType) ?? 'variant';
+	const actualType = normalizeType(actual.asType) ?? 'variant';
+	if (expectedType === actualType) {
+		return undefined;
+	}
+	const scalarOrVariant =
+		(expectedType === 'variant' || isKnownScalarType(expectedType)) &&
+		(actualType === 'variant' || isKnownScalarType(actualType));
+	if (!scalarOrVariant) {
+		return undefined;
+	}
+	return `Index parameter ${index} type must match: expected ${expected.asType ?? 'Variant'}, found ${actual.asType ?? 'Variant'}.`;
+}
+
+function effectivePassingMode(param: ParameterNode): 'byval' | 'byref' {
+	return param.byVal ? 'byval' : 'byref';
+}
+
+function propertyProcedureLabel(kind: ProcedureNode['procKind']): string {
+	switch (kind) {
+		case 'PropertyGet':
+			return 'Property Get';
+		case 'PropertyLet':
+			return 'Property Let';
+		case 'PropertySet':
+			return 'Property Set';
+		default:
+			return 'Property';
+	}
+}
+
+function pluralizeCount(count: number, singular: string): string {
+	return `${count} ${singular}${count === 1 ? '' : 's'}`;
 }
 
 interface NameTokenHit {
@@ -7581,6 +7717,35 @@ function checkUndefinedLabels(
 	}
 }
 
+/**
+ * Rule: procedure-local labels must be unique within the same procedure. This
+ * catches duplicate named labels and normalized decimal line labels.
+ */
+function checkDuplicateLabels(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const seen = new Set<string>();
+		for (const label of collectProcedureLabelDeclarations(source, member, activity)) {
+			if (!seen.has(label.key)) {
+				seen.add(label.key);
+				continue;
+			}
+			push(
+				'duplicateLabel',
+				`Label '${label.text}' is already defined in procedure '${member.name}'.`,
+				label.span,
+			);
+		}
+	}
+}
+
 interface StatementContext {
 	forDepth: number;
 	doDepth: number;
@@ -7631,6 +7796,7 @@ function checkContextBody(
 				checkContextStatement(source, node, ctx, push);
 				break;
 			case 'ForBlock':
+				checkForNextControlVariable(source, node, activity, push);
 				checkContextBody(
 					source,
 					node.body,
@@ -7675,6 +7841,32 @@ function checkContextBody(
 				break;
 		}
 	}
+}
+
+function checkForNextControlVariable(
+	source: string,
+	node: ForBlockNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (
+		!node.controlVariable ||
+		!node.controlVariableSpan ||
+		!node.nextVariable ||
+		!node.nextVariableSpan ||
+		isInactiveNode(activity, { span: node.controlVariableSpan }) ||
+		isInactiveNode(activity, { span: node.nextVariableSpan })
+	) {
+		return;
+	}
+	if (node.controlVariable.toLowerCase() === node.nextVariable.toLowerCase()) {
+		return;
+	}
+	push(
+		'nextVariableMismatch',
+		`Next variable '${node.nextVariable}' does not match active For control variable '${node.controlVariable}'.`,
+		node.nextVariableSpan,
+	);
 }
 
 function checkContextStatement(

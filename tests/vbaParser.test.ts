@@ -9,6 +9,7 @@ import { parseModule } from '../src/analyzer/parser/parseModule';
 import {
 	ConditionalDirectiveNode,
 	EnumNode,
+	ForBlockNode,
 	ModuleMember,
 	ProcedureNode,
 	TypeNode,
@@ -375,6 +376,20 @@ describe('parseModule - block statements (MS-VBAL 5.4)', () => {
 		const proc = parseModule(src).members[0] as ProcedureNode;
 		const block = proc.body.find((n) => n.kind === 'ForBlock');
 		expect(block && block.kind === 'ForBlock' && block.each).toBe(true);
+	});
+
+	it('captures simple For and Next control variables', () => {
+		const src =
+			'Sub F()\n' +
+			'    For i = 1 To 3\n' +
+			'    Next j\n' +
+			'    For Each item In coll\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		const proc = parseModule(src).members[0] as ProcedureNode;
+		const blocks = proc.body.filter((n) => n.kind === 'ForBlock') as ForBlockNode[];
+		expect(blocks.map((block) => block.controlVariable)).toEqual(['i', 'item']);
+		expect(blocks.map((block) => block.nextVariable)).toEqual(['j', 'item']);
 	});
 });
 

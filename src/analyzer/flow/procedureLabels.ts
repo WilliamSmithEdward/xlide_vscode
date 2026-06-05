@@ -39,10 +39,24 @@ export function collectProcedureLabels(
 	activity?: ConditionalActivityTracker,
 ): Map<string, VbaProcedureLabel> {
 	const labels = new Map<string, VbaProcedureLabel>();
+	for (const label of collectProcedureLabelDeclarations(source, procedure, activity)) {
+		if (!labels.has(label.key)) {
+			labels.set(label.key, label);
+		}
+	}
+	return labels;
+}
+
+export function collectProcedureLabelDeclarations(
+	source: string,
+	procedure: ProcedureNode,
+	activity?: ConditionalActivityTracker,
+): VbaProcedureLabel[] {
+	const labels: VbaProcedureLabel[] = [];
 	forEachProcedureStatement(procedure.body, (stmt) => {
 		const label = statementLabelDeclaration(source, stmt.span);
-		if (label && !labels.has(label.key)) {
-			labels.set(label.key, label);
+		if (label) {
+			labels.push(label);
 		}
 	}, activity);
 	return labels;
