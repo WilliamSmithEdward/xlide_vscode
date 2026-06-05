@@ -263,6 +263,36 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "byref_long_expression_compile",
+      "description": "Observe whether an arithmetic expression can be passed to a ByRef Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Long)\n    value = value + 1\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim amount As Long\n    Mutate amount + 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "byref_long_range_value_compile",
+      "description": "Observe whether an Excel Range.Value expression can be passed to a ByRef Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Long)\n    value = value + 1\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Mutate Range(\"A1\").Value\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "byref_string_object_variable_compile",
+      "description": "Observe whether an Object variable can be passed to a ByRef String parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub NeedsString(ByRef value As String)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim obj As Object\n    NeedsString obj\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "byval_long_integer_variable_compile",
       "description": "Observe the ByVal control for passing an Integer variable to a Long parameter.",
       "provenance": "vbe-oracle-verified",

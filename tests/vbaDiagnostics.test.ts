@@ -2731,18 +2731,44 @@ describe('analyzeModule - argument type validation', () => {
 		expect(byCode(analyzeModule(src), 'byref-argument-type-mismatch')).toHaveLength(1);
 	});
 
-	it('does not apply ByRef exactness to ByVal parameters, literals, or parenthesized expressions', () => {
+	it('flags known Object variable mismatches for ByRef scalar parameters', () => {
+		const src =
+			'Public Sub NeedsString(ByRef value As String)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    NeedsString obj\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'byref-argument-type-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('obj');
+		expect(hits[0].message).toContain('expects String');
+		expect(hits[0].message).toContain('declared as Object');
+	});
+
+	it('does not apply ByRef exactness to ByVal parameters, literals, or expression temporaries', () => {
 		const src =
 			'Public Sub Mutate(ByRef value As Long)\n' +
 			'End Sub\n' +
 			'Public Sub ReadValue(ByVal value As Long)\n' +
 			'End Sub\n' +
+			'Public Sub ReadString(ByVal value As String)\n' +
+			'End Sub\n' +
+			'Public Sub NeedsString(ByRef value As String)\n' +
+			'End Sub\n' +
 			'Public Sub T()\n' +
 			'    Dim amount As Integer\n' +
 			'    Dim longAmount As Long\n' +
+			'    Dim flexible As Variant\n' +
+			'    Dim obj As Object\n' +
 			'    ReadValue amount\n' +
+			'    ReadString obj\n' +
+			'    NeedsString flexible\n' +
 			'    Mutate 1\n' +
 			'    Mutate (longAmount)\n' +
+			'    Mutate longAmount + 1\n' +
+			'    Mutate Range("A1").Value\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'byref-argument-type-mismatch')).toHaveLength(0);
 	});

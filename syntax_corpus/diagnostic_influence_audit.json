@@ -316,11 +316,14 @@
         "byref_long_literal_compile",
         "byref_long_parenthesized_variable_compile",
         "byref_long_integer_variable_compile",
+        "byref_long_expression_compile",
+        "byref_long_range_value_compile",
+        "byref_string_object_variable_compile",
         "byval_long_integer_variable_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef scalar parameter and the argument is an unparenthesized known scalar variable with a different normalized type. Oracle controls prove that literals and parenthesized Long variable expressions are compile-accepted, so the rule does not treat ByRef as a generic assignability check.",
+      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected.",
       "diagnosticKind": "compile-error"
     },
     {

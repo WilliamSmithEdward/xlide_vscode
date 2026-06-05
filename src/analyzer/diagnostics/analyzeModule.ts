@@ -4588,7 +4588,7 @@ function byRefVariableTypeMismatch(
 		return undefined;
 	}
 	const expected = normalizeType(param.type);
-	if (!expected || !isKnownScalarType(expected)) {
+	if (!isKnownByRefExactType(expected)) {
 		return undefined;
 	}
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
@@ -4601,7 +4601,7 @@ function byRefVariableTypeMismatch(
 	}
 	const actualRaw = env.get(name.toLowerCase());
 	const actual = normalizeType(actualRaw);
-	if (!actual || !isKnownScalarType(actual) || actual === expected) {
+	if (!isKnownByRefExactType(actual) || actual === expected) {
 		return undefined;
 	}
 	return {
@@ -4609,6 +4609,13 @@ function byRefVariableTypeMismatch(
 		actual: actualRaw ?? name,
 		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[0].end },
 	};
+}
+
+function isKnownByRefExactType(type: string | undefined): boolean {
+	if (!type || type === 'variant') {
+		return false;
+	}
+	return type === 'object' || isKnownScalarType(type);
 }
 
 function namedArgumentSlot(slot: VbaToken[]): { name: string; value: VbaToken[] } | undefined {
