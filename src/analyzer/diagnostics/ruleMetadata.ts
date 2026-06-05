@@ -494,6 +494,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL Implements statement: module-level object-module declaration',
 		confidence: 'high',
 	},
+	raiseEventUndeclaredEvent: {
+		code: 'raiseevent-undeclared-event',
+		title: 'RaiseEvent target is not declared',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL RaiseEvent statement: event name resolution',
+		confidence: 'high',
+	},
 	eventHandlerWrongModule: {
 		code: 'event-handler-module-scope',
 		title: 'Event handler is not wired in this module',

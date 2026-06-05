@@ -40,6 +40,14 @@
         "Private WithEvents NewApp As New Application",
         "Private WithEvents Apps(1 To 2) As Application",
         "",
+        "Public Sub RaiseChanged()",
+        "    RaiseEvent Changed(1)",
+        "End Sub",
+        "",
+        "Public Sub BadRaiseEvent()",
+        "    RaiseEvent MissingEvent",
+        "End Sub",
+        "",
         "Public Sub BadLocalImplements()",
         "    Implements EventInterface",
         "End Sub"
@@ -48,7 +56,7 @@
   ],
   "assertions": {
     "workbookAnalysis": {
-      "problemCount": 6,
+      "problemCount": 7,
       "problems": [
         {
           "moduleName": "EventsInStandardModule",
@@ -88,9 +96,16 @@
         {
           "moduleName": "EventSource",
           "code": "implements-statement-placement",
-          "line": 10,
+          "line": 18,
           "severity": "error",
           "messageContains": ["EventInterface", "declaration section"]
+        },
+        {
+          "moduleName": "EventSource",
+          "code": "raiseevent-undeclared-event",
+          "line": 14,
+          "severity": "error",
+          "messageContains": ["MissingEvent", "not declared in this module"]
         }
       ],
       "codes": [
@@ -108,6 +123,11 @@
           "code": "implements-statement-placement",
           "count": 2,
           "messagesContain": ["IRunner", "EventInterface"]
+        },
+        {
+          "code": "raiseevent-undeclared-event",
+          "count": 1,
+          "messagesContain": ["MissingEvent"]
         },
         {
           "code": "option-explicit-missing",

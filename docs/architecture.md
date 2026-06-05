@@ -1005,6 +1005,11 @@ Diagnostic severity policy:
   procedure in an object module. Declaration-section object-module statements
   remain accepted, inactive conditional branches are filtered, and interface
   member completeness is left to the project binder.
+  `raiseevent-undeclared-event` is a red same-module binding diagnostic for
+  settled `RaiseEvent` statements whose target does not resolve to an active
+  `Event` declaration in the containing module. It scans tokenized procedure
+  body lines so line-numbered statements are covered, while partial
+  `RaiseEvent` statements and event signature/arity checks remain deferred.
   `event-handler-module-scope` is an information diagnostic for known
   workbook/worksheet/chart event handler names declared outside the matching
   document module. It uses the same module-scoped event metadata as completion,

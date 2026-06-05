@@ -5171,6 +5171,82 @@ describe('analyzeModule - Implements statement placement', () => {
 	});
 });
 
+describe('analyzeModule - RaiseEvent target binding', () => {
+	it('accepts RaiseEvent statements that target active same-module Event declarations', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Event Changed(ByVal value As Long)\n' +
+			'Private Event Hidden()\n' +
+			'Public Sub Touch()\n' +
+			'    RaiseEvent Changed(1)\n' +
+			'    RaiseEvent Hidden\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
+				'raiseevent-undeclared-event',
+			),
+		).toHaveLength(0);
+	});
+
+	it('flags RaiseEvent statements whose event is not declared in the same module', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Sub Touch()\n' +
+			'    RaiseEvent Changed()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			moduleName: 'EventSource',
+			moduleKind: 'class',
+			knownIdentifiers: new Set<string>(),
+		});
+		const hits = byCode(diagnostics, 'raiseevent-undeclared-event');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Changed');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('not declared in this module');
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('uses conditional-compilation activity for Event declarations and RaiseEvent statements', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'#Else\n' +
+			'Public Event LegacyOnly()\n' +
+			'#End If\n' +
+			'Public Sub Touch()\n' +
+			'    RaiseEvent LegacyOnly\n' +
+			'    #If VBA7 Then\n' +
+			'    #Else\n' +
+			'    RaiseEvent MissingWhenVba7\n' +
+			'    #End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'raiseevent-undeclared-event')).toHaveLength(1);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'raiseevent-undeclared-event',
+			),
+		).toHaveLength(1);
+	});
+
+	it('reports event names after line labels and leaves partial RaiseEvent quiet', () => {
+		const src =
+			'Public Sub Touch()\n' +
+			'10 RaiseEvent Missing\n' +
+			'20 RaiseEvent\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
+			'raiseevent-undeclared-event',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Missing');
+	});
+});
+
 describe('analyzeModule - conditional Declare platform rules', () => {
 	it('requires PtrSafe only when the supplied compiler constants prove Win64', () => {
 		const src = 'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';

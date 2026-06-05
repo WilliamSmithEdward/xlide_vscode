@@ -338,6 +338,7 @@ function runRules(
 	checkEventDeclarationModuleKind(source, mod, moduleKind, activity, push);
 	checkWithEventsDeclarations(source, mod, moduleKind, activity, push);
 	checkImplementsStatementPlacement(source, mod, moduleKind, activity, push);
+	checkRaiseEventTargets(source, mod, activity, push);
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
 	checkInvalidAsTypeNames(source, mod, activity, opts, push);
@@ -5699,6 +5700,115 @@ function implementsStatementHit(source: string, span: Span): ImplementsStatement
 			end: span.start + toks[endIndex].end,
 		},
 	};
+}
+
+/**
+ * Rule: `RaiseEvent` names an Event declared by the containing module. Event
+ * signature/arity checks remain deferred to the richer event-binding slice.
+ */
+function checkRaiseEventTargets(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const events = new Set<string>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Event' && member.name) {
+			events.add(member.name.toLowerCase());
+		}
+	}
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachProcedureBodyLine(source, member, (lineSpan) => {
+			if (activity?.isInactive(lineSpan)) {
+				return;
+			}
+			const hit = raiseEventTargetHit(source, lineSpan);
+			if (!hit || events.has(hit.name.toLowerCase())) {
+				return;
+			}
+			push(
+				'raiseEventUndeclaredEvent',
+				`Event '${hit.name}' is not declared in this module, so it cannot be raised with RaiseEvent.`,
+				hit.span,
+			);
+		});
+	}
+}
+
+function forEachProcedureBodyLine(
+	source: string,
+	procedure: ProcedureNode,
+	visit: (span: Span) => void,
+): void {
+	const firstBreak = firstLineBreakAtOrAfter(source, procedure.span.start);
+	if (firstBreak < 0 || firstBreak >= procedure.span.end) {
+		return;
+	}
+	let lineStart = nextLineStart(source, firstBreak);
+	while (lineStart < procedure.span.end) {
+		let lineEnd = lineStart;
+		while (lineEnd < procedure.span.end && source[lineEnd] !== '\r' && source[lineEnd] !== '\n') {
+			lineEnd++;
+		}
+		visit({ start: lineStart, end: lineEnd });
+		lineStart = nextLineStart(source, lineEnd);
+	}
+}
+
+function nextLineStart(source: string, lineBreakOffset: number): number {
+	if (
+		source[lineBreakOffset] === '\r' &&
+		lineBreakOffset + 1 < source.length &&
+		source[lineBreakOffset + 1] === '\n'
+	) {
+		return lineBreakOffset + 2;
+	}
+	return lineBreakOffset + 1;
+}
+
+function raiseEventTargetHit(
+	source: string,
+	span: Span,
+): { name: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	const start = raiseEventStatementStartIndex(toks);
+	if (start < 0) {
+		return undefined;
+	}
+	const nameTok = toks[start + 1];
+	if (!nameTok) {
+		return undefined;
+	}
+	const name = tokenName(nameTok);
+	if (!name) {
+		return undefined;
+	}
+	return {
+		name,
+		span: {
+			start: span.start + nameTok.start,
+			end: span.start + nameTok.end,
+		},
+	};
+}
+
+function raiseEventStatementStartIndex(toks: readonly VbaToken[]): number {
+	let start = 0;
+	if (toks.length > 1 && /^\d+$/.test(toks[0].rawText)) {
+		start = 1;
+	} else if (
+		toks.length > 2 &&
+		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
+		toks[1].rawText === ':'
+	) {
+		start = 2;
+	}
+	return tokenText(toks[start]) === 'raiseevent' ? start : -1;
 }
 
 function checkDeclarePtrSafeForWin64(

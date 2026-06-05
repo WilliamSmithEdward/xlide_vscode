@@ -296,6 +296,10 @@ Progress:
   or after a procedure in an object module. Declaration-section object-module
   `Implements` statements and inactive conditional branches stay quiet, while
   interface member completeness remains deferred to the project binder.
+- [x] RaiseEvent target slice: settled `RaiseEvent` statements now produce a red
+  diagnostic when the target event is not an active `Event` declaration in the
+  same module. Declared same-module events and inactive conditional branches
+  stay quiet, while event argument/signature validation remains deferred.
 
 Definition of done:
 
