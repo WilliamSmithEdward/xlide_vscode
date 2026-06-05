@@ -5455,6 +5455,23 @@ describe('analyzeModule - array ReDim', () => {
 		expect(spanText(src, hits[0])).toBe('Values');
 	});
 
+	it('flags ReDim of scalar variables', () => {
+		const src =
+			'Private ModuleValue As Long\n' +
+			'Sub T()\n' +
+			'    Dim Value As Long\n' +
+			'    ReDim Value(1 To 10)\n' +
+			'    ReDim Preserve ModuleValue(1 To 10)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'scalar-redim');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Value', 'ModuleValue']);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('Scalar variable');
+		expect(hits[0].message).toContain('ReDim');
+	});
+
 	it('accepts dynamic arrays and undeclared ReDim targets', () => {
 		const src =
 			'Sub T()\n' +
@@ -5463,6 +5480,7 @@ describe('analyzeModule - array ReDim', () => {
 			'    ReDim implicitValues(1 To 10)\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'fixed-array-redim')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'scalar-redim')).toHaveLength(0);
 	});
 
 	it('lets a local dynamic array shadow a module fixed-size array', () => {
@@ -5473,6 +5491,17 @@ describe('analyzeModule - array ReDim', () => {
 			'    ReDim Values(1 To 10)\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'fixed-array-redim')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'scalar-redim')).toHaveLength(0);
+	});
+
+	it('lets a local dynamic array shadow a module scalar for ReDim', () => {
+		const src =
+			'Private Values As Long\n' +
+			'Sub T()\n' +
+			'    Dim Values() As Long\n' +
+			'    ReDim Values(1 To 10)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'scalar-redim')).toHaveLength(0);
 	});
 
 	it('ignores fixed-size arrays in inactive conditional branches', () => {
@@ -5491,6 +5520,43 @@ describe('analyzeModule - array ReDim', () => {
 					conditionalCompilation: { compilerConstants: { VBA7: false } },
 				}),
 				'fixed-array-redim',
+			),
+		).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'scalar-redim',
+			),
+		).toHaveLength(0);
+	});
+
+	it('uses the active conditional branch when checking ReDim of scalar variables', () => {
+		const src =
+			'Sub T()\n' +
+			'#If VBA7 Then\n' +
+			'    Dim Values As Long\n' +
+			'#Else\n' +
+			'    Dim Values() As Long\n' +
+			'#End If\n' +
+			'    ReDim Values(1 To 10)\n' +
+			'End Sub\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: true } },
+				}),
+				'scalar-redim',
+			),
+		).toHaveLength(1);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'scalar-redim',
 			),
 		).toHaveLength(0);
 	});

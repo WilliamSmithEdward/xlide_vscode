@@ -2700,6 +2700,16 @@
       "diagnosticMeaning": "runtime-valid"
     },
     {
+      "id": "redim_scalar_compile",
+      "description": "Compile probe: ReDim cannot resize a scalar variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Value As Long\n    ReDim Value(1 To 10)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "redim_preserve_nonfinal_dimension_runtime",
       "description": "Runtime probe: ReDim Preserve on a multidimensional dynamic array cannot resize a non-final dimension.",
       "provenance": "vbe-oracle-verified",

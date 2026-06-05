@@ -483,6 +483,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL ReDim statement',
 		confidence: 'high',
 	},
+	scalarRedim: {
+		code: 'scalar-redim',
+		title: 'Scalar variable cannot be ReDimmed',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL ReDim statement / VBE oracle: Expected array',
+		confidence: 'high',
+	},
 	redimPreserveDimensionChange: {
 		code: 'redim-preserve-dimension-change',
 		title: 'ReDim Preserve can only resize the last dimension',

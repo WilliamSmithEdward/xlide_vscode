@@ -353,7 +353,7 @@ function runRules(
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
 	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
 	checkDimInitializer(source, mod, activity, push);
-	checkFixedArrayRedim(source, mod, activity, push);
+	checkInvalidRedimTargets(source, mod, activity, push);
 	checkRedimPreserveDimensions(source, mod, activity, push);
 	checkEraseTargets(source, mod, activity, push);
 	checkTypeDeclarationCharacterAsClause(mod, activity, push);
@@ -5999,9 +5999,10 @@ function checkDimInitializer(
 	}
 }
 
-interface FixedArrayDeclaration {
+interface RedimBlockedDeclaration {
 	name: string;
 	span: Span;
+	kind: 'fixedArray' | 'scalar';
 }
 
 interface RedimDimension {
@@ -6019,20 +6020,20 @@ interface RedimTarget {
 
 /**
  * Rule: ReDim can allocate dynamic arrays, but it cannot resize a variable that
- * was already declared as a fixed-size array.
+ * was already declared as a scalar or as a fixed-size array.
  */
-function checkFixedArrayRedim(
+function checkInvalidRedimTargets(
 	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const moduleDeclarations = fixedArrayDeclarationsForModule(mod, activity);
+	const moduleDeclarations = redimBlockedDeclarationsForModule(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const localDeclarations = fixedArrayDeclarationsForBody(member.body, activity);
+		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
 		forEachStatement(member.body, (stmt) => {
 			for (const target of redimTargets(source, stmt.span)) {
@@ -6040,6 +6041,14 @@ function checkFixedArrayRedim(
 				const declaration = localDeclarations.get(lower) ??
 					(localNames.has(lower) ? undefined : moduleDeclarations.get(lower));
 				if (!declaration) {
+					continue;
+				}
+				if (declaration.kind === 'scalar') {
+					push(
+						'scalarRedim',
+						`Scalar variable '${target.name}' cannot be resized with ReDim; declare it as a dynamic array first.`,
+						target.span,
+					);
 					continue;
 				}
 				push(
@@ -6052,25 +6061,25 @@ function checkFixedArrayRedim(
 	}
 }
 
-function fixedArrayDeclarationsForModule(
+function redimBlockedDeclarationsForModule(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
-): Map<string, FixedArrayDeclaration> {
-	const declarations = new Map<string, FixedArrayDeclaration>();
+): Map<string, RedimBlockedDeclaration> {
+	const declarations = new Map<string, RedimBlockedDeclaration>();
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
-			addFixedArrayDeclarations(member, declarations);
+			addRedimBlockedDeclarations(member, declarations);
 		}
 	}
 	return declarations;
 }
 
-function fixedArrayDeclarationsForBody(
+function redimBlockedDeclarationsForBody(
 	body: BodyNode[],
 	activity: ConditionalActivityTracker | undefined,
-): Map<string, FixedArrayDeclaration> {
-	const declarations = new Map<string, FixedArrayDeclaration>();
-	forEachVariableGroup(body, (group) => addFixedArrayDeclarations(group, declarations), activity);
+): Map<string, RedimBlockedDeclaration> {
+	const declarations = new Map<string, RedimBlockedDeclaration>();
+	forEachVariableGroup(body, (group) => addRedimBlockedDeclarations(group, declarations), activity);
 	return declarations;
 }
 
@@ -6087,19 +6096,27 @@ function declarationNamesForBody(
 	return names;
 }
 
-function addFixedArrayDeclarations(
+function addRedimBlockedDeclarations(
 	group: VariableGroupNode,
-	out: Map<string, FixedArrayDeclaration>,
+	out: Map<string, RedimBlockedDeclaration>,
 ): void {
 	for (const decl of group.declarations) {
-		if (!decl.isArray || !decl.arrayBounds) {
+		const kind = redimBlockedDeclarationKind(decl);
+		if (!kind) {
 			continue;
 		}
 		const lower = decl.name.toLowerCase();
 		if (!out.has(lower)) {
-			out.set(lower, { name: decl.name, span: decl.span });
+			out.set(lower, { name: decl.name, span: decl.span, kind });
 		}
 	}
+}
+
+function redimBlockedDeclarationKind(decl: VariableDeclNode): RedimBlockedDeclaration['kind'] | undefined {
+	if (!decl.isArray) {
+		return 'scalar';
+	}
+	return decl.arrayBounds ? 'fixedArray' : undefined;
 }
 
 function redimTargets(source: string, span: Span): Array<{ name: string; span: Span }> {

@@ -589,6 +589,21 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "scalar-redim",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus VBA ReDim statement semantics: scalar variables cannot be resized",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "redim_scalar_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage resolves ReDim targets conservatively inside the current procedure scope first, then module scope unless shadowed by any local declaration. It reports scalar declarations such as `Dim Value As Long`, while dynamic arrays, undeclared ReDim targets, local dynamic shadows of module scalars, and inactive conditional branches stay silent.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "redim-preserve-dimension-change",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE runtime oracle plus VBA ReDim Preserve runtime semantics: only the last dimension may be resized",
