@@ -231,7 +231,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes zero-argument Function/Property Get value references when source/project/runtime signatures prove the return type.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes zero-argument Function/Property Get value references and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -244,7 +244,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through zero-argument Function/Property Get value references, including module-qualified exported project Functions, while ambiguous bare project functions stay silent.",
+      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through zero-argument Function/Property Get value references and proven source-backed/host member return expressions, while ambiguous bare project functions and bare member functions with required arguments stay silent.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -316,7 +316,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes zero-argument Function/Property Get value references when source/project/runtime signatures prove the return type. Same project class, Nothing, generic Object, Variant/unknown types, and explicit Implements compatibility remain accepted.",
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes zero-argument Function/Property Get value references and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Same project class, Nothing, generic Object, Variant/unknown types, and explicit Implements compatibility remain accepted.",
       "diagnosticKind": "compile-error"
     },
     {

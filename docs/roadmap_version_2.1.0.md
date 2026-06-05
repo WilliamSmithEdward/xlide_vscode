@@ -145,6 +145,11 @@ Progress:
   parenthesized receiver expressions such as `(ws.Range("A1")).Value` and
   `(p.Child).Save` when the inner expression shape is already deterministic,
   giving completion and hard diagnostics the same receiver type without guessing.
+- [x] Member-expression type-inference slice: argument and assignment
+  diagnostics now consume proven source-backed and host member return types in
+  RHS expressions, including deterministic member-call returns such as
+  `ActiveSheet.Range("A1")`. Bare member functions with required arguments stay
+  unknown unless an actual call supplies arguments.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`

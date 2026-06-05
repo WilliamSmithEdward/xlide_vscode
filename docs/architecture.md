@@ -943,8 +943,11 @@ Diagnostic severity policy:
   parameter/local types, `Function`/`Property Get` return-name types,
   zero-argument Function/Property Get value references, curated runtime return
   metadata, same-module return types, known source-backed or host/reference
-  member signatures, and deterministic literal/expression inference; unknown
-  and `Variant` operands suppress diagnostics. For
+  member signatures, proven source-backed or host/reference member return
+  expressions, and deterministic literal/expression inference; unknown and
+  `Variant` operands suppress diagnostics. Bare member functions with required
+  arguments do not infer as value references unless the expression is an actual
+  call. For
   workbook-backed modules, the provider also passes a
   project-wide map of exported standard-module `Sub`/`Function`/`Declare`
   signatures, so argument count/type checks can cross module boundaries when

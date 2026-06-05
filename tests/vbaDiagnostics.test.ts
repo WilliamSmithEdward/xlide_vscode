@@ -2176,6 +2176,69 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('Labels.MakeLabel(...) As String');
 	});
 
+	it('uses source-backed member return types in argument expressions', () => {
+		const person = 'Public Property Get Name() As String\nEnd Property\n';
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    NeedsObject p.Name\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'argument-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Name');
+		expect(hits[0].message).toContain('p.Name As String');
+	});
+
+	it('does not infer bare member functions that require arguments as values', () => {
+		const person =
+			'Public Function Name(ByVal index As Long) As String\n' +
+			'End Function\n';
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    NeedsObject p.Name\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+			]),
+		});
+		expect(byCode(diagnostics, 'argument-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('uses member return types inside string concatenation argument expressions', () => {
+		const person = 'Public Property Get Name() As String\nEnd Property\n';
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    NeedsObject p.Name & "!"\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'argument-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('p.Name & "!"');
+		expect(hits[0].message).toContain('string concatenation expression');
+	});
+
 	it('accepts numeric literals and numeric string literals for numeric parameters', () => {
 		const src =
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n' +
@@ -3149,6 +3212,42 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('MakeLabel');
 		expect(hits[0].message).toContain('MakeLabel As String');
+	});
+
+	it('uses source-backed member return types in Set assignment expressions', () => {
+		const person = 'Public Property Get Name() As String\nEnd Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Dim child As Person\n' +
+			'    Set child = p.Name\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'assignment-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Name');
+		expect(hits[0].message).toContain('p.Name As String');
+	});
+
+	it('uses host member-call return types in Set assignment compatibility', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim wb As Workbook\n' +
+			'    Dim rng As Range\n' +
+			'    Set rng = ActiveSheet.Range("A1")\n' +
+			'    Set wb = ActiveSheet.Range("A1")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Range');
+		expect(hits[0].message).toContain('Workbook');
+		expect(hits[0].message).toContain('ActiveSheet.Range("A1") As Excel.Range');
 	});
 
 	it('errors on a nonnumeric string literal assigned to a typed class property', () => {

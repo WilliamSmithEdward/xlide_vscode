@@ -2566,7 +2566,7 @@ function checkArgumentTypes(
 		const env = typeEnvironmentFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
-				validateArgumentTypes(call, env, moduleSignatures, push);
+				validateArgumentTypes(call, env, moduleSignatures, source, memberCtx, push);
 			}
 			for (const memberCall of memberExpressionCalls(
 				source,
@@ -2578,6 +2578,8 @@ function checkArgumentTypes(
 					memberCall.call,
 					env,
 					moduleSignatures,
+					source,
+					memberCtx,
 					push,
 				);
 			}
@@ -2591,6 +2593,8 @@ function checkArgumentTypes(
 					memberCall.call,
 					env,
 					moduleSignatures,
+					source,
+					memberCtx,
 					push,
 				);
 			}
@@ -2600,7 +2604,7 @@ function checkArgumentTypes(
 				: extractQualifiedCall(source, stmt.span, moduleSignatures);
 			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
 			if (effectiveStatementCall) {
-				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, push);
+				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, source, memberCtx, push);
 			}
 		}, activity);
 	}
@@ -2966,6 +2970,8 @@ function checkAssignmentTypes(
 				stmt.span.start,
 				env,
 				moduleSignatures,
+				source,
+				memberCtx,
 			);
 			if (!actual) {
 				return;
@@ -3150,6 +3156,8 @@ function checkMemberAssignmentTypes(
 				stmt.span.start,
 				env,
 				moduleSignatures,
+				source,
+				memberCtx,
 			);
 			const reason = objectAssignmentIncompatibilityReason(
 				expected,
@@ -3194,6 +3202,8 @@ function checkMemberAssignmentTypes(
 			stmt.span.start,
 			env,
 			moduleSignatures,
+			source,
+			memberCtx,
 		);
 		if (!actual) {
 			return;
@@ -3240,6 +3250,8 @@ function checkSetAssignments(
 					stmt.span.start,
 					env,
 					moduleSignatures,
+					source,
+					memberCtx,
 				);
 				const reason = objectAssignmentIncompatibilityReason(
 					expected,
@@ -3714,13 +3726,15 @@ function validateArgumentTypes(
 	call: CallArguments,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	source: string,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures);
 	if (!sig || sig.params.length === 0) {
 		return;
 	}
-	validateArgumentTypesForSignature(sig, call, env, moduleSignatures, push);
+	validateArgumentTypesForSignature(sig, call, env, moduleSignatures, source, memberCtx, push);
 }
 
 function validateArgumentTypesForSignature(
@@ -3728,6 +3742,8 @@ function validateArgumentTypesForSignature(
 	call: CallArguments,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	source: string,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
 	if (sig.params.length === 0) {
@@ -3780,7 +3796,14 @@ function validateArgumentTypesForSignature(
 			);
 			continue;
 		}
-		const actual = inferArgumentType(valueSlot, call.sliceStart, env, moduleSignatures);
+		const actual = inferArgumentType(
+			valueSlot,
+			call.sliceStart,
+			env,
+			moduleSignatures,
+			source,
+			memberCtx,
+		);
 		if (!actual) {
 			continue;
 		}
@@ -3963,9 +3986,11 @@ function inferArgumentType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	source?: string,
+	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	return inferExpressionType(toks, sliceStart, env, moduleSignatures);
+	return inferExpressionType(toks, sliceStart, env, moduleSignatures, source, memberCtx);
 }
 
 function inferExpressionType(
@@ -3973,6 +3998,8 @@ function inferExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	source?: string,
+	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
 	const first = toks[0];
 	if (!first) {
@@ -3980,7 +4007,7 @@ function inferExpressionType(
 	}
 	const unwrapped = unwrapOuterParens(toks);
 	if (unwrapped !== toks) {
-		return inferExpressionType(unwrapped, sliceStart, env, moduleSignatures);
+		return inferExpressionType(unwrapped, sliceStart, env, moduleSignatures, source, memberCtx);
 	}
 	const signedNumericLiteral = inferSignedNumericLiteral(toks, sliceStart);
 	if (signedNumericLiteral) {
@@ -3991,15 +4018,24 @@ function inferExpressionType(
 		sliceStart,
 		env,
 		moduleSignatures,
+		source,
+		memberCtx,
 	);
 	if (concatenation) {
 		return concatenation;
 	}
-	const arithmetic = inferArithmeticExpressionType(toks, sliceStart, env, moduleSignatures);
+	const arithmetic = inferArithmeticExpressionType(
+		toks,
+		sliceStart,
+		env,
+		moduleSignatures,
+		source,
+		memberCtx,
+	);
 	if (arithmetic) {
 		return arithmetic;
 	}
-	return inferAtomicExpressionType(toks, sliceStart, env, moduleSignatures);
+	return inferAtomicExpressionType(toks, sliceStart, env, moduleSignatures, source, memberCtx);
 }
 
 function inferSignedNumericLiteral(
@@ -4037,6 +4073,8 @@ function inferAtomicExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	source?: string,
+	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
 	const first = toks[0];
 	if (!first) {
@@ -4132,7 +4170,110 @@ function inferAtomicExpressionType(
 			}
 		}
 	}
+	const memberType = source && memberCtx
+		? inferMemberExpressionType(source, toks, sliceStart, memberCtx)
+		: undefined;
+	if (memberType) {
+		return memberType;
+	}
 	return undefined;
+}
+
+function inferMemberExpressionType(
+	source: string,
+	toks: VbaToken[],
+	sliceStart: number,
+	memberCtx: MemberCompletionContext,
+): InferredArgumentType | undefined {
+	if (hasTopLevelOperator(toks)) {
+		return undefined;
+	}
+	const resolved = finalMemberTokenInExpression(toks);
+	if (!resolved) {
+		return undefined;
+	}
+	const member = resolveExactMemberCompletion(
+		source,
+		resolved.name,
+		sliceStart + resolved.token.end,
+		memberCtx,
+	);
+	if (!member?.returns) {
+		return undefined;
+	}
+	if (!resolved.called && member.kind === 'method' && !memberAcceptsZeroArguments(member)) {
+		return undefined;
+	}
+	const labelStart = toks[0]?.start ?? resolved.token.start;
+	const labelEnd = resolved.called ? toks[toks.length - 1].end : resolved.token.end;
+	const labelText = source.slice(sliceStart + labelStart, sliceStart + labelEnd).trim();
+	return {
+		type: member.returns,
+		label: `${labelText} As ${member.returns}`,
+		span: { start: sliceStart + resolved.token.start, end: sliceStart + resolved.token.end },
+	};
+}
+
+function finalMemberTokenInExpression(
+	toks: readonly VbaToken[],
+): { name: string; token: VbaToken; called: boolean } | undefined {
+	const last = toks[toks.length - 1];
+	if (!last) {
+		return undefined;
+	}
+	if (tokenName(last) && toks[toks.length - 2]?.rawText === '.') {
+		return { name: tokenName(last)!, token: last, called: false };
+	}
+	if (last.rawText !== ')') {
+		return undefined;
+	}
+	const open = matchingOpenParenIndex(toks, toks.length - 1);
+	if (open < 2) {
+		return undefined;
+	}
+	const member = toks[open - 1];
+	if (!tokenName(member) || toks[open - 2]?.rawText !== '.') {
+		return undefined;
+	}
+	return { name: tokenName(member)!, token: member, called: true };
+}
+
+function matchingOpenParenIndex(toks: readonly VbaToken[], close: number): number {
+	let depth = 0;
+	for (let i = close; i >= 0; i--) {
+		const raw = toks[i].rawText;
+		if (raw === ')') {
+			depth++;
+		} else if (raw === '(') {
+			depth--;
+			if (depth === 0) {
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+function hasTopLevelOperator(toks: readonly VbaToken[]): boolean {
+	let depth = 0;
+	for (const tok of toks) {
+		const raw = tok.rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+		} else if (raw === ')' || raw === ']') {
+			depth--;
+		} else if (depth === 0 && tok.kind === 'operator') {
+			return true;
+		}
+	}
+	return false;
+}
+
+function memberAcceptsZeroArguments(member: MemberCompletion): boolean {
+	if (!member.signature) {
+		return false;
+	}
+	return callableAcceptsZeroArguments(parseRuntimeDisplaySignature(member.name, member.signature));
 }
 
 function parameterlessValueSignature(
@@ -4156,13 +4297,22 @@ function inferArithmeticExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	source?: string,
+	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
 	const parts = splitTopLevelArithmeticOperands(toks);
 	if (parts.length < 2) {
 		return undefined;
 	}
 	for (const part of parts) {
-		const inferred = inferExpressionType(part, sliceStart, env, moduleSignatures);
+		const inferred = inferExpressionType(
+			part,
+			sliceStart,
+			env,
+			moduleSignatures,
+			source,
+			memberCtx,
+		);
 		const normalized = normalizeType(inferred?.type);
 		if (!normalized || !isNumericType(normalized)) {
 			return undefined;
@@ -4226,13 +4376,22 @@ function inferStringConcatenationExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	source?: string,
+	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
 	const parts = splitTopLevelOperands(toks, '&');
 	if (parts.length < 2) {
 		return undefined;
 	}
 	for (const part of parts) {
-		const inferred = inferExpressionType(part, sliceStart, env, moduleSignatures);
+		const inferred = inferExpressionType(
+			part,
+			sliceStart,
+			env,
+			moduleSignatures,
+			source,
+			memberCtx,
+		);
 		const normalized = normalizeType(inferred?.type);
 		if (!normalized || !isStringConcatenationOperandType(normalized)) {
 			return undefined;

@@ -152,6 +152,10 @@ Landed first:
 - String concatenation expressions using `&` infer as `String` only when every
   operand has a known scalar type; `Variant`, unknown, and object-like operands
   keep the expression unknown.
+- Source-backed and host member return expressions now feed the same argument
+  and assignment inference path when the member resolver proves the receiver and
+  return type. Bare member functions with required arguments remain unknown
+  unless the expression is an actual call.
 - Nonnumeric string literals in numeric arithmetic expressions produce an error
   when the expected context is numeric; focused oracle verification shows the
   representative assignment compiles but deterministically raises runtime error
