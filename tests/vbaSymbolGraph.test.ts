@@ -1109,6 +1109,7 @@ describe('ProjectIndex project class members', () => {
 	it('marks exported VB_UserMemId zero members as default', () => {
 		const index = new ProjectIndex();
 		const source = [
+			'Attribute VB_Name = "Person"',
 			'Public Property Get Value() As String',
 			'End Property',
 			'Attribute Value.VB_UserMemId = 0',

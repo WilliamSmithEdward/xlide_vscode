@@ -1269,8 +1269,39 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
 	});
 
-	it('accepts unindented exported member Attribute lines even after body statements', () => {
+	it('flags unindented member Attribute lines when the module is not exported metadata source', () => {
 		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Debug.Print "body"\n' +
+			'Attribute T.VB_Description = "bad placement"\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
+		const hits = byCode(diagnostics, 'module-declaration-in-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Attribute');
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('does not cascade Option Explicit diagnostics on invalid first-line Attribute statements', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Sub Combined049AttributeInsideProc()\n' +
+			'Attribute Combined049AttributeInsideProc.VB_Description = "bad placement"\n' +
+			'    Debug.Print "body"\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
+		const hits = byCode(diagnostics, 'module-declaration-in-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Attribute');
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('accepts unindented exported member Attribute lines when module metadata is present', () => {
+		const src =
+			'Attribute VB_Name = "Module1"\n' +
 			'Sub T()\n' +
 			'    Debug.Print "body"\n' +
 			'Attribute T.VB_Description = "exported metadata"\n' +
@@ -4348,6 +4379,7 @@ describe('analyzeModule - missing Function return assignment', () => {
 
 	it('ignores exported member Attribute lines while parsing procedure bodies', () => {
 		const src =
+			'Attribute VB_Name = "Module1"\n' +
 			'Friend Sub Init(ByVal mode As Long)\n' +
 			'Attribute Init.VB_Description = "Initialises this object."\n' +
 			'    Select Case mode\n' +

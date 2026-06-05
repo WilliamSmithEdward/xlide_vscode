@@ -5412,6 +5412,12 @@ function undeclaredReferenceSkipIndexes(
 		skip.add(0); // line label declaration
 	}
 	const firstExecutable = firstExecutableTokenIndex(toks);
+	if (moduleDeclarationStatementInProcedure(source, span)) {
+		for (let i = firstExecutable; i < toks.length; i++) {
+			skip.add(i);
+		}
+		return skip;
+	}
 	if (tokenText(toks[firstExecutable]) === 'implements') {
 		for (let i = firstExecutable + 1; i < toks.length; i++) {
 			skip.add(i);

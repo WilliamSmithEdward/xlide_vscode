@@ -113,6 +113,7 @@ class Parser {
 	private readonly diagnostics: ParseDiagnostic[] = [];
 	/** Expected closers of the currently open blocks (innermost last). */
 	private readonly openStack: string[] = [];
+	private sawExportedModuleAttribute = false;
 
 	constructor(
 		private readonly source: string,
@@ -156,7 +157,11 @@ class Parser {
 		}
 
 		if (this.isAttribute(tokens)) {
-			return this.parseAttribute(this.cursor.next()!, tokens);
+			const attr = this.parseAttribute(this.cursor.next()!, tokens);
+			if (this.isExportedModuleAttribute(attr)) {
+				this.sawExportedModuleAttribute = true;
+			}
+			return attr;
 		}
 		if (this.isConditionalDirective(tokens)) {
 			return this.parseConditionalDirective(this.cursor.next()!, tokens);
@@ -223,6 +228,10 @@ class Parser {
 			valueRaw,
 			span: { start: stmt.start, end: stmt.end },
 		};
+	}
+
+	private isExportedModuleAttribute(attr: AttributeNode): boolean {
+		return !attr.name.includes('.') && /^VB_/i.test(attr.name);
 	}
 
 	private parseOption(stmt: LogicalStatement, tokens: VbaToken[]): OptionNode {
@@ -1166,6 +1175,9 @@ class Parser {
 		tokens: VbaToken[],
 		procedureName: string,
 	): boolean {
+		if (!this.sawExportedModuleAttribute) {
+			return false;
+		}
 		if (!this.startsAtPhysicalLineStart(stmt)) {
 			return false;
 		}

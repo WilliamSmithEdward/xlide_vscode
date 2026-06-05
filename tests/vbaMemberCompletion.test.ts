@@ -648,6 +648,7 @@ describe('member completion - workbook classes', () => {
 
 	it('carries default-member attributes for source-backed project class members', () => {
 		const person = [
+			'Attribute VB_Name = "Person"',
 			'Public Property Get Value() As String',
 			'End Property',
 			'Attribute Value.VB_UserMemId = 0',
