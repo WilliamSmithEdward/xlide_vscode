@@ -2833,6 +2833,16 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "for_each_scalar_source_compile",
+      "description": "Compile probe: a scalar source expression is rejected by For Each.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim item As Variant\n    Dim Value As Long\n    For Each item In Value\n        Debug.Print item\n    Next item\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "conditional_const_after_procedure_active_elseif_compile",
       "description": "Compile probe: a valid #ElseIf conditional branch whose active declaration appears after a procedure is still rejected as a misplaced module declaration.",
       "provenance": "vbe-oracle-verified",

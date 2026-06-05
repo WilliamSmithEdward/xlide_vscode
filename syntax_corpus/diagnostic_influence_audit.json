@@ -1220,6 +1220,21 @@
       ],
       "notes": "Active coverage uses parser-backed ForBlock metadata and procedure declaration-shape environments. The rule reports For Each control variables declared as known intrinsic scalars, arrays, and project UDT/Enum types when project type metadata is available. Variant, Object, host/project object-looking types, implicit Variant, ambiguous types, and inactive branches stay silent.",
       "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "for-each-source-type",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.2.5 For Each source-expression semantics plus VBE compile oracle",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "for_each_scalar_source_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage uses parser-backed ForBlock source-expression metadata and procedure declaration-shape environments. The rule reports simple source names declared as known intrinsic scalars. Arrays, Variant, Object, object-looking or unresolved sources, member chains, and inactive branches stay silent until deeper enumerable inference is proven.",
+      "diagnosticKind": "compile-error"
     }
   ]
 }

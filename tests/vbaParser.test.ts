@@ -439,6 +439,12 @@ describe('parseModule - block statements (MS-VBAL 5.4)', () => {
 		const blocks = proc.body.filter((n) => n.kind === 'ForBlock') as ForBlockNode[];
 		expect(blocks.map((block) => block.controlVariable)).toEqual(['i', 'item']);
 		expect(blocks.map((block) => block.nextVariable)).toEqual(['j', 'item']);
+		expect(blocks[1].sourceExpression).toBe('coll');
+		expect(
+			blocks[1].sourceExpressionSpan
+				? src.slice(blocks[1].sourceExpressionSpan.start, blocks[1].sourceExpressionSpan.end)
+				: undefined,
+		).toBe('coll');
 	});
 });
 

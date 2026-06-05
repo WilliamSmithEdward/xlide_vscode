@@ -7836,6 +7836,99 @@ describe('analyzeModule - statement context', () => {
 			),
 		).toHaveLength(0);
 	});
+
+	it('flags a For Each source declared as a scalar intrinsic type', () => {
+		const src =
+			'Private ModuleValue As String\n' +
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    Dim Value As Long\n' +
+			'    For Each item In Value\n' +
+			'        Debug.Print item\n' +
+			'    Next item\n' +
+			'    For Each item In ModuleValue\n' +
+			'        Debug.Print item\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'for-each-source-type');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Value', 'ModuleValue']);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('collection object or array');
+		expect(hits[0].message).toContain('Long');
+	});
+
+	it('accepts known array/object-like and unresolved For Each sources', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    Dim values() As Long\n' +
+			'    Dim maybeValues As Variant\n' +
+			'    Dim obj As Object\n' +
+			'    For Each item In values\n' +
+			'    Next item\n' +
+			'    For Each item In maybeValues\n' +
+			'    Next item\n' +
+			'    For Each item In obj\n' +
+			'    Next item\n' +
+			'    For Each item In obj.Items\n' +
+			'    Next item\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'for-each-source-type')).toHaveLength(0);
+	});
+
+	it('uses the active conditional branch when checking For Each source types', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'#If VBA7 Then\n' +
+			'    Dim Values As Long\n' +
+			'#Else\n' +
+			'    Dim Values() As Long\n' +
+			'#End If\n' +
+			'    For Each item In Values\n' +
+			'    Next item\n' +
+			'End Sub\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: true } },
+				}),
+				'for-each-source-type',
+			),
+		).toHaveLength(1);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'for-each-source-type',
+			),
+		).toHaveLength(0);
+	});
+
+	it('does not report For Each source diagnostics from inactive branches', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    Dim Value As Long\n' +
+			'#If VBA7 Then\n' +
+			'    For Each item In Value\n' +
+			'    Next item\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'for-each-source-type',
+			),
+		).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - Option placement', () => {

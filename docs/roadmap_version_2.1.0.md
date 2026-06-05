@@ -397,6 +397,11 @@ Progress:
   array variable, or a project UDT/Enum control when project type metadata is
   available. `Variant`, `Object`, host/project object-looking types, implicit
   `Variant`, ambiguous types, and inactive branches stay quiet.
+- [x] For Each source type slice: parser-backed `ForBlock` metadata now records
+  the `In` source expression, and active `For Each` loops now produce a red
+  diagnostic when a simple source name resolves to a known intrinsic scalar.
+  Arrays, `Variant`, `Object`, object-looking/unresolved sources, member chains,
+  and inactive branches stay quiet until deeper enumerable inference is proven.
 - [x] Array ReDim hardening slice: parsed variable declarations now distinguish
   dynamic array declarators from fixed-bound arrays, and active `ReDim` or
   `ReDim Preserve` statements now produce a red diagnostic when the target

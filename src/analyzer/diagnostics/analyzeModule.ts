@@ -376,7 +376,7 @@ function runRules(
 	checkUndefinedLabels(source, mod, activity, push);
 	checkElseBranchOrder(source, mod, activity, push);
 	checkStatementContext(source, mod, activity, push);
-	checkForEachControlVariableTypes(mod, symbols, opts, activity, push);
+	checkForEachLoopTypes(mod, symbols, opts, activity, push);
 	checkScalarMemberAccess(source, mod, symbols, activity, push);
 	checkMemberNotFound(source, mod, memberCtx, activity, push);
 	checkNonCallableCallStatement(
@@ -8914,7 +8914,7 @@ function checkForNextControlVariable(
 	);
 }
 
-function checkForEachControlVariableTypes(
+function checkForEachLoopTypes(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	opts: AnalyzeModuleOptions,
@@ -8926,11 +8926,11 @@ function checkForEachControlVariableTypes(
 			continue;
 		}
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
-		checkForEachControlVariableTypesInBody(member.body, shapes, opts, activity, push);
+		checkForEachLoopTypesInBody(member.body, shapes, opts, activity, push);
 	}
 }
 
-function checkForEachControlVariableTypesInBody(
+function checkForEachLoopTypesInBody(
 	body: BodyNode[],
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
 	opts: AnalyzeModuleOptions,
@@ -8944,8 +8944,9 @@ function checkForEachControlVariableTypesInBody(
 		if ('body' in node && Array.isArray(node.body)) {
 			if (node.kind === 'ForBlock') {
 				checkForEachControlVariableType(node, shapes, opts, activity, push);
+				checkForEachSourceType(node, shapes, opts, activity, push);
 			}
-			checkForEachControlVariableTypesInBody(node.body, shapes, opts, activity, push);
+			checkForEachLoopTypesInBody(node.body, shapes, opts, activity, push);
 		}
 	}
 }
@@ -8980,6 +8981,40 @@ function checkForEachControlVariableType(
 	);
 }
 
+function checkForEachSourceType(
+	node: ForBlockNode,
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	opts: AnalyzeModuleOptions,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (
+		!node.each ||
+		!node.sourceExpression ||
+		!node.sourceExpressionSpan ||
+		isInactiveNode(activity, { span: node.sourceExpressionSpan })
+	) {
+		return;
+	}
+	const sourceName = simpleForEachSourceName(node.sourceExpression);
+	if (!sourceName) {
+		return;
+	}
+	const shape = shapes.get(sourceName.toLowerCase());
+	if (!shape) {
+		return;
+	}
+	const problem = forEachSourceTypeProblem(shape, opts);
+	if (!problem) {
+		return;
+	}
+	push(
+		'forEachSourceType',
+		`For Each source '${sourceName}' must be a collection object or array, but ${problem}.`,
+		node.sourceExpressionSpan,
+	);
+}
+
 function forEachControlVariableTypeProblem(
 	shape: DeclaredValueShape,
 	opts: AnalyzeModuleOptions,
@@ -9011,6 +9046,35 @@ function forEachControlVariableTypeProblem(
 		return `it is declared As ${shape.asType}`;
 	}
 	return undefined;
+}
+
+function forEachSourceTypeProblem(
+	shape: DeclaredValueShape,
+	opts: AnalyzeModuleOptions,
+): string | undefined {
+	if (shape.isArray || !shape.asType) {
+		return undefined;
+	}
+	const resolved = resolveTypeName(shape.asType, {
+		projectTypes: opts.projectTypes,
+		model: opts.hostModel,
+	});
+	if (resolved && resolved.kind !== 'primitive') {
+		return undefined;
+	}
+	const normalized = normalizeType(shape.asType);
+	if (!normalized || normalized === 'variant' || normalized === 'object') {
+		return undefined;
+	}
+	if (isKnownScalarType(normalized)) {
+		return `it is declared As ${shape.asType}`;
+	}
+	return undefined;
+}
+
+function simpleForEachSourceName(sourceExpression: string): string | undefined {
+	const toks = statementTokens(sourceExpression, { start: 0, end: sourceExpression.length });
+	return toks.length === 1 ? tokenName(toks[0]) : undefined;
 }
 
 interface ElseBranchFrame {

@@ -987,6 +987,7 @@ class Parser {
 			case 'for':
 			case 'foreach': {
 				const control = this.forControlVariable(opener, head);
+				const source = opener === 'foreach' ? this.forEachSourceExpression(head) : undefined;
 				const next = this.nextControlVariable(endStmt);
 				return {
 					kind: 'ForBlock',
@@ -994,6 +995,10 @@ class Parser {
 					...(control ? {
 						controlVariable: control.name,
 						controlVariableSpan: control.span,
+					} : {}),
+					...(source ? {
+						sourceExpression: source.raw,
+						sourceExpressionSpan: source.span,
 					} : {}),
 					...(next ? {
 						nextVariable: next.name,
@@ -1034,6 +1039,22 @@ class Parser {
 			return undefined;
 		}
 		return { name, span: { start: nameToken.start, end: nameToken.end } };
+	}
+
+	private forEachSourceExpression(
+		stmt: LogicalStatement,
+	): { raw: string; span: Span } | undefined {
+		const tokens = codeTokensAfterLineNumber(stmt);
+		const inIndex = tokenWord(tokens[3]) === 'in' ? 3 : -1;
+		if (inIndex < 0 || inIndex + 1 >= tokens.length) {
+			return undefined;
+		}
+		const first = tokens[inIndex + 1];
+		const last = tokens[tokens.length - 1];
+		return {
+			raw: this.source.slice(first.start, last.end),
+			span: { start: first.start, end: last.end },
+		};
 	}
 
 	private nextControlVariable(

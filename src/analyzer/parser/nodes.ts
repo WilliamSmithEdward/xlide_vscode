@@ -256,6 +256,8 @@ export interface ForBlockNode extends NodeBase {
 	each: boolean;
 	controlVariable?: string;
 	controlVariableSpan?: Span;
+	sourceExpression?: string;
+	sourceExpressionSpan?: Span;
 	nextVariable?: string;
 	nextVariableSpan?: Span;
 	body: BodyNode[];

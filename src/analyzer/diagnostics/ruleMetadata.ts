@@ -968,6 +968,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.5',
 		confidence: 'high',
 	},
+	forEachSourceType: {
+		code: 'for-each-source-type',
+		title: 'For Each source must be collection or array',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.5 / VBE oracle: For Each may only iterate over a collection object or an array',
+		confidence: 'high',
+	},
 	vbaTestDirective: {
 		code: 'vba-test-directive',
 		title: 'Invalid XLIDE VBA test directive',
