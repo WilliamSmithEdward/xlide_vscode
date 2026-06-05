@@ -1340,14 +1340,18 @@ describe('analyzeModule - reserved declaration names', () => {
 		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
 	});
 
-	it('accepts Event declarations with parameter lists', () => {
+	it('accepts Event declarations with parameter lists in object modules', () => {
 		const src =
 			'Public Event BeforeAdd(ByRef arr As Variant, ByRef cancel As Boolean)\n' +
 			'Public Event AfterAdd(ByRef arr As Variant)\n';
 
-		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
-		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
-		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(0);
+		for (const moduleKind of ['class', 'document', 'userform'] as const) {
+			const diagnostics = analyzeModule(src, { moduleKind });
+			expect(byCode(diagnostics, 'invalid-declaration-name')).toHaveLength(0);
+			expect(byCode(diagnostics, 'unexpected-declaration-token')).toHaveLength(0);
+			expect(byCode(diagnostics, 'duplicate-module-variable')).toHaveLength(0);
+			expect(byCode(diagnostics, 'event-declaration-module-kind')).toHaveLength(0);
+		}
 	});
 
 	it('accepts user-defined type fields named Type', () => {
@@ -3440,6 +3444,52 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
 	});
 
+	it('errors when a known standard-module qualifier uses an unknown exported member', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Globals.SharedValue = 1\n' +
+			'    Globals.MissingValue = 2\n' +
+			'    Globals.MissingProcedure\n' +
+			'End Sub\n';
+		const globals =
+			'Public SharedValue As Long\n' +
+			'Public Sub Save()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', moduleKind: 'standard', source: globals },
+		], 'Caller');
+		const hits = byCode(diagnostics, 'member-not-found');
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['MissingValue', 'MissingProcedure']);
+		expect(hits[0].message).toContain('Globals.MissingValue');
+		expect(hits[1].message).toContain('Globals.MissingProcedure');
+	});
+
+	it('does not expose private standard-module members through qualified member diagnostics', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Helpers.Hidden\n' +
+			'End Sub\n';
+		const helpers =
+			'Private Sub Hidden()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Helpers', moduleKind: 'standard', source: helpers },
+		], 'Caller');
+		const hits = byCode(diagnostics, 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('Hidden');
+		expect(hits[0].message).toContain('Helpers.Hidden');
+	});
+
+	it('does not treat unknown external-style qualifiers as project member surfaces', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Scripting.Dictionary.CompareMode = TextCompare\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [], 'Caller');
+		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
+	});
+
 	it('errors when ThisWorkbook uses a member absent from source and the exhaustive Workbook host surface', () => {
 		const workbook =
 			'Public Sub Hello()\n' +
@@ -4945,6 +4995,35 @@ describe('analyzeModule - object module public declaration restrictions', () => 
 			expect(byCode(diagnostics, 'object-module-public-member')).toHaveLength(0);
 			expect(byCode(diagnostics, 'fixed-length-string-size')).toHaveLength(0);
 		}
+	});
+});
+
+describe('analyzeModule - Event declaration module-kind restrictions', () => {
+	it('flags Event declarations in standard modules', () => {
+		const src =
+			'Public Event BeforeAdd(ByRef arr As Variant, ByRef cancel As Boolean)\n' +
+			'Private Event AfterAdd(ByRef arr As Variant)\n';
+		const hits = byCode(analyzeModule(src), 'event-declaration-module-kind');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['BeforeAdd', 'AfterAdd']);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('class, document, or UserForm modules');
+	});
+
+	it('ignores inactive standard-module Event declarations', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'#Else\n' +
+			'Public Event LegacyOnly()\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'event-declaration-module-kind')).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'event-declaration-module-kind',
+			),
+		).toHaveLength(1);
 	});
 });
 

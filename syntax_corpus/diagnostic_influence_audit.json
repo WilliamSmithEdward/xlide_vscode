@@ -559,6 +559,21 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "event-declaration-module-kind",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.5 Event declarations are object-module declarations, paired with XLIDE module-kind metadata",
+      "corpusInfluence": "pending-corpus-reviewed",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "26_class_and_userform_deep_edges.md",
+        "excel_vba_analysis_additional_edge_cases.md",
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "The active rule is deliberately narrow: it flags parsed Event declarations only when the current module kind is standard, accepts class/document/UserForm modules, and respects conditional-compilation activity. WithEvents source binding, event-handler authoring, and broader event declaration semantics remain separate verification work.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "event-handler-module-scope",
       "status": "spec-derived",
       "sourceOfTruth": "Excel document-module event binding model plus XLIDE guidance policy",

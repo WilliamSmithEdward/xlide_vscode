@@ -84,6 +84,7 @@ import {
 } from '../symbols/symbolModel';
 import {
 	resolveMemberCompletions,
+	resolveMemberSurfaceAt,
 	type MemberCompletion,
 	type MemberCompletionContext,
 } from '../completion/memberAccess';
@@ -334,6 +335,7 @@ function runRules(
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
+	checkEventDeclarationModuleKind(source, mod, moduleKind, activity, push);
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
 	checkInvalidAsTypeNames(source, activity, opts, push);
@@ -983,15 +985,11 @@ function resolveExhaustiveMemberSurface(
 	dotEndOffset: number,
 	memberCtx: MemberCompletionContext,
 ): { owner: string; members: MemberCompletion[] } | undefined {
-	const members = resolveMemberCompletions(source, dotEndOffset, memberCtx);
-	if (members.length === 0) {
+	const surface = resolveMemberSurfaceAt(source, dotEndOffset, memberCtx);
+	if (!surface?.exhaustive) {
 		return undefined;
 	}
-	const owner = members[0].owner;
-	if (!members[0].surfaceExhaustive) {
-		return undefined;
-	}
-	return { owner, members };
+	return { owner: surface.owner, members: surface.members };
 }
 
 /**
@@ -4846,7 +4844,13 @@ function isQualifiedProjectMemberQualifier(
 		}
 		surface = candidate;
 	}
-	return surface?.members.some((candidate) => candidate.name.toLowerCase() === memberLower) ?? false;
+	if (!surface) {
+		return false;
+	}
+	if (surface.kind === 'standardModule') {
+		return true;
+	}
+	return surface.members.some((candidate) => candidate.name.toLowerCase() === memberLower);
 }
 
 function simpleAssignmentLhsIdentifierIndex(toks: readonly VbaToken[]): number {
@@ -5508,6 +5512,33 @@ function checkObjectModulePublicMembers(
 		if (member.kind === 'Declare' && isPublicModifier(member.visibility)) {
 			report('Declare statements', declaredNameSpan(source, member.span, member.name));
 		}
+	}
+}
+
+/**
+ * Rule: `Event` declarations are object-module declarations. Standard modules
+ * can contain ordinary procedures that look like handlers, but not `Event`
+ * declarations themselves.
+ */
+function checkEventDeclarationModuleKind(
+	source: string,
+	mod: ModuleNode,
+	moduleKind: ModuleSymbolKind,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (isObjectModuleKind(moduleKind)) {
+		return;
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Event') {
+			continue;
+		}
+		push(
+			'eventDeclarationModuleKind',
+			`Event declaration '${member.name}' is only valid in class, document, or UserForm modules.`,
+			declaredNameSpan(source, member.span, member.name),
+		);
 	}
 }
 

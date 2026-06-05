@@ -461,6 +461,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'VBE oracle: public object-module member restrictions',
 		confidence: 'high',
 	},
+	eventDeclarationModuleKind: {
+		code: 'event-declaration-module-kind',
+		title: 'Event declaration is not valid in this module',
+		defaultSeverity: 'error',
+		category: 'module-kind',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.5: Event declarations belong to object modules',
+		confidence: 'high',
+	},
 	eventHandlerWrongModule: {
 		code: 'event-handler-module-scope',
 		title: 'Event handler is not wired in this module',

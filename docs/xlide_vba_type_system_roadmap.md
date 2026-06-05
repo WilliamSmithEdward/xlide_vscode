@@ -264,9 +264,12 @@ Landed first:
   ByRef return assignment helpers, default Win64 branch filtering, and verified
   Worksheet host members. Binder/overlay and external-reference canaries cover
   ambiguous bare procedure no-diagnostics, module-qualified arity evidence,
-  same-workbook live-source overlays without cross-workbook leakage, and common
-  unresolved reference/library shapes that must stay quiet until explicit
-  metadata exists. A project-type canary now asserts workbook-scale class, UDT,
+  source-backed `member-not-found` for missing or private standard-module
+  qualified members, same-workbook live-source overlays without cross-workbook
+  leakage, and common unresolved reference/library shapes that must stay quiet
+  until explicit metadata exists. The module-kind canary locks in red `Event`
+  declaration diagnostics for standard modules while keeping valid object-module
+  declarations quiet. A project-type canary now asserts workbook-scale class, UDT,
   enum, and ambiguous type-name behavior in the same flattened diagnostic
   harness, including hard `member-not-found` only for unambiguous source-backed
   receivers, no guessed member diagnostics for ambiguous receiver types, and no

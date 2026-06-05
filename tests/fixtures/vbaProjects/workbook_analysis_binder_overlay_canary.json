@@ -15,6 +15,8 @@
         "    AmbiguousProc 1",
         "    ModuleA.AmbiguousProc 1",
         "    total = ModuleA.SharedConst",
+        "    total = ModuleA.MissingConst",
+        "    PrivateOnly.Hidden",
         "    Debug.Print total",
         "End Sub"
       ]
@@ -38,6 +40,16 @@
         "Option Explicit",
         "",
         "Public Sub AmbiguousProc(ByVal value As Long)",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "PrivateOnly",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Private Sub Hidden()",
         "End Sub"
       ]
     },
@@ -78,7 +90,7 @@
           ]
         }
       ],
-      "problemCount": 1,
+      "problemCount": 3,
       "problems": [
         {
           "moduleName": "Caller",
@@ -86,6 +98,20 @@
           "line": 7,
           "severity": "error",
           "messageContains": ["ModuleA.AmbiguousProc", "expected 2 arguments"]
+        },
+        {
+          "moduleName": "Caller",
+          "code": "member-not-found",
+          "line": 9,
+          "severity": "error",
+          "messageContains": ["ModuleA.MissingConst"]
+        },
+        {
+          "moduleName": "Caller",
+          "code": "member-not-found",
+          "line": 10,
+          "severity": "error",
+          "messageContains": ["PrivateOnly.Hidden"]
         }
       ],
       "codes": [
@@ -93,6 +119,11 @@
           "code": "argument-count",
           "count": 1,
           "messagesContain": ["ModuleA.AmbiguousProc", "expected 2 arguments"]
+        },
+        {
+          "code": "member-not-found",
+          "count": 2,
+          "messagesContain": ["ModuleA.MissingConst", "PrivateOnly.Hidden"]
         },
         {
           "code": "missing-return-assignment",

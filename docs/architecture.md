@@ -960,8 +960,9 @@ Diagnostic severity policy:
   fires only when a receiver resolves to an unambiguous and exhaustive
   `ProjectIndex.projectMemberSurfaces(moduleName)` surface, or a promoted exhaustive host
   surface, and the member name is absent. Plain class modules are
-  source-exhaustive, visible UDT field surfaces are exhaustive, including
-  current-class `Me.Member` references;
+  source-exhaustive, visible UDT field surfaces are exhaustive, standard-module
+  qualifier surfaces are source-exhaustive even when no visible member rows are
+  available, and current-class `Me.Member` references use the same contract;
   document modules and UserForms stay silent until their host/designer
   catalogues are complete enough to prove absence, except for known workbook
   host references such as `ThisWorkbook`/`Me` inside `ThisWorkbook`. Focused
@@ -992,6 +993,9 @@ Diagnostic severity policy:
   fixed-length strings, user-defined Types, and Declare statements. Each branch
   is backed by focused VBE oracle evidence, while standard modules and non-Public
   declarations stay outside the rule.
+  `event-declaration-module-kind` is a red module-kind diagnostic for `Event`
+  declarations in standard modules; class, document, and UserForm modules remain
+  accepted, and inactive conditional-compilation branches stay filtered.
   `event-handler-module-scope` is an information diagnostic for known
   workbook/worksheet/chart event handler names declared outside the matching
   document module. It uses the same module-scoped event metadata as completion,

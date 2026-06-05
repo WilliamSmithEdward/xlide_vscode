@@ -170,8 +170,9 @@ Progress:
   project-visible ByRef return assignment helpers, default Win64 conditional
   branches, and verified `Worksheet.Buttons` host metadata. The binder/overlay
   canary adds ambiguous bare procedure no-diagnostic coverage, module-qualified
-  arity evidence, and same-workbook live-source overlays with cross-workbook
-  overlay isolation. The project-type canary locks workbook-scale class, UDT,
+  arity evidence, source-backed `member-not-found` for missing or private
+  standard-module qualified members, and same-workbook live-source overlays with
+  cross-workbook overlay isolation. The project-type canary locks workbook-scale class, UDT,
   enum, and ambiguous type-name binding into the same exact diagnostic harness:
   unambiguous source-backed class/UDT receivers can produce hard
   `member-not-found`, ambiguous type names produce a targeted type diagnostic,
@@ -277,6 +278,14 @@ Scope:
   declaration spans, return/write types, docs, and provenance.
 - [ ] Add document/UserForm designer-backed members to the same object-member
   contract used by source-backed classes and host metadata.
+
+Progress:
+
+- [x] Event declaration module-kind slice: `Event` declarations in standard
+  modules now produce a compile-equivalent red diagnostic from module-kind
+  evidence, while class/document/UserForm declarations and inactive conditional
+  branches stay quiet. A workbook-analysis module-kind canary records this next
+  to the existing non-red wrong-module event-handler guidance.
 
 Definition of done:
 

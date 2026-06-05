@@ -95,6 +95,12 @@ export interface MemberCompletion {
 	attributes?: readonly VbaSymbolAttribute[];
 }
 
+export interface ResolvedMemberSurface {
+	owner: string;
+	members: MemberCompletion[];
+	exhaustive: boolean;
+}
+
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PROJECT_TYPE_PREFIX = 'project:';
 const COMBINED_TYPE_PREFIX = 'combined:';
@@ -191,23 +197,59 @@ export function resolveMemberCompletions(
 	}
 	return surface.members
 		.filter((mem) => mem.name.toLowerCase().startsWith(lowerPrefix))
-		.map((mem) => ({
-			name: mem.name,
-			kind: mem.kind,
-			returns: mem.returns,
-			signature: mem.signature ?? signatureForMember(currentType, mem.name, ctx),
-			writable: mem.writable,
-			writeType: mem.writeType,
-			owner: surface.owner,
-			surfaceExhaustive: surface.exhaustive,
-			documentation: hasDocContent(mem.doc)
-				? renderDocMarkdown(mem.doc)
-				: undefined,
-			doc: mem.doc,
-			definitions: mem.definitions,
-			defaultMember: mem.defaultMember,
-			attributes: mem.attributes,
-		}));
+		.map((mem) => completionFromSurfaceMember(currentType, surface, mem, ctx));
+}
+
+/**
+ * Resolves the complete source/host member surface at a member-access dot,
+ * including empty-but-exhaustive project surfaces that cannot be represented by
+ * completion rows alone.
+ */
+export function resolveMemberSurfaceAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): ResolvedMemberSurface | undefined {
+	const currentType = resolveReceiverTypeAt(source, offset, ctx);
+	if (!currentType) {
+		return undefined;
+	}
+	const surface = memberSurfaceForType(currentType, ctx);
+	if (!surface) {
+		return undefined;
+	}
+	return {
+		owner: surface.owner,
+		exhaustive: surface.exhaustive,
+		members: surface.members.map((mem) =>
+			completionFromSurfaceMember(currentType, surface, mem, ctx),
+		),
+	};
+}
+
+function completionFromSurfaceMember(
+	currentType: string,
+	surface: MemberSurface,
+	mem: CompletionMemberSource,
+	ctx: MemberCompletionContext,
+): MemberCompletion {
+	return {
+		name: mem.name,
+		kind: mem.kind,
+		returns: mem.returns,
+		signature: mem.signature ?? signatureForMember(currentType, mem.name, ctx),
+		writable: mem.writable,
+		writeType: mem.writeType,
+		owner: surface.owner,
+		surfaceExhaustive: surface.exhaustive,
+		documentation: hasDocContent(mem.doc)
+			? renderDocMarkdown(mem.doc)
+			: undefined,
+		doc: mem.doc,
+		definitions: mem.definitions,
+		defaultMember: mem.defaultMember,
+		attributes: mem.attributes,
+	};
 }
 
 function signatureForMember(

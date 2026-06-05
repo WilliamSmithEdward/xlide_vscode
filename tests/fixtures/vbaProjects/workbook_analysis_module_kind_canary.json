@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "id": "workbook-analysis-module-kind-canary",
+  "description": "Workbook-analysis canary for module-kind diagnostics that are true red squiggles.",
+  "modules": [
+    {
+      "name": "EventsInStandardModule",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Event BeforeAdd(ByRef cancel As Boolean)",
+        "",
+        "#If VBA7 Then",
+        "#Else",
+        "Public Event LegacyOnly()",
+        "#End If"
+      ]
+    },
+    {
+      "name": "EventSource",
+      "type": "class",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Event Changed(ByVal value As Long)"
+      ]
+    }
+  ],
+  "assertions": {
+    "workbookAnalysis": {
+      "problemCount": 1,
+      "problems": [
+        {
+          "moduleName": "EventsInStandardModule",
+          "code": "event-declaration-module-kind",
+          "line": 3,
+          "severity": "error",
+          "messageContains": ["BeforeAdd", "class, document, or UserForm modules"]
+        }
+      ],
+      "codes": [
+        {
+          "code": "event-declaration-module-kind",
+          "count": 1,
+          "messagesContain": ["BeforeAdd"]
+        },
+        {
+          "code": "option-explicit-missing",
+          "count": 0
+        }
+      ]
+    }
+  }
+}
