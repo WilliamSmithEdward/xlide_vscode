@@ -254,6 +254,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2 / 5.3',
 		confidence: 'high',
 	},
+	statementOutsideProcedure: {
+		code: 'statement-outside-procedure',
+		title: 'Statement outside procedure',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2 / 5.4',
+		confidence: 'high',
+	},
 	invalidDeclarationName: {
 		code: 'invalid-declaration-name',
 		title: 'Reserved keyword used as a declaration name',

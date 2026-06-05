@@ -1596,6 +1596,18 @@ describe('analyzeModule - module declaration placement', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Const', 'Type', 'Enum']);
 	});
 
+	it('flags DefType statements after procedures as declaration-order errors', () => {
+		const src =
+			'Sub T()\n' +
+			'End Sub\n' +
+			'DefLng A-Z\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-after-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('DefLng');
+		expect(byCode(analyzeModule(src), 'statement-outside-procedure')).toHaveLength(0);
+	});
+
 	it('accepts module declarations before procedures and inactive branches after procedures', () => {
 		const src =
 			'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n' +
@@ -1609,6 +1621,43 @@ describe('analyzeModule - module declaration placement', () => {
 			analyzeModule(src, { conditionalCompilation: { compilerConstants: { Enabled: false } } }),
 			'module-declaration-after-procedure',
 		)).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - module-level statements outside procedures', () => {
+	it('flags a bare module-level Enum member read as a statement outside a procedure', () => {
+		const src =
+			'Public Enum ENeg_AmbiguousOne\n' +
+			'    NegAmbiguousValue = 1\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Enum ENeg_AmbiguousTwo\n' +
+			'    NegAmbiguousValue = 2\n' +
+			'End Enum\n' +
+			'\n' +
+			'NegAmbiguousValue\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'statement-outside-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('NegAmbiguousValue');
+		expect(hits[0].message).toContain('outside a Sub, Function, or Property procedure');
+		expect(byCode(diagnostics, 'ambiguous-enum-member')).toHaveLength(0);
+	});
+
+	it('flags executable module-level statements without rejecting declaration-section DefType statements', () => {
+		const src =
+			'Option Explicit\n' +
+			'DefLng A-Z\n' +
+			'Debug.Print 1\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'statement-outside-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Debug');
+		expect(byCode(diagnostics, 'module-declaration-in-procedure')).toHaveLength(0);
+		expect(byCode(diagnostics, 'module-declaration-after-procedure')).toHaveLength(0);
 	});
 });
 

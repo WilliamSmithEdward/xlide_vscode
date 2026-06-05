@@ -343,6 +343,7 @@ function runRules(
 	checkInvalidIdentifierStarts(source, mod, activity, push);
 	checkModuleDeclarationsInProcedureBodies(source, mod, activity, push);
 	checkModuleDeclarationsAfterProcedures(source, mod, activity, push);
+	checkModuleLevelStatementsOutsideProcedures(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
 	checkPropertySetterValueParameters(source, mod, activity, push);
 	checkPropertyAccessorSignatures(source, mod, activity, push);
@@ -1895,6 +1896,52 @@ function checkModuleDeclarationsAfterProcedures(
 	}
 }
 
+/**
+ * Rule: executable statements belong inside procedures. The module body accepts
+ * declarations plus a small set of statement-shaped declaration forms (`Def*`
+ * and object-module `Implements`, which has its own placement rule).
+ */
+function checkModuleLevelStatementsOutsideProcedures(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Statement') {
+			continue;
+		}
+		const hit = moduleLevelStatementOutsideProcedureHit(source, member.span);
+		if (!hit) {
+			continue;
+		}
+		push(
+			'statementOutsideProcedure',
+			`${hit.label} is invalid outside a Sub, Function, or Property procedure.`,
+			hit.span,
+		);
+	}
+}
+
+function moduleLevelStatementOutsideProcedureHit(
+	source: string,
+	span: Span,
+): { label: string; span: Span } | undefined {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const first = toks[0];
+	if (!first) {
+		return undefined;
+	}
+	const head = tokenText(first);
+	if (DEFTYPE_KEYWORDS.has(head) || head === 'implements') {
+		return undefined;
+	}
+	return {
+		label: `${first.canonicalText ?? first.rawText} statement`,
+		span: absoluteSpan(span, first),
+	};
+}
+
 function moduleDeclarationAfterProcedureMessage(
 	label: string,
 	mod: ModuleNode,
@@ -1972,9 +2019,26 @@ function moduleDeclarationAfterProcedureHit(
 				label: 'Enum declarations',
 				span: keywordSpan(source, member.span, 'enum'),
 			};
+		case 'Statement':
+			return deftypeModuleDeclarationHit(source, member.span);
 		default:
 			return undefined;
 	}
+}
+
+function deftypeModuleDeclarationHit(
+	source: string,
+	span: Span,
+): { label: string; span: Span } | undefined {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const first = toks[0];
+	if (!first || !DEFTYPE_KEYWORDS.has(tokenText(first))) {
+		return undefined;
+	}
+	return {
+		label: `${first.canonicalText ?? first.rawText} statements`,
+		span: absoluteSpan(span, first),
+	};
 }
 
 function isAlternativeProcedureHeaderStatement(
@@ -8575,7 +8639,7 @@ function checkStatementContext(
 
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Statement') {
-			checkContextStatement(source, member, root, push);
+			continue;
 		} else if (member.kind === 'Procedure') {
 			checkContextBody(source, member.body, root, activity, push);
 		}
