@@ -373,6 +373,12 @@ Progress:
   name inside the same enum. Whole `Enum` blocks in inactive
   conditional-compilation branches stay quiet; directives nested inside an
   `Enum` remain deferred until the parser models that source shape explicitly.
+- [x] Ambiguous enum member reference slice: focused VBE oracle probes show that
+  duplicate member names across separate `Enum` blocks compile until the shared
+  name is referenced bare. Value-position unqualified reads now produce a red
+  `ambiguous-enum-member` diagnostic when they resolve to multiple visible enum
+  member definitions, while declaration-only duplicates, qualified reads,
+  same-module bindings, and local shadows stay quiet.
 - [x] Conditional branch-order slice: peer `#ElseIf`/`ElseIf` branches after
   `#Else`/`Else`, plus duplicate `#Else`/`Else` branches, now produce red
   diagnostics. Conditional-compilation branch order is checked structurally,

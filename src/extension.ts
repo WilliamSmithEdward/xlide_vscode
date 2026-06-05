@@ -365,7 +365,7 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }),
 
-        // Manual setup command (also auto-triggered on missing packages)
+        // Manual setup command surfaced by the sidebar setup row.
         registerXlideCommand('xlide.setup', () =>
             installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention).catch((err: Error) => {
                 pythonBackendNeedsAttention(err);
@@ -474,75 +474,20 @@ export function activate(context: vscode.ExtensionContext): void {
         out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
         pythonBackendNeedsAttention(err);
 
-        if (isPythonNotFound(err.message)) {
-            const choice = await vscode.window.showErrorMessage(
-                'XLIDE: Python 3.10+ was not found. Install Python and tick "Add Python to PATH", ' +
-                'then reload the window. Or set xlide.pythonPath to your Python executable and reload.',
-                'Get Python',
-                'Set Python Path',
-                'Copy Diagnostics',
-                'Reload Window',
-            );
-            if (choice === 'Get Python') {
-                void vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
-                void vscode.window.showInformationMessage(
-                    'After installing Python, reload the window to start XLIDE.',
-                    'Reload Window',
-                ).then(action => {
-                    if (action === 'Reload Window') {
-                        void vscode.commands.executeCommand('workbench.action.reloadWindow');
-                    }
-                });
-            } else if (choice === 'Set Python Path') {
-                void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
-                void vscode.window.showInformationMessage(
-                    'After setting the path, reload the window to start XLIDE.',
-                    'Reload Window',
-                ).then(action => {
-                    if (action === 'Reload Window') {
-                        void vscode.commands.executeCommand('workbench.action.reloadWindow');
-                    }
-                });
-            } else if (choice === 'Reload Window') {
-                void vscode.commands.executeCommand('workbench.action.reloadWindow');
-            } else if (choice === 'Copy Diagnostics') {
-                void vscode.commands.executeCommand('xlide.copyDiagnostics');
-            }
-        } else if (isMissingPackage(err.message)) {
-            const choice = await vscode.window.showErrorMessage(
-                'XLIDE: Required Python packages are missing (pyOpenVBA, openpyxl). ' +
-                'Click "Install Now" to install them automatically.',
-                'Install Now',
-                'Copy Diagnostics',
-                'Dismiss',
-            );
-            if (choice === 'Install Now') {
-                await installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention).catch((e: Error) => {
-                    pythonBackendNeedsAttention(e);
-                    out.appendLine(`Setup error: ${e.message}`);
-                    void vscode.window.showErrorMessage(
-                        `XLIDE setup failed: ${e.message}. Copy redacted diagnostics if you need to troubleshoot.`,
-                        'Copy Diagnostics',
-                    ).then((action) => {
-                        if (action === 'Copy Diagnostics') {
-                            void vscode.commands.executeCommand('xlide.copyDiagnostics');
-                        }
-                    });
-                });
-            } else if (choice === 'Copy Diagnostics') {
-                void vscode.commands.executeCommand('xlide.copyDiagnostics');
-            }
-        } else {
-            const choice = await vscode.window.showErrorMessage(
-                `XLIDE: Failed to start Python backend. ${err.message}`,
-                'Copy Diagnostics',
-                'Set Python Path',
-            );
-            if (choice === 'Copy Diagnostics') {
-                void vscode.commands.executeCommand('xlide.copyDiagnostics');
-            } else if (choice === 'Set Python Path') {
-                void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
-            }
+        if (isPythonNotFound(err.message) || isMissingPackage(err.message)) {
+            out.appendLine('XLIDE setup is incomplete; use the XLIDE sidebar Setup section to finish Python setup.');
+            return;
+        }
+
+        const choice = await vscode.window.showErrorMessage(
+            `XLIDE: Failed to start Python backend. ${err.message}`,
+            'Copy Diagnostics',
+            'Set Python Path',
+        );
+        if (choice === 'Copy Diagnostics') {
+            void vscode.commands.executeCommand('xlide.copyDiagnostics');
+        } else if (choice === 'Set Python Path') {
+            void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
         }
     });
 }

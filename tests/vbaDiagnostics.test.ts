@@ -427,6 +427,103 @@ describe('analyzeModule - duplicate Enum members', () => {
 	});
 });
 
+describe('analyzeModule - ambiguous Enum member references', () => {
+	it('does not flag same-name members declared in separate Enum blocks by themselves', () => {
+		const src =
+			'Public Enum ENeg_AmbiguousOne\n' +
+			'    NegAmbiguousValue = 1\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Enum ENeg_AmbiguousTwo\n' +
+			'    NegAmbiguousValue = 2\n' +
+			'End Enum\n';
+
+		expect(byCode(analyzeModule(src), 'ambiguous-enum-member')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'duplicate-enum-member')).toHaveLength(0);
+	});
+
+	it('flags an unqualified read of a member shared by separate same-module Enums', () => {
+		const src =
+			'Public Enum ENeg_AmbiguousOne\n' +
+			'    NegAmbiguousValue = 1\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Enum ENeg_AmbiguousTwo\n' +
+			'    NegAmbiguousValue = 2\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Sub T()\n' +
+			'    Debug.Print NegAmbiguousValue\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'ambiguous-enum-member');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('NegAmbiguousValue');
+		expect(hits[0].message).toContain('ENeg_AmbiguousOne');
+		expect(hits[0].message).toContain('ENeg_AmbiguousTwo');
+	});
+
+	it('does not flag qualified reads or local shadows of ambiguous Enum member names', () => {
+		const src =
+			'Public Enum ENeg_AmbiguousOne\n' +
+			'    NegAmbiguousValue = 1\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Enum ENeg_AmbiguousTwo\n' +
+			'    NegAmbiguousValue = 2\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Sub T()\n' +
+			'    Dim NegAmbiguousValue As Long\n' +
+			'    Debug.Print NegAmbiguousValue\n' +
+			'    Debug.Print ENeg_AmbiguousOne.NegAmbiguousValue\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'ambiguous-enum-member')).toHaveLength(0);
+	});
+
+	it('flags externally ambiguous Enum member reads unless the current module binds the name', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Debug.Print SharedModeValue\n' +
+			'End Sub\n';
+		const globalsA =
+			'Public Enum SharedModeA\n' +
+			'    SharedModeValue = 1\n' +
+			'End Enum\n';
+		const globalsB =
+			'Public Enum SharedModeB\n' +
+			'    SharedModeValue = 2\n' +
+			'End Enum\n';
+		const modules = [
+			{ moduleName: 'Caller', source: caller },
+			{ moduleName: 'GlobalsA', source: globalsA },
+			{ moduleName: 'GlobalsB', source: globalsB },
+		];
+		const hits = byCode(
+			analyzeProjectModule(caller, modules, 'Caller'),
+			'ambiguous-enum-member',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedModeValue');
+
+		const localCaller =
+			'Public Enum LocalMode\n' +
+			'    SharedModeValue = 0\n' +
+			'End Enum\n' +
+			'\n' +
+			caller;
+		expect(
+			byCode(
+				analyzeProjectModule(localCaller, modules, 'Caller'),
+				'ambiguous-enum-member',
+			),
+		).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - assignment to constant', () => {
 	it('flags assigning to a module-level Const', () => {
 		const src =

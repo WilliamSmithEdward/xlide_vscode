@@ -75,6 +75,22 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "ambiguous-enum-member",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "VBE compile oracle: duplicate member names across separate Enum blocks compile until referenced unqualified; the unqualified read is rejected as Ambiguous name detected",
+      "corpusInfluence": "legacy-corpus-promoted",
+      "assertedOracleCases": [
+        "enum_member_same_name_across_enums_declaration_compile",
+        "enum_member_same_name_across_enums_unqualified_read_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage reports value-position bare reads that resolve to multiple visible Enum member definitions across distinct Enum containers. Same-module bindings take precedence over exported members from other modules, procedure locals/parameters shadow module-level enum members, and declaration-only same-name members remain quiet per the accepted oracle control.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "const-assignment",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.3.1",

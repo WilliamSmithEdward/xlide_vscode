@@ -314,6 +314,18 @@ function runRules(
 	checkDuplicateDeclarations(symbols.root.children ?? [], push);
 	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
 	checkDuplicateEnumMembers(source, mod, activity, push);
+	checkAmbiguousEnumMemberReferences(
+		source,
+		mod,
+		symbols,
+		activity,
+		moduleName,
+		opts.knownProcedures,
+		opts.projectProcedures,
+		opts.projectClassMembers,
+		opts.projectVisibleSymbols,
+		push,
+	);
 	checkConstAssignment(source, mod, symbols, activity, push);
 	checkOptionExplicit(source, mod, activity, push);
 	checkUndeclaredVariables(
@@ -801,6 +813,149 @@ function checkDuplicateEnumMembers(
 			}
 		}
 	}
+}
+
+/**
+ * Rule: duplicate member names in different Enum blocks compile, but an
+ * unqualified read of that shared member name is rejected as "Ambiguous name
+ * detected". Same-module bindings take precedence over exported members from
+ * other modules, and procedure locals/parameters shadow module-level enum
+ * members.
+ */
+function checkAmbiguousEnumMemberReferences(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	moduleName: string,
+	knownProcedures: ReadonlySet<string> | undefined,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectMembers: readonly VbaProjectClassMembers[] | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	push: PushFn,
+): void {
+	const localEnumMembers = enumMemberSymbols(symbols.root.children ?? []);
+	const localAmbiguous = ambiguousEnumMemberGroups(localEnumMembers);
+	const externalAmbiguous = ambiguousEnumMemberGroups(
+		(projectVisibleSymbols ?? []).filter(
+			(sym) =>
+				sym.kind === 'enumMember' &&
+				sym.moduleName.toLowerCase() !== moduleName.toLowerCase(),
+		),
+	);
+	if (localAmbiguous.size === 0 && externalAmbiguous.size === 0) {
+		return;
+	}
+
+	const moduleNames = moduleLevelIdentifierNames(symbols);
+	const projectNames = new Set<string>();
+	for (const sym of projectVisibleSymbols ?? []) {
+		projectNames.add(sym.name.toLowerCase());
+	}
+	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const appType = resolveHostGlobal('Application');
+	const appMembers = new Set(
+		(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
+	);
+	const isKnownForSkip = (name: string, locals: ReadonlySet<string>): boolean => {
+		const lower = name.toLowerCase();
+		return (
+			locals.has(lower) ||
+			moduleNames.has(lower) ||
+			projectNames.has(lower) ||
+			(knownProcedures?.has(lower) ?? false) ||
+			appMembers.has(lower) ||
+			resolveHostGlobal(name) !== undefined ||
+			resolveRuntimeObject(name) !== undefined ||
+			resolveRuntimeFunction(name) !== undefined
+		);
+	};
+	const ambiguousDefinitions = (name: string): readonly VbaSymbol[] | undefined => {
+		const lower = name.toLowerCase();
+		if (moduleNames.has(lower)) {
+			return localAmbiguous.get(lower);
+		}
+		return externalAmbiguous.get(lower);
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const procSym = (symbols.root.children ?? []).find(
+			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
+		);
+		const locals = new Set<string>();
+		for (const child of procSym?.children ?? []) {
+			locals.add(child.name.toLowerCase());
+		}
+		const reported = new Set<string>();
+		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
+			for (const ref of valueReadReferences(
+				source,
+				span,
+				(name) => isKnownForSkip(name, locals),
+				moduleSignatures,
+				projectMembers,
+			)) {
+				if (locals.has(ref.name.toLowerCase())) {
+					continue;
+				}
+				const definitions = ambiguousDefinitions(ref.name);
+				if (!definitions || definitions.length < 2) {
+					continue;
+				}
+				const key = `${ref.span.start}:${ref.span.end}`;
+				if (reported.has(key)) {
+					continue;
+				}
+				reported.add(key);
+				const owners = definitions
+					.map((definition) => definition.containerName ?? definition.moduleName)
+					.filter((owner, index, all) => all.indexOf(owner) === index)
+					.slice(0, 3)
+					.join(', ');
+				push(
+					'ambiguousEnumMember',
+					`Ambiguous Enum member reference: '${ref.name}' is defined by multiple visible Enums${owners ? ` (${owners})` : ''}. Qualify the reference with an Enum or module name.`,
+					ref.span,
+				);
+			}
+		}, activity);
+	}
+}
+
+function enumMemberSymbols(symbols: readonly VbaSymbol[]): VbaSymbol[] {
+	const out: VbaSymbol[] = [];
+	for (const symbol of symbols) {
+		if (symbol.kind === 'enum') {
+			out.push(...(symbol.children ?? []).filter((child) => child.kind === 'enumMember'));
+		}
+	}
+	return out;
+}
+
+function ambiguousEnumMemberGroups(symbols: readonly VbaSymbol[]): Map<string, VbaSymbol[]> {
+	const groups = new Map<string, Map<string, VbaSymbol>>();
+	for (const symbol of symbols) {
+		if (symbol.kind !== 'enumMember') {
+			continue;
+		}
+		const key = symbol.name.toLowerCase();
+		const ownerKey = `${symbol.moduleName.toLowerCase()}:${(symbol.containerName ?? '').toLowerCase()}`;
+		const owners = groups.get(key) ?? new Map<string, VbaSymbol>();
+		if (!owners.has(ownerKey)) {
+			owners.set(ownerKey, symbol);
+		}
+		groups.set(key, owners);
+	}
+	const ambiguous = new Map<string, VbaSymbol[]>();
+	for (const [key, owners] of groups) {
+		if (owners.size > 1) {
+			ambiguous.set(key, [...owners.values()]);
+		}
+	}
+	return ambiguous;
 }
 
 /**
@@ -5396,13 +5551,24 @@ function undeclaredReadReferences(
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 ): Array<{ name: string; span: Span }> {
+	return valueReadReferences(source, span, isKnown, moduleSignatures, projectMembers)
+		.filter((ref) => !isKnown(ref.name));
+}
+
+function valueReadReferences(
+	source: string,
+	span: Span,
+	isKnownForSkip: (name: string) => boolean,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	projectMembers: readonly VbaProjectClassMembers[] | undefined,
+): Array<{ name: string; span: Span }> {
 	const toks = statementTokens(source, span);
 	const out: Array<{ name: string; span: Span }> = [];
 	const skip = undeclaredReferenceSkipIndexes(
 		source,
 		span,
 		toks,
-		isKnown,
+		isKnownForSkip,
 		moduleSignatures,
 		projectMembers,
 	);
@@ -5414,7 +5580,7 @@ function undeclaredReadReferences(
 			continue;
 		}
 		const name = tokenName(toks[i]);
-		if (!name || isKnown(name)) {
+		if (!name) {
 			continue;
 		}
 		out.push({

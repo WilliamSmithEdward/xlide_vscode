@@ -152,6 +152,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.4',
 		confidence: 'high',
 	},
+	ambiguousEnumMember: {
+		code: 'ambiguous-enum-member',
+		title: 'Ambiguous Enum member reference',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE oracle: Ambiguous name detected',
+		confidence: 'high',
+	},
 	declareMissingPtrSafe: {
 		code: 'declare-missing-ptrsafe',
 		title: 'Declare statement missing PtrSafe for 64-bit Office',

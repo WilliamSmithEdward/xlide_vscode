@@ -2851,6 +2851,26 @@
       "source": "Public Sub XlideOracleEntry()\n    If False Then\n        Debug.Print 0\n    ElseIf True Then\n        Debug.Print 1\n    Else\n        Debug.Print 2\n    End If\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "enum_member_same_name_across_enums_declaration_compile",
+      "description": "Compile control: two Enum blocks can declare the same member name when that member is not referenced unqualified.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Enum ENeg_AmbiguousOne\n    NegAmbiguousValue = 1\nEnd Enum\n\nPublic Enum ENeg_AmbiguousTwo\n    NegAmbiguousValue = 2\nEnd Enum\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "enum_member_same_name_across_enums_unqualified_read_compile",
+      "description": "Compile probe: an unqualified read of a member name shared by two Enum blocks is rejected as Ambiguous name detected.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Enum ENeg_AmbiguousOne\n    NegAmbiguousValue = 1\nEnd Enum\n\nPublic Enum ENeg_AmbiguousTwo\n    NegAmbiguousValue = 2\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Debug.Print NegAmbiguousValue\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
