@@ -1705,10 +1705,55 @@ function checkModuleDeclarationsAfterProcedures(
 		}
 		push(
 			'moduleDeclarationAfterProcedure',
-			`${hit.label} belong in the module declarations section, before procedures.`,
+			moduleDeclarationAfterProcedureMessage(hit.label, mod, member, activity),
 			hit.span,
 		);
 	}
+}
+
+function moduleDeclarationAfterProcedureMessage(
+	label: string,
+	mod: ModuleNode,
+	member: ModuleMember,
+	activity: ConditionalActivityTracker | undefined,
+): string {
+	if (!isInsideModuleConditionalCompilationBlock(mod, member.span)) {
+		return `${label} belong in the module declarations section, before procedures.`;
+	}
+	const branchStatus = activity?.activityForSpan(member.span);
+	if (branchStatus === 'active') {
+		return `${label} in the active conditional-compilation branch belong in the module declarations section, before procedures.`;
+	}
+	return `${label} in a conditional-compilation branch belong in the module declarations section, before procedures.`;
+}
+
+function isInsideModuleConditionalCompilationBlock(
+	mod: ModuleNode,
+	span: Span,
+): boolean {
+	let depth = 0;
+	for (const { directive, container } of collectConditionalDirectives(mod)) {
+		if (container.kind !== 'module') {
+			continue;
+		}
+		if (directive.span.start >= span.start) {
+			break;
+		}
+		switch (directive.directiveKind) {
+			case 'If':
+				depth++;
+				break;
+			case 'EndIf':
+				depth = Math.max(0, depth - 1);
+				break;
+			case 'Const':
+			case 'ElseIf':
+			case 'Else':
+			case 'Unknown':
+				break;
+		}
+	}
+	return depth > 0;
 }
 
 function moduleDeclarationAfterProcedureHit(

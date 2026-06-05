@@ -1313,7 +1313,48 @@ describe('analyzeModule - module declaration placement', () => {
 		expect(hits).toHaveLength(1);
 		expect(hits[0].severity).toBe('error');
 		expect(spanText(src, hits[0])).toBe('Declare');
-		expect(hits[0].message).toContain('Declare statements belong');
+		expect(hits[0].message).toContain('active conditional-compilation branch');
+		expect(hits[0].message).toContain('module declarations section');
+	});
+
+	it('flags only the active #ElseIf declaration after a procedure in a valid conditional block', () => {
+		const src =
+			'Public Sub Earlier()\n' +
+			'End Sub\n' +
+			'\n' +
+			'#If False Then\n' +
+			'    Private Const Mode As Long = 0\n' +
+			'#ElseIf True Then\n' +
+			'    Private Const Mode As Long = 2\n' +
+			'#Else\n' +
+			'    Private Const Mode As Long = 1\n' +
+			'#End If\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'module-declaration-after-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Const');
+		expect(hits[0].message).toContain('module declarations section');
+		expect(byCode(diagnostics, 'else-branch-order')).toHaveLength(0);
+	});
+
+	it('explains active conditional branches in declaration-after-procedure diagnostics', () => {
+		const src =
+			'Public Sub Earlier()\n' +
+			'End Sub\n' +
+			'\n' +
+			'#If False Then\n' +
+			'    Private Const Mode As Long = 0\n' +
+			'#ElseIf True Then\n' +
+			'    Private Const Mode As Long = 2\n' +
+			'#Else\n' +
+			'    Private Const Mode As Long = 1\n' +
+			'#End If\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-after-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Const');
+		expect(hits[0].message).toContain('active conditional-compilation branch');
 	});
 
 	it('suppresses declaration-order fallout inside malformed conditional-compilation blocks', () => {

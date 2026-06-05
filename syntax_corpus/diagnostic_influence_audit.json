@@ -173,15 +173,17 @@
     },
     {
       "code": "module-declaration-after-procedure",
-      "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.2 module declarations precede 5.3 procedure declarations",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.2 module declarations precede 5.3 procedure declarations plus Excel/VBE compile oracle",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "conditional_const_after_procedure_active_elseif_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage scans top-level parsed module members in active conditional branches. Once an active procedure is seen, later active Declare, Event, Const/module variable, Type, and Enum declarations are reported on the declaration keyword. Later procedures remain accepted; inactive conditional branches stay silent, and declarations inside a conditional-compilation block with malformed branch order are suppressed as cascade noise because else-branch-order owns the primary compile error. Option placement remains owned by option-after-declaration and Implements placement by implements-statement-placement.",
+      "notes": "Active coverage scans top-level parsed module members in active conditional branches. Once an active procedure is seen, later active Declare, Event, Const/module variable, Type, and Enum declarations are reported on the declaration keyword. Later procedures remain accepted; inactive conditional branches stay silent. In a valid #If/#ElseIf/#Else block after a procedure, only the active declaration branch is reported; declarations inside a conditional-compilation block with malformed branch order are suppressed as cascade noise because else-branch-order owns the primary compile error. Option placement remains owned by option-after-declaration and Implements placement by implements-statement-placement.",
       "diagnosticKind": "compile-error"
     },
     {

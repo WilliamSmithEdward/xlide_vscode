@@ -335,8 +335,11 @@ Progress:
 - [x] Module declaration order slice: parsed module declarations (`Declare`,
   `Event`, module variables/constants, `Type`, and `Enum`) now produce a red
   diagnostic when they appear after an active procedure, including active
-  `#If VBA7` branches. Later procedures remain accepted, and inactive
-  conditional branches stay quiet.
+  `#If VBA7` branches and the selected branch of valid `#If`/`#ElseIf`/`#Else`
+  declaration blocks. The diagnostic message names the active
+  conditional-compilation branch so only-one-branch squiggles are easier to
+  interpret. Later procedures remain accepted, and inactive conditional
+  branches stay quiet.
 - [x] Parameter-list hardening slice: parsed procedure parameter flags now
   produce a red diagnostic when `ParamArray` appears in the same parameter list
   as any `Optional` argument, and when an explicit `ParamArray` element type is

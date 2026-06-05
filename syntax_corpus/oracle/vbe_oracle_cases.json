@@ -2753,6 +2753,16 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "conditional_const_after_procedure_active_elseif_compile",
+      "description": "Compile probe: a valid #ElseIf conditional branch whose active declaration appears after a procedure is still rejected as a misplaced module declaration.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\nEnd Sub\n\n#If False Then\n    Private Const Mode As Long = 0\n#ElseIf True Then\n    Private Const Mode As Long = 2\n#Else\n    Private Const Mode As Long = 1\n#End If\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "conditional_elseif_after_else_compile",
       "description": "Compile probe: #ElseIf cannot appear after #Else in the same conditional-compilation block.",
       "provenance": "vbe-oracle-verified",
