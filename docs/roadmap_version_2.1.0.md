@@ -171,9 +171,15 @@ Progress:
   branches, and verified `Worksheet.Buttons` host metadata. The binder/overlay
   canary adds ambiguous bare procedure no-diagnostic coverage, module-qualified
   arity evidence, and same-workbook live-source overlays with cross-workbook
-  overlay isolation. The external-reference canary keeps common unresolved
-  `Scripting.Dictionary`, `ADODB.Stream`, `CreateObject`, `TextCompare`, and
-  `VBA.CStr` shapes quiet until explicit external metadata exists.
+  overlay isolation. The project-type canary locks workbook-scale class, UDT,
+  enum, and ambiguous type-name binding into the same exact diagnostic harness:
+  unambiguous source-backed class/UDT receivers can produce hard
+  `member-not-found`, ambiguous type names produce a targeted type diagnostic,
+  ambiguous receivers do not cascade into guessed member diagnostics, and
+  module-qualified enum reads stay quiet under `Option Explicit`. The
+  external-reference canary keeps common unresolved `Scripting.Dictionary`,
+  `ADODB.Stream`, `CreateObject`, `TextCompare`, and `VBA.CStr` shapes quiet
+  until explicit external metadata exists.
 
 Definition of done:
 

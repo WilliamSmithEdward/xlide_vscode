@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "id": "workbook-analysis-project-types-canary",
+  "description": "Workbook-analysis canary for project class, UDT, enum, and ambiguous type-name binding.",
+  "modules": [
+    {
+      "name": "Customer",
+      "type": "class",
+      "sourceLines": [
+        "Option Explicit",
+        "Private mName As String",
+        "",
+        "Public Property Get Name() As String",
+        "    Name = mName",
+        "End Property",
+        "",
+        "Public Property Let Name(ByVal value As String)",
+        "    mName = value",
+        "End Property",
+        "",
+        "Public Sub Save()",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "AddressTypes",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Type TAddress",
+        "    Street As String",
+        "End Type",
+        "",
+        "Public Enum CustomerStatus",
+        "    Active = 1",
+        "    Inactive = 2",
+        "End Enum"
+      ]
+    },
+    {
+      "name": "AmbiguousA",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Type TShared",
+        "    A As Long",
+        "End Type"
+      ]
+    },
+    {
+      "name": "AmbiguousB",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Type TShared",
+        "    B As Long",
+        "End Type"
+      ]
+    },
+    {
+      "name": "ProjectConsumer",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub Main()",
+        "    Dim customer As Customer",
+        "    Dim address As TAddress",
+        "    Dim status As CustomerStatus",
+        "    Dim ambiguous As TShared",
+        "",
+        "    Set customer = New Customer",
+        "    customer.Name = \"Ada\"",
+        "    customer.DoesNotExist",
+        "    address.Street = \"First\"",
+        "    address.Missing = \"Oops\"",
+        "    status = AddressTypes.Active",
+        "    ambiguous.Missing = 1",
+        "End Sub"
+      ]
+    }
+  ],
+  "assertions": {
+    "workbookAnalysis": {
+      "problemCount": 3,
+      "problems": [
+        {
+          "moduleName": "ProjectConsumer",
+          "code": "invalid-as-type-name",
+          "line": 7,
+          "severity": "error",
+          "messageContains": ["TShared", "ambiguous"]
+        },
+        {
+          "moduleName": "ProjectConsumer",
+          "code": "member-not-found",
+          "line": 11,
+          "severity": "error",
+          "messageContains": ["Customer.DoesNotExist"]
+        },
+        {
+          "moduleName": "ProjectConsumer",
+          "code": "member-not-found",
+          "line": 13,
+          "severity": "error",
+          "messageContains": ["TAddress.Missing"]
+        }
+      ],
+      "codes": [
+        {
+          "code": "invalid-as-type-name",
+          "count": 1,
+          "messagesContain": ["TShared", "ambiguous"]
+        },
+        {
+          "code": "member-not-found",
+          "count": 2,
+          "messagesContain": ["Customer.DoesNotExist", "TAddress.Missing"]
+        },
+        {
+          "code": "undeclared-variable",
+          "count": 0
+        },
+        {
+          "code": "unknown-call",
+          "count": 0
+        }
+      ],
+      "absentCodes": ["option-explicit-missing"]
+    }
+  }
+}

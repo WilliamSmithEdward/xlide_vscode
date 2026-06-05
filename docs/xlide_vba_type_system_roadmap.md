@@ -266,7 +266,11 @@ Landed first:
   ambiguous bare procedure no-diagnostics, module-qualified arity evidence,
   same-workbook live-source overlays without cross-workbook leakage, and common
   unresolved reference/library shapes that must stay quiet until explicit
-  metadata exists.
+  metadata exists. A project-type canary now asserts workbook-scale class, UDT,
+  enum, and ambiguous type-name behavior in the same flattened diagnostic
+  harness, including hard `member-not-found` only for unambiguous source-backed
+  receivers, no guessed member diagnostics for ambiguous receiver types, and no
+  `Option Explicit` noise for module-qualified enum reads.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 
