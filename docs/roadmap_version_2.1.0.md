@@ -331,6 +331,11 @@ Progress:
   diagnostic when they appear after an active procedure, including active
   `#If VBA7` branches. Later procedures remain accepted, and inactive
   conditional branches stay quiet.
+- [x] Parameter-list hardening slice: parsed procedure parameter flags now
+  produce a red diagnostic when `ParamArray` appears in the same parameter list
+  as any `Optional` argument, and when an explicit `ParamArray` element type is
+  not `Variant`. The existing `ParamArray` final-position and
+  required-after-optional rules remain separate.
 - [x] RaiseEvent target slice: settled `RaiseEvent` statements now produce a red
   diagnostic when the target event is not an active `Event` declaration in the
   same module. Declared same-module events and inactive conditional branches

@@ -820,6 +820,32 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "paramarray-with-optional",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1.5 Optional parameters plus 5.3.1.6 ParamArray parameter-list restrictions",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage uses parsed procedure parameter flags and reports the ParamArray name when the same parameter list contains any Optional parameter. The final-position rule remains owned by paramarray-not-last.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "paramarray-non-variant",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1.6 ParamArray elements are Variant",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage uses parsed procedure parameter flags and reports the ParamArray name when an explicit As type is present and does not normalize to Variant. Omitted As type and explicit As Variant stay accepted.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "parameter-default-type-mismatch",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE parameter default literal model",

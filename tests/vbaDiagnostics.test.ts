@@ -6138,9 +6138,41 @@ describe('analyzeModule - parameter order', () => {
 		expect(spanText(src, hits[0])).toBe('items');
 	});
 
+	it('flags a ParamArray combined with Optional parameters', () => {
+		const src =
+			'Public Sub Combined011ParamarrayWithOptional(Optional ByVal prefix As String = "x", ParamArray values() As Variant)\n' +
+			'    Debug.Print prefix\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'paramarray-with-optional');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('values');
+		expect(hits[0].message).toContain('ParamArray');
+		expect(hits[0].message).toContain('Optional');
+	});
+
+	it('flags a ParamArray typed as a non-Variant element type', () => {
+		const src =
+			'Public Sub Combined012TypedParamarray(ParamArray values() As String)\n' +
+			'    Debug.Print values(0)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'paramarray-non-variant');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('values');
+		expect(hits[0].message).toContain('Variant');
+		expect(hits[0].message).toContain('String');
+	});
+
 	it('accepts a trailing ParamArray', () => {
-		const src = 'Sub T(ByVal n As Long, ParamArray items() As Variant)\nEnd Sub\n';
+		const src =
+			'Sub T(ByVal n As Long, ParamArray items() As Variant)\nEnd Sub\n' +
+			'Sub U(ParamArray values())\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'paramarray-not-last')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'paramarray-with-optional')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'paramarray-non-variant')).toHaveLength(0);
 	});
 });
 

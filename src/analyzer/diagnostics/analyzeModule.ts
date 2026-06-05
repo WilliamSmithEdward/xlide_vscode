@@ -6504,9 +6504,11 @@ function topLevelAssignOffset(source: string, span: Span): number | undefined {
 }
 
 /**
- * Rule: parameter-order constraints. A required parameter may not follow an
- * `Optional` one, and `ParamArray` must be the final parameter. Both are read
- * straight off the parsed parameter flags, so they are deterministic.
+ * Rule: parameter-list constraints. A required parameter may not follow an
+ * `Optional` one, `ParamArray` must be the final parameter, `ParamArray` cannot
+ * be combined with Optional parameters in the same list, and explicitly typed
+ * `ParamArray` elements must be Variant. These are read straight off the parsed
+ * parameter flags, so they are deterministic.
  */
 function checkParameterOrder(
 	source: string,
@@ -6519,10 +6521,25 @@ function checkParameterOrder(
 			continue;
 		}
 		const params = member.params;
+		const hasOptional = params.some((p) => p.optional);
 		let optionalSeen = false;
 		for (let i = 0; i < params.length; i++) {
 			const p = params[i];
 			if (p.paramArray) {
+				if (p.asType && normalizeType(p.asType) !== 'variant') {
+					push(
+						'paramArrayNonVariant',
+						`ParamArray '${p.name}' elements must be Variant, but this parameter is declared As ${p.asType}.`,
+						declaredNameSpan(source, p.span, p.name),
+					);
+				}
+				if (hasOptional) {
+					push(
+						'paramArrayWithOptional',
+						`ParamArray '${p.name}' cannot be used in the same parameter list as Optional arguments.`,
+						declaredNameSpan(source, p.span, p.name),
+					);
+				}
 				if (i !== params.length - 1) {
 					push(
 						'paramArrayNotLast',
