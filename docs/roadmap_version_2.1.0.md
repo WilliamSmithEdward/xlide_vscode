@@ -360,6 +360,10 @@ Progress:
   `ReDim Preserve` statements now produce a red diagnostic when the target
   resolves in procedure/module scope to a fixed-size array. Dynamic arrays,
   undeclared targets, local dynamic shadows, and inactive branches stay quiet.
+- [x] Array Erase hardening slice: active `Erase` statements now reject
+  target-list entries that are clearly arbitrary expressions, such as literals
+  or arithmetic, while variable-like targets stay quiet until array-ness is
+  proven by a deeper binder slice.
 
 Definition of done:
 

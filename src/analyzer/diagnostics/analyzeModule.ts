@@ -338,6 +338,7 @@ function runRules(
 	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
 	checkDimInitializer(source, mod, activity, push);
 	checkFixedArrayRedim(source, mod, activity, push);
+	checkEraseTargets(source, mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
@@ -5611,6 +5612,90 @@ function redimTargets(source: string, span: Span): Array<{ name: string; span: S
 		out.push({ name, span: absoluteSpan(span, nameTok) });
 	}
 	return out;
+}
+
+/**
+ * Rule: Erase targets must be variable/array target names, not arbitrary
+ * expressions. This intentionally stays syntax-shaped: array-ness/type
+ * resolution is a separate binder-backed slice.
+ */
+function checkEraseTargets(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			for (const hit of invalidEraseTargets(source, stmt.span)) {
+				push(
+					'invalidEraseTarget',
+					`Erase target must be a variable or array name, not an arbitrary expression.`,
+					hit.span,
+				);
+			}
+		}, activity);
+	}
+}
+
+function invalidEraseTargets(source: string, span: Span): Array<{ span: Span }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'erase') {
+		return [];
+	}
+	const out: Array<{ span: Span }> = [];
+	for (const group of splitTopLevelTokenGroups(toks.slice(1), ',')) {
+		const content = group.filter((tok) => tok.kind !== 'comment');
+		if (content.length === 0) {
+			continue;
+		}
+		if (eraseTargetLooksVariableLike(content)) {
+			continue;
+		}
+		out.push({ span: tokenGroupSpan(span, content) });
+	}
+	return out;
+}
+
+function eraseTargetLooksVariableLike(toks: readonly VbaToken[]): boolean {
+	if (!tokenName(toks[0])) {
+		return false;
+	}
+	if (toks.some((tok) => ERASE_EXPRESSION_OPERATORS.has(tok.rawText))) {
+		return false;
+	}
+	if (toks[0]?.rawText === '(') {
+		return false;
+	}
+	return true;
+}
+
+const ERASE_EXPRESSION_OPERATORS = new Set([
+	'+',
+	'-',
+	'*',
+	'/',
+	'\\',
+	'^',
+	'&',
+	'=',
+	'<',
+	'>',
+	'<=',
+	'>=',
+	'<>',
+]);
+
+function tokenGroupSpan(base: Span, toks: readonly VbaToken[]): Span {
+	const first = toks[0];
+	const last = toks[toks.length - 1];
+	return {
+		start: base.start + (first?.start ?? 0),
+		end: base.start + (last?.end ?? 0),
+	};
 }
 
 function splitTopLevelTokenGroups(

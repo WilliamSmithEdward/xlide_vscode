@@ -5088,6 +5088,41 @@ describe('analyzeModule - array ReDim', () => {
 	});
 });
 
+describe('analyzeModule - array Erase', () => {
+	it('flags an Erase arithmetic expression', () => {
+		const src =
+			'Sub T()\n' +
+			'    Erase 1 + 2\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-erase-target');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('1 + 2');
+		expect(hits[0].message).toContain('variable or array name');
+	});
+
+	it('flags expression targets in comma-separated Erase lists', () => {
+		const src =
+			'Sub T()\n' +
+			'    Erase Values, other + 1, "bad"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-erase-target');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['other + 1', '"bad"']);
+	});
+
+	it('accepts variable-like Erase targets', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Values() As Long\n' +
+			'    Erase Values\n' +
+			'    Erase Values, OtherValues\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-erase-target')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - unexpected declaration tokens', () => {
 	it('flags a bare identifier after a complete local As type', () => {
 		const src = 'Sub T()\n    Dim s1 As String thisshoulderror\nEnd Sub\n';

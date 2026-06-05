@@ -450,6 +450,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL ReDim statement',
 		confidence: 'high',
 	},
+	invalidEraseTarget: {
+		code: 'invalid-erase-target',
+		title: 'Erase target must be a variable or array name',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL Erase statement',
+		confidence: 'high',
+	},
 	unexpectedDeclarationToken: {
 		code: 'unexpected-declaration-token',
 		title: 'Unexpected token after declaration type',
