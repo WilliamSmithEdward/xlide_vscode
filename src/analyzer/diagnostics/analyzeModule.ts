@@ -337,6 +337,7 @@ function runRules(
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
 	checkEventDeclarationModuleKind(source, mod, moduleKind, activity, push);
 	checkWithEventsDeclarations(source, mod, moduleKind, activity, push);
+	checkFriendDeclarations(source, mod, moduleKind, activity, push);
 	checkImplementsStatementPlacement(source, mod, moduleKind, activity, push);
 	checkRaiseEventTargets(source, mod, activity, push);
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
@@ -5611,6 +5612,49 @@ function checkWithEventsDeclarations(
 			forEachVariableGroup(member.body, (group) => inspect(group, true), activity);
 		}
 	}
+}
+
+/**
+ * Rule: `Friend` is procedure visibility for object modules. It is not a
+ * module-variable modifier and it is not valid for standard-module procedures.
+ */
+function checkFriendDeclarations(
+	source: string,
+	mod: ModuleNode,
+	moduleKind: ModuleSymbolKind,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure') {
+			if (hasFriendModifier(member.modifiers) && !isObjectModuleKind(moduleKind)) {
+				push(
+					'friendDeclaration',
+					`Friend procedure '${member.name}' is only valid in class, document, or UserForm modules.`,
+					friendKeywordSpan(source, member.span),
+				);
+			}
+			continue;
+		}
+		if (member.kind !== 'VariableGroup' || member.modifier.toLowerCase() !== 'friend') {
+			continue;
+		}
+		push(
+			'friendDeclaration',
+			'Friend can only modify procedure declarations, not variables.',
+			friendKeywordSpan(source, member.span),
+		);
+	}
+}
+
+function hasFriendModifier(modifiers: readonly string[]): boolean {
+	return modifiers.some((modifier) => modifier.toLowerCase() === 'friend');
+}
+
+function friendKeywordSpan(source: string, span: Span): Span {
+	const tok = statementTokensAfterLeadingLabel(source, span)
+		.find((token) => tokenText(token) === 'friend');
+	return tok ? absoluteSpan(span, tok) : firstTokenSpan(source, span);
 }
 
 /**

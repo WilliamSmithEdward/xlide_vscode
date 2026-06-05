@@ -5090,6 +5090,58 @@ describe('analyzeModule - WithEvents declaration restrictions', () => {
 	});
 });
 
+describe('analyzeModule - Friend declaration restrictions', () => {
+	it('accepts Friend procedures in object modules', () => {
+		const src = 'Friend Sub InternalOnly()\nEnd Sub\n';
+		for (const moduleKind of ['class', 'document', 'userform'] as const) {
+			expect(
+				byCode(
+					analyzeModule(src, { moduleName: 'EventSource', moduleKind }),
+					'friend-declaration',
+				),
+			).toHaveLength(0);
+		}
+	});
+
+	it('flags Friend procedures in standard modules', () => {
+		const src = 'Friend Sub InternalOnly()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'friend-declaration');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Friend');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('class, document, or UserForm modules');
+	});
+
+	it('flags Friend variable declarations even in object modules', () => {
+		const src = 'Friend mValue As Long\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
+			'friend-declaration',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Friend');
+		expect(hits[0].message).toContain('procedure declarations');
+	});
+
+	it('ignores inactive Friend declarations', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'#Else\n' +
+			'Friend Sub LegacyOnly()\n' +
+			'End Sub\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'friend-declaration')).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'friend-declaration',
+			),
+		).toHaveLength(1);
+	});
+});
+
 describe('analyzeModule - Implements statement placement', () => {
 	it('accepts module-level Implements statements in object-module declaration sections', () => {
 		const src = 'Option Explicit\nImplements Person\nPrivate Value As Long\n';

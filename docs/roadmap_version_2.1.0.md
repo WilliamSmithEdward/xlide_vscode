@@ -291,6 +291,11 @@ Progress:
   declarations, `As New`, and array declarators. Module-level object-module
   `WithEvents` declarations stay quiet, and event-source type compatibility
   remains deferred until reference/object metadata can prove it.
+- [x] Friend declaration slice: parser-backed `Friend` modifiers now produce
+  red diagnostics for standard-module procedures and module variable
+  declarations. Object-module `Friend` procedures and inactive conditional
+  branches stay quiet, while broader `Friend` visibility/binding semantics
+  remain deferred to project-level resolution.
 - [x] Implements placement slice: token-backed `Implements` statements now
   produce red diagnostics when declared in standard modules, inside procedures,
   or after a procedure in an object module. Declaration-section object-module

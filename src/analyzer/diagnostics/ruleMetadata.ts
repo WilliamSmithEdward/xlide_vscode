@@ -483,6 +483,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3: WithEvents object variable declarations',
 		confidence: 'high',
 	},
+	friendDeclaration: {
+		code: 'friend-declaration',
+		title: 'Invalid Friend declaration',
+		defaultSeverity: 'error',
+		category: 'module-kind',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL Friend procedure visibility: object-module procedures only',
+		confidence: 'high',
+	},
 	implementsStatementPlacement: {
 		code: 'implements-statement-placement',
 		title: 'Invalid Implements statement',

@@ -12,6 +12,8 @@
         "Public Event BeforeAdd(ByRef cancel As Boolean)",
         "Private WithEvents App As Application",
         "Implements IRunner",
+        "Friend Sub BadFriendProcedure()",
+        "End Sub",
         "",
         "#If VBA7 Then",
         "#Else",
@@ -39,6 +41,7 @@
         "Private WithEvents App As Application",
         "Private WithEvents NewApp As New Application",
         "Private WithEvents Apps(1 To 2) As Application",
+        "Friend mValue As Long",
         "",
         "Public Sub RaiseChanged()",
         "    RaiseEvent Changed(1)",
@@ -50,13 +53,16 @@
         "",
         "Public Sub BadLocalImplements()",
         "    Implements EventInterface",
+        "End Sub",
+        "",
+        "Friend Sub InternalOnly()",
         "End Sub"
       ]
     }
   ],
   "assertions": {
     "workbookAnalysis": {
-      "problemCount": 7,
+      "problemCount": 9,
       "problems": [
         {
           "moduleName": "EventsInStandardModule",
@@ -80,6 +86,13 @@
           "messageContains": ["IRunner", "class, document, or UserForm modules"]
         },
         {
+          "moduleName": "EventsInStandardModule",
+          "code": "friend-declaration",
+          "line": 6,
+          "severity": "error",
+          "messageContains": ["BadFriendProcedure", "class, document, or UserForm modules"]
+        },
+        {
           "moduleName": "EventSource",
           "code": "withevents-declaration",
           "line": 6,
@@ -95,15 +108,22 @@
         },
         {
           "moduleName": "EventSource",
+          "code": "friend-declaration",
+          "line": 8,
+          "severity": "error",
+          "messageContains": ["variables"]
+        },
+        {
+          "moduleName": "EventSource",
           "code": "implements-statement-placement",
-          "line": 18,
+          "line": 19,
           "severity": "error",
           "messageContains": ["EventInterface", "declaration section"]
         },
         {
           "moduleName": "EventSource",
           "code": "raiseevent-undeclared-event",
-          "line": 14,
+          "line": 15,
           "severity": "error",
           "messageContains": ["MissingEvent", "not declared in this module"]
         }
@@ -123,6 +143,11 @@
           "code": "implements-statement-placement",
           "count": 2,
           "messagesContain": ["IRunner", "EventInterface"]
+        },
+        {
+          "code": "friend-declaration",
+          "count": 2,
+          "messagesContain": ["BadFriendProcedure", "variables"]
         },
         {
           "code": "raiseevent-undeclared-event",

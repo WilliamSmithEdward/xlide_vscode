@@ -1000,6 +1000,9 @@ Diagnostic severity policy:
   restrictions: standard modules, procedure-local declarations, `As New`, and
   array declarators are red, while object-module module-level declarations stay
   quiet and event-source type compatibility remains deferred.
+  `friend-declaration` covers parser-proven `Friend` declaration restrictions:
+  standard-module procedures and module variable declarations are red, while
+  object-module procedures and inactive conditional branches stay quiet.
   `implements-statement-placement` is a red module-kind/placement diagnostic for
   `Implements` statements in standard modules, procedure bodies, or after a
   procedure in an object module. Declaration-section object-module statements
