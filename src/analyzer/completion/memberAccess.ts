@@ -17,7 +17,6 @@ import {
 	ProcedureNode,
 	StatementNode,
 	VariableGroupNode,
-	WithBlockNode,
 } from '../parser/nodes';
 import type {
 	HostMember,
@@ -348,7 +347,7 @@ function receiverTypeFromTokens(
 		return undefined;
 	}
 	return receiverTypeFromImplicitWithChain(
-		withReceiverTypeAt(source, offset, ctx),
+		withReceiverTypeAt(source, tokens[dotIndex].end, ctx),
 		implicitWithChain,
 		ctx,
 	);
@@ -601,90 +600,120 @@ function withReceiverTypeAt(
 	offset: number,
 	ctx: MemberCompletionContext,
 ): string | undefined {
-	const block = innermostWithBlockAt(source, offset);
-	if (!block) {
-		return undefined;
+	let currentType: string | undefined;
+	for (const expression of activeWithExpressionsAt(source, offset)) {
+		const explicitType = receiverTypeFromExpressionTokens(
+			expression.tokens,
+			source,
+			expression.sliceStart,
+			ctx,
+		);
+		if (explicitType) {
+			currentType = explicitType;
+			continue;
+		}
+		const implicitChain = collectImplicitWithChain(
+			expression.tokens,
+			expression.tokens.length - 1,
+		);
+		if (implicitChain === undefined) {
+			return undefined;
+		}
+		currentType = receiverTypeFromImplicitWithChain(currentType, implicitChain, ctx);
+		if (!currentType) {
+			return undefined;
+		}
 	}
-	const expressionTokens = withExpressionTokens(source, block);
-	return receiverTypeFromExpressionTokens(expressionTokens, source, block.span.start, ctx);
+	return currentType;
 }
 
-function innermostWithBlockAt(
+interface ActiveWithExpression {
+	tokens: VbaToken[];
+	sliceStart: number;
+}
+
+function activeWithExpressionsAt(source: string, offset: number): ActiveWithExpression[] {
+	const scan = activeWithScanWindow(source, offset);
+	const stack: ActiveWithExpression[] = [];
+	let statement: VbaToken[] = [];
+	const flush = (): void => {
+		processWithStackStatement(statement, stack, scan.sliceStart);
+		statement = [];
+	};
+	for (const token of tokenize(scan.text)) {
+		if (token.kind === 'comment') {
+			continue;
+		}
+		if (isBoundary(token)) {
+			flush();
+			continue;
+		}
+		statement.push(token);
+	}
+	flush();
+	return stack;
+}
+
+function activeWithScanWindow(
 	source: string,
 	offset: number,
-): WithBlockNode | undefined {
+): { text: string; sliceStart: number } {
+	const safeOffset = Math.max(0, offset);
 	const module: ModuleNode = parseModule(source);
-	for (const member of module.members) {
-		if (
-			member.kind !== 'Procedure' ||
-			offset < member.span.start ||
-			offset > member.span.end
-		) {
-			continue;
-		}
-		return innermostWithBlockInBody(member.body, offset);
-	}
-	return undefined;
-}
-
-function innermostWithBlockInBody(
-	body: BodyNode[],
-	offset: number,
-): WithBlockNode | undefined {
-	for (const node of body) {
-		if (!bodyNodeHasBody(node) || !bodyNodeMayContainOffset(node, offset)) {
-			continue;
-		}
-		const nested = innermostWithBlockInBody(node.body, offset);
-		if (nested) {
-			return nested;
-		}
-		if (node.kind === 'WithBlock') {
-			return node;
-		}
-	}
-	return undefined;
-}
-
-function bodyNodeHasBody(
-	node: BodyNode,
-): node is BodyNode & { body: BodyNode[] } {
-	return 'body' in node && Array.isArray(node.body);
-}
-
-function bodyNodeMayContainOffset(node: BodyNode & { body: BodyNode[] }, offset: number): boolean {
-	if (offset >= node.span.start && offset <= node.span.end) {
-		return true;
-	}
-	return node.body.some((child) => {
-		if (offset >= child.span.start && offset <= child.span.end) {
-			return true;
-		}
-		return bodyNodeHasBody(child) && bodyNodeMayContainOffset(child, offset);
-	});
-}
-
-function withExpressionTokens(source: string, block: WithBlockNode): VbaToken[] {
-	const tokens = tokenize(source).filter(
-		(t) =>
-			t.kind !== 'comment' &&
-			t.start >= block.span.start &&
-			t.end <= block.span.end,
+	const enclosing = module.members.find(
+		(mem): mem is ProcedureNode =>
+			mem.kind === 'Procedure' &&
+			safeOffset >= mem.span.start &&
+			safeOffset <= mem.span.end,
 	);
-	const withIndex = tokens.findIndex(
-		(t) => t.rawText.toLowerCase() === 'with',
-	);
-	if (withIndex < 0) {
-		return [];
+	if (!enclosing) {
+		return { text: source.slice(0, safeOffset), sliceStart: 0 };
 	}
-	const out: VbaToken[] = [];
-	for (let i = withIndex + 1; i < tokens.length; i += 1) {
-		if (isBoundary(tokens[i])) {
-			break;
-		}
-		out.push(tokens[i]);
+	return {
+		text: source.slice(enclosing.span.start, safeOffset),
+		sliceStart: enclosing.span.start,
+	};
+}
+
+function processWithStackStatement(
+	statement: readonly VbaToken[],
+	stack: ActiveWithExpression[],
+	sliceStart: number,
+): void {
+	const start = statementExecutableStart(statement);
+	const first = statement[start];
+	if (!first) {
+		return;
 	}
-	return out;
+	const firstWord = word(first).toLowerCase();
+	if (firstWord === 'with') {
+		stack.push({
+			tokens: statement.slice(start + 1),
+			sliceStart: sliceStart + first.start,
+		});
+		return;
+	}
+	if (firstWord === 'end' && word(statement[start + 1] ?? first).toLowerCase() === 'with') {
+		stack.pop();
+	}
+}
+
+function statementExecutableStart(statement: readonly VbaToken[]): number {
+	if (
+		statement.length > 1 &&
+		statement[0].kind === 'integerLiteral' &&
+		/^\d+$/.test(statement[0].rawText)
+	) {
+		return 1;
+	}
+	if (
+		statement.length > 2 &&
+		isIdentLike(statement[0]) &&
+		statement[1].rawText === ':'
+	) {
+		return 2;
+	}
+	return 0;
 }
 
 function memberSurfaceForType(

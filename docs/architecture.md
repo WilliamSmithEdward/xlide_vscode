@@ -637,8 +637,12 @@ into a pure analyzer layer and a thin VS Code provider:
   `Workbooks(1).Sheets(1).Range("A1").`), resolves the root (`Me`, a host
   global, a worksheet code name, or a typed local/module
   variable found by parsing the module), follows member return types through the
-  chain, and returns the filtered members. When a typed variable proves a more
-  specific member surface after assignment from a mixed collection (for example
+  chain, and returns the filtered members. For leading-dot member access inside
+  `With`, the resolver scans the enclosing procedure up to the dot, builds the
+  active `With` receiver stack, and resolves nested `With .Member` expressions
+  outer-to-inner before applying the same member-chain logic. When a typed
+  variable proves a more specific member surface after assignment from a mixed
+  collection (for example
   `Dim ws As Worksheet: Set ws = Sheets(1)`), the declared type wins over the
   collection's merged item surface. For generic `Object`/`Variant` variables,
   the resolver can refine completion from the latest preceding simple `Set`
@@ -964,6 +968,8 @@ Diagnostic severity policy:
   source-exhaustive, visible UDT field surfaces are exhaustive, standard-module
   qualifier surfaces are source-exhaustive even when no visible member rows are
   available, and current-class `Me.Member` references use the same contract;
+  leading-dot members inside simple or nested `With` blocks share that receiver
+  contract because diagnostics call the same member resolver as completion.
   document modules and UserForms stay silent until their host/designer
   catalogues are complete enough to prove absence, except for known workbook
   host references such as `ThisWorkbook`/`Me` inside `ThisWorkbook`. Focused

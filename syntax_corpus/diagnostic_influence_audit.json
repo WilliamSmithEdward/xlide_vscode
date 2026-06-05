@@ -207,7 +207,7 @@
       ],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements."
+      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks."
     },
     {
       "code": "argument-type-mismatch",
@@ -231,7 +231,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements. Argument inference also consumes zero-argument Function/Property Get value references when source/project/runtime signatures prove the return type.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes zero-argument Function/Property Get value references when source/project/runtime signatures prove the return type.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -329,7 +329,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter. Public constants are not object members in VBE; public constant declarations in object modules fail at the declaration.",
+      "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter. Public constants are not object members in VBE; public constant declarations in object modules fail at the declaration. Leading-dot assignments inside simple or nested With receiver stacks use the same source-backed member resolver.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -348,7 +348,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Leading-dot receivers inside simple or nested With stacks use the same resolver as ordinary member chains. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
       "diagnosticKind": "compile-error"
     },
     {

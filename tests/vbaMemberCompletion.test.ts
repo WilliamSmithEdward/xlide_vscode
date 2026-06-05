@@ -954,6 +954,38 @@ describe('member completion - With blocks', () => {
 		expect(got).toContain('Offset');
 	});
 
+	it('resolves nested With receivers from outer leading-dot expressions', () => {
+		const src =
+			'Sub Test(ws As Worksheet)\n' +
+			'    With ws\n' +
+			'        With .Range("A1")\n' +
+			'            .Va\n' +
+			'        End With\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const got = names(src, '.Va');
+		expect(got).toContain('Value');
+		expect(got).toContain('Value2');
+	});
+
+	it('uses the enclosing procedure scope when resolving With receiver declarations', () => {
+		const src =
+			'Option Explicit\n' +
+			'\n' +
+			'Private ModuleValue As Long\n' +
+			'\n' +
+			'Sub Earlier()\n' +
+			'End Sub\n' +
+			'\n' +
+			'Sub Test(ws As Worksheet)\n' +
+			'    With ws\n' +
+			'        .Ran\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const got = names(src, '.Ran');
+		expect(got).toContain('Range');
+	});
+
 	it('keeps resolving inside an unfinished With block while editing', () => {
 		const src =
 			'Sub Test(rng As Range)\n' +

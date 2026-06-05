@@ -6255,6 +6255,36 @@ describe('analyzeModule - statement context', () => {
 		expect(byCode(diagnostics, 'call-statement-forbids-parens')).toHaveLength(1);
 	});
 
+	it('uses nested With receivers from outer leading-dot expressions', () => {
+		const person = 'Public Property Get Child() As Child\nEnd Property\n';
+		const child =
+			'Public Property Get Age() As Integer\nEnd Property\n' +
+			'Public Sub Save(ByVal Count As Long)\nEnd Sub\n';
+		const src =
+			'Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    With p\n' +
+			'        With .Child\n' +
+			'            .Delete\n' +
+			'            .Age = 2\n' +
+			'            .Save "bad"\n' +
+			'        End With\n' +
+			'    End With\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: projectClassMembers([
+				{ moduleName: 'Person', moduleKind: 'class', source: person },
+				{ moduleName: 'Child', moduleKind: 'class', source: child },
+			]),
+		});
+		const memberHits = byCode(diagnostics, 'member-not-found');
+		expect(memberHits).toHaveLength(1);
+		expect(spanText(src, memberHits[0])).toBe('Delete');
+		expect(memberHits[0].message).toContain('Child.Delete');
+		expect(byCode(diagnostics, 'readonly-member-assignment')).toHaveLength(1);
+		expect(byCode(diagnostics, 'argument-type-mismatch')).toHaveLength(1);
+	});
+
 	it('flags Exit For and Exit Do outside matching loops', () => {
 		const src = 'Sub T()\n    Exit For\n    Exit Do\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'exit-outside-block');

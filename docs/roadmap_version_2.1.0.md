@@ -136,6 +136,11 @@ Progress:
   when source/project/runtime signatures prove the target. This covers bare,
   parenthesized, and module-qualified project forms while ambiguous bare project
   functions remain silent.
+- [x] Nested `With` receiver-stack slice: member resolution now tracks the
+  active procedure-local `With` stack lexically and resolves nested
+  `With .Member` receivers outer-to-inner. Completion and hard diagnostics use
+  the same leading-dot receiver for source-backed class members, UDT fields, and
+  promoted host surfaces.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`
