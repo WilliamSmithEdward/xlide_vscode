@@ -483,6 +483,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3: WithEvents object variable declarations',
 		confidence: 'high',
 	},
+	implementsStatementPlacement: {
+		code: 'implements-statement-placement',
+		title: 'Invalid Implements statement',
+		defaultSeverity: 'error',
+		category: 'module-kind',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL Implements statement: module-level object-module declaration',
+		confidence: 'high',
+	},
 	eventHandlerWrongModule: {
 		code: 'event-handler-module-scope',
 		title: 'Event handler is not wired in this module',

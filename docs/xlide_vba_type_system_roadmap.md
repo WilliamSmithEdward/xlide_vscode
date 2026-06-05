@@ -271,11 +271,14 @@ Landed first:
   declaration diagnostics for standard modules while keeping valid object-module
   declarations quiet, and now covers `WithEvents` declaration restrictions for
   standard modules, procedure-local declarations, `As New`, and arrays without
-  guessing at event-source type compatibility. A project-type canary now asserts workbook-scale class, UDT,
-  enum, and ambiguous type-name behavior in the same flattened diagnostic
-  harness, including hard `member-not-found` only for unambiguous source-backed
-  receivers, no guessed member diagnostics for ambiguous receiver types, and no
-  `Option Explicit` noise for module-qualified enum reads.
+  guessing at event-source type compatibility. It also covers `Implements`
+  statement placement for standard modules and procedure-body statements while
+  keeping valid object-module declaration-section statements quiet. A
+  project-type canary now asserts workbook-scale class, UDT, enum, and
+  ambiguous type-name behavior in the same flattened diagnostic harness,
+  including hard `member-not-found` only for unambiguous source-backed receivers,
+  no guessed member diagnostics for ambiguous receiver types, and no `Option
+  Explicit` noise for module-qualified enum reads.
 - Support document modules, userforms, and class modules.
 - Model procedure visibility and shadowing.
 

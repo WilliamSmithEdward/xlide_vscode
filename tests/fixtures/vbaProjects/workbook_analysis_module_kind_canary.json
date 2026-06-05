@@ -11,12 +11,21 @@
         "",
         "Public Event BeforeAdd(ByRef cancel As Boolean)",
         "Private WithEvents App As Application",
+        "Implements IRunner",
         "",
         "#If VBA7 Then",
         "#Else",
         "Public Event LegacyOnly()",
         "Private WithEvents LegacyApp As Application",
+        "Implements LegacyRunner",
         "#End If"
+      ]
+    },
+    {
+      "name": "EventInterface",
+      "type": "class",
+      "sourceLines": [
+        "Option Explicit"
       ]
     },
     {
@@ -25,16 +34,21 @@
       "sourceLines": [
         "Option Explicit",
         "",
+        "Implements EventInterface",
         "Public Event Changed(ByVal value As Long)",
         "Private WithEvents App As Application",
         "Private WithEvents NewApp As New Application",
-        "Private WithEvents Apps(1 To 2) As Application"
+        "Private WithEvents Apps(1 To 2) As Application",
+        "",
+        "Public Sub BadLocalImplements()",
+        "    Implements EventInterface",
+        "End Sub"
       ]
     }
   ],
   "assertions": {
     "workbookAnalysis": {
-      "problemCount": 4,
+      "problemCount": 6,
       "problems": [
         {
           "moduleName": "EventsInStandardModule",
@@ -51,18 +65,32 @@
           "messageContains": ["App", "class, document, or UserForm modules"]
         },
         {
-          "moduleName": "EventSource",
-          "code": "withevents-declaration",
+          "moduleName": "EventsInStandardModule",
+          "code": "implements-statement-placement",
           "line": 5,
           "severity": "error",
-          "messageContains": ["NewApp", "As New"]
+          "messageContains": ["IRunner", "class, document, or UserForm modules"]
         },
         {
           "moduleName": "EventSource",
           "code": "withevents-declaration",
           "line": 6,
           "severity": "error",
+          "messageContains": ["NewApp", "As New"]
+        },
+        {
+          "moduleName": "EventSource",
+          "code": "withevents-declaration",
+          "line": 7,
+          "severity": "error",
           "messageContains": ["Apps", "array"]
+        },
+        {
+          "moduleName": "EventSource",
+          "code": "implements-statement-placement",
+          "line": 10,
+          "severity": "error",
+          "messageContains": ["EventInterface", "declaration section"]
         }
       ],
       "codes": [
@@ -75,6 +103,11 @@
           "code": "withevents-declaration",
           "count": 3,
           "messagesContain": ["App", "NewApp", "Apps"]
+        },
+        {
+          "code": "implements-statement-placement",
+          "count": 2,
+          "messagesContain": ["IRunner", "EventInterface"]
         },
         {
           "code": "option-explicit-missing",

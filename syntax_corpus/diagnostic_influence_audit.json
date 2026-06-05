@@ -590,6 +590,21 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "implements-statement-placement",
+      "status": "spec-derived",
+      "sourceOfTruth": "VBA Implements statement module-level object-module placement plus XLIDE parser/module-kind metadata",
+      "corpusInfluence": "pending-corpus-reviewed",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "26_class_and_userform_deep_edges.md",
+        "excel_vba_analysis_additional_edge_cases.md",
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "The active rule is deliberately narrow: it flags Implements statements only when statement tokens prove a standard-module declaration, a procedure-body statement, or an object-module statement after a procedure. Object-module declaration-section Implements statements stay quiet, inactive conditional branches are skipped, and interface member completeness remains deferred to the project binder.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "event-handler-module-scope",
       "status": "spec-derived",
       "sourceOfTruth": "Excel document-module event binding model plus XLIDE guidance policy",

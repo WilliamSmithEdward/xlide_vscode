@@ -337,6 +337,7 @@ function runRules(
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
 	checkEventDeclarationModuleKind(source, mod, moduleKind, activity, push);
 	checkWithEventsDeclarations(source, mod, moduleKind, activity, push);
+	checkImplementsStatementPlacement(source, mod, moduleKind, activity, push);
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
 	checkInvalidAsTypeNames(source, mod, activity, opts, push);
@@ -4742,6 +4743,13 @@ function undeclaredReferenceSkipIndexes(
 	if (toks[1]?.rawText === ':' || isLineLabelOnlyStatement(source, span, toks)) {
 		skip.add(0); // line label declaration
 	}
+	const firstExecutable = firstExecutableTokenIndex(toks);
+	if (tokenText(toks[firstExecutable]) === 'implements') {
+		for (let i = firstExecutable + 1; i < toks.length; i++) {
+			skip.add(i);
+		}
+		return skip;
+	}
 
 	const call = callStatementTarget(source, span);
 	if (call) {
@@ -5602,6 +5610,95 @@ function checkWithEventsDeclarations(
 			forEachVariableGroup(member.body, (group) => inspect(group, true), activity);
 		}
 	}
+}
+
+/**
+ * Rule: `Implements` is an object-module declaration-section statement. This
+ * intentionally validates only placement/module-kind facts, leaving interface
+ * member completeness to a later project-binder pass.
+ */
+function checkImplementsStatementPlacement(
+	source: string,
+	mod: ModuleNode,
+	moduleKind: ModuleSymbolKind,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	let procedureSeen = false;
+	const reportModuleKind = (hit: ImplementsStatementHit): void => {
+		push(
+			'implementsStatementPlacement',
+			`Implements statement '${hit.name}' is only valid in class, document, or UserForm modules.`,
+			hit.span,
+		);
+	};
+	const reportProcedurePlacement = (hit: ImplementsStatementHit): void => {
+		push(
+			'implementsStatementPlacement',
+			`Implements statement '${hit.name}' must appear in the module declaration section before any procedure.`,
+			hit.span,
+		);
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure') {
+			procedureSeen = true;
+			forEachStatement(member.body, (stmt) => {
+				const hit = implementsStatementHit(source, stmt.span);
+				if (hit) {
+					reportProcedurePlacement(hit);
+				}
+			}, activity);
+			continue;
+		}
+		if (member.kind !== 'Statement') {
+			continue;
+		}
+		const hit = implementsStatementHit(source, member.span);
+		if (!hit) {
+			continue;
+		}
+		if (!isObjectModuleKind(moduleKind)) {
+			reportModuleKind(hit);
+			continue;
+		}
+		if (procedureSeen) {
+			reportProcedurePlacement(hit);
+		}
+	}
+}
+
+interface ImplementsStatementHit {
+	name: string;
+	span: Span;
+}
+
+function implementsStatementHit(source: string, span: Span): ImplementsStatementHit | undefined {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'implements') {
+		return undefined;
+	}
+	const firstName = tokenName(toks[1]);
+	if (!firstName) {
+		return undefined;
+	}
+	let name = firstName;
+	let endIndex = 1;
+	while (toks[endIndex + 1]?.rawText === '.') {
+		const part = tokenName(toks[endIndex + 2]);
+		if (!part) {
+			break;
+		}
+		name += `.${part}`;
+		endIndex += 2;
+	}
+	return {
+		name,
+		span: {
+			start: span.start + toks[1].start,
+			end: span.start + toks[endIndex].end,
+		},
+	};
 }
 
 function checkDeclarePtrSafeForWin64(

@@ -5090,6 +5090,87 @@ describe('analyzeModule - WithEvents declaration restrictions', () => {
 	});
 });
 
+describe('analyzeModule - Implements statement placement', () => {
+	it('accepts module-level Implements statements in object-module declaration sections', () => {
+		const src = 'Option Explicit\nImplements Person\nPrivate Value As Long\n';
+		for (const moduleKind of ['class', 'document', 'userform'] as const) {
+			expect(
+				byCode(
+					analyzeModule(src, { moduleName: 'EventSource', moduleKind }),
+					'implements-statement-placement',
+				),
+			).toHaveLength(0);
+		}
+	});
+
+	it('flags module-level Implements statements in standard modules', () => {
+		const src = 'Option Explicit\nImplements Person\n';
+		const hits = byCode(analyzeModule(src), 'implements-statement-placement');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Person');
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('class, document, or UserForm modules');
+	});
+
+	it('flags module-level Implements statements after procedures in object modules', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Sub Demo()\n' +
+			'End Sub\n' +
+			'Implements Person\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
+			'implements-statement-placement',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Person');
+		expect(hits[0].message).toContain('declaration section');
+	});
+
+	it('flags Implements statements inside procedure bodies', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Sub Demo()\n' +
+			'    Implements Person\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			moduleName: 'EventSource',
+			moduleKind: 'class',
+			knownIdentifiers: new Set<string>(),
+		});
+		const hits = byCode(diagnostics, 'implements-statement-placement');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Person');
+		expect(hits[0].message).toContain('declaration section');
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('ignores inactive Implements statements', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'#Else\n' +
+			'Implements LegacyInterface\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'implements-statement-placement')).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'implements-statement-placement',
+			),
+		).toHaveLength(1);
+	});
+
+	it('reports the full qualified interface name after line labels', () => {
+		const src = '10 Implements Excel.Worksheet\n';
+		const hits = byCode(analyzeModule(src), 'implements-statement-placement');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Excel.Worksheet');
+		expect(hits[0].message).toContain('Excel.Worksheet');
+	});
+});
+
 describe('analyzeModule - conditional Declare platform rules', () => {
 	it('requires PtrSafe only when the supplied compiler constants prove Win64', () => {
 		const src = 'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';

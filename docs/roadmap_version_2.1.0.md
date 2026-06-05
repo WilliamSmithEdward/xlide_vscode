@@ -291,6 +291,11 @@ Progress:
   declarations, `As New`, and array declarators. Module-level object-module
   `WithEvents` declarations stay quiet, and event-source type compatibility
   remains deferred until reference/object metadata can prove it.
+- [x] Implements placement slice: token-backed `Implements` statements now
+  produce red diagnostics when declared in standard modules, inside procedures,
+  or after a procedure in an object module. Declaration-section object-module
+  `Implements` statements and inactive conditional branches stay quiet, while
+  interface member completeness remains deferred to the project binder.
 
 Definition of done:
 
