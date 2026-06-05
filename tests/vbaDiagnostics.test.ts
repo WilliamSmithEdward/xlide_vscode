@@ -5027,6 +5027,69 @@ describe('analyzeModule - Event declaration module-kind restrictions', () => {
 	});
 });
 
+describe('analyzeModule - WithEvents declaration restrictions', () => {
+	it('accepts module-level WithEvents declarations in object modules', () => {
+		const src = 'Private WithEvents App As Application\n';
+		for (const moduleKind of ['class', 'document', 'userform'] as const) {
+			expect(
+				byCode(analyzeModule(src, { moduleName: 'EventSource', moduleKind }), 'withevents-declaration'),
+			).toHaveLength(0);
+		}
+	});
+
+	it('flags module-level WithEvents declarations in standard modules', () => {
+		const src = 'Private WithEvents App As Application\n';
+		const hits = byCode(analyzeModule(src), 'withevents-declaration');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('App');
+		expect(hits[0].message).toContain('class, document, or UserForm modules');
+	});
+
+	it('flags local WithEvents declarations inside procedures', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim WithEvents App As Application\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
+			'withevents-declaration',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('App');
+		expect(hits[0].message).toContain('module level');
+	});
+
+	it('flags WithEvents arrays and As New declarations', () => {
+		const src =
+			'Private WithEvents App As New Application\n' +
+			'Private WithEvents Apps(1 To 2) As Application\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
+			'withevents-declaration',
+		);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['App', 'Apps']);
+		expect(hits[0].message).toContain('As New');
+		expect(hits[1].message).toContain('array');
+	});
+
+	it('ignores inactive WithEvents declarations', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'#Else\n' +
+			'Private WithEvents LegacyApp As Application\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'withevents-declaration')).toHaveLength(0);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'withevents-declaration',
+			),
+		).toHaveLength(1);
+	});
+});
+
 describe('analyzeModule - conditional Declare platform rules', () => {
 	it('requires PtrSafe only when the supplied compiler constants prove Win64', () => {
 		const src = 'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';

@@ -574,6 +574,22 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "withevents-declaration",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.3 WithEvents object variable declarations plus XLIDE parser/module-kind metadata",
+      "corpusInfluence": "pending-corpus-reviewed",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "26_class_and_userform_deep_edges.md",
+        "27_semantic_runtime_resolution_edges.md",
+        "excel_vba_realtime_analysis_test_corpus.md",
+        "excel_vba_analysis_additional_edge_cases.md"
+      ],
+      "notes": "The active rule is deliberately narrow: it flags WithEvents declarations only when parsed declaration facts prove a standard-module declaration, a procedure-local declaration, an As New declarator, or an array declarator. Module-level object-module WithEvents declarations stay quiet, and event-source type compatibility such as generic Object remains deferred until reference/object metadata can prove it.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "event-handler-module-scope",
       "status": "spec-derived",
       "sourceOfTruth": "Excel document-module event binding model plus XLIDE guidance policy",

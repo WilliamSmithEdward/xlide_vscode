@@ -472,6 +472,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.5: Event declarations belong to object modules',
 		confidence: 'high',
 	},
+	withEventsDeclaration: {
+		code: 'withevents-declaration',
+		title: 'Invalid WithEvents declaration',
+		defaultSeverity: 'error',
+		category: 'module-kind',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3: WithEvents object variable declarations',
+		confidence: 'high',
+	},
 	eventHandlerWrongModule: {
 		code: 'event-handler-module-scope',
 		title: 'Event handler is not wired in this module',

@@ -336,9 +336,10 @@ function runRules(
 	checkFixedLengthStringBounds(source, mod, activity, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
 	checkEventDeclarationModuleKind(source, mod, moduleKind, activity, push);
+	checkWithEventsDeclarations(source, mod, moduleKind, activity, push);
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
-	checkInvalidAsTypeNames(source, activity, opts, push);
+	checkInvalidAsTypeNames(source, mod, activity, opts, push);
 	checkCallParens(source, mod, symbols, opts.projectProcedures, memberCtx, activity, push);
 	checkExpressionCallParens(source, mod, symbols, opts.projectProcedures, activity, push);
 	checkSetAssignments(source, mod, symbols, memberCtx, activity, push);
@@ -5542,6 +5543,67 @@ function checkEventDeclarationModuleKind(
 	}
 }
 
+/**
+ * Rule: `WithEvents` is a module-level object-module variable declarator. The
+ * parser exposes the relevant settled facts directly: module kind, local vs
+ * module declaration context, `As New`, and array declarators.
+ */
+function checkWithEventsDeclarations(
+	source: string,
+	mod: ModuleNode,
+	moduleKind: ModuleSymbolKind,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const report = (message: string, span: Span): void => {
+		push('withEventsDeclaration', message, span);
+	};
+	const inspect = (group: VariableGroupNode, insideProcedure: boolean): void => {
+		if (!group.withEvents || isInactiveNode(activity, group)) {
+			return;
+		}
+		for (const decl of group.declarations) {
+			const nameSpan = declaredNameSpan(source, decl.span, decl.name);
+			if (insideProcedure) {
+				report(
+					`WithEvents variable '${decl.name}' must be declared at module level.`,
+					nameSpan,
+				);
+				continue;
+			}
+			if (!isObjectModuleKind(moduleKind)) {
+				report(
+					`WithEvents variable '${decl.name}' is only valid in class, document, or UserForm modules.`,
+					nameSpan,
+				);
+				continue;
+			}
+			if (decl.isNew) {
+				report(
+					`WithEvents variable '${decl.name}' cannot be declared As New.`,
+					nameSpan,
+				);
+			}
+			if (decl.isArray) {
+				report(
+					`WithEvents variable '${decl.name}' cannot be an array.`,
+					nameSpan,
+				);
+			}
+		}
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspect(member, false);
+			continue;
+		}
+		if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, (group) => inspect(group, true), activity);
+		}
+	}
+}
+
 function checkDeclarePtrSafeForWin64(
 	source: string,
 	mod: ModuleNode,
@@ -5700,10 +5762,12 @@ function isDeclarationTypeNameToken(tok: VbaToken | undefined): boolean {
 
 function checkInvalidAsTypeNames(
 	source: string,
+	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	opts: AnalyzeModuleOptions,
 	push: PushFn,
 ): void {
+	const withEventsNewDeclarationSpans = collectWithEventsNewDeclarationSpans(mod, activity);
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
@@ -5726,6 +5790,12 @@ function checkInvalidAsTypeNames(
 			isNewTypeReference(ref.kind) &&
 			!isCreatableTypeCompletion(resolved)
 		) {
+			if (
+				ref.kind === 'newDeclaration' &&
+				withEventsNewDeclarationSpans.some((span) => containsSpan(span, ref.span))
+			) {
+				continue;
+			}
 			push(
 				'invalidNewTypeName',
 				`'${ref.name}' is ${typeKindLabelForNew(resolved.kind)} and cannot be used with New. New can create project classes and UserForms only.`,
@@ -5761,6 +5831,37 @@ function checkInvalidAsTypeNames(
 			continue;
 		}
 	}
+}
+
+function collectWithEventsNewDeclarationSpans(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): Span[] {
+	const spans: Span[] = [];
+	const inspect = (group: VariableGroupNode): void => {
+		if (!group.withEvents || isInactiveNode(activity, group)) {
+			return;
+		}
+		for (const decl of group.declarations) {
+			if (decl.isNew) {
+				spans.push(decl.span);
+			}
+		}
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspect(member);
+			continue;
+		}
+		if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, inspect, activity);
+		}
+	}
+	return spans;
+}
+
+function containsSpan(container: Span, inner: Span): boolean {
+	return inner.start >= container.start && inner.end <= container.end;
 }
 
 function declaredNameSpan(source: string, span: Span, name: string): Span {

@@ -996,6 +996,10 @@ Diagnostic severity policy:
   `event-declaration-module-kind` is a red module-kind diagnostic for `Event`
   declarations in standard modules; class, document, and UserForm modules remain
   accepted, and inactive conditional-compilation branches stay filtered.
+  `withevents-declaration` covers the parser-proven `WithEvents` declaration
+  restrictions: standard modules, procedure-local declarations, `As New`, and
+  array declarators are red, while object-module module-level declarations stay
+  quiet and event-source type compatibility remains deferred.
   `event-handler-module-scope` is an information diagnostic for known
   workbook/worksheet/chart event handler names declared outside the matching
   document module. It uses the same module-scoped event metadata as completion,

@@ -10,10 +10,12 @@
         "Option Explicit",
         "",
         "Public Event BeforeAdd(ByRef cancel As Boolean)",
+        "Private WithEvents App As Application",
         "",
         "#If VBA7 Then",
         "#Else",
         "Public Event LegacyOnly()",
+        "Private WithEvents LegacyApp As Application",
         "#End If"
       ]
     },
@@ -23,13 +25,16 @@
       "sourceLines": [
         "Option Explicit",
         "",
-        "Public Event Changed(ByVal value As Long)"
+        "Public Event Changed(ByVal value As Long)",
+        "Private WithEvents App As Application",
+        "Private WithEvents NewApp As New Application",
+        "Private WithEvents Apps(1 To 2) As Application"
       ]
     }
   ],
   "assertions": {
     "workbookAnalysis": {
-      "problemCount": 1,
+      "problemCount": 4,
       "problems": [
         {
           "moduleName": "EventsInStandardModule",
@@ -37,6 +42,27 @@
           "line": 3,
           "severity": "error",
           "messageContains": ["BeforeAdd", "class, document, or UserForm modules"]
+        },
+        {
+          "moduleName": "EventsInStandardModule",
+          "code": "withevents-declaration",
+          "line": 4,
+          "severity": "error",
+          "messageContains": ["App", "class, document, or UserForm modules"]
+        },
+        {
+          "moduleName": "EventSource",
+          "code": "withevents-declaration",
+          "line": 5,
+          "severity": "error",
+          "messageContains": ["NewApp", "As New"]
+        },
+        {
+          "moduleName": "EventSource",
+          "code": "withevents-declaration",
+          "line": 6,
+          "severity": "error",
+          "messageContains": ["Apps", "array"]
         }
       ],
       "codes": [
@@ -44,6 +70,11 @@
           "code": "event-declaration-module-kind",
           "count": 1,
           "messagesContain": ["BeforeAdd"]
+        },
+        {
+          "code": "withevents-declaration",
+          "count": 3,
+          "messagesContain": ["App", "NewApp", "Apps"]
         },
         {
           "code": "option-explicit-missing",

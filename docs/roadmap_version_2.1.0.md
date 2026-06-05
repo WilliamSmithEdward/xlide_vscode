@@ -286,6 +286,11 @@ Progress:
   evidence, while class/document/UserForm declarations and inactive conditional
   branches stay quiet. A workbook-analysis module-kind canary records this next
   to the existing non-red wrong-module event-handler guidance.
+- [x] WithEvents declaration slice: parser-backed `WithEvents` facts now produce
+  red diagnostics for standard-module declarations, procedure-local
+  declarations, `As New`, and array declarators. Module-level object-module
+  `WithEvents` declarations stay quiet, and event-source type compatibility
+  remains deferred until reference/object metadata can prove it.
 
 Definition of done:
 
