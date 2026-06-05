@@ -6799,6 +6799,42 @@ describe('analyzeModule - property setter shape', () => {
 		expect(hits[0].message).toContain('Long');
 	});
 
+	it('flags Property Let declarations with Object value parameters', () => {
+		const src =
+			'Public Property Let NegProp06_LetObjectValue(ByVal Value As Object)\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-let-object-value');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Value');
+		expect(hits[0].message).toContain('Property Let');
+		expect(hits[0].message).toContain('object reference');
+		expect(hits[0].message).toContain('Property Set');
+		expect(hits[0].message).toContain('Object');
+	});
+
+	it('flags Property Let declarations with known host and project object value parameters', () => {
+		const src =
+			'Public Property Let Sheet(ByVal value As Worksheet)\n' +
+			'End Property\n' +
+			'Public Property Let Customer(ByVal assigned As Person)\n' +
+			'End Property\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: [
+					{ name: 'Person', kind: 'class', moduleName: 'Person', members: [] },
+				],
+			}),
+			'property-let-object-value',
+		);
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['value', 'assigned']);
+		expect(hits[0].message).toContain('Worksheet');
+		expect(hits[1].message).toContain('Person');
+	});
+
 	it('flags Property Let and Set declarations with return types', () => {
 		const src =
 			'Public Property Let NegProp02_LetWithReturnType(ByVal value As Long) As Long\n' +
@@ -6860,6 +6896,7 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		expect(byCode(analyzeModule(src), 'property-setter-missing-value')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'property-set-scalar-value')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'property-let-object-value')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'property-accessor-signature-mismatch')).toHaveLength(0);
 	});
 

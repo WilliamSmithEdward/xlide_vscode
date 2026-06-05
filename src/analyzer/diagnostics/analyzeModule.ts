@@ -345,7 +345,7 @@ function runRules(
 	checkModuleDeclarationsAfterProcedures(source, mod, activity, push);
 	checkModuleLevelStatementsOutsideProcedures(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
-	checkPropertySetterValueParameters(source, mod, activity, push);
+	checkPropertySetterValueParameters(source, mod, activity, opts, push);
 	checkPropertyAccessorSignatures(source, mod, activity, push);
 	checkParameterOrder(source, mod, activity, push);
 	checkParameterDefaultValues(source, mod, activity, push);
@@ -2177,12 +2177,14 @@ function checkReservedDeclarationNames(
 /**
  * Rule: Property Let/Set setters receive the assigned value through the final
  * parameter. A setter with no parameters has no value slot, setters have no
- * return type, and Property Set value parameters must be object references.
+ * return type, Property Let value parameters must not be object references,
+ * and Property Set value parameters must be object references.
  */
 function checkPropertySetterValueParameters(
 	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
+	opts: AnalyzeModuleOptions,
 	push: PushFn,
 ): void {
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -2201,13 +2203,25 @@ function checkPropertySetterValueParameters(
 			);
 		}
 		if (member.params.length > 0) {
+			const valueParam = member.params[member.params.length - 1];
 			if (member.procKind === 'PropertySet') {
-				const valueParam = member.params[member.params.length - 1];
 				const normalized = normalizeType(valueParam.asType);
 				if (normalized && isKnownScalarType(normalized)) {
 					push(
 						'propertySetScalarValue',
 						`Property Set '${member.name}' final value parameter '${valueParam.name}' must be an object reference, but it is declared As ${valueParam.asType}.`,
+						declaredNameSpan(source, valueParam.span, valueParam.name),
+					);
+				}
+			} else {
+				const objectType = resolveKnownObjectAssignmentType(valueParam.asType, {
+					projectClassMembers: opts.projectClassMembers,
+					model: opts.hostModel,
+				});
+				if (objectType) {
+					push(
+						'propertyLetObjectValue',
+						`Property Let '${member.name}' final value parameter '${valueParam.name}' must not be an object reference; use Property Set because it is declared As ${objectType.display}.`,
 						declaredNameSpan(source, valueParam.span, valueParam.name),
 					);
 				}

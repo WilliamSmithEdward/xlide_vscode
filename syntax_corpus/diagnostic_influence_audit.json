@@ -982,6 +982,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "property-let-object-value",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1.4 Property Let procedures assign non-object values; object references use Property Set",
+      "corpusInfluence": "legacy-corpus-promoted",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage reports only when the final Property Let value parameter resolves to a known object-reference type: explicit Object, host object aliases, or visible project class/document/UserForm surfaces. Intrinsic scalar types, Variant, omitted As type, user-defined Type, Enum, unresolved names, and ambiguous names remain silent until deeper type binding can prove them.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "property-setter-return-type",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3.1.4 Property Let/Set procedures do not declare return types",
@@ -991,7 +1004,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses parsed Property Let/Set procedure metadata and reports an explicit return As clause after the parameter list. Property Get return types remain valid, and setter value-parameter shape remains owned by property-setter-missing-value and property-set-scalar-value.",
+      "notes": "Active coverage uses parsed Property Let/Set procedure metadata and reports an explicit return As clause after the parameter list. Property Get return types remain valid, and setter value-parameter shape remains owned by property-setter-missing-value, property-set-scalar-value, and property-let-object-value.",
       "diagnosticKind": "compile-error"
     },
     {

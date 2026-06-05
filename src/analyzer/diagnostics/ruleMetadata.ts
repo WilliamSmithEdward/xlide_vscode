@@ -781,6 +781,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1.4',
 		confidence: 'high',
 	},
+	propertyLetObjectValue: {
+		code: 'property-let-object-value',
+		title: 'Property Let value parameter must not be object reference',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1.4',
+		confidence: 'high',
+	},
 	propertySetterReturnType: {
 		code: 'property-setter-return-type',
 		title: 'Property setter cannot declare a return type',
