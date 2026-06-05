@@ -4082,7 +4082,14 @@ function inferAtomicExpressionType(
 	const name = tokenName(first);
 	if (name && toks.length === 1) {
 		const type = env.get(name.toLowerCase());
-		return type ? { type, label: `${name} As ${type}`, span } : undefined;
+		if (type) {
+			return { type, label: `${name} As ${type}`, span };
+		}
+		const sig = parameterlessValueSignature(name, moduleSignatures);
+		if (sig?.returnType) {
+			return { type: sig.returnType, label: `${name} As ${sig.returnType}`, span };
+		}
+		return undefined;
 	}
 	if (tokenText(first) === 'new' && toks.length === 2) {
 		const typeName = tokenName(toks[1]);
@@ -4102,6 +4109,17 @@ function inferAtomicExpressionType(
 	}
 	if (name && toks[1]?.rawText === '.') {
 		const member = tokenName(toks[2]);
+		if (member && toks.length === 3) {
+			const lookupKey = qualifiedProcedureKey(name, member);
+			const sig = parameterlessValueSignature(lookupKey, moduleSignatures);
+			if (sig?.returnType) {
+				return {
+					type: sig.returnType,
+					label: `${name}.${member} As ${sig.returnType}`,
+					span: { start: sliceStart + toks[2].start, end: sliceStart + toks[2].end },
+				};
+			}
+		}
 		if (member && toks[3]?.rawText === '(' && matchParenFrom(toks, 3) === toks.length - 1) {
 			const lookupKey = qualifiedProcedureKey(name, member);
 			const sig = moduleSignatures.get(lookupKey);
@@ -4115,6 +4133,14 @@ function inferAtomicExpressionType(
 		}
 	}
 	return undefined;
+}
+
+function parameterlessValueSignature(
+	name: string,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+): CallableTypeSignature | undefined {
+	const sig = callableSignatureFor(name, moduleSignatures);
+	return sig?.returnType && callableAcceptsZeroArguments(sig) ? sig : undefined;
 }
 
 function unwrapOuterParens(toks: VbaToken[]): VbaToken[] {

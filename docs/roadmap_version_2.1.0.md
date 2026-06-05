@@ -131,6 +131,11 @@ Progress:
   signatures now trigger `expression-call-requires-parens` for parenless
   argument calls in expression context, including module-qualified
   standard-module calls. Ambiguous bare project `Function` names stay silent.
+- [x] Parameterless value-call binder slice: single-name expression inference
+  now resolves zero-argument Function/Property Get references as return values
+  when source/project/runtime signatures prove the target. This covers bare,
+  parenthesized, and module-qualified project forms while ambiguous bare project
+  functions remain silent.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`

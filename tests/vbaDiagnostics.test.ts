@@ -2681,6 +2681,63 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('MakeLabel(...) As String');
 	});
 
+	it('uses parameterless Function and Property Get references as argument types', () => {
+		const src =
+			'Public Function MakeLabel() As String\n' +
+			'End Function\n' +
+			'Public Property Get CurrentLabel() As String\n' +
+			'End Property\n' +
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject MakeLabel\n' +
+			'    NeedsObject (CurrentLabel)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['MakeLabel', 'CurrentLabel']);
+		expect(hits[0].message).toContain('MakeLabel As String');
+		expect(hits[1].message).toContain('CurrentLabel As String');
+	});
+
+	it('uses module-qualified parameterless project Function references as argument types', () => {
+		const caller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject Labels.MakeLabel\n' +
+			'End Sub\n';
+		const labels = 'Public Function MakeLabel() As String\nEnd Function\n';
+		const hits = byCode(
+			analyzeModule(caller, {
+				moduleName: 'Caller',
+				projectProcedures: projectProcedures([
+					{ moduleName: 'Caller', source: caller },
+					{ moduleName: 'Labels', source: labels },
+				]),
+			}),
+			'argument-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('MakeLabel');
+		expect(hits[0].message).toContain('Labels.MakeLabel As String');
+	});
+
+	it('does not infer ambiguous parameterless project Function references', () => {
+		const caller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject MakeLabel\n' +
+			'End Sub\n';
+		const first = 'Public Function MakeLabel() As String\nEnd Function\n';
+		const second = 'Public Function MakeLabel() As String\nEnd Function\n';
+		expect(byCode(analyzeProjectModule(caller, [
+			{ moduleName: 'FirstLabels', source: first },
+			{ moduleName: 'SecondLabels', source: second },
+		], 'Caller'), 'argument-object-type-mismatch')).toHaveLength(0);
+	});
+
 	it('uses generated host member signatures for scalar argument types', () => {
 		const src =
 			'Sub T()\n' +
@@ -3071,6 +3128,27 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('"bad"');
 		expect(hits[0].message).toContain('object value');
+	});
+
+	it('flags scalar Set assignment from a parameterless Function reference', () => {
+		const src =
+			'Public Function MakeLabel() As String\n' +
+			'End Function\n' +
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = MakeLabel\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: '' },
+				]),
+			}),
+			'assignment-object-type-mismatch',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('MakeLabel');
+		expect(hits[0].message).toContain('MakeLabel As String');
 	});
 
 	it('errors on a nonnumeric string literal assigned to a typed class property', () => {

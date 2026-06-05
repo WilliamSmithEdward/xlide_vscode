@@ -934,10 +934,11 @@ Diagnostic severity policy:
   covers `Set` assignments where both sides have deterministic object types,
   including project classes, source-backed object members, `Nothing`, and
   explicit `Implements` compatibility. These rules use only declared
-  parameter/local types, `Function`/`Property Get` return-name types, curated
-  runtime return metadata, same-module return types, known source-backed or
-  host/reference member signatures, and deterministic literal/expression
-  inference; unknown and `Variant` operands suppress diagnostics. For
+  parameter/local types, `Function`/`Property Get` return-name types,
+  zero-argument Function/Property Get value references, curated runtime return
+  metadata, same-module return types, known source-backed or host/reference
+  member signatures, and deterministic literal/expression inference; unknown
+  and `Variant` operands suppress diagnostics. For
   workbook-backed modules, the provider also passes a
   project-wide map of exported standard-module `Sub`/`Function`/`Declare`
   signatures, so argument count/type checks can cross module boundaries when
