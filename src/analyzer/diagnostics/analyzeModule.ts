@@ -3623,7 +3623,8 @@ function setAssignmentTarget(
 		return undefined;
 	}
 	const nameTok = toks[i + 1];
-	if (!nameTok || nameTok.kind !== 'identifier') {
+	const name = nameTok ? tokenName(nameTok) : undefined;
+	if (!nameTok || !name) {
 		return undefined;
 	}
 	const equals = toks[i + 2];
@@ -3631,7 +3632,7 @@ function setAssignmentTarget(
 		return undefined;
 	}
 	return {
-		name: nameTok.rawText,
+		name,
 		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
 		valueTokens: toks.slice(i + 3),
 	};

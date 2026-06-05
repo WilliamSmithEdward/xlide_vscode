@@ -375,6 +375,9 @@ Progress:
   `type-declaration-character-as-clause` diagnostic for variable declarations,
   Const declarations, parameters, UDT fields, and Functions, while the
   VBE-accepted `Property Get Name$() As String` control stays quiet.
+- [x] Set scalar-target regression: `Set` assignments now have an exact
+  oracle-backed guard for scalar `String` targets receiving object expressions
+  such as `Set text = New Collection`; the declared target type owns the error.
 
 Definition of done:
 

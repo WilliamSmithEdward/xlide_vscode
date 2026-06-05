@@ -153,6 +153,16 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "set_scalar_string_new_object_assignment_compile",
+      "description": "Compile probe: Set assignment targets a scalar String variable while the right-hand side is an object expression.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Text As String\n    Set text = New Collection\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "normal_function_call",
       "description": "Baseline valid same-module function call.",
       "provenance": "vbe-oracle-verified",

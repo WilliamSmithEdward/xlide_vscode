@@ -759,11 +759,12 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable type environment",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "set_scalar_integer_assignment"
+        "set_scalar_integer_assignment",
+        "set_scalar_string_new_object_assignment_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known intrinsic scalar targets are flagged; unknown host/class object types are deferred to the object binder.",
+      "notes": "Only known intrinsic scalar targets are flagged; unknown host/class object types are deferred to the object binder. The target type owns the error even when the right-hand side is an object expression such as New Collection.",
       "diagnosticKind": "compile-error"
     },
     {

@@ -4970,6 +4970,19 @@ describe('analyzeModule - Set assignment validation', () => {
 		expect(spanText(src, hits[0])).toBe('shouldErrorTest5');
 	});
 
+	it('flags Set assignment to a String variable even when assigning a New object expression', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim Text As String\n' +
+			'    Set text = New Collection\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'set-requires-object');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('text');
+		expect(hits[0].message).toContain('String');
+	});
+
 	it('does not flag Set assignment to Object, Variant, or unknown object types', () => {
 		const src =
 			'Public Sub T()\n' +
