@@ -150,6 +150,12 @@ Progress:
   RHS expressions, including deterministic member-call returns such as
   `ActiveSheet.Range("A1")`. Bare member functions with required arguments stay
   unknown unless an actual call supplies arguments.
+- [x] Host collection default-`Item` inference slice: assignment diagnostics now
+  treat called host collection-valued properties such as
+  `Worksheet.ListObjects("Tests")` and `ListObject.ListColumns("Passed")` as
+  returning the collection's proven default `Item` type when the property itself
+  has no parameter signature. Signature-backed property calls such as
+  `Range("A1")` keep their declared return type.
 - [x] Source-shadowed runtime callable slice: argument count/type diagnostics,
   nested return-type inference, expression-call parenthesis diagnostics, and
   runtime-only `Call` syntax checks now use source-name provenance before
@@ -350,11 +356,24 @@ Progress:
   now produce a red diagnostic when the same named label or normalized decimal
   line label is declared more than once in one procedure. Separate procedures
   keep independent label scopes, and inactive conditional branches stay quiet.
+- [x] Conditional branch-order slice: peer `#ElseIf`/`ElseIf` branches after
+  `#Else`/`Else`, plus duplicate `#Else`/`Else` branches, now produce red
+  diagnostics. Conditional-compilation branch order is checked structurally,
+  while normal `If` blocks still respect inactive conditional-compilation
+  regions. Nested blocks keep independent branch state, and module-declaration
+  placement diagnostics are suppressed inside malformed conditional-compilation
+  blocks so the primary branch-order error does not create misleading cascade
+  squiggles.
 - [x] For/Next block hardening slice: parser-backed `ForBlock` metadata now
   records simple opener and closer control variables, and active `Next name`
   statements now produce a red diagnostic when the name does not match the
   active `For` or `For Each` control variable. Omitted `Next` variables,
   matching names, nested loops, and inactive branches stay quiet.
+- [x] For Each control-variable type slice: active `For Each` loops now produce
+  a red diagnostic when the control variable is a known intrinsic scalar, an
+  array variable, or a project UDT/Enum control when project type metadata is
+  available. `Variant`, `Object`, host/project object-looking types, implicit
+  `Variant`, ambiguous types, and inactive branches stay quiet.
 - [x] Array ReDim hardening slice: parsed variable declarations now distinguish
   dynamic array declarators from fixed-bound arrays, and active `ReDim` or
   `ReDim Preserve` statements now produce a red diagnostic when the target

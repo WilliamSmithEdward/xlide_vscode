@@ -64,6 +64,7 @@ import { isTypeDeclarationSuffix } from '../parser/typeDeclarationSuffix';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	conditionalCompilerConstants,
+	collectConditionalDirectives,
 	createConditionalActivityTracker,
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
@@ -359,7 +360,9 @@ function runRules(
 	checkExitStatements(source, mod, activity, push);
 	checkDuplicateLabels(source, mod, activity, push);
 	checkUndefinedLabels(source, mod, activity, push);
+	checkElseBranchOrder(source, mod, activity, push);
 	checkStatementContext(source, mod, activity, push);
+	checkForEachControlVariableTypes(mod, symbols, opts, activity, push);
 	checkScalarMemberAccess(source, mod, symbols, activity, push);
 	checkMemberNotFound(source, mod, memberCtx, activity, push);
 	checkNonCallableCallStatement(
@@ -1684,6 +1687,7 @@ function checkModuleDeclarationsAfterProcedures(
 	push: PushFn,
 ): void {
 	let procedureSeen = false;
+	const malformedConditionalBlocks = scanConditionalCompilationBranchOrder(mod).malformedBlockSpans;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure') {
 			procedureSeen = true;
@@ -1694,6 +1698,9 @@ function checkModuleDeclarationsAfterProcedures(
 		}
 		const hit = moduleDeclarationAfterProcedureHit(source, member);
 		if (!hit) {
+			continue;
+		}
+		if (malformedConditionalBlocks.some((span) => containsSpan(span, member.span))) {
 			continue;
 		}
 		push(
@@ -3756,6 +3763,51 @@ function typeEnvironmentFor(
 	return out;
 }
 
+interface DeclaredValueShape {
+	asType?: string;
+	isArray: boolean;
+}
+
+function declarationShapeEnvironmentFor(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+): Map<string, DeclaredValueShape> {
+	const out = new Map<string, DeclaredValueShape>();
+	for (const sym of symbols.root.children ?? []) {
+		if (isValueDeclarationSymbol(sym)) {
+			out.set(sym.name.toLowerCase(), {
+				asType: sym.asType,
+				isArray: sym.isArray === true,
+			});
+		}
+	}
+	const procSym = (symbols.root.children ?? []).find(
+		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
+	);
+	const returnType = returnAssignmentTypeFor(proc);
+	if (returnType) {
+		out.set(proc.name.toLowerCase(), { asType: returnType, isArray: false });
+	}
+	for (const child of procSym?.children ?? []) {
+		if (isValueDeclarationSymbol(child)) {
+			out.set(child.name.toLowerCase(), {
+				asType: child.asType,
+				isArray: child.isArray === true,
+			});
+		}
+	}
+	return out;
+}
+
+function isValueDeclarationSymbol(sym: VbaSymbol): boolean {
+	return (
+		sym.kind === 'parameter' ||
+		sym.kind === 'localVariable' ||
+		sym.kind === 'moduleVariable' ||
+		sym.kind === 'constant'
+	);
+}
+
 interface SourceNameScope {
 	/**
 	 * Non-callable names visible at the current expression/call site. These block
@@ -4550,19 +4602,47 @@ function inferMemberExpressionType(
 	if (!resolved.called && member.kind === 'method' && !memberAcceptsZeroArguments(member)) {
 		return undefined;
 	}
+	const returnType = memberExpressionReturnType(member, resolved.argumentTokens, memberCtx);
 	const labelStart = toks[0]?.start ?? resolved.token.start;
 	const labelEnd = resolved.called ? toks[toks.length - 1].end : resolved.token.end;
 	const labelText = source.slice(sliceStart + labelStart, sliceStart + labelEnd).trim();
 	return {
-		type: member.returns,
-		label: `${labelText} As ${member.returns}`,
+		type: returnType,
+		label: `${labelText} As ${returnType}`,
 		span: { start: sliceStart + resolved.token.start, end: sliceStart + resolved.token.end },
 	};
 }
 
+function memberExpressionReturnType(
+	member: MemberCompletion,
+	argumentTokens: readonly VbaToken[] | undefined,
+	memberCtx: MemberCompletionContext,
+): string {
+	if (
+		member.kind !== 'method' &&
+		member.returns &&
+		argumentTokens &&
+		argumentTokens.length > 0 &&
+		(!member.signature || parseRuntimeDisplaySignature(member.name, member.signature).params.length === 0)
+	) {
+		return defaultHostItemReturnType(member.returns, memberCtx) ?? member.returns;
+	}
+	return member.returns ?? 'Variant';
+}
+
+function defaultHostItemReturnType(
+	typeName: string,
+	memberCtx: MemberCompletionContext,
+): string | undefined {
+	const item = getHostMembers(typeName, memberCtx.model).find(
+		(member) => member.name.toLowerCase() === 'item',
+	);
+	return item?.returns;
+}
+
 function finalMemberTokenInExpression(
 	toks: readonly VbaToken[],
-): { name: string; token: VbaToken; called: boolean } | undefined {
+): { name: string; token: VbaToken; called: boolean; argumentTokens?: readonly VbaToken[] } | undefined {
 	const last = toks[toks.length - 1];
 	if (!last) {
 		return undefined;
@@ -4581,7 +4661,12 @@ function finalMemberTokenInExpression(
 	if (!tokenName(member) || toks[open - 2]?.rawText !== '.') {
 		return undefined;
 	}
-	return { name: tokenName(member)!, token: member, called: true };
+	return {
+		name: tokenName(member)!,
+		token: member,
+		called: true,
+		argumentTokens: toks.slice(open + 1, -1),
+	};
 }
 
 function matchingOpenParenIndex(toks: readonly VbaToken[], close: number): number {
@@ -8338,6 +8423,286 @@ function checkForNextControlVariable(
 		`Next variable '${node.nextVariable}' does not match active For control variable '${node.controlVariable}'.`,
 		node.nextVariableSpan,
 	);
+}
+
+function checkForEachControlVariableTypes(
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	opts: AnalyzeModuleOptions,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const shapes = declarationShapeEnvironmentFor(symbols, member);
+		checkForEachControlVariableTypesInBody(member.body, shapes, opts, activity, push);
+	}
+}
+
+function checkForEachControlVariableTypesInBody(
+	body: BodyNode[],
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	opts: AnalyzeModuleOptions,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if ('body' in node && Array.isArray(node.body)) {
+			if (node.kind === 'ForBlock') {
+				checkForEachControlVariableType(node, shapes, opts, activity, push);
+			}
+			checkForEachControlVariableTypesInBody(node.body, shapes, opts, activity, push);
+		}
+	}
+}
+
+function checkForEachControlVariableType(
+	node: ForBlockNode,
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	opts: AnalyzeModuleOptions,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (
+		!node.each ||
+		!node.controlVariable ||
+		!node.controlVariableSpan ||
+		isInactiveNode(activity, { span: node.controlVariableSpan })
+	) {
+		return;
+	}
+	const shape = shapes.get(node.controlVariable.toLowerCase());
+	if (!shape) {
+		return;
+	}
+	const problem = forEachControlVariableTypeProblem(shape, opts);
+	if (!problem) {
+		return;
+	}
+	push(
+		'forEachControlVariableType',
+		`For Each control variable '${node.controlVariable}' must be Variant or Object, but ${problem}.`,
+		node.controlVariableSpan,
+	);
+}
+
+function forEachControlVariableTypeProblem(
+	shape: DeclaredValueShape,
+	opts: AnalyzeModuleOptions,
+): string | undefined {
+	if (shape.isArray) {
+		return 'it is an array variable';
+	}
+	if (!shape.asType) {
+		return undefined;
+	}
+	const resolved = resolveTypeName(shape.asType, {
+		projectTypes: opts.projectTypes,
+		model: opts.hostModel,
+	});
+	if (resolved?.kind === 'userType') {
+		return `it is declared As user-defined Type '${shape.asType}'`;
+	}
+	if (resolved?.kind === 'enum') {
+		return `it is declared As Enum '${shape.asType}'`;
+	}
+	if (resolved && resolved.kind !== 'primitive') {
+		return undefined;
+	}
+	const normalized = normalizeType(shape.asType);
+	if (!normalized || normalized === 'variant' || normalized === 'object') {
+		return undefined;
+	}
+	if (isKnownScalarType(normalized)) {
+		return `it is declared As ${shape.asType}`;
+	}
+	return undefined;
+}
+
+interface ElseBranchFrame {
+	seenElse: boolean;
+	start: Span;
+	malformed: boolean;
+}
+
+type ConditionalBranchOrderIssueKind = 'elseifAfterElse' | 'duplicateElse';
+
+interface ConditionalBranchOrderIssue {
+	kind: ConditionalBranchOrderIssueKind;
+	directive: { span: Span };
+}
+
+interface ConditionalBranchOrderScan {
+	issues: ConditionalBranchOrderIssue[];
+	malformedBlockSpans: Span[];
+}
+
+function checkElseBranchOrder(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	checkConditionalCompilationElseBranchOrder(source, mod, push);
+	checkIfBlockElseBranchOrder(source, mod, activity, push);
+}
+
+function checkConditionalCompilationElseBranchOrder(
+	source: string,
+	mod: ModuleNode,
+	push: PushFn,
+): void {
+	for (const issue of scanConditionalCompilationBranchOrder(mod).issues) {
+		if (issue.kind === 'elseifAfterElse') {
+			push(
+				'elseBranchOrder',
+				"'#ElseIf' cannot appear after '#Else' in the same conditional-compilation block.",
+				conditionalDirectiveKeywordSpan(source, issue.directive),
+			);
+		} else {
+			push(
+				'elseBranchOrder',
+				"Only one '#Else' branch is allowed in a conditional-compilation block.",
+				conditionalDirectiveKeywordSpan(source, issue.directive),
+			);
+		}
+	}
+}
+
+function scanConditionalCompilationBranchOrder(mod: ModuleNode): ConditionalBranchOrderScan {
+	const stack: ElseBranchFrame[] = [];
+	const issues: ConditionalBranchOrderIssue[] = [];
+	const malformedBlockSpans: Span[] = [];
+	for (const { directive } of collectConditionalDirectives(mod)) {
+		switch (directive.directiveKind) {
+			case 'If':
+				stack.push({ seenElse: false, start: directive.span, malformed: false });
+				break;
+			case 'ElseIf': {
+				const frame = stack[stack.length - 1];
+				if (frame?.seenElse) {
+					frame.malformed = true;
+					issues.push({ kind: 'elseifAfterElse', directive });
+				}
+				break;
+			}
+			case 'Else': {
+				const frame = stack[stack.length - 1];
+				if (frame?.seenElse) {
+					frame.malformed = true;
+					issues.push({ kind: 'duplicateElse', directive });
+				}
+				if (frame) {
+					frame.seenElse = true;
+				}
+				break;
+			}
+			case 'EndIf': {
+				const frame = stack.pop();
+				if (frame?.malformed) {
+					malformedBlockSpans.push({
+						start: frame.start.start,
+						end: directive.span.end,
+					});
+				}
+				break;
+			}
+			case 'Const':
+			case 'Unknown':
+				break;
+		}
+	}
+	return { issues, malformedBlockSpans };
+}
+
+function checkIfBlockElseBranchOrder(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure') {
+			checkIfBlockElseBranchOrderInBody(source, member.body, activity, push);
+		}
+	}
+}
+
+function checkIfBlockElseBranchOrderInBody(
+	source: string,
+	body: BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'IfBlock') {
+			checkSingleIfBlockElseBranchOrder(source, node, activity, push);
+		}
+		if ('body' in node && Array.isArray(node.body)) {
+			checkIfBlockElseBranchOrderInBody(source, node.body, activity, push);
+		}
+	}
+}
+
+function checkSingleIfBlockElseBranchOrder(
+	source: string,
+	node: { body: BodyNode[] },
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	let seenElse = false;
+	for (const child of node.body) {
+		if (isInactiveNode(activity, child)) {
+			continue;
+		}
+		if (child.kind !== 'Statement') {
+			continue;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, child.span);
+		const first = toks[0];
+		const word = first ? tokenText(first) : undefined;
+		if (word === 'elseif' && seenElse) {
+			push(
+				'elseBranchOrder',
+				"'ElseIf' cannot appear after 'Else' in the same If block.",
+				absoluteSpan(child.span, first),
+			);
+		} else if (word === 'else') {
+			if (seenElse) {
+				push(
+					'elseBranchOrder',
+					"Only one 'Else' branch is allowed in an If block.",
+					absoluteSpan(child.span, first),
+				);
+			}
+			seenElse = true;
+		}
+	}
+}
+
+function conditionalDirectiveKeywordSpan(
+	source: string,
+	directive: { span: Span },
+): Span {
+	const tokens = tokenize(source.slice(directive.span.start, directive.span.end))
+		.filter((token) => token.kind !== 'comment' && token.kind !== 'newline');
+	const marker = tokens[0];
+	const keyword = tokens[1];
+	if (marker?.kind === 'directive' && keyword) {
+		return {
+			start: directive.span.start + marker.start,
+			end: directive.span.start + keyword.end,
+		};
+	}
+	return directive.span;
 }
 
 function checkContextStatement(

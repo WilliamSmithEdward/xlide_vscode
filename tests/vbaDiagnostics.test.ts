@@ -1316,6 +1316,29 @@ describe('analyzeModule - module declaration placement', () => {
 		expect(hits[0].message).toContain('Declare statements belong');
 	});
 
+	it('suppresses declaration-order fallout inside malformed conditional-compilation blocks', () => {
+		const src =
+			'Public Sub Earlier()\n' +
+			'End Sub\n' +
+			'\n' +
+			'#If False Then\n' +
+			'    Private Const Mode As Long = 0\n' +
+			'#Else\n' +
+			'    Private Const Mode As Long = 1\n' +
+			'#ElseIf True Then\n' +
+			'    Private Const Mode As Long = 2\n' +
+			'#End If\n' +
+			'\n' +
+			'Public Sub Combined048ElseifAfterElse()\n' +
+			'    Debug.Print Mode\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'module-declaration-after-procedure')).toHaveLength(0);
+		const branchOrder = byCode(analyzeModule(src), 'else-branch-order');
+		expect(branchOrder).toHaveLength(1);
+		expect(spanText(src, branchOrder[0])).toBe('#ElseIf');
+	});
+
 	it('flags module declarations after procedures and keeps procedures accepted', () => {
 		const src =
 			'Sub First()\nEnd Sub\n' +
@@ -1999,6 +2022,26 @@ describe('analyzeModule - argument count', () => {
 				'argument-count',
 			),
 		).toHaveLength(0);
+	});
+
+	it('accepts Excel collection default Item calls returned from properties', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Dim loTests As ListObject\n' +
+			'    Dim lcPassed As ListColumn\n' +
+			'    Set loTests = ws.ListObjects("Tests")\n' +
+			'    Set lcPassed = loTests.ListColumns("Passed")\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, 'argument-count')).toHaveLength(0);
+		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
+		expect(diagnostics.filter((diag) => diag.severity === 'error').map((diag) => ({
+			code: diag.code,
+			text: spanText(src, diag),
+			message: diag.message,
+		}))).toEqual([]);
 	});
 
 	it('flags missing required arguments on source-backed class member calls', () => {
@@ -6751,6 +6794,140 @@ describe('analyzeModule - procedure labels', () => {
 });
 
 describe('analyzeModule - statement context', () => {
+	it('flags #ElseIf after #Else in the same conditional-compilation block', () => {
+		const src =
+			'Sub T()\n' +
+			'#If False Then\n' +
+			'    Debug.Print 0\n' +
+			'#Else\n' +
+			'    Debug.Print 1\n' +
+			'#ElseIf True Then\n' +
+			'    Debug.Print 2\n' +
+			'#End If\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'else-branch-order');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('#ElseIf');
+		expect(hits[0].message).toContain("'#ElseIf'");
+		expect(hits[0].message).toContain("'#Else'");
+	});
+
+	it('flags duplicate #Else branches in a conditional-compilation block', () => {
+		const src =
+			'Sub T()\n' +
+			'#If False Then\n' +
+			'    Debug.Print 0\n' +
+			'#Else\n' +
+			'    Debug.Print 1\n' +
+			'#Else\n' +
+			'    Debug.Print 2\n' +
+			'#End If\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'else-branch-order');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('#Else');
+		expect(hits[0].message).toContain("Only one '#Else'");
+	});
+
+	it('accepts conditional-compilation #ElseIf branches before #Else and in nested blocks', () => {
+		const src =
+			'Sub T()\n' +
+			'#If False Then\n' +
+			'    Debug.Print 0\n' +
+			'#ElseIf True Then\n' +
+			'    Debug.Print 1\n' +
+			'#Else\n' +
+			'    #If True Then\n' +
+			'        Debug.Print 2\n' +
+			'    #ElseIf False Then\n' +
+			'        Debug.Print 3\n' +
+			'    #End If\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'else-branch-order')).toHaveLength(0);
+	});
+
+	it('flags ElseIf after Else in the same If block', () => {
+		const src =
+			'Sub T()\n' +
+			'    If False Then\n' +
+			'        Debug.Print 0\n' +
+			'    Else\n' +
+			'        Debug.Print 1\n' +
+			'    ElseIf True Then\n' +
+			'        Debug.Print 2\n' +
+			'    End If\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'else-branch-order');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('ElseIf');
+		expect(hits[0].message).toContain("'ElseIf'");
+		expect(hits[0].message).toContain("'Else'");
+	});
+
+	it('flags duplicate Else branches in the same If block', () => {
+		const src =
+			'Sub T()\n' +
+			'    If False Then\n' +
+			'        Debug.Print 0\n' +
+			'    Else\n' +
+			'        Debug.Print 1\n' +
+			'    Else\n' +
+			'        Debug.Print 2\n' +
+			'    End If\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'else-branch-order');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Else');
+		expect(hits[0].message).toContain("Only one 'Else'");
+	});
+
+	it('accepts ElseIf branches before Else and nested If blocks after Else', () => {
+		const src =
+			'Sub T()\n' +
+			'    If False Then\n' +
+			'        Debug.Print 0\n' +
+			'    ElseIf True Then\n' +
+			'        Debug.Print 1\n' +
+			'    Else\n' +
+			'        If True Then\n' +
+			'            Debug.Print 2\n' +
+			'        ElseIf False Then\n' +
+			'            Debug.Print 3\n' +
+			'        End If\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'else-branch-order')).toHaveLength(0);
+	});
+
+	it('does not report inactive If branch-order diagnostics', () => {
+		const src =
+			'Sub T()\n' +
+			'#If VBA7 Then\n' +
+			'    If False Then\n' +
+			'    Else\n' +
+			'    ElseIf True Then\n' +
+			'    End If\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'else-branch-order',
+			),
+		).toHaveLength(0);
+	});
+
 	it('flags an If statement missing Then', () => {
 		const src = 'Sub T()\n    If x > 0\n        x = 1\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'if-missing-then');
@@ -7012,6 +7189,99 @@ describe('analyzeModule - statement context', () => {
 					conditionalCompilation: { compilerConstants: { VBA7: false } },
 				}),
 				'next-variable-mismatch',
+			),
+		).toHaveLength(0);
+	});
+
+	it('flags a For Each control variable declared as a scalar intrinsic type', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim item As Long\n' +
+			'    For Each item In Array(1, 2, 3)\n' +
+			'        Debug.Print item\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'for-each-control-variable-type');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('item');
+		expect(hits[0].message).toContain('Variant or Object');
+		expect(hits[0].message).toContain('Long');
+	});
+
+	it('flags an array variable used as a For Each control variable', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim values() As Variant\n' +
+			'    For Each values In Array(1, 2, 3)\n' +
+			'        Debug.Print values\n' +
+			'    Next values\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'for-each-control-variable-type');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('values');
+		expect(hits[0].message).toContain('array variable');
+	});
+
+	it('accepts Variant, Object, and host object For Each control variables', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim value As Variant\n' +
+			'    For Each value In Array(1, 2, 3)\n' +
+			'    Next value\n' +
+			'    Dim obj As Object\n' +
+			'    For Each obj In items\n' +
+			'    Next obj\n' +
+			'    Dim ws As Worksheet\n' +
+			'    For Each ws In ThisWorkbook.Worksheets\n' +
+			'    Next ws\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'for-each-control-variable-type')).toHaveLength(0);
+	});
+
+	it('flags a project UDT used as a For Each control variable when type metadata is available', () => {
+		const modules: ProjectTestModule[] = [
+			{
+				moduleName: 'Types',
+				moduleKind: 'standard',
+				source: 'Public Type TItem\n    Value As Long\nEnd Type\n',
+			},
+			{ moduleName: 'Module1', moduleKind: 'standard', source: '' },
+		];
+		const src =
+			'Sub T()\n' +
+			'    Dim item As TItem\n' +
+			'    For Each item In items\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(src, modules, 'Module1'),
+			'for-each-control-variable-type',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('item');
+		expect(hits[0].message).toContain('user-defined Type');
+	});
+
+	it('does not report For Each control variable type diagnostics from inactive branches', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim item As Long\n' +
+			'#If VBA7 Then\n' +
+			'    For Each item In Array(1, 2, 3)\n' +
+			'    Next item\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'for-each-control-variable-type',
 			),
 		).toHaveLength(0);
 	});

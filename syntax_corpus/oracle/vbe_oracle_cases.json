@@ -163,6 +163,16 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "excel_collection_default_item_assignment_compile",
+      "description": "Compile control: Excel collection properties can be called through their default Item member in Set assignments.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim ws As Worksheet\n    Dim loTests As ListObject\n    Dim lcPassed As ListColumn\n    Set ws = ThisWorkbook.Worksheets(1)\n    Set loTests = ws.ListObjects(\"Tests\")\n    Set lcPassed = loTests.ListColumns(\"Passed\")\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "normal_function_call",
       "description": "Baseline valid same-module function call.",
       "provenance": "vbe-oracle-verified",
@@ -2691,6 +2701,116 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim value As Integer\n    value.Length\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "for_each_long_control_variable_compile",
+      "description": "Compile probe: a For Each control variable declared as an intrinsic Long is rejected.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim item As Long\n    For Each item In Array(1, 2, 3)\n        Debug.Print item\n    Next item\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "for_each_array_control_variable_compile",
+      "description": "Compile probe: an array variable cannot be used as a For Each control variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim values() As Variant\n    For Each values In Array(1, 2, 3)\n        Debug.Print values\n    Next values\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "for_each_udt_control_variable_compile",
+      "description": "Compile probe: a user-defined Type variable cannot be used as a For Each control variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Type TItem\n    Value As Long\nEnd Type\n\nPublic Sub XlideOracleEntry()\n    Dim item As TItem\n    For Each item In Array(1, 2, 3)\n        Debug.Print item.Value\n    Next item\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "for_each_variant_control_variable_compile",
+      "description": "Compile control: a Variant control variable is accepted by For Each.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim item As Variant\n    For Each item In Array(1, 2, 3)\n        Debug.Print item\n    Next item\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "for_each_object_control_variable_compile",
+      "description": "Compile control: an Object control variable is accepted by For Each.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim item As Object\n    Dim items As Collection\n    Set items = New Collection\n    items.Add New Collection\n    For Each item In items\n        Debug.Print TypeName(item)\n    Next item\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "conditional_elseif_after_else_compile",
+      "description": "Compile probe: #ElseIf cannot appear after #Else in the same conditional-compilation block.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n#If False Then\n    Debug.Print 0\n#Else\n    Debug.Print 1\n#ElseIf True Then\n    Debug.Print 2\n#End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "conditional_duplicate_else_compile",
+      "description": "Compile probe: only one #Else branch is allowed in a conditional-compilation block.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n#If False Then\n    Debug.Print 0\n#Else\n    Debug.Print 1\n#Else\n    Debug.Print 2\n#End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "conditional_elseif_before_else_compile",
+      "description": "Compile control: #ElseIf branches are accepted before the final #Else branch.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n#If False Then\n    Debug.Print 0\n#ElseIf True Then\n    Debug.Print 1\n#Else\n    Debug.Print 2\n#End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_elseif_after_else_compile",
+      "description": "Compile probe: ElseIf cannot appear after Else in the same If block.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    If False Then\n        Debug.Print 0\n    Else\n        Debug.Print 1\n    ElseIf True Then\n        Debug.Print 2\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_duplicate_else_compile",
+      "description": "Compile probe: only one Else branch is allowed in an If block.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    If False Then\n        Debug.Print 0\n    Else\n        Debug.Print 1\n    Else\n        Debug.Print 2\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_elseif_before_else_compile",
+      "description": "Compile control: ElseIf branches are accepted before the final Else branch.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    If False Then\n        Debug.Print 0\n    ElseIf True Then\n        Debug.Print 1\n    Else\n        Debug.Print 2\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

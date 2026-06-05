@@ -218,6 +218,7 @@ function collectLocals(
 					asType: decl.asType,
 					fixedLength: decl.fixedLength,
 					defaultRaw: decl.defaultRaw,
+					isArray: decl.isArray,
 				});
 			}
 		} else if ('body' in node && Array.isArray(node.body)) {
@@ -443,6 +444,7 @@ function buildModuleVariables(
 			asType: decl.asType,
 			fixedLength: decl.fixedLength,
 			defaultRaw: decl.defaultRaw,
+			isArray: decl.isArray,
 			doc,
 		};
 		rootChildren.push(symbol);
