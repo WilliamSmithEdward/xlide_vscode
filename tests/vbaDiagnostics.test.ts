@@ -2035,6 +2035,21 @@ describe('analyzeModule - argument count', () => {
 		expect(hits[0].message).toContain('Named argument not found');
 	});
 
+	it('flags duplicate named arguments', () => {
+		const src =
+			'Sub Main()\n' +
+			'    NamedArgs alpha:=1, alpha:=2\n' +
+			'    NamedArgs alpha:=1, ALPHA:=2\n' +
+			'End Sub\n' +
+			'Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['alpha', 'ALPHA']);
+		expect(hits[0].message).toContain('Named argument already specified');
+		expect(hits[0].message).toContain('alpha');
+	});
+
 	it('accepts a valid named argument', () => {
 		const src =
 			'Sub Main()\n' +

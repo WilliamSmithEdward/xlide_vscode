@@ -259,6 +259,7 @@
       "assertedOracleCases": [
         "missing_trailing_required_argument",
         "missing_leading_required_argument",
+        "duplicate_named_argument_compile",
         "normal_function_call"
       ],
       "observeOnlyOracleCases": [
@@ -266,7 +267,7 @@
       ],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name."
+      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Named-argument checks report unknown parameter names and duplicate named parameters case-insensitively, with duplicate behavior backed by the VBE oracle's Named argument already specified compile error. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name."
     },
     {
       "code": "argument-type-mismatch",

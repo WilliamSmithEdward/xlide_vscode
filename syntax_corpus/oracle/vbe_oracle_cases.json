@@ -22,6 +22,16 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "duplicate_named_argument_compile",
+      "description": "Observe whether a duplicate named argument is rejected at compile time.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NamedArgs alpha:=1, alpha:=2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "missing_trailing_optional_argument",
       "description": "A trailing comma omits an Optional argument. This is initially observe-only until the VBE oracle records behavior.",
       "provenance": "observed-not-asserted",

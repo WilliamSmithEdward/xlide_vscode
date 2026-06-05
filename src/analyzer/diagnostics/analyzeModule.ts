@@ -3011,9 +3011,11 @@ function validateArity(
 		const paramNames = new Set(
 			params.map((p) => stripHeaderBrackets(p.name).toLowerCase()),
 		);
+		const seen = new Set<string>();
 		for (const slot of named) {
 			const raw = stripHeaderBrackets(slot[0].rawText);
-			if (!paramNames.has(raw.toLowerCase())) {
+			const lower = raw.toLowerCase();
+			if (!paramNames.has(lower)) {
 				push(
 					'argumentCount',
 					`Named argument not found: '${raw}' is not a parameter of '${displayName}'.`,
@@ -3022,7 +3024,20 @@ function validateArity(
 						end: call.sliceStart + slot[0].end,
 					},
 				);
+				continue;
 			}
+			if (seen.has(lower)) {
+				push(
+					'argumentCount',
+					`Named argument already specified: '${raw}' is supplied more than once to '${displayName}'.`,
+					{
+						start: call.sliceStart + slot[0].start,
+						end: call.sliceStart + slot[0].end,
+					},
+				);
+				continue;
+			}
+			seen.add(lower);
 		}
 		return; // positional count is not validated alongside named arguments
 	}
