@@ -706,8 +706,17 @@ class Parser {
 				closed = true;
 				break;
 			}
-			if (this.isAttribute(codeTokens(stmt))) {
-				this.cursor.next();
+			const stmtTokens = codeTokens(stmt);
+			if (this.isAttribute(stmtTokens)) {
+				if (this.isExportedProcedureAttribute(stmt, stmtTokens, name)) {
+					this.cursor.next();
+					continue;
+				}
+				const item = this.parseBodyItem(stmt);
+				if (item === undefined) {
+					break;
+				}
+				body.push(item);
 				continue;
 			}
 			// Recovery: a new module-level construct means the End was forgotten.
@@ -1150,6 +1159,38 @@ class Parser {
 			default:
 				return tokenWord(tokens[0]) === 'attribute';
 		}
+	}
+
+	private isExportedProcedureAttribute(
+		stmt: LogicalStatement,
+		tokens: VbaToken[],
+		procedureName: string,
+	): boolean {
+		if (!this.startsAtPhysicalLineStart(stmt)) {
+			return false;
+		}
+		const eqIndex = tokens.findIndex((t) => t.rawText === '=');
+		if (eqIndex <= 1) {
+			return false;
+		}
+		const attrName = tokens
+			.slice(1, eqIndex)
+			.map((token) => token.rawText)
+			.join('');
+		const dot = attrName.indexOf('.');
+		if (dot <= 0) {
+			return false;
+		}
+		return this.stripBrackets(attrName.slice(0, dot)).toLowerCase() ===
+			procedureName.toLowerCase();
+	}
+
+	private startsAtPhysicalLineStart(stmt: LogicalStatement): boolean {
+		const previousNewline = Math.max(
+			this.source.lastIndexOf('\n', stmt.start - 1),
+			this.source.lastIndexOf('\r', stmt.start - 1),
+		);
+		return stmt.start === previousNewline + 1;
 	}
 
 	// -- Token helpers -----------------------------------------------------

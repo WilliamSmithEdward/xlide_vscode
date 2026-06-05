@@ -12,6 +12,14 @@ and must not depend on Excel, COM, Office, or VBE automation at runtime.
 npm run test:oracle:vbe
 ```
 
+Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
+`run_excel_vbe_oracle.py` invocations in parallel, even for different cases.
+The harness drives Excel/VBE through a single-user COM/UI automation surface;
+parallel runs can contend for VBE focus, command bars, modal dialogs, and Excel
+process cleanup, producing timeouts or misleading contradictory results. When
+several cases need retesting, run one command, wait for it to finish and clean
+up, then run the next.
+
 Useful filters:
 
 ```powershell
@@ -49,7 +57,10 @@ evidence: it is treated as oracle infrastructure health. The coordinator retries
 the same case up to `--timeout-retries`; if every attempt times out, it aborts
 the remaining run as `outcome: "oracle_failure"` and exits non-zero even without
 `--strict`. Investigate the harness/Excel modal state before running additional
-oracle cases.
+oracle cases. If an oracle failure follows accidental parallel oracle runs,
+treat the parallelism as the first suspected infrastructure cause and rerun the
+cases sequentially after checking for lingering Excel/VBE processes or modal
+dialogs.
 
 Only `accepted` and `rejected` are evidence outcomes. Any other worker outcome
 (`timeout`, `worker_error`, setup failure, malformed output, and similar) is an

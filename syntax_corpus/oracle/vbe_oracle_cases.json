@@ -173,6 +173,36 @@
       "diagnosticMeaning": "compile-valid"
     },
     {
+      "id": "member_attribute_after_header_addfromstring_compile",
+      "description": "Compile probe: VBE CodeModule.AddFromString/live-style source rejects a visible member Attribute line immediately after the procedure header. Exported-file import parsing is a separate source mode.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\nAttribute XlideOracleEntry.VB_Description = \"metadata\"\n    Debug.Print \"ok\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "member_attribute_after_executable_addfromstring_compile",
+      "description": "Compile probe: VBE CodeModule.AddFromString/live-style source rejects a visible member Attribute line after executable procedure body statements.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print \"body\"\nAttribute XlideOracleEntry.VB_Description = \"too late\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "indented_attribute_inside_procedure_compile",
+      "description": "Compile probe: an indented Attribute line inside a procedure body represents live-editor-style invalid placement rather than exported metadata.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Attribute XlideOracleEntry.VB_Description = \"bad placement\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "normal_function_call",
       "description": "Baseline valid same-module function call.",
       "provenance": "vbe-oracle-verified",

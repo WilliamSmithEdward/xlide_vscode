@@ -112,3 +112,8 @@ Do not run the oracle as routine verification for every code change. Prefer fast
 local checks such as targeted unit tests, `npm.cmd test`,
 `npm.cmd run check-types`, and `npm.cmd run compile` unless the change depends
 on fresh Excel/VBE behavior.
+
+Run internal Excel/VBE oracle commands sequentially only. Never launch multiple
+oracle invocations in parallel; Excel/VBE automation is a single-user COM/UI
+surface, and parallel oracle runs can create infrastructure timeouts or
+misleading behavior results.

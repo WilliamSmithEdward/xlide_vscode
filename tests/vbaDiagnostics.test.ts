@@ -1254,13 +1254,42 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		const src =
 			'Sub T()\n' +
 			'    Option Explicit\n' +
+			'    Attribute T.VB_Description = "bad placement"\n' +
 			'    DefLng A-Z\n' +
 			'    Public leakedValue As Long\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'module-declaration-in-procedure');
 
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Option', 'DefLng', 'Public']);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'Option',
+			'Attribute',
+			'DefLng',
+			'Public',
+		]);
 		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
+	});
+
+	it('accepts unindented exported member Attribute lines even after body statements', () => {
+		const src =
+			'Sub T()\n' +
+			'    Debug.Print "body"\n' +
+			'Attribute T.VB_Description = "exported metadata"\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+	});
+
+	it('flags indented Attribute lines after executable procedure body statements', () => {
+		const src =
+			'Sub T()\n' +
+			'    Debug.Print "body"\n' +
+			'    Attribute T.VB_Description = "bad placement"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-in-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Attribute');
+		expect(hits[0].message).toContain('Attribute statements');
 	});
 
 	it('checks nested procedure blocks and ignores inactive conditional branches', () => {

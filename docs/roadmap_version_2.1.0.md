@@ -340,6 +340,14 @@ Progress:
   conditional-compilation branch so only-one-branch squiggles are easier to
   interpret. Later procedures remain accepted, and inactive conditional
   branches stay quiet.
+- [x] Attribute placement slice: parser recovery now distinguishes exported
+  member metadata attributes from executable-body `Attribute` statements.
+  Unindented `Attribute ProcedureName...` lines targeting the current procedure
+  remain accepted as exported-source metadata, while indented procedure-body
+  `Attribute` statements produce a red placement diagnostic backed by VBE
+  `CodeModule.AddFromString` compile evidence. A dedicated exported-file import
+  oracle/source-mode split remains the right owner for broader visible
+  `Attribute` behavior.
 - [x] Parameter-list hardening slice: parsed procedure parameter flags now
   produce a red diagnostic when `ParamArray` appears in the same parameter list
   as any `Optional` argument, and when an explicit `ParamArray` element type is
