@@ -6285,6 +6285,29 @@ describe('analyzeModule - statement context', () => {
 		expect(byCode(diagnostics, 'argument-type-mismatch')).toHaveLength(1);
 	});
 
+	it('uses parenthesized member receivers for source-backed class diagnostics', () => {
+		const person = 'Public Property Get Child() As Child\nEnd Property\n';
+		const child = 'Public Sub Save()\nEnd Sub\n';
+		const src =
+			'Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    (p.Child).Delete\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+					{ moduleName: 'Child', moduleKind: 'class', source: child },
+				]),
+			}),
+			'member-not-found',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Delete');
+		expect(hits[0].message).toContain('Child.Delete');
+	});
+
 	it('flags Exit For and Exit Do outside matching loops', () => {
 		const src = 'Sub T()\n    Exit For\n    Exit Do\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'exit-outside-block');

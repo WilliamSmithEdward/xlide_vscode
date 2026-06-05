@@ -637,7 +637,9 @@ into a pure analyzer layer and a thin VS Code provider:
   `Workbooks(1).Sheets(1).Range("A1").`), resolves the root (`Me`, a host
   global, a worksheet code name, or a typed local/module
   variable found by parsing the module), follows member return types through the
-  chain, and returns the filtered members. For leading-dot member access inside
+  chain, unwraps parenthesized receiver expressions whose inner receiver chain
+  is already deterministic, and returns the filtered members. For leading-dot
+  member access inside
   `With`, the resolver scans the enclosing procedure up to the dot, builds the
   active `With` receiver stack, and resolves nested `With .Member` expressions
   outer-to-inner before applying the same member-chain logic. When a typed

@@ -141,6 +141,10 @@ Progress:
   `With .Member` receivers outer-to-inner. Completion and hard diagnostics use
   the same leading-dot receiver for source-backed class members, UDT fields, and
   promoted host surfaces.
+- [x] Parenthesized member-receiver slice: member resolution now unwraps
+  parenthesized receiver expressions such as `(ws.Range("A1")).Value` and
+  `(p.Child).Save` when the inner expression shape is already deterministic,
+  giving completion and hard diagnostics the same receiver type without guessing.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`

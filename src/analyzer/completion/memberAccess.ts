@@ -342,6 +342,16 @@ function receiverTypeFromTokens(
 	if (explicitReceiver) {
 		return explicitReceiver;
 	}
+	const groupedReceiver = receiverTypeFromParenthesizedReceiver(
+		tokens,
+		dotIndex - 1,
+		source,
+		offset,
+		ctx,
+	);
+	if (groupedReceiver) {
+		return groupedReceiver;
+	}
 	const implicitWithChain = collectImplicitWithChain(tokens, dotIndex - 1);
 	if (implicitWithChain === undefined) {
 		return undefined;
@@ -397,6 +407,33 @@ function receiverTypeFromExpressionTokens(
 		return undefined;
 	}
 	return receiverTypeFromChain(chain.segments, source, offset, ctx);
+}
+
+function receiverTypeFromParenthesizedReceiver(
+	tokens: VbaToken[],
+	endIndex: number,
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): string | undefined {
+	if (endIndex < 0 || tokens[endIndex].rawText !== ')') {
+		return undefined;
+	}
+	const open = matchParenLeft(tokens, endIndex);
+	if (open < 0) {
+		return undefined;
+	}
+	const expressionTokens = tokens.slice(open + 1, endIndex);
+	return (
+		receiverTypeFromExpressionTokens(expressionTokens, source, offset, ctx) ??
+		receiverTypeFromParenthesizedReceiver(
+			expressionTokens,
+			expressionTokens.length - 1,
+			source,
+			offset,
+			ctx,
+		)
+	);
 }
 
 function receiverTypeFromChain(

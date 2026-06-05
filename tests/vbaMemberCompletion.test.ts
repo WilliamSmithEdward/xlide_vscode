@@ -794,6 +794,13 @@ describe('member completion - chaining', () => {
 		expect(got).toContain('Resize');
 	});
 
+	it('resolves parenthesized receiver expressions', () => {
+		const src = 'Sub Test(ws As Worksheet)\n    (ws.Range("A1")).Va\nEnd Sub\n';
+		const got = names(src, ')).Va');
+		expect(got).toContain('Value');
+		expect(got).toContain('Value2');
+	});
+
 	it('walks through collection default Item for Worksheets(index).Range', () => {
 		const src = 'Sub Test()\n    ThisWorkbook.Worksheets(1).Range("A1").\nEnd Sub\n';
 		const got = names(src, 'ThisWorkbook.Worksheets(1).Range("A1").');

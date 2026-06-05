@@ -348,7 +348,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Leading-dot receivers inside simple or nested With stacks use the same resolver as ordinary member chains. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Deterministic parenthesized receivers and leading-dot receivers inside simple or nested With stacks use the same resolver as ordinary member chains. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
       "diagnosticKind": "compile-error"
     },
     {
