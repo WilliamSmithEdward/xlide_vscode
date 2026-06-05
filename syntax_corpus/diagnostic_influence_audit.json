@@ -920,6 +920,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "parameter-array-as-type-syntax",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1.5 parameter declarator shape: array parentheses belong on the parameter name before the As clause",
+      "corpusInfluence": "legacy-corpus-promoted",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage reports the misplaced empty array marker in parameter declarations such as ByVal values As Long(). The generic unexpected-declaration-token recovery rule suppresses itself for the same parameter so users see the clearer parameter-list error instead of a bare parenthesis diagnostic. Valid array parameters such as ByVal values() As Long remain accepted.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "paramarray-not-last",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3.1.6",

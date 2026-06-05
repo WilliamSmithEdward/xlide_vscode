@@ -6425,7 +6425,7 @@ function checkUnexpectedDeclarationTokens(
 		}
 		if (member.kind === 'Procedure') {
 			for (const param of member.params) {
-				inspectParameter(param, inspect);
+				inspectParameter(source, param, inspect);
 			}
 			forEachVariableGroup(member.body, inspectGroup, activity);
 		}
@@ -6886,9 +6886,13 @@ function inspectTypeField(
 }
 
 function inspectParameter(
+	source: string,
 	param: ParameterNode,
 	inspect: (span: Span, allowEquals: boolean) => void,
 ): void {
+	if (parameterArrayAsTypeSyntaxHit(source, param)) {
+		return;
+	}
 	inspect(param.span, true);
 }
 
@@ -7635,6 +7639,18 @@ function checkParameterOrder(
 		let optionalSeen = false;
 		for (let i = 0; i < params.length; i++) {
 			const p = params[i];
+			const arrayAsType = parameterArrayAsTypeSyntaxHit(source, p);
+			if (arrayAsType) {
+				push(
+					'parameterArrayAsTypeSyntax',
+					`Array parameter '${p.name}' must place parentheses after the parameter name, before the As clause; use '${p.name}() As ${arrayAsType.typeName}'.`,
+					arrayAsType.span,
+				);
+				if (p.optional) {
+					optionalSeen = true;
+				}
+				continue;
+			}
 			if (p.paramArray) {
 				if (p.asType && normalizeType(p.asType) !== 'variant') {
 					push(
@@ -7672,6 +7688,37 @@ function checkParameterOrder(
 			}
 		}
 	}
+}
+
+function parameterArrayAsTypeSyntaxHit(
+	source: string,
+	param: ParameterNode,
+): { span: Span; typeName: string } | undefined {
+	const toks = statementTokens(source, param.span);
+	const asIndex = toks.findIndex((t) => tokenText(t) === 'as');
+	if (asIndex < 0) {
+		return undefined;
+	}
+	let typeStart = asIndex + 1;
+	if (tokenText(toks[typeStart]) === 'new') {
+		typeStart++;
+	}
+	const typeEnd = consumeDeclarationTypeName(toks, typeStart);
+	if (typeEnd === typeStart) {
+		return undefined;
+	}
+	const open = toks[typeEnd];
+	const close = toks[typeEnd + 1];
+	if (!open || !close || open.rawText !== '(' || close.rawText !== ')') {
+		return undefined;
+	}
+	return {
+		span: {
+			start: param.span.start + open.start,
+			end: param.span.start + close.end,
+		},
+		typeName: source.slice(param.span.start + toks[typeStart].start, param.span.start + toks[typeEnd - 1].end),
+	};
 }
 
 /**

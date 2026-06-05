@@ -726,6 +726,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1.5',
 		confidence: 'high',
 	},
+	parameterArrayAsTypeSyntax: {
+		code: 'parameter-array-as-type-syntax',
+		title: 'Array parameter parentheses must follow the parameter name',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1.5',
+		confidence: 'high',
+	},
 	paramArrayNotLast: {
 		code: 'paramarray-not-last',
 		title: 'ParamArray must be the final parameter',

@@ -6715,6 +6715,28 @@ describe('analyzeModule - parameter order', () => {
 		).toHaveLength(0);
 	});
 
+	it('flags array parameter parentheses after the As type and suppresses the generic token error', () => {
+		const src =
+			'Public Sub NegParam06_BadArrayParameterSyntax(ByVal values As Long())\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'parameter-array-as-type-syntax');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('()');
+		expect(hits[0].message).toContain('values');
+		expect(hits[0].message).toContain('values() As Long');
+		expect(byCode(diagnostics, 'unexpected-declaration-token')).toHaveLength(0);
+	});
+
+	it('accepts array parameter parentheses after the parameter name', () => {
+		const src = 'Sub T(ByVal values() As Long)\nEnd Sub\n';
+
+		expect(byCode(analyzeModule(src), 'parameter-array-as-type-syntax')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
+	});
+
 	it('flags a ParamArray that is not last', () => {
 		const src = 'Sub T(ParamArray items() As Variant, ByVal n As Long)\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'paramarray-not-last');
@@ -6882,6 +6904,17 @@ describe('analyzeModule - property setter shape', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Label', 'Child']);
 		expect(hits[0].message).toContain('type must match');
 		expect(hits[1].message).toContain('passing mode');
+	});
+
+	it('accepts standalone read-only indexed Property Get declarations', () => {
+		const src =
+			'Public Property Get NegProp07_IndexedGet(ByVal index As Long) As Long\n' +
+			'    NegProp07_IndexedGet = index\n' +
+			'End Property\n';
+
+		expect(byCode(analyzeModule(src), 'property-accessor-signature-mismatch')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'property-setter-missing-value')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'function-return-not-assigned')).toHaveLength(0);
 	});
 
 	it('accepts Property Get and object-shaped setters with value parameters', () => {
