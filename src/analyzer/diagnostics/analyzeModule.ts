@@ -327,6 +327,7 @@ function runRules(
 	checkModuleDeclarationsInProcedureBodies(source, mod, activity, push);
 	checkModuleDeclarationsAfterProcedures(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
+	checkPropertySetterValueParameters(source, mod, activity, push);
 	checkParameterOrder(source, mod, activity, push);
 	checkParameterDefaultValues(source, mod, activity, push);
 	checkUnbalancedParens(source, push);
@@ -1852,6 +1853,47 @@ function checkReservedDeclarationNames(
 			report('parameter', declarationNameHit(source, param.span, param.name));
 		}
 		forEachVariableGroup(member.body, inspectVariableGroup, activity);
+	}
+}
+
+/**
+ * Rule: Property Let/Set setters receive the assigned value through the final
+ * parameter. A setter with no parameters has no value slot and Property Set
+ * value parameters must be object references, not known scalar values.
+ */
+function checkPropertySetterValueParameters(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (
+			member.kind !== 'Procedure' ||
+			(member.procKind !== 'PropertyLet' && member.procKind !== 'PropertySet')
+		) {
+			continue;
+		}
+		if (member.params.length > 0) {
+			if (member.procKind === 'PropertySet') {
+				const valueParam = member.params[member.params.length - 1];
+				const normalized = normalizeType(valueParam.asType);
+				if (normalized && isKnownScalarType(normalized)) {
+					push(
+						'propertySetScalarValue',
+						`Property Set '${member.name}' final value parameter '${valueParam.name}' must be an object reference, but it is declared As ${valueParam.asType}.`,
+						declaredNameSpan(source, valueParam.span, valueParam.name),
+					);
+				}
+			}
+			continue;
+		}
+		const label = member.procKind === 'PropertyLet' ? 'Property Let' : 'Property Set';
+		push(
+			'propertySetterMissingValue',
+			`${label} '${member.name}' must include a final value parameter.`,
+			declaredNameSpan(source, member.span, member.name),
+		);
 	}
 }
 

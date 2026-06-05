@@ -334,8 +334,11 @@ Progress:
 - [x] Parameter-list hardening slice: parsed procedure parameter flags now
   produce a red diagnostic when `ParamArray` appears in the same parameter list
   as any `Optional` argument, and when an explicit `ParamArray` element type is
-  not `Variant`. The existing `ParamArray` final-position and
-  required-after-optional rules remain separate.
+  not `Variant`. `Property Let`/`Property Set` declarations with no final value
+  parameter and `Property Set` declarations whose final value parameter is a
+  known intrinsic scalar now also produce red property-shape diagnostics. The
+  existing `ParamArray` final-position and required-after-optional rules remain
+  separate.
 - [x] RaiseEvent target slice: settled `RaiseEvent` statements now produce a red
   diagnostic when the target event is not an active `Event` declaration in the
   same module. Declared same-module events and inactive conditional branches

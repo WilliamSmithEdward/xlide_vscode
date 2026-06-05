@@ -6176,6 +6176,60 @@ describe('analyzeModule - parameter order', () => {
 	});
 });
 
+describe('analyzeModule - property setter shape', () => {
+	it('flags Property Let declarations with no value parameter', () => {
+		const src =
+			'Public Property Let Name()\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-setter-missing-value');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Name');
+		expect(hits[0].message).toContain('Property Let');
+		expect(hits[0].message).toContain('final value parameter');
+	});
+
+	it('flags Property Set declarations with no value parameter', () => {
+		const src =
+			'Public Property Set Child()\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-setter-missing-value');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Child');
+		expect(hits[0].message).toContain('Property Set');
+	});
+
+	it('flags Property Set declarations with scalar value parameters', () => {
+		const src =
+			'Public Property Set Number(ByVal value As Long)\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-set-scalar-value');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('value');
+		expect(hits[0].message).toContain('Property Set');
+		expect(hits[0].message).toContain('object reference');
+		expect(hits[0].message).toContain('Long');
+	});
+
+	it('accepts Property Get and object-shaped setters with value parameters', () => {
+		const src =
+			'Public Property Get Name() As String\n' +
+			'End Property\n' +
+			'Public Property Let Name(ByVal value As String)\n' +
+			'End Property\n' +
+			'Public Property Set Child(ByVal value As Object)\n' +
+			'End Property\n' +
+			'Public Property Set IndexedChild(ByVal index As Long, ByVal value As Person)\n' +
+			'End Property\n';
+		expect(byCode(analyzeModule(src), 'property-setter-missing-value')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'property-set-scalar-value')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - parameter default values', () => {
 	it('flags nonnumeric string defaults for numeric and Boolean Optional parameters', () => {
 		const src =
