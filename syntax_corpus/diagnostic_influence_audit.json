@@ -361,6 +361,21 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "array-assignment-to-scalar",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus VBA array/scalar assignment binding",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "assign_array_to_scalar_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage uses procedure declaration-shape environments to distinguish scalar and array declarations that share the same As type. It reports simple RHS names declared as dynamic or fixed arrays when assigned to known intrinsic scalar targets. Variant targets, array targets, indexed element reads, unresolved names, object targets, and inactive branches stay silent.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "missing-return-assignment",
       "status": "spec-derived",
       "sourceOfTruth": "VBA Function/Property Get return-variable semantics plus XLIDE type-safety policy",

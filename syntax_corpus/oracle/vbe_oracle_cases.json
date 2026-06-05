@@ -2710,6 +2710,16 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "assign_array_to_scalar_compile",
+      "description": "Compile probe: assigning an array variable to a scalar variable is rejected as Type mismatch.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Values(1 To 3) As Long\n    Dim Value As Long\n    Value = Values\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "redim_preserve_nonfinal_dimension_runtime",
       "description": "Runtime probe: ReDim Preserve on a multidimensional dynamic array cannot resize a non-final dimension.",
       "provenance": "vbe-oracle-verified",

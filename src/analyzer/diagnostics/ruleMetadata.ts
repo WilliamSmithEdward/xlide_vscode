@@ -344,6 +344,17 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	arrayAssignmentToScalar: {
+		code: 'array-assignment-to-scalar',
+		title: 'Array cannot be assigned to scalar',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.3 / VBE oracle: Type mismatch',
+		confidence: 'high',
+	},
 	missingReturnAssignment: {
 		code: 'missing-return-assignment',
 		title: 'Function has no return assignment',

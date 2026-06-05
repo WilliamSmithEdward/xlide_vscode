@@ -3590,6 +3590,7 @@ function checkAssignmentTypes(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const assignment = bareAssignmentTarget(source, stmt.span);
@@ -3605,6 +3606,20 @@ function checkAssignmentTypes(
 					'setRequired',
 					`Object assignment to '${assignment.name}' requires Set because it is declared as ${expected}.`,
 					assignment.span,
+				);
+				return;
+			}
+			const arraySource = arrayAssignmentToScalarSource(
+				assignment,
+				stmt.span.start,
+				expected,
+				shapes,
+			);
+			if (arraySource) {
+				push(
+					'arrayAssignmentToScalar',
+					`Array variable '${arraySource.name}' cannot be assigned to scalar '${assignment.name}'. Assign an array element or use a Variant/array target.`,
+					arraySource.span,
 				);
 				return;
 			}
@@ -3654,6 +3669,46 @@ function checkAssignmentTypes(
 			push,
 		);
 	}
+}
+
+function arrayAssignmentToScalarSource(
+	assignment: { name: string; valueTokens: VbaToken[] },
+	baseOffset: number,
+	expectedType: string,
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+): { name: string; span: Span } | undefined {
+	if (!isKnownScalarAssignmentTarget(assignment.name, expectedType, shapes)) {
+		return undefined;
+	}
+	if (assignment.valueTokens.length !== 1) {
+		return undefined;
+	}
+	const tok = assignment.valueTokens[0];
+	const sourceName = tokenName(tok);
+	if (!sourceName) {
+		return undefined;
+	}
+	const sourceShape = shapes.get(sourceName.toLowerCase());
+	if (!sourceShape?.isArray) {
+		return undefined;
+	}
+	return {
+		name: sourceName,
+		span: { start: baseOffset + tok.start, end: baseOffset + tok.end },
+	};
+}
+
+function isKnownScalarAssignmentTarget(
+	name: string,
+	expectedType: string,
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+): boolean {
+	const targetShape = shapes.get(name.toLowerCase());
+	if (targetShape?.isArray) {
+		return false;
+	}
+	const normalized = normalizeType(targetShape?.asType ?? expectedType);
+	return !!normalized && isKnownScalarType(normalized);
 }
 
 /**

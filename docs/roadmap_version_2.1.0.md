@@ -407,6 +407,11 @@ Progress:
   `ReDim Preserve` statements now produce a red diagnostic when the target
   resolves in procedure/module scope to a fixed-size array. Dynamic arrays,
   undeclared targets, local dynamic shadows, and inactive branches stay quiet.
+- [x] Array assignment binding slice: active scalar assignments now produce a
+  red diagnostic when a simple RHS name resolves to a dynamic or fixed array
+  variable and the target resolves to a known intrinsic scalar. `Variant`
+  targets, array targets, indexed element reads, unresolved names, and inactive
+  branches stay quiet.
 - [x] ReDim Preserve dimension slice: straight-line active `ReDim` shapes now
   feed a deterministic runtime diagnostic when a later `ReDim Preserve` changes
   a known non-final dimension, the known dimension count, or a known

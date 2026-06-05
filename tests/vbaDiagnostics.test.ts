@@ -3511,6 +3511,78 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
+	it('flags array variables assigned to scalar variables', () => {
+		const src =
+			'Private ModuleValues(1 To 3) As Long\n' +
+			'Public Sub T()\n' +
+			'    Dim Values(1 To 3) As Long\n' +
+			'    Dim DynamicValues() As String\n' +
+			'    Dim Value As Long\n' +
+			'    Dim ScalarText As String\n' +
+			'    Value = Values\n' +
+			'    ScalarText = DynamicValues\n' +
+			'    Value = ModuleValues\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'array-assignment-to-scalar');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'Values',
+			'DynamicValues',
+			'ModuleValues',
+		]);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('Array variable');
+		expect(hits[0].message).toContain('scalar');
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+	});
+
+	it('accepts array assignments to Variant, array targets, indexed elements, and unknown values', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim Values(1 To 3) As Long\n' +
+			'    Dim Target() As Long\n' +
+			'    Dim Flexible As Variant\n' +
+			'    Dim Value As Long\n' +
+			'    Flexible = Values\n' +
+			'    Target = Values\n' +
+			'    Value = Values(1)\n' +
+			'    Value = UnknownValues\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'array-assignment-to-scalar')).toHaveLength(0);
+	});
+
+	it('uses the active conditional branch when checking array assignment to scalar', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim Value As Long\n' +
+			'#If VBA7 Then\n' +
+			'    Dim Values() As Long\n' +
+			'#Else\n' +
+			'    Dim Values As Long\n' +
+			'#End If\n' +
+			'    Value = Values\n' +
+			'End Sub\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: true } },
+				}),
+				'array-assignment-to-scalar',
+			),
+		).toHaveLength(1);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'array-assignment-to-scalar',
+			),
+		).toHaveLength(0);
+	});
+
 	it('requires Set when assigning to a known object variable', () => {
 		const src =
 			'Public Sub T()\n' +
