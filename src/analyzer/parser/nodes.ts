@@ -119,6 +119,9 @@ export interface ConditionalDirectiveNode extends NodeBase {
 export interface DeclareNode extends NodeBase {
 	kind: 'Declare';
 	name: string;
+	typeSuffix?: string;
+	typeSuffixSpan?: Span;
+	hasAsClause?: boolean;
 	isFunction: boolean;
 	visibility?: string;
 	ptrSafe: boolean;
@@ -152,6 +155,9 @@ export interface VariableGroupNode extends NodeBase {
 export interface VariableDeclNode extends NodeBase {
 	kind: 'VariableDecl';
 	name: string;
+	typeSuffix?: string;
+	typeSuffixSpan?: Span;
+	hasAsClause?: boolean;
 	asType?: string;
 	fixedLength?: string;
 	defaultRaw?: string;
@@ -172,6 +178,9 @@ export interface TypeNode extends NodeBase {
 export interface TypeFieldNode extends NodeBase {
 	kind: 'TypeField';
 	name: string;
+	typeSuffix?: string;
+	typeSuffixSpan?: Span;
+	hasAsClause?: boolean;
 	asType?: string;
 	fixedLength?: string;
 	isArray: boolean;
@@ -200,6 +209,9 @@ export interface ProcedureNode extends NodeBase {
 	kind: 'Procedure';
 	procKind: ProcKind;
 	name: string;
+	typeSuffix?: string;
+	typeSuffixSpan?: Span;
+	hasAsClause?: boolean;
 	modifiers: string[];
 	params: ParameterNode[];
 	returnType?: string;
@@ -211,6 +223,9 @@ export interface ProcedureNode extends NodeBase {
 export interface ParameterNode extends NodeBase {
 	kind: 'Parameter';
 	name: string;
+	typeSuffix?: string;
+	typeSuffixSpan?: Span;
+	hasAsClause?: boolean;
 	optional: boolean;
 	byVal: boolean;
 	byRef: boolean;

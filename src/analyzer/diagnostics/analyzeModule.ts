@@ -60,6 +60,7 @@ import type {
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { parseFixedLengthStringType } from '../parser/fixedLengthString';
+import { isTypeDeclarationSuffix } from '../parser/typeDeclarationSuffix';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	conditionalCompilerConstants,
@@ -338,7 +339,9 @@ function runRules(
 	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
 	checkDimInitializer(source, mod, activity, push);
 	checkFixedArrayRedim(source, mod, activity, push);
+	checkRedimPreserveDimensions(source, mod, activity, push);
 	checkEraseTargets(source, mod, activity, push);
+	checkTypeDeclarationCharacterAsClause(mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
 	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
@@ -1380,7 +1383,16 @@ function checkProcedureHeader(
 		if (isDigitStartedToken(nameTok)) {
 			continue; // invalid-identifier-start owns the precise declaration-name range
 		}
-		const next = toks[i + 1];
+		let nextIndex = i + 1;
+		if (
+			allowAs &&
+			toks[nextIndex] &&
+			nameTok.end === toks[nextIndex].start &&
+			isTypeDeclarationSuffix(toks[nextIndex].rawText)
+		) {
+			nextIndex++;
+		}
+		const next = toks[nextIndex];
 		if (!next) {
 			continue; // `Sub Foo` with no parameter list is legal
 		}
@@ -5508,6 +5520,19 @@ interface FixedArrayDeclaration {
 	span: Span;
 }
 
+interface RedimDimension {
+	key?: string;
+	lowerKey?: string;
+	span: Span;
+}
+
+interface RedimTarget {
+	name: string;
+	span: Span;
+	preserve: boolean;
+	dimensions: RedimDimension[];
+}
+
 /**
  * Rule: ReDim can allocate dynamic arrays, but it cannot resize a variable that
  * was already declared as a fixed-size array.
@@ -5594,24 +5619,191 @@ function addFixedArrayDeclarations(
 }
 
 function redimTargets(source: string, span: Span): Array<{ name: string; span: Span }> {
+	return redimStatementTargets(source, span).map((target) => ({
+		name: target.name,
+		span: target.span,
+	}));
+}
+
+function redimStatementTargets(source: string, span: Span): RedimTarget[] {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	if (tokenText(toks[0]) !== 'redim') {
 		return [];
 	}
-	const start = tokenText(toks[1]) === 'preserve' ? 2 : 1;
-	const out: Array<{ name: string; span: Span }> = [];
+	const preserve = tokenText(toks[1]) === 'preserve';
+	const start = preserve ? 2 : 1;
+	const out: RedimTarget[] = [];
 	for (const group of splitTopLevelTokenGroups(toks.slice(start), ',')) {
-		const nameTok = group.find((tok) => tok.kind !== 'comment');
-		if (!nameTok) {
-			continue;
+		const target = redimTargetFromGroup(span, group, preserve);
+		if (target) {
+			out.push(target);
 		}
-		const name = tokenName(nameTok);
-		if (!name) {
-			continue;
-		}
-		out.push({ name, span: absoluteSpan(span, nameTok) });
 	}
 	return out;
+}
+
+function redimTargetFromGroup(
+	base: Span,
+	group: readonly VbaToken[],
+	preserve: boolean,
+): RedimTarget | undefined {
+	const content = group.filter((tok) => tok.kind !== 'comment');
+	const nameTok = content[0];
+	const name = tokenName(nameTok);
+	if (!name || !nameTok) {
+		return undefined;
+	}
+	const dimensions: RedimDimension[] = [];
+	if (content[1]?.rawText === '(') {
+		const close = matchParenFrom(content, 1);
+		if (close > 1) {
+			for (const part of splitTopLevelTokenGroups(content.slice(2, close), ',')) {
+				const dimTokens = part.filter((tok) => tok.kind !== 'comment');
+				if (dimTokens.length === 0) {
+					continue;
+				}
+				const bound = comparableArrayBoundKey(dimTokens);
+				dimensions.push({
+					key: bound.key,
+					lowerKey: bound.lowerKey,
+					span: tokenGroupSpan(base, dimTokens),
+				});
+			}
+		}
+	}
+	return {
+		name,
+		span: absoluteSpan(base, nameTok),
+		preserve,
+		dimensions,
+	};
+}
+
+function comparableArrayBoundKey(
+	toks: readonly VbaToken[],
+): { key?: string; lowerKey?: string } {
+	const toIndex = toks.findIndex((tok) => tokenText(tok) === 'to');
+	if (toIndex > 0) {
+		const lowerKey = comparableArrayBoundExpressionKey(toks.slice(0, toIndex));
+		const upperKey = comparableArrayBoundExpressionKey(toks.slice(toIndex + 1));
+		return {
+			key: lowerKey && upperKey ? `${lowerKey}to${upperKey}` : undefined,
+			lowerKey,
+		};
+	}
+	return { key: comparableArrayBoundExpressionKey(toks) };
+}
+
+function comparableArrayBoundExpressionKey(toks: readonly VbaToken[]): string | undefined {
+	const parts: string[] = [];
+	for (const tok of toks) {
+		const word = tokenText(tok);
+		if (
+			tok.kind === 'integerLiteral' ||
+			tok.rawText === '+' ||
+			tok.rawText === '-' ||
+			word === 'to'
+		) {
+			parts.push(word || tok.rawText.toLowerCase());
+			continue;
+		}
+		return undefined;
+	}
+	return parts.length > 0 ? parts.join('') : undefined;
+}
+
+/**
+ * Rule: ReDim Preserve may only resize the last dimension of an already
+ * allocated dynamic array. This tracks simple, active ReDim shapes in a
+ * conservative per-body flow so nested branch updates do not leak outward.
+ */
+function checkRedimPreserveDimensions(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		checkRedimPreserveDimensionsInBody(source, member.body, new Map(), activity, push);
+	}
+}
+
+function checkRedimPreserveDimensionsInBody(
+	source: string,
+	body: BodyNode[],
+	initialShapes: ReadonlyMap<string, RedimTarget>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const shapes = new Map(initialShapes);
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'Statement') {
+			for (const target of redimStatementTargets(source, node.span)) {
+				if (target.preserve) {
+					const previous = shapes.get(target.name.toLowerCase());
+					const reason = previous
+						? redimPreserveDimensionMismatch(previous, target)
+						: undefined;
+					if (reason) {
+						push(
+							'redimPreserveDimensionChange',
+							`ReDim Preserve can only resize the last dimension of '${target.name}'. ${reason}`,
+							target.span,
+						);
+					}
+				}
+				if (target.dimensions.length > 0) {
+					shapes.set(target.name.toLowerCase(), target);
+				}
+			}
+			continue;
+		}
+		if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
+			checkRedimPreserveDimensionsInBody(
+				source,
+				(node as { body: BodyNode[] }).body,
+				shapes,
+				activity,
+				push,
+			);
+		}
+	}
+}
+
+function redimPreserveDimensionMismatch(
+	previous: RedimTarget,
+	current: RedimTarget,
+): string | undefined {
+	if (
+		previous.dimensions.length > 0 &&
+		current.dimensions.length > 0 &&
+		previous.dimensions.length !== current.dimensions.length
+	) {
+		return `Previous ReDim has ${pluralizeCount(previous.dimensions.length, 'dimension')}, but this ReDim Preserve has ${current.dimensions.length}.`;
+	}
+	const comparableCount = Math.min(previous.dimensions.length, current.dimensions.length) - 1;
+	for (let i = 0; i < comparableCount; i++) {
+		const before = previous.dimensions[i]?.key;
+		const after = current.dimensions[i]?.key;
+		if (before && after && before !== after) {
+			return `Dimension ${i + 1} changes before the final dimension.`;
+		}
+	}
+	const finalIndex = Math.min(previous.dimensions.length, current.dimensions.length) - 1;
+	if (finalIndex >= 0) {
+		const beforeLower = previous.dimensions[finalIndex]?.lowerKey;
+		const afterLower = current.dimensions[finalIndex]?.lowerKey;
+		if (beforeLower && afterLower && beforeLower !== afterLower) {
+			return `The lower bound of dimension ${finalIndex + 1} changes under Preserve.`;
+		}
+	}
+	return undefined;
 }
 
 /**
@@ -5772,6 +5964,63 @@ function checkUnexpectedDeclarationTokens(
 		if (member.kind === 'Procedure') {
 			for (const param of member.params) {
 				inspectParameter(param, inspect);
+			}
+			forEachVariableGroup(member.body, inspectGroup, activity);
+		}
+	}
+}
+
+type TypeDeclarationSuffixNode =
+	| ParameterNode
+	| ProcedureNode
+	| TypeFieldNode
+	| VariableDeclNode;
+
+/**
+ * Rule: several declaration forms reject a legacy type-declaration character on
+ * the name (`name$`, `count&`, etc.) when the same declaration also has an
+ * explicit `As` clause. Property Get declarations are VBE-verified controls and
+ * stay quiet.
+ */
+function checkTypeDeclarationCharacterAsClause(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const report = (node: TypeDeclarationSuffixNode, label: string): void => {
+		if (!node.typeSuffix || !node.hasAsClause) {
+			return;
+		}
+		push(
+			'typeDeclarationCharacterAsClause',
+			`${label} '${node.name}' combines type-declaration character '${node.typeSuffix}' with an As clause; use only one type declaration form.`,
+			node.typeSuffixSpan ?? node.span,
+		);
+	};
+
+	const inspectGroup = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			report(decl, group.isConst ? 'Const declaration' : 'Declaration');
+		}
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspectGroup(member);
+			continue;
+		}
+		if (member.kind === 'Type') {
+			for (const field of member.fields) {
+				report(field, 'Type field');
+			}
+			continue;
+		}
+		if (member.kind === 'Procedure') {
+			if (member.procKind === 'Function') {
+				report(member, 'Function');
+			}
+			for (const param of member.params) {
+				report(param, 'Parameter');
 			}
 			forEachVariableGroup(member.body, inspectGroup, activity);
 		}

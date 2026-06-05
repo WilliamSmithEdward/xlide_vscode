@@ -69,6 +69,17 @@ import {
 	tokenWord,
 } from './parserState';
 import { parseFixedLengthStringType } from './fixedLengthString';
+import {
+	isTypeDeclarationSuffix,
+	typeNameForDeclarationSuffix,
+} from './typeDeclarationSuffix';
+
+interface DeclaredNameInfo {
+	name: string;
+	nextIndex: number;
+	typeSuffix?: string;
+	typeSuffixSpan?: Span;
+}
 
 /** Visibility / sharing modifiers that may lead a declaration (MS-VBAL 5.2.3). */
 const LEADING_MODIFIERS = new Set(['public', 'private', 'friend', 'global', 'static']);
@@ -239,20 +250,26 @@ class Parser {
 		const isFunction = kindIndex >= 0 && tokenWord(tokens[kindIndex]) === 'function';
 		const nameToken = kindIndex >= 0 ? tokens[kindIndex + 1] : undefined;
 		const nameIndex = nameToken ? kindIndex + 1 : -1;
+		const declaredName: DeclaredNameInfo = isFunction && nameIndex >= 0
+			? this.parseDeclaredName(tokens, nameIndex, true)
+			: {
+				name: nameToken ? this.stripBrackets(nameToken.rawText) : '',
+				nextIndex: nameIndex + 1,
+			};
 		const ptrSafe = kindIndex >= 0 && tokens
 			.slice(modIndex + 1, kindIndex)
 			.some((t) => tokenWord(t) === 'ptrsafe');
 		const libIndex = nameIndex >= 0
-			? tokens.findIndex((t, idx) => idx > nameIndex && tokenWord(t) === 'lib')
+			? tokens.findIndex((t, idx) => idx >= declaredName.nextIndex && tokenWord(t) === 'lib')
 			: -1;
 		const aliasIndex = nameIndex >= 0
-			? tokens.findIndex((t, idx) => idx > nameIndex && tokenWord(t) === 'alias')
+			? tokens.findIndex((t, idx) => idx >= declaredName.nextIndex && tokenWord(t) === 'alias')
 			: -1;
 		const libName = libIndex >= 0 ? this.stringLiteralText(tokens[libIndex + 1]) : undefined;
 		const aliasName = aliasIndex >= 0 ? this.stringLiteralText(tokens[aliasIndex + 1]) : undefined;
 
 		let params: ParameterNode[] = [];
-		let afterParen = nameIndex + 1;
+		let afterParen = declaredName.nextIndex;
 		const lparen = nameIndex >= 0
 			? tokens.findIndex((t, idx) => idx > nameIndex && t.rawText === '(')
 			: -1;
@@ -263,12 +280,19 @@ class Parser {
 		}
 
 		let returnType: string | undefined;
+		let hasAsClause = false;
 		if (isFunction && tokens[afterParen] && tokenWord(tokens[afterParen]) === 'as') {
+			hasAsClause = true;
 			returnType = this.captureType(tokens, afterParen + 1);
+		} else {
+			returnType = typeNameForDeclarationSuffix(declaredName.typeSuffix);
 		}
 		return {
 			kind: 'Declare',
-			name: nameToken ? this.stripBrackets(nameToken.rawText) : '',
+			name: declaredName.name,
+			typeSuffix: declaredName.typeSuffix,
+			typeSuffixSpan: declaredName.typeSuffixSpan,
+			hasAsClause,
 			isFunction,
 			visibility,
 			ptrSafe,
@@ -427,9 +451,9 @@ class Parser {
 
 	private parseDeclarator(group: VbaToken[], isConst: boolean): VariableDeclNode {
 		let i = 0;
-		const nameToken = group[i];
-		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
-		i++;
+		const declaredName = this.parseDeclaredName(group, i, true);
+		const name = declaredName.name;
+		i = declaredName.nextIndex;
 		let isArray = false;
 		let arrayBounds: string | undefined;
 		if (group[i] && group[i].rawText === '(') {
@@ -444,7 +468,9 @@ class Parser {
 		let isNew = false;
 		let asType: string | undefined;
 		let fixedLength: string | undefined;
+		let hasAsClause = false;
 		if (group[i] && tokenWord(group[i]) === 'as') {
+			hasAsClause = true;
 			i++;
 			if (group[i] && tokenWord(group[i]) === 'new') {
 				isNew = true;
@@ -453,6 +479,8 @@ class Parser {
 			const type = this.captureDeclarationType(group, i, isConst ? '=' : undefined);
 			asType = type.asType;
 			fixedLength = type.fixedLength;
+		} else {
+			asType = typeNameForDeclarationSuffix(declaredName.typeSuffix);
 		}
 		let defaultRaw: string | undefined;
 		const eq = group.findIndex((t) => t.rawText === '=');
@@ -464,6 +492,9 @@ class Parser {
 		return {
 			kind: 'VariableDecl',
 			name,
+			typeSuffix: declaredName.typeSuffix,
+			typeSuffixSpan: declaredName.typeSuffixSpan,
+			hasAsClause,
 			asType,
 			fixedLength,
 			defaultRaw,
@@ -515,8 +546,9 @@ class Parser {
 	}
 
 	private parseTypeField(stmt: LogicalStatement, tokens: VbaToken[]): TypeFieldNode {
-		const name = this.stripBrackets(tokens[0].rawText);
-		let i = 1;
+		const declaredName = this.parseDeclaredName(tokens, 0, true);
+		const name = declaredName.name;
+		let i = declaredName.nextIndex;
 		let isArray = false;
 		if (tokens[i] && tokens[i].rawText === '(') {
 			isArray = true;
@@ -524,14 +556,21 @@ class Parser {
 		}
 		let asType: string | undefined;
 		let fixedLength: string | undefined;
+		let hasAsClause = false;
 		if (tokens[i] && tokenWord(tokens[i]) === 'as') {
+			hasAsClause = true;
 			const type = this.captureDeclarationType(tokens, i + 1);
 			asType = type.asType;
 			fixedLength = type.fixedLength;
+		} else {
+			asType = typeNameForDeclarationSuffix(declaredName.typeSuffix);
 		}
 		return {
 			kind: 'TypeField',
 			name,
+			typeSuffix: declaredName.typeSuffix,
+			typeSuffixSpan: declaredName.typeSuffixSpan,
+			hasAsClause,
 			asType,
 			fixedLength,
 			isArray,
@@ -628,9 +667,13 @@ class Parser {
 			i++;
 		}
 
-		const nameToken = tokens[i];
-		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
-		i++;
+		const declaredName = this.parseDeclaredName(
+			tokens,
+			i,
+			procKind === 'Function' || procKind === 'PropertyGet',
+		);
+		const name = declaredName.name;
+		i = declaredName.nextIndex;
 
 		let params: ParameterNode[] = [];
 		let afterParen = i;
@@ -641,8 +684,12 @@ class Parser {
 		}
 
 		let returnType: string | undefined;
+		let hasAsClause = false;
 		if (tokens[afterParen] && tokenWord(tokens[afterParen]) === 'as') {
+			hasAsClause = true;
 			returnType = this.captureType(tokens, afterParen + 1);
+		} else {
+			returnType = typeNameForDeclarationSuffix(declaredName.typeSuffix);
 		}
 
 		const expected = this.procCloser(procKind);
@@ -698,6 +745,9 @@ class Parser {
 			kind: 'Procedure',
 			procKind,
 			name,
+			typeSuffix: declaredName.typeSuffix,
+			typeSuffixSpan: declaredName.typeSuffixSpan,
+			hasAsClause,
 			modifiers,
 			params,
 			returnType,
@@ -786,18 +836,22 @@ class Parser {
 			}
 			i++;
 		}
-		const nameToken = group[i];
-		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
-		i++;
+		const declaredName = this.parseDeclaredName(group, i, true);
+		const name = declaredName.name;
+		i = declaredName.nextIndex;
 		let isArray = false;
 		if (group[i] && group[i].rawText === '(') {
 			isArray = true;
 			i = this.skipParens(group, i);
 		}
 		let asType: string | undefined;
+		let hasAsClause = false;
 		if (group[i] && tokenWord(group[i]) === 'as') {
+			hasAsClause = true;
 			i++;
 			asType = this.captureType(group, i, '=');
+		} else {
+			asType = typeNameForDeclarationSuffix(declaredName.typeSuffix);
 		}
 		let defaultRaw: string | undefined;
 		const eq = group.findIndex((t) => t.rawText === '=');
@@ -809,6 +863,9 @@ class Parser {
 		return {
 			kind: 'Parameter',
 			name,
+			typeSuffix: declaredName.typeSuffix,
+			typeSuffixSpan: declaredName.typeSuffixSpan,
+			hasAsClause,
 			optional,
 			byVal,
 			byRef,
@@ -1226,6 +1283,30 @@ class Parser {
 			return '';
 		}
 		return token.canonicalText ?? token.rawText;
+	}
+
+	private parseDeclaredName(
+		tokens: VbaToken[],
+		index: number,
+		allowTypeSuffix: boolean,
+	): DeclaredNameInfo {
+		const nameToken = tokens[index];
+		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
+		const suffixToken = allowTypeSuffix ? tokens[index + 1] : undefined;
+		if (
+			nameToken &&
+			suffixToken &&
+			nameToken.end === suffixToken.start &&
+			isTypeDeclarationSuffix(suffixToken.rawText)
+		) {
+			return {
+				name,
+				nextIndex: index + 2,
+				typeSuffix: suffixToken.rawText,
+				typeSuffixSpan: { start: suffixToken.start, end: suffixToken.end },
+			};
+		}
+		return { name, nextIndex: index + 1 };
 	}
 
 	private stripBrackets(raw: string): string {

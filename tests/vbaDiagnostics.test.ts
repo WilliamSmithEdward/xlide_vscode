@@ -5086,6 +5086,72 @@ describe('analyzeModule - array ReDim', () => {
 			),
 		).toHaveLength(0);
 	});
+
+	it('flags ReDim Preserve changing a non-final dimension', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim grid() As Long\n' +
+			'    ReDim grid(1 To 2, 1 To 2)\n' +
+			'    ReDim Preserve grid(1 To 3, 1 To 2)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'redim-preserve-dimension-change');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('grid');
+		expect(hits[0].message).toContain('last dimension');
+		expect(hits[0].message).toContain('Dimension 1');
+	});
+
+	it('flags ReDim Preserve changing the known dimension count', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim grid() As Long\n' +
+			'    ReDim grid(1 To 2, 1 To 2)\n' +
+			'    ReDim Preserve grid(1 To 2)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'redim-preserve-dimension-change');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('2 dimensions');
+		expect(hits[0].message).toContain('1');
+	});
+
+	it('accepts ReDim Preserve changing only the last dimension', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim grid() As Long\n' +
+			'    ReDim grid(1 To 2, 1 To 2)\n' +
+			'    ReDim Preserve grid(1 To 2, 1 To 3)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'redim-preserve-dimension-change')).toHaveLength(0);
+	});
+
+	it('flags ReDim Preserve changing the lower bound of the final dimension', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim grid() As Long\n' +
+			'    ReDim grid(1 To 2, 1 To 2)\n' +
+			'    ReDim Preserve grid(1 To 2, 0 To 3)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'redim-preserve-dimension-change');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('lower bound');
+		expect(hits[0].message).toContain('dimension 2');
+	});
+
+	it('does not let ReDim shapes learned inside nested blocks leak outward', () => {
+		const src =
+			'Sub T(ByVal flag As Boolean)\n' +
+			'    Dim grid() As Long\n' +
+			'    If flag Then\n' +
+			'        ReDim grid(1 To 2, 1 To 2)\n' +
+			'    End If\n' +
+			'    ReDim Preserve grid(1 To 3, 1 To 2)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'redim-preserve-dimension-change')).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - array Erase', () => {
@@ -5120,6 +5186,53 @@ describe('analyzeModule - array Erase', () => {
 			'    Erase Values, OtherValues\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'invalid-erase-target')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - type-declaration suffixes', () => {
+	it('flags rejecting declarations that combine a type-declaration character with an As clause', () => {
+		const src =
+			'Private Type Header\n' +
+			'    Code$ As String\n' +
+			'End Type\n' +
+			'\n' +
+			'Public Function GetName$() As String\n' +
+			'    GetName = "XLIDE"\n' +
+			'End Function\n' +
+			'\n' +
+			'Public Sub Demo(ByVal label$ As String)\n' +
+			'    Const answer% As Long = 1\n' +
+			'    Dim value$ As Long\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'type-declaration-character-as-clause');
+
+		expect(hits).toHaveLength(5);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['$', '$', '$', '%', '$']);
+		expect(hits[0].message).toContain('type-declaration character');
+		expect(byCode(diagnostics, 'invalid-procedure-header')).toHaveLength(0);
+		expect(byCode(diagnostics, 'unexpected-declaration-token')).toHaveLength(0);
+	});
+
+	it('accepts VBE-verified suffix controls', () => {
+		const src =
+			'Private Type Header\n' +
+			'    Code$\n' +
+			'End Type\n' +
+			'\n' +
+			'Public Property Get Name$() As String\n' +
+			'    Name = "XLIDE"\n' +
+			'End Property\n' +
+			'\n' +
+			'Public Function GetName$()\n' +
+			'    GetName = "XLIDE"\n' +
+			'End Function\n' +
+			'\n' +
+			'Public Sub Demo(ByVal label$)\n' +
+			'    Const answer% = 1\n' +
+			'    Dim total&, name$, price@, ratio#, flag%\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'type-declaration-character-as-clause')).toHaveLength(0);
 	});
 });
 

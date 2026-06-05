@@ -360,10 +360,21 @@ Progress:
   `ReDim Preserve` statements now produce a red diagnostic when the target
   resolves in procedure/module scope to a fixed-size array. Dynamic arrays,
   undeclared targets, local dynamic shadows, and inactive branches stay quiet.
+- [x] ReDim Preserve dimension slice: straight-line active `ReDim` shapes now
+  feed a deterministic runtime diagnostic when a later `ReDim Preserve` changes
+  a known non-final dimension, the known dimension count, or a known
+  final-dimension lower bound. Last-dimension upper-bound-only resizes stay
+  quiet, and shapes learned inside nested blocks do not leak outward.
 - [x] Array Erase hardening slice: active `Erase` statements now reject
   target-list entries that are clearly arbitrary expressions, such as literals
   or arithmetic, while variable-like targets stay quiet until array-ness is
   proven by a deeper binder slice.
+- [x] Type-declaration character slice: legacy suffix-only declarations such as
+  `name$`, `total&`, and `GetName$()` now normalize to the base name and inferred
+  suffix type. VBE-rejected suffix-plus-`As` declarations now report a red
+  `type-declaration-character-as-clause` diagnostic for variable declarations,
+  Const declarations, parameters, UDT fields, and Functions, while the
+  VBE-accepted `Property Get Name$() As String` control stays quiet.
 
 Definition of done:
 

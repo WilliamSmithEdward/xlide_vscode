@@ -1444,6 +1444,86 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "dim_type_suffix_as_clause_compile",
+      "description": "Compile probe: a variable declaration cannot combine a type-declaration character with an As clause.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value$ As Long\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_type_suffix_as_clause_compile",
+      "description": "Compile probe: Const declaration with a type-declaration character and an As clause is rejected.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Const answer% As Long = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "parameter_type_suffix_as_clause_compile",
+      "description": "Compile probe: procedure parameter with a type-declaration character and an As clause is rejected.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry(ByVal label$ As String)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "type_field_type_suffix_as_clause_compile",
+      "description": "Compile probe: UDT field with a type-declaration character and an As clause is rejected.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Private Type Header\n    Code$ As String\nEnd Type\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "function_type_suffix_as_clause_compile",
+      "description": "Compile probe: a Function declaration cannot combine a type-declaration character with an As clause.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Function GetName$() As String\n    GetName = \"ok\"\nEnd Function\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "property_get_type_suffix_as_clause_compile",
+      "description": "Compile control: VBE accepts a Property Get declaration with a type-declaration character and an As clause.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Property Get Name$() As String\n    Name = \"ok\"\nEnd Property\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "dim_type_suffix_only_compile",
+      "description": "Compile control: legacy variable type-declaration characters are valid without an As clause.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim total&, name$, price@, ratio#, flag%\n    total = 1\n    name = \"XLIDE\"\n    price = 12.34@\n    ratio = 0.5#\n    flag = 1%\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "function_type_suffix_only_compile",
+      "description": "Compile control: legacy Function type-declaration characters are valid without an As clause.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Function GetName$()\n    GetName = \"ok\"\nEnd Function\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "class_property_integer_nonnumeric_string_runtime",
       "description": "A writable Integer class property receives a provably nonnumeric string literal through member assignment.",
       "provenance": "vbe-oracle-verified",
@@ -2526,6 +2606,39 @@
           "source": "Public Sub XlideOracleEntry()\n    Dim value As Double\n    value = 1 / SharedOneFromHidden\nEnd Sub\n"
         }
       ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "redim_preserve_nonfinal_dimension_runtime",
+      "description": "Runtime probe: ReDim Preserve on a multidimensional dynamic array cannot resize a non-final dimension.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim grid() As Long\n    ReDim grid(1 To 2, 1 To 2)\n    ReDim Preserve grid(1 To 3, 1 To 2)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "redim_preserve_final_dimension_lower_bound_runtime",
+      "description": "Runtime probe: ReDim Preserve cannot change the lower bound of the final dimension.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim grid() As Long\n    ReDim grid(1 To 2, 1 To 2)\n    ReDim Preserve grid(1 To 2, 0 To 3)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "redim_preserve_last_dimension_runtime",
+      "description": "Runtime control: ReDim Preserve on a multidimensional dynamic array may resize only the final dimension.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim grid() As Long\n    ReDim grid(1 To 2, 1 To 2)\n    ReDim Preserve grid(1 To 2, 1 To 3)\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
     },

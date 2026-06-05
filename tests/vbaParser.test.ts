@@ -218,6 +218,46 @@ describe('parseModule - declarations (MS-VBAL 5.2.3 / 5.2.4)', () => {
 		expect(type.fields[0].fixedLength).toBe('4');
 	});
 
+	it('parses legacy type-declaration suffixes as base names and inferred types', () => {
+		const m = parseModule(
+			'Public Function GetName$()\nEnd Function\n' +
+				'Public Sub Demo(ByVal label$)\n' +
+				'    Dim total&, name$, price@, ratio#, flag%\n' +
+				'End Sub\n' +
+				'Private Type Header\n' +
+				'    Code$\n' +
+				'End Type\n',
+		);
+		const fn = m.members[0] as ProcedureNode;
+		expect(fn.name).toBe('GetName');
+		expect(fn.typeSuffix).toBe('$');
+		expect(fn.returnType).toBe('String');
+
+		const sub = m.members[1] as ProcedureNode;
+		expect(sub.params[0].name).toBe('label');
+		expect(sub.params[0].asType).toBe('String');
+
+		const group = sub.body[0] as VariableGroupNode;
+		expect(group.declarations.map((d) => d.name)).toEqual([
+			'total',
+			'name',
+			'price',
+			'ratio',
+			'flag',
+		]);
+		expect(group.declarations.map((d) => d.asType)).toEqual([
+			'Long',
+			'String',
+			'Currency',
+			'Double',
+			'Integer',
+		]);
+
+		const type = m.members[2] as TypeNode;
+		expect(type.fields[0].name).toBe('Code');
+		expect(type.fields[0].asType).toBe('String');
+	});
+
 	it('parses a module variable declared with only a visibility modifier', () => {
 		const m = parseModule('Public Counter As Long\n');
 		const group = m.members[0] as VariableGroupNode;

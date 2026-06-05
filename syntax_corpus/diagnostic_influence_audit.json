@@ -537,6 +537,21 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "redim-preserve-dimension-change",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus VBA ReDim Preserve runtime semantics: only the last dimension may be resized",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "redim_preserve_nonfinal_dimension_runtime",
+        "redim_preserve_final_dimension_lower_bound_runtime",
+        "redim_preserve_last_dimension_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Active coverage tracks prior ReDim shapes through straight-line active statements in the same body. It reports ReDim Preserve when the known dimension count changes, when comparable literal-style non-final bounds change, or when a comparable final-dimension lower bound changes. Focused runtime oracle fixtures prove a non-final dimension resize and a final-dimension lower-bound change raise runtime errors while resizing only the last dimension's upper bound runs successfully. Shapes learned inside nested blocks are available inside that nested body but do not leak outward, and variable/constant bound comparison remains deferred.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "invalid-erase-target",
       "status": "spec-derived",
       "sourceOfTruth": "VBA Erase statement target-list syntax",
@@ -547,6 +562,26 @@
         "excel_vba_analysis_final_hardening_cases.md"
       ],
       "notes": "Active coverage is syntax-shaped and rejects target-list entries that are plainly expressions, including literals and operator expressions. Variable-like unresolved names stay silent because proving that a target is actually an array belongs to a later binder-backed slice.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "type-declaration-character-as-clause",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL declaration syntax for legacy type-declaration characters and As clauses",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "dim_type_suffix_as_clause_compile",
+        "const_type_suffix_as_clause_compile",
+        "parameter_type_suffix_as_clause_compile",
+        "type_field_type_suffix_as_clause_compile",
+        "function_type_suffix_as_clause_compile",
+        "property_get_type_suffix_as_clause_compile",
+        "dim_type_suffix_only_compile",
+        "function_type_suffix_only_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Parser-backed coverage normalizes suffix-only declaration names to their base identifier and infers the legacy suffix type for variables, constants, parameters, UDT fields, Functions, Property Gets, and Declare Functions. The diagnostic fires for VBE-rejected suffix-plus-As forms: variable declarations, Const declarations, parameters, UDT fields, and Functions. Focused oracle controls show Property Gets with suffix-plus-As compile, and suffix-only variable and Function declarations compile.",
       "diagnosticKind": "compile-error"
     },
     {
