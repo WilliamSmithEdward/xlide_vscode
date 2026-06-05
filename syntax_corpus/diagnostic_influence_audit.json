@@ -982,6 +982,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "property-setter-return-type",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.3.1.4 Property Let/Set procedures do not declare return types",
+      "corpusInfluence": "legacy-corpus-promoted",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage uses parsed Property Let/Set procedure metadata and reports an explicit return As clause after the parameter list. Property Get return types remain valid, and setter value-parameter shape remains owned by property-setter-missing-value and property-set-scalar-value.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "property-accessor-signature-mismatch",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3.1.4 paired Property Get/Let/Set procedure signature consistency",

@@ -781,6 +781,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1.4',
 		confidence: 'high',
 	},
+	propertySetterReturnType: {
+		code: 'property-setter-return-type',
+		title: 'Property setter cannot declare a return type',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1.4',
+		confidence: 'high',
+	},
 	propertyAccessorSignatureMismatch: {
 		code: 'property-accessor-signature-mismatch',
 		title: 'Property accessors have incompatible signatures',

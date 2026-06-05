@@ -1729,6 +1729,22 @@ describe('analyzeModule - reserved declaration names', () => {
 		expect(byCode(analyzeModule(src), 'invalid-declaration-name')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
 	});
+
+	it('allows runtime and host-global shadowing declarations while rejecting reserved declaration names', () => {
+		const src =
+			'Private Left As Long\n' +
+			'Private Right As Long\n' +
+			'Private Date As Variant\n' +
+			'Private Collection As Object\n' +
+			'Private Application As Object\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'invalid-declaration-name');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Date');
+		expect(byCode(diagnostics, 'invalid-as-type-name')).toHaveLength(0);
+		expect(byCode(diagnostics, 'statement-outside-procedure')).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - unbalanced parentheses', () => {
@@ -6781,6 +6797,21 @@ describe('analyzeModule - property setter shape', () => {
 		expect(hits[0].message).toContain('Property Set');
 		expect(hits[0].message).toContain('object reference');
 		expect(hits[0].message).toContain('Long');
+	});
+
+	it('flags Property Let and Set declarations with return types', () => {
+		const src =
+			'Public Property Let NegProp02_LetWithReturnType(ByVal value As Long) As Long\n' +
+			'End Property\n' +
+			'Public Property Set Child(ByVal value As Object) As Object\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-setter-return-type');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['As Long', 'As Object']);
+		expect(hits[0].message).toContain('Property Let');
+		expect(hits[1].message).toContain('Property Set');
 	});
 
 	it('flags Property Let declarations missing indexed getter parameters', () => {

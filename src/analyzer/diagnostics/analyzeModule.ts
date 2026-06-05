@@ -2176,8 +2176,8 @@ function checkReservedDeclarationNames(
 
 /**
  * Rule: Property Let/Set setters receive the assigned value through the final
- * parameter. A setter with no parameters has no value slot and Property Set
- * value parameters must be object references, not known scalar values.
+ * parameter. A setter with no parameters has no value slot, setters have no
+ * return type, and Property Set value parameters must be object references.
  */
 function checkPropertySetterValueParameters(
 	source: string,
@@ -2191,6 +2191,14 @@ function checkPropertySetterValueParameters(
 			(member.procKind !== 'PropertyLet' && member.procKind !== 'PropertySet')
 		) {
 			continue;
+		}
+		if (member.hasAsClause) {
+			const label = member.procKind === 'PropertyLet' ? 'Property Let' : 'Property Set';
+			push(
+				'propertySetterReturnType',
+				`${label} '${member.name}' cannot declare a return type; use the final value parameter for the assigned value.`,
+				propertySetterReturnTypeSpan(source, member),
+			);
 		}
 		if (member.params.length > 0) {
 			if (member.procKind === 'PropertySet') {
@@ -2213,6 +2221,50 @@ function checkPropertySetterValueParameters(
 			declaredNameSpan(source, member.span, member.name),
 		);
 	}
+}
+
+function propertySetterReturnTypeSpan(source: string, proc: ProcedureNode): Span {
+	const header = firstLineSpan(source, proc.span);
+	const toks = statementTokens(source, header);
+	let i = 0;
+	while (i < toks.length && PROC_MODIFIERS.has(tokenText(toks[i]))) {
+		i++;
+	}
+	if (tokenText(toks[i]) === 'property') {
+		i += 2; // Property + Let/Set
+	}
+	i++; // property name
+	if (toks[i]?.rawText !== '(') {
+		return keywordSpan(source, header, 'as');
+	}
+	let depth = 0;
+	while (i < toks.length) {
+		const raw = toks[i].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth--;
+			if (depth === 0) {
+				i++;
+				break;
+			}
+		}
+		i++;
+	}
+	if (tokenText(toks[i]) !== 'as') {
+		return keywordSpan(source, header, 'as');
+	}
+	const asToken = toks[i];
+	const typeStart = i + 1;
+	let typeEnd = consumeDeclarationTypeName(toks, typeStart);
+	if (typeEnd === typeStart) {
+		typeEnd = i + 1;
+	}
+	const endToken = toks[typeEnd - 1] ?? asToken;
+	return {
+		start: header.start + asToken.start,
+		end: header.start + endToken.end,
+	};
 }
 
 interface PropertyAccessorGroup {
