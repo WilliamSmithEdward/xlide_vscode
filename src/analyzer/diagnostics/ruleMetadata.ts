@@ -141,6 +141,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3',
 		confidence: 'high',
 	},
+	duplicateEnumMember: {
+		code: 'duplicate-enum-member',
+		title: 'Duplicate Enum member',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3.4',
+		confidence: 'high',
+	},
 	declareMissingPtrSafe: {
 		code: 'declare-missing-ptrsafe',
 		title: 'Declare statement missing PtrSafe for 64-bit Office',

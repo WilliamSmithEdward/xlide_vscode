@@ -62,6 +62,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "duplicate-enum-member",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.3.4 Enum member declarations",
+      "corpusInfluence": "legacy-corpus-promoted",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage reports the second and later case-insensitive duplicate member names within one active top-level Enum block. Whole Enum blocks in inactive conditional-compilation branches stay quiet; conditional directives nested inside an Enum remain deferred until the parser models that source shape explicitly.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "const-assignment",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.3.1",

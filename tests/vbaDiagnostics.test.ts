@@ -380,6 +380,53 @@ describe('analyzeModule - duplicate module members', () => {
 	});
 });
 
+describe('analyzeModule - duplicate Enum members', () => {
+	it('flags duplicate member names inside the same Enum block', () => {
+		const src =
+			'Public Enum ENeg_DuplicateMembers\n' +
+			'    NegEnumShared = 1\n' +
+			'    NegEnumShared = 2\n' +
+			'End Enum\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-enum-member');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('NegEnumShared');
+		expect(hits[0].message).toContain("Enum 'ENeg_DuplicateMembers'");
+	});
+
+	it('treats Enum member duplicate checks as case-insensitive', () => {
+		const src =
+			'Private Enum Mode\n' +
+			'    Ready = 1\n' +
+			'    READY = 2\n' +
+			'End Enum\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-enum-member');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('READY');
+	});
+
+	it('does not report duplicates from inactive whole Enum branches', () => {
+		const src =
+			'#If VBA7 Then\n' +
+			'Public Enum ConditionalMode\n' +
+			'    SharedMode = 1\n' +
+			'    SharedMode = 2\n' +
+			'End Enum\n' +
+			'#End If\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'duplicate-enum-member',
+			),
+		).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - assignment to constant', () => {
 	it('flags assigning to a module-level Const', () => {
 		const src =

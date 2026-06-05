@@ -313,6 +313,7 @@ function runRules(
 	checkDuplicateProcedures(symbols.root.children ?? [], push);
 	checkDuplicateDeclarations(symbols.root.children ?? [], push);
 	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
+	checkDuplicateEnumMembers(source, mod, activity, push);
 	checkConstAssignment(source, mod, symbols, activity, push);
 	checkOptionExplicit(source, mod, activity, push);
 	checkUndeclaredVariables(
@@ -770,6 +771,34 @@ function checkDuplicateModuleMembers(members: VbaSymbol[], push: PushFn): void {
 			);
 		} else {
 			seen.add(key);
+		}
+	}
+}
+
+/** Rule: member names inside one Enum block must be unique. */
+function checkDuplicateEnumMembers(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Enum') {
+			continue;
+		}
+		const seen = new Set<string>();
+		for (const enumMember of member.members) {
+			const key = enumMember.name.toLowerCase();
+			const hit = declarationNameHit(source, enumMember.span, enumMember.name);
+			if (seen.has(key)) {
+				push(
+					'duplicateEnumMember',
+					`Duplicate Enum member '${enumMember.name}' in Enum '${member.name}'.`,
+					hit?.span ?? enumMember.span,
+				);
+			} else {
+				seen.add(key);
+			}
 		}
 	}
 }

@@ -368,6 +368,11 @@ Progress:
   now produce a red diagnostic when the same named label or normalized decimal
   line label is declared more than once in one procedure. Separate procedures
   keep independent label scopes, and inactive conditional branches stay quiet.
+- [x] Enum member uniqueness slice: active top-level `Enum` blocks now produce
+  a red diagnostic on the second and later case-insensitive duplicate member
+  name inside the same enum. Whole `Enum` blocks in inactive
+  conditional-compilation branches stay quiet; directives nested inside an
+  `Enum` remain deferred until the parser models that source shape explicitly.
 - [x] Conditional branch-order slice: peer `#ElseIf`/`ElseIf` branches after
   `#Else`/`Else`, plus duplicate `#Else`/`Else` branches, now produce red
   diagnostics. Conditional-compilation branch order is checked structurally,
