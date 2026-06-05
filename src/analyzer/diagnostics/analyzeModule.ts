@@ -325,6 +325,7 @@ function runRules(
 	checkProcedureHeader(source, mod, activity, push);
 	checkInvalidIdentifierStarts(source, mod, activity, push);
 	checkModuleDeclarationsInProcedureBodies(source, mod, activity, push);
+	checkModuleDeclarationsAfterProcedures(source, mod, activity, push);
 	checkReservedDeclarationNames(source, mod, activity, push);
 	checkParameterOrder(source, mod, activity, push);
 	checkParameterDefaultValues(source, mod, activity, push);
@@ -1652,6 +1653,75 @@ function checkModuleDeclarationsInProcedureBodies(
 	}
 }
 
+/**
+ * Rule: module declarations belong in the declaration section before the first
+ * procedure. Multiple procedures may follow each other, but once an active
+ * procedure appears, later active module declarations are misplaced.
+ */
+function checkModuleDeclarationsAfterProcedures(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	let procedureSeen = false;
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure') {
+			procedureSeen = true;
+			continue;
+		}
+		if (!procedureSeen) {
+			continue;
+		}
+		const hit = moduleDeclarationAfterProcedureHit(source, member);
+		if (!hit) {
+			continue;
+		}
+		push(
+			'moduleDeclarationAfterProcedure',
+			`${hit.label} belong in the module declarations section, before procedures.`,
+			hit.span,
+		);
+	}
+}
+
+function moduleDeclarationAfterProcedureHit(
+	source: string,
+	member: ModuleMember,
+): { label: string; span: Span } | undefined {
+	switch (member.kind) {
+		case 'Declare':
+			return {
+				label: 'Declare statements',
+				span: keywordSpan(source, member.span, 'declare'),
+			};
+		case 'Event':
+			return {
+				label: 'Event declarations',
+				span: keywordSpan(source, member.span, 'event'),
+			};
+		case 'VariableGroup':
+			return {
+				label: member.isConst ? 'Const declarations' : 'Module variable declarations',
+				span: member.isConst
+					? keywordSpan(source, member.span, 'const')
+					: firstTokenSpan(source, member.span),
+			};
+		case 'Type':
+			return {
+				label: 'Type declarations',
+				span: keywordSpan(source, member.span, 'type'),
+			};
+		case 'Enum':
+			return {
+				label: 'Enum declarations',
+				span: keywordSpan(source, member.span, 'enum'),
+			};
+		default:
+			return undefined;
+	}
+}
+
 function isAlternativeProcedureHeaderStatement(
 	source: string,
 	span: Span,
@@ -1991,6 +2061,7 @@ function checkArgumentCount(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		const sourceNames = sourceNameScopeFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const projectQualifiedCallSpans = new Set<string>();
 			const statementCall = extractCall(source, stmt.span);
@@ -2004,16 +2075,17 @@ function checkArgumentCount(
 					effectiveStatementCall,
 					sameModuleSignatures,
 					projectSignatures,
+					sourceNames,
 					push,
 				);
 				recordProjectQualifiedCallSpan(effectiveStatementCall, projectQualifiedCallSpans);
 			}
-			const expressionCallList = expressionCalls(source, stmt.span, moduleSignatures);
+			const expressionCallList = expressionCalls(source, stmt.span, moduleSignatures, sourceNames);
 			for (const call of expressionCallList) {
 				if (sameCallTarget(call, effectiveStatementCall)) {
 					continue;
 				}
-				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, push);
+				validateCallableArity(source, call, sameModuleSignatures, projectSignatures, sourceNames, push);
 				recordProjectQualifiedCallSpan(call, projectQualifiedCallSpans);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -2055,9 +2127,13 @@ function validateCallableArity(
 	call: CallArguments,
 	sameModuleSignatures: ReadonlyMap<string, readonly CallableTypeSignature[]>,
 	projectSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope | undefined,
 	push: PushFn,
 ): void {
 	const lower = call.lookupKey ?? call.name.toLowerCase();
+	if (!call.qualifier && bareCallableSourceShadowed(call.name, sourceNames)) {
+		return;
+	}
 	const candidates = call.qualifier
 		? undefined
 		: sameModuleSignatures.get(call.name.toLowerCase());
@@ -2074,6 +2150,9 @@ function validateCallableArity(
 		return;
 	}
 	if (!call.qualifier) {
+		if (runtimeCallableSourceShadowed(call.name, sourceNames)) {
+			return;
+		}
 		const runtime = resolveRuntimeFunction(call.name);
 		const runtimeSignature = runtime ? runtimeAritySignature(runtime) : undefined;
 		if (runtimeSignature) {
@@ -2564,9 +2643,10 @@ function checkArgumentTypes(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
-			for (const call of expressionCalls(source, stmt.span, moduleSignatures)) {
-				validateArgumentTypes(call, env, moduleSignatures, source, memberCtx, push);
+			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
+				validateArgumentTypes(call, env, moduleSignatures, sourceNames, source, memberCtx, push);
 			}
 			for (const memberCall of memberExpressionCalls(
 				source,
@@ -2578,6 +2658,7 @@ function checkArgumentTypes(
 					memberCall.call,
 					env,
 					moduleSignatures,
+					sourceNames,
 					source,
 					memberCtx,
 					push,
@@ -2593,6 +2674,7 @@ function checkArgumentTypes(
 					memberCall.call,
 					env,
 					moduleSignatures,
+					sourceNames,
 					source,
 					memberCtx,
 					push,
@@ -2604,7 +2686,7 @@ function checkArgumentTypes(
 				: extractQualifiedCall(source, stmt.span, moduleSignatures);
 			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
 			if (effectiveStatementCall) {
-				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, source, memberCtx, push);
+				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, sourceNames, source, memberCtx, push);
 			}
 		}, activity);
 	}
@@ -2935,6 +3017,7 @@ function checkAssignmentTypes(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const assignment = bareAssignmentTarget(source, stmt.span);
 			if (!assignment) {
@@ -2970,6 +3053,7 @@ function checkAssignmentTypes(
 				stmt.span.start,
 				env,
 				moduleSignatures,
+				sourceNames,
 				source,
 				memberCtx,
 			);
@@ -2991,6 +3075,7 @@ function checkAssignmentTypes(
 			member,
 			env,
 			moduleSignatures,
+			sourceNames,
 			memberCtx,
 			activity,
 			push,
@@ -3112,6 +3197,7 @@ function checkMemberAssignmentTypes(
 	member: ProcedureNode,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -3156,6 +3242,7 @@ function checkMemberAssignmentTypes(
 				stmt.span.start,
 				env,
 				moduleSignatures,
+				sourceNames,
 				source,
 				memberCtx,
 			);
@@ -3202,6 +3289,7 @@ function checkMemberAssignmentTypes(
 			stmt.span.start,
 			env,
 			moduleSignatures,
+			sourceNames,
 			source,
 			memberCtx,
 		);
@@ -3234,6 +3322,7 @@ function checkSetAssignments(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const target = setAssignmentTarget(source, stmt.span);
 			if (!target) {
@@ -3250,6 +3339,7 @@ function checkSetAssignments(
 					stmt.span.start,
 					env,
 					moduleSignatures,
+					sourceNames,
 					source,
 					memberCtx,
 				);
@@ -3473,6 +3563,52 @@ function typeEnvironmentFor(
 	return out;
 }
 
+interface SourceNameScope {
+	/**
+	 * Non-callable names visible at the current expression/call site. These block
+	 * bare callable resolution before same-module, project, or runtime signatures.
+	 */
+	callableShadows: ReadonlySet<string>;
+	/**
+	 * Any source-backed identifier visible in the current procedure. These block
+	 * runtime fallback once source/project callable signatures have not resolved.
+	 */
+	runtimeShadows: ReadonlySet<string>;
+}
+
+function sourceNameScopeFor(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+): SourceNameScope {
+	const callableShadows = new Set(moduleNonCallableSymbols(symbols).keys());
+	const runtimeShadows = moduleLevelIdentifierNames(symbols);
+	const procSym = (symbols.root.children ?? []).find(
+		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
+	);
+	for (const child of procSym?.children ?? []) {
+		const lower = child.name.toLowerCase();
+		runtimeShadows.add(lower);
+		if (isNonCallableSymbol(child)) {
+			callableShadows.add(lower);
+		}
+	}
+	return { callableShadows, runtimeShadows };
+}
+
+function bareCallableSourceShadowed(
+	name: string,
+	sourceNames: SourceNameScope | undefined,
+): boolean {
+	return sourceNames?.callableShadows.has(name.toLowerCase()) === true;
+}
+
+function runtimeCallableSourceShadowed(
+	name: string,
+	sourceNames: SourceNameScope | undefined,
+): boolean {
+	return sourceNames?.runtimeShadows.has(name.toLowerCase()) === true;
+}
+
 function returnAssignmentTypeFor(proc: ProcedureNode): string | undefined {
 	return (proc.procKind === 'Function' || proc.procKind === 'PropertyGet')
 		? proc.returnType
@@ -3483,6 +3619,7 @@ function expressionCalls(
 	source: string,
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 ): CallArguments[] {
 	const toks = statementTokens(source, span);
 	const out: CallArguments[] = [];
@@ -3505,7 +3642,7 @@ function expressionCalls(
 		if (
 			lookupKey
 				? !moduleSignatures.has(lookupKey)
-				: !callableSignatureFor(name, moduleSignatures)
+				: !callableSignatureFor(name, moduleSignatures, sourceNames)
 		) {
 			continue;
 		}
@@ -3726,15 +3863,16 @@ function validateArgumentTypes(
 	call: CallArguments,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope | undefined,
 	source: string,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
-	const sig = callableSignatureForCall(call, moduleSignatures);
+	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
 		return;
 	}
-	validateArgumentTypesForSignature(sig, call, env, moduleSignatures, source, memberCtx, push);
+	validateArgumentTypesForSignature(sig, call, env, moduleSignatures, sourceNames, source, memberCtx, push);
 }
 
 function validateArgumentTypesForSignature(
@@ -3742,6 +3880,7 @@ function validateArgumentTypesForSignature(
 	call: CallArguments,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope | undefined,
 	source: string,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
@@ -3801,6 +3940,7 @@ function validateArgumentTypesForSignature(
 			call.sliceStart,
 			env,
 			moduleSignatures,
+			sourceNames,
 			source,
 			memberCtx,
 		);
@@ -3826,11 +3966,12 @@ function validateArgumentTypesForSignature(
 function callableSignatureForCall(
 	call: CallArguments,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 ): CallableTypeSignature | undefined {
 	if (call.lookupKey) {
 		return moduleSignatures.get(call.lookupKey);
 	}
-	return callableSignatureFor(call.name, moduleSignatures);
+	return callableSignatureFor(call.name, moduleSignatures, sourceNames);
 }
 
 function byRefVariableTypeMismatch(
@@ -3879,10 +4020,17 @@ function namedArgumentSlot(slot: VbaToken[]): { name: string; value: VbaToken[] 
 function callableSignatureFor(
 	name: string,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 ): CallableTypeSignature | undefined {
+	if (bareCallableSourceShadowed(name, sourceNames)) {
+		return undefined;
+	}
 	const user = moduleSignatures.get(name.toLowerCase());
 	if (user) {
 		return user;
+	}
+	if (runtimeCallableSourceShadowed(name, sourceNames)) {
+		return undefined;
 	}
 	const runtime = resolveRuntimeFunction(name);
 	if (!runtime) {
@@ -3986,11 +4134,12 @@ function inferArgumentType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	return inferExpressionType(toks, sliceStart, env, moduleSignatures, source, memberCtx);
+	return inferExpressionType(toks, sliceStart, env, moduleSignatures, sourceNames, source, memberCtx);
 }
 
 function inferExpressionType(
@@ -3998,6 +4147,7 @@ function inferExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
@@ -4007,7 +4157,7 @@ function inferExpressionType(
 	}
 	const unwrapped = unwrapOuterParens(toks);
 	if (unwrapped !== toks) {
-		return inferExpressionType(unwrapped, sliceStart, env, moduleSignatures, source, memberCtx);
+		return inferExpressionType(unwrapped, sliceStart, env, moduleSignatures, sourceNames, source, memberCtx);
 	}
 	const signedNumericLiteral = inferSignedNumericLiteral(toks, sliceStart);
 	if (signedNumericLiteral) {
@@ -4018,6 +4168,7 @@ function inferExpressionType(
 		sliceStart,
 		env,
 		moduleSignatures,
+		sourceNames,
 		source,
 		memberCtx,
 	);
@@ -4029,13 +4180,14 @@ function inferExpressionType(
 		sliceStart,
 		env,
 		moduleSignatures,
+		sourceNames,
 		source,
 		memberCtx,
 	);
 	if (arithmetic) {
 		return arithmetic;
 	}
-	return inferAtomicExpressionType(toks, sliceStart, env, moduleSignatures, source, memberCtx);
+	return inferAtomicExpressionType(toks, sliceStart, env, moduleSignatures, sourceNames, source, memberCtx);
 }
 
 function inferSignedNumericLiteral(
@@ -4073,6 +4225,7 @@ function inferAtomicExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
@@ -4123,7 +4276,7 @@ function inferAtomicExpressionType(
 		if (type) {
 			return { type, label: `${name} As ${type}`, span };
 		}
-		const sig = parameterlessValueSignature(name, moduleSignatures);
+		const sig = parameterlessValueSignature(name, moduleSignatures, sourceNames);
 		if (sig?.returnType) {
 			return { type: sig.returnType, label: `${name} As ${sig.returnType}`, span };
 		}
@@ -4140,7 +4293,7 @@ function inferAtomicExpressionType(
 		}
 	}
 	if (name && toks[1]?.rawText === '(') {
-		const sig = callableSignatureFor(name, moduleSignatures);
+		const sig = callableSignatureFor(name, moduleSignatures, sourceNames);
 		if (sig?.returnType && matchParenFrom(toks, 1) === toks.length - 1) {
 			return { type: sig.returnType, label: `${name}(...) As ${sig.returnType}`, span };
 		}
@@ -4279,8 +4432,9 @@ function memberAcceptsZeroArguments(member: MemberCompletion): boolean {
 function parameterlessValueSignature(
 	name: string,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 ): CallableTypeSignature | undefined {
-	const sig = callableSignatureFor(name, moduleSignatures);
+	const sig = callableSignatureFor(name, moduleSignatures, sourceNames);
 	return sig?.returnType && callableAcceptsZeroArguments(sig) ? sig : undefined;
 }
 
@@ -4297,6 +4451,7 @@ function inferArithmeticExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
@@ -4310,6 +4465,7 @@ function inferArithmeticExpressionType(
 			sliceStart,
 			env,
 			moduleSignatures,
+			sourceNames,
 			source,
 			memberCtx,
 		);
@@ -4376,6 +4532,7 @@ function inferStringConcatenationExpressionType(
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
 ): InferredArgumentType | undefined {
@@ -4389,6 +4546,7 @@ function inferStringConcatenationExpressionType(
 			sliceStart,
 			env,
 			moduleSignatures,
+			sourceNames,
 			source,
 			memberCtx,
 		);
@@ -6315,6 +6473,13 @@ function firstTokenSpan(source: string, span: Span): Span {
 	return tok ? absoluteSpan(span, tok) : span;
 }
 
+function keywordSpan(source: string, span: Span, ...keywords: string[]): Span {
+	const expected = new Set(keywords);
+	const tok = statementTokensAfterLeadingLabel(source, span)
+		.find((token) => expected.has(tokenText(token)));
+	return tok ? absoluteSpan(span, tok) : firstTokenSpan(source, span);
+}
+
 /**
  * Returns the absolute offset of the first top-level `=` operator in the source
  * slice for `span`, or undefined. Parenthesised regions (array bounds, default
@@ -6501,8 +6666,9 @@ function checkCallParens(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		const sourceNames = sourceNameScopeFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
-			const invalidCallTarget = invalidExplicitCallTarget(source, stmt.span);
+			const invalidCallTarget = invalidExplicitCallTarget(source, stmt.span, moduleSignatures, sourceNames);
 			if (invalidCallTarget) {
 				push(
 					'invalidExplicitCallTarget',
@@ -6519,11 +6685,11 @@ function checkCallParens(
 					at,
 				);
 			}
-			const bare = implicitParenthesizedBareCallableCall(source, stmt.span, moduleSignatures);
+			const bare = implicitParenthesizedBareCallableCall(source, stmt.span, moduleSignatures, sourceNames);
 			if (bare) {
 				push(
 					'callStatementForbidsParens',
-					bareCallForbidsParensMessage(bare.name),
+					bareCallForbidsParensMessage(bare.name, moduleSignatures, sourceNames),
 					bare.span,
 				);
 			}
@@ -6539,8 +6705,15 @@ function checkCallParens(
 	}
 }
 
-function bareCallForbidsParensMessage(name: string): string {
-	const runtime = resolveRuntimeFunction(name);
+function bareCallForbidsParensMessage(
+	name: string,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope | undefined,
+): string {
+	const runtime = !moduleSignatures.has(name.toLowerCase()) &&
+		!runtimeCallableSourceShadowed(name, sourceNames)
+		? resolveRuntimeFunction(name)
+		: undefined;
 	if (runtime && !runtimeAllowsExplicitCall(runtime)) {
 		return `Standalone '${runtime.name}()' cannot use empty parentheses in statement context; use '${runtime.name}' as a statement or use it in an expression.`;
 	}
@@ -6550,9 +6723,17 @@ function bareCallForbidsParensMessage(name: string): string {
 function invalidExplicitCallTarget(
 	source: string,
 	span: Span,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope | undefined,
 ): { name: string; span: Span } | undefined {
 	const target = explicitCallStatementTarget(source, span);
 	if (!target) {
+		return undefined;
+	}
+	if (
+		moduleSignatures.has(target.name.toLowerCase()) ||
+		runtimeCallableSourceShadowed(target.name, sourceNames)
+	) {
 		return undefined;
 	}
 	const runtime = resolveRuntimeFunction(target.name);
@@ -6987,8 +7168,9 @@ function checkExpressionCallParens(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		const sourceNames = sourceNameScopeFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
-			const hit = parenlessExpressionCall(source, stmt.span, functions);
+			const hit = parenlessExpressionCall(source, stmt.span, functions, sourceNames);
 			if (hit) {
 				push(
 					'expressionCallRequiresParens',
@@ -7033,6 +7215,7 @@ function parenlessExpressionCall(
 	source: string,
 	span: Span,
 	functions: ExpressionCallableFunctions,
+	sourceNames?: SourceNameScope,
 ): { name: string; span: Span } | undefined {
 	const toks = statementTokens(source, span);
 	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[0]))) {
@@ -7046,7 +7229,7 @@ function parenlessExpressionCall(
 	for (let i = eq + 1; i < toks.length - 1; i++) {
 		const tok = toks[i];
 		const name = tokenName(tok);
-		if (!name || !isExpressionCallableAt(toks, i, name, functions)) {
+		if (!name || !isExpressionCallableAt(toks, i, name, functions, sourceNames)) {
 			continue;
 		}
 		if (i > eq + 1 && toks[i - 1].rawText === '.') {
@@ -7076,6 +7259,7 @@ function isExpressionCallableAt(
 	index: number,
 	name: string,
 	functions: ExpressionCallableFunctions,
+	sourceNames?: SourceNameScope,
 ): boolean {
 	if (index > 1 && toks[index - 1].rawText === '.') {
 		const qualifier = tokenName(toks[index - 2]);
@@ -7086,8 +7270,14 @@ function isExpressionCallableAt(
 	if (index > 0 && toks[index - 1].rawText === '.') {
 		return false;
 	}
+	if (bareCallableSourceShadowed(name, sourceNames)) {
+		return false;
+	}
 	if (functions.bare.has(name.toLowerCase())) {
 		return true;
+	}
+	if (runtimeCallableSourceShadowed(name, sourceNames)) {
+		return false;
 	}
 	return resolveRuntimeFunction(name)?.kind === 'function';
 }
@@ -7171,12 +7361,13 @@ function implicitParenthesizedBareCallableCall(
 	source: string,
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
 ): { name: string; span: Span } | undefined {
 	const call = standaloneEmptyParenthesizedCallStatement(source, span);
 	if (!call || call.isMember) {
 		return undefined;
 	}
-	const signature = callableSignatureFor(call.name, moduleSignatures);
+	const signature = callableSignatureFor(call.name, moduleSignatures, sourceNames);
 	if (!signature || !callableAcceptsZeroArguments(signature)) {
 		return undefined;
 	}

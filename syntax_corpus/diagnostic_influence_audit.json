@@ -172,6 +172,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "module-declaration-after-procedure",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2 module declarations precede 5.3 procedure declarations",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage scans top-level parsed module members in active conditional branches. Once an active procedure is seen, later active Declare, Event, Const/module variable, Type, and Enum declarations are reported on the declaration keyword. Later procedures remain accepted; Option placement remains owned by option-after-declaration and Implements placement by implements-statement-placement.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "invalid-declaration-name",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 3.3.5.2 reserved identifiers are not IDENTIFIER tokens",
@@ -207,7 +220,7 @@
       ],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks."
+      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name."
     },
     {
       "code": "argument-type-mismatch",
@@ -231,7 +244,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes zero-argument Function/Property Get value references and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes zero-argument Function/Property Get value references and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -244,7 +257,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through zero-argument Function/Property Get value references and proven source-backed/host member return expressions, while ambiguous bare project functions and bare member functions with required arguments stay silent.",
+      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through zero-argument Function/Property Get value references and proven source-backed/host member return expressions, while ambiguous bare project functions, source-shadowed runtime names, and bare member functions with required arguments stay silent.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -733,7 +746,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "VBE rejects DoEvents as an explicit Call target both with and without empty parentheses, but accepts bare DoEvents as a statement and DoEvents() in expression context. XLIDE records this as runtime-call metadata so diagnostics, identifier completion, and signature help share one rule.",
+      "notes": "VBE rejects DoEvents as an explicit Call target both with and without empty parentheses, but accepts bare DoEvents as a statement and DoEvents() in expression context. XLIDE records this as runtime-call metadata so diagnostics, identifier completion, and signature help share one rule. The runtime-only check is skipped when a source/project callable or visible source shadow owns the bare name.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -754,7 +767,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "VBE rejects standalone zero-argument calls such as myFunction(), DoEvents(), ThisWorkbook.CanCheckIn(), Application.Calculate(), and ActiveSheet.Range() when they use empty parentheses without Call, while the same parenthesized call is valid in expression context. Known same-module and exported standard-module procedures are resolved through the project procedure surface; unknown bare Foo() calls stay silent to avoid external-reference false positives. Explicit Call remains valid for ordinary procedures and member calls, but runtime entries can opt out through shared runtime metadata when oracle evidence proves a special form such as DoEvents. VBE also accepts non-empty standalone member/property forms such as Application.DeleteCustomList(1) and ActiveSheet.Range(\"A1\"), so the active member-call rule is deliberately scoped to the empty-parentheses form.",
+      "notes": "VBE rejects standalone zero-argument calls such as myFunction(), DoEvents(), ThisWorkbook.CanCheckIn(), Application.Calculate(), and ActiveSheet.Range() when they use empty parentheses without Call, while the same parenthesized call is valid in expression context. Known same-module and exported standard-module procedures are resolved through the project procedure surface; unknown bare Foo() calls stay silent to avoid external-reference false positives. Explicit Call remains valid for ordinary procedures and member calls, but runtime entries can opt out through shared runtime metadata when oracle evidence proves a special form such as DoEvents. Source-shadowed runtime names stay silent on runtime-only empty-parentheses handling. VBE also accepts non-empty standalone member/property forms such as Application.DeleteCustomList(1) and ActiveSheet.Range(\"A1\"), so the active member-call rule is deliberately scoped to the empty-parentheses form.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -767,6 +780,7 @@
         "expression_call_without_parentheses_in_assignment"
       ],
       "pendingLegacyCorpusFiles": [],
+      "notes": "The rule binds same-module, unique exported project, module-qualified standard-module, and runtime functions only when the bare expression name is not shadowed by a visible non-callable source declaration.",
       "diagnosticKind": "compile-error"
     },
     {

@@ -150,6 +150,12 @@ Progress:
   RHS expressions, including deterministic member-call returns such as
   `ActiveSheet.Range("A1")`. Bare member functions with required arguments stay
   unknown unless an actual call supplies arguments.
+- [x] Source-shadowed runtime callable slice: argument count/type diagnostics,
+  nested return-type inference, expression-call parenthesis diagnostics, and
+  runtime-only `Call` syntax checks now use source-name provenance before
+  falling back to runtime metadata. Untyped locals, parameters, module
+  constants/globals, enum members, and other non-callable source names suppress
+  bare runtime signatures instead of producing hard runtime-shaped squiggles.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`
@@ -320,6 +326,11 @@ Progress:
   or after a procedure in an object module. Declaration-section object-module
   `Implements` statements and inactive conditional branches stay quiet, while
   interface member completeness remains deferred to the project binder.
+- [x] Module declaration order slice: parsed module declarations (`Declare`,
+  `Event`, module variables/constants, `Type`, and `Enum`) now produce a red
+  diagnostic when they appear after an active procedure, including active
+  `#If VBA7` branches. Later procedures remain accepted, and inactive
+  conditional branches stay quiet.
 - [x] RaiseEvent target slice: settled `RaiseEvent` statements now produce a red
   diagnostic when the target event is not an active `Event` declaration in the
   same module. Declared same-module events and inactive conditional branches

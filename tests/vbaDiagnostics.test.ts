@@ -1296,6 +1296,54 @@ describe('analyzeModule - module declarations inside procedures', () => {
 	});
 });
 
+describe('analyzeModule - module declaration placement', () => {
+	it('flags active conditional Declare statements after a procedure', () => {
+		const src =
+			'Public Sub Combined002DeclareAfterProc()\n' +
+			'    Debug.Print "procedure before declare"\n' +
+			'End Sub\n' +
+			'\n' +
+			'#If VBA7 Then\n' +
+			'    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)\n' +
+			'#Else\n' +
+			'    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)\n' +
+			'#End If\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-after-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Declare');
+		expect(hits[0].message).toContain('Declare statements belong');
+	});
+
+	it('flags module declarations after procedures and keeps procedures accepted', () => {
+		const src =
+			'Sub First()\nEnd Sub\n' +
+			'Private Const MaxCount As Long = 1\n' +
+			'Private Type RowData\n    Id As Long\nEnd Type\n' +
+			'Private Enum Mode\n    ModeA = 1\nEnd Enum\n' +
+			'Sub Second()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-after-procedure');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Const', 'Type', 'Enum']);
+	});
+
+	it('accepts module declarations before procedures and inactive branches after procedures', () => {
+		const src =
+			'Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n' +
+			'Private Const MaxCount As Long = 1\n' +
+			'Sub T()\nEnd Sub\n' +
+			'#If Enabled Then\n' +
+			'    Private Declare PtrSafe Sub Hidden Lib "kernel32" ()\n' +
+			'#End If\n';
+
+		expect(byCode(
+			analyzeModule(src, { conditionalCompilation: { compilerConstants: { Enabled: false } } }),
+			'module-declaration-after-procedure',
+		)).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - reserved declaration names', () => {
 	it('flags reserved keywords used as procedure and variable names', () => {
 		const src =
@@ -1495,6 +1543,17 @@ describe('analyzeModule - argument count', () => {
 			},
 		});
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
+	});
+
+	it('does not arity-check runtime signatures when source names shadow them', () => {
+		const src =
+			'Private Const Format = 1\n' +
+			'Sub Main()\n' +
+			'    Dim MsgBox\n' +
+			'    a = Format()\n' +
+			'    b = MsgBox()\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
 	it('flags a parenless runtime function statement that omits required arguments', () => {
@@ -2385,6 +2444,17 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
+	it('does not validate runtime parameter types when a local shadows the runtime function', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Left As Variant\n' +
+			'    value = Left("abcdef", "bad")\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		expect(byCode(diagnostics, 'argument-type-mismatch')).toHaveLength(0);
+		expect(byCode(diagnostics, 'runtime-argument-value')).toHaveLength(0);
+	});
+
 	it('flags negative literal values for selected native VBA runtime argument bounds', () => {
 		const src =
 			'Sub T()\n' +
@@ -2896,6 +2966,17 @@ describe('analyzeModule - argument type validation', () => {
 			'CLng',
 			'CBool',
 		]);
+	});
+
+	it('does not infer runtime return types when a local shadows the runtime function', () => {
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim Format\n' +
+			'    NeedsObject Format(123)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-object-type-mismatch')).toHaveLength(0);
 	});
 
 	it('uses obvious numeric arithmetic expression return types as argument types', () => {
@@ -5707,6 +5788,18 @@ describe('analyzeModule - Call requires parentheses', () => {
 		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(0);
 	});
 
+	it('does not apply runtime-only call syntax rules to local-shadowed runtime names', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Erl\n' +
+			'    Erl()\n' +
+			'    Call Erl()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		expect(byCode(diagnostics, 'call-statement-forbids-parens')).toHaveLength(0);
+		expect(byCode(diagnostics, 'invalid-explicit-call-target')).toHaveLength(0);
+	});
+
 	it('flags an unqualified same-class method call statement with empty parentheses', () => {
 		const src =
 			'Public Sub SaveAll()\n' +
@@ -5824,6 +5917,15 @@ describe('analyzeModule - expression call requires parentheses', () => {
 		const hits = byCode(analyzeModule(src), 'expression-call-requires-parens');
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('MsgBox');
+	});
+
+	it('does not require expression-call parentheses for local-shadowed runtime names', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Format\n' +
+			'    answer = Format 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'expression-call-requires-parens')).toHaveLength(0);
 	});
 
 	it('flags a unique exported project Function called with parenless arguments in an assignment', () => {

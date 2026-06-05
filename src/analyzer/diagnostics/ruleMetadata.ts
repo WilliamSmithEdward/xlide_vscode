@@ -221,6 +221,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2 / 5.3',
 		confidence: 'high',
 	},
+	moduleDeclarationAfterProcedure: {
+		code: 'module-declaration-after-procedure',
+		title: 'Module-level declaration after procedure',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2 / 5.3',
+		confidence: 'high',
+	},
 	invalidDeclarationName: {
 		code: 'invalid-declaration-name',
 		title: 'Reserved keyword used as a declaration name',

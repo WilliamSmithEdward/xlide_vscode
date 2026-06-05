@@ -775,7 +775,10 @@ and `resolveRuntimeConstant(name)` resolve case-insensitively, while
 `runtimeAllowsExplicitCall(fn)` centralizes runtime-specific explicit `Call`
 behavior such as the VBE-oracle-verified `DoEvents` special case;
 `VBA_RUNTIME_FUNCTIONS` and `VBA_RUNTIME_CONSTANTS` are consumed by hover,
-identifier completion, and high-confidence diagnostics.
+identifier completion, and high-confidence diagnostics. Diagnostics treat these
+runtime signatures as a last-resort metadata source: source/project callables win
+first, and non-callable source names in the active procedure/module suppress bare
+runtime fallback even when the declaration has no explicit `As` type.
 
 **Signature help (parameter info)** — `src/analyzer/signature/signatureHelp.ts`
 computes the VBE call tip from module text alone. `resolveSignatureHelp(source,
@@ -927,7 +930,11 @@ Diagnostic severity policy:
   `p.Save "ok"`; current class
   `Me.Member(...)` calls use that same path. It honours `Optional` (lowers the
   minimum) and `ParamArray` (removes the maximum), validates named-argument
-  names against the parameters, and skips unresolved or ambiguous callees. The
+  names against the parameters, and skips unresolved or ambiguous callees. Bare
+  runtime signatures are consulted only after visible source names have failed
+  to bind, so local/module declarations such as `Dim Format` or `Const Format`
+  suppress runtime-shaped arity, type, return-inference, expression-call, and
+  runtime-only `Call` diagnostics. The
   same known member signatures also feed argument type diagnostics when
   parameter types are explicit. The
   `argument-type-mismatch` and `assignment-type-mismatch` rules are red
@@ -1020,6 +1027,11 @@ Diagnostic severity policy:
   procedure in an object module. Declaration-section object-module statements
   remain accepted, inactive conditional branches are filtered, and interface
   member completeness is left to the project binder.
+  `module-declaration-after-procedure` covers the shared declaration-section
+  ordering rule for parsed module declarations: active `Declare`, `Event`,
+  module variable/`Const`, `Type`, and `Enum` declarations after an active
+  procedure are red and pinned to the declaration keyword, while inactive
+  conditional branches and later procedures stay quiet.
   `raiseevent-undeclared-event` is a red same-module binding diagnostic for
   settled `RaiseEvent` statements whose target does not resolve to an active
   `Event` declaration in the containing module. It scans tokenized procedure

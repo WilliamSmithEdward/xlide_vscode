@@ -156,6 +156,10 @@ Landed first:
   and assignment inference path when the member resolver proves the receiver and
   return type. Bare member functions with required arguments remain unknown
   unless the expression is an actual call.
+- Runtime callable metadata now stays last in bare-name binding: source/project
+  callables win first, and visible non-callable source names suppress runtime
+  arity, argument type, return inference, expression-call syntax, and
+  runtime-only `Call` diagnostics.
 - Nonnumeric string literals in numeric arithmetic expressions produce an error
   when the expected context is numeric; focused oracle verification shows the
   representative assignment compiles but deterministically raises runtime error
