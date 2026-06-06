@@ -87,7 +87,7 @@ export interface IdentifierCompletionContext {
 	model?: HostObjectModel;
 }
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*[$%&!#@^]?$/;
 
 /**
  * Keywords after which the user is naming a NEW declaration rather than

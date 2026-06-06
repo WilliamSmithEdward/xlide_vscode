@@ -3426,6 +3426,11 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('VBA.CDate');
 	});
 
+	it('keeps Close of a literal file number quiet', () => {
+		const src = 'Option Explicit\nSub T()\n    Close #99\nEnd Sub\n';
+		expect(analyzeModule(src)).toEqual([]);
+	});
+
 	it('does not infer runtime parameter types from display names', () => {
 		const src = 'Sub T()\n    Randomize "bad"\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);

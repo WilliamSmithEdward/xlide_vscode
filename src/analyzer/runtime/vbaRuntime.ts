@@ -108,6 +108,35 @@ function method(name: string, signature: string): VbaRuntimeObjectMember {
 	return { name, kind: 'method', signature };
 }
 
+const LEFT_PARAMS = [
+	{ name: 'String', type: 'String' },
+	{ name: 'Length', type: 'Long' },
+] as const;
+const RIGHT_PARAMS = [
+	{ name: 'String', type: 'String' },
+	{ name: 'Length', type: 'Long' },
+] as const;
+const MID_PARAMS = [
+	{ name: 'String', type: 'String' },
+	{ name: 'Start', type: 'Long' },
+	{ name: 'Length', type: 'Long', optional: true },
+] as const;
+const SPACE_PARAMS = [
+	{ name: 'Number', type: 'Long' },
+] as const;
+const STRING_PARAMS = [
+	{ name: 'Number', type: 'Long' },
+	{ name: 'Character', type: 'Variant' },
+] as const;
+const REPLACE_PARAMS = [
+	{ name: 'Expression', type: 'String' },
+	{ name: 'Find', type: 'String' },
+	{ name: 'Replace', type: 'String' },
+	{ name: 'Start', type: 'Long', optional: true },
+	{ name: 'Count', type: 'Long', optional: true },
+	{ name: 'Compare', type: 'VbCompareMethod', optional: true },
+] as const;
+
 /** The verified built-in VBA runtime functions and statements. */
 export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	// -- Interaction --------------------------------------------------------
@@ -132,25 +161,28 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- String functions ---------------------------------------------------
 	fn('Len', 'Len(Expression) As Long', 'Long'),
-	fn('Left', 'Left(String, Length) As String', 'String', [
-		{ name: 'String', type: 'String' },
-		{ name: 'Length', type: 'Long' },
-	]),
-	fn('Right', 'Right(String, Length) As String', 'String'),
-	fn('Mid', 'Mid(String, Start, [Length]) As String', 'String'),
+	fn('Left', 'Left(String, Length) As String', 'String', LEFT_PARAMS),
+	fn('Left$', 'Left$(String, Length) As String', 'String', LEFT_PARAMS),
+	fn('Right', 'Right(String, Length) As String', 'String', RIGHT_PARAMS),
+	fn('Right$', 'Right$(String, Length) As String', 'String', RIGHT_PARAMS),
+	fn('Mid', 'Mid(String, Start, [Length]) As String', 'String', MID_PARAMS),
+	fn('Mid$', 'Mid$(String, Start, [Length]) As String', 'String', MID_PARAMS),
 	fn('Trim', 'Trim(String) As String', 'String'),
 	fn('LTrim', 'LTrim(String) As String', 'String'),
 	fn('RTrim', 'RTrim(String) As String', 'String'),
 	fn('UCase', 'UCase(String) As String', 'String'),
 	fn('LCase', 'LCase(String) As String', 'String'),
-	fn('Replace', 'Replace(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String'),
+	fn('Replace', 'Replace(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
+	fn('Replace$', 'Replace$(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
 	fn('InStr', 'InStr([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long'),
 	fn('InStrRev', 'InStrRev(StringCheck, StringMatch, [Start = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As Long', 'Long'),
 	fn('Split', 'Split(Expression, [Delimiter], [Limit = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()'),
 	fn('Join', 'Join(SourceArray, [Delimiter]) As String', 'String'),
 	fn('StrComp', 'StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer', 'Integer'),
 	fn('StrConv', 'StrConv(String, Conversion As VbStrConv, [LCID]) As String', 'String'),
-	fn('Space', 'Space(Number) As String', 'String'),
+	fn('String$', 'String$(Number, Character) As String', 'String', STRING_PARAMS),
+	fn('Space', 'Space(Number) As String', 'String', SPACE_PARAMS),
+	fn('Space$', 'Space$(Number) As String', 'String', SPACE_PARAMS),
 	fn('Format', 'Format(Expression, [Format], [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As String', 'String'),
 	fn('Chr', 'Chr(CharCode) As String', 'String'),
 	fn('ChrW', 'ChrW(CharCode) As String', 'String'),

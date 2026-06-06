@@ -900,6 +900,69 @@
       "source": "Public Sub NeedsVariant(ByVal value As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsVariant Null\nEnd Sub\n"
     },
     {
+      "id": "close_unopened_literal_file_number_runtime",
+      "description": "Runtime control: closing a literal file number that is not open is accepted as a no-op by VBE.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Close #99\nEnd Sub\n"
+    },
+    {
+      "id": "close_opened_literal_file_number_runtime",
+      "description": "Runtime control: closing a literal file number opened earlier in the same procedure is accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim path As String\n    path = Environ$(\"TEMP\") & \"\\xlide_oracle_close_opened_file_number.tmp\"\n    On Error Resume Next\n    Kill path\n    On Error GoTo 0\n    Open path For Output As #99\n    Close #99\n    On Error Resume Next\n    Kill path\nEnd Sub\n"
+    },
+    {
+      "id": "close_opened_by_caller_helper_runtime",
+      "description": "Runtime control: a helper procedure that only contains Close #99 can succeed when the caller opened that file number.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim path As String\n    path = Environ$(\"TEMP\") & \"\\xlide_oracle_close_helper_file_number.tmp\"\n    On Error Resume Next\n    Kill path\n    On Error GoTo 0\n    Open path For Output As #99\n    CloseFromHelper\n    On Error Resume Next\n    Kill path\nEnd Sub\n\nPublic Sub CloseFromHelper()\n    Close #99\nEnd Sub\n"
+    },
+    {
+      "id": "left_and_left_dollar_intrinsics_compile",
+      "description": "Compile probe: bare Left and string-suffixed Left$ intrinsic calls are both accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print Left$(\"abcdef\", 2)\n    Debug.Print Left(\"abcdef\", 2)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "right_and_right_dollar_intrinsics_compile",
+      "description": "Compile probe: bare Right and string-suffixed Right$ intrinsic calls are both accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print Right$(\"abcdef\", 2)\n    Debug.Print Right(\"abcdef\", 2)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "date_assignment_statement_compile",
+      "description": "Compile probe: Date = expression is parsed as the VBA Date statement, not an implicit variable declaration.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Date = \"not necessarily VBA.Date\"\n    Debug.Print Date\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
       "id": "numeric_string_to_currency_argument_runtime",
       "description": "Runtime control: passing a numeric string literal to a Currency parameter should exercise successful call-boundary numeric coercion.",
       "provenance": "vbe-oracle-verified",
