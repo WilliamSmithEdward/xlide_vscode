@@ -377,6 +377,7 @@ function runRules(
 	checkElseBranchOrder(source, mod, activity, push);
 	checkStatementContext(source, mod, activity, push);
 	checkForEachLoopTypes(mod, symbols, opts, activity, push);
+	checkArrayBoundIntrinsicArguments(source, mod, symbols, activity, push);
 	checkScalarMemberAccess(source, mod, symbols, activity, push);
 	checkMemberNotFound(source, mod, memberCtx, activity, push);
 	checkNonCallableCallStatement(
@@ -3709,6 +3710,96 @@ function isKnownScalarAssignmentTarget(
 	}
 	const normalized = normalizeType(targetShape?.asType ?? expectedType);
 	return !!normalized && isKnownScalarType(normalized);
+}
+
+function checkArrayBoundIntrinsicArguments(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const shapes = declarationShapeEnvironmentFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			for (const hit of arrayBoundScalarArguments(source, stmt.span, shapes)) {
+				push(
+					'arrayBoundRequiresArray',
+					`${hit.functionName} requires an array argument, but '${hit.name}' is declared As ${hit.asType}.`,
+					hit.span,
+				);
+			}
+		}, activity);
+	}
+}
+
+interface ArrayBoundScalarArgument {
+	functionName: string;
+	name: string;
+	span: Span;
+	asType: string;
+}
+
+function arrayBoundScalarArguments(
+	source: string,
+	span: Span,
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+): ArrayBoundScalarArgument[] {
+	const toks = statementTokens(source, span);
+	const hits: ArrayBoundScalarArgument[] = [];
+	for (let i = 0; i < toks.length - 2; i++) {
+		const functionName = tokenName(toks[i]);
+		const lower = functionName?.toLowerCase();
+		if (lower !== 'lbound' && lower !== 'ubound') {
+			continue;
+		}
+		if (toks[i + 1]?.rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0) {
+			continue;
+		}
+		const inner = toks.slice(i + 2, close);
+		if (inner.length === 0) {
+			continue;
+		}
+		const split = splitArgSlots(inner, span.start);
+		const firstSlot = split.slots[0] ?? [];
+		if (firstSlot.length !== 1) {
+			continue;
+		}
+		const argName = tokenName(firstSlot[0]);
+		if (!argName) {
+			continue;
+		}
+		const shape = shapes.get(argName.toLowerCase());
+		if (!shape || shape.isArray || !shape.asType) {
+			continue;
+		}
+		const normalized = normalizeType(shape.asType);
+		if (!normalized || !isKnownScalarType(normalized)) {
+			continue;
+		}
+		hits.push({
+			functionName: functionName!,
+			name: argName,
+			span: split.spans[0] ?? { start: span.start + firstSlot[0].start, end: span.start + firstSlot[0].end },
+			asType: shape.asType,
+		});
+	}
+	return hits;
+}
+
+function isBareOrVbaQualifiedIntrinsicCall(toks: readonly VbaToken[], nameIndex: number): boolean {
+	if (toks[nameIndex - 1]?.rawText !== '.') {
+		return true;
+	}
+	const qualifier = nameIndex >= 2 ? tokenName(toks[nameIndex - 2]) : undefined;
+	return qualifier?.toLowerCase() === 'vba' && toks[nameIndex - 3]?.rawText !== '.';
 }
 
 /**

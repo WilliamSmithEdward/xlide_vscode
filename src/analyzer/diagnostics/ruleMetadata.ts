@@ -355,6 +355,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.3 / VBE oracle: Type mismatch',
 		confidence: 'high',
 	},
+	arrayBoundRequiresArray: {
+		code: 'array-bound-requires-array',
+		title: 'Array bound function requires array',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL LBound/UBound / VBE oracle: Expected array',
+		confidence: 'high',
+	},
 	missingReturnAssignment: {
 		code: 'missing-return-assignment',
 		title: 'Function has no return assignment',

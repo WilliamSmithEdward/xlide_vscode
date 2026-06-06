@@ -3583,6 +3583,74 @@ describe('analyzeModule - assignment type validation', () => {
 		).toHaveLength(0);
 	});
 
+	it('flags scalar variables passed to array bound functions', () => {
+		const src =
+			'Private ModuleValue As String\n' +
+			'Public Sub T()\n' +
+			'    Dim Value As Long\n' +
+			'    Debug.Print LBound(Value)\n' +
+			'    Debug.Print UBound(ModuleValue, 1)\n' +
+			'    Debug.Print VBA.LBound(Value)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'array-bound-requires-array');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'Value',
+			'ModuleValue',
+			'Value',
+		]);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('LBound');
+		expect(hits[0].message).toContain('array argument');
+		expect(hits[0].message).toContain('Long');
+	});
+
+	it('accepts array, Variant, unknown, and member-expression array bound arguments', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim Values() As Long\n' +
+			'    Dim FixedValues(1 To 3) As Long\n' +
+			'    Dim Flexible As Variant\n' +
+			'    Debug.Print LBound(Values)\n' +
+			'    Debug.Print UBound(FixedValues, 1)\n' +
+			'    Debug.Print LBound(Flexible)\n' +
+			'    Debug.Print UBound(UnknownValues)\n' +
+			'    Debug.Print LBound(Settings.Values)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'array-bound-requires-array')).toHaveLength(0);
+	});
+
+	it('uses the active conditional branch when checking array bound functions', () => {
+		const src =
+			'Public Sub T()\n' +
+			'#If VBA7 Then\n' +
+			'    Dim Values As Long\n' +
+			'#Else\n' +
+			'    Dim Values() As Long\n' +
+			'#End If\n' +
+			'    Debug.Print LBound(Values)\n' +
+			'End Sub\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: true } },
+				}),
+				'array-bound-requires-array',
+			),
+		).toHaveLength(1);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'array-bound-requires-array',
+			),
+		).toHaveLength(0);
+	});
+
 	it('requires Set when assigning to a known object variable', () => {
 		const src =
 			'Public Sub T()\n' +

@@ -376,6 +376,22 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "array-bound-requires-array",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus VBA LBound/UBound array argument semantics",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "lbound_scalar_argument_compile",
+        "ubound_scalar_argument_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage scans LBound and UBound calls and reports simple first-argument names declared as known intrinsic scalars. Dynamic and fixed arrays, Variant, unresolved names, member-expression arguments, non-VBA-qualified member calls, and inactive branches stay silent until broader argument binding is proven.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "missing-return-assignment",
       "status": "spec-derived",
       "sourceOfTruth": "VBA Function/Property Get return-variable semantics plus XLIDE type-safety policy",

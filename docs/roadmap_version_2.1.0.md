@@ -412,6 +412,10 @@ Progress:
   variable and the target resolves to a known intrinsic scalar. `Variant`
   targets, array targets, indexed element reads, unresolved names, and inactive
   branches stay quiet.
+- [x] Array bound intrinsic slice: active `LBound`/`UBound` calls now produce a
+  red diagnostic when the first argument is a simple name resolving to a known
+  intrinsic scalar. Dynamic/fixed arrays, `Variant`, unresolved names,
+  member-expression arguments, and inactive branches stay quiet.
 - [x] ReDim Preserve dimension slice: straight-line active `ReDim` shapes now
   feed a deterministic runtime diagnostic when a later `ReDim Preserve` changes
   a known non-final dimension, the known dimension count, or a known
