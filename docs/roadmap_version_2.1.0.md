@@ -433,6 +433,12 @@ Progress:
   Module-level arrays, parameters, `Static` locals, fixed arrays, helper-call
   arguments, assignment-touched arrays, nested runtime-block touches, unresolved
   names, non-intrinsic member calls, and inactive branches stay quiet.
+- [x] Runtime conversion value slice: bare and `VBA.`-qualified `CDate` calls
+  now produce a deterministic runtime diagnostic when the first argument is an
+  empty string literal or plain ASCII non-date text. Date-looking strings,
+  non-ASCII/localized-looking text, variables, expressions, non-`CDate`
+  conversions, source-shadowed bare `CDate` names, and inactive branches stay
+  quiet.
 - [x] Array Erase hardening slice: active `Erase` statements now reject
   target-list entries that are clearly arbitrary expressions, such as literals
   or arithmetic. Binder-backed Erase checks now also reject simple targets that

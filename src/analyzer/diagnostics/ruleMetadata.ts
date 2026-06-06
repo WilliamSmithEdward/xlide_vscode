@@ -471,6 +471,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	runtimeConversionValue: {
+		code: 'runtime-conversion-value',
+		title: 'Invalid runtime conversion value',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 / VBA runtime conversion and VBE oracle runtime error 13',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	unknownCallStatement: {
 		code: 'unknown-call',
 		title: 'Sub or Function not defined',

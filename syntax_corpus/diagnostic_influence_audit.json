@@ -587,6 +587,20 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "runtime-conversion-value",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE runtime conversion-value scan",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "cdate_invalid_plain_text_runtime",
+        "cdate_numeric_date_string_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "unknown-call",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus project symbol graph",

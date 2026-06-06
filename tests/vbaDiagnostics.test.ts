@@ -3325,6 +3325,53 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('Left$');
 	});
 
+	it('flags plainly invalid literal CDate conversions', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Value As Date\n' +
+			'    Value = CDate("not a date")\n' +
+			'    Value = VBA.CDate("")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-conversion-value');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['"not a date"', '""']);
+		expect(hits[0].message).toContain('CDate');
+		expect(hits[0].message).toContain("Run-time error '13'");
+		expect(hits[1].message).toContain('VBA.CDate');
+	});
+
+	it('keeps date-looking, localized, variable, and non-CDate conversions quiet', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Value As Date\n' +
+			'    Dim text As String\n' +
+			'    Value = CDate("1/2/2020")\n' +
+			'    Value = CDate("March")\n' +
+			'    Value = CDate("Mar 1")\n' +
+			'    Value = CDate("März")\n' +
+			'    Value = CDate(text)\n' +
+			'    Value = DateValue("not a date")\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'runtime-conversion-value')).toHaveLength(0);
+	});
+
+	it('does not treat shadowed CDate calls as native conversion checks', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim CDate As Variant\n' +
+			'    Dim Value As Date\n' +
+			'    Value = CDate("not a date")\n' +
+			'    Value = VBA.CDate("not a date")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-conversion-value');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"not a date"');
+		expect(hits[0].message).toContain('VBA.CDate');
+	});
+
 	it('does not infer runtime parameter types from display names', () => {
 		const src = 'Sub T()\n    Randomize "bad"\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);

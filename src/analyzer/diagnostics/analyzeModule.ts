@@ -418,6 +418,7 @@ function runRules(
 		activity,
 		push,
 	);
+	checkRuntimeConversionValues(source, mod, symbols, activity, push);
 	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
 	checkMissingReturnAssignments(source, mod, symbols, opts.projectProcedures, activity, push);
 	if (opts.knownProcedures) {
@@ -3586,6 +3587,100 @@ function isDeclarationLikeStatement(toks: readonly VbaToken[]): boolean {
 		default:
 			return false;
 	}
+}
+
+interface RuntimeConversionValueHit {
+	displayName: string;
+	name: string;
+	span: Span;
+}
+
+/**
+ * Rule: selected conversion functions compile with Variant-like arguments but
+ * can deterministically fail at runtime for literal values that cannot be
+ * converted. This first slice is intentionally narrow for CDate string
+ * literals that are plainly non-date text.
+ */
+function checkRuntimeConversionValues(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const sourceNames = sourceNameScopeFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames)) {
+				push(
+					'runtimeConversionValue',
+					`${hit.displayName} cannot convert ${hit.name} to Date. This will raise Run-time error '13': Type mismatch.`,
+					hit.span,
+				);
+			}
+		}, activity);
+	}
+}
+
+function runtimeConversionValueHits(
+	source: string,
+	span: Span,
+	sourceNames: SourceNameScope,
+): RuntimeConversionValueHit[] {
+	const toks = statementTokens(source, span);
+	if (isDeclarationLikeStatement(toks)) {
+		return [];
+	}
+	const hits: RuntimeConversionValueHit[] = [];
+	for (let i = 0; i < toks.length - 2; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || name.toLowerCase() !== 'cdate') {
+			continue;
+		}
+		if (toks[i + 1]?.rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+			continue;
+		}
+		const qualified = toks[i - 1]?.rawText === '.';
+		if (!qualified && runtimeCallableSourceShadowed(name, sourceNames)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0) {
+			continue;
+		}
+		const split = splitArgSlots(toks.slice(i + 2, close), span.start);
+		const firstSlot = split.slots[0] ?? [];
+		if (firstSlot.length !== 1 || firstSlot[0].kind !== 'stringLiteral') {
+			continue;
+		}
+		const value = stringLiteralValue(firstSlot[0].rawText);
+		if (!isDefinitelyInvalidDateString(value)) {
+			continue;
+		}
+		hits.push({
+			displayName: qualified ? `VBA.${name}` : name,
+			name: firstSlot[0].rawText,
+			span: split.spans[0] ?? { start: span.start + firstSlot[0].start, end: span.start + firstSlot[0].end },
+		});
+	}
+	return hits;
+}
+
+function isDefinitelyInvalidDateString(value: string): boolean {
+	const trimmed = value.trim();
+	if (trimmed.length === 0) {
+		return true;
+	}
+	if (/[0-9]/.test(trimmed) || /[^\x00-\x7F]/.test(trimmed)) {
+		return false;
+	}
+	if (!/^[A-Za-z\s]+$/.test(trimmed)) {
+		return false;
+	}
+	return !/\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i.test(trimmed);
 }
 
 function checkAssignmentTypes(

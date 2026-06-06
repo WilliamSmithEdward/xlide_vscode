@@ -3044,6 +3044,28 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim values() As Long\n    Debug.Print LBound(values)\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "cdate_invalid_plain_text_runtime",
+      "description": "Runtime probe: CDate on plainly non-date string text raises runtime error 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Value As Date\n    Value = CDate(\"not a date\")\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "cdate_numeric_date_string_runtime",
+      "description": "Runtime control: CDate accepts a numeric date-looking string under the oracle environment.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Value As Date\n    Value = CDate(\"1/2/2020\")\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
