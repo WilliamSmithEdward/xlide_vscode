@@ -449,6 +449,10 @@ Progress:
   path as Error Variant values. Scalar targets produce deterministic runtime
   type-mismatch diagnostics, Variant targets stay quiet, and source-shadowed
   bare `CVErr` calls keep their source return type.
+- [x] Null literal inference slice: `Null` now feeds the same shared
+  argument/assignment type compatibility path as a dedicated Null value. Scalar
+  targets produce deterministic runtime error 94 diagnostics, while Variant
+  targets stay quiet.
 - [x] Array Erase hardening slice: active `Erase` statements now reject
   target-list entries that are clearly arbitrary expressions, such as literals
   or arithmetic. Binder-backed Erase checks now also reject simple targets that

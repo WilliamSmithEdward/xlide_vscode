@@ -2632,6 +2632,27 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain("Run-time error '13'");
 	});
 
+	it('flags Null passed to scalar parameters', () => {
+		const src =
+			'Public Sub NeedsLong(ByVal value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub NeedsString(ByVal value As String)\n' +
+			'End Sub\n' +
+			'Public Sub NeedsVariant(ByVal value As Variant)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsLong Null\n' +
+			'    NeedsString Null\n' +
+			'    NeedsVariant Null\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Null', 'Null']);
+		expect(hits[0].message).toContain('Null');
+		expect(hits[0].message).toContain("Run-time error '94'");
+	});
+
 	it('lets a source function named CVErr shadow the intrinsic in argument expressions', () => {
 		const src =
 			'Private Function CVErr(ByVal errorNumber As Long) As Long\n' +
@@ -3693,6 +3714,24 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['CVErr(2015)', 'VBA.CVErr(2015)']);
 		expect(hits[0].message).toContain('Error Variant');
 		expect(hits[0].message).toContain("Run-time error '13'");
+	});
+
+	it('errors on Null assigned to scalar variables', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim number As Long\n' +
+			'    Dim message As String\n' +
+			'    Dim flexible As Variant\n' +
+			'    number = Null\n' +
+			'    message = Null\n' +
+			'    flexible = Null\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Null', 'Null']);
+		expect(hits[0].message).toContain('Null');
+		expect(hits[0].message).toContain("Run-time error '94'");
 	});
 
 	it('lets a source function named CVErr shadow the intrinsic in assignment expressions', () => {

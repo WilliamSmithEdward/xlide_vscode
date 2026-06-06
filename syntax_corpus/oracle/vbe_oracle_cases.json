@@ -856,6 +856,50 @@
       "source": "Public Sub NeedsVariant(ByVal value As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsVariant CVErr(2015)\nEnd Sub\n"
     },
     {
+      "id": "null_to_long_assignment_runtime",
+      "description": "Runtime probe: assigning Null directly to a Long variable raises Invalid use of Null.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = Null\nEnd Sub\n"
+    },
+    {
+      "id": "null_to_variant_assignment_runtime",
+      "description": "Runtime control: assigning Null directly to a Variant variable is accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Variant\n    value = Null\nEnd Sub\n"
+    },
+    {
+      "id": "null_to_long_argument_runtime",
+      "description": "Runtime probe: passing Null to a Long parameter raises Invalid use of Null.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub NeedsLong(ByVal value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsLong Null\nEnd Sub\n"
+    },
+    {
+      "id": "null_to_variant_argument_runtime",
+      "description": "Runtime control: passing Null to a Variant parameter is accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub NeedsVariant(ByVal value As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsVariant Null\nEnd Sub\n"
+    },
+    {
       "id": "numeric_string_to_currency_argument_runtime",
       "description": "Runtime control: passing a numeric string literal to a Currency parameter should exercise successful call-boundary numeric coercion.",
       "provenance": "vbe-oracle-verified",

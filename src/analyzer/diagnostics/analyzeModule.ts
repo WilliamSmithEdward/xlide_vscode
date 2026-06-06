@@ -5390,6 +5390,9 @@ function inferAtomicExpressionType(
 				if (word === 'nothing') {
 					return { type: 'Nothing', label: 'Nothing', span };
 				}
+				if (word === 'null') {
+					return { type: 'Null', label: 'Null', span };
+				}
 				break;
 			}
 			default:
@@ -5863,6 +5866,9 @@ function incompatibilityReason(
 	}
 	if (actualType === 'error' && isKnownScalarType(expected)) {
 		return "An Error Variant cannot be coerced to this scalar type. This will raise Run-time error '13': Type mismatch.";
+	}
+	if (actualType === 'null' && isKnownScalarType(expected)) {
+		return "Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.";
 	}
 	if (expected === 'object') {
 		return actualType === 'nothing' || actualType === 'object' || !isKnownScalarType(actualType)
