@@ -1307,6 +1307,97 @@ describe('analyzeModule - scalar member access', () => {
 	});
 });
 
+describe('analyzeModule - object variable not set', () => {
+	it('flags straight-line local object member access before Set', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    obj.ToString\n' +
+			'    Dim ws As Worksheet\n' +
+			'    ws.Range("A1").Value = 1\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'object-variable-not-set');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['obj', 'ws']);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain("Run-time error '91'");
+	});
+
+	it('accepts object locals after Set and flags them again after Set Nothing', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Set obj = New Collection\n' +
+			'    obj.ToString\n' +
+			'    Set obj = Nothing\n' +
+			'    obj.ToString\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'object-variable-not-set');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('obj');
+	});
+
+	it('lets a provable missing member diagnostic supersede runtime not-set', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    ws.DefinitelyMissingMember\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, 'object-variable-not-set')).toHaveLength(0);
+		const memberHits = byCode(diagnostics, 'member-not-found');
+		expect(memberHits).toHaveLength(1);
+		expect(spanText(src, memberHits[0])).toBe('DefinitelyMissingMember');
+	});
+
+	it('keeps parameters module-level objects Static locals and helper-initialized locals quiet', () => {
+		const src =
+			'Private moduleObj As Object\n' +
+			'Private Sub Initialize(ByRef target As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T(ByVal param As Object)\n' +
+			'    Static cached As Object\n' +
+			'    Dim initialized As Object\n' +
+			'    Initialize initialized\n' +
+			'    moduleObj.ToString\n' +
+			'    param.ToString\n' +
+			'    cached.ToString\n' +
+			'    initialized.ToString\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('stays quiet after branch-local initialization makes straight-line state unknown', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    If Ready Then\n' +
+			'        Set obj = New Collection\n' +
+			'    End If\n' +
+			'    obj.ToString\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('ignores inactive conditional-compilation member access', () => {
+		const src =
+			'#Const Enabled = False\n' +
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'#If Enabled Then\n' +
+			'    obj.ToString\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - invalid procedure header', () => {
 	it('flags a procedure name that contains a space', () => {
 		const src = 'Sub My Sub\nEnd Sub\n';
@@ -2375,6 +2466,7 @@ describe('analyzeModule - argument count', () => {
 			'    Dim ws As Worksheet\n' +
 			'    Dim loTests As ListObject\n' +
 			'    Dim lcPassed As ListColumn\n' +
+			'    Set ws = ActiveSheet\n' +
 			'    Set loTests = ws.ListObjects("Tests")\n' +
 			'    Set lcPassed = loTests.ListColumns("Passed")\n' +
 			'End Sub\n';

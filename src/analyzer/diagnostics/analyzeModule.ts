@@ -379,6 +379,7 @@ function runRules(
 	checkForEachLoopTypes(mod, symbols, opts, activity, push);
 	checkArrayBoundIntrinsicArguments(source, mod, symbols, activity, push);
 	checkScalarMemberAccess(source, mod, symbols, activity, push);
+	checkObjectVariableNotSet(source, mod, symbols, memberCtx, activity, push);
 	checkMemberNotFound(source, mod, memberCtx, activity, push);
 	checkNonCallableCallStatement(
 		source,
@@ -4145,6 +4146,253 @@ function scalarMemberAccesses(
 			vbeError: memberName ? 'Invalid qualifier' : 'Syntax error',
 			span: { start: span.start + toks[i].start, end: span.start + toks[i + 1].end },
 		});
+	}
+	return out;
+}
+
+interface LocalObjectVariable {
+	name: string;
+	asType: string;
+}
+
+type ObjectVariableState = 'unset' | 'set' | 'unknown';
+
+function checkObjectVariableNotSet(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const locals = localObjectVariablesFor(symbols, member, memberCtx);
+		if (locals.size === 0) {
+			continue;
+		}
+		const state = new Map<string, ObjectVariableState>();
+		for (const key of locals.keys()) {
+			state.set(key, 'unset');
+		}
+		for (const node of member.body) {
+			checkObjectVariableNotSetNode(source, node, locals, state, memberCtx, activity, push);
+		}
+	}
+}
+
+function checkObjectVariableNotSetNode(
+	source: string,
+	node: BodyNode,
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+	state: Map<string, ObjectVariableState>,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (isInactiveNode(activity, node)) {
+		return;
+	}
+	if (node.kind === 'Statement') {
+		for (const hit of unsetObjectMemberAccesses(source, node.span, locals, state, memberCtx)) {
+			push(
+				'objectVariableNotSet',
+				`Object variable '${hit.name}' is Nothing before member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				hit.span,
+			);
+		}
+		const target = setAssignmentTarget(source, node.span);
+		if (target) {
+			const lower = target.name.toLowerCase();
+			if (locals.has(lower)) {
+				state.set(lower, setAssignmentValueIsNothing(target) ? 'unset' : 'set');
+				return;
+			}
+		}
+		for (const lower of objectVariablesPassedAsCallArguments(source, node.span, locals)) {
+			if (state.get(lower) === 'unset') {
+				state.set(lower, 'unknown');
+			}
+		}
+		return;
+	}
+	if (node.kind === 'WithBlock') {
+		const receiver = unsetWithObjectReceiver(source, node.span, locals, state);
+		if (receiver) {
+			push(
+				'objectVariableNotSet',
+				`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				receiver.span,
+			);
+		}
+	}
+	if ('body' in node && Array.isArray(node.body)) {
+		for (const lower of objectVariablesSetInsideBody(source, node.body, locals, activity)) {
+			if (state.get(lower) === 'unset') {
+				state.set(lower, 'unknown');
+			}
+		}
+	}
+}
+
+function localObjectVariablesFor(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	memberCtx: MemberCompletionContext,
+): Map<string, LocalObjectVariable> {
+	const out = new Map<string, LocalObjectVariable>();
+	const procSym = (symbols.root.children ?? []).find(
+		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
+	);
+	for (const child of procSym?.children ?? []) {
+		if (
+			child.kind !== 'localVariable' ||
+			child.visibility === 'Static' ||
+			child.isArray === true ||
+			!isKnownObjectAssignmentType(child.asType, memberCtx) ||
+			!child.asType
+		) {
+			continue;
+		}
+		out.set(child.name.toLowerCase(), { name: child.name, asType: child.asType });
+	}
+	return out;
+}
+
+function unsetObjectMemberAccesses(
+	source: string,
+	span: Span,
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+	state: ReadonlyMap<string, ObjectVariableState>,
+	memberCtx: MemberCompletionContext,
+): Array<{ name: string; span: Span }> {
+	const toks = statementTokens(source, span);
+	const out: Array<{ name: string; span: Span }> = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		if (toks[i + 1].rawText !== '.' || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		const name = tokenName(toks[i]);
+		if (!name) {
+			continue;
+		}
+		const lower = name.toLowerCase();
+		if (!locals.has(lower) || state.get(lower) !== 'unset') {
+			continue;
+		}
+		const member = toks[i + 2] ? tokenName(toks[i + 2]) : undefined;
+		if (
+			member &&
+			hasDefiniteMissingMember(source, span.start + toks[i + 1].end, member, memberCtx)
+		) {
+			continue;
+		}
+		out.push({
+			name,
+			span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+		});
+	}
+	return out;
+}
+
+function hasDefiniteMissingMember(
+	source: string,
+	dotEndOffset: number,
+	memberName: string,
+	memberCtx: MemberCompletionContext,
+): boolean {
+	const surface = resolveExhaustiveMemberSurface(source, dotEndOffset, memberCtx);
+	return (
+		surface !== undefined &&
+		!surface.members.some(
+			(candidate) => candidate.name.toLowerCase() === memberName.toLowerCase(),
+		)
+	);
+}
+
+function unsetWithObjectReceiver(
+	source: string,
+	span: Span,
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+	state: ReadonlyMap<string, ObjectVariableState>,
+): { name: string; span: Span } | undefined {
+	const header = blockHeaderLineSpan(source, span);
+	const toks = statementTokensAfterLeadingLabel(source, header);
+	if (tokenText(toks[0]) !== 'with' || toks.length !== 2) {
+		return undefined;
+	}
+	const name = tokenName(toks[1]);
+	if (!name) {
+		return undefined;
+	}
+	const lower = name.toLowerCase();
+	if (!locals.has(lower) || state.get(lower) !== 'unset') {
+		return undefined;
+	}
+	return {
+		name,
+		span: { start: header.start + toks[1].start, end: header.start + toks[1].end },
+	};
+}
+
+function setAssignmentValueIsNothing(
+	target: { valueTokens: readonly VbaToken[] },
+): boolean {
+	const toks = target.valueTokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	return toks.length === 1 && tokenText(toks[0]) === 'nothing';
+}
+
+function objectVariablesPassedAsCallArguments(
+	source: string,
+	span: Span,
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+): Set<string> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (toks.length < 2 || topLevelOperatorIndex(toks, '=') >= 0) {
+		return new Set();
+	}
+	const start = tokenText(toks[0]) === 'call' ? 1 : 0;
+	if (!tokenName(toks[start]) || toks[start + 1]?.rawText === '.') {
+		return new Set();
+	}
+	const out = new Set<string>();
+	for (let i = start + 1; i < toks.length; i++) {
+		if (toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
+			continue;
+		}
+		const name = tokenName(toks[i]);
+		const lower = name?.toLowerCase();
+		if (lower && locals.has(lower)) {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
+function objectVariablesSetInsideBody(
+	source: string,
+	body: readonly BodyNode[],
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+	activity: ConditionalActivityTracker | undefined,
+): Set<string> {
+	const out = new Set<string>();
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'Statement') {
+			const target = setAssignmentTarget(source, node.span);
+			const lower = target?.name.toLowerCase();
+			if (lower && locals.has(lower)) {
+				out.add(lower);
+			}
+		} else if ('body' in node && Array.isArray(node.body)) {
+			for (const lower of objectVariablesSetInsideBody(source, node.body, locals, activity)) {
+				out.add(lower);
+			}
+		}
 	}
 	return out;
 }

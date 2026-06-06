@@ -450,6 +450,19 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "object-variable-not-set",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE straight-line local object initialization model",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "object_variable_not_set_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "string-arithmetic-coercion",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE numeric-expression compatibility model",

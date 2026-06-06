@@ -423,6 +423,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	objectVariableNotSet: {
+		code: 'object-variable-not-set',
+		title: 'Object variable not set',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: "VBE runtime error 91: Object variable or With block variable not set",
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	stringArithmeticCoercion: {
 		code: 'string-arithmetic-coercion',
 		title: 'Nonnumeric string in numeric expression',

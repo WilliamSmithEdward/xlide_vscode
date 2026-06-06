@@ -442,6 +442,12 @@ Progress:
 - [x] Set scalar-target regression: `Set` assignments now have an exact
   oracle-backed guard for scalar `String` targets receiving object expressions
   such as `Set text = New Collection`; the declared target type owns the error.
+- [x] Object variable not set slice: straight-line local non-Static object
+  variables now produce a deterministic runtime diagnostic when used as member
+  or `With` receivers before any proven `Set`, or after `Set ... = Nothing`.
+  Parameters, module-level objects, `Static` locals, helper-call arguments,
+  branch-ambiguous state, unresolved object types, and inactive branches stay
+  quiet.
 
 Definition of done:
 

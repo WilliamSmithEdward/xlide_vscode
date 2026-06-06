@@ -3011,6 +3011,17 @@
       "source": "Public Enum ENeg_AmbiguousOne\n    NegAmbiguousValue = 1\nEnd Enum\n\nPublic Enum ENeg_AmbiguousTwo\n    NegAmbiguousValue = 2\nEnd Enum\n\nPublic Sub XlideOracleEntry()\n    Debug.Print NegAmbiguousValue\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "object_variable_not_set_runtime",
+      "description": "Runtime probe: member access on an uninitialized local Object variable raises runtime error 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim obj As Object\n    obj.ToString\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
