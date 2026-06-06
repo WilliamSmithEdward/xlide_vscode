@@ -4743,10 +4743,11 @@ function expressionCalls(
 	const toks = statementTokens(source, span);
 	const out: CallArguments[] = [];
 	for (let i = 0; i < toks.length - 1; i++) {
-		const name = tokenName(toks[i]);
-		if (!name || toks[i + 1].rawText !== '(') {
+		const callName = parenthesizedCallNameAt(toks, i);
+		if (!callName) {
 			continue;
 		}
+		const { name, parenIndex, nameEndIndex } = callName;
 		const qualifier =
 			i >= 2 && toks[i - 1].rawText === '.'
 				? tokenName(toks[i - 2])
@@ -4765,23 +4766,52 @@ function expressionCalls(
 		) {
 			continue;
 		}
-		const close = matchParenFrom(toks, i + 1);
+		const close = matchParenFrom(toks, parenIndex);
 		if (close < 0) {
 			continue;
 		}
-		const inner = toks.slice(i + 2, close);
+		const inner = toks.slice(parenIndex + 1, close);
 		const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
 		out.push({
 			name,
 			qualifier,
 			lookupKey,
-			nameSpan: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+			nameSpan: { start: span.start + toks[i].start, end: span.start + toks[nameEndIndex].end },
 			slots: split.slots,
 			slotSpans: split.spans,
 			sliceStart: span.start,
 		});
 	}
 	return out;
+}
+
+interface ParenthesizedCallName {
+	name: string;
+	parenIndex: number;
+	nameEndIndex: number;
+}
+
+function parenthesizedCallNameAt(
+	toks: readonly VbaToken[],
+	nameIndex: number,
+): ParenthesizedCallName | undefined {
+	const baseName = tokenName(toks[nameIndex]);
+	if (!baseName) {
+		return undefined;
+	}
+	const suffix = toks[nameIndex + 1];
+	if (
+		suffix?.rawText === '$' &&
+		toks[nameIndex].end === suffix.start &&
+		toks[nameIndex + 2]?.rawText === '(' &&
+		suffix.end === toks[nameIndex + 2].start
+	) {
+		return { name: `${baseName}$`, parenIndex: nameIndex + 2, nameEndIndex: nameIndex + 1 };
+	}
+	if (toks[nameIndex + 1]?.rawText === '(') {
+		return { name: baseName, parenIndex: nameIndex + 1, nameEndIndex: nameIndex };
+	}
+	return undefined;
 }
 
 interface BoundMemberCall {
@@ -5421,19 +5451,28 @@ function inferAtomicExpressionType(
 			};
 		}
 	}
-	if (name && toks[1]?.rawText === '(') {
-		const errorVariant = inferIntrinsicCverrErrorVariant(
-			toks,
-			sliceStart,
-			moduleSignatures,
-			sourceNames,
-		);
+	if (name) {
+		const callName = parenthesizedCallNameAt(toks, 0);
+		const errorVariant = callName?.parenIndex === 1
+			? inferIntrinsicCverrErrorVariant(
+				toks,
+				sliceStart,
+				moduleSignatures,
+				sourceNames,
+			)
+			: undefined;
 		if (errorVariant) {
 			return errorVariant;
 		}
-		const sig = callableSignatureFor(name, moduleSignatures, sourceNames);
-		if (sig?.returnType && matchParenFrom(toks, 1) === toks.length - 1) {
-			return { type: sig.returnType, label: `${name}(...) As ${sig.returnType}`, span };
+		if (callName) {
+			const sig = callableSignatureFor(callName.name, moduleSignatures, sourceNames);
+			if (sig?.returnType && matchParenFrom(toks, callName.parenIndex) === toks.length - 1) {
+				return {
+					type: sig.returnType,
+					label: `${callName.name}(...) As ${sig.returnType}`,
+					span: { start: span.start, end: sliceStart + toks[callName.nameEndIndex].end },
+				};
+			}
 		}
 	}
 	if (name && toks[1]?.rawText === '.') {

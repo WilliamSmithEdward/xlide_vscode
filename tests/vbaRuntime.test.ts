@@ -15,6 +15,7 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeFunction('MsgBox')?.name).toBe('MsgBox');
 		expect(resolveRuntimeFunction('msgbox')?.name).toBe('MsgBox');
 		expect(resolveRuntimeFunction('LEFT')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('Left$')?.returns).toBe('String');
 		expect(resolveRuntimeFunction('CLng')?.returns).toBe('Long');
 		expect(resolveRuntimeFunction('NotARealFunction')).toBeUndefined();
 		expect(resolveRuntimeObject('Err')?.type).toBe('VBA.ErrObject');
@@ -37,6 +38,7 @@ describe('VBA runtime metadata', () => {
 		for (const name of ['String', 'Date', 'Time', 'Error']) {
 			expect(resolveRuntimeFunction(name)).toBeUndefined();
 		}
+		expect(resolveRuntimeFunction('String$')?.signature).toBe('String$(Number, Character) As String');
 	});
 
 	it('includes verified gap-filled built-ins from the VBA library', () => {
@@ -154,11 +156,13 @@ describe('identifier completion - runtime built-ins', () => {
 			moduleName: 'M',
 		});
 		const left = got.find((item) => item.name === 'Left');
+		const leftString = got.find((item) => item.name === 'Left$');
 		expect(left?.detail).toBe('Left(String, Length) As String');
 		expect(left?.documentation).toContain('**VBA runtime function**');
 		expect(left?.documentation).toContain('```vba\nLeft(String, Length) As String\n```');
 		expect(left?.documentation).toContain('`String` As `String`');
 		expect(left?.documentation).toContain('`Length` As `Long`');
+		expect(leftString?.detail).toBe('Left$(String, Length) As String');
 
 		const errSrc = 'Sub T()\n    Er\nEnd Sub\n';
 		const errItems = resolveIdentifierCompletions(errSrc, errSrc.indexOf('Er') + 2, {

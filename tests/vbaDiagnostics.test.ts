@@ -3431,6 +3431,18 @@ describe('analyzeModule - argument type validation', () => {
 		expect(analyzeModule(src)).toEqual([]);
 	});
 
+	it('keeps string-suffixed Left and Right intrinsics quiet', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Debug.Print Left$("abcdef", 2)\n' +
+			'    Debug.Print Left("abcdef", 2)\n' +
+			'    Debug.Print Right$("abcdef", 2)\n' +
+			'    Debug.Print Right("abcdef", 2)\n' +
+			'End Sub\n';
+		expect(analyzeModule(src)).toEqual([]);
+	});
+
 	it('does not infer runtime parameter types from display names', () => {
 		const src = 'Sub T()\n    Randomize "bad"\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
@@ -3455,6 +3467,20 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].severity).toBe('error');
 		expect(spanText(src, hits[0])).toBe('MakeLabel');
 		expect(hits[0].message).toContain('MakeLabel(...) As String');
+	});
+
+	it('uses string-suffixed runtime aliases as argument types', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject Left$("abcdef", 2)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Left$');
+		expect(hits[0].message).toContain('Left$(...) As String');
 	});
 
 	it('uses parameterless Function and Property Get references as argument types', () => {

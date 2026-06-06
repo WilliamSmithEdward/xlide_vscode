@@ -117,6 +117,16 @@ describe('signature help - runtime built-ins', () => {
 		expect(info?.parameters.map((p) => p.label)).toEqual(['String', 'Length']);
 	});
 
+	it('offers string-suffixed runtime aliases', () => {
+		const left = help('Sub T()\ns = Left$(|\nEnd Sub');
+		expect(left?.label).toBe('Left$(String, Length) As String');
+		expect(left?.parameters.map((p) => p.label)).toEqual(['String', 'Length']);
+
+		const repeated = help('Sub T()\ns = String$(3, |\nEnd Sub');
+		expect(repeated?.label).toBe('String$(Number, Character) As String');
+		expect(repeated?.activeParameter).toBe(1);
+	});
+
 	it('does not offer DoEvents when it is used as an invalid explicit Call target', () => {
 		expect(help('Sub T()\nCall DoEvents(|\nEnd Sub')).toBeUndefined();
 		expect(help('Sub T()\nvalue = DoEvents(|\nEnd Sub')?.label).toBe(

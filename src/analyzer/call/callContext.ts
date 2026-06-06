@@ -402,6 +402,7 @@ function findParenCall(tokens: readonly VbaToken[]): VbaCallSite | undefined {
 	interface Frame {
 		isCall: boolean;
 		openIndex: number;
+		calleeIndex?: number;
 		commaCount: number;
 	}
 	const stack: Frame[] = [];
@@ -413,9 +414,8 @@ function findParenCall(tokens: readonly VbaToken[]): VbaCallSite | undefined {
 		}
 		const r = t.rawText;
 		if (r === '(') {
-			const prev = tokens[k - 1];
-			const isCall = !!prev && isIdentLike(prev);
-			stack.push({ isCall, openIndex: k, commaCount: 0 });
+			const calleeIndex = parenthesizedCallCalleeIndex(tokens, k);
+			stack.push({ isCall: calleeIndex !== undefined, openIndex: k, calleeIndex, commaCount: 0 });
 		} else if (r === ')') {
 			stack.pop();
 		} else if (r === ',' && stack.length > 0) {
@@ -425,18 +425,66 @@ function findParenCall(tokens: readonly VbaToken[]): VbaCallSite | undefined {
 	for (let i = stack.length - 1; i >= 0; i -= 1) {
 		if (stack[i].isCall) {
 			const open = stack[i].openIndex;
-			const callee = tokens[open - 1];
-			const isMember = open - 2 >= 0 && tokens[open - 2].rawText === '.';
+			const calleeIndex = stack[i].calleeIndex!;
+			const callee = tokens[calleeIndex];
+			const isMember = calleeIndex - 1 >= 0 && tokens[calleeIndex - 1].rawText === '.';
 			return {
-				calleeName: callee.rawText,
+				calleeName: parenthesizedCallCalleeName(tokens, calleeIndex),
 				isMember,
-				isExplicitCall: isExplicitCallTarget(tokens, open - 1),
-				calleeEndOffset: callee.end,
+				isExplicitCall: isExplicitCallTarget(tokens, calleeIndex),
+				calleeEndOffset: parenthesizedCallCalleeEnd(tokens, calleeIndex),
 				activeParameter: stack[i].commaCount,
 			};
 		}
 	}
 	return undefined;
+}
+
+function parenthesizedCallCalleeIndex(
+	tokens: readonly VbaToken[],
+	openIndex: number,
+): number | undefined {
+	const previous = tokens[openIndex - 1];
+	if (previous?.rawText === '$') {
+		const callee = tokens[openIndex - 2];
+		if (
+			callee &&
+			isIdentLike(callee) &&
+			callee.end === previous.start &&
+			previous.end === tokens[openIndex].start
+		) {
+			return openIndex - 2;
+		}
+		return undefined;
+	}
+	return previous && isIdentLike(previous) ? openIndex - 1 : undefined;
+}
+
+function parenthesizedCallCalleeName(
+	tokens: readonly VbaToken[],
+	calleeIndex: number,
+): string {
+	const callee = tokens[calleeIndex];
+	return hasStringFunctionSuffix(tokens, calleeIndex) ? `${callee.rawText}$` : callee.rawText;
+}
+
+function parenthesizedCallCalleeEnd(
+	tokens: readonly VbaToken[],
+	calleeIndex: number,
+): number {
+	return hasStringFunctionSuffix(tokens, calleeIndex)
+		? tokens[calleeIndex + 1].end
+		: tokens[calleeIndex].end;
+}
+
+function hasStringFunctionSuffix(
+	tokens: readonly VbaToken[],
+	calleeIndex: number,
+): boolean {
+	return (
+		tokens[calleeIndex + 1]?.rawText === '$' &&
+		tokens[calleeIndex].end === tokens[calleeIndex + 1].start
+	);
 }
 
 function findParenlessCall(
