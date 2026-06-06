@@ -5944,6 +5944,34 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		expect(spanText(src, hits[0])).toBe('values');
 	});
 
+	it('flags LBound and UBound on unallocated local dynamic arrays', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Debug.Print LBound(values)\n' +
+			'    Debug.Print UBound(values, 1)\n' +
+			'    Debug.Print VBA.LBound(values)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['values', 'values', 'values']);
+		expect(hits[0].message).toContain('LBound');
+		expect(hits[1].message).toContain('UBound');
+	});
+
+	it('accepts bound intrinsics after ReDim and non-intrinsic member calls', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    ReDim values(0 To 2)\n' +
+			'    Debug.Print LBound(values)\n' +
+			'    Debug.Print Helpers.LBound(values)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
 	it('keeps module-level arrays parameters Static locals and helper-touched arrays quiet', () => {
 		const src =
 			'Private moduleValues() As Long\n' +

@@ -6802,6 +6802,13 @@ function checkUnallocatedDynamicArrayAccessStatement(
 			hit.span,
 		);
 	}
+	for (const hit of unallocatedDynamicArrayBoundCalls(source, stmt.span, arrays, state)) {
+		push(
+			'unallocatedDynamicArrayAccess',
+			`Dynamic array '${hit.name}' is not allocated before ${hit.functionName}. This will raise Run-time error '9': Subscript out of range.`,
+			hit.span,
+		);
+	}
 	const assignment = bareAssignmentTarget(source, stmt.span);
 	const assignmentLower = assignment?.name.toLowerCase();
 	if (assignmentLower && arrays.has(assignmentLower)) {
@@ -6860,6 +6867,46 @@ function unallocatedDynamicArrayIndexAccesses(
 		out.push({
 			name,
 			span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+		});
+	}
+	return out;
+}
+
+function unallocatedDynamicArrayBoundCalls(
+	source: string,
+	span: Span,
+	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
+	state: ReadonlyMap<string, DynamicArrayAllocationState>,
+): Array<{ functionName: string; name: string; span: Span }> {
+	const toks = statementTokens(source, span);
+	const out: Array<{ functionName: string; name: string; span: Span }> = [];
+	for (let i = 0; i < toks.length - 2; i++) {
+		const functionName = tokenName(toks[i]);
+		const lowerFunction = functionName?.toLowerCase();
+		if (lowerFunction !== 'lbound' && lowerFunction !== 'ubound') {
+			continue;
+		}
+		if (toks[i + 1]?.rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0) {
+			continue;
+		}
+		const split = splitArgSlots(toks.slice(i + 2, close), span.start);
+		const firstSlot = split.slots[0] ?? [];
+		if (firstSlot.length !== 1) {
+			continue;
+		}
+		const name = tokenName(firstSlot[0]);
+		const lower = name?.toLowerCase();
+		if (!name || !lower || !arrays.has(lower) || state.get(lower) !== 'unallocated') {
+			continue;
+		}
+		out.push({
+			functionName: functionName!,
+			name,
+			span: split.spans[0] ?? { start: span.start + firstSlot[0].start, end: span.start + firstSlot[0].end },
 		});
 	}
 	return out;
