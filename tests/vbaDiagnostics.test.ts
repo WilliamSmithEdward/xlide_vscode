@@ -2808,6 +2808,37 @@ describe('analyzeModule - argument type validation', () => {
 		expect(byCode(analyzeModule(src), 'byref-argument-type-mismatch')).toHaveLength(0);
 	});
 
+	it('uses module #Const activity when checking ByRef exactness in conditional branches', () => {
+		const src =
+			'#Const NegActiveBranch = True\n' +
+			'#Const NegInactiveBranch = False\n' +
+			'Public Sub NegSupport01_NeedsLong(ByRef value As Long)\n' +
+			'End Sub\n' +
+			'#If NegActiveBranch Then\n' +
+			'Public Sub NegCond01_ActiveInvalidBranch()\n' +
+			'    Dim amount As Integer\n' +
+			'    NegSupport01_NeedsLong amount\n' +
+			'End Sub\n' +
+			'#Else\n' +
+			'Public Sub NegCond02_InactiveAlternateBranch()\n' +
+			'End Sub\n' +
+			'#End If\n' +
+			'#If NegInactiveBranch Then\n' +
+			'Public Sub NegCond03_InactiveInvalidBranch()\n' +
+			'    Dim amount As Integer\n' +
+			'    NegSupport01_NeedsLong amount\n' +
+			'End Sub\n' +
+			'#Else\n' +
+			'Public Sub NegCond04_ActiveValidBranch()\n' +
+			'End Sub\n' +
+			'#End If\n';
+		const hits = byCode(analyzeModule(src), 'byref-argument-type-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('amount');
+		expect(hits[0].message).toContain('NegSupport01_NeedsLong');
+	});
+
 	it('uses unique exported project signatures for ByRef exactness', () => {
 		const caller =
 			'Public Sub T()\n' +
@@ -5152,7 +5183,7 @@ describe('analyzeModule - division by zero', () => {
 			'End Sub\n';
 		expect(
 			byCode(analyzeModule(src, {
-				conditionalCompilation: { constants: { Enabled: false } },
+				conditionalCompilation: { compilerConstants: { Enabled: false } },
 			}), 'division-by-zero'),
 		).toHaveLength(0);
 	});

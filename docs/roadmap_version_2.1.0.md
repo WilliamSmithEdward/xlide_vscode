@@ -189,10 +189,12 @@ Progress:
   `Win64 = True`, `Win32 = False`, `Mac = False`) while preserving explicit
   compiler-constant overrides, so paired `#If VBA7` and `#If Win64`
   declarations do not leak duplicate or ambiguous symbols into the active
-  analysis path. `Option Explicit` also recognizes the `VBA` namespace and
-  common compare aliases, and typed Function/Property Get fallthrough or
-  recovered conditionally split `#If VBA7` Function headers no longer emit a
-  return-assignment warning.
+  analysis path. Module `#Const` values now drive active-branch semantic checks
+  such as ByRef exactness in live mode; inactive branches stay quiet, with
+  strict all-branches analysis kept as a separate future policy. `Option
+  Explicit` also recognizes the `VBA` namespace and common compare aliases, and
+  typed Function/Property Get fallthrough or recovered conditionally split
+  `#If VBA7` Function headers no longer emit a return-assignment warning.
 - [x] Workbook-analysis fixture slice: machine-readable project fixtures can now
   assert flattened workbook diagnostics, including exact module/line/severity
   and quick-fix evidence for expected problems. The first stdvba canary keeps
