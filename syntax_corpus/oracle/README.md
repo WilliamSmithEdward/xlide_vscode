@@ -152,8 +152,10 @@ to detect the dialog and clean up afterward.
 name an `entryPoint`. The worker starts the same Win32 dialog watcher before
 running the macro; a `Microsoft Visual Basic` dialog with `Run-time error` text
 is recorded as `outcome: "rejected"` and dismissed with the dialog's `End`
-button. Use runtime fixtures sparingly, only when a deterministic runtime error
-changes diagnostic severity or corpus truth.
+button. The dismiss fallback also sends standard OK/Cancel/Abort dialog commands
+because VBE runtime dialogs vary in their button command IDs. Use runtime
+fixtures sparingly, only when a deterministic runtime error changes diagnostic
+severity or corpus truth.
 
 During compile fixtures, the worker starts a Win32 dialog watcher before invoking
 VBE Compile. A dialog owned by the disposable Excel process with title

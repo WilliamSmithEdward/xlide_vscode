@@ -540,6 +540,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	unallocatedDynamicArrayAccess: {
+		code: 'unallocated-dynamic-array-access',
+		title: 'Dynamic array is not allocated',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: "VBE runtime error 9: Subscript out of range",
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	invalidEraseTarget: {
 		code: 'invalid-erase-target',
 		title: 'Erase target must be a variable or array name',

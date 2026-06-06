@@ -3022,6 +3022,17 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim obj As Object\n    obj.ToString\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "unallocated_dynamic_array_index_runtime",
+      "description": "Runtime probe: indexing a local dynamic array before ReDim allocation raises runtime error 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim values() As Long\n    Debug.Print values(0)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

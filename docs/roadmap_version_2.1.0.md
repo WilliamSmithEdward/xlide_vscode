@@ -427,6 +427,12 @@ Progress:
   a known non-final dimension, the known dimension count, or a known
   final-dimension lower bound. Last-dimension upper-bound-only resizes stay
   quiet, and shapes learned inside nested blocks do not leak outward.
+- [x] Unallocated dynamic array access slice: straight-line local non-Static
+  dynamic arrays now produce a deterministic runtime diagnostic when indexed
+  before `ReDim`, or after `Erase`. Module-level arrays, parameters, `Static`
+  locals, fixed arrays, helper-call arguments, assignment-touched arrays,
+  nested runtime-block touches, unresolved names, and inactive branches stay
+  quiet.
 - [x] Array Erase hardening slice: active `Erase` statements now reject
   target-list entries that are clearly arbitrary expressions, such as literals
   or arithmetic. Binder-backed Erase checks now also reject simple targets that

@@ -355,6 +355,7 @@ function runRules(
 	checkDimInitializer(source, mod, activity, push);
 	checkInvalidRedimTargets(source, mod, activity, push);
 	checkRedimPreserveDimensions(source, mod, activity, push);
+	checkUnallocatedDynamicArrayAccess(source, mod, activity, push);
 	checkEraseTargets(source, mod, symbols, activity, push);
 	checkTypeDeclarationCharacterAsClause(mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
@@ -6708,6 +6709,248 @@ function redimPreserveDimensionMismatch(
 		}
 	}
 	return undefined;
+}
+
+interface DynamicArrayDeclaration {
+	name: string;
+	span: Span;
+}
+
+type DynamicArrayAllocationState = 'unallocated' | 'allocated' | 'unknown';
+
+/**
+ * Rule: a local dynamic array declared as `Dim values() As T` has no storage
+ * until ReDim allocates it. This tracks only straight-line local state; nested
+ * runtime blocks and helper calls make the state unknown instead of guessed.
+ */
+function checkUnallocatedDynamicArrayAccess(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const arrays = localDynamicArrayDeclarationsForBody(member.body, activity);
+		if (arrays.size === 0) {
+			continue;
+		}
+		const state = new Map<string, DynamicArrayAllocationState>();
+		for (const lower of arrays.keys()) {
+			state.set(lower, 'unallocated');
+		}
+		checkUnallocatedDynamicArrayAccessInBody(source, member.body, arrays, state, activity, push);
+	}
+}
+
+function checkUnallocatedDynamicArrayAccessInBody(
+	source: string,
+	body: readonly BodyNode[],
+	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
+	state: Map<string, DynamicArrayAllocationState>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'Statement') {
+			checkUnallocatedDynamicArrayAccessStatement(source, node, arrays, state, push);
+			continue;
+		}
+		if ('body' in node && Array.isArray(node.body)) {
+			for (const lower of dynamicArraysTouchedInsideBody(source, node.body, arrays, activity)) {
+				state.set(lower, 'unknown');
+			}
+		}
+	}
+}
+
+function checkUnallocatedDynamicArrayAccessStatement(
+	source: string,
+	stmt: StatementNode,
+	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
+	state: Map<string, DynamicArrayAllocationState>,
+	push: PushFn,
+): void {
+	const redimmed = redimStatementTargets(source, stmt.span);
+	if (redimmed.length > 0) {
+		for (const target of redimmed) {
+			const lower = target.name.toLowerCase();
+			if (arrays.has(lower) && target.dimensions.length > 0) {
+				state.set(lower, 'allocated');
+			}
+		}
+		return;
+	}
+	const erased = eraseStatementSimpleTargets(source, stmt.span);
+	if (erased.size > 0) {
+		for (const lower of erased) {
+			if (arrays.has(lower)) {
+				state.set(lower, 'unallocated');
+			}
+		}
+		return;
+	}
+	for (const hit of unallocatedDynamicArrayIndexAccesses(source, stmt.span, arrays, state)) {
+		push(
+			'unallocatedDynamicArrayAccess',
+			`Dynamic array '${hit.name}' is not allocated before indexed access. This will raise Run-time error '9': Subscript out of range.`,
+			hit.span,
+		);
+	}
+	const assignment = bareAssignmentTarget(source, stmt.span);
+	const assignmentLower = assignment?.name.toLowerCase();
+	if (assignmentLower && arrays.has(assignmentLower)) {
+		state.set(assignmentLower, 'unknown');
+	}
+	for (const lower of dynamicArraysPassedAsCallArguments(source, stmt.span, arrays)) {
+		if (state.get(lower) === 'unallocated') {
+			state.set(lower, 'unknown');
+		}
+	}
+}
+
+function localDynamicArrayDeclarationsForBody(
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, DynamicArrayDeclaration> {
+	const out = new Map<string, DynamicArrayDeclaration>();
+	forEachVariableGroup(body as BodyNode[], (group) => {
+		if (group.isConst || group.modifier === 'Static') {
+			return;
+		}
+		for (const decl of group.declarations) {
+			if (!decl.isArray || decl.arrayBounds) {
+				continue;
+			}
+			const lower = decl.name.toLowerCase();
+			if (!out.has(lower)) {
+				out.set(lower, { name: decl.name, span: decl.span });
+			}
+		}
+	}, activity);
+	return out;
+}
+
+function unallocatedDynamicArrayIndexAccesses(
+	source: string,
+	span: Span,
+	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
+	state: ReadonlyMap<string, DynamicArrayAllocationState>,
+): Array<{ name: string; span: Span }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const out: Array<{ name: string; span: Span }> = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		if (toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		const name = tokenName(toks[i]);
+		const lower = name?.toLowerCase();
+		if (!name || !lower || !arrays.has(lower) || state.get(lower) !== 'unallocated') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close <= i + 1) {
+			continue;
+		}
+		out.push({
+			name,
+			span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+		});
+	}
+	return out;
+}
+
+function dynamicArraysPassedAsCallArguments(
+	source: string,
+	span: Span,
+	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
+): Set<string> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (toks.length < 2 || topLevelOperatorIndex(toks, '=') >= 0) {
+		return new Set();
+	}
+	const start = tokenText(toks[0]) === 'call' ? 1 : 0;
+	if (!tokenName(toks[start]) || toks[start + 1]?.rawText === '.') {
+		return new Set();
+	}
+	const out = new Set<string>();
+	for (let i = start + 1; i < toks.length; i++) {
+		if (toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
+			continue;
+		}
+		const name = tokenName(toks[i]);
+		const lower = name?.toLowerCase();
+		if (lower && arrays.has(lower)) {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
+function dynamicArraysTouchedInsideBody(
+	source: string,
+	body: readonly BodyNode[],
+	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
+	activity: ConditionalActivityTracker | undefined,
+): Set<string> {
+	const out = new Set<string>();
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'Statement') {
+			for (const target of redimStatementTargets(source, node.span)) {
+				const lower = target.name.toLowerCase();
+				if (arrays.has(lower)) {
+					out.add(lower);
+				}
+			}
+			for (const lower of eraseStatementSimpleTargets(source, node.span)) {
+				if (arrays.has(lower)) {
+					out.add(lower);
+				}
+			}
+			const assignment = bareAssignmentTarget(source, node.span);
+			const assignmentLower = assignment?.name.toLowerCase();
+			if (assignmentLower && arrays.has(assignmentLower)) {
+				out.add(assignmentLower);
+			}
+			for (const lower of dynamicArraysPassedAsCallArguments(source, node.span, arrays)) {
+				out.add(lower);
+			}
+			continue;
+		}
+		if ('body' in node && Array.isArray(node.body)) {
+			for (const lower of dynamicArraysTouchedInsideBody(source, node.body, arrays, activity)) {
+				out.add(lower);
+			}
+		}
+	}
+	return out;
+}
+
+function eraseStatementSimpleTargets(source: string, span: Span): Set<string> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'erase') {
+		return new Set();
+	}
+	const out = new Set<string>();
+	for (const group of splitTopLevelTokenGroups(toks.slice(1), ',')) {
+		const content = group.filter((tok) => tok.kind !== 'comment');
+		if (content.length !== 1) {
+			continue;
+		}
+		const name = tokenName(content[0]);
+		if (name) {
+			out.add(name.toLowerCase());
+		}
+	}
+	return out;
 }
 
 /**

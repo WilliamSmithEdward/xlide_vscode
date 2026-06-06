@@ -38,6 +38,8 @@ public static class XlideVbeDialogWatcher {
     private const int WM_COMMAND = 0x0111;
     private const int BM_CLICK = 0x00F5;
     private const int IDOK = 1;
+    private const int IDCANCEL = 2;
+    private const int IDABORT = 3;
     private const uint SMTO_ABORTIFHUNG = 0x0002;
     private const int SW_SHOW = 5;
     private const int SW_RESTORE = 9;
@@ -328,6 +330,8 @@ public static class XlideVbeDialogWatcher {
                 SendButtonClick(button);
             }
             SendDialogCommand(hWnd, IDOK, IntPtr.Zero);
+            SendDialogCommand(hWnd, IDCANCEL, IntPtr.Zero);
+            SendDialogCommand(hWnd, IDABORT, IntPtr.Zero);
             SendWindowClose(hWnd);
             Thread.Sleep(100);
         }

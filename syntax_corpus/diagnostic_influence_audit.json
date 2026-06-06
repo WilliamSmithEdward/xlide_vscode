@@ -665,6 +665,19 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "unallocated-dynamic-array-access",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus VBA dynamic array allocation semantics",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "unallocated_dynamic_array_index_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Active coverage is intentionally straight-line: local non-Static dynamic arrays start unallocated, active ReDim statements allocate them, Erase resets them, and simple indexed access while unallocated reports runtime error 9. Module-level arrays, parameters, Static locals, fixed-size arrays, helper-call arguments, assignment-touched arrays, nested runtime-block touches, unresolved names, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_090 uninitialized dynamic array index case is covered by the focused runtime oracle fixture.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "invalid-erase-target",
       "status": "spec-derived",
       "sourceOfTruth": "VBA Erase statement target-list syntax",

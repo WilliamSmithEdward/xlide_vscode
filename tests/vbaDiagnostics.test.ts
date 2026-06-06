@@ -5911,6 +5911,84 @@ describe('analyzeModule - array ReDim', () => {
 	});
 });
 
+describe('analyzeModule - unallocated dynamic array access', () => {
+	it('flags straight-line local dynamic array indexed before ReDim', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Debug.Print values(0)\n' +
+			'    values(1) = 2\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['values', 'values']);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain("Run-time error '9'");
+	});
+
+	it('accepts allocated and fixed arrays but flags again after Erase', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Dim fixedValues(0 To 1) As Long\n' +
+			'    ReDim values(0 To 2)\n' +
+			'    Debug.Print values(0)\n' +
+			'    Debug.Print fixedValues(0)\n' +
+			'    Erase values\n' +
+			'    Debug.Print values(0)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('values');
+	});
+
+	it('keeps module-level arrays parameters Static locals and helper-touched arrays quiet', () => {
+		const src =
+			'Private moduleValues() As Long\n' +
+			'Private Sub Fill(ByRef target() As Long)\n' +
+			'End Sub\n' +
+			'Public Sub T(ByRef paramValues() As Long)\n' +
+			'    Static cached() As Long\n' +
+			'    Dim helperValues() As Long\n' +
+			'    Fill helperValues\n' +
+			'    Debug.Print moduleValues(0)\n' +
+			'    Debug.Print paramValues(0)\n' +
+			'    Debug.Print cached(0)\n' +
+			'    Debug.Print helperValues(0)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('stays quiet after nested block allocation makes straight-line state unknown', () => {
+		const src =
+			'Public Sub T(ByVal ready As Boolean)\n' +
+			'    Dim values() As Long\n' +
+			'    If ready Then\n' +
+			'        ReDim values(0 To 1)\n' +
+			'    End If\n' +
+			'    Debug.Print values(0)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('ignores inactive conditional-compilation indexed access', () => {
+		const src =
+			'#Const Enabled = False\n' +
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'#If Enabled Then\n' +
+			'    Debug.Print values(0)\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - array Erase', () => {
 	it('flags an Erase arithmetic expression', () => {
 		const src =
