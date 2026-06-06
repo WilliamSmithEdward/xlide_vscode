@@ -387,6 +387,10 @@ Progress:
   placement diagnostics are suppressed inside malformed conditional-compilation
   blocks so the primary branch-order error does not create misleading cascade
   squiggles.
+- [x] Module declaration recovery refinement: nested `Type` and `Enum` blocks
+  inside procedures are now consumed as invalid procedure-body statements, so
+  `module-declaration-in-procedure` reports the opening `Type`/`Enum` and
+  misleading `End Sub` outside-procedure cascades stay quiet.
 - [x] For/Next block hardening slice: parser-backed `ForBlock` metadata now
   records simple opener and closer control variables, and active `Next name`
   statements now produce a red diagnostic when the name does not match the
@@ -423,8 +427,10 @@ Progress:
   quiet, and shapes learned inside nested blocks do not leak outward.
 - [x] Array Erase hardening slice: active `Erase` statements now reject
   target-list entries that are clearly arbitrary expressions, such as literals
-  or arithmetic, while variable-like targets stay quiet until array-ness is
-  proven by a deeper binder slice.
+  or arithmetic. Binder-backed Erase checks now also reject simple targets that
+  resolve to known non-Variant scalar declarations such as `Object` or `Long`;
+  arrays, `Variant`, implicit Variant, unresolved names, non-simple targets, and
+  inactive branches stay quiet.
 - [x] Type-declaration character slice: legacy suffix-only declarations such as
   `name$`, `total&`, and `GetName$()` now normalize to the base name and inferred
   suffix type. VBE-rejected suffix-plus-`As` declarations now report a red

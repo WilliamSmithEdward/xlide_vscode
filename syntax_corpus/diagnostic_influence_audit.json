@@ -192,14 +192,16 @@
       "sourceOfTruth": "MS-VBAL 5.2 module/procedure metadata and declarations plus Excel/VBE compile oracle",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "indented_attribute_inside_procedure_compile"
+        "indented_attribute_inside_procedure_compile",
+        "type_inside_procedure_compile",
+        "enum_inside_procedure_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md",
         "xlide_vba_legacy_visible_corpus_edges.md"
       ],
-      "notes": "Active coverage has two layers: semantic body scans catch completed module-only statement forms that remain inside parsed procedure bodies, including Option, Attribute lines outside exported-source metadata mode, DefType family statements, and Public/Private/Friend/Global declaration forms; structural analysis catches indented nested Type, Enum, Declare, and procedure declarations that otherwise look block-balanced or break parser recovery. Related verified AddFromString/live-style probes member_attribute_after_header_addfromstring_compile and member_attribute_after_executable_addfromstring_compile reject visible member Attribute lines as Syntax error; XLIDE still accepts unindented exported-source member Attribute metadata targeting the current procedure only after a module-level VB_ Attribute marker such as Attribute VB_Name has put the parser in exported metadata mode. Same-indent next members remain treated as missing-closer recovery to avoid noisy false positives.",
+      "notes": "Active coverage has two layers: semantic body scans catch completed module-only statement forms that remain inside parsed procedure bodies, including Option, Attribute lines outside exported-source metadata mode, DefType family statements, and Public/Private/Friend/Global declaration forms; parser recovery consumes nested Type and Enum blocks as invalid procedure-body statements so the Type/Enum diagnostic supersedes misleading End Sub cascade errors, while structural analysis still catches nested Declare and procedure declarations that otherwise look block-balanced or break parser recovery. Related verified AddFromString/live-style probes member_attribute_after_header_addfromstring_compile and member_attribute_after_executable_addfromstring_compile reject visible member Attribute lines as Syntax error; focused Type/Enum probes reject as Invalid inside procedure. XLIDE still accepts unindented exported-source member Attribute metadata targeting the current procedure only after a module-level VB_ Attribute marker such as Attribute VB_Name has put the parser in exported metadata mode. Same-indent next members remain treated as missing-closer recovery to avoid noisy false positives.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -660,6 +662,23 @@
         "excel_vba_analysis_final_hardening_cases.md"
       ],
       "notes": "Active coverage is syntax-shaped and rejects target-list entries that are plainly expressions, including literals and operator expressions. Variable-like unresolved names stay silent because proving that a target is actually an array belongs to a later binder-backed slice.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "erase-requires-array",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle plus VBA Erase target semantics",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "erase_object_scalar_compile",
+        "erase_long_scalar_compile",
+        "erase_variant_scalar_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [
+        "excel_vba_analysis_final_hardening_cases.md"
+      ],
+      "notes": "Active coverage uses procedure declaration-shape environments and reports simple Erase targets declared as known non-Variant scalar values, including Object and intrinsic scalars. Arrays, scalar Variant, implicit Variant, unresolved names, non-simple member/index targets, and inactive branches stay silent. Oracle controls prove scalar Variant compiles while Object and Long scalar targets reject as Expected array.",
       "diagnosticKind": "compile-error"
     },
     {

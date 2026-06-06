@@ -1485,6 +1485,26 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['DefStr']);
 	});
 
+	it('flags Type and Enum blocks inside procedure bodies without cascading to End Sub', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Type TInside\n' +
+			'        Value As Long\n' +
+			'    End Type\n' +
+			'    Enum EInside\n' +
+			'        A = 1\n' +
+			'    End Enum\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'module-declaration-in-procedure');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Type', 'Enum']);
+		expect(hits[0].message).toContain('Type blocks');
+		expect(hits[1].message).toContain('Enum blocks');
+		expect(byCode(diagnostics, 'statement-outside-procedure')).toHaveLength(0);
+	});
+
 	it('accepts module declarations at module level and procedure-local declarations', () => {
 		const src =
 			'Option Explicit\n' +
@@ -5800,6 +5820,66 @@ describe('analyzeModule - array Erase', () => {
 			'    Erase Values, OtherValues\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'invalid-erase-target')).toHaveLength(0);
+	});
+
+	it('flags Erase of declared non-Variant scalar variables', () => {
+		const src =
+			'Private ModuleValue As Long\n' +
+			'Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Dim Value As Long\n' +
+			'    Erase obj, Value, ModuleValue\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'erase-requires-array');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['obj', 'Value', 'ModuleValue']);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain('array or Variant');
+		expect(hits[0].message).toContain('Object');
+	});
+
+	it('accepts Erase of arrays, Variants, unresolved names, and non-simple targets', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Values() As Long\n' +
+			'    Dim FixedValues(1 To 3) As Long\n' +
+			'    Dim Flexible As Variant\n' +
+			'    Dim ImplicitVariant\n' +
+			'    Erase Values, FixedValues, Flexible, ImplicitVariant, UnknownValues\n' +
+			'    Erase Settings.Values, Values(1)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'erase-requires-array')).toHaveLength(0);
+	});
+
+	it('uses the active conditional branch when checking Erase scalar targets', () => {
+		const src =
+			'Sub T()\n' +
+			'#If VBA7 Then\n' +
+			'    Dim Values As Long\n' +
+			'#Else\n' +
+			'    Dim Values() As Long\n' +
+			'#End If\n' +
+			'    Erase Values\n' +
+			'End Sub\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: true } },
+				}),
+				'erase-requires-array',
+			),
+		).toHaveLength(1);
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { VBA7: false } },
+				}),
+				'erase-requires-array',
+			),
+		).toHaveLength(0);
 	});
 });
 

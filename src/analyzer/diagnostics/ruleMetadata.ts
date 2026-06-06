@@ -539,6 +539,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL Erase statement',
 		confidence: 'high',
 	},
+	eraseRequiresArray: {
+		code: 'erase-requires-array',
+		title: 'Erase target must be array or Variant',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL Erase statement / VBE oracle: Expected array',
+		confidence: 'high',
+	},
 	typeDeclarationCharacterAsClause: {
 		code: 'type-declaration-character-as-clause',
 		title: 'Invalid type-declaration character with As',

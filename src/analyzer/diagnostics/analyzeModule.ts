@@ -355,7 +355,7 @@ function runRules(
 	checkDimInitializer(source, mod, activity, push);
 	checkInvalidRedimTargets(source, mod, activity, push);
 	checkRedimPreserveDimensions(source, mod, activity, push);
-	checkEraseTargets(source, mod, activity, push);
+	checkEraseTargets(source, mod, symbols, activity, push);
 	checkTypeDeclarationCharacterAsClause(mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
@@ -2104,6 +2104,15 @@ function moduleDeclarationStatementInProcedure(
 		return {
 			label: `${first.canonicalText ?? first.rawText} statements`,
 			span: absoluteSpan(span, first),
+		};
+	}
+	const modifierCount = leadingDeclarationModifierCount(toks);
+	const declarationHead = tokenText(toks[modifierCount]);
+	if (declarationHead === 'type' || declarationHead === 'enum') {
+		const tok = toks[modifierCount];
+		return {
+			label: declarationHead === 'type' ? 'Type blocks' : 'Enum blocks',
+			span: tok ? absoluteSpan(span, tok) : absoluteSpan(span, first),
 		};
 	}
 	if (PROCEDURE_BODY_MODULE_DECLARATION_MODIFIERS.has(head)) {
@@ -6461,6 +6470,7 @@ function redimPreserveDimensionMismatch(
 function checkEraseTargets(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -6468,11 +6478,19 @@ function checkEraseTargets(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			for (const hit of invalidEraseTargets(source, stmt.span)) {
 				push(
 					'invalidEraseTarget',
 					`Erase target must be a variable or array name, not an arbitrary expression.`,
+					hit.span,
+				);
+			}
+			for (const hit of eraseScalarTargets(source, stmt.span, shapes)) {
+				push(
+					'eraseRequiresArray',
+					`Erase target '${hit.name}' must be an array or Variant, but it is declared As ${hit.asType}.`,
 					hit.span,
 				);
 			}
@@ -6495,6 +6513,40 @@ function invalidEraseTargets(source: string, span: Span): Array<{ span: Span }> 
 			continue;
 		}
 		out.push({ span: tokenGroupSpan(span, content) });
+	}
+	return out;
+}
+
+function eraseScalarTargets(
+	source: string,
+	span: Span,
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+): Array<{ name: string; span: Span; asType: string }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'erase') {
+		return [];
+	}
+	const out: Array<{ name: string; span: Span; asType: string }> = [];
+	for (const group of splitTopLevelTokenGroups(toks.slice(1), ',')) {
+		const content = group.filter((tok) => tok.kind !== 'comment');
+		if (content.length !== 1) {
+			continue;
+		}
+		const name = tokenName(content[0]);
+		if (!name) {
+			continue;
+		}
+		const shape = shapes.get(name.toLowerCase());
+		if (!shape || shape.isArray || !shape.asType) {
+			continue;
+		}
+		const normalized = normalizeType(shape.asType);
+		if (!normalized || normalized === 'variant') {
+			continue;
+		}
+		if (normalized === 'object' || isKnownScalarType(normalized)) {
+			out.push({ name, span: tokenGroupSpan(span, content), asType: shape.asType });
+		}
 	}
 	return out;
 }

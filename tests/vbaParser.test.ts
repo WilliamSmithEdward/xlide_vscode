@@ -478,6 +478,26 @@ describe('parseModule - error recovery (Phase 3 acceptance)', () => {
 		expect(m.diagnostics.some((d) => /missing End If/i.test(d.message))).toBe(true);
 	});
 
+	it('keeps a procedure closed after invalid nested Type and Enum blocks', () => {
+		const src =
+			'Sub F()\n' +
+			'    Type TInside\n' +
+			'        Value As Long\n' +
+			'    End Type\n' +
+			'    Enum EInside\n' +
+			'        A = 1\n' +
+			'    End Enum\n' +
+			'End Sub\n';
+		const m = parseModule(src);
+		const proc = m.members[0] as ProcedureNode;
+
+		expect(m.members).toHaveLength(1);
+		expect(proc.kind).toBe('Procedure');
+		expect(proc.closed).toBe(true);
+		expect(proc.body.map((node) => node.kind)).toEqual(['Statement', 'Statement']);
+		expect(src.slice(proc.span.start, proc.span.end)).toContain('End Sub');
+	});
+
 	it('reports an unclosed Type block', () => {
 		const m = parseModule('Type T\n    X As Long\n');
 		expect(m.diagnostics.some((d) => /missing End Type/i.test(d.message))).toBe(true);

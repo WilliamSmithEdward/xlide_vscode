@@ -2740,6 +2740,56 @@
       "diagnosticMeaning": "compile-error"
     },
     {
+      "id": "erase_object_scalar_compile",
+      "description": "Compile probe: Erase rejects a scalar Object variable as Expected array.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim obj As Object\n    Erase obj\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "erase_long_scalar_compile",
+      "description": "Compile probe: Erase rejects a scalar Long variable as Expected array.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Value As Long\n    Erase Value\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "erase_variant_scalar_compile",
+      "description": "Compile control: Erase accepts a scalar Variant variable.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Value As Variant\n    Erase Value\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "type_inside_procedure_compile",
+      "description": "Compile probe: a Type block inside a procedure is rejected as Invalid inside procedure.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Type TInside\n        Value As Long\n    End Type\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "enum_inside_procedure_compile",
+      "description": "Compile probe: an Enum block inside a procedure is rejected as Invalid inside procedure.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Enum EInside\n        A = 1\n    End Enum\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
       "id": "redim_preserve_nonfinal_dimension_runtime",
       "description": "Runtime probe: ReDim Preserve on a multidimensional dynamic array cannot resize a non-final dimension.",
       "provenance": "vbe-oracle-verified",

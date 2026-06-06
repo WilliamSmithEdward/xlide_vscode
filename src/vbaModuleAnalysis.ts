@@ -180,11 +180,35 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         // Keep analysis non-throwing while the user is typing malformed VBA.
     }
 
+    const deduplicatedSuppressedDiagnostics = deduplicateDiagnostics(suppressedDiagnostics);
     return {
-        diagnostics,
-        suppressedDiagnostics,
-        suppressedCount: suppressedDiagnostics.length,
+        diagnostics: deduplicateDiagnostics(diagnostics),
+        suppressedDiagnostics: deduplicatedSuppressedDiagnostics,
+        suppressedCount: deduplicatedSuppressedDiagnostics.length,
     };
+}
+
+function deduplicateDiagnostics(
+    diagnostics: readonly VbaModuleAnalysisDiagnostic[],
+): VbaModuleAnalysisDiagnostic[] {
+    const result: VbaModuleAnalysisDiagnostic[] = [];
+    const indexByKey = new Map<string, number>();
+    for (const diagnostic of diagnostics) {
+        const key = diagnosticIdentityKey(diagnostic);
+        const existingIndex = indexByKey.get(key);
+        if (existingIndex === undefined) {
+            indexByKey.set(key, result.length);
+            result.push(diagnostic);
+            continue;
+        }
+        // Later passes carry richer analyzer-specific wording for the same rule/span.
+        result[existingIndex] = diagnostic;
+    }
+    return result;
+}
+
+function diagnosticIdentityKey(diagnostic: VbaModuleAnalysisDiagnostic): string {
+    return `${diagnostic.code ?? ''}:${diagnostic.span.start}:${diagnostic.span.end}`;
 }
 
 function inactiveConditionalLinePredicate(

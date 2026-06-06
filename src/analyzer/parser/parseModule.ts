@@ -728,6 +728,11 @@ class Parser {
 				body.push(item);
 				continue;
 			}
+			const nestedModuleBlock = this.nestedTypeOrEnumBlockKind(stmt);
+			if (nestedModuleBlock) {
+				body.push(this.parseInvalidNestedModuleBlockStatement(nestedModuleBlock, [expected]));
+				continue;
+			}
 			// Recovery: a new module-level construct means the End was forgotten.
 			if (this.isModuleLevelStarter(stmt)) {
 				if (
@@ -934,6 +939,38 @@ class Parser {
 		return this.makeStatement(stmt);
 	}
 
+	private parseInvalidNestedModuleBlockStatement(
+		kind: 'type' | 'enum',
+		stopClosers: readonly string[],
+	): StatementNode {
+		const head = this.cursor.next()!;
+		const expected = kind === 'type' ? 'endtype' : 'endenum';
+		let end = head.end;
+		while (!this.cursor.atEnd()) {
+			const stmt = this.cursor.peek()!;
+			const closer = this.closerKind(stmt);
+			if (closer === expected) {
+				end = this.cursor.next()!.end;
+				break;
+			}
+			if (closer && stopClosers.includes(closer)) {
+				break;
+			}
+			if (
+				this.isModuleLevelStarter(stmt) &&
+				!(kind === 'type' && this.isTypeFieldStatement(stmt))
+			) {
+				break;
+			}
+			end = this.cursor.next()!.end;
+		}
+		return {
+			kind: 'Statement',
+			raw: this.source.slice(head.start, end),
+			span: { start: head.start, end },
+		};
+	}
+
 	private parseBlock(
 		opener: 'if' | 'for' | 'foreach' | 'do' | 'while' | 'with' | 'select',
 	): BodyNode {
@@ -950,6 +987,11 @@ class Parser {
 				endStmt = this.cursor.next();
 				closed = true;
 				break;
+			}
+			const nestedModuleBlock = this.nestedTypeOrEnumBlockKind(stmt);
+			if (nestedModuleBlock) {
+				body.push(this.parseInvalidNestedModuleBlockStatement(nestedModuleBlock, [expected]));
+				continue;
 			}
 			if (this.isModuleLevelStarter(stmt)) {
 				break;
@@ -1174,6 +1216,13 @@ class Parser {
 	}
 
 	/** A statement that should only appear at module level (recovery boundary). */
+	private nestedTypeOrEnumBlockKind(stmt: LogicalStatement): 'type' | 'enum' | undefined {
+		const tokens = codeTokensAfterLineNumber(stmt);
+		const modIndex = this.leadingModifierCount(tokens);
+		const head = tokenWord(tokens[modIndex]);
+		return head === 'type' || head === 'enum' ? head : undefined;
+	}
+
 	private isModuleLevelStarter(stmt: LogicalStatement): boolean {
 		const tokens = codeTokens(stmt);
 		const modIndex = this.leadingModifierCount(tokens);
