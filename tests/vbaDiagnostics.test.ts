@@ -5891,6 +5891,62 @@ describe('analyzeModule - array ReDim', () => {
 		).toHaveLength(0);
 	});
 
+	it('flags ReDim dimensions whose explicit lower bound is greater than the upper bound', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Dim grid() As Long\n' +
+			'    ReDim values(10 To 1)\n' +
+			'    ReDim Preserve values(-1 To -2)\n' +
+			'    ReDim grid(1 To 3, 5 To 2)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'redim-impossible-bounds');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['10 To 1', '-1 To -2', '5 To 2']);
+		expect(hits[0].severity).toBe('error');
+		expect(hits[0].message).toContain("Run-time error '9'");
+		expect(hits[0].message).toContain('dimension 1');
+		expect(hits[2].message).toContain('dimension 2');
+	});
+
+	it('accepts ReDim bounds that are equal, increasing, unknown, upper-only, or inactive', () => {
+		const src =
+			'Sub T(ByVal first As Long, ByVal last As Long)\n' +
+			'    Dim values() As Long\n' +
+			'    ReDim values(1 To 1)\n' +
+			'    ReDim values(1 To 10)\n' +
+			'    ReDim values(first To last)\n' +
+			'    ReDim values(10)\n' +
+			'#If Win64 Then\n' +
+			'    ReDim values(10 To 1)\n' +
+			'#End If\n' +
+			'End Sub\n';
+
+		expect(
+			byCode(
+				analyzeModule(src, {
+					conditionalCompilation: { compilerConstants: { Win64: false } },
+				}),
+				'redim-impossible-bounds',
+			),
+		).toHaveLength(0);
+	});
+
+	it('does not add runtime ReDim bounds diagnostics for known invalid ReDim targets', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim fixed(1 To 3) As Long\n' +
+			'    Dim scalar As Long\n' +
+			'    ReDim fixed(10 To 1)\n' +
+			'    ReDim scalar(10 To 1)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'redim-impossible-bounds')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'fixed-array-redim')).toHaveLength(1);
+		expect(byCode(analyzeModule(src), 'scalar-redim')).toHaveLength(1);
+	});
+
 	it('flags ReDim Preserve changing a non-final dimension', () => {
 		const src =
 			'Sub T()\n' +

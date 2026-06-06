@@ -679,6 +679,20 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "redim-impossible-bounds",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle plus VBA ReDim lower/upper bound semantics",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "redim_impossible_bounds_runtime",
+        "redim_equal_bounds_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Active coverage reports ReDim and ReDim Preserve dimensions whose explicit literal-style lower and upper bounds are both known and the lower bound is greater than the upper bound. It points at the impossible dimension span and maps the deterministic runtime case to runtime error 9. Equal, increasing, variable/Const-backed, upper-only, and inactive-branch bounds remain quiet; known scalar or fixed-array ReDim targets keep their compile-error diagnostics instead of also receiving this runtime diagnostic.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "unallocated-dynamic-array-access",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE runtime oracle plus VBA dynamic array allocation semantics",

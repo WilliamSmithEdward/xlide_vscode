@@ -354,6 +354,7 @@ function runRules(
 	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
 	checkDimInitializer(source, mod, activity, push);
 	checkInvalidRedimTargets(source, mod, activity, push);
+	checkRedimImpossibleBounds(source, mod, activity, push);
 	checkRedimPreserveDimensions(source, mod, activity, push);
 	checkUnallocatedDynamicArrayAccess(source, mod, activity, push);
 	checkEraseTargets(source, mod, symbols, activity, push);
@@ -6507,6 +6508,8 @@ interface RedimBlockedDeclaration {
 interface RedimDimension {
 	key?: string;
 	lowerKey?: string;
+	lowerValue?: number;
+	upperValue?: number;
 	span: Span;
 }
 
@@ -6666,6 +6669,8 @@ function redimTargetFromGroup(
 				dimensions.push({
 					key: bound.key,
 					lowerKey: bound.lowerKey,
+					lowerValue: bound.lowerValue,
+					upperValue: bound.upperValue,
 					span: tokenGroupSpan(base, dimTokens),
 				});
 			}
@@ -6681,17 +6686,27 @@ function redimTargetFromGroup(
 
 function comparableArrayBoundKey(
 	toks: readonly VbaToken[],
-): { key?: string; lowerKey?: string } {
+): { key?: string; lowerKey?: string; lowerValue?: number; upperValue?: number } {
 	const toIndex = toks.findIndex((tok) => tokenText(tok) === 'to');
 	if (toIndex > 0) {
-		const lowerKey = comparableArrayBoundExpressionKey(toks.slice(0, toIndex));
-		const upperKey = comparableArrayBoundExpressionKey(toks.slice(toIndex + 1));
+		const lower = comparableArrayBoundExpression(toks.slice(0, toIndex));
+		const upper = comparableArrayBoundExpression(toks.slice(toIndex + 1));
 		return {
-			key: lowerKey && upperKey ? `${lowerKey}to${upperKey}` : undefined,
-			lowerKey,
+			key: lower.key && upper.key ? `${lower.key}to${upper.key}` : undefined,
+			lowerKey: lower.key,
+			lowerValue: lower.value,
+			upperValue: upper.value,
 		};
 	}
-	return { key: comparableArrayBoundExpressionKey(toks) };
+	const upper = comparableArrayBoundExpression(toks);
+	return { key: upper.key, upperValue: upper.value };
+}
+
+function comparableArrayBoundExpression(toks: readonly VbaToken[]): { key?: string; value?: number } {
+	return {
+		key: comparableArrayBoundExpressionKey(toks),
+		value: comparableArrayBoundExpressionValue(toks),
+	};
 }
 
 function comparableArrayBoundExpressionKey(toks: readonly VbaToken[]): string | undefined {
@@ -6710,6 +6725,88 @@ function comparableArrayBoundExpressionKey(toks: readonly VbaToken[]): string | 
 		return undefined;
 	}
 	return parts.length > 0 ? parts.join('') : undefined;
+}
+
+function comparableArrayBoundExpressionValue(toks: readonly VbaToken[]): number | undefined {
+	let value = 0;
+	let sign = 1;
+	let expectingValue = true;
+	let sawValue = false;
+	for (const tok of toks) {
+		if (expectingValue) {
+			if (tok.rawText === '+' || tok.rawText === '-') {
+				sign *= tok.rawText === '-' ? -1 : 1;
+				continue;
+			}
+			if (tok.kind !== 'integerLiteral') {
+				return undefined;
+			}
+			const parsed = parseVbaIntegerLiteral(tok.rawText);
+			if (parsed === undefined) {
+				return undefined;
+			}
+			const next = value + sign * parsed;
+			if (!Number.isSafeInteger(next)) {
+				return undefined;
+			}
+			value = next;
+			sign = 1;
+			expectingValue = false;
+			sawValue = true;
+			continue;
+		}
+		if (tok.rawText === '+' || tok.rawText === '-') {
+			sign = tok.rawText === '-' ? -1 : 1;
+			expectingValue = true;
+			continue;
+		}
+		return undefined;
+	}
+	return sawValue && !expectingValue ? value : undefined;
+}
+
+/**
+ * Rule: ReDim lower bounds must not be greater than their upper bounds.
+ * This only reports explicit, literal-style `lower To upper` dimensions.
+ */
+function checkRedimImpossibleBounds(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const moduleDeclarations = redimBlockedDeclarationsForModule(mod, activity);
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
+		const localNames = declarationNamesForBody(member.body, activity);
+		forEachStatement(member.body, (stmt) => {
+			for (const target of redimStatementTargets(source, stmt.span)) {
+				const lowerName = target.name.toLowerCase();
+				const blockedDeclaration = localDeclarations.get(lowerName) ??
+					(localNames.has(lowerName) ? undefined : moduleDeclarations.get(lowerName));
+				if (blockedDeclaration) {
+					continue;
+				}
+				target.dimensions.forEach((dimension, index) => {
+					if (
+						dimension.lowerValue === undefined ||
+						dimension.upperValue === undefined ||
+						dimension.lowerValue <= dimension.upperValue
+					) {
+						return;
+					}
+					push(
+						'redimImpossibleBounds',
+						`ReDim lower bound ${dimension.lowerValue} is greater than upper bound ${dimension.upperValue} for dimension ${index + 1} of '${target.name}'; this will raise Run-time error '9': Subscript out of range.`,
+						dimension.span,
+					);
+				});
+			}
+		}, activity);
+	}
 }
 
 /**

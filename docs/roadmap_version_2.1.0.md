@@ -427,6 +427,11 @@ Progress:
   a known non-final dimension, the known dimension count, or a known
   final-dimension lower bound. Last-dimension upper-bound-only resizes stay
   quiet, and shapes learned inside nested blocks do not leak outward.
+- [x] ReDim impossible-bounds slice: active `ReDim` and `ReDim Preserve`
+  dimensions now produce a deterministic runtime diagnostic when explicit
+  literal-style lower and upper bounds are both known and the lower bound is
+  greater than the upper bound. Equal, increasing, upper-only, variable-backed,
+  inactive, and known compile-invalid targets stay quiet.
 - [x] Unallocated dynamic array access slice: straight-line local non-Static
   dynamic arrays now produce a deterministic runtime diagnostic when indexed or
   passed to intrinsic `LBound`/`UBound` before `ReDim`, or after `Erase`.

@@ -2823,6 +2823,28 @@
       "diagnosticMeaning": "runtime-valid"
     },
     {
+      "id": "redim_impossible_bounds_runtime",
+      "description": "Runtime probe: ReDim with an explicit lower bound greater than the upper bound raises runtime error 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim values() As Long\n    ReDim values(10 To 1)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "redim_equal_bounds_runtime",
+      "description": "Runtime control: ReDim accepts equal explicit lower and upper bounds.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim values() As Long\n    ReDim values(1 To 1)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
       "id": "string_scalar_member_access_compile",
       "description": "Compile probe for a trailing member-access dot on a String variable; explicit VBE focus retest rejects this as Syntax error.",
       "provenance": "vbe-oracle-verified",

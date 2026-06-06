@@ -552,6 +552,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	redimImpossibleBounds: {
+		code: 'redim-impossible-bounds',
+		title: 'ReDim lower bound is greater than upper bound',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL ReDim statement / VBE oracle runtime error 9',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	unallocatedDynamicArrayAccess: {
 		code: 'unallocated-dynamic-array-access',
 		title: 'Dynamic array is not allocated',
