@@ -2613,6 +2613,39 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
 	});
 
+	it('flags intrinsic CVErr Error Variants passed to scalar parameters', () => {
+		const src =
+			'Public Sub NeedsLong(ByVal value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub NeedsVariant(ByVal value As Variant)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsLong CVErr(2015)\n' +
+			'    NeedsLong VBA.CVErr(2015)\n' +
+			'    NeedsVariant CVErr(2015)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['CVErr(2015)', 'VBA.CVErr(2015)']);
+		expect(hits[0].message).toContain('Error Variant');
+		expect(hits[0].message).toContain("Run-time error '13'");
+	});
+
+	it('lets a source function named CVErr shadow the intrinsic in argument expressions', () => {
+		const src =
+			'Private Function CVErr(ByVal errorNumber As Long) As Long\n' +
+			'    CVErr = errorNumber\n' +
+			'End Function\n' +
+			'Public Sub NeedsLong(ByVal value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsLong CVErr(2015)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'argument-type-mismatch')).toHaveLength(0);
+	});
+
 	it('uses a unique exported project signature for cross-module argument types', () => {
 		const caller =
 			'Public Sub TestInvoiceTotal()\n' +
@@ -3642,6 +3675,37 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits[0].message).toContain('total');
 		expect(hits[0].message).toContain('Double');
 		expect(hits[0].message).toContain("will raise Run-time error '13'");
+	});
+
+	it('errors on intrinsic CVErr Error Variants assigned to scalar variables', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim first As Long\n' +
+			'    Dim second As Long\n' +
+			'    Dim flexible As Variant\n' +
+			'    first = CVErr(2015)\n' +
+			'    second = VBA.CVErr(2015)\n' +
+			'    flexible = CVErr(2015)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['CVErr(2015)', 'VBA.CVErr(2015)']);
+		expect(hits[0].message).toContain('Error Variant');
+		expect(hits[0].message).toContain("Run-time error '13'");
+	});
+
+	it('lets a source function named CVErr shadow the intrinsic in assignment expressions', () => {
+		const src =
+			'Private Function CVErr(ByVal errorNumber As Long) As Long\n' +
+			'    CVErr = errorNumber\n' +
+			'End Function\n' +
+			'Public Sub T()\n' +
+			'    Dim value As Long\n' +
+			'    value = CVErr(2015)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
 	it('errors on a non-Boolean string literal assigned to a Boolean variable', () => {

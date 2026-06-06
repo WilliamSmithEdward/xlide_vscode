@@ -5419,6 +5419,15 @@ function inferAtomicExpressionType(
 		}
 	}
 	if (name && toks[1]?.rawText === '(') {
+		const errorVariant = inferIntrinsicCverrErrorVariant(
+			toks,
+			sliceStart,
+			moduleSignatures,
+			sourceNames,
+		);
+		if (errorVariant) {
+			return errorVariant;
+		}
 		const sig = callableSignatureFor(name, moduleSignatures, sourceNames);
 		if (sig?.returnType && matchParenFrom(toks, 1) === toks.length - 1) {
 			return { type: sig.returnType, label: `${name}(...) As ${sig.returnType}`, span };
@@ -5426,6 +5435,15 @@ function inferAtomicExpressionType(
 	}
 	if (name && toks[1]?.rawText === '.') {
 		const member = tokenName(toks[2]);
+		const errorVariant = inferIntrinsicCverrErrorVariant(
+			toks,
+			sliceStart,
+			moduleSignatures,
+			sourceNames,
+		);
+		if (errorVariant) {
+			return errorVariant;
+		}
 		if (member && toks.length === 3) {
 			const lookupKey = qualifiedProcedureKey(name, member);
 			const sig = parameterlessValueSignature(lookupKey, moduleSignatures);
@@ -5456,6 +5474,59 @@ function inferAtomicExpressionType(
 		return memberType;
 	}
 	return undefined;
+}
+
+function inferIntrinsicCverrErrorVariant(
+	toks: readonly VbaToken[],
+	sliceStart: number,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
+): InferredArgumentType | undefined {
+	const firstName = tokenName(toks[0]);
+	if (!firstName) {
+		return undefined;
+	}
+	let parenIndex = -1;
+	let displayName = '';
+	if (firstName.toLowerCase() === 'cverr' && toks[1]?.rawText === '(') {
+		if (
+			moduleSignatures.has(firstName.toLowerCase()) ||
+			bareCallableSourceShadowed(firstName, sourceNames) ||
+			runtimeCallableSourceShadowed(firstName, sourceNames)
+		) {
+			return undefined;
+		}
+		parenIndex = 1;
+		displayName = firstName;
+	} else if (
+		firstName.toLowerCase() === 'vba' &&
+		toks[1]?.rawText === '.' &&
+		tokenName(toks[2])?.toLowerCase() === 'cverr' &&
+		toks[3]?.rawText === '('
+	) {
+		parenIndex = 3;
+		displayName = `${firstName}.${toks[2].rawText}`;
+	}
+	if (parenIndex < 0) {
+		return undefined;
+	}
+	const close = matchParenFrom(toks, parenIndex);
+	if (close !== toks.length - 1) {
+		return undefined;
+	}
+	const inner = toks.slice(parenIndex + 1, close);
+	if (inner.length === 0) {
+		return undefined;
+	}
+	const split = splitArgSlots(inner, sliceStart);
+	if (split.slots.length !== 1 || split.slots[0].length === 0) {
+		return undefined;
+	}
+	return {
+		type: 'Error',
+		label: `${displayName}(...) Error Variant`,
+		span: spanForTokens(toks, sliceStart),
+	};
 }
 
 function inferMemberExpressionType(
@@ -5775,7 +5846,7 @@ function isStringConcatenationOperandType(type: string): boolean {
 	);
 }
 
-function spanForTokens(toks: VbaToken[], sliceStart: number): Span {
+function spanForTokens(toks: readonly VbaToken[], sliceStart: number): Span {
 	const first = toks[0];
 	const last = toks[toks.length - 1];
 	return { start: sliceStart + first.start, end: sliceStart + last.end };
@@ -5789,6 +5860,9 @@ function incompatibilityReason(
 	const actualType = normalizeType(actual.type);
 	if (!expected || !actualType || expected === 'variant' || actualType === 'variant') {
 		return undefined;
+	}
+	if (actualType === 'error' && isKnownScalarType(expected)) {
+		return "An Error Variant cannot be coerced to this scalar type. This will raise Run-time error '13': Type mismatch.";
 	}
 	if (expected === 'object') {
 		return actualType === 'nothing' || actualType === 'object' || !isKnownScalarType(actualType)

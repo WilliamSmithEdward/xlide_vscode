@@ -444,6 +444,11 @@ Progress:
   non-ASCII/localized-looking text, variables, expressions, non-`CDate`
   conversions, source-shadowed bare `CDate` names, and inactive branches stay
   quiet.
+- [x] CVErr Error Variant inference slice: intrinsic `CVErr(...)` and explicit
+  `VBA.CVErr(...)` now feed the shared argument/assignment type compatibility
+  path as Error Variant values. Scalar targets produce deterministic runtime
+  type-mismatch diagnostics, Variant targets stay quiet, and source-shadowed
+  bare `CVErr` calls keep their source return type.
 - [x] Array Erase hardening slice: active `Erase` statements now reject
   target-list entries that are clearly arbitrary expressions, such as literals
   or arithmetic. Binder-backed Erase checks now also reject simple targets that

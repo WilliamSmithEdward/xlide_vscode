@@ -812,6 +812,50 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim total As Double\n    total = \"2.5\"\nEnd Sub\n"
     },
     {
+      "id": "cverr_to_long_assignment_runtime",
+      "description": "Runtime probe: assigning the Error Variant returned by CVErr directly to a Long variable raises type mismatch.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = CVErr(2015)\nEnd Sub\n"
+    },
+    {
+      "id": "cverr_to_variant_assignment_runtime",
+      "description": "Runtime control: assigning the Error Variant returned by CVErr to a Variant variable is accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Variant\n    value = CVErr(2015)\nEnd Sub\n"
+    },
+    {
+      "id": "cverr_to_long_argument_runtime",
+      "description": "Runtime probe: passing the Error Variant returned by CVErr to a Long parameter raises type mismatch.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub NeedsLong(ByVal value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsLong CVErr(2015)\nEnd Sub\n"
+    },
+    {
+      "id": "cverr_to_variant_argument_runtime",
+      "description": "Runtime control: passing the Error Variant returned by CVErr to a Variant parameter is accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub NeedsVariant(ByVal value As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NeedsVariant CVErr(2015)\nEnd Sub\n"
+    },
+    {
       "id": "numeric_string_to_currency_argument_runtime",
       "description": "Runtime control: passing a numeric string literal to a Currency parameter should exercise successful call-boundary numeric coercion.",
       "provenance": "vbe-oracle-verified",
