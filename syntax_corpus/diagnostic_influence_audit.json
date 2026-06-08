@@ -298,7 +298,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -311,13 +311,13 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through zero-argument Function/Property Get value references and proven source-backed/host member return expressions, while ambiguous bare project functions, source-shadowed runtime names, and bare member functions with required arguments stay silent.",
+      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, and verified VBA runtime/generated host constants when no source binding shadows the constant name, while local shadows, ambiguous exported globals, unknown module qualifiers, ambiguous bare project functions, source-shadowed runtime names, untyped/Variant values, and bare member functions with required arguments stay silent.",
       "diagnosticKind": "compile-error"
     },
     {
       "code": "byref-argument-type-mismatch",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and local type model",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE source-backed callable signatures and shared expression value resolver",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "byref_long_variable_compile",
@@ -331,7 +331,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected.",
+      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Bare argument variables resolve through the shared expression resolver before local type-map fallback, and module-qualified variables resolve through the matching source-backed module surface, so visible exported standard-module variables participate while local shadows, ambiguous exported globals, unknown module qualifiers, untyped values, and Variant values stay quiet. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -423,7 +423,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes zero-argument Function/Property Get value references and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. Same project class, Nothing, generic Object, Variant/unknown types, and explicit Implements compatibility remain accepted.",
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, and verified VBA runtime/generated host constants when no source binding shadows the constant name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -529,7 +529,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous external constants, and broader expression folding until flow/reachability handling is broader.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -592,7 +592,7 @@
         "instr_named_zero_start_runtime"
       ],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -742,7 +742,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses procedure declaration-shape environments and reports simple Erase targets declared as known non-Variant scalar values, including Object and intrinsic scalars. Arrays, scalar Variant, implicit Variant, unresolved names, non-simple member/index targets, and inactive branches stay silent. Oracle controls prove scalar Variant compiles while Object and Long scalar targets reject as Expected array.",
+      "notes": "Active coverage uses shared assignment-target resolver-backed shape lookup before falling back to procedure declaration-shape environments. It reports simple bare Erase targets declared as known non-Variant scalar/object values, including visible exported standard-module globals. Arrays, scalar Variant, implicit Variant, local shadows, ambiguous exported globals, unresolved names, non-simple member/index targets, and inactive branches stay silent. Oracle controls prove scalar Variant compiles while Object and Long scalar targets reject as Expected array.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1039,7 +1039,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is deliberately narrow: consecutive non-unary binary operators such as ***, statements ending with a binary operator, unsupported '?' conditional-operator syntax, and oracle-backed incomplete member access forms such as ThisWorkbook. or a bare . inside an active With block. The IIf compile-valid oracle control confirms the supported inline conditional form remains accepted; separate runtime oracle cases prove IIf branch evaluation behavior for future deterministic-runtime diagnostics. Live diagnostics suppress incomplete member-access errors while the cursor remains on the active edit line; current-module and workbook validation still report the settled final source.",
+      "notes": "Active coverage is deliberately narrow: consecutive non-unary binary operators such as ***, statements ending with a binary operator, unsupported '?' conditional-operator syntax, and oracle-backed incomplete member access forms such as ThisWorkbook. or a bare . inside an active With block. Generic trailing-dot incomplete member diagnostics ask the shared member-receiver resolver first and stay quiet when scalar-member-access owns a known scalar receiver, including visible exported standard-module scalar globals; local shadows, ambiguous exported globals, object-like receivers, and unknown receivers continue through the syntax fallback. The IIf compile-valid oracle control confirms the supported inline conditional form remains accepted; separate runtime oracle cases prove IIf branch evaluation behavior for future deterministic-runtime diagnostics. Live diagnostics suppress incomplete member-access errors while the cursor remains on the active edit line; current-module and workbook validation still report the settled final source.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1332,7 +1332,7 @@
         "27_semantic_runtime_resolution_edges.md",
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "Active coverage uses parser-backed ForBlock metadata and procedure declaration-shape environments. The rule reports For Each control variables declared as known intrinsic scalars, arrays, and project UDT/Enum types when project type metadata is available. Variant, Object, host/project object-looking types, implicit Variant, ambiguous types, and inactive branches stay silent.",
+      "notes": "Active coverage uses parser-backed ForBlock metadata and shared assignment-target resolver-backed shape lookup before falling back to procedure declaration-shape environments. The rule reports For Each control variables declared as known intrinsic scalars, arrays, and project UDT/Enum types when project type metadata is available, including visible exported standard-module bindings. Variant, Object, host/project object-looking types, implicit Variant, local shadows, ambiguous exported globals, and inactive branches stay silent.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1347,7 +1347,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses parser-backed ForBlock source-expression metadata and procedure declaration-shape environments. The rule reports simple source names declared as known intrinsic scalars. Arrays, Variant, Object, object-looking or unresolved sources, member chains, and inactive branches stay silent until deeper enumerable inference is proven.",
+      "notes": "Active coverage uses parser-backed ForBlock source-expression metadata and shared expression resolver-backed shape lookup before falling back to procedure declaration-shape environments. The rule reports simple source names declared as known intrinsic scalars, including visible exported standard-module bindings. Arrays, Variant, Object, object-looking or unresolved sources, local shadows, ambiguous exported globals, member chains, and inactive branches stay silent until deeper enumerable inference is proven.",
       "diagnosticKind": "compile-error"
     }
   ]

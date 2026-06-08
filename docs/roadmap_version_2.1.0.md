@@ -40,9 +40,9 @@ Recommended sequencing:
 2. Broaden host metadata type by type after coverage and provenance make absence
    diagnostics safe.
 3. Expand object/event authoring where XLIDE can prove source or designer facts.
-4. Give downstream developers a supported metadata path for gaps XLIDE cannot
-   infer from workbook source.
-5. Add workbook-to-workbook transfer after the core authoring loop is stronger.
+
+External metadata authoring/reload and workbook-to-workbook transfer are tracked
+in `docs/roadmap_version_2.2.0.md`.
 
 Responsiveness, stale-result safety, cancellation, cache correctness, progress
 reporting, and measured performance remain non-negotiable engineering standards
@@ -192,6 +192,18 @@ Progress:
   standard-module constants and enum members still feed deterministic runtime
   diagnostics, while local/module variables or other non-constant declarations
   with the same name suppress folding instead of producing false positives.
+- [x] Verified external integer-constant slice: `division-by-zero` and
+  `runtime-argument-value` now fold numeric values from verified VBA runtime
+  constants and generated Excel/Office host enum constants when no source
+  binding exists. Source declarations still shadow those external constants,
+  ambiguous source bindings stay quiet, and qualified `VBA.` runtime constants
+  participate in the same scoped lookup.
+- [x] Verified external constant value-type slice: argument compatibility and
+  object `Set` RHS checks now infer scalar types for verified VBA runtime
+  constants and generated Excel/Office host enum constants when no source
+  binding exists. Numeric enum constants behave as scalar `Long` values while
+  preserving the declared enum owner in diagnostic messages; source
+  declarations and ambiguous source bindings still suppress external inference.
 - [x] Assignment-target typing resolver handoff: `assignment-type-mismatch`,
   `set-required`, and `set-requires-object` now resolve bare assignment targets
   through the shared assignment-target binding before consulting legacy local
@@ -217,6 +229,34 @@ Progress:
   exported standard-module scalars and fixed arrays participate, while dynamic
   arrays, local dynamic shadows, ambiguous exported globals, and undeclared
   targets stay quiet.
+- [x] Erase target-shape resolver handoff: `erase-requires-array` now resolves
+  simple bare `Erase` targets through the shared assignment-target binding
+  before consulting legacy local shape maps. Visible exported standard-module
+  non-Variant scalar/object globals participate, while arrays, Variant and
+  implicit Variant targets, local shadows, ambiguous exported globals,
+  unresolved names, and non-simple member/index targets stay quiet.
+- [x] For Each shape resolver handoff: `for-each-control-variable-type` now
+  resolves simple control variables through the shared assignment-target
+  binding, and `for-each-source-type` resolves simple `In` source names through
+  the shared expression binding before consulting legacy local shape maps.
+  Visible exported standard-module scalars/arrays participate where proven,
+  while Variant/object-like values, local shadows, ambiguous exported globals,
+  unresolved names, and member-chain sources stay quiet.
+- [x] Bare and module-qualified expression value-type resolver handoff:
+  argument validation, ByRef exactness, assignment compatibility, and `Set` RHS
+  object/scalar checks now resolve simple bare value identifiers through the
+  shared expression binding before consulting legacy local type maps, and
+  resolve `ModuleName.ValueName` reads through the matching source-backed
+  module surface. Visible exported standard-module globals participate in
+  proven object/scalar and ByRef diagnostics, while local shadows, ambiguous
+  exported globals, untyped values, Variant values, unknown module qualifiers,
+  and callable value references with required arguments stay quiet.
+- [x] Incomplete member cascade resolver handoff: `invalid-expression-syntax`
+  now asks the shared member-receiver resolver before reporting a generic
+  trailing-dot incomplete-member diagnostic. Known scalar receivers, including
+  visible exported standard-module scalar globals, are left to
+  `scalar-member-access`; local shadows, ambiguous exported globals, object-like
+  receivers, and unknown receivers continue through the syntax fallback.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`
@@ -458,13 +498,18 @@ Progress:
 - [x] For Each control-variable type slice: active `For Each` loops now produce
   a red diagnostic when the control variable is a known intrinsic scalar, an
   array variable, or a project UDT/Enum control when project type metadata is
-  available. `Variant`, `Object`, host/project object-looking types, implicit
-  `Variant`, ambiguous types, and inactive branches stay quiet.
+  available. Simple controls resolve through the shared assignment-target
+  binding, so visible exported standard-module bindings participate while
+  `Variant`, `Object`, host/project object-looking types, implicit `Variant`,
+  local shadows, ambiguous exported globals, and inactive branches stay quiet.
 - [x] For Each source type slice: parser-backed `ForBlock` metadata now records
   the `In` source expression, and active `For Each` loops now produce a red
   diagnostic when a simple source name resolves to a known intrinsic scalar.
-  Arrays, `Variant`, `Object`, object-looking/unresolved sources, member chains,
-  and inactive branches stay quiet until deeper enumerable inference is proven.
+  Simple source names resolve through the shared expression binding, so visible
+  exported standard-module bindings participate while arrays, `Variant`,
+  `Object`, object-looking/unresolved sources, local shadows, ambiguous exported
+  globals, member chains, and inactive branches stay quiet until deeper
+  enumerable inference is proven.
 - [x] Array ReDim hardening slice: parsed variable declarations now distinguish
   dynamic array declarators from fixed-bound arrays, and active `ReDim` or
   `ReDim Preserve` statements now produce a red diagnostic when the target
@@ -537,75 +582,18 @@ Definition of done:
 - UserForm/document member and event surfaces are deterministic and do not invent
   controls, events, or members from names alone.
 
-## Priority 4: External Metadata Authoring and Reload
+## Deferred To Version 2.2.0
 
-Purpose: let downstream developers describe referenced libraries, add-ins, and
-host extensions that XLIDE cannot parse from workbook source.
-
-Developer-experience impact:
-
-- Lets teams add proven API surfaces that can safely power hard diagnostics for
-  private or third-party dependencies when the metadata is exhaustive enough.
-- Gives teams a practical path to improve completion, hover, signature help, and
-  diagnostics for private or third-party dependencies.
-- Lets advanced users close gaps without waiting for a full XLIDE release.
-- Makes missing or malformed metadata visible through validation and reload
-  feedback instead of silent failure.
-
-Scope:
-
-- [ ] Define a versioned external object/member metadata schema.
-- [ ] Support member names, kinds, signatures, parameter docs/types, return
-  types, examples, mutability, exhaustiveness, and provenance.
-- [ ] Define reload behavior and validation diagnostics for malformed metadata.
-- [ ] Define deterministic precedence:
-  - workbook source symbols win for workbook-owned members
-  - inline docs enrich source symbols
-  - external metadata describes explicitly declared external/extension members
-  - curated host/runtime metadata remains the built-in fallback
-- [ ] Add completion, hover, signature help, member-call diagnostics, assignment
-  diagnostics, and no-diagnostic controls for external metadata.
-- [ ] Ship downstream developer documentation with schema examples,
-  troubleshooting, provenance rules, and verification steps.
-
-Definition of done:
-
-- A downstream developer can author metadata, reload it, verify `object.`
-  completion, and troubleshoot missing members without reading XLIDE source.
-
-## Priority 5: Workbook-To-Workbook Transfer
-
-Purpose: support explicit module transfer between workbooks without crossing
-analysis scopes or guessing user intent.
-
-Developer-experience impact:
-
-- Improves a useful project-maintenance workflow, especially when moving modules
-  between real workbooks.
-- Keeps workbook mutation explicit, previewed, auditable, and recoverable.
-- Has lower red-squiggle impact than binding and metadata, so it should follow
-  the core authoring improvements unless customer demand changes.
-
-Scope:
-
-- [ ] Add source workbook and destination workbook selection.
-- [ ] Add module/class selection with a side-by-side preview.
-- [ ] Add conflict handling for existing destination modules.
-- [ ] Add backup/snapshot hooks before destination workbook mutation where
-  practical.
-- [ ] Preserve multi-workbook analysis isolation; transfer previews must not
-  imply cross-workbook project binding.
-- [ ] Record write-audit entries and changed/skipped/failed summaries.
-
-Definition of done:
-
-- Workbook-to-workbook transfer is explicit, previewed, auditable, and
-  recoverable.
+External metadata authoring/reload and workbook-to-workbook transfer have moved
+to `docs/roadmap_version_2.2.0.md` so Version 2.1.0 can stay focused on the
+red-squiggly, binding, host metadata, and source-backed object/event authoring
+workstreams.
 
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.x.md`
 - `docs/roadmap_version_2.1.0.md`
+- `docs/roadmap_version_2.2.0.md`
 - `docs/spec/MS-VBAL.version.md`
 - `docs/spec/MS-VBAL.verification-map.md`
 - `docs/xlide_vba_language_service_roadmap.md`

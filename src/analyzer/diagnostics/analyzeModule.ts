@@ -357,7 +357,7 @@ function runRules(
 	checkParameterOrder(source, mod, activity, push);
 	checkParameterDefaultValues(source, mod, activity, memberCtx, push);
 	checkUnbalancedParens(source, push);
-	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
+	checkInvalidExpressionSyntax(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
 	checkDivisionByZeroExpressions(
 		source,
 		mod,
@@ -372,7 +372,7 @@ function runRules(
 	checkRedimImpossibleBounds(source, mod, activity, push);
 	checkRedimPreserveDimensions(source, mod, activity, push);
 	checkUnallocatedDynamicArrayAccess(source, mod, activity, push);
-	checkEraseTargets(source, mod, symbols, activity, push);
+	checkEraseTargets(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
 	checkTypeDeclarationCharacterAsClause(mod, activity, push);
 	checkUnexpectedDeclarationTokens(source, mod, activity, push);
 	checkFixedLengthStringBounds(source, mod, activity, push);
@@ -3197,9 +3197,33 @@ function checkArgumentTypes(
 		}
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const procSym = procedureSymbolFor(symbols, member);
+		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
+			symbols,
+			procSym,
+			projectVisibleSymbols,
+			name,
+		);
+		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
+			declaredValueTypeForQualifiedSourceBinding(
+				symbols,
+				projectVisibleSymbols,
+				qualifier,
+				name,
+			);
 		forEachStatement(member.body, (stmt) => {
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
-				validateArgumentTypes(call, env, moduleSignatures, sourceNames, source, memberCtx, push);
+				validateArgumentTypes(
+					call,
+					env,
+					moduleSignatures,
+					sourceNames,
+					source,
+					memberCtx,
+					push,
+					resolveExpressionType,
+					resolveQualifiedExpressionType,
+				);
 			}
 			for (const memberCall of memberExpressionCalls(
 				source,
@@ -3215,6 +3239,8 @@ function checkArgumentTypes(
 					source,
 					memberCtx,
 					push,
+					resolveExpressionType,
+					resolveQualifiedExpressionType,
 				);
 			}
 			for (const memberCall of memberStatementCalls(
@@ -3231,6 +3257,8 @@ function checkArgumentTypes(
 					source,
 					memberCtx,
 					push,
+					resolveExpressionType,
+					resolveQualifiedExpressionType,
 				);
 			}
 			const statementCall = extractCall(source, stmt.span);
@@ -3239,7 +3267,17 @@ function checkArgumentTypes(
 				: extractQualifiedCall(source, stmt.span, moduleSignatures);
 			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
 			if (effectiveStatementCall) {
-				validateArgumentTypes(effectiveStatementCall, env, moduleSignatures, sourceNames, source, memberCtx, push);
+				validateArgumentTypes(
+					effectiveStatementCall,
+					env,
+					moduleSignatures,
+					sourceNames,
+					source,
+					memberCtx,
+					push,
+					resolveExpressionType,
+					resolveQualifiedExpressionType,
+				);
 			}
 		}, activity);
 	}
@@ -3686,6 +3724,19 @@ function checkAssignmentTypes(
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
+		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
+			symbols,
+			procSym,
+			projectVisibleSymbols,
+			name,
+		);
+		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
+			declaredValueTypeForQualifiedSourceBinding(
+				symbols,
+				projectVisibleSymbols,
+				qualifier,
+				name,
+			);
 		forEachStatement(member.body, (stmt) => {
 			const assignment = bareAssignmentTarget(source, stmt.span);
 			if (!assignment) {
@@ -3761,6 +3812,8 @@ function checkAssignmentTypes(
 				sourceNames,
 				source,
 				memberCtx,
+				resolveExpressionType,
+				resolveQualifiedExpressionType,
 			);
 			if (!actual) {
 				return;
@@ -3784,6 +3837,8 @@ function checkAssignmentTypes(
 			memberCtx,
 			activity,
 			push,
+			resolveExpressionType,
+			resolveQualifiedExpressionType,
 		);
 	}
 }
@@ -4062,6 +4117,8 @@ function checkMemberAssignmentTypes(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): void {
 	if (!memberCtx.projectClassMembers || memberCtx.projectClassMembers.length === 0) {
 		return;
@@ -4106,6 +4163,8 @@ function checkMemberAssignmentTypes(
 				sourceNames,
 				source,
 				memberCtx,
+				resolveExpressionType,
+				resolveQualifiedExpressionType,
 			);
 			const reason = objectAssignmentIncompatibilityReason(
 				expected,
@@ -4153,6 +4212,8 @@ function checkMemberAssignmentTypes(
 			sourceNames,
 			source,
 			memberCtx,
+			resolveExpressionType,
+			resolveQualifiedExpressionType,
 		);
 		if (!actual) {
 			return;
@@ -4186,6 +4247,19 @@ function checkSetAssignments(
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
+		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
+			symbols,
+			procSym,
+			projectVisibleSymbols,
+			name,
+		);
+		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
+			declaredValueTypeForQualifiedSourceBinding(
+				symbols,
+				projectVisibleSymbols,
+				qualifier,
+				name,
+			);
 		forEachStatement(member.body, (stmt) => {
 			const target = setAssignmentTarget(source, stmt.span);
 			if (!target) {
@@ -4214,6 +4288,8 @@ function checkSetAssignments(
 					sourceNames,
 					source,
 					memberCtx,
+					resolveExpressionType,
+					resolveQualifiedExpressionType,
 				);
 				const reason = objectAssignmentIncompatibilityReason(
 					expected,
@@ -4769,6 +4845,9 @@ interface SourceDeclaredType {
 	asType?: string;
 }
 
+type SourceDeclaredTypeResolver = (name: string) => SourceDeclaredType;
+type SourceQualifiedDeclaredTypeResolver = (qualifier: string, name: string) => SourceDeclaredType;
+
 interface SourceDeclaredShape {
 	resolved: boolean;
 	shape?: DeclaredValueShape;
@@ -4792,6 +4871,61 @@ function declaredTypeForSourceBinding(
 		return { resolved: binding.scope === 'ambiguous' };
 	}
 	const typed = binding.definitions.find((definition) => definition.asType);
+	return { resolved: true, asType: typed?.asType };
+}
+
+function declaredValueTypeForSourceBinding(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	name: string,
+): SourceDeclaredType {
+	const binding = sourceIdentifierBinding(
+		symbols,
+		procSym,
+		projectVisibleSymbols,
+		name,
+		'expression',
+	);
+	if (binding.scope === 'unresolved' || binding.scope === 'ambiguous') {
+		return { resolved: binding.scope === 'ambiguous' };
+	}
+	const valueDefinitions = binding.definitions.filter(isValueDeclarationSymbol);
+	if (valueDefinitions.length === 0) {
+		return { resolved: false };
+	}
+	const typed = valueDefinitions.find((definition) => definition.asType);
+	return { resolved: true, asType: typed?.asType };
+}
+
+function declaredValueTypeForQualifiedSourceBinding(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	qualifier: string,
+	name: string,
+): SourceDeclaredType {
+	const qualifierLower = qualifier.toLowerCase();
+	const nameLower = name.toLowerCase();
+	const candidates = [
+		...(symbols.moduleName.toLowerCase() === qualifierLower
+			? symbols.root.children ?? []
+			: []),
+		...(projectVisibleSymbols ?? []).filter(
+			(symbol) => symbol.moduleName.toLowerCase() === qualifierLower,
+		),
+	];
+	if (candidates.length === 0) {
+		return { resolved: false };
+	}
+	const matchingValues = candidates.filter(
+		(symbol) =>
+			symbol.name.toLowerCase() === nameLower &&
+			isValueDeclarationSymbol(symbol),
+	);
+	if (matchingValues.length === 0) {
+		return { resolved: true };
+	}
+	const typed = matchingValues.find((definition) => definition.asType);
 	return { resolved: true, asType: typed?.asType };
 }
 
@@ -4903,7 +5037,10 @@ function scopedIntegerConstantLookup(
 		get(name: string): number | undefined {
 			const key = name.toLowerCase();
 			if (key.includes('.')) {
-				return constants.get(key);
+				if (constants.has(key)) {
+					return constants.get(key);
+				}
+				return externalIntegerConstantValue(key);
 			}
 			const binding = sourceIdentifierBinding(
 				symbols,
@@ -4913,7 +5050,10 @@ function scopedIntegerConstantLookup(
 				'expression',
 			);
 			if (binding.scope === 'unresolved') {
-				return constants.get(key);
+				if (constants.has(key)) {
+					return constants.get(key);
+				}
+				return externalIntegerConstantValue(key);
 			}
 			if (
 				binding.scope === 'ambiguous' ||
@@ -4924,6 +5064,110 @@ function scopedIntegerConstantLookup(
 			return constants.get(key);
 		},
 	};
+}
+
+function externalIntegerConstantValue(name: string): number | undefined {
+	const dot = name.indexOf('.');
+	if (dot >= 0) {
+		const qualifier = name.slice(0, dot);
+		const member = name.slice(dot + 1);
+		if (qualifier === 'vba') {
+			return numericExternalConstantValue(resolveRuntimeConstant(member)?.value);
+		}
+		if (qualifier === 'excel' || qualifier === 'office') {
+			return numericExternalConstantValue(resolveHostConstant(member)?.value);
+		}
+		return undefined;
+	}
+	const candidates = [
+		numericExternalConstantValue(resolveRuntimeConstant(name)?.value),
+		numericExternalConstantValue(resolveHostConstant(name)?.value),
+	].filter((value): value is number => value !== undefined);
+	const unique = [...new Set(candidates)];
+	return unique.length === 1 ? unique[0] : undefined;
+}
+
+function inferBareExternalConstantExpressionType(
+	name: string,
+	span: Span,
+	sourceNames?: SourceNameScope,
+): InferredArgumentType | undefined {
+	if (runtimeCallableSourceShadowed(name, sourceNames)) {
+		return undefined;
+	}
+	const candidates = [
+		inferredExternalConstant(name, resolveRuntimeConstant(name)),
+		inferredExternalConstant(name, resolveHostConstant(name)),
+	].filter((candidate): candidate is InferredArgumentType => candidate !== undefined);
+	if (candidates.length !== 1) {
+		return undefined;
+	}
+	return { ...candidates[0], span };
+}
+
+function inferQualifiedExternalConstantExpressionType(
+	qualifier: string,
+	name: string,
+	span: Span,
+): InferredArgumentType | undefined {
+	const lower = qualifier.toLowerCase();
+	if (lower === 'vba') {
+		const inferred = inferredExternalConstant(`${qualifier}.${name}`, resolveRuntimeConstant(name));
+		return inferred ? { ...inferred, span } : undefined;
+	}
+	if (lower === 'excel' || lower === 'office') {
+		const inferred = inferredExternalConstant(`${qualifier}.${name}`, resolveHostConstant(name));
+		return inferred ? { ...inferred, span } : undefined;
+	}
+	return undefined;
+}
+
+function inferredExternalConstant(
+	displayName: string,
+	constant: { type?: string; value?: string | number } | undefined,
+): InferredArgumentType | undefined {
+	if (!constant) {
+		return undefined;
+	}
+	const declaredType = constant.type;
+	const normalizedDeclared = normalizeType(declaredType);
+	const numericValue = numericExternalConstantValue(constant.value);
+	if (numericValue !== undefined) {
+		return {
+			type: 'Long',
+			label: `${displayName} As ${declaredType ?? 'Long'}`,
+			span: { start: 0, end: 0 },
+			numericValue,
+			numericText: displayName,
+		};
+	}
+	if (normalizedDeclared === 'string') {
+		return {
+			type: 'String',
+			label: `${displayName} As ${declaredType ?? 'String'}`,
+			span: { start: 0, end: 0 },
+		};
+	}
+	return undefined;
+}
+
+function numericExternalConstantValue(value: string | number | undefined): number | undefined {
+	if (typeof value === 'number') {
+		return safeInteger(value);
+	}
+	if (typeof value !== 'string') {
+		return undefined;
+	}
+	const text = value.trim();
+	const signed = /^([+-])(.+)$/.exec(text);
+	if (signed) {
+		const parsed = parseVbaIntegerLiteral(signed[2]);
+		if (parsed === undefined) {
+			return undefined;
+		}
+		return safeInteger(signed[1] === '-' ? -parsed : parsed);
+	}
+	return parseVbaIntegerLiteral(text);
 }
 
 function isIntegerConstantBindingSymbol(symbol: VbaSymbol): boolean {
@@ -5236,12 +5480,25 @@ function validateArgumentTypes(
 	source: string,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
 		return;
 	}
-	validateArgumentTypesForSignature(sig, call, env, moduleSignatures, sourceNames, source, memberCtx, push);
+	validateArgumentTypesForSignature(
+		sig,
+		call,
+		env,
+		moduleSignatures,
+		sourceNames,
+		source,
+		memberCtx,
+		push,
+		resolveExpressionType,
+		resolveQualifiedExpressionType,
+	);
 }
 
 function validateArgumentTypesForSignature(
@@ -5253,6 +5510,8 @@ function validateArgumentTypesForSignature(
 	source: string,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): void {
 	if (sig.params.length === 0) {
 		return;
@@ -5282,7 +5541,14 @@ function validateArgumentTypesForSignature(
 		if (!expected) {
 			continue;
 		}
-		const byRefMismatch = byRefVariableTypeMismatch(param, valueSlot, call.sliceStart, env);
+		const byRefMismatch = byRefVariableTypeMismatch(
+			param,
+			valueSlot,
+			call.sliceStart,
+			env,
+			resolveExpressionType,
+			resolveQualifiedExpressionType,
+		);
 		if (byRefMismatch) {
 			push(
 				'byRefArgumentTypeMismatch',
@@ -5312,6 +5578,8 @@ function validateArgumentTypesForSignature(
 			sourceNames,
 			source,
 			memberCtx,
+			resolveExpressionType,
+			resolveQualifiedExpressionType,
 		);
 		if (!actual) {
 			continue;
@@ -5348,6 +5616,8 @@ function byRefVariableTypeMismatch(
 	slot: VbaToken[],
 	sliceStart: number,
 	env: ReadonlyMap<string, string>,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): { name: string; actual: string; span: Span } | undefined {
 	if (!param.byRef || !param.type) {
 		return undefined;
@@ -5357,14 +5627,35 @@ function byRefVariableTypeMismatch(
 		return undefined;
 	}
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	if (toks.length !== 1) {
+	let name: string | undefined;
+	let actualRaw: string | undefined;
+	let span: Span | undefined;
+	if (toks.length === 1) {
+		name = tokenName(toks[0]);
+		if (!name) {
+			return undefined;
+		}
+		const declaredType = resolveExpressionType?.(name);
+		actualRaw = declaredType?.resolved
+			? declaredType.asType
+			: env.get(name.toLowerCase());
+		span = { start: sliceStart + toks[0].start, end: sliceStart + toks[0].end };
+	} else if (toks.length === 3 && toks[1].rawText === '.') {
+		const qualifier = tokenName(toks[0]);
+		const member = tokenName(toks[2]);
+		if (!qualifier || !member) {
+			return undefined;
+		}
+		const declaredType = resolveQualifiedExpressionType?.(qualifier, member);
+		if (!declaredType?.resolved) {
+			return undefined;
+		}
+		name = `${qualifier}.${member}`;
+		actualRaw = declaredType.asType;
+		span = { start: sliceStart + toks[0].start, end: sliceStart + toks[2].end };
+	} else {
 		return undefined;
 	}
-	const name = tokenName(toks[0]);
-	if (!name) {
-		return undefined;
-	}
-	const actualRaw = env.get(name.toLowerCase());
 	const actual = normalizeType(actualRaw);
 	if (!isKnownByRefExactType(actual) || actual === expected) {
 		return undefined;
@@ -5372,7 +5663,7 @@ function byRefVariableTypeMismatch(
 	return {
 		name,
 		actual: actualRaw ?? name,
-		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[0].end },
+		span,
 	};
 }
 
@@ -5513,9 +5804,21 @@ function inferArgumentType(
 	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): InferredArgumentType | undefined {
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	return inferExpressionType(toks, sliceStart, env, moduleSignatures, sourceNames, source, memberCtx);
+	return inferExpressionType(
+		toks,
+		sliceStart,
+		env,
+		moduleSignatures,
+		sourceNames,
+		source,
+		memberCtx,
+		resolveExpressionType,
+		resolveQualifiedExpressionType,
+	);
 }
 
 function inferExpressionType(
@@ -5526,6 +5829,8 @@ function inferExpressionType(
 	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): InferredArgumentType | undefined {
 	const first = toks[0];
 	if (!first) {
@@ -5533,7 +5838,17 @@ function inferExpressionType(
 	}
 	const unwrapped = unwrapOuterParens(toks);
 	if (unwrapped !== toks) {
-		return inferExpressionType(unwrapped, sliceStart, env, moduleSignatures, sourceNames, source, memberCtx);
+		return inferExpressionType(
+			unwrapped,
+			sliceStart,
+			env,
+			moduleSignatures,
+			sourceNames,
+			source,
+			memberCtx,
+			resolveExpressionType,
+			resolveQualifiedExpressionType,
+		);
 	}
 	const signedNumericLiteral = inferSignedNumericLiteral(toks, sliceStart);
 	if (signedNumericLiteral) {
@@ -5547,6 +5862,8 @@ function inferExpressionType(
 		sourceNames,
 		source,
 		memberCtx,
+		resolveExpressionType,
+		resolveQualifiedExpressionType,
 	);
 	if (concatenation) {
 		return concatenation;
@@ -5559,11 +5876,23 @@ function inferExpressionType(
 		sourceNames,
 		source,
 		memberCtx,
+		resolveExpressionType,
+		resolveQualifiedExpressionType,
 	);
 	if (arithmetic) {
 		return arithmetic;
 	}
-	return inferAtomicExpressionType(toks, sliceStart, env, moduleSignatures, sourceNames, source, memberCtx);
+	return inferAtomicExpressionType(
+		toks,
+		sliceStart,
+		env,
+		moduleSignatures,
+		sourceNames,
+		source,
+		memberCtx,
+		resolveExpressionType,
+		resolveQualifiedExpressionType,
+	);
 }
 
 function inferSignedNumericLiteral(
@@ -5604,6 +5933,8 @@ function inferAtomicExpressionType(
 	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): InferredArgumentType | undefined {
 	const first = toks[0];
 	if (!first) {
@@ -5651,13 +5982,20 @@ function inferAtomicExpressionType(
 	}
 	const name = tokenName(first);
 	if (name && toks.length === 1) {
-		const type = env.get(name.toLowerCase());
+		const declaredType = resolveExpressionType?.(name);
+		const type = declaredType?.resolved
+			? declaredType.asType
+			: env.get(name.toLowerCase());
 		if (type) {
 			return { type, label: `${name} As ${type}`, span };
 		}
 		const sig = parameterlessValueSignature(name, moduleSignatures, sourceNames);
 		if (sig?.returnType) {
 			return { type: sig.returnType, label: `${name} As ${sig.returnType}`, span };
+		}
+		const external = inferBareExternalConstantExpressionType(name, span, sourceNames);
+		if (external) {
+			return external;
 		}
 		return undefined;
 	}
@@ -5715,6 +6053,24 @@ function inferAtomicExpressionType(
 					label: `${name}.${member} As ${sig.returnType}`,
 					span: { start: sliceStart + toks[2].start, end: sliceStart + toks[2].end },
 				};
+			}
+			const declaredType = resolveQualifiedExpressionType?.(name, member);
+			if (declaredType?.resolved) {
+				return declaredType.asType
+					? {
+						type: declaredType.asType,
+						label: `${name}.${member} As ${declaredType.asType}`,
+						span: { start: sliceStart + toks[2].start, end: sliceStart + toks[2].end },
+					}
+					: undefined;
+			}
+			const external = inferQualifiedExternalConstantExpressionType(
+				name,
+				member,
+				{ start: sliceStart + toks[2].start, end: sliceStart + toks[2].end },
+			);
+			if (external) {
+				return external;
 			}
 		}
 		if (member && toks[3]?.rawText === '(' && matchParenFrom(toks, 3) === toks.length - 1) {
@@ -5946,6 +6302,8 @@ function inferArithmeticExpressionType(
 	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): InferredArgumentType | undefined {
 	const parts = splitTopLevelArithmeticOperands(toks);
 	if (parts.length < 2) {
@@ -5960,6 +6318,8 @@ function inferArithmeticExpressionType(
 			sourceNames,
 			source,
 			memberCtx,
+			resolveExpressionType,
+			resolveQualifiedExpressionType,
 		);
 		const normalized = normalizeType(inferred?.type);
 		if (!normalized || !isNumericType(normalized)) {
@@ -6027,6 +6387,8 @@ function inferStringConcatenationExpressionType(
 	sourceNames?: SourceNameScope,
 	source?: string,
 	memberCtx?: MemberCompletionContext,
+	resolveExpressionType?: SourceDeclaredTypeResolver,
+	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): InferredArgumentType | undefined {
 	const parts = splitTopLevelOperands(toks, '&');
 	if (parts.length < 2) {
@@ -6041,6 +6403,8 @@ function inferStringConcatenationExpressionType(
 			sourceNames,
 			source,
 			memberCtx,
+			resolveExpressionType,
+			resolveQualifiedExpressionType,
 		);
 		const normalized = normalizeType(inferred?.type);
 		if (!normalized || !isStringConcatenationOperandType(normalized)) {
@@ -7583,6 +7947,7 @@ function checkEraseTargets(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -7591,6 +7956,7 @@ function checkEraseTargets(
 			continue;
 		}
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			for (const hit of invalidEraseTargets(source, stmt.span)) {
 				push(
@@ -7599,7 +7965,18 @@ function checkEraseTargets(
 					hit.span,
 				);
 			}
-			for (const hit of eraseScalarTargets(source, stmt.span, shapes)) {
+			for (const hit of eraseScalarTargets(
+				source,
+				stmt.span,
+				shapes,
+				(name) => declaredShapeForSourceBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					name,
+					'assignmentTarget',
+				),
+			)) {
 				push(
 					'eraseRequiresArray',
 					`Erase target '${hit.name}' must be an array or Variant, but it is declared As ${hit.asType}.`,
@@ -7633,6 +8010,7 @@ function eraseScalarTargets(
 	source: string,
 	span: Span,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	resolveShape?: (name: string) => SourceDeclaredShape,
 ): Array<{ name: string; span: Span; asType: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	if (tokenText(toks[0]) !== 'erase') {
@@ -7648,7 +8026,10 @@ function eraseScalarTargets(
 		if (!name) {
 			continue;
 		}
-		const shape = shapes.get(name.toLowerCase());
+		const resolvedShape = resolveShape?.(name);
+		const shape = resolvedShape?.resolved
+			? resolvedShape.shape
+			: shapes.get(name.toLowerCase());
 		if (!shape || shape.isArray || !shape.asType) {
 			continue;
 		}
@@ -9298,6 +9679,7 @@ function checkInvalidExpressionSyntax(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -9306,9 +9688,17 @@ function checkInvalidExpressionSyntax(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const incompleteMember = incompleteMemberAccess(source, stmt.span, {
 				scalarTypes: env,
+				resolveScalarType: (name) => declaredTypeForSourceBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					name,
+					'memberReceiver',
+				),
 			});
 			if (incompleteMember) {
 				push(
@@ -9479,6 +9869,7 @@ function incompleteMemberAccess(
 	options: {
 		includeLeadingDot?: boolean;
 		scalarTypes?: ReadonlyMap<string, string>;
+		resolveScalarType?: SourceDeclaredTypeResolver;
 	} = {},
 ): { span: Span } | undefined {
 	const toks = statementTokens(source, span);
@@ -9495,8 +9886,12 @@ function incompleteMemberAccess(
 			continue;
 		}
 		const receiverName = i > 0 ? tokenName(toks[i - 1]) : undefined;
-		if (receiverName && options.scalarTypes) {
-			const normalized = normalizeType(options.scalarTypes.get(receiverName.toLowerCase()));
+		if (receiverName) {
+			const resolvedType = options.resolveScalarType?.(receiverName);
+			const asType = resolvedType?.resolved
+				? resolvedType.asType
+				: options.scalarTypes?.get(receiverName.toLowerCase());
+			const normalized = normalizeType(asType);
 			if (normalized && isKnownScalarType(normalized)) {
 				continue;
 			}
@@ -10249,7 +10644,16 @@ function checkForEachLoopTypes(
 			continue;
 		}
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
-		checkForEachLoopTypesInBody(member.body, shapes, opts, activity, push);
+		const procSym = procedureSymbolFor(symbols, member);
+		const resolveShape = (name: string, context: BareIdentifierContext): SourceDeclaredShape =>
+			declaredShapeForSourceBinding(
+				symbols,
+				procSym,
+				opts.projectVisibleSymbols,
+				name,
+				context,
+			);
+		checkForEachLoopTypesInBody(member.body, shapes, opts, activity, push, resolveShape);
 	}
 }
 
@@ -10259,6 +10663,7 @@ function checkForEachLoopTypesInBody(
 	opts: AnalyzeModuleOptions,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	resolveShape?: (name: string, context: BareIdentifierContext) => SourceDeclaredShape,
 ): void {
 	for (const node of body) {
 		if (isInactiveNode(activity, node)) {
@@ -10266,10 +10671,10 @@ function checkForEachLoopTypesInBody(
 		}
 		if ('body' in node && Array.isArray(node.body)) {
 			if (node.kind === 'ForBlock') {
-				checkForEachControlVariableType(node, shapes, opts, activity, push);
-				checkForEachSourceType(node, shapes, opts, activity, push);
+				checkForEachControlVariableType(node, shapes, opts, activity, push, resolveShape);
+				checkForEachSourceType(node, shapes, opts, activity, push, resolveShape);
 			}
-			checkForEachLoopTypesInBody(node.body, shapes, opts, activity, push);
+			checkForEachLoopTypesInBody(node.body, shapes, opts, activity, push, resolveShape);
 		}
 	}
 }
@@ -10280,6 +10685,7 @@ function checkForEachControlVariableType(
 	opts: AnalyzeModuleOptions,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	resolveShape?: (name: string, context: BareIdentifierContext) => SourceDeclaredShape,
 ): void {
 	if (
 		!node.each ||
@@ -10289,7 +10695,10 @@ function checkForEachControlVariableType(
 	) {
 		return;
 	}
-	const shape = shapes.get(node.controlVariable.toLowerCase());
+	const resolvedShape = resolveShape?.(node.controlVariable, 'assignmentTarget');
+	const shape = resolvedShape?.resolved
+		? resolvedShape.shape
+		: shapes.get(node.controlVariable.toLowerCase());
 	if (!shape) {
 		return;
 	}
@@ -10310,6 +10719,7 @@ function checkForEachSourceType(
 	opts: AnalyzeModuleOptions,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	resolveShape?: (name: string, context: BareIdentifierContext) => SourceDeclaredShape,
 ): void {
 	if (
 		!node.each ||
@@ -10323,7 +10733,10 @@ function checkForEachSourceType(
 	if (!sourceName) {
 		return;
 	}
-	const shape = shapes.get(sourceName.toLowerCase());
+	const resolvedShape = resolveShape?.(sourceName, 'expression');
+	const shape = resolvedShape?.resolved
+		? resolvedShape.shape
+		: shapes.get(sourceName.toLowerCase());
 	if (!shape) {
 		return;
 	}

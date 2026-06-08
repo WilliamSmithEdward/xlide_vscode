@@ -2912,6 +2912,80 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('MakeLabel(...) As String');
 	});
 
+	it('uses visible exported scalar globals as bare argument value types', () => {
+		const caller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject SharedText\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+			], 'Caller'),
+			'argument-object-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedText');
+		expect(hits[0].message).toContain('SharedText As String');
+	});
+
+	it('uses module-qualified exported scalar globals as argument value types', () => {
+		const caller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject Globals.SharedText\n' +
+			'    NeedsObject Globals.SharedText & ""\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+			], 'Caller'),
+			'argument-object-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['SharedText', 'Globals.SharedText & ""']);
+		expect(hits[0].message).toContain('Globals.SharedText As String');
+		expect(hits[1].message).toContain('string concatenation expression');
+	});
+
+	it('keeps unknown module-qualified value types quiet for argument inference', () => {
+		const caller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject Missing.SharedText\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(caller, [], 'Caller'), 'argument-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('keeps local shadows and ambiguous exported globals quiet for bare argument value types', () => {
+		const shadowCaller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim SharedText\n' +
+			'    NeedsObject SharedText\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(shadowCaller, [
+			{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+		], 'Caller'), 'argument-object-type-mismatch')).toHaveLength(0);
+
+		const ambiguousCaller =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject SharedText\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(ambiguousCaller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedText As String\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedText As String\n' },
+		], 'Caller'), 'argument-object-type-mismatch')).toHaveLength(0);
+	});
+
 	it('uses a module-qualified project function return type in nested calls', () => {
 		const caller =
 			'Public Sub NeedsObject(ByVal item As Object)\n' +
@@ -3168,6 +3242,65 @@ describe('analyzeModule - argument type validation', () => {
 		expect(spanText(caller, hits[0])).toBe('amount');
 	});
 
+	it('uses visible exported project variables for ByRef exactness', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Mutate SharedAmount\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Helpers', source: 'Public Sub Mutate(ByRef value As Long)\nEnd Sub\n' },
+				{ moduleName: 'Globals', source: 'Public SharedAmount As Integer\n' },
+			], 'Caller'),
+			'byref-argument-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedAmount');
+		expect(hits[0].message).toContain('declared as Integer');
+	});
+
+	it('uses module-qualified exported project variables for ByRef exactness', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Mutate Globals.SharedAmount\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Helpers', source: 'Public Sub Mutate(ByRef value As Long)\nEnd Sub\n' },
+				{ moduleName: 'Globals', source: 'Public SharedAmount As Integer\n' },
+			], 'Caller'),
+			'byref-argument-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('Globals.SharedAmount');
+		expect(hits[0].message).toContain("'Globals.SharedAmount'");
+		expect(hits[0].message).toContain('declared as Integer');
+	});
+
+	it('keeps local shadows and ambiguous exported variables quiet for ByRef exactness', () => {
+		const shadowCaller =
+			'Public Sub T()\n' +
+			'    Dim SharedAmount As Variant\n' +
+			'    Mutate SharedAmount\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(shadowCaller, [
+			{ moduleName: 'Helpers', source: 'Public Sub Mutate(ByRef value As Long)\nEnd Sub\n' },
+			{ moduleName: 'Globals', source: 'Public SharedAmount As Integer\n' },
+		], 'Caller'), 'byref-argument-type-mismatch')).toHaveLength(0);
+
+		const ambiguousCaller =
+			'Public Sub T()\n' +
+			'    Mutate SharedAmount\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(ambiguousCaller, [
+			{ moduleName: 'Helpers', source: 'Public Sub Mutate(ByRef value As Long)\nEnd Sub\n' },
+			{ moduleName: 'GlobalsA', source: 'Public SharedAmount As Integer\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedAmount As String\n' },
+		], 'Caller'), 'byref-argument-type-mismatch')).toHaveLength(0);
+	});
+
 	it('does not warn on Variant arguments whose runtime value is unknown', () => {
 		const src =
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +
@@ -3306,6 +3439,36 @@ describe('analyzeModule - argument type validation', () => {
 			expect.stringContaining('is -2'),
 			expect.stringContaining('is 0'),
 		]);
+	});
+
+	it('folds verified runtime and host constants for runtime argument bounds', () => {
+		const src =
+			'Sub T()\n' +
+			'    a = Left$("abcdef", vbFalse - 1)\n' +
+			'    b = Left$("abcdef", VBA.vbFalse - 1)\n' +
+			'    c = Left$("abcdef", xlAbove - 1)\n' +
+			'    d = Left$("abcdef", xlNo - 1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'vbFalse - 1',
+			'VBA.vbFalse - 1',
+			'xlAbove - 1',
+		]);
+	});
+
+	it('lets source declarations shadow verified runtime and host constants for runtime argument bounds', () => {
+		const src =
+			'Private Const vbFalse As Long = 1\n' +
+			'Sub T()\n' +
+			'    Dim xlAbove As Long\n' +
+			'    xlAbove = 1\n' +
+			'    a = Left$("abcdef", vbFalse - 1)\n' +
+			'    b = Left$("abcdef", xlAbove - 1)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'runtime-argument-value')).toHaveLength(0);
 	});
 
 	it('flags oracle-backed InStr Start values below one without flagging two-argument calls', () => {
@@ -3699,6 +3862,45 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits[0].message).toContain('Left$(...) As String');
 	});
 
+	it('uses verified runtime and host constants as argument value types', () => {
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject vbFalse\n' +
+			'    NeedsObject VBA.vbFalse\n' +
+			'    NeedsObject xlAbove\n' +
+			'    NeedsObject vbNullString\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+
+		expect(hits).toHaveLength(4);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'vbFalse',
+			'vbFalse',
+			'xlAbove',
+			'vbNullString',
+		]);
+		expect(hits[0].message).toContain('vbFalse As VbTriState');
+		expect(hits[1].message).toContain('VBA.vbFalse As VbTriState');
+		expect(hits[2].message).toContain('xlAbove As Constants');
+		expect(hits[3].message).toContain('vbNullString As String');
+	});
+
+	it('lets source declarations shadow verified external constants for argument value types', () => {
+		const src =
+			'Public Function vbFalse() As Object\n' +
+			'End Function\n' +
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim xlAbove As Object\n' +
+			'    NeedsObject vbFalse\n' +
+			'    NeedsObject xlAbove\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-object-type-mismatch')).toHaveLength(0);
+	});
+
 	it('uses parameterless Function and Property Get references as argument types', () => {
 		const src =
 			'Public Function MakeLabel() As String\n' +
@@ -3716,6 +3918,20 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['MakeLabel', 'CurrentLabel']);
 		expect(hits[0].message).toContain('MakeLabel As String');
 		expect(hits[1].message).toContain('CurrentLabel As String');
+	});
+
+	it('keeps the current Function return variable available for bare argument inference', () => {
+		const src =
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Function CurrentLabel(ByVal index As Long) As String\n' +
+			'    NeedsObject CurrentLabel\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('CurrentLabel');
+		expect(hits[0].message).toContain('CurrentLabel As String');
 	});
 
 	it('uses module-qualified parameterless project Function references as argument types', () => {
@@ -5668,6 +5884,34 @@ describe('analyzeModule - division by zero', () => {
 		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['SharedZero', 'SharedZeroDivisor']);
 	});
 
+	it('folds verified runtime and host constants for zero divisor checks', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / vbFalse\n' +
+			'    a = 1 / VBA.vbFalse\n' +
+			'    a = 1 / xlAbove\n' +
+			'    a = 1 / xlNo\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+
+		expect(hits).toHaveLength(3);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['vbFalse', 'VBA.vbFalse', 'xlAbove']);
+	});
+
+	it('lets source declarations shadow verified runtime and host constants', () => {
+		const src =
+			'Private Const vbFalse As Long = 1\n' +
+			'Public Sub T()\n' +
+			'    Dim xlAbove As Long\n' +
+			'    Dim a As Double\n' +
+			'    xlAbove = 1\n' +
+			'    a = 1 / vbFalse\n' +
+			'    a = 1 / xlAbove\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'division-by-zero')).toHaveLength(0);
+	});
+
 	it('folds module-qualified cross-module Const and Enum values for zero divisor checks', () => {
 		const caller =
 			'Public Sub T()\n' +
@@ -6264,6 +6508,101 @@ describe('analyzeModule - Set assignment validation', () => {
 		expect(hits[0].message).toContain('Object');
 	});
 
+	it('uses visible exported scalar globals as bare Set RHS value types', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim target As Object\n' +
+			'    Set target = SharedText\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+			], 'Caller'),
+			'assignment-object-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedText');
+		expect(hits[0].message).toContain('SharedText As String');
+	});
+
+	it('uses module-qualified exported scalar globals as Set RHS value types', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim target As Object\n' +
+			'    Set target = Globals.SharedText\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+			], 'Caller'),
+			'assignment-object-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedText');
+		expect(hits[0].message).toContain('Globals.SharedText As String');
+	});
+
+	it('uses verified runtime and host constants as Set RHS value types', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim target As Object\n' +
+			'    Set target = vbFalse\n' +
+			'    Set target = VBA.vbFalse\n' +
+			'    Set target = xlAbove\n' +
+			'    Set target = vbNullString\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
+
+		expect(hits).toHaveLength(4);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'vbFalse',
+			'vbFalse',
+			'xlAbove',
+			'vbNullString',
+		]);
+		expect(hits[0].message).toContain('vbFalse As VbTriState');
+		expect(hits[1].message).toContain('VBA.vbFalse As VbTriState');
+		expect(hits[2].message).toContain('xlAbove As Constants');
+		expect(hits[3].message).toContain('vbNullString As String');
+	});
+
+	it('lets source declarations shadow verified external constants for Set RHS value types', () => {
+		const src =
+			'Public Function vbFalse() As Object\n' +
+			'End Function\n' +
+			'Public Sub T()\n' +
+			'    Dim target As Object\n' +
+			'    Dim xlAbove As Object\n' +
+			'    Set target = vbFalse\n' +
+			'    Set target = xlAbove\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('keeps local shadows and ambiguous exported Set RHS globals quiet', () => {
+		const shadowCaller =
+			'Public Sub T()\n' +
+			'    Dim target As Object\n' +
+			'    Dim SharedText\n' +
+			'    Set target = SharedText\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(shadowCaller, [
+			{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+		], 'Caller'), 'assignment-object-type-mismatch')).toHaveLength(0);
+
+		const ambiguousCaller =
+			'Public Sub T()\n' +
+			'    Dim target As Object\n' +
+			'    Set target = SharedText\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(ambiguousCaller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedText As String\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedText As String\n' },
+		], 'Caller'), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
 	it('does not guess Set target types for ambiguous visible exported globals', () => {
 		const caller =
 			'Public Sub T()\n' +
@@ -6837,6 +7176,74 @@ describe('analyzeModule - array Erase', () => {
 		expect(hits[0].severity).toBe('error');
 		expect(hits[0].message).toContain('array or Variant');
 		expect(hits[0].message).toContain('Object');
+	});
+
+	it('uses visible exported scalar globals for Erase target shapes', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Erase SharedValue, SharedObject\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'Globals',
+				source:
+					'Public SharedValue As Long\n' +
+					'Public SharedObject As Object\n',
+			},
+		], 'Caller');
+		const hits = byCode(diagnostics, 'erase-requires-array');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['SharedValue', 'SharedObject']);
+	});
+
+	it('accepts Erase of visible exported arrays and Variant globals', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Erase SharedValues, SharedFlexible\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'Globals',
+				source:
+					'Public SharedValues() As Long\n' +
+					'Public SharedFlexible As Variant\n',
+			},
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'erase-requires-array')).toHaveLength(0);
+	});
+
+	it('lets local array and Variant declarations shadow exported Erase scalars', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Dim SharedValue() As Long\n' +
+			'    Dim SharedObject As Variant\n' +
+			'    Erase SharedValue, SharedObject\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'Globals',
+				source:
+					'Public SharedValue As Long\n' +
+					'Public SharedObject As Object\n',
+			},
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'erase-requires-array')).toHaveLength(0);
+	});
+
+	it('keeps ambiguous visible exported Erase targets quiet', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Erase SharedValue\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedValue As Long\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedValue As Object\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'erase-requires-array')).toHaveLength(0);
 	});
 
 	it('accepts Erase of arrays, Variants, unresolved names, and non-simple targets', () => {
@@ -8002,6 +8409,34 @@ describe('analyzeModule - invalid expression syntax', () => {
 		expect(byCode(analyzeModule(src), 'scalar-member-access')).toHaveLength(1);
 	});
 
+	it('lets scalar member access own visible exported scalar trailing dots', () => {
+		const caller = 'Sub T()\n    SharedText.\nEnd Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'invalid-expression-syntax')).toHaveLength(0);
+		const hits = byCode(diagnostics, 'scalar-member-access');
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedText.');
+	});
+
+	it('uses generic incomplete member syntax for local shadows of exported scalars', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Dim SharedText\n' +
+			'    SharedText.\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'scalar-member-access')).toHaveLength(0);
+		const hits = byCode(diagnostics, 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('.');
+	});
+
 	it('treats fixed-length String declarations as scalar String receivers', () => {
 		const src = 'Sub T()\n    Dim value As String * 20\n    value.\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
@@ -8996,6 +9431,52 @@ describe('analyzeModule - statement context', () => {
 		expect(hits[0].message).toContain('array variable');
 	});
 
+	it('uses visible exported scalar and array globals for For Each control variables', () => {
+		const caller =
+			'Sub T()\n' +
+			'    For Each SharedItem In Array(1, 2, 3)\n' +
+			'    Next SharedItem\n' +
+			'    For Each SharedValues In Array(1, 2, 3)\n' +
+			'    Next SharedValues\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'Globals',
+				source:
+					'Public SharedItem As Long\n' +
+					'Public SharedValues() As Variant\n',
+			},
+		], 'Caller');
+		const hits = byCode(diagnostics, 'for-each-control-variable-type');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['SharedItem', 'SharedValues']);
+		expect(hits[0].message).toContain('Long');
+		expect(hits[1].message).toContain('array variable');
+	});
+
+	it('keeps local Variant shadows and ambiguous exported For Each controls quiet', () => {
+		const shadowCaller =
+			'Sub T()\n' +
+			'    Dim SharedItem As Variant\n' +
+			'    For Each SharedItem In Array(1, 2, 3)\n' +
+			'    Next SharedItem\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(shadowCaller, [
+			{ moduleName: 'Globals', source: 'Public SharedItem As Long\n' },
+		], 'Caller'), 'for-each-control-variable-type')).toHaveLength(0);
+
+		const ambiguousCaller =
+			'Sub T()\n' +
+			'    For Each SharedItem In Array(1, 2, 3)\n' +
+			'    Next SharedItem\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(ambiguousCaller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedItem As Long\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedItem As String\n' },
+		], 'Caller'), 'for-each-control-variable-type')).toHaveLength(0);
+	});
+
 	it('accepts Variant, Object, and host object For Each control variables', () => {
 		const src =
 			'Sub T()\n' +
@@ -9077,6 +9558,66 @@ describe('analyzeModule - statement context', () => {
 		expect(hits[0].severity).toBe('error');
 		expect(hits[0].message).toContain('collection object or array');
 		expect(hits[0].message).toContain('Long');
+	});
+
+	it('uses visible exported scalar globals for For Each source types', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    For Each item In SharedValue\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedValue As Long\n' },
+			], 'Caller'),
+			'for-each-source-type',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedValue');
+		expect(hits[0].message).toContain('Long');
+	});
+
+	it('keeps exported arrays Variants local shadows and ambiguous For Each sources quiet', () => {
+		const acceptedCaller =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    For Each item In SharedValues\n' +
+			'    Next item\n' +
+			'    For Each item In SharedFlexible\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(acceptedCaller, [
+			{
+				moduleName: 'Globals',
+				source:
+					'Public SharedValues() As Long\n' +
+					'Public SharedFlexible As Variant\n',
+			},
+		], 'Caller'), 'for-each-source-type')).toHaveLength(0);
+
+		const shadowCaller =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    Dim SharedValue() As Long\n' +
+			'    For Each item In SharedValue\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(shadowCaller, [
+			{ moduleName: 'Globals', source: 'Public SharedValue As Long\n' },
+		], 'Caller'), 'for-each-source-type')).toHaveLength(0);
+
+		const ambiguousCaller =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    For Each item In SharedValue\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(ambiguousCaller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedValue As Long\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedValue As String\n' },
+		], 'Caller'), 'for-each-source-type')).toHaveLength(0);
 	});
 
 	it('accepts known array/object-like and unresolved For Each sources', () => {

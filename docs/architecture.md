@@ -947,12 +947,15 @@ Diagnostic severity policy:
   covers `Set` assignments where both sides have deterministic object types,
   including project classes, source-backed object members, `Nothing`, and
   explicit `Implements` compatibility. These rules use only declared
-  parameter/local types, `Function`/`Property Get` return-name types,
-  zero-argument Function/Property Get value references, curated runtime return
-  metadata, same-module return types, known source-backed or host/reference
-  member signatures, proven source-backed or host/reference member return
-  expressions, and deterministic literal/expression inference; unknown and
-  `Variant` operands suppress diagnostics. Bare member functions with required
+  parameter/local/module/project value types resolved through the shared
+  expression resolver, module-qualified `ModuleName.ValueName` reads resolved
+  through the matching source-backed module surface, `Function`/`Property Get`
+  return-name types, zero-argument Function/Property Get value references,
+  curated runtime return metadata, same-module return types, known
+  source-backed or host/reference member signatures, proven source-backed or
+  host/reference member return expressions, and deterministic
+  literal/expression inference; unknown, ambiguous, untyped, and `Variant`
+  operands suppress diagnostics. Bare member functions with required
   arguments do not infer as value references unless the expression is an actual
   call. For
   workbook-backed modules, the provider also passes a
@@ -1076,6 +1079,19 @@ Diagnostic severity policy:
   arrays feed these diagnostics, while dynamic arrays, scalar `Variant` and
   implicit Variant targets, local dynamic shadows, ambiguous exported globals,
   undeclared targets, and inactive branches stay quiet.
+  `erase-requires-array` uses the same assignment-target resolver for simple
+  bare `Erase` targets. Visible exported standard-module non-Variant
+  scalar/object globals feed the diagnostic, while arrays, `Variant` and
+  implicit Variant targets, local shadows, ambiguous exported globals,
+  unresolved names, non-simple member/index targets, and inactive branches stay
+  quiet.
+  `for-each-control-variable-type` resolves simple `For Each` control variables
+  through the shared assignment-target resolver, and `for-each-source-type`
+  resolves simple `In` source names through the shared expression resolver.
+  Visible exported standard-module scalars/arrays feed the relevant diagnostics,
+  while `Variant`, object-like values, local shadows, ambiguous exported
+  globals, unresolved names, member-chain sources, and inactive branches stay
+  quiet.
   `scalar-member-access` fires only when a bare receiver is a declared
   intrinsic scalar (`String`, numeric, `Boolean`, or `Date`), including visible
   exported standard-module scalar globals proven through the shared
@@ -1084,7 +1100,11 @@ Diagnostic severity policy:
   VBE Compile `Syntax error` after explicit focus retesting. Local shadows,
   ambiguous exported globals, qualified/member-chain tokens, unknown,
   `Variant`, object-like, project class, and UDT receivers stay silent until
-  the binder can prove more.
+  the binder can prove more. `invalid-expression-syntax` asks that same
+  member-receiver resolver before reporting a generic incomplete trailing-dot
+  member access, so known scalar receivers are left to `scalar-member-access`
+  while local shadows, ambiguous exported globals, object-like receivers, and
+  unknown receivers still use the syntax fallback.
   `undeclared-variable` runs only when `Option Explicit` is present and the
   caller passes project context (`knownIdentifiers` from
   `ProjectIndex.visibleIdentifierNames(moduleName)` plus, when available,
@@ -1168,11 +1188,12 @@ single module:
   source tier (`local`, `module`, or `project`), ambiguity, definitions, and a
   short explanation. `ProjectIndex`, Option Explicit, const-assignment,
   assignment-target typing, `Set` target typing, array/scalar shape
-  diagnostics, `ReDim` target-shape diagnostics, scalar member-receiver
-  diagnostics, runtime integer-constant folding, ambiguous enum-member,
-  unknown/non-callable call diagnostics, and runtime-shadow diagnostics consume
-  this helper so editor navigation and red-squiggly fallback rules do not grow
-  separate precedence ladders.
+  diagnostics, `ReDim`/`Erase` target-shape diagnostics, `For Each` control and
+  source-shape diagnostics, scalar member-receiver diagnostics, runtime
+  integer-constant folding, ambiguous enum-member, unknown/non-callable call
+  diagnostics, and runtime-shadow diagnostics consume this helper so editor
+  navigation and red-squiggly fallback rules do not grow separate precedence
+  ladders.
 - `src/analyzer/symbols/projectIndex.ts` is the `ProjectIndex` that aggregates
   modules and answers `documentSymbols`, `workspaceSymbols`, conservative
   `resolveDefinition` (via the shared bare-identifier resolver: locals/params ->

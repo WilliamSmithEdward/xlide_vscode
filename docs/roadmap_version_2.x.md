@@ -6,7 +6,7 @@ validation work.
 
 Status: Version 2.x scope is closed. Future binder, object/member metadata,
 performance and scale, and workbook-transfer work is tracked in
-`docs/roadmap_version_2.1.0.md`.
+`docs/roadmap_version_2.1.0.md` and `docs/roadmap_version_2.2.0.md`.
 
 ## North Star
 
