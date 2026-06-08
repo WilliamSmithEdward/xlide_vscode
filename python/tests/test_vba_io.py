@@ -135,6 +135,50 @@ class TestModuleType:
         )
 
 
+class TestReadModules:
+    def test_reads_module_metadata_and_visible_body_in_one_workbook_open(self):
+        from pyopenvba import VBAModuleKind
+
+        class FakeModule:
+            def __init__(self, name, kind, source):
+                self.name = name
+                self.kind = kind
+                self.source = source
+
+        mock_wb = _make_mock_wb()
+        mock_wb.vba_project.return_value.modules = [
+            FakeModule(
+                "Module1",
+                VBAModuleKind.standard,
+                'Attribute VB_Name = "Module1"\nOption Explicit\nSub T()\nEnd Sub\n',
+            ),
+            FakeModule(
+                "Sheet1",
+                VBAModuleKind.other,
+                'Attribute VB_Base = "{00020820-0000-0000-C000-000000000046}"\n'
+                "Private Sub Worksheet_Change(ByVal Target As Range)\nEnd Sub\n",
+            ),
+        ]
+
+        with patch("xlide.vba_io.ExcelFile", return_value=mock_wb):
+            from xlide.vba_io import read_modules
+            result = read_modules(path="fake.xlsm")
+
+        assert result == [
+            {
+                "name": "Module1",
+                "type": "standard",
+                "source": "Option Explicit\nSub T()\nEnd Sub\n",
+            },
+            {
+                "name": "Sheet1",
+                "type": "document",
+                "documentType": "worksheet",
+                "source": "Private Sub Worksheet_Change(ByVal Target As Range)\nEnd Sub\n",
+            },
+        ]
+
+
 # ---------------------------------------------------------------------------
 # allow_protected=True regression tests
 # Verify every write path passes allow_protected=True to ExcelFile.save()

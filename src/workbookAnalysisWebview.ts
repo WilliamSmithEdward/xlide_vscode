@@ -77,6 +77,9 @@ interface OpenWorkbookAnalysisResultsPanelEntry {
     setResult: (result: WorkbookAnalysisResult) => void;
 }
 
+const WORKBOOK_ANALYSIS_REFRESH_DELAY_MS = 350;
+const WORKBOOK_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS = 1200;
+
 const openWorkbookAnalysisResultsPanels = new Map<string, OpenWorkbookAnalysisResultsPanelEntry>();
 
 export function openWorkbookAnalysisResults(
@@ -106,6 +109,8 @@ export function openWorkbookAnalysisResults(
     let disposed = false;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     let refreshVersion = 0;
+    let refreshInFlight = false;
+    let pendingRefreshAfterRun = false;
     let contextMenuOpen = false;
     let pendingRefreshAfterContextMenu = false;
     let severitySettingsSaveVersion = 0;
@@ -152,23 +157,36 @@ export function openWorkbookAnalysisResults(
             pendingRefreshAfterContextMenu = true;
             return;
         }
-        if (entry.options.onRefreshResult) {
-            const nextResult = await entry.options.onRefreshResult();
-            if (requestVersion !== refreshVersion || disposed) {
-                return;
-            }
-            currentResult = nextResult;
-        }
-        if (contextMenuOpen) {
-            pendingRefreshAfterContextMenu = true;
+        if (refreshInFlight) {
+            pendingRefreshAfterRun = true;
             return;
         }
-        if (!disposed) {
-            await renderPanel();
+        refreshInFlight = true;
+        try {
+            if (entry.options.onRefreshResult) {
+                const nextResult = await entry.options.onRefreshResult();
+                if (requestVersion !== refreshVersion || disposed) {
+                    return;
+                }
+                currentResult = nextResult;
+            }
+            if (contextMenuOpen) {
+                pendingRefreshAfterContextMenu = true;
+                return;
+            }
+            if (!disposed) {
+                await renderPanel();
+            }
+        } finally {
+            refreshInFlight = false;
+            if (pendingRefreshAfterRun && !disposed) {
+                pendingRefreshAfterRun = false;
+                scheduleRefresh();
+            }
         }
     };
 
-    const scheduleRefresh = (): void => {
+    const scheduleRefresh = (delayMs = WORKBOOK_ANALYSIS_REFRESH_DELAY_MS): void => {
         const requestVersion = ++refreshVersion;
         if (disposed) { return; }
         if (contextMenuOpen) {
@@ -182,7 +200,7 @@ export function openWorkbookAnalysisResults(
                 const error = err instanceof Error ? err.message : String(err);
                 void panel.webview.postMessage({ type: 'error', error });
             });
-        }, 350);
+        }, delayMs);
     };
 
     const refreshAfterAnalysisMutation = async (): Promise<void> => {
@@ -408,7 +426,7 @@ export function openWorkbookAnalysisResults(
     });
     const textChangeSub = vscode.workspace.onDidChangeTextDocument((e) => {
         if (isWorkbookDocument(e.document, currentResult.filePath)) {
-            scheduleRefresh();
+            scheduleRefresh(WORKBOOK_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS);
         }
     });
     const saveSub = vscode.workspace.onDidSaveTextDocument((document) => {
@@ -440,6 +458,7 @@ export function openWorkbookAnalysisResults(
             clearTimeout(refreshTimer);
             refreshTimer = undefined;
         }
+        pendingRefreshAfterRun = false;
         if (ignoreOwnSeveritySettingsRefreshTimer) {
             clearTimeout(ignoreOwnSeveritySettingsRefreshTimer);
             ignoreOwnSeveritySettingsRefreshTimer = undefined;

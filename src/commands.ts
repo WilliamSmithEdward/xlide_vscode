@@ -2778,11 +2778,16 @@ export function registerCommands(
             }
             const name = path.basename(filePath);
             await vscode.window.withProgress(
-                { location: vscode.ProgressLocation.Notification, title: `XLIDE: Analyzing "${name}"...`, cancellable: false },
-                async () => {
+                { location: vscode.ProgressLocation.Notification, title: `XLIDE: Analyzing "${name}"...`, cancellable: true },
+                async (progress, token) => {
                     try {
-                        const result = await analyzeWorkbook(bridge, filePath);
-                        showWorkbookAnalysisResults(result, () => analyzeWorkbook(bridge, filePath));
+                        const result = await analyzeWorkbook(bridge, filePath, {
+                            token,
+                            progress: (message) => progress.report({ message }),
+                        });
+                        showWorkbookAnalysisResults(result, () => analyzeWorkbook(bridge, filePath, {
+                            progress: (message) => progress.report({ message }),
+                        }));
                         if (result.problems.length === 0) {
                             vscode.window.showInformationMessage(
                                 `XLIDE: "${name}" passed analysis (no problems across ${result.moduleCount} module(s)).`,
@@ -2794,6 +2799,10 @@ export function registerCommands(
                         }
                     } catch (err) {
                         const msg = err instanceof Error ? err.message : String(err);
+                        if (err instanceof vscode.CancellationError) {
+                            log(`[analyzeWorkbook] Canceled: ${name}`);
+                            return;
+                        }
                         log(`[analyzeWorkbook] FAILED: ${msg}`);
                         vscode.window.showErrorMessage(`XLIDE: Analysis failed: ${msg}`);
                     }

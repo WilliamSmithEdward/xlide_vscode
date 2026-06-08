@@ -21,6 +21,9 @@ function bridgeForModules(modules: TestModule[]): PythonBridge {
 	const byName = new Map(modules.map((mod) => [mod.name, mod]));
 	return {
 		call: vi.fn(async (method: string, payload: { module?: string }) => {
+			if (method === 'readModules') {
+				return modules.map(({ name, type, source }) => ({ name, type, source }));
+			}
 			if (method === 'listModules') {
 				return modules.map(({ name, type }) => ({ name, type }));
 			}
@@ -37,6 +40,59 @@ function bridgeForModules(modules: TestModule[]): PythonBridge {
 }
 
 describe('analyzeWorkbook metadata summary', () => {
+	it('loads workbook modules through the batch read endpoint', async () => {
+		const bridge = bridgeForModules([
+			{
+				name: 'Module1',
+				type: 'standard',
+				source: 'Option Explicit\nSub T()\nEnd Sub\n',
+			},
+		]);
+
+		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+
+		expect(result.moduleCount).toBe(1);
+		expect(vi.mocked(bridge.call).mock.calls.map(([method]) => method)).toEqual(['readModules']);
+	});
+
+	it('falls back to legacy list/read calls when the backend lacks batch reads', async () => {
+		const modules: TestModule[] = [
+			{
+				name: 'Module1',
+				type: 'standard',
+				source: 'Option Explicit\nSub T()\nEnd Sub\n',
+			},
+		];
+		const byName = new Map(modules.map((mod) => [mod.name, mod]));
+		const bridge = {
+			call: vi.fn(async (method: string, payload: { module?: string }) => {
+				if (method === 'readModules') {
+					throw new Error('Method not found: readModules');
+				}
+				if (method === 'listModules') {
+					return modules.map(({ name, type }) => ({ name, type }));
+				}
+				if (method === 'readModule' && payload.module) {
+					const mod = byName.get(payload.module);
+					if (!mod) {
+						throw new Error(`Unknown module ${payload.module}`);
+					}
+					return { source: mod.source };
+				}
+				throw new Error(`Unexpected bridge call ${method}`);
+			}),
+		} as unknown as PythonBridge;
+
+		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+
+		expect(result.moduleCount).toBe(1);
+		expect(vi.mocked(bridge.call).mock.calls.map(([method]) => method)).toEqual([
+			'readModules',
+			'listModules',
+			'readModule',
+		]);
+	});
+
 	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {
 		const bridge = bridgeForModules([
 			{

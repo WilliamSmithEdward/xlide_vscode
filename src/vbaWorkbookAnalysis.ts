@@ -104,6 +104,13 @@ interface RawModule {
     source: string;
 }
 
+export interface AnalyzeWorkbookOptions {
+    progress?: (message: string) => void;
+    token?: vscode.CancellationToken;
+}
+
+const ANALYSIS_YIELD_EVERY_MODULES = 4;
+
 /** Converts a 0-based character offset to a 1-based {line, column} pair. */
 function offsetToLineColumn(
     starts: number[],
@@ -241,7 +248,29 @@ function sortWorkbookProblems(problems: WorkbookAnalysisProblem[]): void {
 async function loadWorkbookModules(
     bridge: PythonBridge,
     filePath: string,
+    options: AnalyzeWorkbookOptions = {},
 ): Promise<RawModule[]> {
+    options.progress?.('Reading VBA modules...');
+    try {
+        const modules = await bridge.call<RawModule[]>(
+            'readModules',
+            { path: filePath },
+            options.token,
+        );
+        return modules
+            .filter((mod) => typeof mod.source === 'string')
+            .map((mod) => ({
+                name: mod.name,
+                type: mod.type,
+                documentType: mod.documentType,
+                source: mod.source,
+            }));
+    } catch (err) {
+        if (!isReadModulesUnavailable(err)) {
+            throw err;
+        }
+    }
+
     const list = await bridge.call<Array<{
         name: string;
         type: string;
@@ -249,13 +278,17 @@ async function loadWorkbookModules(
     }>>(
         'listModules',
         { path: filePath },
+        options.token,
     );
     const out: RawModule[] = [];
-    for (const entry of list) {
+    for (const [index, entry] of list.entries()) {
+        throwIfAnalysisCancelled(options.token);
+        options.progress?.(`Reading ${entry.name} (${index + 1}/${list.length})...`);
         try {
             const result = await bridge.call<{ source: string }>(
                 'readModule',
                 { path: filePath, module: entry.name },
+                options.token,
             );
             out.push({
                 name: entry.name,
@@ -270,6 +303,21 @@ async function loadWorkbookModules(
     return out;
 }
 
+function isReadModulesUnavailable(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err);
+    return /Method not found:\s*readModules/i.test(message);
+}
+
+function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): void {
+    if (token?.isCancellationRequested) {
+        throw new vscode.CancellationError();
+    }
+}
+
+async function yieldToExtensionHost(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 /**
  * Analyzes every module in a workbook and returns the flattened, sorted problem
  * list. Never throws on a per-module analysis failure - those modules simply
@@ -278,13 +326,16 @@ async function loadWorkbookModules(
 export async function analyzeWorkbook(
     bridge: PythonBridge,
     filePath: string,
+    options: AnalyzeWorkbookOptions = {},
 ): Promise<WorkbookAnalysisResult> {
-    const modules = await loadWorkbookModules(bridge, filePath);
+    const modules = await loadWorkbookModules(bridge, filePath, options);
     const openDocuments = vscode.workspace.textDocuments ?? [];
     for (const mod of modules) {
         mod.source = openModuleSourceForWorkbook(filePath, mod.name, openDocuments) ?? mod.source;
     }
 
+    throwIfAnalysisCancelled(options.token);
+    options.progress?.('Building project context...');
     const project = buildVbaProjectIndex(modules.map((mod) => ({
         moduleName: mod.name,
         source: mod.source,
@@ -298,7 +349,9 @@ export async function analyzeWorkbook(
     const problems: WorkbookAnalysisProblem[] = [];
     const suppressedProblems: WorkbookAnalysisProblem[] = [];
 
-    for (const mod of modules) {
+    for (const [index, mod] of modules.entries()) {
+        throwIfAnalysisCancelled(options.token);
+        options.progress?.(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
         const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
         const moduleAnalysis = analyzeVbaModuleSource({
             source: mod.source,
@@ -322,8 +375,12 @@ export async function analyzeWorkbook(
             moduleAnalysis.suppressedDiagnostics,
             { suppressed: true },
         ));
+        if ((index + 1) % ANALYSIS_YIELD_EVERY_MODULES === 0) {
+            await yieldToExtensionHost();
+        }
     }
 
+    options.progress?.('Preparing results...');
     sortWorkbookProblems(problems);
     sortWorkbookProblems(suppressedProblems);
 

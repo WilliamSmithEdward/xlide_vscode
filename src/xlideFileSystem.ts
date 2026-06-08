@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import type { LiveShareIntegration } from './liveShare';
 import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
@@ -301,8 +300,7 @@ export class XlideFileSystemProvider
         if (existing) {
             return existing;
         }
-        const now = this.backingFileTimestamp(uri) ?? this.nextTimestamp();
-        this._clock = Math.max(this._clock, now);
+        const now = this.nextTimestamp();
         const created = { ctime: now, mtime: now, size: 0 };
         this._stats.set(key, created);
         return created;
@@ -322,8 +320,7 @@ export class XlideFileSystemProvider
 
     private markChanged(uri: vscode.Uri, size?: number): void {
         const state = this.ensureStat(uri);
-        state.mtime = this.backingFileTimestamp(uri) ?? this.nextTimestamp(state.mtime);
-        this._clock = Math.max(this._clock, state.mtime);
+        state.mtime = this.nextTimestamp(state.mtime);
         if (size !== undefined) {
             state.size = size;
         }
@@ -337,18 +334,5 @@ export class XlideFileSystemProvider
 
     private statKey(uri: vscode.Uri): string {
         return uri.toString();
-    }
-
-    private backingFileTimestamp(uri: vscode.Uri): number | undefined {
-        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
-            return undefined;
-        }
-        try {
-            const { xlsmPath } = decodeModuleUri(uri);
-            const stat = fs.statSync(xlsmPath);
-            return Number.isFinite(stat.mtimeMs) ? Math.trunc(stat.mtimeMs) : undefined;
-        } catch {
-            return undefined;
-        }
     }
 }

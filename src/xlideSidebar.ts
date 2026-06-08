@@ -141,8 +141,14 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 return;
             }
             try {
-                if (!fs.existsSync(settingsPath)) {
-                    await fs.promises.writeFile(settingsPath, '{}\n', { encoding: 'utf8', flag: 'wx' });
+                if (!(await pathExists(settingsPath))) {
+                    try {
+                        await fs.promises.writeFile(settingsPath, '{}\n', { encoding: 'utf8', flag: 'wx' });
+                    } catch (err) {
+                        if (!isFileAlreadyExistsError(err)) {
+                            throw err;
+                        }
+                    }
                 }
                 const document = await vscode.workspace.openTextDocument(vscode.Uri.file(settingsPath));
                 await vscode.window.showTextDocument(document, { preview: false });
@@ -259,7 +265,7 @@ async function sidebarWorkbookForPath(
         selectionSource,
     };
     try {
-        const exists = fs.existsSync(settingsPath);
+        const exists = await pathExists(settingsPath);
         await readWorkbookSettings(workbookPath);
         return {
             ...base,
@@ -274,6 +280,22 @@ async function sidebarWorkbookForPath(
                 : `Unable to read workbook settings: ${err instanceof Error ? err.message : String(err)}`,
         };
     }
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+    try {
+        await fs.promises.access(filePath);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function isFileAlreadyExistsError(err: unknown): boolean {
+    return typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code?: unknown }).code === 'EEXIST';
 }
 
 function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {

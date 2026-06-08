@@ -14,6 +14,7 @@ import { PythonBridge } from './pythonBridge';
 import {
 	XLIDE_SCHEME,
 	decodeModuleUri,
+	moduleIdentityKey,
 	workbookIdentityKey,
 } from './xlideFileSystem';
 import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
@@ -71,6 +72,7 @@ const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
 const CHART = 'Excel.Chart';
 const MODULE_CACHE_TTL_MS = 5000;
+const MODULE_SOURCE_CACHE_TTL_MS = 10_000;
 const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
 const MAX_PENDING_CANONICAL_CASE_REQUESTS = 16;
@@ -87,6 +89,11 @@ interface ModuleEntry {
 
 interface CachedModules {
 	entries: ModuleEntry[];
+	loadedAt: number;
+}
+
+interface CachedModuleSource {
+	source: string;
 	loadedAt: number;
 }
 
@@ -192,6 +199,9 @@ class VbaMemberCompletionProvider
 		vscode.SignatureHelpProvider
 {
 	private readonly _cache = new Map<string, CachedModules>();
+	private readonly _moduleListReads = new Map<string, Promise<ModuleEntry[] | undefined>>();
+	private readonly _moduleSourceCache = new Map<string, CachedModuleSource>();
+	private readonly _moduleSourceReads = new Map<string, Promise<string | undefined>>();
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
 	private readonly _projectContextBuilds = new Map<string, Promise<EditorProjectContext>>();
 	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
@@ -206,11 +216,16 @@ class VbaMemberCompletionProvider
 	invalidate(xlsmPath?: string): void {
 		if (xlsmPath === undefined) {
 			this._cache.clear();
+			this._moduleListReads.clear();
+			this._moduleSourceCache.clear();
+			this._moduleSourceReads.clear();
 			this._projectContextCache.clear();
 			this._projectContextBuilds.clear();
 		} else {
 			const key = workbookIdentityKey(xlsmPath);
 			this._cache.delete(key);
+			this._moduleListReads.delete(key);
+			this._clearModuleSourceCacheForWorkbook(key);
 			this._clearProjectContextCacheForWorkbook(xlsmPath);
 		}
 	}
@@ -236,8 +251,28 @@ class VbaMemberCompletionProvider
 			return quickTypes.map((t) => this._toTypeItem(t, range));
 		}
 
-		const projectCtx = await this._buildEditorProjectContext(document, source);
+		const cachedProjectCtx = this._cachedEditorProjectContext(document);
+		const fastProjectCtx = cachedProjectCtx ?? this._localEditorProjectContext(document, source);
+		if (!cachedProjectCtx && document.uri.scheme === XLIDE_SCHEME) {
+			this._warmEditorProjectContext(document, source);
+		}
 
+		const fastTypes = resolveTypeCompletions(source, offset, this._typeContext(fastProjectCtx));
+		if (fastTypes.length > 0) {
+			return fastTypes.map((t) => this._toTypeItem(t, range));
+		}
+
+		const fastMembers = resolveMemberCompletions(source, offset, this._memberContext(fastProjectCtx));
+		if (fastMembers.length > 0) {
+			return fastMembers.map((mem) => this._toItem(mem, range, source, offset));
+		}
+
+		const fastEvents = resolveEventHandlerCompletions(source, offset, this._eventHandlerContext(fastProjectCtx));
+		if (fastEvents.length > 0) {
+			return fastEvents.map((event) => this._toEventHandlerItem(event, range));
+		}
+
+		const projectCtx = cachedProjectCtx ?? await this._buildEditorProjectContext(document, source);
 		const typeCtx = this._typeContext(projectCtx);
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
@@ -797,6 +832,32 @@ class VbaMemberCompletionProvider
 		if (cached && Date.now() - cached.loadedAt < MODULE_CACHE_TTL_MS) {
 			return cached.entries;
 		}
+		const existingRead = this._moduleListReads.get(key);
+		if (existingRead) {
+			return existingRead;
+		}
+		const promise = this._loadModulesFromBridge(xlsmPath, key, cached);
+		this._moduleListReads.set(key, promise);
+		promise.then(
+			() => {
+				if (this._moduleListReads.get(key) === promise) {
+					this._moduleListReads.delete(key);
+				}
+			},
+			() => {
+				if (this._moduleListReads.get(key) === promise) {
+					this._moduleListReads.delete(key);
+				}
+			},
+		);
+		return promise;
+	}
+
+	private async _loadModulesFromBridge(
+		xlsmPath: string,
+		key: string,
+		cached: CachedModules | undefined,
+	): Promise<ModuleEntry[] | undefined> {
 		try {
 			const entries = await this._bridge.call<ModuleEntry[]>('listModules', {
 				path: xlsmPath,
@@ -861,14 +922,69 @@ class VbaMemberCompletionProvider
 		if (open !== undefined) {
 			return open;
 		}
+		const workbookKey = workbookIdentityKey(xlsmPath);
+		const sourceKey = this._moduleSourceKey(workbookKey, entry.name);
+		const cached = this._moduleSourceCache.get(sourceKey);
+		if (cached && Date.now() - cached.loadedAt < MODULE_SOURCE_CACHE_TTL_MS) {
+			return cached.source;
+		}
+		const existingRead = this._moduleSourceReads.get(sourceKey);
+		if (existingRead) {
+			return existingRead;
+		}
+		const promise = this._readModuleSourceFromBridge(xlsmPath, entry, sourceKey, cached);
+		this._moduleSourceReads.set(sourceKey, promise);
+		promise.then(
+			() => {
+				if (this._moduleSourceReads.get(sourceKey) === promise) {
+					this._moduleSourceReads.delete(sourceKey);
+				}
+			},
+			() => {
+				if (this._moduleSourceReads.get(sourceKey) === promise) {
+					this._moduleSourceReads.delete(sourceKey);
+				}
+			},
+		);
+		return promise;
+	}
+
+	private async _readModuleSourceFromBridge(
+		xlsmPath: string,
+		entry: ModuleEntry,
+		sourceKey: string,
+		cached: CachedModuleSource | undefined,
+	): Promise<string | undefined> {
 		try {
 			const res = await this._bridge.call<{ source: string }>('readModule', {
 				path: xlsmPath,
 				module: entry.name,
 			});
+			this._moduleSourceCache.set(sourceKey, {
+				source: res.source,
+				loadedAt: Date.now(),
+			});
 			return res.source;
 		} catch {
-			return undefined;
+			return cached?.source;
+		}
+	}
+
+	private _moduleSourceKey(workbookKey: string, moduleName: string): string {
+		return `${workbookKey}\n${moduleIdentityKey(moduleName)}`;
+	}
+
+	private _clearModuleSourceCacheForWorkbook(workbookKey: string): void {
+		const prefix = `${workbookKey}\n`;
+		for (const key of this._moduleSourceCache.keys()) {
+			if (key.startsWith(prefix)) {
+				this._moduleSourceCache.delete(key);
+			}
+		}
+		for (const key of this._moduleSourceReads.keys()) {
+			if (key.startsWith(prefix)) {
+				this._moduleSourceReads.delete(key);
+			}
 		}
 	}
 

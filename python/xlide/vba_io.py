@@ -158,6 +158,42 @@ def list_modules(*, path: str) -> list[dict[str, Any]]:
         return result
 
 
+def read_modules(*, path: str, full: bool = False) -> list[dict[str, Any]]:
+    """Return module metadata and source for every readable VBA module.
+
+    Workbook analysis uses this to open the workbook once instead of issuing a
+    listModules request plus one readModule request per module.
+    """
+    from pyopenvba import VBAModuleKind
+
+    with ExcelFile(path) as wb:
+        result = []
+        for m in wb.vba_project().modules:
+            try:
+                source = m.source
+                if m.kind == VBAModuleKind.standard:
+                    mod_type = "standard"
+                else:
+                    # VBAModuleKind.other covers both class and document modules.
+                    # Use source heuristics to distinguish them.
+                    mod_type = _module_type(m.name, source)
+                    if mod_type == "standard":
+                        mod_type = "class"
+                entry = {"name": m.name, "type": mod_type}
+                if mod_type == "document":
+                    document_type = _document_type(m.name, source)
+                    if document_type:
+                        entry["documentType"] = document_type
+                if not full:
+                    _, source = _split_vba_source(source)
+                entry["source"] = source
+                result.append(entry)
+            except Exception:  # noqa: BLE001
+                # Keep workbook analysis best-effort at the module boundary.
+                continue
+        return result
+
+
 def list_subs(*, path: str, module: str) -> list[dict[str, Any]]:
     """Return [{name, kind, line}] for every procedure in a module.
 

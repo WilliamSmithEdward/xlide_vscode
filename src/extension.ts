@@ -17,7 +17,7 @@ import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import { setXlideGlobalSettingValue, xlidePythonPathFromConfig } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
 import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
-import { cleanupStaleVbaTestHostTempDirs } from './vbaTestTempFiles';
+import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 
 const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/';
 
@@ -76,17 +76,18 @@ function installDependencies(
 export function activate(context: vscode.ExtensionContext): void {
     const out = createRecordedOutputChannel(vscode.window.createOutputChannel('XLIDE'));
     out.appendLine('XLIDE activating...');
-    try {
-        const cleanup = cleanupStaleVbaTestHostTempDirs();
-        if (cleanup.deleted > 0 || cleanup.failed > 0) {
-            out.appendLine(
-                `VBA test temp cleanup: scanned=${cleanup.scanned} deleted=${cleanup.deleted} failed=${cleanup.failed}`,
-            );
-        }
-    } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        out.appendLine(`VBA test temp cleanup skipped: ${message}`);
-    }
+    void cleanupStaleVbaTestHostTempDirsAsync()
+        .then((cleanup) => {
+            if (cleanup.deleted > 0 || cleanup.failed > 0) {
+                out.appendLine(
+                    `VBA test temp cleanup: scanned=${cleanup.scanned} deleted=${cleanup.deleted} failed=${cleanup.failed}`,
+                );
+            }
+        })
+        .catch((err) => {
+            const message = err instanceof Error ? err.message : String(err);
+            out.appendLine(`VBA test temp cleanup skipped: ${message}`);
+        });
 
     const bridge = new PythonBridge(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
@@ -104,20 +105,34 @@ export function activate(context: vscode.ExtensionContext): void {
     const configuredPythonPath = () =>
         xlidePythonPathFromConfig(vscode.workspace.getConfiguration('xlide')).value;
 
-    const pythonLauncherDetectsPython = (): boolean => {
+    const pythonLauncherDetectsPython = (): Promise<boolean> => {
         if (process.platform !== 'win32') {
-            return false;
+            return Promise.resolve(false);
         }
-        try {
-            const result = cp.spawnSync('py', ['-0p'], {
-                encoding: 'utf8',
-                timeout: 1500,
+        return new Promise<boolean>((resolve) => {
+            const proc = cp.spawn('py', ['-0p'], {
                 windowsHide: true,
             });
-            return result.status === 0 && /python(?:\.exe)?/i.test(`${result.stdout}\n${result.stderr}`);
-        } catch {
-            return false;
-        }
+            let stdout = '';
+            let stderr = '';
+            let settled = false;
+            const finish = (value: boolean) => {
+                if (settled) { return; }
+                settled = true;
+                clearTimeout(timer);
+                resolve(value);
+            };
+            const timer = setTimeout(() => {
+                finish(false);
+                proc.kill();
+            }, 1500);
+            proc.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+            proc.stderr?.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+            proc.on('error', () => finish(false));
+            proc.on('exit', (code) => {
+                finish(code === 0 && /python(?:\.exe)?/i.test(`${stdout}\n${stderr}`));
+            });
+        });
     };
 
     const checkingSetupStatus = (): XlideSidebarSetupStatus => ({
@@ -157,10 +172,10 @@ export function activate(context: vscode.ExtensionContext): void {
             tooltip: 'Required Python libraries are installed.',
         },
     });
-    const pythonBackendNeedsAttention = (err: Error) => {
+    const pythonBackendNeedsAttention = async (err: Error): Promise<void> => {
         if (isPythonNotFound(err.message)) {
             const configured = configuredPythonPath();
-            const installedOutsidePath = !configured && pythonLauncherDetectsPython();
+            const installedOutsidePath = !configured && await pythonLauncherDetectsPython();
             const shouldSetPath = Boolean(configured) || installedOutsidePath;
             setSetupStatus({
                 pythonExecutable: {
@@ -220,7 +235,7 @@ export function activate(context: vscode.ExtensionContext): void {
             })
             .catch((err: Error) => {
                 out.appendLine(`ERROR: Python backend failed after path change - ${err.message}`);
-                pythonBackendNeedsAttention(err);
+                void pythonBackendNeedsAttention(err);
             });
     };
 
@@ -368,7 +383,7 @@ export function activate(context: vscode.ExtensionContext): void {
         // Manual setup command surfaced by the sidebar setup row.
         registerXlideCommand('xlide.setup', () =>
             installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention).catch((err: Error) => {
-                pythonBackendNeedsAttention(err);
+                void pythonBackendNeedsAttention(err);
                 out.appendLine(`Setup error: ${err.message}`);
                 void vscode.window.showErrorMessage(
                     `XLIDE setup failed: ${err.message}`,
@@ -465,14 +480,19 @@ export function activate(context: vscode.ExtensionContext): void {
         recommendDisableInlineSuggest(context, out);
 
         // Item 7: Auto-expand the first workbook on activation so modules are visible.
-        void explorer.warmXlsmCache().then(firstNode => {
-            if (firstNode && treeView.visible) {
-                void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
-            }
-        });
+        if (treeView.visible) {
+            setTimeout(() => {
+                if (!treeView.visible) { return; }
+                void explorer.warmXlsmCache().then(firstNode => {
+                    if (firstNode && treeView.visible) {
+                        void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
+                    }
+                });
+            }, 250);
+        }
     }).catch(async (err: Error) => {
         out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
-        pythonBackendNeedsAttention(err);
+        await pythonBackendNeedsAttention(err);
 
         if (isPythonNotFound(err.message) || isMissingPackage(err.message)) {
             out.appendLine('XLIDE setup is incomplete; use the XLIDE sidebar Setup section to finish Python setup.');

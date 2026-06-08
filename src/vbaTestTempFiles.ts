@@ -51,3 +51,34 @@ export function cleanupStaleVbaTestHostTempDirs(
 
     return { scanned, deleted, failed };
 }
+
+export async function cleanupStaleVbaTestHostTempDirsAsync(
+    options: CleanupStaleVbaTestHostTempDirsOptions = {},
+): Promise<CleanupStaleVbaTestHostTempDirsResult> {
+    const tmpDir = options.tmpDir ?? os.tmpdir();
+    const olderThanMs = options.olderThanMs ?? DEFAULT_STALE_VBA_TEST_HOST_TEMP_AGE_MS;
+    const nowMs = options.nowMs ?? Date.now();
+    let scanned = 0;
+    let deleted = 0;
+    let failed = 0;
+
+    for (const entry of await fs.promises.readdir(tmpDir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || !entry.name.startsWith(XLIDE_VBA_TEST_HOST_TEMP_PREFIX)) {
+            continue;
+        }
+        scanned++;
+        const fullPath = path.join(tmpDir, entry.name);
+        try {
+            const stat = await fs.promises.stat(fullPath);
+            if (nowMs - stat.mtimeMs < olderThanMs) {
+                continue;
+            }
+            await fs.promises.rm(fullPath, { recursive: true, force: true });
+            deleted++;
+        } catch {
+            failed++;
+        }
+    }
+
+    return { scanned, deleted, failed };
+}

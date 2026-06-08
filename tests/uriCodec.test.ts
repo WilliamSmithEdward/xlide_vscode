@@ -1,8 +1,5 @@
 import { vi, describe, it, expect } from 'vitest';
 import type * as VscodeType from 'vscode';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
 
 vi.mock('vscode', () => {
     class Disposable {
@@ -115,25 +112,18 @@ describe('workbook identity helpers', () => {
 });
 
 describe('XlideFileSystemProvider stats', () => {
-    it('uses backing workbook mtime as the initial module mtime across provider restarts', () => {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-stat-'));
-        try {
-            const workbook = path.join(dir, 'book.xlsm');
-            fs.writeFileSync(workbook, 'fake workbook');
-            const timestamp = new Date('2024-01-02T03:04:05.000Z');
-            fs.utimesSync(workbook, timestamp, timestamp);
-            const uri = fakeUri(moduleUriPath(workbook));
+    it('uses provider-owned initial module mtimes without consulting the backing workbook file', () => {
+        const uri = fakeUri(moduleUriPath('C:/Users/me/book.xlsm'));
+        const firstProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
+        const secondProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
 
-            const firstProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
-            const secondProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
+        const first = firstProvider.stat(uri);
+        const second = secondProvider.stat(uri);
 
-            const first = firstProvider.stat(uri);
-            const second = secondProvider.stat(uri);
-            expect(first.mtime).toBe(timestamp.getTime());
-            expect(second.mtime).toBe(first.mtime);
-        } finally {
-            fs.rmSync(dir, { recursive: true, force: true });
-        }
+        expect(first.mtime).toBeGreaterThan(0);
+        expect(first.ctime).toBe(first.mtime);
+        expect(second.mtime).toBeGreaterThan(0);
+        expect(second.ctime).toBe(second.mtime);
     });
 
     it('keeps mtime stable across stat/read checks until an explicit change event', async () => {

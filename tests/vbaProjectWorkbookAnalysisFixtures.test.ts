@@ -28,6 +28,14 @@ function bridgeForFixture(fixture: VbaProjectFixture): PythonBridge {
 	const byName = new Map(modules.map((mod) => [mod.moduleName, mod]));
 	return {
 		call: vi.fn(async (method: string, payload: { module?: string }) => {
+			if (method === 'readModules') {
+				return modules.map((mod) => ({
+					name: mod.moduleName,
+					type: mod.type ?? 'standard',
+					documentType: mod.documentType,
+					source: mod.source,
+				}));
+			}
 			if (method === 'listModules') {
 				return modules.map((mod) => ({
 					name: mod.moduleName,

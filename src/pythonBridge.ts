@@ -21,6 +21,7 @@ interface JsonRpcResponse {
 interface PendingRequest {
     resolve: (value: unknown) => void;
     reject: (err: Error) => void;
+    cancel?: vscode.Disposable;
 }
 
 export class PythonBridge implements vscode.Disposable {
@@ -207,6 +208,7 @@ export class PythonBridge implements vscode.Disposable {
         const pending = this._pending.get(msg.id);
         if (!pending) { return; }
         this._pending.delete(msg.id);
+        pending.cancel?.dispose();
         if (msg.error) {
             pending.reject(new Error(msg.error.message));
         } else {
@@ -216,21 +218,39 @@ export class PythonBridge implements vscode.Disposable {
 
     call<T = unknown>(method: string, params?: unknown, token?: vscode.CancellationToken): Promise<T> {
         const doSend = (): Promise<T> => new Promise<T>((resolve, reject) => {
+            if (token?.isCancellationRequested) {
+                reject(new vscode.CancellationError());
+                return;
+            }
             const id = this._nextId++;
+            let cancel: vscode.Disposable | undefined;
             this._pending.set(id, {
                 resolve: resolve as (v: unknown) => void,
                 reject,
+                cancel,
             });
             if (token) {
-                token.onCancellationRequested(() => {
-                    if (this._pending.has(id)) {
+                cancel = token.onCancellationRequested(() => {
+                    const pending = this._pending.get(id);
+                    if (pending) {
                         this._pending.delete(id);
-                        reject(new vscode.CancellationError());
+                        pending.cancel?.dispose();
+                        pending.reject(new vscode.CancellationError());
                     }
                 });
+                const pending = this._pending.get(id);
+                if (pending) {
+                    pending.cancel = cancel;
+                }
             }
             const req: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
-            this._proc!.stdin!.write(JSON.stringify(req) + '\n');
+            try {
+                this._proc!.stdin!.write(JSON.stringify(req) + '\n');
+            } catch (err) {
+                this._pending.delete(id);
+                cancel?.dispose();
+                reject(err instanceof Error ? err : new Error(String(err)));
+            }
         });
 
         if (this._ready) {
@@ -244,6 +264,7 @@ export class PythonBridge implements vscode.Disposable {
 
     private _rejectAll(err: Error): void {
         for (const [, pending] of this._pending) {
+            pending.cancel?.dispose();
             pending.reject(err);
         }
         this._pending.clear();

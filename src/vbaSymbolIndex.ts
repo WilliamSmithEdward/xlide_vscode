@@ -37,8 +37,18 @@ export interface VbaModuleSymbols {
 interface CachedWorkbook {
     /** moduleName -> module symbols */
     modules: Map<string, VbaModuleSymbols>;
+    /** Cached workbook module list from the bridge. */
+    moduleList?: VbaModuleEntry[];
+    moduleListLoadedAt?: number;
 }
 
+interface VbaModuleEntry {
+    name: string;
+    type: string;
+    documentType?: EventHandlerDocumentType;
+}
+
+const MODULE_LIST_CACHE_TTL_MS = 5_000;
 const PROC_RE = /^([ \t]*)(?:(Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function|Property\s+Get|Property\s+Let|Property\s+Set)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
 const END_RE = /^[ \t]*End\s+(Sub|Function|Property)\b/i;
 // Declarations that appear as single-line symbols (no End block).
@@ -134,6 +144,10 @@ export function parseVbaModule(source: string): VbaSymbol[] {
  */
 export class VbaSymbolIndex implements vscode.Disposable {
     private _cache = new Map<string, CachedWorkbook>();
+    private _moduleReads = new Map<string, Promise<VbaModuleSymbols>>();
+    private _moduleListReads = new Map<string, Promise<VbaModuleEntry[]>>();
+    private _allModuleReads = new Map<string, Promise<VbaModuleSymbols[]>>();
+    private _moduleGenerations = new Map<string, number>();
     private _emitter = new vscode.EventEmitter<{ xlsmPath: string; moduleName?: string }>();
     readonly onDidChange = this._emitter.event;
 
@@ -143,67 +157,109 @@ export class VbaSymbolIndex implements vscode.Disposable {
     invalidate(xlsmPath: string, moduleName?: string): void {
         const key = workbookIdentityKey(xlsmPath);
         const wb = this._cache.get(key);
-        if (!wb) { return; }
         if (moduleName === undefined) {
             this._cache.delete(key);
+            this.deleteWorkbookInflight(key);
         } else {
-            wb.modules.delete(moduleIdentityKey(moduleName));
+            const moduleKey = moduleIdentityKey(moduleName);
+            wb?.modules.delete(moduleKey);
+            const requestKey = this.moduleRequestKey(key, moduleKey);
+            this.bumpModuleGeneration(requestKey);
+            this._moduleReads.delete(requestKey);
+            this._allModuleReads.delete(key);
         }
         this._emitter.fire({ xlsmPath, moduleName });
     }
 
     invalidateAll(): void {
         this._cache.clear();
+        this._moduleReads.clear();
+        this._moduleListReads.clear();
+        this._allModuleReads.clear();
+        this._moduleGenerations.clear();
         this._emitter.fire({ xlsmPath: '' });
     }
 
     /** Returns the parsed symbols for a single module, loading on demand. */
     async getModule(xlsmPath: string, moduleName: string): Promise<VbaModuleSymbols> {
         const key = workbookIdentityKey(xlsmPath);
-        let wb = this._cache.get(key);
-        if (!wb) {
-            wb = { modules: new Map() };
-            this._cache.set(key, wb);
-        }
+        const wb = this.workbook(key);
         const moduleKey = moduleIdentityKey(moduleName);
-        let mod = wb.modules.get(moduleKey);
-        if (!mod) {
+        const cached = wb.modules.get(moduleKey);
+        if (cached) { return cached; }
+
+        const requestKey = this.moduleRequestKey(key, moduleKey);
+        const existingRead = this._moduleReads.get(requestKey);
+        if (existingRead) { return existingRead; }
+
+        const generation = this.moduleGeneration(requestKey);
+        const promise = (async () => {
             const result = await this._bridge.call<{ source: string }>(
                 'readModule',
                 { path: xlsmPath, module: moduleName },
             );
-            mod = {
+            const mod: VbaModuleSymbols = {
                 moduleName,
                 source: result.source,
                 symbols: parseVbaModule(result.source),
             };
+            if (this.moduleGeneration(requestKey) !== generation) {
+                return wb.modules.get(moduleKey) ?? mod;
+            }
             wb.modules.set(moduleKey, mod);
-        }
-        return mod;
+            return mod;
+        })();
+        this._moduleReads.set(requestKey, promise);
+        promise.then(
+            () => {
+                if (this._moduleReads.get(requestKey) === promise) {
+                    this._moduleReads.delete(requestKey);
+                }
+            },
+            () => {
+                if (this._moduleReads.get(requestKey) === promise) {
+                    this._moduleReads.delete(requestKey);
+                }
+            },
+        );
+        return promise;
     }
 
     /** Returns the parsed symbols for every module in the workbook. */
     async getAllModules(xlsmPath: string): Promise<VbaModuleSymbols[]> {
-        const moduleList = await this._bridge.call<Array<{
-            name: string;
-            type: string;
-            documentType?: EventHandlerDocumentType;
-        }>>(
-            'listModules',
-            { path: xlsmPath },
-        );
-        const out: VbaModuleSymbols[] = [];
-        for (const entry of moduleList) {
-            try {
-                const mod = await this.getModule(xlsmPath, entry.name);
-                mod.type = entry.type;
-                mod.documentType = entry.documentType;
-                out.push(mod);
-            } catch {
-                // Skip modules that fail to read; index is best-effort.
+        const key = workbookIdentityKey(xlsmPath);
+        const existingRead = this._allModuleReads.get(key);
+        if (existingRead) { return existingRead; }
+
+        const promise = (async () => {
+            const moduleList = await this.getModuleList(xlsmPath, key);
+            const out: VbaModuleSymbols[] = [];
+            for (const entry of moduleList) {
+                try {
+                    const mod = await this.getModule(xlsmPath, entry.name);
+                    mod.type = entry.type;
+                    mod.documentType = entry.documentType;
+                    out.push(mod);
+                } catch {
+                    // Skip modules that fail to read; index is best-effort.
+                }
             }
-        }
-        return out;
+            return out;
+        })();
+        this._allModuleReads.set(key, promise);
+        promise.then(
+            () => {
+                if (this._allModuleReads.get(key) === promise) {
+                    this._allModuleReads.delete(key);
+                }
+            },
+            () => {
+                if (this._allModuleReads.get(key) === promise) {
+                    this._allModuleReads.delete(key);
+                }
+            },
+        );
+        return promise;
     }
 
     /**
@@ -226,12 +282,13 @@ export class VbaSymbolIndex implements vscode.Disposable {
         metadata: { type?: string; documentType?: EventHandlerDocumentType } = {},
     ): VbaModuleSymbols {
         const key = workbookIdentityKey(xlsmPath);
-        let wb = this._cache.get(key);
-        if (!wb) {
-            wb = { modules: new Map() };
-            this._cache.set(key, wb);
-        }
         const moduleKey = moduleIdentityKey(moduleName);
+        const requestKey = this.moduleRequestKey(key, moduleKey);
+        this.bumpModuleGeneration(requestKey);
+        this._moduleReads.delete(requestKey);
+        this._allModuleReads.delete(key);
+
+        const wb = this.workbook(key);
         const existing = wb.modules.get(moduleKey);
         const mod: VbaModuleSymbols = {
             moduleName,
@@ -247,6 +304,78 @@ export class VbaSymbolIndex implements vscode.Disposable {
 
     dispose(): void {
         this._cache.clear();
+        this._moduleReads.clear();
+        this._moduleListReads.clear();
+        this._allModuleReads.clear();
+        this._moduleGenerations.clear();
         this._emitter.dispose();
+    }
+
+    private async getModuleList(xlsmPath: string, workbookKey: string): Promise<VbaModuleEntry[]> {
+        const wb = this.workbook(workbookKey);
+        const loadedAt = wb.moduleListLoadedAt ?? 0;
+        if (wb.moduleList && Date.now() - loadedAt < MODULE_LIST_CACHE_TTL_MS) {
+            return wb.moduleList;
+        }
+
+        const existingRead = this._moduleListReads.get(workbookKey);
+        if (existingRead) { return existingRead; }
+
+        const promise = (async () => {
+            const moduleList = await this._bridge.call<VbaModuleEntry[]>(
+                'listModules',
+                { path: xlsmPath },
+            );
+            wb.moduleList = moduleList;
+            wb.moduleListLoadedAt = Date.now();
+            return moduleList;
+        })();
+        this._moduleListReads.set(workbookKey, promise);
+        promise.then(
+            () => {
+                if (this._moduleListReads.get(workbookKey) === promise) {
+                    this._moduleListReads.delete(workbookKey);
+                }
+            },
+            () => {
+                if (this._moduleListReads.get(workbookKey) === promise) {
+                    this._moduleListReads.delete(workbookKey);
+                }
+            },
+        );
+        return promise;
+    }
+
+    private workbook(workbookKey: string): CachedWorkbook {
+        let wb = this._cache.get(workbookKey);
+        if (!wb) {
+            wb = { modules: new Map() };
+            this._cache.set(workbookKey, wb);
+        }
+        return wb;
+    }
+
+    private moduleRequestKey(workbookKey: string, moduleKey: string): string {
+        return `${workbookKey}\n${moduleKey}`;
+    }
+
+    private moduleGeneration(requestKey: string): number {
+        return this._moduleGenerations.get(requestKey) ?? 0;
+    }
+
+    private bumpModuleGeneration(requestKey: string): void {
+        this._moduleGenerations.set(requestKey, this.moduleGeneration(requestKey) + 1);
+    }
+
+    private deleteWorkbookInflight(workbookKey: string): void {
+        const modulePrefix = `${workbookKey}\n`;
+        for (const key of this._moduleReads.keys()) {
+            if (key.startsWith(modulePrefix)) {
+                this._moduleReads.delete(key);
+                this.bumpModuleGeneration(key);
+            }
+        }
+        this._moduleListReads.delete(workbookKey);
+        this._allModuleReads.delete(workbookKey);
     }
 }
