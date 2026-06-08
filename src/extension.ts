@@ -2,7 +2,13 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { XlsmExplorer } from './xlsmExplorer';
-import { XlideFileSystemProvider, XLIDE_SCHEME, XLIDE_LIVESHARE_AUTHORITY, decodeModuleUri } from './xlideFileSystem';
+import {
+    XlideFileSystemProvider,
+    XLIDE_SCHEME,
+    XLIDE_VBA_LANGUAGE_ID,
+    XLIDE_LIVESHARE_AUTHORITY,
+    decodeModuleUri,
+} from './xlideFileSystem';
 import { PythonBridge } from './pythonBridge';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
@@ -260,6 +266,8 @@ export function activate(context: vscode.ExtensionContext): void {
     // VBA language services: syntax-aware symbol index + providers.
     const vbaIndex = registerVbaLanguageProviders(context, bridge);
     registerVbaEditorCommands(context);
+    registerXlideVbaLanguageSync(context, out);
+    void ensureXlideVbaEditorOverrides(out);
 
     context.subscriptions.push(
         out,
@@ -514,10 +522,91 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void { /* nothing async needed */ }
 
+const XLIDE_VBA_EDITOR_OVERRIDES: Array<{ key: string; value: boolean | number }> = [
+    { key: 'minimap.enabled', value: true },
+    { key: 'minimap.renderCharacters', value: false },
+    { key: 'minimap.showMarkSectionHeaders', value: false },
+    { key: 'minimap.showRegionSectionHeaders', value: false },
+    { key: 'overviewRulerBorder', value: false },
+    { key: 'overviewRulerLanes', value: 3 },
+];
+
+interface ConfigurationLanguageInspect<T> {
+    globalLanguageValue?: T;
+    workspaceLanguageValue?: T;
+    workspaceFolderLanguageValue?: T;
+}
+
+function languageOverrideValue<T>(
+    inspected: ConfigurationLanguageInspect<T> | undefined,
+): T | undefined {
+    return inspected?.workspaceFolderLanguageValue
+        ?? inspected?.workspaceLanguageValue
+        ?? inspected?.globalLanguageValue;
+}
+
 /**
- * One-time recommendation to disable AI inline (ghost-text) completions for VBA
- * files, which can visually obscure XLIDE's IntelliSense suggestion menu. Only
- * shown when inline suggestions are still effectively enabled for VBA and the
+ * Extension configuration defaults lose to a user's global editor settings.
+ * Shape the XLIDE minimap into a clean rail while preserving explicit
+ * [xlide-vba] choices, except for the stale hidden-rail values written by an
+ * earlier development build.
+ */
+async function ensureXlideVbaEditorOverrides(out: vscode.OutputChannel): Promise<void> {
+    const config = vscode.workspace.getConfiguration('editor', { languageId: XLIDE_VBA_LANGUAGE_ID });
+    const staleHiddenRail =
+        languageOverrideValue<boolean>(config.inspect('minimap.enabled')) === false &&
+        languageOverrideValue<number>(config.inspect('overviewRulerLanes')) === 0;
+    for (const override of XLIDE_VBA_EDITOR_OVERRIDES) {
+        const inspected = config.inspect(override.key);
+        const hasLanguageOverride = languageOverrideValue(inspected) !== undefined;
+        if (hasLanguageOverride && !staleHiddenRail) {
+            continue;
+        }
+        if (config.get(override.key) === override.value) {
+            continue;
+        }
+        try {
+            await config.update(override.key, override.value, vscode.ConfigurationTarget.Global, true);
+            out.appendLine(`Set editor.${override.key}=${override.value} for [${XLIDE_VBA_LANGUAGE_ID}].`);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            out.appendLine(`Could not set editor.${override.key} for [${XLIDE_VBA_LANGUAGE_ID}]: ${message}`);
+        }
+    }
+}
+
+function registerXlideVbaLanguageSync(context: vscode.ExtensionContext, out: vscode.OutputChannel): void {
+    const syncDocument = (document: vscode.TextDocument): void => {
+        if (document.uri.scheme !== XLIDE_SCHEME || document.languageId === XLIDE_VBA_LANGUAGE_ID) {
+            return;
+        }
+        void Promise.resolve(vscode.languages.setTextDocumentLanguage(document, XLIDE_VBA_LANGUAGE_ID))
+            .catch((err: Error) => {
+                out.appendLine(`Could not set XLIDE VBA language for ${document.uri.toString()}: ${err.message}`);
+            });
+    };
+
+    for (const document of vscode.workspace.textDocuments) {
+        syncDocument(document);
+    }
+    for (const editor of vscode.window.visibleTextEditors) {
+        syncDocument(editor.document);
+    }
+
+    context.subscriptions.push(
+        vscode.workspace.onDidOpenTextDocument(syncDocument),
+        vscode.window.onDidChangeVisibleTextEditors((editors) => {
+            for (const editor of editors) {
+                syncDocument(editor.document);
+            }
+        }),
+    );
+}
+
+/**
+ * One-time recommendation to disable AI inline (ghost-text) completions for XLIDE
+ * VBA modules, which can visually obscure XLIDE's IntelliSense suggestion menu. Only
+ * shown when inline suggestions are still effectively enabled for XLIDE VBA and the
  * user has not been asked before.
  */
 function recommendDisableInlineSuggest(
@@ -528,14 +617,14 @@ function recommendDisableInlineSuggest(
         return;
     }
 
-    const config = vscode.workspace.getConfiguration('editor', { languageId: 'vba' });
+    const config = vscode.workspace.getConfiguration('editor', { languageId: XLIDE_VBA_LANGUAGE_ID });
     const inspected = config.inspect<boolean>('inlineSuggest.enabled');
     const vbaOverride =
         inspected?.globalLanguageValue ??
         inspected?.workspaceLanguageValue ??
         inspected?.workspaceFolderLanguageValue;
     if (vbaOverride === false) {
-        return; // Already disabled for VBA; nothing to recommend.
+        return; // Already disabled for XLIDE VBA; nothing to recommend.
     }
     if (config.get<boolean>('inlineSuggest.enabled', true) === false) {
         return; // Inline suggestions are off everywhere; no conflict to resolve.
@@ -544,18 +633,18 @@ function recommendDisableInlineSuggest(
     void context.globalState.update('xlide.inlineSuggestRecommended', true);
     void vscode.window.showInformationMessage(
         'XLIDE provides VBA IntelliSense. AI inline completions (gray ghost text) can hide its ' +
-        'suggestion menu. Disable inline completions for VBA files?',
-        'Disable for VBA',
+        'suggestion menu. Disable inline completions for XLIDE VBA modules?',
+        'Disable for XLIDE',
         'Keep',
     ).then(choice => {
-        if (choice !== 'Disable for VBA') {
+        if (choice !== 'Disable for XLIDE') {
             return;
         }
         vscode.workspace
-            .getConfiguration('editor', { languageId: 'vba' })
+            .getConfiguration('editor', { languageId: XLIDE_VBA_LANGUAGE_ID })
             .update('inlineSuggest.enabled', false, vscode.ConfigurationTarget.Global, true)
             .then(
-                () => out.appendLine('Disabled editor.inlineSuggest.enabled for [vba].'),
+                () => out.appendLine(`Disabled editor.inlineSuggest.enabled for [${XLIDE_VBA_LANGUAGE_ID}].`),
                 (err: Error) => out.appendLine(`Could not update setting: ${err.message}`),
             );
     });

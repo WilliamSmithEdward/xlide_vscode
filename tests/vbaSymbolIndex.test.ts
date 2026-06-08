@@ -22,6 +22,20 @@ function bridgeForSources(
 ): PythonBridge {
 	return {
 		call: vi.fn(async (method: string, payload: { path: string; module?: string }) => {
+			if (method === 'readModules') {
+				const list = moduleLists[payload.path];
+				if (!list) {
+					throw new Error('Method not found: readModules');
+				}
+				return list.map((entry) => {
+					const key = `${payload.path}::${entry.name.toLowerCase()}`;
+					const source = sources[key];
+					if (source === undefined) {
+						throw new Error(`Unknown module ${key}`);
+					}
+					return { ...entry, source };
+				});
+			}
 			if (method === 'listModules') {
 				const list = moduleLists[payload.path];
 				if (!list) {
@@ -135,8 +149,40 @@ describe('VbaSymbolIndex workbook identity', () => {
 		expect(first.map((mod) => mod.moduleName)).toEqual(['Module1', 'Module2']);
 		expect(second.map((mod) => mod.moduleName)).toEqual(['Module1', 'Module2']);
 		expect(third.map((mod) => mod.moduleName)).toEqual(['Module1', 'Module2']);
-		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'listModules')).toHaveLength(1);
-		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'readModule')).toHaveLength(2);
+		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'readModules')).toHaveLength(1);
+		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'listModules')).toHaveLength(0);
+		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'readModule')).toHaveLength(0);
+	});
+
+	it('falls back to list/read calls when batch workbook reads are unavailable', async () => {
+		const bridge = {
+			call: vi.fn(async (method: string, payload: { path: string; module?: string }) => {
+				if (method === 'readModules') {
+					throw new Error('Method not found: readModules');
+				}
+				if (method === 'listModules') {
+					return [
+						{ name: 'Module1', type: 'standard' },
+						{ name: 'Module2', type: 'standard' },
+					];
+				}
+				if (method === 'readModule' && payload.module) {
+					return { source: `Sub ${payload.module}Proc()\nEnd Sub\n` };
+				}
+				throw new Error(`Unexpected bridge call ${method}`);
+			}),
+		} as unknown as PythonBridge;
+		const index = new VbaSymbolIndex(bridge);
+
+		const modules = await index.getAllModules('C:/Book.xlsm');
+
+		expect(modules.map((mod) => mod.moduleName)).toEqual(['Module1', 'Module2']);
+		expect(vi.mocked(bridge.call).mock.calls.map(([method]) => method)).toEqual([
+			'readModules',
+			'listModules',
+			'readModule',
+			'readModule',
+		]);
 	});
 
 	it('keeps saved editor text when a stale bridge read finishes late', async () => {

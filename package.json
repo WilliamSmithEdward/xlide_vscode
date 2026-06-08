@@ -115,6 +115,16 @@
         }
       }
     },
+    "configurationDefaults": {
+      "[xlide-vba]": {
+        "editor.minimap.enabled": true,
+        "editor.minimap.renderCharacters": false,
+        "editor.minimap.showMarkSectionHeaders": false,
+        "editor.minimap.showRegionSectionHeaders": false,
+        "editor.overviewRulerBorder": false,
+        "editor.overviewRulerLanes": 3
+      }
+    },
     "commands": [
       {
         "command": "xlide.showOutput",
@@ -382,12 +392,12 @@
       "editor/context": [
         {
           "command": "xlide.analyzeCurrentModule",
-          "when": "editorLangId == vba && resourceScheme == xlide-vba",
+          "when": "resourceScheme == xlide-vba",
           "group": "xlide@1"
         },
         {
           "command": "xlide.exportCurrentModuleToFolder",
-          "when": "editorLangId == vba && resourceScheme == xlide-vba",
+          "when": "resourceScheme == xlide-vba",
           "group": "xlide@2"
         }
       ]
@@ -396,41 +406,41 @@
       {
         "command": "xlide.runMacroAtCursor",
         "key": "F5",
-        "when": "editorLangId == vba"
+        "when": "editorLangId =~ /^(vba|xlide-vba)$/"
       },
       {
         "command": "xlide.vba.smartBackspace",
         "key": "backspace",
-        "when": "editorTextFocus && editorLangId == vba && !suggestWidgetVisible && !inSnippetMode"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && !suggestWidgetVisible && !inSnippetMode"
       },
       {
         "command": "xlide.vba.smartTab",
         "key": "tab",
-        "when": "editorTextFocus && editorLangId == vba && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus"
       },
       {
         "command": "xlide.vba.leaveSnippetAndCursorMove",
         "key": "down",
         "args": "down",
-        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       },
       {
         "command": "xlide.vba.leaveSnippetAndCursorMove",
         "key": "up",
         "args": "up",
-        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       },
       {
         "command": "xlide.vba.leaveSnippetAndCursorMove",
         "key": "left",
         "args": "left",
-        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       },
       {
         "command": "xlide.vba.leaveSnippetAndCursorMove",
         "key": "right",
         "args": "right",
-        "when": "editorTextFocus && editorLangId == vba && inSnippetMode && !suggestWidgetVisible"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
       }
     ],
     "languages": [
@@ -446,11 +456,23 @@
           ".frm"
         ],
         "configuration": "./language-configuration/vba-language-configuration.json"
+      },
+      {
+        "id": "xlide-vba",
+        "aliases": [
+          "XLIDE VBA"
+        ],
+        "configuration": "./language-configuration/vba-language-configuration.json"
       }
     ],
     "grammars": [
       {
         "language": "vba",
+        "scopeName": "source.vba",
+        "path": "./syntaxes/vba.tmLanguage.json"
+      },
+      {
+        "language": "xlide-vba",
         "scopeName": "source.vba",
         "path": "./syntaxes/vba.tmLanguage.json"
       }

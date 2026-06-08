@@ -10,6 +10,7 @@ import {
     decodeModuleUri,
     sameWorkbookPath,
     XLIDE_SCHEME,
+    XLIDE_VBA_LANGUAGE_ID,
     notifySignatureDropped,
 } from './xlideFileSystem';
 import { applyOpenDocumentSources } from './vbaOpenDocuments';
@@ -383,7 +384,7 @@ export function registerCommands(
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
         const editor = await showAnalysisSourceDocument(doc);
         const line = Math.max(0, problem.line - 1);
         const startColumn = Math.max(0, problem.column - 1);
@@ -403,7 +404,7 @@ export function registerCommands(
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
         const source = doc.getText();
         const starts = lineStartOffsets(source);
         const problemOffset = Math.max(
@@ -445,7 +446,7 @@ export function registerCommands(
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
         await openWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn);
         const prompt = copilotAnalysisPrompt(filePath, problem, doc.getText());
         try {
@@ -470,7 +471,7 @@ export function registerCommands(
 
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
         const source = doc.getText();
         const starts = lineStartOffsets(source);
         const lineStart = starts[Math.max(0, problem.line - 1)] ?? 0;
@@ -811,7 +812,7 @@ export function registerCommands(
     async function openVbaTestCase(filePath: string, test: VbaTestCase): Promise<void> {
         const uri = encodeModuleUri(filePath, test.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
         const editor = await showAnalysisSourceDocument(doc);
         const line = Math.max(0, test.line - 1);
         const column = Math.max(0, test.column - 1);
@@ -2228,7 +2229,7 @@ export function registerCommands(
         if (!node.moduleName || !node.filePath || node.isRemote) { return; }
         const originUri = encodeModuleUri(node.filePath, node.moduleName);
         const originDoc = await vscode.workspace.openTextDocument(originUri);
-        await vscode.languages.setTextDocumentLanguage(originDoc, 'vba');
+        await vscode.languages.setTextDocumentLanguage(originDoc, XLIDE_VBA_LANGUAGE_ID);
         const editor = await vscode.window.showTextDocument(originDoc, { preview: false });
         const origin = new vscode.Position(0, 0);
         editor.selection = new vscode.Selection(origin, origin);
@@ -2247,8 +2248,8 @@ export function registerCommands(
                 ? encodeRemoteModuleUri(node.remoteId, node.moduleName)
                 : encodeModuleUri(node.filePath, node.moduleName);
 
-            // Set the language to 'vba' so syntax highlighters kick in
             const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
             const editor = await vscode.window.showTextDocument(doc, { preview: false });
 
             // If a specific line was requested (sub navigation), move cursor there
@@ -2260,9 +2261,6 @@ export function registerCommands(
                     vscode.TextEditorRevealType.InCenterIfOutsideViewport,
                 );
             }
-
-            // Set language mode to vba for the document
-            await vscode.languages.setTextDocumentLanguage(doc, 'vba');
         }),
 
         // Find all references to the procedure or class represented by a tree node
@@ -2278,7 +2276,7 @@ export function registerCommands(
                 : encodeModuleUri(node.filePath, node.moduleName);
 
             const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
             const editor = await vscode.window.showTextDocument(doc, { preview: false });
 
             // Locate the procedure name on its declaration line so the reference
@@ -2337,8 +2335,8 @@ export function registerCommands(
                 // Open the new module immediately
                 const uri = encodeModuleUri(node.filePath, name);
                 const doc = await vscode.workspace.openTextDocument(uri);
+                await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                 await vscode.window.showTextDocument(doc, { preview: false });
-                await vscode.languages.setTextDocumentLanguage(doc, 'vba');
             } catch (err) {
                 recordWriteAudit({
                     command: 'xlide.newModule',
@@ -2387,8 +2385,8 @@ export function registerCommands(
                 refreshVbaProjectState(node.filePath);
                 const uri = encodeModuleUri(node.filePath, name);
                 const doc = await vscode.workspace.openTextDocument(uri);
+                await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                 await vscode.window.showTextDocument(doc, { preview: false });
-                await vscode.languages.setTextDocumentLanguage(doc, 'vba');
             } catch (err) {
                 recordWriteAudit({
                     command: 'xlide.newClassModule',
@@ -2449,7 +2447,7 @@ export function registerCommands(
                     if (references.count > 0) {
                         for (const uri of references.uris) {
                             const doc = await vscode.workspace.openTextDocument(uri);
-                            await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+                            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                         }
                         const applied = await vscode.workspace.applyEdit(references.edit);
                         if (!applied) {
@@ -2476,7 +2474,7 @@ export function registerCommands(
                     if (references.count > 0) {
                         for (const uri of references.uris) {
                             const doc = await vscode.workspace.openTextDocument(uri);
-                            await vscode.languages.setTextDocumentLanguage(doc, 'vba');
+                            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                         }
                         const applied = await vscode.workspace.applyEdit(references.edit);
                         if (!applied) {

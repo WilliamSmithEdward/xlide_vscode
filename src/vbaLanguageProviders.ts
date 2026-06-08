@@ -3,6 +3,7 @@ import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import {
     XLIDE_SCHEME,
+    XLIDE_VBA_LANGUAGE_ID,
     decodeModuleUri,
     encodeModuleUri,
     moduleIdentityKey,
@@ -83,8 +84,10 @@ import {
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
+    { scheme: XLIDE_SCHEME, language: XLIDE_VBA_LANGUAGE_ID },
     { scheme: XLIDE_SCHEME },
     { language: 'vba' },
+    { language: XLIDE_VBA_LANGUAGE_ID },
 ];
 const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
 const XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('analyzeCurrentModule');
@@ -958,7 +961,9 @@ class VbaRenameProvider implements vscode.RenameProvider {
 // ---------------------------------------------------------------------------
 
 function isVbaDocument(document: vscode.TextDocument): boolean {
-    return document.languageId === 'vba' || document.uri.scheme === XLIDE_SCHEME;
+    return document.languageId === 'vba'
+        || document.languageId === XLIDE_VBA_LANGUAGE_ID
+        || document.uri.scheme === XLIDE_SCHEME;
 }
 
 function isStandaloneVbaDocument(document: vscode.TextDocument): boolean {

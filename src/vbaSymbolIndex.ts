@@ -48,6 +48,10 @@ interface VbaModuleEntry {
     documentType?: EventHandlerDocumentType;
 }
 
+interface VbaModuleSourceEntry extends VbaModuleEntry {
+    source: string;
+}
+
 const MODULE_LIST_CACHE_TTL_MS = 5_000;
 const PROC_RE = /^([ \t]*)(?:(Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function|Property\s+Get|Property\s+Let|Property\s+Set)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
 const END_RE = /^[ \t]*End\s+(Sub|Function|Property)\b/i;
@@ -232,6 +236,14 @@ export class VbaSymbolIndex implements vscode.Disposable {
         if (existingRead) { return existingRead; }
 
         const promise = (async () => {
+            const cached = this.cachedAllModules(key);
+            if (cached) {
+                return cached;
+            }
+            const batch = await this.getAllModulesFromBatchRead(xlsmPath, key);
+            if (batch) {
+                return batch;
+            }
             const moduleList = await this.getModuleList(xlsmPath, key);
             const out: VbaModuleSymbols[] = [];
             for (const entry of moduleList) {
@@ -344,6 +356,73 @@ export class VbaSymbolIndex implements vscode.Disposable {
             },
         );
         return promise;
+    }
+
+    private cachedAllModules(workbookKey: string): VbaModuleSymbols[] | undefined {
+        const wb = this._cache.get(workbookKey);
+        const loadedAt = wb?.moduleListLoadedAt ?? 0;
+        if (!wb?.moduleList || Date.now() - loadedAt >= MODULE_LIST_CACHE_TTL_MS) {
+            return undefined;
+        }
+        const modules: VbaModuleSymbols[] = [];
+        for (const entry of wb.moduleList) {
+            const mod = wb.modules.get(moduleIdentityKey(entry.name));
+            if (!mod) {
+                return undefined;
+            }
+            mod.type = entry.type;
+            mod.documentType = entry.documentType;
+            modules.push(mod);
+        }
+        return modules;
+    }
+
+    private async getAllModulesFromBatchRead(
+        xlsmPath: string,
+        workbookKey: string,
+    ): Promise<VbaModuleSymbols[] | undefined> {
+        try {
+            const entries = await this._bridge.call<VbaModuleSourceEntry[]>(
+                'readModules',
+                { path: xlsmPath },
+            );
+            const wb = this.workbook(workbookKey);
+            wb.moduleList = entries.map(({ name, type, documentType }) => ({ name, type, documentType }));
+            wb.moduleListLoadedAt = Date.now();
+            const out: VbaModuleSymbols[] = [];
+            for (const entry of entries) {
+                const moduleKey = moduleIdentityKey(entry.name);
+                const requestKey = this.moduleRequestKey(workbookKey, moduleKey);
+                const existing = wb.modules.get(moduleKey);
+                if (existing && this.moduleGeneration(requestKey) > 0) {
+                    existing.type = entry.type;
+                    existing.documentType = entry.documentType;
+                    out.push(existing);
+                    continue;
+                }
+                const mod: VbaModuleSymbols = {
+                    moduleName: entry.name,
+                    source: entry.source,
+                    symbols: parseVbaModule(entry.source),
+                    type: entry.type,
+                    documentType: entry.documentType,
+                };
+                wb.modules.set(moduleKey, mod);
+                out.push(mod);
+            }
+            return out;
+        } catch (err) {
+            if (this.isReadModulesUnavailable(err)) {
+                return undefined;
+            }
+            throw err;
+        }
+    }
+
+    private isReadModulesUnavailable(err: unknown): boolean {
+        const message = err instanceof Error ? err.message : String(err);
+        return /Method not found:\s*readModules/i.test(message) ||
+            /Unexpected bridge call readModules/i.test(message);
     }
 
     private workbook(workbookKey: string): CachedWorkbook {

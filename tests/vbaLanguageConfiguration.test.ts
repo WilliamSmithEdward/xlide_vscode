@@ -15,6 +15,10 @@ interface PackageConfiguration {
 		configuration?: {
 			properties?: Record<string, PackageSetting>;
 		};
+		configurationDefaults?: Record<string, Record<string, unknown>>;
+		languages?: PackageLanguage[];
+		grammars?: PackageGrammar[];
+		keybindings?: PackageKeybinding[];
 		viewsContainers?: {
 			activitybar?: PackageViewContainer[];
 		};
@@ -59,6 +63,25 @@ interface PackageCommand {
 	command?: string;
 	title?: string;
 	category?: string;
+}
+
+interface PackageLanguage {
+	id?: string;
+	aliases?: string[];
+	extensions?: string[];
+	configuration?: string;
+}
+
+interface PackageGrammar {
+	language?: string;
+	scopeName?: string;
+	path?: string;
+}
+
+interface PackageKeybinding {
+	command?: string;
+	key?: string;
+	when?: string;
 }
 
 interface PackageMenuContribution {
@@ -149,6 +172,34 @@ describe('VBA language configuration', () => {
 
 		expect(setting?.default).toBe('comfy');
 		expect(setting?.enum).toEqual(['comfy', 'compact']);
+	});
+
+	it('scopes noisy editor defaults to XLIDE virtual VBA modules only', () => {
+		const contributes = loadPackage().contributes;
+		const xlideLanguage = contributes?.languages?.find((language) => language.id === 'xlide-vba');
+		const standaloneLanguage = contributes?.languages?.find((language) => language.id === 'vba');
+
+		expect(contributes?.configurationDefaults?.['[vba]']).toBeUndefined();
+		expect(contributes?.configurationDefaults?.['[xlide-vba]']).toMatchObject({
+			'editor.minimap.enabled': true,
+			'editor.minimap.renderCharacters': false,
+			'editor.minimap.showMarkSectionHeaders': false,
+			'editor.minimap.showRegionSectionHeaders': false,
+			'editor.overviewRulerBorder': false,
+			'editor.overviewRulerLanes': 3,
+		});
+		expect(standaloneLanguage?.extensions).toEqual(['.bas', '.cls', '.frm']);
+		expect(xlideLanguage).toMatchObject({
+			id: 'xlide-vba',
+			configuration: './language-configuration/vba-language-configuration.json',
+		});
+		expect(xlideLanguage?.extensions).toBeUndefined();
+		expect(contributes?.grammars).toEqual(expect.arrayContaining([
+			expect.objectContaining({ language: 'vba', scopeName: 'source.vba' }),
+			expect.objectContaining({ language: 'xlide-vba', scopeName: 'source.vba' }),
+		]));
+		expect(contributes?.keybindings?.find((entry) => entry.command === 'xlide.vba.smartBackspace')?.when)
+			.toContain('xlide-vba');
 	});
 
 	it('keeps analysis rule severity overrides guarded by the shared severity vocabulary', () => {
@@ -277,7 +328,7 @@ describe('VBA language configuration', () => {
 			.contributes
 			?.menus
 			?.['editor/context']
-			?.filter((entry) => entry.when === 'editorLangId == vba && resourceScheme == xlide-vba')
+			?.filter((entry) => entry.when === 'resourceScheme == xlide-vba')
 			.map((entry) => entry.command) ?? [];
 		expect(editorContextCommands).not.toContain('xlide.runVbaTestsInCurrentModule');
 		expect(editorContextCommands).not.toContain('xlide.runVbaTestAtCursor');

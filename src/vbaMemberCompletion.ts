@@ -13,6 +13,7 @@ import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import {
 	XLIDE_SCHEME,
+	XLIDE_VBA_LANGUAGE_ID,
 	decodeModuleUri,
 	moduleIdentityKey,
 	workbookIdentityKey,
@@ -85,6 +86,10 @@ interface ModuleEntry {
 	name: string;
 	type: string;
 	documentType?: EventHandlerDocumentType;
+}
+
+interface ModuleSourceEntry extends ModuleEntry {
+	source: string;
 }
 
 interface CachedModules {
@@ -202,6 +207,7 @@ class VbaMemberCompletionProvider
 	private readonly _moduleListReads = new Map<string, Promise<ModuleEntry[] | undefined>>();
 	private readonly _moduleSourceCache = new Map<string, CachedModuleSource>();
 	private readonly _moduleSourceReads = new Map<string, Promise<string | undefined>>();
+	private readonly _workbookSourceReads = new Map<string, Promise<ModuleSourceEntry[] | undefined>>();
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
 	private readonly _projectContextBuilds = new Map<string, Promise<EditorProjectContext>>();
 	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
@@ -219,12 +225,14 @@ class VbaMemberCompletionProvider
 			this._moduleListReads.clear();
 			this._moduleSourceCache.clear();
 			this._moduleSourceReads.clear();
+			this._workbookSourceReads.clear();
 			this._projectContextCache.clear();
 			this._projectContextBuilds.clear();
 		} else {
 			const key = workbookIdentityKey(xlsmPath);
 			this._cache.delete(key);
 			this._moduleListReads.delete(key);
+			this._workbookSourceReads.delete(key);
 			this._clearModuleSourceCacheForWorkbook(key);
 			this._clearProjectContextCacheForWorkbook(xlsmPath);
 		}
@@ -684,23 +692,27 @@ class VbaMemberCompletionProvider
 
 		try {
 			const decoded = decodeModuleUri(document.uri);
-			const entries = await this._loadModules(decoded.xlsmPath);
+			const sourceEntries = await this._loadWorkbookModuleSources(decoded.xlsmPath);
+			const entries = sourceEntries ?? await this._loadModules(decoded.xlsmPath);
 			const allEntries = entries ?? [];
 			const current = allEntries.find(
 				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
 			);
 			const moduleKind = moduleKindFromType(current?.type);
-			const project = await this._buildProjectIndexFromEntries(
-				decoded.xlsmPath,
-				allEntries,
-				{
-					liveOverride: {
-						moduleName: decoded.moduleName,
-						moduleKind,
-						source,
+			const liveOverride = {
+				moduleName: decoded.moduleName,
+				moduleKind,
+				source,
+			};
+			const project = sourceEntries
+				? this._buildProjectIndexFromSourceEntries(sourceEntries, { liveOverride })
+				: await this._buildProjectIndexFromEntries(
+					decoded.xlsmPath,
+					allEntries,
+					{
+						liveOverride,
 					},
-				},
-			);
+				);
 			const context = projectEditorSymbolContextForModule(project, decoded.moduleName);
 			return this._storeEditorProjectContext(document, {
 				moduleName: decoded.moduleName,
@@ -912,6 +924,126 @@ class VbaMemberCompletionProvider
 			? live
 			: undefined;
 		return buildLiveVbaProjectIndex(modules, liveOverride);
+	}
+
+	private _buildProjectIndexFromSourceEntries(
+		entries: ModuleSourceEntry[],
+		options: {
+			liveOverride?: VbaProjectLiveOverride;
+			include?: (kind: ModuleSymbolKind) => boolean;
+		} = {},
+	): ReturnType<typeof buildVbaProjectIndex> {
+		const modules: VbaProjectModuleInput[] = [];
+		const live = options.liveOverride;
+		for (const entry of entries) {
+			const isOverride =
+				live &&
+				entry.name.toLowerCase() === live.moduleName.toLowerCase();
+			const entryKind = moduleKindFromType(entry.type);
+			const moduleKind = isOverride ? live.moduleKind : entryKind;
+			if (options.include && !options.include(moduleKind)) {
+				continue;
+			}
+			if (isOverride) {
+				continue;
+			}
+			modules.push({
+				moduleName: entry.name,
+				type: entry.type,
+				moduleKind,
+				documentType: entry.documentType,
+				source: entry.source,
+			});
+		}
+		const liveOverride = live && (!options.include || options.include(live.moduleKind))
+			? live
+			: undefined;
+		return buildLiveVbaProjectIndex(modules, liveOverride);
+	}
+
+	private async _loadWorkbookModuleSources(xlsmPath: string): Promise<ModuleSourceEntry[] | undefined> {
+		const workbookKey = workbookIdentityKey(xlsmPath);
+		const cached = this._cachedWorkbookModuleSources(xlsmPath, workbookKey);
+		if (cached) {
+			return cached;
+		}
+		const existingRead = this._workbookSourceReads.get(workbookKey);
+		if (existingRead) {
+			return existingRead;
+		}
+		const promise = this._loadWorkbookModuleSourcesFromBridge(xlsmPath, workbookKey);
+		this._workbookSourceReads.set(workbookKey, promise);
+		promise.then(
+			() => {
+				if (this._workbookSourceReads.get(workbookKey) === promise) {
+					this._workbookSourceReads.delete(workbookKey);
+				}
+			},
+			() => {
+				if (this._workbookSourceReads.get(workbookKey) === promise) {
+					this._workbookSourceReads.delete(workbookKey);
+				}
+			},
+		);
+		return promise;
+	}
+
+	private _cachedWorkbookModuleSources(
+		xlsmPath: string,
+		workbookKey: string,
+	): ModuleSourceEntry[] | undefined {
+		const cachedModules = this._cache.get(workbookKey);
+		if (!cachedModules || Date.now() - cachedModules.loadedAt >= MODULE_CACHE_TTL_MS) {
+			return undefined;
+		}
+		const openDocuments = vscode.workspace.textDocuments ?? [];
+		const entries: ModuleSourceEntry[] = [];
+		for (const entry of cachedModules.entries) {
+			const sourceKey = this._moduleSourceKey(workbookKey, entry.name);
+			const cachedSource = this._moduleSourceCache.get(sourceKey);
+			if (!cachedSource || Date.now() - cachedSource.loadedAt >= MODULE_SOURCE_CACHE_TTL_MS) {
+				return undefined;
+			}
+			entries.push({
+				...entry,
+				source: openModuleSourceForWorkbook(xlsmPath, entry.name, openDocuments) ?? cachedSource.source,
+			});
+		}
+		return entries;
+	}
+
+	private async _loadWorkbookModuleSourcesFromBridge(
+		xlsmPath: string,
+		workbookKey: string,
+	): Promise<ModuleSourceEntry[] | undefined> {
+		try {
+			const entries = await this._bridge.call<ModuleSourceEntry[]>('readModules', {
+				path: xlsmPath,
+			});
+			const now = Date.now();
+			this._cache.set(workbookKey, {
+				entries: entries.map(({ name, type, documentType }) => ({ name, type, documentType })),
+				loadedAt: now,
+			});
+			const openDocuments = vscode.workspace.textDocuments ?? [];
+			const withOpenSources = entries.map((entry) => {
+				const open = openModuleSourceForWorkbook(xlsmPath, entry.name, openDocuments);
+				const source = open ?? entry.source;
+				this._moduleSourceCache.set(this._moduleSourceKey(workbookKey, entry.name), {
+					source,
+					loadedAt: now,
+				});
+				return { ...entry, source };
+			});
+			return withOpenSources;
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			if (/Method not found:\s*readModules/i.test(message) ||
+				/Unexpected bridge call readModules/i.test(message)) {
+				return undefined;
+			}
+			throw err;
+		}
 	}
 
 	private async _moduleSource(
@@ -1509,5 +1641,7 @@ function canonicalCandidateFromEditor(
 }
 
 function isVbaDocument(document: vscode.TextDocument): boolean {
-	return document.languageId === 'vba' || document.uri.scheme === XLIDE_SCHEME;
+	return document.languageId === 'vba'
+		|| document.languageId === XLIDE_VBA_LANGUAGE_ID
+		|| document.uri.scheme === XLIDE_SCHEME;
 }

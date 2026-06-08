@@ -7,6 +7,7 @@ import { errorCategoryForSupportLog } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 
 export const XLIDE_SCHEME = 'xlide-vba';
+export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
 export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
 export function workbookIdentityKey(
