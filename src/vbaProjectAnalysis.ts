@@ -23,7 +23,13 @@ export interface VbaProjectLiveOverride {
 
 export interface VbaProjectIndexBuildOptions {
     ignoreInvalidModules?: boolean;
+    /** Optional cooperative cancellation hook used by async callers. */
+    cancelIfRequested?: () => void;
+    /** Test/host override for how often the async builder yields. */
+    yieldEveryModules?: number;
 }
+
+const PROJECT_INDEX_YIELD_EVERY_MODULES = 8;
 
 export type VbaProjectAnalysisOptions = Pick<
     AnalyzeModuleOptions,
@@ -97,6 +103,64 @@ export function buildLiveVbaProjectIndex(
     liveOverride?: VbaProjectLiveOverride,
 ): ProjectIndex {
     return buildVbaProjectIndex(modules, liveOverride, { ignoreInvalidModules: true });
+}
+
+async function yieldToExtensionHost(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+export async function buildVbaProjectIndexAsync(
+    modules: readonly VbaProjectModuleInput[],
+    liveOverride?: VbaProjectLiveOverride,
+    options: VbaProjectIndexBuildOptions = {},
+): Promise<ProjectIndex> {
+    const index = new ProjectIndex();
+    const setModule = (module: Parameters<ProjectIndex['setModule']>[0]): boolean => {
+        if (!options.ignoreInvalidModules) {
+            index.setModule(module);
+            return true;
+        }
+        try {
+            index.setModule(module);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+    let appliedOverride = false;
+    const yieldEvery = Math.max(1, options.yieldEveryModules ?? PROJECT_INDEX_YIELD_EVERY_MODULES);
+    options.cancelIfRequested?.();
+    for (const [i, mod] of modules.entries()) {
+        const isOverride =
+            liveOverride &&
+            mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
+        const applied = setModule({
+            moduleName: mod.moduleName,
+            moduleKind: isOverride ? liveOverride.moduleKind : effectiveModuleKind(mod),
+            source: isOverride ? liveOverride.source : mod.source,
+        });
+        appliedOverride = appliedOverride || (!!isOverride && applied);
+        if ((i + 1) % yieldEvery === 0) {
+            await yieldToExtensionHost();
+            options.cancelIfRequested?.();
+        }
+    }
+    if (liveOverride && !appliedOverride) {
+        options.cancelIfRequested?.();
+        setModule(liveOverride);
+    }
+    return index;
+}
+
+export function buildLiveVbaProjectIndexAsync(
+    modules: readonly VbaProjectModuleInput[],
+    liveOverride?: VbaProjectLiveOverride,
+    options: Omit<VbaProjectIndexBuildOptions, 'ignoreInvalidModules'> = {},
+): Promise<ProjectIndex> {
+    return buildVbaProjectIndexAsync(modules, liveOverride, {
+        ...options,
+        ignoreInvalidModules: true,
+    });
 }
 
 export function projectProcedureSignatures(

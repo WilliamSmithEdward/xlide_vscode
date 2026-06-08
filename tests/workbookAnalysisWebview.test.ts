@@ -134,6 +134,7 @@ describe('workbook analysis webview', () => {
                 visibleSeveritiesSource: 'default',
                 untrackedRules: [],
                 untrackedRulesSource: 'default',
+                workbookUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -145,7 +146,15 @@ describe('workbook analysis webview', () => {
         expect(html).toContain('Untrack Globally');
         expect(html).toContain('Track In Workbook');
         expect(html).toContain('Track Globally');
-        expect(html).toContain('Workbook Rule Tracking');
+        expect(html).toContain('Workbook Untracked Rules');
+        expect(html).toContain('No workbook rules are manually untracked.');
+        expect(html).toContain('Track All');
+        expect(html).not.toContain('Default Visible Severities');
+        expect(html).not.toContain('Rule Behavior');
+        expect(html).not.toContain('data-settings-rule-severity-code');
+        expect(html).not.toContain('data-settings-severity');
+        expect(html).not.toContain('Workbook Rule Tracking');
+        expect(html).not.toContain('Rule Severities');
         expect(html).toContain('data-tracking-source="tracked"');
         expect(html).toContain('id="trackingDivider"');
         expect(html).toContain('syncTrackingActions(row)');
@@ -164,6 +173,7 @@ describe('workbook analysis webview', () => {
                 visibleSeveritiesSource: 'default',
                 untrackedRules: [],
                 untrackedRulesSource: 'default',
+                workbookUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -184,6 +194,7 @@ describe('workbook analysis webview', () => {
                 visibleSeveritiesSource: 'default',
                 untrackedRules: [],
                 untrackedRulesSource: 'default',
+                workbookUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -207,6 +218,7 @@ describe('workbook analysis webview', () => {
                 visibleSeveritiesSource: 'default',
                 untrackedRules: ['undeclared-variable'],
                 untrackedRulesSource: 'machine',
+                workbookUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -226,6 +238,7 @@ describe('workbook analysis webview', () => {
                 visibleSeveritiesSource: 'default',
                 untrackedRules: ['undeclared-variable'],
                 untrackedRulesSource: 'workbook',
+                workbookUntrackedRules: ['undeclared-variable'],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -234,6 +247,8 @@ describe('workbook analysis webview', () => {
         expect(html).toContain('Untracked In Workbook');
         expect(html).toContain('data-tracked="no"');
         expect(html).toContain('data-tracking-source="workbook"');
+        expect(html).toContain('<td class="settingsTableCode">undeclared-variable</td>');
+        expect(html).toContain('data-settings-track-rule-code="undeclared-variable"');
     });
 
     it('gives untracked status precedence over suppressed findings', () => {
@@ -245,6 +260,7 @@ describe('workbook analysis webview', () => {
                 visibleSeveritiesSource: 'default',
                 untrackedRules: ['option-explicit-missing'],
                 untrackedRulesSource: 'machine',
+                workbookUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },

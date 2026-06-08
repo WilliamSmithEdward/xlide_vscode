@@ -11,7 +11,7 @@ import {
     workbookIdentityKey,
 } from './xlideFileSystem';
 import { VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
-import { applyOpenDocumentSources, openXlideModuleSources } from './vbaOpenDocuments';
+import { applyOpenDocumentSources, openModuleSourceMapForWorkbook } from './vbaOpenDocuments';
 import {
     analyzeVbaStructure,
     stripVba,
@@ -53,7 +53,6 @@ import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 import { DocMetadataLoader } from './vbaDocMetadata';
 import {
-    buildVbaProjectIndex as buildProjectIndex,
     moduleKindFromType,
     offsetToPosition,
     projectTypeDefinitionToLocation,
@@ -61,7 +60,8 @@ import {
     typeReferenceLocations,
 } from './vbaNavigation';
 import {
-    buildLiveVbaProjectIndex,
+    buildLiveVbaProjectIndexAsync,
+    buildVbaProjectIndexAsync as buildProjectIndexAsync,
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
     type VbaProjectAnalysisOptions,
@@ -317,12 +317,7 @@ function applyOpenDocumentSymbols(
     modules: readonly VbaModuleSymbols[],
     xlsmPath: string,
 ): VbaModuleSymbols[] {
-    const openSources = new Map<string, string>();
-    for (const open of openXlideModuleSources()) {
-        if (sameWorkbookPath(open.xlsmPath, xlsmPath)) {
-            openSources.set(moduleIdentityKey(open.moduleName), open.source);
-        }
-    }
+    const openSources = openModuleSourceMapForWorkbook(xlsmPath);
     if (openSources.size === 0) {
         return [...modules];
     }
@@ -422,8 +417,8 @@ class VbaNavigationProjectCache implements vscode.Disposable {
             xlsmPath,
         );
         const project = mode === 'live'
-            ? buildLiveVbaProjectIndex(modules)
-            : buildProjectIndex(modules);
+            ? await buildLiveVbaProjectIndexAsync(modules)
+            : await buildProjectIndexAsync(modules);
         return {
             xlsmPath,
             modules,
@@ -691,7 +686,7 @@ class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
             }
             const source = document.getText();
             const moduleName = moduleNameFromDocument(document);
-            const project = buildLiveVbaProjectIndex([], {
+            const project = await buildLiveVbaProjectIndexAsync([], {
                 moduleName,
                 moduleKind: moduleKindFromDocument(document),
                 source,
@@ -1099,12 +1094,19 @@ async function liveProjectIndexForDocument(
     document: vscode.TextDocument,
     source: string,
     moduleName: string,
+    token?: vscode.CancellationToken,
 ): Promise<ProjectIndex> {
     if (document.uri.scheme !== XLIDE_SCHEME) {
-        return buildLiveVbaProjectIndex([], {
+        return buildLiveVbaProjectIndexAsync([], {
             moduleName,
             moduleKind: moduleKindFromDocument(document),
             source,
+        }, {
+            cancelIfRequested: () => {
+                if (token?.isCancellationRequested) {
+                    throw new vscode.CancellationError();
+                }
+            },
         });
     }
 
@@ -1113,13 +1115,22 @@ async function liveProjectIndexForDocument(
         await index.getAllModules(decoded.xlsmPath),
         decoded.xlsmPath,
     );
+    if (token?.isCancellationRequested) {
+        throw new vscode.CancellationError();
+    }
     const current = modules.find(
         (m) => m.moduleName.toLowerCase() === moduleName.toLowerCase(),
     );
-    return buildLiveVbaProjectIndex(modules, {
+    return buildLiveVbaProjectIndexAsync(modules, {
         moduleName,
         moduleKind: moduleKindFromType(current?.type),
         source,
+    }, {
+        cancelIfRequested: () => {
+            if (token?.isCancellationRequested) {
+                throw new vscode.CancellationError();
+            }
+        },
     });
 }
 
@@ -1164,7 +1175,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         const moduleName = moduleNameFromDocument(document);
         const projectTypes = document.uri.scheme === XLIDE_SCHEME
             ? this._cachedProjectTypesForDocument(document, { requireFresh: false }) ?? []
-            : await this._projectTypesForDocument(document, source, moduleName);
+            : await this._projectTypesForDocument(document, source, moduleName, token);
         if (
             document.uri.scheme === XLIDE_SCHEME &&
             !this._cachedProjectTypesForDocument(document, { requireFresh: true })
@@ -1245,6 +1256,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         document: vscode.TextDocument,
         source: string,
         moduleName: string,
+        token?: vscode.CancellationToken,
     ): Promise<VbaProjectAnalysisOptions['projectTypes']> {
         const key = document.uri.toString();
         const cached = this._cachedProjectTypesForDocument(document, { requireFresh: true });
@@ -1260,6 +1272,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
                 document,
                 source,
                 moduleName,
+                token,
             );
             const projectTypes = projectAnalysisOptionsForModule(project, moduleName).projectTypes ?? [];
             this._projectTypesCache.set(key, { at: Date.now(), projectTypes });
@@ -1418,7 +1431,7 @@ function registerVbaDiagnostics(
                 });
             }
             cached = {
-                project: buildLiveVbaProjectIndex(modules.map((mod) => ({
+                project: await buildLiveVbaProjectIndexAsync(modules.map((mod) => ({
                     moduleName: mod.moduleName,
                     moduleKind: moduleKindFromType(mod.type),
                     type: mod.type,

@@ -54,6 +54,8 @@ class WorkbookSettingsError extends Error {
     }
 }
 
+const workbookSettingsWriteQueues = new Map<string, Promise<unknown>>();
+
 function settingsPathForWorkbook(filePath: string): string {
     return path.join(path.dirname(filePath), `${path.basename(filePath)}.xlide_settings.json`);
 }
@@ -377,10 +379,13 @@ async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsC
     try {
         parsed = JSON.parse(raw);
     } catch (err) {
-        throw new WorkbookSettingsError(
-            configPath,
-            `Expected valid JSON: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        parsed = recoverWorkbookSettingsJson(raw);
+        if (parsed === undefined) {
+            throw new WorkbookSettingsError(
+                configPath,
+                `Expected valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
     }
     return parseWorkbookSettingsConfig(parsed, configPath);
 }
@@ -389,14 +394,16 @@ async function updateWorkbookSettings(
     filePath: string,
     update: (existing: WorkbookSettingsConfig) => WorkbookSettingsConfig | undefined,
 ): Promise<WorkbookSettingsConfig> {
-    const existing = await readWorkbookSettings(filePath);
-    const updatedInput = update(existing);
-    if (!updatedInput) {
-        return existing;
-    }
-    const updated = normalizeWorkbookSettingsConfig(updatedInput);
-    await writeWorkbookSettings(filePath, updated);
-    return updated;
+    return withWorkbookSettingsWriteLock(filePath, async () => {
+        const existing = await readWorkbookSettings(filePath);
+        const updatedInput = update(existing);
+        if (!updatedInput) {
+            return existing;
+        }
+        const updated = normalizeWorkbookSettingsConfig(updatedInput);
+        await writeWorkbookSettingsUnlocked(filePath, updated);
+        return updated;
+    });
 }
 
 function isNodeError(value: unknown): value is NodeJS.ErrnoException {
@@ -407,12 +414,117 @@ async function writeWorkbookSettings(
     filePath: string,
     config: WorkbookSettingsConfigInput,
 ): Promise<void> {
+    await withWorkbookSettingsWriteLock(filePath, () => writeWorkbookSettingsUnlocked(filePath, config));
+}
+
+async function writeWorkbookSettingsUnlocked(
+    filePath: string,
+    config: WorkbookSettingsConfigInput,
+): Promise<void> {
     const configPath = settingsPathForWorkbook(filePath);
     await fs.promises.writeFile(
         configPath,
         `${JSON.stringify(normalizeWorkbookSettingsConfig(config), null, 2)}\n`,
         'utf8',
     );
+}
+
+async function withWorkbookSettingsWriteLock<T>(
+    filePath: string,
+    action: () => Promise<T>,
+): Promise<T> {
+    const key = settingsPathForWorkbook(filePath).toLowerCase();
+    const previous = workbookSettingsWriteQueues.get(key) ?? Promise.resolve();
+    let release: () => void = () => undefined;
+    const current = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+    const queued = previous.catch(() => undefined).then(() => current);
+    workbookSettingsWriteQueues.set(key, queued);
+    await previous.catch(() => undefined);
+    try {
+        return await action();
+    } finally {
+        release();
+        if (workbookSettingsWriteQueues.get(key) === queued) {
+            workbookSettingsWriteQueues.delete(key);
+        }
+    }
+}
+
+function recoverWorkbookSettingsJson(raw: string): unknown | undefined {
+    let offset = skipJsonWhitespace(raw, 0);
+    let recovered: unknown;
+    let recoveredAny = false;
+    while (offset < raw.length) {
+        if (raw[offset] !== '{') {
+            return recoveredAny ? recovered : undefined;
+        }
+        const end = findJsonRootEnd(raw, offset);
+        if (end === undefined) {
+            return recoveredAny ? recovered : undefined;
+        }
+        try {
+            const parsed = JSON.parse(raw.slice(offset, end));
+            if (!isPlainObject(parsed)) {
+                return recoveredAny ? recovered : undefined;
+            }
+            recovered = parsed;
+            recoveredAny = true;
+        } catch {
+            return recoveredAny ? recovered : undefined;
+        }
+        offset = skipJsonWhitespace(raw, end);
+    }
+    return recoveredAny ? recovered : undefined;
+}
+
+function skipJsonWhitespace(raw: string, start: number): number {
+    let i = start;
+    while (i < raw.length && /\s/.test(raw[i])) {
+        i += 1;
+    }
+    return i;
+}
+
+function findJsonRootEnd(raw: string, start: number): number | undefined {
+    const stack: string[] = [];
+    let inString = false;
+    let escaping = false;
+    for (let i = start; i < raw.length; i += 1) {
+        const ch = raw[i];
+        if (inString) {
+            if (escaping) {
+                escaping = false;
+            } else if (ch === '\\') {
+                escaping = true;
+            } else if (ch === '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (ch === '"') {
+            inString = true;
+            continue;
+        }
+        if (ch === '{') {
+            stack.push('}');
+            continue;
+        }
+        if (ch === '[') {
+            stack.push(']');
+            continue;
+        }
+        if (ch === '}' || ch === ']') {
+            if (stack.pop() !== ch) {
+                return undefined;
+            }
+            if (stack.length === 0) {
+                return i + 1;
+            }
+        }
+    }
+    return undefined;
 }
 
 export {

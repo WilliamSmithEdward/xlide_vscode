@@ -117,6 +117,8 @@
     },
     "configurationDefaults": {
       "[xlide-vba]": {
+        "editor.detectIndentation": false,
+        "editor.tabSize": 4,
         "editor.minimap.enabled": true,
         "editor.minimap.renderCharacters": false,
         "editor.minimap.showMarkSectionHeaders": false,

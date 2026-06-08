@@ -481,6 +481,16 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 /** The verified built-in VBA runtime global objects. */
 export const VBA_RUNTIME_OBJECTS: VbaRuntimeObject[] = [
 	{
+		name: 'Debug',
+		type: 'VBA.DebugObject',
+		source: 'verified',
+		exhaustive: true,
+		members: [
+			method('Assert', 'Assert(BooleanExpression As Boolean)'),
+			method('Print', 'Print(ParamArray OutputList As Variant)'),
+		],
+	},
+	{
 		name: 'Err',
 		type: 'VBA.ErrObject',
 		source: 'verified',

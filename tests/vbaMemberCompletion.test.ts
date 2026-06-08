@@ -277,6 +277,19 @@ describe('member completion - host globals', () => {
 });
 
 describe('member completion - runtime objects', () => {
+	it('offers verified Debug object members', () => {
+		const src = 'Sub Test()\n    Debug.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Debug.'));
+		const print = got.find((member) => member.name === 'Print');
+		const assert = got.find((member) => member.name === 'Assert');
+
+		expect(print?.owner).toBe('Debug');
+		expect(print?.kind).toBe('method');
+		expect(print?.signature).toContain('ParamArray OutputList As Variant');
+		expect(print?.surfaceExhaustive).toBe(true);
+		expect(assert?.signature).toContain('BooleanExpression As Boolean');
+	});
+
 	it('offers verified Err object members', () => {
 		const src = 'Sub Test()\n    Err.Rai\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'Err.Rai'));

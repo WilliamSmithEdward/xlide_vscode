@@ -53,6 +53,7 @@ interface VbaModuleSourceEntry extends VbaModuleEntry {
 }
 
 const MODULE_LIST_CACHE_TTL_MS = 5_000;
+const WORKBOOK_INDEX_YIELD_EVERY_MODULES = 8;
 const PROC_RE = /^([ \t]*)(?:(Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function|Property\s+Get|Property\s+Let|Property\s+Set)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
 const END_RE = /^[ \t]*End\s+(Sub|Function|Property)\b/i;
 // Declarations that appear as single-line symbols (no End block).
@@ -140,6 +141,10 @@ export function parseVbaModule(source: string): VbaSymbol[] {
         symbols.push(current);
     }
     return symbols;
+}
+
+async function yieldToExtensionHost(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
 /**
@@ -390,7 +395,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             wb.moduleList = entries.map(({ name, type, documentType }) => ({ name, type, documentType }));
             wb.moduleListLoadedAt = Date.now();
             const out: VbaModuleSymbols[] = [];
-            for (const entry of entries) {
+            for (const [index, entry] of entries.entries()) {
                 const moduleKey = moduleIdentityKey(entry.name);
                 const requestKey = this.moduleRequestKey(workbookKey, moduleKey);
                 const existing = wb.modules.get(moduleKey);
@@ -398,6 +403,9 @@ export class VbaSymbolIndex implements vscode.Disposable {
                     existing.type = entry.type;
                     existing.documentType = entry.documentType;
                     out.push(existing);
+                    if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
+                        await yieldToExtensionHost();
+                    }
                     continue;
                 }
                 const mod: VbaModuleSymbols = {
@@ -409,6 +417,9 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 };
                 wb.modules.set(moduleKey, mod);
                 out.push(mod);
+                if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
+                    await yieldToExtensionHost();
+                }
             }
             return out;
         } catch (err) {

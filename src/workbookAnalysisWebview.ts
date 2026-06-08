@@ -9,22 +9,15 @@ import {
 } from './workbookAnalysisResultsModel';
 import {
     ANALYSIS_SEVERITIES,
-    allowedAnalysisRuleSeverityOverrides,
     isAnalysisRuleTracked,
-    type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
+import { diagnosticMetadataForCode } from './analyzer';
 import { setGlobalAnalysisRuleTracked } from './analysisOptions';
 import {
-    clearWorkbookAnalysisRuleSeverityOverride,
     effectiveWorkbookAnalysisSettings,
     resetWorkbookAnalysisRuleTracking,
-    resetWorkbookAnalysisSettings,
-    resetWorkbookAnalysisRuleSeverities,
-    resetWorkbookAnalysisVisibleSeverities,
     setWorkbookAnalysisRuleTracked,
-    setWorkbookAnalysisRuleSeverityOverride,
-    setWorkbookAnalysisVisibleSeverities,
     type EffectiveWorkbookAnalysisSettings,
 } from './workbookAnalysisSettings';
 import { settingsPathForWorkbook } from './workbookSettings';
@@ -113,10 +106,8 @@ export function openWorkbookAnalysisResults(
     let pendingRefreshAfterRun = false;
     let contextMenuOpen = false;
     let pendingRefreshAfterContextMenu = false;
-    let severitySettingsSaveVersion = 0;
-    let severitySettingsSaveQueue: Promise<void> = Promise.resolve();
-    let ignoreOwnSeveritySettingsRefresh = false;
-    let ignoreOwnSeveritySettingsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let ignoreOwnSettingsRefresh = false;
+    let ignoreOwnSettingsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     const panel = vscode.window.createWebviewPanel(
         'xlideWorkbookAnalysisResults',
         `XLIDE Analysis: ${currentModel.workbookName}`,
@@ -215,36 +206,19 @@ export function openWorkbookAnalysisResults(
         await refreshPanel(requestVersion);
     };
 
-    const saveVisibleSeveritySettings = async (severities: string[] | undefined): Promise<void> => {
-        const requestVersion = ++severitySettingsSaveVersion;
-        severitySettingsSaveQueue = severitySettingsSaveQueue
-            .catch(() => undefined)
-            .then(async () => {
-                if (requestVersion !== severitySettingsSaveVersion) {
-                    return;
-                }
-                ignoreOwnSidecarRefreshBriefly();
-                await setWorkbookAnalysisVisibleSeverities(currentResult.filePath, severities);
-                if (!disposed && requestVersion === severitySettingsSaveVersion) {
-                    await panel.webview.postMessage({ type: 'severitySettingsSaved' });
-                }
-            });
-        await severitySettingsSaveQueue;
-    };
-
     const ignoreOwnSidecarRefreshBriefly = (): void => {
-        ignoreOwnSeveritySettingsRefresh = true;
-        if (ignoreOwnSeveritySettingsRefreshTimer) {
-            clearTimeout(ignoreOwnSeveritySettingsRefreshTimer);
+        ignoreOwnSettingsRefresh = true;
+        if (ignoreOwnSettingsRefreshTimer) {
+            clearTimeout(ignoreOwnSettingsRefreshTimer);
         }
-        ignoreOwnSeveritySettingsRefreshTimer = setTimeout(() => {
-            ignoreOwnSeveritySettingsRefresh = false;
-            ignoreOwnSeveritySettingsRefreshTimer = undefined;
+        ignoreOwnSettingsRefreshTimer = setTimeout(() => {
+            ignoreOwnSettingsRefresh = false;
+            ignoreOwnSettingsRefreshTimer = undefined;
         }, 1000);
     };
 
     const scheduleSidecarRefresh = (): void => {
-        if (ignoreOwnSeveritySettingsRefresh) {
+        if (ignoreOwnSettingsRefresh) {
             return;
         }
         scheduleRefresh();
@@ -341,6 +315,9 @@ export function openWorkbookAnalysisResults(
                 const code = typeof message.code === 'string' ? message.code : problem?.code;
                 if (code) {
                     const scope = message.trackingScope === 'global' ? 'global' : 'workbook';
+                    if (scope === 'workbook') {
+                        ignoreOwnSidecarRefreshBriefly();
+                    }
                     const update = scope === 'global'
                         ? await setGlobalAnalysisRuleTracked(code, message.tracked === true)
                         : await setWorkbookAnalysisRuleTracked(currentResult.filePath, code, message.tracked === true);
@@ -355,38 +332,9 @@ export function openWorkbookAnalysisResults(
                 }
                 return;
             }
-            if (message.type === 'setRuleSeverityOverride') {
-                const code = typeof message.code === 'string' ? message.code : undefined;
-                if (code && message.severity === 'default') {
-                    await clearWorkbookAnalysisRuleSeverityOverride(currentResult.filePath, code);
-                    await refreshAfterAnalysisMutation();
-                } else if (code) {
-                    await setWorkbookAnalysisRuleSeverityOverride(currentResult.filePath, code, message.severity);
-                    await refreshAfterAnalysisMutation();
-                }
-                return;
-            }
-            if (message.type === 'updateSeveritySettings') {
-                await saveVisibleSeveritySettings(message.severities);
-                return;
-            }
-            if (message.type === 'resetAnalysisSeverities') {
-                await resetWorkbookAnalysisVisibleSeverities(currentResult.filePath);
-                await refreshAfterAnalysisMutation();
-                return;
-            }
             if (message.type === 'resetAnalysisRuleTracking') {
+                ignoreOwnSidecarRefreshBriefly();
                 await resetWorkbookAnalysisRuleTracking(currentResult.filePath);
-                await refreshAfterAnalysisMutation();
-                return;
-            }
-            if (message.type === 'resetAnalysisRuleSeverities') {
-                await resetWorkbookAnalysisRuleSeverities(currentResult.filePath);
-                await refreshAfterAnalysisMutation();
-                return;
-            }
-            if (message.type === 'resetAnalysisSettings') {
-                await resetWorkbookAnalysisSettings(currentResult.filePath);
                 await refreshAfterAnalysisMutation();
                 return;
             }
@@ -459,9 +407,9 @@ export function openWorkbookAnalysisResults(
             refreshTimer = undefined;
         }
         pendingRefreshAfterRun = false;
-        if (ignoreOwnSeveritySettingsRefreshTimer) {
-            clearTimeout(ignoreOwnSeveritySettingsRefreshTimer);
-            ignoreOwnSeveritySettingsRefreshTimer = undefined;
+        if (ignoreOwnSettingsRefreshTimer) {
+            clearTimeout(ignoreOwnSettingsRefreshTimer);
+            ignoreOwnSettingsRefreshTimer = undefined;
         }
         for (const sub of panelDisposables) {
             sub.dispose();
@@ -491,16 +439,14 @@ export function renderWorkbookAnalysisResultsHtml(
     const nonce = randomNonce();
     const visibleSeverities = analysisSettings.visibleSeverities;
     const untrackedRules = analysisSettings.untrackedRules;
-    const ruleSeverityOverrides = analysisSettings.ruleSeverityOverrides;
     const modelJson = JSON.stringify({
         ...model,
         plainText: buildWorkbookAnalysisPlainText(model),
         visibleSeverities,
         untrackedRules,
-        ruleSeverityOverrides,
         visibleSeveritiesSource: analysisSettings.visibleSeveritiesSource,
         untrackedRulesSource: analysisSettings.untrackedRulesSource,
-        ruleSeverityOverridesSource: analysisSettings.ruleSeverityOverridesSource,
+        workbookUntrackedRules: analysisSettings.workbookUntrackedRules,
         analysisSettingsKey: workbookAnalysisSettingsKey(analysisSettings),
     }).replace(/</g, '\\u003c');
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
@@ -509,7 +455,11 @@ export function renderWorkbookAnalysisResultsHtml(
         ? '<div class="empty">No analysis findings.</div>'
         : allRows.map((row) => {
             const tracked = isAnalysisRuleTracked(row.code, untrackedRules);
-            const trackingSource = analysisRuleTrackingSourceForRow(tracked, analysisSettings.untrackedRulesSource);
+            const trackingSource = analysisRuleTrackingSourceForRow(
+                tracked,
+                row.code,
+                analysisSettings.workbookUntrackedRules,
+            );
             const status = !tracked
                 ? analysisRuleTrackingStatusLabel(trackingSource)
                 : (row.suppressed ? 'Suppressed' : 'Tracked');
@@ -565,12 +515,8 @@ export function renderWorkbookAnalysisResultsHtml(
         const active = visibleSeverities.includes(severity);
         return `<button class="filterButton${active ? ' active' : ''}" type="button" data-severity-toggle="${severity}" aria-pressed="${active ? 'true' : 'false'}">${severityFilterLabel(severity)}</button>`;
     }).join('');
-    const ruleSettingsHtml = analysisRuleSettingsHtml(allRows, untrackedRules);
-    const ruleSeveritySettingsHtml = analysisRuleSeveritySettingsHtml(allRows, ruleSeverityOverrides);
-    const severitySourceIsWorkbook = analysisSettings.visibleSeveritiesSource === 'workbook';
+    const workbookUntrackedRulesHtml = workbookUntrackedRulesSettingsHtml(analysisSettings.workbookUntrackedRules);
     const rulesSourceIsWorkbook = analysisSettings.untrackedRulesSource === 'workbook';
-    const ruleSeveritiesSourceIsWorkbook = analysisSettings.ruleSeverityOverridesSource === 'workbook';
-    const anyAnalysisOverride = severitySourceIsWorkbook || rulesSourceIsWorkbook || ruleSeveritiesSourceIsWorkbook;
     const informationCount = model.rows.filter((row) => row.severity === 'information').length;
     const untrackedCount = allRows.filter((row) => !isAnalysisRuleTracked(row.code, untrackedRules)).length;
     const suppressedCount = allRows.filter((row) => row.suppressed && isAnalysisRuleTracked(row.code, untrackedRules)).length;
@@ -1043,7 +989,8 @@ export function renderWorkbookAnalysisResultsHtml(
         }
         .settingsBody {
             min-height: 0;
-            overflow: auto;
+            overflow-y: auto;
+            overflow-x: hidden;
             padding: 14px;
         }
         .settingsSection + .settingsSection {
@@ -1068,6 +1015,18 @@ export function renderWorkbookAnalysisResultsHtml(
         .settingsSource {
             color: var(--vscode-descriptionForeground);
             font-size: 12px;
+        }
+        .settingsHint {
+            margin: -2px 0 8px;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .settingsHeaderActions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
         }
         .settingsResetButton {
             white-space: nowrap;
@@ -1100,9 +1059,28 @@ export function renderWorkbookAnalysisResultsHtml(
             display: grid;
             gap: 6px;
         }
+        .settingsRuleTracking {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
         .settingsRuleMain {
             min-width: 0;
             flex: 1;
+        }
+        .settingsRuleControls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .settingsRuleControlLabel,
+        .settingsRuleFixed {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            white-space: nowrap;
         }
         .settingsRuleTitle {
             overflow: hidden;
@@ -1126,6 +1104,36 @@ export function renderWorkbookAnalysisResultsHtml(
             border: 1px solid var(--vscode-dropdown-border);
             border-radius: 4px;
             padding: 0 8px;
+        }
+        .settingsTable {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border: 1px solid var(--vscode-panel-border);
+        }
+        .settingsTable th,
+        .settingsTable td {
+            padding: 7px 9px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            text-align: left;
+            vertical-align: middle;
+        }
+        .settingsTable th {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .settingsTable td {
+            overflow-wrap: anywhere;
+        }
+        .settingsTableCode {
+            width: 34%;
+            color: var(--vscode-descriptionForeground);
+            font-family: var(--vscode-editor-font-family);
+        }
+        .settingsTableAction {
+            width: 96px;
+            text-align: right;
         }
         .settingsEmpty {
             color: var(--vscode-descriptionForeground);
@@ -1226,47 +1234,13 @@ export function renderWorkbookAnalysisResultsHtml(
                 <section class="settingsSection">
                     <div class="settingsSectionHeader">
                         <div>
-                            <h3>Severities</h3>
-                            <div class="settingsSource">Source: ${settingsSourceLabel(analysisSettings.visibleSeveritiesSource)}</div>
+                            <h3>Workbook Untracked Rules</h3>
+                            <div class="settingsSource">Source: ${rulesSourceIsWorkbook ? 'Workbook settings' : 'No workbook override'}</div>
                         </div>
-                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="severities" ${severitySourceIsWorkbook ? '' : 'disabled'}>Use Global Default</button>
+                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="rules" ${rulesSourceIsWorkbook ? '' : 'disabled'}>Track All</button>
                     </div>
-                    <div class="settingsChoices" aria-label="Severity visibility">
-                        ${ANALYSIS_SEVERITIES.map((severity) => `
-                            <label class="settingsChoice">
-                                <input type="checkbox" data-settings-severity="${severity}" ${visibleSeverities.includes(severity) ? 'checked' : ''}>
-                                <span>${severityFilterLabel(severity)}</span>
-                            </label>
-                        `).join('')}
-                    </div>
+                    ${workbookUntrackedRulesHtml}
                 </section>
-                <section class="settingsSection">
-                    <div class="settingsSectionHeader">
-                        <div>
-                            <h3>Workbook Rule Tracking</h3>
-                            <div class="settingsSource">Source: ${settingsSourceLabel(analysisSettings.untrackedRulesSource)}</div>
-                        </div>
-                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="rules" ${rulesSourceIsWorkbook ? '' : 'disabled'}>Use Global Default</button>
-                    </div>
-                    <div class="settingsRuleList" aria-label="Workbook tracked analysis rules">
-                        ${ruleSettingsHtml}
-                    </div>
-                </section>
-                <section class="settingsSection">
-                    <div class="settingsSectionHeader">
-                        <div>
-                            <h3>Rule Severities</h3>
-                            <div class="settingsSource">Source: ${settingsSourceLabel(analysisSettings.ruleSeverityOverridesSource)}</div>
-                        </div>
-                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="ruleSeverities" ${ruleSeveritiesSourceIsWorkbook ? '' : 'disabled'}>Use Global Default</button>
-                    </div>
-                    <div class="settingsRuleList" aria-label="Rule severity overrides">
-                        ${ruleSeveritySettingsHtml}
-                    </div>
-                </section>
-                <div class="settingsFooterActions">
-                    <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="all" ${anyAnalysisOverride ? '' : 'disabled'}>Use All Global Defaults</button>
-                </div>
             </div>
         </section>
     </div>
@@ -1276,7 +1250,6 @@ export function renderWorkbookAnalysisResultsHtml(
         const model = ${modelJson};
         const severityIds = ['error', 'warning', 'information'];
         const untrackedRules = new Set(model.untrackedRules ?? []);
-        const ruleSeverityOverrides = new Map(Object.entries(model.ruleSeverityOverrides ?? {}));
         const persistedState = vscode.getState?.() ?? {};
         const hasPersistedUiState = persistedState.analysisUiInitialized === true;
         const hasPersistedSeverityState = hasPersistedUiState &&
@@ -1437,9 +1410,6 @@ export function renderWorkbookAnalysisResultsHtml(
                 button.classList.toggle('active', active);
                 button.setAttribute('aria-pressed', active ? 'true' : 'false');
             }
-            for (const checkbox of document.querySelectorAll('[data-settings-severity]')) {
-                checkbox.checked = visibleSeverities.has(checkbox.dataset.settingsSeverity);
-            }
         }
 
         function syncSortHeaders() {
@@ -1488,16 +1458,6 @@ export function renderWorkbookAnalysisResultsHtml(
                 value === 'rule' ||
                 value === 'evidence' ||
                 value === 'message';
-        }
-
-        function persistSeveritiesDebounced() {
-            clearTimeout(persistFiltersTimer);
-            persistFiltersTimer = setTimeout(() => {
-                vscode.postMessage({
-                    type: 'updateSeveritySettings',
-                    severities: Array.from(visibleSeverities),
-                });
-            }, 250);
         }
 
         function hideContextMenu() {
@@ -1713,60 +1673,21 @@ export function renderWorkbookAnalysisResultsHtml(
                     return;
                 }
                 const scope = resetAnalysisButton.dataset.resetAnalysis;
-                if (scope === 'severities') {
-                    vscode.postMessage({ type: 'resetAnalysisSeverities' });
-                } else if (scope === 'rules') {
+                if (scope === 'rules') {
                     vscode.postMessage({ type: 'resetAnalysisRuleTracking' });
-                } else if (scope === 'ruleSeverities') {
-                    vscode.postMessage({ type: 'resetAnalysisRuleSeverities' });
-                } else if (scope === 'all') {
-                    vscode.postMessage({ type: 'resetAnalysisSettings' });
                 }
                 return;
             }
-            const settingsSeverity = event.target.closest?.('[data-settings-severity]');
-            if (settingsSeverity) {
-                const id = settingsSeverity.dataset.settingsSeverity;
-                if (settingsSeverity.checked) {
-                    visibleSeverities.add(id);
-                } else {
-                    visibleSeverities.delete(id);
-                }
-                persistUiState();
-                syncSeverityFilterButtons();
-                updateRows();
-                persistSeveritiesDebounced();
-                return;
-            }
-            const settingsRule = event.target.closest?.('[data-settings-rule-code]');
-            if (settingsRule) {
-                const code = settingsRule.dataset.settingsRuleCode;
-                const tracked = settingsRule.checked === true;
+            const settingsTrackRule = event.target.closest?.('[data-settings-track-rule-code]');
+            if (settingsTrackRule) {
+                const code = settingsTrackRule.dataset.settingsTrackRuleCode;
                 persistUiState();
                 vscode.postMessage({
                     type: 'setRuleTracking',
                     code,
-                    tracked,
+                    tracked: true,
                     trackingScope: 'workbook',
                 });
-                return;
-            }
-            const settingsRuleSeverity = event.target.closest?.('[data-settings-rule-severity-code]');
-            if (settingsRuleSeverity) {
-                const code = settingsRuleSeverity.dataset.settingsRuleSeverityCode;
-                const severity = settingsRuleSeverity.value;
-                if (code) {
-                    if (severity === 'default') {
-                        ruleSeverityOverrides.delete(code);
-                    } else {
-                        ruleSeverityOverrides.set(code, severity);
-                    }
-                    vscode.postMessage({
-                        type: 'setRuleSeverityOverride',
-                        code,
-                        severity,
-                    });
-                }
                 return;
             }
             const filterButton = event.target.closest?.('[data-severity-toggle]');
@@ -1780,7 +1701,6 @@ export function renderWorkbookAnalysisResultsHtml(
                 persistUiState();
                 syncSeverityFilterButtons();
                 updateRows();
-                persistSeveritiesDebounced();
                 return;
             }
             const sortButton = event.target.closest?.('[data-sort]');
@@ -2041,27 +1961,19 @@ function workbookAnalysisSettingsKey(settings: EffectiveWorkbookAnalysisSettings
     });
 }
 
-function settingsSourceLabel(source: EffectiveWorkbookAnalysisSettings['visibleSeveritiesSource']): string {
-    switch (source) {
-        case 'workbook':
-            return 'Workbook override';
-        case 'machine':
-            return 'VS Code machine setting';
-        case 'default':
-            return 'Built-in default';
-        case 'unknown':
-            return 'Unknown';
-    }
-}
-
 function analysisRuleTrackingSourceForRow(
     tracked: boolean,
-    source: EffectiveWorkbookAnalysisSettings['untrackedRulesSource'],
+    code: string | undefined,
+    workbookUntrackedRules: readonly string[],
 ): 'tracked' | 'workbook' | 'global' {
     if (tracked) {
         return 'tracked';
     }
-    return source === 'workbook' ? 'workbook' : 'global';
+    const normalizedCode = typeof code === 'string' ? code.trim().toLowerCase() : '';
+    if (normalizedCode && workbookUntrackedRules.includes(normalizedCode)) {
+        return 'workbook';
+    }
+    return 'global';
 }
 
 function analysisRuleTrackingStatusLabel(source: 'tracked' | 'workbook' | 'global'): string {
@@ -2075,160 +1987,36 @@ function analysisRuleTrackingStatusLabel(source: 'tracked' | 'workbook' | 'globa
     }
 }
 
-interface AnalysisRuleSetting {
-    code: string;
-    title: string;
-    total: number;
-    modules: Set<string>;
-    severities: Set<string>;
-}
-
-function analysisRuleSettingsHtml(
-    rows: readonly WorkbookAnalysisResultRow[],
-    untrackedRules: readonly string[],
-): string {
-    const rules = collectAnalysisRuleSettings(rows, untrackedRules);
-    if (rules.size === 0) {
-        return '<div class="settingsEmpty">No analysis rules in the current result.</div>';
-    }
-    return [...rules.values()]
-        .sort((left, right) => left.code.localeCompare(right.code))
-        .map((rule) => {
-            const tracked = isAnalysisRuleTracked(rule.code, untrackedRules);
-            const severitySummary = [...rule.severities]
-                .sort((left, right) => severityOrderForWebview(left) - severityOrderForWebview(right))
-                .map(severityLabelForWebview)
-                .join(', ');
-            const moduleSummary = [...rule.modules].sort().join(', ');
-            const pieces = [
-                `${rule.total} ${rule.total === 1 ? 'finding' : 'findings'}`,
-                severitySummary,
-                moduleSummary,
-            ].filter(Boolean);
-            return `
-                <label class="settingsRuleRow">
-                    <input type="checkbox" data-settings-rule-code="${escapeAttr(rule.code)}" ${tracked ? 'checked' : ''}>
-                    <span class="settingsRuleMain">
-                        <span class="settingsRuleTitle">${escapeHtml(rule.title)}</span>
-                        <span class="settingsRuleMeta">${escapeHtml([rule.code, ...pieces].join(' | '))}</span>
-                    </span>
-                </label>
-            `;
-        })
-        .join('');
-}
-
-function analysisRuleSeveritySettingsHtml(
-    rows: readonly WorkbookAnalysisResultRow[],
-    ruleSeverityOverrides: AnalysisRuleSeverityOverrides,
-): string {
-    const rules = [...collectAnalysisRuleSettings(rows, Object.keys(ruleSeverityOverrides)).values()]
-        .filter((rule) => allowedAnalysisRuleSeverityOverrides(rule.code).length > 0)
-        .sort((left, right) => left.code.localeCompare(right.code));
+function workbookUntrackedRulesSettingsHtml(workbookUntrackedRules: readonly string[]): string {
+    const rules = [...workbookUntrackedRules].sort((left, right) => left.localeCompare(right));
     if (rules.length === 0) {
-        return '<div class="settingsEmpty">No configurable analysis rule severities in the current result.</div>';
+        return '<div class="settingsEmpty">No workbook rules are manually untracked.</div>';
     }
-    return rules.map((rule) => {
-        const allowed = allowedAnalysisRuleSeverityOverrides(rule.code);
-        const current: string = ruleSeverityOverrides[rule.code] ?? 'default';
-        const severitySummary = [...rule.severities]
-            .sort((left, right) => severityOrderForWebview(left) - severityOrderForWebview(right))
-            .map(severityLabelForWebview)
-            .join(', ');
-        const pieces = [
-            `${rule.total} ${rule.total === 1 ? 'finding' : 'findings'}`,
-            severitySummary,
-            `Allowed: ${allowed.map(severityOverrideLabelForWebview).join(', ')}`,
-        ].filter(Boolean);
-        return `
-            <label class="settingsRuleRow">
-                <span class="settingsRuleMain">
-                    <span class="settingsRuleTitle">${escapeHtml(rule.title)}</span>
-                    <span class="settingsRuleMeta">${escapeHtml([rule.code, ...pieces].join(' | '))}</span>
-                </span>
-                <select class="settingsRuleSelect" data-settings-rule-severity-code="${escapeAttr(rule.code)}">
-                    <option value="default" ${current === 'default' ? 'selected' : ''}>Default</option>
-                    ${allowed.map((severity) => `
-                        <option value="${escapeAttr(severity)}" ${current === severity ? 'selected' : ''}>${escapeHtml(severityOverrideLabelForWebview(severity))}</option>
-                    `).join('')}
-                </select>
-            </label>
-        `;
-    }).join('');
-}
-
-function collectAnalysisRuleSettings(
-    rows: readonly WorkbookAnalysisResultRow[],
-    extraCodes: readonly string[],
-): Map<string, AnalysisRuleSetting> {
-    const rules = new Map<string, AnalysisRuleSetting>();
-    for (const row of rows) {
-        const code = normalizeRuleCodeForWebview(row.code);
-        if (!code) {
-            continue;
-        }
-        let setting = rules.get(code);
-        if (!setting) {
-            setting = {
-                code,
-                title: row.ruleTitle || row.code || code,
-                total: 0,
-                modules: new Set<string>(),
-                severities: new Set<string>(),
-            };
-            rules.set(code, setting);
-        }
-        setting.total += 1;
-        setting.modules.add(row.moduleName);
-        setting.severities.add(row.severity);
-    }
-    for (const rule of extraCodes) {
-        const code = normalizeRuleCodeForWebview(rule);
-        if (code && !rules.has(code)) {
-            rules.set(code, {
-                code,
-                title: code,
-                total: 0,
-                modules: new Set<string>(),
-                severities: new Set<string>(),
-            });
-        }
-    }
-    return rules;
-}
-
-function normalizeRuleCodeForWebview(code: unknown): string | undefined {
-    return typeof code === 'string' ? code.trim().toLowerCase() || undefined : undefined;
-}
-
-function severityOrderForWebview(severity: string): number {
-    switch (severity) {
-        case 'error':
-            return 0;
-        case 'warning':
-            return 1;
-        case 'information':
-            return 2;
-        default:
-            return 9;
-    }
-}
-
-function severityLabelForWebview(severity: string): string {
-    switch (severity) {
-        case 'error':
-            return 'Error';
-        case 'warning':
-            return 'Warning';
-        case 'information':
-            return 'Information';
-        default:
-            return severity;
-    }
-}
-
-function severityOverrideLabelForWebview(severity: string): string {
-    return severity === 'off' ? 'Off' : severityLabelForWebview(severity);
+    return `
+        <table class="settingsTable">
+            <thead>
+                <tr>
+                    <th class="settingsTableCode" scope="col">Rule</th>
+                    <th scope="col">Title</th>
+                    <th class="settingsTableAction" scope="col">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rules.map((code) => {
+                    const meta = diagnosticMetadataForCode(code);
+                    return `
+                        <tr>
+                            <td class="settingsTableCode">${escapeHtml(code)}</td>
+                            <td>${escapeHtml(meta?.title ?? code)}</td>
+                            <td class="settingsTableAction">
+                                <button class="secondaryButton" type="button" data-settings-track-rule-code="${escapeAttr(code)}">Track</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
 function escapeHtml(value: unknown): string {

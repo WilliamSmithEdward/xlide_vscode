@@ -181,6 +181,8 @@ describe('VBA language configuration', () => {
 
 		expect(contributes?.configurationDefaults?.['[vba]']).toBeUndefined();
 		expect(contributes?.configurationDefaults?.['[xlide-vba]']).toMatchObject({
+			'editor.detectIndentation': false,
+			'editor.tabSize': 4,
 			'editor.minimap.enabled': true,
 			'editor.minimap.renderCharacters': false,
 			'editor.minimap.showMarkSectionHeaders': false,

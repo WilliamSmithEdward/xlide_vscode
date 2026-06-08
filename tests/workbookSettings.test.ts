@@ -135,6 +135,59 @@ describe('workbookSettings', () => {
 		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected valid JSON');
 	});
 
+	it('recovers a workbook settings sidecar with trailing duplicate JSON and normalizes it on update', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({ exportFolder: 'C:/old' })}\n${JSON.stringify({ exportFolder: 'C:/repo' })}\n`,
+			'utf8',
+		);
+
+		await expect(readWorkbookSettings(workbook)).resolves.toEqual({
+			exportFolder: 'C:/repo',
+		});
+
+		await updateWorkbookSettings(workbook, (existing) => ({
+			...existing,
+			analysis: {
+				untrackedRules: ['option-explicit-missing'],
+			},
+		}));
+
+		expect(fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8'))
+			.toBe(`${JSON.stringify({
+				exportFolder: 'C:/repo',
+				analysis: {
+					untrackedRules: ['option-explicit-missing'],
+				},
+			}, null, 2)}\n`);
+	});
+
+	it('serializes concurrent workbook settings updates for the same sidecar', async () => {
+		const { workbook } = tempWorkbook();
+
+		await Promise.all([
+			updateWorkbookSettings(workbook, (existing) => ({
+				...existing,
+				exportFolder: 'C:/repo',
+			})),
+			updateWorkbookSettings(workbook, (existing) => ({
+				...existing,
+				analysis: {
+					...existing.analysis,
+					untrackedRules: ['option-explicit-missing'],
+				},
+			})),
+		]);
+
+		expect(await readWorkbookSettings(workbook)).toEqual({
+			exportFolder: 'C:/repo',
+			analysis: {
+				untrackedRules: ['option-explicit-missing'],
+			},
+		});
+	});
+
 	it('rejects non-object workbook settings', async () => {
 		const { workbook } = tempWorkbook();
 		fs.writeFileSync(settingsPathForWorkbook(workbook), '[]', 'utf8');

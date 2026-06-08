@@ -2739,6 +2739,18 @@ describe('analyzeModule - argument count', () => {
 		expect(hits[0].message).toContain('got 0');
 	});
 
+	it('accepts Debug.Print output lists and validates Debug.Assert arity', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Debug.Print "value", 1, True\n' +
+			'    Debug.Assert\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Assert');
+		expect(hits[0].message).toContain('got 0');
+	});
+
 	it('flags missing required arguments on current class Me member calls', () => {
 		const src =
 			'Public Sub Main()\n' +
@@ -5375,6 +5387,22 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('DoesNotExist');
 		expect(hits[0].message).toContain('Err.DoesNotExist');
+	});
+
+	it('uses the exhaustive runtime object surface for Debug', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Debug.Print "value", 1\n' +
+			'    Debug.Assert True\n' +
+			'    Debug.DoesNotExist\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+		expect(byCode(diagnostics, 'argument-count')).toHaveLength(0);
+		const hits = byCode(diagnostics, 'member-not-found');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('DoesNotExist');
+		expect(hits[0].message).toContain('Debug.DoesNotExist');
 	});
 
 	it('uses the current workbook Me host surface for ThisWorkbook modules', () => {

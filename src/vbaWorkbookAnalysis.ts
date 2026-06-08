@@ -22,13 +22,13 @@ import {
 import { lineStartOffsets } from './vbaStructuralAnalysis';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
 import {
-    buildVbaProjectIndex,
+    buildVbaProjectIndexAsync,
     moduleKindFromType,
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
 } from './vbaProjectAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
-import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
+import { openModuleSourceMapForWorkbook } from './vbaOpenDocuments';
 import {
     validAnalysisSuppressionScopesForDiagnostic,
     type AnalysisSuppressionScope,
@@ -282,6 +282,7 @@ async function loadWorkbookModules(
             { path: filePath },
             options.token,
         );
+        throwIfAnalysisCancelled(options.token);
         return modules
             .filter((mod) => typeof mod.source === 'string')
             .map((mod) => ({
@@ -355,22 +356,25 @@ export async function analyzeWorkbook(
 ): Promise<WorkbookAnalysisResult> {
     const progress = workbookAnalysisProgress(options.progress);
     const modules = await loadWorkbookModules(bridge, filePath, progress, options);
-    const openDocuments = vscode.workspace.textDocuments ?? [];
+    const openSources = openModuleSourceMapForWorkbook(filePath);
     for (const mod of modules) {
-        mod.source = openModuleSourceForWorkbook(filePath, mod.name, openDocuments) ?? mod.source;
+        mod.source = openSources.get(mod.name.toLowerCase()) ?? mod.source;
     }
 
     throwIfAnalysisCancelled(options.token);
     progress.report('Building project context...', { force: true });
-    const project = buildVbaProjectIndex(modules.map((mod) => ({
+    const project = await buildVbaProjectIndexAsync(modules.map((mod) => ({
         moduleName: mod.name,
         source: mod.source,
         type: mod.type,
         documentType: mod.documentType,
-    })));
+    })), undefined, {
+        cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
+    });
     const projectProcedures = projectProcedureSignatures(project);
 
     const analysisSettings = await effectiveWorkbookAnalysisSettings(filePath);
+    throwIfAnalysisCancelled(options.token);
 
     const problems: WorkbookAnalysisProblem[] = [];
     const suppressedProblems: WorkbookAnalysisProblem[] = [];

@@ -9,6 +9,7 @@ vi.mock('vscode', () => ({
 import {
 	applyOpenDocumentSources,
 	openModuleSourceForWorkbook,
+	openModuleSourceMapForWorkbook,
 	openXlideModuleSources,
 	type VbaOpenDocumentLike,
 } from '../src/vbaOpenDocuments';
@@ -57,6 +58,21 @@ describe('vbaOpenDocuments', () => {
 			.toContain('FromOne');
 		expect(openModuleSourceForWorkbook(missingWorkbook, 'Module1', docs))
 			.toBeUndefined();
+	});
+
+	it('builds a same-workbook open source map keyed by module identity', () => {
+		const oneWorkbook = path.join(path.sep, 'one', 'book.xlsm');
+		const docs = [
+			doc('/one/book.xlsm/Module1.bas', 'Sub FromOne()\nEnd Sub\n'),
+			doc('/one/book.xlsm/MODULE2.bas', 'Sub FromTwo()\nEnd Sub\n'),
+			doc('/two/book.xlsm/Module1.bas', 'Sub OtherWorkbook()\nEnd Sub\n'),
+		];
+
+		const map = openModuleSourceMapForWorkbook(oneWorkbook, docs);
+
+		expect(map.get('module1')).toContain('FromOne');
+		expect(map.get('module2')).toContain('FromTwo');
+		expect(map.size).toBe(2);
 	});
 
 	it('overlays same-workbook modules without mutating cached modules', () => {

@@ -88,6 +88,7 @@ describe('workbook analysis settings', () => {
 			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['option-explicit-missing'],
 			untrackedRulesSource: 'machine',
+			workbookUntrackedRules: [],
 			ruleSeverityOverrides: { 'unknown-call': 'warning' },
 			ruleSeverityOverridesSource: 'machine',
 		});
@@ -106,6 +107,7 @@ describe('workbook analysis settings', () => {
 			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['argument-count'],
 			untrackedRulesSource: 'workbook',
+			workbookUntrackedRules: ['argument-count'],
 			ruleSeverityOverridesSource: 'default',
 		});
 	});
@@ -140,10 +142,11 @@ describe('workbook analysis settings', () => {
 			visibleSeverities: ['warning'],
 			visibleSeveritiesSource: 'workbook',
 			untrackedRulesSource: 'default',
+			workbookUntrackedRules: [],
 		});
 	});
 
-	it('starts rule tracking overrides from the effective global default', async () => {
+	it('stores workbook rule tracking separately from the effective global default', async () => {
 		const { workbook } = tempWorkbook();
 		mockConfig.untrackedRules = ['argument-count'];
 		mockConfig.machineKeys.add('analysis.untrackedRules');
@@ -153,10 +156,15 @@ describe('workbook analysis settings', () => {
 		expect(update).toMatchObject({
 			tracked: false,
 			changed: true,
-			untrackedRules: ['argument-count', 'option-explicit-missing'],
+			untrackedRules: ['option-explicit-missing'],
 		});
 		expect((await readWorkbookSettings(workbook)).analysis?.untrackedRules)
-			.toEqual(['argument-count', 'option-explicit-missing']);
+			.toEqual(['option-explicit-missing']);
+		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
+			untrackedRules: ['argument-count', 'option-explicit-missing'],
+			untrackedRulesSource: 'workbook',
+			workbookUntrackedRules: ['option-explicit-missing'],
+		});
 	});
 
 	it('resets one workbook analysis override while preserving the other', async () => {
@@ -186,6 +194,7 @@ describe('workbook analysis settings', () => {
 			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['argument-count'],
 			untrackedRulesSource: 'workbook',
+			workbookUntrackedRules: ['argument-count'],
 			ruleSeverityOverrides: { 'unknown-call': 'warning' },
 			ruleSeverityOverridesSource: 'workbook',
 		});
@@ -266,6 +275,7 @@ describe('workbook analysis settings', () => {
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			untrackedRules: ['option-explicit-missing'],
 			untrackedRulesSource: 'machine',
+			workbookUntrackedRules: [],
 		});
 	});
 
@@ -298,6 +308,7 @@ describe('workbook analysis settings', () => {
 		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
 			visibleSeveritiesSource: 'default',
 			untrackedRulesSource: 'default',
+			workbookUntrackedRules: [],
 		});
 	});
 });

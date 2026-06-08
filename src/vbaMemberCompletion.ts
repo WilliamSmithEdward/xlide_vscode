@@ -18,7 +18,10 @@ import {
 	moduleIdentityKey,
 	workbookIdentityKey,
 } from './xlideFileSystem';
-import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
+import {
+	openModuleSourceForWorkbook,
+	openModuleSourceMapForWorkbook,
+} from './vbaOpenDocuments';
 import { leadingWhitespace, procedureHeaderParensEdit } from './vbaStructuralAnalysis';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
@@ -58,6 +61,7 @@ import {
 } from './analyzer';
 import {
 	buildLiveVbaProjectIndex,
+	buildLiveVbaProjectIndexAsync,
 	buildVbaProjectIndex,
 	moduleKindFromType,
 	projectEditorSymbolContextForModule,
@@ -715,7 +719,7 @@ class VbaMemberCompletionProvider
 	): Promise<EditorProjectContext> {
 		if (document.uri.scheme !== XLIDE_SCHEME) {
 			try {
-				const project = buildLiveVbaProjectIndex(
+				const project = await buildLiveVbaProjectIndexAsync(
 					[{ moduleName: 'Module', moduleKind: 'standard', source }],
 				);
 				const context = projectEditorSymbolContextForModule(project, 'Module');
@@ -747,7 +751,7 @@ class VbaMemberCompletionProvider
 				source,
 			};
 			const project = sourceEntries
-				? this._buildProjectIndexFromSourceEntries(sourceEntries, { liveOverride })
+				? await this._buildProjectIndexFromSourceEntries(sourceEntries, { liveOverride })
 				: await this._buildProjectIndexFromEntries(
 					decoded.xlsmPath,
 					allEntries,
@@ -965,16 +969,16 @@ class VbaMemberCompletionProvider
 		const liveOverride = live && (!options.include || options.include(live.moduleKind))
 			? live
 			: undefined;
-		return buildLiveVbaProjectIndex(modules, liveOverride);
+		return buildLiveVbaProjectIndexAsync(modules, liveOverride);
 	}
 
-	private _buildProjectIndexFromSourceEntries(
+	private async _buildProjectIndexFromSourceEntries(
 		entries: ModuleSourceEntry[],
 		options: {
 			liveOverride?: VbaProjectLiveOverride;
 			include?: (kind: ModuleSymbolKind) => boolean;
 		} = {},
-	): ReturnType<typeof buildVbaProjectIndex> {
+	): Promise<ReturnType<typeof buildVbaProjectIndex>> {
 		const modules: VbaProjectModuleInput[] = [];
 		const live = options.liveOverride;
 		for (const entry of entries) {
@@ -1000,7 +1004,7 @@ class VbaMemberCompletionProvider
 		const liveOverride = live && (!options.include || options.include(live.moduleKind))
 			? live
 			: undefined;
-		return buildLiveVbaProjectIndex(modules, liveOverride);
+		return buildLiveVbaProjectIndexAsync(modules, liveOverride);
 	}
 
 	private async _loadWorkbookModuleSources(xlsmPath: string): Promise<ModuleSourceEntry[] | undefined> {
@@ -1038,7 +1042,7 @@ class VbaMemberCompletionProvider
 		if (!cachedModules || Date.now() - cachedModules.loadedAt >= MODULE_CACHE_TTL_MS) {
 			return undefined;
 		}
-		const openDocuments = vscode.workspace.textDocuments ?? [];
+		const openSources = openModuleSourceMapForWorkbook(xlsmPath);
 		const entries: ModuleSourceEntry[] = [];
 		for (const entry of cachedModules.entries) {
 			const sourceKey = this._moduleSourceKey(workbookKey, entry.name);
@@ -1048,7 +1052,7 @@ class VbaMemberCompletionProvider
 			}
 			entries.push({
 				...entry,
-				source: openModuleSourceForWorkbook(xlsmPath, entry.name, openDocuments) ?? cachedSource.source,
+				source: openSources.get(moduleIdentityKey(entry.name)) ?? cachedSource.source,
 			});
 		}
 		return entries;
@@ -1067,10 +1071,9 @@ class VbaMemberCompletionProvider
 				entries: entries.map(({ name, type, documentType }) => ({ name, type, documentType })),
 				loadedAt: now,
 			});
-			const openDocuments = vscode.workspace.textDocuments ?? [];
+			const openSources = openModuleSourceMapForWorkbook(xlsmPath);
 			const withOpenSources = entries.map((entry) => {
-				const open = openModuleSourceForWorkbook(xlsmPath, entry.name, openDocuments);
-				const source = open ?? entry.source;
+				const source = openSources.get(moduleIdentityKey(entry.name)) ?? entry.source;
 				this._moduleSourceCache.set(this._moduleSourceKey(workbookKey, entry.name), {
 					source,
 					loadedAt: now,
@@ -1446,18 +1449,24 @@ export function registerVbaMemberCompletion(
 	let textChangeSerial = 0;
 	const lastTextChange = new Map<string, { at: number; serial: number }>();
 	const canonicalLineTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	const userTouchedCanonicalLines = new Set<string>();
 	const editorHintFor = (document: vscode.TextDocument): vscode.TextEditor | undefined => {
 		const active = vscode.window.activeTextEditor;
 		return active?.document === document ? active : undefined;
 	};
 	const canonicalLineKey = (document: vscode.TextDocument, lineNumber: number): string =>
 		`${document.uri.toString()}\n${lineNumber}`;
+	const canonicalLineWasTouched = (document: vscode.TextDocument, lineNumber: number): boolean =>
+		userTouchedCanonicalLines.has(canonicalLineKey(document, lineNumber));
 	const applyCanonicalLine = (
 		document: vscode.TextDocument,
 		lineNumber: number,
 		editorHint?: vscode.TextEditor,
 		options: CanonicalLineOptions = {},
 	): void => {
+		if (!canonicalLineWasTouched(document, lineNumber)) {
+			return;
+		}
 		void provider.applyCanonicalCaseForLine(document, lineNumber, editorHint, options);
 	};
 	const applyCanonicalPosition = (
@@ -1465,6 +1474,9 @@ export function registerVbaMemberCompletion(
 		position: vscode.Position,
 		editorHint?: vscode.TextEditor,
 	): void => {
+		if (!canonicalLineWasTouched(document, position.line)) {
+			return;
+		}
 		void provider.applyCanonicalCase(document, position, editorHint);
 	};
 	const scheduleCanonicalLine = (
@@ -1496,6 +1508,11 @@ export function registerVbaMemberCompletion(
 			}
 			clearTimeout(timer);
 			canonicalLineTimers.delete(key);
+		}
+		for (const key of [...userTouchedCanonicalLines]) {
+			if (key.startsWith(prefix)) {
+				userTouchedCanonicalLines.delete(key);
+			}
 		}
 	};
 	const scheduleCanonicalLineIdle = (
@@ -1583,7 +1600,9 @@ export function registerVbaMemberCompletion(
 			const touchedLines = new Set<number>();
 			const immediateLines = new Set<number>();
 			for (const change of event.contentChanges) {
-				touchedLines.add(Math.min(change.range.start.line, Math.max(0, event.document.lineCount - 1)));
+				const lineNumber = Math.min(change.range.start.line, Math.max(0, event.document.lineCount - 1));
+				touchedLines.add(lineNumber);
+				userTouchedCanonicalLines.add(canonicalLineKey(event.document, lineNumber));
 				if (!change.range.isEmpty) {
 					continue;
 				}

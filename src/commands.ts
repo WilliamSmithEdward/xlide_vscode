@@ -74,12 +74,12 @@ import { effectiveWorkbookTestSettings } from './workbookTestSettings';
 import { lineStartOffsets, VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
-    buildVbaProjectIndex,
     moduleKindFromType,
     projectClassModuleDefinition,
 } from './vbaNavigation';
 import {
-    buildLiveVbaProjectIndex,
+    buildLiveVbaProjectIndexAsync,
+    buildVbaProjectIndexAsync,
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
 } from './vbaProjectAnalysis';
@@ -1901,7 +1901,7 @@ export function registerCommands(
         );
         const moduleKind = moduleKindFromType(current?.type);
         const moduleType = current?.type ?? 'standard';
-        const project = buildLiveVbaProjectIndex(modules, {
+        const project = await buildLiveVbaProjectIndexAsync(modules, {
             moduleName,
             moduleKind,
             source,
@@ -2024,7 +2024,7 @@ export function registerCommands(
 
         const source = editor.document.getText();
         const moduleKind = moduleKindFromType(current?.type);
-        const project = buildLiveVbaProjectIndex(modules, {
+        const project = await buildLiveVbaProjectIndexAsync(modules, {
             moduleName,
             moduleKind,
             source,
@@ -2423,7 +2423,7 @@ export function registerCommands(
                         await vbaIndex.getAllModules(node.filePath),
                         node.filePath,
                     );
-                    const project = buildVbaProjectIndex(modules);
+                    const project = await buildVbaProjectIndexAsync(modules);
                     const byModule = new Map(modules.map((mod) => [mod.moduleName.toLowerCase(), mod]));
                     const definition = projectClassModuleDefinition(
                         project,
@@ -2459,7 +2459,7 @@ export function registerCommands(
                         await vbaIndex.getAllModules(node.filePath),
                         node.filePath,
                     );
-                    const project = buildVbaProjectIndex(modules);
+                    const project = await buildVbaProjectIndexAsync(modules);
                     const byModule = new Map(modules.map((mod) => [mod.moduleName.toLowerCase(), mod]));
                     const references = projectStandardModuleReferenceEdit(
                         node.filePath,

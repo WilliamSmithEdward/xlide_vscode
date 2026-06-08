@@ -1,5 +1,6 @@
 import {
     normalizeAnalysisRuleCode,
+    normalizeAnalysisRuleCodes,
     normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
     setAnalysisRuleTrackedInList,
@@ -28,6 +29,7 @@ export interface EffectiveWorkbookAnalysisSettings {
     visibleSeveritiesSource: WorkbookAnalysisSettingsSource;
     untrackedRules: string[];
     untrackedRulesSource: WorkbookAnalysisSettingsSource;
+    workbookUntrackedRules: string[];
     ruleSeverityOverrides: AnalysisRuleSeverityOverrides;
     ruleSeverityOverridesSource: WorkbookAnalysisSettingsSource;
 }
@@ -57,6 +59,7 @@ export function effectiveWorkbookAnalysisSettingsFromConfig(
             visibleSeveritiesSource: globalVisibleSeverities.source,
             untrackedRules: globalUntrackedRules.value,
             untrackedRulesSource: globalUntrackedRules.source,
+            workbookUntrackedRules: [],
             ruleSeverityOverrides: globalRuleSeverityOverrides.value,
             ruleSeverityOverridesSource: globalRuleSeverityOverrides.source,
         };
@@ -64,7 +67,16 @@ export function effectiveWorkbookAnalysisSettingsFromConfig(
 
     const { analysis } = config;
     const visibleSeverities = resolveWorkbookSetting(analysis?.visibleSeverities, globalVisibleSeverities);
-    const untrackedRules = resolveWorkbookSetting(analysis?.untrackedRules, globalUntrackedRules);
+    const workbookUntrackedRules = normalizeAnalysisRuleCodes(analysis?.untrackedRules ?? []);
+    const untrackedRules = analysis?.untrackedRules === undefined
+        ? {
+            value: globalUntrackedRules.value,
+            source: globalUntrackedRules.source,
+        }
+        : {
+            value: normalizeAnalysisRuleCodes([...globalUntrackedRules.value, ...workbookUntrackedRules]),
+            source: 'workbook' as const,
+        };
     const ruleSeverityOverrides = resolveWorkbookSetting(
         analysis?.ruleSeverityOverrides,
         globalRuleSeverityOverrides,
@@ -74,6 +86,7 @@ export function effectiveWorkbookAnalysisSettingsFromConfig(
         visibleSeveritiesSource: visibleSeverities.source,
         untrackedRules: untrackedRules.value,
         untrackedRulesSource: untrackedRules.source,
+        workbookUntrackedRules,
         ruleSeverityOverrides: ruleSeverityOverrides.value,
         ruleSeverityOverridesSource: ruleSeverityOverrides.source,
     };
@@ -112,7 +125,7 @@ export async function setWorkbookAnalysisRuleTracked(
         untrackedRules: [],
     };
     await updateWorkbookSettings(workbookPath, (existing) => {
-        const current = existing.analysis?.untrackedRules ?? untrackedAnalysisRulesSettingFromConfig().value;
+        const current = existing.analysis?.untrackedRules ?? [];
         const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
         const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
         result = {

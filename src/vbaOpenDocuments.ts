@@ -23,7 +23,7 @@ export interface VbaSourceModule {
 }
 
 export function openXlideModuleSources(
-	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments,
+	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments ?? [],
 ): VbaOpenModuleSource[] {
 	const out: VbaOpenModuleSource[] = [];
 	for (const document of documents) {
@@ -47,36 +47,38 @@ export function openXlideModuleSources(
 export function openModuleSourceForWorkbook(
 	xlsmPath: string,
 	moduleName: string,
-	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments,
+	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments ?? [],
 ): string | undefined {
 	const moduleKey = moduleIdentityKey(moduleName);
+	return openModuleSourceMapForWorkbook(xlsmPath, documents).get(moduleKey);
+}
+
+export function openModuleSourceMapForWorkbook(
+	xlsmPath: string,
+	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments ?? [],
+): Map<string, string> {
+	const out = new Map<string, string>();
 	for (const open of openXlideModuleSources(documents)) {
-		if (
-			sameWorkbookPath(open.xlsmPath, xlsmPath) &&
-			moduleIdentityKey(open.moduleName) === moduleKey
-		) {
-			return open.source;
+		if (sameWorkbookPath(open.xlsmPath, xlsmPath)) {
+			out.set(moduleIdentityKey(open.moduleName), open.source);
 		}
 	}
-	return undefined;
+	return out;
 }
 
 export function applyOpenDocumentSources<T extends VbaSourceModule>(
 	modules: readonly T[],
 	xlsmPath: string,
-	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments,
+	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments ?? [],
 ): T[] {
 	const out = modules.map((mod) => ({ ...mod }));
 	const byName = new Map(out.map((mod) => [moduleIdentityKey(mod.moduleName), mod]));
-	for (const open of openXlideModuleSources(documents)) {
-		if (!sameWorkbookPath(open.xlsmPath, xlsmPath)) {
-			continue;
-		}
-		const mod = byName.get(moduleIdentityKey(open.moduleName));
+	for (const [moduleKey, source] of openModuleSourceMapForWorkbook(xlsmPath, documents)) {
+		const mod = byName.get(moduleKey);
 		if (!mod) {
 			continue;
 		}
-		mod.source = open.source;
+		mod.source = source;
 	}
 	return out;
 }
