@@ -7,9 +7,11 @@ import {
     decodeModuleUri,
     encodeModuleUri,
     moduleIdentityKey,
+    sameWorkbookPath,
+    workbookIdentityKey,
 } from './xlideFileSystem';
 import { VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
-import { applyOpenDocumentSources } from './vbaOpenDocuments';
+import { applyOpenDocumentSources, openXlideModuleSources } from './vbaOpenDocuments';
 import {
     analyzeVbaStructure,
     stripVba,
@@ -272,25 +274,164 @@ function projectMemberDefinitionToLocation(
     );
 }
 
-function moduleMapWithLiveDocument(
-    modules: VbaModuleSymbols[],
-    moduleName: string,
-    source: string,
-    type?: string,
-    documentType?: EventHandlerDocumentType,
-): Map<string, VbaModuleSymbols> {
-    const byModule = new Map(modules.map((m) => [
-        moduleIdentityKey(m.moduleName),
-        { ...m, symbols: parseVbaModule(m.source) },
-    ]));
-    byModule.set(moduleIdentityKey(moduleName), {
-        moduleName,
-        type,
-        documentType,
-        source,
-        symbols: parseVbaModule(source),
+type NavigationProjectMode = 'live' | 'strict';
+
+interface NavigationProjectContext {
+    xlsmPath: string;
+    modules: VbaModuleSymbols[];
+    byModule: Map<string, VbaModuleSymbols>;
+    project: ProjectIndex;
+    loadedAt: number;
+}
+
+interface NavigationProjectCacheEntry {
+    createdAt: number;
+    promise: Promise<NavigationProjectContext>;
+}
+
+const NAVIGATION_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
+
+function workbookContextKey(xlsmPath: string): string {
+    return workbookIdentityKey(path.resolve(xlsmPath));
+}
+
+function openDocumentVersionsForWorkbook(xlsmPath: string): string {
+    const versions: string[] = [];
+    for (const document of vscode.workspace.textDocuments) {
+        if (document.uri.scheme !== XLIDE_SCHEME) {
+            continue;
+        }
+        try {
+            const decoded = decodeModuleUri(document.uri);
+            if (sameWorkbookPath(decoded.xlsmPath, xlsmPath)) {
+                versions.push(`${document.uri.toString()}:${document.version}`);
+            }
+        } catch {
+            // Ignore malformed XLIDE URIs.
+        }
+    }
+    return versions.sort().join('|');
+}
+
+function applyOpenDocumentSymbols(
+    modules: readonly VbaModuleSymbols[],
+    xlsmPath: string,
+): VbaModuleSymbols[] {
+    const openSources = new Map<string, string>();
+    for (const open of openXlideModuleSources()) {
+        if (sameWorkbookPath(open.xlsmPath, xlsmPath)) {
+            openSources.set(moduleIdentityKey(open.moduleName), open.source);
+        }
+    }
+    if (openSources.size === 0) {
+        return [...modules];
+    }
+
+    return modules.map((mod) => {
+        const openSource = openSources.get(moduleIdentityKey(mod.moduleName));
+        if (openSource === undefined || openSource === mod.source) {
+            return mod;
+        }
+        return {
+            ...mod,
+            source: openSource,
+            symbols: parseVbaModule(openSource),
+        };
     });
-    return byModule;
+}
+
+class VbaNavigationProjectCache implements vscode.Disposable {
+    private readonly _contexts = new Map<string, NavigationProjectCacheEntry>();
+
+    constructor(private readonly _index: VbaSymbolIndex) {}
+
+    async contextForWorkbook(
+        xlsmPath: string,
+        mode: NavigationProjectMode,
+    ): Promise<NavigationProjectContext> {
+        const key = this.cacheKey(xlsmPath, mode);
+        this.prune();
+        const existing = this._contexts.get(key);
+        if (existing) {
+            let context: NavigationProjectContext;
+            try {
+                context = await existing.promise;
+            } catch (err) {
+                if (this._contexts.get(key) === existing) {
+                    this._contexts.delete(key);
+                }
+                throw err;
+            }
+            if (Date.now() - context.loadedAt < NAVIGATION_PROJECT_CONTEXT_CACHE_TTL_MS) {
+                return context;
+            }
+            this._contexts.delete(key);
+        }
+
+        const promise = this.buildContext(xlsmPath, mode);
+        this._contexts.set(key, { createdAt: Date.now(), promise });
+        promise.catch(() => {
+            if (this._contexts.get(key)?.promise === promise) {
+                this._contexts.delete(key);
+            }
+        });
+        return promise;
+    }
+
+    invalidate(xlsmPath?: string): void {
+        if (!xlsmPath) {
+            this._contexts.clear();
+            return;
+        }
+        const prefix = `${workbookContextKey(xlsmPath)}\n`;
+        for (const key of [...this._contexts.keys()]) {
+            if (key.startsWith(prefix)) {
+                this._contexts.delete(key);
+            }
+        }
+    }
+
+    dispose(): void {
+        this._contexts.clear();
+    }
+
+    private cacheKey(xlsmPath: string, mode: NavigationProjectMode): string {
+        return [
+            workbookContextKey(xlsmPath),
+            mode,
+            openDocumentVersionsForWorkbook(xlsmPath),
+        ].join('\n');
+    }
+
+    private prune(): void {
+        const maxAge = NAVIGATION_PROJECT_CONTEXT_CACHE_TTL_MS * 2;
+        const now = Date.now();
+        for (const [key, entry] of this._contexts) {
+            if (now - entry.createdAt > maxAge) {
+                this._contexts.delete(key);
+            }
+        }
+    }
+
+    private async buildContext(
+        xlsmPath: string,
+        mode: NavigationProjectMode,
+    ): Promise<NavigationProjectContext> {
+        const modules = applyOpenDocumentSymbols(
+            await this._index.getAllModules(xlsmPath),
+            xlsmPath,
+        );
+        const project = mode === 'live'
+            ? buildLiveVbaProjectIndex(modules)
+            : buildProjectIndex(modules);
+        return {
+            xlsmPath,
+            modules,
+            byModule: new Map(modules.map((mod) => [moduleIdentityKey(mod.moduleName), mod])),
+            project,
+            loadedAt: Date.now(),
+        };
+    }
 }
 
 function sourceMemberDefinitionsAt(
@@ -505,7 +646,7 @@ class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
 }
 
 class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
-    constructor(private readonly _index: VbaSymbolIndex) {}
+    constructor(private readonly _projectCache: VbaNavigationProjectCache) {}
 
     async provideWorkspaceSymbols(
         query: string,
@@ -527,17 +668,10 @@ class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
         for (const xlsmPath of workbookPaths) {
             if (token.isCancellationRequested) { return out; }
             try {
-                const modules = applyOpenDocumentSources(
-                    await this._index.getAllModules(xlsmPath),
-                    xlsmPath,
-                );
-                const project = buildLiveVbaProjectIndex(modules);
-                const byModule = new Map(modules.map((mod) => [
-                    mod.moduleName.toLowerCase(),
-                    mod,
-                ]));
-                for (const symbol of presentedWorkspaceSymbols(project, query)) {
-                    const mod = byModule.get(symbol.moduleName.toLowerCase());
+                const context = await this._projectCache.contextForWorkbook(xlsmPath, 'live');
+                if (token.isCancellationRequested) { return out; }
+                for (const symbol of presentedWorkspaceSymbols(context.project, query)) {
+                    const mod = context.byModule.get(moduleIdentityKey(symbol.moduleName));
                     if (!mod) { continue; }
                     out.push(workspaceSymbolToVscode(
                         encodeModuleUri(xlsmPath, mod.moduleName),
@@ -572,14 +706,17 @@ class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
 }
 
 class VbaDefinitionProvider implements vscode.DefinitionProvider {
-    constructor(private readonly _index: VbaSymbolIndex) {}
+    constructor(private readonly _projectCache: VbaNavigationProjectCache) {}
 
     async provideDefinition(
         document: vscode.TextDocument,
         position: vscode.Position,
+        token?: vscode.CancellationToken,
     ): Promise<vscode.Location[] | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
+        if (token?.isCancellationRequested) { return undefined; }
 
+        const documentVersion = document.version;
         const source = document.getText();
         const offset = document.offsetAt(position);
         const labelDefinition = resolveProcedureLabelDefinitionAt(source, offset);
@@ -600,25 +737,10 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
         const qualifier = detectQualifier(line, wordRange.start.character);
 
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = applyOpenDocumentSources(
-            await this._index.getAllModules(xlsmPath),
-            xlsmPath,
-        );
-        const current = modules.find(
-            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
-        );
-        const project = buildLiveVbaProjectIndex(modules, {
-            moduleName,
-            moduleKind: moduleKindFromType(current?.type),
-            source,
-        });
-        const byModule = moduleMapWithLiveDocument(
-            modules,
-            moduleName,
-            source,
-            current?.type,
-            current?.documentType,
-        );
+        const context = await this._projectCache.contextForWorkbook(xlsmPath, 'live');
+        if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
+        const { modules, project, byModule } = context;
+        const current = byModule.get(moduleIdentityKey(moduleName));
 
         const memberDefinitions = sourceMemberDefinitionsAt(
             source,
@@ -670,36 +792,24 @@ class VbaDefinitionProvider implements vscode.DefinitionProvider {
 }
 
 class VbaReferenceProvider implements vscode.ReferenceProvider {
-    constructor(private readonly _index: VbaSymbolIndex) {}
+    constructor(private readonly _projectCache: VbaNavigationProjectCache) {}
 
     async provideReferences(
         document: vscode.TextDocument,
         position: vscode.Position,
         context: vscode.ReferenceContext,
+        token?: vscode.CancellationToken,
     ): Promise<vscode.Location[] | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
+        if (token?.isCancellationRequested) { return undefined; }
+        const documentVersion = document.version;
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = applyOpenDocumentSources(
-            await this._index.getAllModules(xlsmPath),
-            xlsmPath,
-        );
-        const current = modules.find(
-            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
-        );
-        const project = buildLiveVbaProjectIndex(modules, {
-            moduleName,
-            moduleKind: moduleKindFromType(current?.type),
-            source,
-        });
-        const byModule = moduleMapWithLiveDocument(
-            modules,
-            moduleName,
-            source,
-            current?.type,
-            current?.documentType,
-        );
+        const navigation = await this._projectCache.contextForWorkbook(xlsmPath, 'live');
+        if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
+        const { modules, project, byModule } = navigation;
+        const current = byModule.get(moduleIdentityKey(moduleName));
 
         if (position.line === 0 && position.character === 0 && current?.type === 'class') {
             const definitions = project.resolveTypeDefinitions(moduleName, moduleName).filter(
@@ -806,33 +916,32 @@ class VbaReferenceProvider implements vscode.ReferenceProvider {
 }
 
 class VbaRenameProvider implements vscode.RenameProvider {
-    constructor(private readonly _index: VbaSymbolIndex) {}
+    constructor(private readonly _projectCache: VbaNavigationProjectCache) {}
 
     async prepareRename(
         document: vscode.TextDocument,
         position: vscode.Position,
+        token?: vscode.CancellationToken,
     ): Promise<vscode.Range | { range: vscode.Range; placeholder: string }> {
         if (document.uri.scheme !== XLIDE_SCHEME) {
             throw new Error('Rename is only supported in XLIDE VBA modules.');
         }
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+        const documentVersion = document.version;
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { throw new Error('No symbol at cursor.'); }
         const word = document.getText(wordRange);
 
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = applyOpenDocumentSources(
-            await this._index.getAllModules(xlsmPath),
-            xlsmPath,
-        );
-        const current = modules.find(
-            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
-        );
-        const project = buildProjectIndex(modules, {
-            moduleName,
-            moduleKind: moduleKindFromType(current?.type),
-            source,
-        });
+        const navigation = await this._projectCache.contextForWorkbook(xlsmPath, 'strict');
+        if (token?.isCancellationRequested || document.version !== documentVersion) {
+            throw new vscode.CancellationError();
+        }
+        const { modules, project, byModule } = navigation;
+        const current = byModule.get(moduleIdentityKey(moduleName));
 
         const memberDefinitions = sourceMemberDefinitionsAt(
             source,
@@ -871,8 +980,13 @@ class VbaRenameProvider implements vscode.RenameProvider {
         document: vscode.TextDocument,
         position: vscode.Position,
         newName: string,
+        token?: vscode.CancellationToken,
     ): Promise<vscode.WorkspaceEdit | undefined> {
         if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
+        if (token?.isCancellationRequested) {
+            return undefined;
+        }
+        const documentVersion = document.version;
         if (!VBA_IDENTIFIER_NAME_RE.test(newName)) {
             throw new Error(`'${newName}' is not a valid VBA identifier.`);
         }
@@ -883,25 +997,12 @@ class VbaRenameProvider implements vscode.RenameProvider {
 
         const source = document.getText();
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const modules = applyOpenDocumentSources(
-            await this._index.getAllModules(xlsmPath),
-            xlsmPath,
-        );
-        const current = modules.find(
-            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
-        );
-        const project = buildProjectIndex(modules, {
-            moduleName,
-            moduleKind: moduleKindFromType(current?.type),
-            source,
-        });
-        const byModule = moduleMapWithLiveDocument(
-            modules,
-            moduleName,
-            source,
-            current?.type,
-            current?.documentType,
-        );
+        const navigation = await this._projectCache.contextForWorkbook(xlsmPath, 'strict');
+        if (token?.isCancellationRequested || document.version !== documentVersion) {
+            return undefined;
+        }
+        const { modules, project, byModule } = navigation;
+        const current = byModule.get(moduleIdentityKey(moduleName));
 
         const memberDefinitions = sourceMemberDefinitionsAt(
             source,
@@ -1977,6 +2078,7 @@ export function registerVbaLanguageProviders(
     bridge: PythonBridge,
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
+    const navigationProjectCache = new VbaNavigationProjectCache(index);
 
     registerVbaDiagnostics(context, index);
     registerVbaAutoBlock(context);
@@ -1987,25 +2089,27 @@ export function registerVbaLanguageProviders(
 
     context.subscriptions.push(
         index,
+        navigationProjectCache,
+        index.onDidChange(({ xlsmPath }) => navigationProjectCache.invalidate(xlsmPath || undefined)),
         vscode.languages.registerDocumentSymbolProvider(
             VBA_SELECTOR,
             new VbaDocumentSymbolProvider(),
             { label: 'XLIDE VBA' },
         ),
         vscode.languages.registerWorkspaceSymbolProvider(
-            new VbaWorkspaceSymbolProvider(index),
+            new VbaWorkspaceSymbolProvider(navigationProjectCache),
         ),
         vscode.languages.registerDefinitionProvider(
             VBA_SELECTOR,
-            new VbaDefinitionProvider(index),
+            new VbaDefinitionProvider(navigationProjectCache),
         ),
         vscode.languages.registerReferenceProvider(
             VBA_SELECTOR,
-            new VbaReferenceProvider(index),
+            new VbaReferenceProvider(navigationProjectCache),
         ),
         vscode.languages.registerRenameProvider(
             VBA_SELECTOR,
-            new VbaRenameProvider(index),
+            new VbaRenameProvider(navigationProjectCache),
         ),
         vscode.languages.registerCodeActionsProvider(
             VBA_SELECTOR,
