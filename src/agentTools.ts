@@ -348,8 +348,8 @@ export function registerAgentTools(
         // xlide_analyzeWorkbook
         // ----------------------------------------------------------------
         vscode.lm.registerTool<AnalyzeWorkbookInput>('xlide_analyzeWorkbook', {
-            async invoke(options, _token) {
-                const result = await analyzeWorkbook(bridge, options.input.filePath);
+            async invoke(options, token) {
+                const result = await analyzeWorkbook(bridge, options.input.filePath, { token });
                 return textResult(JSON.stringify(result, null, 2));
             },
         }),

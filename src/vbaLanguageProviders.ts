@@ -1030,14 +1030,15 @@ const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
 ];
 const TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(TYPE_TOKEN_TYPES);
 const TYPE_SEMANTIC_PROJECT_TYPES_CACHE_TTL_MS = 5000;
+const TYPE_SEMANTIC_PROJECT_TYPES_REFRESH_DELAY_MS = 350;
 const DIAGNOSTIC_OPEN_LOCAL_DELAY_MS = 25;
 const DIAGNOSTIC_OPEN_FULL_DELAY_MS = 150;
 const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
+const DIAGNOSTIC_PROJECT_CONTEXT_CACHE_TTL_MS = 30_000;
 
 interface CachedTypeSemanticProjectTypes {
     at: number;
-    documentVersion: number;
     projectTypes: VbaProjectAnalysisOptions['projectTypes'];
 }
 
@@ -1045,6 +1046,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
     private readonly _onDidChangeSemanticTokens = new vscode.EventEmitter<void>();
     private readonly _projectTypesCache = new Map<string, CachedTypeSemanticProjectTypes>();
     private readonly _projectTypeRefreshes = new Set<string>();
+    private readonly _projectTypeRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     readonly onDidChangeSemanticTokens = this._onDidChangeSemanticTokens.event;
 
@@ -1066,7 +1068,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
             document.uri.scheme === XLIDE_SCHEME &&
             !this._cachedProjectTypesForDocument(document, { requireFresh: true })
         ) {
-            this._refreshProjectTypesInBackground(document, source, moduleName);
+            this._scheduleProjectTypesRefresh(document);
         }
 
         for (const item of resolveTypeSemanticTokens(source, { projectTypes })) {
@@ -1088,7 +1090,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         options: { requireFresh?: boolean } = {},
     ): VbaProjectAnalysisOptions['projectTypes'] | undefined {
         const cached = this._projectTypesCache.get(document.uri.toString());
-        if (!cached || cached.documentVersion !== document.version) {
+        if (!cached) {
             return undefined;
         }
         if (
@@ -1098,6 +1100,29 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
             return undefined;
         }
         return cached.projectTypes;
+    }
+
+    private _scheduleProjectTypesRefresh(document: vscode.TextDocument): void {
+        const key = document.uri.toString();
+        if (this._projectTypeRefreshes.has(key)) {
+            return;
+        }
+        const existingTimer = this._projectTypeRefreshTimers.get(key);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+        }
+        const timer = setTimeout(() => {
+            this._projectTypeRefreshTimers.delete(key);
+            if (!vscode.workspace.textDocuments.includes(document)) {
+                return;
+            }
+            this._refreshProjectTypesInBackground(
+                document,
+                document.getText(),
+                moduleNameFromDocument(document),
+            );
+        }, TYPE_SEMANTIC_PROJECT_TYPES_REFRESH_DELAY_MS);
+        this._projectTypeRefreshTimers.set(key, timer);
     }
 
     private _refreshProjectTypesInBackground(
@@ -1127,7 +1152,6 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         }
 
         const previous = this._projectTypesCache.get(key);
-        const documentVersion = document.version;
 
         try {
             const project = await liveProjectIndexForDocument(
@@ -1137,7 +1161,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
                 moduleName,
             );
             const projectTypes = projectAnalysisOptionsForModule(project, moduleName).projectTypes ?? [];
-            this._projectTypesCache.set(key, { at: Date.now(), documentVersion, projectTypes });
+            this._projectTypesCache.set(key, { at: Date.now(), projectTypes });
             return projectTypes;
         } catch {
             return previous?.projectTypes ?? [];
@@ -1163,6 +1187,7 @@ function registerVbaDiagnostics(
     const diagnosticGenerations = new Map<string, number>();
     const completedFullGenerations = new Map<string, number>();
     const workbookSettingsWatchers = new Map<string, vscode.Disposable[]>();
+    const diagnosticProjectContexts = new Map<string, DiagnosticProjectContext>();
 
     type DiagnosticPassKind = 'local' | 'full';
 
@@ -1170,6 +1195,22 @@ function registerVbaDiagnostics(
         localDelayMs: number;
         fullDelayMs?: number;
     }
+
+    interface DiagnosticProjectModuleMetadata {
+        moduleType?: string;
+        moduleKind: ModuleSymbolKind;
+        documentType?: EventHandlerDocumentType;
+    }
+
+    interface DiagnosticProjectContext {
+        project: ProjectIndex;
+        projectProcedures?: ReturnType<typeof projectProcedureSignatures>;
+        moduleMetadata: Map<string, DiagnosticProjectModuleMetadata>;
+        appliedDocumentVersions: Map<string, number>;
+        loadedAt: number;
+    }
+
+    const workbookKey = (workbookPath: string): string => path.resolve(workbookPath).toLowerCase();
 
     const severityToVscode = (s: RuleSeverity): vscode.DiagnosticSeverity => {
         switch (s) {
@@ -1241,6 +1282,104 @@ function registerVbaDiagnostics(
         });
     };
 
+    const invalidateDiagnosticProjectContextForWorkbook = (workbookPath: string | undefined): void => {
+        if (!workbookPath) {
+            diagnosticProjectContexts.clear();
+            return;
+        }
+        diagnosticProjectContexts.delete(workbookKey(workbookPath));
+    };
+
+    const invalidateDiagnosticProjectContextForDocument = (document: vscode.TextDocument): void => {
+        if (document.uri.scheme !== XLIDE_SCHEME) {
+            return;
+        }
+        try {
+            invalidateDiagnosticProjectContextForWorkbook(decodeModuleUri(document.uri).xlsmPath);
+        } catch {
+            diagnosticProjectContexts.clear();
+        }
+    };
+
+    const diagnosticProjectContextForWorkbook = async (
+        xlsmPath: string,
+    ): Promise<DiagnosticProjectContext> => {
+        const key = workbookKey(xlsmPath);
+        let cached = diagnosticProjectContexts.get(key);
+        if (!cached || Date.now() - cached.loadedAt > DIAGNOSTIC_PROJECT_CONTEXT_CACHE_TTL_MS) {
+            const modules = await index.getAllModules(xlsmPath);
+            const moduleMetadata = new Map<string, DiagnosticProjectModuleMetadata>();
+            for (const mod of modules) {
+                moduleMetadata.set(moduleIdentityKey(mod.moduleName), {
+                    moduleType: mod.type,
+                    moduleKind: moduleKindFromType(mod.type),
+                    documentType: mod.documentType,
+                });
+            }
+            cached = {
+                project: buildLiveVbaProjectIndex(modules.map((mod) => ({
+                    moduleName: mod.moduleName,
+                    moduleKind: moduleKindFromType(mod.type),
+                    type: mod.type,
+                    documentType: mod.documentType,
+                    source: mod.source,
+                }))),
+                moduleMetadata,
+                appliedDocumentVersions: new Map<string, number>(),
+                loadedAt: Date.now(),
+            };
+            diagnosticProjectContexts.set(key, cached);
+        }
+        applyOpenDocumentSourcesToDiagnosticProject(xlsmPath, cached);
+        return cached;
+    };
+
+    const applyOpenDocumentSourcesToDiagnosticProject = (
+        xlsmPath: string,
+        context: DiagnosticProjectContext,
+    ): void => {
+        let changed = false;
+        const key = workbookKey(xlsmPath);
+        for (const openDocument of vscode.workspace.textDocuments) {
+            if (openDocument.uri.scheme !== XLIDE_SCHEME) {
+                continue;
+            }
+            let decoded: { xlsmPath: string; moduleName: string };
+            try {
+                decoded = decodeModuleUri(openDocument.uri);
+            } catch {
+                continue;
+            }
+            if (workbookKey(decoded.xlsmPath) !== key) {
+                continue;
+            }
+            const documentKey = openDocument.uri.toString();
+            if (context.appliedDocumentVersions.get(documentKey) === openDocument.version) {
+                continue;
+            }
+            const moduleKey = moduleIdentityKey(decoded.moduleName);
+            const metadata = context.moduleMetadata.get(moduleKey) ?? {
+                moduleKind: moduleKindFromType(undefined),
+            };
+            try {
+                context.project.setModule({
+                    moduleName: decoded.moduleName,
+                    moduleKind: metadata.moduleKind,
+                    source: openDocument.getText(),
+                });
+            } catch {
+                // Keep the previous indexed version while the editor contains
+                // a parser-recovered/incomplete module.
+            }
+            context.appliedDocumentVersions.set(documentKey, openDocument.version);
+            changed = true;
+        }
+        if (changed) {
+            context.projectProcedures = undefined;
+            context.loadedAt = Date.now();
+        }
+    };
+
     const runPassAsync = async (
         document: vscode.TextDocument,
         generation: number,
@@ -1279,25 +1418,17 @@ function registerVbaDiagnostics(
                 workbookPath = xlsmPath;
                 ensureWorkbookSettingsWatcher(xlsmPath);
                 if (pass === 'full') {
-                    const modules = applyOpenDocumentSources(
-                        await index.getAllModules(xlsmPath),
-                        xlsmPath,
-                    );
-                    const current = modules.find(
-                        (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
-                    );
-                    moduleType = current?.type;
-                    moduleKind = moduleKindFromType(current?.type);
+                    const diagnosticProject = await diagnosticProjectContextForWorkbook(xlsmPath);
+                    const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
+                    moduleType = current?.moduleType;
+                    moduleKind = current?.moduleKind;
                     documentType = current?.documentType;
-                    const project = buildLiveVbaProjectIndex(modules, {
-                        moduleName,
-                        moduleKind,
-                        source: text,
-                    });
+                    const project = diagnosticProject.project;
+                    diagnosticProject.projectProcedures ??= projectProcedureSignatures(project);
                     projectOptions = projectAnalysisOptionsForModule(
                         project,
                         moduleName,
-                        projectProcedureSignatures(project),
+                        diagnosticProject.projectProcedures,
                     );
                 }
             } catch {
@@ -1433,7 +1564,6 @@ function registerVbaDiagnostics(
         }
     };
 
-    const workbookKey = (workbookPath: string): string => path.resolve(workbookPath).toLowerCase();
     const rerunWorkbookDocuments = (workbookPath: string): void => {
         const key = workbookKey(workbookPath);
         for (const document of vscode.workspace.textDocuments) {
@@ -1496,6 +1626,9 @@ function registerVbaDiagnostics(
 
     context.subscriptions.push(
         collection,
+        index.onDidChange(({ xlsmPath }) => {
+            invalidateDiagnosticProjectContextForWorkbook(xlsmPath || undefined);
+        }),
         vscode.workspace.onDidOpenTextDocument((document) => schedule(document, {
             localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
             fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,
@@ -1516,6 +1649,7 @@ function registerVbaDiagnostics(
             clearTimer(fullTimers, key);
             nextDiagnosticGeneration(key);
             collection.delete(doc.uri);
+            invalidateDiagnosticProjectContextForDocument(doc);
             pruneWorkbookSettingsWatchers();
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {

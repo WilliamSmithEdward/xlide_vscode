@@ -110,6 +110,30 @@ export interface AnalyzeWorkbookOptions {
 }
 
 const ANALYSIS_YIELD_EVERY_MODULES = 4;
+const WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
+
+interface WorkbookAnalysisProgress {
+    report(message: string, options?: { force?: boolean }): void;
+}
+
+function workbookAnalysisProgress(
+    progress: AnalyzeWorkbookOptions['progress'],
+): WorkbookAnalysisProgress {
+    let lastReportAt = 0;
+
+    return {
+        report(message, options = {}) {
+            if (!progress) {
+                return;
+            }
+            const now = Date.now();
+            if (options.force || now - lastReportAt >= WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS) {
+                lastReportAt = now;
+                progress(message);
+            }
+        },
+    };
+}
 
 /** Converts a 0-based character offset to a 1-based {line, column} pair. */
 function offsetToLineColumn(
@@ -248,9 +272,10 @@ function sortWorkbookProblems(problems: WorkbookAnalysisProblem[]): void {
 async function loadWorkbookModules(
     bridge: PythonBridge,
     filePath: string,
+    progress: WorkbookAnalysisProgress,
     options: AnalyzeWorkbookOptions = {},
 ): Promise<RawModule[]> {
-    options.progress?.('Reading VBA modules...');
+    progress.report('Reading VBA modules...', { force: true });
     try {
         const modules = await bridge.call<RawModule[]>(
             'readModules',
@@ -283,7 +308,7 @@ async function loadWorkbookModules(
     const out: RawModule[] = [];
     for (const [index, entry] of list.entries()) {
         throwIfAnalysisCancelled(options.token);
-        options.progress?.(`Reading ${entry.name} (${index + 1}/${list.length})...`);
+        progress.report(`Reading ${entry.name} (${index + 1}/${list.length})...`);
         try {
             const result = await bridge.call<{ source: string }>(
                 'readModule',
@@ -328,14 +353,15 @@ export async function analyzeWorkbook(
     filePath: string,
     options: AnalyzeWorkbookOptions = {},
 ): Promise<WorkbookAnalysisResult> {
-    const modules = await loadWorkbookModules(bridge, filePath, options);
+    const progress = workbookAnalysisProgress(options.progress);
+    const modules = await loadWorkbookModules(bridge, filePath, progress, options);
     const openDocuments = vscode.workspace.textDocuments ?? [];
     for (const mod of modules) {
         mod.source = openModuleSourceForWorkbook(filePath, mod.name, openDocuments) ?? mod.source;
     }
 
     throwIfAnalysisCancelled(options.token);
-    options.progress?.('Building project context...');
+    progress.report('Building project context...', { force: true });
     const project = buildVbaProjectIndex(modules.map((mod) => ({
         moduleName: mod.name,
         source: mod.source,
@@ -351,7 +377,7 @@ export async function analyzeWorkbook(
 
     for (const [index, mod] of modules.entries()) {
         throwIfAnalysisCancelled(options.token);
-        options.progress?.(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
+        progress.report(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
         const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
         const moduleAnalysis = analyzeVbaModuleSource({
             source: mod.source,
@@ -380,7 +406,7 @@ export async function analyzeWorkbook(
         }
     }
 
-    options.progress?.('Preparing results...');
+    progress.report('Preparing results...', { force: true });
     sortWorkbookProblems(problems);
     sortWorkbookProblems(suppressedProblems);
 

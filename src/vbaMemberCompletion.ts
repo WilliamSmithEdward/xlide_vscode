@@ -79,6 +79,7 @@ const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
 const MAX_PENDING_CANONICAL_CASE_REQUESTS = 16;
 const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
 const CANONICAL_LINE_IDLE_DELAY_MS = 200;
+const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
 const HOVER_PROJECT_CONTEXT_BUDGET_MS = 120;
 const SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS = 150;
 
@@ -126,6 +127,11 @@ interface CachedEditorProjectContext {
 	documentVersion: number;
 	loadedAt: number;
 	context: EditorProjectContext;
+}
+
+interface EditorProjectContextBuild {
+	documentVersion: number;
+	promise: Promise<EditorProjectContext>;
 }
 
 interface CanonicalLineOptions {
@@ -209,7 +215,7 @@ class VbaMemberCompletionProvider
 	private readonly _moduleSourceReads = new Map<string, Promise<string | undefined>>();
 	private readonly _workbookSourceReads = new Map<string, Promise<ModuleSourceEntry[] | undefined>>();
 	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
-	private readonly _projectContextBuilds = new Map<string, Promise<EditorProjectContext>>();
+	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
 	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
 	private _applyingCanonicalCase = false;
 
@@ -241,7 +247,12 @@ class VbaMemberCompletionProvider
 	async provideCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,
+		token?: vscode.CancellationToken,
 	): Promise<vscode.CompletionItem[]> {
+		if (token?.isCancellationRequested) {
+			return [];
+		}
+		const requestVersion = document.version;
 		const directiveCompletions = this._testDirectiveCompletions(document, position);
 		const directiveItems = directiveCompletions.map(
 			(completion) => this._toTestDirectiveItem(completion, position.line),
@@ -280,7 +291,17 @@ class VbaMemberCompletionProvider
 			return fastEvents.map((event) => this._toEventHandlerItem(event, range));
 		}
 
-		const projectCtx = cachedProjectCtx ?? await this._buildEditorProjectContext(document, source);
+		let projectCtx = cachedProjectCtx;
+		if (!projectCtx) {
+			projectCtx = await this._buildEditorProjectContextWithin(
+				document,
+				source,
+				COMPLETION_PROJECT_CONTEXT_BUDGET_MS,
+			) ?? fastProjectCtx;
+			if (token?.isCancellationRequested || document.version !== requestVersion) {
+				return [];
+			}
+		}
 		const typeCtx = this._typeContext(projectCtx);
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
@@ -469,8 +490,7 @@ class VbaMemberCompletionProvider
 		}
 		for (const key of [...this._projectContextBuilds.keys()]) {
 			try {
-				const uriKey = key.slice(0, key.lastIndexOf(':'));
-				const decoded = decodeModuleUri(vscode.Uri.parse(uriKey));
+				const decoded = decodeModuleUri(vscode.Uri.parse(key));
 				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
 					this._projectContextBuilds.delete(key);
 				}
@@ -483,7 +503,12 @@ class VbaMemberCompletionProvider
 	async provideHover(
 		document: vscode.TextDocument,
 		position: vscode.Position,
+		token?: vscode.CancellationToken,
 	): Promise<vscode.Hover | undefined> {
+		if (token?.isCancellationRequested) {
+			return undefined;
+		}
+		const requestVersion = document.version;
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		const cached = this._cachedEditorProjectContext(document);
@@ -503,6 +528,9 @@ class VbaMemberCompletionProvider
 				source,
 				HOVER_PROJECT_CONTEXT_BUDGET_MS,
 			);
+			if (token?.isCancellationRequested || document.version !== requestVersion) {
+				return undefined;
+			}
 			if (projectCtx) {
 				info = resolveHover(source, offset, this._hoverContext(projectCtx));
 			}
@@ -516,7 +544,12 @@ class VbaMemberCompletionProvider
 	async provideSignatureHelp(
 		document: vscode.TextDocument,
 		position: vscode.Position,
+		token?: vscode.CancellationToken,
 	): Promise<vscode.SignatureHelp | undefined> {
+		if (token?.isCancellationRequested) {
+			return undefined;
+		}
+		const requestVersion = document.version;
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		const cached = this._cachedEditorProjectContext(document);
@@ -538,6 +571,9 @@ class VbaMemberCompletionProvider
 				source,
 				SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS,
 			);
+			if (token?.isCancellationRequested || document.version !== requestVersion) {
+				return undefined;
+			}
 			if (projectCtx) {
 				info = resolveSignatureHelp(source, offset, this._signatureHelpContext(projectCtx, source));
 			}
@@ -650,19 +686,25 @@ class VbaMemberCompletionProvider
 		if (cached) {
 			return cached;
 		}
-		const buildKey = `${document.uri.toString()}:${document.version}`;
+		const buildKey = document.uri.toString();
 		const existingBuild = this._projectContextBuilds.get(buildKey);
 		if (existingBuild) {
-			return existingBuild;
+			if (existingBuild.documentVersion === document.version) {
+				return existingBuild.promise;
+			}
+			return existingBuild.promise.then(() =>
+				this._cachedEditorProjectContext(document) ??
+				this._buildEditorProjectContext(document, document.getText()),
+			);
 		}
 		const documentVersion = document.version;
 		const build = this._computeEditorProjectContext(document, source, documentVersion)
 			.finally(() => {
-				if (this._projectContextBuilds.get(buildKey) === build) {
+				if (this._projectContextBuilds.get(buildKey)?.promise === build) {
 					this._projectContextBuilds.delete(buildKey);
 				}
 			});
-		this._projectContextBuilds.set(buildKey, build);
+		this._projectContextBuilds.set(buildKey, { documentVersion, promise: build });
 		return build;
 	}
 
