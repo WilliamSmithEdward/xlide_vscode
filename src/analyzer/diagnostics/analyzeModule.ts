@@ -368,7 +368,7 @@ function runRules(
 		push,
 	);
 	checkDimInitializer(source, mod, activity, push);
-	checkInvalidRedimTargets(source, mod, activity, push);
+	checkInvalidRedimTargets(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
 	checkRedimImpossibleBounds(source, mod, activity, push);
 	checkRedimPreserveDimensions(source, mod, activity, push);
 	checkUnallocatedDynamicArrayAccess(source, mod, activity, push);
@@ -394,8 +394,8 @@ function runRules(
 	checkElseBranchOrder(source, mod, activity, push);
 	checkStatementContext(source, mod, activity, push);
 	checkForEachLoopTypes(mod, symbols, opts, activity, push);
-	checkArrayBoundIntrinsicArguments(source, mod, symbols, activity, push);
-	checkScalarMemberAccess(source, mod, symbols, activity, push);
+	checkArrayBoundIntrinsicArguments(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
+	checkScalarMemberAccess(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
 	checkObjectVariableNotSet(source, mod, symbols, memberCtx, activity, push);
 	checkMemberNotFound(source, mod, memberCtx, activity, push);
 	checkNonCallableCallStatement(
@@ -3717,6 +3717,20 @@ function checkAssignmentTypes(
 				stmt.span.start,
 				expected,
 				shapes,
+				(name) => declaredShapeForSourceBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					name,
+					'assignmentTarget',
+				),
+				(name) => declaredShapeForSourceBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					name,
+					'expression',
+				),
 			);
 			if (arraySource) {
 				push(
@@ -3779,8 +3793,10 @@ function arrayAssignmentToScalarSource(
 	baseOffset: number,
 	expectedType: string,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	resolveTargetShape?: (name: string) => SourceDeclaredShape,
+	resolveSourceShape?: (name: string) => SourceDeclaredShape,
 ): { name: string; span: Span } | undefined {
-	if (!isKnownScalarAssignmentTarget(assignment.name, expectedType, shapes)) {
+	if (!isKnownScalarAssignmentTarget(assignment.name, expectedType, shapes, resolveTargetShape)) {
 		return undefined;
 	}
 	if (assignment.valueTokens.length !== 1) {
@@ -3791,7 +3807,10 @@ function arrayAssignmentToScalarSource(
 	if (!sourceName) {
 		return undefined;
 	}
-	const sourceShape = shapes.get(sourceName.toLowerCase());
+	const resolvedSourceShape = resolveSourceShape?.(sourceName);
+	const sourceShape = resolvedSourceShape?.resolved
+		? resolvedSourceShape.shape
+		: shapes.get(sourceName.toLowerCase());
 	if (!sourceShape?.isArray) {
 		return undefined;
 	}
@@ -3805,8 +3824,12 @@ function isKnownScalarAssignmentTarget(
 	name: string,
 	expectedType: string,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	resolveShape?: (name: string) => SourceDeclaredShape,
 ): boolean {
-	const targetShape = shapes.get(name.toLowerCase());
+	const resolvedTargetShape = resolveShape?.(name);
+	const targetShape = resolvedTargetShape?.resolved
+		? resolvedTargetShape.shape
+		: shapes.get(name.toLowerCase());
 	if (targetShape?.isArray) {
 		return false;
 	}
@@ -3818,6 +3841,7 @@ function checkArrayBoundIntrinsicArguments(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -3826,8 +3850,20 @@ function checkArrayBoundIntrinsicArguments(
 			continue;
 		}
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
-			for (const hit of arrayBoundScalarArguments(source, stmt.span, shapes)) {
+			for (const hit of arrayBoundScalarArguments(
+				source,
+				stmt.span,
+				shapes,
+				(name) => declaredShapeForSourceBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					name,
+					'expression',
+				),
+			)) {
 				push(
 					'arrayBoundRequiresArray',
 					`${hit.functionName} requires an array argument, but '${hit.name}' is declared As ${hit.asType}.`,
@@ -3849,6 +3885,7 @@ function arrayBoundScalarArguments(
 	source: string,
 	span: Span,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
+	resolveShape?: (name: string) => SourceDeclaredShape,
 ): ArrayBoundScalarArgument[] {
 	const toks = statementTokens(source, span);
 	const hits: ArrayBoundScalarArgument[] = [];
@@ -3878,7 +3915,10 @@ function arrayBoundScalarArguments(
 		if (!argName) {
 			continue;
 		}
-		const shape = shapes.get(argName.toLowerCase());
+		const resolvedShape = resolveShape?.(argName);
+		const shape = resolvedShape?.resolved
+			? resolvedShape.shape
+			: shapes.get(argName.toLowerCase());
 		if (!shape || shape.isArray || !shape.asType) {
 			continue;
 		}
@@ -4202,30 +4242,44 @@ function checkScalarMemberAccess(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-		for (const member of activeModuleMembers(mod, activity)) {
-			if (member.kind !== 'Procedure') {
-				continue;
-			}
-			const env = typeEnvironmentFor(symbols, member);
-			forEachStatement(member.body, (stmt) => {
-				for (const hit of scalarMemberAccesses(source, stmt.span, env)) {
-					push(
-						'scalarMemberAccess',
-						`Member access on '${hit.name}' is invalid because it is declared as ${hit.asType}. This is a VBE compile error: ${hit.vbeError}.`,
-						hit.span,
-					);
-				}
-			}, activity);
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
 		}
+		const env = typeEnvironmentFor(symbols, member);
+		const procSym = procedureSymbolFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			for (const hit of scalarMemberAccesses(
+				source,
+				stmt.span,
+				env,
+				(name) => declaredTypeForSourceBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					name,
+					'memberReceiver',
+				),
+			)) {
+				push(
+					'scalarMemberAccess',
+					`Member access on '${hit.name}' is invalid because it is declared as ${hit.asType}. This is a VBE compile error: ${hit.vbeError}.`,
+					hit.span,
+				);
+			}
+		}, activity);
+	}
 }
 
 function scalarMemberAccesses(
 	source: string,
 	span: Span,
 	env: ReadonlyMap<string, string>,
+	resolveDeclaredType?: (name: string) => SourceDeclaredType,
 ): Array<{ name: string; asType: string; span: Span; vbeError: string }> {
 	const toks = statementTokens(source, span);
 	const out: Array<{ name: string; asType: string; span: Span; vbeError: string }> = [];
@@ -4233,11 +4287,17 @@ function scalarMemberAccesses(
 		if (toks[i + 1].rawText !== '.') {
 			continue;
 		}
+		if (toks[i - 1]?.rawText === '.') {
+			continue;
+		}
 		const name = tokenName(toks[i]);
 		if (!name) {
 			continue;
 		}
-		const asType = env.get(name.toLowerCase());
+		const declaredType = resolveDeclaredType?.(name);
+		const asType = declaredType?.resolved
+			? declaredType.asType
+			: env.get(name.toLowerCase());
 		const normalized = normalizeType(asType);
 		if (!asType || !normalized || !isKnownScalarType(normalized)) {
 			continue;
@@ -4646,6 +4706,7 @@ function typeEnvironmentFor(
 interface DeclaredValueShape {
 	asType?: string;
 	isArray: boolean;
+	isFixedArray: boolean;
 }
 
 function declarationShapeEnvironmentFor(
@@ -4658,6 +4719,7 @@ function declarationShapeEnvironmentFor(
 			out.set(sym.name.toLowerCase(), {
 				asType: sym.asType,
 				isArray: sym.isArray === true,
+				isFixedArray: sym.arrayBounds !== undefined,
 			});
 		}
 	}
@@ -4669,6 +4731,7 @@ function declarationShapeEnvironmentFor(
 		out.set(proc.name.toLowerCase(), {
 			asType: returnType,
 			isArray: returnAssignmentIsArray(proc),
+			isFixedArray: false,
 		});
 	}
 	for (const child of procSym?.children ?? []) {
@@ -4676,6 +4739,7 @@ function declarationShapeEnvironmentFor(
 			out.set(child.name.toLowerCase(), {
 				asType: child.asType,
 				isArray: child.isArray === true,
+				isFixedArray: child.arrayBounds !== undefined,
 			});
 		}
 	}
@@ -4705,6 +4769,11 @@ interface SourceDeclaredType {
 	asType?: string;
 }
 
+interface SourceDeclaredShape {
+	resolved: boolean;
+	shape?: DeclaredValueShape;
+}
+
 function declaredTypeForSourceBinding(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	procSym: VbaSymbol | undefined,
@@ -4724,6 +4793,36 @@ function declaredTypeForSourceBinding(
 	}
 	const typed = binding.definitions.find((definition) => definition.asType);
 	return { resolved: true, asType: typed?.asType };
+}
+
+function declaredShapeForSourceBinding(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	name: string,
+	context: BareIdentifierContext,
+): SourceDeclaredShape {
+	const binding = sourceIdentifierBinding(
+		symbols,
+		procSym,
+		projectVisibleSymbols,
+		name,
+		context,
+	);
+	if (binding.scope === 'unresolved' || binding.scope === 'ambiguous') {
+		return { resolved: binding.scope === 'ambiguous' };
+	}
+	const shaped = binding.definitions.find(
+		(definition) => definition.asType || definition.isArray === true,
+	);
+	return {
+		resolved: true,
+		shape: {
+			asType: shaped?.asType,
+			isArray: shaped?.isArray === true,
+			isFixedArray: shaped?.arrayBounds !== undefined,
+		},
+	};
 }
 
 interface SourceNameScope {
@@ -6771,6 +6870,8 @@ interface RedimTarget {
 function checkInvalidRedimTargets(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -6781,11 +6882,21 @@ function checkInvalidRedimTargets(
 		}
 		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			for (const target of redimTargets(source, stmt.span)) {
 				const lower = target.name.toLowerCase();
-				const declaration = localDeclarations.get(lower) ??
-					(localNames.has(lower) ? undefined : moduleDeclarations.get(lower));
+				const resolvedShape = declaredShapeForSourceBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					target.name,
+					'assignmentTarget',
+				);
+				const declaration = resolvedShape.resolved
+					? redimBlockedDeclarationForShape(target.name, target.span, resolvedShape.shape)
+					: localDeclarations.get(lower) ??
+						(localNames.has(lower) ? undefined : moduleDeclarations.get(lower));
 				if (!declaration) {
 					continue;
 				}
@@ -6805,6 +6916,30 @@ function checkInvalidRedimTargets(
 			}
 		}, activity);
 	}
+}
+
+function redimBlockedDeclarationForShape(
+	name: string,
+	span: Span,
+	shape: DeclaredValueShape | undefined,
+): RedimBlockedDeclaration | undefined {
+	if (!shape) {
+		return undefined;
+	}
+	if (!shape.isArray) {
+		if (isVariantLikeRedimTargetType(shape.asType)) {
+			return undefined;
+		}
+		return { name, span, kind: 'scalar' };
+	}
+	if (shape.isFixedArray) {
+		return { name, span, kind: 'fixedArray' };
+	}
+	return undefined;
+}
+
+function isVariantLikeRedimTargetType(asType: string | undefined): boolean {
+	return !asType || normalizeType(asType) === 'variant';
 }
 
 function redimBlockedDeclarationsForModule(
@@ -6860,6 +6995,9 @@ function addRedimBlockedDeclarations(
 
 function redimBlockedDeclarationKind(decl: VariableDeclNode): RedimBlockedDeclaration['kind'] | undefined {
 	if (!decl.isArray) {
+		if (isVariantLikeRedimTargetType(decl.asType)) {
+			return undefined;
+		}
 		return 'scalar';
 	}
 	return decl.arrayBounds ? 'fixedArray' : undefined;

@@ -1385,6 +1385,60 @@ describe('analyzeModule - scalar member access', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['moduleName.', 'count.']);
 	});
 
+	it('uses visible exported scalar globals for member receiver types', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    SharedText.Length\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+			], 'Caller'),
+			'scalar-member-access',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedText.');
+		expect(hits[0].message).toContain('String');
+	});
+
+	it('does not leak exported scalar receiver types through local untyped shadows', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    Dim SharedText\n' +
+			'    SharedText.Length\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'scalar-member-access')).toHaveLength(0);
+	});
+
+	it('keeps ambiguous visible exported scalar receivers quiet', () => {
+		const caller =
+			'Sub Main()\n' +
+			'    SharedText.Length\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedText As String\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedText As String\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'scalar-member-access')).toHaveLength(0);
+	});
+
+	it('does not treat member names in qualified chains as bare scalar receivers', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim Value As String\n' +
+			'    Dim item As Variant\n' +
+			'    item.Value.Length\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'scalar-member-access')).toHaveLength(0);
+	});
+
 	it('treats colon-separated declaration and member access statements independently', () => {
 		const src = 'Sub Main()\n    Dim value As String: value.Length\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'scalar-member-access');
@@ -4052,6 +4106,64 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
+	it('uses visible exported array globals for array assignment to scalar', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim Value As Long\n' +
+			'    Value = SharedValues\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedValues() As Long\n' },
+			], 'Caller'),
+			'array-assignment-to-scalar',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedValues');
+	});
+
+	it('does not leak exported array shapes through local untyped assignment source shadows', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim SharedValues\n' +
+			'    Dim Value As Long\n' +
+			'    Value = SharedValues\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedValues() As Long\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'array-assignment-to-scalar')).toHaveLength(0);
+	});
+
+	it('keeps ambiguous visible exported array assignment sources quiet', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim Value As Long\n' +
+			'    Value = SharedValues\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedValues() As Long\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedValues() As Long\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'array-assignment-to-scalar')).toHaveLength(0);
+	});
+
+	it('does not treat visible exported array assignment targets as scalar targets', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim Values() As Long\n' +
+			'    SharedValues = Values\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedValues() As Long\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'array-assignment-to-scalar')).toHaveLength(0);
+	});
+
 	it('accepts array assignments to Variant, array targets, indexed elements, and unknown values', () => {
 		const src =
 			'Public Sub T()\n' +
@@ -4134,6 +4246,49 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits[0].message).toContain('LBound');
 		expect(hits[0].message).toContain('array argument');
 		expect(hits[0].message).toContain('Long');
+	});
+
+	it('uses visible exported scalar globals for array bound argument shapes', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Debug.Print LBound(SharedValue)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedValue As Long\n' },
+			], 'Caller'),
+			'array-bound-requires-array',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedValue');
+		expect(hits[0].message).toContain('Long');
+	});
+
+	it('does not leak exported scalar shapes through local untyped array-bound shadows', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Dim SharedValue\n' +
+			'    Debug.Print LBound(SharedValue)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedValue As Long\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'array-bound-requires-array')).toHaveLength(0);
+	});
+
+	it('keeps ambiguous visible exported scalar array-bound arguments quiet', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Debug.Print LBound(SharedValue)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedValue As Long\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedValue As Long\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'array-bound-requires-array')).toHaveLength(0);
 	});
 
 	it('accepts array, Variant, unknown, and member-expression array bound arguments', () => {
@@ -6214,6 +6369,105 @@ describe('analyzeModule - array ReDim', () => {
 		expect(hits[0].severity).toBe('error');
 		expect(hits[0].message).toContain('Scalar variable');
 		expect(hits[0].message).toContain('ReDim');
+	});
+
+	it('uses visible exported scalar and fixed-array globals for ReDim target shapes', () => {
+		const caller =
+			'Sub T()\n' +
+			'    ReDim SharedScalar(1 To 10)\n' +
+			'    ReDim SharedFixed(1 To 10)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'Globals',
+				source:
+					'Public SharedScalar As Long\n' +
+					'Public SharedFixed(1 To 3) As Long\n',
+			},
+		], 'Caller');
+		const scalarHits = byCode(diagnostics, 'scalar-redim');
+		const fixedHits = byCode(diagnostics, 'fixed-array-redim');
+
+		expect(scalarHits).toHaveLength(1);
+		expect(spanText(caller, scalarHits[0])).toBe('SharedScalar');
+		expect(fixedHits).toHaveLength(1);
+		expect(spanText(caller, fixedHits[0])).toBe('SharedFixed');
+	});
+
+	it('does not flag visible exported dynamic arrays as invalid ReDim targets', () => {
+		const caller =
+			'Sub T()\n' +
+			'    ReDim SharedValues(1 To 10)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedValues() As Long\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+		expect(byCode(diagnostics, 'fixed-array-redim')).toHaveLength(0);
+	});
+
+	it('accepts ReDim Preserve on Variant and implicit Variant targets', () => {
+		const src =
+			'Public Function RunEx(ByVal vArr As Variant) As Variant\n' +
+			'    ReDim Preserve vArr(0 To 29)\n' +
+			'    Dim flexible As Variant\n' +
+			'    ReDim flexible(0 To 2)\n' +
+			'    Dim implicit\n' +
+			'    ReDim implicit(0 To 2)\n' +
+			'End Function\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+		expect(byCode(diagnostics, 'fixed-array-redim')).toHaveLength(0);
+	});
+
+	it('accepts ReDim on visible exported Variant globals', () => {
+		const caller =
+			'Sub T()\n' +
+			'    ReDim SharedValues(1 To 10)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Globals', source: 'Public SharedValues As Variant\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+		expect(byCode(diagnostics, 'fixed-array-redim')).toHaveLength(0);
+	});
+
+	it('lets local dynamic arrays shadow exported invalid ReDim targets', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Dim SharedScalar() As Long\n' +
+			'    Dim SharedFixed() As Long\n' +
+			'    ReDim SharedScalar(1 To 10)\n' +
+			'    ReDim SharedFixed(1 To 10)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'Globals',
+				source:
+					'Public SharedScalar As Long\n' +
+					'Public SharedFixed(1 To 3) As Long\n',
+			},
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+		expect(byCode(diagnostics, 'fixed-array-redim')).toHaveLength(0);
+	});
+
+	it('keeps ambiguous visible exported ReDim targets quiet', () => {
+		const caller =
+			'Sub T()\n' +
+			'    ReDim SharedValue(1 To 10)\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedValue As Long\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedValue(1 To 3) As Long\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'scalar-redim')).toHaveLength(0);
+		expect(byCode(diagnostics, 'fixed-array-redim')).toHaveLength(0);
 	});
 
 	it('accepts dynamic arrays and undeclared ReDim targets', () => {

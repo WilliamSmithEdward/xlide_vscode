@@ -1065,12 +1065,26 @@ Diagnostic severity policy:
   assignment targets through the shared assignment-target resolver, so local
   shadows win and `Variant`, unknown types, and ambiguous project targets stay
   silent.
-  `scalar-member-access` fires only when the receiver is a declared
-  intrinsic scalar (`String`, numeric, `Boolean`, or `Date`); focused oracle
-  cases show named scalar members are VBE Compile errors (`Invalid qualifier`),
-  while a trailing scalar dot is a VBE Compile `Syntax error` after explicit
-  focus retesting. Unknown, `Variant`, object-like, project class, and UDT
-  receivers stay silent until the binder can prove more.
+  `array-assignment-to-scalar` and `array-bound-requires-array` use the shared
+  resolver for simple bare target/source/argument shapes before falling back to
+  legacy local shape maps. Visible exported standard-module arrays/scalars feed
+  these diagnostics, while local shadows, ambiguous exported globals, indexed
+  values, member-expression arguments, `Variant`, and unknown shapes stay quiet.
+  `fixed-array-redim` and `scalar-redim` use the same assignment-target resolver
+  for bare `ReDim` targets, with fixed-array bounds carried on variable symbols
+  from parser metadata. Visible exported standard-module scalars and fixed
+  arrays feed these diagnostics, while dynamic arrays, scalar `Variant` and
+  implicit Variant targets, local dynamic shadows, ambiguous exported globals,
+  undeclared targets, and inactive branches stay quiet.
+  `scalar-member-access` fires only when a bare receiver is a declared
+  intrinsic scalar (`String`, numeric, `Boolean`, or `Date`), including visible
+  exported standard-module scalar globals proven through the shared
+  member-receiver resolver; focused oracle cases show named scalar members are
+  VBE Compile errors (`Invalid qualifier`), while a trailing scalar dot is a
+  VBE Compile `Syntax error` after explicit focus retesting. Local shadows,
+  ambiguous exported globals, qualified/member-chain tokens, unknown,
+  `Variant`, object-like, project class, and UDT receivers stay silent until
+  the binder can prove more.
   `undeclared-variable` runs only when `Option Explicit` is present and the
   caller passes project context (`knownIdentifiers` from
   `ProjectIndex.visibleIdentifierNames(moduleName)` plus, when available,
@@ -1138,7 +1152,8 @@ single module:
 
 - `src/analyzer/symbols/symbolModel.ts` defines the `VbaSymbol` shape (name,
   kind, `nameSpan` for the identifier, `fullSpan` for the declaration,
-  visibility, `asType`, exported `Attribute` metadata, and nested children).
+  visibility, `asType`, array/fixed-array metadata, exported `Attribute`
+  metadata, and nested children).
 - `src/analyzer/symbols/buildModuleSymbols.ts` walks one `ModuleNode` and emits
   a hierarchical module symbol (procedures with parameter/local children,
   `Type` with fields, `Enum` with members, module variables/consts, and
@@ -1152,10 +1167,12 @@ single module:
   `assignmentTarget`, `memberReceiver`, `typeName`, or `newExpression`), winning
   source tier (`local`, `module`, or `project`), ambiguity, definitions, and a
   short explanation. `ProjectIndex`, Option Explicit, const-assignment,
-  assignment-target typing, `Set` target typing, runtime integer-constant
-  folding, ambiguous enum-member, unknown/non-callable call diagnostics, and
-  runtime-shadow diagnostics consume this helper so editor navigation and
-  red-squiggly fallback rules do not grow separate precedence ladders.
+  assignment-target typing, `Set` target typing, array/scalar shape
+  diagnostics, `ReDim` target-shape diagnostics, scalar member-receiver
+  diagnostics, runtime integer-constant folding, ambiguous enum-member,
+  unknown/non-callable call diagnostics, and runtime-shadow diagnostics consume
+  this helper so editor navigation and red-squiggly fallback rules do not grow
+  separate precedence ladders.
 - `src/analyzer/symbols/projectIndex.ts` is the `ProjectIndex` that aggregates
   modules and answers `documentSymbols`, `workspaceSymbols`, conservative
   `resolveDefinition` (via the shared bare-identifier resolver: locals/params ->

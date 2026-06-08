@@ -80,6 +80,8 @@ export interface VbaSymbol {
 	byRef?: boolean;
 	/** True when the declaration is an array. */
 	isArray?: boolean;
+	/** Raw array bounds text when an array declaration is fixed-size. */
+	arrayBounds?: string;
 	/** External Declare statements are Function or Sub callables. */
 	declareKind?: 'Function' | 'Sub';
 	/** True when an external Declare includes PtrSafe. */

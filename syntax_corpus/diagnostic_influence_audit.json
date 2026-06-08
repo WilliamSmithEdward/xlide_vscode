@@ -383,7 +383,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses procedure declaration-shape environments to distinguish scalar and array declarations that share the same As type. It reports simple RHS names declared as dynamic or fixed arrays when assigned to known intrinsic scalar targets. Variant targets, array targets, indexed element reads, unresolved names, object targets, and inactive branches stay silent.",
+      "notes": "Active coverage uses shared source resolver-backed shape lookup before falling back to procedure declaration-shape environments, so visible exported standard-module arrays participate while local shadows and ambiguous exported globals stay quiet. It reports simple RHS names declared as dynamic or fixed arrays when assigned to known intrinsic scalar targets. Variant targets, array targets, indexed element reads, unresolved names, object targets, and inactive branches stay silent.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -399,7 +399,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage scans LBound and UBound calls and reports simple first-argument names declared as known intrinsic scalars. Dynamic and fixed arrays, Variant, unresolved names, member-expression arguments, non-VBA-qualified member calls, and inactive branches stay silent until broader argument binding is proven.",
+      "notes": "Active coverage scans LBound and UBound calls and reports simple first-argument names declared as known intrinsic scalars, using shared source resolver-backed shape lookup before falling back to procedure declaration-shape environments. Visible exported standard-module scalars participate while local shadows and ambiguous exported globals stay quiet. Dynamic and fixed arrays, Variant, unresolved names, member-expression arguments, non-VBA-qualified member calls, and inactive branches stay silent until broader argument binding is proven.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -654,7 +654,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses parser-backed arrayBounds metadata to distinguish `Dim a()` dynamic arrays from fixed-bound declarations such as `Dim a(1 To 3)`. ReDim targets are resolved conservatively inside the current procedure scope first, then module scope unless shadowed by any local declaration. Dynamic arrays, undeclared ReDim targets, local dynamic shadows, and inactive conditional branches stay silent.",
+      "notes": "Active coverage uses parser-backed arrayBounds metadata carried on variable symbols to distinguish `Dim a()` dynamic arrays from fixed-bound declarations such as `Dim a(1 To 3)`. ReDim targets ask the shared assignment-target resolver first, so visible exported standard-module fixed arrays participate while local dynamic shadows and ambiguous exported globals stay quiet. Dynamic arrays, undeclared ReDim targets, local dynamic shadows, and inactive conditional branches stay silent.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -669,7 +669,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage resolves ReDim targets conservatively inside the current procedure scope first, then module scope unless shadowed by any local declaration. It reports scalar declarations such as `Dim Value As Long`, while dynamic arrays, undeclared ReDim targets, local dynamic shadows of module scalars, and inactive conditional branches stay silent.",
+      "notes": "Active coverage resolves ReDim targets through the shared assignment-target resolver before falling back to local/module maps. It reports non-Variant scalar declarations such as `Dim Value As Long`, including visible exported standard-module scalars, while dynamic arrays, scalar Variant and implicit Variant targets, undeclared ReDim targets, local dynamic shadows of module/project scalars, ambiguous exported globals, and inactive conditional branches stay silent.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -951,7 +951,7 @@
     {
       "code": "scalar-member-access",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar variable type environment",
+      "sourceOfTruth": "Excel/VBE compile and runtime oracle plus deterministic XLIDE scalar member-receiver binding",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "string_scalar_member_access_compile",
@@ -961,7 +961,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Named member access on declared intrinsic scalar variables is rejected by VBE Compile as Invalid qualifier. Bare trailing-dot scalar statements are rejected by VBE Compile as Syntax error after explicit focus retesting. Only known intrinsic scalar receivers are flagged; Variant, Object, class, UDT, and unknown receiver types stay silent while they may be incomplete member-access completion contexts.",
+      "notes": "Named member access on declared intrinsic scalar variables is rejected by VBE Compile as Invalid qualifier. Bare trailing-dot scalar statements are rejected by VBE Compile as Syntax error after explicit focus retesting. Only known intrinsic scalar bare receivers are flagged, including visible exported standard-module scalar globals resolved through the shared member-receiver resolver. Local shadows, ambiguous exported globals, qualified/member-chain tokens, Variant, Object, class, UDT, and unknown receiver types stay silent while they may be incomplete member-access completion contexts.",
       "diagnosticKind": "compile-error"
     },
     {

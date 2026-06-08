@@ -198,6 +198,25 @@ Progress:
   type maps. Visible exported standard-module globals participate in scalar and
   object assignment diagnostics, while untyped local shadows and ambiguous
   exported globals stay quiet.
+- [x] Member-receiver scalar resolver handoff: `scalar-member-access` now
+  resolves bare member receivers through the shared member-receiver binding
+  before consulting legacy local type maps. Visible exported standard-module
+  scalar globals participate in invalid-qualifier diagnostics, while untyped
+  local shadows, ambiguous exported globals, and non-bare member-chain tokens
+  stay quiet.
+- [x] Array/scalar shape resolver handoff: `array-assignment-to-scalar` and
+  `array-bound-requires-array` now resolve simple bare target/source/argument
+  shapes through the shared resolver before consulting legacy local shape maps.
+  Visible exported standard-module arrays and scalars participate in proven
+  array/scalar diagnostics, while local shadows, ambiguous exported globals,
+  indexed values, and member-expression arguments stay quiet.
+- [x] ReDim target-shape resolver handoff: symbol extraction now preserves
+  fixed-array bounds on variable symbols, and `fixed-array-redim` /
+  `scalar-redim` resolve bare `ReDim` targets through the shared
+  assignment-target binding before consulting legacy local/module maps. Visible
+  exported standard-module scalars and fixed arrays participate, while dynamic
+  arrays, local dynamic shadows, ambiguous exported globals, and undeclared
+  targets stay quiet.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`
