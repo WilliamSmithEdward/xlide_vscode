@@ -87,7 +87,7 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage reports value-position bare reads that resolve to multiple visible Enum member definitions across distinct Enum containers. Same-module bindings take precedence over exported members from other modules, procedure locals/parameters shadow module-level enum members, and declaration-only same-name members remain quiet per the accepted oracle control.",
+      "notes": "Active coverage reports value-position bare reads whose shared source-resolver binding is enum-member-only ambiguous across distinct visible Enum containers. Local/module non-enum bindings and procedure locals/parameters shadow exported ambiguity, qualified reads stay quiet, and declaration-only same-name members remain quiet per the accepted oracle control.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -98,6 +98,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
+      "notes": "Active coverage reports bare assignment targets whose shared assignment-target binding resolves to a non-ambiguous local, module-level, or project-visible Const. Local declarations shadow module-level constants, member/indexed targets are outside the rule, inactive branches stay quiet, and ambiguous exported constants remain deferred.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -201,7 +202,7 @@
         "excel_vba_analysis_final_hardening_cases.md",
         "xlide_vba_legacy_visible_corpus_edges.md"
       ],
-      "notes": "Active coverage has two layers: semantic body scans catch completed module-only statement forms that remain inside parsed procedure bodies, including Option, Attribute lines outside exported-source metadata mode, DefType family statements, and Public/Private/Friend/Global declaration forms; parser recovery consumes nested Type and Enum blocks as invalid procedure-body statements so the Type/Enum diagnostic supersedes misleading End Sub cascade errors, while structural analysis still catches nested Declare and procedure declarations that otherwise look block-balanced or break parser recovery. Related verified AddFromString/live-style probes member_attribute_after_header_addfromstring_compile and member_attribute_after_executable_addfromstring_compile reject visible member Attribute lines as Syntax error; focused Type/Enum probes reject as Invalid inside procedure. XLIDE still accepts unindented exported-source member Attribute metadata targeting the current procedure only after a module-level VB_ Attribute marker such as Attribute VB_Name has put the parser in exported metadata mode. Same-indent next members remain treated as missing-closer recovery to avoid noisy false positives.",
+      "notes": "Active coverage has two layers: semantic body scans catch completed module-only statement forms that remain inside parsed procedure bodies, including Option, Attribute lines outside exported-source metadata mode, DefType family statements, and Public/Private/Friend/Global declaration forms; parser recovery consumes nested Type and Enum blocks as invalid procedure-body statements so the Type/Enum diagnostic supersedes misleading End Sub cascade errors, while structural analysis still catches nested Declare and procedure declarations that otherwise look block-balanced or break parser recovery. Related verified AddFromString/live-style probes member_attribute_after_header_addfromstring_compile and member_attribute_after_executable_addfromstring_compile reject visible member Attribute lines as Syntax error; focused Type/Enum probes reject as Invalid inside procedure. XLIDE's exported-source parser policy accepts only unindented Attribute CurrentMember.VB_* metadata in the member metadata slot before executable body statements, and preserves accepted attributes on the procedure symbol; wrong-target, indented, and post-body Attribute lines remain diagnostic. Same-indent next members remain treated as missing-closer recovery to avoid noisy false positives.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -367,7 +368,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function and Property Get return-name assignments use the same deterministic scalar path. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -528,7 +529,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous external constants, and broader expression folding until flow/reachability handling is broader.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous external constants, and broader expression folding until flow/reachability handling is broader.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -591,7 +592,7 @@
         "instr_named_zero_start_runtime"
       ],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, and exported Const-through-private-helper values outside proven runtime bounds; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -930,13 +931,13 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variables, Function/Property Get return names, and unambiguous source-backed object-valued members are flagged. Variant, unknown, and ambiguous project-member targets remain silent until the binder can prove the target shape.",
+      "notes": "Only known object variables, Function/Property Get return names, visible exported standard-module object globals, and unambiguous source-backed object-valued members are flagged. Bare assignment targets ask the shared assignment-target resolver first, so local shadows win and Variant, unknown, and ambiguous project targets remain silent until the binder can prove the target shape.",
       "diagnosticKind": "compile-error"
     },
     {
       "code": "set-requires-object",
       "status": "vbe-oracle-verified",
-      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable type environment",
+      "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable and assignment-target binding",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "set_scalar_integer_assignment",
@@ -944,7 +945,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known intrinsic scalar targets are flagged; unknown host/class object types are deferred to the object binder. The target type owns the error even when the right-hand side is an object expression such as New Collection.",
+      "notes": "Only known intrinsic scalar targets, including visible exported standard-module scalar globals, are flagged; unknown host/class object types are deferred to the object binder. Bare Set targets ask the shared assignment-target resolver first, so local shadows win and ambiguous exported globals stay quiet. The target type owns the error even when the right-hand side is an object expression such as New Collection.",
       "diagnosticKind": "compile-error"
     },
     {

@@ -52,6 +52,19 @@ describe('parseModule - module header (MS-VBAL 4.2)', () => {
 		}
 	});
 
+	it('attaches exported member Attribute lines in the procedure metadata slot', () => {
+		const source =
+			'Public Property Get NewEnum() As IUnknown\n' +
+			'Attribute NewEnum.VB_UserMemId = -4\n' +
+			'    Set NewEnum = Nothing\n' +
+			'End Property\n';
+		const proc = procedures(source)[0];
+
+		expect(proc.attributes).toHaveLength(1);
+		expect(proc.attributes?.[0].name).toBe('NewEnum.VB_UserMemId');
+		expect(proc.body).toHaveLength(1);
+	});
+
 	it('detects a class module from VB_Exposed attribute', () => {
 		const m = parseModule(
 			'Attribute VB_Name = "Class1"\nAttribute VB_Exposed = False\n',

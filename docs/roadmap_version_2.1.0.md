@@ -162,6 +162,42 @@ Progress:
   falling back to runtime metadata. Untyped locals, parameters, module
   constants/globals, enum members, and other non-callable source names suppress
   bare runtime signatures instead of producing hard runtime-shaped squiggles.
+- [x] Context-aware bare-identifier resolver slice: `ProjectIndex` now exposes
+  a shared resolver that records the active context, winning precedence tier
+  (`local`, `module`, or `project`), ambiguity, definitions, and explanation for
+  bare identifiers. Go-to-definition and reference-scope resolution consume this
+  resolver instead of carrying a separate precedence ladder. Runtime fallback
+  diagnostics now also receive the project-visible source-name surface, so
+  exported workbook names such as constants or enum members suppress bare
+  runtime-shaped diagnostics while explicit `VBA.` calls remain runtime-bound.
+- [x] Option Explicit and call-diagnostic resolver handoff: undeclared-variable,
+  `unknown-call`, and `non-callable-call` now ask the shared source resolver for
+  local/module/project bindings at the current procedure site. This keeps local
+  and module declarations ahead of exported procedures, lets project-visible
+  symbols satisfy Option Explicit without relying only on flat known-name sets,
+  and preserves ambiguity silence for duplicate project call targets.
+- [x] Ambiguous enum resolver handoff: `ambiguous-enum-member` now reports from
+  the shared expression binding result instead of a separate local/project name
+  ladder. It remains deliberately narrow: only enum-member-only ambiguous
+  bindings across multiple visible Enum containers produce the red diagnostic,
+  while local/module non-enum shadows and qualified reads stay quiet.
+- [x] Const-assignment resolver handoff: `const-assignment` now resolves bare
+  assignment targets through the shared assignment-target binding. Local
+  declarations correctly shadow module-level constants, visible exported
+  standard-module constants are caught when project context proves them, and
+  ambiguous exported constants remain quiet rather than guessing.
+- [x] Runtime integer-constant resolver handoff: `division-by-zero` and
+  `runtime-argument-value` now use a scoped integer-constant lookup that asks
+  the shared expression resolver before folding bare source names. Exported
+  standard-module constants and enum members still feed deterministic runtime
+  diagnostics, while local/module variables or other non-constant declarations
+  with the same name suppress folding instead of producing false positives.
+- [x] Assignment-target typing resolver handoff: `assignment-type-mismatch`,
+  `set-required`, and `set-requires-object` now resolve bare assignment targets
+  through the shared assignment-target binding before consulting legacy local
+  type maps. Visible exported standard-module globals participate in scalar and
+  object assignment diagnostics, while untyped local shadows and ambiguous
+  exported globals stay quiet.
 - [x] Option Explicit project-call slice: known module-qualified project
   procedures no longer flag their standard-module qualifier as an undeclared
   variable in expression reads, including `Set item = ModuleName.Function()`
@@ -344,13 +380,14 @@ Progress:
   branches stay quiet.
 - [x] Attribute placement slice: parser recovery now distinguishes exported
   member metadata attributes from executable-body `Attribute` statements.
-  Unindented `Attribute ProcedureName...` lines targeting the current procedure
-  remain accepted as exported-source metadata only after a module-level
-  exported `VB_` attribute marker such as `Attribute VB_Name` is present. Other
+  Unindented `Attribute ProcedureName.VB_* = ...` lines targeting the current
+  procedure are accepted as exported-source metadata only in the member
+  metadata slot before executable body statements, even when upstream source
+  has stripped the module-level `Attribute VB_Name` header. Other
   procedure-body `Attribute` statements produce a red placement diagnostic
-  backed by VBE `CodeModule.AddFromString` compile evidence. A dedicated
-  exported-file import oracle/source-mode split remains the right owner for
-  broader visible `Attribute` behavior.
+  backed by VBE `CodeModule.AddFromString` compile evidence. The parser also
+  preserves accepted member attributes on the procedure symbol so
+  `VB_UserMemId` metadata can flow to source-backed member surfaces.
 - [x] Parameter-list hardening slice: parsed procedure parameter flags now
   produce a red diagnostic when `ParamArray` appears in the same parameter list
   as any `Optional` argument, and when an explicit `ParamArray` element type is
@@ -379,8 +416,9 @@ Progress:
   duplicate member names across separate `Enum` blocks compile until the shared
   name is referenced bare. Value-position unqualified reads now produce a red
   `ambiguous-enum-member` diagnostic when they resolve to multiple visible enum
-  member definitions, while declaration-only duplicates, qualified reads,
-  same-module bindings, and local shadows stay quiet.
+  member definitions through the shared source resolver, while declaration-only
+  duplicates, qualified reads, same-module/local/module shadows, and mixed
+  non-enum bindings stay quiet.
 - [x] Conditional branch-order slice: peer `#ElseIf`/`ElseIf` branches after
   `#Else`/`Else`, plus duplicate `#Else`/`Else` branches, now produce red
   diagnostics. Conditional-compilation branch order is checked structurally,

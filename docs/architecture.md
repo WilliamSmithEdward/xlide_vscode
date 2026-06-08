@@ -1057,11 +1057,14 @@ Diagnostic severity policy:
   external-reference story so referenced-library classes are not flagged
   prematurely.
   `set-required` fires when a plain assignment targets a known object variable,
-  `Function`/`Property Get` return name, or source-backed object-valued member
-  (`Property Set` or public field) that requires `Set`; `set-requires-object`
-  fires when `Set` targets a known intrinsic scalar variable or source-backed
-  scalar member. Both rules stay silent for `Variant`, unknown types, and
-  ambiguous project members.
+  `Function`/`Property Get` return name, visible exported standard-module
+  object global, or source-backed object-valued member (`Property Set` or
+  public field) that requires `Set`; `set-requires-object` fires when `Set`
+  targets a known intrinsic scalar variable, visible exported standard-module
+  scalar global, or source-backed scalar member. Both rules route bare
+  assignment targets through the shared assignment-target resolver, so local
+  shadows win and `Variant`, unknown types, and ambiguous project targets stay
+  silent.
   `scalar-member-access` fires only when the receiver is a declared
   intrinsic scalar (`String`, numeric, `Boolean`, or `Date`); focused oracle
   cases show named scalar members are VBE Compile errors (`Invalid qualifier`),
@@ -1069,18 +1072,24 @@ Diagnostic severity policy:
   focus retesting. Unknown, `Variant`, object-like, project class, and UDT
   receivers stay silent until the binder can prove more.
   `undeclared-variable` runs only when `Option Explicit` is present and the
-  caller passes `knownIdentifiers` from
-  `ProjectIndex.visibleIdentifierNames(moduleName)`, so unknown assignment
-  targets, read references, member receivers, indexed bases, and block-header
-  expressions become compile-equivalent `Variable not defined` diagnostics while
-  public standard-module globals, enum members, document/UserForm code names,
-  runtime functions/constants, host globals/enum constants, and `Application` members suppress false
-  positives. Type-name positions, labels, named-argument labels, and arguments
-  to unresolved external-style calls remain silent until the binder can prove
-  those broader reference shapes. `unknown-call` runs only when the caller
-  passes `knownProcedures` (the current module's visibility-filtered procedure
-  names from `ProjectIndex.visibleProcedureNames(moduleName)`); without it that
-  rule is skipped so a single module is never analysed in isolation. The whole analyzer is wrapped in
+  caller passes project context (`knownIdentifiers` from
+  `ProjectIndex.visibleIdentifierNames(moduleName)` plus, when available,
+  `projectVisibleSymbols` from `ProjectIndex.visibleIdentifierSymbols(moduleName)`).
+  The rule asks the shared source resolver for local/module/project bindings at
+  each procedure site, so unknown assignment targets, read references, member
+  receivers, indexed bases, and block-header expressions become
+  compile-equivalent `Variable not defined` diagnostics while public
+  standard-module globals, enum members, document/UserForm code names, runtime
+  functions/constants, host globals/enum constants, and `Application` members
+  suppress false positives. Type-name positions, labels, named-argument labels,
+  and arguments to unresolved external-style calls remain silent until the
+  binder can prove those broader reference shapes. `unknown-call` runs only when
+  the caller passes `knownProcedures` (the current module's visibility-filtered
+  procedure names from `ProjectIndex.visibleProcedureNames(moduleName)`); it and
+  `non-callable-call` use the same source resolver so local/module bindings
+  take precedence over exported project procedures and duplicate project
+  targets remain quiet. Without `knownProcedures`, `unknown-call` is skipped so
+  a single module is never analysed in isolation. The whole analyzer is wrapped in
   try/catch so a parse hiccup returns `[]` and never breaks editing, and accepts
   `severities` overrides (including `'off'`) per rule.
 
@@ -1138,11 +1147,21 @@ single module:
   inside a comment or string. Dotted exported attribute lines are mapped by the
   target before the dot, so `Attribute Value.VB_UserMemId = 0` attaches to the
   `Value` member while retaining the attribute source span.
+- `src/analyzer/symbols/nameResolution.ts` owns the shared bare-identifier
+  precedence helper. It records the context (`expression`, `call`,
+  `assignmentTarget`, `memberReceiver`, `typeName`, or `newExpression`), winning
+  source tier (`local`, `module`, or `project`), ambiguity, definitions, and a
+  short explanation. `ProjectIndex`, Option Explicit, const-assignment,
+  assignment-target typing, `Set` target typing, runtime integer-constant
+  folding, ambiguous enum-member, unknown/non-callable call diagnostics, and
+  runtime-shadow diagnostics consume this helper so editor navigation and
+  red-squiggly fallback rules do not grow separate precedence ladders.
 - `src/analyzer/symbols/projectIndex.ts` is the `ProjectIndex` that aggregates
   modules and answers `documentSymbols`, `workspaceSymbols`, conservative
-  `resolveDefinition` (locals/params -> same-module declarations -> exported
-  declarations in other modules, with enum members inheriting project
-  visibility from their containing `Enum`), `resolveQualifiedDefinition` (the exported
+  `resolveDefinition` (via the shared bare-identifier resolver: locals/params ->
+  same-module declarations -> exported declarations in other modules, with enum
+  members inheriting project visibility from their containing `Enum`),
+  `resolveQualifiedDefinition` (the exported
   member of a named module, for `Module.Member` references), `referenceScope`
   (the binding scope of a name for scope-restricted reference/rename search),
   `visibleProcedureNames` (same-module procedures/Declares plus exported

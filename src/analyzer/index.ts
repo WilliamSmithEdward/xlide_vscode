@@ -192,6 +192,11 @@ export {
 } from './symbols/symbolModel';
 export { buildModuleSymbols, BuildModuleSymbolsOptions } from './symbols/buildModuleSymbols';
 export {
+	BareIdentifierContext,
+	BareIdentifierResolution,
+	BareIdentifierResolutionScope,
+} from './symbols/nameResolution';
+export {
 	ModuleInput,
 	ProjectIndex,
 	ProjectIndexOptions,

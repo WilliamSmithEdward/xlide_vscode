@@ -339,6 +339,62 @@ describe('ProjectIndex name resolution (go-to-definition)', () => {
 	it('returns an empty array for unknown identifiers', () => {
 		expect(index.resolveDefinition('Module1', 'Nonexistent', 0)).toEqual([]);
 	});
+
+	it('explains project-level ambiguous bare identifier bindings', () => {
+		const index = new ProjectIndex();
+		const first = 'Public Const SharedValue As Long = 1\n';
+		const second = 'Public Const SharedValue As Long = 2\n';
+		const caller = 'Sub Use()\n    Debug.Print SharedValue\nEnd Sub\n';
+		index.setModule({ moduleName: 'First', moduleKind: 'standard', source: first });
+		index.setModule({ moduleName: 'Second', moduleKind: 'standard', source: second });
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: caller });
+
+		const resolved = index.resolveBareIdentifier(
+			'Caller',
+			'SharedValue',
+			offsetOf(caller, 'SharedValue'),
+			'expression',
+		);
+
+		expect(resolved.scope).toBe('ambiguous');
+		expect(resolved.tier).toBe('project');
+		expect(resolved.definitions.map((symbol) => symbol.moduleName).sort()).toEqual([
+			'First',
+			'Second',
+		]);
+	});
+
+	it('models type-name context separately from local value shadowing', () => {
+		const index = new ProjectIndex();
+		const types = 'Public Type Customer\n    Id As Long\nEnd Type\n';
+		const caller =
+			'Sub Use()\n' +
+			'    Dim Customer As Long\n' +
+			'    Dim item As Customer\n' +
+			'    Customer = 1\n' +
+			'End Sub\n';
+		index.setModule({ moduleName: 'Types', moduleKind: 'standard', source: types });
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: caller });
+
+		const expression = index.resolveBareIdentifier(
+			'Caller',
+			'Customer',
+			offsetOf(caller, 'Customer = 1'),
+			'expression',
+		);
+		const typeName = index.resolveBareIdentifier(
+			'Caller',
+			'Customer',
+			offsetOf(caller, 'As Customer') + 'As '.length,
+			'typeName',
+		);
+
+		expect(expression.scope).toBe('local');
+		expect(expression.definitions[0].kind).toBe('localVariable');
+		expect(typeName.scope).toBe('project');
+		expect(typeName.definitions[0].kind).toBe('type');
+		expect(typeName.definitions[0].moduleName).toBe('Types');
+	});
 });
 
 describe('ProjectIndex property and enum resolution', () => {
@@ -1111,13 +1167,13 @@ describe('ProjectIndex project class members', () => {
 		const source = [
 			'Attribute VB_Name = "Person"',
 			'Public Property Get Value() As String',
-			'End Property',
 			'Attribute Value.VB_UserMemId = 0',
+			'End Property',
 			'Public Property Let Value(ByVal value As String)',
 			'End Property',
 			'Public Property Get Caption() As String',
-			'End Property',
 			'Attribute Caption.VB_UserMemId = -4',
+			'End Property',
 		].join('\n');
 		index.setModule({
 			moduleName: 'Person',

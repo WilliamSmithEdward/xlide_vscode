@@ -279,6 +279,8 @@ function buildProcedure(
 		moduleName,
 		visibility: procVisibility(proc.modifiers),
 		asType: proc.returnType,
+		isArray: procedureReturnIsArray(proc.returnType),
+		attributes: proc.attributes?.map(symbolAttribute),
 		children,
 	};
 
@@ -296,6 +298,10 @@ function buildProcedure(
 	}
 
 	return symbol;
+}
+
+function procedureReturnIsArray(returnType: string | undefined): boolean {
+	return /\(\s*\)\s*$/i.test(returnType ?? '');
 }
 
 /** Builds the symbol for one external Declare, with parameter children. */

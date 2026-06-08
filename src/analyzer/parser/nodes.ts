@@ -215,6 +215,8 @@ export interface ProcedureNode extends NodeBase {
 	modifiers: string[];
 	params: ParameterNode[];
 	returnType?: string;
+	/** Exported member metadata lines such as `Attribute Value.VB_UserMemId = 0`. */
+	attributes?: AttributeNode[];
 	body: BodyNode[];
 	/** True if a matching End Sub/Function/Property was found. */
 	closed: boolean;

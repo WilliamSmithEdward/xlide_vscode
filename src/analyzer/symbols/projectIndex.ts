@@ -31,6 +31,11 @@ import {
 	procedureParamsFromSymbol,
 	procedureSignatureFromSymbol,
 } from './symbolModel';
+import {
+	resolveBareIdentifierBinding,
+	type BareIdentifierContext,
+	type BareIdentifierResolution,
+} from './nameResolution';
 import type { Span } from '../parser/nodes';
 
 /** Source text + workbook role for one module fed into the index. */
@@ -1005,38 +1010,39 @@ export class ProjectIndex {
 		name: string,
 		offset: number,
 	): VbaSymbol[] {
-		const lower = name.toLowerCase();
+		return this.resolveBareIdentifier(moduleName, name, offset, 'expression').definitions.slice();
+	}
+
+	/**
+	 * Context-aware bare identifier resolution with the shared source precedence
+	 * ladder: procedure locals/parameters, same-module declarations, then visible
+	 * exported project declarations. Ambiguous project/module tiers are reported
+	 * explicitly so diagnostic callers can stay silent instead of guessing.
+	 */
+	resolveBareIdentifier(
+		moduleName: string,
+		name: string,
+		offset: number,
+		context: BareIdentifierContext,
+	): BareIdentifierResolution {
 		const home = this.modules.get(moduleName.toLowerCase());
-
-		if (home) {
-			const enclosing = this.enclosingProcedure(home, offset);
-			if (enclosing) {
-				const localHits = (enclosing.children ?? []).filter(
-					(c) =>
-						(c.kind === 'parameter' ||
-							c.kind === 'localVariable' ||
-							c.kind === 'constant') &&
-						c.name.toLowerCase() === lower,
-				);
-				if (localHits.length > 0) {
-					return localHits;
-				}
-			}
-
-			const moduleHits = this.moduleLevelMatches(home, lower);
-			if (moduleHits.length > 0) {
-				return moduleHits;
-			}
+		if (!home) {
+			return {
+				name,
+				lowerName: name.toLowerCase(),
+				context,
+				scope: 'unresolved',
+				definitions: [],
+				reason: `Module '${moduleName}' is not indexed.`,
+			};
 		}
-
-		const exported: VbaSymbol[] = [];
-		for (const mod of this.modules.values()) {
-			if (mod.moduleName.toLowerCase() === moduleName.toLowerCase()) {
-				continue;
-			}
-			exported.push(...this.exportedModuleLevelMatches(mod, lower));
-		}
-		return exported;
+		return resolveBareIdentifierBinding({
+			currentModule: home,
+			name,
+			context,
+			enclosingProcedure: this.enclosingProcedure(home, offset),
+			projectVisibleSymbols: this.visibleIdentifierSymbols(moduleName),
+		});
 	}
 
 	/**
@@ -1068,52 +1074,42 @@ export class ProjectIndex {
 	): ReferenceScope {
 		const lower = name.toLowerCase();
 		const home = this.modules.get(moduleName.toLowerCase());
+		const resolved = home
+			? this.resolveBareIdentifier(moduleName, name, offset, 'expression')
+			: undefined;
 
-		if (home) {
-			const enclosing = this.enclosingProcedure(home, offset);
-			if (enclosing) {
-				const localHits = (enclosing.children ?? []).filter(
-					(c) =>
-						(c.kind === 'parameter' ||
-							c.kind === 'localVariable' ||
-							c.kind === 'constant') &&
-						c.name.toLowerCase() === lower,
-				);
-				if (localHits.length > 0) {
-					return {
-						kind: 'local',
-						definitions: localHits,
-						searchModules: [home.moduleName],
-						procedureSpan: enclosing.fullSpan,
-						shadowedSpans: [],
-					};
-				}
+		if (home && resolved) {
+			if (resolved.scope === 'local') {
+				const enclosing = this.enclosingProcedure(home, offset);
+				return {
+					kind: 'local',
+					definitions: resolved.definitions.slice(),
+					searchModules: [home.moduleName],
+					procedureSpan: enclosing?.fullSpan,
+					shadowedSpans: [],
+				};
 			}
-
-			const moduleHits = this.moduleLevelMatches(home, lower);
-			if (moduleHits.length > 0) {
+			if (
+				resolved.scope === 'module' ||
+				(resolved.scope === 'ambiguous' && resolved.tier === 'module')
+			) {
 				const exportedHomeHits = this.exportedModuleLevelMatches(home, lower);
 				if (exportedHomeHits.length > 0) {
 					return this.projectScope(lower, exportedHomeHits);
 				}
 				return {
 					kind: 'module',
-					definitions: moduleHits,
+					definitions: resolved.definitions.slice(),
 					searchModules: [home.moduleName],
 					shadowedSpans: this.localShadowSpans(home, lower),
 				};
 			}
-		}
-
-		const exported: VbaSymbol[] = [];
-		for (const mod of this.modules.values()) {
-			if (home && mod.moduleName.toLowerCase() === moduleName.toLowerCase()) {
-				continue;
+			if (resolved.scope === 'project') {
+				return this.projectScope(lower, resolved.definitions.slice());
 			}
-			exported.push(...this.exportedModuleLevelMatches(mod, lower));
-		}
-		if (exported.length > 0) {
-			return this.projectScope(lower, exported);
+			if (resolved.scope === 'ambiguous' && resolved.tier === 'project') {
+				return this.projectScope(lower, resolved.definitions.slice());
+			}
 		}
 
 		// Unresolved (host member, undeclared, etc.): stay inside the home module.

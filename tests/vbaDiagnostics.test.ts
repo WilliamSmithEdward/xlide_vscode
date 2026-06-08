@@ -521,6 +521,17 @@ describe('analyzeModule - ambiguous Enum member references', () => {
 				'ambiguous-enum-member',
 			),
 		).toHaveLength(0);
+
+		const moduleShadowCaller =
+			'Private SharedModeValue As Long\n' +
+			'\n' +
+			caller;
+		expect(
+			byCode(
+				analyzeProjectModule(moduleShadowCaller, modules, 'Caller'),
+				'ambiguous-enum-member',
+			),
+		).toHaveLength(0);
 	});
 });
 
@@ -537,6 +548,47 @@ describe('analyzeModule - assignment to constant', () => {
 	it('flags assigning to a local Const', () => {
 		const src = 'Sub T()\n    Const PI As Double = 3.14\n    PI = 3\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'const-assignment')).toHaveLength(1);
+	});
+
+	it('uses local shadows before module-level Const declarations', () => {
+		const src =
+			'Const MAX As Long = 10\n' +
+			'Sub T()\n' +
+			'    Dim MAX As Long\n' +
+			'    MAX = 5\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'const-assignment')).toHaveLength(0);
+	});
+
+	it('flags assigning to a visible exported Const', () => {
+		const caller = 'Sub T()\n    SharedMax = 5\nEnd Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'Globals',
+				source: 'Public Const SharedMax As Long = 10\n',
+			},
+		], 'Caller');
+		const hits = byCode(diagnostics, 'const-assignment');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedMax');
+	});
+
+	it('keeps ambiguous exported Const assignments quiet', () => {
+		const caller = 'Sub T()\n    SharedMax = 5\nEnd Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{
+				moduleName: 'GlobalsA',
+				source: 'Public Const SharedMax As Long = 10\n',
+			},
+			{
+				moduleName: 'GlobalsB',
+				source: 'Public Const SharedMax As Long = 20\n',
+			},
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'const-assignment')).toHaveLength(0);
 	});
 
 	it('does not flag comparing a Const in a condition', () => {
@@ -833,6 +885,31 @@ describe('analyzeModule - Option Explicit', () => {
 			],
 			'Caller',
 		);
+		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('uses project-visible source bindings as Option Explicit declarations', () => {
+		const caller =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    SharedValue = 1\n' +
+			'    Debug.Print SharedOnly\n' +
+			'End Sub\n';
+		const globals =
+			'Public SharedValue As Long\n' +
+			'Public Enum SharedMode\n' +
+			'    SharedOnly\n' +
+			'End Enum\n';
+		const options = projectOptions([
+			{ moduleName: 'Caller', source: caller },
+			{ moduleName: 'Globals', source: globals },
+		], 'Caller');
+		const diagnostics = analyzeModule(caller, {
+			moduleName: 'Caller',
+			knownIdentifiers: new Set<string>(),
+			projectVisibleSymbols: options.projectVisibleSymbols,
+		});
+
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
 	});
 
@@ -1238,6 +1315,28 @@ describe('analyzeModule - non-callable call statements', () => {
 		expect(byCode(diagnostics, 'unknown-call')).toHaveLength(0);
 	});
 
+	it('uses local and module precedence before exported callables for call statements', () => {
+		const caller =
+			'Private SharedName As Long\n' +
+			'Sub Main()\n' +
+			'    Dim DoWork As Long\n' +
+			'    DoWork\n' +
+			'    SharedName\n' +
+			'End Sub\n';
+		const helpers =
+			'Public Sub DoWork()\nEnd Sub\n' +
+			'Public Sub SharedName()\nEnd Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'Helpers', source: helpers },
+		], 'Caller');
+		const hits = byCode(diagnostics, 'non-callable-call');
+
+		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['DoWork', 'SharedName']);
+		expect(hits[0].message).toContain('local variable');
+		expect(hits[1].message).toContain('module variable');
+		expect(byCode(diagnostics, 'unknown-call')).toHaveLength(0);
+	});
+
 	it('keeps duplicate project non-callables silent instead of unknown', () => {
 		const caller = 'Sub Main()\n    SharedName\nEnd Sub\n';
 		const diagnostics = analyzeProjectModule(caller, [
@@ -1523,7 +1622,7 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		const src =
 			'Option Explicit\n' +
 			'Public Sub Combined049AttributeInsideProc()\n' +
-			'Attribute Combined049AttributeInsideProc.VB_Description = "bad placement"\n' +
+			'Attribute OtherProc.VB_Description = "bad placement"\n' +
 			'    Debug.Print "body"\n' +
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
@@ -1534,7 +1633,17 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
 	});
 
-	it('accepts unindented exported member Attribute lines when module metadata is present', () => {
+	it('accepts unindented exported member Attribute lines in the member metadata slot', () => {
+		const src =
+			'Public Property Get NewEnum() As IUnknown\n' +
+			'Attribute NewEnum.VB_UserMemId = -4\n' +
+			'    Set NewEnum = Nothing\n' +
+			'End Property\n';
+
+		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+	});
+
+	it('flags unindented member Attribute lines after executable procedure body statements', () => {
 		const src =
 			'Attribute VB_Name = "Module1"\n' +
 			'Sub T()\n' +
@@ -1542,7 +1651,10 @@ describe('analyzeModule - module declarations inside procedures', () => {
 			'Attribute T.VB_Description = "exported metadata"\n' +
 			'End Sub\n';
 
-		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+		const hits = byCode(analyzeModule(src), 'module-declaration-in-procedure');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Attribute');
 	});
 
 	it('flags indented Attribute lines after executable procedure body statements', () => {
@@ -3340,6 +3452,33 @@ describe('analyzeModule - argument type validation', () => {
 		expect(hits).toHaveLength(0);
 	});
 
+	it('lets source variables shadow cross-module runtime argument constants', () => {
+		const caller =
+			'Private SharedBadLength As Long\n' +
+			'Sub T()\n' +
+			'    Dim SharedBadStart As Long\n' +
+			'    SharedBadLength = 1\n' +
+			'    SharedBadStart = 1\n' +
+			'    a = Left$("abcdef", SharedBadLength)\n' +
+			'    b = Mid$("abcdef", SharedBadStart, 1)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{
+					moduleName: 'SharedRuntimeArgs',
+					source:
+						'Public Const SharedBadLength As Long = -1\n' +
+						'Public Enum SharedRuntimeStart\n' +
+						'    SharedBadStart = 0\n' +
+						'End Enum\n',
+				},
+			], 'Caller'),
+			'runtime-argument-value',
+		);
+
+		expect(hits).toHaveLength(0);
+	});
+
 	it('accepts zero and unknown runtime argument values for selected native bounds', () => {
 		const src =
 			'Sub T()\n' +
@@ -3423,6 +3562,29 @@ describe('analyzeModule - argument type validation', () => {
 
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('"not a date"');
+		expect(hits[0].message).toContain('VBA.CDate');
+	});
+
+	it('does not treat project-visible source names as native conversion checks', () => {
+		const globals = 'Public Const CDate As Long = 1\n';
+		const caller =
+			'Sub T()\n' +
+			'    Dim Value As Date\n' +
+			'    Value = CDate("not a date")\n' +
+			'    Value = VBA.CDate("not a date")\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(
+			caller,
+			[
+				{ moduleName: 'Globals', moduleKind: 'standard', source: globals },
+				{ moduleName: 'Caller', moduleKind: 'standard', source: caller },
+			],
+			'Caller',
+		);
+		const hits = byCode(diagnostics, 'runtime-conversion-value');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('"not a date"');
 		expect(hits[0].message).toContain('VBA.CDate');
 	});
 
@@ -3835,6 +3997,35 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
+	it('uses visible exported scalar globals for assignment target types', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    SharedCount = "bad"\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedCount As Long\n' },
+			], 'Caller'),
+			'assignment-type-mismatch',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('"bad"');
+		expect(hits[0].message).toContain('SharedCount');
+		expect(hits[0].message).toContain('Long');
+	});
+
+	it('does not leak a broader typed declaration through an untyped local assignment target', () => {
+		const src =
+			'Private Value As Long\n' +
+			'Public Sub T()\n' +
+			'    Dim Value\n' +
+			'    Value = "not numeric"\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+	});
+
 	it('flags array variables assigned to scalar variables', () => {
 		const src =
 			'Private ModuleValues(1 To 3) As Long\n' +
@@ -3873,6 +4064,21 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Value = Values(1)\n' +
 			'    Value = UnknownValues\n' +
 			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'array-assignment-to-scalar')).toHaveLength(0);
+	});
+
+	it('accepts array assignments to array-returning Function and Property Get return variables', () => {
+		const src =
+			'Public Function Names() As String()\n' +
+			'    Dim values() As String\n' +
+			'    Names = values\n' +
+			'End Function\n' +
+			'\n' +
+			'Public Property Get MeasuresKeys() As String()\n' +
+			'    Dim sOut() As String\n' +
+			'    MeasuresKeys = sOut\n' +
+			'End Property\n';
 
 		expect(byCode(analyzeModule(src), 'array-assignment-to-scalar')).toHaveLength(0);
 	});
@@ -5419,6 +5625,33 @@ describe('analyzeModule - division by zero', () => {
 		expect(hits).toHaveLength(0);
 	});
 
+	it('lets source variables shadow cross-module zero divisors', () => {
+		const caller =
+			'Private SharedZero As Double\n' +
+			'Public Sub T()\n' +
+			'    Dim SharedZeroDivisor As Double\n' +
+			'    Dim a As Double\n' +
+			'    SharedZero = 2\n' +
+			'    SharedZeroDivisor = 2\n' +
+			'    a = 1 / SharedZero\n' +
+			'    a = 1 \\ SharedZeroDivisor\n' +
+			'End Sub\n';
+		const shared =
+			'Public Const SharedZero As Long = 0\n' +
+			'Public Enum SharedDivisor\n' +
+			'    SharedZeroDivisor = 0\n' +
+			'End Enum\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Caller', source: caller },
+				{ moduleName: 'SharedDivisors', source: shared, moduleKind: 'standard' },
+			], 'Caller'),
+			'division-by-zero',
+		);
+
+		expect(hits).toHaveLength(0);
+	});
+
 	it('folds parenthesized Const expressions used as divisors', () => {
 		const src =
 			'Private Const Zero As Long = 0\n' +
@@ -5840,6 +6073,53 @@ describe('analyzeModule - Set assignment validation', () => {
 		expect(hits).toHaveLength(1);
 		expect(spanText(src, hits[0])).toBe('text');
 		expect(hits[0].message).toContain('String');
+	});
+
+	it('flags Set assignment to visible exported scalar globals', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Set SharedText = New Collection\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
+			], 'Caller'),
+			'set-requires-object',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedText');
+		expect(hits[0].message).toContain('String');
+	});
+
+	it('requires Set for visible exported object globals assigned with plain assignment', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    SharedObject = New Collection\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedObject As Object\n' },
+			], 'Caller'),
+			'set-required',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(caller, hits[0])).toBe('SharedObject');
+		expect(hits[0].message).toContain('Object');
+	});
+
+	it('does not guess Set target types for ambiguous visible exported globals', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Set SharedText = New Collection\n' +
+			'End Sub\n';
+		const diagnostics = analyzeProjectModule(caller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedText As String\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedText As String\n' },
+		], 'Caller');
+
+		expect(byCode(diagnostics, 'set-requires-object')).toHaveLength(0);
 	});
 
 	it('does not flag Set assignment to Object, Variant, or unknown object types', () => {

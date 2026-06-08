@@ -87,6 +87,12 @@ import {
 	qualifiedProcedureKey,
 } from '../symbols/symbolModel';
 import {
+	resolveBareIdentifierBinding,
+	sourceIdentifierNames,
+	type BareIdentifierContext,
+	type BareIdentifierResolution,
+} from '../symbols/nameResolution';
+import {
 	resolveMemberCompletions,
 	resolveMemberSurfaceAt,
 	type MemberCompletion,
@@ -326,7 +332,7 @@ function runRules(
 		opts.projectVisibleSymbols,
 		push,
 	);
-	checkConstAssignment(source, mod, symbols, activity, push);
+	checkConstAssignment(source, mod, symbols, activity, opts.projectVisibleSymbols, push);
 	checkOptionExplicit(source, mod, activity, push);
 	checkUndeclaredVariables(
 		source,
@@ -336,6 +342,7 @@ function runRules(
 		opts.knownIdentifiers,
 		opts.projectProcedures,
 		opts.projectClassMembers,
+		opts.projectVisibleSymbols,
 		push,
 	);
 	checkOptionPlacement(source, mod, activity, push);
@@ -351,7 +358,15 @@ function runRules(
 	checkParameterDefaultValues(source, mod, activity, memberCtx, push);
 	checkUnbalancedParens(source, push);
 	checkInvalidExpressionSyntax(source, mod, symbols, activity, push);
-	checkDivisionByZeroExpressions(source, mod, opts.projectIntegerConstants, activity, push);
+	checkDivisionByZeroExpressions(
+		source,
+		mod,
+		symbols,
+		opts.projectIntegerConstants,
+		opts.projectVisibleSymbols,
+		activity,
+		push,
+	);
 	checkDimInitializer(source, mod, activity, push);
 	checkInvalidRedimTargets(source, mod, activity, push);
 	checkRedimImpossibleBounds(source, mod, activity, push);
@@ -370,9 +385,9 @@ function runRules(
 	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
 	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
 	checkInvalidAsTypeNames(source, mod, activity, opts, push);
-	checkCallParens(source, mod, symbols, opts.projectProcedures, memberCtx, activity, push);
-	checkExpressionCallParens(source, mod, symbols, opts.projectProcedures, activity, push);
-	checkSetAssignments(source, mod, symbols, memberCtx, activity, push);
+	checkCallParens(source, mod, symbols, opts.projectProcedures, opts.projectVisibleSymbols, memberCtx, activity, push);
+	checkExpressionCallParens(source, mod, symbols, opts.projectProcedures, opts.projectVisibleSymbols, activity, push);
+	checkSetAssignments(source, mod, symbols, opts.projectVisibleSymbols, memberCtx, activity, push);
 	checkExitStatements(source, mod, activity, push);
 	checkDuplicateLabels(source, mod, activity, push);
 	checkUndefinedLabels(source, mod, activity, push);
@@ -397,6 +412,7 @@ function runRules(
 		mod,
 		symbols,
 		opts.projectProcedures,
+		opts.projectVisibleSymbols,
 		memberCtx,
 		activity,
 		push,
@@ -406,6 +422,7 @@ function runRules(
 		mod,
 		symbols,
 		opts.projectProcedures,
+		opts.projectVisibleSymbols,
 		memberCtx,
 		activity,
 		push,
@@ -416,11 +433,12 @@ function runRules(
 		symbols,
 		opts.projectProcedures,
 		opts.projectIntegerConstants,
+		opts.projectVisibleSymbols,
 		activity,
 		push,
 	);
-	checkRuntimeConversionValues(source, mod, symbols, activity, push);
-	checkAssignmentTypes(source, mod, symbols, memberCtx, activity, push);
+	checkRuntimeConversionValues(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
+	checkAssignmentTypes(source, mod, symbols, opts.projectVisibleSymbols, memberCtx, activity, push);
 	checkMissingReturnAssignments(source, mod, symbols, opts.projectProcedures, activity, push);
 	if (opts.knownProcedures) {
 		checkUnknownCallStatement(
@@ -840,48 +858,33 @@ function checkAmbiguousEnumMemberReferences(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): void {
-	const localEnumMembers = enumMemberSymbols(symbols.root.children ?? []);
-	const localAmbiguous = ambiguousEnumMemberGroups(localEnumMembers);
-	const externalAmbiguous = ambiguousEnumMemberGroups(
-		(projectVisibleSymbols ?? []).filter(
+	const visibleEnumMembers = [
+		...enumMemberSymbols(symbols.root.children ?? []),
+		...(projectVisibleSymbols ?? []).filter(
 			(sym) =>
 				sym.kind === 'enumMember' &&
 				sym.moduleName.toLowerCase() !== moduleName.toLowerCase(),
 		),
-	);
-	if (localAmbiguous.size === 0 && externalAmbiguous.size === 0) {
+	];
+	if (ambiguousEnumMemberGroups(visibleEnumMembers).size === 0) {
 		return;
 	}
 
-	const moduleNames = moduleLevelIdentifierNames(symbols);
-	const projectNames = new Set<string>();
-	for (const sym of projectVisibleSymbols ?? []) {
-		projectNames.add(sym.name.toLowerCase());
-	}
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const appType = resolveHostGlobal('Application');
 	const appMembers = new Set(
 		(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
 	);
-	const isKnownForSkip = (name: string, locals: ReadonlySet<string>): boolean => {
+	const isKnownForSkip = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
 		return (
-			locals.has(lower) ||
-			moduleNames.has(lower) ||
-			projectNames.has(lower) ||
+			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'expression') ||
 			(knownProcedures?.has(lower) ?? false) ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);
-	};
-	const ambiguousDefinitions = (name: string): readonly VbaSymbol[] | undefined => {
-		const lower = name.toLowerCase();
-		if (moduleNames.has(lower)) {
-			return localAmbiguous.get(lower);
-		}
-		return externalAmbiguous.get(lower);
 	};
 
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -891,24 +894,24 @@ function checkAmbiguousEnumMemberReferences(
 		const procSym = (symbols.root.children ?? []).find(
 			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
 		);
-		const locals = new Set<string>();
-		for (const child of procSym?.children ?? []) {
-			locals.add(child.name.toLowerCase());
-		}
 		const reported = new Set<string>();
 		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
 			for (const ref of valueReadReferences(
 				source,
 				span,
-				(name) => isKnownForSkip(name, locals),
+				(name) => isKnownForSkip(name, procSym),
 				moduleSignatures,
 				projectMembers,
 			)) {
-				if (locals.has(ref.name.toLowerCase())) {
-					continue;
-				}
-				const definitions = ambiguousDefinitions(ref.name);
-				if (!definitions || definitions.length < 2) {
+				const binding = sourceIdentifierBinding(
+					symbols,
+					procSym,
+					projectVisibleSymbols,
+					ref.name,
+					'expression',
+				);
+				const definitions = ambiguousEnumMemberDefinitions(binding);
+				if (!definitions) {
 					continue;
 				}
 				const key = `${ref.span.start}:${ref.span.end}`;
@@ -964,6 +967,24 @@ function ambiguousEnumMemberGroups(symbols: readonly VbaSymbol[]): Map<string, V
 	return ambiguous;
 }
 
+function ambiguousEnumMemberDefinitions(
+	binding: BareIdentifierResolution,
+): readonly VbaSymbol[] | undefined {
+	if (binding.scope !== 'ambiguous') {
+		return undefined;
+	}
+	if (binding.definitions.some((definition) => definition.kind !== 'enumMember')) {
+		return undefined;
+	}
+	const ownerKeys = new Set(
+		binding.definitions.map(
+			(definition) =>
+				`${definition.moduleName.toLowerCase()}:${(definition.containerName ?? '').toLowerCase()}`,
+		),
+	);
+	return ownerKeys.size > 1 ? binding.definitions : undefined;
+}
+
 /**
  * Rule: assigning to a constant is illegal. High-confidence form only - the
  * left-hand side must be a bare identifier (no member access, no index) that
@@ -974,15 +995,9 @@ function checkConstAssignment(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): void {
-	const moduleConsts = new Set<string>();
-	for (const sym of symbols.root.children ?? []) {
-		if (sym.kind === 'constant') {
-			moduleConsts.add(sym.name.toLowerCase());
-		}
-	}
-
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -990,24 +1005,29 @@ function checkConstAssignment(
 		const procSym = (symbols.root.children ?? []).find(
 			(s) => isProcedureKind(s.kind) && s.fullSpan.start === member.span.start,
 		);
-		const localConsts = new Set<string>();
-		for (const child of procSym?.children ?? []) {
-			if (child.kind === 'constant') {
-				localConsts.add(child.name.toLowerCase());
-			}
-		}
-		const inScope = (lower: string): boolean =>
-			localConsts.has(lower) || moduleConsts.has(lower);
 		forEachStatement(member.body, (stmt) => {
 			const hit = bareAssignmentTarget(source, stmt.span);
-			if (hit && inScope(hit.name.toLowerCase())) {
+			if (!hit) {
+				return;
+			}
+			const binding = sourceIdentifierBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				hit.name,
+				'assignmentTarget',
+			);
+			if (
+				binding.scope !== 'ambiguous' &&
+				binding.definitions.some((definition) => definition.kind === 'constant')
+			) {
 				push(
 					'constAssignment',
 					`Cannot assign to constant '${hit.name}'.`,
 					hit.span,
 				);
 			}
-		});
+		}, activity);
 	}
 }
 
@@ -1225,33 +1245,18 @@ function checkUnknownCallStatement(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): void {
-	// Names visible module-wide: every module-level declaration (including a
-	// live, not-yet-saved procedure) plus enum member names.
-	const moduleNames = new Set<string>();
-	for (const sym of symbols.root.children ?? []) {
-		moduleNames.add(sym.name.toLowerCase());
-		if (sym.kind === 'enum') {
-			for (const member of sym.children ?? []) {
-				moduleNames.add(member.name.toLowerCase());
-			}
-		}
-	}
-
 	// Excel injects Application's members into the global scope, so a bare call
 	// may legitimately bind to one of them (Calculate, Volatile, Evaluate, ...).
 	const appType = resolveHostGlobal('Application');
 	const appMembers = new Set(
 		(appType ? getHostMembers(appType) : []).map((mm) => mm.name.toLowerCase()),
 	);
-	const projectNonCallableNames = projectVisibleNonCallableNames(projectVisibleSymbols);
 
-	const isKnown = (name: string, locals: ReadonlySet<string>): boolean => {
+	const isKnown = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
 		return (
 			knownProcedures.has(lower) ||
-			moduleNames.has(lower) ||
-			projectNonCallableNames.has(lower) ||
-			locals.has(lower) ||
+			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'call') ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
@@ -1266,13 +1271,9 @@ function checkUnknownCallStatement(
 		const procSym = (symbols.root.children ?? []).find(
 			(s) => isProcedureKind(s.kind) && s.fullSpan.start === member.span.start,
 		);
-		const locals = new Set<string>();
-		for (const child of procSym?.children ?? []) {
-			locals.add(child.name.toLowerCase());
-		}
 		forEachStatement(member.body, (stmt) => {
 			const hit = callStatementTarget(source, stmt.span);
-			if (hit && !isKnown(hit.name, locals)) {
+			if (hit && !isKnown(hit.name, procSym)) {
 				const call = extractCall(source, stmt.span);
 				push(
 					'unknownCallStatement',
@@ -1371,11 +1372,6 @@ function checkNonCallableCallStatement(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): void {
-	const moduleNonCallables = moduleNonCallableSymbols(symbols);
-	const projectNonCallables = projectNonCallableSymbols(
-		projectVisibleSymbols,
-		knownProcedures,
-	);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1383,21 +1379,25 @@ function checkNonCallableCallStatement(
 		const procSym = (symbols.root.children ?? []).find(
 			(s) => isProcedureKind(s.kind) && s.fullSpan.start === member.span.start,
 		);
-		const localNonCallables = new Map<string, VbaSymbol>();
-		for (const child of procSym?.children ?? []) {
-			if (isNonCallableSymbol(child)) {
-				localNonCallables.set(child.name.toLowerCase(), child);
-			}
-		}
 		forEachStatement(member.body, (stmt) => {
 			const call = extractCall(source, stmt.span);
 			if (!call) {
 				return;
 			}
-			const lower = call.name.toLowerCase();
-			const target = localNonCallables.get(lower) ??
-				moduleNonCallables.get(lower) ??
-				projectNonCallables.get(lower);
+			const binding = sourceIdentifierBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				call.name,
+				'call',
+			);
+			if (binding.scope === 'ambiguous') {
+				return;
+			}
+			if (binding.tier === 'project' && knownProcedures?.has(call.name.toLowerCase())) {
+				return;
+			}
+			const target = binding.definitions.find((symbol) => isNonCallableSymbol(symbol));
 			if (!target) {
 				return;
 			}
@@ -1424,42 +1424,6 @@ function callTargetFeedsMemberAccess(source: string, span: Span, call: CallArgum
 	}
 	const close = matchParenFrom(toks, calleeIdx + 1);
 	return close >= 0 && toks[close + 1]?.rawText === '.';
-}
-
-function projectNonCallableSymbols(
-	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	knownProcedures: ReadonlySet<string> | undefined,
-): Map<string, VbaSymbol> {
-	const out = new Map<string, VbaSymbol>();
-	const ambiguous = new Set<string>();
-	for (const sym of projectVisibleSymbols ?? []) {
-		if (!isNonCallableSymbol(sym)) {
-			continue;
-		}
-		const key = sym.name.toLowerCase();
-		if (knownProcedures?.has(key) || ambiguous.has(key)) {
-			continue;
-		}
-		if (out.has(key)) {
-			out.delete(key);
-			ambiguous.add(key);
-			continue;
-		}
-		out.set(key, sym);
-	}
-	return out;
-}
-
-function projectVisibleNonCallableNames(
-	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-): Set<string> {
-	const out = new Set<string>();
-	for (const sym of projectVisibleSymbols ?? []) {
-		if (isNonCallableSymbol(sym)) {
-			out.add(sym.name.toLowerCase());
-		}
-	}
-	return out;
 }
 
 function moduleNonCallableSymbols(symbols: ReturnType<typeof buildModuleSymbols>): Map<string, VbaSymbol> {
@@ -2622,6 +2586,7 @@ function checkArgumentCount(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -2633,7 +2598,7 @@ function checkArgumentCount(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const sourceNames = sourceNameScopeFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		forEachStatement(member.body, (stmt) => {
 			const projectQualifiedCallSpans = new Set<string>();
 			const statementCall = extractCall(source, stmt.span);
@@ -3220,6 +3185,7 @@ function checkArgumentTypes(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -3230,7 +3196,7 @@ function checkArgumentTypes(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
-		const sourceNames = sourceNameScopeFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		forEachStatement(member.body, (stmt) => {
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
 				validateArgumentTypes(call, env, moduleSignatures, sourceNames, source, memberCtx, push);
@@ -3308,6 +3274,7 @@ function checkRuntimeArgumentValues(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectIntegerConstants: ReadonlyMap<string, string | undefined> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -3319,10 +3286,20 @@ function checkRuntimeArgumentValues(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procedureConstants = new Map(moduleConstants);
 		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
+		const procSym = (symbols.root.children ?? []).find(
+			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
+		);
+		const constants = scopedIntegerConstantLookup(
+			procedureConstants,
+			symbols,
+			procSym,
+			projectVisibleSymbols,
+		);
 		forEachStatement(member.body, (stmt) => {
-			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, procedureConstants)) {
+			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, constants, sourceNames)) {
 				push(
 					'runtimeArgumentValue',
 					`Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error '5': Invalid procedure call or argument.`,
@@ -3338,7 +3315,8 @@ function runtimeArgumentValueHits(
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	env: ReadonlyMap<string, string>,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
+	sourceNames: SourceNameScope,
 ): RuntimeArgumentValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -3346,7 +3324,7 @@ function runtimeArgumentValueHits(
 	}
 	const hits: RuntimeArgumentValueHit[] = [];
 	for (let i = 0; i < toks.length - 1; i++) {
-		const call = runtimeArgumentValueCallAt(toks, i, span, moduleSignatures, env);
+		const call = runtimeArgumentValueCallAt(toks, i, span, moduleSignatures, env, sourceNames);
 		if (!call) {
 			continue;
 		}
@@ -3375,6 +3353,7 @@ function runtimeArgumentValueCallAt(
 	span: Span,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	env: ReadonlyMap<string, string>,
+	sourceNames: SourceNameScope,
 ): {
 	displayName: string;
 	specs: readonly RuntimeArgumentValueSpec[];
@@ -3412,7 +3391,11 @@ function runtimeArgumentValueCallAt(
 		return undefined;
 	}
 	const lower = specs[0].canonicalName.toLowerCase();
-	if (!qualifier && (moduleSignatures.has(lower) || env.has(lower))) {
+	if (!qualifier && (
+		moduleSignatures.has(lower) ||
+		env.has(lower) ||
+		runtimeCallableSourceShadowed(name, sourceNames)
+	)) {
 		return undefined;
 	}
 
@@ -3505,7 +3488,7 @@ function integerArgumentOutsideBounds(
 	slot: readonly VbaToken[],
 	sliceStart: number,
 	spec: RuntimeArgumentValueSpec,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
 ): { value: number; span: Span } | undefined {
 	const toks = unwrapOuterParens(
 		slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
@@ -3606,6 +3589,7 @@ function checkRuntimeConversionValues(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -3613,7 +3597,7 @@ function checkRuntimeConversionValues(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const sourceNames = sourceNameScopeFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		forEachStatement(member.body, (stmt) => {
 			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames)) {
 				push(
@@ -3688,6 +3672,7 @@ function checkAssignmentTypes(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -3699,13 +3684,23 @@ function checkAssignmentTypes(
 		}
 		const env = typeEnvironmentFor(symbols, member);
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
-		const sourceNames = sourceNameScopeFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const assignment = bareAssignmentTarget(source, stmt.span);
 			if (!assignment) {
 				return;
 			}
-			const expected = env.get(assignment.name.toLowerCase());
+			const targetType = declaredTypeForSourceBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				assignment.name,
+				'assignmentTarget',
+			);
+			const expected = targetType.resolved
+				? targetType.asType
+				: env.get(assignment.name.toLowerCase());
 			if (!expected) {
 				return;
 			}
@@ -4138,6 +4133,7 @@ function checkSetAssignments(
 	source: string,
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -4148,13 +4144,23 @@ function checkSetAssignments(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
-		const sourceNames = sourceNameScopeFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const target = setAssignmentTarget(source, stmt.span);
 			if (!target) {
 				return;
 			}
-			const expected = env.get(target.name.toLowerCase());
+			const targetDeclaredType = declaredTypeForSourceBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				target.name,
+				'assignmentTarget',
+			);
+			const expected = targetDeclaredType.resolved
+				? targetDeclaredType.asType
+				: env.get(target.name.toLowerCase());
 			const targetType = normalizeType(expected);
 			if (!targetType || !isKnownScalarType(targetType)) {
 				if (!isKnownObjectAssignmentType(expected, memberCtx)) {
@@ -4660,7 +4666,10 @@ function declarationShapeEnvironmentFor(
 	);
 	const returnType = returnAssignmentTypeFor(proc);
 	if (returnType) {
-		out.set(proc.name.toLowerCase(), { asType: returnType, isArray: false });
+		out.set(proc.name.toLowerCase(), {
+			asType: returnType,
+			isArray: returnAssignmentIsArray(proc),
+		});
 	}
 	for (const child of procSym?.children ?? []) {
 		if (isValueDeclarationSymbol(child)) {
@@ -4673,6 +4682,15 @@ function declarationShapeEnvironmentFor(
 	return out;
 }
 
+function procedureSymbolFor(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+): VbaSymbol | undefined {
+	return (symbols.root.children ?? []).find(
+		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
+	);
+}
+
 function isValueDeclarationSymbol(sym: VbaSymbol): boolean {
 	return (
 		sym.kind === 'parameter' ||
@@ -4680,6 +4698,32 @@ function isValueDeclarationSymbol(sym: VbaSymbol): boolean {
 		sym.kind === 'moduleVariable' ||
 		sym.kind === 'constant'
 	);
+}
+
+interface SourceDeclaredType {
+	resolved: boolean;
+	asType?: string;
+}
+
+function declaredTypeForSourceBinding(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	name: string,
+	context: BareIdentifierContext,
+): SourceDeclaredType {
+	const binding = sourceIdentifierBinding(
+		symbols,
+		procSym,
+		projectVisibleSymbols,
+		name,
+		context,
+	);
+	if (binding.scope === 'unresolved' || binding.scope === 'ambiguous') {
+		return { resolved: binding.scope === 'ambiguous' };
+	}
+	const typed = binding.definitions.find((definition) => definition.asType);
+	return { resolved: true, asType: typed?.asType };
 }
 
 interface SourceNameScope {
@@ -4698,20 +4742,93 @@ interface SourceNameScope {
 function sourceNameScopeFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): SourceNameScope {
 	const callableShadows = new Set(moduleNonCallableSymbols(symbols).keys());
-	const runtimeShadows = moduleLevelIdentifierNames(symbols);
 	const procSym = (symbols.root.children ?? []).find(
 		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
 	);
+	const runtimeShadows = sourceIdentifierNames({
+		currentModule: symbols,
+		enclosingProcedure: procSym,
+		projectVisibleSymbols,
+	});
 	for (const child of procSym?.children ?? []) {
 		const lower = child.name.toLowerCase();
-		runtimeShadows.add(lower);
 		if (isNonCallableSymbol(child)) {
 			callableShadows.add(lower);
 		}
 	}
 	return { callableShadows, runtimeShadows };
+}
+
+function sourceIdentifierBinding(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	name: string,
+	context: BareIdentifierContext,
+): BareIdentifierResolution {
+	return resolveBareIdentifierBinding({
+		currentModule: symbols,
+		enclosingProcedure: procSym,
+		projectVisibleSymbols,
+		name,
+		context,
+	});
+}
+
+function sourceIdentifierBound(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	name: string,
+	context: BareIdentifierContext,
+): boolean {
+	return sourceIdentifierBinding(
+		symbols,
+		procSym,
+		projectVisibleSymbols,
+		name,
+		context,
+	).scope !== 'unresolved';
+}
+
+function scopedIntegerConstantLookup(
+	constants: ReadonlyMap<string, number | undefined>,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): IntegerConstantLookup {
+	return {
+		get(name: string): number | undefined {
+			const key = name.toLowerCase();
+			if (key.includes('.')) {
+				return constants.get(key);
+			}
+			const binding = sourceIdentifierBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				name,
+				'expression',
+			);
+			if (binding.scope === 'unresolved') {
+				return constants.get(key);
+			}
+			if (
+				binding.scope === 'ambiguous' ||
+				binding.definitions.some((definition) => !isIntegerConstantBindingSymbol(definition))
+			) {
+				return undefined;
+			}
+			return constants.get(key);
+		},
+	};
+}
+
+function isIntegerConstantBindingSymbol(symbol: VbaSymbol): boolean {
+	return symbol.kind === 'constant' || symbol.kind === 'enumMember';
 }
 
 function bareCallableSourceShadowed(
@@ -4732,6 +4849,10 @@ function returnAssignmentTypeFor(proc: ProcedureNode): string | undefined {
 	return (proc.procKind === 'Function' || proc.procKind === 'PropertyGet')
 		? proc.returnType
 		: undefined;
+}
+
+function returnAssignmentIsArray(proc: ProcedureNode): boolean {
+	return /\(\s*\)\s*$/i.test(returnAssignmentTypeFor(proc) ?? '');
 }
 
 function expressionCalls(
@@ -5982,7 +6103,7 @@ function normalizeType(type: string | undefined): string | undefined {
 		return undefined;
 	}
 	return type
-		.replace(/\(\)$/, '')
+		.replace(/\s*\(\s*\)\s*$/, '')
 		.replace(/^vb/i, '')
 		.trim()
 		.toLowerCase();
@@ -6062,7 +6183,7 @@ function resolveKnownObjectAssignmentType(
 }
 
 function simpleTypeNameForAssignment(type: string): string | undefined {
-	const trimmed = type.replace(/\(\)$/, '').trim();
+	const trimmed = type.replace(/\s*\(\s*\)\s*$/, '').trim();
 	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed) ? trimmed : undefined;
 }
 
@@ -6192,24 +6313,27 @@ function checkUndeclaredVariables(
 	knownIdentifiers: ReadonlySet<string> | undefined,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
 	}
 
-	const moduleNames = moduleLevelIdentifierNames(symbols);
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const appType = resolveHostGlobal('Application');
 	const appMembers = new Set(
 		(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
 	);
-	const isKnown = (name: string, locals: ReadonlySet<string>): boolean => {
+	const isKnown = (
+		name: string,
+		procSym: VbaSymbol | undefined,
+		context: BareIdentifierContext,
+	): boolean => {
 		const lower = name.toLowerCase();
 		return (
 			lower === 'vba' ||
-			locals.has(lower) ||
-			moduleNames.has(lower) ||
+			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, context) ||
 			knownIdentifiers.has(lower) ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name) !== undefined ||
@@ -6227,15 +6351,16 @@ function checkUndeclaredVariables(
 		const procSym = (symbols.root.children ?? []).find(
 			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
 		);
-		const locals = new Set<string>();
-		for (const child of procSym?.children ?? []) {
-			locals.add(child.name.toLowerCase());
-		}
 		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
 			const reported = new Set<string>();
-			const report = (name: string, span: Span, mode: 'assigning to it' | 'using it'): void => {
+			const report = (
+				name: string,
+				span: Span,
+				mode: 'assigning to it' | 'using it',
+				context: BareIdentifierContext,
+			): void => {
 				const key = `${span.start}:${span.end}`;
-				if (reported.has(key) || isKnown(name, locals)) {
+				if (reported.has(key) || isKnown(name, procSym, context)) {
 					return;
 				}
 				reported.add(key);
@@ -6249,16 +6374,16 @@ function checkUndeclaredVariables(
 			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, span);
 			const target = scalarTarget ?? objectTarget;
 			if (target) {
-				report(target.name, target.span, 'assigning to it');
+				report(target.name, target.span, 'assigning to it', 'assignmentTarget');
 			}
 			for (const ref of undeclaredReadReferences(
 				source,
 				span,
-				(name) => isKnown(name, locals),
+				(name) => isKnown(name, procSym, 'expression'),
 				moduleSignatures,
 				projectMembers,
 			)) {
-				report(ref.name, ref.span, 'using it');
+				report(ref.name, ref.span, 'using it', 'expression');
 			}
 		}, activity);
 	}
@@ -8944,6 +9069,7 @@ function checkCallParens(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -8953,7 +9079,7 @@ function checkCallParens(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const sourceNames = sourceNameScopeFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		forEachStatement(member.body, (stmt) => {
 			const invalidCallTarget = invalidExplicitCallTarget(source, stmt.span, moduleSignatures, sourceNames);
 			if (invalidCallTarget) {
@@ -9252,7 +9378,9 @@ function isNonUnaryBinaryOperator(tok: VbaToken | undefined): boolean {
 function checkDivisionByZeroExpressions(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectIntegerConstants: ReadonlyMap<string, string | undefined> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -9264,8 +9392,17 @@ function checkDivisionByZeroExpressions(
 		}
 		const procedureConstants = new Map(moduleConstants);
 		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
+		const procSym = (symbols.root.children ?? []).find(
+			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
+		);
+		const constants = scopedIntegerConstantLookup(
+			procedureConstants,
+			symbols,
+			procSym,
+			projectVisibleSymbols,
+		);
 		forEachStatement(member.body, (stmt) => {
-			for (const hit of divisionByZeroDivisors(source, stmt.span, procedureConstants)) {
+			for (const hit of divisionByZeroDivisors(source, stmt.span, constants)) {
 				push(
 					'divisionByZero',
 					`Expression uses '${hit.operator}' with a zero divisor. This will raise Run-time error '11': Division by zero.`,
@@ -9279,7 +9416,7 @@ function checkDivisionByZeroExpressions(
 function divisionByZeroDivisors(
 	source: string,
 	span: Span,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
 ): Array<{ operator: string; span: Span }> {
 	const toks = statementTokens(source, span);
 	const hits: Array<{ operator: string; span: Span }> = [];
@@ -9309,7 +9446,7 @@ function zeroDivisorToken(
 	span: Span,
 	toks: VbaToken[],
 	start: number,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
 ): VbaToken[] | undefined {
 	const first = toks[start];
 	if (!first) {
@@ -9338,7 +9475,7 @@ function zeroDivisorExpression(
 	toks: VbaToken[],
 	start: number,
 	endExclusive: number,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
 ): VbaToken[] | undefined {
 	if (start >= endExclusive) {
 		return undefined;
@@ -9370,7 +9507,7 @@ function zeroDivisorExpression(
 function zeroDivisorAtomTokenGroup(
 	toks: readonly VbaToken[],
 	start: number,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
 ): VbaToken[] | undefined {
 	const first = toks[start];
 	const firstName = first ? tokenName(first) : undefined;
@@ -9386,7 +9523,7 @@ function zeroDivisorAtomTokenGroup(
 
 function isZeroDivisorAtom(
 	tok: VbaToken | undefined,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
 ): boolean {
 	if (isZeroNumericLiteral(tok)) {
 		return true;
@@ -9401,7 +9538,7 @@ function foldIntegerExpressionTokens(
 	toks: VbaToken[],
 	start: number,
 	endExclusive: number,
-	constants: ReadonlyMap<string, number | undefined>,
+	constants: IntegerConstantLookup,
 ): number | undefined {
 	if (start >= endExclusive) {
 		return undefined;
@@ -9447,6 +9584,7 @@ function checkExpressionCallParens(
 	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -9455,7 +9593,7 @@ function checkExpressionCallParens(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const sourceNames = sourceNameScopeFor(symbols, member);
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		forEachStatement(member.body, (stmt) => {
 			const hit = parenlessExpressionCall(source, stmt.span, functions, sourceNames);
 			if (hit) {

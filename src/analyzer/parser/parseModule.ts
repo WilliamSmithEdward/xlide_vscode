@@ -113,7 +113,6 @@ class Parser {
 	private readonly diagnostics: ParseDiagnostic[] = [];
 	/** Expected closers of the currently open blocks (innermost last). */
 	private readonly openStack: string[] = [];
-	private sawExportedModuleAttribute = false;
 
 	constructor(
 		private readonly source: string,
@@ -157,11 +156,7 @@ class Parser {
 		}
 
 		if (this.isAttribute(tokens)) {
-			const attr = this.parseAttribute(this.cursor.next()!, tokens);
-			if (this.isExportedModuleAttribute(attr)) {
-				this.sawExportedModuleAttribute = true;
-			}
-			return attr;
+			return this.parseAttribute(this.cursor.next()!, tokens);
 		}
 		if (this.isConditionalDirective(tokens)) {
 			return this.parseConditionalDirective(this.cursor.next()!, tokens);
@@ -228,10 +223,6 @@ class Parser {
 			valueRaw,
 			span: { start: stmt.start, end: stmt.end },
 		};
-	}
-
-	private isExportedModuleAttribute(attr: AttributeNode): boolean {
-		return !attr.name.includes('.') && /^VB_/i.test(attr.name);
 	}
 
 	private parseOption(stmt: LogicalStatement, tokens: VbaToken[]): OptionNode {
@@ -704,6 +695,7 @@ class Parser {
 		const expected = this.procCloser(procKind);
 		this.openStack.push(expected);
 		const body: BodyNode[] = [];
+		const attributes: AttributeNode[] = [];
 		let closed = false;
 		let endStmt: LogicalStatement | undefined;
 		let sawConditionalDirective = false;
@@ -717,8 +709,8 @@ class Parser {
 			}
 			const stmtTokens = codeTokens(stmt);
 			if (this.isAttribute(stmtTokens)) {
-				if (this.isExportedProcedureAttribute(stmt, stmtTokens, name)) {
-					this.cursor.next();
+				if (this.isExportedProcedureAttribute(stmt, stmtTokens, name, body.length === 0)) {
+					attributes.push(this.parseAttribute(this.cursor.next()!, stmtTokens));
 					continue;
 				}
 				const item = this.parseBodyItem(stmt);
@@ -774,6 +766,7 @@ class Parser {
 			modifiers,
 			params,
 			returnType,
+			...(attributes.length > 0 ? { attributes } : {}),
 			body,
 			closed,
 			span: { start: head.start, end },
@@ -1244,11 +1237,12 @@ class Parser {
 		stmt: LogicalStatement,
 		tokens: VbaToken[],
 		procedureName: string,
+		inMemberMetadataSlot: boolean,
 	): boolean {
-		if (!this.sawExportedModuleAttribute) {
+		if (!this.startsAtPhysicalLineStart(stmt)) {
 			return false;
 		}
-		if (!this.startsAtPhysicalLineStart(stmt)) {
+		if (!inMemberMetadataSlot) {
 			return false;
 		}
 		const eqIndex = tokens.findIndex((t) => t.rawText === '=');
@@ -1263,8 +1257,12 @@ class Parser {
 		if (dot <= 0) {
 			return false;
 		}
-		return this.stripBrackets(attrName.slice(0, dot)).toLowerCase() ===
-			procedureName.toLowerCase();
+		const target = this.stripBrackets(attrName.slice(0, dot));
+		const memberAttributeName = attrName.slice(dot + 1);
+		return (
+			target.toLowerCase() === procedureName.toLowerCase() &&
+			/^VB_[A-Za-z0-9_]+$/i.test(memberAttributeName)
+		);
 	}
 
 	private startsAtPhysicalLineStart(stmt: LogicalStatement): boolean {

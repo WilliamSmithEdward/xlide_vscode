@@ -650,8 +650,8 @@ describe('member completion - workbook classes', () => {
 		const person = [
 			'Attribute VB_Name = "Person"',
 			'Public Property Get Value() As String',
-			'End Property',
 			'Attribute Value.VB_UserMemId = 0',
+			'End Property',
 		].join('\n');
 		const index = new ProjectIndex();
 		index.setModule({
