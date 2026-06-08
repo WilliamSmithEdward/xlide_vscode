@@ -67,6 +67,7 @@ describe('canonical casing edits', () => {
 		expect(editAtMarker('Sub T()\n    Dim p As person|\nEnd Sub\n', ctx)?.text).toBe('Person');
 		expect(editAtMarker('Sub T()\n    Set p = New person|\nEnd Sub\n', ctx)?.text).toBe('Person');
 		expect(editAtMarker('Sub T()\n    Dim amount As currency|\nEnd Sub\n', ctx)?.text).toBe('Currency');
+		expect(editAtMarker('Sub T()\n    Set wb = new workbook|\nEnd Sub\n')?.text).toBe('Workbook');
 	});
 
 	it('canonicalizes source-backed current class members through Me', () => {
@@ -157,6 +158,20 @@ describe('canonical casing edits', () => {
 			['set', 'Set'],
 			['new', 'New'],
 			['person', 'Person'],
+		]);
+	});
+
+	it('canonicalizes built-in and host type names on a completed declaration line', () => {
+		const src =
+			'Sub T()\n' +
+			'    dim wb as workbook\n' +
+			'End Sub\n';
+		const edits = editsOnLine(src, 1);
+
+		expect(edits.map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['dim', 'Dim'],
+			['as', 'As'],
+			['workbook', 'Workbook'],
 		]);
 	});
 

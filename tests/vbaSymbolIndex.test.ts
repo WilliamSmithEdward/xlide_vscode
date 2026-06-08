@@ -60,4 +60,16 @@ describe('VbaSymbolIndex workbook identity', () => {
 
 		expect(vi.mocked(bridge.call)).toHaveBeenCalledTimes(1);
 	});
+
+	it('updates a cached module directly from saved editor text', async () => {
+		const bridge = bridgeForSources({});
+		const index = new VbaSymbolIndex(bridge);
+
+		index.updateModuleSource('C:/Book.xlsm', 'Module1', 'Sub Saved()\nEnd Sub\n');
+		const mod = await index.getModule('C:/Book.xlsm', 'module1');
+
+		expect(mod.source).toContain('Saved');
+		expect(mod.symbols.map((symbol) => symbol.name)).toEqual(['Saved']);
+		expect(vi.mocked(bridge.call)).not.toHaveBeenCalled();
+	});
 });

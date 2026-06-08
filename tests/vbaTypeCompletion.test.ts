@@ -59,7 +59,7 @@ describe('type-position detection', () => {
 		expect(result.map((t) => t.name)).toEqual(['Person']);
 	});
 
-	it('does not offer non-creatable types after expression-level "New"', () => {
+	it('offers host types after expression-level "New" as deferred-creatability candidates', () => {
 		const result = names('Sub T()\n    Set p = New ', 'New ', {
 			projectTypes: [
 				{ name: 'Person', kind: 'class' },
@@ -69,9 +69,25 @@ describe('type-position detection', () => {
 				{ name: 'TPoint', kind: 'userType' },
 			],
 		});
-		expect(result).toEqual(['Person', 'CustomerForm']);
+		expect(result).toContain('Person');
+		expect(result).toContain('CustomerForm');
+		expect(result).toContain('Worksheet');
+		expect(result).toContain('Workbook');
 		expect(result).not.toContain('Long');
-		expect(result).not.toContain('Worksheet');
+		expect(result).not.toContain('Sheet1');
+		expect(result).not.toContain('Status');
+		expect(result).not.toContain('TPoint');
+	});
+
+	it('offers host types immediately after a lower-case expression-level "new"', () => {
+		const result = names(
+			'Sub T()\n    Dim wb As Workbook\n    Set wb = new\nEnd Sub\n',
+			'new',
+		);
+
+		expect(result).toContain('Workbook');
+		expect(result).toContain('Worksheet');
+		expect(result).not.toContain('Long');
 	});
 
 	it('filters by the partial type text typed', () => {

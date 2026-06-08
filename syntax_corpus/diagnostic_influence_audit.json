@@ -423,7 +423,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, and verified VBA runtime/generated host constants when no source binding shadows the constant name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted.",
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -455,7 +455,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Deterministic parenthesized receivers and leading-dot receivers inside simple or nested With stacks use the same resolver as ordinary member chains. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Deterministic parenthesized receivers and leading-dot receivers inside simple or nested With stacks use the same resolver as ordinary member chains. Source declarations resolve before runtime objects, host globals, workbook code names, or standard-module qualifier fallbacks, so typed or untyped local declarations named like Excel globals use the source binding. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -920,7 +920,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule only fires when the type resolver proves the New target is a known non-creatable type, such as a primitive, Excel host object type, document module, Enum, or user-defined Type. Unknown external/reference-library class names remain deferred until reference-library creatability metadata exists.",
+      "notes": "The active rule only fires when the type resolver proves the New target is a known non-creatable type, such as a primitive, document module, Enum, or user-defined Type. Excel host object-model types and unknown external/reference-library class names remain deferred until creatability metadata or oracle evidence proves the target.",
       "diagnosticKind": "compile-error"
     },
     {

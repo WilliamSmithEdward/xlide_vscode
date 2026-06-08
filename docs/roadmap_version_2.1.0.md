@@ -204,6 +204,11 @@ Progress:
   binding exists. Numeric enum constants behave as scalar `Long` values while
   preserving the declared enum owner in diagnostic messages; source
   declarations and ambiguous source bindings still suppress external inference.
+- [x] Verified external object-global value-type slice: object `Set` RHS checks
+  now infer bare host globals such as `Application`, `ActiveSheet`, and
+  `ActiveCell` as object-valued expressions when no source binding shadows the
+  name. Compatible/generic object targets stay quiet, while incompatible host
+  object targets produce `assignment-object-type-mismatch`.
 - [x] Assignment-target typing resolver handoff: `assignment-type-mismatch`,
   `set-required`, and `set-requires-object` now resolve bare assignment targets
   through the shared assignment-target binding before consulting legacy local
@@ -216,6 +221,14 @@ Progress:
   scalar globals participate in invalid-qualifier diagnostics, while untyped
   local shadows, ambiguous exported globals, and non-bare member-chain tokens
   stay quiet.
+- [x] Member-receiver external shadowing slice: member completion and hard
+  `member-not-found` diagnostics now resolve local/module declarations before
+  runtime objects, host globals, workbook code names, or standard-module
+  qualifier fallbacks. Typed or untyped local declarations named like Excel
+  globals such as `ActiveSheet` therefore use the source binding, and
+  late-bound `Object`/`Variant` shadows stay quiet instead of receiving
+  host-global absence diagnostics, even when completion can refine them from a
+  simple `Set` assignment.
 - [x] Array/scalar shape resolver handoff: `array-assignment-to-scalar` and
   `array-bound-requires-array` now resolve simple bare target/source/argument
   shapes through the shared resolver before consulting legacy local shape maps.
@@ -270,6 +283,27 @@ Progress:
   help, canonical casing, and source definitions use the same exported
   standard-module surface for procedures, Declares, globals, constants, enum
   types, and enum members.
+- [x] Host `New` creatability deferral slice: `invalid-new-type-name` no longer
+  hard-red-squiggles Excel host object-model types such as `Worksheet` after
+  `New` without explicit creatability metadata or oracle evidence. Source-proven
+  non-creatable project types, primitives, UDTs, Enums, and document modules
+  remain red, while host/reference-library creatability stays deferred.
+- [x] Live editor responsiveness slice: type-name completions in obvious `As`
+  positions now return built-in/host candidates before project-wide context
+  loading, semantic type coloring reuses a short-lived project-type snapshot
+  instead of rebuilding the workbook on every token request, stale-but-current
+  semantic colors stay visible while project types refresh in the background,
+  automatic canonical casing uses fast local facts plus cached project context
+  rather than waiting on workbook indexing, edited lines get a short idle
+  canonical-casing pass as a fallback to cursor-leave events, diagnostics no
+  longer re-run on every cursor movement, active-tab changes no longer re-run
+  diagnostics for every open VBA document, live diagnostics publish a fast
+  module-local pass before the full workbook pass settles, hover and signature
+  help answer from cached/current-module facts while warming project context in
+  the background, VBE-style Smart Enter and cursor-leave formatting add empty
+  `()` to parameterless `Sub`, `Function`, and `Property Get` headers, and
+  save-time symbol refresh uses the saved editor text instead of a bridge
+  readback.
 - [x] Qualified type-name slice: declaration type positions now resolve and
   complete `ModuleName.TypeName` for visible project UDTs/enums/classes, with
   hover, semantic coloring, canonical casing, definition/reference matching,
@@ -308,7 +342,10 @@ Progress:
   module-qualified enum reads stay quiet under `Option Explicit`. The
   external-reference canary keeps common unresolved `Scripting.Dictionary`,
   `ADODB.Stream`, `CreateObject`, `TextCompare`, and `VBA.CStr` shapes quiet
-  until explicit external metadata exists.
+  until explicit external metadata exists. Workbook-analysis member diagnostics
+  also preserve the shared source-binding precedence: local `ActiveSheet`
+  shadows stay late-bound and quiet, while typed source-backed receivers still
+  report real missing members instead of falling back to host globals.
 
 Definition of done:
 

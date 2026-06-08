@@ -390,6 +390,25 @@ export function isCreatableTypeCompletion(candidate: TypeCompletion): boolean {
 	return candidate.kind === 'class' || candidate.kind === 'userform';
 }
 
+function isNewExpressionCompletionCandidate(candidate: TypeCompletion): boolean {
+	return isCreatableTypeCompletion(candidate) ||
+		candidate.kind === 'host' ||
+		candidate.kind === 'external';
+}
+
+function isAllowedForTypePosition(
+	candidate: TypeCompletion,
+	mode: TypePositionMode,
+): boolean {
+	if (mode === 'declaration') {
+		return true;
+	}
+	if (mode === 'newExpression') {
+		return isNewExpressionCompletionCandidate(candidate);
+	}
+	return isCreatableTypeCompletion(candidate);
+}
+
 export function resolveTypeName(
 	name: string,
 	ctx: TypeCompletionContext = {},
@@ -432,12 +451,12 @@ export function resolveTypeCompletions(
 			...projectTypeCandidatesInModule(pos.qualifier, ctx.projectTypes),
 			...externalTypeCandidatesInModule(pos.qualifier),
 		]
-			.filter((candidate) => pos.mode === 'declaration' || isCreatableTypeCompletion(candidate))
+			.filter((candidate) => isAllowedForTypePosition(candidate, pos.mode))
 			.filter((candidate) => !memberPrefix || candidate.name.toLowerCase().startsWith(memberPrefix));
 	}
 	const prefix = pos.prefix.toLowerCase();
 	const candidates = typeCompletionCandidates({ ...ctx, model })
-		.filter((candidate) => pos.mode === 'declaration' || isCreatableTypeCompletion(candidate))
+		.filter((candidate) => isAllowedForTypePosition(candidate, pos.mode))
 		.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix));
 	if (pos.mode !== 'declaration') {
 		return candidates;

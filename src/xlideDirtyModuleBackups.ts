@@ -10,6 +10,14 @@ interface DirtyModuleBackup {
     updatedAt: number;
 }
 
+interface PendingDirtyModuleBackup {
+    record: DirtyModuleBackup;
+    timer: ReturnType<typeof setTimeout>;
+    generation: number;
+}
+
+const DIRTY_BACKUP_DEBOUNCE_MS = 250;
+
 function isLocalXlideModule(document: vscode.TextDocument): boolean {
     return document.uri.scheme === XLIDE_SCHEME && document.uri.authority !== XLIDE_LIVESHARE_AUTHORITY;
 }
@@ -28,6 +36,9 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
     private readonly _disposables: vscode.Disposable[] = [];
     private readonly _restoring = new Set<string>();
     private readonly _announced = new Set<string>();
+    private readonly _pendingWrites = new Map<string, PendingDirtyModuleBackup>();
+    private readonly _writeGenerations = new Map<string, number>();
+    private readonly _fileOperations = new Map<string, Promise<void>>();
 
     constructor(
         context: vscode.ExtensionContext,
@@ -38,7 +49,11 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
 
         this._disposables.push(
             vscode.workspace.onDidChangeTextDocument((event) => this.onDocumentChanged(event.document)),
-            vscode.workspace.onDidSaveTextDocument((document) => this.deleteBackup(document.uri)),
+            vscode.workspace.onDidSaveTextDocument((document) => {
+                this.clearPendingWrite(document.uri);
+                void this.deleteBackup(document.uri);
+            }),
+            vscode.workspace.onDidCloseTextDocument((document) => this.flushPendingWrite(document.uri)),
             vscode.workspace.onDidOpenTextDocument((document) => {
                 void this.restoreIfAvailable(document);
             }),
@@ -53,6 +68,10 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         for (const disposable of this._disposables.splice(0)) {
             disposable.dispose();
         }
+        for (const pending of this._pendingWrites.values()) {
+            clearTimeout(pending.timer);
+        }
+        this._pendingWrites.clear();
     }
 
     private onDocumentChanged(document: vscode.TextDocument): void {
@@ -60,27 +79,28 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
             return;
         }
         if (!document.isDirty && !this._restoring.has(document.uri.toString())) {
-            this.deleteBackup(document.uri);
+            this.clearPendingWrite(document.uri);
+            void this.deleteBackup(document.uri);
             return;
         }
-        this.writeBackup(document);
+        this.scheduleWriteBackup(document);
     }
 
     private async restoreIfAvailable(document: vscode.TextDocument): Promise<void> {
         if (!isLocalXlideModule(document) || document.isDirty) {
             return;
         }
-        const backup = this.readBackup(document.uri);
+        const backup = await this.readBackup(document.uri);
         if (!backup) {
             return;
         }
         const key = document.uri.toString();
         if (backup.uri !== key) {
-            this.deleteBackup(document.uri);
+            void this.deleteBackup(document.uri);
             return;
         }
         if (backup.text === document.getText()) {
-            this.deleteBackup(document.uri);
+            void this.deleteBackup(document.uri);
             return;
         }
 
@@ -130,23 +150,73 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         });
     }
 
-    private writeBackup(document: vscode.TextDocument): void {
-        try {
-            const record: DirtyModuleBackup = {
-                uri: document.uri.toString(),
-                text: document.getText(),
-                updatedAt: Date.now(),
-            };
-            fs.writeFileSync(this.backupPath(document.uri), `${JSON.stringify(record)}\n`, 'utf8');
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            this._out.appendLine(`XLIDE: Failed to write dirty backup for ${document.uri.toString()}: ${message}`);
+    private scheduleWriteBackup(document: vscode.TextDocument): void {
+        const key = document.uri.toString();
+        const existing = this._pendingWrites.get(key);
+        if (existing) {
+            clearTimeout(existing.timer);
         }
+
+        const generation = this.bumpWriteGeneration(key);
+        const record: DirtyModuleBackup = {
+            uri: key,
+            text: document.getText(),
+            updatedAt: Date.now(),
+        };
+        const timer = setTimeout(() => {
+            const pending = this._pendingWrites.get(key);
+            if (!pending || pending.generation !== generation) {
+                return;
+            }
+            this._pendingWrites.delete(key);
+            void this.writeBackupRecord(document.uri, pending.record, pending.generation);
+        }, DIRTY_BACKUP_DEBOUNCE_MS);
+        this._pendingWrites.set(key, { record, timer, generation });
     }
 
-    private readBackup(uri: vscode.Uri): DirtyModuleBackup | undefined {
+    private flushPendingWrite(uri: vscode.Uri): void {
+        const key = uri.toString();
+        const pending = this._pendingWrites.get(key);
+        if (!pending) {
+            return;
+        }
+        clearTimeout(pending.timer);
+        this._pendingWrites.delete(key);
+        void this.writeBackupRecord(uri, pending.record, pending.generation);
+    }
+
+    private clearPendingWrite(uri: vscode.Uri): void {
+        const key = uri.toString();
+        const pending = this._pendingWrites.get(key);
+        if (pending) {
+            clearTimeout(pending.timer);
+            this._pendingWrites.delete(key);
+        }
+        this.bumpWriteGeneration(key);
+    }
+
+    private async writeBackupRecord(
+        uri: vscode.Uri,
+        record: DirtyModuleBackup,
+        generation: number,
+    ): Promise<void> {
+        const key = uri.toString();
+        await this.enqueueFileOperation(key, async () => {
+            if (this.currentWriteGeneration(key) !== generation) {
+                return;
+            }
+            try {
+                await fs.promises.writeFile(this.backupPath(uri), `${JSON.stringify(record)}\n`, 'utf8');
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                this._out.appendLine(`XLIDE: Failed to write dirty backup for ${uri.toString()}: ${message}`);
+            }
+        });
+    }
+
+    private async readBackup(uri: vscode.Uri): Promise<DirtyModuleBackup | undefined> {
         try {
-            const raw = fs.readFileSync(this.backupPath(uri), 'utf8');
+            const raw = await fs.promises.readFile(this.backupPath(uri), 'utf8');
             const parsed = JSON.parse(raw) as Partial<DirtyModuleBackup>;
             if (
                 typeof parsed.uri !== 'string' ||
@@ -161,12 +231,42 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         }
     }
 
-    private deleteBackup(uri: vscode.Uri): void {
-        try {
-            fs.rmSync(this.backupPath(uri), { force: true });
-        } catch {
-            /* best effort cleanup */
-        }
+    private async deleteBackup(uri: vscode.Uri): Promise<void> {
+        const key = uri.toString();
+        this.bumpWriteGeneration(key);
+        await this.enqueueFileOperation(key, async () => {
+            try {
+                await fs.promises.rm(this.backupPath(uri), { force: true });
+            } catch {
+                /* best effort cleanup */
+            }
+        });
+    }
+
+    private bumpWriteGeneration(key: string): number {
+        const next = this.currentWriteGeneration(key) + 1;
+        this._writeGenerations.set(key, next);
+        return next;
+    }
+
+    private currentWriteGeneration(key: string): number {
+        return this._writeGenerations.get(key) ?? 0;
+    }
+
+    private enqueueFileOperation(key: string, operation: () => Promise<void>): Promise<void> {
+        const previous = this._fileOperations.get(key) ?? Promise.resolve();
+        const next = previous
+            .catch(() => {
+                /* each operation handles its own reporting */
+            })
+            .then(operation)
+            .finally(() => {
+                if (this._fileOperations.get(key) === next) {
+                    this._fileOperations.delete(key);
+                }
+            });
+        this._fileOperations.set(key, next);
+        return next;
     }
 
     private backupPath(uri: vscode.Uri): string {

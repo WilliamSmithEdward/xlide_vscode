@@ -141,4 +141,41 @@ describe('analyzeWorkbook metadata summary', () => {
 
 		expect(result.problems.filter((item) => item.code === 'missing-return-assignment')).toEqual([]);
 	});
+
+	it('uses source bindings before host globals in workbook member diagnostics', async () => {
+		const bridge = bridgeForModules([
+			{
+				name: 'Caller',
+				type: 'standard',
+				source:
+					'Option Explicit\n' +
+					'Public Sub T()\n' +
+					'    Dim ActiveSheet\n' +
+					'    Set ActiveSheet = ThisWorkbook\n' +
+					'    ActiveSheet.DoesNotExist\n' +
+					'    Dim typedSheet As Person\n' +
+					'    typedSheet.Range\n' +
+					'End Sub\n',
+			},
+			{
+				name: 'Person',
+				type: 'class',
+				source:
+					'Option Explicit\n' +
+					'Public Sub Save()\n' +
+					'End Sub\n',
+			},
+		]);
+
+		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+		const memberHits = result.problems.filter((item) => item.code === 'member-not-found');
+
+		expect(memberHits).toHaveLength(1);
+		expect(memberHits[0]).toMatchObject({
+			moduleName: 'Caller',
+			severity: 'error',
+		});
+		expect(memberHits[0].message).toContain('Person.Range');
+		expect(result.problems.map((item) => item.message).join('\n')).not.toContain('Excel.Worksheet.DoesNotExist');
+	});
 });

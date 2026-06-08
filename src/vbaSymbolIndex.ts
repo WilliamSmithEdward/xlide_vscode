@@ -215,6 +215,36 @@ export class VbaSymbolIndex implements vscode.Disposable {
         return this.getModule(xlsmPath, moduleName);
     }
 
+    /**
+     * Updates one cached module directly from an already-known source snapshot.
+     * This avoids a bridge round-trip after saving a virtual VBA editor buffer.
+     */
+    updateModuleSource(
+        xlsmPath: string,
+        moduleName: string,
+        source: string,
+        metadata: { type?: string; documentType?: EventHandlerDocumentType } = {},
+    ): VbaModuleSymbols {
+        const key = workbookIdentityKey(xlsmPath);
+        let wb = this._cache.get(key);
+        if (!wb) {
+            wb = { modules: new Map() };
+            this._cache.set(key, wb);
+        }
+        const moduleKey = moduleIdentityKey(moduleName);
+        const existing = wb.modules.get(moduleKey);
+        const mod: VbaModuleSymbols = {
+            moduleName,
+            source,
+            symbols: parseVbaModule(source),
+            type: metadata.type ?? existing?.type,
+            documentType: metadata.documentType ?? existing?.documentType,
+        };
+        wb.modules.set(moduleKey, mod);
+        this._emitter.fire({ xlsmPath, moduleName });
+        return mod;
+    }
+
     dispose(): void {
         this._cache.clear();
         this._emitter.dispose();

@@ -570,6 +570,55 @@ describe('member completion - declared variables', () => {
 		const got = names(src, 'ws.');
 		expect(got).toContain('Range');
 	});
+
+	it('lets local declarations shadow host globals for member completion', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim ActiveSheet As Person\n' +
+			'    ActiveSheet.\n' +
+			'End Sub\n';
+		const got = names(src, 'ActiveSheet.', {
+			projectClassMembers: [
+				{
+					name: 'Person',
+					kind: 'class' as const,
+					moduleName: 'Person',
+					members: [
+						{ name: 'Name', kind: 'property' as const, returns: 'String', moduleName: 'Person' },
+						{ name: 'Save', kind: 'method' as const, moduleName: 'Person' },
+					],
+				},
+			],
+		});
+
+		expect(got).toContain('Name');
+		expect(got).toContain('Save');
+		expect(got).not.toContain('Range');
+	});
+
+	it('lets untyped local declarations shadow host globals for member completion', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim ActiveSheet\n' +
+			'    ActiveSheet.\n' +
+			'End Sub\n';
+
+		expect(names(src, 'ActiveSheet.')).toEqual([]);
+	});
+
+	it('can refine untyped local host-global shadows from Set assignments for completion', () => {
+		const src =
+			'Sub Test()\n' +
+			'    Dim ActiveSheet\n' +
+			'    Set ActiveSheet = ThisWorkbook\n' +
+			'    ActiveSheet.\n' +
+			'End Sub\n';
+		const got = names(src, 'ActiveSheet.');
+
+		expect(got).toContain('Worksheets');
+		expect(got).toContain('Save');
+		expect(got).not.toContain('Range');
+	});
 });
 
 describe('member completion - workbook classes', () => {

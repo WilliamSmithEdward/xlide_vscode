@@ -17,7 +17,7 @@ import {
 	workbookIdentityKey,
 } from './xlideFileSystem';
 import { openModuleSourceForWorkbook } from './vbaOpenDocuments';
-import { leadingWhitespace } from './vbaStructuralAnalysis';
+import { leadingWhitespace, procedureHeaderParensEdit } from './vbaStructuralAnalysis';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
 	DocRegistry,
@@ -73,6 +73,11 @@ const CHART = 'Excel.Chart';
 const MODULE_CACHE_TTL_MS = 5000;
 const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
+const MAX_PENDING_CANONICAL_CASE_REQUESTS = 16;
+const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
+const CANONICAL_LINE_IDLE_DELAY_MS = 200;
+const HOVER_PROJECT_CONTEXT_BUDGET_MS = 120;
+const SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS = 150;
 
 interface ModuleEntry {
 	name: string;
@@ -97,6 +102,22 @@ interface EditorProjectContext {
 	projectClassMembers?: MemberCompletionContext['projectClassMembers'];
 	projectProcedures?: readonly VbaProcedureSignature[];
 	projectSymbols?: IdentifierCompletionContext['projectSymbols'];
+}
+
+type CanonicalCaseRequest = {
+	document: vscode.TextDocument;
+	editorHint?: vscode.TextEditor;
+	resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[];
+};
+
+interface CachedEditorProjectContext {
+	documentVersion: number;
+	loadedAt: number;
+	context: EditorProjectContext;
+}
+
+interface CanonicalLineOptions {
+	completeProcedureHeader?: boolean;
 }
 
 /** Maps a document module to the host type that `Me` denotes inside it. */
@@ -151,6 +172,19 @@ function documentTypeFor(entry: ModuleEntry | undefined): EventHandlerDocumentTy
 	});
 }
 
+function localDocumentTypeFromModuleName(moduleName: string): EventHandlerDocumentType | undefined {
+	if (/^thisworkbook$/i.test(moduleName)) {
+		return 'workbook';
+	}
+	if (/^chart\d*$/i.test(moduleName)) {
+		return 'chart';
+	}
+	if (/^sheet\d+$/i.test(moduleName)) {
+		return 'worksheet';
+	}
+	return undefined;
+}
+
 class VbaMemberCompletionProvider
 	implements
 		vscode.CompletionItemProvider,
@@ -158,6 +192,9 @@ class VbaMemberCompletionProvider
 		vscode.SignatureHelpProvider
 {
 	private readonly _cache = new Map<string, CachedModules>();
+	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
+	private readonly _projectContextBuilds = new Map<string, Promise<EditorProjectContext>>();
+	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
 	private _applyingCanonicalCase = false;
 
 	constructor(
@@ -169,9 +206,12 @@ class VbaMemberCompletionProvider
 	invalidate(xlsmPath?: string): void {
 		if (xlsmPath === undefined) {
 			this._cache.clear();
+			this._projectContextCache.clear();
+			this._projectContextBuilds.clear();
 		} else {
 			const key = workbookIdentityKey(xlsmPath);
 			this._cache.delete(key);
+			this._clearProjectContextCacheForWorkbook(xlsmPath);
 		}
 	}
 
@@ -190,6 +230,12 @@ class VbaMemberCompletionProvider
 		const source = document.getText();
 		const offset = document.offsetAt(position);
 		const range = this._completionRange(document, position);
+
+		const quickTypes = resolveTypeCompletions(source, offset, {});
+		if (quickTypes.length > 0) {
+			return quickTypes.map((t) => this._toTypeItem(t, range));
+		}
+
 		const projectCtx = await this._buildEditorProjectContext(document, source);
 
 		const typeCtx = this._typeContext(projectCtx);
@@ -250,6 +296,7 @@ class VbaMemberCompletionProvider
 		document: vscode.TextDocument,
 		lineNumber: number,
 		editorHint?: vscode.TextEditor,
+		options: CanonicalLineOptions = {},
 	): Promise<void> {
 		if (lineNumber < 0 || lineNumber >= document.lineCount) {
 			return;
@@ -261,7 +308,18 @@ class VbaMemberCompletionProvider
 			const line = document.lineAt(lineNumber);
 			const start = document.offsetAt(line.range.start);
 			const end = document.offsetAt(line.range.end);
-			return resolveCanonicalCaseEdits(source, { start, end }, ctx);
+			const edits = resolveCanonicalCaseEdits(source, { start, end }, ctx);
+			if (options.completeProcedureHeader) {
+				const headerEdit = procedureHeaderParensEdit(line.text);
+				if (headerEdit) {
+					edits.push({
+						start: start + headerEdit.startCol,
+						end: start + headerEdit.endCol,
+						text: headerEdit.newText,
+					});
+				}
+			}
+			return edits;
 		});
 	}
 
@@ -271,6 +329,7 @@ class VbaMemberCompletionProvider
 		resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[],
 	): Promise<void> {
 		if (this._applyingCanonicalCase) {
+			this._enqueueCanonicalCaseRequest({ document, editorHint, resolveEdits });
 			return;
 		}
 		this._applyingCanonicalCase = true;
@@ -282,7 +341,7 @@ class VbaMemberCompletionProvider
 				return;
 			}
 			const source = document.getText();
-			const projectCtx = await this._buildEditorProjectContext(document, source);
+			const projectCtx = this._cachedEditorProjectContext(document) ?? {};
 			const edits = resolveEdits(source, {
 				member: this._memberContext(projectCtx),
 				identifier: this._identifierContext(projectCtx),
@@ -297,11 +356,7 @@ class VbaMemberCompletionProvider
 			if (edits.length === 0) {
 				return;
 			}
-			const selections = editor.selections.map((selection) =>
-				new vscode.Selection(selection.anchor, selection.active),
-			);
-			const restoreSelection = vscode.window.activeTextEditor === editor;
-			const applied = await editor.edit((builder) => {
+			await editor.edit((builder) => {
 				for (const edit of edits) {
 					builder.replace(
 						new vscode.Range(
@@ -315,11 +370,70 @@ class VbaMemberCompletionProvider
 				undoStopBefore: false,
 				undoStopAfter: false,
 			});
-			if (applied && restoreSelection && vscode.window.activeTextEditor === editor) {
-				editor.selections = selections;
-			}
 		} finally {
 			this._applyingCanonicalCase = false;
+			const next = this._pendingCanonicalCaseRequests.shift();
+			if (next) {
+				void this._applyCanonicalCaseEdits(next.document, next.editorHint, next.resolveEdits);
+			}
+		}
+	}
+
+	private _enqueueCanonicalCaseRequest(request: CanonicalCaseRequest): void {
+		this._pendingCanonicalCaseRequests.push(request);
+		const overflow = this._pendingCanonicalCaseRequests.length - MAX_PENDING_CANONICAL_CASE_REQUESTS;
+		if (overflow > 0) {
+			this._pendingCanonicalCaseRequests.splice(0, overflow);
+		}
+	}
+
+	private _cachedEditorProjectContext(document: vscode.TextDocument): EditorProjectContext | undefined {
+		const cached = this._projectContextCache.get(document.uri.toString());
+		if (
+			!cached ||
+			cached.documentVersion !== document.version ||
+			Date.now() - cached.loadedAt > EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS
+		) {
+			return undefined;
+		}
+		return cached.context;
+	}
+
+	private _storeEditorProjectContext(
+		document: vscode.TextDocument,
+		context: EditorProjectContext,
+		documentVersion = document.version,
+	): EditorProjectContext {
+		this._projectContextCache.set(document.uri.toString(), {
+			documentVersion,
+			loadedAt: Date.now(),
+			context,
+		});
+		return context;
+	}
+
+	private _clearProjectContextCacheForWorkbook(xlsmPath: string): void {
+		const workbookKey = workbookIdentityKey(xlsmPath);
+		for (const key of [...this._projectContextCache.keys()]) {
+			try {
+				const decoded = decodeModuleUri(vscode.Uri.parse(key));
+				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
+					this._projectContextCache.delete(key);
+				}
+			} catch {
+				this._projectContextCache.delete(key);
+			}
+		}
+		for (const key of [...this._projectContextBuilds.keys()]) {
+			try {
+				const uriKey = key.slice(0, key.lastIndexOf(':'));
+				const decoded = decodeModuleUri(vscode.Uri.parse(uriKey));
+				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
+					this._projectContextBuilds.delete(key);
+				}
+			} catch {
+				this._projectContextBuilds.delete(key);
+			}
 		}
 	}
 
@@ -329,26 +443,31 @@ class VbaMemberCompletionProvider
 	): Promise<vscode.Hover | undefined> {
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const projectCtx = await this._buildEditorProjectContext(document, source);
-		const info = resolveHover(source, offset, this._hoverContext(projectCtx));
+		const cached = this._cachedEditorProjectContext(document);
+		const fastCtx = cached ?? this._cheapEditorProjectContext(document);
+		if (!cached && document.uri.scheme === XLIDE_SCHEME) {
+			this._warmEditorProjectContext(document, source);
+		}
+		let info = resolveHover(source, offset, this._hoverContext(fastCtx));
+		if (!info && !cached) {
+			info = resolveHover(source, offset, this._hoverContext(
+				this._localEditorProjectContext(document, source),
+			));
+		}
+		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
+			const projectCtx = await this._buildEditorProjectContextWithin(
+				document,
+				source,
+				HOVER_PROJECT_CONTEXT_BUDGET_MS,
+			);
+			if (projectCtx) {
+				info = resolveHover(source, offset, this._hoverContext(projectCtx));
+			}
+		}
 		if (!info) {
 			return undefined;
 		}
-		const md = new vscode.MarkdownString();
-		md.appendCodeblock(info.signature, 'vba');
-		if (info.documentation) {
-			md.appendMarkdown('\n\n');
-			md.appendMarkdown(info.documentation);
-		}
-		if (info.details.length > 0) {
-			md.appendMarkdown('\n\n');
-			md.appendMarkdown(info.details.join('  \n'));
-		}
-		const range = new vscode.Range(
-			document.positionAt(info.span.start),
-			document.positionAt(info.span.end),
-		);
-		return new vscode.Hover(md, range);
+		return this._toHover(info, document);
 	}
 
 	async provideSignatureHelp(
@@ -357,8 +476,29 @@ class VbaMemberCompletionProvider
 	): Promise<vscode.SignatureHelp | undefined> {
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const projectCtx = await this._buildEditorProjectContext(document, source);
-		const info = resolveSignatureHelp(source, offset, this._signatureHelpContext(projectCtx, source));
+		const cached = this._cachedEditorProjectContext(document);
+		const fastCtx = cached ?? this._cheapEditorProjectContext(document);
+		if (!cached && document.uri.scheme === XLIDE_SCHEME) {
+			this._warmEditorProjectContext(document, source);
+		}
+		let info = resolveSignatureHelp(source, offset, this._signatureHelpContext(fastCtx, source));
+		if (!info && !cached) {
+			info = resolveSignatureHelp(
+				source,
+				offset,
+				this._signatureHelpContext(this._localEditorProjectContext(document, source), source),
+			);
+		}
+		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
+			const projectCtx = await this._buildEditorProjectContextWithin(
+				document,
+				source,
+				SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS,
+			);
+			if (projectCtx) {
+				info = resolveSignatureHelp(source, offset, this._signatureHelpContext(projectCtx, source));
+			}
+		}
 		if (!info) {
 			return undefined;
 		}
@@ -378,6 +518,27 @@ class VbaMemberCompletionProvider
 		help.activeSignature = 0;
 		help.activeParameter = info.activeParameter;
 		return help;
+	}
+
+	private _toHover(
+		info: NonNullable<ReturnType<typeof resolveHover>>,
+		document: vscode.TextDocument,
+	): vscode.Hover {
+		const md = new vscode.MarkdownString();
+		md.appendCodeblock(info.signature, 'vba');
+		if (info.documentation) {
+			md.appendMarkdown('\n\n');
+			md.appendMarkdown(info.documentation);
+		}
+		if (info.details.length > 0) {
+			md.appendMarkdown('\n\n');
+			md.appendMarkdown(info.details.join('  \n'));
+		}
+		const range = new vscode.Range(
+			document.positionAt(info.span.start),
+			document.positionAt(info.span.end),
+		);
+		return new vscode.Hover(md, range);
 	}
 
 	private _memberContext(ctx: EditorProjectContext): MemberCompletionContext {
@@ -442,20 +603,45 @@ class VbaMemberCompletionProvider
 		document: vscode.TextDocument,
 		source: string,
 	): Promise<EditorProjectContext> {
+		const cached = this._cachedEditorProjectContext(document);
+		if (cached) {
+			return cached;
+		}
+		const buildKey = `${document.uri.toString()}:${document.version}`;
+		const existingBuild = this._projectContextBuilds.get(buildKey);
+		if (existingBuild) {
+			return existingBuild;
+		}
+		const documentVersion = document.version;
+		const build = this._computeEditorProjectContext(document, source, documentVersion)
+			.finally(() => {
+				if (this._projectContextBuilds.get(buildKey) === build) {
+					this._projectContextBuilds.delete(buildKey);
+				}
+			});
+		this._projectContextBuilds.set(buildKey, build);
+		return build;
+	}
+
+	private async _computeEditorProjectContext(
+		document: vscode.TextDocument,
+		source: string,
+		documentVersion: number,
+	): Promise<EditorProjectContext> {
 		if (document.uri.scheme !== XLIDE_SCHEME) {
 			try {
 				const project = buildLiveVbaProjectIndex(
 					[{ moduleName: 'Module', moduleKind: 'standard', source }],
 				);
 				const context = projectEditorSymbolContextForModule(project, 'Module');
-				return {
+				return this._storeEditorProjectContext(document, {
 					moduleName: 'Module',
 					moduleKind: 'standard',
 					projectTypes: context.analysisOptions.projectTypes,
 					projectClassMembers: context.analysisOptions.projectClassMembers,
 					projectProcedures: context.externalProjectProcedures,
 					projectSymbols: context.externalProjectSymbols,
-				};
+				}, documentVersion);
 			} catch {
 				return {};
 			}
@@ -481,7 +667,7 @@ class VbaMemberCompletionProvider
 				},
 			);
 			const context = projectEditorSymbolContextForModule(project, decoded.moduleName);
-			return {
+			return this._storeEditorProjectContext(document, {
 				moduleName: decoded.moduleName,
 				moduleKind,
 				documentType: documentTypeFor(current),
@@ -493,10 +679,116 @@ class VbaMemberCompletionProvider
 				projectClassMembers: context.analysisOptions.projectClassMembers,
 				projectProcedures: context.externalProjectProcedures,
 				projectSymbols: context.externalProjectSymbols,
-			};
+			}, documentVersion);
 		} catch {
 			return {};
 		}
+	}
+
+	private _warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
+		void this._buildEditorProjectContext(document, source).catch(() => {
+			/* best-effort cache warm */
+		});
+	}
+
+	private async _buildEditorProjectContextWithin(
+		document: vscode.TextDocument,
+		source: string,
+		timeoutMs: number,
+	): Promise<EditorProjectContext | undefined> {
+		const build = this._buildEditorProjectContext(document, source);
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		try {
+			return await new Promise<EditorProjectContext | undefined>((resolve) => {
+				let settled = false;
+				const finish = (value: EditorProjectContext | undefined): void => {
+					if (settled) {
+						return;
+					}
+					settled = true;
+					if (timeout) {
+						clearTimeout(timeout);
+					}
+					resolve(value);
+				};
+				timeout = setTimeout(() => finish(undefined), timeoutMs);
+				build.then(finish, () => finish(undefined));
+			});
+		} finally {
+			if (timeout) {
+				clearTimeout(timeout);
+			}
+		}
+	}
+
+	private _cheapEditorProjectContext(document: vscode.TextDocument): EditorProjectContext {
+		return this._localModuleIdentity(document);
+	}
+
+	private _localEditorProjectContext(
+		document: vscode.TextDocument,
+		source: string,
+	): EditorProjectContext {
+		const identity = this._localModuleIdentity(document);
+		try {
+			const project = buildLiveVbaProjectIndex([{
+				moduleName: identity.moduleName,
+				moduleKind: identity.moduleKind,
+				source,
+			}]);
+			const context = projectEditorSymbolContextForModule(project, identity.moduleName);
+			return {
+				moduleName: identity.moduleName,
+				moduleKind: identity.moduleKind,
+				documentType: identity.documentType,
+				meType: identity.meType,
+				meProjectType: identity.meProjectType,
+				projectTypes: context.analysisOptions.projectTypes,
+				projectClassMembers: context.analysisOptions.projectClassMembers,
+				projectProcedures: context.externalProjectProcedures,
+				projectSymbols: context.externalProjectSymbols,
+			};
+		} catch {
+			return {
+				moduleName: identity.moduleName,
+				moduleKind: identity.moduleKind,
+				documentType: identity.documentType,
+				meType: identity.meType,
+				meProjectType: identity.meProjectType,
+			};
+		}
+	}
+
+	private _localModuleIdentity(document: vscode.TextDocument): {
+		moduleName: string;
+		moduleKind: ModuleSymbolKind;
+		documentType?: EventHandlerDocumentType;
+		meType?: string;
+		meProjectType?: string;
+	} {
+		let moduleName = 'Module';
+		if (document.uri.scheme === XLIDE_SCHEME) {
+			try {
+				moduleName = decodeModuleUri(document.uri).moduleName;
+			} catch {
+				moduleName = 'Module';
+			}
+		}
+		const documentType = localDocumentTypeFromModuleName(moduleName);
+		const moduleKind: ModuleSymbolKind = documentType ? 'document' : 'standard';
+		return {
+			moduleName,
+			moduleKind,
+			documentType,
+			meType: documentType === 'workbook'
+				? WORKBOOK
+				: documentType === 'chart'
+					? CHART
+					: documentType === 'worksheet'
+						? WORKSHEET
+						: undefined,
+			meProjectType: moduleKind === 'document' ? moduleName : undefined,
+		};
 	}
 
 	private async _loadModules(xlsmPath: string): Promise<ModuleEntry[] | undefined> {
@@ -863,16 +1155,20 @@ export function registerVbaMemberCompletion(
 		| undefined;
 	let textChangeSerial = 0;
 	const lastTextChange = new Map<string, { at: number; serial: number }>();
+	const canonicalLineTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	const editorHintFor = (document: vscode.TextDocument): vscode.TextEditor | undefined => {
 		const active = vscode.window.activeTextEditor;
 		return active?.document === document ? active : undefined;
 	};
+	const canonicalLineKey = (document: vscode.TextDocument, lineNumber: number): string =>
+		`${document.uri.toString()}\n${lineNumber}`;
 	const applyCanonicalLine = (
 		document: vscode.TextDocument,
 		lineNumber: number,
 		editorHint?: vscode.TextEditor,
+		options: CanonicalLineOptions = {},
 	): void => {
-		void provider.applyCanonicalCaseForLine(document, lineNumber, editorHint);
+		void provider.applyCanonicalCaseForLine(document, lineNumber, editorHint, options);
 	};
 	const applyCanonicalPosition = (
 		document: vscode.TextDocument,
@@ -885,13 +1181,39 @@ export function registerVbaMemberCompletion(
 		document: vscode.TextDocument,
 		lineNumber: number,
 		editorHint?: vscode.TextEditor,
+		options: CanonicalLineOptions = {},
+		delayMs = 0,
 	): void => {
-		setTimeout(() => {
+		const key = canonicalLineKey(document, lineNumber);
+		const existing = canonicalLineTimers.get(key);
+		if (existing) {
+			clearTimeout(existing);
+		}
+		const timer = setTimeout(() => {
+			canonicalLineTimers.delete(key);
 			if (!isVbaDocument(document)) {
 				return;
 			}
-			applyCanonicalLine(document, lineNumber, editorHint);
-		}, 0);
+			applyCanonicalLine(document, lineNumber, editorHint, options);
+		}, delayMs);
+		canonicalLineTimers.set(key, timer);
+	};
+	const clearCanonicalLineTimers = (document: vscode.TextDocument): void => {
+		const prefix = `${document.uri.toString()}\n`;
+		for (const [key, timer] of canonicalLineTimers) {
+			if (!key.startsWith(prefix)) {
+				continue;
+			}
+			clearTimeout(timer);
+			canonicalLineTimers.delete(key);
+		}
+	};
+	const scheduleCanonicalLineIdle = (
+		document: vscode.TextDocument,
+		lineNumber: number,
+		editorHint?: vscode.TextEditor,
+	): void => {
+		scheduleCanonicalLine(document, lineNumber, editorHint, {}, CANONICAL_LINE_IDLE_DELAY_MS);
 	};
 	const flushCanonicalLine = (): void => {
 		const candidate = lastCanonicalCandidate;
@@ -902,6 +1224,7 @@ export function registerVbaMemberCompletion(
 			candidate.editor.document,
 			candidate.position.line,
 			candidate.editor,
+			{ completeProcedureHeader: true },
 		);
 	};
 	const markTextChange = (document: vscode.TextDocument): void => {
@@ -963,22 +1286,37 @@ export function registerVbaMemberCompletion(
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			markTextChange(event.document);
-			if (!isVbaDocument(event.document) || event.contentChanges.length !== 1) {
-				return;
-			}
-			const change = event.contentChanges[0];
-			if (!change.range.isEmpty) {
-				return;
-			}
-			const boundary = canonicalCaseBoundaryKind(change.text);
-			if (!boundary) {
+			if (!isVbaDocument(event.document)) {
 				return;
 			}
 			const editorHint = editorHintFor(event.document);
-			if (boundary === 'line') {
-				scheduleCanonicalLine(event.document, change.range.start.line, editorHint);
-			} else {
-				applyCanonicalPosition(event.document, change.range.start, editorHint);
+			const touchedLines = new Set<number>();
+			const immediateLines = new Set<number>();
+			for (const change of event.contentChanges) {
+				touchedLines.add(Math.min(change.range.start.line, Math.max(0, event.document.lineCount - 1)));
+				if (!change.range.isEmpty) {
+					continue;
+				}
+				const boundary = canonicalCaseBoundaryKind(change.text);
+				if (!boundary) {
+					continue;
+				}
+				if (boundary === 'line') {
+					immediateLines.add(change.range.start.line);
+					scheduleCanonicalLine(
+						event.document,
+						change.range.start.line,
+						editorHint,
+					);
+				} else {
+					applyCanonicalPosition(event.document, change.range.start, editorHint);
+				}
+			}
+			for (const lineNumber of touchedLines) {
+				if (immediateLines.has(lineNumber)) {
+					continue;
+				}
+				scheduleCanonicalLineIdle(event.document, lineNumber, editorHint);
 			}
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
@@ -989,6 +1327,7 @@ export function registerVbaMemberCompletion(
 					previous.editor.document,
 					previous.position.line,
 					previous.editor,
+					{ completeProcedureHeader: true },
 				);
 			} else if (previous?.editor === event.textEditor) {
 				const nextPosition = event.textEditor.selection.active;
@@ -997,6 +1336,7 @@ export function registerVbaMemberCompletion(
 						previous.editor.document,
 						previous.position.line,
 						previous.editor,
+						{ completeProcedureHeader: true },
 					);
 				} else {
 					applyCanonicalPosition(
@@ -1039,6 +1379,7 @@ export function registerVbaMemberCompletion(
 				// Ignore URIs we cannot decode.
 			}
 		}),
+		vscode.workspace.onDidCloseTextDocument(clearCanonicalLineTimers),
 	);
 }
 

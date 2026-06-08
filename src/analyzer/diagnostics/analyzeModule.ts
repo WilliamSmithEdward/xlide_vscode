@@ -5105,6 +5105,28 @@ function inferBareExternalConstantExpressionType(
 	return { ...candidates[0], span };
 }
 
+function inferBareExternalObjectExpressionType(
+	name: string,
+	span: Span,
+	sourceNames?: SourceNameScope,
+	memberCtx?: MemberCompletionContext,
+): InferredArgumentType | undefined {
+	if (runtimeCallableSourceShadowed(name, sourceNames)) {
+		return undefined;
+	}
+	const hostType = memberCtx
+		? resolveHostGlobal(name, memberCtx.model)
+		: resolveHostGlobal(name);
+	if (hostType) {
+		return { type: hostType, label: `${name} As ${hostType}`, span };
+	}
+	const runtimeObject = resolveRuntimeObject(name);
+	if (runtimeObject) {
+		return { type: runtimeObject.type, label: `${name} As ${runtimeObject.type}`, span };
+	}
+	return undefined;
+}
+
 function inferQualifiedExternalConstantExpressionType(
 	qualifier: string,
 	name: string,
@@ -5992,6 +6014,15 @@ function inferAtomicExpressionType(
 		const sig = parameterlessValueSignature(name, moduleSignatures, sourceNames);
 		if (sig?.returnType) {
 			return { type: sig.returnType, label: `${name} As ${sig.returnType}`, span };
+		}
+		const externalObject = inferBareExternalObjectExpressionType(
+			name,
+			span,
+			sourceNames,
+			memberCtx,
+		);
+		if (externalObject) {
+			return externalObject;
 		}
 		const external = inferBareExternalConstantExpressionType(name, span, sourceNames);
 		if (external) {
@@ -9226,7 +9257,8 @@ function checkInvalidAsTypeNames(
 		if (
 			resolved &&
 			isNewTypeReference(ref.kind) &&
-			!isCreatableTypeCompletion(resolved)
+			!isCreatableTypeCompletion(resolved) &&
+			resolved.kind !== 'host'
 		) {
 			if (
 				ref.kind === 'newDeclaration' &&

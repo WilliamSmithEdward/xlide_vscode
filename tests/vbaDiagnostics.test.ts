@@ -5278,6 +5278,58 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
 	});
 
+	it('lets local object declarations shadow host globals for member diagnostics', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ActiveSheet As Object\n' +
+			'    ActiveSheet.asdf\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'member-not-found')).toHaveLength(0);
+	});
+
+	it('lets untyped local declarations shadow host globals for member diagnostics', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ActiveSheet\n' +
+			'    ActiveSheet.asdf\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'member-not-found')).toHaveLength(0);
+	});
+
+	it('does not use Set refinement for untyped host-global shadows in hard member diagnostics', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ActiveSheet\n' +
+			'    Set ActiveSheet = ThisWorkbook\n' +
+			'    ActiveSheet.asdf\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'member-not-found')).toHaveLength(0);
+	});
+
+	it('uses local project declarations before host globals for member diagnostics', () => {
+		const person = 'Public Sub Save()\nEnd Sub\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ActiveSheet As Person\n' +
+			'    ActiveSheet.Range\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'member-not-found',
+		);
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Range');
+		expect(hits[0].message).toContain('Person.Range');
+	});
+
 	it('uses the exhaustive Worksheet host surface through workbook worksheet chains', () => {
 		const src =
 			'Public Sub T()\n' +
@@ -6215,7 +6267,7 @@ describe('analyzeModule - As type name validation', () => {
 		).toHaveLength(0);
 	});
 
-	it('flags resolved non-creatable types after New', () => {
+	it('flags resolved source-backed non-creatable types after New while deferring host types', () => {
 		const src =
 			'Public Type Payload\n' +
 			'    Id As Long\n' +
@@ -6242,12 +6294,10 @@ describe('analyzeModule - As type name validation', () => {
 		const diags = analyzeProjectModule(src, modules, 'Consumer');
 		const hits = byCode(diags, 'invalid-new-type-name');
 		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'Worksheet',
 			'Long',
 			'Status',
 			'Payload',
 			'Sheet1',
-			'Worksheet',
 			'Long',
 		]);
 		expect(byCode(diags, 'invalid-as-type-name')).toHaveLength(0);
@@ -6578,6 +6628,48 @@ describe('analyzeModule - Set assignment validation', () => {
 			'    Set target = vbFalse\n' +
 			'    Set target = xlAbove\n' +
 			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('uses host globals as Set RHS object value types', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim sheet As Worksheet\n' +
+			'    Dim book As Workbook\n' +
+			'    Set sheet = Application\n' +
+			'    Set book = ActiveCell\n' +
+			'    Set sheet = ActiveSheet\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
+
+		expect(hits).toHaveLength(2);
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Application', 'ActiveCell']);
+		expect(hits[0].message).toContain('Application As Excel.Application');
+		expect(hits[1].message).toContain('ActiveCell As Excel.Range');
+	});
+
+	it('allows compatible and generic host global Set assignments', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim app As Application\n' +
+			'    Dim item As Object\n' +
+			'    Set app = Application\n' +
+			'    Set item = ActiveCell\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'assignment-object-type-mismatch')).toHaveLength(0);
+	});
+
+	it('lets source declarations shadow host globals for Set RHS object values', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim sheet As Worksheet\n' +
+			'    Dim Application As Worksheet\n' +
+			'    Dim ActiveCell As Worksheet\n' +
+			'    Set sheet = Application\n' +
+			'    Set sheet = ActiveCell\n' +
+			'End Sub\n';
+
 		expect(byCode(analyzeModule(src), 'assignment-object-type-mismatch')).toHaveLength(0);
 	});
 

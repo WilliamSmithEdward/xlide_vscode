@@ -600,6 +600,21 @@ function resolveRoot(
 		}
 		return projectKey ? projectTypeKey(projectKey) : undefined;
 	}
+	const declared = findDeclaredBinding(source, offset, root);
+	if (declared) {
+		if (declared.asType) {
+			const declaredObjectType = resolveDeclaredObjectType(declared.asType, ctx, model);
+			if (declaredObjectType) {
+				return declaredObjectType;
+			}
+			if (!isGenericObjectDeclaration(declared.asType)) {
+				return undefined;
+			}
+		}
+		return ctx.allowSetAssignmentRefinement === false
+			? undefined
+			: findSetAssignedObjectType(source, offset, root, ctx);
+	}
 	const projectSurface = projectClassMembersByName(ctx).get(lower);
 	const projectKey = projectSurface ? lower : undefined;
 	const runtimeObject = resolveRuntimeObject(root);
@@ -616,16 +631,6 @@ function resolveRoot(
 	}
 	if (projectSurface?.kind === 'standardModule') {
 		return projectTypeKey(lower);
-	}
-	const declaredType = findDeclaredType(source, offset, root);
-	if (declaredType) {
-		const declaredObjectType = resolveDeclaredObjectType(declaredType, ctx, model);
-		if (declaredObjectType) {
-			return declaredObjectType;
-		}
-		if (!isGenericObjectDeclaration(declaredType)) {
-			return undefined;
-		}
 	}
 	return ctx.allowSetAssignmentRefinement === false
 		? undefined
@@ -1158,15 +1163,20 @@ function setAssignment(source: string, stmt: StatementNode): SetAssignment | und
 }
 
 /**
- * Finds the declared `As` type of a local variable, parameter, or module-level
- * variable named `name`, preferring the declaration in the procedure that
- * encloses `offset`. Returns the raw type text, or undefined.
+ * Finds a local variable, parameter, or module-level variable named `name`,
+ * preferring the declaration in the procedure that encloses `offset`. Untyped
+ * declarations still shadow globals, so callers need to know about them even
+ * when there is no raw `As` type text.
  */
-function findDeclaredType(
+interface DeclaredBinding {
+	asType?: string;
+}
+
+function findDeclaredBinding(
 	source: string,
 	offset: number,
 	name: string,
-): string | undefined {
+): DeclaredBinding | undefined {
 	const module: ModuleNode = parseModule(source);
 	const lower = name.toLowerCase();
 
@@ -1179,8 +1189,8 @@ function findDeclaredType(
 
 	if (enclosing) {
 		for (const param of enclosing.params) {
-			if (param.name.toLowerCase() === lower && param.asType) {
-				return param.asType;
+			if (param.name.toLowerCase() === lower) {
+				return { asType: param.asType };
 			}
 		}
 		const local = findInBody(enclosing.body, lower);
@@ -1201,7 +1211,7 @@ function findDeclaredType(
 }
 
 /** Searches a procedure body (recursing into block nodes) for a declaration. */
-function findInBody(body: BodyNode[], lower: string): string | undefined {
+function findInBody(body: BodyNode[], lower: string): DeclaredBinding | undefined {
 	for (const node of body) {
 		if (node.kind === 'VariableGroup') {
 			const hit = matchGroup(node, lower);
@@ -1218,10 +1228,10 @@ function findInBody(body: BodyNode[], lower: string): string | undefined {
 	return undefined;
 }
 
-function matchGroup(group: VariableGroupNode, lower: string): string | undefined {
+function matchGroup(group: VariableGroupNode, lower: string): DeclaredBinding | undefined {
 	for (const decl of group.declarations) {
-		if (decl.name.toLowerCase() === lower && decl.asType) {
-			return decl.asType;
+		if (decl.name.toLowerCase() === lower) {
+			return { asType: decl.asType };
 		}
 	}
 	return undefined;

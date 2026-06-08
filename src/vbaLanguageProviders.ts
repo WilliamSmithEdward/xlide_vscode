@@ -16,6 +16,7 @@ import {
     findIdentifierOccurrences,
     isSmartBlockClosedAhead,
     lineStartOffsets,
+    procedureHeaderParensEdit,
     resolveLoopIteratorSyncEdit,
     smartBlockInsertion,
     VBA_IDENTIFIER_NAME_RE,
@@ -1023,8 +1024,25 @@ const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
     'type',
 ];
 const TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(TYPE_TOKEN_TYPES);
+const TYPE_SEMANTIC_PROJECT_TYPES_CACHE_TTL_MS = 5000;
+const DIAGNOSTIC_OPEN_LOCAL_DELAY_MS = 25;
+const DIAGNOSTIC_OPEN_FULL_DELAY_MS = 150;
+const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
+const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
+
+interface CachedTypeSemanticProjectTypes {
+    at: number;
+    documentVersion: number;
+    projectTypes: VbaProjectAnalysisOptions['projectTypes'];
+}
 
 class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
+    private readonly _onDidChangeSemanticTokens = new vscode.EventEmitter<void>();
+    private readonly _projectTypesCache = new Map<string, CachedTypeSemanticProjectTypes>();
+    private readonly _projectTypeRefreshes = new Set<string>();
+
+    readonly onDidChangeSemanticTokens = this._onDidChangeSemanticTokens.event;
+
     constructor(private readonly _index: VbaSymbolIndex) {}
 
     async provideDocumentSemanticTokens(
@@ -1036,17 +1054,14 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
 
         const source = document.getText();
         const moduleName = moduleNameFromDocument(document);
-        let projectTypes: VbaProjectAnalysisOptions['projectTypes'] = [];
-        try {
-            const project = await liveProjectIndexForDocument(
-                this._index,
-                document,
-                source,
-                moduleName,
-            );
-            projectTypes = projectAnalysisOptionsForModule(project, moduleName).projectTypes ?? [];
-        } catch {
-            projectTypes = [];
+        const projectTypes = document.uri.scheme === XLIDE_SCHEME
+            ? this._cachedProjectTypesForDocument(document, { requireFresh: false }) ?? []
+            : await this._projectTypesForDocument(document, source, moduleName);
+        if (
+            document.uri.scheme === XLIDE_SCHEME &&
+            !this._cachedProjectTypesForDocument(document, { requireFresh: true })
+        ) {
+            this._refreshProjectTypesInBackground(document, source, moduleName);
         }
 
         for (const item of resolveTypeSemanticTokens(source, { projectTypes })) {
@@ -1061,6 +1076,67 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
             );
         }
         return builder.build();
+    }
+
+    private _cachedProjectTypesForDocument(
+        document: vscode.TextDocument,
+        options: { requireFresh?: boolean } = {},
+    ): VbaProjectAnalysisOptions['projectTypes'] | undefined {
+        const cached = this._projectTypesCache.get(document.uri.toString());
+        if (!cached || cached.documentVersion !== document.version) {
+            return undefined;
+        }
+        if (
+            options.requireFresh &&
+            Date.now() - cached.at >= TYPE_SEMANTIC_PROJECT_TYPES_CACHE_TTL_MS
+        ) {
+            return undefined;
+        }
+        return cached.projectTypes;
+    }
+
+    private _refreshProjectTypesInBackground(
+        document: vscode.TextDocument,
+        source: string,
+        moduleName: string,
+    ): void {
+        const key = document.uri.toString();
+        if (this._projectTypeRefreshes.has(key)) {
+            return;
+        }
+        this._projectTypeRefreshes.add(key);
+        void this._projectTypesForDocument(document, source, moduleName)
+            .then(() => this._onDidChangeSemanticTokens.fire())
+            .finally(() => this._projectTypeRefreshes.delete(key));
+    }
+
+    private async _projectTypesForDocument(
+        document: vscode.TextDocument,
+        source: string,
+        moduleName: string,
+    ): Promise<VbaProjectAnalysisOptions['projectTypes']> {
+        const key = document.uri.toString();
+        const cached = this._cachedProjectTypesForDocument(document, { requireFresh: true });
+        if (cached) {
+            return cached;
+        }
+
+        const previous = this._projectTypesCache.get(key);
+        const documentVersion = document.version;
+
+        try {
+            const project = await liveProjectIndexForDocument(
+                this._index,
+                document,
+                source,
+                moduleName,
+            );
+            const projectTypes = projectAnalysisOptionsForModule(project, moduleName).projectTypes ?? [];
+            this._projectTypesCache.set(key, { at: Date.now(), documentVersion, projectTypes });
+            return projectTypes;
+        } catch {
+            return previous?.projectTypes ?? [];
+        }
     }
 }
 
@@ -1077,8 +1153,18 @@ function registerVbaDiagnostics(
     index: VbaSymbolIndex,
 ): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
-    const timers = new Map<string, ReturnType<typeof setTimeout>>();
+    const localTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    const fullTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    const diagnosticGenerations = new Map<string, number>();
+    const completedFullGenerations = new Map<string, number>();
     const workbookSettingsWatchers = new Map<string, vscode.Disposable[]>();
+
+    type DiagnosticPassKind = 'local' | 'full';
+
+    interface DiagnosticScheduleDelays {
+        localDelayMs: number;
+        fullDelayMs?: number;
+    }
 
     const severityToVscode = (s: RuleSeverity): vscode.DiagnosticSeverity => {
         switch (s) {
@@ -1088,9 +1174,24 @@ function registerVbaDiagnostics(
         }
     };
 
-    const run = (document: vscode.TextDocument): void => {
-        void runAsync(document).catch((err) => {
+    const run = (
+        document: vscode.TextDocument,
+        delays: DiagnosticScheduleDelays = { localDelayMs: 0, fullDelayMs: 0 },
+    ): void => {
+        schedule(document, delays);
+    };
+
+    const runPass = (
+        document: vscode.TextDocument,
+        generation: number,
+        pass: DiagnosticPassKind,
+    ): void => {
+        void runPassAsync(document, generation, pass).catch((err) => {
             if (!isVbaDocument(document)) {
+                return;
+            }
+            const key = document.uri.toString();
+            if (!isCurrentDiagnosticRun(document, key, generation, document.version)) {
                 return;
             }
             collection.set(document.uri, [diagnosticForAnalysisRunError(document, err)]);
@@ -1135,14 +1236,23 @@ function registerVbaDiagnostics(
         });
     };
 
-    const runAsync = async (document: vscode.TextDocument): Promise<void> => {
+    const runPassAsync = async (
+        document: vscode.TextDocument,
+        generation: number,
+        pass: DiagnosticPassKind,
+    ): Promise<void> => {
         if (!isVbaDocument(document)) { return; }
+        const key = document.uri.toString();
+        const documentVersion = document.version;
         const config = vscode.workspace.getConfiguration('xlide');
         const settingsDiagnostics = diagnosticsForGlobalSettingsProblems(
             document,
             validateXlideGlobalSettingsFromConfig(config),
         );
         if (!xlideDiagnosticsEnabledFromConfig(config).value) {
+            if (!isCurrentDiagnosticRun(document, key, generation, documentVersion)) {
+                return;
+            }
             if (settingsDiagnostics.length > 0) {
                 collection.set(document.uri, settingsDiagnostics);
             } else {
@@ -1151,11 +1261,7 @@ function registerVbaDiagnostics(
             return;
         }
         const text = document.getText();
-        const diagnostics: vscode.Diagnostic[] = [...settingsDiagnostics];
 
-        // Project-wide names enable cross-module call, type, member, and
-        // Option Explicit checks. Only workbook-backed docs can load the
-        // complete project context.
         const moduleName = moduleNameFromDocument(document);
         let workbookPath: string | undefined;
         let moduleType: string | undefined;
@@ -1167,26 +1273,28 @@ function registerVbaDiagnostics(
                 const { xlsmPath } = decodeModuleUri(document.uri);
                 workbookPath = xlsmPath;
                 ensureWorkbookSettingsWatcher(xlsmPath);
-                const modules = applyOpenDocumentSources(
-                    await index.getAllModules(xlsmPath),
-                    xlsmPath,
-                );
-                const current = modules.find(
-                    (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
-                );
-                moduleType = current?.type;
-                moduleKind = moduleKindFromType(current?.type);
-                documentType = current?.documentType;
-                const project = buildLiveVbaProjectIndex(modules, {
-                    moduleName,
-                    moduleKind,
-                    source: text,
-                });
-                projectOptions = projectAnalysisOptionsForModule(
-                    project,
-                    moduleName,
-                    projectProcedureSignatures(project),
-                );
+                if (pass === 'full') {
+                    const modules = applyOpenDocumentSources(
+                        await index.getAllModules(xlsmPath),
+                        xlsmPath,
+                    );
+                    const current = modules.find(
+                        (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
+                    );
+                    moduleType = current?.type;
+                    moduleKind = moduleKindFromType(current?.type);
+                    documentType = current?.documentType;
+                    const project = buildLiveVbaProjectIndex(modules, {
+                        moduleName,
+                        moduleKind,
+                        source: text,
+                    });
+                    projectOptions = projectAnalysisOptionsForModule(
+                        project,
+                        moduleName,
+                        projectProcedureSignatures(project),
+                    );
+                }
             } catch {
                 projectOptions = {};
             }
@@ -1207,8 +1315,24 @@ function registerVbaDiagnostics(
             ...projectOptions,
             activeIncompleteExpressionOffset,
         });
+        const diagnostics = diagnosticsFromModuleAnalysis(
+            document,
+            moduleAnalysis,
+            analysisSettings.untrackedRules,
+            settingsDiagnostics,
+        );
+        publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics);
+    };
+
+    const diagnosticsFromModuleAnalysis = (
+        document: vscode.TextDocument,
+        moduleAnalysis: ReturnType<typeof analyzeVbaModuleSource>,
+        untrackedRules: readonly string[],
+        settingsDiagnostics: readonly vscode.Diagnostic[],
+    ): vscode.Diagnostic[] => {
+        const diagnostics: vscode.Diagnostic[] = [...settingsDiagnostics];
         for (const d of moduleAnalysis.diagnostics) {
-            if (!isAnalysisRuleTracked(d.code, analysisSettings.untrackedRules)) {
+            if (!isAnalysisRuleTracked(d.code, untrackedRules)) {
                 continue;
             }
             const diag = new vscode.Diagnostic(
@@ -1228,19 +1352,80 @@ function registerVbaDiagnostics(
             }
             diagnostics.push(diag);
         }
+        return diagnostics;
+    };
 
+    const publishDiagnosticsIfCurrent = (
+        document: vscode.TextDocument,
+        key: string,
+        generation: number,
+        documentVersion: number,
+        pass: DiagnosticPassKind,
+        diagnostics: vscode.Diagnostic[],
+    ): void => {
+        if (!isCurrentDiagnosticRun(document, key, generation, documentVersion)) {
+            return;
+        }
+        if (pass === 'local' && completedFullGenerations.get(key) === generation) {
+            return;
+        }
+        if (pass === 'full') {
+            completedFullGenerations.set(key, generation);
+        }
         collection.set(document.uri, diagnostics);
     };
 
-    const schedule = (document: vscode.TextDocument): void => {
+    const isCurrentDiagnosticRun = (
+        document: vscode.TextDocument,
+        key: string,
+        generation: number,
+        documentVersion: number,
+    ): boolean => {
+        return diagnosticGenerations.get(key) === generation &&
+            document.version === documentVersion &&
+            vscode.workspace.textDocuments.includes(document);
+    };
+
+    const nextDiagnosticGeneration = (key: string): number => {
+        const next = (diagnosticGenerations.get(key) ?? 0) + 1;
+        diagnosticGenerations.set(key, next);
+        completedFullGenerations.delete(key);
+        return next;
+    };
+
+    const clearTimer = (
+        timers: Map<string, ReturnType<typeof setTimeout>>,
+        key: string,
+    ): void => {
+        const existing = timers.get(key);
+        if (existing) {
+            clearTimeout(existing);
+            timers.delete(key);
+        }
+    };
+
+    const schedule = (
+        document: vscode.TextDocument,
+        delays: DiagnosticScheduleDelays = {
+            localDelayMs: DIAGNOSTIC_EDIT_LOCAL_DELAY_MS,
+            fullDelayMs: DIAGNOSTIC_EDIT_FULL_DELAY_MS,
+        },
+    ): void => {
         if (!isVbaDocument(document)) { return; }
         const key = document.uri.toString();
-        const existing = timers.get(key);
-        if (existing) { clearTimeout(existing); }
-        timers.set(key, setTimeout(() => {
-            timers.delete(key);
-            run(document);
-        }, 300));
+        const generation = nextDiagnosticGeneration(key);
+        clearTimer(localTimers, key);
+        clearTimer(fullTimers, key);
+        localTimers.set(key, setTimeout(() => {
+            localTimers.delete(key);
+            runPass(document, generation, 'local');
+        }, delays.localDelayMs));
+        if (document.uri.scheme === XLIDE_SCHEME && delays.fullDelayMs !== undefined) {
+            fullTimers.set(key, setTimeout(() => {
+                fullTimers.delete(key);
+                runPass(document, generation, 'full');
+            }, delays.fullDelayMs));
+        }
     };
 
     const workbookKey = (workbookPath: string): string => path.resolve(workbookPath).toLowerCase();
@@ -1306,28 +1491,40 @@ function registerVbaDiagnostics(
 
     context.subscriptions.push(
         collection,
-        vscode.workspace.onDidOpenTextDocument(run),
+        vscode.workspace.onDidOpenTextDocument((document) => schedule(document, {
+            localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
+            fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,
+        })),
         vscode.workspace.onDidChangeTextDocument((e) => schedule(e.document)),
-        vscode.window.onDidChangeTextEditorSelection((e) => schedule(e.textEditor.document)),
         vscode.window.onDidChangeActiveTextEditor(() => {
-            vscode.workspace.textDocuments.forEach(schedule);
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                schedule(editor.document, {
+                    localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
+                    fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,
+                });
+            }
         }),
         vscode.workspace.onDidCloseTextDocument((doc) => {
             const key = doc.uri.toString();
-            const t = timers.get(key);
-            if (t) { clearTimeout(t); timers.delete(key); }
+            clearTimer(localTimers, key);
+            clearTimer(fullTimers, key);
+            nextDiagnosticGeneration(key);
             collection.delete(doc.uri);
             pruneWorkbookSettingsWatchers();
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('xlide.diagnostics') ||
                 e.affectsConfiguration('xlide.analysis')) {
-                vscode.workspace.textDocuments.forEach(run);
+                vscode.workspace.textDocuments.forEach((document) => run(document));
             }
         }),
         { dispose: disposeWorkbookSettingsWatchers },
     );
-    vscode.workspace.textDocuments.forEach(run);
+    vscode.workspace.textDocuments.forEach((document) => schedule(document, {
+        localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
+        fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,
+    }));
 }
 
 class VbaCodeActionProvider implements vscode.CodeActionProvider {
@@ -1472,7 +1669,11 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
 
         const openerLineIndex = change.range.start.line;
         const openerLine = doc.lineAt(openerLineIndex).text;
-        const opener = detectSmartBlockOpener(stripVba(openerLine));
+        const headerParensEdit = procedureHeaderParensEdit(openerLine);
+        const normalizedOpenerLine = headerParensEdit
+            ? `${openerLine.slice(0, headerParensEdit.startCol)}${headerParensEdit.newText}${openerLine.slice(headerParensEdit.endCol)}`
+            : openerLine;
+        const opener = detectSmartBlockOpener(stripVba(normalizedOpenerLine));
         if (!opener) {
             await maybeContinueWithMemberLine(doc, openerLineIndex);
             return;
@@ -1482,6 +1683,7 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         if (bodyLineIndex >= doc.lineCount) { return; }
 
         const strippedLines = doc.getText().split(/\r\n|\r|\n/).map(stripVba);
+        strippedLines[openerLineIndex] = stripVba(normalizedOpenerLine);
         const closedAhead = isSmartBlockClosedAhead(strippedLines, openerLineIndex, opener);
 
         const editor = vscode.window.activeTextEditor;
@@ -1490,7 +1692,7 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
         const bodyLine = doc.lineAt(bodyLineIndex).text;
         if (!/^[ \t]*$/.test(bodyLine)) { return; }
-        const smartBlock = smartBlockInsertion(openerLine, bodyLine, opener, {
+        const smartBlock = smartBlockInsertion(normalizedOpenerLine, bodyLine, opener, {
             eol,
             insertCloser: !closedAhead,
             layout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
@@ -1503,10 +1705,18 @@ function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         applying = true;
         try {
             await editor.edit(
-                (eb) => eb.replace(
-                    bodyRange,
-                    smartBlock.replacementText,
-                ),
+                (eb) => {
+                    if (headerParensEdit) {
+                        eb.insert(
+                            new vscode.Position(openerLineIndex, headerParensEdit.startCol),
+                            headerParensEdit.newText,
+                        );
+                    }
+                    eb.replace(
+                        bodyRange,
+                        smartBlock.replacementText,
+                    );
+                },
                 { undoStopBefore: false, undoStopAfter: true },
             );
         } finally {
@@ -1679,7 +1889,7 @@ export function registerVbaLanguageProviders(
             if (doc.uri.scheme !== XLIDE_SCHEME) { return; }
             try {
                 const { xlsmPath, moduleName } = decodeModuleUri(doc.uri);
-                void index.refreshModule(xlsmPath, moduleName);
+                index.updateModuleSource(xlsmPath, moduleName, doc.getText());
             } catch {
                 // Ignore URIs we cannot decode.
             }

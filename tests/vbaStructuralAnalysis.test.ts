@@ -14,6 +14,7 @@ import {
     smartBlockInsertion,
     withMemberContinuationText,
     normalizeSmartBlockLayout,
+    procedureHeaderParensEdit,
 } from '../src/vbaStructuralAnalysis';
 
 describe('analyzeVbaStructure', () => {
@@ -344,6 +345,41 @@ describe('detectSmartBlockOpener procedure headers', () => {
     });
     it('ignores non-procedures', () => {
         expect(detectSmartBlockOpener('Dim x As Long')).toBeUndefined();
+    });
+});
+
+describe('procedureHeaderParensEdit', () => {
+    it('adds empty parens to parameterless Sub headers', () => {
+        expect(procedureHeaderParensEdit('Sub Test')).toEqual({
+            startCol: 'Sub Test'.length,
+            endCol: 'Sub Test'.length,
+            newText: '()',
+        });
+        expect(procedureHeaderParensEdit('Private Static Sub Test')).toEqual({
+            startCol: 'Private Static Sub Test'.length,
+            endCol: 'Private Static Sub Test'.length,
+            newText: '()',
+        });
+    });
+
+    it('inserts before return types and comments for supported parameterless headers', () => {
+        expect(procedureHeaderParensEdit('Function Total As Long')).toEqual({
+            startCol: 'Function Total'.length,
+            endCol: 'Function Total'.length,
+            newText: '()',
+        });
+        expect(procedureHeaderParensEdit("Public Property Get Name As String ' display name")).toEqual({
+            startCol: 'Public Property Get Name'.length,
+            endCol: 'Public Property Get Name'.length,
+            newText: '()',
+        });
+    });
+
+    it('does not change declared APIs, existing parameter lists, or value properties', () => {
+        expect(procedureHeaderParensEdit('Declare Sub Sleep Lib "kernel32" ()')).toBeUndefined();
+        expect(procedureHeaderParensEdit('Sub Test()')).toBeUndefined();
+        expect(procedureHeaderParensEdit('Property Let Name value As String')).toBeUndefined();
+        expect(procedureHeaderParensEdit('Property Set Name value As Object')).toBeUndefined();
     });
 });
 

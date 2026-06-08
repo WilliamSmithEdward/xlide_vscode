@@ -270,6 +270,12 @@ export interface VbaIdentifierOccurrence {
     text: string;
 }
 
+export interface VbaProcedureHeaderParensEdit {
+    startCol: number;
+    endCol: number;
+    newText: string;
+}
+
 interface SmartOpenBlock {
     kind: BlockKind;
     closer: string;
@@ -387,6 +393,33 @@ export function stripVba(line: string): string {
         out = out.slice(0, rem[1].length) + ' '.repeat(out.length - rem[1].length);
     }
     return out;
+}
+
+export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParensEdit | undefined {
+    const stripped = stripVba(line);
+    const patterns = [
+        new RegExp(
+            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Sub\\s+${VBA_IDENTIFIER_PATTERN})(\\s*)$`,
+            'i',
+        ),
+        new RegExp(
+            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Function\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
+            'i',
+        ),
+        new RegExp(
+            `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Property\\s+Get\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
+            'i',
+        ),
+    ];
+    for (const pattern of patterns) {
+        const match = pattern.exec(stripped);
+        if (!match) {
+            continue;
+        }
+        const col = match[1].length;
+        return { startCol: col, endCol: col, newText: '()' };
+    }
+    return undefined;
 }
 
 /** Precomputes the absolute offset at which each physical line starts. */
