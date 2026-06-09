@@ -395,6 +395,70 @@ describe('ProjectIndex name resolution (go-to-definition)', () => {
 		expect(typeName.definitions[0].kind).toBe('type');
 		expect(typeName.definitions[0].moduleName).toBe('Types');
 	});
+
+	it('models Function and Property Get return variables as local value bindings', () => {
+		const index = new ProjectIndex();
+		const caller =
+			'Public Function GetValue(ByVal index As Long) As String\n' +
+			'    GetValue = "ok"\n' +
+			'    GetValue 1\n' +
+			'    Debug.Print GetValue.Length\n' +
+			'End Function\n' +
+			'\n' +
+			'Public Property Get Name() As String\n' +
+			'    Name = "ok"\n' +
+			'End Property\n';
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: caller });
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source: 'Public Const GetValue As Long = 1\nPublic Const Name As Long = 2\n',
+		});
+
+		const returnAssignment = index.resolveBareIdentifier(
+			'Caller',
+			'GetValue',
+			offsetOf(caller, 'GetValue = "ok"'),
+			'assignmentTarget',
+		);
+		const returnExpression = index.resolveBareIdentifier(
+			'Caller',
+			'GetValue',
+			offsetOf(caller, 'GetValue.Length'),
+			'memberReceiver',
+		);
+		const recursiveCall = index.resolveBareIdentifier(
+			'Caller',
+			'GetValue',
+			offsetOf(caller, 'GetValue 1'),
+			'call',
+		);
+		const propertyReturn = index.resolveBareIdentifier(
+			'Caller',
+			'Name',
+			offsetOf(caller, 'Name = "ok"'),
+			'assignmentTarget',
+		);
+
+		expect(returnAssignment.scope).toBe('local');
+		expect(returnAssignment.definitions[0]).toMatchObject({
+			kind: 'localVariable',
+			name: 'GetValue',
+			asType: 'String',
+			containerName: 'GetValue',
+		});
+		expect(returnExpression.scope).toBe('local');
+		expect(returnExpression.definitions[0].kind).toBe('localVariable');
+		expect(recursiveCall.scope).toBe('module');
+		expect(recursiveCall.definitions[0].kind).toBe('function');
+		expect(propertyReturn.scope).toBe('local');
+		expect(propertyReturn.definitions[0]).toMatchObject({
+			kind: 'localVariable',
+			name: 'Name',
+			asType: 'String',
+			containerName: 'Name',
+		});
+	});
 });
 
 describe('ProjectIndex property and enum resolution', () => {

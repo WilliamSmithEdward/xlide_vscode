@@ -34,6 +34,7 @@ export interface BareIdentifierResolutionInput {
 	name: string;
 	context: BareIdentifierContext;
 	enclosingProcedure?: VbaSymbol;
+	offset?: number;
 	projectVisibleSymbols?: readonly VbaSymbol[];
 }
 
@@ -42,7 +43,7 @@ export function resolveBareIdentifierBinding(
 	input: BareIdentifierResolutionInput,
 ): BareIdentifierResolution {
 	const lowerName = input.name.toLowerCase();
-	const local = localIdentifierMatches(input.enclosingProcedure, lowerName, input.context);
+	const local = localIdentifierMatches(input.enclosingProcedure, lowerName, input.context, input.offset);
 	if (local.length > 0) {
 		return resolution(input, lowerName, ambiguousScope(local, 'local'), local);
 	}
@@ -75,13 +76,20 @@ export function localIdentifierMatches(
 	procedure: VbaSymbol | undefined,
 	lowerName: string,
 	context: BareIdentifierContext,
+	offset?: number,
 ): VbaSymbol[] {
 	if (!procedure || context === 'typeName' || context === 'newExpression') {
 		return [];
 	}
-	return (procedure.children ?? [])
+	const out: VbaSymbol[] = [];
+	const returnVariable = procedureReturnVariable(procedure, context, offset);
+	if (returnVariable?.name.toLowerCase() === lowerName) {
+		out.push(returnVariable);
+	}
+	out.push(...(procedure.children ?? [])
 		.filter((symbol) => isLocalIdentifierSymbol(symbol))
-		.filter((symbol) => symbol.name.toLowerCase() === lowerName);
+		.filter((symbol) => symbol.name.toLowerCase() === lowerName));
+	return out;
 }
 
 export function moduleLevelIdentifierMatches(
@@ -118,6 +126,10 @@ export function sourceIdentifierNames(
 	>,
 ): Set<string> {
 	const out = new Set<string>();
+	const returnVariable = procedureReturnVariable(input.enclosingProcedure, 'expression');
+	if (returnVariable) {
+		out.add(returnVariable.name.toLowerCase());
+	}
 	for (const symbol of input.enclosingProcedure?.children ?? []) {
 		if (isLocalIdentifierSymbol(symbol)) {
 			out.add(symbol.name.toLowerCase());
@@ -135,6 +147,36 @@ export function sourceIdentifierNames(
 		out.add(symbol.name.toLowerCase());
 	}
 	return out;
+}
+
+function procedureReturnVariable(
+	procedure: VbaSymbol | undefined,
+	context: BareIdentifierContext,
+	offset?: number,
+): VbaSymbol | undefined {
+	if (!procedureReturnsThroughName(procedure) || context === 'call') {
+		return undefined;
+	}
+	if (offset !== undefined && offset <= procedure.nameSpan.end) {
+		return undefined;
+	}
+	return {
+		name: procedure.name,
+		kind: 'localVariable',
+		nameSpan: procedure.nameSpan,
+		fullSpan: procedure.nameSpan,
+		moduleName: procedure.moduleName,
+		containerName: procedure.name,
+		asType: procedure.asType,
+		isArray: procedure.isArray,
+		doc: procedure.doc,
+	};
+}
+
+function procedureReturnsThroughName(
+	procedure: VbaSymbol | undefined,
+): procedure is VbaSymbol {
+	return procedure?.kind === 'function' || procedure?.kind === 'propertyGet';
 }
 
 export function isLocalIdentifierSymbol(symbol: VbaSymbol): boolean {

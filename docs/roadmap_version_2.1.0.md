@@ -94,31 +94,40 @@ Developer-experience impact:
 
 Scope:
 
-- [ ] Define the exact bare-identifier precedence ladder for expression
+- [x] Define the exact bare-identifier precedence ladder for expression
   contexts:
   - procedure locals and parameters
-  - procedure labels where syntactically relevant
   - procedure return variables
   - same-module private/public declarations
   - exported standard-module members
   - enum members and UDT/type names where expression use is valid
   - class/document/UserForm code names
   - runtime, host, and external reference symbols
-- [ ] Model shadowing separately for declaration contexts, call contexts,
+- [x] Model shadowing separately for declaration contexts, call contexts,
   assignment targets, member receivers, type positions, and `New` positions.
-- [ ] Preserve no-diagnostic behavior for ambiguous exported names and unknown
+- [x] Preserve no-diagnostic behavior for ambiguous exported names and unknown
   external references until the resolver can prove the target.
-- [ ] Add external-reference constants and globals as an explicit
-  metadata-backed identifier source, with provenance and ambiguity behavior.
-- [ ] Add deterministic arbitrary-expression binding only for proven expression
+- [x] Add external-reference constants and globals as an explicit
+  metadata-backed identifier source, with provenance and ambiguity behavior for
+  verified VBA runtime constants, generated Excel/Office enum constants, and
+  proven host globals. Unknown COM/reference-library symbols remain quiet until
+  Priority 2 metadata proves them.
+- [x] Add deterministic arbitrary-expression binding only for proven expression
   shapes:
   - parenthesized expressions
   - known function/property return values
   - known member chains
   - collection/default-member calls where metadata proves the returned type
   - `With` receivers and nested `With` receiver stacks
-- [ ] Add workbook fixture scenarios covering shadowing, duplicates,
+- [x] Add workbook fixture scenarios covering shadowing, duplicates,
   multi-workbook isolation, live-source overlays, and unresolved external names.
+
+Status: **complete for 2.1.0**. The source-name resolver now owns
+value/call/assignment/member/type/`New` binding. Procedure labels are
+intentionally kept in the procedure-local control-flow label surface, because
+they are not expression identifiers and need different syntax rules.
+Unknown/non-proven host and reference-library symbols remain no-diagnostic by
+policy until Priority 2 metadata promotes them.
 
 Progress:
 
@@ -170,6 +179,12 @@ Progress:
   diagnostics now also receive the project-visible source-name surface, so
   exported workbook names such as constants or enum members suppress bare
   runtime-shaped diagnostics while explicit `VBA.` calls remain runtime-bound.
+- [x] Procedure-return binding closure: the shared resolver now treats the
+  enclosing `Function`/`Property Get` name as its hidden return variable in
+  expression, assignment-target, and member-receiver contexts, while leaving
+  call contexts bound to the callable so recursive calls still resolve
+  correctly. Declaration-site go-to-definition continues to resolve the actual
+  procedure/accessor declarations.
 - [x] Option Explicit and call-diagnostic resolver handoff: undeclared-variable,
   `unknown-call`, and `non-callable-call` now ask the shared source resolver for
   local/module/project bindings at the current procedure site. This keeps local

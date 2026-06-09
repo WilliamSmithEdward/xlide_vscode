@@ -1041,6 +1041,7 @@ export class ProjectIndex {
 			name,
 			context,
 			enclosingProcedure: this.enclosingProcedure(home, offset),
+			offset,
 			projectVisibleSymbols: this.visibleIdentifierSymbols(moduleName),
 		});
 	}
