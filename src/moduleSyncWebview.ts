@@ -510,10 +510,15 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             grid-template-columns: 56px minmax(0, 1fr) 132px;
             gap: 8px;
             align-items: center;
-            padding: 8px 10px 8px 6px;
+            padding: 8px 10px 8px 3px;
             border-bottom: 1px solid var(--border);
+            border-left: 3px solid transparent;
             cursor: pointer;
         }
+        .item.status-create { border-left-color: var(--vscode-gitDecoration-addedResourceForeground); }
+        .item.status-remove, .item.status-error { border-left-color: var(--vscode-gitDecoration-deletedResourceForeground); }
+        .item.status-write { border-left-color: var(--vscode-gitDecoration-modifiedResourceForeground); }
+        .item.status-skip { border-left-color: var(--vscode-editorWarning-foreground); }
         .item:hover, .item.active { background: var(--row); }
         .checkHit {
             width: 52px;
@@ -545,6 +550,9 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .badge.create { color: var(--vscode-gitDecoration-addedResourceForeground); background: var(--added); }
+        .badge.remove, .badge.error { color: var(--vscode-gitDecoration-deletedResourceForeground); background: var(--removed); }
+        .badge.write { color: var(--vscode-gitDecoration-modifiedResourceForeground); background: var(--changed); }
         .badge.skip { color: var(--vscode-editorWarning-foreground); background: var(--warn); }
         .badge.same { color: var(--muted); }
         section {
@@ -613,8 +621,8 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             min-width: 0;
         }
         .line.changed pre { background: var(--changed); }
-        .line.added pre.right { background: var(--added); }
-        .line.removed pre.left { background: var(--removed); }
+        .line.added pre:not(:empty) { background: var(--added); }
+        .line.removed pre:not(:empty) { background: var(--removed); }
         footer {
             min-height: 34px;
             padding: 8px 12px;
@@ -680,7 +688,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
         <main id="layout">
             <aside>
                 <div class="toolbar">
-                    <button class="secondary" id="selectChanged">Select Changed</button>
+                    <button class="secondary" id="selectChanged">Select Pending</button>
                     <button class="secondary" id="clear">Clear</button>
                 </div>
                 <div class="warnings" id="warnings"></div>
@@ -770,6 +778,29 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
 
         function isRelevantItem(item) {
             return item.selectable && item.status !== 'unchanged' && !item.status.startsWith('skipping');
+        }
+
+        function statusTone(item) {
+            if (item.status === 'will-create') return 'create';
+            if (item.status === 'will-remove') return 'remove';
+            if (item.status === 'will-write' || item.status === 'will-update') return 'write';
+            if (item.status === 'unchanged') return 'same';
+            if (item.status.startsWith('skipping')) return 'skip';
+            return 'error';
+        }
+
+        function copyTooltip(item, side, hasCode) {
+            if (hasCode) {
+                return side === 'left' ? 'Copy left code to clipboard.' : 'Copy right code to clipboard.';
+            }
+            const title = side === 'left' ? item.leftTitle : item.rightTitle;
+            if (title.startsWith('Repo:')) {
+                return item.existsInRepo ? 'No repo file code to copy.' : 'Repo file does not exist yet.';
+            }
+            if (title.startsWith('Workbook:')) {
+                return item.existsInWorkbook ? 'No workbook module code to copy.' : 'Workbook module does not exist yet.';
+            }
+            return side === 'left' ? 'No left-side code to copy.' : 'No right-side code to copy.';
         }
 
         function shouldShowWarnings() {
@@ -952,10 +983,10 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             el('modeSource').textContent = \`Source: \${settingsSourceLabel(modeSource)}\`;
             setTooltip('modeSource', \`This mode uses a workbook override when present, otherwise the built-in default.\${settingsPathDescription()}\`);
             updateModeTitle();
-            el('selectChanged').textContent = plan.direction === 'import' ? 'Select Importable' : 'Select Changed';
+            el('selectChanged').textContent = 'Select Pending';
             setTooltip('selectChanged', plan.direction === 'import'
-                ? 'Select every importable row that will create, update, or delete a workbook module under the current import mode.'
-                : 'Select every changed export row that will write or remove files under the current export mode.');
+                ? 'Select every pending import row that will create, update, or delete a workbook module under the current import mode.'
+                : 'Select every pending export row that will create, overwrite, or remove files under the current export mode.');
             setTooltip('clear', 'Clear the current module selection without changing files.');
             setTooltip('apply', plan.direction === 'import'
                 ? 'Apply the selected import changes to the workbook.'
@@ -991,8 +1022,9 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             const list = el('list');
             list.innerHTML = '';
             for (const item of plan.items) {
+                const tone = statusTone(item);
                 const row = document.createElement('div');
-                row.className = 'item' + (item.id === activeId ? ' active' : '');
+                row.className = \`item status-\${tone}\${item.id === activeId ? ' active' : ''}\`;
                 row.dataset.id = item.id;
                 row.setAttribute('aria-selected', item.id === activeId ? 'true' : 'false');
                 const checkHit = document.createElement('div');
@@ -1021,7 +1053,7 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
                 meta.textContent = [item.relativeName, item.moduleType, item.warning].filter(Boolean).join(' | ');
                 text.append(name, meta);
                 const badge = document.createElement('span');
-                badge.className = 'badge' + (item.status.startsWith('skipping') ? ' skip' : item.status === 'unchanged' ? ' same' : '');
+                badge.className = \`badge \${tone}\`;
                 badge.textContent = item.detail || item.status;
                 badge.title = item.warning || item.detail || item.status;
                 row.append(checkHit, text, badge);
@@ -1059,8 +1091,8 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
             el('rightTitle').textContent = item.rightTitle;
             el('copyLeft').disabled = !leftCode;
             el('copyRight').disabled = !rightCode;
-            setTooltip('copyLeft', leftCode ? 'Copy left code to clipboard.' : 'No left-side code to copy.');
-            setTooltip('copyRight', rightCode ? 'Copy right code to clipboard.' : 'No right-side code to copy.');
+            setTooltip('copyLeft', copyTooltip(item, 'left', Boolean(leftCode)));
+            setTooltip('copyRight', copyTooltip(item, 'right', Boolean(rightCode)));
             el('toggleHeaders').disabled = false;
             el('toggleHeaders').textContent = showHeaders ? 'Hide Headers in Diff' : 'Show Headers in Diff';
             el('toggleHeaders').setAttribute('aria-pressed', String(showHeaders));

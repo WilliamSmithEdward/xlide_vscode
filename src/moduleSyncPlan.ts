@@ -36,6 +36,11 @@ export interface ModuleSyncDiffLine {
     kind: 'equal' | 'changed' | 'added' | 'removed';
 }
 
+interface SideBySideDiffOptions {
+    leftOnlyKind?: ModuleSyncDiffLine['kind'];
+    rightOnlyKind?: ModuleSyncDiffLine['kind'];
+}
+
 export interface ModuleSyncPlanItem {
     id: string;
     moduleName: string;
@@ -142,13 +147,13 @@ export async function buildExportModuleSyncPlan(
             existsInRepo,
             unsupportedDirectCreation: false,
             leftTitle: `Workbook: ${mod.name}`,
-            rightTitle: `Repo: ${relativeName}`,
+            rightTitle: exportRepoTitle(relativeName, status),
             leftCode: liveDisplaySource,
             rightCode: repoDisplaySource,
             leftRawCode: liveSource,
             rightRawCode: repoSource,
-            diff: buildSideBySideDiff(liveDisplaySource, repoDisplaySource),
-            diffWithHeaders: buildSideBySideDiff(liveSource, repoSource),
+            diff: buildSideBySideDiff(liveDisplaySource, repoDisplaySource, writeDiffTones()),
+            diffWithHeaders: buildSideBySideDiff(liveSource, repoSource, writeDiffTones()),
         };
     }));
     const staleItems: ModuleSyncPlanItem[] = [];
@@ -181,7 +186,7 @@ export async function buildExportModuleSyncPlan(
                 existsInWorkbook: false,
                 existsInRepo: true,
                 unsupportedDirectCreation: false,
-                leftTitle: `Repo: ${relPath}`,
+                leftTitle: `Repo: ${relPath} (will remove)`,
                 rightTitle: 'Workbook: missing module',
                 leftCode: repoDisplaySource,
                 rightCode: '',
@@ -272,13 +277,13 @@ export async function buildImportModuleSyncPlan(
             existsInRepo: true,
             unsupportedDirectCreation,
             leftTitle: `Repo: ${repo.file}`,
-            rightTitle: `Workbook: ${repo.moduleName}`,
+            rightTitle: importWorkbookTitle(repo.moduleName, status),
             leftCode: repoDisplaySource,
             rightCode: workbookDisplaySource,
             leftRawCode: repo.source,
             rightRawCode: workbookSource,
-            diff: buildSideBySideDiff(repoDisplaySource, workbookDisplaySource),
-            diffWithHeaders: buildSideBySideDiff(repo.source, workbookSource),
+            diff: buildSideBySideDiff(repoDisplaySource, workbookDisplaySource, writeDiffTones()),
+            diffWithHeaders: buildSideBySideDiff(repo.source, workbookSource, writeDiffTones()),
         };
     }));
     const workbookOnlyItems: ModuleSyncPlanItem[] = [];
@@ -306,13 +311,13 @@ export async function buildImportModuleSyncPlan(
                 existsInRepo: false,
                 unsupportedDirectCreation: false,
                 leftTitle: 'Repo: missing file',
-                rightTitle: `Workbook: ${mod.name}`,
+                rightTitle: `Workbook: ${mod.name} (will delete)`,
                 leftCode: '',
                 rightCode: workbookDisplaySource,
                 leftRawCode: '',
                 rightRawCode: workbookSource,
-                diff: buildSideBySideDiff('', workbookDisplaySource),
-                diffWithHeaders: buildSideBySideDiff('', workbookSource),
+                diff: buildSideBySideDiff('', workbookDisplaySource, deleteDiffTones()),
+                diffWithHeaders: buildSideBySideDiff('', workbookSource, deleteDiffTones()),
             });
         }
     }
@@ -334,9 +339,15 @@ export async function buildImportModuleSyncPlan(
     });
 }
 
-export function buildSideBySideDiff(leftText: string, rightText: string): ModuleSyncDiffLine[] {
+export function buildSideBySideDiff(
+    leftText: string,
+    rightText: string,
+    options: SideBySideDiffOptions = {},
+): ModuleSyncDiffLine[] {
     const left = splitLines(leftText);
     const right = splitLines(rightText);
+    const leftOnlyKind = options.leftOnlyKind ?? 'removed';
+    const rightOnlyKind = options.rightOnlyKind ?? 'added';
     const table = lcsTable(left, right);
     const out: ModuleSyncDiffLine[] = [];
     let i = 0;
@@ -368,7 +379,7 @@ export function buildSideBySideDiff(leftText: string, rightText: string): Module
                     leftNumber: i + 1,
                     left: left[i],
                     right: '',
-                    kind: 'removed',
+                    kind: leftOnlyKind,
                 });
                 i++;
             }
@@ -377,20 +388,52 @@ export function buildSideBySideDiff(leftText: string, rightText: string): Module
                 rightNumber: j + 1,
                 left: '',
                 right: right[j],
-                kind: 'added',
+                kind: rightOnlyKind,
             });
             j++;
         }
     }
     while (i < left.length) {
-        out.push({ leftNumber: i + 1, left: left[i], right: '', kind: 'removed' });
+        out.push({ leftNumber: i + 1, left: left[i], right: '', kind: leftOnlyKind });
         i++;
     }
     while (j < right.length) {
-        out.push({ rightNumber: j + 1, left: '', right: right[j], kind: 'added' });
+        out.push({ rightNumber: j + 1, left: '', right: right[j], kind: rightOnlyKind });
         j++;
     }
     return out.length > 0 ? out : [{ left: '', right: '', kind: 'equal' }];
+}
+
+function writeDiffTones(): SideBySideDiffOptions {
+    return { leftOnlyKind: 'added', rightOnlyKind: 'removed' };
+}
+
+function deleteDiffTones(): SideBySideDiffOptions {
+    return { leftOnlyKind: 'removed', rightOnlyKind: 'removed' };
+}
+
+function exportRepoTitle(relativeName: string, status: ModuleSyncItemStatus): string {
+    switch (status) {
+        case 'will-create':
+            return `Repo: ${relativeName} (will create)`;
+        case 'will-write':
+            return `Repo: ${relativeName} (will overwrite)`;
+        default:
+            return `Repo: ${relativeName}`;
+    }
+}
+
+function importWorkbookTitle(moduleName: string, status: ModuleSyncItemStatus): string {
+    switch (status) {
+        case 'will-create':
+            return `Workbook: ${moduleName} (will create)`;
+        case 'will-update':
+            return `Workbook: ${moduleName} (will update)`;
+        case 'skipping-import':
+            return `Workbook: ${moduleName} (cannot create)`;
+        default:
+            return `Workbook: ${moduleName}`;
+    }
 }
 
 export function editorPreviewSource(source: string): string {

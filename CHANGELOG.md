@@ -2,6 +2,19 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.1.1] - 2026-06-09
+
+### Fixed
+
+- Fixed module export/import preview coloring so create rows read as additions,
+  delete rows read as removals, and overwrite/update rows keep modified
+  treatment.
+- Improved sync preview clarity with operation-specific diff titles, semantic
+  status badges, a `Select Pending` action, and clearer copy-button tooltips for
+  missing workbook or repo sides.
+- Rewrote the README for a broader Excel-user audience, putting the main value
+  proposition, getting-started path, and full cross-platform links first.
+
 ## [2.1.0] - 2026-06-09
 
 ### Added

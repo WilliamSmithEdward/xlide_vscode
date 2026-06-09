@@ -84,13 +84,16 @@ describe('module sync plan', () => {
 			status: 'will-write',
 			checked: true,
 			selectable: true,
+			rightTitle: 'Repo: Changed.bas (will overwrite)',
 		});
 		expect(byName.get('NewModule')).toMatchObject({
 			status: 'will-create',
 			checked: true,
 			selectable: true,
+			rightTitle: 'Repo: NewModule.bas (will create)',
 		});
 		expect(byName.get('NewModule')?.warning).toBeUndefined();
+		expect(byName.get('NewModule')?.diff.filter((line) => line.left).every((line) => line.kind === 'added')).toBe(true);
 	});
 
 	it('surfaces true-up stale root module files as removable preview rows', async () => {
@@ -113,6 +116,8 @@ describe('module sync plan', () => {
 			selectable: true,
 			existsInWorkbook: false,
 			existsInRepo: true,
+			leftTitle: 'Repo: Stale.bas (will remove)',
+			rightTitle: 'Workbook: missing module',
 		});
 		expect(stale?.warning).toContain('stale .bas/.cls repo module file');
 	});
@@ -170,6 +175,7 @@ describe('module sync plan', () => {
 			checked: true,
 			selectable: true,
 			unsupportedDirectCreation: false,
+			rightTitle: 'Workbook: Sheet1 (will update)',
 		});
 		expect(byName.get('Sheet1')?.warning).toContain('code can be updated');
 		expect(byName.get('Sheet2')).toMatchObject({
@@ -177,6 +183,7 @@ describe('module sync plan', () => {
 			checked: false,
 			selectable: true,
 			unsupportedDirectCreation: true,
+			rightTitle: 'Workbook: Sheet2 (cannot create)',
 		});
 		expect(byName.get('Sheet2')?.warning).toContain('cannot be created directly');
 		expect(byName.get('UserForm1')).toMatchObject({
@@ -228,14 +235,34 @@ describe('module sync plan', () => {
 			existsInWorkbook: true,
 			existsInRepo: false,
 			detail: 'Will delete workbook module',
+			rightTitle: 'Workbook: StaleStandard (will delete)',
 		});
 		expect(byName.get('StaleClass')).toMatchObject({
 			status: 'will-remove',
 			checked: true,
 			selectable: true,
 		});
+		expect(byName.get('StaleClass')?.diff.filter((line) => line.right).every((line) => line.kind === 'removed')).toBe(true);
 		expect(byName.has('Sheet1')).toBe(false);
 		expect(byName.has('UserForm1')).toBe(false);
+	});
+
+	it('tones import-created source lines as additions', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'NewModule.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
+
+		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+			workbookPath: workbook,
+			importFolder: repo,
+		});
+
+		const item = plan.items[0];
+		expect(item).toMatchObject({
+			moduleName: 'NewModule',
+			status: 'will-create',
+			rightTitle: 'Workbook: NewModule (will create)',
+		});
+		expect(item.diff.filter((line) => line.left).every((line) => line.kind === 'added')).toBe(true);
 	});
 
 	it('ignores frm files in import planning', async () => {

@@ -1,284 +1,269 @@
-﻿# XLIDE - VBA for VS Code
+# XLIDE: VBA for VS Code
 
-Edit Excel VBA projects directly in VS Code. XLIDE turns macro workbooks into
-first-class development projects: browse workbook modules, edit writable
-`xlide-vba` documents, use Smart Enter and IntelliSense, run deterministic
-analysis, sync modules with files, execute macros and workbook tests through
-Excel when needed, and give AI agents workbook-aware tools.
+XLIDE lets Excel users edit, understand, test, and share VBA projects from
+inside Visual Studio Code.
 
----
+If you maintain macro-enabled workbooks, XLIDE gives you a modern coding
+workspace without asking you to abandon Excel. Open an `.xlsm`, `.xlsb`, or
+`.xlam` workbook, browse its VBA modules, edit code with IntelliSense and red
+squiggles, sync modules to files, and run workbook checks before changes reach
+your users.
 
-## Highlights of What's New In Version 2
-
-Version 2 turns XLIDE from a workbook module browser into a fuller VBA
-development environment for VS Code:
-
-- Dedicated XLIDE Activity Bar/sidebar with setup health, selected-workbook
-  actions, global settings, and support commands.
-- Expanded deterministic VBA language service: Smart Enter, block snippets,
-  completions, hover, signature help, semantic type coloring, navigation,
-  rename, and focused code actions.
-- Live, current-module, and workbook-wide analysis with stable rule codes,
-  severity controls, suppressions, workbook/global settings, and a dedicated
-  analysis results panel.
-- Stronger project-aware understanding for visible identifiers, type names,
-  source-backed class members, UDT fields, known runtime signatures, and the
-  first generated Excel host-member surfaces.
-- Previewable import/export sync for workbook modules, backed by the current
-  `<workbook>.xlide_settings.json` sidecar model.
-- Workbook test runner for marked `@xlide-test` procedures, including
-  `XlideAssert`, read-only Excel test execution, artifacts, and CI status output.
-- AI-agent tools for workbook discovery, VBA reads/writes, analysis, tests,
-  sheet/cell I/O, formula reads, module export, and openpyxl automation.
-- Safety and support hardening: explicit workbook mutation, write summaries,
-  settings validation, support bundles, setup diagnostics, and recovery notes.
+[Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
 
 ---
 
-## Start Here
+## Why Use XLIDE
 
-If you are new to using XLIDE, start with the user guides:
+1. **Catch VBA mistakes earlier**
+   XLIDE shows live red and yellow squiggles for many high-confidence VBA
+   problems: missing block closers, duplicate names, undeclared variables,
+   invalid parameter/property shapes, array misuse, bad `Set` usage, common
+   `#If` pitfalls, and more.
 
-| Need | Guide |
-|---|---|
-| First setup and first workbook workflow | [Getting started](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md) |
-| Diagnostics, analysis results, and ignores | [Analysis and ignores](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/analysis.md) |
-| Import/export and module sync | [Import and export](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/sync.md) |
-| Writing and running workbook tests | [Testing VBA workbooks](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md) |
-| AI-agent and CI workflows | [Automation and CI](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md) |
-| Trust model, Excel setup, support bundles, and recovery | [Safety, trust, and support](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/support.md) |
-| Guide index | [User guides README](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/README.md) |
+2. **Edit workbook VBA in a real code editor**
+   Work with workbook modules in VS Code using normal editor habits: tabs,
+   search, save, rename, Go to Definition, Find All References, hover,
+   signature help, formatting-friendly indentation, and semantic coloring.
 
-The sections below are primarily for extension contributors and packagers.
+3. **Get IntelliSense that understands your workbook**
+   Completion and tooltips know about your modules, classes, functions,
+   constants, enums, user-defined types, XML documentation comments, and a broad
+   set of Excel object-model members.
+
+4. **Keep workbook code reviewable**
+   Export modules to `.bas` and `.cls` files, preview exactly what will change,
+   and use source control workflows without guessing what is inside a binary
+   workbook.
+
+5. **Import and export safely**
+   XLIDE previews create, update, overwrite, and delete actions before applying
+   them. Workbook-specific settings live beside the workbook so each project can
+   keep its own sync rules.
+
+6. **Analyze the whole workbook**
+   Run workbook-wide analysis and review findings in a dedicated report instead
+   of hunting through modules one by one.
+
+7. **Run macros and workbook tests when Excel is available**
+   On Windows with Microsoft Excel installed, XLIDE can run macros and
+   `@xlide-test` workbook tests through explicit Excel automation.
+
+8. **Give AI assistants real workbook context**
+   XLIDE exposes tools for workbook discovery, VBA reads/writes, analysis,
+   tests, sheet/cell access, formulas, and module sync so agents can work from
+   the actual workbook instead of stale exported files.
 
 ---
 
-## What XLIDE Does
+## Who It Is For
 
-- Opens `.xlsm`, `.xlsb`, and `.xlam` VBA modules as editable VS Code documents.
-- Saves module edits back to the workbook with normal VS Code save behavior.
-- Provides VBA syntax highlighting, Smart Enter, block snippets, completions,
-  hover, signature help, Go to Definition, Find All References, Rename Symbol,
-  semantic type coloring, and deterministic code actions where XLIDE can prove
-  the edit.
-- Runs live diagnostics, current-module analysis, and workbook-wide analysis
-  with stable rule codes, severity controls, suppressions, and a dedicated
-  analysis results panel.
-- Imports and exports workbook modules through previewable sync GUIs so `.bas`
-  and `.cls` files can be reviewed or source-controlled.
-- Runs macros and marked workbook tests through explicit Excel COM workflows on
-  Windows.
-- Exposes workbook discovery, module editing, analysis, tests, sheet/cell I/O,
-  formula reads, module export, and openpyxl automation as VS Code language
-  model tools.
-- Keeps setup health, global settings, workbook actions, and support commands
-  discoverable from the XLIDE Activity Bar view.
+XLIDE is useful if you:
+
+- Own business-critical Excel workbooks with VBA.
+- Maintain shared macros for finance, operations, reporting, engineering, or
+  internal tools.
+- Want better visibility into old VBA projects before changing them.
+- Need to review workbook code with teammates.
+- Prefer VS Code editing, search, navigation, and source control.
+- Want AI help that can inspect the workbook directly.
+
+You can still open and run the workbook in Excel. XLIDE adds a better workshop
+around the VBA project.
+
+---
+
+## Get Started
+
+1. Install the extension:
+   [XLIDE on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
+
+2. Install Python 3.10 or newer if you do not already have it:
+   [Download Python](https://www.python.org/downloads/)
+
+3. Open a folder in VS Code that contains an `.xlsm`, `.xlsb`, or `.xlam`
+   workbook.
+
+4. Open the XLIDE view in the Activity Bar. If setup is incomplete, use the
+   sidebar buttons to choose Python and install the required Python libraries.
+
+5. Expand your workbook, open a module, and start editing. Press `Ctrl+S` to
+   save code back to the workbook.
+
+Start here for a guided first-hour walkthrough:
+[Getting started with XLIDE](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md)
+
+---
+
+## Everyday Workflow
+
+### Edit VBA modules
+
+Open a workbook in the XLIDE tree, choose a module, edit it in VS Code, and save.
+XLIDE writes the module back to the workbook.
+
+### Fix red squiggles
+
+Live diagnostics appear as you type. For a bigger pass, run **XLIDE: Analyze
+Workbook** from the workbook menu and review the analysis report.
+
+Guide:
+[Analysis and ignores](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/analysis.md)
+
+### Sync code with files
+
+Use **Export Modules to Folder** to create or update `.bas` and `.cls` files.
+Use **Import Modules from Folder** to bring reviewed files back into the
+workbook. XLIDE shows a preview before applying changes.
+
+Guide:
+[Import and export](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/sync.md)
+
+### Run tests
+
+Mark VBA procedures as workbook tests, then run them from XLIDE. Test execution
+requires Microsoft Excel on Windows.
+
+Guide:
+[Testing VBA workbooks](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md)
+
+### Use AI assistants safely
+
+XLIDE gives compatible VS Code AI agents tools to inspect and edit workbook VBA,
+run analysis, export modules, and read worksheet data with explicit workbook
+context.
+
+Guide:
+[Automation and CI](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md)
+
+---
+
+## What XLIDE Adds To VS Code
+
+- Workbook and module tree for `.xlsm`, `.xlsb`, and `.xlam` files.
+- Writable VBA editors backed by the workbook.
+- VBA syntax highlighting and semantic coloring.
+- IntelliSense for workbook symbols, VBA language features, and Excel host
+  objects.
+- Hover, signature help, Go to Definition, Find All References, and Rename
+  Symbol.
+- Smart Enter and block snippets for common VBA structures.
+- Live diagnostics and workbook-wide analysis.
+- Workbook-specific analysis tracking and rule controls.
+- Previewable module import/export.
+- Macro and workbook-test execution on Windows with Excel.
+- Support bundle and diagnostics commands for troubleshooting.
+- Optional performance snapshot command for debugging slow workflows.
 
 ---
 
 ## Requirements
 
-- **VS Code** 1.95+
-- **Python 3.10+** -- the VBA read/write backend runs as a child process
-- Python packages: `pyOpenVBA >= 3.0.1`, `openpyxl >= 3.1.0`
+Required for normal browsing, editing, analysis, import, and export:
 
-Reading, editing, analyzing, importing, exporting, and sheet/cell inspection use
-the Python backend and do not require Excel COM automation.
+- Visual Studio Code 1.95 or newer.
+- Python 3.10 or newer.
+- Python packages installed by XLIDE setup: `pyOpenVBA` and `openpyxl`.
 
-Microsoft Excel COM is required for workflows that execute VBA, such as running
-a macro or running workbook tests. Those execution workflows are Windows-only
-and require the workbook's macro security state to allow execution.
+Required only for running VBA code from XLIDE:
+
+- Windows.
+- Microsoft Excel.
+- Workbook macro settings that allow the code to run.
+
+Reading, editing, analyzing, importing, and exporting workbook VBA do not require
+Excel automation.
+
+Setup and recovery guide:
+[Safety, trust, and support](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/support.md)
 
 ---
 
-## Development setup
+## User Guides
+
+| Need | Guide |
+|---|---|
+| First setup and first workbook workflow | [Getting started](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md) |
+| Diagnostics, analysis results, and ignored findings | [Analysis and ignores](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/analysis.md) |
+| Import/export and module sync | [Import and export](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/sync.md) |
+| Writing and running workbook tests | [Testing VBA workbooks](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md) |
+| XML documentation comments for IntelliSense | [VBA documentation comments](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/vba-doc-comments.md) |
+| AI-agent and CI workflows | [Automation and CI](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md) |
+| Trust model, Excel setup, support bundles, and recovery | [Safety, trust, and support](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/support.md) |
+| Full guide index | [User guides README](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/README.md) |
+
+---
+
+## Common Commands
+
+Open the Command Palette and type `XLIDE` to find these commands:
+
+| Command | Use it when you want to |
+|---|---|
+| `XLIDE: Analyze Workbook` | Review workbook-wide issues in one report. |
+| `XLIDE: Analyze Current Module` | Check only the module you are editing. |
+| `XLIDE: Export All Modules to Folder` | Save workbook code as reviewable source files. |
+| `XLIDE: Import Modules from Folder` | Bring reviewed module files back into the workbook. |
+| `XLIDE: Unit Tests` | Run marked workbook tests through Excel. |
+| `XLIDE: Open Workbook in Excel` | Open the selected workbook in Excel. |
+| `XLIDE: Copy Diagnostics` | Copy setup and environment details for support. |
+| `XLIDE: Export Support Bundle` | Create a troubleshooting bundle. |
+| `XLIDE: Copy Performance Snapshot` | Copy recent timing data when something feels slow. |
+
+---
+
+## Notes And Limits
+
+- XLIDE reads and writes VBA modules through the workbook file. Keep normal
+  backups for important workbooks, especially before large sync operations.
+- Running macros or tests uses Excel automation and is Windows-only.
+- UserForm designer files are not edited directly. XLIDE can work with the VBA
+  code-behind where supported.
+- Live Share guests can view and edit modules the host has already opened, but
+  only the host can browse the XLIDE workbook tree.
+- Exported `.bas` and `.cls` files are useful for review and source control, but
+  the workbook remains the source of truth unless you explicitly import files
+  back into it.
+
+---
+
+## For Developers And Contributors
+
+Repository:
+[https://github.com/WilliamSmithEdward/xlide_vscode](https://github.com/WilliamSmithEdward/xlide_vscode)
 
 ```bash
 git clone https://github.com/WilliamSmithEdward/xlide_vscode.git
 cd xlide_vscode
 
-# TypeScript side
 npm install
-npm run compile        # type-check + esbuild bundle -> out/extension.js
+npm run compile
 
-# Python side (optional venv)
 python -m venv .venv
-.venv\Scripts\activate   # or: source .venv/bin/activate
+.venv\Scripts\activate
 pip install -r python/requirements.txt
 ```
 
-Press **F5** in VS Code to launch an Extension Development Host with the
-extension loaded and the watch compiler running.
+Press `F5` in VS Code to launch an Extension Development Host.
 
----
-
-## Repository Map
-
-```
-xlide_vscode/
-  src/
-    extension.ts              # Activation entry point
-    pythonBridge.ts           # JSON-RPC client for the Python backend
-    xlideFileSystem.ts        # xlide-vba:// writable virtual filesystem
-    xlsmExplorer.ts           # Explorer-hosted workbook/module tree
-    xlideSidebar.ts           # XLIDE Activity Bar/sidebar webview
-    commands.ts               # Workbook, module, analysis, sync, run/test commands
-    agentTools.ts             # VS Code language model tool registrations
-    workbookSettings.ts       # Strict <workbook>.xlide_settings.json owner
-    vbaLanguageProviders.ts   # Editor providers, diagnostics, Smart Enter
-    analyzer/                 # Lexer, parser, binder, diagnostics, completion
-  python/
-    server.py                 # JSON-RPC 2.0 server
-    xlide/
-      vba_io.py               # pyOpenVBA workbook/module operations
-      excel_io.py             # openpyxl sheet/cell/formula operations
-  syntaxes/
-    vba.tmLanguage.json       # TextMate grammar
-  language-configuration/
-    vba-language-configuration.json
-  user_guides/                # Public user guides
-  docs/
-    architecture.md           # Full architecture reference
-    roadmap_version_2.x.md    # Closed v2 launch-hardening roadmap
-    roadmap_version_2.1.0.md  # Completed v2.1.0 red-squiggle closeout
-    roadmap_version_2.2.0.md  # Active v2.2.0 deferred backlog
-```
-
-### Key design decisions
-
-| Decision | Rationale |
-|---|---|
-| Long-lived Python process | Amortizes Python startup across workbook requests |
-| `FileSystemProvider` over `TextDocumentContentProvider` | Read/write virtual FS: Ctrl+S triggers `writeFile` with no custom save command |
-| Virtual URI scheme `xlide-vba://` | Decouples workbook path + module name from the editor's file concept |
-| Shared workbook settings owner | Global settings stay in VS Code; workbook overrides live beside the workbook |
-| Python for workbook I/O, COM only for execution | Basic editing and analysis stay portable; macro/test execution uses Excel COM explicitly |
-| Confirmation on write tools | Prevents AI agents from silently mutating production workbooks where VS Code supports confirmation |
-
-### VBA language ID
-
-Registered as `vba` in `package.json` with extensions `.bas`, `.cls`, `.frm`.
-The TextMate grammar in `syntaxes/vba.tmLanguage.json` is scoped to
-`source.vba` and covers all reserved identifiers from MS-VBAL v20250520
-(section 3.3.5.2: statement-keywords, marker-keywords, operator-identifiers,
-reserved-names, special-forms, reserved-type-identifiers, literal-identifiers,
-def-type directives, and implementation-reserved identifiers).
-
-See [docs/architecture.md](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/architecture.md) for the full architecture,
-Python bridge method list, workbook settings schema, import/export planning,
-and agent-tool implementation notes.
-
----
-
-## Build commands
+Useful development commands:
 
 | Command | Purpose |
 |---|---|
-| `npm run compile` | Type-check + dev bundle |
-| `npm run watch` | Incremental type-check + esbuild watch |
-| `npm test` | Run the Vitest test suite |
-| `npm run package` | Production bundle (minified) |
-| `npm run vsix` | Build a versioned `.vsix` under `dist/` |
-| `npm run test:oracle:vbe` | Optional Excel/VBE oracle checks for language-behavior evidence |
+| `npm run compile` | Type-check and build the extension bundle. |
+| `npm run watch` | Rebuild while developing. |
+| `npm test` | Run the Vitest suite. |
+| `npm run package` | Build a production bundle. |
+| `npm run vsix` | Create a versioned `.vsix` in `dist/`. |
+| `npm run test:oracle:vbe` | Optional Excel/VBE behavior checks. Run oracle checks sequentially. |
 
----
+Architecture reference:
+[XLIDE architecture](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/architecture.md)
 
-## AI Agent Tools
+Roadmaps:
 
-XLIDE contributes VS Code language model tools so Copilot and compatible agents
-can inspect, edit, analyze, test, and sync workbooks without guessing where VBA
-source lives. The workbook and `xlide-vba` virtual modules are the source of
-truth; exported `.bas` and `.cls` files are sync artifacts unless the user asks
-to work with them directly.
-
-Recommended flow:
-
-1. Discover the workbook with `xlide_listWorkbooks` or `xlide_getWorkbookInfo`.
-2. Read workbook VBA with `xlide_readModule`.
-3. Write workbook VBA with `xlide_writeModule` when an edit is approved.
-4. Run `xlide_analyzeWorkbook`.
-5. Run `xlide_runVbaTests` when Excel COM is available and workbook tests exist.
-
-| Tool family | Tools |
-|---|---|
-| Workbook discovery and validation | `xlide_listWorkbooks`, `xlide_getWorkbookInfo`, `xlide_validateWorkbook` |
-| VBA module discovery and editing | `xlide_listModules`, `xlide_listSubs`, `xlide_readModule`, `xlide_writeModule`, `xlide_renameModule`, `xlide_deleteModule` |
-| Analysis and test execution | `xlide_analyzeWorkbook`, `xlide_runVbaTests` |
-| Workbook and worksheet data | `xlide_createWorkbook`, `xlide_listSheets`, `xlide_readCells`, `xlide_readFormulas`, `xlide_writeCells`, `xlide_runOpenpyxl` |
-| Module export/sync | `xlide_exportModules`, `xlide_configureExportMode` |
-
-Most workbook-mutating agent tools request explicit VS Code confirmation before
-writing modules, cells, files, or workbook settings. See the
-[Automation and CI guide](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md) for the supported
-agent/CI workflow.
-
----
-
-## Workbook Settings
-
-Workbook-specific settings are stored beside the workbook as
-`<workbook>.xlide_settings.json`, for example
-`Budget.xlsm.xlide_settings.json`. Prefer the XLIDE import/export, analysis,
-test, and settings GUIs for normal editing; they preserve unrelated settings and
-show the effective source of each value.
-
-```json
-{
-  "exportFolder": "C:/absolute/path/to/export",
-  "exportMode": "exportAll",
-  "importMode": "updateOnly",
-  "analysis": {
-    "visibleSeverities": ["error", "warning", "information"],
-    "untrackedRules": [],
-    "ruleSeverityOverrides": {}
-  },
-  "tests": {
-    "artifactFolder": "tests",
-    "artifactRetention": 20
-  }
-}
-```
-
-Malformed workbook settings are reported as explicit XLIDE settings errors
-instead of being ignored. Global defaults live in VS Code machine/profile
-settings; workbook sidecars contain only workbook-specific overrides.
-
----
-
-## Live Share
-
-XLIDE VBA browsing for Live Share **guests** is currently not supported.
-Microsoft's Live Share platform restricts the shared-service RPC channel
-(`vsls.shareService`) to extensions on a curated first-party allowlist, so
-third-party extensions like XLIDE cannot proxy VBA read/write calls from a
-guest to the host. The XLIDE Explorer therefore returns an empty tree for
-guests and shows an informational welcome view.
-
-What still works in a Live Share session:
-
-| Role | XLIDE behavior |
-|---|---|
-| **Host** | Full local VBA editing -- open, edit, save `.xlsm`/`.xlsb`/`.xlam` modules exactly as if no session were active. |
-| **Guest** | Can fully view and edit any VBA module the host has open in the editor (Live Share shares those buffers normally). Cannot browse the XLIDE Explorer or open new modules independently -- only the host can navigate and open them. XLIDE panel shows a "not supported" notice. |
-| **Guest without XLIDE installed** | No action needed -- XLIDE is host-only. Joining a session does not require the extension. |
-
-Related upstream issue: [microsoft/live-share#4877](https://github.com/microsoft/live-share/issues/4877)
-(third-party `shareService` allowlist, closed as Not Planned).
-
----
-
-## Further reading
-
-- [User guides README](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/README.md) -- public guide index
-- [Getting started guide](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md) -- first-hour XLIDE workflow
-- [Analysis and ignores guide](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/analysis.md) -- diagnostics, settings, suppressions, and tracking
-- [Import and export guide](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/sync.md) -- previewable `.bas`/`.cls` module sync
-- [Testing guide](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md) -- workbook test authoring and execution
-- [Automation guide](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md) -- agent and CI workflows
-- [Safety and support guide](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/support.md) -- trust model, Excel setup, and recovery
-- [docs/architecture.md](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/architecture.md) -- full architecture reference
-- [MS-VBAL specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/)
-- [pyOpenVBA](https://github.com/WilliamSmithEdward/pyOpenVBA)
+- [Version 2.1.0 completed red-squiggle closeout](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.1.0.md)
+- [Version 2.2.0 active roadmap](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.2.0.md)
 
 ---
 
