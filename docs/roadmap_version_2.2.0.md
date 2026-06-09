@@ -1,15 +1,53 @@
 # XLIDE Roadmap Version 2.2.0
 
 Forward backlog moved out of Version 2.1.0 so that 2.1.0 can stay focused on
-red-squiggly completeness, binding/name resolution, host metadata hardening, and
-source-backed object/event authoring.
+the completed red-squiggly completeness, binding/name resolution, host metadata
+hardening, and delivered source-backed object/event diagnostic workstreams.
 
-Version 2.2.0 begins with the lower-priority developer-experience tracks that
-were previously listed as Version 2.1.0 Priority 4 and Priority 5. These items
-remain important, but they should follow the core language-service hardening
-unless customer demand changes.
+Version 2.2.0 now owns all remaining open backlog deferred from Version 2.1.0.
+It begins with the object/member/event authoring continuation that did not ship
+in 2.1.0, then carries the lower-priority developer-experience tracks that were
+previously listed as Version 2.1.0 Priority 4 and Priority 5.
 
-## Priority 1: External Metadata Authoring and Reload
+## Priority 1: Object Member and Event Authoring Continuation
+
+Purpose: finish the source-backed class, document module, UserForm, and event
+authoring work that remains after the Version 2.1.0 red-squiggly diagnostic
+scope.
+
+Developer-experience impact:
+
+- Adds proven source/designer member facts that can safely power
+  `member-not-found`, event signature, and assignment diagnostics.
+- Improves completion and handler authoring for common VBA UI workflows.
+- Makes event signatures, `WithEvents`, and designer-backed controls easier to
+  discover and less error-prone.
+- Extends object intelligence using facts developers already maintain in the
+  workbook.
+
+Scope:
+
+- [ ] Add designer-backed UserForm metadata ingestion sufficient to prove form
+  controls, control types, and control event surfaces.
+- [ ] Offer UserForm form/control event handlers only when designer-backed
+  metadata proves the control/event surface.
+- [ ] Model declared `Event` members with declarations, signatures, visibility,
+  and source spans.
+- [ ] Model `WithEvents` bindings and their event handler authoring surface.
+- [ ] Verify default-member/direct object-expression behavior, including
+  `VB_UserMemId = 0`, before inferring direct object usage such as
+  `textValue = p`.
+- [ ] Extend source member signatures with richer parameter metadata,
+  declaration spans, return/write types, docs, and provenance.
+- [ ] Add document/UserForm designer-backed members to the same object-member
+  contract used by source-backed classes and host metadata.
+
+Definition of done:
+
+- UserForm/document member and event surfaces are deterministic and do not
+  invent controls, events, or members from names alone.
+
+## Priority 2: External Metadata Authoring and Reload
 
 Purpose: let downstream developers describe referenced libraries, add-ins, and
 host extensions that XLIDE cannot parse from workbook source.
@@ -45,7 +83,7 @@ Definition of done:
 - A downstream developer can author metadata, reload it, verify `object.`
   completion, and troubleshoot missing members without reading XLIDE source.
 
-## Priority 2: Workbook-To-Workbook Transfer
+## Priority 3: Workbook-To-Workbook Transfer
 
 Purpose: support explicit module transfer between workbooks without crossing
 analysis scopes or guessing user intent.

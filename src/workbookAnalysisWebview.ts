@@ -22,6 +22,7 @@ import {
 } from './workbookAnalysisSettings';
 import { settingsPathForWorkbook } from './workbookSettings';
 import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { measurePerformance } from './performanceTrace';
 
 export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';
 
@@ -128,6 +129,7 @@ export function openWorkbookAnalysisResults(
     };
 
     const renderPanel = async (): Promise<void> => {
+        await measurePerformance('workbookAnalysis.renderPanel', currentModel.workbookName, async () => {
         currentModel = buildWorkbookAnalysisResultsModel(currentResult);
         const analysisSettings = await effectiveWorkbookAnalysisSettings(currentResult.filePath);
         if (disposed) { return; }
@@ -137,6 +139,7 @@ export function openWorkbookAnalysisResults(
             currentModel,
             analysisSettings,
         );
+        });
     };
     entry.renderPanel = renderPanel;
     openWorkbookAnalysisResultsPanels.set(panelKey, entry);

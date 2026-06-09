@@ -16,6 +16,7 @@ import {
     type XlideSidebarSetupStatus,
     type XlideSidebarWorkbookChoice,
 } from './xlideSidebarModel';
+import { measurePerformance, startPerformanceTrace } from './performanceTrace';
 
 interface XlideSidebarOptions {
     setupStatus?: () => XlideSidebarSetupStatus;
@@ -61,15 +62,24 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     private async _render(): Promise<void> {
+        const trace = startPerformanceTrace('sidebar.render');
         if (!this._view) {
+            trace.end('ok', 'hidden');
             return;
         }
         const version = ++this._refreshVersion;
-        const model = await this._model();
-        if (version !== this._refreshVersion || !this._view) {
-            return;
+        try {
+            const model = await this._model();
+            if (version !== this._refreshVersion || !this._view) {
+                trace.end('superseded');
+                return;
+            }
+            this._view.webview.html = renderXlideSidebarHtml(model);
+            trace.end('ok', `${model.length} nodes`);
+        } catch (err) {
+            trace.end('failed');
+            throw err;
         }
-        this._view.webview.html = renderXlideSidebarHtml(model);
     }
 
     private async _handleMessage(message: unknown): Promise<void> {
@@ -203,6 +213,7 @@ async function workbookFileCount(): Promise<number> {
 }
 
 async function workbookFiles(): Promise<vscode.Uri[]> {
+    return measurePerformance('sidebar.workbookFiles', undefined, async () => {
     const uris = await vscode.workspace.findFiles(
         '**/*.{xlsm,xlsb,xlam}',
         '{**/node_modules/**,**/.venv/**,**/venv/**}',
@@ -210,6 +221,7 @@ async function workbookFiles(): Promise<vscode.Uri[]> {
     return uris
         .filter((uri) => uri.scheme === 'file' && !path.basename(uri.fsPath).startsWith('~$'))
         .sort((left, right) => left.fsPath.localeCompare(right.fsPath));
+    });
 }
 
 async function activeWorkbookContext(

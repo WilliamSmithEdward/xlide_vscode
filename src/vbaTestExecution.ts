@@ -28,6 +28,7 @@ import {
     type VbaTestRunReport,
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
+import { measurePerformance } from './performanceTrace';
 
 export interface VbaTestRunOptions {
     selection?: VbaTestSelectionOptions;
@@ -73,6 +74,7 @@ export async function runWorkbookVbaTests(
     filePath: string,
     options: RunWorkbookVbaTestsOptions = {},
 ): Promise<VbaTestRunExecution> {
+    return measurePerformance('vbaTests.runWorkbook', path.basename(filePath), async () => {
     const log = options.log ?? (() => { /* optional caller logging */ });
     const startedAt = new Date();
     const startedMs = Date.now();
@@ -188,6 +190,7 @@ export async function runWorkbookVbaTests(
         }),
         hostEvents: hostRun.events,
     };
+    });
 }
 
 async function runOwnedReadOnlyExcelTestHost(
@@ -197,6 +200,7 @@ async function runOwnedReadOnlyExcelTestHost(
     options: VbaTestRunOptions,
     log: (message: string) => void,
 ): Promise<OwnedReadOnlyExcelHostRunResult> {
+    return measurePerformance('vbaTests.ownedExcelHost', `${path.basename(filePath)} ${tests.length} tests`, async () => {
     const hostScriptDir = createVbaTestHostTempDir();
     const tempWorkbookPath = path.join(hostScriptDir, path.basename(filePath));
     const hostScriptPath = path.join(hostScriptDir, 'run-vba-tests.ps1');
@@ -589,6 +593,7 @@ async function runOwnedReadOnlyExcelTestHost(
             killOwnedExcel('runner-error');
             finish(hostError);
         });
+    });
     });
 }
 

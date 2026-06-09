@@ -75,7 +75,8 @@ xlide_vscode/
   docs/
     architecture.md     This file
     roadmap_version_2.x.md    Closed v2 launch-hardening roadmap
-    roadmap_version_2.1.0.md  Forward v2.1.0 roadmap
+    roadmap_version_2.1.0.md  Completed v2.1.0 red-squiggle closeout
+    roadmap_version_2.2.0.md  Active v2.2.0 deferred backlog
 
   package.json          Extension manifest, contributes, LM tool declarations
   tsconfig.json         Strict TypeScript config (module: Node16)

@@ -3,6 +3,7 @@ import * as cp from 'child_process';
 import * as path from 'path';
 import * as readline from 'readline';
 import { xlidePythonPathFromConfig } from './globalSettings';
+import { isCancellationLike, startPerformanceTrace } from './performanceTrace';
 
 interface JsonRpcRequest {
     jsonrpc: '2.0';
@@ -97,8 +98,9 @@ export class PythonBridge implements vscode.Disposable {
         const serverDir = path.dirname(serverScript);
 
         this._out.appendLine(`Starting Python bridge: ${pythonPath} ${serverScript}`);
+        const trace = startPerformanceTrace('pythonBridge.start', pythonPath);
 
-        this._startPromise = new Promise<void>((resolve, reject) => {
+        const startPromise = new Promise<void>((resolve, reject) => {
             this._readyResolve = resolve;
             this._readyReject = reject;
 
@@ -162,6 +164,15 @@ export class PythonBridge implements vscode.Disposable {
             const rl = readline.createInterface({ input: proc.stdout! });
             rl.on('line', (line) => this._onLine(line));
         });
+        this._startPromise = startPromise.then(
+            () => {
+                trace.end('ok', pythonPath);
+            },
+            (err) => {
+                trace.end('failed', pythonPath);
+                throw err;
+            },
+        );
         return this._startPromise;
     }
 
@@ -217,6 +228,7 @@ export class PythonBridge implements vscode.Disposable {
     }
 
     call<T = unknown>(method: string, params?: unknown, token?: vscode.CancellationToken): Promise<T> {
+        const trace = startPerformanceTrace('pythonBridge.call', method);
         const doSend = (): Promise<T> => new Promise<T>((resolve, reject) => {
             if (token?.isCancellationRequested) {
                 reject(new vscode.CancellationError());
@@ -253,13 +265,24 @@ export class PythonBridge implements vscode.Disposable {
             }
         });
 
+        let promise: Promise<T>;
         if (this._ready) {
-            return doSend();
+            promise = doSend();
         } else if (this._startPromise) {
-            return this._startPromise.then(() => doSend());
+            promise = this._startPromise.then(() => doSend());
         } else {
-            return Promise.reject(new Error('XLIDE: Python bridge not started.'));
+            promise = Promise.reject(new Error('XLIDE: Python bridge not started.'));
         }
+        return promise.then(
+            (value) => {
+                trace.end('ok', method);
+                return value;
+            },
+            (err) => {
+                trace.end(isCancellationLike(err) ? 'canceled' : 'failed', method);
+                throw err;
+            },
+        );
     }
 
     private _rejectAll(err: Error): void {

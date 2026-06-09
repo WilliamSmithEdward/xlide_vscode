@@ -5,6 +5,7 @@ import type { LiveShareIntegration } from './liveShare';
 import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
 import { errorCategoryForSupportLog } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
+import { startPerformanceTrace } from './performanceTrace';
 
 export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
@@ -178,16 +179,25 @@ export class XlideFileSystemProvider
 
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
         if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
+            const trace = startPerformanceTrace('filesystem.readFile', 'liveshare');
             if (!this._liveShare) {
+                trace.end('failed', 'liveshare');
                 throw vscode.FileSystemError.Unavailable('XLIDE: Live Share integration not initialized.');
             }
             const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
-            const source = await this._liveShare.guestReadModule(workbookId, moduleName);
-            const bytes = Buffer.from(source, 'utf-8');
-            this.updateSize(uri, bytes.byteLength);
-            return bytes;
+            try {
+                const source = await this._liveShare.guestReadModule(workbookId, moduleName);
+                const bytes = Buffer.from(source, 'utf-8');
+                this.updateSize(uri, bytes.byteLength);
+                trace.end('ok', moduleName);
+                return bytes;
+            } catch (err) {
+                trace.end('failed', moduleName);
+                throw err;
+            }
         }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
+        const trace = startPerformanceTrace('filesystem.readFile', moduleName);
         try {
             const result = await this._bridge.call<{ source: string }>(
                 'readModule',
@@ -195,8 +205,10 @@ export class XlideFileSystemProvider
             );
             const bytes = Buffer.from(result.source, 'utf-8');
             this.updateSize(uri, bytes.byteLength);
+            trace.end('ok', moduleName);
             return bytes;
         } catch (err) {
+            trace.end('failed', moduleName);
             const message = err instanceof Error ? err.message : String(err);
             if (isWorkbookLockedError(message)) {
                 reportWorkbookLocked(xlsmPath, 'read');
@@ -215,29 +227,38 @@ export class XlideFileSystemProvider
     ): Promise<void> {
         const source = Buffer.from(content).toString('utf-8');
         if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
+            const trace = startPerformanceTrace('filesystem.writeFile', 'liveshare');
             if (!this._liveShare) {
+                trace.end('failed', 'liveshare');
                 throw vscode.FileSystemError.Unavailable('XLIDE: Live Share integration not initialized.');
             }
             const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
-            await this._liveShare.guestWriteModule(workbookId, moduleName, source);
-            const summary = formatChangeSummary({
-                operation: 'Save module',
-                changed: [moduleName],
-            });
-            recordXlideWriteAudit({
-                timestamp: new Date().toISOString(),
-                command: 'xlide.editorSave',
-                operation: 'write-module',
-                outcome: 'succeeded',
-                moduleName,
-                targetPath: workbookId,
-                summary,
-            });
-            this.markChanged(uri, Buffer.byteLength(source, 'utf-8'));
-            this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
-            return;
+            try {
+                await this._liveShare.guestWriteModule(workbookId, moduleName, source);
+                const summary = formatChangeSummary({
+                    operation: 'Save module',
+                    changed: [moduleName],
+                });
+                recordXlideWriteAudit({
+                    timestamp: new Date().toISOString(),
+                    command: 'xlide.editorSave',
+                    operation: 'write-module',
+                    outcome: 'succeeded',
+                    moduleName,
+                    targetPath: workbookId,
+                    summary,
+                });
+                this.markChanged(uri, Buffer.byteLength(source, 'utf-8'));
+                this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+                trace.end('ok', moduleName);
+                return;
+            } catch (err) {
+                trace.end('failed', moduleName);
+                throw err;
+            }
         }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
+        const trace = startPerformanceTrace('filesystem.writeFile', moduleName);
         try {
             const result = await this._bridge.call<{ ok: boolean; signatureDropped: boolean }>(
                 'writeModule',
@@ -262,6 +283,7 @@ export class XlideFileSystemProvider
                 summary,
             });
         } catch (err) {
+            trace.end('failed', moduleName);
             const message = err instanceof Error ? err.message : String(err);
             recordXlideWriteAudit({
                 timestamp: new Date().toISOString(),
@@ -283,6 +305,7 @@ export class XlideFileSystemProvider
         }
         this.markChanged(uri, Buffer.byteLength(source, 'utf-8'));
         this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+        trace.end('ok', moduleName);
     }
 
     // Public method for agent tools to notify that a file has changed

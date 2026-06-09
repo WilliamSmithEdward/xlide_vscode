@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { measurePerformance } from './performanceTrace';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
 
@@ -141,12 +142,14 @@ export function openVbaTestsPanel(
     };
 
     const renderPanel = async (): Promise<void> => {
+        await measurePerformance('vbaTests.renderPanel', path.basename(filePath), async () => {
         const model = await entry.options.getModel();
         if (disposed) {
             return;
         }
         panel.title = `XLIDE Tests: ${model.workbookName}`;
         panel.webview.html = renderVbaTestsHtml(panel.webview, model);
+        });
     };
     entry.refresh = renderPanel;
     openVbaTestsPanels.set(panelKey, entry);

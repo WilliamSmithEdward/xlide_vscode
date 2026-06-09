@@ -2,6 +2,70 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.1.0] - 2026-06-09
+
+### Added
+
+- Added module-qualified procedure, function, constant, enum, and exported
+  global resolution across diagnostics, completion, hover, signature help,
+  rename, and Option Explicit checks.
+- Added module-level XML documentation comment support so module summaries and
+  member comments flow through IntelliSense surfaces.
+- Added `XLIDE: Copy Performance Snapshot` and optional
+  `xlide.performance.trace` output logging so editor, analysis, backend,
+  virtual filesystem, sidebar, sync, documentation metadata, and VBA test
+  latency can be diagnosed from one recent timing buffer.
+- Expanded performance trace coverage across Python bridge startup/RPC calls,
+  `xlide-vba://` reads/writes, workbook analysis stages, sidebar workbook
+  discovery/rendering, module sync/export previews, analysis/test result
+  webviews, documentation metadata reloads, and owned Excel test execution.
+- Promoted a large wave of Excel host metadata for completion, hover, signature
+  help, and receiver-chain inference, including WorksheetFunction, Pivot
+  objects, QueryTables, chart internals, ShapeRange, comments, sort/filter
+  helpers, form controls/OLEObjects, workbook connections, slicers/timelines,
+  shape and chart formatting internals, conditional formatting subtypes,
+  legacy drawing objects, sparklines, XML maps, publish objects, and web options.
+
+### Changed
+
+- Refocused and closed the Version 2.1.0 roadmap as the completed
+  red-squiggle completeness sprint, with parser, binder, diagnostics, host
+  metadata, rename, IntelliSense, and performance work prioritized by
+  developer-experience impact.
+- Moved all remaining open 2.1.0 backlog into `docs/roadmap_version_2.2.0.md`,
+  with object member/event authoring continuation as the new 2.2 Priority 1.
+- Aligned normal module rename behavior with the shared module-rename strategy
+  so module-qualified references update consistently outside the class-module
+  tree path.
+- Moved user-facing documentation comment guidance into the user guides area and
+  recorded internal oracle discipline for sequential, non-parallel runs.
+- Improved workbook context and analysis responsiveness with bounded parallel
+  module analysis, more explicit trace stages, cancellation/supersession
+  handling, and cache pruning for editor project context.
+- Changed XLIDE VBA editor defaults to use 4-space indentation and a quieter
+  minimap/overview-ruler profile for large generated or workbook-backed modules.
+
+### Fixed
+
+- Hardened shared expression binding and name resolution for bare and
+  module-qualified identifiers, procedure return variables, exported globals,
+  constants, enum members, arrays, `With` receivers, source-shadowed runtime
+  names, and host globals.
+- Reduced false positives from live workbook testing around Option Explicit,
+  module-qualified calls/reads, Attribute metadata placement, function return
+  checks, array-return assignments, inactive `#If` branches, `VBA7`/platform
+  defaults, parser-recovered procedure headers, and late-bound object/Variant
+  receiver behavior.
+- Expanded high-confidence red diagnostics for declaration order, parameter and
+  property shapes, duplicate labels, enum ambiguity, conditional branch order,
+  `For`/`Next` variable mismatches, `For Each` control/source typing,
+  `ReDim`/`Erase`/`LBound`/`UBound` array misuse, deterministic runtime
+  conversions, `Null`, `CVErr`, scalar/object `Set` usage, ByRef binding, and
+  straight-line object-variable-not-set cases.
+- Fixed source-shadowed runtime names, intrinsic/host-global resolution pressure,
+  `With` receiver lookup, enum member ambiguity, and module-qualified exported
+  member lookup in red-squiggle diagnostics and IntelliSense.
+
 ## [2.0.2] - 2026-06-04
 
 ### Fixed

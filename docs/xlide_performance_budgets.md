@@ -44,7 +44,8 @@ UI thread and should report long-running work clearly.
 - Use `XLIDE: Copy Performance Snapshot` after reproducing latency in the
   editor. The snapshot includes recent timings for completion, hover, signature
   help, semantic tokens, live diagnostics, workbook context indexing, tree
-  expansion, commands, and workbook analysis stages.
+  expansion, commands, backend RPCs, virtual file reads/writes, workbook
+  analysis, module sync/export, documentation metadata, and VBA test stages.
 - Set `xlide.performance.trace` to `true` only while debugging latency. It writes
   slow trace events to the XLIDE output channel; the snapshot command remains
   available without enabling verbose output logging.
@@ -84,3 +85,15 @@ Important trace names:
 - `analyzeWorkbook.buildProjectContext`, `analyzeWorkbook.settings`,
   `analyzeWorkbook.analyzeModule`, `analyzeWorkbook.total`
 - `command`
+- `pythonBridge.start`, `pythonBridge.call`
+- `filesystem.readFile`, `filesystem.writeFile`
+- `docs.reload`
+- `sidebar.render`, `sidebar.workbookFiles`
+- `moduleExport.single`, `moduleExport.workbook`
+- `moduleSync.buildExportPlan`, `moduleSync.buildImportPlan`,
+  `moduleSync.renderHtml`, `moduleSync.refreshFromDisk`,
+  `moduleSync.refreshWorkbookSettings`, `moduleSync.refreshSettings`,
+  `moduleSync.chooseFolder`, `moduleSync.apply`
+- `workbookAnalysis.renderPanel`
+- `vbaTests.discoverWorkbook`, `vbaTests.runWorkbook`,
+  `vbaTests.ownedExcelHost`, `vbaTests.renderPanel`

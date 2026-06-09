@@ -9,6 +9,7 @@ import {
     effectiveWorkbookModuleSyncSettings,
     updateWorkbookModuleSyncSettings,
 } from './workbookModuleSyncSettings';
+import { measurePerformance } from './performanceTrace';
 
 interface ModuleInfo {
     name: string;
@@ -121,6 +122,7 @@ async function exportWorkbookModule(
     bridge: PythonBridge,
     params: ExportModuleParams,
 ): Promise<ExportModuleResult> {
+    return measurePerformance('moduleExport.single', params.moduleName, async () => {
     const existingSettings = await effectiveWorkbookModuleSyncSettings(params.filePath);
     const exportFolder = params.exportFolder ?? existingSettings.folderPath;
     if (!exportFolder) {
@@ -156,12 +158,14 @@ async function exportWorkbookModule(
         writtenFiles: exported.written ? [exported.relativeName] : [],
         configPath: updatedSettings.settingsPath,
     };
+    });
 }
 
 async function exportWorkbookModules(
     bridge: PythonBridge,
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
+    return measurePerformance('moduleExport.workbook', path.basename(params.filePath), async () => {
     const existingSettings = await effectiveWorkbookModuleSyncSettings(params.filePath);
     const exportFolder = params.exportFolder ?? existingSettings.folderPath;
     if (!exportFolder) {
@@ -222,6 +226,7 @@ async function exportWorkbookModules(
         totalModules: modules.length,
         configPath: updatedSettings.settingsPath,
     };
+    });
 }
 
 export {

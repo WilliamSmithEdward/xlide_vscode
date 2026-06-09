@@ -140,7 +140,8 @@ xlide_vscode/
   docs/
     architecture.md           # Full architecture reference
     roadmap_version_2.x.md    # Closed v2 launch-hardening roadmap
-    roadmap_version_2.1.0.md  # v2.1.0 red-squiggle roadmap
+    roadmap_version_2.1.0.md  # Completed v2.1.0 red-squiggle closeout
+    roadmap_version_2.2.0.md  # Active v2.2.0 deferred backlog
 ```
 
 ### Key design decisions

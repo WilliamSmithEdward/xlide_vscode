@@ -13,6 +13,7 @@ import {
     type ExportMode,
     type WorkbookSettingSource,
 } from './workbookSettings';
+import { measurePerformance } from './performanceTrace';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
@@ -103,6 +104,7 @@ export async function buildExportModuleSyncPlan(
         settingsPath?: string;
     },
 ): Promise<ModuleSyncPlan> {
+    return measurePerformance('moduleSync.buildExportPlan', path.basename(params.workbookPath), async () => {
     const exportMode = normalizeExportMode(params.exportMode);
     await fs.promises.mkdir(params.exportFolder, { recursive: true });
     const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.workbookPath });
@@ -203,6 +205,7 @@ export async function buildExportModuleSyncPlan(
         items: [...items, ...staleItems].sort(compareSyncItems),
         warnings: [],
     };
+    });
 }
 
 export async function buildImportModuleSyncPlan(
@@ -216,6 +219,7 @@ export async function buildImportModuleSyncPlan(
         settingsPath?: string;
     },
 ): Promise<ModuleSyncPlan> {
+    return measurePerformance('moduleSync.buildImportPlan', path.basename(params.workbookPath), async () => {
     const importMode = normalizeImportMode(params.importMode);
     const liveModules = await bridge.call<ModuleInfo[]>('listModules', { path: params.workbookPath });
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
@@ -327,6 +331,7 @@ export async function buildImportModuleSyncPlan(
             .filter((item) => item.unsupportedDirectCreation)
             .map((item) => `${item.moduleName}: skipping import unless the module already exists in the workbook.`),
     };
+    });
 }
 
 export function buildSideBySideDiff(leftText: string, rightText: string): ModuleSyncDiffLine[] {

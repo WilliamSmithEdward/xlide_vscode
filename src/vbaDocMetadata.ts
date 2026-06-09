@@ -16,6 +16,7 @@ import {
 	xlideDocsEnabledFromConfig,
 	xlideDocsMetadataGlobFromConfig,
 } from './globalSettings';
+import { startPerformanceTrace } from './performanceTrace';
 
 const EXCLUDE_GLOB = '**/node_modules/**';
 const RELOAD_DEBOUNCE_MS = 250;
@@ -66,25 +67,31 @@ export class DocMetadataLoader {
 
 	/** Re-reads every metadata file and rebuilds the registry. */
 	async reload(): Promise<void> {
+		const trace = startPerformanceTrace('docs.reload');
 		this._registry.clear();
 		if (!docsEnabled()) {
+			trace.end('ok', 'disabled');
 			return;
 		}
 		let uris: vscode.Uri[];
 		try {
 			uris = await vscode.workspace.findFiles(metadataGlob(), EXCLUDE_GLOB);
 		} catch {
+			trace.end('failed', 'findFiles');
 			return;
 		}
+		let loadedCount = 0;
 		for (const uri of uris) {
 			try {
 				const bytes = await vscode.workspace.fs.readFile(uri);
 				const text = Buffer.from(bytes).toString('utf8');
 				this._registry.add(parseMetadataFile(text));
+				loadedCount++;
 			} catch {
 				// Skip files we cannot read or parse; others still load.
 			}
 		}
+		trace.end('ok', `${loadedCount}/${uris.length} files`);
 	}
 
 	private _installWatcher(): void {

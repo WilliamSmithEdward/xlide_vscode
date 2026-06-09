@@ -2,6 +2,9 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import {
     clearPerformanceTrace,
     formatPerformanceSnapshot,
+    isCancellationLike,
+    measurePerformance,
+    measurePerformanceSync,
     recentPerformanceTraceEntries,
     recordPerformanceTrace,
 } from '../src/performanceTrace';
@@ -47,5 +50,30 @@ describe('performanceTrace', () => {
         expect(snapshot).toContain('XLIDE Performance Snapshot');
         expect(snapshot).toContain('[perf] 2026-01-01T00:00:00.000Z completion ok 10 ms');
         expect(snapshot).toContain('completion: count=2, avg=20.0 ms, max=30 ms');
+    });
+
+    it('records failed async measurements and rethrows', async () => {
+        await expect(measurePerformance('pythonBridge.call', 'readModule', async () => {
+            throw new Error('boom');
+        })).rejects.toThrow('boom');
+
+        const [entry] = recentPerformanceTraceEntries();
+        expect(entry.name).toBe('pythonBridge.call');
+        expect(entry.detail).toBe('readModule');
+        expect(entry.outcome).toBe('failed');
+    });
+
+    it('records canceled sync measurements and rethrows', () => {
+        expect(() => measurePerformanceSync('completion', 'member', () => {
+            const err = new Error('Canceled by newer request');
+            err.name = 'CancellationError';
+            throw err;
+        })).toThrow('Canceled by newer request');
+
+        const [entry] = recentPerformanceTraceEntries();
+        expect(entry.name).toBe('completion');
+        expect(entry.detail).toBe('member');
+        expect(entry.outcome).toBe('canceled');
+        expect(isCancellationLike({ name: 'CancellationError', message: '' })).toBe(true);
     });
 });

@@ -167,6 +167,7 @@ function isCancellationLike(err: unknown): boolean {
 export {
     clearPerformanceTrace,
     formatPerformanceSnapshot,
+    isCancellationLike,
     measurePerformance,
     measurePerformanceSync,
     recentPerformanceTraceEntries,

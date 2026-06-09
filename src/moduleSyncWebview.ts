@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ImportMode, ModuleSyncFolderSource, ModuleSyncModeSource, ModuleSyncPlan } from './moduleSyncPlan';
 import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
+import { measurePerformance, measurePerformanceSync } from './performanceTrace';
 
 export interface ModuleSyncApplyResult {
     summary: string;
@@ -152,13 +153,15 @@ export function openModuleSyncPreview(
                 return;
             }
             try {
-                await panel.webview.postMessage({ type: 'refreshing', message: 'Disk changes detected. Refreshing preview...' });
-                await runExclusive(async () => {
-                    updateCurrentPlan(await refresh(settingsFromPlan(currentPlan)));
-                    await panel.webview.postMessage({
-                        type: 'plan',
-                        plan: currentPlan,
-                        message: 'Disk changes detected. Preview refreshed.',
+                await measurePerformance('moduleSync.refreshFromDisk', currentPlan.direction, async () => {
+                    await panel.webview.postMessage({ type: 'refreshing', message: 'Disk changes detected. Refreshing preview...' });
+                    await runExclusive(async () => {
+                        updateCurrentPlan(await refresh(settingsFromPlan(currentPlan)));
+                        await panel.webview.postMessage({
+                            type: 'plan',
+                            plan: currentPlan,
+                            message: 'Disk changes detected. Preview refreshed.',
+                        });
                     });
                 });
             } catch (err) {
@@ -176,19 +179,21 @@ export function openModuleSyncPreview(
                 return;
             }
             try {
-                await panel.webview.postMessage({ type: 'refreshing', message: 'Workbook settings changed. Refreshing preview...' });
-                await runExclusive(async () => {
-                    const nextPlan = await reload();
-                    if (nextPlan) {
-                        updateCurrentPlan(nextPlan);
-                        await panel.webview.postMessage({
-                            type: 'plan',
-                            plan: currentPlan,
-                            message: 'Workbook settings changed. Preview refreshed.',
-                        });
-                    } else {
-                        await panel.webview.postMessage({ type: 'ready' });
-                    }
+                await measurePerformance('moduleSync.refreshWorkbookSettings', currentPlan.direction, async () => {
+                    await panel.webview.postMessage({ type: 'refreshing', message: 'Workbook settings changed. Refreshing preview...' });
+                    await runExclusive(async () => {
+                        const nextPlan = await reload();
+                        if (nextPlan) {
+                            updateCurrentPlan(nextPlan);
+                            await panel.webview.postMessage({
+                                type: 'plan',
+                                plan: currentPlan,
+                                message: 'Workbook settings changed. Preview refreshed.',
+                            });
+                        } else {
+                            await panel.webview.postMessage({ type: 'ready' });
+                        }
+                    });
                 });
             } catch (err) {
                 const error = err instanceof Error ? err.message : String(err);
@@ -207,7 +212,11 @@ export function openModuleSyncPreview(
             workbookSettingsWatcher.onDidDelete(() => queueWorkbookSettingsRefresh()),
             workbookSettingsWatcher,
         ];
-        panel.webview.html = renderModuleSyncHtml(panel.webview, currentPlan);
+        panel.webview.html = measurePerformanceSync(
+            'moduleSync.renderHtml',
+            `${currentPlan.direction}:${currentPlan.items.length} items`,
+            () => renderModuleSyncHtml(panel.webview, currentPlan),
+        );
         const messageSub = panel.webview.onDidReceiveMessage(async (message: {
             type?: string;
             selectedIds?: string[];
@@ -245,19 +254,21 @@ export function openModuleSyncPreview(
                 }
                 await panel.webview.postMessage({ type: 'refreshing' });
                 try {
-                    await runExclusive(async () => {
-                        const nextPlan = await chooseFolder(settingsFromMessage(currentPlan, message));
-                        if (nextPlan) {
-                            updateCurrentPlan(nextPlan);
-                            await panel.webview.postMessage({
-                                type: 'plan',
-                                plan: currentPlan,
-                                message: 'Settings updated. Review the refreshed diff before applying.',
-                                autoSaveSettings: true,
-                            });
-                        } else {
-                            await panel.webview.postMessage({ type: 'ready' });
-                        }
+                    await measurePerformance('moduleSync.chooseFolder', currentPlan.direction, async () => {
+                        await runExclusive(async () => {
+                            const nextPlan = await chooseFolder(settingsFromMessage(currentPlan, message));
+                            if (nextPlan) {
+                                updateCurrentPlan(nextPlan);
+                                await panel.webview.postMessage({
+                                    type: 'plan',
+                                    plan: currentPlan,
+                                    message: 'Settings updated. Review the refreshed diff before applying.',
+                                    autoSaveSettings: true,
+                                });
+                            } else {
+                                await panel.webview.postMessage({ type: 'ready' });
+                            }
+                        });
                     });
                 } catch (err) {
                     const error = err instanceof Error ? err.message : String(err);
@@ -272,13 +283,15 @@ export function openModuleSyncPreview(
                 }
                 await panel.webview.postMessage({ type: 'refreshing' });
                 try {
-                    await runExclusive(async () => {
-                        updateCurrentPlan(await refresh(settingsFromMessage(currentPlan, message)));
-                        await panel.webview.postMessage({
-                            type: 'plan',
-                            plan: currentPlan,
-                            message: 'Settings updated. Review the refreshed diff before applying.',
-                            autoSaveSettings: message.autoSaveSettings === true,
+                    await measurePerformance('moduleSync.refreshSettings', currentPlan.direction, async () => {
+                        await runExclusive(async () => {
+                            updateCurrentPlan(await refresh(settingsFromMessage(currentPlan, message)));
+                            await panel.webview.postMessage({
+                                type: 'plan',
+                                plan: currentPlan,
+                                message: 'Settings updated. Review the refreshed diff before applying.',
+                                autoSaveSettings: message.autoSaveSettings === true,
+                            });
                         });
                     });
                 } catch (err) {
@@ -312,10 +325,12 @@ export function openModuleSyncPreview(
             const selectedIds = message.selectedIds ?? [];
             await panel.webview.postMessage({ type: 'applying' });
             try {
-                await runExclusive(async () => {
-                    const result = await onApply(currentPlan, selectedIds);
-                    await panel.webview.postMessage({ type: 'applied', result });
-                    done(result);
+                await measurePerformance('moduleSync.apply', currentPlan.direction, async () => {
+                    await runExclusive(async () => {
+                        const result = await onApply(currentPlan, selectedIds);
+                        await panel.webview.postMessage({ type: 'applied', result });
+                        done(result);
+                    });
                 });
             } catch (err) {
                 const error = err instanceof Error ? err.message : String(err);

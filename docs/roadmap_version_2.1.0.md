@@ -6,7 +6,8 @@ ordered by expected developer-experience impact, with "red squiggly"
 completeness as the primary product bias. The highest-priority work expands
 deterministic hard diagnostic coverage, keeps the daily edit loop as a baseline
 expectation, and then broadens supporting language features and workbook
-workflows.
+workflows. All remaining open backlog has now been deferred to Version 2.2.0;
+this document records the completed 2.1.0 scope and evidence trail.
 
 ## North Star
 
@@ -41,8 +42,9 @@ Recommended sequencing:
    diagnostics safe.
 3. Expand object/event authoring where XLIDE can prove source or designer facts.
 
-External metadata authoring/reload and workbook-to-workbook transfer are tracked
-in `docs/roadmap_version_2.2.0.md`.
+Remaining object/member/event authoring, external metadata authoring/reload, and
+workbook-to-workbook transfer are tracked in
+`docs/roadmap_version_2.2.0.md`.
 
 Responsiveness, stale-result safety, cancellation, cache correctness, progress
 reporting, and measured performance remain non-negotiable engineering standards
@@ -512,22 +514,28 @@ Developer-experience impact:
 - Extends object intelligence using facts developers already maintain in the
   workbook.
 
-Scope:
+2.1 closeout:
 
-- [ ] Add designer-backed UserForm metadata ingestion sufficient to prove form
-  controls, control types, and control event surfaces.
-- [ ] Offer UserForm form/control event handlers only when designer-backed
+Status: **complete for the v2.1.0 delivered hard-diagnostic scope**. The
+remaining object/member/event authoring backlog has been deferred to
+`docs/roadmap_version_2.2.0.md`.
+
+Deferred scope moved to Version 2.2.0:
+
+- Designer-backed UserForm metadata ingestion sufficient to prove form controls,
+  control types, and control event surfaces.
+- UserForm form/control event-handler authoring only when designer-backed
   metadata proves the control/event surface.
-- [ ] Model declared `Event` members with declarations, signatures, visibility,
-  and source spans.
-- [ ] Model `WithEvents` bindings and their event handler authoring surface.
-- [ ] Verify default-member/direct object-expression behavior, including
+- Declared `Event` members with declarations, signatures, visibility, and
+  source spans.
+- `WithEvents` bindings and their event-handler authoring surface.
+- Verified default-member/direct object-expression behavior, including
   `VB_UserMemId = 0`, before inferring direct object usage such as
   `textValue = p`.
-- [ ] Extend source member signatures with richer parameter metadata,
-  declaration spans, return/write types, docs, and provenance.
-- [ ] Add document/UserForm designer-backed members to the same object-member
-  contract used by source-backed classes and host metadata.
+- Richer source member signatures with parameter metadata, declaration spans,
+  return/write types, docs, and provenance.
+- Document/UserForm designer-backed members in the same object-member contract
+  used by source-backed classes and host metadata.
 
 Progress:
 
@@ -699,17 +707,17 @@ Progress:
   branch-ambiguous state, unresolved object types, and inactive branches stay
   quiet.
 
-Definition of done:
+Deferred continuation definition of done, now owned by Version 2.2.0:
 
 - UserForm/document member and event surfaces are deterministic and do not invent
   controls, events, or members from names alone.
 
 ## Deferred To Version 2.2.0
 
-External metadata authoring/reload and workbook-to-workbook transfer have moved
-to `docs/roadmap_version_2.2.0.md` so Version 2.1.0 can stay focused on the
-red-squiggly, binding, host metadata, and source-backed object/event authoring
-workstreams.
+All remaining open 2.1.0 backlog has moved to
+`docs/roadmap_version_2.2.0.md` so Version 2.1.0 can close around the completed
+red-squiggly, binding, host metadata, and delivered source-backed
+object/event diagnostic workstreams.
 
 ## Files To Keep In Sync
 

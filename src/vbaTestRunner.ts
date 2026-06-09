@@ -4,6 +4,7 @@ import { parseModule } from './analyzer/parser/parseModule';
 import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaStructuralAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
+import { measurePerformance } from './performanceTrace';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
 export const VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE = 'vba-test-directive';
@@ -203,6 +204,7 @@ export async function discoverWorkbookVbaTests(
     filePath: string,
     selection?: VbaTestSelectionOptions,
 ): Promise<VbaTestDiscoveryResult> {
+    return measurePerformance('vbaTests.discoverWorkbook', path.basename(filePath), async () => {
     const normalizedSelection = normalizeVbaTestSelection(selection);
     const modules = await bridge.call<Array<{ name: string; type: string }>>(
         'listModules',
@@ -237,6 +239,7 @@ export async function discoverWorkbookVbaTests(
         modulesIgnored: orderedModules.length - testableModules.length,
         contract: `Standard-module no-argument Sub procedures with an immediately preceding '${XLIDE_VBA_TEST_DIRECTIVE}' comment directive.`,
     };
+    });
 }
 
 export function filterVbaTests(
