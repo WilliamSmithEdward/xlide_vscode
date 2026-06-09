@@ -23,6 +23,7 @@ const validSettings = {
     'editor.blockLayout': 'comfy',
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
+    'performance.trace': false,
 };
 
 describe('globalSettings', () => {
@@ -122,6 +123,7 @@ describe('globalSettings', () => {
             'xlide.docs.enabled',
             'xlide.docs.metadataGlob',
             'xlide.editor.blockLayout',
+            'xlide.performance.trace',
             'xlide.pythonPath',
         ]);
         expect(settings.find((setting) => setting.key === 'xlide.pythonPath')).toMatchObject({

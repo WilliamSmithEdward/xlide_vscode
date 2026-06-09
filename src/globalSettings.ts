@@ -54,6 +54,7 @@ const XLIDE_GLOBAL_SETTING_KEYS = [
     'docs.enabled',
     'docs.metadataGlob',
     'editor.blockLayout',
+    'performance.trace',
     'pythonPath',
 ] as const;
 type XlideGlobalSettingKey = typeof XLIDE_GLOBAL_SETTING_KEYS[number];
@@ -134,6 +135,12 @@ function xlidePythonPathFromConfig(
     );
 }
 
+function xlidePerformanceTraceFromConfig(
+    config: vscode.WorkspaceConfiguration,
+): ResolvedXlideGlobalSetting<boolean> {
+    return resolveXlideGlobalSetting(config, 'performance.trace', false, normalizeBoolean(false));
+}
+
 function resolvedXlideGlobalSettingsFromConfig(
     config: vscode.WorkspaceConfiguration,
 ): ResolvedXlideGlobalSetting<unknown>[] {
@@ -146,6 +153,7 @@ function resolvedXlideGlobalSettingsFromConfig(
         xlideDocsEnabledFromConfig(config),
         xlideDocsMetadataGlobFromConfig(config),
         xlideEditorBlockLayoutFromConfig(config),
+        xlidePerformanceTraceFromConfig(config),
         xlidePythonPathFromConfig(config),
     ];
 }
@@ -162,6 +170,7 @@ function validateXlideGlobalSettingsValues(values: XlideGlobalSettingsSnapshot):
     expectEnum(values, problems, 'editor.blockLayout', BLOCK_LAYOUT_VALUES);
     expectBoolean(values, problems, 'docs.enabled');
     expectString(values, problems, 'docs.metadataGlob');
+    expectBoolean(values, problems, 'performance.trace');
 
     return problems;
 }
@@ -179,6 +188,7 @@ function validateXlideGlobalSettingsFromConfig(
         'editor.blockLayout': config.get<unknown>('editor.blockLayout'),
         'docs.enabled': config.get<unknown>('docs.enabled'),
         'docs.metadataGlob': config.get<unknown>('docs.metadataGlob'),
+        'performance.trace': config.get<unknown>('performance.trace'),
     });
 }
 
@@ -313,6 +323,8 @@ function xlideGlobalSettingFromConfig(
             return xlideDocsMetadataGlobFromConfig(config);
         case 'editor.blockLayout':
             return xlideEditorBlockLayoutFromConfig(config);
+        case 'performance.trace':
+            return xlidePerformanceTraceFromConfig(config);
         case 'pythonPath':
             return xlidePythonPathFromConfig(config);
     }
@@ -353,6 +365,8 @@ function normalizeXlideGlobalSettingValue(key: XlideGlobalSettingKey, value: unk
             return normalizeNonEmptyString(value, DEFAULT_DOC_METADATA_GLOB);
         case 'editor.blockLayout':
             return normalizeSmartBlockLayout(value);
+        case 'performance.trace':
+            return normalizeBoolean(false)(value);
         case 'pythonPath':
             return typeof value === 'string' ? value.trim() : '';
     }
@@ -510,5 +524,6 @@ export {
     xlideDocsEnabledFromConfig,
     xlideDocsMetadataGlobFromConfig,
     xlideEditorBlockLayoutFromConfig,
+    xlidePerformanceTraceFromConfig,
     xlidePythonPathFromConfig,
 };

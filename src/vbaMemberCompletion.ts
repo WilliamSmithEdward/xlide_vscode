@@ -72,6 +72,7 @@ import {
 	resolveVbaTestDirectiveCompletions,
 	type VbaTestDirectiveCompletion,
 } from './vbaTestDirectiveCompletion';
+import { startPerformanceTrace } from './performanceTrace';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
@@ -86,6 +87,7 @@ const CANONICAL_LINE_IDLE_DELAY_MS = 200;
 const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
 const HOVER_PROJECT_CONTEXT_BUDGET_MS = 120;
 const SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS = 150;
+const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
 
 interface ModuleEntry {
 	name: string;
@@ -249,6 +251,19 @@ class VbaMemberCompletionProvider
 	}
 
 	async provideCompletionItems(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		token?: vscode.CancellationToken,
+	): Promise<vscode.CompletionItem[]> {
+		const trace = startPerformanceTrace('completion', document.uri.scheme);
+		try {
+			return await this._provideCompletionItems(document, position, token);
+		} finally {
+			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
+		}
+	}
+
+	private async _provideCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
@@ -482,7 +497,29 @@ class VbaMemberCompletionProvider
 			loadedAt: Date.now(),
 			context,
 		});
+		this._pruneEditorProjectContextCache();
 		return context;
+	}
+
+	private _isCurrentProjectContextBuild(document: vscode.TextDocument, documentVersion: number): boolean {
+		const build = this._projectContextBuilds.get(document.uri.toString());
+		return !build || build.documentVersion === documentVersion;
+	}
+
+	private _pruneEditorProjectContextCache(): void {
+		const openKeys = new Set(vscode.workspace.textDocuments.map((document) => document.uri.toString()));
+		for (const key of this._projectContextCache.keys()) {
+			if (!openKeys.has(key)) {
+				this._projectContextCache.delete(key);
+			}
+		}
+		const overflow = this._projectContextCache.size - EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS;
+		if (overflow <= 0) {
+			return;
+		}
+		for (const key of [...this._projectContextCache.keys()].slice(0, overflow)) {
+			this._projectContextCache.delete(key);
+		}
 	}
 
 	private _clearProjectContextCacheForWorkbook(xlsmPath: string): void {
@@ -510,6 +547,19 @@ class VbaMemberCompletionProvider
 	}
 
 	async provideHover(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		token?: vscode.CancellationToken,
+	): Promise<vscode.Hover | undefined> {
+		const trace = startPerformanceTrace('hover', document.uri.scheme);
+		try {
+			return await this._provideHover(document, position, token);
+		} finally {
+			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
+		}
+	}
+
+	private async _provideHover(
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
@@ -551,6 +601,19 @@ class VbaMemberCompletionProvider
 	}
 
 	async provideSignatureHelp(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		token?: vscode.CancellationToken,
+	): Promise<vscode.SignatureHelp | undefined> {
+		const trace = startPerformanceTrace('signatureHelp', document.uri.scheme);
+		try {
+			return await this._provideSignatureHelp(document, position, token);
+		} finally {
+			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
+		}
+	}
+
+	private async _provideSignatureHelp(
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
@@ -721,6 +784,9 @@ class VbaMemberCompletionProvider
 				const project = await buildLiveVbaProjectIndexAsync(
 					[{ moduleName: 'Module', moduleKind: 'standard', source }],
 				);
+				if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+					return this._cachedEditorProjectContext(document) ?? {};
+				}
 				const context = projectEditorSymbolContextForModule(project, 'Module');
 				return this._storeEditorProjectContext(document, {
 					moduleName: 'Module',
@@ -738,7 +804,13 @@ class VbaMemberCompletionProvider
 		try {
 			const decoded = decodeModuleUri(document.uri);
 			const sourceEntries = await this._loadWorkbookModuleSources(decoded.xlsmPath);
+			if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+				return this._cachedEditorProjectContext(document) ?? {};
+			}
 			const entries = sourceEntries ?? await this._loadModules(decoded.xlsmPath);
+			if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+				return this._cachedEditorProjectContext(document) ?? {};
+			}
 			const allEntries = entries ?? [];
 			const current = allEntries.find(
 				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
@@ -758,6 +830,9 @@ class VbaMemberCompletionProvider
 						liveOverride,
 					},
 				);
+			if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+				return this._cachedEditorProjectContext(document) ?? {};
+			}
 			const context = projectEditorSymbolContextForModule(project, decoded.moduleName);
 			return this._storeEditorProjectContext(document, {
 				moduleName: decoded.moduleName,

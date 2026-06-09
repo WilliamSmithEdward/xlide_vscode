@@ -41,6 +41,13 @@ UI thread and should report long-running work clearly.
   integration fixtures.
 - Measure VS Code provider paths separately when the UI layer is the suspected
   bottleneck.
+- Use `XLIDE: Copy Performance Snapshot` after reproducing latency in the
+  editor. The snapshot includes recent timings for completion, hover, signature
+  help, semantic tokens, live diagnostics, workbook context indexing, tree
+  expansion, commands, and workbook analysis stages.
+- Set `xlide.performance.trace` to `true` only while debugging latency. It writes
+  slow trace events to the XLIDE output channel; the snapshot command remains
+  available without enabling verbose output logging.
 - Keep Excel COM execution out of routine performance tests. Excel-hosted test
   and macro runs have their own host trace timings.
 - Use p95 targets to avoid optimizing only the smallest examples.
@@ -64,3 +71,16 @@ UI thread and should report long-running work clearly.
 When a command takes longer than its hard ceiling, prefer visible progress or a
 clear status row over writing only to the Output channel. Support bundles should
 include recent command timing and host/test trace summaries where available.
+
+Important trace names:
+
+- `completion`, `hover`, `signatureHelp`
+- `semanticTokens`
+- `liveDiagnostics.local`, `liveDiagnostics.full`
+- `tree.getChildren`
+- `workbookContext.getAllModules`
+- `analyzeWorkbook.readModules`, `analyzeWorkbook.listModules`,
+  `analyzeWorkbook.readModule`
+- `analyzeWorkbook.buildProjectContext`, `analyzeWorkbook.settings`,
+  `analyzeWorkbook.analyzeModule`, `analyzeWorkbook.total`
+- `command`

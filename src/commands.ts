@@ -118,6 +118,7 @@ import {
     type XlideChangeSummary,
     type XlideWriteAuditOutcome,
 } from './xlideWriteAudit';
+import { formatPerformanceSnapshot } from './performanceTrace';
 import {
     buildExportModuleSyncPlan,
     buildImportModuleSyncPlan,
@@ -2656,6 +2657,17 @@ export function registerCommands(
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[copyDiagnostics] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to copy diagnostics: ${message}`);
+            }
+        }),
+
+        registerXlideCommand('xlide.copyPerformanceSnapshot', async () => {
+            try {
+                await vscode.env.clipboard.writeText(formatPerformanceSnapshot());
+                vscode.window.showInformationMessage('XLIDE: Performance snapshot copied to clipboard.');
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                log(`[copyPerformanceSnapshot] Error: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Failed to copy performance snapshot: ${message}`);
             }
         }),
 

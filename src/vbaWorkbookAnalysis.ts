@@ -34,6 +34,7 @@ import {
     type AnalysisSuppressionScope,
 } from './analysisSuppressionScopes';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
+import { measurePerformance, measurePerformanceSync, startPerformanceTrace } from './performanceTrace';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -109,9 +110,9 @@ export interface AnalyzeWorkbookOptions {
     token?: vscode.CancellationToken;
 }
 
-const ANALYSIS_YIELD_EVERY_MODULES = 4;
 const WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
 const WORKBOOK_MODULE_READ_CONCURRENCY = 6;
+const WORKBOOK_MODULE_ANALYSIS_CONCURRENCY = 4;
 
 interface WorkbookAnalysisProgress {
     report(message: string, options?: { force?: boolean }): void;
@@ -278,10 +279,14 @@ async function loadWorkbookModules(
 ): Promise<RawModule[]> {
     progress.report('Reading VBA modules...', { force: true });
     try {
-        const modules = await bridge.call<RawModule[]>(
-            'readModules',
-            { path: filePath },
-            options.token,
+        const modules = await measurePerformance(
+            'analyzeWorkbook.readModules',
+            undefined,
+            () => bridge.call<RawModule[]>(
+                'readModules',
+                { path: filePath },
+                options.token,
+            ),
         );
         throwIfAnalysisCancelled(options.token);
         return modules
@@ -298,23 +303,31 @@ async function loadWorkbookModules(
         }
     }
 
-    const list = await bridge.call<Array<{
-        name: string;
-        type: string;
-        documentType?: EventHandlerDocumentType;
-    }>>(
-        'listModules',
-        { path: filePath },
-        options.token,
+    const list = await measurePerformance(
+        'analyzeWorkbook.listModules',
+        undefined,
+        () => bridge.call<Array<{
+            name: string;
+            type: string;
+            documentType?: EventHandlerDocumentType;
+        }>>(
+            'listModules',
+            { path: filePath },
+            options.token,
+        ),
     );
     return mapWithConcurrency(list, WORKBOOK_MODULE_READ_CONCURRENCY, async (entry, index) => {
         throwIfAnalysisCancelled(options.token);
         progress.report(`Reading ${entry.name} (${index + 1}/${list.length})...`);
         try {
-            const result = await bridge.call<{ source: string }>(
-                'readModule',
-                { path: filePath, module: entry.name },
-                options.token,
+            const result = await measurePerformance(
+                'analyzeWorkbook.readModule',
+                entry.name,
+                () => bridge.call<{ source: string }>(
+                    'readModule',
+                    { path: filePath, module: entry.name },
+                    options.token,
+                ),
             );
             throwIfAnalysisCancelled(options.token);
             return {
@@ -373,77 +386,98 @@ export async function analyzeWorkbook(
     filePath: string,
     options: AnalyzeWorkbookOptions = {},
 ): Promise<WorkbookAnalysisResult> {
+    const totalTrace = startPerformanceTrace('analyzeWorkbook.total');
     const progress = workbookAnalysisProgress(options.progress);
-    const modules = await loadWorkbookModules(bridge, filePath, progress, options);
-    const openSources = openModuleSourceMapForWorkbook(filePath);
-    for (const mod of modules) {
-        mod.source = openSources.get(mod.name.toLowerCase()) ?? mod.source;
-    }
-
-    throwIfAnalysisCancelled(options.token);
-    progress.report('Building project context...', { force: true });
-    const project = await buildVbaProjectIndexAsync(modules.map((mod) => ({
-        moduleName: mod.name,
-        source: mod.source,
-        type: mod.type,
-        documentType: mod.documentType,
-    })), undefined, {
-        cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
-    });
-    const projectProcedures = projectProcedureSignatures(project);
-
-    const analysisSettings = await effectiveWorkbookAnalysisSettings(filePath);
-    throwIfAnalysisCancelled(options.token);
-
-    const problems: WorkbookAnalysisProblem[] = [];
-    const suppressedProblems: WorkbookAnalysisProblem[] = [];
-
-    for (const [index, mod] of modules.entries()) {
-        throwIfAnalysisCancelled(options.token);
-        progress.report(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
-        const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
-        const moduleAnalysis = analyzeVbaModuleSource({
-            source: mod.source,
-            moduleName: mod.name,
-            moduleType: mod.type,
-            moduleKind: moduleKindFromType(mod.type),
-            documentType: mod.documentType,
-            severityOverrides: analysisSettings.ruleSeverityOverrides,
-            ...projectOptions,
-        });
-        problems.push(...workbookProblemsForModule(
-            mod.name,
-            mod.type,
-            mod.source,
-            moduleAnalysis.diagnostics,
-        ));
-        suppressedProblems.push(...workbookProblemsForModule(
-            mod.name,
-            mod.type,
-            mod.source,
-            moduleAnalysis.suppressedDiagnostics,
-            { suppressed: true },
-        ));
-        if ((index + 1) % ANALYSIS_YIELD_EVERY_MODULES === 0) {
-            await yieldToExtensionHost();
+    try {
+        const modules = await loadWorkbookModules(bridge, filePath, progress, options);
+        const openSources = openModuleSourceMapForWorkbook(filePath);
+        for (const mod of modules) {
+            mod.source = openSources.get(mod.name.toLowerCase()) ?? mod.source;
         }
+
+        throwIfAnalysisCancelled(options.token);
+        progress.report('Building project context...', { force: true });
+        const project = await measurePerformance('analyzeWorkbook.buildProjectContext', undefined, () =>
+            buildVbaProjectIndexAsync(modules.map((mod) => ({
+                moduleName: mod.name,
+                source: mod.source,
+                type: mod.type,
+                documentType: mod.documentType,
+            })), undefined, {
+                cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
+            }),
+        );
+        const projectProcedures = projectProcedureSignatures(project);
+
+        const analysisSettings = await measurePerformance(
+            'analyzeWorkbook.settings',
+            undefined,
+            () => effectiveWorkbookAnalysisSettings(filePath),
+        );
+        throwIfAnalysisCancelled(options.token);
+
+        const analysisResults = await mapWithConcurrency(
+            modules,
+            WORKBOOK_MODULE_ANALYSIS_CONCURRENCY,
+            async (mod, index) => {
+                throwIfAnalysisCancelled(options.token);
+                progress.report(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
+                await yieldToExtensionHost();
+                throwIfAnalysisCancelled(options.token);
+                const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
+                const moduleAnalysis = measurePerformanceSync(
+                    'analyzeWorkbook.analyzeModule',
+                    mod.name,
+                    () => analyzeVbaModuleSource({
+                        source: mod.source,
+                        moduleName: mod.name,
+                        moduleType: mod.type,
+                        moduleKind: moduleKindFromType(mod.type),
+                        documentType: mod.documentType,
+                        severityOverrides: analysisSettings.ruleSeverityOverrides,
+                        ...projectOptions,
+                    }),
+                );
+                return {
+                    problems: workbookProblemsForModule(
+                        mod.name,
+                        mod.type,
+                        mod.source,
+                        moduleAnalysis.diagnostics,
+                    ),
+                    suppressedProblems: workbookProblemsForModule(
+                        mod.name,
+                        mod.type,
+                        mod.source,
+                        moduleAnalysis.suppressedDiagnostics,
+                        { suppressed: true },
+                    ),
+                };
+            },
+        );
+        const problems = analysisResults.flatMap((result) => result.problems);
+        const suppressedProblems = analysisResults.flatMap((result) => result.suppressedProblems);
+
+        progress.report('Preparing results...', { force: true });
+        sortWorkbookProblems(problems);
+        sortWorkbookProblems(suppressedProblems);
+
+        const errorCount = problems.filter((p) => p.severity === 'error').length;
+        const warningCount = problems.filter((p) => p.severity === 'warning').length;
+        const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
+
+        totalTrace.end('ok');
+        return {
+            filePath,
+            moduleCount: modules.length,
+            problems,
+            suppressedProblems,
+            errorCount,
+            warningCount,
+            summary,
+        };
+    } catch (err) {
+        totalTrace.end(err instanceof vscode.CancellationError ? 'canceled' : 'failed');
+        throw err;
     }
-
-    progress.report('Preparing results...', { force: true });
-    sortWorkbookProblems(problems);
-    sortWorkbookProblems(suppressedProblems);
-
-    const errorCount = problems.filter((p) => p.severity === 'error').length;
-    const warningCount = problems.filter((p) => p.severity === 'warning').length;
-    const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
-
-    return {
-        filePath,
-        moduleCount: modules.length,
-        problems,
-        suppressedProblems,
-        errorCount,
-        warningCount,
-        summary,
-    };
 }

@@ -112,6 +112,12 @@
           "scope": "machine",
           "default": "**/*.vbref.xml",
           "description": "Glob (relative to each workspace folder) that locates external VBA documentation metadata files. These describe symbols using the same XML vocabulary as '''-comments and override the built-in curated library."
+        },
+        "xlide.performance.trace": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": false,
+          "description": "Write slow XLIDE performance trace events to the XLIDE output channel. Recent timings are always available from the Copy Performance Snapshot command."
         }
       }
     },
@@ -165,6 +171,12 @@
         "title": "Copy Diagnostics",
         "category": "XLIDE",
         "icon": "$(clippy)"
+      },
+      {
+        "command": "xlide.copyPerformanceSnapshot",
+        "title": "Copy Performance Snapshot",
+        "category": "XLIDE",
+        "icon": "$(pulse)"
       },
       {
         "command": "xlide.refreshExplorer",

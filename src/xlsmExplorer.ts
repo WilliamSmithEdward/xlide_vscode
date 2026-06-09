@@ -4,6 +4,7 @@ import { PythonBridge } from './pythonBridge';
 import { workbookIdentityKey } from './xlideFileSystem';
 import type { LiveShareIntegration } from './liveShare';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
+import { startPerformanceTrace } from './performanceTrace';
 
 export type XlideNodeKind = 'xlsm' | 'module' | 'sub';
 
@@ -266,6 +267,18 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
     }
 
     async getChildren(node?: XlideNode): Promise<XlideNode[]> {
+        const trace = startPerformanceTrace('tree.getChildren', node?.kind ?? 'root');
+        try {
+            const result = await this._getChildren(node);
+            trace.end('ok', node?.kind ?? 'root');
+            return result;
+        } catch (err) {
+            trace.end('failed', node?.kind ?? 'root');
+            throw err;
+        }
+    }
+
+    private async _getChildren(node?: XlideNode): Promise<XlideNode[]> {
         if (!node) {
             if (!this._setupComplete) {
                 return [];

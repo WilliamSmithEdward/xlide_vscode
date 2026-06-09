@@ -79,6 +79,7 @@ import {
     effectiveWorkbookAnalysisSettings,
     type EffectiveWorkbookAnalysisSettings,
 } from './workbookAnalysisSettings';
+import { startPerformanceTrace } from './performanceTrace';
 import { isWorkbookSettingsError, settingsPathForWorkbook } from './workbookSettings';
 import {
     validateXlideGlobalSettingsFromConfig,
@@ -1146,6 +1147,7 @@ const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
 const TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(TYPE_TOKEN_TYPES);
 const TYPE_SEMANTIC_PROJECT_TYPES_CACHE_TTL_MS = 5000;
 const TYPE_SEMANTIC_PROJECT_TYPES_REFRESH_DELAY_MS = 350;
+const TYPE_SEMANTIC_CACHE_MAX_DOCUMENTS = 64;
 const DIAGNOSTIC_OPEN_LOCAL_DELAY_MS = 25;
 const DIAGNOSTIC_OPEN_FULL_DELAY_MS = 150;
 const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
@@ -1179,50 +1181,56 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
         document: vscode.TextDocument,
         token: vscode.CancellationToken,
     ): Promise<vscode.SemanticTokens> {
+        const trace = startPerformanceTrace('semanticTokens', document.uri.scheme);
         const builder = new vscode.SemanticTokensBuilder(TYPE_TOKEN_LEGEND);
-        if (!isVbaDocument(document)) { return builder.build(); }
+        try {
+            if (!isVbaDocument(document)) { return builder.build(); }
 
-        const source = document.getText();
-        const moduleName = moduleNameFromDocument(document);
-        const projectTypes = document.uri.scheme === XLIDE_SCHEME
-            ? this._cachedProjectTypesForDocument(document, { requireFresh: false }) ?? []
-            : await this._projectTypesForDocument(document, source, moduleName, token);
-        if (
-            document.uri.scheme === XLIDE_SCHEME &&
-            !this._cachedProjectTypesForDocument(document, { requireFresh: true })
-        ) {
-            this._scheduleProjectTypesRefresh(document);
-        }
-        const projectTypesLoadedAt = this._projectTypesCache.get(document.uri.toString())?.at ?? 0;
-        const cachedTokens = this._semanticTokensCache.get(document.uri.toString());
-        if (
-            cachedTokens &&
-            cachedTokens.documentVersion === document.version &&
-            cachedTokens.projectTypesLoadedAt === projectTypesLoadedAt
-        ) {
-            return cachedTokens.tokens;
-        }
+            const source = document.getText();
+            const moduleName = moduleNameFromDocument(document);
+            const projectTypes = document.uri.scheme === XLIDE_SCHEME
+                ? this._cachedProjectTypesForDocument(document, { requireFresh: false }) ?? []
+                : await this._projectTypesForDocument(document, source, moduleName, token);
+            if (
+                document.uri.scheme === XLIDE_SCHEME &&
+                !this._cachedProjectTypesForDocument(document, { requireFresh: true })
+            ) {
+                this._scheduleProjectTypesRefresh(document);
+            }
+            const projectTypesLoadedAt = this._projectTypesCache.get(document.uri.toString())?.at ?? 0;
+            const cachedTokens = this._semanticTokensCache.get(document.uri.toString());
+            if (
+                cachedTokens &&
+                cachedTokens.documentVersion === document.version &&
+                cachedTokens.projectTypesLoadedAt === projectTypesLoadedAt
+            ) {
+                return cachedTokens.tokens;
+            }
 
-        for (const item of resolveTypeSemanticTokens(source, { projectTypes })) {
-            if (token.isCancellationRequested) { break; }
-            builder.push(
-                new vscode.Range(
-                    document.positionAt(item.span.start),
-                    document.positionAt(item.span.end),
-                ),
-                item.tokenType,
-                [],
-            );
+            for (const item of resolveTypeSemanticTokens(source, { projectTypes })) {
+                if (token.isCancellationRequested) { break; }
+                builder.push(
+                    new vscode.Range(
+                        document.positionAt(item.span.start),
+                        document.positionAt(item.span.end),
+                    ),
+                    item.tokenType,
+                    [],
+                );
+            }
+            const tokens = builder.build();
+            if (!token.isCancellationRequested) {
+                this._semanticTokensCache.set(document.uri.toString(), {
+                    documentVersion: document.version,
+                    projectTypesLoadedAt,
+                    tokens,
+                });
+                this._pruneSemanticTokenCaches();
+            }
+            return tokens;
+        } finally {
+            trace.end(token.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
         }
-        const tokens = builder.build();
-        if (!token.isCancellationRequested) {
-            this._semanticTokensCache.set(document.uri.toString(), {
-                documentVersion: document.version,
-                projectTypesLoadedAt,
-                tokens,
-            });
-        }
-        return tokens;
     }
 
     private _cachedProjectTypesForDocument(
@@ -1281,6 +1289,24 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
                 this._onDidChangeSemanticTokens.fire();
             })
             .finally(() => this._projectTypeRefreshes.delete(key));
+    }
+
+    private _pruneSemanticTokenCaches(): void {
+        const openKeys = new Set(vscode.workspace.textDocuments.map((document) => document.uri.toString()));
+        for (const key of this._semanticTokensCache.keys()) {
+            if (!openKeys.has(key)) {
+                this._semanticTokensCache.delete(key);
+                this._projectTypesCache.delete(key);
+            }
+        }
+        const overflow = this._semanticTokensCache.size - TYPE_SEMANTIC_CACHE_MAX_DOCUMENTS;
+        if (overflow <= 0) {
+            return;
+        }
+        for (const key of [...this._semanticTokensCache.keys()].slice(0, overflow)) {
+            this._semanticTokensCache.delete(key);
+            this._projectTypesCache.delete(key);
+        }
     }
 
     private async _projectTypesForDocument(
@@ -1382,7 +1408,11 @@ function registerVbaDiagnostics(
         generation: number,
         pass: DiagnosticPassKind,
     ): void => {
-        void runPassAsync(document, generation, pass).catch((err) => {
+        const trace = startPerformanceTrace(`liveDiagnostics.${pass}`, document.uri.scheme);
+        void runPassAsync(document, generation, pass).then(() => {
+            trace.end('ok', document.uri.scheme);
+        }, (err) => {
+            trace.end('failed', document.uri.scheme);
             if (!isVbaDocument(document)) {
                 return;
             }

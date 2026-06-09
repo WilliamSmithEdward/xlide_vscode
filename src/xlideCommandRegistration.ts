@@ -3,6 +3,7 @@ import {
     errorCategoryForSupportLog,
     recordXlideCommand,
 } from './xlideCommandLog';
+import { startPerformanceTrace } from './performanceTrace';
 
 export function registerXlideCommand<T extends unknown[]>(
     command: string,
@@ -10,6 +11,7 @@ export function registerXlideCommand<T extends unknown[]>(
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async (...args: T) => {
         const start = Date.now();
+        const trace = startPerformanceTrace('command', command);
         recordXlideCommand({
             timestamp: new Date(start).toISOString(),
             command,
@@ -17,6 +19,7 @@ export function registerXlideCommand<T extends unknown[]>(
         });
         try {
             const result = await callback(...args);
+            trace.end('ok', command);
             recordXlideCommand({
                 timestamp: new Date().toISOString(),
                 command,
@@ -25,6 +28,7 @@ export function registerXlideCommand<T extends unknown[]>(
             });
             return result;
         } catch (err) {
+            trace.end(err instanceof vscode.CancellationError ? 'canceled' : 'failed', command);
             recordXlideCommand({
                 timestamp: new Date().toISOString(),
                 command,

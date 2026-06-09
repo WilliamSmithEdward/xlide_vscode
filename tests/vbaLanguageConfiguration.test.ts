@@ -233,6 +233,7 @@ describe('VBA language configuration', () => {
 			'xlide.docs.enabled',
 			'xlide.docs.metadataGlob',
 			'xlide.editor.blockLayout',
+			'xlide.performance.trace',
 			'xlide.pythonPath',
 		]);
 
@@ -283,6 +284,7 @@ describe('VBA language configuration', () => {
 		const globalCommand = commands.find((entry) => entry.command === 'xlide.openGlobalSettings');
 		const downloadPythonCommand = commands.find((entry) => entry.command === 'xlide.downloadPython');
 		const runVbaTestsCommand = commands.find((entry) => entry.command === 'xlide.runVbaTests');
+		const performanceCommand = commands.find((entry) => entry.command === 'xlide.copyPerformanceSnapshot');
 
 		expect(command).toMatchObject({
 			command: 'xlide.openWorkbookSettings',
@@ -302,6 +304,11 @@ describe('VBA language configuration', () => {
 		expect(runVbaTestsCommand).toMatchObject({
 			command: 'xlide.runVbaTests',
 			title: 'Unit Tests',
+			category: 'XLIDE',
+		});
+		expect(performanceCommand).toMatchObject({
+			command: 'xlide.copyPerformanceSnapshot',
+			title: 'Copy Performance Snapshot',
 			category: 'XLIDE',
 		});
 		expect(commands.map((entry) => entry.command)).not.toEqual(expect.arrayContaining([

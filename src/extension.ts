@@ -20,10 +20,15 @@ import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { createRecordedOutputChannel } from './xlideOutputLog';
 import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
-import { setXlideGlobalSettingValue, xlidePythonPathFromConfig } from './globalSettings';
+import {
+    setXlideGlobalSettingValue,
+    xlidePerformanceTraceFromConfig,
+    xlidePythonPathFromConfig,
+} from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
 import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
+import { setPerformanceTraceLogger } from './performanceTrace';
 
 const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/';
 
@@ -81,6 +86,10 @@ function installDependencies(
 
 export function activate(context: vscode.ExtensionContext): void {
     const out = createRecordedOutputChannel(vscode.window.createOutputChannel('XLIDE'));
+    setPerformanceTraceLogger(
+        (line) => out.appendLine(line),
+        () => xlidePerformanceTraceFromConfig(vscode.workspace.getConfiguration('xlide')).value,
+    );
     out.appendLine('XLIDE activating...');
     void cleanupStaleVbaTestHostTempDirsAsync()
         .then((cleanup) => {

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import type { EventHandlerDocumentType } from './analyzer/completion/eventHandlers';
 import { moduleIdentityKey, workbookIdentityKey } from './xlideFileSystem';
+import { startPerformanceTrace } from './performanceTrace';
 
 export type VbaSymbolKind =
     | 'Sub' | 'Function' | 'PropertyGet' | 'PropertyLet' | 'PropertySet'
@@ -259,26 +260,40 @@ export class VbaSymbolIndex implements vscode.Disposable {
         if (existingRead) { return existingRead; }
 
         const promise = (async () => {
-            const cached = this.cachedAllModules(key);
-            if (cached) {
-                return cached;
-            }
-            const batch = await this.getAllModulesFromBatchRead(xlsmPath, key);
-            if (batch) {
-                return batch;
-            }
-            const moduleList = await this.getModuleList(xlsmPath, key);
-            return mapWithConcurrency(moduleList, WORKBOOK_INDEX_MODULE_READ_CONCURRENCY, async (entry) => {
-                try {
-                    const mod = await this.getModule(xlsmPath, entry.name);
-                    mod.type = entry.type;
-                    mod.documentType = entry.documentType;
-                    return mod;
-                } catch {
-                    // Skip modules that fail to read; index is best-effort.
-                    return undefined;
+            const trace = startPerformanceTrace('workbookContext.getAllModules');
+            try {
+                const cached = this.cachedAllModules(key);
+                if (cached) {
+                    trace.end('ok', 'cached');
+                    return cached;
                 }
-            });
+                const batch = await this.getAllModulesFromBatchRead(xlsmPath, key);
+                if (batch) {
+                    trace.end('ok', 'batch');
+                    return batch;
+                }
+                const moduleList = await this.getModuleList(xlsmPath, key);
+                const modules = await mapWithConcurrency(
+                    moduleList,
+                    WORKBOOK_INDEX_MODULE_READ_CONCURRENCY,
+                    async (entry) => {
+                        try {
+                            const mod = await this.getModule(xlsmPath, entry.name);
+                            mod.type = entry.type;
+                            mod.documentType = entry.documentType;
+                            return mod;
+                        } catch {
+                            // Skip modules that fail to read; index is best-effort.
+                            return undefined;
+                        }
+                    },
+                );
+                trace.end('ok', 'fallback');
+                return modules;
+            } catch (err) {
+                trace.end('failed');
+                throw err;
+            }
         })();
         this._allModuleReads.set(key, promise);
         promise.then(

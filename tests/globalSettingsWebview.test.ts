@@ -36,6 +36,7 @@ const validSettings = {
     'editor.blockLayout': 'comfy',
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
+    'performance.trace': false,
 };
 
 describe('globalSettingsWebview', () => {
