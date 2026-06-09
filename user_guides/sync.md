@@ -9,6 +9,11 @@ source of truth. Open modules from the XLIDE workbook tree, edit in VS Code, and
 save with Ctrl+S. Exported files are sync artifacts unless you explicitly import
 them back into a workbook.
 
+Import/export is workbook-scoped. If your VS Code project contains multiple
+workbooks, choose the target workbook in the XLIDE tree or run the command from
+an open module in that workbook. The preview, settings sidecar, apply action,
+and any workbook writes belong to that one selected workbook.
+
 ## When to Use Sync
 
 Import/export is useful for:
@@ -61,6 +66,10 @@ outside import/export sync.
 Use **Import Modules from Folder** when you want `.bas` or `.cls` files applied
 back into a workbook. XLIDE reads the configured or selected folder and opens
 the same preview experience before writing to the workbook.
+
+With multiple workbooks in the same VS Code project, import still targets only
+the selected workbook. XLIDE does not batch-import the same folder into every
+detected workbook.
 
 Import can:
 

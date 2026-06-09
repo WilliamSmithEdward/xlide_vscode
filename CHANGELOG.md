@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.1.2] - 2026-06-09
+
+### Changed
+
+- Refined the marketplace README positioning for new VBA programmers, students,
+  experienced VBA developers, and agentic AI workflows over real workbook
+  context.
+- Clarified the XLIDE workflow around auto-detected workbooks, tree navigation,
+  direct workbook read/write editing, local disk push/pull sync, detailed diffs,
+  and committing exported modules to version control.
+- Documented that import/export is workbook-scoped when multiple workbooks are
+  present, including selected-workbook previews, sidecar settings, and import
+  apply behavior.
+
 ## [2.1.1] - 2026-06-09
 
 ### Fixed
