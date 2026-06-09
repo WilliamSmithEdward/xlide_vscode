@@ -137,12 +137,15 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
         const key = moduleNodeKey(filePath, moduleName);
         if (this._activeModuleKey === key) { return; }
         const previousKey = this._activeModuleKey;
+        const previousWorkbookKey = this._activeWorkbookKey;
         const nextWorkbookKey = workbookNodeKey(filePath);
         this._activeModuleKey = key;
         this._activeWorkbookKey = nextWorkbookKey;
         this._refreshModuleExpansion(previousKey);
         this._refreshModuleExpansion(key);
-        this._refreshNonActiveWorkbookExpansions(nextWorkbookKey);
+        if (previousWorkbookKey !== nextWorkbookKey) {
+            this._refreshNonActiveWorkbookExpansions(nextWorkbookKey);
+        }
     }
 
     /**

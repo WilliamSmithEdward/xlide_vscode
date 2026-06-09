@@ -5496,6 +5496,63 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits).toHaveLength(0);
 	});
 
+	it('keeps newly promoted metadata-only host families out of hard diagnostics', () => {
+		const src =
+			'Public Sub T(ws As Worksheet, ch As Chart)\n' +
+			'    ws.QueryTables(1).MissingQueryTableMember\n' +
+			'    ws.QueryTables(1).Parameters(1).MissingParameterMember\n' +
+			'    ThisWorkbook.Connections(1).MissingWorkbookConnectionMember\n' +
+			'    ThisWorkbook.Connections(1).OLEDBConnection.MissingOleDbConnectionMember\n' +
+			'    ThisWorkbook.Connections(1).ModelTables(1).MissingModelTableMember\n' +
+			'    ch.SeriesCollection(1).MissingSeriesMember\n' +
+			'    ch.SeriesCollection(1).Points(1).MissingPointMember\n' +
+			'    ch.SeriesCollection(1).Trendlines(1).MissingTrendlineMember\n' +
+			'    ch.Axes(1).MissingAxisMember\n' +
+			'    ch.Axes(1).AxisTitle.MissingAxisTitleMember\n' +
+			'    ws.Shapes.Range.MissingShapeRangeMember\n' +
+			'    ws.Shapes.Range.GroupItems.MissingGroupShapesMember\n' +
+			'    ws.Comments(1).MissingCommentMember\n' +
+			'    ws.CommentsThreaded(1).MissingThreadedCommentMember\n' +
+			'    ws.AutoFilter.Filters(1).MissingFilterMember\n' +
+			'    ws.Sort.SortFields.Add(ws.Range("A1")).MissingSortFieldMember\n' +
+			'    ws.OLEObjects(1).MissingOleObjectMember\n' +
+			'    ws.Buttons(1).MissingButtonMember\n' +
+			'    ws.CheckBoxes(1).MissingCheckBoxMember\n' +
+			'    ws.DropDowns(1).MissingDropDownMember\n' +
+			'    ws.OptionButtons(1).MissingOptionButtonMember\n' +
+			'    ThisWorkbook.SlicerCaches.MissingSlicerCachesMember\n' +
+			'    ThisWorkbook.SlicerCaches(1).MissingSlicerCacheMember\n' +
+			'    ThisWorkbook.SlicerCaches(1).Slicers.MissingSlicersMember\n' +
+			'    ThisWorkbook.SlicerCaches(1).SlicerItems(1).MissingSlicerItemMember\n' +
+			'    ThisWorkbook.SlicerCaches(1).TimelineState.MissingTimelineStateMember\n' +
+			'    ws.Shapes.Item(1).Fill.MissingFillFormatMember\n' +
+			'    ws.Shapes.Item(1).Line.MissingLineFormatMember\n' +
+			'    ws.Shapes.Item(1).TextFrame.MissingTextFrameMember\n' +
+			'    ws.Shapes.Item(1).TextFrame2.MissingTextFrame2Member\n' +
+			'    ws.Shapes.Item(1).PictureFormat.MissingPictureFormatMember\n' +
+			'    ws.Shapes.Item(1).Nodes.MissingShapeNodesMember\n' +
+			'    ch.ChartTitle.MissingChartTitleMember\n' +
+			'    ch.Legend.LegendEntries.MissingLegendEntriesMember\n' +
+			'    ch.ChartGroups.MissingChartGroupsMember\n' +
+			'    ch.DataTable.MissingDataTableMember\n' +
+			'    ch.Walls.MissingWallsMember\n' +
+			'    ws.Range("A1").FormatConditions.AddDatabar.MissingDatabarMember\n' +
+			'    ws.Range("A1").FormatConditions.AddColorScale(3).ColorScaleCriteria.MissingColorScaleCriteriaMember\n' +
+			'    ws.Range("A1").DisplayFormat.MissingDisplayFormatMember\n' +
+			'    ws.Drawings.MissingDrawingsMember\n' +
+			'    ws.Pictures.MissingPicturesMember\n' +
+			'    ws.Lines.MissingLinesMember\n' +
+			'    ws.Range("A1").SparklineGroups.MissingSparklineGroupsMember\n' +
+			'    ThisWorkbook.XmlMaps.MissingXmlMapsMember\n' +
+			'    ThisWorkbook.XmlMaps(1).Schemas.MissingXmlSchemasMember\n' +
+			'    ThisWorkbook.PublishObjects.MissingPublishObjectsMember\n' +
+			'    ThisWorkbook.WebOptions.MissingWebOptionsMember\n' +
+			'    Application.DefaultWebOptions.MissingDefaultWebOptionsMember\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits).toHaveLength(0);
+	});
+
 	it('uses the exhaustive runtime object surface for Err', () => {
 		const src =
 			'Public Sub T()\n' +

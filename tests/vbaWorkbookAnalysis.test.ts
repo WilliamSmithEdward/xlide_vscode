@@ -17,6 +17,22 @@ interface TestModule {
 	source: string;
 }
 
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
+	let resolve!: (value: T) => void;
+	let reject!: (error: unknown) => void;
+	const promise = new Promise<T>((promiseResolve, promiseReject) => {
+		resolve = promiseResolve;
+		reject = promiseReject;
+	});
+	return { promise, resolve, reject };
+}
+
+async function flushPromises(): Promise<void> {
+	for (let i = 0; i < 10; i++) {
+		await Promise.resolve();
+	}
+}
+
 function bridgeForModules(modules: TestModule[]): PythonBridge {
 	const byName = new Map(modules.map((mod) => [mod.name, mod]));
 	return {
@@ -91,6 +107,41 @@ describe('analyzeWorkbook metadata summary', () => {
 			'listModules',
 			'readModule',
 		]);
+	});
+
+	it('reads legacy fallback modules concurrently when batch reads are unavailable', async () => {
+		const module1 = deferred<{ source: string }>();
+		const module2 = deferred<{ source: string }>();
+		const bridge = {
+			call: vi.fn((method: string, payload: { module?: string }) => {
+				if (method === 'readModules') {
+					return Promise.reject(new Error('Method not found: readModules'));
+				}
+				if (method === 'listModules') {
+					return Promise.resolve([
+						{ name: 'Module1', type: 'standard' },
+						{ name: 'Module2', type: 'standard' },
+					]);
+				}
+				if (method === 'readModule' && payload.module === 'Module1') {
+					return module1.promise;
+				}
+				if (method === 'readModule' && payload.module === 'Module2') {
+					return module2.promise;
+				}
+				return Promise.reject(new Error(`Unexpected bridge call ${method}`));
+			}),
+		} as unknown as PythonBridge;
+
+		const pending = analyzeWorkbook(bridge, 'Book.xlsm');
+		await flushPromises();
+
+		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'readModule')).toHaveLength(2);
+
+		module1.resolve({ source: 'Option Explicit\nSub First()\nEnd Sub\n' });
+		module2.resolve({ source: 'Option Explicit\nSub Second()\nEnd Sub\n' });
+
+		await expect(pending).resolves.toMatchObject({ moduleCount: 2 });
 	});
 
 	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {

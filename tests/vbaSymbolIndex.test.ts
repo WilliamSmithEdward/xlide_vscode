@@ -66,6 +66,12 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reje
 	return { promise, resolve, reject };
 }
 
+async function flushPromises(): Promise<void> {
+	for (let i = 0; i < 10; i++) {
+		await Promise.resolve();
+	}
+}
+
 describe('VbaSymbolIndex workbook identity', () => {
 	it('keeps identical module names siloed by workbook path', async () => {
 		const bridge = bridgeForSources({
@@ -182,6 +188,45 @@ describe('VbaSymbolIndex workbook identity', () => {
 			'listModules',
 			'readModule',
 			'readModule',
+		]);
+	});
+
+	it('reads fallback workbook modules concurrently', async () => {
+		const module1 = deferred<{ source: string }>();
+		const module2 = deferred<{ source: string }>();
+		const bridge = {
+			call: vi.fn((method: string, payload: { module?: string }) => {
+				if (method === 'readModules') {
+					return Promise.reject(new Error('Method not found: readModules'));
+				}
+				if (method === 'listModules') {
+					return Promise.resolve([
+						{ name: 'Module1', type: 'standard' },
+						{ name: 'Module2', type: 'standard' },
+					]);
+				}
+				if (method === 'readModule' && payload.module === 'Module1') {
+					return module1.promise;
+				}
+				if (method === 'readModule' && payload.module === 'Module2') {
+					return module2.promise;
+				}
+				return Promise.reject(new Error(`Unexpected bridge call ${method}`));
+			}),
+		} as unknown as PythonBridge;
+		const index = new VbaSymbolIndex(bridge);
+
+		const pending = index.getAllModules('C:/Book.xlsm');
+		await flushPromises();
+
+		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'readModule')).toHaveLength(2);
+
+		module1.resolve({ source: 'Sub First()\nEnd Sub\n' });
+		module2.resolve({ source: 'Sub Second()\nEnd Sub\n' });
+
+		await expect(pending).resolves.toMatchObject([
+			{ moduleName: 'Module1' },
+			{ moduleName: 'Module2' },
 		]);
 	});
 

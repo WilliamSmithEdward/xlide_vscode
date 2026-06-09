@@ -410,7 +410,7 @@ Scope:
 
 Status: **complete for the v2.1.0 promoted host metadata scope**. The generated
 Excel/Office reference pipeline now feeds production metadata without runtime
-`reference/` reads. It promotes 62 Excel runtime surfaces for completion,
+`reference/` reads. It promotes 229 Excel runtime surfaces for completion,
 hover, signature help, and receiver chains, and marks the 36 proven exhaustive
 surfaces as hard-diagnostic surfaces with provenance. The hard-diagnostic set
 covers the core application/workbook/worksheet/range surfaces, sheet/workbook
@@ -420,9 +420,13 @@ validation, and format conditions. Broader third-party/reference-library
 authoring and reload remains in v2.2.0 external metadata work.
 
 `WorksheetFunction` and Pivot object families are promoted metadata surfaces,
-but remain outside hard `member-not-found`: development-oracle compile probes
-accept unknown members on those receivers, so absence diagnostics there would
-be false positives.
+and the latest high-value QueryTable, chart-internals, ShapeRange, comments,
+sort/filter, form-control, and workbook-connection families are also promoted
+metadata surfaces, but remain outside hard `member-not-found` until focused
+oracle evidence proves absence diagnostics are compile-equivalent. The same
+metadata-only gate now covers the follow-on Slicer/timeline,
+shape-formatting-internal, chart-layout-internal, conditional-format subtype,
+legacy drawing, sparkline, and XML/publish/web workbook families.
 
 Progress:
 
@@ -461,6 +465,32 @@ Progress:
   `WorksheetFunction`, `PivotTable`, and `PivotField` receivers, so these
   surfaces intentionally remain non-exhaustive and do not produce hard
   `member-not-found`.
+- [x] High-value metadata-only promotion wave: generated metadata now promotes
+  QueryTable/QueryTables/Parameters, chart internals
+  (`SeriesCollection`, `FullSeriesCollection`, `Series`, `Axes`, `Axis`, data
+  labels, points, trendlines, and chart-format helpers), `ShapeRange` and
+  `GroupShapes`, classic and threaded comments, sort/filter helper objects,
+  Excel form-control/OLE object families, and workbook connection/data
+  connection families. Curated return overrides wire common roots such as
+  `Worksheet.QueryTables`, `Chart.SeriesCollection`, `Chart.Axes`,
+  `Worksheet.AutoFilter`, `Worksheet.Sort`, `Worksheet.OLEObjects`, and
+  `Workbook.Connections` into those generated surfaces. These remain
+  metadata-only until oracle evidence promotes specific families into hard
+  `member-not-found`.
+- [x] Follow-on host metadata promotion wave: generated metadata now promotes
+  Slicer/timeline objects; shape-formatting internals (`FillFormat`,
+  `LineFormat`, `TextFrame`, `TextFrame2`, `PictureFormat`, `ShadowFormat`,
+  `ThreeDFormat`, `ConnectorFormat`, `CalloutFormat`, `ShapeNodes`, and
+  color helpers); chart layout internals (`ChartTitle`, `ChartArea`,
+  `PlotArea`, `Legend`, `ChartGroup`, `DataTable`, `Walls`, `Floor`, and
+  series-line helpers); conditional-format subtypes (`Databar`, `ColorScale`,
+  `IconSetCondition`, `AboveAverage`, `Top10`, `UniqueValues`, `CellFormat`,
+  `DisplayFormat`, and helper criteria/color/border objects); legacy drawing
+  collections; sparkline objects; and XML/publish/web workbook surfaces.
+  Curated return overrides wire common roots such as `Workbook.SlicerCaches`,
+  `Shape.Fill`, `Chart.Legend`, `FormatConditions.AddDatabar`,
+  `Worksheet.Pictures`, `Range.SparklineGroups`, `Workbook.XmlMaps`,
+  `Workbook.PublishObjects`, and `Application.DefaultWebOptions`.
 
 Definition of done:
 

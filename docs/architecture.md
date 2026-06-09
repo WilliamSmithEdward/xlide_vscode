@@ -600,8 +600,10 @@ into a pure analyzer layer and a thin VS Code provider:
   Excel automation object model (Application/Workbook/Worksheet/Range plus the
   commonly used Window, Name(s), Comment(s), ListObject/Row/Column(s),
   PivotTable(s), Chart(s)/ChartObject(s), Shape(s), Font, Interior, Border(s),
-  Areas, Hyperlink(s), WorksheetFunction, Style(s), PageSetup and Validation
-  types), with each type's properties and methods transcribed from the official
+  Areas, Hyperlink(s), WorksheetFunction, Style(s), PageSetup, Validation,
+  Slicer/timeline, shape-formatting, chart-layout, conditional-format subtype,
+  legacy drawing, sparkline, XML, publish, and web-option types), with each
+  type's properties and methods transcribed from the official
   Office VBA object-model reference (`learn.microsoft.com/office/vba/api/excel.*`)
   and cross-checked against the Excel COM type library. Return types are wired so
   member-access chaining flows into these types (e.g. `Range.Font.`,
@@ -612,14 +614,18 @@ into a pure analyzer layer and a thin VS Code provider:
   at runtime, and `reference/**` is excluded from the packaged extension. When a
   reference dump is promoted into runtime behavior, the promotion must generate
   or update checked-in metadata under `src/` with explicit provenance. The Excel
-  generator currently emits 62 promoted Excel runtime surfaces into
+  generator currently emits 229 promoted Excel runtime surfaces into
   `src/analyzer/host/excelReferenceMembers.ts`, including available member
   signatures and reference documentation. Of those, 36 proven surfaces are
   marked exhaustive for hard unknown-member diagnostics, while
-  `WorksheetFunction` and the Pivot object families are promoted for
-  completion, signature help, hover, and receiver-chain inference only because
-  development-oracle probes show unknown members compile on representative
-  receivers. Reference events are counted in
+  `WorksheetFunction`, Pivot families, QueryTable/data-connection families,
+  chart internals, ShapeRange, comments, sort/filter helpers, form-control
+  families, Slicer/timeline objects, shape-formatting internals, chart-layout
+  internals, conditional-format subtypes, legacy drawing objects, sparkline
+  objects, and XML/publish/web workbook surfaces are promoted for completion,
+  signature help, hover, and
+  receiver-chain inference only until oracle evidence proves a family can
+  safely support hard absence diagnostics. Reference events are counted in
   coverage but filtered out of object-member surfaces because VBE does not
   expose events as callable object methods/properties; document-module
   event handler authoring uses separate module-scoped metadata in

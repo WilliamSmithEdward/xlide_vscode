@@ -472,7 +472,12 @@ class VbaMemberCompletionProvider
 		context: EditorProjectContext,
 		documentVersion = document.version,
 	): EditorProjectContext {
-		this._projectContextCache.set(document.uri.toString(), {
+		const key = document.uri.toString();
+		const existing = this._projectContextCache.get(key);
+		if (existing && existing.documentVersion > documentVersion) {
+			return existing.context;
+		}
+		this._projectContextCache.set(key, {
 			documentVersion,
 			loadedAt: Date.now(),
 			context,
@@ -692,14 +697,8 @@ class VbaMemberCompletionProvider
 		}
 		const buildKey = document.uri.toString();
 		const existingBuild = this._projectContextBuilds.get(buildKey);
-		if (existingBuild) {
-			if (existingBuild.documentVersion === document.version) {
-				return existingBuild.promise;
-			}
-			return existingBuild.promise.then(() =>
-				this._cachedEditorProjectContext(document) ??
-				this._buildEditorProjectContext(document, document.getText()),
-			);
+		if (existingBuild?.documentVersion === document.version) {
+			return existingBuild.promise;
 		}
 		const documentVersion = document.version;
 		const build = this._computeEditorProjectContext(document, source, documentVersion)
@@ -779,6 +778,9 @@ class VbaMemberCompletionProvider
 	}
 
 	private _warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
+		if (this._projectContextBuilds.has(document.uri.toString())) {
+			return;
+		}
 		void this._buildEditorProjectContext(document, source).catch(() => {
 			/* best-effort cache warm */
 		});

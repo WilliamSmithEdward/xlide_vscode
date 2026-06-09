@@ -134,6 +134,218 @@ describe('host model resolution', () => {
 		expect(resolveMemberReturnType('Excel.CalculatedItems', 'Add')).toBe('Excel.PivotItem');
 		expect(resolveMemberReturnType('Excel.PivotTable', 'CubeFields')).toBe('Excel.CubeFields');
 		expect(resolveMemberReturnType('Excel.CubeFields', 'Item')).toBe('Excel.CubeField');
+		// Query tables / workbook connections.
+		expect(resolveMemberReturnType('Excel.Worksheet', 'QueryTables')).toBe('Excel.QueryTables');
+		expect(resolveMemberReturnType('Excel.QueryTables', 'Item')).toBe('Excel.QueryTable');
+		expect(resolveMemberReturnType('Excel.QueryTable', 'ResultRange')).toBe('Excel.Range');
+		expect(resolveMemberReturnType('Excel.QueryTable', 'Parameters')).toBe('Excel.Parameters');
+		expect(resolveMemberReturnType('Excel.Parameters', 'Item')).toBe('Excel.Parameter');
+		expect(resolveMemberReturnType('Excel.QueryTable', 'WorkbookConnection')).toBe(
+			'Excel.WorkbookConnection',
+		);
+		expect(resolveMemberReturnType('Excel.Workbook', 'Connections')).toBe('Excel.Connections');
+		expect(resolveMemberReturnType('Excel.Connections', 'Item')).toBe(
+			'Excel.WorkbookConnection',
+		);
+		expect(resolveMemberReturnType('Excel.WorkbookConnection', 'OLEDBConnection')).toBe(
+			'Excel.OLEDBConnection',
+		);
+		expect(resolveMemberReturnType('Excel.WorkbookConnection', 'ModelTables')).toBe(
+			'Excel.ModelTables',
+		);
+		expect(resolveMemberReturnType('Excel.ModelTables', 'Item')).toBe('Excel.ModelTable');
+		expect(resolveMemberReturnType('Excel.ModelTable', 'ModelTableColumns')).toBe(
+			'Excel.ModelTableColumns',
+		);
+		// Slicers / timelines.
+		expect(resolveMemberReturnType('Excel.Workbook', 'SlicerCaches')).toBe(
+			'Excel.SlicerCaches',
+		);
+		expect(resolveMemberReturnType('Excel.SlicerCaches', 'Item')).toBe('Excel.SlicerCache');
+		expect(resolveMemberReturnType('Excel.SlicerCache', 'Slicers')).toBe('Excel.Slicers');
+		expect(resolveMemberReturnType('Excel.Slicers', 'Item')).toBe('Excel.Slicer');
+		expect(resolveMemberReturnType('Excel.Slicer', 'Shape')).toBe('Excel.Shape');
+		expect(resolveMemberReturnType('Excel.SlicerCache', 'SlicerItems')).toBe(
+			'Excel.SlicerItems',
+		);
+		expect(resolveMemberReturnType('Excel.SlicerItems', 'Item')).toBe('Excel.SlicerItem');
+		expect(resolveMemberReturnType('Excel.SlicerCache', 'SlicerCacheLevels')).toBe(
+			'Excel.SlicerCacheLevels',
+		);
+		expect(resolveMemberReturnType('Excel.SlicerCacheLevels', 'Item')).toBe(
+			'Excel.SlicerCacheLevel',
+		);
+		expect(resolveMemberReturnType('Excel.SlicerCacheLevel', 'SlicerItems')).toBe(
+			'Excel.SlicerItems',
+		);
+		expect(resolveMemberReturnType('Excel.SlicerCache', 'TimelineState')).toBe(
+			'Excel.TimelineState',
+		);
+		// Chart internals.
+		expect(resolveMemberReturnType('Excel.Chart', 'SeriesCollection')).toBe(
+			'Excel.SeriesCollection',
+		);
+		expect(resolveMemberReturnType('Excel.SeriesCollection', 'Item')).toBe('Excel.Series');
+		expect(resolveMemberReturnType('Excel.Chart', 'FullSeriesCollection')).toBe(
+			'Excel.FullSeriesCollection',
+		);
+		expect(resolveMemberReturnType('Excel.FullSeriesCollection', 'Item')).toBe(
+			'Excel.Series',
+		);
+		expect(resolveMemberReturnType('Excel.Series', 'Points')).toBe('Excel.Points');
+		expect(resolveMemberReturnType('Excel.Points', 'Item')).toBe('Excel.Point');
+		expect(resolveMemberReturnType('Excel.Series', 'Trendlines')).toBe('Excel.Trendlines');
+		expect(resolveMemberReturnType('Excel.Trendlines', 'Item')).toBe('Excel.Trendline');
+		expect(resolveMemberReturnType('Excel.Series', 'DataLabels')).toBe('Excel.DataLabels');
+		expect(resolveMemberReturnType('Excel.DataLabels', 'Item')).toBe('Excel.DataLabel');
+		expect(resolveMemberReturnType('Excel.Chart', 'Axes')).toBe('Excel.Axes');
+		expect(resolveMemberReturnType('Excel.Axes', 'Item')).toBe('Excel.Axis');
+		expect(resolveMemberReturnType('Excel.Axis', 'AxisTitle')).toBe('Excel.AxisTitle');
+		expect(resolveMemberReturnType('Excel.Axis', 'TickLabels')).toBe('Excel.TickLabels');
+		expect(resolveMemberReturnType('Excel.Chart', 'ChartTitle')).toBe('Excel.ChartTitle');
+		expect(resolveMemberReturnType('Excel.Chart', 'ChartArea')).toBe('Excel.ChartArea');
+		expect(resolveMemberReturnType('Excel.Chart', 'PlotArea')).toBe('Excel.PlotArea');
+		expect(resolveMemberReturnType('Excel.Chart', 'Legend')).toBe('Excel.Legend');
+		expect(resolveMemberReturnType('Excel.Legend', 'LegendEntries')).toBe(
+			'Excel.LegendEntries',
+		);
+		expect(resolveMemberReturnType('Excel.LegendEntries', 'Item')).toBe('Excel.LegendEntry');
+		expect(resolveMemberReturnType('Excel.LegendEntry', 'LegendKey')).toBe('Excel.LegendKey');
+		expect(resolveMemberReturnType('Excel.Chart', 'ChartGroups')).toBe('Excel.ChartGroups');
+		expect(resolveMemberReturnType('Excel.ChartGroups', 'Item')).toBe('Excel.ChartGroup');
+		expect(resolveMemberReturnType('Excel.ChartGroup', 'SeriesLines')).toBe(
+			'Excel.SeriesLines',
+		);
+		expect(resolveMemberReturnType('Excel.Chart', 'DataTable')).toBe('Excel.DataTable');
+		expect(resolveMemberReturnType('Excel.Chart', 'Walls')).toBe('Excel.Walls');
+		expect(resolveMemberReturnType('Excel.Chart', 'Floor')).toBe('Excel.Floor');
+		// Shape ranges / comments / sort-filter / controls.
+		expect(resolveMemberReturnType('Excel.Shapes', 'Range')).toBe('Excel.ShapeRange');
+		expect(resolveMemberReturnType('Excel.ShapeRange', 'Item')).toBe('Excel.Shape');
+		expect(resolveMemberReturnType('Excel.ShapeRange', 'GroupItems')).toBe('Excel.GroupShapes');
+		expect(resolveMemberReturnType('Excel.GroupShapes', 'Item')).toBe('Excel.Shape');
+		expect(resolveMemberReturnType('Excel.Shape', 'Fill')).toBe('Excel.FillFormat');
+		expect(resolveMemberReturnType('Excel.FillFormat', 'ForeColor')).toBe('Excel.ColorFormat');
+		expect(resolveMemberReturnType('Excel.Shape', 'Line')).toBe('Excel.LineFormat');
+		expect(resolveMemberReturnType('Excel.Shape', 'TextFrame')).toBe('Excel.TextFrame');
+		expect(resolveMemberReturnType('Excel.Shape', 'TextFrame2')).toBe('Excel.TextFrame2');
+		expect(resolveMemberReturnType('Excel.Shape', 'PictureFormat')).toBe(
+			'Excel.PictureFormat',
+		);
+		expect(resolveMemberReturnType('Excel.Shape', 'Shadow')).toBe('Excel.ShadowFormat');
+		expect(resolveMemberReturnType('Excel.Shape', 'ThreeD')).toBe('Excel.ThreeDFormat');
+		expect(resolveMemberReturnType('Excel.Shape', 'ConnectorFormat')).toBe(
+			'Excel.ConnectorFormat',
+		);
+		expect(resolveMemberReturnType('Excel.Shape', 'Callout')).toBe('Excel.CalloutFormat');
+		expect(resolveMemberReturnType('Excel.Shape', 'Nodes')).toBe('Excel.ShapeNodes');
+		expect(resolveMemberReturnType('Excel.ShapeNodes', 'Item')).toBe('Excel.ShapeNode');
+		expect(resolveMemberReturnType('Excel.Range', 'CommentThreaded')).toBe(
+			'Excel.CommentThreaded',
+		);
+		expect(resolveMemberReturnType('Excel.CommentThreaded', 'Replies')).toBe(
+			'Excel.CommentsThreaded',
+		);
+		expect(resolveMemberReturnType('Excel.CommentsThreaded', 'Item')).toBe(
+			'Excel.CommentThreaded',
+		);
+		expect(resolveMemberReturnType('Excel.Worksheet', 'AutoFilter')).toBe('Excel.AutoFilter');
+		expect(resolveMemberReturnType('Excel.AutoFilter', 'Filters')).toBe('Excel.Filters');
+		expect(resolveMemberReturnType('Excel.Filters', 'Item')).toBe('Excel.Filter');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Sort')).toBe('Excel.Sort');
+		expect(resolveMemberReturnType('Excel.Sort', 'SortFields')).toBe('Excel.SortFields');
+		expect(resolveMemberReturnType('Excel.SortFields', 'Add')).toBe('Excel.SortField');
+		expect(resolveMemberReturnType('Excel.Range', 'DisplayFormat')).toBe('Excel.DisplayFormat');
+		expect(resolveMemberReturnType('Excel.FormatConditions', 'AddDatabar')).toBe(
+			'Excel.Databar',
+		);
+		expect(resolveMemberReturnType('Excel.Databar', 'MinPoint')).toBe('Excel.ConditionValue');
+		expect(resolveMemberReturnType('Excel.Databar', 'BarBorder')).toBe('Excel.DataBarBorder');
+		expect(resolveMemberReturnType('Excel.Databar', 'NegativeBarFormat')).toBe(
+			'Excel.NegativeBarFormat',
+		);
+		expect(resolveMemberReturnType('Excel.FormatConditions', 'AddColorScale')).toBe(
+			'Excel.ColorScale',
+		);
+		expect(resolveMemberReturnType('Excel.ColorScale', 'ColorScaleCriteria')).toBe(
+			'Excel.ColorScaleCriteria',
+		);
+		expect(resolveMemberReturnType('Excel.ColorScaleCriteria', 'Item')).toBe(
+			'Excel.ColorScaleCriterion',
+		);
+		expect(resolveMemberReturnType('Excel.ColorScaleCriterion', 'FormatColor')).toBe(
+			'Excel.FormatColor',
+		);
+		expect(resolveMemberReturnType('Excel.FormatConditions', 'AddIconSetCondition')).toBe(
+			'Excel.IconSetCondition',
+		);
+		expect(resolveMemberReturnType('Excel.IconSetCondition', 'IconCriteria')).toBe(
+			'Excel.IconCriteria',
+		);
+		expect(resolveMemberReturnType('Excel.IconCriteria', 'Item')).toBe('Excel.IconCriterion');
+		expect(resolveMemberReturnType('Excel.FormatConditions', 'AddTop10')).toBe('Excel.Top10');
+		expect(resolveMemberReturnType('Excel.FormatConditions', 'AddAboveAverage')).toBe(
+			'Excel.AboveAverage',
+		);
+		expect(resolveMemberReturnType('Excel.FormatConditions', 'AddUniqueValues')).toBe(
+			'Excel.UniqueValues',
+		);
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Drawings')).toBe('Excel.Drawings');
+		expect(resolveMemberReturnType('Excel.Drawings', 'Add')).toBe('Excel.Drawing');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Pictures')).toBe('Excel.Pictures');
+		expect(resolveMemberReturnType('Excel.Pictures', 'Item')).toBe('Excel.Picture');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Lines')).toBe('Excel.Lines');
+		expect(resolveMemberReturnType('Excel.Lines', 'Item')).toBe('Excel.Line');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Rectangles')).toBe('Excel.Rectangles');
+		expect(resolveMemberReturnType('Excel.Rectangles', 'Item')).toBe('Excel.Rectangle');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Ovals')).toBe('Excel.Ovals');
+		expect(resolveMemberReturnType('Excel.Ovals', 'Item')).toBe('Excel.Oval');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Arcs')).toBe('Excel.Arcs');
+		expect(resolveMemberReturnType('Excel.Arcs', 'Item')).toBe('Excel.Arc');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'OLEObjects')).toBe('Excel.OLEObjects');
+		expect(resolveMemberReturnType('Excel.OLEObjects', 'Item')).toBe('Excel.OLEObject');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'Buttons')).toBe('Excel.Buttons');
+		expect(resolveMemberReturnType('Excel.Buttons', 'Item')).toBe('Excel.Button');
+		expect(resolveMemberReturnType('Excel.CheckBoxes', 'Item')).toBe('Excel.CheckBox');
+		expect(resolveMemberReturnType('Excel.DropDowns', 'Item')).toBe('Excel.DropDown');
+		expect(resolveMemberReturnType('Excel.OptionButtons', 'Item')).toBe(
+			'Excel.OptionButton',
+		);
+		expect(resolveMemberReturnType('Excel.Range', 'SparklineGroups')).toBe(
+			'Excel.SparklineGroups',
+		);
+		expect(resolveMemberReturnType('Excel.SparklineGroups', 'Item')).toBe(
+			'Excel.SparklineGroup',
+		);
+		expect(resolveMemberReturnType('Excel.SparklineGroup', 'Item')).toBe('Excel.Sparkline');
+		expect(resolveMemberReturnType('Excel.SparklineGroup', 'Points')).toBe(
+			'Excel.SparkPoints',
+		);
+		expect(resolveMemberReturnType('Excel.SparkPoints', 'Highpoint')).toBe('Excel.SparkColor');
+		expect(resolveMemberReturnType('Excel.SparkColor', 'Color')).toBe('Excel.FormatColor');
+		expect(resolveMemberReturnType('Excel.SparklineGroup', 'Axes')).toBe('Excel.SparkAxes');
+		expect(resolveMemberReturnType('Excel.SparkAxes', 'Horizontal')).toBe(
+			'Excel.SparkHorizontalAxis',
+		);
+		expect(resolveMemberReturnType('Excel.Workbook', 'XmlMaps')).toBe('Excel.XmlMaps');
+		expect(resolveMemberReturnType('Excel.XmlMaps', 'Item')).toBe('Excel.XmlMap');
+		expect(resolveMemberReturnType('Excel.XmlMap', 'WorkbookConnection')).toBe(
+			'Excel.WorkbookConnection',
+		);
+		expect(resolveMemberReturnType('Excel.XmlMap', 'Schemas')).toBe('Excel.XmlSchemas');
+		expect(resolveMemberReturnType('Excel.XmlMap', 'DataBinding')).toBe('Excel.XmlDataBinding');
+		expect(resolveMemberReturnType('Excel.ListColumn', 'XPath')).toBe('Excel.XPath');
+		expect(resolveMemberReturnType('Excel.XPath', 'Map')).toBe('Excel.XmlMap');
+		expect(resolveMemberReturnType('Excel.Workbook', 'PublishObjects')).toBe(
+			'Excel.PublishObjects',
+		);
+		expect(resolveMemberReturnType('Excel.PublishObjects', 'Item')).toBe(
+			'Excel.PublishObject',
+		);
+		expect(resolveMemberReturnType('Excel.Workbook', 'WebOptions')).toBe('Excel.WebOptions');
+		expect(resolveMemberReturnType('Excel.Application', 'DefaultWebOptions')).toBe(
+			'Excel.DefaultWebOptions',
+		);
 	});
 
 	it('exposes the broadened types as host aliases', () => {
@@ -148,6 +360,19 @@ describe('host model resolution', () => {
 		expect(resolveHostAlias('PivotTable')).toBe('Excel.PivotTable');
 		expect(resolveHostAlias('PivotField')).toBe('Excel.PivotField');
 		expect(resolveHostAlias('PivotCache')).toBe('Excel.PivotCache');
+		expect(resolveHostAlias('QueryTable')).toBe('Excel.QueryTable');
+		expect(resolveHostAlias('SeriesCollection')).toBe('Excel.SeriesCollection');
+		expect(resolveHostAlias('ShapeRange')).toBe('Excel.ShapeRange');
+		expect(resolveHostAlias('CommentThreaded')).toBe('Excel.CommentThreaded');
+		expect(resolveHostAlias('SortFields')).toBe('Excel.SortFields');
+		expect(resolveHostAlias('OLEObject')).toBe('Excel.OLEObject');
+		expect(resolveHostAlias('WorkbookConnection')).toBe('Excel.WorkbookConnection');
+		expect(resolveHostAlias('SlicerCache')).toBe('Excel.SlicerCache');
+		expect(resolveHostAlias('FillFormat')).toBe('Excel.FillFormat');
+		expect(resolveHostAlias('ChartTitle')).toBe('Excel.ChartTitle');
+		expect(resolveHostAlias('Databar')).toBe('Excel.Databar');
+		expect(resolveHostAlias('SparklineGroup')).toBe('Excel.SparklineGroup');
+		expect(resolveHostAlias('XmlMap')).toBe('Excel.XmlMap');
 	});
 });
 
@@ -1208,7 +1433,7 @@ describe('member completion - negative cases', () => {
 		}
 	});
 
-	it('promotes WorksheetFunction and Pivot metadata without hard absence diagnostics', () => {
+	it('promotes non-exhaustive metadata surfaces without hard absence diagnostics', () => {
 		for (const typeName of [
 			'Excel.WorksheetFunction',
 			'Excel.PivotTable',
@@ -1236,6 +1461,173 @@ describe('member completion - negative cases', () => {
 			'Excel.CalculatedItems',
 			'Excel.CubeField',
 			'Excel.CubeFields',
+			'Excel.QueryTable',
+			'Excel.QueryTables',
+			'Excel.Parameter',
+			'Excel.Parameters',
+			'Excel.SeriesCollection',
+			'Excel.FullSeriesCollection',
+			'Excel.Series',
+			'Excel.Axes',
+			'Excel.Axis',
+			'Excel.AxisTitle',
+			'Excel.ChartFormat',
+			'Excel.TickLabels',
+			'Excel.Gridlines',
+			'Excel.DisplayUnitLabel',
+			'Excel.LeaderLines',
+			'Excel.ErrorBars',
+			'Excel.Points',
+			'Excel.Point',
+			'Excel.Trendlines',
+			'Excel.Trendline',
+			'Excel.DataLabels',
+			'Excel.DataLabel',
+			'Excel.ShapeRange',
+			'Excel.GroupShapes',
+			'Excel.Comment',
+			'Excel.Comments',
+			'Excel.CommentThreaded',
+			'Excel.CommentsThreaded',
+			'Excel.Sort',
+			'Excel.SortFields',
+			'Excel.SortField',
+			'Excel.AutoFilter',
+			'Excel.Filters',
+			'Excel.Filter',
+			'Excel.Icon',
+			'Excel.IconSet',
+			'Excel.IconSets',
+			'Excel.OLEObject',
+			'Excel.OLEObjects',
+			'Excel.Button',
+			'Excel.Buttons',
+			'Excel.CheckBox',
+			'Excel.CheckBoxes',
+			'Excel.DropDown',
+			'Excel.DropDowns',
+			'Excel.OptionButton',
+			'Excel.OptionButtons',
+			'Excel.GroupObject',
+			'Excel.GroupObjects',
+			'Excel.GroupBox',
+			'Excel.GroupBoxes',
+			'Excel.Label',
+			'Excel.Labels',
+			'Excel.ListBox',
+			'Excel.ListBoxes',
+			'Excel.ScrollBar',
+			'Excel.ScrollBars',
+			'Excel.Spinner',
+			'Excel.Spinners',
+			'Excel.EditBox',
+			'Excel.EditBoxes',
+			'Excel.TextBox',
+			'Excel.TextBoxes',
+			'Excel.WorkbookConnection',
+			'Excel.Connections',
+			'Excel.OLEDBConnection',
+			'Excel.ODBCConnection',
+			'Excel.Ranges',
+			'Excel.ModelConnection',
+			'Excel.WorksheetDataConnection',
+			'Excel.TextConnection',
+			'Excel.DataFeedConnection',
+			'Excel.ModelTables',
+			'Excel.ModelTable',
+			'Excel.CalculatedMember',
+			'Excel.CalculatedMembers',
+			'Excel.ModelTableColumn',
+			'Excel.ModelTableColumns',
+			'Excel.SlicerCache',
+			'Excel.SlicerCaches',
+			'Excel.Slicer',
+			'Excel.Slicers',
+			'Excel.SlicerItem',
+			'Excel.SlicerItems',
+			'Excel.SlicerCacheLevel',
+			'Excel.SlicerCacheLevels',
+			'Excel.SlicerPivotTables',
+			'Excel.TimelineState',
+			'Excel.TimelineViewState',
+			'Excel.FillFormat',
+			'Excel.LineFormat',
+			'Excel.TextFrame',
+			'Excel.TextFrame2',
+			'Excel.PictureFormat',
+			'Excel.ShadowFormat',
+			'Excel.ThreeDFormat',
+			'Excel.ConnectorFormat',
+			'Excel.CalloutFormat',
+			'Excel.ShapeNodes',
+			'Excel.ShapeNode',
+			'Excel.ColorFormat',
+			'Excel.ChartTitle',
+			'Excel.ChartArea',
+			'Excel.PlotArea',
+			'Excel.Legend',
+			'Excel.LegendEntry',
+			'Excel.LegendEntries',
+			'Excel.LegendKey',
+			'Excel.ChartGroup',
+			'Excel.ChartGroups',
+			'Excel.DataTable',
+			'Excel.Walls',
+			'Excel.Floor',
+			'Excel.SeriesLines',
+			'Excel.DownBars',
+			'Excel.DropLines',
+			'Excel.HiLoLines',
+			'Excel.UpBars',
+			'Excel.Databar',
+			'Excel.ColorScale',
+			'Excel.ColorScaleCriteria',
+			'Excel.ColorScaleCriterion',
+			'Excel.IconSetCondition',
+			'Excel.AboveAverage',
+			'Excel.Top10',
+			'Excel.UniqueValues',
+			'Excel.CellFormat',
+			'Excel.DisplayFormat',
+			'Excel.FormatColor',
+			'Excel.ConditionValue',
+			'Excel.DataBarBorder',
+			'Excel.NegativeBarFormat',
+			'Excel.IconCriteria',
+			'Excel.IconCriterion',
+			'Excel.DrawingObjects',
+			'Excel.Drawing',
+			'Excel.Drawings',
+			'Excel.Picture',
+			'Excel.Pictures',
+			'Excel.Line',
+			'Excel.Lines',
+			'Excel.Rectangle',
+			'Excel.Rectangles',
+			'Excel.Oval',
+			'Excel.Ovals',
+			'Excel.Arc',
+			'Excel.Arcs',
+			'Excel.SparklineGroups',
+			'Excel.SparklineGroup',
+			'Excel.Sparkline',
+			'Excel.SparkPoints',
+			'Excel.SparkColor',
+			'Excel.SparkAxes',
+			'Excel.SparkHorizontalAxis',
+			'Excel.SparkVerticalAxis',
+			'Excel.XmlMap',
+			'Excel.XmlMaps',
+			'Excel.XPath',
+			'Excel.PublishObject',
+			'Excel.PublishObjects',
+			'Excel.WebOptions',
+			'Excel.DefaultWebOptions',
+			'Excel.XmlNamespace',
+			'Excel.XmlNamespaces',
+			'Excel.XmlSchema',
+			'Excel.XmlSchemas',
+			'Excel.XmlDataBinding',
 		]) {
 			expect(getHostType(typeName)?.provenance, typeName).toContain('reference/excel/json/');
 			expect(getHostType(typeName)?.exhaustive, typeName).not.toBe(true);

@@ -111,6 +111,7 @@ export interface AnalyzeWorkbookOptions {
 
 const ANALYSIS_YIELD_EVERY_MODULES = 4;
 const WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
+const WORKBOOK_MODULE_READ_CONCURRENCY = 6;
 
 interface WorkbookAnalysisProgress {
     report(message: string, options?: { force?: boolean }): void;
@@ -306,8 +307,7 @@ async function loadWorkbookModules(
         { path: filePath },
         options.token,
     );
-    const out: RawModule[] = [];
-    for (const [index, entry] of list.entries()) {
+    return mapWithConcurrency(list, WORKBOOK_MODULE_READ_CONCURRENCY, async (entry, index) => {
         throwIfAnalysisCancelled(options.token);
         progress.report(`Reading ${entry.name} (${index + 1}/${list.length})...`);
         try {
@@ -316,17 +316,19 @@ async function loadWorkbookModules(
                 { path: filePath, module: entry.name },
                 options.token,
             );
-            out.push({
+            throwIfAnalysisCancelled(options.token);
+            return {
                 name: entry.name,
                 type: entry.type,
                 documentType: entry.documentType,
                 source: result.source,
-            });
+            };
         } catch {
+            throwIfAnalysisCancelled(options.token);
             // Skip modules that fail to read; analysis is best-effort.
+            return undefined;
         }
-    }
-    return out;
+    });
 }
 
 function isReadModulesUnavailable(err: unknown): boolean {
@@ -342,6 +344,23 @@ function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): 
 
 async function yieldToExtensionHost(): Promise<void> {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+async function mapWithConcurrency<T, R>(
+    items: readonly T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<R | undefined>,
+): Promise<R[]> {
+    const results: Array<R | undefined> = new Array(items.length);
+    let nextIndex = 0;
+    const workerCount = Math.min(Math.max(1, concurrency), items.length);
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+        while (nextIndex < items.length) {
+            const index = nextIndex++;
+            results[index] = await worker(items[index], index);
+        }
+    }));
+    return results.filter((value): value is R => value !== undefined);
 }
 
 /**

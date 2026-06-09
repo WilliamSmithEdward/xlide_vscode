@@ -54,6 +54,7 @@ interface VbaModuleSourceEntry extends VbaModuleEntry {
 
 const MODULE_LIST_CACHE_TTL_MS = 5_000;
 const WORKBOOK_INDEX_YIELD_EVERY_MODULES = 8;
+const WORKBOOK_INDEX_MODULE_READ_CONCURRENCY = 6;
 const PROC_RE = /^([ \t]*)(?:(Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function|Property\s+Get|Property\s+Let|Property\s+Set)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
 const END_RE = /^[ \t]*End\s+(Sub|Function|Property)\b/i;
 // Declarations that appear as single-line symbols (no End block).
@@ -145,6 +146,23 @@ export function parseVbaModule(source: string): VbaSymbol[] {
 
 async function yieldToExtensionHost(): Promise<void> {
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+async function mapWithConcurrency<T, R>(
+    items: readonly T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<R | undefined>,
+): Promise<R[]> {
+    const results: Array<R | undefined> = new Array(items.length);
+    let nextIndex = 0;
+    const workerCount = Math.min(Math.max(1, concurrency), items.length);
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+        while (nextIndex < items.length) {
+            const index = nextIndex++;
+            results[index] = await worker(items[index], index);
+        }
+    }));
+    return results.filter((value): value is R => value !== undefined);
 }
 
 /**
@@ -250,18 +268,17 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 return batch;
             }
             const moduleList = await this.getModuleList(xlsmPath, key);
-            const out: VbaModuleSymbols[] = [];
-            for (const entry of moduleList) {
+            return mapWithConcurrency(moduleList, WORKBOOK_INDEX_MODULE_READ_CONCURRENCY, async (entry) => {
                 try {
                     const mod = await this.getModule(xlsmPath, entry.name);
                     mod.type = entry.type;
                     mod.documentType = entry.documentType;
-                    out.push(mod);
+                    return mod;
                 } catch {
                     // Skip modules that fail to read; index is best-effort.
+                    return undefined;
                 }
-            }
-            return out;
+            });
         })();
         this._allModuleReads.set(key, promise);
         promise.then(

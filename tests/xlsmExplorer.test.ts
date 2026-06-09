@@ -171,6 +171,29 @@ describe('XlsmExplorer', () => {
         expect(book2AfterSwitch.collapsibleState).toBe(2);
     });
 
+    it('does not re-render other workbook roots when switching modules in the same workbook', async () => {
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
+            { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
+        ]);
+        const explorer = new XlsmExplorer(fakeBridge([
+            { name: 'Module1', type: 'standard' },
+            { name: 'Module2', type: 'standard' },
+        ]));
+        explorer.setSetupComplete(true);
+
+        const [book1, book2] = await explorer.getChildren();
+        const [book1Module1, book1Module2] = await explorer.getChildren(book1);
+        await explorer.getChildren(book2);
+
+        explorer.setActiveModule(book1.filePath, 'Module1');
+        vscodeMock.treeEvents = [];
+        explorer.setActiveModule(book1.filePath, 'Module2');
+
+        expect(vscodeMock.treeEvents).toEqual([book1Module1, book1Module2]);
+        expect(vscodeMock.treeEvents).not.toContain(book2);
+    });
+
     it('does not run protection probes while discovering root workbooks', async () => {
         const call = vi.fn(() => Promise.resolve({ isPasswordProtected: false, isSigned: false }));
         const bridge = { call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
