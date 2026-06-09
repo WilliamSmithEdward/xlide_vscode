@@ -612,13 +612,16 @@ into a pure analyzer layer and a thin VS Code provider:
   at runtime, and `reference/**` is excluded from the packaged extension. When a
   reference dump is promoted into runtime behavior, the promotion must generate
   or update checked-in metadata under `src/` with explicit provenance. The Excel
-  generator currently emits `Application`, `Workbook`, `Worksheet`, `Range`,
-  `Workbooks`, `Worksheets`, and `Sheets` into
+  generator currently emits 62 promoted Excel runtime surfaces into
   `src/analyzer/host/excelReferenceMembers.ts`, including available member
-  signatures and reference documentation; `Excel.Workbook` and `Excel.Worksheet`
-  are marked exhaustive for hard unknown-member diagnostics. Reference events
-  are counted in coverage but filtered out of object-member surfaces because VBE
-  does not expose events as callable object methods/properties; document-module
+  signatures and reference documentation. Of those, 36 proven surfaces are
+  marked exhaustive for hard unknown-member diagnostics, while
+  `WorksheetFunction` and the Pivot object families are promoted for
+  completion, signature help, hover, and receiver-chain inference only because
+  development-oracle probes show unknown members compile on representative
+  receivers. Reference events are counted in
+  coverage but filtered out of object-member surfaces because VBE does not
+  expose events as callable object methods/properties; document-module
   event handler authoring uses separate module-scoped metadata in
   `src/analyzer/completion/eventHandlers.ts`. Hand-curated host
   members merge with matching generated entries so completion, hover, and

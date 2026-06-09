@@ -5375,6 +5375,127 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(hits.every((hit) => hit.message.includes('Excel.Range.'))).toBe(true);
 	});
 
+	it('uses the exhaustive Application host surface only after generated promotion', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Application.DoesNotExist\n' +
+			'    Application.CentimetersToPoints 1\n' +
+			'    Application.SheetCalculate\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'DoesNotExist',
+			'SheetCalculate',
+		]);
+		expect(hits[0].message).toContain('Excel.Application.DoesNotExist');
+		expect(hits[1].message).toContain('Excel.Application.SheetCalculate');
+	});
+
+	it('uses exhaustive generated collection surfaces, including mixed sheet items once all candidates are promoted', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Workbooks.MissingCollectionMember\n' +
+			'    Workbooks.Open "Book.xlsx"\n' +
+			'    Worksheets.MissingCollectionMember\n' +
+			'    Worksheets.Add\n' +
+			'    Sheets.MissingCollectionMember\n' +
+			'    Sheets.Add\n' +
+			'    Sheets(1).UnknownSheetOrChartMember\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'MissingCollectionMember',
+			'MissingCollectionMember',
+			'MissingCollectionMember',
+			'UnknownSheetOrChartMember',
+		]);
+		expect(hits[0].message).toContain('Excel.Workbooks.MissingCollectionMember');
+		expect(hits[1].message).toContain('Excel.Worksheets.MissingCollectionMember');
+		expect(hits[2].message).toContain('Excel.Sheets.MissingCollectionMember');
+	});
+
+	it('uses promoted table, chart, formatting, name, and window host surfaces', () => {
+		const src =
+			'Public Sub T(ws As Worksheet, rng As Range)\n' +
+			'    ws.ListObjects.MissingListObjectsMember\n' +
+			'    ws.ListObjects(1).MissingListObjectMember\n' +
+			'    ws.ListObjects(1).ListColumns.MissingListColumnsMember\n' +
+			'    ws.ListObjects(1).ListRows.MissingListRowsMember\n' +
+			'    ws.ChartObjects.MissingChartObjectsMember\n' +
+			'    ws.ChartObjects(1).MissingChartObjectMember\n' +
+			'    ws.Shapes.MissingShapesMember\n' +
+			'    ws.Shapes(1).MissingShapeMember\n' +
+			'    rng.Font.MissingFontMember\n' +
+			'    rng.Interior.MissingInteriorMember\n' +
+			'    rng.Borders.MissingBordersMember\n' +
+			'    rng.Borders(1).MissingBorderMember\n' +
+			'    rng.FormatConditions.MissingFormatConditionsMember\n' +
+			'    rng.FormatConditions.Add(xlCellValue, xlEqual, 1).MissingFormatConditionMember\n' +
+			'    rng.Validation.MissingValidationMember\n' +
+			'    rng.Hyperlinks.MissingHyperlinksMember\n' +
+			'    rng.Hyperlinks(1).MissingHyperlinkMember\n' +
+			'    rng.Areas.MissingAreasMember\n' +
+			'    rng.Style.MissingStyleMember\n' +
+			'    ws.PageSetup.MissingPageSetupMember\n' +
+			'    ThisWorkbook.Names.MissingNamesMember\n' +
+			'    ThisWorkbook.Names(1).MissingNameMember\n' +
+			'    Application.Windows.MissingWindowsMember\n' +
+			'    Application.Windows(1).MissingWindowMember\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual([
+			'MissingListObjectsMember',
+			'MissingListObjectMember',
+			'MissingListColumnsMember',
+			'MissingListRowsMember',
+			'MissingChartObjectsMember',
+			'MissingChartObjectMember',
+			'MissingShapesMember',
+			'MissingShapeMember',
+			'MissingFontMember',
+			'MissingInteriorMember',
+			'MissingBordersMember',
+			'MissingBorderMember',
+			'MissingFormatConditionsMember',
+			'MissingFormatConditionMember',
+			'MissingValidationMember',
+			'MissingHyperlinksMember',
+			'MissingHyperlinkMember',
+			'MissingAreasMember',
+			'MissingStyleMember',
+			'MissingPageSetupMember',
+			'MissingNamesMember',
+			'MissingNameMember',
+			'MissingWindowsMember',
+			'MissingWindowMember',
+		]);
+	});
+
+	it('keeps oracle-accepted WorksheetFunction and Pivot unknown members out of hard diagnostics', () => {
+		const src =
+			'Public Sub T(ws As Worksheet)\n' +
+			'    Application.WorksheetFunction.MissingWorksheetFunctionMember\n' +
+			'    Application.WorksheetFunction.Sum 1, 2\n' +
+			'    ws.PivotTables.MissingPivotTablesMember\n' +
+			'    ws.PivotTables(1).MissingPivotTableMember\n' +
+			'    ws.PivotTables(1).PivotFields.MissingPivotFieldsMember\n' +
+			'    ws.PivotTables(1).PivotFields("Year").MissingPivotFieldMember\n' +
+			'    ws.PivotTables(1).PivotFields("Year").PivotItems.MissingPivotItemsMember\n' +
+			'    ws.PivotTables(1).PivotFields("Year").PivotItems(1).MissingPivotItemMember\n' +
+			'    ws.PivotTables(1).PivotCache.MissingPivotCacheMember\n' +
+			'    ws.PivotTables(1).PivotFilters.MissingPivotFiltersMember\n' +
+			'    ws.PivotTables(1).PivotFilters(1).MissingPivotFilterMember\n' +
+			'    ws.PivotTables(1).CalculatedFields.MissingCalculatedFieldsMember\n' +
+			'    ws.PivotTables(1).CalculatedFields.Add("Calc", "=1").MissingCalculatedPivotFieldMember\n' +
+			'    ws.PivotTables(1).PivotFields("Year").CalculatedItems.MissingCalculatedItemsMember\n' +
+			'    ws.PivotTables(1).PivotFields("Year").CalculatedItems.Add("Q1", "=1").MissingCalculatedPivotItemMember\n' +
+			'    ws.PivotTables(1).CubeFields.MissingCubeFieldsMember\n' +
+			'    ws.PivotTables(1).CubeFields(1).MissingCubeFieldMember\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits).toHaveLength(0);
+	});
+
 	it('uses the exhaustive runtime object surface for Err', () => {
 		const src =
 			'Public Sub T()\n' +

@@ -2,11 +2,13 @@
 //
 // SOURCE OF TRUTH: the member names below are transcribed from the official
 // Microsoft Office VBA object-model reference (learn.microsoft.com/office/vba/
-// api/excel.*), verified on 2026-05-30. This is a curated subset of the most
-// commonly used members of the core Excel automation types; it is NOT the full
-// object model. Each type lists verified Properties and Methods. Return types
-// are provided only for members whose result type is stable and documented, to
-// enable member-access chaining (e.g. ws.Range(...).Offset(...).).
+// api/excel.*), verified on 2026-05-30, plus generated Excel reference dumps
+// checked into src/analyzer/host/excelReferenceMembers.ts. Promoted generated
+// types feed completion, hover, signature help, and receiver chains; only the
+// hard-diagnostic subset is marked exhaustive for member-not-found. The
+// remaining curated types are common member-completion and receiver-chain
+// helpers. Return types are provided only for members whose result type is stable and
+// documented, to enable member-access chaining (e.g. ws.Range(...).Offset(...).).
 //
 // This data is host metadata, NOT VBA language grammar. Per
 // docs/xlide_vba_language_service_roadmap.md it must never override core
@@ -14,7 +16,10 @@
 
 import {
 	EXCEL_REFERENCE_ENUM_CONSTANTS,
+	EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES,
 	EXCEL_REFERENCE_MEMBER_SETS,
+	EXCEL_REFERENCE_PROMOTED_TYPES,
+	EXCEL_REFERENCE_PROVENANCE,
 	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
 } from './excelReferenceMembers';
@@ -51,6 +56,8 @@ export interface HostConstant {
 export interface HostType {
 	/** Bare display name, e.g. "Worksheet". */
 	displayName: string;
+	/** Reference/source provenance for generated or promoted host metadata. */
+	provenance?: string;
 	/**
 	 * True only when `members` is complete enough to prove a member is absent.
 	 * Curated subsets must leave this false/undefined.
@@ -103,6 +110,18 @@ const LISTCOLUMN = 'Excel.ListColumn';
 const LISTCOLUMNS = 'Excel.ListColumns';
 const PIVOTTABLE = 'Excel.PivotTable';
 const PIVOTTABLES = 'Excel.PivotTables';
+const PIVOTFIELD = 'Excel.PivotField';
+const PIVOTFIELDS = 'Excel.PivotFields';
+const PIVOTITEM = 'Excel.PivotItem';
+const PIVOTITEMS = 'Excel.PivotItems';
+const PIVOTCACHE = 'Excel.PivotCache';
+const PIVOTCACHES = 'Excel.PivotCaches';
+const PIVOTFILTER = 'Excel.PivotFilter';
+const PIVOTFILTERS = 'Excel.PivotFilters';
+const CALCULATEDFIELDS = 'Excel.CalculatedFields';
+const CALCULATEDITEMS = 'Excel.CalculatedItems';
+const CUBEFIELD = 'Excel.CubeField';
+const CUBEFIELDS = 'Excel.CubeFields';
 const CHART = 'Excel.Chart';
 const CHARTS = 'Excel.Charts';
 const CHARTOBJECT = 'Excel.ChartObject';
@@ -116,6 +135,8 @@ const BORDERS = 'Excel.Borders';
 const AREAS = 'Excel.Areas';
 const HYPERLINK = 'Excel.Hyperlink';
 const HYPERLINKS = 'Excel.Hyperlinks';
+const FORMATCONDITION = 'Excel.FormatCondition';
+const FORMATCONDITIONS = 'Excel.FormatConditions';
 const WORKSHEETFUNCTION = 'Excel.WorksheetFunction';
 const STYLE = 'Excel.Style';
 const STYLES = 'Excel.Styles';
@@ -187,9 +208,48 @@ const EXCEL_HOST_ENUM_CONSTANTS = mergeHostConstants(
 	EXCEL_REFERENCE_ENUM_CONSTANTS,
 );
 
+function promotedExcelReferenceProvenance(displayName: string): string {
+	return EXCEL_REFERENCE_PROVENANCE[displayName] ?? `reference/excel/json/${displayName}.json`;
+}
+
+function promotedExcelReferenceExhaustive(displayName: string): boolean | undefined {
+	return (EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES as readonly string[]).includes(displayName)
+		? true
+		: undefined;
+}
+
+function promotedExcelHostType(
+	displayName: string,
+	primary: readonly HostMember[],
+): HostType {
+	return {
+		displayName,
+		provenance: promotedExcelReferenceProvenance(displayName),
+		exhaustive: promotedExcelReferenceExhaustive(displayName),
+		members: mergeHostMembers(primary, referenceMembers(displayName)),
+	};
+}
+
+function promotedExcelReferenceAliases(): Record<string, string> {
+	const aliases: Record<string, string> = {};
+	for (const displayName of EXCEL_REFERENCE_PROMOTED_TYPES) {
+		aliases[displayName.toLowerCase()] = `Excel.${displayName}`;
+	}
+	return aliases;
+}
+
+function promotedExcelHostTypes(displayNames: readonly string[]): Record<string, HostType> {
+	const types: Record<string, HostType> = {};
+	for (const displayName of displayNames) {
+		types[`Excel.${displayName}`] = promotedExcelHostType(displayName, []);
+	}
+	return types;
+}
+
 export const EXCEL_OBJECT_MODEL: HostObjectModel = {
-	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel and Office reference enum constants; promoted Excel reference metadata with Workbook/Worksheet exhaustive dumps; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
+	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel and Office reference enum constants; promoted Excel reference metadata for ${EXCEL_REFERENCE_PROMOTED_TYPES.join(', ')}; hard member-not-found diagnostics limited to ${EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES.join(', ')}; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
 	aliases: {
+		...promotedExcelReferenceAliases(),
 		workbook: WORKBOOK,
 		worksheet: WORKSHEET,
 		range: RANGE,
@@ -224,6 +284,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		areas: AREAS,
 		hyperlink: HYPERLINK,
 		hyperlinks: HYPERLINKS,
+		formatcondition: FORMATCONDITION,
+		formatconditions: FORMATCONDITIONS,
 		worksheetfunction: WORKSHEETFUNCTION,
 		style: STYLE,
 		styles: STYLES,
@@ -245,8 +307,11 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 	},
 	constants: EXCEL_HOST_ENUM_CONSTANTS,
 	types: {
+		...promotedExcelHostTypes(EXCEL_REFERENCE_PROMOTED_TYPES),
 		[APPLICATION]: {
 			displayName: 'Application',
+			provenance: promotedExcelReferenceProvenance('Application'),
+			exhaustive: promotedExcelReferenceExhaustive('Application'),
 			members: mergeHostMembers([
 				p('ActiveCell', RANGE),
 				p('ActiveChart', CHART),
@@ -308,7 +373,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[WORKBOOK]: {
 			displayName: 'Workbook',
-			exhaustive: true,
+			provenance: promotedExcelReferenceProvenance('Workbook'),
+			exhaustive: promotedExcelReferenceExhaustive('Workbook'),
 			members: mergeHostMembers([
 				p('ActiveChart', CHART),
 				p('ActiveSheet', WORKSHEET),
@@ -326,6 +392,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('Names', NAMES),
 				p('Parent', APPLICATION),
 				p('Path'),
+				p('PivotCaches', PIVOTCACHES),
 				p('PivotTables', PIVOTTABLES),
 				p('ReadOnly'),
 				p('Saved'),
@@ -350,7 +417,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[WORKSHEET]: {
 			displayName: 'Worksheet',
-			exhaustive: true,
+			provenance: promotedExcelReferenceProvenance('Worksheet'),
+			exhaustive: promotedExcelReferenceExhaustive('Worksheet'),
 			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('AutoFilter'),
@@ -391,7 +459,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Move'),
 				m('Paste'),
 				m('PasteSpecial'),
-				m('PivotTables', PIVOTTABLES),
+				p('PivotTables', PIVOTTABLES),
 				m('PrintOut'),
 				m('PrintPreview'),
 				m('Protect'),
@@ -402,7 +470,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[RANGE]: {
 			displayName: 'Range',
-			exhaustive: true,
+			provenance: promotedExcelReferenceProvenance('Range'),
+			exhaustive: promotedExcelReferenceExhaustive('Range'),
 			members: mergeHostMembers([
 				p('Address'),
 				p('Application', APPLICATION),
@@ -419,6 +488,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('EntireColumn', RANGE),
 				p('EntireRow', RANGE),
 				p('Font', FONT),
+				p('FormatConditions', FORMATCONDITIONS),
 				p('Formula'),
 				p('FormulaR1C1'),
 				p('Height'),
@@ -483,6 +553,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[WORKBOOKS]: {
 			displayName: 'Workbooks',
+			provenance: promotedExcelReferenceProvenance('Workbooks'),
+			exhaustive: promotedExcelReferenceExhaustive('Workbooks'),
 			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('Count'),
@@ -499,6 +571,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[WORKSHEETS]: {
 			displayName: 'Worksheets',
+			provenance: promotedExcelReferenceProvenance('Worksheets'),
+			exhaustive: promotedExcelReferenceExhaustive('Worksheets'),
 			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('Count'),
@@ -519,6 +593,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		},
 		[SHEETS]: {
 			displayName: 'Sheets',
+			provenance: promotedExcelReferenceProvenance('Sheets'),
+			exhaustive: promotedExcelReferenceExhaustive('Sheets'),
 			members: mergeHostMembers([
 				p('Application', APPLICATION),
 				p('Count'),
@@ -537,9 +613,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Select'),
 			], referenceMembers('Sheets')),
 		},
-		[WINDOW]: {
-			displayName: 'Window',
-			members: [
+		[WINDOW]: promotedExcelHostType('Window', [
 				p('ActiveCell', RANGE),
 				p('ActiveChart', CHART),
 				p('ActivePane'),
@@ -583,11 +657,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('PrintPreview'),
 				m('ScrollIntoView'),
 				m('SmallScroll'),
-			],
-		},
-		[WINDOWS]: {
-			displayName: 'Windows',
-			members: [
+			]),
+		[WINDOWS]: promotedExcelHostType('Windows', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Item', WINDOW),
@@ -595,11 +666,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Arrange'),
 				m('BreakSideBySide'),
 				m('CompareSideBySideWith'),
-			],
-		},
-		[NAME]: {
-			displayName: 'Name',
-			members: [
+			]),
+		[NAME]: promotedExcelHostType('Name', [
 				p('Application', APPLICATION),
 				p('Category'),
 				p('Comment'),
@@ -615,18 +683,14 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('Value'),
 				p('Visible'),
 				m('Delete'),
-			],
-		},
-		[NAMES]: {
-			displayName: 'Names',
-			members: [
+			]),
+		[NAMES]: promotedExcelHostType('Names', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
 				m('Add', NAME),
 				m('Item', NAME),
-			],
-		},
+			]),
 		[COMMENT]: {
 			displayName: 'Comment',
 			members: [
@@ -650,9 +714,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Item', COMMENT),
 			],
 		},
-		[LISTOBJECT]: {
-			displayName: 'ListObject',
-			members: [
+		[LISTOBJECT]: promotedExcelHostType('ListObject', [
 				p('Active'),
 				p('Application', APPLICATION),
 				p('AutoFilter'),
@@ -680,41 +742,29 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Resize'),
 				m('Unlink'),
 				m('Unlist'),
-			],
-		},
-		[LISTOBJECTS]: {
-			displayName: 'ListObjects',
-			members: [
+			]),
+		[LISTOBJECTS]: promotedExcelHostType('ListObjects', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
 				m('Add', LISTOBJECT),
 				m('Item', LISTOBJECT),
-			],
-		},
-		[LISTROW]: {
-			displayName: 'ListRow',
-			members: [
+			]),
+		[LISTROW]: promotedExcelHostType('ListRow', [
 				p('Application', APPLICATION),
 				p('Index'),
 				p('Parent'),
 				p('Range', RANGE),
 				m('Delete'),
-			],
-		},
-		[LISTROWS]: {
-			displayName: 'ListRows',
-			members: [
+			]),
+		[LISTROWS]: promotedExcelHostType('ListRows', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
 				m('Add', LISTROW),
 				m('Item', LISTROW),
-			],
-		},
-		[LISTCOLUMN]: {
-			displayName: 'ListColumn',
-			members: [
+			]),
+		[LISTCOLUMN]: promotedExcelHostType('ListColumn', [
 				p('Application', APPLICATION),
 				p('DataBodyRange', RANGE),
 				p('Index'),
@@ -724,28 +774,33 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('Total', RANGE),
 				p('TotalsCalculation'),
 				m('Delete'),
-			],
-		},
-		[LISTCOLUMNS]: {
-			displayName: 'ListColumns',
-			members: [
+			]),
+		[LISTCOLUMNS]: promotedExcelHostType('ListColumns', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
 				m('Add', LISTCOLUMN),
 				m('Item', LISTCOLUMN),
-			],
-		},
-		[PIVOTTABLE]: {
-			displayName: 'PivotTable',
-			members: [
+			]),
+		[PIVOTTABLE]: promotedExcelHostType('PivotTable', [
 				p('Application', APPLICATION),
+				p('CalculatedFields', CALCULATEDFIELDS),
+				p('CalculatedItems', CALCULATEDITEMS),
+				p('ColumnFields', PIVOTFIELDS),
 				p('ColumnGrand'),
+				p('CubeFields', CUBEFIELDS),
 				p('DataBodyRange', RANGE),
+				p('DataFields', PIVOTFIELDS),
+				p('HiddenFields', PIVOTFIELDS),
 				p('Name'),
+				p('PageFields', PIVOTFIELDS),
 				p('PageRange', RANGE),
 				p('Parent'),
+				p('PivotCache', PIVOTCACHE),
+				p('PivotFields', PIVOTFIELDS),
+				p('PivotFilters', PIVOTFILTERS),
 				p('RefreshDate'),
+				p('RowFields', PIVOTFIELDS),
 				p('RowGrand'),
 				p('RowRange', RANGE),
 				p('SaveData'),
@@ -753,29 +808,118 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('TableRange1', RANGE),
 				p('TableRange2', RANGE),
 				p('Value'),
+				p('VisibleFields', PIVOTFIELDS),
 				m('AddDataField'),
 				m('AddFields'),
 				m('ClearTable'),
 				m('GetData'),
 				m('GetPivotData', RANGE),
-				m('PivotFields'),
 				m('RefreshTable'),
 				m('Update'),
-			],
-		},
-		[PIVOTTABLES]: {
-			displayName: 'PivotTables',
-			members: [
+			]),
+		[PIVOTTABLES]: promotedExcelHostType('PivotTables', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
 				m('Add', PIVOTTABLE),
 				m('Item', PIVOTTABLE),
-			],
-		},
-		[CHART]: {
-			displayName: 'Chart',
-			members: [
+			]),
+		[PIVOTFIELD]: promotedExcelHostType('PivotField', [
+				p('Application', APPLICATION),
+				p('ChildItems', PIVOTITEMS),
+				p('HiddenItems', PIVOTITEMS),
+				p('ParentItems', PIVOTITEMS),
+				p('PivotFilters', PIVOTFILTERS),
+				p('PivotItems', PIVOTITEMS),
+				p('SourceRange', RANGE),
+				p('VisibleItems', PIVOTITEMS),
+				m('ClearAllFilters'),
+			]),
+		[PIVOTFIELDS]: promotedExcelHostType('PivotFields', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Parent'),
+				m('Item', PIVOTFIELD),
+			]),
+		[PIVOTITEM]: promotedExcelHostType('PivotItem', [
+				p('Application', APPLICATION),
+				p('ChildItems', PIVOTITEMS),
+				p('DataRange', RANGE),
+				p('LabelRange', RANGE),
+				p('ParentItem', PIVOTITEM),
+				p('ParentShowDetail', PIVOTITEM),
+				p('Position'),
+				p('SourceName'),
+				p('Value'),
+			]),
+		[PIVOTITEMS]: promotedExcelHostType('PivotItems', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Parent'),
+				m('Item', PIVOTITEM),
+			]),
+		[PIVOTCACHE]: promotedExcelHostType('PivotCache', [
+				p('Application', APPLICATION),
+				p('Creator'),
+				p('Index'),
+				p('MemoryUsed'),
+				p('Parent'),
+				p('RecordCount'),
+				m('CreatePivotTable', PIVOTTABLE),
+				m('Refresh'),
+			]),
+		[PIVOTCACHES]: promotedExcelHostType('PivotCaches', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Parent'),
+				m('Create', PIVOTCACHE),
+				m('Item', PIVOTCACHE),
+			]),
+		[PIVOTFILTER]: promotedExcelHostType('PivotFilter', [
+				p('Application', APPLICATION),
+				p('DataField', PIVOTFIELD),
+				p('FilteringPivotField', PIVOTFIELD),
+				p('MemberPropertyField', PIVOTFIELD),
+				p('Parent'),
+				p('Value1'),
+				p('Value2'),
+				m('Delete'),
+			]),
+		[PIVOTFILTERS]: promotedExcelHostType('PivotFilters', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Parent'),
+				m('Add', PIVOTFILTER),
+				m('Item', PIVOTFILTER),
+			]),
+		[CALCULATEDFIELDS]: promotedExcelHostType('CalculatedFields', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Parent'),
+				m('Add', PIVOTFIELD),
+				m('Item', PIVOTFIELD),
+			]),
+		[CALCULATEDITEMS]: promotedExcelHostType('CalculatedItems', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Parent'),
+				m('Add', PIVOTITEM),
+				m('Item', PIVOTITEM),
+			]),
+		[CUBEFIELD]: promotedExcelHostType('CubeField', [
+				p('Application', APPLICATION),
+				p('Caption'),
+				p('Name'),
+				p('Parent'),
+				m('CreatePivotFields'),
+			]),
+		[CUBEFIELDS]: promotedExcelHostType('CubeFields', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Parent'),
+				m('Item', CUBEFIELD),
+			]),
+		[CHART]: promotedExcelHostType('Chart', [
 				p('Application', APPLICATION),
 				p('ChartArea'),
 				p('ChartTitle'),
@@ -804,11 +948,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Select'),
 				m('SeriesCollection'),
 				m('SetSourceData'),
-			],
-		},
-		[CHARTS]: {
-			displayName: 'Charts',
-			members: [
+			]),
+		[CHARTS]: promotedExcelHostType('Charts', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Item', CHART),
@@ -818,11 +959,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Copy'),
 				m('Delete'),
 				m('Select'),
-			],
-		},
-		[CHARTOBJECT]: {
-			displayName: 'ChartObject',
-			members: [
+			]),
+		[CHARTOBJECT]: promotedExcelHostType('ChartObject', [
 				p('Application', APPLICATION),
 				p('BottomRightCell', RANGE),
 				p('Chart', CHART),
@@ -846,11 +984,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Duplicate'),
 				m('Select'),
 				m('SendToBack'),
-			],
-		},
-		[CHARTOBJECTS]: {
-			displayName: 'ChartObjects',
-			members: [
+			]),
+		[CHARTOBJECTS]: promotedExcelHostType('ChartObjects', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Height'),
@@ -863,11 +998,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Delete'),
 				m('Item', CHARTOBJECT),
 				m('Select'),
-			],
-		},
-		[SHAPE]: {
-			displayName: 'Shape',
-			members: [
+			]),
+		[SHAPE]: promotedExcelHostType('Shape', [
 				p('AlternativeText'),
 				p('Application', APPLICATION),
 				p('AutoShapeType'),
@@ -904,11 +1036,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('ScaleWidth'),
 				m('Select'),
 				m('ZOrder'),
-			],
-		},
-		[SHAPES]: {
-			displayName: 'Shapes',
-			members: [
+			]),
+		[SHAPES]: promotedExcelHostType('Shapes', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
@@ -922,11 +1051,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('AddTextbox', SHAPE),
 				m('Item', SHAPE),
 				m('SelectAll'),
-			],
-		},
-		[FONT]: {
-			displayName: 'Font',
-			members: [
+			]),
+		[FONT]: promotedExcelHostType('Font', [
 				p('Application', APPLICATION),
 				p('Background'),
 				p('Bold'),
@@ -944,11 +1070,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('ThemeFont'),
 				p('TintAndShade'),
 				p('Underline'),
-			],
-		},
-		[INTERIOR]: {
-			displayName: 'Interior',
-			members: [
+			]),
+		[INTERIOR]: promotedExcelHostType('Interior', [
 				p('Application', APPLICATION),
 				p('Color'),
 				p('ColorIndex'),
@@ -960,11 +1083,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('PatternColorIndex'),
 				p('ThemeColor'),
 				p('TintAndShade'),
-			],
-		},
-		[BORDER]: {
-			displayName: 'Border',
-			members: [
+			]),
+		[BORDER]: promotedExcelHostType('Border', [
 				p('Application', APPLICATION),
 				p('Color'),
 				p('ColorIndex'),
@@ -973,11 +1093,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('ThemeColor'),
 				p('TintAndShade'),
 				p('Weight'),
-			],
-		},
-		[BORDERS]: {
-			displayName: 'Borders',
-			members: [
+			]),
+		[BORDERS]: promotedExcelHostType('Borders', [
 				p('Application', APPLICATION),
 				p('Color'),
 				p('ColorIndex'),
@@ -989,20 +1106,14 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('TintAndShade'),
 				p('Value'),
 				p('Weight'),
-			],
-		},
-		[AREAS]: {
-			displayName: 'Areas',
-			members: [
+			]),
+		[AREAS]: promotedExcelHostType('Areas', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Item', RANGE),
 				p('Parent'),
-			],
-		},
-		[HYPERLINK]: {
-			displayName: 'Hyperlink',
-			members: [
+			]),
+		[HYPERLINK]: promotedExcelHostType('Hyperlink', [
 				p('Address'),
 				p('Application', APPLICATION),
 				p('EmailSubject'),
@@ -1018,22 +1129,33 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('CreateNewDocument'),
 				m('Delete'),
 				m('Follow'),
-			],
-		},
-		[HYPERLINKS]: {
-			displayName: 'Hyperlinks',
-			members: [
+			]),
+		[HYPERLINKS]: promotedExcelHostType('Hyperlinks', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Item', HYPERLINK),
 				p('Parent'),
 				m('Add', HYPERLINK),
 				m('Delete'),
-			],
-		},
-		[WORKSHEETFUNCTION]: {
-			displayName: 'WorksheetFunction',
-			members: [
+			]),
+		[FORMATCONDITION]: promotedExcelHostType('FormatCondition', [
+				p('Application', APPLICATION),
+				p('Borders', BORDERS),
+				p('Font', FONT),
+				p('Interior', INTERIOR),
+				p('Parent'),
+				m('Delete'),
+				m('Modify'),
+			]),
+		[FORMATCONDITIONS]: promotedExcelHostType('FormatConditions', [
+				p('Application', APPLICATION),
+				p('Count'),
+				p('Item', FORMATCONDITION),
+				p('Parent'),
+				m('Add', FORMATCONDITION),
+				m('Delete'),
+			]),
+		[WORKSHEETFUNCTION]: promotedExcelHostType('WorksheetFunction', [
 				p('Application', APPLICATION),
 				p('Parent'),
 				m('Average'),
@@ -1085,11 +1207,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Var'),
 				m('XLookup'),
 				m('XMatch'),
-			],
-		},
-		[STYLE]: {
-			displayName: 'Style',
-			members: [
+			]),
+		[STYLE]: promotedExcelHostType('Style', [
 				p('Application', APPLICATION),
 				p('Borders', BORDERS),
 				p('BuiltIn'),
@@ -1111,22 +1230,16 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('VerticalAlignment'),
 				p('WrapText'),
 				m('Delete'),
-			],
-		},
-		[STYLES]: {
-			displayName: 'Styles',
-			members: [
+			]),
+		[STYLES]: promotedExcelHostType('Styles', [
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Item', STYLE),
 				p('Parent'),
 				m('Add', STYLE),
 				m('Merge'),
-			],
-		},
-		[PAGESETUP]: {
-			displayName: 'PageSetup',
-			members: [
+			]),
+		[PAGESETUP]: promotedExcelHostType('PageSetup', [
 				p('Application', APPLICATION),
 				p('BlackAndWhite'),
 				p('BottomMargin'),
@@ -1155,11 +1268,8 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				p('RightMargin'),
 				p('TopMargin'),
 				p('Zoom'),
-			],
-		},
-		[VALIDATION]: {
-			displayName: 'Validation',
-			members: [
+			]),
+		[VALIDATION]: promotedExcelHostType('Validation', [
 				p('AlertStyle'),
 				p('Application', APPLICATION),
 				p('ErrorMessage'),
@@ -1179,8 +1289,7 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 				m('Add'),
 				m('Delete'),
 				m('Modify'),
-			],
-		},
+			]),
 	},
 	// Verified call signatures transcribed from the Office VBA object-model
 	// reference (learn.microsoft.com). Parameter lists are reproduced exactly;

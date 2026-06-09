@@ -13,8 +13,9 @@ const outputPath = path.join(root, 'src', 'analyzer', 'host', 'excelReferenceMem
 const coveragePath = path.join(root, 'docs', 'excel_reference_coverage.md');
 
 // Keep runtime promotion explicit. The generator scans the full Excel corpus for
-// coverage, but only these types become checked-in host metadata.
-const promotedTypes = [
+// coverage, but only promotedTypes become checked-in host metadata. Only
+// hardDiagnosticTypes are allowed to prove hard member-not-found absence.
+const hardDiagnosticTypes = [
 	'Application',
 	'Workbook',
 	'Worksheet',
@@ -22,6 +23,65 @@ const promotedTypes = [
 	'Workbooks',
 	'Worksheets',
 	'Sheets',
+	'Window',
+	'Windows',
+	'Name',
+	'Names',
+	'ListObject',
+	'ListObjects',
+	'ListRow',
+	'ListRows',
+	'ListColumn',
+	'ListColumns',
+	'Chart',
+	'Charts',
+	'ChartObject',
+	'ChartObjects',
+	'Shape',
+	'Shapes',
+	'Font',
+	'Interior',
+	'Border',
+	'Borders',
+	'Areas',
+	'Hyperlink',
+	'Hyperlinks',
+	'FormatCondition',
+	'FormatConditions',
+	'Style',
+	'Styles',
+	'PageSetup',
+	'Validation',
+];
+
+const promotedTypes = [
+	...hardDiagnosticTypes,
+	'WorksheetFunction',
+	'PivotTable',
+	'PivotTables',
+	'PivotField',
+	'PivotFields',
+	'PivotItem',
+	'PivotItems',
+	'PivotCache',
+	'PivotCaches',
+	'PivotFilter',
+	'PivotFilters',
+	'PivotCell',
+	'PivotLayout',
+	'PivotAxis',
+	'PivotFormula',
+	'PivotFormulas',
+	'PivotLine',
+	'PivotLineCells',
+	'PivotLines',
+	'PivotValueCell',
+	'PivotTableChangeList',
+	'PivotItemList',
+	'CalculatedFields',
+	'CalculatedItems',
+	'CubeField',
+	'CubeFields',
 ];
 
 const primitiveTypes = new Set([
@@ -282,6 +342,7 @@ ${markdownTable(
 		['Object-like type dumps', countWhere((row) => row.totalMembers > 0)],
 		['Enumeration dumps', enumRows.length],
 		['Promoted runtime types', promotedTypes.length],
+		['Hard diagnostic runtime types', hardDiagnosticTypes.length],
 		['Raw properties', sumOf('properties')],
 		['Raw methods', sumOf('methods')],
 		['Raw events', sumOf('events')],
@@ -356,6 +417,11 @@ ${markdownTable(
 - Excel events are counted for coverage but are intentionally not emitted into object-member surfaces; VBE does not expose events as callable object methods/properties. Event handler authoring uses a separate module-scoped metadata path.
 - Completion may use partial metadata, but hard \`member-not-found\` diagnostics require a promoted exhaustive surface.
 - Promotion remains type-by-type so each host surface can get representative tests and oracle controls before red diagnostics rely on absence.
+- Hard \`member-not-found\` diagnostics are currently limited to these promoted
+  runtime types: ${hardDiagnosticTypes.map((typeName) => `\`${typeName}\``).join(', ')}.
+- Promoted metadata types outside the hard-diagnostic set remain completion,
+  hover, signature, and receiver-chain surfaces until oracle evidence shows
+  unknown members are compile-rejected.
 `;
 }
 
@@ -373,6 +439,8 @@ function renderOutput() {
 import type { HostConstant, HostMember } from './excelObjectModel';
 
 export const EXCEL_REFERENCE_PROMOTED_TYPES = ${JSON.stringify(promotedTypes)} as const;
+
+export const EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES = ${JSON.stringify(hardDiagnosticTypes)} as const;
 
 export const EXCEL_REFERENCE_PROVENANCE: Record<string, string> = {
 ${provenanceEntries}

@@ -3239,6 +3239,66 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim Value As Date\n    Value = CDate(\"1/2/2020\")\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "worksheetfunction_known_member_compile",
+      "description": "Compile control: a known WorksheetFunction member is accepted.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print Application.WorksheetFunction.Sum(1, 2)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "worksheetfunction_unknown_member_compile",
+      "description": "Compile probe: VBE accepts unknown WorksheetFunction member access; XLIDE must not hard member-not-found this surface.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print Application.WorksheetFunction.DoesNotExist(1)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "pivottable_known_member_compile",
+      "description": "Compile control: a known PivotTable member is accepted on a declared PivotTable receiver.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim pt As PivotTable\n    Debug.Print pt.Name\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "pivottable_unknown_member_compile",
+      "description": "Compile probe: VBE accepts unknown PivotTable member access; XLIDE must not hard member-not-found this surface.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim pt As PivotTable\n    pt.DoesNotExist\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "pivotfield_known_member_compile",
+      "description": "Compile control: a known PivotField member is accepted on a declared PivotField receiver.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim pf As PivotField\n    Debug.Print pf.Orientation\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "pivotfield_unknown_member_compile",
+      "description": "Compile probe: VBE accepts unknown PivotField member access; XLIDE must not hard member-not-found this surface.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim pf As PivotField\n    pf.DoesNotExist\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

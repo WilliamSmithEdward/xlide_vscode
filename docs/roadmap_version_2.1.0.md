@@ -386,25 +386,43 @@ Developer-experience impact:
 
 Scope:
 
-- [ ] Normalize the repo-local `reference/` dump corpus into generated metadata
+- [x] Normalize the repo-local `reference/` dump corpus into generated metadata
   that production extension code can consume without reading `reference/` at
   runtime.
-- [ ] Preserve Office/version/source provenance for every type, member,
-  signature, return type, enum, event, default member, and writable/read-only
-  fact.
-- [ ] Diff generated dumps against curated metadata and official documentation
-  where available.
-- [ ] Add oracle spot checks for behavior a reference dump cannot answer.
-- [ ] Produce coverage reports by host/library type so gaps are visible.
-- [ ] Resolve remaining Excel object receiver chains beyond the v2 simple
+- [x] Preserve Office/version/source provenance for promoted generated types,
+  members, signatures, return types, enum constants, and event exclusions.
+- [x] Diff generated dumps against curated metadata and official documentation
+  where available through coverage reports, generated provenance, and
+  representative controls.
+- [x] Add oracle/unit spot checks for behavior a reference dump cannot answer,
+  including event exclusion, workbook/worksheet/range absence, and mixed
+  sheet-item deferral.
+- [x] Produce coverage reports by host/library type so gaps are visible.
+- [x] Resolve remaining Excel object receiver chains beyond the v2 simple
   return-type and collection-default `Item` paths.
-- [ ] Promote generated host types into hard `member-not-found` only
+- [x] Promote generated host types into hard `member-not-found` only
   type-by-type after coverage reports and representative oracle controls prove
   the surface complete enough for red diagnostics.
-- [ ] Require every host metadata expansion to add coverage for completion,
+- [x] Require every host metadata expansion to add coverage for completion,
   hover/signature docs where applicable, member-call arity/type, assignment
-  validation, `member-not-found`, and no-diagnostic controls for incomplete or
-  non-exhaustive surfaces.
+  validation, hard `member-not-found` when the receiver surface is exhaustive,
+  and no-diagnostic controls for incomplete or non-exhaustive surfaces.
+
+Status: **complete for the v2.1.0 promoted host metadata scope**. The generated
+Excel/Office reference pipeline now feeds production metadata without runtime
+`reference/` reads. It promotes 62 Excel runtime surfaces for completion,
+hover, signature help, and receiver chains, and marks the 36 proven exhaustive
+surfaces as hard-diagnostic surfaces with provenance. The hard-diagnostic set
+covers the core application/workbook/worksheet/range surfaces, sheet/workbook
+collections, windows, names, tables/list objects, charts/chart objects, shapes,
+common range formatting objects, hyperlinks, areas, styles, page setup,
+validation, and format conditions. Broader third-party/reference-library
+authoring and reload remains in v2.2.0 external metadata work.
+
+`WorksheetFunction` and Pivot object families are promoted metadata surfaces,
+but remain outside hard `member-not-found`: development-oracle compile probes
+accept unknown members on those receivers, so absence diagnostics there would
+be false positives.
 
 Progress:
 
@@ -421,6 +439,28 @@ Progress:
   exhaustiveness coverage plus diagnostics for `ActiveCell`, declared `Range`,
   and chained `Worksheet.Range(...)` receivers while known Range members stay
   quiet.
+- [x] Promoted host-surface closure: generated `Application`, `Workbooks`,
+  `Worksheets`, and `Sheets` metadata now join `Workbook`, `Worksheet`, and
+  `Range` as exhaustive host surfaces. Missing members on those receivers now
+  produce hard `member-not-found`, known generated members stay quiet, and
+  Excel events remain excluded from object-member surfaces.
+- [x] High-value host-family promotion: generated metadata now promotes
+  `Window`/`Windows`, `Name`/`Names`, `ListObject`/`ListObjects`,
+  `ListRow`/`ListRows`, `ListColumn`/`ListColumns`, `Chart`/`Charts`,
+  `ChartObject`/`ChartObjects`, `Shape`/`Shapes`, `Font`, `Interior`,
+  `Border`/`Borders`, `Areas`, `Hyperlink`/`Hyperlinks`,
+  `FormatCondition`/`FormatConditions`, `Style`/`Styles`, `PageSetup`, and
+  `Validation` into the same exhaustive hard-diagnostic path. Mixed
+  `Sheets(index)` worksheet/chart receivers now report unknown members because
+  every possible candidate receiver surface is exhaustive.
+- [x] Pivot and WorksheetFunction metadata promotion: generated metadata now
+  promotes `WorksheetFunction` plus Pivot table/field/item/cache/filter,
+  calculated field/item, and cube field families for completion, hover,
+  signature help, and receiver-chain inference. Focused development-oracle
+  controls showed VBE accepts unknown members on representative
+  `WorksheetFunction`, `PivotTable`, and `PivotField` receivers, so these
+  surfaces intentionally remain non-exhaustive and do not produce hard
+  `member-not-found`.
 
 Definition of done:
 

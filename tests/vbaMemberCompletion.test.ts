@@ -8,6 +8,7 @@ import {
 	resolveHostMemberSignature,
 	resolveMemberReturnType,
 	getHostMembers,
+	getHostType,
 	type HostObjectModel,
 } from '../src/analyzer';
 import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
@@ -68,27 +69,85 @@ describe('host model resolution', () => {
 		expect(resolveMemberReturnType('Excel.Range', 'Interior')).toBe('Excel.Interior');
 		expect(resolveMemberReturnType('Excel.Range', 'Borders')).toBe('Excel.Borders');
 		expect(resolveMemberReturnType('Excel.Borders', 'Item')).toBe('Excel.Border');
+		expect(resolveMemberReturnType('Excel.Range', 'FormatConditions')).toBe(
+			'Excel.FormatConditions',
+		);
+		expect(resolveMemberReturnType('Excel.FormatConditions', 'Add')).toBe(
+			'Excel.FormatCondition',
+		);
+		expect(resolveMemberReturnType('Excel.FormatCondition', 'Font')).toBe('Excel.Font');
+		expect(resolveMemberReturnType('Excel.Range', 'Validation')).toBe('Excel.Validation');
+		expect(resolveMemberReturnType('Excel.Range', 'Hyperlinks')).toBe('Excel.Hyperlinks');
+		expect(resolveMemberReturnType('Excel.Hyperlinks', 'Item')).toBe('Excel.Hyperlink');
+		expect(resolveMemberReturnType('Excel.Range', 'Areas')).toBe('Excel.Areas');
 		// Tables / list objects.
 		expect(resolveMemberReturnType('Excel.Worksheet', 'ListObjects')).toBe('Excel.ListObjects');
 		expect(resolveMemberReturnType('Excel.ListObjects', 'Add')).toBe('Excel.ListObject');
 		expect(resolveMemberReturnType('Excel.ListObject', 'Range')).toBe('Excel.Range');
 		expect(resolveMemberReturnType('Excel.ListObject', 'ListColumns')).toBe('Excel.ListColumns');
+		expect(resolveMemberReturnType('Excel.ListObject', 'ListRows')).toBe('Excel.ListRows');
+		expect(resolveMemberReturnType('Excel.ListColumns', 'Item')).toBe('Excel.ListColumn');
+		expect(resolveMemberReturnType('Excel.ListRows', 'Item')).toBe('Excel.ListRow');
 		// Windows / names / charts.
 		expect(resolveMemberReturnType('Excel.Application', 'ActiveWindow')).toBe('Excel.Window');
+		expect(resolveMemberReturnType('Excel.Application', 'Windows')).toBe('Excel.Windows');
+		expect(resolveMemberReturnType('Excel.Windows', 'Item')).toBe('Excel.Window');
 		expect(resolveMemberReturnType('Excel.Workbook', 'Names')).toBe('Excel.Names');
 		expect(resolveMemberReturnType('Excel.Names', 'Add')).toBe('Excel.Name');
+		expect(resolveMemberReturnType('Excel.Workbook', 'Charts')).toBe('Excel.Charts');
+		expect(resolveMemberReturnType('Excel.Charts', 'Item')).toBe('Excel.Chart');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'ChartObjects')).toBe(
+			'Excel.ChartObjects',
+		);
+		expect(resolveMemberReturnType('Excel.ChartObjects', 'Item')).toBe('Excel.ChartObject');
 		expect(resolveMemberReturnType('Excel.Worksheet', 'Shapes')).toBe('Excel.Shapes');
+		expect(resolveMemberReturnType('Excel.Shapes', 'Item')).toBe('Excel.Shape');
+		expect(resolveMemberReturnType('Excel.Worksheet', 'PageSetup')).toBe('Excel.PageSetup');
 		// WorksheetFunction is reachable from Application.
 		expect(resolveMemberReturnType('Excel.Application', 'WorksheetFunction')).toBe(
 			'Excel.WorksheetFunction',
 		);
+		expect(resolveHostMemberSignature('Excel.WorksheetFunction', 'Sum')).toContain(
+			'Sum(Arg1 As Variant',
+		);
+		// Pivot tables and fields.
+		expect(resolveMemberReturnType('Excel.Worksheet', 'PivotTables')).toBe('Excel.PivotTables');
+		expect(resolveMemberReturnType('Excel.PivotTables', 'Item')).toBe('Excel.PivotTable');
+		expect(resolveMemberReturnType('Excel.Workbook', 'PivotCaches')).toBe('Excel.PivotCaches');
+		expect(resolveMemberReturnType('Excel.PivotCaches', 'Item')).toBe('Excel.PivotCache');
+		expect(resolveMemberReturnType('Excel.PivotTable', 'PivotFields')).toBe('Excel.PivotFields');
+		expect(resolveMemberReturnType('Excel.PivotFields', 'Item')).toBe('Excel.PivotField');
+		expect(resolveMemberReturnType('Excel.PivotField', 'PivotItems')).toBe('Excel.PivotItems');
+		expect(resolveMemberReturnType('Excel.PivotItems', 'Item')).toBe('Excel.PivotItem');
+		expect(resolveMemberReturnType('Excel.PivotTable', 'PivotCache')).toBe('Excel.PivotCache');
+		expect(resolveMemberReturnType('Excel.PivotTable', 'PivotFilters')).toBe(
+			'Excel.PivotFilters',
+		);
+		expect(resolveMemberReturnType('Excel.PivotFilters', 'Item')).toBe('Excel.PivotFilter');
+		expect(resolveMemberReturnType('Excel.PivotTable', 'CalculatedFields')).toBe(
+			'Excel.CalculatedFields',
+		);
+		expect(resolveMemberReturnType('Excel.CalculatedFields', 'Add')).toBe('Excel.PivotField');
+		expect(resolveMemberReturnType('Excel.PivotField', 'CalculatedItems')).toBe(
+			'Excel.CalculatedItems',
+		);
+		expect(resolveMemberReturnType('Excel.CalculatedItems', 'Add')).toBe('Excel.PivotItem');
+		expect(resolveMemberReturnType('Excel.PivotTable', 'CubeFields')).toBe('Excel.CubeFields');
+		expect(resolveMemberReturnType('Excel.CubeFields', 'Item')).toBe('Excel.CubeField');
 	});
 
 	it('exposes the broadened types as host aliases', () => {
 		expect(resolveHostAlias('Font')).toBe('Excel.Font');
 		expect(resolveHostAlias('listobject')).toBe('Excel.ListObject');
 		expect(resolveHostAlias('Window')).toBe('Excel.Window');
+		expect(resolveHostAlias('FormatCondition')).toBe('Excel.FormatCondition');
+		expect(resolveHostAlias('FormatConditions')).toBe('Excel.FormatConditions');
+		expect(resolveHostAlias('ChartObject')).toBe('Excel.ChartObject');
+		expect(resolveHostAlias('Hyperlink')).toBe('Excel.Hyperlink');
 		expect(resolveHostAlias('WorksheetFunction')).toBe('Excel.WorksheetFunction');
+		expect(resolveHostAlias('PivotTable')).toBe('Excel.PivotTable');
+		expect(resolveHostAlias('PivotField')).toBe('Excel.PivotField');
+		expect(resolveHostAlias('PivotCache')).toBe('Excel.PivotCache');
 	});
 });
 
@@ -224,7 +283,7 @@ describe('member completion - host globals', () => {
 		const app = resolveMemberCompletions(appSrc, dotOffset(appSrc, 'Application.Centi'));
 		const centimetersToPoints = app.find((member) => member.name === 'CentimetersToPoints');
 		expect(centimetersToPoints?.owner).toBe('Excel.Application');
-		expect(centimetersToPoints?.surfaceExhaustive).toBe(false);
+		expect(centimetersToPoints?.surfaceExhaustive).toBe(true);
 
 		const rangeSrc = 'Sub Test(rng As Range)\n    rng.Spilling\nEnd Sub\n';
 		const range = resolveMemberCompletions(rangeSrc, dotOffset(rangeSrc, 'rng.Spilling'));
@@ -1103,12 +1162,84 @@ describe('member completion - negative cases', () => {
 		}
 	});
 
-	it('marks promoted non-Workbook host member surfaces as non-exhaustive', () => {
+	it('marks generated promoted Excel host member surfaces as exhaustive', () => {
 		const src = 'Sub Test()\n    Application.Work\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'Application.Work'));
 		const workbooks = got.find((member) => member.name === 'Workbooks');
 		expect(workbooks?.owner).toBe('Excel.Application');
-		expect(workbooks?.surfaceExhaustive).toBe(false);
+		expect(workbooks?.surfaceExhaustive).toBe(true);
+		expect(getHostType('Excel.Application')?.provenance).toContain('reference/excel/json/Application.json');
+		for (const typeName of [
+			'Excel.Workbooks',
+			'Excel.Worksheets',
+			'Excel.Sheets',
+			'Excel.ListObject',
+			'Excel.ListObjects',
+			'Excel.ListRow',
+			'Excel.ListRows',
+			'Excel.ListColumn',
+			'Excel.ListColumns',
+			'Excel.Chart',
+			'Excel.Charts',
+			'Excel.ChartObject',
+			'Excel.ChartObjects',
+			'Excel.Shape',
+			'Excel.Shapes',
+			'Excel.Font',
+			'Excel.Interior',
+			'Excel.Border',
+			'Excel.Borders',
+			'Excel.Areas',
+			'Excel.Hyperlink',
+			'Excel.Hyperlinks',
+			'Excel.FormatCondition',
+			'Excel.FormatConditions',
+			'Excel.Style',
+			'Excel.Styles',
+			'Excel.PageSetup',
+			'Excel.Validation',
+			'Excel.Name',
+			'Excel.Names',
+			'Excel.Window',
+			'Excel.Windows',
+		]) {
+			expect(getHostType(typeName)?.exhaustive, typeName).toBe(true);
+			expect(getHostType(typeName)?.provenance, typeName).toContain('reference/excel/json/');
+		}
+	});
+
+	it('promotes WorksheetFunction and Pivot metadata without hard absence diagnostics', () => {
+		for (const typeName of [
+			'Excel.WorksheetFunction',
+			'Excel.PivotTable',
+			'Excel.PivotTables',
+			'Excel.PivotField',
+			'Excel.PivotFields',
+			'Excel.PivotItem',
+			'Excel.PivotItems',
+			'Excel.PivotCache',
+			'Excel.PivotCaches',
+			'Excel.PivotFilter',
+			'Excel.PivotFilters',
+			'Excel.PivotCell',
+			'Excel.PivotLayout',
+			'Excel.PivotAxis',
+			'Excel.PivotFormula',
+			'Excel.PivotFormulas',
+			'Excel.PivotLine',
+			'Excel.PivotLineCells',
+			'Excel.PivotLines',
+			'Excel.PivotValueCell',
+			'Excel.PivotTableChangeList',
+			'Excel.PivotItemList',
+			'Excel.CalculatedFields',
+			'Excel.CalculatedItems',
+			'Excel.CubeField',
+			'Excel.CubeFields',
+		]) {
+			expect(getHostType(typeName)?.provenance, typeName).toContain('reference/excel/json/');
+			expect(getHostType(typeName)?.exhaustive, typeName).not.toBe(true);
+		}
 	});
 
 	it('marks generated Worksheet host member surfaces as exhaustive', () => {
