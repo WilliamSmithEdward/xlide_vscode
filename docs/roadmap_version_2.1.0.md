@@ -6,8 +6,9 @@ ordered by expected developer-experience impact, with "red squiggly"
 completeness as the primary product bias. The highest-priority work expands
 deterministic hard diagnostic coverage, keeps the daily edit loop as a baseline
 expectation, and then broadens supporting language features and workbook
-workflows. All remaining open backlog has now been deferred to Version 2.2.0;
-this document records the completed 2.1.0 scope and evidence trail.
+workflows. Version 2.2.0 now owns the static-analysis completeness follow-up;
+the remaining product/backlog work has moved to Version 3.0.0. This document
+records the completed 2.1.0 scope and evidence trail.
 
 ## North Star
 
@@ -44,6 +45,8 @@ Recommended sequencing:
 
 Remaining object/member/event authoring, external metadata authoring/reload, and
 workbook-to-workbook transfer are tracked in
+`docs/roadmap_version_3.0.0.md`. Static-analysis completeness, MS-VBAL
+closure, syntax corpus closure, and type corpus closure are tracked in
 `docs/roadmap_version_2.2.0.md`.
 
 Responsiveness, stale-result safety, cancellation, cache correctness, progress
@@ -419,7 +422,7 @@ covers the core application/workbook/worksheet/range surfaces, sheet/workbook
 collections, windows, names, tables/list objects, charts/chart objects, shapes,
 common range formatting objects, hyperlinks, areas, styles, page setup,
 validation, and format conditions. Broader third-party/reference-library
-authoring and reload remains in v2.2.0 external metadata work.
+authoring and reload remains in v3.0.0 external metadata work.
 
 `WorksheetFunction` and Pivot object families are promoted metadata surfaces,
 and the latest high-value QueryTable, chart-internals, ShapeRange, comments,
@@ -518,9 +521,9 @@ Developer-experience impact:
 
 Status: **complete for the v2.1.0 delivered hard-diagnostic scope**. The
 remaining object/member/event authoring backlog has been deferred to
-`docs/roadmap_version_2.2.0.md`.
+`docs/roadmap_version_3.0.0.md`.
 
-Deferred scope moved to Version 2.2.0:
+Deferred scope moved to Version 3.0.0:
 
 - Designer-backed UserForm metadata ingestion sufficient to prove form controls,
   control types, and control event surfaces.
@@ -707,23 +710,26 @@ Progress:
   branch-ambiguous state, unresolved object types, and inactive branches stay
   quiet.
 
-Deferred continuation definition of done, now owned by Version 2.2.0:
+Deferred continuation definition of done, now owned by Version 3.0.0:
 
 - UserForm/document member and event surfaces are deterministic and do not invent
   controls, events, or members from names alone.
 
-## Deferred To Version 2.2.0
+## Deferred Beyond Version 2.1.0
 
-All remaining open 2.1.0 backlog has moved to
-`docs/roadmap_version_2.2.0.md` so Version 2.1.0 can close around the completed
-red-squiggly, binding, host metadata, and delivered source-backed
-object/event diagnostic workstreams.
+Version 2.2.0 now owns the static-analysis completeness follow-up: MS-VBAL
+closure, syntax corpus closure, type corpus closure, and analyzer evidence
+audit work. The remaining product/backlog work has moved to
+`docs/roadmap_version_3.0.0.md` so Version 2.1.0 can close around the completed
+red-squiggly, binding, host metadata, and delivered source-backed object/event
+diagnostic workstreams.
 
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.x.md`
 - `docs/roadmap_version_2.1.0.md`
 - `docs/roadmap_version_2.2.0.md`
+- `docs/roadmap_version_3.0.0.md`
 - `docs/spec/MS-VBAL.version.md`
 - `docs/spec/MS-VBAL.verification-map.md`
 - `docs/xlide_vba_language_service_roadmap.md`

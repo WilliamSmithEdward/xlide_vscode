@@ -69,6 +69,24 @@ describe('tokenize - keywords and identifiers', () => {
 		expect(t[0].kind).toBe('identifier');
 		expect(t[0].canonicalText).toBeUndefined();
 	});
+
+	it('lexes non-Latin identifiers without keyword canonicalization', () => {
+		const t = tokenize('Dim 価格 As Long\n価格 = 1');
+		const names = t.filter((token) => token.rawText === '価格');
+
+		expect(names).toHaveLength(2);
+		expect(names.every((token) => token.kind === 'identifier')).toBe(true);
+		expect(names.every((token) => token.canonicalText === undefined)).toBe(true);
+	});
+
+	it('does not keyword-case reserved-for-implementation-use attribute names', () => {
+		const t = tokenize('Attribute VB_Name = "Module1"');
+
+		expect(kinds(t)).toEqual(['identifier', 'identifier', 'operator', 'stringLiteral']);
+		expect(raws(t).slice(0, 2)).toEqual(['Attribute', 'VB_Name']);
+		expect(t[0].canonicalText).toBeUndefined();
+		expect(t[1].canonicalText).toBeUndefined();
+	});
 });
 
 describe('tokenize - comments', () => {

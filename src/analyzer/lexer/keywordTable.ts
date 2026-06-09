@@ -84,10 +84,10 @@ export const FUTURE_RESERVED: readonly string[] = [
 	'CDecl', 'Decimal', 'DefDec',
 ];
 
-// reserved-for-implementation-use (MS-VBAL section 3.3.5.2). These are the
-// attribute names that appear in module headers (e.g. Attribute VB_Name = ...).
-// They are reserved identifiers but are handled by the attribute-line lexer
-// path, so they are kept separate from the general keyword-casing map.
+// reserved-for-implementation-use (MS-VBAL section 3.3.5.2). These are reserved
+// identifiers for declaration validation. They are intentionally not keyword-
+// cased by the lexer because exported source metadata uses them as raw
+// Attribute-line spellings such as `Attribute VB_Name = "Module1"`.
 export const RESERVED_FOR_IMPLEMENTATION_USE: readonly string[] = [
 	'Attribute', 'LINEINPUT', 'VB_Base', 'VB_Control', 'VB_Creatable',
 	'VB_Customizable', 'VB_Description', 'VB_Exposed', 'VB_Ext_KEY',
@@ -128,7 +128,7 @@ export const CONTEXTUAL_KEYWORDS: readonly string[] = [
 // 3. Derived lookup structures.
 // ---------------------------------------------------------------------------
 
-const RESERVED_IDENTIFIER_LISTS: readonly (readonly string[])[] = [
+const KEYWORD_CASING_LISTS: readonly (readonly string[])[] = [
 	STATEMENT_KEYWORDS,
 	[REM_KEYWORD],
 	MARKER_KEYWORDS,
@@ -140,10 +140,14 @@ const RESERVED_IDENTIFIER_LISTS: readonly (readonly string[])[] = [
 	FUTURE_RESERVED,
 ];
 
+const RESERVED_IDENTIFIER_LISTS: readonly (readonly string[])[] = [
+	...KEYWORD_CASING_LISTS,
+	RESERVED_FOR_IMPLEMENTATION_USE,
+];
+
 /**
  * Lowercased names of every reserved identifier defined by MS-VBAL section
- * 3.3.5.2 (excluding reserved-for-implementation-use attribute names, which the
- * attribute-line path handles). A name in this set is never an <IDENTIFIER>.
+ * 3.3.5.2. A name in this set is never an <IDENTIFIER>.
  */
 export const RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set(
 	RESERVED_IDENTIFIER_LISTS.flat().map((w) => w.toLowerCase()),
@@ -159,7 +163,7 @@ function buildKeywordMap(): Record<string, string> {
 			map[key] = word;
 		}
 	};
-	for (const list of RESERVED_IDENTIFIER_LISTS) {
+	for (const list of KEYWORD_CASING_LISTS) {
 		for (const word of list) {
 			add(word);
 		}
@@ -173,7 +177,9 @@ function buildKeywordMap(): Record<string, string> {
 /**
  * Lowercase keyword -> canonical capitalization. Covers all single-token
  * reserved identifiers (MS-VBAL section 3.3.5.2) plus VBE-convention contextual
- * keywords. Does not include reserved-for-implementation-use attribute names.
+ * keywords. Does not include reserved-for-implementation-use names, which remain
+ * raw Attribute-line metadata spellings even though `isReservedIdentifier`
+ * treats them as reserved for declaration validation.
  */
 export const VBA_KEYWORDS: Readonly<Record<string, string>> = buildKeywordMap();
 

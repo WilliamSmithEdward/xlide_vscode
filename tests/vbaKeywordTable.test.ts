@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
 	canonicalKeyword,
 	CONTEXTUAL_KEYWORDS,
+	FUTURE_RESERVED,
 	isReservedIdentifier,
 	LITERAL_IDENTIFIERS,
 	MARKER_KEYWORDS,
 	OPERATOR_IDENTIFIERS,
 	RESERVED_NAMES,
+	RESERVED_FOR_IMPLEMENTATION_USE,
 	RESERVED_TYPE_IDENTIFIERS,
 	SPECIAL_FORMS,
 	STATEMENT_KEYWORDS,
@@ -86,6 +88,12 @@ describe('isReservedIdentifier (MS-VBAL 3.3.5.2)', () => {
 		expect(isReservedIdentifier('AddressOf')).toBe(true);
 	});
 
+	it('recognizes reserved-for-implementation-use names as reserved identifiers', () => {
+		expect(isReservedIdentifier('Attribute')).toBe(true);
+		expect(isReservedIdentifier('VB_Name')).toBe(true);
+		expect(isReservedIdentifier('vb_usermemid')).toBe(true);
+	});
+
 	it('rejects contextual keywords (not in the reserved-identifier set)', () => {
 		// "Explicit", "Property", "Lib", "Alias" are VBE-convention keywords but
 		// are NOT reserved identifiers per the spec grammar.
@@ -111,11 +119,19 @@ describe('keyword table completeness', () => {
 			SPECIAL_FORMS,
 			RESERVED_TYPE_IDENTIFIERS,
 			LITERAL_IDENTIFIERS,
+			FUTURE_RESERVED,
 		];
 		for (const category of categories) {
 			for (const word of category) {
 				expect(canonicalKeyword(word)).toBe(word);
 			}
+		}
+	});
+
+	it('keeps reserved-for-implementation-use names out of keyword casing', () => {
+		for (const word of RESERVED_FOR_IMPLEMENTATION_USE) {
+			expect(canonicalKeyword(word)).toBeUndefined();
+			expect(isReservedIdentifier(word)).toBe(true);
 		}
 	});
 

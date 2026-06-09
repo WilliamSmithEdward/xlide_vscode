@@ -1951,6 +1951,17 @@ describe('analyzeModule - reserved declaration names', () => {
 		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
 	});
 
+	it('flags reserved-for-implementation-use names used as declaration names', () => {
+		const src =
+			'Private Attribute As Long\n' +
+			'Public Sub T(ByVal VB_Name As String)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-declaration-name');
+
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Attribute', 'VB_Name']);
+		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
+	});
+
 	it('flags reserved keywords used as type, enum, field, member, and parameter names', () => {
 		const src =
 			'Public Type Type\n' +

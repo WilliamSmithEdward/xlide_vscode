@@ -299,7 +299,8 @@ Architecture reference:
 Roadmaps:
 
 - [Version 2.1.0 completed red-squiggle closeout](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.1.0.md)
-- [Version 2.2.0 active roadmap](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.2.0.md)
+- [Version 2.2.0 static-analysis completeness roadmap](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.2.0.md)
+- [Version 3.0.0 deferred product/backlog roadmap](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_3.0.0.md)
 
 ---
 

@@ -241,7 +241,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags unbracketed reserved identifiers in declaration-name positions. Bracketed FOREIGN-NAME forms remain accepted.",
+      "notes": "Flags unbracketed reserved identifiers in declaration-name positions, including reserved-for-implementation-use names such as Attribute and VB_Name. Bracketed FOREIGN-NAME forms remain accepted.",
       "diagnosticKind": "compile-error"
     },
     {

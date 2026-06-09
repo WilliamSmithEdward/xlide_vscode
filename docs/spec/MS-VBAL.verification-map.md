@@ -24,7 +24,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Date literals (`#...#`) | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.3.3 | Partial |
 | String literals + doubled quotes | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.3.4 | Verified |
 | Identifiers (Latin) | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.3.5 | Verified |
-| Identifiers (non-Latin) | src/analyzer/lexer/tokenize.ts | (none yet) | 3.3.5.1 | Partial |
+| Identifiers (non-Latin) | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.3.5.1 | Partial |
 | Bracketed / foreign names | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.3.5.3 | Verified |
 | Conditional-compilation directive marker | src/analyzer/lexer/tokenize.ts | tests/vbaLexer.test.ts | 3.4 | Verified |
 
@@ -37,7 +37,9 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 - **Non-Latin identifiers (Partial):** Latin identifiers (section 3.3.5) are
   fully supported. Non-Latin forms (section 3.3.5.1, codepage 874/932/936/949/
   950/125x) are approximated by accepting any Unicode letter (`\p{L}`) rather
-  than the exact legacy-codepage ranges. No fixtures yet.
+  than the exact legacy-codepage ranges. Focused lexer fixtures cover the
+  current Unicode-letter approximation; exact legacy-codepage ranges remain
+  deferred.
 - **Apostrophe comments:** stop at the physical line terminator (VBE behavior);
   the spec `comment-body` grammar permits embedded line-continuations, which the
   VBE does not honor.
@@ -57,7 +59,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | reserved-type-identifier | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | 3.3.5.2 | Verified |
 | literal-identifier (VBE casing) | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | 3.3.5.2 | Verified |
 | future-reserved | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | 3.3.5.2 | Verified |
-| reserved-for-implementation-use | src/analyzer/lexer/keywordTable.ts | (none yet) | 3.3.5.2 | Partial |
+| reserved-for-implementation-use | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts + tests/vbaLexer.test.ts + tests/vbaDiagnostics.test.ts | 3.3.5.2 | Verified |
 | Contextual keywords (VBE casing) | src/analyzer/lexer/keywordTable.ts | tests/vbaKeywordTable.test.ts | n/a (VBE convention) | Verified |
 | Safe canonical casing edits (keyword/type/member/runtime, single-token and line-span passes) | src/analyzer/completion/canonicalCasing.ts + src/vbaMemberCompletion.ts | tests/vbaCanonicalCasing.test.ts | n/a (VBE convention) | Verified |
 
@@ -71,10 +73,11 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   `Read`, `Object` are NOT reserved identifiers per section 3.3.5.2 but are
   capitalized by the VBE in their statement context. They are tracked separately
   and excluded from `isReservedIdentifier`.
-- **reserved-for-implementation-use (Partial):** the attribute names
-  (`Attribute`, `VB_Name`, ...) are listed but handled via the attribute-line
-  path, not the general keyword-casing map; dotted member attribute parsing has
-  focused parser fixtures.
+- **reserved-for-implementation-use:** the attribute names (`Attribute`,
+  `VB_Name`, ...) are reserved for declaration validation but intentionally
+  excluded from keyword casing so exported Attribute-line metadata remains a raw
+  identifier-style token stream. Dotted member attribute parsing has focused
+  parser fixtures.
 
 ## Phase 3 - Parser / AST
 
