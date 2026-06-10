@@ -36,7 +36,7 @@ import {
     ProjectIndex,
     ReferenceScope,
     resolveDiagnosticCodeActions,
-    resolveMemberCompletions,
+    resolveMemberCompletionNamed,
     resolveProcedureLabelDefinitionAt,
     resolveTypeReferenceAt,
     resolveTypeSemanticTokens,
@@ -424,12 +424,12 @@ function sourceMemberDefinitionsAt(
     currentModuleType?: string,
     currentDocumentType?: EventHandlerDocumentType,
 ): readonly VbaProjectClassMemberDefinition[] {
-    const member = resolveMemberCompletions(source, memberEndOffset, {
+    const member = resolveMemberCompletionNamed(source, memberEndOffset, memberName, {
         codeNames: codeNamesForModules(modules),
         meType: meHostTypeForModule(currentModuleName, currentModuleType, currentDocumentType),
         meProjectType: meProjectTypeForModule(currentModuleName, currentModuleType),
         projectClassMembers: project.projectMemberSurfaces(currentModuleName),
-    }).find((item) => item.name.toLowerCase() === memberName.toLowerCase());
+    });
     return member?.definitions ?? [];
 }
 

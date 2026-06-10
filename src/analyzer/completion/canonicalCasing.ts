@@ -5,7 +5,7 @@ import {
 	type IdentifierCompletionContext,
 } from './identifierCompletion';
 import {
-	resolveMemberCompletions,
+	resolveMemberCompletionNamed,
 	type MemberCompletionContext,
 } from './memberAccess';
 import {
@@ -136,9 +136,7 @@ function canonicalFromMemberCompletion(
 	word: string,
 	ctx: MemberCompletionContext = {},
 ): string | undefined {
-	return resolveMemberCompletions(source, offset, ctx).find(
-		(item) => item.name.toLowerCase() === word.toLowerCase(),
-	)?.name;
+	return resolveMemberCompletionNamed(source, offset, word, ctx)?.name;
 }
 
 function canonicalFromIdentifierCompletion(

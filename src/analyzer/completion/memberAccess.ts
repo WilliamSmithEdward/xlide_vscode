@@ -165,12 +165,49 @@ export function resolveMemberCompletions(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): MemberCompletion[] {
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit) {
+		return [];
+	}
+	const { currentType, surface, typedPrefix } = hit;
+	const lowerPrefix = typedPrefix.toLowerCase();
+	return surface.members
+		.filter((mem) => mem.name.toLowerCase().startsWith(lowerPrefix))
+		.map((mem) => completionFromSurfaceMember(currentType, surface, mem, ctx));
+}
+
+/**
+ * Resolves the single member named `memberName` at `offset` without building
+ * completion rows (and rendering documentation) for the whole member surface.
+ */
+export function resolveMemberCompletionNamed(
+	source: string,
+	offset: number,
+	memberName: string,
+	ctx: MemberCompletionContext = {},
+): MemberCompletion | undefined {
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit) {
+		return undefined;
+	}
+	const lowerName = memberName.toLowerCase();
+	const mem = hit.surface.members.find((m) => m.name.toLowerCase() === lowerName);
+	return mem
+		? completionFromSurfaceMember(hit.currentType, hit.surface, mem, ctx)
+		: undefined;
+}
+
+function memberSurfaceAtDot(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): { currentType: string; surface: MemberSurface; typedPrefix: string } | undefined {
 	const prefixText = source.slice(0, Math.max(0, offset));
 	// Keep newline tokens: they mark statement boundaries so a dangling
 	// member-access dot on a previous line is not merged into this chain.
 	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
 	if (tokens.length === 0) {
-		return [];
+		return undefined;
 	}
 
 	// Identify the typed member prefix (text after the dot) and the dot itself.
@@ -181,22 +218,18 @@ export function resolveMemberCompletions(
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {
-		return [];
+		return undefined;
 	}
 	// tokens[i] is the member-access dot; the receiver chain ends at i-1.
 	const currentType = receiverTypeFromTokens(tokens, i, source, offset, ctx);
 	if (!currentType) {
-		return [];
+		return undefined;
 	}
-
-	const lowerPrefix = typedPrefix.toLowerCase();
 	const surface = memberSurfaceForType(currentType, ctx);
 	if (!surface) {
-		return [];
+		return undefined;
 	}
-	return surface.members
-		.filter((mem) => mem.name.toLowerCase().startsWith(lowerPrefix))
-		.map((mem) => completionFromSurfaceMember(currentType, surface, mem, ctx));
+	return { currentType, surface, typedPrefix };
 }
 
 /**

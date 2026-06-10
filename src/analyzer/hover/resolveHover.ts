@@ -25,7 +25,7 @@ import { getHostType, resolveHostConstant, resolveHostGlobal } from '../host/hos
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
 	MemberCompletion,
-	resolveMemberCompletions,
+	resolveMemberCompletionNamed,
 } from '../completion/memberAccess';
 import type { ProjectTypeName } from '../completion/typeCompletion';
 import {
@@ -123,9 +123,7 @@ export function resolveHover(
 
 	// Member access: `receiver.member` - describe the host or project member.
 	if (idx > 0 && tokens[idx - 1].rawText === '.') {
-		const member = resolveMemberCompletions(source, token.end, ctx).find(
-			(mem) => mem.name.toLowerCase() === name.toLowerCase(),
-		);
+		const member = resolveMemberCompletionNamed(source, token.end, name, ctx);
 		if (member) {
 			return buildMemberHover(member, ctx, span);
 		}

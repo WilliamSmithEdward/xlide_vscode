@@ -93,7 +93,7 @@ import {
 	type BareIdentifierResolution,
 } from '../symbols/nameResolution';
 import {
-	resolveMemberCompletions,
+	resolveMemberCompletionNamed,
 	resolveMemberSurfaceAt,
 	type MemberCompletion,
 	type MemberCompletionContext,
@@ -1136,9 +1136,7 @@ function resolveExactMemberCompletion(
 	memberEndOffset: number,
 	memberCtx: MemberCompletionContext,
 ): MemberCompletion | undefined {
-	return resolveMemberCompletions(source, memberEndOffset, memberCtx).find(
-		(member) => member.name.toLowerCase() === memberName.toLowerCase(),
-	);
+	return resolveMemberCompletionNamed(source, memberEndOffset, memberName, memberCtx);
 }
 
 function checkMemberNotFound(

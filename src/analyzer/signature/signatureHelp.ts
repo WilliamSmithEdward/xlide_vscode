@@ -21,7 +21,7 @@
 
 import { parseModule } from '../parser/parseModule';
 import { DeclareNode, ParameterNode, ProcedureNode } from '../parser/nodes';
-import { resolveMemberCompletions, MemberCompletionContext } from '../completion/memberAccess';
+import { resolveMemberCompletionNamed, MemberCompletionContext } from '../completion/memberAccess';
 import { getHostType } from '../host/hostModel';
 import { resolveRuntimeFunction, runtimeAllowsExplicitCall } from '../runtime/vbaRuntime';
 import { extractLeadingDoc } from '../docs/docComment';
@@ -251,9 +251,7 @@ function memberCompletionForCallee(
 	source: string,
 	ctx: SignatureHelpContext,
 ) {
-	return resolveMemberCompletions(source, site.calleeEndOffset, ctx).find(
-		(member) => member.name.toLowerCase() === site.calleeName.toLowerCase(),
-	);
+	return resolveMemberCompletionNamed(source, site.calleeEndOffset, site.calleeName, ctx);
 }
 
 /**
