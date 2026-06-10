@@ -1272,7 +1272,6 @@ export function renderWorkbookAnalysisResultsHtml(
         ${WEBVIEW_TOAST_SCRIPT}
         let model = ${modelJson};
         const severityIds = ['error', 'warning', 'information'];
-        let untrackedRules = new Set(model.untrackedRules ?? []);
         let analysisSettingsKey = model.analysisSettingsKey;
         let visibleSeverities = new Set(normalizeSeverityList(model.visibleSeverities ?? severityIds));
         let activeModule = 'all';
@@ -1303,7 +1302,6 @@ export function renderWorkbookAnalysisResultsHtml(
 
         function applyModel(next) {
             model = next;
-            untrackedRules = new Set(next.untrackedRules ?? []);
             if (next.analysisSettingsKey !== analysisSettingsKey) {
                 analysisSettingsKey = next.analysisSettingsKey;
                 visibleSeverities = new Set(normalizeSeverityList(next.visibleSeverities ?? severityIds));
