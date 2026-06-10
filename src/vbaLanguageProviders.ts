@@ -53,6 +53,7 @@ import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 import { DocMetadataLoader } from './vbaDocMetadata';
 import {
+    createOffsetToPositionConverter,
     moduleKindFromType,
     offsetToPosition,
     projectTypeDefinitionToLocation,
@@ -128,35 +129,37 @@ function astSymbolKindToVscode(kind: VbaSymbolKind): vscode.SymbolKind {
     }
 }
 
-function spanRange(source: string, span: Span): vscode.Range {
-    return new vscode.Range(
-        offsetToPosition(source, span.start),
-        offsetToPosition(source, span.end),
-    );
+type OffsetToPositionConverter = ReturnType<typeof createOffsetToPositionConverter>;
+
+function spanRange(toPosition: OffsetToPositionConverter, span: Span): vscode.Range {
+    return new vscode.Range(toPosition(span.start), toPosition(span.end));
 }
 
-function documentSymbolToVscode(source: string, symbol: VbaPresentedSymbol): vscode.DocumentSymbol {
+function documentSymbolToVscode(
+    toPosition: OffsetToPositionConverter,
+    symbol: VbaPresentedSymbol,
+): vscode.DocumentSymbol {
     const out = new vscode.DocumentSymbol(
         symbol.name,
         symbol.detail,
         astSymbolKindToVscode(symbol.kind),
-        spanRange(source, symbol.fullSpan),
-        spanRange(source, symbol.nameSpan),
+        spanRange(toPosition, symbol.fullSpan),
+        spanRange(toPosition, symbol.nameSpan),
     );
-    out.children = symbol.children.map((child) => documentSymbolToVscode(source, child));
+    out.children = symbol.children.map((child) => documentSymbolToVscode(toPosition, child));
     return out;
 }
 
 function workspaceSymbolToVscode(
     uri: vscode.Uri,
-    source: string,
+    toPosition: OffsetToPositionConverter,
     symbol: VbaPresentedWorkspaceSymbol,
 ): vscode.SymbolInformation {
     return new vscode.SymbolInformation(
         symbol.name,
         astSymbolKindToVscode(symbol.kind),
         symbol.containerName,
-        new vscode.Location(uri, spanRange(source, symbol.nameSpan)),
+        new vscode.Location(uri, spanRange(toPosition, symbol.nameSpan)),
     );
 }
 
@@ -614,11 +617,12 @@ class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
         if (token.isCancellationRequested) { return []; }
         const source = document.getText();
         const moduleName = moduleNameFromDocument(document);
+        const toPosition = createOffsetToPositionConverter(source);
         return documentOutlineSymbolsForSource(
             moduleName,
             moduleKindFromDocument(document),
             source,
-        ).map((symbol) => documentSymbolToVscode(source, symbol));
+        ).map((symbol) => documentSymbolToVscode(toPosition, symbol));
     }
 }
 
@@ -647,12 +651,19 @@ class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
             try {
                 const context = await this._projectCache.contextForWorkbook(xlsmPath, 'live');
                 if (token.isCancellationRequested) { return out; }
+                const converters = new Map<string, OffsetToPositionConverter>();
                 for (const symbol of presentedWorkspaceSymbols(context.project, query)) {
-                    const mod = context.byModule.get(moduleIdentityKey(symbol.moduleName));
+                    const moduleKey = moduleIdentityKey(symbol.moduleName);
+                    const mod = context.byModule.get(moduleKey);
                     if (!mod) { continue; }
+                    let toPosition = converters.get(moduleKey);
+                    if (!toPosition) {
+                        toPosition = createOffsetToPositionConverter(mod.source);
+                        converters.set(moduleKey, toPosition);
+                    }
                     out.push(workspaceSymbolToVscode(
                         encodeModuleUri(xlsmPath, mod.moduleName),
-                        mod.source,
+                        toPosition,
                         symbol,
                     ));
                 }
@@ -673,8 +684,9 @@ class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
                 moduleKind: moduleKindFromDocument(document),
                 source,
             });
+            const toPosition = createOffsetToPositionConverter(source);
             for (const symbol of presentedWorkspaceSymbols(project, query)) {
-                out.push(workspaceSymbolToVscode(document.uri, source, symbol));
+                out.push(workspaceSymbolToVscode(document.uri, toPosition, symbol));
             }
         }
 
