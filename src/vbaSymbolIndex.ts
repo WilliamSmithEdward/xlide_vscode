@@ -201,6 +201,13 @@ export class VbaSymbolIndex implements vscode.Disposable {
         return promise;
     }
 
+    /** Returns the cached module entry without triggering a load. */
+    peekModule(xlsmPath: string, moduleName: string): VbaModuleSymbols | undefined {
+        return this._cache
+            .get(workbookIdentityKey(xlsmPath))
+            ?.modules.get(moduleIdentityKey(moduleName));
+    }
+
     /**
      * Refreshes a single module's source from disk.
      * Useful immediately after a write so the cache reflects the new content.

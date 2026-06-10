@@ -1130,7 +1130,9 @@ const DIAGNOSTIC_OPEN_LOCAL_DELAY_MS = 25;
 const DIAGNOSTIC_OPEN_FULL_DELAY_MS = 150;
 const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
-const DIAGNOSTIC_PROJECT_CONTEXT_CACHE_TTL_MS = 30_000;
+// Invalidation is event-driven (the symbol index fires onDidChange for module
+// edits, adds, and removals), so the TTL is only a stale-context backstop.
+const DIAGNOSTIC_PROJECT_CONTEXT_CACHE_TTL_MS = 10 * 60_000;
 const DIAGNOSTIC_ANALYSIS_SETTINGS_CACHE_TTL_MS = 2_000;
 
 interface CachedTypeSemanticProjectTypes {
@@ -1594,6 +1596,48 @@ function registerVbaDiagnostics(
         }
     };
 
+    // Incrementally folds a single changed module into the cached context so a
+    // save does not force a full-workbook context rebuild. Returns false when
+    // the update could not be applied and the caller must invalidate instead.
+    const applyIndexModuleToDiagnosticProjectContext = (
+        xlsmPath: string,
+        moduleName: string,
+    ): boolean => {
+        const key = workbookKey(xlsmPath);
+        if (diagnosticProjectContextLoads.has(key)) {
+            return false;
+        }
+        const context = diagnosticProjectContexts.get(key);
+        if (!context) {
+            // Nothing cached, so there is nothing to refresh or invalidate.
+            return true;
+        }
+        const mod = index.peekModule(xlsmPath, moduleName);
+        if (!mod) {
+            return false;
+        }
+        const moduleKey = moduleIdentityKey(moduleName);
+        const moduleType = mod.type ?? context.moduleMetadata.get(moduleKey)?.moduleType;
+        const metadata: DiagnosticProjectModuleMetadata = {
+            moduleType,
+            moduleKind: moduleKindFromType(moduleType),
+            documentType: mod.documentType ?? context.moduleMetadata.get(moduleKey)?.documentType,
+        };
+        try {
+            context.project.setModule({
+                moduleName: mod.moduleName,
+                moduleKind: metadata.moduleKind,
+                source: mod.source,
+            });
+        } catch {
+            return false;
+        }
+        context.moduleMetadata.set(moduleKey, metadata);
+        context.projectProcedures = undefined;
+        context.loadedAt = Date.now();
+        return true;
+    };
+
     const runPassAsync = async (
         document: vscode.TextDocument,
         generation: number,
@@ -1843,7 +1887,11 @@ function registerVbaDiagnostics(
 
     context.subscriptions.push(
         collection,
-        index.onDidChange(({ xlsmPath }) => {
+        index.onDidChange(({ xlsmPath, moduleName }) => {
+            if (xlsmPath && moduleName &&
+                applyIndexModuleToDiagnosticProjectContext(xlsmPath, moduleName)) {
+                return;
+            }
             invalidateDiagnosticProjectContextForWorkbook(xlsmPath || undefined);
         }),
         vscode.workspace.onDidOpenTextDocument((document) => schedule(document, {
