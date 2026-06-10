@@ -9,7 +9,6 @@ export { tokenize } from './lexer/tokenize';
 export {
 	canonicalKeyword,
 	isReservedIdentifier,
-	RESERVED_IDENTIFIERS,
 	VBA_KEYWORDS,
 } from './lexer/keywordTable';
 export * from './parser/nodes';
@@ -18,18 +17,12 @@ export { splitLogicalStatements } from './parser/parserState';
 export {
 	collectConditionalDirectives,
 	conditionalActivityAtOffset,
-	conditionalActivityForSpan,
 	conditionalCompilerConstants,
 	createConditionalActivityTracker,
 	evaluateConditionalExpression,
 	indexConditionalCompilation,
-	ConditionalActivity,
 	ConditionalActivityTracker,
 	ConditionalCompilationEnvironment,
-	ConditionalCompilationIndex,
-	ConditionalConstDefinition,
-	ConditionalDirectiveOccurrence,
-	ConditionalValue,
 } from './conditional/conditionalCompilation';
 export {
 	EXCEL_OBJECT_MODEL,
@@ -44,7 +37,6 @@ export {
 	getHostGlobals,
 	getHostMembers,
 	getHostType,
-	HostGlobal,
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
@@ -55,13 +47,10 @@ export {
 	MemberCompletion,
 	MemberCompletionContext,
 	resolveMemberCompletions,
-	resolveReceiverTypeAt,
 } from './completion/memberAccess';
 export {
-	CanonicalCaseBoundaryKind,
 	CanonicalCaseContext,
 	CanonicalCaseEdit,
-	CanonicalCaseSpan,
 	canonicalCaseBoundaryKind,
 	resolveCanonicalCaseEdit,
 	resolveCanonicalCaseEdits,
@@ -82,25 +71,16 @@ export {
 	explicitCallStatementTarget,
 	findActiveCallSite,
 	standaloneEmptyParenthesizedCallStatement,
-	BareCallStatementTarget,
-	ExplicitCallStatementBareRuntimeRewrite,
-	ExplicitCallStatementArgumentList,
-	ParenthesizedCallStatementTarget,
 	VbaCallSite,
-	VbaTextSpan,
 } from './call/callContext';
 export {
 	IdentifierCompletion,
 	IdentifierCompletionContext,
-	IdentifierCompletionKind,
 	callableCompletionShouldInsertParens,
 	resolveIdentifierCompletions,
 } from './completion/identifierCompletion';
 export {
 	KeywordCompletion,
-	KeywordCompletionKind,
-	KeywordCompletionOptions,
-	KeywordCompletionResult,
 	materializeKeywordSnippet,
 	resolveKeywordCompletions,
 } from './completion/keywordCompletion';
@@ -109,17 +89,12 @@ export {
 	collectProcedureLabels,
 	resolveProcedureLabelCompletions,
 	resolveProcedureLabelDefinitionAt,
-	statementLabelReferences,
-	VbaProcedureLabel,
 	VbaProcedureLabelCompletion,
-	VbaProcedureLabelDefinition,
-	VbaProcedureLabelReference,
 } from './flow/procedureLabels';
 export {
 	EventHandlerCompletion,
 	EventHandlerCompletionContext,
 	EventHandlerDocumentType,
-	EventHandlerProcedureMatch,
 	eventHandlerDocumentTypeForContext,
 	eventHandlerProcedureForName,
 	resolveEventHandlerCompletions,
@@ -129,15 +104,12 @@ export {
 	ResolvedTypeReference,
 	resolveTypeReferenceAt,
 	resolveTypeSemanticTokens,
-	TypeNameReference,
 	TypeNameReferenceKind,
-	TypeSemanticToken,
 	TypeSemanticTokenType,
 	typeReferenceLookupName,
 } from './semantic/typeSemanticTokens';
 export {
 	HoverContext,
-	HoverInfo,
 	resolveHover,
 } from './hover/resolveHover';
 export {
@@ -152,13 +124,10 @@ export {
 	VbaRuntimeConstant,
 	VbaRuntimeFunction,
 	VbaRuntimeObject,
-	VbaRuntimeObjectMember,
 } from './runtime/vbaRuntime';
 export {
 	resolveSignatureHelp,
 	SignatureHelpContext,
-	SignatureInfo,
-	SignatureParameter,
 } from './signature/signatureHelp';
 export {
 	hasDocContent,
@@ -193,31 +162,21 @@ export { buildModuleSymbols, BuildModuleSymbolsOptions } from './symbols/buildMo
 export {
 	BareIdentifierContext,
 	BareIdentifierResolution,
-	BareIdentifierResolutionScope,
 } from './symbols/nameResolution';
 export {
-	ModuleInput,
 	ProjectIndex,
-	ProjectIndexOptions,
 	ReferenceScope,
-	ReferenceScopeKind,
-	ShadowedSpan,
 } from './symbols/projectIndex';
 export {
 	analyzeModule,
 	AnalyzeModuleOptions,
-	DiagnosticSeverityOverrides,
 	incompleteExpressionEditSpan,
-	VbaCreateProcedureStubData,
 	VbaDiagnostic,
 	VbaDiagnosticData,
-	VbaMissingRequiredArgumentPlaceholderData,
 } from './diagnostics/analyzeModule';
 export {
 	normalizeDiagnosticCode,
 	resolveDiagnosticCodeActions,
-	VbaDiagnosticCodeAction,
-	VbaDiagnosticCodeActionInput,
 	VbaTextEdit,
 } from './codeActions/diagnosticCodeActions';
 export {
@@ -234,16 +193,12 @@ export {
 	DiagnosticSeverity,
 	DiagnosticSeverityOverride,
 	DiagnosticSuppressionScope,
-	isDiagnosticSeverityOverride,
 	isXlideDiagnosticSource,
 	normalizeDiagnosticSeverityOverride,
 	normalizeDiagnosticSeverityOverrides,
-	XLIDE_DIAGNOSTIC_SOURCE,
 } from './diagnostics/ruleMetadata';
 export {
 	filterDiagnosticsWithSuppressions,
 	ANALYSIS_SUPPRESSION_DIRECTIVE_CODE,
-	AnalysisSuppressionAnalysis,
-	AnalysisSuppressionFilterResult,
 	scanAnalysisSuppressions,
 } from './diagnostics/analysisSuppressions';
