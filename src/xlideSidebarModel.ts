@@ -52,7 +52,6 @@ interface XlideSidebarNode {
     label: string;
     description?: string;
     tooltip?: string;
-    icon?: string;
     status?: XlideSidebarStatus;
     disabled?: boolean;
     value?: string;
@@ -80,7 +79,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 setupStatus.pythonExecutable.description,
                 setupStatus.pythonExecutable.status,
                 setupStatus.pythonExecutable.tooltip,
-                undefined,
                 pythonExecutableSetupCommand(setupStatus.pythonExecutable),
                 setupStatus.pythonExecutable.status === 'pass',
             ),
@@ -90,7 +88,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 setupStatus.pythonLibraries.description,
                 setupStatus.pythonLibraries.status,
                 setupStatus.pythonLibraries.tooltip,
-                undefined,
                 pythonLibrariesSetupCommand(setupStatus.pythonLibraries),
                 setupStatus.pythonLibraries.status === 'pass',
             ),
@@ -109,7 +106,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.analyzeWorkbook',
                 'Analyze the selected target workbook.',
-                'checklist',
                 workbookArg,
             ),
             workbookActionNode(
@@ -118,7 +114,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.exportModulesToFolder',
                 'Open the module export diff GUI for the selected target workbook.',
-                'export',
                 workbookArg,
             ),
             workbookActionNode(
@@ -127,7 +122,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.importModulesFromFolder',
                 'Open the module import diff GUI for the selected target workbook.',
-                'import',
                 workbookArg,
             ),
             workbookActionNode(
@@ -136,7 +130,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.openWorkbook',
                 'Open the selected target workbook in Excel.',
-                'file-excel',
                 workbookArg,
             ),
             workbookActionNode(
@@ -145,7 +138,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.openWorkbookReadOnly',
                 'Open the selected target workbook in Excel as read-only.',
-                'file-excel',
                 workbookArg,
             ),
             workbookActionNode(
@@ -154,7 +146,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.runVbaTests',
                 'Open the VBA unit tests GUI for the selected target workbook.',
-                'beaker',
                 workbookArg,
             ),
         ]),
@@ -165,7 +156,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'VS Code / Machine',
                 'xlide.openGlobalSettings',
                 'Open XLIDE global/editor settings.',
-                'settings-gear',
             ),
         ]),
         section('support', 'Support', [
@@ -175,7 +165,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.copyDiagnostics',
                 'Copy a redacted diagnostic snapshot to the clipboard.',
-                'clippy',
             ),
             actionNode(
                 'support.exportBundle',
@@ -183,7 +172,6 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 undefined,
                 'xlide.exportSupportBundle',
                 'Export a redacted support bundle for troubleshooting.',
-                'archive',
             ),
         ]),
     ];
@@ -260,7 +248,7 @@ function defaultSetupStatus(): XlideSidebarSetupStatus {
 }
 
 function section(id: string, label: string, children: XlideSidebarNode[]): XlideSidebarNode {
-    return { id, kind: 'section', label, icon: 'folder', children };
+    return { id, kind: 'section', label, children };
 }
 
 function statusNode(
@@ -269,11 +257,10 @@ function statusNode(
     description: string,
     status: XlideSidebarStatus,
     tooltip: string,
-    icon = statusIcon(status),
     command?: XlideSidebarCommand,
     disabled = false,
 ): XlideSidebarNode {
-    return { id, kind: 'status', label, description, status, tooltip, icon, command, disabled };
+    return { id, kind: 'status', label, description, status, tooltip, command, disabled };
 }
 
 function targetWorkbookNode(
@@ -306,7 +293,6 @@ function targetWorkbookNode(
             tooltip: workbook
                 ? `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`
                 : 'Choose the workbook that sidebar actions should analyze, import/export, validate, run, or test.',
-            icon: workbook ? 'file-code' : 'warning',
             value: workbook?.filePath ?? '',
             options,
         };
@@ -326,7 +312,6 @@ function targetWorkbookNode(
         workbook.label,
         'pass',
         `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`,
-        'file-code',
     );
 }
 
@@ -340,7 +325,6 @@ function actionNode(
     description: string | undefined,
     command: string,
     tooltip: string,
-    icon: string,
     args: unknown[] = [],
 ): XlideSidebarNode {
     return {
@@ -349,7 +333,6 @@ function actionNode(
         label,
         description,
         tooltip,
-        icon,
         command: { command, title: label, arguments: args },
     };
 }
@@ -360,7 +343,6 @@ function workbookActionNode(
     description: string | undefined,
     command: string,
     tooltip: string,
-    icon: string,
     workbookArg: unknown | undefined,
 ): XlideSidebarNode {
     if (!workbookArg) {
@@ -370,11 +352,10 @@ function workbookActionNode(
             label,
             description,
             tooltip: 'Select a target workbook before running this sidebar action.',
-            icon,
             disabled: true,
         };
     }
-    return actionNode(id, label, description, command, tooltip, icon, [workbookArg]);
+    return actionNode(id, label, description, command, tooltip, [workbookArg]);
 }
 
 function workbookCommandArg(workbook: XlideSidebarActiveWorkbook): { kind: 'xlsm'; label: string; filePath: string } {
@@ -395,19 +376,6 @@ function selectionSourceLabel(source: XlideSidebarActiveWorkbook['selectionSourc
             return 'the sidebar workbook picker';
         default:
             return 'the current context';
-    }
-}
-
-function statusIcon(status: XlideSidebarStatus): string {
-    switch (status) {
-        case 'pass':
-            return 'pass';
-        case 'warn':
-            return 'warning';
-        case 'fail':
-            return 'error';
-        default:
-            return 'question';
     }
 }
 

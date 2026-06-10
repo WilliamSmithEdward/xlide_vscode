@@ -208,10 +208,6 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
     };
 }
 
-async function workbookFileCount(): Promise<number> {
-    return (await workbookFiles()).length;
-}
-
 async function workbookFiles(): Promise<vscode.Uri[]> {
     return measurePerformance('sidebar.workbookFiles', undefined, async () => {
     const uris = await vscode.workspace.findFiles(
@@ -869,6 +865,5 @@ export {
     XlideSidebarProvider,
     type XlideSidebarRegistration,
     registerXlideSidebar,
-    workbookFileCount,
     workbookFiles,
 };
