@@ -6,6 +6,7 @@ import {
     type VbaProcedureSignature,
     type VbaSymbol,
 } from './analyzer';
+import { yieldToExtensionHost } from './util/async';
 
 export interface VbaProjectModuleInput {
     moduleName: string;
@@ -103,10 +104,6 @@ export function buildLiveVbaProjectIndex(
     liveOverride?: VbaProjectLiveOverride,
 ): ProjectIndex {
     return buildVbaProjectIndex(modules, liveOverride, { ignoreInvalidModules: true });
-}
-
-async function yieldToExtensionHost(): Promise<void> {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
 export async function buildVbaProjectIndexAsync(

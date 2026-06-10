@@ -5,6 +5,7 @@ import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes'
 import { lineStartOffsets, normalizeEol } from './vbaStructuralAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
+import { isReadModulesUnavailable } from './pythonBridgeErrors';
 import { errorMessage } from './util/errors';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
@@ -218,12 +219,6 @@ async function listWorkbookModulesForDiscovery(
         }
     }
     return bridge.call<VbaTestModuleEntry[]>('listModules', { path: filePath });
-}
-
-function isReadModulesUnavailable(err: unknown): boolean {
-    const message = errorMessage(err);
-    return /Method not found:\s*readModules/i.test(message) ||
-        /Unexpected bridge call readModules/i.test(message);
 }
 
 export async function discoverWorkbookVbaTests(

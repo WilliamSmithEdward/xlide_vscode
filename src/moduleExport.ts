@@ -10,7 +10,7 @@ import {
     updateWorkbookModuleSyncSettings,
 } from './workbookModuleSyncSettings';
 import { measurePerformance } from './performanceTrace';
-import { errorMessage } from './util/errors';
+import { isReadModulesUnavailable } from './pythonBridgeErrors';
 import { fileExists } from './util/fs';
 
 interface ModuleInfo {
@@ -159,12 +159,6 @@ async function loadWorkbookModulesWithSources(
         modules,
         sourceFor: (moduleName) => readFullModuleSource(bridge, filePath, moduleName),
     };
-}
-
-function isReadModulesUnavailable(err: unknown): boolean {
-    const message = errorMessage(err);
-    return /Method not found:\s*readModules/i.test(message) ||
-        /Unexpected bridge call readModules/i.test(message);
 }
 
 async function exportWorkbookModule(

@@ -73,7 +73,7 @@ import {
 	type VbaTestDirectiveCompletion,
 } from './vbaTestDirectiveCompletion';
 import { startPerformanceTrace } from './performanceTrace';
-import { errorMessage } from './util/errors';
+import { isReadModulesUnavailable } from './pythonBridgeErrors';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
@@ -1146,9 +1146,7 @@ class VbaMemberCompletionProvider
 			});
 			return withOpenSources;
 		} catch (err) {
-			const message = errorMessage(err);
-			if (/Method not found:\s*readModules/i.test(message) ||
-				/Unexpected bridge call readModules/i.test(message)) {
+			if (isReadModulesUnavailable(err)) {
 				return undefined;
 			}
 			throw err;
