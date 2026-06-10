@@ -2,7 +2,9 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
-import { workbookIdentityKey } from './xlideFileSystem';
+import { renderWebviewErrorPageHtml, webviewHeadHtml, WEBVIEW_TOAST_HTML, WEBVIEW_TOAST_SCRIPT } from './webview/page';
+import { bridgeWebviewMessages, createWebviewPanelRegistry } from './webview/panelRegistry';
+import { DebouncedRefresher } from './webview/refresh';
 import { errorMessage } from './util/errors';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
@@ -107,15 +109,14 @@ interface OpenVbaTestsPanelEntry {
     refresh: () => Promise<void>;
 }
 
-const openVbaTestsPanels = new Map<string, OpenVbaTestsPanelEntry>();
+const openVbaTestsPanels = createWebviewPanelRegistry<OpenVbaTestsPanelEntry>();
 
 export function openVbaTestsPanel(
     context: vscode.ExtensionContext,
     filePath: string,
     options: VbaTestsPanelOptions,
 ): vscode.WebviewPanel {
-    const panelKey = workbookIdentityKey(filePath);
-    const existing = openVbaTestsPanels.get(panelKey);
+    const existing = openVbaTestsPanels.get(filePath);
     if (existing) {
         existing.options = options;
         existing.panel.reveal(vscode.ViewColumn.Active);
@@ -127,8 +128,6 @@ export function openVbaTestsPanel(
     }
 
     let disposed = false;
-    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    let refreshVersion = 0;
     const panel = vscode.window.createWebviewPanel(
         'xlideVbaTests',
         `XLIDE Tests: ${path.basename(filePath)}`,
@@ -155,31 +154,16 @@ export function openVbaTestsPanel(
         });
     };
     entry.refresh = renderPanel;
-    openVbaTestsPanels.set(panelKey, entry);
+    openVbaTestsPanels.set(filePath, entry);
 
-    const refreshPanel = async (requestVersion: number): Promise<void> => {
-        if (disposed || requestVersion !== refreshVersion) {
-            return;
-        }
-        await renderPanel();
-    };
-
-    const scheduleRefresh = (): void => {
-        const requestVersion = ++refreshVersion;
-        if (disposed) {
-            return;
-        }
-        if (refreshTimer) {
-            clearTimeout(refreshTimer);
-        }
-        refreshTimer = setTimeout(() => {
-            refreshTimer = undefined;
-            void refreshPanel(requestVersion).catch((err) => {
-                const error = errorMessage(err);
-                void panel.webview.postMessage({ type: 'error', error });
-            });
-        }, 250);
-    };
+    const refresher = new DebouncedRefresher({
+        refresh: renderPanel,
+        onError: (err) => {
+            const error = errorMessage(err);
+            void panel.webview.postMessage({ type: 'error', error });
+        },
+        defaultDelayMs: 250,
+    });
 
     const runAndRefresh = async (
         operation: (() => Promise<void>) | undefined,
@@ -189,8 +173,10 @@ export function openVbaTestsPanel(
             await panel.webview.postMessage({ type: 'error', error: missingMessage });
             return;
         }
-        await operation();
-        await renderPanel();
+        await refresher.runExclusive(async () => {
+            await operation();
+            await renderPanel();
+        });
     };
 
     void renderPanel().catch((err) => {
@@ -198,8 +184,9 @@ export function openVbaTestsPanel(
         panel.webview.html = renderVbaTestsErrorHtml(path.basename(filePath), error);
     });
 
-    const messageSub = panel.webview.onDidReceiveMessage(async (message: VbaTestsWebviewMessage) => {
-        try {
+    const messageSub = bridgeWebviewMessages(
+        panel.webview,
+        async (message: VbaTestsWebviewMessage) => {
             if (message.type === 'installSupport') {
                 await runAndRefresh(entry.options.onInstallSupport, 'XLIDE test support installation is not available.');
                 await panel.webview.postMessage({ type: 'refreshed' });
@@ -252,25 +239,19 @@ export function openVbaTestsPanel(
             if (message.type === 'rerunFailed') {
                 await runAndRefresh(entry.options.onRerunFailed, 'XLIDE rerun failed is not available.');
             }
-        } catch (err) {
-            const error = errorMessage(err);
-            await panel.webview.postMessage({ type: 'error', error });
-            await renderPanel().catch(() => { /* keep existing error visible */ });
-        }
-    });
+        },
+        () => renderPanel().catch(() => { /* keep existing error visible */ }),
+    );
 
-    const treeSub = entry.options.onDidChangeWorkbookTree?.(() => scheduleRefresh());
+    const treeSub = entry.options.onDidChangeWorkbookTree?.(() => refresher.schedule());
     const panelDisposables = [
         messageSub,
+        refresher,
         ...(treeSub ? [treeSub] : []),
     ];
     panel.onDidDispose(() => {
         disposed = true;
-        openVbaTestsPanels.delete(panelKey);
-        if (refreshTimer) {
-            clearTimeout(refreshTimer);
-            refreshTimer = undefined;
-        }
+        openVbaTestsPanels.delete(filePath);
         for (const sub of panelDisposables) {
             sub.dispose();
         }
@@ -329,10 +310,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
     return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE Tests</title>
+    ${webviewHeadHtml(nonce, 'XLIDE Tests')}
     <style nonce="${nonce}">
         :root {
             --xlide-accent-blue: #2d5f94;
@@ -705,10 +683,10 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
             </section>
         </main>
     </div>
-    <div class="toast" id="toast"></div>
+    ${WEBVIEW_TOAST_HTML}
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
-        const toast = document.getElementById('toast');
+        ${WEBVIEW_TOAST_SCRIPT}
         const workbookPath = ${workbookPathJson};
         const tagNames = ${tagNamesJson};
         const testIds = ${testIdsJson};
@@ -716,16 +694,8 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
         const hasTags = ${hasTagsJson};
         const hasTests = ${hasTestsJson};
         const hasLastFailed = ${hasLastFailedJson};
-        let toastTimer;
         let filterState = initialFilterState();
         let running = false;
-
-        function showToast(message) {
-            toast.textContent = message;
-            toast.classList.add('visible');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => toast.classList.remove('visible'), 2600);
-        }
 
         function initialFilterState() {
             const saved = vscode.getState?.();
@@ -965,46 +935,12 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
 }
 
 function renderVbaTestsErrorHtml(workbookName: string, error: string): string {
-    const nonce = randomNonce();
-    return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE Tests Error</title>
-    <style nonce="${nonce}">
-        body {
-            margin: 0;
-            padding: 24px;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editor-background);
-            font-family: var(--vscode-font-family);
-        }
-        h1 {
-            margin: 0 0 6px;
-            font-size: 18px;
-        }
-        .subtle {
-            color: var(--vscode-descriptionForeground);
-            margin-bottom: 18px;
-        }
-        .error {
-            border: 1px solid var(--vscode-inputValidation-errorBorder);
-            border-radius: 4px;
-            padding: 12px;
-            white-space: pre-wrap;
-        }
-    </style>
-</head>
-<body>
-    <main>
-        <h1>XLIDE Tests Could Not Load</h1>
-        <div class="subtle">${escapeHtml(workbookName)}</div>
-        <div class="error">${escapeHtml(error)}</div>
-    </main>
-</body>
-</html>`;
+    return renderWebviewErrorPageHtml({
+        title: 'XLIDE Tests Error',
+        heading: 'XLIDE Tests Could Not Load',
+        subtitle: workbookName,
+        error,
+    });
 }
 
 function renderTestSelection(model: VbaTestsPanelModel): string {
