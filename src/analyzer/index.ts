@@ -11,7 +11,6 @@ export {
 	isReservedIdentifier,
 	RESERVED_IDENTIFIERS,
 	VBA_KEYWORDS,
-	CANONICAL_COMPOUND_FORMS,
 } from './lexer/keywordTable';
 export * from './parser/nodes';
 export { parseModule } from './parser/parseModule';
