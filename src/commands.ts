@@ -322,7 +322,7 @@ export function registerCommands(
     context: vscode.ExtensionContext,
     bridge: PythonBridge,
     explorer: XlsmExplorer,
-    _fsProvider: XlideFileSystemProvider,
+    fsProvider: XlideFileSystemProvider,
     out: vscode.OutputChannel,
     vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
@@ -1103,6 +1103,7 @@ export function registerCommands(
             },
         );
         notifySignatureDropped(filePath, Boolean(result.signatureDropped));
+        fsProvider.notifyFileChanged(encodeModuleUri(filePath, XLIDE_ASSERT_MODULE_NAME));
         const summaryText = logChangeSummary('installVbaTestSupport', {
             operation: existing ? 'Update VBA test support module' : 'Install VBA test support module',
             changed: [XLIDE_ASSERT_MODULE_NAME],
@@ -1667,6 +1668,7 @@ export function registerCommands(
                         module: item.moduleName,
                     });
                     notifySignatureDropped(plan.workbookPath, Boolean(result.signatureDropped));
+                    fsProvider.notifyFileChanged(encodeModuleUri(plan.workbookPath, item.moduleName));
                     removed.push(item.relativeName);
                     recordWriteAudit({
                         command: 'xlide.importModulesFromFolder',
@@ -1718,6 +1720,7 @@ export function registerCommands(
                     kind: item.moduleType,
                 });
                 notifySignatureDropped(plan.workbookPath, Boolean(result.signatureDropped));
+                fsProvider.notifyFileChanged(encodeModuleUri(plan.workbookPath, item.moduleName));
                 changed.push(item.relativeName);
                 recordWriteAudit({
                     command: 'xlide.importModulesFromFolder',
@@ -2245,6 +2248,7 @@ export function registerCommands(
                 refreshVbaProjectState(node.filePath);
                 // Open the new module immediately
                 const uri = encodeModuleUri(node.filePath, name);
+                fsProvider.notifyFileChanged(uri);
                 const doc = await vscode.workspace.openTextDocument(uri);
                 await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                 await vscode.window.showTextDocument(doc, { preview: false });
@@ -2295,6 +2299,7 @@ export function registerCommands(
                 });
                 refreshVbaProjectState(node.filePath);
                 const uri = encodeModuleUri(node.filePath, name);
+                fsProvider.notifyFileChanged(uri);
                 const doc = await vscode.workspace.openTextDocument(uri);
                 await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                 await vscode.window.showTextDocument(doc, { preview: false });
@@ -2393,6 +2398,8 @@ export function registerCommands(
                         }
                     }
                 }
+                // Tell open editors the old module is gone and refresh workbook stats
+                fsProvider.notifyFileChanged(encodeModuleUri(node.filePath, node.moduleName));
                 const summaryText = logChangeSummary('renameModule', {
                     operation: 'Rename module',
                     changed: [`${node.moduleName} -> ${newName}`],
@@ -2479,6 +2486,7 @@ export function registerCommands(
                         await vscode.window.tabGroups.close(tab);
                     }
                 }
+                fsProvider.notifyFileChanged(uri);
                 refreshVbaProjectState(node.filePath);
             } catch (err) {
                 recordWriteAudit({

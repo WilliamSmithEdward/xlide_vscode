@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import type { LiveShareIntegration } from './liveShare';
@@ -125,7 +126,9 @@ export class XlideFileSystemProvider
 
     private _liveShare: LiveShareIntegration | undefined;
     private _clock = Date.now();
-    private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number }>();
+    private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number; workbookKey?: string }>();
+    /** Last known real workbook file mtime per workbook identity key. */
+    private readonly _workbookMtimes = new Map<string, number>();
 
     constructor(private readonly _bridge: PythonBridge) {}
 
@@ -153,6 +156,7 @@ export class XlideFileSystemProvider
 
     stat(uri: vscode.Uri): vscode.FileStat {
         const state = this.ensureStat(uri);
+        this.syncWithWorkbookFile(state, uri);
         return {
             type: vscode.FileType.File,
             ctime: state.ctime,
@@ -312,7 +316,8 @@ export class XlideFileSystemProvider
         trace.end('ok', moduleName);
     }
 
-    // Public method for agent tools to notify that a file has changed
+    // Public method for out-of-band mutators (agent tools, commands, Live Share)
+    // to notify that a module changed so open editors reload and stats refresh
     notifyFileChanged(uri: vscode.Uri): void {
         this.markChanged(uri);
         this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
@@ -322,16 +327,64 @@ export class XlideFileSystemProvider
         this._emitter.dispose();
     }
 
-    private ensureStat(uri: vscode.Uri): { ctime: number; mtime: number; size: number } {
+    private ensureStat(uri: vscode.Uri): { ctime: number; mtime: number; size: number; workbookKey?: string } {
         const key = this.statKey(uri);
         const existing = this._stats.get(key);
         if (existing) {
             return existing;
         }
-        const now = this.nextTimestamp();
-        const created = { ctime: now, mtime: now, size: 0 };
+        const real = this.workbookFileMtime(uri);
+        const now = real?.mtime ?? this.nextTimestamp();
+        const created = { ctime: now, mtime: now, size: 0, workbookKey: real?.workbookKey };
         this._stats.set(key, created);
+        if (real && !this._workbookMtimes.has(real.workbookKey)) {
+            this._workbookMtimes.set(real.workbookKey, real.mtime);
+        }
         return created;
+    }
+
+    /**
+     * Real mtime of the backing workbook file, keyed by workbook identity.
+     * Module mtimes are derived from it so VS Code's save-conflict detection
+     * sees out-of-band changes (Excel VBE edits, module sync, agent writes).
+     * Undefined for Live Share URIs and paths that cannot be statted.
+     */
+    private workbookFileMtime(uri: vscode.Uri): { workbookKey: string; mtime: number } | undefined {
+        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
+            return undefined;
+        }
+        try {
+            const { xlsmPath } = decodeModuleUri(uri);
+            return {
+                workbookKey: workbookIdentityKey(xlsmPath),
+                mtime: Math.floor(fs.statSync(xlsmPath).mtimeMs),
+            };
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Detect workbook file changes made outside this provider. When the real
+     * file mtime moved past the last mtime this provider produced or observed,
+     * any module may differ, so every cached module stat of that workbook is
+     * bumped to the new file mtime.
+     */
+    private syncWithWorkbookFile(state: { mtime: number; workbookKey?: string }, uri: vscode.Uri): void {
+        const real = this.workbookFileMtime(uri);
+        if (!real) {
+            return;
+        }
+        state.workbookKey = real.workbookKey;
+        const baseline = this._workbookMtimes.get(real.workbookKey);
+        if (baseline !== undefined && real.mtime !== baseline) {
+            for (const entry of this._stats.values()) {
+                if (entry.workbookKey === real.workbookKey) {
+                    entry.mtime = real.mtime;
+                }
+            }
+        }
+        this._workbookMtimes.set(real.workbookKey, real.mtime);
     }
 
     private updateSize(uri: vscode.Uri, size: number): void {
@@ -348,7 +401,14 @@ export class XlideFileSystemProvider
 
     private markChanged(uri: vscode.Uri, size?: number): void {
         const state = this.ensureStat(uri);
-        state.mtime = this.nextTimestamp(state.mtime);
+        const real = this.workbookFileMtime(uri);
+        if (real) {
+            state.workbookKey = real.workbookKey;
+            state.mtime = real.mtime;
+            this._workbookMtimes.set(real.workbookKey, real.mtime);
+        } else {
+            state.mtime = this.nextTimestamp(state.mtime);
+        }
         if (size !== undefined) {
             state.size = size;
         }
