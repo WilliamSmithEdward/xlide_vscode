@@ -146,14 +146,16 @@ function withAnalysisSettings(
     config: WorkbookSettingsConfig,
     analysis: WorkbookAnalysisSettingsConfig,
 ): WorkbookSettingsConfig {
+    // Spread so future top-level sidecar keys survive analysis-settings writes,
+    // matching workbookSettingsWithModuleSyncPatch/workbookSettingsWithTestPatch.
     const normalizedAnalysis = compactAnalysisSettings(analysis);
-    return {
-        exportFolder: config.exportFolder,
-        exportMode: config.exportMode,
-        importMode: config.importMode,
-        tests: config.tests,
-        ...(normalizedAnalysis ? { analysis: normalizedAnalysis } : {}),
-    };
+    const next = { ...config };
+    if (normalizedAnalysis) {
+        next.analysis = normalizedAnalysis;
+    } else {
+        delete next.analysis;
+    }
+    return next;
 }
 
 function compactAnalysisSettings(
