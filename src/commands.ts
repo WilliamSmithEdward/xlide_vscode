@@ -1693,9 +1693,10 @@ export function registerCommands(
         return plan.items.filter((item) => selected.has(item.id));
     }
 
-    async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<WorkbookAnalysisResult> {
-        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
-        const source = document.getText();
+    // Single live-module analysis pipeline shared by the analyze-current-module
+    // command and the support bundle so the analyzeVbaModuleSource inputs
+    // cannot drift between the two surfaces.
+    async function analyzeOpenModule(xlsmPath: string, moduleName: string, source: string) {
         const modules = applyOpenDocumentSources(
             await vbaIndex.getAllModules(xlsmPath),
             xlsmPath,
@@ -1716,7 +1717,6 @@ export function registerCommands(
             projectProcedureSignatures(project),
         );
         const analysisSettings = await effectiveWorkbookAnalysisSettings(xlsmPath);
-
         const result = analyzeVbaModuleSource({
             source,
             moduleName,
@@ -1726,25 +1726,30 @@ export function registerCommands(
             severityOverrides: analysisSettings.ruleSeverityOverrides,
             ...projectOptions,
         });
+        return { modules, current, moduleType, result };
+    }
+
+    async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<WorkbookAnalysisResult> {
+        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+        const source = document.getText();
+        const { moduleType, result } = await analyzeOpenModule(xlsmPath, moduleName, source);
+        const byPosition = (a: WorkbookAnalysisProblem, b: WorkbookAnalysisProblem) => {
+            if (a.line !== b.line) { return a.line - b.line; }
+            return a.column - b.column;
+        };
         const problems = workbookProblemsForModule(
             moduleName,
             moduleType,
             source,
             result.diagnostics,
-        ).sort((a, b) => {
-            if (a.line !== b.line) { return a.line - b.line; }
-            return a.column - b.column;
-        });
+        ).sort(byPosition);
         const suppressedProblems = workbookProblemsForModule(
             moduleName,
             moduleType,
             source,
             result.suppressedDiagnostics,
             { suppressed: true },
-        ).sort((a, b) => {
-            if (a.line !== b.line) { return a.line - b.line; }
-            return a.column - b.column;
-        });
+        ).sort(byPosition);
         const errorCount = problems.filter((p) => p.severity === 'error').length;
         const warningCount = problems.filter((p) => p.severity === 'warning').length;
         const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
@@ -1805,14 +1810,8 @@ export function registerCommands(
         }
 
         const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
-        const modules = applyOpenDocumentSources(
-            await vbaIndex.getAllModules(xlsmPath),
-            xlsmPath,
-        );
-        const current = modules.find(
-            (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
-        );
-        const moduleType = current?.type ?? 'standard';
+        const source = editor.document.getText();
+        const { modules, moduleType, result } = await analyzeOpenModule(xlsmPath, moduleName, source);
         const moduleTypes = countBy(modules.map((mod) => mod.type || 'unknown'));
         const workbook: SupportBundleWorkbookSummary = {
             available: true,
@@ -1823,28 +1822,6 @@ export function registerCommands(
             activeModuleType: moduleType,
         };
 
-        const source = editor.document.getText();
-        const moduleKind = moduleKindFromType(current?.type);
-        const project = await buildLiveVbaProjectIndexAsync(modules, {
-            moduleName,
-            moduleKind,
-            source,
-        });
-        const projectOptions = projectAnalysisOptionsForModule(
-            project,
-            moduleName,
-            projectProcedureSignatures(project),
-        );
-        const analysisSettings = await effectiveWorkbookAnalysisSettings(xlsmPath);
-        const result = analyzeVbaModuleSource({
-            source,
-            moduleName,
-            moduleType,
-            moduleKind,
-            documentType: current?.documentType,
-            severityOverrides: analysisSettings.ruleSeverityOverrides,
-            ...projectOptions,
-        });
         const problems = workbookProblemsForModule(
             moduleName,
             moduleType,
