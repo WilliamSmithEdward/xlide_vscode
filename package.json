@@ -1008,6 +1008,7 @@
     "vsix": "node -e \"const {execSync}=require('child_process'),{version}=require('./package.json');require('fs').mkdirSync('dist',{recursive:true});execSync('npx @vscode/vsce package --out dist/xlide-'+version+'.vsix',{stdio:'inherit'})\"",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
     "test:oracle:vbe": "python syntax_corpus/oracle/run_excel_vbe_oracle.py"
@@ -1015,6 +1016,7 @@
   "devDependencies": {
     "@types/node": "20.x",
     "@types/vscode": "^1.95.0",
+    "@vitest/coverage-v8": "^4.1.8",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.0",
     "npm-run-all": "^4.1.5",
