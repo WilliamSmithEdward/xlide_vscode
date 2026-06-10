@@ -15,6 +15,7 @@ import {
     withMemberContinuationText,
     normalizeSmartBlockLayout,
     procedureHeaderParensEdit,
+    validateVbaModuleName,
 } from '../src/vbaStructuralAnalysis';
 
 describe('analyzeVbaStructure', () => {
@@ -298,9 +299,21 @@ describe('stripVba', () => {
 });
 
 describe('shared VBA source text helpers', () => {
-    it('computes physical line starts for LF and CRLF sources', () => {
+    it('computes physical line starts for LF, CRLF, and lone-CR sources', () => {
         expect(lineStartOffsets('a\nbb\nccc')).toEqual([0, 2, 5]);
         expect(lineStartOffsets('a\r\nbb\r\nccc')).toEqual([0, 3, 7]);
+        expect(lineStartOffsets('a\rbb\rccc')).toEqual([0, 2, 5]);
+    });
+
+    it('validates VBA module names by identifier shape, length, and reserved words', () => {
+        expect(validateVbaModuleName('Module1')).toBeUndefined();
+        expect(validateVbaModuleName('_Helpers')).toBeUndefined();
+        expect(validateVbaModuleName('123Module')).toBeDefined();
+        expect(validateVbaModuleName('Bad Name')).toBeDefined();
+        expect(validateVbaModuleName('')).toBeDefined();
+        expect(validateVbaModuleName('M'.repeat(32))).toBeDefined();
+        expect(validateVbaModuleName('M'.repeat(31))).toBeUndefined();
+        expect(validateVbaModuleName('Sub')).toBeDefined();
     });
 
     it('extracts leading spaces and tabs through one shared rule', () => {

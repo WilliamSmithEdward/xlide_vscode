@@ -72,7 +72,7 @@ import {
 } from './globalSettings';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { effectiveWorkbookTestSettings } from './workbookTestSettings';
-import { lineStartOffsets, VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
+import { lineStartOffsets, validateVbaModuleName } from './vbaStructuralAnalysis';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
     moduleKindFromType,
@@ -2218,8 +2218,7 @@ export function registerCommands(
             const name = await vscode.window.showInputBox({
                 prompt: 'New module name',
                 placeHolder: 'Module1',
-                validateInput: (v) =>
-                    /^\w+$/.test(v) ? undefined : 'Module names must be alphanumeric',
+                validateInput: validateVbaModuleName,
             });
             if (!name) { return; }
 
@@ -2269,8 +2268,7 @@ export function registerCommands(
             const name = await vscode.window.showInputBox({
                 prompt: 'New class module name',
                 placeHolder: 'MyClass',
-                validateInput: (v) =>
-                    VBA_IDENTIFIER_NAME_RE.test(v) ? undefined : 'Class module names must be valid VBA identifiers',
+                validateInput: validateVbaModuleName,
             });
             if (!name) { return; }
 
@@ -2317,15 +2315,10 @@ export function registerCommands(
         // Rename a module
         registerXlideCommand('xlide.renameModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
-            const validateInput = (v: string): string | undefined => {
-                return VBA_IDENTIFIER_NAME_RE.test(v)
-                    ? undefined
-                    : 'Module names must be valid VBA identifiers';
-            };
             const newName = await vscode.window.showInputBox({
                 prompt: `Rename "${node.moduleName}" to`,
                 value: node.moduleName,
-                validateInput,
+                validateInput: validateVbaModuleName,
             });
             if (!newName || newName === node.moduleName) { return; }
 

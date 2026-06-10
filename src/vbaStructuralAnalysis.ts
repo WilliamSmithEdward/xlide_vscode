@@ -2,6 +2,8 @@
 // provider and the smart auto-block editing feature. Keeping this module
 // free of any `vscode` import means it can be unit-tested directly with vitest.
 
+import { isReservedIdentifier } from './analyzer/lexer/keywordTable';
+
 export interface VbaStructuralDiagnostic {
     /** 0-based physical line of the relevant token. */
     line: number;
@@ -71,6 +73,21 @@ export const DEFAULT_VBA_SMART_BLOCK_LAYOUT: VbaSmartBlockLayout = 'comfy';
 export const VBA_IDENTIFIER_PATTERN = '[A-Za-z_][A-Za-z0-9_]*';
 export const VBA_IDENTIFIER_RE = /[A-Za-z_][A-Za-z0-9_]*/;
 export const VBA_IDENTIFIER_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export const VBA_MODULE_NAME_MAX_LENGTH = 31;
+
+/** Input-box validator for VBA module names: undefined when valid, message otherwise. */
+export function validateVbaModuleName(name: string): string | undefined {
+    if (!VBA_IDENTIFIER_NAME_RE.test(name)) {
+        return 'Module names must start with a letter or underscore and use only letters, digits, and underscores';
+    }
+    if (name.length > VBA_MODULE_NAME_MAX_LENGTH) {
+        return `Module names must be at most ${VBA_MODULE_NAME_MAX_LENGTH} characters`;
+    }
+    if (isReservedIdentifier(name)) {
+        return 'Module names cannot be VBA reserved words';
+    }
+    return undefined;
+}
 
 export function normalizeSmartBlockLayout(value: unknown): VbaSmartBlockLayout {
     return value === 'compact' ? 'compact' : DEFAULT_VBA_SMART_BLOCK_LAYOUT;
