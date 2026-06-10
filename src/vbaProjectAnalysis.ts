@@ -63,13 +63,13 @@ export function effectiveModuleKind(input: Pick<VbaProjectModuleInput, 'type' | 
     return input.moduleKind ?? moduleKindFromType(input.type);
 }
 
-export function buildVbaProjectIndex(
-    modules: readonly VbaProjectModuleInput[],
-    liveOverride?: VbaProjectLiveOverride,
-    options: VbaProjectIndexBuildOptions = {},
-): ProjectIndex {
-    const index = new ProjectIndex();
-    const setModule = (module: Parameters<ProjectIndex['setModule']>[0]): boolean => {
+type ProjectIndexModuleSetter = (module: Parameters<ProjectIndex['setModule']>[0]) => boolean;
+
+function projectIndexModuleSetter(
+    index: ProjectIndex,
+    options: VbaProjectIndexBuildOptions,
+): ProjectIndexModuleSetter {
+    return (module) => {
         if (!options.ignoreInvalidModules) {
             index.setModule(module);
             return true;
@@ -81,17 +81,35 @@ export function buildVbaProjectIndex(
             return false;
         }
     };
+}
+
+/** Sets one module on the index; returns whether it consumed the live override. */
+function applyProjectModule(
+    setModule: ProjectIndexModuleSetter,
+    mod: VbaProjectModuleInput,
+    liveOverride?: VbaProjectLiveOverride,
+): boolean {
+    const isOverride =
+        liveOverride &&
+        mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
+    const applied = setModule({
+        moduleName: mod.moduleName,
+        moduleKind: isOverride ? liveOverride.moduleKind : effectiveModuleKind(mod),
+        source: isOverride ? liveOverride.source : mod.source,
+    });
+    return !!isOverride && applied;
+}
+
+export function buildVbaProjectIndex(
+    modules: readonly VbaProjectModuleInput[],
+    liveOverride?: VbaProjectLiveOverride,
+    options: VbaProjectIndexBuildOptions = {},
+): ProjectIndex {
+    const index = new ProjectIndex();
+    const setModule = projectIndexModuleSetter(index, options);
     let appliedOverride = false;
     for (const mod of modules) {
-        const isOverride =
-            liveOverride &&
-            mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
-        const applied = setModule({
-            moduleName: mod.moduleName,
-            moduleKind: isOverride ? liveOverride.moduleKind : effectiveModuleKind(mod),
-            source: isOverride ? liveOverride.source : mod.source,
-        });
-        appliedOverride = appliedOverride || (!!isOverride && applied);
+        appliedOverride = applyProjectModule(setModule, mod, liveOverride) || appliedOverride;
     }
     if (liveOverride && !appliedOverride) {
         setModule(liveOverride);
@@ -112,31 +130,12 @@ export async function buildVbaProjectIndexAsync(
     options: VbaProjectIndexBuildOptions = {},
 ): Promise<ProjectIndex> {
     const index = new ProjectIndex();
-    const setModule = (module: Parameters<ProjectIndex['setModule']>[0]): boolean => {
-        if (!options.ignoreInvalidModules) {
-            index.setModule(module);
-            return true;
-        }
-        try {
-            index.setModule(module);
-            return true;
-        } catch {
-            return false;
-        }
-    };
+    const setModule = projectIndexModuleSetter(index, options);
     let appliedOverride = false;
     const yieldEvery = Math.max(1, options.yieldEveryModules ?? PROJECT_INDEX_YIELD_EVERY_MODULES);
     options.cancelIfRequested?.();
     for (const [i, mod] of modules.entries()) {
-        const isOverride =
-            liveOverride &&
-            mod.moduleName.toLowerCase() === liveOverride.moduleName.toLowerCase();
-        const applied = setModule({
-            moduleName: mod.moduleName,
-            moduleKind: isOverride ? liveOverride.moduleKind : effectiveModuleKind(mod),
-            source: isOverride ? liveOverride.source : mod.source,
-        });
-        appliedOverride = appliedOverride || (!!isOverride && applied);
+        appliedOverride = applyProjectModule(setModule, mod, liveOverride) || appliedOverride;
         if ((i + 1) % yieldEvery === 0) {
             await yieldToExtensionHost();
             options.cancelIfRequested?.();
