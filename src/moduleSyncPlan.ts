@@ -349,58 +349,92 @@ export function buildSideBySideDiff(
     const right = splitLines(rightText);
     const leftOnlyKind = options.leftOnlyKind ?? 'removed';
     const rightOnlyKind = options.rightOnlyKind ?? 'added';
-    const table = lcsTable(left, right);
     const out: ModuleSyncDiffLine[] = [];
     let i = 0;
     let j = 0;
-    while (i < left.length && j < right.length) {
-        if (left[i] === right[j]) {
+    // Common prefix/suffix lines need no LCS table, so identical texts (the
+    // "unchanged" plan items) skip the O(n*m) table allocation entirely.
+    let leftEnd = left.length;
+    let rightEnd = right.length;
+    while (i < leftEnd && j < rightEnd && left[i] === right[j]) {
+        out.push({
+            leftNumber: i + 1,
+            rightNumber: j + 1,
+            left: left[i],
+            right: right[j],
+            kind: 'equal',
+        });
+        i++;
+        j++;
+    }
+    let suffixLength = 0;
+    while (leftEnd > i && rightEnd > j && left[leftEnd - 1] === right[rightEnd - 1]) {
+        leftEnd--;
+        rightEnd--;
+        suffixLength++;
+    }
+    const midLeft = left.slice(i, leftEnd);
+    const midRight = right.slice(j, rightEnd);
+    const table = lcsTable(midLeft, midRight);
+    let mi = 0;
+    let mj = 0;
+    while (mi < midLeft.length && mj < midRight.length) {
+        if (midLeft[mi] === midRight[mj]) {
             out.push({
-                leftNumber: i + 1,
-                rightNumber: j + 1,
-                left: left[i],
-                right: right[j],
+                leftNumber: i + mi + 1,
+                rightNumber: j + mj + 1,
+                left: midLeft[mi],
+                right: midRight[mj],
                 kind: 'equal',
             });
-            i++;
-            j++;
-        } else if (table[i + 1][j] >= table[i][j + 1]) {
-            if (j < right.length && table[i + 1][j] === table[i][j + 1]) {
+            mi++;
+            mj++;
+        } else if (table[mi + 1][mj] >= table[mi][mj + 1]) {
+            if (table[mi + 1][mj] === table[mi][mj + 1]) {
                 out.push({
-                    leftNumber: i + 1,
-                    rightNumber: j + 1,
-                    left: left[i],
-                    right: right[j],
+                    leftNumber: i + mi + 1,
+                    rightNumber: j + mj + 1,
+                    left: midLeft[mi],
+                    right: midRight[mj],
                     kind: 'changed',
                 });
-                i++;
-                j++;
+                mi++;
+                mj++;
             } else {
                 out.push({
-                    leftNumber: i + 1,
-                    left: left[i],
+                    leftNumber: i + mi + 1,
+                    left: midLeft[mi],
                     right: '',
                     kind: leftOnlyKind,
                 });
-                i++;
+                mi++;
             }
         } else {
             out.push({
-                rightNumber: j + 1,
+                rightNumber: j + mj + 1,
                 left: '',
-                right: right[j],
+                right: midRight[mj],
                 kind: rightOnlyKind,
             });
-            j++;
+            mj++;
         }
     }
-    while (i < left.length) {
-        out.push({ leftNumber: i + 1, left: left[i], right: '', kind: leftOnlyKind });
-        i++;
+    while (mi < midLeft.length) {
+        out.push({ leftNumber: i + mi + 1, left: midLeft[mi], right: '', kind: leftOnlyKind });
+        mi++;
     }
-    while (j < right.length) {
-        out.push({ rightNumber: j + 1, left: '', right: right[j], kind: rightOnlyKind });
-        j++;
+    while (mj < midRight.length) {
+        out.push({ rightNumber: j + mj + 1, left: '', right: midRight[mj], kind: rightOnlyKind });
+        mj++;
+    }
+    for (let k = 0; k < suffixLength; k++) {
+        out.push({
+            leftNumber: leftEnd + k + 1,
+            rightNumber: rightEnd + k + 1,
+            left: left[leftEnd + k],
+            right: right[rightEnd + k],
+            kind: 'equal',
+        });
     }
     return out.length > 0 ? out : [{ left: '', right: '', kind: 'equal' }];
 }
