@@ -414,6 +414,16 @@
           "when": "resourceScheme == xlide-vba",
           "group": "xlide@2"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "xlide.previewErrors",
+          "when": "xlide.devMode"
+        },
+        {
+          "command": "xlide.dev.smoke",
+          "when": "xlide.devMode"
+        }
       ]
     },
     "keybindings": [

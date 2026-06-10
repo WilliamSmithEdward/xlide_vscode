@@ -91,6 +91,15 @@ export function activate(context: vscode.ExtensionContext): void {
         () => xlidePerformanceTraceFromConfig(vscode.workspace.getConfiguration('xlide')).value,
     );
     out.appendLine('XLIDE activating...');
+
+    // Dev-only commands stay out of the command palette unless the extension
+    // host is running in Development mode (see menus.commandPalette).
+    void vscode.commands.executeCommand(
+        'setContext',
+        'xlide.devMode',
+        context.extensionMode === vscode.ExtensionMode.Development,
+    );
+
     void cleanupStaleVbaTestHostTempDirsAsync()
         .then((cleanup) => {
             if (cleanup.deleted > 0 || cleanup.failed > 0) {
