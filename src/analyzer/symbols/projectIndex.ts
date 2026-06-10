@@ -610,23 +610,6 @@ export class ProjectIndex {
 	}
 
 	/**
-	 * Lowercased names of every procedure/Declare callable across all
-	 * indexed modules. Used by the unknown-call diagnostic to decide whether a
-	 * bare call statement names a procedure that exists anywhere in the project.
-	 */
-	procedureNames(): Set<string> {
-		const names = new Set<string>();
-		for (const mod of this.modules.values()) {
-			for (const symbol of mod.all) {
-				if (isBareCallableKind(symbol.kind) || isProcedureKind(symbol.kind)) {
-					names.add(symbol.name.toLowerCase());
-				}
-			}
-		}
-		return names;
-	}
-
-	/**
 	 * Lowercased procedure names callable as bare identifiers from `moduleName`.
 	 * Same-module procedures are always visible to their own module. Cross-module
 	 * bare calls are limited to exported procedures in standard modules; class,
@@ -1235,11 +1218,6 @@ export class ProjectIndex {
 			}
 		}
 		return out;
-	}
-
-	/** Module-level declarations (incl. enum members) matching a lowercased name. */
-	private moduleLevelMatches(mod: ModuleSymbols, lower: string): VbaSymbol[] {
-		return this.moduleLevelBindings(mod, lower).map((binding) => binding.symbol);
 	}
 
 	/** Exported module-level declarations (incl. exported enum members). */
