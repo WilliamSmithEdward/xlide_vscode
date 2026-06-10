@@ -29,6 +29,54 @@ function hostConstantIndex(model: HostObjectModel): Map<string, HostConstant> {
 	return index;
 }
 
+interface HostTypeIndex {
+	members: HostMember[];
+	byLowerName: Map<string, HostMember>;
+	rawByLowerName: Map<string, HostMember>;
+}
+
+interface HostModelIndex {
+	membersByType: Map<string, HostTypeIndex>;
+	typeKeysByLower: Map<string, string>;
+}
+
+const HOST_MODEL_INDEX = new WeakMap<HostObjectModel, HostModelIndex>();
+
+function hostModelIndex(model: HostObjectModel): HostModelIndex {
+	const cached = HOST_MODEL_INDEX.get(model);
+	if (cached) {
+		return cached;
+	}
+	const membersByType = new Map<string, HostTypeIndex>();
+	const typeKeysByLower = new Map<string, string>();
+	for (const [key, type] of Object.entries(model.types)) {
+		const keyLower = key.toLowerCase();
+		if (!typeKeysByLower.has(keyLower)) {
+			typeKeysByLower.set(keyLower, key);
+		}
+		const members: HostMember[] = [];
+		const byLowerName = new Map<string, HostMember>();
+		const rawByLowerName = new Map<string, HostMember>();
+		for (const member of type.members ?? []) {
+			const lower = member.name.toLowerCase();
+			if (!rawByLowerName.has(lower)) {
+				rawByLowerName.set(lower, member);
+			}
+			if (!isObjectAccessMember(member)) {
+				continue;
+			}
+			members.push(member);
+			if (!byLowerName.has(lower)) {
+				byLowerName.set(lower, member);
+			}
+		}
+		membersByType.set(key, { members, byLowerName, rawByLowerName });
+	}
+	const index = { membersByType, typeKeysByLower };
+	HOST_MODEL_INDEX.set(model, index);
+	return index;
+}
+
 /** Returns the type metadata for a qualified type name (e.g. "Excel.Range"). */
 export function getHostType(
 	qualified: string,
@@ -42,7 +90,7 @@ export function getHostMembers(
 	qualified: string,
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): HostMember[] {
-	return (model.types[qualified]?.members ?? []).filter(isObjectAccessMember);
+	return hostModelIndex(model).membersByType.get(qualified)?.members ?? [];
 }
 
 /**
@@ -82,16 +130,14 @@ export function resolveHostMemberSignature(
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): string | undefined {
 	const lower = member.toLowerCase();
-	const rawMember = model.types[qualified]?.members.find(
-		(candidate) => candidate.name.toLowerCase() === lower,
-	);
+	const typeIndex = hostModelIndex(model).membersByType.get(qualified);
+	const rawMember = typeIndex?.rawByLowerName.get(lower);
 	if (rawMember?.kind === 'event') {
 		return undefined;
 	}
 	return (
-		getHostMembers(qualified, model).find((candidate) =>
-			candidate.name.toLowerCase() === lower
-		)?.signature ?? model.memberSignatures?.[qualified]?.[lower]
+		typeIndex?.byLowerName.get(lower)?.signature ??
+			model.memberSignatures?.[qualified]?.[lower]
 	);
 }
 
@@ -133,10 +179,9 @@ export function resolveHostAlias(
 		return trimmed;
 	}
 	// Match qualified form case-insensitively.
-	for (const key of Object.keys(model.types)) {
-		if (key.toLowerCase() === lower) {
-			return key;
-		}
+	const key = hostModelIndex(model).typeKeysByLower.get(lower);
+	if (key) {
+		return key;
 	}
 	return model.aliases[lower];
 }
@@ -151,9 +196,7 @@ export function resolveMemberReturnType(
 	memberName: string,
 	model: HostObjectModel = EXCEL_OBJECT_MODEL,
 ): string | undefined {
-	const lower = memberName.toLowerCase();
-	const member = getHostMembers(qualified, model).find(
-		(mem) => mem.name.toLowerCase() === lower,
-	);
+	const member = hostModelIndex(model).membersByType
+		.get(qualified)?.byLowerName.get(memberName.toLowerCase());
 	return member?.returns;
 }

@@ -830,6 +830,20 @@ function checkDuplicateEnumMembers(
 	}
 }
 
+// Excel injects Application's members into the global scope; several rules
+// need the lowercased member-name set, so build it once on first use.
+let APPLICATION_MEMBER_NAMES: ReadonlySet<string> | undefined;
+
+function applicationMemberNames(): ReadonlySet<string> {
+	if (!APPLICATION_MEMBER_NAMES) {
+		const appType = resolveHostGlobal('Application');
+		APPLICATION_MEMBER_NAMES = new Set(
+			(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
+		);
+	}
+	return APPLICATION_MEMBER_NAMES;
+}
+
 /**
  * Rule: duplicate member names in different Enum blocks compile, but an
  * unqualified read of that shared member name is rejected as "Ambiguous name
@@ -862,10 +876,7 @@ function checkAmbiguousEnumMemberReferences(
 	}
 
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	const appType = resolveHostGlobal('Application');
-	const appMembers = new Set(
-		(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
-	);
+	const appMembers = applicationMemberNames();
 	const isKnownForSkip = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
 		return (
@@ -1238,10 +1249,7 @@ function checkUnknownCallStatement(
 ): void {
 	// Excel injects Application's members into the global scope, so a bare call
 	// may legitimately bind to one of them (Calculate, Volatile, Evaluate, ...).
-	const appType = resolveHostGlobal('Application');
-	const appMembers = new Set(
-		(appType ? getHostMembers(appType) : []).map((mm) => mm.name.toLowerCase()),
-	);
+	const appMembers = applicationMemberNames();
 
 	const isKnown = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
@@ -6806,10 +6814,7 @@ function checkUndeclaredVariables(
 	}
 
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	const appType = resolveHostGlobal('Application');
-	const appMembers = new Set(
-		(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
-	);
+	const appMembers = applicationMemberNames();
 	const isKnown = (
 		name: string,
 		procSym: VbaSymbol | undefined,
