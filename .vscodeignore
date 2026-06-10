@@ -1,6 +1,7 @@
 .vscode/**
 .github/**
 dist/**
+assets/images/extension_logo_full.png
 .venv/**
 .pytest_cache/**
 node_modules/**
