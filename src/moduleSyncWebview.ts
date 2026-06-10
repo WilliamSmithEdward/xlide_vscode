@@ -4,6 +4,7 @@ import type { ImportMode, ModuleSyncFolderSource, ModuleSyncModeSource, ModuleSy
 import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
 import { measurePerformance, measurePerformanceSync } from './performanceTrace';
 import { escapeHtml, randomNonce, scriptJson } from './webview/html';
+import { DebouncedRefresher, RefreshGate } from './webview/refresh';
 import { errorMessage } from './util/errors';
 
 export interface ModuleSyncApplyResult {
@@ -50,13 +51,8 @@ export function openModuleSyncPreview(
         );
         let resolved = false;
         let disposed = false;
-        let operationInFlight = false;
-        let queuedFolderRefresh = false;
-        let queuedWorkbookSettingsRefresh = false;
-        let folderRefreshTimer: ReturnType<typeof setTimeout> | undefined;
         let watchedFolderPath: string | undefined;
         let folderWatcherDisposables: vscode.Disposable[] = [];
-        let settingsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
         const done = (result: ModuleSyncApplyResult | undefined): void => {
             if (!resolved) {
                 resolved = true;
@@ -72,38 +68,22 @@ export function openModuleSyncPreview(
             folderWatcherDisposables = [];
             watchedFolderPath = undefined;
         };
-        const queueFolderRefresh = (delayMs = 300): void => {
-            if (!options.onRefresh || disposed) {
-                return;
-            }
-            if (operationInFlight) {
-                queuedFolderRefresh = true;
-                return;
-            }
-            if (folderRefreshTimer) {
-                clearTimeout(folderRefreshTimer);
-            }
-            folderRefreshTimer = setTimeout(() => {
-                folderRefreshTimer = undefined;
-                void refreshPlanFromDisk();
-            }, delayMs);
+        const postRefreshError = (err: unknown): void => {
+            void panel.webview.postMessage({ type: 'error', error: errorMessage(err) });
         };
-        const queueWorkbookSettingsRefresh = (delayMs = 300): void => {
-            if (!options.onReloadWorkbookSettings || disposed) {
-                return;
-            }
-            if (operationInFlight) {
-                queuedWorkbookSettingsRefresh = true;
-                return;
-            }
-            if (settingsRefreshTimer) {
-                clearTimeout(settingsRefreshTimer);
-            }
-            settingsRefreshTimer = setTimeout(() => {
-                settingsRefreshTimer = undefined;
-                void refreshPlanFromWorkbookSettings();
-            }, delayMs);
-        };
+        const gate = new RefreshGate();
+        const folderRefresher = new DebouncedRefresher({
+            refresh: () => refreshPlanFromDisk(),
+            onError: postRefreshError,
+            defaultDelayMs: 300,
+            gate,
+        });
+        const settingsRefresher = new DebouncedRefresher({
+            refresh: () => refreshPlanFromWorkbookSettings(),
+            onError: postRefreshError,
+            defaultDelayMs: 300,
+            gate,
+        });
         const configureFolderWatcher = (): void => {
             if (!options.onRefresh || disposed || !currentPlan.folderPath || watchedFolderPath === currentPlan.folderPath) {
                 return;
@@ -115,7 +95,7 @@ export function openModuleSyncPreview(
             );
             const refreshIfRelevant = (uri: vscode.Uri): void => {
                 if (isModuleSyncWatchedPath(uri.fsPath)) {
-                    queueFolderRefresh();
+                    folderRefresher.schedule();
                 }
             };
             folderWatcherDisposables = [
@@ -125,22 +105,7 @@ export function openModuleSyncPreview(
                 watcher,
             ];
         };
-        const runExclusive = async <T>(operation: () => Promise<T>): Promise<T> => {
-            operationInFlight = true;
-            try {
-                return await operation();
-            } finally {
-                operationInFlight = false;
-                if (queuedFolderRefresh && !disposed) {
-                    queuedFolderRefresh = false;
-                    queueFolderRefresh(100);
-                }
-                if (queuedWorkbookSettingsRefresh && !disposed) {
-                    queuedWorkbookSettingsRefresh = false;
-                    queueWorkbookSettingsRefresh(100);
-                }
-            }
-        };
+        const runExclusive = <T>(operation: () => Promise<T>): Promise<T> => gate.runExclusive(operation);
         const updateCurrentPlan = (nextPlan: ModuleSyncPlan): void => {
             currentPlan = nextPlan;
             configureFolderWatcher();
@@ -150,57 +115,35 @@ export function openModuleSyncPreview(
             if (!refresh || disposed) {
                 return;
             }
-            if (operationInFlight) {
-                queuedFolderRefresh = true;
-                return;
-            }
-            try {
-                await measurePerformance('moduleSync.refreshFromDisk', currentPlan.direction, async () => {
-                    await panel.webview.postMessage({ type: 'refreshing', message: 'Disk changes detected. Refreshing preview...' });
-                    await runExclusive(async () => {
-                        updateCurrentPlan(await refresh(settingsFromPlan(currentPlan)));
-                        await panel.webview.postMessage({
-                            type: 'plan',
-                            plan: currentPlan,
-                            message: 'Disk changes detected. Preview refreshed.',
-                        });
-                    });
+            await measurePerformance('moduleSync.refreshFromDisk', currentPlan.direction, async () => {
+                await panel.webview.postMessage({ type: 'refreshing', message: 'Disk changes detected. Refreshing preview...' });
+                updateCurrentPlan(await refresh(settingsFromPlan(currentPlan)));
+                await panel.webview.postMessage({
+                    type: 'plan',
+                    plan: currentPlan,
+                    message: 'Disk changes detected. Preview refreshed.',
                 });
-            } catch (err) {
-                const error = errorMessage(err);
-                await panel.webview.postMessage({ type: 'error', error });
-            }
+            });
         }
         async function refreshPlanFromWorkbookSettings(): Promise<void> {
             const reload = options.onReloadWorkbookSettings;
             if (!reload || disposed) {
                 return;
             }
-            if (operationInFlight) {
-                queuedWorkbookSettingsRefresh = true;
-                return;
-            }
-            try {
-                await measurePerformance('moduleSync.refreshWorkbookSettings', currentPlan.direction, async () => {
-                    await panel.webview.postMessage({ type: 'refreshing', message: 'Workbook settings changed. Refreshing preview...' });
-                    await runExclusive(async () => {
-                        const nextPlan = await reload();
-                        if (nextPlan) {
-                            updateCurrentPlan(nextPlan);
-                            await panel.webview.postMessage({
-                                type: 'plan',
-                                plan: currentPlan,
-                                message: 'Workbook settings changed. Preview refreshed.',
-                            });
-                        } else {
-                            await panel.webview.postMessage({ type: 'ready' });
-                        }
+            await measurePerformance('moduleSync.refreshWorkbookSettings', currentPlan.direction, async () => {
+                await panel.webview.postMessage({ type: 'refreshing', message: 'Workbook settings changed. Refreshing preview...' });
+                const nextPlan = await reload();
+                if (nextPlan) {
+                    updateCurrentPlan(nextPlan);
+                    await panel.webview.postMessage({
+                        type: 'plan',
+                        plan: currentPlan,
+                        message: 'Workbook settings changed. Preview refreshed.',
                     });
-                });
-            } catch (err) {
-                const error = errorMessage(err);
-                await panel.webview.postMessage({ type: 'error', error });
-            }
+                } else {
+                    await panel.webview.postMessage({ type: 'ready' });
+                }
+            });
         }
         configureFolderWatcher();
         const workbookSettingsPath = settingsPathForWorkbook(currentPlan.workbookPath);
@@ -209,9 +152,9 @@ export function openModuleSyncPreview(
             path.basename(workbookSettingsPath),
         ));
         const workbookSettingsWatcherDisposables = [
-            workbookSettingsWatcher.onDidCreate(() => queueWorkbookSettingsRefresh()),
-            workbookSettingsWatcher.onDidChange(() => queueWorkbookSettingsRefresh()),
-            workbookSettingsWatcher.onDidDelete(() => queueWorkbookSettingsRefresh()),
+            workbookSettingsWatcher.onDidCreate(() => settingsRefresher.schedule()),
+            workbookSettingsWatcher.onDidChange(() => settingsRefresher.schedule()),
+            workbookSettingsWatcher.onDidDelete(() => settingsRefresher.schedule()),
             workbookSettingsWatcher,
         ];
         panel.webview.html = measurePerformanceSync(
@@ -341,14 +284,8 @@ export function openModuleSyncPreview(
         });
         panel.onDidDispose(() => {
             disposed = true;
-            if (folderRefreshTimer) {
-                clearTimeout(folderRefreshTimer);
-                folderRefreshTimer = undefined;
-            }
-            if (settingsRefreshTimer) {
-                clearTimeout(settingsRefreshTimer);
-                settingsRefreshTimer = undefined;
-            }
+            folderRefresher.dispose();
+            settingsRefresher.dispose();
             disposeFolderWatcher();
             for (const disposable of workbookSettingsWatcherDisposables) {
                 disposable.dispose();
