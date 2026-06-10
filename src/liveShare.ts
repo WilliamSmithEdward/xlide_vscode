@@ -128,9 +128,7 @@ export class LiveShareIntegration implements vscode.Disposable {
         // Refresh remote workbook list when the host's xlsm files change.
         const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
         const refresh = () => void this._refreshHostWorkbooks();
-        watcher.onDidCreate(refresh);
-        watcher.onDidDelete(refresh);
-        this._disposables.push(watcher);
+        this._disposables.push(watcher, watcher.onDidCreate(refresh), watcher.onDidDelete(refresh));
     }
 
     private async _onSessionChange(e: vsls.SessionChangeEvent): Promise<void> {

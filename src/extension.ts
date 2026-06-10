@@ -274,7 +274,6 @@ export function activate(context: vscode.ExtensionContext): void {
         );
     };
     updateGuestContext();
-    liveShare.onDidChange(updateGuestContext);
 
     // Keep reference outside subscriptions for post-start auto-expand and reveal.
     const treeView = vscode.window.createTreeView('xlide.explorer', {
@@ -299,6 +298,9 @@ export function activate(context: vscode.ExtensionContext): void {
         registerXlideDirtyModuleBackups(context, out),
 
         treeView,
+        explorer,
+
+        liveShare.onDidChange(updateGuestContext),
 
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration('xlide.pythonPath')) {
@@ -326,7 +328,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     void treeView.reveal(node, { select: true, focus: false, expand: true });
                 }
             };
-            return vscode.window.onDidChangeActiveTextEditor((editor) => {
+            const subscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
                 // No active editor (e.g. user closed the last tab) — collapse all modules.
                 if (!editor) {
                     pending = undefined;
@@ -339,6 +341,10 @@ export function activate(context: vscode.ExtensionContext): void {
                 pending = decodeModuleUri(uri);
                 if (timer !== undefined) { clearTimeout(timer); }
                 timer = setTimeout(apply, 60);
+            });
+            return new vscode.Disposable(() => {
+                if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+                subscription.dispose();
             });
         })(),
 
@@ -359,9 +365,14 @@ export function activate(context: vscode.ExtensionContext): void {
                 timer = setTimeout(() => { timer = undefined; explorer.refresh(); }, 200);
             };
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
-            watcher.onDidCreate(debouncedRefresh);
-            watcher.onDidDelete(debouncedRefresh);
-            return watcher;
+            const createSubscription = watcher.onDidCreate(debouncedRefresh);
+            const deleteSubscription = watcher.onDidDelete(debouncedRefresh);
+            return new vscode.Disposable(() => {
+                if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+                createSubscription.dispose();
+                deleteSubscription.dispose();
+                watcher.dispose();
+            });
         })(),
 
         // DEV ONLY: preview error notification UX
@@ -508,7 +519,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // Item 7: Auto-expand the first workbook on activation so modules are visible.
         if (treeView.visible) {
-            setTimeout(() => {
+            const autoExpandTimer = setTimeout(() => {
                 if (!treeView.visible) { return; }
                 void explorer.warmXlsmCache().then(firstNode => {
                     if (firstNode && treeView.visible) {
@@ -516,6 +527,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     }
                 });
             }, 250);
+            context.subscriptions.push(new vscode.Disposable(() => clearTimeout(autoExpandTimer)));
         }
     }).catch(async (err: Error) => {
         out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);

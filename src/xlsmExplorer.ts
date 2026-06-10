@@ -33,11 +33,12 @@ export interface XlideNode {
     isSigned?: boolean;
 }
 
-export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
+export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.Disposable {
     private _emitter = new vscode.EventEmitter<XlideNode | undefined | null | void>();
     readonly onDidChangeTreeData = this._emitter.event;
 
     private _liveShare: LiveShareIntegration | undefined;
+    private _liveShareSubscription: vscode.Disposable | undefined;
 
     // Stable node references required by treeView.reveal()
     private _xlsmNodes = new Map<string, XlideNode>(); // key: filePath
@@ -69,7 +70,15 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode> {
 
     setLiveShare(liveShare: LiveShareIntegration): void {
         this._liveShare = liveShare;
-        liveShare.onDidChange(() => this.refresh());
+        this._liveShareSubscription?.dispose();
+        this._liveShareSubscription = liveShare.onDidChange(() => this.refresh());
+    }
+
+    dispose(): void {
+        this._clearProtectionTimers();
+        this._liveShareSubscription?.dispose();
+        this._liveShareSubscription = undefined;
+        this._emitter.dispose();
     }
 
     setSetupComplete(setupComplete: boolean): void {
