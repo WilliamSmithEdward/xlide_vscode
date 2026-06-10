@@ -78,53 +78,11 @@ function resolveWorkbookSetting<T>(
         : { value: workbookValue, source: 'workbook' };
 }
 
-function normalizeImportModeValue(mode: unknown): ImportMode | undefined {
-    return mode === 'updateOnly' || mode === 'trueUpStandardClass' ? mode : undefined;
-}
-
-function normalizeWorkbookAnalysisSettingsConfig(value: unknown): WorkbookAnalysisSettingsConfig | undefined {
-    if (!value || typeof value !== 'object') {
-        return undefined;
-    }
-    const source = value as {
-        visibleSeverities?: unknown;
-        untrackedRules?: unknown;
-        ruleSeverityOverrides?: unknown;
-    };
-    const normalized: WorkbookAnalysisSettingsConfig = {};
-    if (Array.isArray(source.visibleSeverities)) {
-        normalized.visibleSeverities = normalizeAnalysisVisibleSeverities(source.visibleSeverities);
-    }
-    if (Array.isArray(source.untrackedRules)) {
-        normalized.untrackedRules = normalizeAnalysisRuleCodes(source.untrackedRules);
-    }
-    if (source.ruleSeverityOverrides !== undefined) {
-        normalized.ruleSeverityOverrides = normalizeAnalysisRuleSeverityOverrides(source.ruleSeverityOverrides);
-    }
-    return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
-
-function normalizeWorkbookTestSettingsConfig(value: unknown): WorkbookTestSettingsConfig | undefined {
-    if (!value || typeof value !== 'object') {
-        return undefined;
-    }
-    const source = value as {
-        artifactFolder?: unknown;
-        artifactRetention?: unknown;
-    };
-    const normalized: WorkbookTestSettingsConfig = {};
-    if (typeof source.artifactFolder === 'string') {
-        normalized.artifactFolder = source.artifactFolder;
-    }
-    if (
-        typeof source.artifactRetention === 'number' &&
-        Number.isInteger(source.artifactRetention) &&
-        source.artifactRetention > 0
-    ) {
-        normalized.artifactRetention = source.artifactRetention;
-    }
-    return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
+// One codec serves both sidecar passes: strict parsing passes a `reject`
+// callback that throws WorkbookSettingsError (and rejects unknown keys),
+// while the lenient normalizer passes undefined and coerces or drops
+// invalid values instead.
+type WorkbookSettingsReject = ((message: string) => never) | undefined;
 
 function normalizeWorkbookSettingsConfig(config: {
     exportFolder?: unknown;
@@ -133,26 +91,7 @@ function normalizeWorkbookSettingsConfig(config: {
     analysis?: unknown;
     tests?: unknown;
 }): WorkbookSettingsConfig {
-    const normalized: WorkbookSettingsConfig = {};
-    if (typeof config.exportFolder === 'string') {
-        normalized.exportFolder = config.exportFolder;
-    }
-    if (config.exportMode !== undefined) {
-        normalized.exportMode = normalizeExportMode(config.exportMode);
-    }
-    const importMode = normalizeImportModeValue(config.importMode);
-    if (importMode) {
-        normalized.importMode = importMode;
-    }
-    const analysis = normalizeWorkbookAnalysisSettingsConfig(config.analysis);
-    if (analysis) {
-        normalized.analysis = analysis;
-    }
-    const tests = normalizeWorkbookTestSettingsConfig(config.tests);
-    if (tests) {
-        normalized.tests = tests;
-    }
-    return normalized;
+    return codecWorkbookSettingsConfig(config as Record<string, unknown>, undefined);
 }
 
 function isWorkbookSettingsError(value: unknown): value is WorkbookSettingsError {
@@ -163,182 +102,227 @@ function parseWorkbookSettingsConfig(value: unknown, configPath: string): Workbo
     if (!isPlainObject(value)) {
         throw new WorkbookSettingsError(configPath, 'Expected the root value to be a JSON object.');
     }
-    assertKnownKeys(value, configPath, 'root', ['exportFolder', 'exportMode', 'importMode', 'analysis', 'tests']);
-
-    const parsed: WorkbookSettingsConfig = {};
-    if ('exportFolder' in value) {
-        parsed.exportFolder = expectOptionalString(value.exportFolder, configPath, 'exportFolder');
-    }
-    if ('exportMode' in value) {
-        parsed.exportMode = expectExportMode(value.exportMode, configPath, 'exportMode');
-    }
-    if ('importMode' in value) {
-        parsed.importMode = expectImportMode(value.importMode, configPath, 'importMode');
-    }
-    if ('analysis' in value) {
-        parsed.analysis = expectAnalysisSettings(value.analysis, configPath, 'analysis');
-    }
-    if ('tests' in value) {
-        parsed.tests = expectTestSettings(value.tests, configPath, 'tests');
-    }
-    return parsed;
+    return codecWorkbookSettingsConfig(value, (message: string): never => {
+        throw new WorkbookSettingsError(configPath, message);
+    });
 }
 
-function expectAnalysisSettings(
+function codecWorkbookSettingsConfig(
+    value: Record<string, unknown>,
+    reject: WorkbookSettingsReject,
+): WorkbookSettingsConfig {
+    if (reject) {
+        assertKnownKeys(value, 'root', ['exportFolder', 'exportMode', 'importMode', 'analysis', 'tests'], reject);
+    }
+    const config: WorkbookSettingsConfig = {};
+    const exportFolder = codecOptionalString(value.exportFolder, 'exportFolder', reject);
+    if (exportFolder !== undefined) {
+        config.exportFolder = exportFolder;
+    }
+    const exportMode = codecExportMode(value.exportMode, 'exportMode', reject);
+    if (exportMode !== undefined) {
+        config.exportMode = exportMode;
+    }
+    const importMode = codecImportMode(value.importMode, 'importMode', reject);
+    if (importMode !== undefined) {
+        config.importMode = importMode;
+    }
+    const analysis = codecAnalysisSettings(value.analysis, 'analysis', reject);
+    if (analysis) {
+        config.analysis = analysis;
+    }
+    const tests = codecTestSettings(value.tests, 'tests', reject);
+    if (tests) {
+        config.tests = tests;
+    }
+    return config;
+}
+
+function codecAnalysisSettings(
     value: unknown,
-    configPath: string,
     fieldPath: string,
+    reject: WorkbookSettingsReject,
 ): WorkbookAnalysisSettingsConfig | undefined {
     if (value === undefined) {
         return undefined;
     }
     if (!isPlainObject(value)) {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
+        return reject?.(`Expected "${fieldPath}" to be a JSON object.`);
     }
-    assertKnownKeys(value, configPath, fieldPath, ['visibleSeverities', 'untrackedRules', 'ruleSeverityOverrides']);
-
-    const parsed: WorkbookAnalysisSettingsConfig = {};
-    if ('visibleSeverities' in value) {
-        parsed.visibleSeverities = expectSeverityList(value.visibleSeverities, configPath, `${fieldPath}.visibleSeverities`);
+    if (reject) {
+        assertKnownKeys(value, fieldPath, ['visibleSeverities', 'untrackedRules', 'ruleSeverityOverrides'], reject);
     }
-    if ('untrackedRules' in value) {
-        parsed.untrackedRules = expectStringList(value.untrackedRules, configPath, `${fieldPath}.untrackedRules`);
+    const analysis: WorkbookAnalysisSettingsConfig = {};
+    const visibleSeverities = codecSeverityList(value.visibleSeverities, `${fieldPath}.visibleSeverities`, reject);
+    if (visibleSeverities !== undefined) {
+        analysis.visibleSeverities = visibleSeverities;
     }
-    if ('ruleSeverityOverrides' in value) {
-        parsed.ruleSeverityOverrides = expectRuleSeverityOverrides(
-            value.ruleSeverityOverrides,
-            configPath,
-            `${fieldPath}.ruleSeverityOverrides`,
-        );
+    const untrackedRules = codecRuleCodeList(value.untrackedRules, `${fieldPath}.untrackedRules`, reject);
+    if (untrackedRules !== undefined) {
+        analysis.untrackedRules = untrackedRules;
     }
-    return Object.keys(parsed).length > 0 ? parsed : undefined;
+    const ruleSeverityOverrides = codecRuleSeverityOverrides(
+        value.ruleSeverityOverrides,
+        `${fieldPath}.ruleSeverityOverrides`,
+        reject,
+    );
+    if (ruleSeverityOverrides !== undefined) {
+        analysis.ruleSeverityOverrides = ruleSeverityOverrides;
+    }
+    return Object.keys(analysis).length > 0 ? analysis : undefined;
 }
 
-function expectTestSettings(
+function codecTestSettings(
     value: unknown,
-    configPath: string,
     fieldPath: string,
+    reject: WorkbookSettingsReject,
 ): WorkbookTestSettingsConfig | undefined {
     if (value === undefined) {
         return undefined;
     }
     if (!isPlainObject(value)) {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
+        return reject?.(`Expected "${fieldPath}" to be a JSON object.`);
     }
-    assertKnownKeys(value, configPath, fieldPath, ['artifactFolder', 'artifactRetention']);
-
-    const parsed: WorkbookTestSettingsConfig = {};
-    if ('artifactFolder' in value) {
-        parsed.artifactFolder = expectOptionalString(value.artifactFolder, configPath, `${fieldPath}.artifactFolder`);
+    if (reject) {
+        assertKnownKeys(value, fieldPath, ['artifactFolder', 'artifactRetention'], reject);
     }
-    if ('artifactRetention' in value) {
-        parsed.artifactRetention = expectPositiveInteger(value.artifactRetention, configPath, `${fieldPath}.artifactRetention`);
+    const tests: WorkbookTestSettingsConfig = {};
+    const artifactFolder = codecOptionalString(value.artifactFolder, `${fieldPath}.artifactFolder`, reject);
+    if (artifactFolder !== undefined) {
+        tests.artifactFolder = artifactFolder;
     }
-    return Object.keys(parsed).length > 0 ? parsed : undefined;
+    const artifactRetention = codecPositiveInteger(value.artifactRetention, `${fieldPath}.artifactRetention`, reject);
+    if (artifactRetention !== undefined) {
+        tests.artifactRetention = artifactRetention;
+    }
+    return Object.keys(tests).length > 0 ? tests : undefined;
 }
 
-function expectSeverityList(value: unknown, configPath: string, fieldPath: string): AnalysisSeverityFilter[] {
-    if (!Array.isArray(value)) {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be an array.`);
+function codecSeverityList(
+    value: unknown,
+    fieldPath: string,
+    reject: WorkbookSettingsReject,
+): AnalysisSeverityFilter[] | undefined {
+    if (value === undefined) {
+        return undefined;
     }
-    const allowed = new Set<string>(ANALYSIS_SEVERITIES);
-    const parsed: AnalysisSeverityFilter[] = [];
-    for (const entry of value) {
-        if (typeof entry !== 'string' || !allowed.has(entry)) {
-            throw new WorkbookSettingsError(
-                configPath,
-                `Expected "${fieldPath}" entries to be one of: ${ANALYSIS_SEVERITIES.join(', ')}.`,
-            );
+    if (!Array.isArray(value)) {
+        return reject?.(`Expected "${fieldPath}" to be an array.`);
+    }
+    if (reject) {
+        const allowed = new Set<string>(ANALYSIS_SEVERITIES);
+        for (const entry of value) {
+            if (typeof entry !== 'string' || !allowed.has(entry)) {
+                reject(`Expected "${fieldPath}" entries to be one of: ${ANALYSIS_SEVERITIES.join(', ')}.`);
+            }
         }
-        parsed.push(entry as AnalysisSeverityFilter);
     }
-    return normalizeAnalysisVisibleSeverities(parsed);
+    return normalizeAnalysisVisibleSeverities(value);
 }
 
-function expectStringList(value: unknown, configPath: string, fieldPath: string): string[] {
-    if (!Array.isArray(value)) {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be an array.`);
+function codecRuleCodeList(
+    value: unknown,
+    fieldPath: string,
+    reject: WorkbookSettingsReject,
+): string[] | undefined {
+    if (value === undefined) {
+        return undefined;
     }
-    if (!value.every((entry) => typeof entry === 'string')) {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" entries to be strings.`);
+    if (!Array.isArray(value)) {
+        return reject?.(`Expected "${fieldPath}" to be an array.`);
+    }
+    if (reject && !value.every((entry) => typeof entry === 'string')) {
+        reject(`Expected "${fieldPath}" entries to be strings.`);
     }
     return normalizeAnalysisRuleCodes(value);
 }
 
-function expectRuleSeverityOverrides(
+function codecRuleSeverityOverrides(
     value: unknown,
-    configPath: string,
     fieldPath: string,
+    reject: WorkbookSettingsReject,
 ): AnalysisRuleSeverityOverrides | undefined {
     if (value === undefined) {
         return undefined;
     }
+    if (!reject) {
+        return normalizeAnalysisRuleSeverityOverrides(value);
+    }
     if (!isPlainObject(value)) {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
+        return reject(`Expected "${fieldPath}" to be a JSON object.`);
     }
     const parsed = validateAnalysisRuleSeverityOverrideEntries(value, (rawCode, requirement) => {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}.${rawCode}" ${requirement}`);
+        reject(`Expected "${fieldPath}.${rawCode}" ${requirement}`);
     });
     return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
-
-function expectPositiveInteger(value: unknown, configPath: string, fieldPath: string): number | undefined {
+function codecPositiveInteger(
+    value: unknown,
+    fieldPath: string,
+    reject: WorkbookSettingsReject,
+): number | undefined {
     if (value === undefined) {
         return undefined;
     }
-    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a positive integer.`);
-    }
-    return value;
-}
-
-function expectOptionalString(value: unknown, configPath: string, fieldPath: string): string | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-    if (typeof value !== 'string') {
-        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a string.`);
-    }
-    return value;
-}
-
-function expectExportMode(value: unknown, configPath: string, fieldPath: string): ExportMode | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-    if (value === 'exportAll' || value === 'trueUp') {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
         return value;
     }
-    throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be "exportAll" or "trueUp".`);
+    return reject?.(`Expected "${fieldPath}" to be a positive integer.`);
 }
 
-function expectImportMode(value: unknown, configPath: string, fieldPath: string): ImportMode | undefined {
+function codecOptionalString(
+    value: unknown,
+    fieldPath: string,
+    reject: WorkbookSettingsReject,
+): string | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    return reject?.(`Expected "${fieldPath}" to be a string.`);
+}
+
+function codecExportMode(
+    value: unknown,
+    fieldPath: string,
+    reject: WorkbookSettingsReject,
+): ExportMode | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (reject && value !== 'exportAll' && value !== 'trueUp') {
+        reject(`Expected "${fieldPath}" to be "exportAll" or "trueUp".`);
+    }
+    return normalizeExportMode(value);
+}
+
+function codecImportMode(
+    value: unknown,
+    fieldPath: string,
+    reject: WorkbookSettingsReject,
+): ImportMode | undefined {
     if (value === undefined) {
         return undefined;
     }
     if (value === 'updateOnly' || value === 'trueUpStandardClass') {
         return value;
     }
-    throw new WorkbookSettingsError(
-        configPath,
-        `Expected "${fieldPath}" to be "updateOnly" or "trueUpStandardClass".`,
-    );
+    return reject?.(`Expected "${fieldPath}" to be "updateOnly" or "trueUpStandardClass".`);
 }
 
 function assertKnownKeys(
     value: Record<string, unknown>,
-    configPath: string,
     fieldPath: string,
     knownKeys: readonly string[],
+    reject: (message: string) => never,
 ): void {
     const known = new Set(knownKeys);
     const unknown = Object.keys(value).filter((key) => !known.has(key));
     if (unknown.length > 0) {
-        throw new WorkbookSettingsError(
-            configPath,
-            `Unknown setting "${fieldPath === 'root' ? unknown[0] : `${fieldPath}.${unknown[0]}`}".`,
-        );
+        reject(`Unknown setting "${fieldPath === 'root' ? unknown[0] : `${fieldPath}.${unknown[0]}`}".`);
     }
 }
 
