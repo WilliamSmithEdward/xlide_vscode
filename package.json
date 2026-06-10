@@ -997,7 +997,6 @@
     "package": "npm run check-types && node esbuild.js --production",
     "vsix": "npm run package && node -e \"const {execSync}=require('child_process'),{version}=require('./package.json');require('fs').mkdirSync('dist',{recursive:true});execSync('npx vsce package --out dist/xlide-'+version+'.vsix',{stdio:'inherit'})\"",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
     "test": "vitest run",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
@@ -1006,8 +1005,6 @@
   "devDependencies": {
     "@types/node": "20.x",
     "@types/vscode": "^1.95.0",
-    "@typescript-eslint/eslint-plugin": "^8.10.0",
-    "@typescript-eslint/parser": "^8.10.0",
     "esbuild": "^0.28.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.6.3",
