@@ -19,6 +19,7 @@ import {
 import { measurePerformance, startPerformanceTrace } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
 import { errorMessage } from './util/errors';
+import { fileExists } from './util/fs';
 
 interface XlideSidebarOptions {
     setupStatus?: () => XlideSidebarSetupStatus;
@@ -153,7 +154,7 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 return;
             }
             try {
-                if (!(await pathExists(settingsPath))) {
+                if (!(await fileExists(settingsPath))) {
                     try {
                         await fs.promises.writeFile(settingsPath, '{}\n', { encoding: 'utf8', flag: 'wx' });
                     } catch (err) {
@@ -275,7 +276,7 @@ async function sidebarWorkbookForPath(
         selectionSource,
     };
     try {
-        const exists = await pathExists(settingsPath);
+        const exists = await fileExists(settingsPath);
         await readWorkbookSettings(workbookPath);
         return {
             ...base,
@@ -292,14 +293,6 @@ async function sidebarWorkbookForPath(
     }
 }
 
-async function pathExists(filePath: string): Promise<boolean> {
-    try {
-        await fs.promises.access(filePath);
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 function isFileAlreadyExistsError(err: unknown): boolean {
     return typeof err === 'object' &&

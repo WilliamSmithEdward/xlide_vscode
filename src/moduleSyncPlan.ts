@@ -16,6 +16,7 @@ import {
 } from './workbookSettings';
 import { measurePerformance } from './performanceTrace';
 import { isVbaAttributeLine, normalizeEol } from './vbaStructuralAnalysis';
+import { fileExists } from './util/fs';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
@@ -561,15 +562,6 @@ function splitLines(text: string): string[] {
         return [];
     }
     return normalizeEol(text).split('\n');
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-    try {
-        await fs.promises.access(filePath, fs.constants.F_OK);
-        return true;
-    } catch {
-        return false;
-    }
 }
 
 function isPathInside(baseDir: string, targetPath: string): boolean {

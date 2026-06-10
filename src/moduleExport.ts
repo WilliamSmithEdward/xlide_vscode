@@ -11,6 +11,7 @@ import {
 } from './workbookModuleSyncSettings';
 import { measurePerformance } from './performanceTrace';
 import { errorMessage } from './util/errors';
+import { fileExists } from './util/fs';
 
 interface ModuleInfo {
     name: string;
@@ -84,15 +85,6 @@ function isPathInside(baseDir: string, targetPath: string): boolean {
     const base = path.resolve(baseDir);
     const target = path.resolve(targetPath);
     return target === base || target.startsWith(base + path.sep);
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-    try {
-        await fs.promises.access(filePath, fs.constants.F_OK);
-        return true;
-    } catch {
-        return false;
-    }
 }
 
 function relativeNameForModule(mod: ModuleInfo): string {

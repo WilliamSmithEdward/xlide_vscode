@@ -141,6 +141,7 @@ import {
 import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
 import { errorMessage } from './util/errors';
+import { fileExists } from './util/fs';
 
 type AnalysisSuppressionInsertionTarget =
     | { kind: 'module'; startLine: number }
@@ -1789,15 +1790,6 @@ export function registerCommands(
         const base = path.resolve(baseDir);
         const target = path.resolve(targetPath);
         return target === base || target.startsWith(base + path.sep);
-    }
-
-    async function fileExists(filePath: string): Promise<boolean> {
-        try {
-            await fs.promises.access(filePath, fs.constants.F_OK);
-            return true;
-        } catch {
-            return false;
-        }
     }
 
     async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<WorkbookAnalysisResult> {
