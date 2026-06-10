@@ -2,6 +2,23 @@ import { isVbaAttributeLine, normalizeEol } from './vbaStructuralAnalysis';
 
 export const XLIDE_ASSERT_MODULE_NAME = 'XlideAssert';
 
+/**
+ * JSON string-escaping helper shared by every generated VBA module that emits
+ * result JSON (XlideAssert and the direct test runner), so the escaping logic
+ * exists once.
+ */
+export const XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES = [
+    'Private Function JsonEscape(ByVal value As String) As String',
+    '    Dim escaped As String',
+    '    escaped = Replace(value, Chr$(92), Chr$(92) & Chr$(92))',
+    '    escaped = Replace(escaped, Chr$(34), Chr$(92) & Chr$(34))',
+    '    escaped = Replace(escaped, vbCrLf, Chr$(92) & "n")',
+    '    escaped = Replace(escaped, vbCr, Chr$(92) & "n")',
+    '    escaped = Replace(escaped, vbLf, Chr$(92) & "n")',
+    '    JsonEscape = escaped',
+    'End Function',
+] as const;
+
 export const XLIDE_ASSERT_MODULE_SOURCE = [
     'Attribute VB_Name = "XlideAssert"',
     'Option Explicit',
@@ -156,28 +173,6 @@ export const XLIDE_ASSERT_MODULE_SOURCE = [
     '    OutputJson = "[" & mOutputJsonItems & "]"',
     'End Function',
     '',
-    'Public Function RunTest(ByVal macroName As String) As String',
-    '    ResetTestState',
-    '    On Error GoTo Caught',
-    '    Application.Run macroName',
-    '    On Error GoTo 0',
-    '    If Len(mLastFailureMessage) > 0 Then',
-    '        RunTest = "{""outcome"":""failed"",""number"":" & CStr(XLIDE_ASSERTION_ERROR) & ",""source"":""XLIDE.Assert"",""message"":""" & JsonEscape(mLastFailureMessage) & """,""output"":" & OutputJson() & "}"',
-    '    Else',
-    '        RunTest = "{""outcome"":""passed"",""output"":" & OutputJson() & "}"',
-    '    End If',
-    '    Exit Function',
-    'Caught:',
-    '    Dim actualNumber As Long',
-    '    Dim actualSource As String',
-    '    Dim actualDescription As String',
-    '    actualNumber = Err.Number',
-    '    actualSource = Err.Source',
-    '    actualDescription = Err.Description',
-    '    On Error GoTo 0',
-    '    RunTest = "{""outcome"":""failed"",""number"":" & CStr(actualNumber) & ",""source"":""" & JsonEscape(actualSource) & """,""message"":""" & JsonEscape(actualDescription) & """,""output"":" & OutputJson() & "}"',
-    'End Function',
-    '',
     'Public Sub Throws(ByVal expectedErrorNumber As Long, ByVal macroName As String, Optional ByVal message As String = "")',
     '    On Error GoTo Caught',
     '    Application.Run macroName',
@@ -270,15 +265,7 @@ export const XLIDE_ASSERT_MODULE_SOURCE = [
     '    End If',
     'End Function',
     '',
-    'Private Function JsonEscape(ByVal value As String) As String',
-    '    Dim escaped As String',
-    '    escaped = Replace(value, Chr$(92), Chr$(92) & Chr$(92))',
-    '    escaped = Replace(escaped, Chr$(34), Chr$(92) & Chr$(34))',
-    '    escaped = Replace(escaped, vbCrLf, Chr$(92) & "n")',
-    '    escaped = Replace(escaped, vbCr, Chr$(92) & "n")',
-    '    escaped = Replace(escaped, vbLf, Chr$(92) & "n")',
-    '    JsonEscape = escaped',
-    'End Function',
+    ...XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES,
     '',
 ].join('\r\n');
 

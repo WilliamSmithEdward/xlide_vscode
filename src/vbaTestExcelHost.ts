@@ -1,6 +1,7 @@
 import type { VbaTestCase } from './vbaTestRunner';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
 import { VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
+import { XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES } from './vbaTestSupportModule';
 
 export const XLIDE_TEST_HOST_EVENT_PREFIX = 'XLIDE_TEST_HOST_EVENT|';
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
@@ -69,15 +70,7 @@ export function buildVbaTestDirectRunnerModule(
         '    FailureJson = "{""outcome"":""failed"",""number"":" & CStr(number) & ",""source"":""" & JsonEscape(source) & """,""message"":""" & JsonEscape(message) & """,""output"":" & XlideAssert.OutputJson() & "}"',
         'End Function',
         '',
-        'Private Function JsonEscape(ByVal value As String) As String',
-        '    Dim escaped As String',
-        '    escaped = Replace(value, Chr$(92), Chr$(92) & Chr$(92))',
-        '    escaped = Replace(escaped, Chr$(34), Chr$(92) & Chr$(34))',
-        '    escaped = Replace(escaped, vbCrLf, Chr$(92) & "n")',
-        '    escaped = Replace(escaped, vbCr, Chr$(92) & "n")',
-        '    escaped = Replace(escaped, vbLf, Chr$(92) & "n")',
-        '    JsonEscape = escaped',
-        'End Function',
+        ...XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES,
         '',
     ].join('\r\n');
 }
