@@ -2674,7 +2674,7 @@ export function registerCommands(
         // Detect the Sub/Function at the cursor and open the workbook, then guide to run it
         registerXlideCommand('xlide.runMacroAtCursor', async () => {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || !editor.document.uri.scheme.startsWith(XLIDE_SCHEME)) {
+            if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME) {
                 vscode.window.showWarningMessage('XLIDE: Open a VBA module to run a macro.');
                 return;
             }
@@ -2690,27 +2690,9 @@ export function registerCommands(
                 const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
                 log(`[runMacro] Requested from module: ${moduleName} in ${xlsmPath}`);
 
-                // Get the source code and find which Sub/Function the cursor is in
-                const result = await bridge.call<{ source: string }>(
-                    'readModule',
-                    { path: xlsmPath, module: moduleName },
-                );
-
-                const cursorLine = editor.selection.active.line;
-                const source = result.source;
-                const lines = source.split('\n');
-
-                // Find the current Sub/Function
-                const procRe = /^\s*(Public|Private)?\s*(Sub|Function|Property\s+(?:Get|Let|Set))\s+(\w+)/i;
-                let currentProc = '';
-                for (let i = cursorLine; i >= 0; i--) {
-                    const match = lines[i].match(procRe);
-                    if (match) {
-                        currentProc = match[3];
-                        break;
-                    }
-                }
-
+                // Find which procedure the cursor is in (parser-based, so
+                // Friend/Global/Static modifiers are recognized too).
+                const currentProc = procedureNameAtCursor(editor);
                 if (!currentProc) {
                     vscode.window.showWarningMessage('XLIDE: Cursor is not inside a Sub or Function.');
                     return;
