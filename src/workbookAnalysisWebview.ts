@@ -22,9 +22,19 @@ import {
 } from './workbookAnalysisSettings';
 import { sanitizeFileName } from './moduleExport';
 import { settingsPathForWorkbook } from './workbookSettings';
-import { decodeModuleUri, sameWorkbookPath, workbookIdentityKey, XLIDE_SCHEME } from './xlideFileSystem';
+import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
+import {
+    renderWebviewErrorPageHtml,
+    statHtml,
+    webviewHeadHtml,
+    WEBVIEW_TOAST_CSS,
+    WEBVIEW_TOAST_HTML,
+    WEBVIEW_TOAST_SCRIPT,
+} from './webview/page';
+import { bridgeWebviewMessages, createWebviewPanelRegistry } from './webview/panelRegistry';
+import { DebouncedRefresher } from './webview/refresh';
 import { errorMessage } from './util/errors';
 
 export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';
@@ -49,8 +59,6 @@ export interface WorkbookAnalysisResultsOptions {
 interface WorkbookAnalysisMessage {
     type?: string;
     index?: number;
-    text?: string;
-    extension?: string;
     scope?: WorkbookAnalysisSuppressScope;
     severity?: string;
     severities?: string[];
@@ -70,32 +78,28 @@ interface WorkbookAnalysisMessage {
 interface OpenWorkbookAnalysisResultsPanelEntry {
     panel: vscode.WebviewPanel;
     options: WorkbookAnalysisResultsOptions;
-    renderPanel: () => Promise<void>;
+    refresh: () => Promise<void>;
     setResult: (result: WorkbookAnalysisResult) => void;
+    showErrorPage: (error: string) => void;
 }
 
 const WORKBOOK_ANALYSIS_REFRESH_DELAY_MS = 350;
 const WORKBOOK_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS = 1200;
 
-const openWorkbookAnalysisResultsPanels = new Map<string, OpenWorkbookAnalysisResultsPanelEntry>();
+const openWorkbookAnalysisResultsPanels = createWebviewPanelRegistry<OpenWorkbookAnalysisResultsPanelEntry>();
 
 export function openWorkbookAnalysisResults(
     context: vscode.ExtensionContext,
     result: WorkbookAnalysisResult,
     options: WorkbookAnalysisResultsOptions = {},
 ): vscode.WebviewPanel {
-    const panelKey = workbookIdentityKey(result.filePath);
-    const existing = openWorkbookAnalysisResultsPanels.get(panelKey);
+    const existing = openWorkbookAnalysisResultsPanels.get(result.filePath);
     if (existing) {
         existing.options = options;
         existing.setResult(result);
         existing.panel.reveal(vscode.ViewColumn.Active);
-        void existing.renderPanel().catch((err) => {
-            const error = errorMessage(err);
-            existing.panel.webview.html = renderWorkbookAnalysisErrorHtml(
-                path.basename(result.filePath),
-                error,
-            );
+        void existing.refresh().catch((err) => {
+            existing.showErrorPage(errorMessage(err));
         });
         return existing.panel;
     }
@@ -103,12 +107,7 @@ export function openWorkbookAnalysisResults(
     let currentResult = result;
     let currentModel = buildWorkbookAnalysisResultsModel(currentResult);
     let disposed = false;
-    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    let refreshVersion = 0;
-    let refreshInFlight = false;
-    let pendingRefreshAfterRun = false;
-    let contextMenuOpen = false;
-    let pendingRefreshAfterContextMenu = false;
+    let htmlRendered = false;
     let ignoreOwnSettingsRefresh = false;
     let ignoreOwnSettingsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     const panel = vscode.window.createWebviewPanel(
@@ -120,19 +119,15 @@ export function openWorkbookAnalysisResults(
             retainContextWhenHidden: true,
         },
     );
-    const entry: OpenWorkbookAnalysisResultsPanelEntry = {
-        panel,
-        options,
-        renderPanel: async () => { /* assigned below */ },
-        setResult: (nextResult) => {
-            currentResult = nextResult;
-            currentModel = buildWorkbookAnalysisResultsModel(currentResult);
-        },
+
+    const updateResult = (nextResult: WorkbookAnalysisResult): void => {
+        currentResult = nextResult;
+        currentModel = buildWorkbookAnalysisResultsModel(currentResult);
     };
 
+    /** Full document render: first paint and recovery from the error page. */
     const renderPanel = async (): Promise<void> => {
         await measurePerformance('workbookAnalysis.renderPanel', currentModel.workbookName, async () => {
-        currentModel = buildWorkbookAnalysisResultsModel(currentResult);
         const analysisSettings = await effectiveWorkbookAnalysisSettings(currentResult.filePath);
         if (disposed) { return; }
         panel.title = `XLIDE Analysis: ${currentModel.workbookName}`;
@@ -140,75 +135,60 @@ export function openWorkbookAnalysisResults(
             currentModel,
             analysisSettings,
         );
+        htmlRendered = true;
         });
     };
-    entry.renderPanel = renderPanel;
-    openWorkbookAnalysisResultsPanels.set(panelKey, entry);
 
-    const refreshPanel = async (requestVersion: number): Promise<void> => {
+    /** Non-destructive refresh: posts the new model for client-side re-render. */
+    const postModelUpdate = async (): Promise<void> => {
+        await measurePerformance('workbookAnalysis.postModelUpdate', currentModel.workbookName, async () => {
+        const analysisSettings = await effectiveWorkbookAnalysisSettings(currentResult.filePath);
         if (disposed) { return; }
-        if (requestVersion !== refreshVersion) { return; }
-        if (contextMenuOpen) {
-            pendingRefreshAfterContextMenu = true;
-            return;
-        }
-        if (refreshInFlight) {
-            pendingRefreshAfterRun = true;
-            return;
-        }
-        refreshInFlight = true;
-        try {
+        panel.title = `XLIDE Analysis: ${currentModel.workbookName}`;
+        await panel.webview.postMessage({
+            type: 'model',
+            model: buildWorkbookAnalysisClientModel(currentModel, analysisSettings),
+        });
+        });
+    };
+
+    const refreshView = (): Promise<void> => htmlRendered ? postModelUpdate() : renderPanel();
+
+    const showErrorPage = (error: string): void => {
+        htmlRendered = false;
+        panel.webview.html = renderWorkbookAnalysisErrorHtml(currentModel.workbookName, error);
+    };
+
+    const entry: OpenWorkbookAnalysisResultsPanelEntry = {
+        panel,
+        options,
+        refresh: refreshView,
+        setResult: updateResult,
+        showErrorPage,
+    };
+    openWorkbookAnalysisResultsPanels.set(result.filePath, entry);
+
+    const refresher = new DebouncedRefresher({
+        refresh: async () => {
             if (entry.options.onRefreshResult) {
                 const nextResult = await entry.options.onRefreshResult();
-                if (requestVersion !== refreshVersion || disposed) {
-                    return;
-                }
-                currentResult = nextResult;
-            }
-            if (contextMenuOpen) {
-                pendingRefreshAfterContextMenu = true;
-                return;
+                if (disposed) { return; }
+                updateResult(nextResult);
             }
             if (!disposed) {
-                await renderPanel();
+                await refreshView();
             }
-        } finally {
-            refreshInFlight = false;
-            if (pendingRefreshAfterRun && !disposed) {
-                pendingRefreshAfterRun = false;
-                scheduleRefresh();
-            }
-        }
-    };
+        },
+        onError: (err) => {
+            const error = errorMessage(err);
+            void panel.webview.postMessage({ type: 'error', error });
+        },
+        defaultDelayMs: WORKBOOK_ANALYSIS_REFRESH_DELAY_MS,
+    });
 
-    const scheduleRefresh = (delayMs = WORKBOOK_ANALYSIS_REFRESH_DELAY_MS): void => {
-        const requestVersion = ++refreshVersion;
-        if (disposed) { return; }
-        if (contextMenuOpen) {
-            pendingRefreshAfterContextMenu = true;
-            return;
-        }
-        if (refreshTimer) { clearTimeout(refreshTimer); }
-        refreshTimer = setTimeout(() => {
-            refreshTimer = undefined;
-            void refreshPanel(requestVersion).catch((err) => {
-                const error = errorMessage(err);
-                void panel.webview.postMessage({ type: 'error', error });
-            });
-        }, delayMs);
-    };
+    const scheduleRefresh = (delayMs?: number): void => refresher.schedule(delayMs);
 
-    const refreshAfterAnalysisMutation = async (): Promise<void> => {
-        const requestVersion = ++refreshVersion;
-        if (disposed) { return; }
-        if (refreshTimer) {
-            clearTimeout(refreshTimer);
-            refreshTimer = undefined;
-        }
-        contextMenuOpen = false;
-        pendingRefreshAfterContextMenu = false;
-        await refreshPanel(requestVersion);
-    };
+    const refreshAfterAnalysisMutation = (): Promise<void> => refresher.refreshNow();
 
     const ignoreOwnSidecarRefreshBriefly = (): void => {
         ignoreOwnSettingsRefresh = true;
@@ -246,29 +226,16 @@ export function openWorkbookAnalysisResults(
         return rowProblem ?? indexedProblem;
     };
 
+    const reportText = (json: boolean): string => json
+        ? JSON.stringify(currentModel, null, 2)
+        : buildWorkbookAnalysisPlainText(currentModel);
+
     void renderPanel().catch((err) => {
-        const error = errorMessage(err);
-        panel.webview.html = renderWorkbookAnalysisErrorHtml(currentModel.workbookName, error);
+        showErrorPage(errorMessage(err));
     });
-    const messageSub = panel.webview.onDidReceiveMessage(async (message: WorkbookAnalysisMessage) => {
-        try {
-            if (message.type === 'contextMenuOpened') {
-                contextMenuOpen = true;
-                if (refreshTimer) {
-                    clearTimeout(refreshTimer);
-                    refreshTimer = undefined;
-                    pendingRefreshAfterContextMenu = true;
-                }
-                return;
-            }
-            if (message.type === 'contextMenuClosed') {
-                contextMenuOpen = false;
-                if (pendingRefreshAfterContextMenu) {
-                    pendingRefreshAfterContextMenu = false;
-                    scheduleRefresh();
-                }
-                return;
-            }
+    const messageSub = bridgeWebviewMessages(
+        panel.webview,
+        async (message: WorkbookAnalysisMessage) => {
             if (message.type === 'openProblem') {
                 const problem = problemForOpenMessage(message);
                 if (problem && entry.options.onOpenProblem) {
@@ -342,34 +309,32 @@ export function openWorkbookAnalysisResults(
                 await refreshAfterAnalysisMutation();
                 return;
             }
-            if (message.type === 'copyText') {
-                await vscode.env.clipboard.writeText(String(message.text ?? ''));
+            if (message.type === 'copyReport' || message.type === 'copyJson') {
+                await vscode.env.clipboard.writeText(reportText(message.type === 'copyJson'));
                 await panel.webview.postMessage({ type: 'copied' });
                 return;
             }
-            if (message.type === 'exportText') {
-                const extension = message.extension === 'json' ? 'json' : 'txt';
+            if (message.type === 'exportReport' || message.type === 'exportJson') {
+                const json = message.type === 'exportJson';
+                const extension = json ? 'json' : 'txt';
                 const target = await vscode.window.showSaveDialog({
-                    title: extension === 'json' ? 'Export XLIDE Analysis JSON' : 'Export XLIDE Analysis Report',
+                    title: json ? 'Export XLIDE Analysis JSON' : 'Export XLIDE Analysis Report',
                     defaultUri: vscode.Uri.file(path.join(
                         path.dirname(currentModel.filePath),
                         `${sanitizeFileName(currentModel.workbookName)}.xlide-analysis.${extension}`,
                     )),
-                    filters: extension === 'json' ? { JSON: ['json'] } : { Text: ['txt'] },
+                    filters: json ? { JSON: ['json'] } : { Text: ['txt'] },
                 });
                 if (target) {
                     await vscode.workspace.fs.writeFile(
                         target,
-                        Buffer.from(String(message.text ?? ''), 'utf8'),
+                        Buffer.from(reportText(json), 'utf8'),
                     );
                     await panel.webview.postMessage({ type: 'exported' });
                 }
             }
-        } catch (err) {
-            const error = errorMessage(err);
-            await panel.webview.postMessage({ type: 'error', error });
-        }
-    });
+        },
+    );
 
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('xlide.analysis') || e.affectsConfiguration('xlide.diagnostics')) {
@@ -405,12 +370,8 @@ export function openWorkbookAnalysisResults(
     ];
     panel.onDidDispose(() => {
         disposed = true;
-        openWorkbookAnalysisResultsPanels.delete(panelKey);
-        if (refreshTimer) {
-            clearTimeout(refreshTimer);
-            refreshTimer = undefined;
-        }
-        pendingRefreshAfterRun = false;
+        openWorkbookAnalysisResultsPanels.delete(result.filePath);
+        refresher.dispose();
         if (ignoreOwnSettingsRefreshTimer) {
             clearTimeout(ignoreOwnSettingsRefreshTimer);
             ignoreOwnSettingsRefreshTimer = undefined;
@@ -435,76 +396,158 @@ function isWorkbookDocument(document: vscode.TextDocument, filePath: string): bo
     }
 }
 
+interface WorkbookAnalysisClientRow {
+    index: number;
+    suppressed: boolean;
+    moduleName: string;
+    moduleType: string;
+    moduleOrder: number;
+    severity: WorkbookAnalysisResultRow['severity'];
+    vbeCompileEquivalent: boolean;
+    line: number;
+    column: number;
+    endColumn: number;
+    rule: string;
+    ruleCode: string;
+    message: string;
+    evidence: string;
+    quickFixTitles: string[];
+    suppressionScopes: string[];
+    tracked: boolean;
+    trackingSource: 'tracked' | 'workbook' | 'global';
+    statusKey: 'tracked' | 'untracked' | 'suppressed';
+    statusLabel: string;
+    location: string;
+}
+
+interface WorkbookAnalysisClientModel {
+    workbookName: string;
+    totalProblems: number;
+    errorCount: number;
+    warningCount: number;
+    informationCount: number;
+    suppressedCount: number;
+    untrackedCount: number;
+    moduleCount: number;
+    groups: Array<{ moduleName: string; moduleIcon: string; moduleTypeLabel: string; total: number }>;
+    rows: WorkbookAnalysisClientRow[];
+    visibleSeverities: readonly AnalysisSeverityFilter[];
+    untrackedRules: readonly string[];
+    analysisSettingsKey: string;
+    rulesSourceIsWorkbook: boolean;
+    workbookUntrackedRules: Array<{ code: string; title: string }>;
+}
+
+/** Everything the webview script needs to render or re-render the panel body. */
+function buildWorkbookAnalysisClientModel(
+    model: WorkbookAnalysisResultsModel,
+    analysisSettings: EffectiveWorkbookAnalysisSettings,
+): WorkbookAnalysisClientModel {
+    const untrackedRules = analysisSettings.untrackedRules;
+    const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
+    const rows = [...model.rows, ...model.suppressedRows].map((row): WorkbookAnalysisClientRow => {
+        const tracked = isAnalysisRuleTracked(row.code, untrackedRules);
+        const trackingSource = analysisRuleTrackingSourceForRow(
+            tracked,
+            row.code,
+            analysisSettings.workbookUntrackedRules,
+        );
+        return {
+            index: row.index,
+            suppressed: row.suppressed,
+            moduleName: row.moduleName,
+            moduleType: row.moduleType,
+            moduleOrder: moduleOrder.get(row.moduleName.toLowerCase()) ?? 9999,
+            severity: row.severity,
+            vbeCompileEquivalent: row.vbeCompileEquivalent,
+            line: row.line,
+            column: row.column,
+            endColumn: row.endColumn,
+            rule: row.code || row.ruleTitle,
+            ruleCode: row.code,
+            message: row.message,
+            evidence: row.diagnosticKind,
+            quickFixTitles: row.quickFixTitles,
+            suppressionScopes: row.suppressionScopes,
+            tracked,
+            trackingSource,
+            statusKey: !tracked ? 'untracked' : (row.suppressed ? 'suppressed' : 'tracked'),
+            statusLabel: !tracked
+                ? analysisRuleTrackingStatusLabel(trackingSource)
+                : (row.suppressed ? 'Suppressed' : 'Tracked'),
+            location: row.location,
+        };
+    });
+    return {
+        workbookName: model.workbookName,
+        totalProblems: model.totalProblems,
+        errorCount: model.errorCount,
+        warningCount: model.warningCount,
+        informationCount: model.rows.filter((row) => row.severity === 'information').length,
+        suppressedCount: rows.filter((row) => row.suppressed && row.tracked).length,
+        untrackedCount: rows.filter((row) => !row.tracked).length,
+        moduleCount: model.moduleCount,
+        groups: model.groups.map((group) => ({
+            moduleName: group.moduleName,
+            moduleIcon: group.moduleIcon,
+            moduleTypeLabel: group.moduleTypeLabel,
+            total: group.total,
+        })),
+        rows,
+        visibleSeverities: analysisSettings.visibleSeverities,
+        untrackedRules: analysisSettings.untrackedRules,
+        analysisSettingsKey: workbookAnalysisSettingsKey(analysisSettings),
+        rulesSourceIsWorkbook: analysisSettings.untrackedRulesSource === 'workbook',
+        workbookUntrackedRules: [...analysisSettings.workbookUntrackedRules]
+            .sort((left, right) => left.localeCompare(right))
+            .map((code) => ({ code, title: diagnosticMetadataForCode(code)?.title ?? code })),
+    };
+}
+
 export function renderWorkbookAnalysisResultsHtml(
     model: WorkbookAnalysisResultsModel,
     analysisSettings: EffectiveWorkbookAnalysisSettings,
 ): string {
     const nonce = randomNonce();
-    const visibleSeverities = analysisSettings.visibleSeverities;
-    const untrackedRules = analysisSettings.untrackedRules;
-    const modelJson = scriptJson({
-        ...model,
-        plainText: buildWorkbookAnalysisPlainText(model),
-        visibleSeverities,
-        untrackedRules,
-        visibleSeveritiesSource: analysisSettings.visibleSeveritiesSource,
-        untrackedRulesSource: analysisSettings.untrackedRulesSource,
-        workbookUntrackedRules: analysisSettings.workbookUntrackedRules,
-        analysisSettingsKey: workbookAnalysisSettingsKey(analysisSettings),
-    });
-    const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
-    const allRows = [...model.rows, ...model.suppressedRows];
-    const rowsHtml = allRows.length === 0
+    const clientModel = buildWorkbookAnalysisClientModel(model, analysisSettings);
+    const modelJson = scriptJson(clientModel);
+    const rowsHtml = clientModel.rows.length === 0
         ? '<div class="empty">No analysis findings.</div>'
-        : allRows.map((row) => {
-            const tracked = isAnalysisRuleTracked(row.code, untrackedRules);
-            const trackingSource = analysisRuleTrackingSourceForRow(
-                tracked,
-                row.code,
-                analysisSettings.workbookUntrackedRules,
-            );
-            const status = !tracked
-                ? analysisRuleTrackingStatusLabel(trackingSource)
-                : (row.suppressed ? 'Suppressed' : 'Tracked');
-            const statusKey = !tracked ? 'untracked' : (row.suppressed ? 'suppressed' : 'tracked');
-            return `
+        : clientModel.rows.map((row) => `
             <button
                 class="problemRow severity-${escapeAttr(row.severity)}"
                 type="button"
                 data-open-index="${row.index}"
                 data-suppressed="${row.suppressed ? 'yes' : 'no'}"
-                data-status="${statusKey}"
+                data-status="${row.statusKey}"
                 data-module="${escapeAttr(row.moduleName)}"
                 data-module-type="${escapeAttr(row.moduleType)}"
-                data-module-order="${moduleOrder.get(row.moduleName.toLowerCase()) ?? 9999}"
+                data-module-order="${row.moduleOrder}"
                 data-severity="${escapeAttr(row.severity)}"
                 data-compile="${row.vbeCompileEquivalent ? 'yes' : 'no'}"
                 data-line="${row.line}"
                 data-column="${row.column}"
                 data-end-column="${row.endColumn}"
-                data-rule="${escapeAttr(row.code || row.ruleTitle)}"
-                data-rule-code="${escapeAttr(row.code)}"
+                data-rule="${escapeAttr(row.rule)}"
+                data-rule-code="${escapeAttr(row.ruleCode)}"
                 data-message="${escapeAttr(row.message)}"
-                data-evidence="${escapeAttr(row.diagnosticKind)}"
+                data-evidence="${escapeAttr(row.evidence)}"
                 data-quick-fixes="${escapeAttr(JSON.stringify(row.quickFixTitles))}"
                 data-suppression-scopes="${escapeAttr(JSON.stringify(row.suppressionScopes))}"
-                data-tracked="${tracked ? 'yes' : 'no'}"
-                data-tracking-source="${escapeAttr(trackingSource)}"
+                data-tracked="${row.tracked ? 'yes' : 'no'}"
+                data-tracking-source="${escapeAttr(row.trackingSource)}"
             >
                 <span class="cell severity">${escapeHtml(row.severity)}</span>
-                <span class="cell status">${escapeHtml(status)}</span>
+                <span class="cell status">${escapeHtml(row.statusLabel)}</span>
                 <span class="cell location">${escapeHtml(row.location)}</span>
-                <span class="cell code">${escapeHtml(row.code || row.ruleTitle)}</span>
-                <span class="cell kind">${escapeHtml(row.diagnosticKind)}</span>
+                <span class="cell code">${escapeHtml(row.rule)}</span>
+                <span class="cell kind">${escapeHtml(row.evidence)}</span>
                 <span class="cell message">${escapeHtml(row.message)}</span>
             </button>
-        `;
-        }).join('');
-    const moduleButtons = model.groups.length === 0
-        ? '<button class="moduleFilter active" type="button" data-module-filter="all">All modules <span>0</span></button>'
-        : [
-            `<button class="moduleFilter active" type="button" data-module-filter="all">All modules <span>${model.totalProblems}</span></button>`,
-            ...model.groups.map((group) => `
+        `).join('');
+    const moduleButtons = [
+        `<button class="moduleFilter active" type="button" data-module-filter="all">All modules <span>${clientModel.totalProblems}</span></button>`,
+        ...clientModel.groups.map((group) => `
                 <button class="moduleFilter" type="button" data-module-filter="${escapeAttr(group.moduleName)}">
                     <span class="moduleIdentity">
                         <span class="moduleIcon" title="${escapeAttr(group.moduleTypeLabel)}">${escapeHtml(group.moduleIcon)}</span>
@@ -513,32 +556,26 @@ export function renderWorkbookAnalysisResultsHtml(
                     <span>${group.total}</span>
                 </button>
             `),
-        ].join('');
+    ].join('');
     const filterButtons = ANALYSIS_SEVERITIES.map((severity) => {
-        const active = visibleSeverities.includes(severity);
+        const active = clientModel.visibleSeverities.includes(severity);
         return `<button class="filterButton${active ? ' active' : ''}" type="button" data-severity-toggle="${severity}" aria-pressed="${active ? 'true' : 'false'}">${severityFilterLabel(severity)}</button>`;
     }).join('');
-    const workbookUntrackedRulesHtml = workbookUntrackedRulesSettingsHtml(analysisSettings.workbookUntrackedRules);
-    const rulesSourceIsWorkbook = analysisSettings.untrackedRulesSource === 'workbook';
-    const informationCount = model.rows.filter((row) => row.severity === 'information').length;
-    const untrackedCount = allRows.filter((row) => !isAnalysisRuleTracked(row.code, untrackedRules)).length;
-    const suppressedCount = allRows.filter((row) => row.suppressed && isAnalysisRuleTracked(row.code, untrackedRules)).length;
+    const workbookUntrackedRulesHtml = workbookUntrackedRulesSettingsHtml(clientModel.workbookUntrackedRules);
+    const rulesSourceIsWorkbook = clientModel.rulesSourceIsWorkbook;
     const summaryStatsHtml = [
-        statHtml(String(model.errorCount), 'Errors'),
-        statHtml(String(model.warningCount), 'Warnings'),
-        statHtml(String(informationCount), 'Information'),
-        statHtml(String(suppressedCount), 'Suppressed'),
-        statHtml(String(untrackedCount), 'Untracked'),
-        statHtml(String(model.moduleCount), 'Modules'),
+        statHtml(String(clientModel.errorCount), 'Errors'),
+        statHtml(String(clientModel.warningCount), 'Warnings'),
+        statHtml(String(clientModel.informationCount), 'Information'),
+        statHtml(String(clientModel.suppressedCount), 'Suppressed'),
+        statHtml(String(clientModel.untrackedCount), 'Untracked'),
+        statHtml(String(clientModel.moduleCount), 'Modules'),
     ].join('');
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE Analysis Results</title>
+    ${webviewHeadHtml(nonce, 'XLIDE Analysis Results')}
     <style nonce="${nonce}">
         :root {
             color-scheme: light dark;
@@ -862,18 +899,7 @@ export function renderWorkbookAnalysisResultsHtml(
             padding: 32px 14px;
             color: var(--vscode-descriptionForeground);
         }
-        .toast {
-            position: fixed;
-            right: 14px;
-            bottom: 14px;
-            max-width: min(420px, calc(100vw - 28px));
-            padding: 8px 10px;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            color: var(--vscode-notifications-foreground);
-            background: var(--vscode-notifications-background);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
-        }
+        ${WEBVIEW_TOAST_CSS}
         .contextMenu {
             position: fixed;
             z-index: 10;
@@ -1242,44 +1268,33 @@ export function renderWorkbookAnalysisResultsHtml(
                         </div>
                         <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="rules" ${rulesSourceIsWorkbook ? '' : 'disabled'}>Track All</button>
                     </div>
-                    ${workbookUntrackedRulesHtml}
+                    <div id="workbookUntrackedRules">${workbookUntrackedRulesHtml}</div>
                 </section>
             </div>
         </section>
     </div>
-    <div class="toast" id="toast" hidden></div>
+    ${WEBVIEW_TOAST_HTML}
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
-        const model = ${modelJson};
+        ${WEBVIEW_TOAST_SCRIPT}
+        let model = ${modelJson};
         const severityIds = ['error', 'warning', 'information'];
-        const untrackedRules = new Set(model.untrackedRules ?? []);
-        const persistedState = vscode.getState?.() ?? {};
-        const hasPersistedUiState = persistedState.analysisUiInitialized === true;
-        const hasPersistedSeverityState = hasPersistedUiState &&
-            persistedState.analysisSettingsKey === model.analysisSettingsKey &&
-            Array.isArray(persistedState.visibleSeverities);
-        const visibleSeverities = new Set(
-            hasPersistedSeverityState
-                ? normalizeSeverityList(persistedState.visibleSeverities)
-                : normalizeSeverityList(model.visibleSeverities ?? severityIds)
-        );
-        let activeModule = hasPersistedUiState && typeof persistedState.activeModule === 'string'
-            ? persistedState.activeModule
-            : 'all';
-        let showHiddenItems = hasPersistedUiState && persistedState.showHiddenItems === true;
-        let sortKey = hasPersistedUiState && isSortKey(persistedState.sortKey)
-            ? persistedState.sortKey
-            : 'severity';
-        let sortDirection = hasPersistedUiState && persistedState.sortDirection === 'desc'
-            ? 'desc'
-            : 'asc';
-        let settingsOpen = hasPersistedUiState && persistedState.settingsOpen === true;
-        const rows = Array.from(document.querySelectorAll('.problemRow'));
+        let untrackedRules = new Set(model.untrackedRules ?? []);
+        let analysisSettingsKey = model.analysisSettingsKey;
+        let visibleSeverities = new Set(normalizeSeverityList(model.visibleSeverities ?? severityIds));
+        let activeModule = 'all';
+        let showHiddenItems = false;
+        let sortKey = 'severity';
+        let sortDirection = 'asc';
+        let settingsOpen = false;
+        let rows = Array.from(document.querySelectorAll('.problemRow'));
         const sortHeaders = Array.from(document.querySelectorAll('[data-sort]'));
         const table = document.querySelector('.table');
+        const statsSection = document.querySelector('.stats');
+        const moduleList = document.querySelector('.moduleList');
+        const workbookSubtitle = document.querySelector('header .subtle');
         const showHiddenButton = document.querySelector('[data-show-hidden]');
         const visibleCount = document.getElementById('visibleCount');
-        const toast = document.getElementById('toast');
         const contextMenu = document.getElementById('rowContextMenu');
         const quickFixMenuItem = document.getElementById('quickFixMenuItem');
         const quickFixSubmenu = document.getElementById('quickFixSubmenu');
@@ -1288,15 +1303,194 @@ export function renderWorkbookAnalysisResultsHtml(
         const trackingWorkbookAction = document.getElementById('trackingWorkbookAction');
         const trackingGlobalAction = document.getElementById('trackingGlobalAction');
         const settingsDialog = document.getElementById('analysisSettingsDialog');
+        const settingsSource = document.querySelector('.settingsSource');
+        const settingsResetButton = document.querySelector('[data-reset-analysis]');
+        const workbookUntrackedRulesContainer = document.getElementById('workbookUntrackedRules');
         let contextRow = null;
-        let contextMenuVisible = false;
-        let persistFiltersTimer = undefined;
 
-        function showToast(message) {
-            toast.textContent = message;
-            toast.hidden = false;
-            clearTimeout(showToast.timer);
-            showToast.timer = setTimeout(() => { toast.hidden = true; }, 1800);
+        function applyModel(next) {
+            model = next;
+            untrackedRules = new Set(next.untrackedRules ?? []);
+            if (next.analysisSettingsKey !== analysisSettingsKey) {
+                analysisSettingsKey = next.analysisSettingsKey;
+                visibleSeverities = new Set(normalizeSeverityList(next.visibleSeverities ?? severityIds));
+            }
+            if (workbookSubtitle) {
+                workbookSubtitle.textContent = next.workbookName;
+            }
+            renderStats();
+            renderModuleFilters();
+            renderRows();
+            renderWorkbookUntrackedRules();
+            reattachContextRow();
+            sortRows();
+            syncSortHeaders();
+            syncModuleFilterButtons();
+            syncSeverityFilterButtons();
+            syncHiddenToggleButton();
+            updateRows();
+        }
+
+        function element(tag, className, text) {
+            const node = document.createElement(tag);
+            if (className) {
+                node.className = className;
+            }
+            if (text !== undefined) {
+                node.textContent = text;
+            }
+            return node;
+        }
+
+        function renderStats() {
+            statsSection.textContent = '';
+            for (const [value, label] of [
+                [model.errorCount, 'Errors'],
+                [model.warningCount, 'Warnings'],
+                [model.informationCount, 'Information'],
+                [model.suppressedCount, 'Suppressed'],
+                [model.untrackedCount, 'Untracked'],
+                [model.moduleCount, 'Modules'],
+            ]) {
+                const stat = element('div', 'stat');
+                stat.appendChild(element('strong', undefined, String(value)));
+                stat.appendChild(element('span', undefined, label));
+                statsSection.appendChild(stat);
+            }
+        }
+
+        function buildModuleFilterButton(filter, labelNode, count) {
+            const button = element('button', 'moduleFilter');
+            button.type = 'button';
+            button.dataset.moduleFilter = filter;
+            button.appendChild(labelNode);
+            button.appendChild(element('span', undefined, String(count)));
+            return button;
+        }
+
+        function renderModuleFilters() {
+            moduleList.textContent = '';
+            moduleList.appendChild(buildModuleFilterButton(
+                'all',
+                document.createTextNode('All modules '),
+                model.totalProblems,
+            ));
+            for (const group of model.groups) {
+                const identity = element('span', 'moduleIdentity');
+                const icon = element('span', 'moduleIcon', group.moduleIcon);
+                icon.title = group.moduleTypeLabel;
+                identity.appendChild(icon);
+                identity.appendChild(element('span', 'moduleName', group.moduleName));
+                moduleList.appendChild(buildModuleFilterButton(group.moduleName, identity, group.total));
+            }
+        }
+
+        function renderRows() {
+            for (const row of rows) {
+                row.remove();
+            }
+            const empty = table.querySelector('.empty');
+            if (empty) {
+                empty.remove();
+            }
+            rows = model.rows.map(buildProblemRow);
+            if (rows.length === 0) {
+                table.appendChild(element('div', 'empty', 'No analysis findings.'));
+                return;
+            }
+            for (const row of rows) {
+                table.appendChild(row);
+            }
+        }
+
+        function buildProblemRow(row) {
+            const button = element('button', 'problemRow severity-' + row.severity);
+            button.type = 'button';
+            button.dataset.openIndex = String(row.index);
+            button.dataset.suppressed = row.suppressed ? 'yes' : 'no';
+            button.dataset.status = row.statusKey;
+            button.dataset.module = row.moduleName;
+            button.dataset.moduleType = row.moduleType;
+            button.dataset.moduleOrder = String(row.moduleOrder);
+            button.dataset.severity = row.severity;
+            button.dataset.compile = row.vbeCompileEquivalent ? 'yes' : 'no';
+            button.dataset.line = String(row.line);
+            button.dataset.column = String(row.column);
+            button.dataset.endColumn = String(row.endColumn);
+            button.dataset.rule = row.rule;
+            button.dataset.ruleCode = row.ruleCode;
+            button.dataset.message = row.message;
+            button.dataset.evidence = row.evidence;
+            button.dataset.quickFixes = JSON.stringify(row.quickFixTitles ?? []);
+            button.dataset.suppressionScopes = JSON.stringify(row.suppressionScopes ?? []);
+            button.dataset.tracked = row.tracked ? 'yes' : 'no';
+            button.dataset.trackingSource = row.trackingSource;
+            button.appendChild(element('span', 'cell severity', row.severity));
+            button.appendChild(element('span', 'cell status', row.statusLabel));
+            button.appendChild(element('span', 'cell location', row.location));
+            button.appendChild(element('span', 'cell code', row.rule));
+            button.appendChild(element('span', 'cell kind', row.evidence));
+            button.appendChild(element('span', 'cell message', row.message));
+            return button;
+        }
+
+        function renderWorkbookUntrackedRules() {
+            settingsSource.textContent = 'Source: ' + (model.rulesSourceIsWorkbook ? 'Workbook settings' : 'No workbook override');
+            settingsResetButton.disabled = !model.rulesSourceIsWorkbook;
+            workbookUntrackedRulesContainer.textContent = '';
+            const rules = model.workbookUntrackedRules ?? [];
+            if (rules.length === 0) {
+                workbookUntrackedRulesContainer.appendChild(
+                    element('div', 'settingsEmpty', 'No workbook rules are manually untracked.'),
+                );
+                return;
+            }
+            const rulesTable = element('table', 'settingsTable');
+            const head = element('thead');
+            const headRow = element('tr');
+            for (const [className, label] of [
+                ['settingsTableCode', 'Rule'],
+                [undefined, 'Title'],
+                ['settingsTableAction', 'Action'],
+            ]) {
+                const cell = element('th', className, label);
+                cell.scope = 'col';
+                headRow.appendChild(cell);
+            }
+            head.appendChild(headRow);
+            rulesTable.appendChild(head);
+            const body = element('tbody');
+            for (const rule of rules) {
+                const ruleRow = element('tr');
+                ruleRow.appendChild(element('td', 'settingsTableCode', rule.code));
+                ruleRow.appendChild(element('td', undefined, rule.title));
+                const action = element('td', 'settingsTableAction');
+                const track = element('button', 'secondaryButton', 'Track');
+                track.type = 'button';
+                track.dataset.settingsTrackRuleCode = rule.code;
+                action.appendChild(track);
+                ruleRow.appendChild(action);
+                body.appendChild(ruleRow);
+            }
+            rulesTable.appendChild(body);
+            workbookUntrackedRulesContainer.appendChild(rulesTable);
+        }
+
+        function reattachContextRow() {
+            if (!contextRow) {
+                return;
+            }
+            const previous = contextRow.dataset;
+            const match = rows.find((row) =>
+                row.dataset.module === previous.module &&
+                row.dataset.line === previous.line &&
+                row.dataset.column === previous.column &&
+                row.dataset.ruleCode === previous.ruleCode);
+            if (match) {
+                contextRow = match;
+            } else {
+                hideContextMenu();
+            }
         }
 
         function rowMatchesModule(row) {
@@ -1388,20 +1582,6 @@ export function renderWorkbookAnalysisResultsHtml(
             }
         }
 
-        function persistUiState() {
-            vscode.setState?.({
-                ...(vscode.getState?.() ?? {}),
-                analysisUiInitialized: true,
-                activeModule,
-                showHiddenItems,
-                sortKey,
-                sortDirection,
-                settingsOpen,
-                visibleSeverities: Array.from(visibleSeverities),
-                analysisSettingsKey: model.analysisSettingsKey,
-            });
-        }
-
         function syncHiddenToggleButton() {
             showHiddenButton?.classList.toggle('active', showHiddenItems);
             showHiddenButton?.setAttribute('aria-pressed', showHiddenItems ? 'true' : 'false');
@@ -1454,25 +1634,14 @@ export function renderWorkbookAnalysisResultsHtml(
                 : severityIds;
         }
 
-        function isSortKey(value) {
-            return value === 'severity' ||
-                value === 'status' ||
-                value === 'location' ||
-                value === 'rule' ||
-                value === 'evidence' ||
-                value === 'message';
-        }
-
         function hideContextMenu() {
             contextMenu.hidden = true;
             quickFixSubmenu.hidden = true;
             contextRow = null;
-            notifyContextMenu(false);
         }
 
         function setSettingsOpen(open) {
             settingsOpen = open;
-            persistUiState();
             syncSettingsDialog();
         }
 
@@ -1510,15 +1679,6 @@ export function renderWorkbookAnalysisResultsHtml(
             const rect = contextMenu.getBoundingClientRect();
             contextMenu.style.left = Math.min(x, window.innerWidth - rect.width - 8) + 'px';
             contextMenu.style.top = Math.min(y, window.innerHeight - rect.height - 8) + 'px';
-            notifyContextMenu(true);
-        }
-
-        function notifyContextMenu(visible) {
-            if (contextMenuVisible === visible) {
-                return;
-            }
-            contextMenuVisible = visible;
-            vscode.postMessage({ type: visible ? 'contextMenuOpened' : 'contextMenuClosed' });
         }
 
         function contextProblemIndex() {
@@ -1553,12 +1713,6 @@ export function renderWorkbookAnalysisResultsHtml(
             button.hidden = options.hidden;
             button.textContent = options.label;
             return options.hidden ? 0 : 1;
-        }
-
-        function trackingStatusLabel(source) {
-            return source === 'workbook'
-                ? 'Untracked In Workbook'
-                : 'Untracked Globally';
         }
 
         function quickFixTitlesForRow(row) {
@@ -1684,7 +1838,6 @@ export function renderWorkbookAnalysisResultsHtml(
             const settingsTrackRule = event.target.closest?.('[data-settings-track-rule-code]');
             if (settingsTrackRule) {
                 const code = settingsTrackRule.dataset.settingsTrackRuleCode;
-                persistUiState();
                 vscode.postMessage({
                     type: 'setRuleTracking',
                     code,
@@ -1701,7 +1854,6 @@ export function renderWorkbookAnalysisResultsHtml(
                 } else {
                     visibleSeverities.add(id);
                 }
-                persistUiState();
                 syncSeverityFilterButtons();
                 updateRows();
                 return;
@@ -1715,7 +1867,6 @@ export function renderWorkbookAnalysisResultsHtml(
                     sortKey = nextKey;
                     sortDirection = 'asc';
                 }
-                persistUiState();
                 sortRows();
                 syncSortHeaders();
                 updateRows();
@@ -1724,7 +1875,6 @@ export function renderWorkbookAnalysisResultsHtml(
             const showHiddenButton = event.target.closest?.('[data-show-hidden]');
             if (showHiddenButton) {
                 showHiddenItems = !showHiddenItems;
-                persistUiState();
                 syncHiddenToggleButton();
                 updateRows();
                 return;
@@ -1732,7 +1882,6 @@ export function renderWorkbookAnalysisResultsHtml(
             const moduleButton = event.target.closest?.('[data-module-filter]');
             if (moduleButton) {
                 activeModule = moduleButton.dataset.moduleFilter;
-                persistUiState();
                 setActive(document.querySelectorAll('[data-module-filter]'), moduleButton);
                 updateRows();
                 return;
@@ -1767,20 +1916,22 @@ export function renderWorkbookAnalysisResultsHtml(
         window.addEventListener('scroll', hideContextMenu, true);
 
         document.getElementById('copyReport').addEventListener('click', () => {
-            vscode.postMessage({ type: 'copyText', text: model.plainText });
+            vscode.postMessage({ type: 'copyReport' });
         });
         document.getElementById('copyJson').addEventListener('click', () => {
-            vscode.postMessage({ type: 'copyText', text: JSON.stringify(model, null, 2) });
+            vscode.postMessage({ type: 'copyJson' });
         });
         document.getElementById('exportReport').addEventListener('click', () => {
-            vscode.postMessage({ type: 'exportText', text: model.plainText, extension: 'txt' });
+            vscode.postMessage({ type: 'exportReport' });
         });
         document.getElementById('exportJson').addEventListener('click', () => {
-            vscode.postMessage({ type: 'exportText', text: JSON.stringify(model, null, 2), extension: 'json' });
+            vscode.postMessage({ type: 'exportJson' });
         });
 
         window.addEventListener('message', (event) => {
-            if (event.data?.type === 'copied') {
+            if (event.data?.type === 'model') {
+                applyModel(event.data.model);
+            } else if (event.data?.type === 'copied') {
                 showToast('Copied');
             } else if (event.data?.type === 'exported') {
                 showToast('Exported');
@@ -1793,30 +1944,6 @@ export function renderWorkbookAnalysisResultsHtml(
             } else if (event.data?.type === 'ruleTrackingChanged') {
                 const code = String(event.data.code ?? '').toLowerCase();
                 const tracked = event.data.tracked === true;
-                if (code) {
-                    const trackingSource = event.data.scope === 'global' ? 'global' : 'workbook';
-                    if (tracked) {
-                        untrackedRules.delete(code);
-                    } else {
-                        untrackedRules.add(code);
-                    }
-                    for (const row of rows) {
-                        if (String(row.dataset.ruleCode ?? '').toLowerCase() === code) {
-                            row.dataset.tracked = tracked ? 'yes' : 'no';
-                            row.dataset.trackingSource = tracked ? 'tracked' : trackingSource;
-                            const suppressed = row.dataset.suppressed === 'yes';
-                            row.dataset.status = !tracked ? 'untracked' : (suppressed ? 'suppressed' : 'tracked');
-                            const statusCell = row.querySelector('.status');
-                            if (statusCell) {
-                                statusCell.textContent = !tracked
-                                    ? trackingStatusLabel(trackingSource)
-                                    : (suppressed ? 'Suppressed' : 'Tracked');
-                            }
-                        }
-                    }
-                    sortRows();
-                    updateRows();
-                }
                 const scope = event.data.scope === 'global' ? 'globally' : 'in workbook';
                 showToast(code
                     ? (tracked ? 'Tracked ' : 'Untracked ') + code + ' ' + scope
@@ -1833,7 +1960,6 @@ export function renderWorkbookAnalysisResultsHtml(
         syncHiddenToggleButton();
         syncSettingsDialog();
         updateRows();
-        persistUiState();
     </script>
 </body>
 </html>`;
@@ -1843,60 +1969,13 @@ function renderWorkbookAnalysisErrorHtml(
     workbookName: string,
     error: string,
 ): string {
-    const nonce = randomNonce();
-    return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE Analysis Error</title>
-    <style nonce="${nonce}">
-        body {
-            margin: 0;
-            padding: 24px;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editor-background);
-            font-family: var(--vscode-font-family);
-        }
-        main {
-            max-width: 900px;
-        }
-        h1 {
-            margin: 0 0 6px;
-            font-size: 18px;
-        }
-        .subtle {
-            color: var(--vscode-descriptionForeground);
-            margin-bottom: 18px;
-        }
-        .error {
-            border: 1px solid var(--vscode-inputValidation-errorBorder);
-            background: color-mix(in srgb, var(--vscode-inputValidation-errorBackground) 40%, transparent);
-            padding: 12px;
-            border-radius: 4px;
-            line-height: 1.45;
-            white-space: pre-wrap;
-        }
-        .help {
-            margin-top: 12px;
-            color: var(--vscode-descriptionForeground);
-        }
-    </style>
-</head>
-<body>
-    <main>
-        <h1>XLIDE Analysis Could Not Load</h1>
-        <div class="subtle">${escapeHtml(workbookName)}</div>
-        <div class="error">${escapeHtml(error)}</div>
-        <div class="help">Fix or delete the workbook settings sidecar, then run analysis again.</div>
-    </main>
-</body>
-</html>`;
-}
-
-function statHtml(value: string, label: string): string {
-    return `<div class="stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
+    return renderWebviewErrorPageHtml({
+        title: 'XLIDE Analysis Error',
+        heading: 'XLIDE Analysis Could Not Load',
+        subtitle: workbookName,
+        error,
+        help: 'Fix or delete the workbook settings sidecar, then run analysis again.',
+    });
 }
 
 function sortHeaderHtml(key: string, label: string): string {
@@ -1990,9 +2069,10 @@ function analysisRuleTrackingStatusLabel(source: 'tracked' | 'workbook' | 'globa
     }
 }
 
-function workbookUntrackedRulesSettingsHtml(workbookUntrackedRules: readonly string[]): string {
-    const rules = [...workbookUntrackedRules].sort((left, right) => left.localeCompare(right));
-    if (rules.length === 0) {
+function workbookUntrackedRulesSettingsHtml(
+    workbookUntrackedRules: ReadonlyArray<{ code: string; title: string }>,
+): string {
+    if (workbookUntrackedRules.length === 0) {
         return '<div class="settingsEmpty">No workbook rules are manually untracked.</div>';
     }
     return `
@@ -2005,18 +2085,15 @@ function workbookUntrackedRulesSettingsHtml(workbookUntrackedRules: readonly str
                 </tr>
             </thead>
             <tbody>
-                ${rules.map((code) => {
-                    const meta = diagnosticMetadataForCode(code);
-                    return `
+                ${workbookUntrackedRules.map((rule) => `
                         <tr>
-                            <td class="settingsTableCode">${escapeHtml(code)}</td>
-                            <td>${escapeHtml(meta?.title ?? code)}</td>
+                            <td class="settingsTableCode">${escapeHtml(rule.code)}</td>
+                            <td>${escapeHtml(rule.title)}</td>
                             <td class="settingsTableAction">
-                                <button class="secondaryButton" type="button" data-settings-track-rule-code="${escapeAttr(code)}">Track</button>
+                                <button class="secondaryButton" type="button" data-settings-track-rule-code="${escapeAttr(rule.code)}">Track</button>
                             </td>
                         </tr>
-                    `;
-                }).join('')}
+                    `).join('')}
             </tbody>
         </table>
     `;

@@ -72,6 +72,27 @@ export function statHtml(value: string | number, label: string): string {
 
 export const WEBVIEW_TOAST_HTML = '<div class="toast" id="toast"></div>';
 
+export const WEBVIEW_TOAST_CSS = `.toast {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            max-width: 360px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--vscode-notifications-foreground);
+            background: var(--vscode-notifications-background);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 120ms ease, transform 120ms ease;
+            pointer-events: none;
+        }
+        .toast.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }`;
+
 /** In-webview toast helper; expects the shared toast markup and CSS. */
 export const WEBVIEW_TOAST_SCRIPT = `const toast = document.getElementById('toast');
         let toastTimer;
