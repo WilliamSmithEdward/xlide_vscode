@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PythonBridge } from '../src/pythonBridge';
+import { fakePythonBridge } from './helpers/fakePythonBridge';
 import {
     createVbaTestRunReport,
     describeVbaTestSelection,
@@ -417,19 +418,5 @@ describe('VBA test runner reporting', () => {
 });
 
 function bridgeForModules(modules: Array<{ name: string; type: string; source: string }>): PythonBridge {
-    return {
-        async call<T>(method: string, params: { module?: string }): Promise<T> {
-            if (method === 'listModules') {
-                return modules.map(({ name, type }) => ({ name, type })) as T;
-            }
-            if (method === 'readModule' && params.module) {
-                const module = modules.find((candidate) => candidate.name === params.module);
-                if (!module) {
-                    throw new Error(`Unknown module ${params.module}`);
-                }
-                return { source: module.source } as T;
-            }
-            throw new Error(`Unexpected bridge call ${method}`);
-        },
-    } as unknown as PythonBridge;
+    return fakePythonBridge(modules);
 }

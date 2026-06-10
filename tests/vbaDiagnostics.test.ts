@@ -16,15 +16,7 @@ import {
 	type VbaProjectModuleInput,
 } from '../src/vbaProjectAnalysis';
 
-/** Returns the diagnostics whose code matches `code`. */
-function byCode(diags: VbaDiagnostic[], code: string): VbaDiagnostic[] {
-	return diags.filter((d) => d.code === code);
-}
-
-/** Resolves the source substring a diagnostic span covers. */
-function spanText(source: string, d: VbaDiagnostic): string {
-	return source.slice(d.span.start, d.span.end);
-}
+import { byCode, spanText } from './helpers/diagnostics';
 
 type ProjectTestModule = VbaProjectModuleInput;
 
