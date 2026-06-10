@@ -893,9 +893,7 @@ function checkAmbiguousEnumMemberReferences(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const procSym = (symbols.root.children ?? []).find(
-			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
-		);
+		const procSym = procedureSymbolFor(symbols, member);
 		const reported = new Set<string>();
 		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
 			for (const ref of valueReadReferences(
@@ -1004,9 +1002,7 @@ function checkConstAssignment(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const procSym = (symbols.root.children ?? []).find(
-			(s) => isProcedureKind(s.kind) && s.fullSpan.start === member.span.start,
-		);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const hit = bareAssignmentTarget(source, stmt.span);
 			if (!hit) {
@@ -1267,9 +1263,7 @@ function checkUnknownCallStatement(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const procSym = (symbols.root.children ?? []).find(
-			(s) => isProcedureKind(s.kind) && s.fullSpan.start === member.span.start,
-		);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const hit = callStatementTarget(source, stmt.span);
 			if (hit && !isKnown(hit.name, procSym)) {
@@ -1375,9 +1369,7 @@ function checkNonCallableCallStatement(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const procSym = (symbols.root.children ?? []).find(
-			(s) => isProcedureKind(s.kind) && s.fullSpan.start === member.span.start,
-		);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachStatement(member.body, (stmt) => {
 			const call = extractCall(source, stmt.span);
 			if (!call) {
@@ -3326,9 +3318,7 @@ function checkRuntimeArgumentValues(
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procedureConstants = new Map(moduleConstants);
 		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
-		const procSym = (symbols.root.children ?? []).find(
-			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
-		);
+		const procSym = procedureSymbolFor(symbols, member);
 		const constants = scopedIntegerConstantLookup(
 			procedureConstants,
 			symbols,
@@ -4481,9 +4471,7 @@ function localObjectVariablesFor(
 	memberCtx: MemberCompletionContext,
 ): Map<string, LocalObjectVariable> {
 	const out = new Map<string, LocalObjectVariable>();
-	const procSym = (symbols.root.children ?? []).find(
-		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
-	);
+	const procSym = procedureSymbolFor(symbols, proc);
 	for (const child of procSym?.children ?? []) {
 		if (
 			child.kind !== 'localVariable' ||
@@ -4763,9 +4751,7 @@ function typeEnvironmentFor(
 			out.set(sym.name.toLowerCase(), sym.asType);
 		}
 	}
-	const procSym = (symbols.root.children ?? []).find(
-		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
-	);
+	const procSym = procedureSymbolFor(symbols, proc);
 	const returnType = returnAssignmentTypeFor(proc);
 	if (returnType) {
 		out.set(proc.name.toLowerCase(), returnType);
@@ -4798,9 +4784,7 @@ function declarationShapeEnvironmentFor(
 			});
 		}
 	}
-	const procSym = (symbols.root.children ?? []).find(
-		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
-	);
+	const procSym = procedureSymbolFor(symbols, proc);
 	const returnType = returnAssignmentTypeFor(proc);
 	if (returnType) {
 		out.set(proc.name.toLowerCase(), {
@@ -4821,13 +4805,28 @@ function declarationShapeEnvironmentFor(
 	return out;
 }
 
+// Procedure symbols are looked up per procedure per rule, so index them once
+// per buildModuleSymbols result instead of scanning the children every time.
+const PROCEDURE_SYMBOLS_BY_START = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	Map<number, VbaSymbol>
+>();
+
 function procedureSymbolFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
 ): VbaSymbol | undefined {
-	return (symbols.root.children ?? []).find(
-		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
-	);
+	let byStart = PROCEDURE_SYMBOLS_BY_START.get(symbols);
+	if (!byStart) {
+		byStart = new Map<number, VbaSymbol>();
+		for (const sym of symbols.root.children ?? []) {
+			if (isProcedureKind(sym.kind) && !byStart.has(sym.fullSpan.start)) {
+				byStart.set(sym.fullSpan.start, sym);
+			}
+		}
+		PROCEDURE_SYMBOLS_BY_START.set(symbols, byStart);
+	}
+	return byStart.get(proc.span.start);
 }
 
 function isValueDeclarationSymbol(sym: VbaSymbol): boolean {
@@ -4977,9 +4976,7 @@ function sourceNameScopeFor(
 	projectVisibleSymbols?: readonly VbaSymbol[],
 ): SourceNameScope {
 	const callableShadows = new Set(moduleNonCallableSymbols(symbols).keys());
-	const procSym = (symbols.root.children ?? []).find(
-		(s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start,
-	);
+	const procSym = procedureSymbolFor(symbols, proc);
 	const runtimeShadows = sourceIdentifierNames({
 		currentModule: symbols,
 		enclosingProcedure: procSym,
@@ -6838,9 +6835,7 @@ function checkUndeclaredVariables(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const procSym = (symbols.root.children ?? []).find(
-			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
-		);
+		const procSym = procedureSymbolFor(symbols, member);
 		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
 			const reported = new Set<string>();
 			const report = (
@@ -9953,9 +9948,7 @@ function checkDivisionByZeroExpressions(
 		}
 		const procedureConstants = new Map(moduleConstants);
 		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
-		const procSym = (symbols.root.children ?? []).find(
-			(sym) => isProcedureKind(sym.kind) && sym.fullSpan.start === member.span.start,
-		);
+		const procSym = procedureSymbolFor(symbols, member);
 		const constants = scopedIntegerConstantLookup(
 			procedureConstants,
 			symbols,
