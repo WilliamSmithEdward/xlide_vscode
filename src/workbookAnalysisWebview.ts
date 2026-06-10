@@ -20,6 +20,7 @@ import {
     setWorkbookAnalysisRuleTracked,
     type EffectiveWorkbookAnalysisSettings,
 } from './workbookAnalysisSettings';
+import { sanitizeFileName } from './moduleExport';
 import { settingsPathForWorkbook } from './workbookSettings';
 import { decodeModuleUri, sameWorkbookPath, workbookIdentityKey, XLIDE_SCHEME } from './xlideFileSystem';
 import { measurePerformance } from './performanceTrace';
@@ -2032,7 +2033,4 @@ function severityFilterLabel(severity: AnalysisSeverityFilter): string {
     }
 }
 
-function sanitizeFileName(value: string): string {
-    return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/[. ]+$/g, '');
-}
 
