@@ -1,5 +1,6 @@
 .vscode/**
 .github/**
+dist/**
 .venv/**
 .pytest_cache/**
 node_modules/**
