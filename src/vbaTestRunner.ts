@@ -43,7 +43,7 @@ export interface VbaTestMetadata {
     owner?: string;
     requirement?: string;
     timeoutMs?: number;
-    expectedError?: string;
+    expectedError?: number | 'any';
     skipReason?: string;
     xfailReason?: string;
 }
@@ -853,13 +853,12 @@ function parseExpectedVbaErrorNumber(value: string | undefined): number | undefi
     return Number.isSafeInteger(amount) && amount > 0 ? amount : undefined;
 }
 
-function parseExpectedVbaErrorMetadata(value: string | undefined): string | undefined {
+function parseExpectedVbaErrorMetadata(value: string | undefined): number | 'any' | undefined {
     const normalized = value?.trim().toLowerCase();
     if (normalized === 'any') {
         return 'any';
     }
-    const amount = parseExpectedVbaErrorNumber(value);
-    return amount !== undefined ? String(amount) : undefined;
+    return parseExpectedVbaErrorNumber(value);
 }
 
 function offsetToLineColumn(

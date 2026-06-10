@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
     vbaTestRunItemFromHostResult,
     type OwnedReadOnlyExcelHostTestResult,
@@ -8,7 +8,7 @@ import type { VbaTestCase } from '../src/vbaTestRunner';
 describe('VBA test execution result classification', () => {
     it('passes expected-error tests when the host reports the expected VBA error number', () => {
         const result = vbaTestRunItemFromHostResult(
-            testCase({ expectedError: '13' }),
+            testCase({ expectedError: 13 }),
             hostResult({
                 outcome: 'failed',
                 errorNumber: 13,
@@ -22,7 +22,7 @@ describe('VBA test execution result classification', () => {
 
     it('fails expected-error tests when no error is raised', () => {
         const result = vbaTestRunItemFromHostResult(
-            testCase({ expectedError: '13' }),
+            testCase({ expectedError: 13 }),
             hostResult({ outcome: 'passed' }),
         );
 
@@ -56,7 +56,7 @@ describe('VBA test execution result classification', () => {
 
     it('fails expected-error tests when the host reports a different VBA error number', () => {
         const result = vbaTestRunItemFromHostResult(
-            testCase({ expectedError: '13' }),
+            testCase({ expectedError: 13 }),
             hostResult({
                 outcome: 'failed',
                 errorNumber: 9,
@@ -70,7 +70,7 @@ describe('VBA test execution result classification', () => {
 
     it('treats expected-error success as unexpected pass when the test is also xfail', () => {
         const result = vbaTestRunItemFromHostResult(
-            testCase({ expectedError: '13', xfailReason: 'Bug should still raise a different error' }),
+            testCase({ expectedError: 13, xfailReason: 'Bug should still raise a different error' }),
             hostResult({ outcome: 'failed', errorNumber: 13 }),
         );
 

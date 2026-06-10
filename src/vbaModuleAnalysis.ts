@@ -233,7 +233,7 @@ function inactiveConditionalLinePredicate(
 
 interface ExpectedErrorRuntimeSuppression {
     span: Span;
-    expectedError: string;
+    expectedError: number | 'any';
 }
 
 function expectedErrorRuntimeSuppressionRanges(
@@ -250,7 +250,7 @@ function expectedErrorRuntimeSuppressionRanges(
         return [];
     }
 
-    const byProcedureName = new Map<string, string>();
+    const byProcedureName = new Map<string, number | 'any'>();
     for (const test of tests) {
         if (test.metadata.expectedError) {
             byProcedureName.set(test.procedureName.toLowerCase(), test.metadata.expectedError);
@@ -279,11 +279,7 @@ function isExpectedErrorRuntimeDiagnosticSuppressed(
     if (range.expectedError === 'any') {
         return true;
     }
-    const expectedNumber = Number(range.expectedError);
-    if (!Number.isSafeInteger(expectedNumber) || expectedNumber <= 0) {
-        return false;
-    }
-    return runtimeErrorNumberForDiagnostic(diagnostic) === expectedNumber;
+    return runtimeErrorNumberForDiagnostic(diagnostic) === range.expectedError;
 }
 
 function isDeterministicRuntimeDiagnostic(code: string | undefined): boolean {

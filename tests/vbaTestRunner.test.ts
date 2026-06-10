@@ -52,7 +52,7 @@ describe('VBA test runner discovery', () => {
                 owner: 'finance',
                 requirement: 'INV-104',
                 timeoutMs: 2000,
-                expectedError: '13',
+                expectedError: 13,
             },
         })]);
     });

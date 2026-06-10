@@ -599,7 +599,7 @@ export function vbaTestRunItemFromHostResult(
     hostResult: OwnedReadOnlyExcelHostTestResult,
 ): VbaTestRunItem {
     const message = hostResult.message ? vbaTestFailureMessage(new Error(hostResult.message)) : undefined;
-    const expectedError = expectedVbaErrorExpectation(test.metadata.expectedError);
+    const expectedError = test.metadata.expectedError;
     if (expectedError !== undefined && (hostResult.outcome === 'passed' || hostResult.outcome === 'failed')) {
         return vbaTestRunItemFromExpectedError(test, hostResult, expectedError, message);
     }
@@ -692,18 +692,6 @@ function failedVbaTestRunItem(
         return { test, status: 'xfail', durationMs, error, ...(output?.length ? { output } : {}) };
     }
     return { test, status: 'failed', durationMs, error, ...(output?.length ? { output } : {}) };
-}
-
-function expectedVbaErrorExpectation(value: string | undefined): number | 'any' | undefined {
-    const normalized = value?.trim().toLowerCase();
-    if (normalized === 'any') {
-        return 'any';
-    }
-    if (!normalized || !/^\d+$/.test(normalized)) {
-        return undefined;
-    }
-    const parsed = Number(normalized);
-    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function logVbaTestRunItem(result: VbaTestRunItem, log: (message: string) => void): void {

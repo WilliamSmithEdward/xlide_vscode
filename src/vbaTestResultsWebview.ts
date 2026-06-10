@@ -600,7 +600,7 @@ function testMetadataHtml(metadata: {
     owner?: string;
     requirement?: string;
     timeoutMs?: number;
-    expectedError?: string;
+    expectedError?: number | 'any';
     skipReason?: string;
     xfailReason?: string;
 }): string {
