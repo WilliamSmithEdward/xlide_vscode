@@ -1013,16 +1013,16 @@ export function resolveLoopIteratorSyncEdit(
     source: string,
     offset: number,
 ): VbaLoopIteratorSyncEdit | undefined {
-    const lines = physicalLines(source);
-    if (lines.length === 0) { return undefined; }
-
     const safeOffset = Math.max(0, Math.min(offset, source.length));
-    const lineIndex = physicalLineAtOffset(lines, safeOffset);
-    const line = lines[lineIndex];
-    const info = parseLoopLine(line);
+    // Cheap early-out: most edits are not on a For/Next iterator, so parse
+    // just the edited physical line before splitting the whole document.
+    const info = parseLoopLine(physicalLineAt(source, safeOffset));
     if (!info?.iterator || !offsetTouchesSpan(safeOffset, info.iterator.span)) {
         return undefined;
     }
+
+    const lines = physicalLines(source);
+    const lineIndex = physicalLineAtOffset(lines, safeOffset);
 
     const counterpart = info.kind === 'opener'
         ? findMatchingNextLine(lines, lineIndex)
@@ -1185,6 +1185,22 @@ function physicalLineAtOffset(lines: PhysicalLine[], offset: number): number {
         }
     }
     return lines.length - 1;
+}
+
+// Extracts the single physical line containing `offset` without splitting the
+// whole document; mirrors physicalLineAtOffset, including its fall-back to the
+// final line when the offset sits on the LF of a CRLF pair.
+function physicalLineAt(source: string, offset: number): PhysicalLine {
+    const start = offset === 0 ? 0 : source.lastIndexOf('\n', offset - 1) + 1;
+    const nl = source.indexOf('\n', offset);
+    const end = nl === -1
+        ? source.length
+        : (nl > start && source[nl - 1] === '\r' ? nl - 1 : nl);
+    if (offset <= end) {
+        return { text: source.slice(start, end), start, end };
+    }
+    const lastStart = source.lastIndexOf('\n') + 1;
+    return { text: source.slice(lastStart), start: lastStart, end: source.length };
 }
 
 function parseLoopLine(line: PhysicalLine): LoopLineInfo | undefined {

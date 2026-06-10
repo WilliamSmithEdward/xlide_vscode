@@ -11,7 +11,7 @@ interface DirtyModuleBackup {
 }
 
 interface PendingDirtyModuleBackup {
-    record: DirtyModuleBackup;
+    document: vscode.TextDocument;
     timer: ReturnType<typeof setTimeout>;
     generation: number;
 }
@@ -170,20 +170,25 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         }
 
         const generation = this.bumpWriteGeneration(key);
-        const record: DirtyModuleBackup = {
-            uri: key,
-            text: document.getText(),
-            updatedAt: Date.now(),
-        };
+        // Snapshot the text inside the debounce callback so fast typing does
+        // not materialize a full document copy per keystroke.
         const timer = setTimeout(() => {
             const pending = this._pendingWrites.get(key);
             if (!pending || pending.generation !== generation) {
                 return;
             }
             this._pendingWrites.delete(key);
-            void this.writeBackupRecord(document.uri, pending.record, pending.generation);
+            void this.writeBackupRecord(document.uri, this.backupRecordFor(pending.document), pending.generation);
         }, DIRTY_BACKUP_DEBOUNCE_MS);
-        this._pendingWrites.set(key, { record, timer, generation });
+        this._pendingWrites.set(key, { document, timer, generation });
+    }
+
+    private backupRecordFor(document: vscode.TextDocument): DirtyModuleBackup {
+        return {
+            uri: document.uri.toString(),
+            text: document.getText(),
+            updatedAt: Date.now(),
+        };
     }
 
     private flushPendingWrite(uri: vscode.Uri): void {
@@ -194,7 +199,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         }
         clearTimeout(pending.timer);
         this._pendingWrites.delete(key);
-        void this.writeBackupRecord(uri, pending.record, pending.generation);
+        void this.writeBackupRecord(uri, this.backupRecordFor(pending.document), pending.generation);
     }
 
     private clearPendingWrite(uri: vscode.Uri): void {
