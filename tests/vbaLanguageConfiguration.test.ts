@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 import { detectSmartBlockOpener, VBA_SMART_BLOCK_SNIPPETS } from '../src/vbaStructuralAnalysis';
+import { XLIDE_VBA_EDITOR_OVERRIDES } from '../src/xlideVbaEditorOverrides';
 
 interface VbaLanguageConfiguration {
 	indentationRules?: Record<string, string>;
@@ -180,16 +181,9 @@ describe('VBA language configuration', () => {
 		const standaloneLanguage = contributes?.languages?.find((language) => language.id === 'vba');
 
 		expect(contributes?.configurationDefaults?.['[vba]']).toBeUndefined();
-		expect(contributes?.configurationDefaults?.['[xlide-vba]']).toMatchObject({
-			'editor.detectIndentation': false,
-			'editor.tabSize': 4,
-			'editor.minimap.enabled': true,
-			'editor.minimap.renderCharacters': false,
-			'editor.minimap.showMarkSectionHeaders': false,
-			'editor.minimap.showRegionSectionHeaders': false,
-			'editor.overviewRulerBorder': false,
-			'editor.overviewRulerLanes': 3,
-		});
+		expect(contributes?.configurationDefaults?.['[xlide-vba]']).toEqual(Object.fromEntries(
+			XLIDE_VBA_EDITOR_OVERRIDES.map(({ key, value }) => [`editor.${key}`, value]),
+		));
 		expect(standaloneLanguage?.extensions).toEqual(['.bas', '.cls', '.frm']);
 		expect(xlideLanguage).toMatchObject({
 			id: 'xlide-vba',

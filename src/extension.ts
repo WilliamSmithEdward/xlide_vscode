@@ -29,6 +29,7 @@ import { registerXlideSidebar } from './xlideSidebar';
 import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
+import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
 
 const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/';
 
@@ -539,17 +540,6 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void { /* nothing async needed */ }
-
-const XLIDE_VBA_EDITOR_OVERRIDES: Array<{ key: string; value: boolean | number }> = [
-    { key: 'detectIndentation', value: false },
-    { key: 'tabSize', value: 4 },
-    { key: 'minimap.enabled', value: true },
-    { key: 'minimap.renderCharacters', value: false },
-    { key: 'minimap.showMarkSectionHeaders', value: false },
-    { key: 'minimap.showRegionSectionHeaders', value: false },
-    { key: 'overviewRulerBorder', value: false },
-    { key: 'overviewRulerLanes', value: 3 },
-];
 
 interface ConfigurationLanguageInspect<T> {
     globalLanguageValue?: T;
