@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { errorMessage } from './util/errors';
+import { debounce } from './util/debounce';
 import { XlsmExplorer } from './xlsmExplorer';
 import {
     XlideFileSystemProvider,
@@ -316,10 +317,8 @@ export function activate(context: vscode.ExtensionContext): void {
         // single setActiveModule + reveal, avoiding overlapping async reveal
         // calls that could leave stale modules expanded.
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
             let pending: { xlsmPath: string; moduleName: string } | undefined;
-            const apply = () => {
-                timer = undefined;
+            const apply = debounce(() => {
                 if (!pending) { return; }
                 const { xlsmPath, moduleName } = pending;
                 pending = undefined;
@@ -328,23 +327,22 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (node && treeView.visible) {
                     void treeView.reveal(node, { select: true, focus: false, expand: true });
                 }
-            };
+            }, 60);
             const subscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
                 // No active editor (e.g. user closed the last tab) — collapse all modules.
                 if (!editor) {
                     pending = undefined;
-                    if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+                    apply.cancel();
                     explorer.clearActiveModule();
                     return;
                 }
                 const uri = editor.document.uri;
                 if (uri.scheme !== XLIDE_SCHEME || uri.authority === XLIDE_LIVESHARE_AUTHORITY) { return; }
                 pending = decodeModuleUri(uri);
-                if (timer !== undefined) { clearTimeout(timer); }
-                timer = setTimeout(apply, 60);
+                apply();
             });
             return new vscode.Disposable(() => {
-                if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+                apply.dispose();
                 subscription.dispose();
             });
         })(),
@@ -360,16 +358,12 @@ export function activate(context: vscode.ExtensionContext): void {
         // Refresh the explorer when .xlsm/.xlsb/.xlam files are added or removed
         // Debounced so rapid file-system events (save storms) coalesce into one refresh.
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const debouncedRefresh = () => {
-                if (timer !== undefined) { clearTimeout(timer); }
-                timer = setTimeout(() => { timer = undefined; explorer.refresh(); }, 200);
-            };
+            const debouncedRefresh = debounce(() => explorer.refresh(), 200);
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
             const createSubscription = watcher.onDidCreate(debouncedRefresh);
             const deleteSubscription = watcher.onDidDelete(debouncedRefresh);
             return new vscode.Disposable(() => {
-                if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+                debouncedRefresh.dispose();
                 createSubscription.dispose();
                 deleteSubscription.dispose();
                 watcher.dispose();

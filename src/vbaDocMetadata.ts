@@ -17,6 +17,7 @@ import {
 	xlideDocsMetadataGlobFromConfig,
 } from './globalSettings';
 import { startPerformanceTrace } from './performanceTrace';
+import { debounce } from './util/debounce';
 
 const EXCLUDE_GLOB = '**/node_modules/**';
 const RELOAD_DEBOUNCE_MS = 250;
@@ -38,7 +39,7 @@ function docsEnabled(): boolean {
 export class DocMetadataLoader {
 	private readonly _registry = new DocRegistry();
 	private _watcher: vscode.FileSystemWatcher | undefined;
-	private _reloadTimer: ReturnType<typeof setTimeout> | undefined;
+	private readonly _scheduleReload = debounce(() => void this.reload(), RELOAD_DEBOUNCE_MS);
 
 	/** The live registry. Empty until the first load completes. */
 	get registry(): DocRegistry {
@@ -108,22 +109,9 @@ export class DocMetadataLoader {
 		this._watcher = watcher;
 	}
 
-	private _scheduleReload(): void {
-		if (this._reloadTimer) {
-			clearTimeout(this._reloadTimer);
-		}
-		this._reloadTimer = setTimeout(() => {
-			this._reloadTimer = undefined;
-			void this.reload();
-		}, RELOAD_DEBOUNCE_MS);
-	}
-
 	/** Releases the watcher and any pending reload timer. */
 	dispose(): void {
-		if (this._reloadTimer) {
-			clearTimeout(this._reloadTimer);
-			this._reloadTimer = undefined;
-		}
+		this._scheduleReload.dispose();
 		this._watcher?.dispose();
 		this._watcher = undefined;
 	}

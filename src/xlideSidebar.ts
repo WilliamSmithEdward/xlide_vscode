@@ -20,6 +20,7 @@ import { measurePerformance, startPerformanceTrace } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
 import { errorMessage } from './util/errors';
 import { fileExists } from './util/fs';
+import { debounce } from './util/debounce';
 
 interface XlideSidebarOptions {
     setupStatus?: () => XlideSidebarSetupStatus;
@@ -171,37 +172,19 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
             }
         }),
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const refresh = () => {
-                if (timer !== undefined) {
-                    clearTimeout(timer);
-                }
-                timer = setTimeout(() => {
-                    timer = undefined;
-                    provider.refresh();
-                }, 200);
-            };
+            const refresh = debounce(() => provider.refresh(), 200);
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
             watcher.onDidCreate(refresh);
             watcher.onDidDelete(refresh);
-            return watcher;
+            return vscode.Disposable.from(watcher, refresh);
         })(),
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const refresh = () => {
-                if (timer !== undefined) {
-                    clearTimeout(timer);
-                }
-                timer = setTimeout(() => {
-                    timer = undefined;
-                    provider.refresh();
-                }, 200);
-            };
+            const refresh = debounce(() => provider.refresh(), 200);
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.xlide_settings.json');
             watcher.onDidCreate(refresh);
             watcher.onDidChange(refresh);
             watcher.onDidDelete(refresh);
-            return watcher;
+            return vscode.Disposable.from(watcher, refresh);
         })(),
     ];
 
