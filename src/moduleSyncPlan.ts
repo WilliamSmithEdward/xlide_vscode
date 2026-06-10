@@ -98,6 +98,8 @@ const DOCUMENT_CLSIDS = new Set([
     '{00020820-0000-0000-C000-000000000046}',
     '{00020821-0000-0000-C000-000000000046}',
 ]);
+const VB_BASE_RE = /^\s*Attribute\s+VB_Base\s*=\s*"([^"]*)"/im;
+const DOCUMENT_MODULE_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 
 export async function buildExportModuleSyncPlan(
     bridge: PythonBridge,
@@ -507,7 +509,7 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
     const source = await fs.promises.readFile(sourcePath, 'utf8');
     const ext = path.extname(file).toLowerCase();
     const moduleName = sanitizeFileName(path.basename(file, ext)) || path.basename(file, ext);
-    const subtype = ext === '.bas' ? 'standard' : detectClsSubtype(source);
+    const subtype = ext === '.bas' ? 'standard' : detectClsSubtype(moduleName, source);
     return {
         file,
         moduleName,
@@ -518,23 +520,41 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
     };
 }
 
-function detectClsSubtype(source: string): 'class' | 'document' | 'userform' {
-    const head = source.slice(0, 2000);
-    const vbBaseMatch = head.match(/Attribute\s+VB_Base\s*=\s*"([^"]*)"/i);
-    if (vbBaseMatch) {
-        const guids = vbBaseMatch[1].match(GUID_RE) ?? [];
+/**
+ * Infer module type from source content and name.
+ *
+ * Mirrors _module_type in python/xlide/vba_io.py — the shared classification
+ * table tests on both sides pin the two implementations together.
+ */
+export function classifyModuleType(name: string, source: string): 'standard' | 'document' | 'userform' {
+    const vbBaseMatch = source.match(VB_BASE_RE);
+    const vbBase = vbBaseMatch ? vbBaseMatch[1] : '';
+    if (vbBase) {
+        // UserForms always have TWO GUIDs in VB_Base (type-lib + instance).
+        // Class and document modules each have exactly one.
+        const guids = vbBase.match(GUID_RE) ?? [];
         if (guids.length >= 2) {
             return 'userform';
         }
         if (guids.some((guid) => DOCUMENT_CLSIDS.has(guid.toUpperCase()))) {
             return 'document';
         }
-        return 'class';
     }
-    if (/Attribute\s+VB_PredeclaredId\s*=\s*True/i.test(head)) {
+    // VB_PredeclaredId=True is shared by Excel document modules and predeclared
+    // class modules. Treating it as document-only misclassifies singleton-style
+    // classes such as stdVBA's stdArray/stdLambda modules.
+    // Well-known document-module names across common Excel locales.
+    if (name === 'ThisWorkbook' || DOCUMENT_MODULE_NAME_RE.test(name)) {
         return 'document';
     }
-    return 'class';
+    return 'standard';
+}
+
+function detectClsSubtype(name: string, source: string): 'class' | 'document' | 'userform' {
+    const moduleType = classifyModuleType(name, source);
+    // A .cls file is never a standard module — mirror the VBAModuleKind
+    // upgrade in vba_io._module_entries.
+    return moduleType === 'standard' ? 'class' : moduleType;
 }
 
 function splitLines(text: string): string[] {

@@ -105,6 +105,10 @@ def _module_type(name: str, source: str) -> str:
     """Infer module type from source content and name.
 
     Returns one of: 'standard', 'class', 'document', 'userform'.
+
+    Mirrored by classifyModuleType in src/moduleSyncPlan.ts — the shared
+    classification table tests on both sides pin the two implementations
+    together.
     """
     # Pull the VB_Base attribute value (if any).
     vb_base_match = re.search(
@@ -119,7 +123,7 @@ def _module_type(name: str, source: str) -> str:
         # Class and document modules each have exactly one.
         if len(_GUID_RE.findall(vb_base)) >= 2:
             return "userform"
-        if any(c in vb_base for c in _DOCUMENT_CLSIDS):
+        if any(c in vb_base.upper() for c in _DOCUMENT_CLSIDS):
             return "document"
 
     # VB_PredeclaredId=True is shared by Excel document modules and predeclared

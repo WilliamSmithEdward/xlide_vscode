@@ -176,11 +176,19 @@ scenarios do not need bespoke one-off test wiring.
 
 Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `sub` node opens the module and moves the cursor to that line.
 
-Module type is inferred from the VBA source:
-- Starts with `VERSION 1.0 CLASS` → `class`
-- Contains `Attribute VB_PredeclaredId = True` → `document`
-- Name matches `ThisWorkbook`, `Sheet\d*`, or `Chart\d*` → `document`
-- Anything else → `standard`
+Module type is inferred from the VBA source and name (`_module_type` in
+`python/xlide/vba_io.py`, mirrored by `classifyModuleType` in
+`src/moduleSyncPlan.ts`):
+- `Attribute VB_Base` carries two GUIDs → `userform`
+- `Attribute VB_Base` carries a Workbook/Worksheet/Chart CLSID → `document`
+- Name is `ThisWorkbook` or matches a localized sheet pattern (`Sheet\d*`,
+  `Feuil\d*`, `Hoja\d*`, `Tabelle\d*`, `Foglio\d*`, `Planilha\d*`) → `document`
+- Anything else → `standard`; pyOpenVBA's module kind upgrades non-standard
+  modules to `class`
+
+`Attribute VB_PredeclaredId = True` alone is deliberately NOT treated as a
+document marker — predeclared singleton-style classes (e.g. stdVBA's
+`stdArray`/`stdLambda`) carry it too.
 
 When the hidden `VB_Base` attribute is available, `listModules` also returns an
 optional `documentType` for document modules (`workbook`, `worksheet`, or
