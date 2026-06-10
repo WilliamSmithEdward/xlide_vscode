@@ -1,4 +1,4 @@
-// Type-position completion (Phase 6: IntelliSense and Completions).
+﻿// Type-position completion (Phase 6: IntelliSense and Completions).
 //
 // Offers a list of known type names when the cursor is in a declaration type
 // position, i.e. immediately after `As` (or `As New`), or after an expression
@@ -15,7 +15,7 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import {
-	EXCEL_OBJECT_MODEL,
+	getExcelObjectModel,
 	type HostObjectModel,
 } from '../host/excelObjectModel';
 import type { VbaProjectTypeKind } from '../symbols/symbolModel';
@@ -287,7 +287,7 @@ function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCo
 export function typeCompletionCandidates(
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
-	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
+	const model = ctx.model ?? getExcelObjectModel();
 	const seen = new Set<string>();
 	const out: TypeCompletion[] = [];
 	const add = (
@@ -444,7 +444,7 @@ export function resolveTypeCompletions(
 	if (!pos) {
 		return [];
 	}
-	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
+	const model = ctx.model ?? getExcelObjectModel();
 	if (pos.qualifier !== undefined) {
 		const memberPrefix = (pos.memberPrefix ?? '').toLowerCase();
 		return [

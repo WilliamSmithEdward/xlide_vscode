@@ -25,7 +25,7 @@ export {
 	ConditionalCompilationEnvironment,
 } from './conditional/conditionalCompilation';
 export {
-	EXCEL_OBJECT_MODEL,
+	getExcelObjectModel,
 	HostConstant,
 	HostMember,
 	HostMemberKind,

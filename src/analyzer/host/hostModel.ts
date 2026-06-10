@@ -1,9 +1,9 @@
-// Host object-model resolver. Pure functions over a HostObjectModel; no vscode
+﻿// Host object-model resolver. Pure functions over a HostObjectModel; no vscode
 // or I/O dependencies so the resolver is unit-testable. Defaults to the Excel
 // object model but accepts any HostObjectModel for testing/extensibility.
 
 import {
-	EXCEL_OBJECT_MODEL,
+	getExcelObjectModel,
 	HostConstant,
 	HostMember,
 	HostObjectModel,
@@ -80,7 +80,7 @@ function hostModelIndex(model: HostObjectModel): HostModelIndex {
 /** Returns the type metadata for a qualified type name (e.g. "Excel.Range"). */
 export function getHostType(
 	qualified: string,
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): HostType | undefined {
 	return model.types[qualified];
 }
@@ -88,7 +88,7 @@ export function getHostType(
 /** Returns the members of a qualified type, or an empty array if unknown. */
 export function getHostMembers(
 	qualified: string,
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): HostMember[] {
 	return hostModelIndex(model).membersByType.get(qualified)?.members ?? [];
 }
@@ -99,7 +99,7 @@ export function getHostMembers(
  */
 export function resolveHostGlobal(
 	name: string,
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): string | undefined {
 	const lower = name.toLowerCase();
 	for (const [key, type] of Object.entries(model.globals)) {
@@ -113,7 +113,7 @@ export function resolveHostGlobal(
 /** Resolves a host enum constant such as `xlUp` or `xlCalculationAutomatic`. */
 export function resolveHostConstant(
 	name: string,
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): HostConstant | undefined {
 	return hostConstantIndex(model).get(name.toLowerCase());
 }
@@ -127,7 +127,7 @@ export function resolveHostConstant(
 export function resolveHostMemberSignature(
 	qualified: string,
 	member: string,
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): string | undefined {
 	const lower = member.toLowerCase();
 	const typeIndex = hostModelIndex(model).membersByType.get(qualified);
@@ -149,14 +149,14 @@ export interface HostGlobal {
 
 /** Returns all host-injected globals (canonical casing) of the model. */
 export function getHostGlobals(
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): HostGlobal[] {
 	return Object.entries(model.globals).map(([name, type]) => ({ name, type }));
 }
 
 /** Returns all host enum constants (canonical casing) of the model. */
 export function getHostConstants(
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): HostConstant[] {
 	return Object.values(model.constants ?? {});
 }
@@ -168,7 +168,7 @@ export function getHostConstants(
  */
 export function resolveHostAlias(
 	typeName: string,
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): string | undefined {
 	if (!typeName) {
 		return undefined;
@@ -194,7 +194,7 @@ export function resolveHostAlias(
 export function resolveMemberReturnType(
 	qualified: string,
 	memberName: string,
-	model: HostObjectModel = EXCEL_OBJECT_MODEL,
+	model: HostObjectModel = getExcelObjectModel(),
 ): string | undefined {
 	const member = hostModelIndex(model).membersByType
 		.get(qualified)?.byLowerName.get(memberName.toLowerCase());
