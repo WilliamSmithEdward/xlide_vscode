@@ -7,7 +7,7 @@ import {
     settingsPathForWorkbook,
 } from './workbookSettings';
 import { registerXlideCommand } from './xlideCommandRegistration';
-import { activeLocalVbaEditor, decodeModuleUri, sameWorkbookPath } from './xlideFileSystem';
+import { activeLocalVbaEditor, decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
 import {
     buildXlideSidebarModel,
     type XlideSidebarActiveWorkbook,
@@ -38,6 +38,9 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
     private _view: vscode.WebviewView | undefined;
     private _refreshVersion = 0;
     private _selectedWorkbookPath: string | undefined;
+    private _lastSelectionSource: XlideSidebarActiveWorkbook['selectionSource'] | undefined;
+    private _lastRenderedModelJson: string | undefined;
+    private _workbookFilesPromise: Promise<vscode.Uri[]> | undefined;
 
     constructor(private readonly _options: XlideSidebarOptions = {}) {
         this._selectedWorkbookPath = _options.workspaceState?.get<string>(SELECTED_WORKBOOK_KEY);
@@ -47,8 +50,23 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         void this._render();
     }
 
+    /** Drops the cached workspace workbook scan; the next render re-globs. */
+    invalidateWorkbookFiles(): void {
+        this._workbookFilesPromise = undefined;
+    }
+
+    /**
+     * An editor change only affects the model when an XLIDE editor became
+     * active or the displayed workbook was derived from the active editor.
+     */
+    shouldRefreshForActiveEditorChange(editor: vscode.TextEditor | undefined): boolean {
+        return editor?.document.uri.scheme === XLIDE_SCHEME ||
+            this._lastSelectionSource === 'activeEditor';
+    }
+
     resolveWebviewView(view: vscode.WebviewView): void {
         this._view = view;
+        this._lastRenderedModelJson = undefined;
         view.webview.options = { enableScripts: true };
         view.webview.onDidReceiveMessage((message: unknown) => {
             void this._handleMessage(message);
@@ -56,10 +74,16 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         this.refresh();
     }
 
+    private _workbookFiles(): Promise<vscode.Uri[]> {
+        this._workbookFilesPromise ??= workbookFiles();
+        return this._workbookFilesPromise;
+    }
+
     private async _model(): Promise<XlideSidebarNode[]> {
-        const workbooks = await workbookFiles();
+        const workbooks = await this._workbookFiles();
         const selectedWorkbookPath = await this._validSelectedWorkbookPath(workbooks);
         const activeWorkbook = await activeWorkbookContext(workbooks, selectedWorkbookPath);
+        this._lastSelectionSource = activeWorkbook?.selectionSource;
         return buildXlideSidebarModel({
             workbookChoices: workbookChoices(workbooks),
             activeWorkbook,
@@ -80,6 +104,12 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
                 trace.end('superseded');
                 return;
             }
+            const modelJson = JSON.stringify(model);
+            if (modelJson === this._lastRenderedModelJson) {
+                trace.end('ok', 'unchanged');
+                return;
+            }
+            this._lastRenderedModelJson = modelJson;
             this._view.webview.html = renderXlideSidebarHtml(model);
             trace.end('ok', `${model.length} nodes`);
         } catch (err) {
@@ -105,7 +135,7 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     private async _selectWorkbook(filePath: string | undefined): Promise<void> {
-        const workbooks = await workbookFiles();
+        const workbooks = await this._workbookFiles();
         const workbook = filePath
             ? findWorkbook(workbooks, filePath)
             : undefined;
@@ -141,16 +171,26 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
     const view = vscode.window.registerWebviewViewProvider('xlide.sidebar', provider, {
         webviewOptions: { retainContextWhenHidden: true },
     });
+    const scheduleRefresh = debounce(() => provider.refresh(), 200);
+    const workbookFilesChanged = () => {
+        provider.invalidateWorkbookFiles();
+        scheduleRefresh();
+    };
 
     const disposables = [
         view,
+        scheduleRefresh,
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration('xlide')) {
-                provider.refresh();
+                scheduleRefresh();
             }
         }),
-        vscode.workspace.onDidChangeWorkspaceFolders(() => provider.refresh()),
-        vscode.window.onDidChangeActiveTextEditor(() => provider.refresh()),
+        vscode.workspace.onDidChangeWorkspaceFolders(workbookFilesChanged),
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (provider.shouldRefreshForActiveEditorChange(editor)) {
+                scheduleRefresh();
+            }
+        }),
         vscode.commands.registerCommand('xlide.openWorkbookSettings', async (settingsPath?: string) => {
             if (!settingsPath) {
                 vscode.window.showWarningMessage('XLIDE: No workbook settings file is available.');
@@ -174,19 +214,17 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
             }
         }),
         (() => {
-            const refresh = debounce(() => provider.refresh(), 200);
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
-            watcher.onDidCreate(refresh);
-            watcher.onDidDelete(refresh);
-            return vscode.Disposable.from(watcher, refresh);
+            watcher.onDidCreate(workbookFilesChanged);
+            watcher.onDidDelete(workbookFilesChanged);
+            return watcher;
         })(),
         (() => {
-            const refresh = debounce(() => provider.refresh(), 200);
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.xlide_settings.json');
-            watcher.onDidCreate(refresh);
-            watcher.onDidChange(refresh);
-            watcher.onDidDelete(refresh);
-            return vscode.Disposable.from(watcher, refresh);
+            watcher.onDidCreate(scheduleRefresh);
+            watcher.onDidChange(scheduleRefresh);
+            watcher.onDidDelete(scheduleRefresh);
+            return watcher;
         })(),
     ];
 
