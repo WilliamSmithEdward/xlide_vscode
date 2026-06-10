@@ -1,15 +1,3 @@
-export const DEFAULT_VBA_TEST_HOST_ORACLE_CONTRACT = {
-    excelInstance: 'single-owned-instance',
-    workbookOpenMode: 'read-only',
-    attachToUserExcelByDefault: false,
-    closeWorkbookWithoutSaving: true,
-    requiresPerTestTimeout: true,
-    cleanupOwnedExcelOnHang: true,
-    detectsExcelModals: true,
-    dismissesSafeModalsWithoutSendKeys: true,
-    blocksUnsafeModals: true,
-} as const;
-
 export type VbaTestHostOracleIssueCode =
     | 'empty-trace'
     | 'single-owned-excel-instance'

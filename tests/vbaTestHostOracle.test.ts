@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-    DEFAULT_VBA_TEST_HOST_ORACLE_CONTRACT,
     validateVbaTestHostOracleTrace,
     type VbaTestHostOracleEvent,
 } from '../src/vbaTestHostOracle';
@@ -26,13 +25,6 @@ describe('VBA test host oracle', () => {
             { kind: 'excel-quit', excelId: 'xlide-1' },
         ];
 
-        expect(DEFAULT_VBA_TEST_HOST_ORACLE_CONTRACT).toMatchObject({
-            excelInstance: 'single-owned-instance',
-            workbookOpenMode: 'read-only',
-            attachToUserExcelByDefault: false,
-            detectsExcelModals: true,
-            dismissesSafeModalsWithoutSendKeys: true,
-        });
         expect(validateVbaTestHostOracleTrace(events)).toEqual([]);
     });
 
