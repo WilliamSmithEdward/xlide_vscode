@@ -137,6 +137,10 @@ export class XlideFileSystemProvider
             this.bumpStat(uri);
             this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
         };
+        liveShare.onHostModuleWritten = (workbookPath, moduleName, signatureDropped) => {
+            notifySignatureDropped(workbookPath, signatureDropped);
+            this.notifyFileChanged(encodeModuleUri(workbookPath, moduleName));
+        };
     }
 
     // ------------------------------------------------------------------
