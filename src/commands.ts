@@ -2363,87 +2363,63 @@ export function registerCommands(
         registerXlideCommand('xlide.exportModulesToFolder', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
-
-            try {
-                await showExportModulesDiffGui(filePath);
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[exportModules] Error: ${message}`);
-                recordWriteAudit({
-                    command: 'xlide.exportModulesToFolder',
-                    operation: 'export-modules',
-                    outcome: 'failed',
-                    workbookPath: filePath,
-                    summary: 'Export modules: 0 changed, 1 failed',
-                    error: err,
-                });
-                vscode.window.showErrorMessage(`XLIDE: Failed to export modules: ${message}`);
-            }
+            await showExportModulesDiffGui(filePath);
+        }, {
+            errorPrefix: 'Failed to export modules',
+            logTag: 'exportModules',
+            log,
+            onError: (err, node) => recordWriteAudit({
+                command: 'xlide.exportModulesToFolder',
+                operation: 'export-modules',
+                outcome: 'failed',
+                workbookPath: resolveWorkbookPath(node),
+                summary: 'Export modules: 0 changed, 1 failed',
+                error: err,
+            }),
         }),
 
         // Save and export just the active VBA module to the configured module folder
-        registerXlideCommand('xlide.exportCurrentModuleToFolder', async () => {
-            try {
-                await exportActiveModule();
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[exportCurrentModule] Error: ${message}`);
-                recordWriteAudit({
-                    command: 'xlide.exportCurrentModuleToFolder',
-                    operation: 'export-current-module',
-                    outcome: 'failed',
-                    workbookPath: await activeLocalWorkbookPath(),
-                    summary: 'Export current module: 0 changed, 1 failed',
-                    error: err,
-                });
-                vscode.window.showErrorMessage(`XLIDE: Failed to export current module: ${message}`);
-            }
+        registerXlideCommand('xlide.exportCurrentModuleToFolder', () => exportActiveModule(), {
+            errorPrefix: 'Failed to export current module',
+            logTag: 'exportCurrentModule',
+            log,
+            onError: async (err) => recordWriteAudit({
+                command: 'xlide.exportCurrentModuleToFolder',
+                operation: 'export-current-module',
+                outcome: 'failed',
+                workbookPath: await activeLocalWorkbookPath(),
+                summary: 'Export current module: 0 changed, 1 failed',
+                error: err,
+            }),
         }),
 
         // Import selected module files from the configured (or user-chosen) export folder
         registerXlideCommand('xlide.importModulesFromFolder', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) { return; }
-
-            try {
-                await showImportModulesDiffGui(filePath);
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[importModules] Error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Import failed: ${message}`);
-            }
-        }),
+            await showImportModulesDiffGui(filePath);
+        }, { errorPrefix: 'Import failed', logTag: 'importModules', log }),
 
         // Export a redacted local diagnostic snapshot for support/self-debugging.
-        registerXlideCommand('xlide.exportSupportBundle', async () => {
-            try {
-                await exportSupportBundle();
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[supportBundle] Error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Failed to export support bundle: ${message}`);
-            }
+        registerXlideCommand('xlide.exportSupportBundle', () => exportSupportBundle(), {
+            errorPrefix: 'Failed to export support bundle',
+            logTag: 'supportBundle',
+            log,
         }),
 
-        registerXlideCommand('xlide.copyDiagnostics', async () => {
-            try {
-                await copyDiagnostics();
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[copyDiagnostics] Error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Failed to copy diagnostics: ${message}`);
-            }
+        registerXlideCommand('xlide.copyDiagnostics', () => copyDiagnostics(), {
+            errorPrefix: 'Failed to copy diagnostics',
+            logTag: 'copyDiagnostics',
+            log,
         }),
 
         registerXlideCommand('xlide.copyPerformanceSnapshot', async () => {
-            try {
-                await vscode.env.clipboard.writeText(formatPerformanceSnapshot());
-                vscode.window.showInformationMessage('XLIDE: Performance snapshot copied to clipboard.');
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[copyPerformanceSnapshot] Error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Failed to copy performance snapshot: ${message}`);
-            }
+            await vscode.env.clipboard.writeText(formatPerformanceSnapshot());
+            vscode.window.showInformationMessage('XLIDE: Performance snapshot copied to clipboard.');
+        }, {
+            errorPrefix: 'Failed to copy performance snapshot',
+            logTag: 'copyPerformanceSnapshot',
+            log,
         }),
 
         // DEV: smoke test — verifies listModules + readModule against a workspace workbook
@@ -2519,39 +2495,29 @@ export function registerCommands(
             await vscode.window.withProgress(
                 { location: vscode.ProgressLocation.Notification, title: `XLIDE: Validating "${name}"...`, cancellable: false },
                 async () => {
-                    try {
-                        const res = await bridge.call<{ issues: string[] }>('validateWorkbook', { path: filePath });
-                        const issues = res.issues ?? [];
-                        if (issues.length === 0) {
-                            log(`[validate] "${name}": no issues`);
-                            void vscode.window.showInformationMessage(`XLIDE: "${name}" passed validation (no issues).`);
-                            return;
-                        }
-                        log(`[validate] "${name}": ${issues.length} issue(s):`);
-                        for (const issue of issues) {
-                            log(`[validate]   - ${issue}`);
-                        }
-                        void vscode.window.showWarningMessage(
-                            `XLIDE: "${name}" has ${issues.length} validation issue(s). See XLIDE Output for details.`,
-                        );
-                    } catch (err) {
-                        const msg = errorMessage(err);
-                        log(`[validate] FAILED: ${msg}`);
-                        vscode.window.showErrorMessage(`XLIDE: Validation failed: ${msg}`);
+                    const res = await bridge.call<{ issues: string[] }>('validateWorkbook', { path: filePath });
+                    const issues = res.issues ?? [];
+                    if (issues.length === 0) {
+                        log(`[validate] "${name}": no issues`);
+                        void vscode.window.showInformationMessage(`XLIDE: "${name}" passed validation (no issues).`);
+                        return;
                     }
+                    log(`[validate] "${name}": ${issues.length} issue(s):`);
+                    for (const issue of issues) {
+                        log(`[validate]   - ${issue}`);
+                    }
+                    void vscode.window.showWarningMessage(
+                        `XLIDE: "${name}" has ${issues.length} validation issue(s). See XLIDE Output for details.`,
+                    );
                 },
             );
-        }),
+        }, { errorPrefix: 'Validation failed', logTag: 'validate', log }),
 
         // Analyze the active VBA module using the same source text the editor shows.
-        registerXlideCommand('xlide.analyzeCurrentModule', async () => {
-            try {
-                await analyzeActiveModule();
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[analyzeCurrentModule] Error: ${message}`);
-                vscode.window.showErrorMessage(`XLIDE: Failed to analyze current module: ${message}`);
-            }
+        registerXlideCommand('xlide.analyzeCurrentModule', () => analyzeActiveModule(), {
+            errorPrefix: 'Failed to analyze current module',
+            logTag: 'analyzeCurrentModule',
+            log,
         }),
 
         // Analyze every VBA module in the workbook and show a navigable results panel.
@@ -2619,19 +2585,13 @@ export function registerCommands(
             await vscode.window.withProgress(
                 { location: vscode.ProgressLocation.Notification, title: `XLIDE: Creating "${name}"...`, cancellable: false },
                 async () => {
-                    try {
-                        await bridge.call<{ ok: boolean; path: string }>('createWorkbook', { path: filePath });
-                        log(`[newWorkbook] Created "${filePath}"`);
-                        explorer.refresh();
-                        void vscode.window.showInformationMessage(`XLIDE: Created "${name}".`);
-                    } catch (err) {
-                        const msg = errorMessage(err);
-                        log(`[newWorkbook] FAILED: ${msg}`);
-                        vscode.window.showErrorMessage(`XLIDE: Failed to create workbook: ${msg}`);
-                    }
+                    await bridge.call<{ ok: boolean; path: string }>('createWorkbook', { path: filePath });
+                    log(`[newWorkbook] Created "${filePath}"`);
+                    explorer.refresh();
+                    void vscode.window.showInformationMessage(`XLIDE: Created "${name}".`);
                 },
             );
-        }),
+        }, { errorPrefix: 'Failed to create workbook', logTag: 'newWorkbook', log }),
 
         // Open the workbook in Excel (editable)
         registerXlideCommand('xlide.openWorkbook', async (node: XlideNode) => {
