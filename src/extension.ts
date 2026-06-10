@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const bridge = new PythonBridge(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
-    const explorer = new XlsmExplorer(bridge);
+    const explorer = new XlsmExplorer(bridge, out);
     const liveShare = new LiveShareIntegration(bridge, out);
     fsProvider.setLiveShare(liveShare);
     explorer.setLiveShare(liveShare);
