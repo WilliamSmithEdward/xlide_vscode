@@ -83,3 +83,30 @@ export function allowedAnalysisRuleSeverityOverrides(
 ): readonly AnalysisRuleSeverityOverride[] {
     return allowedDiagnosticSeverityOverridesForCode(code);
 }
+
+/**
+ * Validates rule-severity-override entries against the known rule set,
+ * reporting each invalid entry as `Expected "<prefix>.<rawCode>" <requirement>`
+ * via the caller-supplied sink (throwing or collecting). Returns the
+ * normalized valid entries.
+ */
+export function validateAnalysisRuleSeverityOverrideEntries(
+    value: Record<string, unknown>,
+    reportEntry: (rawCode: string, requirement: string) => void,
+): AnalysisRuleSeverityOverrides {
+    const parsed: Record<string, AnalysisRuleSeverityOverride> = {};
+    for (const [rawCode, rawSeverity] of Object.entries(value)) {
+        const code = normalizeAnalysisRuleCode(rawCode);
+        const allowed = allowedAnalysisRuleSeverityOverrides(code);
+        if (!code || allowed.length === 0) {
+            reportEntry(rawCode, 'to target a known analysis rule that permits severity overrides.');
+            continue;
+        }
+        if (typeof rawSeverity !== 'string' || !allowed.includes(rawSeverity as AnalysisRuleSeverityOverride)) {
+            reportEntry(rawCode, `to be one of: ${allowed.join(', ')}.`);
+            continue;
+        }
+        parsed[code] = rawSeverity as AnalysisRuleSeverityOverride;
+    }
+    return normalizeAnalysisRuleSeverityOverrides(parsed);
+}

@@ -2,12 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ImportMode } from './moduleSyncPlan';
 import {
-    allowedAnalysisRuleSeverityOverrides,
+    ANALYSIS_SEVERITIES,
     normalizeAnalysisRuleCodes,
-    normalizeAnalysisRuleCode,
     normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
-    type AnalysisRuleSeverityOverride,
+    validateAnalysisRuleSeverityOverrideEntries,
     type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
@@ -242,13 +241,13 @@ function expectSeverityList(value: unknown, configPath: string, fieldPath: strin
     if (!Array.isArray(value)) {
         throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be an array.`);
     }
-    const allowed = new Set<string>(['error', 'warning', 'information']);
+    const allowed = new Set<string>(ANALYSIS_SEVERITIES);
     const parsed: AnalysisSeverityFilter[] = [];
     for (const entry of value) {
         if (typeof entry !== 'string' || !allowed.has(entry)) {
             throw new WorkbookSettingsError(
                 configPath,
-                `Expected "${fieldPath}" entries to be "error", "warning", or "information".`,
+                `Expected "${fieldPath}" entries to be one of: ${ANALYSIS_SEVERITIES.join(', ')}.`,
             );
         }
         parsed.push(entry as AnalysisSeverityFilter);
@@ -277,25 +276,10 @@ function expectRuleSeverityOverrides(
     if (!isPlainObject(value)) {
         throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}" to be a JSON object.`);
     }
-    const parsed: Record<string, AnalysisRuleSeverityOverride> = {};
-    for (const [rawCode, rawSeverity] of Object.entries(value)) {
-        const code = normalizeAnalysisRuleCode(rawCode);
-        const allowed = allowedAnalysisRuleSeverityOverrides(code);
-        if (!code || allowed.length === 0) {
-            throw new WorkbookSettingsError(
-                configPath,
-                `Expected "${fieldPath}.${rawCode}" to target a known analysis rule that permits severity overrides.`,
-            );
-        }
-        if (typeof rawSeverity !== 'string' || !allowed.includes(rawSeverity as AnalysisRuleSeverityOverride)) {
-            throw new WorkbookSettingsError(
-                configPath,
-                `Expected "${fieldPath}.${rawCode}" to be one of: ${allowed.join(', ')}.`,
-            );
-        }
-        parsed[code] = rawSeverity as AnalysisRuleSeverityOverride;
-    }
-    return Object.keys(parsed).length > 0 ? normalizeAnalysisRuleSeverityOverrides(parsed) : undefined;
+    const parsed = validateAnalysisRuleSeverityOverrideEntries(value, (rawCode, requirement) => {
+        throw new WorkbookSettingsError(configPath, `Expected "${fieldPath}.${rawCode}" ${requirement}`);
+    });
+    return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
 

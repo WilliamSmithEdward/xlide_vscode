@@ -1,15 +1,14 @@
 import type * as vscode from 'vscode';
 import {
     ANALYSIS_SEVERITIES,
-    allowedAnalysisRuleSeverityOverrides,
     normalizeKnownAnalysisRuleCodes,
     normalizeAnalysisRuleCodes,
     normalizeAnalysisRuleCode,
     normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
     setAnalysisRuleTrackedInList,
+    validateAnalysisRuleSeverityOverrideEntries,
     type AnalysisRuleTrackingUpdate,
-    type AnalysisRuleSeverityOverride,
     type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
@@ -473,23 +472,9 @@ function expectRuleSeverityOverrides(
         problems.push(problem(key, `Expected "xlide.${key}" to be an object keyed by analysis rule code.`));
         return;
     }
-    for (const [rawCode, rawSeverity] of Object.entries(value)) {
-        const code = normalizeAnalysisRuleCode(rawCode);
-        const allowed = allowedAnalysisRuleSeverityOverrides(code);
-        if (!code || allowed.length === 0) {
-            problems.push(problem(
-                key,
-                `Expected "xlide.${key}.${rawCode}" to target a known analysis rule that permits severity overrides.`,
-            ));
-            continue;
-        }
-        if (typeof rawSeverity !== 'string' || !allowed.includes(rawSeverity as AnalysisRuleSeverityOverride)) {
-            problems.push(problem(
-                key,
-                `Expected "xlide.${key}.${rawCode}" to be one of: ${allowed.join(', ')}.`,
-            ));
-        }
-    }
+    validateAnalysisRuleSeverityOverrideEntries(value as Record<string, unknown>, (rawCode, requirement) => {
+        problems.push(problem(key, `Expected "xlide.${key}.${rawCode}" ${requirement}`));
+    });
 }
 
 function problem(key: string, message: string): XlideGlobalSettingsProblem {
