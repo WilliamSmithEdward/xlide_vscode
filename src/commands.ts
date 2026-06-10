@@ -1175,100 +1175,40 @@ export function registerCommands(
         return { editor, xlsmPath, moduleName };
     }
 
-    async function resolveWorkbookExportFolder(
+    async function resolveModuleSyncFolder(
         filePath: string,
-        openLabel: string,
+        direction: 'export' | 'import',
+        options: { promptIfMissing?: boolean; openLabel?: string } = {},
     ): Promise<ResolvedModuleSyncSettings | undefined> {
         const existing = await effectiveWorkbookModuleSyncSettings(filePath);
+        const modeFields = direction === 'export'
+            ? { exportMode: existing.exportMode, exportModeSource: existing.exportModeSource }
+            : { importMode: existing.importMode, importModeSource: existing.importModeSource };
         if (existing.folderPath) {
             return {
                 folderPath: existing.folderPath,
                 folderPathSource: existing.folderPathSource,
-                exportMode: existing.exportMode,
-                exportModeSource: existing.exportModeSource,
+                ...modeFields,
                 settingsPath: existing.settingsPath,
             };
         }
-
-        const selected = await vscode.window.showOpenDialog({
-            canSelectFiles: false,
-            canSelectFolders: true,
-            canSelectMany: false,
-            openLabel,
-            defaultUri: vscode.Uri.file(path.dirname(filePath)),
-        });
-        if (!selected || selected.length === 0) {
+        if (!options.promptIfMissing) {
             return undefined;
         }
-        return {
-            folderPath: selected[0].fsPath,
-            folderPathSource: 'session',
-            exportMode: existing.exportMode,
-            exportModeSource: existing.exportModeSource,
-            settingsPath: existing.settingsPath,
-        };
-    }
-
-    async function resolveWorkbookImportFolder(
-        filePath: string,
-    ): Promise<ResolvedModuleSyncSettings | undefined> {
-        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
-        if (existing.folderPath) {
-            return {
-                folderPath: existing.folderPath,
-                folderPathSource: existing.folderPathSource,
-                importMode: existing.importMode,
-                importModeSource: existing.importModeSource,
-                settingsPath: existing.settingsPath,
-            };
-        }
 
         const selected = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select folder to import from',
+            openLabel: options.openLabel ?? 'Select folder to import from',
             defaultUri: vscode.Uri.file(path.dirname(filePath)),
         });
         return selected?.[0]?.fsPath ? {
             folderPath: selected[0].fsPath,
             folderPathSource: 'session',
-            importMode: existing.importMode,
-            importModeSource: existing.importModeSource,
+            ...modeFields,
             settingsPath: existing.settingsPath,
         } : undefined;
-    }
-
-    async function resolveWorkbookExportFolderFromSettings(
-        filePath: string,
-    ): Promise<ResolvedModuleSyncSettings | undefined> {
-        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
-        if (!existing.folderPath) {
-            return undefined;
-        }
-        return {
-            folderPath: existing.folderPath,
-            folderPathSource: existing.folderPathSource,
-            exportMode: existing.exportMode,
-            exportModeSource: existing.exportModeSource,
-            settingsPath: existing.settingsPath,
-        };
-    }
-
-    async function resolveWorkbookImportFolderFromSettings(
-        filePath: string,
-    ): Promise<ResolvedModuleSyncSettings | undefined> {
-        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
-        if (!existing.folderPath) {
-            return undefined;
-        }
-        return {
-            folderPath: existing.folderPath,
-            folderPathSource: existing.folderPathSource,
-            importMode: existing.importMode,
-            importModeSource: existing.importModeSource,
-            settingsPath: existing.settingsPath,
-        };
     }
 
     async function chooseModuleSyncFolder(
@@ -1335,14 +1275,14 @@ export function registerCommands(
     async function buildExportSyncPlanFromWorkbookSettings(
         filePath: string,
     ): Promise<ModuleSyncPlan | undefined> {
-        const settings = await resolveWorkbookExportFolderFromSettings(filePath);
+        const settings = await resolveModuleSyncFolder(filePath, 'export');
         return settings ? buildExportSyncPlanFromSettings(filePath, settings) : undefined;
     }
 
     async function buildImportSyncPlanFromWorkbookSettings(
         filePath: string,
     ): Promise<ModuleSyncPlan | undefined> {
-        const settings = await resolveWorkbookImportFolderFromSettings(filePath);
+        const settings = await resolveModuleSyncFolder(filePath, 'import');
         return settings ? buildImportSyncPlanFromSettings(filePath, settings) : undefined;
     }
 
@@ -1398,7 +1338,7 @@ export function registerCommands(
         }
 
         const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
-        const target = await resolveWorkbookExportFolder(xlsmPath, 'Select export folder');
+        const target = await resolveModuleSyncFolder(xlsmPath, 'export', { promptIfMissing: true, openLabel: 'Select export folder' });
         if (!target) {
             return;
         }
@@ -1436,7 +1376,7 @@ export function registerCommands(
     }
 
     async function showExportModulesDiffGui(filePath: string): Promise<void> {
-        const target = await resolveWorkbookExportFolder(filePath, 'Select export folder');
+        const target = await resolveModuleSyncFolder(filePath, 'export', { promptIfMissing: true, openLabel: 'Select export folder' });
         if (!target) {
             return;
         }
@@ -1481,7 +1421,7 @@ export function registerCommands(
     }
 
     async function showImportModulesDiffGui(filePath: string): Promise<void> {
-        const target = await resolveWorkbookImportFolder(filePath);
+        const target = await resolveModuleSyncFolder(filePath, 'import', { promptIfMissing: true });
         if (!target) {
             return;
         }
