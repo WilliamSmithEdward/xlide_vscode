@@ -15,6 +15,7 @@ import {
     type WorkbookSettingSource,
 } from './workbookSettings';
 import { measurePerformance } from './performanceTrace';
+import { isVbaAttributeLine, normalizeEol } from './vbaStructuralAnalysis';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
@@ -127,7 +128,7 @@ export async function buildExportModuleSyncPlan(
             : '';
         const liveDisplaySource = editorPreviewSource(liveSource);
         const repoDisplaySource = editorPreviewSource(repoSource);
-        const equal = existsInRepo && normalizeText(liveSource) === normalizeText(repoSource);
+        const equal = existsInRepo && normalizeEol(liveSource) === normalizeEol(repoSource);
         const status: ModuleSyncItemStatus = equal
             ? 'unchanged'
             : existsInRepo
@@ -250,7 +251,7 @@ export async function buildImportModuleSyncPlan(
             : '';
         const repoDisplaySource = editorPreviewSource(repo.source);
         const workbookDisplaySource = editorPreviewSource(workbookSource);
-        const equal = existsInWorkbook && normalizeText(repo.source) === normalizeText(workbookSource);
+        const equal = existsInWorkbook && normalizeEol(repo.source) === normalizeEol(workbookSource);
         const status: ModuleSyncItemStatus = unsupportedDirectCreation
             ? 'skipping-import'
             : equal
@@ -474,9 +475,7 @@ function importWorkbookTitle(moduleName: string, status: ModuleSyncItemStatus): 
 }
 
 export function editorPreviewSource(source: string): string {
-    const lines = source
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
+    const lines = normalizeEol(source)
         .split('\n')
         .filter((line) => !isVbaAttributeLine(line));
     while (lines.length > 0 && lines[0].trim() === '') {
@@ -561,15 +560,7 @@ function splitLines(text: string): string[] {
     if (text.length === 0) {
         return [];
     }
-    return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-}
-
-function isVbaAttributeLine(line: string): boolean {
-    return /^\s*Attribute\s+(?:VB_[A-Za-z0-9_]+|[A-Za-z_][\w.]*\.VB_[A-Za-z0-9_]+)\s*=/.test(line);
-}
-
-function normalizeText(text: string): string {
-    return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    return normalizeEol(text).split('\n');
 }
 
 async function fileExists(filePath: string): Promise<boolean> {

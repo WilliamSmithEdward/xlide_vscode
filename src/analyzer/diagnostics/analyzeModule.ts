@@ -23,7 +23,7 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isReservedIdentifier } from '../lexer/keywordTable';
-import { VBA_IDENTIFIER_NAME_RE } from '../../vbaStructuralAnalysis';
+import { detectEol, VBA_IDENTIFIER_NAME_RE } from '../../vbaStructuralAnalysis';
 import {
 	getHostMembers,
 	resolveHostAlias,
@@ -1290,7 +1290,7 @@ function createProcedureStubData(
 	if (!params) {
 		return undefined;
 	}
-	const eol = detectSourceEol(source);
+	const eol = detectEol(source);
 	const leading = source.length === 0
 		? ''
 		: `${source.endsWith('\n') || source.endsWith('\r') ? '' : eol}${endsWithBlankPhysicalLine(source) ? '' : eol}`;
@@ -1341,9 +1341,6 @@ function isGeneratedStubIdentifier(name: string): boolean {
 	return VBA_IDENTIFIER_NAME_RE.test(name) && !isReservedIdentifier(name);
 }
 
-function detectSourceEol(source: string): string {
-	return source.includes('\r\n') ? '\r\n' : '\n';
-}
 
 function endsWithBlankPhysicalLine(source: string): boolean {
 	return /(?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n)$/.test(source);

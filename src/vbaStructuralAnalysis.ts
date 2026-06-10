@@ -465,6 +465,21 @@ export function leadingWhitespace(text: string): string {
     return /^[ \t]*/.exec(text)?.[0] ?? '';
 }
 
+/** Normalizes CR, CRLF, and LF line terminators to LF. */
+export function normalizeEol(text: string): string {
+    return text.replace(/\r\n|\r/g, '\n');
+}
+
+/** Line terminator to use when re-serializing edits to `source`. */
+export function detectEol(source: string): string {
+    return source.includes('\r\n') ? '\r\n' : '\n';
+}
+
+/** True for VBE attribute header lines such as `Attribute VB_Name = "..."`. */
+export function isVbaAttributeLine(line: string): boolean {
+    return /^\s*Attribute\s+(?:VB_[A-Za-z0-9_]+|[A-Za-z_][\w.]*\.VB_[A-Za-z0-9_]+)\s*=/.test(line);
+}
+
 /**
  * Finds whole-word identifier occurrences while ignoring strings and comments.
  * Offsets are absolute source offsets so callers do not recompute line starts.

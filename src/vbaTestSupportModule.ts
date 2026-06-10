@@ -1,3 +1,5 @@
+import { isVbaAttributeLine, normalizeEol } from './vbaStructuralAnalysis';
+
 export const XLIDE_ASSERT_MODULE_NAME = 'XlideAssert';
 
 export const XLIDE_ASSERT_MODULE_SOURCE = [
@@ -281,10 +283,9 @@ export const XLIDE_ASSERT_MODULE_SOURCE = [
 ].join('\r\n');
 
 export function normalizeVbaTestSupportModuleSource(source: string): string {
-    return source
-        .replace(/\r\n|\r/g, '\n')
+    return normalizeEol(source)
         .split('\n')
-        .filter((line) => !/^\s*Attribute\s+VB_/i.test(line))
+        .filter((line) => !isVbaAttributeLine(line))
         .join('\n')
         .trim();
 }

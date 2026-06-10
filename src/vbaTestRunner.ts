@@ -2,7 +2,7 @@ import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import { parseModule } from './analyzer/parser/parseModule';
 import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes';
-import { lineStartOffsets } from './vbaStructuralAnalysis';
+import { lineStartOffsets, normalizeEol } from './vbaStructuralAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
 import { errorMessage } from './util/errors';
@@ -394,7 +394,7 @@ export function vbaTestFailureMessage(error: unknown): string {
 }
 
 function cleanVbaTestFailureMessage(raw: string): string {
-    const text = raw.replace(/\r\n|\r/g, '\n').trim();
+    const text = normalizeEol(raw).trim();
     if (!text) {
         return text;
     }
