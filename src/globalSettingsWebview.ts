@@ -14,8 +14,11 @@ import {
     setXlideGlobalAnalysisRuleSeverityOverride,
     setXlideGlobalSettingValue,
     validateXlideGlobalSettingsFromConfig,
+    xlideGlobalSettingCards,
     type ResolvedXlideGlobalSetting,
+    type XlideGlobalSettingCard,
     type XlideGlobalSettingKey,
+    type XlideGlobalSettingSection,
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
@@ -49,6 +52,13 @@ interface XlideGlobalSettingsMessage {
 }
 
 const SETTING_KEY_SET = new Set<string>(XLIDE_GLOBAL_SETTING_KEYS);
+
+const SETTING_SECTIONS: ReadonlyArray<{ id: XlideGlobalSettingSection; title: string }> = [
+    { id: 'runtime', title: 'Runtime' },
+    { id: 'editor', title: 'Editor And Diagnostics' },
+    { id: 'docs', title: 'Documentation' },
+    { id: 'analysis', title: 'Analysis' },
+];
 
 function registerXlideGlobalSettingsWebview(out: vscode.OutputChannel): vscode.Disposable {
     let panel: vscode.WebviewPanel | undefined;
@@ -431,10 +441,7 @@ function renderXlideGlobalSettingsHtml(
         ${model.problems.length > 0 ? `<div class="problemBanner">${escapeHtml(model.problems.length === 1
         ? model.problems[0].message
         : `${model.problems.length} XLIDE settings need attention.`)}</div>` : ''}
-        ${renderRuntimeSection(model, settingProblems)}
-        ${renderEditorSection(model, settingProblems)}
-        ${renderDocsSection(model, settingProblems)}
-        ${renderAnalysisSection(model, settingProblems)}
+        ${SETTING_SECTIONS.map((section) => renderSettingsSection(model, settingProblems, section)).join('\n        ')}
     </main>
     <div class="toast" id="toast"></div>
     <script nonce="${nonce}">
@@ -584,57 +591,39 @@ function renderXlideGlobalSettingsHtml(
 </html>`;
 }
 
-function renderRuntimeSection(
+function renderSettingsSection(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    section: { id: XlideGlobalSettingSection; title: string },
 ): string {
-    return `<section class="section" aria-label="Runtime">
-        <div class="sectionHeader"><h2>Runtime</h2></div>
+    const cards = xlideGlobalSettingCards().filter((card) => card.section === section.id);
+    return `<section class="section" aria-label="${escapeAttr(section.title)}">
+        <div class="sectionHeader"><h2>${escapeHtml(section.title)}</h2></div>
         <div class="grid">
-            ${renderTextSetting(model, problems, 'pythonPath', 'Python Path')}
-            ${renderBooleanSetting(model, problems, 'attachToRunningExcel', 'Attach To Running Excel')}
+            ${cards.map((card) => renderSettingControl(model, problems, card)).join('\n            ')}
         </div>
     </section>`;
 }
 
-function renderEditorSection(
+function renderSettingControl(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    card: XlideGlobalSettingCard,
 ): string {
-    return `<section class="section" aria-label="Editor And Diagnostics">
-        <div class="sectionHeader"><h2>Editor And Diagnostics</h2></div>
-        <div class="grid">
-            ${renderBooleanSetting(model, problems, 'diagnostics.enabled', 'Diagnostics Enabled')}
-            ${renderEnumSetting(model, problems, 'editor.blockLayout', 'Editor Block Layout', ['comfy', 'compact'])}
-        </div>
-    </section>`;
-}
-
-function renderDocsSection(
-    model: XlideGlobalSettingsModel,
-    problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
-): string {
-    return `<section class="section" aria-label="Documentation">
-        <div class="sectionHeader"><h2>Documentation</h2></div>
-        <div class="grid">
-            ${renderBooleanSetting(model, problems, 'docs.enabled', 'Docs Enabled')}
-            ${renderTextSetting(model, problems, 'docs.metadataGlob', 'Docs Metadata Glob')}
-        </div>
-    </section>`;
-}
-
-function renderAnalysisSection(
-    model: XlideGlobalSettingsModel,
-    problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
-): string {
-    return `<section class="section" aria-label="Analysis">
-        <div class="sectionHeader"><h2>Analysis</h2></div>
-        <div class="grid">
-            ${renderVisibleSeveritiesSetting(model, problems)}
-            ${renderRulePickerSetting(model, problems)}
-            ${renderRuleSeverityOverridesSetting(model, problems)}
-        </div>
-    </section>`;
+    switch (card.control.kind) {
+        case 'text':
+            return renderTextSetting(model, problems, card.key, card.label);
+        case 'boolean':
+            return renderBooleanSetting(model, problems, card.key, card.label);
+        case 'enum':
+            return renderEnumSetting(model, problems, card.key, card.label, card.control.values);
+        case 'severityFilter':
+            return renderVisibleSeveritiesSetting(model, problems, card.key, card.label);
+        case 'rulePicker':
+            return renderRulePickerSetting(model, problems, card.key, card.label);
+        case 'ruleSeverityOverrides':
+            return renderRuleSeverityOverridesSetting(model, problems, card.key, card.label);
+    }
 }
 
 function renderTextSetting(
@@ -682,9 +671,11 @@ function renderEnumSetting(
 function renderVisibleSeveritiesSetting(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    key: XlideGlobalSettingKey,
+    title: string,
 ): string {
-    const selected = new Set(settingValue<AnalysisSeverityFilter[]>(model, 'analysis.visibleSeverities', []));
-    return renderSettingCard(model, problems, 'analysis.visibleSeverities', 'Visible Severities', `
+    const selected = new Set(settingValue<AnalysisSeverityFilter[]>(model, key, []));
+    return renderSettingCard(model, problems, key, title, `
         <div class="severitySet">
             ${ANALYSIS_SEVERITIES.map((severity) => `<label class="severityRow">
                 <input type="checkbox" data-severity-filter value="${escapeAttr(severity)}"${selected.has(severity) ? ' checked' : ''}>
@@ -697,8 +688,10 @@ function renderVisibleSeveritiesSetting(
 function renderRulePickerSetting(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    key: XlideGlobalSettingKey,
+    title: string,
 ): string {
-    const untrackedRules = new Set(settingValue<string[]>(model, 'analysis.untrackedRules', []));
+    const untrackedRules = new Set(settingValue<string[]>(model, key, []));
     const rows = model.rules.map((rule) => {
         const checked = untrackedRules.has(rule.code) ? ' checked' : '';
         const search = `${rule.title} ${rule.code} ${rule.category} ${rule.defaultSeverity}`.toLowerCase();
@@ -714,11 +707,11 @@ function renderRulePickerSetting(
             </span>
         </label>`;
     }).join('');
-    return renderSettingCard(model, problems, 'analysis.untrackedRules', 'Globally Untracked Rules', `
+    return renderSettingCard(model, problems, key, title, `
         <div class="ruleTools">
             <input type="search" id="ruleSearch" aria-label="Search Analysis Rules" placeholder="Search Rules">
         </div>
-        <div class="ruleList" id="ruleList" aria-label="Globally Untracked Rules">
+        <div class="ruleList" id="ruleList" aria-label="${escapeAttr(title)}">
             ${rows || '<div class="empty">No rules</div>'}
         </div>
     `, 'wide');
@@ -727,12 +720,10 @@ function renderRulePickerSetting(
 function renderRuleSeverityOverridesSetting(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    key: XlideGlobalSettingKey,
+    title: string,
 ): string {
-    const overrides = settingValue<Record<string, DiagnosticSeverityOverride>>(
-        model,
-        'analysis.ruleSeverityOverrides',
-        {},
-    );
+    const overrides = settingValue<Record<string, DiagnosticSeverityOverride>>(model, key, {});
     const rules = model.rules
         .filter((rule) => rule.allowedSeverityOverrides.length > 0)
         .sort((left, right) => left.title.localeCompare(right.title) || left.code.localeCompare(right.code));
@@ -746,7 +737,7 @@ function renderRuleSeverityOverridesSetting(
             ${rule.allowedSeverityOverrides.map((severity) => `<option value="${escapeAttr(severity)}"${overrides[rule.code] === severity ? ' selected' : ''}>${escapeHtml(titleCase(severity))}</option>`).join('')}
         </select>
     </div>`).join('');
-    return renderSettingCard(model, problems, 'analysis.ruleSeverityOverrides', 'Rule Severity Overrides', `
+    return renderSettingCard(model, problems, key, title, `
         <div class="overrideList" id="overrideList">
             ${rows || '<div class="empty">No severity overrides available</div>'}
         </div>
