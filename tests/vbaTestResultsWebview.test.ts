@@ -49,7 +49,7 @@ describe('VBA test results webview', () => {
     });
 
     it('renders a rerun failed action when the command surface provides one', () => {
-        const html = renderVbaTestResultsHtml(reportFixture(), undefined, {
+        const html = renderVbaTestResultsHtml(reportFixture(), {
             canRerunFailed: true,
         });
 

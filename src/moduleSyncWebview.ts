@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { ImportMode, ModuleSyncFolderSource, ModuleSyncModeSource, ModuleSyncPlan } from './moduleSyncPlan';
 import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
 import { measurePerformance, measurePerformanceSync } from './performanceTrace';
+import { escapeHtml, randomNonce, scriptJson } from './webview/html';
 
 export interface ModuleSyncApplyResult {
     summary: string;
@@ -215,7 +216,7 @@ export function openModuleSyncPreview(
         panel.webview.html = measurePerformanceSync(
             'moduleSync.renderHtml',
             `${currentPlan.direction}:${currentPlan.items.length} items`,
-            () => renderModuleSyncHtml(panel.webview, currentPlan),
+            () => renderModuleSyncHtml(currentPlan),
         );
         const messageSub = panel.webview.onDidReceiveMessage(async (message: {
             type?: string;
@@ -357,17 +358,17 @@ export function openModuleSyncPreview(
     });
 }
 
-function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): string {
-    const nonce = getNonce();
-    const data = JSON.stringify(plan).replace(/</g, '\\u003c');
+function renderModuleSyncHtml(plan: ModuleSyncPlan): string {
+    const nonce = randomNonce();
+    const data = scriptJson(plan);
     return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(plan.title)}</title>
-    <style>
+    <style nonce="${nonce}">
         :root {
             --border: color-mix(in srgb, var(--vscode-editor-foreground) 18%, transparent);
             --muted: var(--vscode-descriptionForeground);
@@ -1251,23 +1252,6 @@ function renderModuleSyncHtml(webview: vscode.Webview, plan: ModuleSyncPlan): st
     </script>
 </body>
 </html>`;
-}
-
-function getNonce(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let text = '';
-    for (let i = 0; i < 32; i++) {
-        text += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return text;
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 function settingsFromMessage(

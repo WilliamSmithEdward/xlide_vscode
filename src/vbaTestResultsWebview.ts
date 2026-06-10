@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
+import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
 
 export interface VbaTestResultsOptions {
     onRerunFailed?: () => Promise<void>;
@@ -36,7 +37,7 @@ export function openVbaTestResults(
         existing.options = options;
         existing.report = report;
         existing.panel.title = `XLIDE Test Results: ${report.workbookName}`;
-        existing.panel.webview.html = renderVbaTestResultsHtml(existing.panel.webview, report, {
+        existing.panel.webview.html = renderVbaTestResultsHtml(report, {
             canRerunFailed: Boolean(options.onRerunFailed),
         });
         existing.panel.reveal(vscode.ViewColumn.Active);
@@ -88,7 +89,7 @@ export function openVbaTestResults(
             await panel.webview.postMessage({ type: 'error', error });
         }
     });
-    panel.webview.html = renderVbaTestResultsHtml(panel.webview, report, {
+    panel.webview.html = renderVbaTestResultsHtml(report, {
         canRerunFailed: Boolean(options.onRerunFailed),
     });
     context.subscriptions.push(panel);
@@ -104,14 +105,10 @@ export function setVbaTestResultsRunning(filePath: string, running: boolean): vo
 }
 
 export function renderVbaTestResultsHtml(
-    webviewOrReport: vscode.Webview | VbaTestRunReport,
-    maybeReport?: VbaTestRunReport,
+    report: VbaTestRunReport,
     options: VbaTestResultsRenderOptions = {},
 ): string {
-    const report = maybeReport ?? webviewOrReport as VbaTestRunReport;
-    const webview = maybeReport ? webviewOrReport as vscode.Webview : undefined;
     const nonce = randomNonce();
-    const cspSource = webview?.cspSource ?? 'vscode-resource:';
     const summary = summarizeVbaTestRun(report);
     const selectionDescription = describeVbaTestSelection(report.discovery.selection);
     const timing = runTimingSummary(report);
@@ -139,10 +136,10 @@ export function renderVbaTestResultsHtml(
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLIDE VBA Test Results</title>
-    <style>
+    <style nonce="${nonce}">
         :root {
             color-scheme: dark light;
             --xlide-accent-blue: #2d5f94;
@@ -627,28 +624,6 @@ function resultDetailsHtml(result: VbaTestRunItem): string {
             .join('')}</div>`
         : '';
     return `${details}${output}`;
-}
-
-function randomNonce(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let nonce = '';
-    for (let i = 0; i < 32; i++) {
-        nonce += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return nonce;
-}
-
-function escapeHtml(value: unknown): string {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function escapeAttr(value: unknown): string {
-    return escapeHtml(value);
 }
 
 function vbaTestResultsPanelKey(filePath: string): string {

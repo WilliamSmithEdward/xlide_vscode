@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { measurePerformance } from './performanceTrace';
+import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
 
@@ -148,7 +149,7 @@ export function openVbaTestsPanel(
             return;
         }
         panel.title = `XLIDE Tests: ${model.workbookName}`;
-        panel.webview.html = renderVbaTestsHtml(panel.webview, model);
+        panel.webview.html = renderVbaTestsHtml(model);
         });
     };
     entry.refresh = renderPanel;
@@ -192,7 +193,7 @@ export function openVbaTestsPanel(
 
     void renderPanel().catch((err) => {
         const error = err instanceof Error ? err.message : String(err);
-        panel.webview.html = renderVbaTestsErrorHtml(panel.webview, path.basename(filePath), error);
+        panel.webview.html = renderVbaTestsErrorHtml(path.basename(filePath), error);
     });
 
     const messageSub = panel.webview.onDidReceiveMessage(async (message: VbaTestsWebviewMessage) => {
@@ -277,14 +278,8 @@ export function openVbaTestsPanel(
     return panel;
 }
 
-export function renderVbaTestsHtml(
-    webviewOrModel: vscode.Webview | VbaTestsPanelModel,
-    maybeModel?: VbaTestsPanelModel,
-): string {
-    const model = maybeModel ?? webviewOrModel as VbaTestsPanelModel;
-    const webview = maybeModel ? webviewOrModel as vscode.Webview : undefined;
+export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
     const nonce = randomNonce();
-    const cspSource = webview?.cspSource ?? 'vscode-resource:';
     const runEnabled = model.support.canRun && model.runtime.canRun;
     const runDisabled = runEnabled ? '' : 'disabled';
     const installDisabled = model.support.canInstall ? '' : 'disabled';
@@ -333,10 +328,10 @@ export function renderVbaTestsHtml(
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLIDE Tests</title>
-    <style>
+    <style nonce="${nonce}">
         :root {
             --xlide-accent-blue: #2d5f94;
             --xlide-accent-blue-hover: #376fa8;
@@ -967,15 +962,16 @@ export function renderVbaTestsHtml(
 </html>`;
 }
 
-function renderVbaTestsErrorHtml(webview: vscode.Webview, workbookName: string, error: string): string {
+function renderVbaTestsErrorHtml(workbookName: string, error: string): string {
+    const nonce = randomNonce();
     return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLIDE Tests Error</title>
-    <style>
+    <style nonce="${nonce}">
         body {
             margin: 0;
             padding: 24px;
@@ -1146,32 +1142,6 @@ function stringListFromUnknown(value: unknown): string[] {
         result.push(tag);
     }
     return result;
-}
-
-function randomNonce(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let nonce = '';
-    for (let i = 0; i < 32; i++) {
-        nonce += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return nonce;
-}
-
-function escapeHtml(value: unknown): string {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function escapeAttr(value: unknown): string {
-    return escapeHtml(value);
-}
-
-function scriptJson(value: unknown): string {
-    return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 function vbaTestsPanelKey(filePath: string): string {

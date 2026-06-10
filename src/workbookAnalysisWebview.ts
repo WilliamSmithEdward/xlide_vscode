@@ -23,6 +23,7 @@ import {
 import { settingsPathForWorkbook } from './workbookSettings';
 import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
 import { measurePerformance } from './performanceTrace';
+import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
 
 export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';
 
@@ -90,7 +91,6 @@ export function openWorkbookAnalysisResults(
         void existing.renderPanel().catch((err) => {
             const error = err instanceof Error ? err.message : String(err);
             existing.panel.webview.html = renderWorkbookAnalysisErrorHtml(
-                existing.panel.webview,
                 path.basename(result.filePath),
                 error,
             );
@@ -135,7 +135,6 @@ export function openWorkbookAnalysisResults(
         if (disposed) { return; }
         panel.title = `XLIDE Analysis: ${currentModel.workbookName}`;
         panel.webview.html = renderWorkbookAnalysisResultsHtml(
-            panel.webview,
             currentModel,
             analysisSettings,
         );
@@ -247,7 +246,7 @@ export function openWorkbookAnalysisResults(
 
     void renderPanel().catch((err) => {
         const error = err instanceof Error ? err.message : String(err);
-        panel.webview.html = renderWorkbookAnalysisErrorHtml(panel.webview, currentModel.workbookName, error);
+        panel.webview.html = renderWorkbookAnalysisErrorHtml(currentModel.workbookName, error);
     });
     const messageSub = panel.webview.onDidReceiveMessage(async (message: WorkbookAnalysisMessage) => {
         try {
@@ -435,14 +434,13 @@ function isWorkbookDocument(document: vscode.TextDocument, filePath: string): bo
 }
 
 export function renderWorkbookAnalysisResultsHtml(
-    webview: vscode.Webview,
     model: WorkbookAnalysisResultsModel,
     analysisSettings: EffectiveWorkbookAnalysisSettings,
 ): string {
     const nonce = randomNonce();
     const visibleSeverities = analysisSettings.visibleSeverities;
     const untrackedRules = analysisSettings.untrackedRules;
-    const modelJson = JSON.stringify({
+    const modelJson = scriptJson({
         ...model,
         plainText: buildWorkbookAnalysisPlainText(model),
         visibleSeverities,
@@ -451,7 +449,7 @@ export function renderWorkbookAnalysisResultsHtml(
         untrackedRulesSource: analysisSettings.untrackedRulesSource,
         workbookUntrackedRules: analysisSettings.workbookUntrackedRules,
         analysisSettingsKey: workbookAnalysisSettingsKey(analysisSettings),
-    }).replace(/</g, '\\u003c');
+    });
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
     const allRows = [...model.rows, ...model.suppressedRows];
     const rowsHtml = allRows.length === 0
@@ -536,10 +534,10 @@ export function renderWorkbookAnalysisResultsHtml(
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLIDE Analysis Results</title>
-    <style>
+    <style nonce="${nonce}">
         :root {
             color-scheme: light dark;
             --xlide-accent-blue: #2d5f94;
@@ -1840,18 +1838,18 @@ export function renderWorkbookAnalysisResultsHtml(
 }
 
 function renderWorkbookAnalysisErrorHtml(
-    webview: vscode.Webview,
     workbookName: string,
     error: string,
 ): string {
+    const nonce = randomNonce();
     return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLIDE Analysis Error</title>
-    <style>
+    <style nonce="${nonce}">
         body {
             margin: 0;
             padding: 24px;
@@ -2022,19 +2020,6 @@ function workbookUntrackedRulesSettingsHtml(workbookUntrackedRules: readonly str
     `;
 }
 
-function escapeHtml(value: unknown): string {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function escapeAttr(value: unknown): string {
-    return escapeHtml(value);
-}
-
 function severityFilterLabel(severity: AnalysisSeverityFilter): string {
     switch (severity) {
         case 'error':
@@ -2044,15 +2029,6 @@ function severityFilterLabel(severity: AnalysisSeverityFilter): string {
         case 'information':
             return 'Information';
     }
-}
-
-function randomNonce(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let nonce = '';
-    for (let i = 0; i < 32; i++) {
-        nonce += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return nonce;
 }
 
 function sanitizeFileName(value: string): string {

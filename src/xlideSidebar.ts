@@ -17,6 +17,7 @@ import {
     type XlideSidebarWorkbookChoice,
 } from './xlideSidebarModel';
 import { measurePerformance, startPerformanceTrace } from './performanceTrace';
+import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
 
 interface XlideSidebarOptions {
     setupStatus?: () => XlideSidebarSetupStatus;
@@ -307,7 +308,7 @@ function isFileAlreadyExistsError(err: unknown): boolean {
 }
 
 function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
-    const nonce = nonceString();
+    const nonce = randomNonce();
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -835,26 +836,6 @@ function renderSelectOption(
 
 function commandAttr(command: XlideSidebarCommand): string {
     return escapeAttr(JSON.stringify(command));
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(value: string): string {
-    return escapeHtml(value).replace(/"/g, '&quot;');
-}
-
-function nonceString(): string {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 24; i++) {
-        result += alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
-    return result;
 }
 
 function slugId(value: string): string {

@@ -18,6 +18,7 @@ import {
     type XlideGlobalSettingKey,
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
+import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
 import { registerXlideCommand } from './xlideCommandRegistration';
 
 interface XlideGlobalSettingsRuleOption {
@@ -165,7 +166,7 @@ function renderXlideGlobalSettingsHtml(
     maybeModel?: XlideGlobalSettingsModel,
 ): string {
     const model = maybeModel ?? webviewOrModel as XlideGlobalSettingsModel;
-    const nonce = nonceString();
+    const nonce = randomNonce();
     const settingProblems = settingProblemsByKey(model.problems);
     return `<!DOCTYPE html>
 <html lang="en">
@@ -860,26 +861,6 @@ function titleCase(value: string): string {
         .filter((part) => part.length > 0)
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(value: string): string {
-    return escapeHtml(value).replace(/"/g, '&quot;');
-}
-
-function nonceString(): string {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 24; i++) {
-        result += alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
-    return result;
 }
 
 export {

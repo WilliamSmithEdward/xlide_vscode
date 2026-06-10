@@ -127,7 +127,6 @@ describe('workbook analysis webview', () => {
 
     it('renders scope-explicit rule tracking controls', () => {
         const html = renderWorkbookAnalysisResultsHtml(
-            { cspSource: 'test-csp' } as never,
             buildWorkbookAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
@@ -166,7 +165,6 @@ describe('workbook analysis webview', () => {
 
     it('renders analysis table headers as sortable controls', () => {
         const html = renderWorkbookAnalysisResultsHtml(
-            { cspSource: 'test-csp' } as never,
             buildWorkbookAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
@@ -187,7 +185,6 @@ describe('workbook analysis webview', () => {
 
     it('posts stable finding location data when opening a row', () => {
         const html = renderWorkbookAnalysisResultsHtml(
-            { cspSource: 'test-csp' } as never,
             buildWorkbookAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
@@ -211,7 +208,6 @@ describe('workbook analysis webview', () => {
 
     it('labels globally untracked rule rows distinctly', () => {
         const html = renderWorkbookAnalysisResultsHtml(
-            { cspSource: 'test-csp' } as never,
             buildWorkbookAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
@@ -231,7 +227,6 @@ describe('workbook analysis webview', () => {
 
     it('labels workbook-untracked rule rows distinctly', () => {
         const html = renderWorkbookAnalysisResultsHtml(
-            { cspSource: 'test-csp' } as never,
             buildWorkbookAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
@@ -253,7 +248,6 @@ describe('workbook analysis webview', () => {
 
     it('gives untracked status precedence over suppressed findings', () => {
         const html = renderWorkbookAnalysisResultsHtml(
-            { cspSource: 'test-csp' } as never,
             buildWorkbookAnalysisResultsModel(suppressedOnlyResultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
