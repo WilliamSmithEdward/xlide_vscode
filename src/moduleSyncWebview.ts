@@ -3,7 +3,8 @@ import * as path from 'path';
 import type { ImportMode, ModuleSyncFolderSource, ModuleSyncModeSource, ModuleSyncPlan } from './moduleSyncPlan';
 import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
 import { measurePerformance, measurePerformanceSync } from './performanceTrace';
-import { escapeHtml, randomNonce, scriptJson } from './webview/html';
+import { randomNonce, scriptJson } from './webview/html';
+import { webviewHeadHtml } from './webview/page';
 import { DebouncedRefresher, RefreshGate } from './webview/refresh';
 import { errorMessage } from './util/errors';
 
@@ -302,10 +303,7 @@ function renderModuleSyncHtml(plan: ModuleSyncPlan): string {
     return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${escapeHtml(plan.title)}</title>
+    ${webviewHeadHtml(nonce, plan.title)}
     <style nonce="${nonce}">
         :root {
             --border: color-mix(in srgb, var(--vscode-editor-foreground) 18%, transparent);

@@ -2,8 +2,15 @@ import * as vscode from 'vscode';
 import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
-import { statHtml, webviewHeadHtml, WEBVIEW_TOAST_HTML, WEBVIEW_TOAST_SCRIPT } from './webview/page';
+import {
+    statHtml,
+    webviewHeadHtml,
+    WEBVIEW_TOAST_CSS,
+    WEBVIEW_TOAST_HTML,
+    WEBVIEW_TOAST_SCRIPT,
+} from './webview/page';
 import { bridgeWebviewMessages, createWebviewPanelRegistry } from './webview/panelRegistry';
+import { WEBVIEW_BODY_CSS, WEBVIEW_PRIMARY_BUTTON_CSS, xlideAccentPaletteCss } from './webview/styles';
 
 export interface VbaTestResultsOptions {
     onRerunFailed?: () => Promise<void>;
@@ -134,16 +141,11 @@ export function renderVbaTestResultsHtml(
     <style nonce="${nonce}">
         :root {
             color-scheme: dark light;
-            --xlide-accent-blue: #2d5f94;
-            --xlide-accent-blue-hover: #376fa8;
-            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-editor-background));
-            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-editor-background));
+            ${xlideAccentPaletteCss()}
         }
+        ${WEBVIEW_BODY_CSS}
         body {
-            margin: 0;
             padding: 24px;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editor-background);
             font: 13px/1.45 var(--vscode-font-family);
         }
         .shell {
@@ -197,44 +199,8 @@ export function renderVbaTestResultsHtml(
             gap: 8px;
             justify-content: flex-end;
         }
-        button {
-            min-height: 32px;
-            border: 1px solid var(--vscode-button-border, transparent);
-            border-radius: 4px;
-            padding: 5px 12px;
-            color: var(--vscode-button-foreground);
-            background: var(--xlide-accent-background);
-            font: inherit;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        button:hover:not(:disabled) {
-            background: var(--xlide-accent-hover-background);
-        }
-        button:disabled {
-            cursor: not-allowed;
-            opacity: 0.55;
-        }
-        .toast {
-            position: fixed;
-            right: 18px;
-            bottom: 18px;
-            max-width: 360px;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 6px;
-            padding: 10px 12px;
-            color: var(--vscode-notifications-foreground);
-            background: var(--vscode-notifications-background);
-            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
-            opacity: 0;
-            transform: translateY(8px);
-            transition: opacity 120ms ease, transform 120ms ease;
-            pointer-events: none;
-        }
-        .toast.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        ${WEBVIEW_PRIMARY_BUTTON_CSS}
+        ${WEBVIEW_TOAST_CSS}
         .stats {
             display: grid;
             grid-template-columns: repeat(6, minmax(92px, 1fr));

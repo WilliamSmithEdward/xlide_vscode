@@ -18,6 +18,8 @@ import {
 } from './xlideSidebarModel';
 import { measurePerformance, startPerformanceTrace } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
+import { webviewHeadHtml } from './webview/page';
+import { WEBVIEW_BODY_CSS, xlideAccentPaletteCss } from './webview/styles';
 import { errorMessage } from './util/errors';
 import { fileExists } from './util/fs';
 import { debounce } from './util/debounce';
@@ -282,29 +284,22 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE</title>
+    ${webviewHeadHtml(nonce, 'XLIDE')}
     <style nonce="${nonce}">
         :root {
             color-scheme: light dark;
-            --xlide-accent-blue: #2d5f94;
-            --xlide-accent-blue-hover: #376fa8;
-            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-sideBar-background));
-            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-sideBar-background));
-            --xlide-accent-border: color-mix(in srgb, var(--xlide-accent-blue) 72%, var(--vscode-dropdown-border));
+            ${xlideAccentPaletteCss({
+                surface: 'var(--vscode-sideBar-background)',
+                accentBorder: 'color-mix(in srgb, var(--xlide-accent-blue) 72%, var(--vscode-dropdown-border))',
+            })}
         }
         * {
             box-sizing: border-box;
         }
+        ${WEBVIEW_BODY_CSS}
         body {
-            margin: 0;
             padding: 12px;
-            color: var(--vscode-foreground);
             background: var(--vscode-sideBar-background);
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
             line-height: 1.35;
         }
         .shell {

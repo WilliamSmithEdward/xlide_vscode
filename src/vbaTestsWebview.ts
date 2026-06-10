@@ -2,9 +2,16 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
-import { renderWebviewErrorPageHtml, webviewHeadHtml, WEBVIEW_TOAST_HTML, WEBVIEW_TOAST_SCRIPT } from './webview/page';
+import {
+    renderWebviewErrorPageHtml,
+    webviewHeadHtml,
+    WEBVIEW_TOAST_CSS,
+    WEBVIEW_TOAST_HTML,
+    WEBVIEW_TOAST_SCRIPT,
+} from './webview/page';
 import { bridgeWebviewMessages, createWebviewPanelRegistry } from './webview/panelRegistry';
 import { DebouncedRefresher } from './webview/refresh';
+import { WEBVIEW_BODY_CSS, WEBVIEW_PRIMARY_BUTTON_CSS, xlideAccentPaletteCss } from './webview/styles';
 import { errorMessage } from './util/errors';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
@@ -313,19 +320,9 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
     ${webviewHeadHtml(nonce, 'XLIDE Tests')}
     <style nonce="${nonce}">
         :root {
-            --xlide-accent-blue: #2d5f94;
-            --xlide-accent-blue-hover: #376fa8;
-            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-editor-background));
-            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-editor-background));
-            --xlide-accent-border: color-mix(in srgb, var(--xlide-accent-blue) 78%, var(--vscode-panel-border));
+            ${xlideAccentPaletteCss()}
         }
-        body {
-            margin: 0;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editor-background);
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-        }
+        ${WEBVIEW_BODY_CSS}
         .shell {
             max-width: 1040px;
             padding: 22px;
@@ -352,30 +349,13 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
             color: var(--vscode-descriptionForeground);
             line-height: 1.45;
         }
-        button {
-            min-height: 32px;
-            border: 1px solid var(--vscode-button-border, transparent);
-            border-radius: 4px;
-            padding: 5px 12px;
-            color: var(--vscode-button-foreground);
-            background: var(--xlide-accent-background);
-            font: inherit;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        button:hover:not(:disabled) {
-            background: var(--xlide-accent-hover-background);
-        }
+        ${WEBVIEW_PRIMARY_BUTTON_CSS}
         button.secondary {
             color: var(--vscode-button-secondaryForeground);
             background: var(--vscode-button-secondaryBackground);
         }
         button.secondary:hover:not(:disabled) {
             background: var(--vscode-button-secondaryHoverBackground);
-        }
-        button:disabled {
-            cursor: not-allowed;
-            opacity: 0.55;
         }
         main {
             display: grid;
@@ -585,26 +565,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
             padding: 10px;
             color: var(--vscode-descriptionForeground);
         }
-        .toast {
-            position: fixed;
-            right: 18px;
-            bottom: 18px;
-            max-width: 360px;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 6px;
-            padding: 10px 12px;
-            color: var(--vscode-notifications-foreground);
-            background: var(--vscode-notifications-background);
-            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
-            opacity: 0;
-            transform: translateY(8px);
-            transition: opacity 120ms ease, transform 120ms ease;
-            pointer-events: none;
-        }
-        .toast.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        ${WEBVIEW_TOAST_CSS}
         @media (max-width: 620px) {
             .shell {
                 padding: 16px;

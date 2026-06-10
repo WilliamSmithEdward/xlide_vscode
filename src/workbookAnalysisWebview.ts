@@ -35,6 +35,7 @@ import {
 } from './webview/page';
 import { bridgeWebviewMessages, createWebviewPanelRegistry } from './webview/panelRegistry';
 import { DebouncedRefresher } from './webview/refresh';
+import { WEBVIEW_BODY_CSS, xlideAccentPaletteCss } from './webview/styles';
 import { errorMessage } from './util/errors';
 
 export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';
@@ -579,22 +580,12 @@ export function renderWorkbookAnalysisResultsHtml(
     <style nonce="${nonce}">
         :root {
             color-scheme: light dark;
-            --xlide-accent-blue: #2d5f94;
-            --xlide-accent-blue-hover: #376fa8;
-            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-editor-background));
-            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-editor-background));
-            --xlide-accent-border: color-mix(in srgb, var(--xlide-accent-blue) 78%, var(--vscode-panel-border));
+            ${xlideAccentPaletteCss()}
         }
         * {
             box-sizing: border-box;
         }
-        body {
-            margin: 0;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editor-background);
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-        }
+        ${WEBVIEW_BODY_CSS}
         button {
             font: inherit;
         }

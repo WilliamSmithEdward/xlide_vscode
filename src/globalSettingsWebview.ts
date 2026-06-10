@@ -19,6 +19,8 @@ import {
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
+import { webviewHeadHtml, WEBVIEW_TOAST_CSS } from './webview/page';
+import { WEBVIEW_BODY_CSS } from './webview/styles';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { errorMessage } from './util/errors';
 
@@ -172,10 +174,7 @@ function renderXlideGlobalSettingsHtml(
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE Global Settings</title>
+    ${webviewHeadHtml(nonce, 'XLIDE Global Settings')}
     <style nonce="${nonce}">
         :root {
             color-scheme: light dark;
@@ -183,12 +182,8 @@ function renderXlideGlobalSettingsHtml(
         * {
             box-sizing: border-box;
         }
+        ${WEBVIEW_BODY_CSS}
         body {
-            margin: 0;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editor-background);
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
             line-height: 1.4;
         }
         .shell {
@@ -400,26 +395,7 @@ function renderXlideGlobalSettingsHtml(
         .overrideRow:last-child {
             border-bottom: 0;
         }
-        .toast {
-            position: fixed;
-            right: 18px;
-            bottom: 18px;
-            max-width: 360px;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 6px;
-            padding: 10px 12px;
-            color: var(--vscode-notifications-foreground);
-            background: var(--vscode-notifications-background);
-            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
-            opacity: 0;
-            transform: translateY(8px);
-            transition: opacity 120ms ease, transform 120ms ease;
-            pointer-events: none;
-        }
-        .toast.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        ${WEBVIEW_TOAST_CSS}
         @media (max-width: 640px) {
             .shell {
                 padding: 16px;
