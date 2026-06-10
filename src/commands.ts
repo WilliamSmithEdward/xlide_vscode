@@ -116,9 +116,8 @@ import {
     formatChangeSummary,
     formatChangeSummaryDetails,
     recentXlideWriteAudits,
-    recordXlideWriteAudit,
+    recordXlideWriteAuditEvent as recordWriteAudit,
     type XlideChangeSummary,
-    type XlideWriteAuditOutcome,
 } from './xlideWriteAudit';
 import { formatPerformanceSnapshot } from './performanceTrace';
 import {
@@ -342,31 +341,6 @@ export function registerCommands(
             log(`[${prefix}] ${line}`);
         }
         return lines[0];
-    }
-
-    function recordWriteAudit(input: {
-        command: string;
-        operation: string;
-        outcome: XlideWriteAuditOutcome;
-        workbookPath?: string;
-        moduleName?: string;
-        sourcePath?: string;
-        targetPath?: string;
-        summary: string;
-        error?: unknown;
-    }): void {
-        recordXlideWriteAudit({
-            timestamp: new Date().toISOString(),
-            command: input.command,
-            operation: input.operation,
-            outcome: input.outcome,
-            workbookPath: input.workbookPath,
-            moduleName: input.moduleName,
-            sourcePath: input.sourcePath,
-            targetPath: input.targetPath,
-            summary: input.summary,
-            errorCategory: input.error ? errorCategoryForSupportLog(input.error) : undefined,
-        });
     }
 
     let analysisSourceOpenQueue: Promise<void> = Promise.resolve();
