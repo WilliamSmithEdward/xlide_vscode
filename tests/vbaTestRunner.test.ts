@@ -133,11 +133,35 @@ describe('VBA test runner discovery', () => {
         expect(result.contract).toContain('@xlide-test');
     });
 
-    it('discovers workbook tests through pyopenvba bridge reads only', async () => {
+    it('discovers workbook tests through a single batch bridge read', async () => {
         const calls: string[] = [];
         const bridge = {
             async call<T>(method: string, params: { module?: string }): Promise<T> {
                 calls.push(params.module ? `${method}:${params.module}` : method);
+                if (method === 'readModules') {
+                    return [
+                        { name: 'Tests', type: 'standard', source: "' @xlide-test\nSub Runs()\nEnd Sub\n" },
+                        { name: 'Sheet1', type: 'document', source: '' },
+                    ] as T;
+                }
+                throw new Error(`Unexpected bridge call ${method}`);
+            },
+        } as unknown as PythonBridge;
+
+        const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
+
+        expect(result.tests.map((test) => test.qualifiedName)).toEqual(['Tests.Runs']);
+        expect(calls).toEqual(['readModules']);
+    });
+
+    it('falls back to per-module bridge reads when the backend lacks readModules', async () => {
+        const calls: string[] = [];
+        const bridge = {
+            async call<T>(method: string, params: { module?: string }): Promise<T> {
+                calls.push(params.module ? `${method}:${params.module}` : method);
+                if (method === 'readModules') {
+                    throw new Error('Method not found: readModules');
+                }
                 if (method === 'listModules') {
                     return [
                         { name: 'Tests', type: 'standard' },
@@ -154,7 +178,7 @@ describe('VBA test runner discovery', () => {
         const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
 
         expect(result.tests.map((test) => test.qualifiedName)).toEqual(['Tests.Runs']);
-        expect(calls).toEqual(['listModules', 'readModule:Tests']);
+        expect(calls).toEqual(['readModules', 'listModules', 'readModule:Tests']);
     });
 
     it('filters discovered workbook tests by module, procedure, and tags', async () => {

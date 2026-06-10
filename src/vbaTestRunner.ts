@@ -199,6 +199,32 @@ export function validateVbaTestDirectivesFromModule(module: VbaTestModuleEntry):
     );
 }
 
+// Batch read of every module in one workbook open; falls back to listModules
+// plus one readModule per standard module for backends without readModules.
+async function listWorkbookModulesForDiscovery(
+    bridge: PythonBridge,
+    filePath: string,
+): Promise<VbaTestModuleEntry[]> {
+    try {
+        const modules = await bridge.call<VbaTestModuleEntry[]>(
+            'readModules',
+            { path: filePath },
+        );
+        return modules.filter((module) => typeof module.source === 'string');
+    } catch (err) {
+        if (!isReadModulesUnavailable(err)) {
+            throw err;
+        }
+    }
+    return bridge.call<VbaTestModuleEntry[]>('listModules', { path: filePath });
+}
+
+function isReadModulesUnavailable(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err);
+    return /Method not found:\s*readModules/i.test(message) ||
+        /Unexpected bridge call readModules/i.test(message);
+}
+
 export async function discoverWorkbookVbaTests(
     bridge: PythonBridge,
     filePath: string,
@@ -206,10 +232,7 @@ export async function discoverWorkbookVbaTests(
 ): Promise<VbaTestDiscoveryResult> {
     return measurePerformance('vbaTests.discoverWorkbook', path.basename(filePath), async () => {
     const normalizedSelection = normalizeVbaTestSelection(selection);
-    const modules = await bridge.call<Array<{ name: string; type: string }>>(
-        'listModules',
-        { path: filePath },
-    );
+    const modules = await listWorkbookModulesForDiscovery(bridge, filePath);
     const orderedModules = [...modules].sort(compareVbaModulesForTreeOrder);
     const testableModules = orderedModules.filter((module) =>
         module.type === 'standard' &&
@@ -218,14 +241,14 @@ export async function discoverWorkbookVbaTests(
     const discoveredTests: VbaTestCase[] = [];
 
     for (const module of testableModules) {
-        const result = await bridge.call<{ source: string }>(
+        const source = module.source ?? (await bridge.call<{ source: string }>(
             'readModule',
             { path: filePath, module: module.name },
-        );
+        )).source;
         discoveredTests.push(...discoverVbaTestsFromModule({
             name: module.name,
             type: module.type,
-            source: result.source,
+            source,
         }));
     }
     const tests = filterVbaTests(discoveredTests, normalizedSelection);
