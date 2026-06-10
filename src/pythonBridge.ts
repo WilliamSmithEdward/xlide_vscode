@@ -144,12 +144,16 @@ export class PythonBridge implements vscode.Disposable {
                 if (wasReady && !wasStopping) {
                     // Surface unexpected crash to the user.
                     void vscode.window.showWarningMessage(
-                        `XLIDE: Python backend exited unexpectedly (code ${code}). Run "XLIDE: Reload Window" or set xlide.pythonPath, then try again.`,
-                        'Reload Window',
+                        `XLIDE: Python backend exited unexpectedly (code ${code}). Restart the backend or set xlide.pythonPath, then try again.`,
+                        'Restart Backend',
                         'Copy Diagnostics',
                     ).then((choice) => {
-                        if (choice === 'Reload Window') {
-                            void vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        if (choice === 'Restart Backend') {
+                            void this.restart().catch((err: Error) => {
+                                void vscode.window.showErrorMessage(
+                                    `XLIDE: Failed to restart Python backend. ${err.message}`,
+                                );
+                            });
                         } else if (choice === 'Copy Diagnostics') {
                             void vscode.commands.executeCommand('xlide.copyDiagnostics');
                         }
