@@ -10,6 +10,7 @@
 
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
+import { isIdentLike } from '../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	ModuleSymbolKind,
@@ -70,15 +71,6 @@ export interface HoverContext {
 	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
-}
-
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
-	);
 }
 
 function contains(span: Span, offset: number): boolean {

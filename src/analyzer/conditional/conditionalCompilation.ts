@@ -1,5 +1,6 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { tokenWord } from '../lexer/tokenHelpers';
 import type {
 	BodyNode,
 	ConditionalDirectiveNode,
@@ -503,10 +504,6 @@ class ConditionalExpressionParser {
 		return this.tokens[this.index];
 	}
 
-}
-
-function tokenWord(token: VbaToken | undefined): string {
-	return (token?.canonicalText ?? token?.rawText ?? '').toLowerCase();
 }
 
 function normalizedComparisonValue(value: ConditionalValue): string {

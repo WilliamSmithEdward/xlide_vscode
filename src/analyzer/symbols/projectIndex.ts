@@ -12,6 +12,7 @@
 import { buildModuleSymbols, type BuildModuleSymbolsOptions } from './buildModuleSymbols';
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { tokenName as tokenIdentifierName } from '../lexer/tokenHelpers';
 import {
 	isBareCallableKind,
 	isProcedureKind,
@@ -158,19 +159,6 @@ function isEnumMemberExported(
 
 interface ProjectIntegerConstantLookup {
 	get(name: string): number | undefined;
-}
-
-function tokenIdentifierName(tok: VbaToken | undefined): string | undefined {
-	if (!tok) {
-		return undefined;
-	}
-	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
-		return tok.rawText;
-	}
-	if (tok.kind === 'bracketedIdentifier') {
-		return tok.rawText.slice(1, -1);
-	}
-	return undefined;
 }
 
 function parseProjectIntegerLiteral(raw: string): number | undefined {

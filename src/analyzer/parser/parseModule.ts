@@ -32,6 +32,11 @@
 import { VbaToken } from '../lexer/tokenKinds';
 import { tokenize } from '../lexer/tokenize';
 import {
+	matchParenFrom,
+	splitTopLevelTokenGroups,
+	tokensWithoutLeadingLineNumber,
+} from '../lexer/tokenHelpers';
+import {
 	AttributeNode,
 	BodyNode,
 	ConditionalDirectiveNode,
@@ -1285,25 +1290,7 @@ class Parser {
 
 	/** Split tokens[from, to) into comma-separated groups at paren depth 0. */
 	private splitTopLevelCommas(tokens: VbaToken[], from: number, to: number): VbaToken[][] {
-		const groups: VbaToken[][] = [];
-		let current: VbaToken[] = [];
-		let depth = 0;
-		for (let i = from; i < to; i++) {
-			const t = tokens[i];
-			if (t.rawText === '(') {
-				depth++;
-			} else if (t.rawText === ')') {
-				depth--;
-			}
-			if (depth === 0 && t.rawText === ',') {
-				groups.push(current);
-				current = [];
-				continue;
-			}
-			current.push(t);
-		}
-		groups.push(current);
-		return groups;
+		return splitTopLevelTokenGroups(tokens, from, ',', to);
 	}
 
 	private directiveCondition(
@@ -1335,20 +1322,10 @@ class Parser {
 		};
 	}
 
-	/** Index just past the ')' matching the '(' at lparen. */
+	/** Index of the matching ')', or the last token when unmatched. */
 	private matchParen(tokens: VbaToken[], lparen: number): number {
-		let depth = 0;
-		for (let i = lparen; i < tokens.length; i++) {
-			if (tokens[i].rawText === '(') {
-				depth++;
-			} else if (tokens[i].rawText === ')') {
-				depth--;
-				if (depth === 0) {
-					return i;
-				}
-			}
-		}
-		return tokens.length - 1;
+		const close = matchParenFrom(tokens, lparen);
+		return close >= 0 ? close : tokens.length - 1;
 	}
 
 	/** Index just past a parenthesized group starting at index i (on '('). */
@@ -1481,10 +1458,5 @@ class Parser {
 }
 
 function codeTokensAfterLineNumber(statement: LogicalStatement): VbaToken[] {
-	const tokens = codeTokens(statement);
-	return tokens.length > 1 && isDecimalLineNumber(tokens[0]) ? tokens.slice(1) : tokens;
-}
-
-function isDecimalLineNumber(token: VbaToken | undefined): boolean {
-	return token?.kind === 'integerLiteral' && /^\d+$/.test(token.rawText);
+	return tokensWithoutLeadingLineNumber(codeTokens(statement));
 }

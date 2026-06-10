@@ -1,5 +1,11 @@
-import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import {
+	splitTopLevelTokenGroups,
+	statementTokens,
+	tokenName,
+	tokensWithoutLeadingLineNumber,
+	tokenWord,
+} from '../lexer/tokenHelpers';
 import { parseModule } from '../parser/parseModule';
 import type {
 	BodyNode,
@@ -118,12 +124,12 @@ export function statementLabelReferences(
 	if (toks.length === 0) {
 		return [];
 	}
-	if (tokenText(toks[0]) === 'on') {
+	if (tokenWord(toks[0]) === 'on') {
 		return onStatementLabelReferences(toks, span);
 	}
 	const refs: VbaProcedureLabelReference[] = [];
 	for (let i = 0; i < toks.length; i++) {
-		const word = tokenText(toks[i]);
+		const word = tokenWord(toks[i]);
 		if (word === 'goto' || word === 'gosub') {
 			if (word === 'goto' && isOnErrorGotoDisableAt(toks, i)) {
 				continue;
@@ -135,7 +141,7 @@ export function statementLabelReferences(
 			continue;
 		}
 		if (word === 'resume') {
-			const nextWord = tokenText(toks[i + 1]);
+			const nextWord = tokenWord(toks[i + 1]);
 			if (!toks[i + 1] || nextWord === 'next') {
 				continue;
 			}
@@ -173,7 +179,7 @@ function isLabelTargetPrefix(tokens: readonly VbaToken[], prefixLength: number):
 		if (isOnErrorGotoDisablePartial(toks, partial)) {
 			return false;
 		}
-		if (tokenText(partial) === 'next' && tokenText(toks[toks.length - 2]) === 'resume') {
+		if (tokenWord(partial) === 'next' && tokenWord(toks[toks.length - 2]) === 'resume') {
 			return false;
 		}
 		toks = toks.slice(0, -1);
@@ -185,15 +191,15 @@ function isLabelTargetPrefix(tokens: readonly VbaToken[], prefixLength: number):
 	if (toks.length === 0) {
 		return false;
 	}
-	const lastWord = tokenText(toks[toks.length - 1]);
+	const lastWord = tokenWord(toks[toks.length - 1]);
 	if (lastWord === 'goto' || lastWord === 'gosub' || lastWord === 'resume') {
 		return true;
 	}
 	if (lastWord === ',') {
 		return onFlowIndex(toks) >= 0;
 	}
-	if (tokenText(toks[0]) === 'on' && tokenText(toks[1]) === 'error') {
-		return toks.length === 3 && tokenText(toks[2]) === 'goto';
+	if (tokenWord(toks[0]) === 'on' && tokenWord(toks[1]) === 'error') {
+		return toks.length === 3 && tokenWord(toks[2]) === 'goto';
 	}
 	return false;
 }
@@ -217,9 +223,9 @@ function isOnErrorGotoDisablePartial(
 	partial: VbaToken,
 ): boolean {
 	if (
-		tokenText(toks[0]) !== 'on' ||
-		tokenText(toks[1]) !== 'error' ||
-		tokenText(toks[2]) !== 'goto'
+		tokenWord(toks[0]) !== 'on' ||
+		tokenWord(toks[1]) !== 'error' ||
+		tokenWord(toks[2]) !== 'goto'
 	) {
 		return false;
 	}
@@ -282,11 +288,11 @@ function onStatementLabelReferences(
 	toks: readonly VbaToken[],
 	span: Span,
 ): VbaProcedureLabelReference[] {
-	if (tokenText(toks[1]) === 'error') {
-		if (tokenText(toks[2]) === 'resume' && tokenText(toks[3]) === 'next') {
+	if (tokenWord(toks[1]) === 'error') {
+		if (tokenWord(toks[2]) === 'resume' && tokenWord(toks[3]) === 'next') {
 			return [];
 		}
-		if (tokenText(toks[2]) !== 'goto') {
+		if (tokenWord(toks[2]) !== 'goto') {
 			return [];
 		}
 		const target = toks[3];
@@ -301,7 +307,7 @@ function onStatementLabelReferences(
 	if (flowIndex < 0) {
 		return [];
 	}
-	const statementKind = tokenText(toks[flowIndex]) === 'gosub' ? 'on-gosub' : 'on-goto';
+	const statementKind = tokenWord(toks[flowIndex]) === 'gosub' ? 'on-gosub' : 'on-goto';
 	const refs: VbaProcedureLabelReference[] = [];
 	for (const group of splitTopLevelTokenGroups(toks, flowIndex + 1, ',')) {
 		const ref = labelReferenceGroup(group, span, statementKind);
@@ -314,7 +320,7 @@ function onStatementLabelReferences(
 
 function onFlowIndex(toks: readonly VbaToken[]): number {
 	return toks.findIndex((tok, i) =>
-		i > 0 && (tokenText(tok) === 'goto' || tokenText(tok) === 'gosub')
+		i > 0 && (tokenWord(tok) === 'goto' || tokenWord(tok) === 'gosub')
 	);
 }
 
@@ -332,8 +338,8 @@ function onErrorGotoDisableTarget(toks: readonly VbaToken[], index: number): boo
 }
 
 function isOnErrorGotoDisableAt(toks: readonly VbaToken[], gotoIndex: number): boolean {
-	return tokenText(toks[gotoIndex - 2]) === 'on' &&
-		tokenText(toks[gotoIndex - 1]) === 'error' &&
+	return tokenWord(toks[gotoIndex - 2]) === 'on' &&
+		tokenWord(toks[gotoIndex - 1]) === 'error' &&
 		onErrorGotoDisableTarget(toks, gotoIndex + 1);
 }
 
@@ -344,7 +350,7 @@ function labelReferenceAfter(
 	statementKind: VbaProcedureLabelReference['statementKind'],
 ): VbaProcedureLabelReference | undefined {
 	const group = toks.slice(index);
-	const end = group.findIndex((tok) => tok.rawText === ',' || tokenText(tok) === 'else');
+	const end = group.findIndex((tok) => tok.rawText === ',' || tokenWord(tok) === 'else');
 	return labelReferenceGroup(end >= 0 ? group.slice(0, end) : group, base, statementKind);
 }
 
@@ -359,32 +365,6 @@ function labelReferenceGroup(
 	}
 	const label = labelFromToken(content[0], base);
 	return label ? { ...label, statementKind } : undefined;
-}
-
-function splitTopLevelTokenGroups(
-	toks: readonly VbaToken[],
-	from: number,
-	separator: string,
-): VbaToken[][] {
-	const groups: VbaToken[][] = [];
-	let current: VbaToken[] = [];
-	let depth = 0;
-	for (let i = from; i < toks.length; i++) {
-		const raw = toks[i].rawText;
-		if (raw === '(') {
-			depth++;
-		} else if (raw === ')') {
-			depth = Math.max(0, depth - 1);
-		}
-		if (depth === 0 && raw === separator) {
-			groups.push(current);
-			current = [];
-			continue;
-		}
-		current.push(toks[i]);
-	}
-	groups.push(current);
-	return groups;
 }
 
 function labelFromToken(tok: VbaToken, base: Span): VbaProcedureLabel | undefined {
@@ -441,36 +421,6 @@ function forEachProcedureStatement(
 			forEachProcedureStatement(node.body, visit, activity);
 		}
 	}
-}
-
-function statementTokens(source: string, span: Span): VbaToken[] {
-	return tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-}
-
-function tokensWithoutLeadingLineNumber(tokens: readonly VbaToken[]): VbaToken[] {
-	return tokens.length > 1 && tokens[0].kind === 'integerLiteral' &&
-		normalizedDecimalLabel(tokens[0].rawText) !== undefined
-		? [...tokens.slice(1)]
-		: [...tokens];
-}
-
-function tokenText(token: VbaToken | undefined): string {
-	return (token?.canonicalText ?? token?.rawText ?? '').toLowerCase();
-}
-
-function tokenName(tok: VbaToken | undefined): string | undefined {
-	if (!tok) {
-		return undefined;
-	}
-	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
-		return tok.rawText;
-	}
-	if (tok.kind === 'bracketedIdentifier') {
-		return tok.rawText.slice(1, -1);
-	}
-	return undefined;
 }
 
 function absoluteSpan(base: Span, token: VbaToken): Span {

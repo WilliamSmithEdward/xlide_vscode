@@ -16,8 +16,8 @@ import type {
 	StatementNode,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
-import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { statementTokens as codeTokens, tokenName } from '../lexer/tokenHelpers';
 import {
 	resolveTypeName,
 	type TypeCompletion,
@@ -73,25 +73,6 @@ function tokenTypeForCompletionKind(kind: TypeCompletionKind): TypeSemanticToken
 		case 'module':
 			return 'type';
 	}
-}
-
-function codeTokens(source: string, span: Span): VbaToken[] {
-	return tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-}
-
-function tokenName(tok: VbaToken | undefined): string | undefined {
-	if (!tok) {
-		return undefined;
-	}
-	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
-		return tok.rawText;
-	}
-	if (tok.kind === 'bracketedIdentifier') {
-		return tok.rawText.slice(1, -1);
-	}
-	return undefined;
 }
 
 function typeNameReferenceFromTokens(
