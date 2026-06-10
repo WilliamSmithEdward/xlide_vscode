@@ -9,6 +9,8 @@ from typing import Any
 import openpyxl
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
+from xlide.vba_io import get_modules_and_protection_info as _get_modules_and_protection_info
+
 
 def _parse_cell(ref: str) -> tuple[int, int]:
     """Return (row, col) 1-based integers from a cell reference like 'B3'."""
@@ -16,7 +18,12 @@ def _parse_cell(ref: str) -> tuple[int, int]:
     return row, column_index_from_string(col_str)
 
 
-from xlide.vba_io import get_modules_and_protection_info as _get_modules_and_protection_info
+def _sheet_summaries(wb: Any) -> list[dict[str, Any]]:
+    """Return [{name, dimensions}] for every worksheet in an open workbook."""
+    return [
+        {"name": ws.title, "dimensions": ws.dimensions or ""}
+        for ws in wb.worksheets
+    ]
 
 
 def get_workbook_info(*, path: str) -> dict[str, Any]:
@@ -24,10 +31,7 @@ def get_workbook_info(*, path: str) -> dict[str, Any]:
     vba_info = _get_modules_and_protection_info(path=path)
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
-        sheets = [
-            {"name": ws.title, "dimensions": ws.dimensions or ""}
-            for ws in wb.worksheets
-        ]
+        sheets = _sheet_summaries(wb)
         named_ranges = [
             {"name": nr.name, "ref": nr.attr_text}
             for nr in wb.defined_names.definedName
@@ -45,18 +49,14 @@ def list_sheets(*, path: str) -> dict[str, Any]:
     """Return the sheet names and used dimensions for every worksheet."""
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
-        sheets = [
-            {"name": ws.title, "dimensions": ws.dimensions or ""}
-            for ws in wb.worksheets
-        ]
+        sheets = _sheet_summaries(wb)
     finally:
         wb.close()
     return {"sheets": sheets}
 
 
-def read_cells(*, path: str, sheet: str, range: str) -> dict[str, Any]:
-    """Return {data: [[...]]} for a cell range in A1 notation."""
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
+def _read_range(path: str, sheet: str, range: str, *, data_only: bool) -> dict[str, Any]:
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=data_only, keep_vba=True)
     try:
         ws = wb[sheet]
         data: list[list[Any]] = [
@@ -65,19 +65,16 @@ def read_cells(*, path: str, sheet: str, range: str) -> dict[str, Any]:
     finally:
         wb.close()
     return {"data": data}
+
+
+def read_cells(*, path: str, sheet: str, range: str) -> dict[str, Any]:
+    """Return {data: [[...]]} for a cell range in A1 notation."""
+    return _read_range(path, sheet, range, data_only=True)
 
 
 def read_formulas(*, path: str, sheet: str, range: str) -> dict[str, Any]:
     """Return {data: [[...]]} with raw formula strings (not computed values)."""
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=False, keep_vba=True)
-    try:
-        ws = wb[sheet]
-        data: list[list[Any]] = [
-            [cell.value for cell in row] for row in ws[range]
-        ]
-    finally:
-        wb.close()
-    return {"data": data}
+    return _read_range(path, sheet, range, data_only=False)
 
 
 def write_cells(
