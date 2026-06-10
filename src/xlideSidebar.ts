@@ -168,9 +168,9 @@ const SELECTED_WORKBOOK_KEY = 'xlide.sidebar.selectedWorkbookPath';
 
 function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRegistration {
     const provider = new XlideSidebarProvider(options);
-    const view = vscode.window.registerWebviewViewProvider('xlide.sidebar', provider, {
-        webviewOptions: { retainContextWhenHidden: true },
-    });
+    // No retainContextWhenHidden: webview.html always carries the latest model,
+    // so a re-shown sidebar rebuilds for free.
+    const view = vscode.window.registerWebviewViewProvider('xlide.sidebar', provider);
     const scheduleRefresh = debounce(() => provider.refresh(), 200);
     const workbookFilesChanged = () => {
         provider.invalidateWorkbookFiles();

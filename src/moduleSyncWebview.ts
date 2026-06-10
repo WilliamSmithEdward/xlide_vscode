@@ -46,6 +46,8 @@ export function openModuleSyncPreview(
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
+                // Required: plan refreshes arrive as postMessage updates, so the
+                // stored html goes stale and the selection state lives in the DOM.
                 retainContextWhenHidden: true,
                 localResourceRoots: [context.extensionUri],
             },

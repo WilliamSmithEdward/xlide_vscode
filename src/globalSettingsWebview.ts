@@ -75,8 +75,9 @@ function registerXlideGlobalSettingsWebview(out: vscode.OutputChannel): vscode.D
             'XLIDE Global Settings',
             vscode.ViewColumn.Active,
             {
+                // No retainContextWhenHidden: the document is rebuilt on every
+                // config change and scroll/search restore via vscode.getState.
                 enableScripts: true,
-                retainContextWhenHidden: true,
             },
         );
         const panelDisposables: vscode.Disposable[] = [];

@@ -140,8 +140,9 @@ export function openVbaTestsPanel(
         `XLIDE Tests: ${path.basename(filePath)}`,
         vscode.ViewColumn.Active,
         {
+            // No retainContextWhenHidden: every refresh reassigns webview.html,
+            // and the script restores its filter state from vscode.getState.
             enableScripts: true,
-            retainContextWhenHidden: true,
         },
     );
     const entry: OpenVbaTestsPanelEntry = {

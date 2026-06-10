@@ -57,6 +57,8 @@ export function openVbaTestResults(
         vscode.ViewColumn.Active,
         {
             enableScripts: true,
+            // Required: setVbaTestResultsRunning posts running-state updates
+            // while the panel may be hidden; a dead iframe would drop them.
             retainContextWhenHidden: true,
         },
     );

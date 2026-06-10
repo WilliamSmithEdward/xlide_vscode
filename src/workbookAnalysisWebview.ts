@@ -117,6 +117,8 @@ export function openWorkbookAnalysisResults(
         vscode.ViewColumn.Active,
         {
             enableScripts: true,
+            // Required: refreshes arrive as postMessage model updates, so the
+            // stored html goes stale and filter/sort state lives in the DOM.
             retainContextWhenHidden: true,
         },
     );
