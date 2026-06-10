@@ -17,11 +17,11 @@ afterEach(() => {
 });
 
 describe('VBA test temp files', () => {
-    it('creates host temp directories with the XLIDE test-host prefix', () => {
+    it('creates host temp directories with the XLIDE test-host prefix', async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-temp-test-'));
         tempRoots.push(root);
 
-        const dir = createVbaTestHostTempDir(root);
+        const dir = await createVbaTestHostTempDir(root);
 
         expect(path.basename(dir).startsWith(XLIDE_VBA_TEST_HOST_TEMP_PREFIX)).toBe(true);
         expect(fs.existsSync(dir)).toBe(true);

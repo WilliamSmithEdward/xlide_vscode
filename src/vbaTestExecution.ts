@@ -201,12 +201,12 @@ async function runOwnedReadOnlyExcelTestHost(
     log: (message: string) => void,
 ): Promise<OwnedReadOnlyExcelHostRunResult> {
     return measurePerformance('vbaTests.ownedExcelHost', `${path.basename(filePath)} ${tests.length} tests`, async () => {
-    const hostScriptDir = createVbaTestHostTempDir();
+    const hostScriptDir = await createVbaTestHostTempDir();
     const tempWorkbookPath = path.join(hostScriptDir, path.basename(filePath));
     const hostScriptPath = path.join(hostScriptDir, 'run-vba-tests.ps1');
     const runnerModuleName = `XlideRun${Date.now().toString(36).slice(-8)}`;
     try {
-        fs.copyFileSync(filePath, tempWorkbookPath);
+        await fs.promises.copyFile(filePath, tempWorkbookPath);
         await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
             path: tempWorkbookPath,
             module: XLIDE_ASSERT_MODULE_NAME,
@@ -224,10 +224,10 @@ async function runOwnedReadOnlyExcelTestHost(
             vbaTestHostPlanItems(tests),
             { failFast: options.failFast, runnerModuleName },
         );
-        fs.writeFileSync(hostScriptPath, script, 'utf8');
+        await fs.promises.writeFile(hostScriptPath, script, 'utf8');
     } catch (err) {
         try {
-            fs.rmSync(hostScriptDir, { recursive: true, force: true });
+            await fs.promises.rm(hostScriptDir, { recursive: true, force: true });
         } catch {
             // Best-effort cleanup only.
         }
@@ -284,19 +284,15 @@ async function runOwnedReadOnlyExcelTestHost(
                 return;
             }
             hostScriptCleaned = true;
-            try {
-                fs.rmSync(hostScriptDir, { recursive: true, force: true });
-            } catch (err) {
+            void fs.promises.rm(hostScriptDir, { recursive: true, force: true }).catch((err) => {
                 const message = err instanceof Error ? err.message : String(err);
                 log(`[runVbaTests] Could not delete temporary host script: ${message}`);
                 setTimeout(() => {
-                    try {
-                        fs.rmSync(hostScriptDir, { recursive: true, force: true });
-                    } catch {
+                    void fs.promises.rm(hostScriptDir, { recursive: true, force: true }).catch(() => {
                         // Best-effort cleanup only.
-                    }
+                    });
                 }, 1000);
-            }
+            });
         };
 
         const eventResult = (event: VbaTestHostOracleEvent): OwnedReadOnlyExcelHostTestResult | undefined => {

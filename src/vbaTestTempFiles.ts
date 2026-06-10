@@ -17,8 +17,8 @@ export interface CleanupStaleVbaTestHostTempDirsResult {
     failed: number;
 }
 
-export function createVbaTestHostTempDir(tmpDir = os.tmpdir()): string {
-    return fs.mkdtempSync(path.join(tmpDir, XLIDE_VBA_TEST_HOST_TEMP_PREFIX));
+export function createVbaTestHostTempDir(tmpDir = os.tmpdir()): Promise<string> {
+    return fs.promises.mkdtemp(path.join(tmpDir, XLIDE_VBA_TEST_HOST_TEMP_PREFIX));
 }
 
 export async function cleanupStaleVbaTestHostTempDirsAsync(
