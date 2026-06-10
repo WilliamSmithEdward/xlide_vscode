@@ -68,20 +68,53 @@ export function createConditionalActivityTracker(
 		return undefined;
 	}
 	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
-	const cache = new Map<number, ConditionalActivity>();
+	// One forward sweep at construction: replay the directive stack once and
+	// record the activity in effect after each directive, so per-span queries
+	// become a binary search instead of a full replay from offset 0.
+	const events = collectConditionalActivityEvents(module, effectiveEnv);
 	const activityForSpan = (span: Span): ConditionalActivity => {
-		const cached = cache.get(span.start);
-		if (cached !== undefined) {
-			return cached;
+		// Mirror conditionalActivityAtOffset: directives starting at or after
+		// the queried offset are not applied.
+		let lo = -1;
+		let hi = events.length - 1;
+		while (lo < hi) {
+			const mid = (lo + hi + 1) >> 1;
+			if (events[mid].start < span.start) {
+				lo = mid;
+			} else {
+				hi = mid - 1;
+			}
 		}
-		const activity = conditionalActivityForSpan(module, span, effectiveEnv);
-		cache.set(span.start, activity);
-		return activity;
+		return lo >= 0 ? events[lo].activity : 'active';
 	};
 	return {
 		activityForSpan,
 		isInactive: (span: Span): boolean => activityForSpan(span) === 'inactive',
 	};
+}
+
+interface ConditionalActivityEvent {
+	start: number;
+	activity: ConditionalActivity;
+}
+
+function collectConditionalActivityEvents(
+	module: ModuleNode,
+	effectiveEnv: ConditionalCompilationEnvironment,
+): ConditionalActivityEvent[] {
+	const directives = collectConditionalDirectives(module);
+	const projectConstants = new Map<string, ConditionalValue>();
+	for (const [name, value] of Object.entries(effectiveEnv.projectConstants ?? {})) {
+		projectConstants.set(name.toLowerCase(), value);
+	}
+	const stack: ConditionalFrame[] = [];
+	let current: ConditionalActivity = 'active';
+	const events: ConditionalActivityEvent[] = [];
+	for (const { directive } of directives) {
+		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
+		events.push({ start: directive.span.start, activity: current });
+	}
+	return events;
 }
 
 export function moduleHasConditionalDirectives(module: ModuleNode): boolean {
@@ -167,76 +200,78 @@ export function conditionalActivityAtOffset(
 		if (directive.span.start >= offset) {
 			break;
 		}
-		switch (directive.directiveKind) {
-			case 'Const': {
-				if (current === 'active' && directive.name) {
-					const value = evaluateWithProjectConstants(
-						directive.valueRaw,
-						effectiveEnv,
-						projectConstants,
-					);
-					if (value !== undefined) {
-						projectConstants.set(directive.name.toLowerCase(), value);
-					}
-				}
-				break;
-			}
-			case 'If': {
-				const condition = conditionActivity(directive, effectiveEnv, projectConstants);
-				const frame: ConditionalFrame = {
-					parent: current,
-					current: combineActivity(current, condition),
-					seenTrue: condition === 'active',
-					seenUnknown: condition === 'unknown',
-				};
-				stack.push(frame);
-				current = frame.current;
-				break;
-			}
-			case 'ElseIf': {
-				const frame = stack[stack.length - 1];
-				if (!frame) {
-					break;
-				}
-				const condition = conditionActivity(directive, effectiveEnv, projectConstants);
-				if (frame.seenTrue) {
-					frame.current = 'inactive';
-				} else if (frame.seenUnknown && condition !== 'inactive') {
-					frame.current = combineActivity(frame.parent, 'unknown');
-				} else {
-					frame.current = combineActivity(frame.parent, condition);
-				}
-				frame.seenTrue ||= condition === 'active';
-				frame.seenUnknown ||= condition === 'unknown';
-				current = frame.current;
-				break;
-			}
-			case 'Else': {
-				const frame = stack[stack.length - 1];
-				if (!frame) {
-					break;
-				}
-				if (frame.seenTrue) {
-					frame.current = 'inactive';
-				} else if (frame.seenUnknown) {
-					frame.current = combineActivity(frame.parent, 'unknown');
-				} else {
-					frame.current = frame.parent;
-				}
-				frame.seenTrue = true;
-				current = frame.current;
-				break;
-			}
-			case 'EndIf': {
-				const frame = stack.pop();
-				current = frame?.parent ?? current;
-				break;
-			}
-			case 'Unknown':
-				break;
-		}
+		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
 	}
 	return current;
+}
+
+function applyConditionalDirective(
+	directive: ConditionalDirectiveNode,
+	env: ConditionalCompilationEnvironment,
+	projectConstants: Map<string, ConditionalValue>,
+	stack: ConditionalFrame[],
+	current: ConditionalActivity,
+): ConditionalActivity {
+	switch (directive.directiveKind) {
+		case 'Const': {
+			if (current === 'active' && directive.name) {
+				const value = evaluateWithProjectConstants(directive.valueRaw, env, projectConstants);
+				if (value !== undefined) {
+					projectConstants.set(directive.name.toLowerCase(), value);
+				}
+			}
+			return current;
+		}
+		case 'If': {
+			const condition = conditionActivity(directive, env, projectConstants);
+			const frame: ConditionalFrame = {
+				parent: current,
+				current: combineActivity(current, condition),
+				seenTrue: condition === 'active',
+				seenUnknown: condition === 'unknown',
+			};
+			stack.push(frame);
+			return frame.current;
+		}
+		case 'ElseIf': {
+			const frame = stack[stack.length - 1];
+			if (!frame) {
+				return current;
+			}
+			const condition = conditionActivity(directive, env, projectConstants);
+			if (frame.seenTrue) {
+				frame.current = 'inactive';
+			} else if (frame.seenUnknown && condition !== 'inactive') {
+				frame.current = combineActivity(frame.parent, 'unknown');
+			} else {
+				frame.current = combineActivity(frame.parent, condition);
+			}
+			frame.seenTrue ||= condition === 'active';
+			frame.seenUnknown ||= condition === 'unknown';
+			return frame.current;
+		}
+		case 'Else': {
+			const frame = stack[stack.length - 1];
+			if (!frame) {
+				return current;
+			}
+			if (frame.seenTrue) {
+				frame.current = 'inactive';
+			} else if (frame.seenUnknown) {
+				frame.current = combineActivity(frame.parent, 'unknown');
+			} else {
+				frame.current = frame.parent;
+			}
+			frame.seenTrue = true;
+			return frame.current;
+		}
+		case 'EndIf': {
+			const frame = stack.pop();
+			return frame?.parent ?? current;
+		}
+		case 'Unknown':
+			return current;
+	}
 }
 
 export function conditionalActivityForSpan(
