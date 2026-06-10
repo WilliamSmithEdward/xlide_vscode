@@ -134,12 +134,12 @@ export async function setWorkbookAnalysisRuleTracked(
 export async function resetWorkbookAnalysisRuleTracking(
     workbookPath: string,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
-    await updateWorkbookSettings(workbookPath, (existing) => {
+    const updated = await updateWorkbookSettings(workbookPath, (existing) => {
         const analysis = { ...(existing.analysis ?? {}) };
         delete analysis.untrackedRules;
         return withAnalysisSettings(existing, analysis);
     });
-    return effectiveWorkbookAnalysisSettings(workbookPath);
+    return effectiveWorkbookAnalysisSettingsFromConfig(workbookPath, updated);
 }
 
 function withAnalysisSettings(
