@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
-import { workbookIdentityKey } from './xlideFileSystem';
-import { errorMessage } from './util/errors';
+import { statHtml, webviewHeadHtml, WEBVIEW_TOAST_HTML, WEBVIEW_TOAST_SCRIPT } from './webview/page';
+import { bridgeWebviewMessages, createWebviewPanelRegistry } from './webview/panelRegistry';
 
 export interface VbaTestResultsOptions {
     onRerunFailed?: () => Promise<void>;
@@ -25,15 +25,14 @@ interface VbaTestResultsWebviewMessage {
     index?: number;
 }
 
-const openVbaTestResultsPanels = new Map<string, OpenVbaTestResultsPanelEntry>();
+const openVbaTestResultsPanels = createWebviewPanelRegistry<OpenVbaTestResultsPanelEntry>();
 
 export function openVbaTestResults(
     context: vscode.ExtensionContext,
     report: VbaTestRunReport,
     options: VbaTestResultsOptions = {},
 ): vscode.WebviewPanel {
-    const panelKey = workbookIdentityKey(report.filePath);
-    const existing = openVbaTestResultsPanels.get(panelKey);
+    const existing = openVbaTestResultsPanels.get(report.filePath);
     if (existing) {
         existing.options = options;
         existing.report = report;
@@ -59,36 +58,31 @@ export function openVbaTestResults(
         options,
         report,
     };
-    openVbaTestResultsPanels.set(panelKey, entry);
+    openVbaTestResultsPanels.set(report.filePath, entry);
     panel.onDidDispose(() => {
-        openVbaTestResultsPanels.delete(panelKey);
+        openVbaTestResultsPanels.delete(report.filePath);
     });
-    panel.webview.onDidReceiveMessage(async (message: VbaTestResultsWebviewMessage) => {
-        try {
-            if (message.type === 'openTest') {
-                const test = typeof message.index === 'number'
-                    ? entry.report.results[message.index]?.test
-                    : undefined;
-                if (!test || !entry.options.onOpenTest) {
-                    await panel.webview.postMessage({ type: 'error', error: 'XLIDE test navigation is not available.' });
-                    return;
-                }
-                await entry.options.onOpenTest(test);
+    bridgeWebviewMessages(panel.webview, async (message: VbaTestResultsWebviewMessage) => {
+        if (message.type === 'openTest') {
+            const test = typeof message.index === 'number'
+                ? entry.report.results[message.index]?.test
+                : undefined;
+            if (!test || !entry.options.onOpenTest) {
+                await panel.webview.postMessage({ type: 'error', error: 'XLIDE test navigation is not available.' });
                 return;
             }
-            if (message.type !== 'rerunFailed') {
-                return;
-            }
-            if (!entry.options.onRerunFailed) {
-                await panel.webview.postMessage({ type: 'error', error: 'XLIDE rerun failed is not available.' });
-                return;
-            }
-            await entry.options.onRerunFailed();
-            await panel.webview.postMessage({ type: 'rerunComplete' });
-        } catch (err) {
-            const error = errorMessage(err);
-            await panel.webview.postMessage({ type: 'error', error });
+            await entry.options.onOpenTest(test);
+            return;
         }
+        if (message.type !== 'rerunFailed') {
+            return;
+        }
+        if (!entry.options.onRerunFailed) {
+            await panel.webview.postMessage({ type: 'error', error: 'XLIDE rerun failed is not available.' });
+            return;
+        }
+        await entry.options.onRerunFailed();
+        await panel.webview.postMessage({ type: 'rerunComplete' });
     });
     panel.webview.html = renderVbaTestResultsHtml(report, {
         canRerunFailed: Boolean(options.onRerunFailed),
@@ -98,7 +92,7 @@ export function openVbaTestResults(
 }
 
 export function setVbaTestResultsRunning(filePath: string, running: boolean): void {
-    const entry = openVbaTestResultsPanels.get(workbookIdentityKey(filePath));
+    const entry = openVbaTestResultsPanels.get(filePath);
     if (!entry) {
         return;
     }
@@ -136,10 +130,7 @@ export function renderVbaTestResultsHtml(
     return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE VBA Test Results</title>
+    ${webviewHeadHtml(nonce, 'XLIDE VBA Test Results')}
     <style nonce="${nonce}">
         :root {
             color-scheme: dark light;
@@ -455,19 +446,11 @@ export function renderVbaTestResultsHtml(
         : `<div class="empty">${escapeHtml(emptyResultsMessage(report, selectionDescription))}</div>`}
         <div class="contract">${escapeHtml(report.discovery.contract)}</div>
     </main>
-    <div class="toast" id="toast"></div>
+    ${WEBVIEW_TOAST_HTML}
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
-        const toast = document.getElementById('toast');
-        let toastTimer;
+        ${WEBVIEW_TOAST_SCRIPT}
         let running = false;
-
-        function showToast(message) {
-            toast.textContent = message;
-            toast.classList.add('visible');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => toast.classList.remove('visible'), 2600);
-        }
 
         function setRunning(next) {
             running = next;
@@ -526,10 +509,6 @@ function renderSummary(summary: VbaTestRunSummary): string {
         ${statHtml(summary.xfail, 'XFail')}
         ${statHtml(summary.xpass, 'XPass')}
     </section>`;
-}
-
-function statHtml(value: number, label: string): string {
-    return `<div class="stat"><strong>${escapeHtml(String(value))}</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
 function runTimingSummary(report: VbaTestRunReport): {
