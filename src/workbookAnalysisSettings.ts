@@ -1,8 +1,6 @@
 import {
     normalizeAnalysisRuleCode,
     normalizeAnalysisRuleCodes,
-    normalizeAnalysisRuleSeverityOverrides,
-    normalizeAnalysisVisibleSeverities,
     setAnalysisRuleTrackedInList,
     type AnalysisRuleTrackingUpdate,
     type AnalysisRuleSeverityOverrides,
@@ -92,17 +90,6 @@ export function effectiveWorkbookAnalysisSettingsFromConfig(
     };
 }
 
-export async function setWorkbookAnalysisVisibleSeverities(
-    workbookPath: string,
-    severities: unknown,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    await updateWorkbookSettings(workbookPath, (existing) => withAnalysisSettings(existing, {
-        ...existing.analysis,
-        visibleSeverities: normalizeAnalysisVisibleSeverities(severities),
-    }));
-    return effectiveWorkbookAnalysisSettings(workbookPath);
-}
-
 export async function setWorkbookAnalysisRuleTracked(
     workbookPath: string,
     code: string | undefined,
@@ -144,63 +131,6 @@ export async function setWorkbookAnalysisRuleTracked(
     return result;
 }
 
-export async function setWorkbookAnalysisRuleSeverityOverride(
-    workbookPath: string,
-    code: string | undefined,
-    severity: unknown,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    const normalized = normalizeAnalysisRuleCode(code);
-    if (!normalized) {
-        return effectiveWorkbookAnalysisSettings(workbookPath);
-    }
-    await updateWorkbookSettings(workbookPath, (existing) => {
-        const current = existing.analysis?.ruleSeverityOverrides ?? ruleSeverityOverridesSettingFromConfig().value;
-        const next = normalizeAnalysisRuleSeverityOverrides({
-            ...current,
-            [normalized]: severity,
-        });
-        return withAnalysisSettings(existing, {
-            ...existing.analysis,
-            ruleSeverityOverrides: next,
-        });
-    });
-    return effectiveWorkbookAnalysisSettings(workbookPath);
-}
-
-export async function clearWorkbookAnalysisRuleSeverityOverride(
-    workbookPath: string,
-    code: string | undefined,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    const normalized = normalizeAnalysisRuleCode(code);
-    if (!normalized) {
-        return effectiveWorkbookAnalysisSettings(workbookPath);
-    }
-    await updateWorkbookSettings(workbookPath, (existing) => {
-        const current = existing.analysis?.ruleSeverityOverrides;
-        if (!current || !(normalized in current)) {
-            return undefined;
-        }
-        const next = { ...current };
-        delete next[normalized];
-        return withAnalysisSettings(existing, {
-            ...existing.analysis,
-            ruleSeverityOverrides: normalizeAnalysisRuleSeverityOverrides(next),
-        });
-    });
-    return effectiveWorkbookAnalysisSettings(workbookPath);
-}
-
-export async function resetWorkbookAnalysisVisibleSeverities(
-    workbookPath: string,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    await updateWorkbookSettings(workbookPath, (existing) => {
-        const analysis = { ...(existing.analysis ?? {}) };
-        delete analysis.visibleSeverities;
-        return withAnalysisSettings(existing, analysis);
-    });
-    return effectiveWorkbookAnalysisSettings(workbookPath);
-}
-
 export async function resetWorkbookAnalysisRuleTracking(
     workbookPath: string,
 ): Promise<EffectiveWorkbookAnalysisSettings> {
@@ -209,24 +139,6 @@ export async function resetWorkbookAnalysisRuleTracking(
         delete analysis.untrackedRules;
         return withAnalysisSettings(existing, analysis);
     });
-    return effectiveWorkbookAnalysisSettings(workbookPath);
-}
-
-export async function resetWorkbookAnalysisRuleSeverities(
-    workbookPath: string,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    await updateWorkbookSettings(workbookPath, (existing) => {
-        const analysis = { ...(existing.analysis ?? {}) };
-        delete analysis.ruleSeverityOverrides;
-        return withAnalysisSettings(existing, analysis);
-    });
-    return effectiveWorkbookAnalysisSettings(workbookPath);
-}
-
-export async function resetWorkbookAnalysisSettings(
-    workbookPath: string,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    await updateWorkbookSettings(workbookPath, withoutAnalysisSettings);
     return effectiveWorkbookAnalysisSettings(workbookPath);
 }
 
@@ -241,15 +153,6 @@ function withAnalysisSettings(
         importMode: config.importMode,
         tests: config.tests,
         ...(normalizedAnalysis ? { analysis: normalizedAnalysis } : {}),
-    };
-}
-
-function withoutAnalysisSettings(config: WorkbookSettingsConfig): WorkbookSettingsConfig {
-    return {
-        exportFolder: config.exportFolder,
-        exportMode: config.exportMode,
-        importMode: config.importMode,
-        tests: config.tests,
     };
 }
 

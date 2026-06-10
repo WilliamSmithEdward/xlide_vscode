@@ -41,12 +41,7 @@ import {
 	effectiveWorkbookAnalysisSettings,
 	effectiveWorkbookAnalysisSettingsFromConfig,
 	resetWorkbookAnalysisRuleTracking,
-	resetWorkbookAnalysisRuleSeverities,
-	resetWorkbookAnalysisSettings,
-	resetWorkbookAnalysisVisibleSeverities,
-	setWorkbookAnalysisRuleSeverityOverride,
 	setWorkbookAnalysisRuleTracked,
-	setWorkbookAnalysisVisibleSeverities,
 } from '../src/workbookAnalysisSettings';
 
 const tempRoots: string[] = [];
@@ -112,40 +107,6 @@ describe('workbook analysis settings', () => {
 		});
 	});
 
-	it('stores workbook severity overrides without disturbing sync settings', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
-			exportFolder,
-			exportMode: 'trueUp',
-			importMode: 'updateOnly',
-			tests: {
-				artifactFolder: 'custom-tests',
-				artifactRetention: 3,
-			},
-		});
-
-		await setWorkbookAnalysisVisibleSeverities(workbook, ['warning']);
-
-		expect(await readWorkbookSettings(workbook)).toEqual({
-			exportFolder,
-			exportMode: 'trueUp',
-			importMode: 'updateOnly',
-			tests: {
-				artifactFolder: 'custom-tests',
-				artifactRetention: 3,
-			},
-			analysis: {
-				visibleSeverities: ['warning'],
-			},
-		});
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
-			visibleSeverities: ['warning'],
-			visibleSeveritiesSource: 'workbook',
-			untrackedRulesSource: 'default',
-			workbookUntrackedRules: [],
-		});
-	});
-
 	it('stores workbook rule tracking separately from the effective global default', async () => {
 		const { workbook } = tempWorkbook();
 		mockConfig.untrackedRules = ['argument-count'];
@@ -164,93 +125,6 @@ describe('workbook analysis settings', () => {
 			untrackedRules: ['argument-count', 'option-explicit-missing'],
 			untrackedRulesSource: 'workbook',
 			workbookUntrackedRules: ['option-explicit-missing'],
-		});
-	});
-
-	it('resets one workbook analysis override while preserving the other', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
-		mockConfig.visibleSeverities = ['error'];
-		mockConfig.machineKeys.add('analysis.visibleSeverities');
-		await writeWorkbookSettings(workbook, {
-			exportFolder,
-			analysis: {
-				visibleSeverities: ['warning'],
-				untrackedRules: ['argument-count'],
-				ruleSeverityOverrides: { 'unknown-call': 'warning' },
-			},
-		});
-
-		await resetWorkbookAnalysisVisibleSeverities(workbook);
-
-		expect(await readWorkbookSettings(workbook)).toEqual({
-			exportFolder,
-			analysis: {
-				untrackedRules: ['argument-count'],
-				ruleSeverityOverrides: { 'unknown-call': 'warning' },
-			},
-		});
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
-			visibleSeverities: ['error'],
-			visibleSeveritiesSource: 'machine',
-			untrackedRules: ['argument-count'],
-			untrackedRulesSource: 'workbook',
-			workbookUntrackedRules: ['argument-count'],
-			ruleSeverityOverrides: { 'unknown-call': 'warning' },
-			ruleSeverityOverridesSource: 'workbook',
-		});
-	});
-
-	it('stores workbook rule severity overrides from the effective global default', async () => {
-		const { workbook } = tempWorkbook();
-		mockConfig.ruleSeverityOverrides = { 'member-not-found': 'warning' };
-		mockConfig.machineKeys.add('analysis.ruleSeverityOverrides');
-
-		await setWorkbookAnalysisRuleSeverityOverride(workbook, 'Unknown-Call', 'warning');
-
-		expect((await readWorkbookSettings(workbook)).analysis?.ruleSeverityOverrides).toEqual({
-			'member-not-found': 'warning',
-			'unknown-call': 'warning',
-		});
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
-			ruleSeverityOverrides: {
-				'member-not-found': 'warning',
-				'unknown-call': 'warning',
-			},
-			ruleSeverityOverridesSource: 'workbook',
-		});
-	});
-
-	it('drops disallowed workbook rule severity overrides through the guarded normalizer', async () => {
-		const { workbook } = tempWorkbook();
-
-		await setWorkbookAnalysisRuleSeverityOverride(workbook, 'option-explicit-missing', 'error');
-
-		expect((await readWorkbookSettings(workbook)).analysis?.ruleSeverityOverrides).toBeUndefined();
-	});
-
-	it('resets workbook rule severity overrides independently', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
-		mockConfig.ruleSeverityOverrides = { 'member-not-found': 'warning' };
-		mockConfig.machineKeys.add('analysis.ruleSeverityOverrides');
-		await writeWorkbookSettings(workbook, {
-			exportFolder,
-			analysis: {
-				untrackedRules: ['argument-count'],
-				ruleSeverityOverrides: { 'unknown-call': 'warning' },
-			},
-		});
-
-		await resetWorkbookAnalysisRuleSeverities(workbook);
-
-		expect(await readWorkbookSettings(workbook)).toEqual({
-			exportFolder,
-			analysis: {
-				untrackedRules: ['argument-count'],
-			},
-		});
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
-			ruleSeverityOverrides: { 'member-not-found': 'warning' },
-			ruleSeverityOverridesSource: 'machine',
 		});
 	});
 
@@ -279,36 +153,4 @@ describe('workbook analysis settings', () => {
 		});
 	});
 
-	it('resets all workbook analysis overrides without disturbing workbook-only settings', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
-			exportFolder,
-			exportMode: 'trueUp',
-			tests: {
-				artifactFolder: 'custom-tests',
-				artifactRetention: 4,
-			},
-			analysis: {
-				visibleSeverities: ['warning'],
-				untrackedRules: ['argument-count'],
-				ruleSeverityOverrides: { 'unknown-call': 'warning' },
-			},
-		});
-
-		await resetWorkbookAnalysisSettings(workbook);
-
-		expect(await readWorkbookSettings(workbook)).toEqual({
-			exportFolder,
-			exportMode: 'trueUp',
-			tests: {
-				artifactFolder: 'custom-tests',
-				artifactRetention: 4,
-			},
-		});
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
-			visibleSeveritiesSource: 'default',
-			untrackedRulesSource: 'default',
-			workbookUntrackedRules: [],
-		});
-	});
 });
