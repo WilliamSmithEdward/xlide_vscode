@@ -4,7 +4,7 @@ import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import type { LiveShareIntegration } from './liveShare';
 import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
-import { errorCategoryForSupportLog } from './xlideCommandLog';
+import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
 
@@ -57,8 +57,7 @@ export function notifySignatureDropped(filePath: string, signatureDropped: boole
  * caused by Excel having the workbook open?
  */
 function isWorkbookLockedError(message: string): boolean {
-    return /WinError\s*32|being used by another process|sharing violation|Permission denied|PermissionError/i
-        .test(message);
+    return WORKBOOK_LOCKED_ERROR_RE.test(message);
 }
 
 function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): void {
