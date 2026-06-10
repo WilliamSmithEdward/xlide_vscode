@@ -12,6 +12,7 @@ import {
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
     notifySignatureDropped,
+    workbookIdentityKey,
 } from './xlideFileSystem';
 import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import { encodeRemoteModuleUri } from './liveShare';
@@ -768,11 +769,6 @@ export function registerCommands(
         });
     }
 
-    function workbookStateKey(filePath: string): string {
-        const normalized = path.normalize(filePath);
-        return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-    }
-
     function updateLastFailedVbaTestRun(report: VbaTestRunReport): void {
         const failed = report.results
             .filter((result) => VBA_TEST_RERUN_FAILED_STATUSES.has(result.status))
@@ -781,7 +777,7 @@ export function registerCommands(
                 qualifiedName: result.test.qualifiedName,
                 status: result.status,
             }));
-        const key = workbookStateKey(report.filePath);
+        const key = workbookIdentityKey(report.filePath);
         if (failed.length === 0) {
             lastFailedVbaTestRuns.delete(key);
             return;
@@ -793,7 +789,7 @@ export function registerCommands(
     }
 
     function lastFailedRunForWorkbook(filePath: string): VbaTestLastFailedRun | undefined {
-        return lastFailedVbaTestRuns.get(workbookStateKey(filePath));
+        return lastFailedVbaTestRuns.get(workbookIdentityKey(filePath));
     }
 
     async function rerunFailedVbaTestsForWorkbook(filePath: string): Promise<void> {

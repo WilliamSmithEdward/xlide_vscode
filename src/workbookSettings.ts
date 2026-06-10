@@ -12,6 +12,7 @@ import {
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import type { XlideGlobalSettingSource } from './globalSettings';
+import { workbookIdentityKey } from './workbookIdentity';
 import { errorMessage } from './util/errors';
 
 type ExportMode = 'exportAll' | 'trueUp';
@@ -434,7 +435,7 @@ async function withWorkbookSettingsWriteLock<T>(
     filePath: string,
     action: () => Promise<T>,
 ): Promise<T> {
-    const key = settingsPathForWorkbook(filePath).toLowerCase();
+    const key = workbookIdentityKey(settingsPathForWorkbook(filePath));
     const previous = workbookSettingsWriteQueues.get(key) ?? Promise.resolve();
     let release: () => void = () => undefined;
     const current = new Promise<void>((resolve) => {

@@ -1,8 +1,8 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
+import { workbookIdentityKey } from './xlideFileSystem';
 import { errorMessage } from './util/errors';
 
 export interface VbaTestResultsOptions {
@@ -32,7 +32,7 @@ export function openVbaTestResults(
     report: VbaTestRunReport,
     options: VbaTestResultsOptions = {},
 ): vscode.WebviewPanel {
-    const panelKey = vbaTestResultsPanelKey(report.filePath);
+    const panelKey = workbookIdentityKey(report.filePath);
     const existing = openVbaTestResultsPanels.get(panelKey);
     if (existing) {
         existing.options = options;
@@ -98,7 +98,7 @@ export function openVbaTestResults(
 }
 
 export function setVbaTestResultsRunning(filePath: string, running: boolean): void {
-    const entry = openVbaTestResultsPanels.get(vbaTestResultsPanelKey(filePath));
+    const entry = openVbaTestResultsPanels.get(workbookIdentityKey(filePath));
     if (!entry) {
         return;
     }
@@ -627,7 +627,3 @@ function resultDetailsHtml(result: VbaTestRunItem): string {
     return `${details}${output}`;
 }
 
-function vbaTestResultsPanelKey(filePath: string): string {
-    const normalized = path.normalize(filePath);
-    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-}

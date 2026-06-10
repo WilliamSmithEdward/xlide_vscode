@@ -1,3 +1,5 @@
+import { workbookIdentityKey } from './workbookIdentity';
+
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
 type XlideSidebarSetupAction = 'downloadPython' | 'setPythonPath';
@@ -268,10 +270,10 @@ function targetWorkbookNode(
     workbook: XlideSidebarActiveWorkbook | undefined,
 ): XlideSidebarNode {
     if (choices.length > 0) {
-        const optionValues = new Set(choices.map((choice) => normalizePathKey(choice.filePath)));
+        const optionValues = new Set(choices.map((choice) => workbookIdentityKey(choice.filePath)));
         const options = [
             ...(workbook ? [] : [{ label: 'Select Workbook...', value: '' }]),
-            ...(workbook && !optionValues.has(normalizePathKey(workbook.filePath))
+            ...(workbook && !optionValues.has(workbookIdentityKey(workbook.filePath))
                 ? [{
                     label: workbook.label,
                     value: workbook.filePath,
@@ -315,9 +317,6 @@ function targetWorkbookNode(
     );
 }
 
-function normalizePathKey(filePath: string): string {
-    return filePath.toLowerCase();
-}
 
 function actionNode(
     id: string,

@@ -21,7 +21,7 @@ import {
     type EffectiveWorkbookAnalysisSettings,
 } from './workbookAnalysisSettings';
 import { settingsPathForWorkbook } from './workbookSettings';
-import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { decodeModuleUri, sameWorkbookPath, workbookIdentityKey, XLIDE_SCHEME } from './xlideFileSystem';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
 import { errorMessage } from './util/errors';
@@ -83,7 +83,7 @@ export function openWorkbookAnalysisResults(
     result: WorkbookAnalysisResult,
     options: WorkbookAnalysisResultsOptions = {},
 ): vscode.WebviewPanel {
-    const panelKey = workbookAnalysisResultsPanelKey(result.filePath);
+    const panelKey = workbookIdentityKey(result.filePath);
     const existing = openWorkbookAnalysisResultsPanels.get(panelKey);
     if (existing) {
         existing.options = options;
@@ -2036,7 +2036,3 @@ function sanitizeFileName(value: string): string {
     return value.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/[. ]+$/g, '');
 }
 
-function workbookAnalysisResultsPanelKey(filePath: string): string {
-    const normalized = path.normalize(filePath);
-    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-}

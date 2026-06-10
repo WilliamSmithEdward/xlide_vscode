@@ -1379,7 +1379,7 @@ function registerVbaDiagnostics(
         loadedAt: number;
     }
 
-    const workbookKey = (workbookPath: string): string => path.resolve(workbookPath).toLowerCase();
+    const workbookKey = (workbookPath: string): string => workbookContextKey(workbookPath);
 
     const severityToVscode = (s: RuleSeverity): vscode.DiagnosticSeverity => {
         switch (s) {

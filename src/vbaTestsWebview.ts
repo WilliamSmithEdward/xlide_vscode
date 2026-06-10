@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
+import { workbookIdentityKey } from './xlideFileSystem';
 import { errorMessage } from './util/errors';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
@@ -113,7 +114,7 @@ export function openVbaTestsPanel(
     filePath: string,
     options: VbaTestsPanelOptions,
 ): vscode.WebviewPanel {
-    const panelKey = vbaTestsPanelKey(filePath);
+    const panelKey = workbookIdentityKey(filePath);
     const existing = openVbaTestsPanels.get(panelKey);
     if (existing) {
         existing.options = options;
@@ -1145,7 +1146,3 @@ function stringListFromUnknown(value: unknown): string[] {
     return result;
 }
 
-function vbaTestsPanelKey(filePath: string): string {
-    const normalized = path.normalize(filePath);
-    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-}

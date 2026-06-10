@@ -102,9 +102,10 @@ describe('decodeModuleUri', () => {
 
 describe('workbook identity helpers', () => {
     it('normalizes workbook paths case-insensitively on Windows only', () => {
-        expect(workbookIdentityKey('C:/Repo/Book.xlsm', 'win32')).toBe('c:/repo/book.xlsm');
+        expect(workbookIdentityKey('C:/Repo/Book.xlsm', 'win32')).toBe('c:\\repo\\book.xlsm');
         expect(workbookIdentityKey('/Users/me/Book.xlsm', 'darwin')).toBe('/Users/me/Book.xlsm');
         expect(sameWorkbookPath('C:/Repo/Book.xlsm', 'c:/repo/book.xlsm', 'win32')).toBe(true);
+        expect(sameWorkbookPath('C:/Repo/Book.xlsm', 'C:\\Repo\\Book.xlsm', 'win32')).toBe(true);
         expect(sameWorkbookPath('/repo/Book.xlsm', '/repo/book.xlsm', 'linux')).toBe(false);
     });
 
