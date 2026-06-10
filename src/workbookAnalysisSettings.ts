@@ -1,7 +1,7 @@
 import {
     normalizeAnalysisRuleCode,
     normalizeAnalysisRuleCodes,
-    setAnalysisRuleTrackedInList,
+    planAnalysisRuleTrackingUpdate,
     type AnalysisRuleTrackingUpdate,
     type AnalysisRuleSeverityOverrides,
     type AnalysisSeverityFilter,
@@ -112,19 +112,12 @@ export async function setWorkbookAnalysisRuleTracked(
         untrackedRules: [],
     };
     await updateWorkbookSettings(workbookPath, (existing) => {
-        const current = existing.analysis?.untrackedRules ?? [];
-        const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
-        const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
-        result = {
-            code: normalized,
-            tracked,
-            changed,
-            untrackedRules: next,
-        };
-        return changed || !existing.analysis?.untrackedRules
+        const update = planAnalysisRuleTrackingUpdate(existing.analysis?.untrackedRules ?? [], normalized, tracked);
+        result = update;
+        return update.changed || !existing.analysis?.untrackedRules
             ? withAnalysisSettings(existing, {
                 ...existing.analysis,
-                untrackedRules: next,
+                untrackedRules: update.untrackedRules,
             })
             : undefined;
     });

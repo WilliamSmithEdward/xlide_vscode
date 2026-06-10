@@ -6,7 +6,7 @@ import {
     normalizeAnalysisRuleCode,
     normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
-    setAnalysisRuleTrackedInList,
+    planAnalysisRuleTrackingUpdate,
     validateAnalysisRuleSeverityOverrideEntries,
     type AnalysisRuleTrackingUpdate,
     type AnalysisRuleSeverityOverrides,
@@ -206,17 +206,11 @@ async function setXlideGlobalAnalysisRuleTracked(
         };
     }
 
-    const next = setAnalysisRuleTrackedInList(current, normalized, tracked);
-    const changed = current.length !== next.length || current.some((entry, index) => entry !== next[index]);
-    if (changed) {
-        await config.update('analysis.untrackedRules', next, true);
+    const update = planAnalysisRuleTrackingUpdate(current, normalized, tracked);
+    if (update.changed) {
+        await config.update('analysis.untrackedRules', update.untrackedRules, true);
     }
-    return {
-        code: normalized,
-        tracked,
-        changed,
-        untrackedRules: next,
-    };
+    return update;
 }
 
 async function setXlideGlobalAnalysisRuleSeverityOverride(

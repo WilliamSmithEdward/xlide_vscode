@@ -41,6 +41,28 @@ export function setAnalysisRuleTrackedInList(
         : normalizeAnalysisRuleCodes([...untrackedRules, normalized]);
 }
 
+/**
+ * Computes the shared rule-tracking mutation step for a backing store:
+ * the next untracked-rule list plus whether persisting it would change
+ * anything. `code` must already be normalized; store-specific bail rules
+ * (unknown-code filtering, effective fallbacks) stay with the caller.
+ */
+export function planAnalysisRuleTrackingUpdate(
+    untrackedRules: readonly string[],
+    code: string,
+    tracked: boolean,
+): AnalysisRuleTrackingUpdate {
+    const next = setAnalysisRuleTrackedInList(untrackedRules, code, tracked);
+    const changed = untrackedRules.length !== next.length
+        || untrackedRules.some((entry, index) => entry !== next[index]);
+    return {
+        code,
+        tracked,
+        changed,
+        untrackedRules: next,
+    };
+}
+
 export function isAnalysisRuleTracked(
     code: string | undefined,
     untrackedRules: readonly string[] | ReadonlySet<string>,
