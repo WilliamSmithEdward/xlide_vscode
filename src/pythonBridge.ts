@@ -25,6 +25,10 @@ interface PendingRequest {
     cancel?: vscode.Disposable;
 }
 
+// Stderr is mirrored to the output channel; keep only the most recent lines
+// for the startup-failure message so the buffer cannot grow unbounded.
+const MAX_STDERR_LINES = 50;
+
 export class PythonBridge implements vscode.Disposable {
     private _proc: cp.ChildProcess | undefined;
     private _pending = new Map<number, PendingRequest>();
@@ -158,6 +162,9 @@ export class PythonBridge implements vscode.Disposable {
                 if (text) {
                     this._out.appendLine(`[python] ${text}`);
                     this._stderrLines.push(text);
+                    if (this._stderrLines.length > MAX_STDERR_LINES) {
+                        this._stderrLines.shift();
+                    }
                 }
             });
 
