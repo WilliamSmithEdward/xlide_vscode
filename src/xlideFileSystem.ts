@@ -16,6 +16,25 @@ export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
 export { moduleIdentityKey, sameWorkbookPath, workbookIdentityKey } from './workbookIdentity';
 
+/** True for any VBA document: by language id or by xlide scheme. */
+export function isVbaDocument(document: vscode.TextDocument): boolean {
+    return document.languageId === 'vba'
+        || document.languageId === XLIDE_VBA_LANGUAGE_ID
+        || document.uri.scheme === XLIDE_SCHEME;
+}
+
+/** True for xlide-scheme documents backed by a local workbook (not Live Share). */
+export function isLocalXlideDocument(document: vscode.TextDocument): boolean {
+    return document.uri.scheme === XLIDE_SCHEME
+        && document.uri.authority !== XLIDE_LIVESHARE_AUTHORITY;
+}
+
+/** The active editor when it shows a local workbook VBA module, else undefined. */
+export function activeLocalVbaEditor(): vscode.TextEditor | undefined {
+    const editor = vscode.window.activeTextEditor;
+    return editor && isLocalXlideDocument(editor.document) ? editor : undefined;
+}
+
 /**
  * Tracks workbook paths for which the signature-dropped notice has already
  * been shown this session, so the user sees it at most once per file.

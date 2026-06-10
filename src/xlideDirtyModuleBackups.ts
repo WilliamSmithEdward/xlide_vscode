@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { decodeModuleUri, XLIDE_LIVESHARE_AUTHORITY, XLIDE_SCHEME } from './xlideFileSystem';
+import { decodeModuleUri, isLocalXlideDocument } from './xlideFileSystem';
 import { errorMessage } from './util/errors';
 
 interface DirtyModuleBackup {
@@ -21,10 +21,6 @@ const DIRTY_BACKUP_DEBOUNCE_MS = 250;
 // Backups for workbooks that are deleted/moved (or modules that are renamed)
 // while dirty never get reopened, so their files are pruned once stale.
 const DIRTY_BACKUP_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-
-function isLocalXlideModule(document: vscode.TextDocument): boolean {
-    return document.uri.scheme === XLIDE_SCHEME && document.uri.authority !== XLIDE_LIVESHARE_AUTHORITY;
-}
 
 function wholeDocumentRange(document: vscode.TextDocument): vscode.Range {
     const last = document.lineAt(Math.max(0, document.lineCount - 1));
@@ -88,7 +84,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
     }
 
     private onDocumentChanged(document: vscode.TextDocument): void {
-        if (!isLocalXlideModule(document)) {
+        if (!isLocalXlideDocument(document)) {
             return;
         }
         if (!document.isDirty && !this._restoring.has(document.uri.toString())) {
@@ -100,7 +96,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
     }
 
     private async restoreIfAvailable(document: vscode.TextDocument): Promise<void> {
-        if (!isLocalXlideModule(document) || document.isDirty) {
+        if (!isLocalXlideDocument(document) || document.isDirty) {
             return;
         }
         const backup = await this.readBackup(document.uri);
@@ -272,7 +268,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         // Backups for open documents are owned by the restore/write flow above.
         const openBackupNames = new Set(
             vscode.workspace.textDocuments
-                .filter((document) => isLocalXlideModule(document))
+                .filter((document) => isLocalXlideDocument(document))
                 .map((document) => backupName(document.uri)),
         );
         const cutoff = Date.now() - DIRTY_BACKUP_RETENTION_MS;

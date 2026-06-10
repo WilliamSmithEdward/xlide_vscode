@@ -8,8 +8,8 @@ import {
     XlideFileSystemProvider,
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
-    XLIDE_LIVESHARE_AUTHORITY,
     decodeModuleUri,
+    isLocalXlideDocument,
 } from './xlideFileSystem';
 import { PythonBridge } from './pythonBridge';
 import { registerAgentTools } from './agentTools';
@@ -336,9 +336,8 @@ export function activate(context: vscode.ExtensionContext): void {
                     explorer.clearActiveModule();
                     return;
                 }
-                const uri = editor.document.uri;
-                if (uri.scheme !== XLIDE_SCHEME || uri.authority === XLIDE_LIVESHARE_AUTHORITY) { return; }
-                pending = decodeModuleUri(uri);
+                if (!isLocalXlideDocument(editor.document)) { return; }
+                pending = decodeModuleUri(editor.document.uri);
                 apply();
             });
             return new vscode.Disposable(() => {

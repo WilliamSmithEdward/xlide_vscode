@@ -11,6 +11,7 @@ import {
     sameWorkbookPath,
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
+    activeLocalVbaEditor,
     notifySignatureDropped,
     workbookIdentityKey,
 } from './xlideFileSystem';
@@ -1132,14 +1133,6 @@ export function registerCommands(
         return filePath;
     }
 
-    function activeLocalVbaEditor(): vscode.TextEditor | undefined {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
-            return undefined;
-        }
-        return editor;
-    }
-
     function procedureNameAtCursor(editor: vscode.TextEditor): string | undefined {
         const source = editor.document.getText();
         const offset = editor.document.offsetAt(editor.selection.active);
@@ -1416,8 +1409,8 @@ export function registerCommands(
     }
 
     async function exportActiveModule(): Promise<void> {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
+        const editor = activeLocalVbaEditor();
+        if (!editor) {
             vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to export the current module.');
             return;
         }
@@ -1887,19 +1880,16 @@ export function registerCommands(
     }
 
     async function activeLocalWorkbookPath(): Promise<string | undefined> {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
-            return undefined;
-        }
-        return decodeModuleUri(editor.document.uri).xlsmPath;
+        const editor = activeLocalVbaEditor();
+        return editor ? decodeModuleUri(editor.document.uri).xlsmPath : undefined;
     }
 
     async function activeModuleSupportData(): Promise<{
         workbook: SupportBundleWorkbookSummary;
         analysis: SupportBundleAnalysisSummary;
     }> {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME || editor.document.uri.authority) {
+        const editor = activeLocalVbaEditor();
+        if (!editor) {
             return {
                 workbook: { available: false },
                 analysis: { available: false },

@@ -7,7 +7,7 @@ import {
     settingsPathForWorkbook,
 } from './workbookSettings';
 import { registerXlideCommand } from './xlideCommandRegistration';
-import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { activeLocalVbaEditor, decodeModuleUri, sameWorkbookPath } from './xlideFileSystem';
 import {
     buildXlideSidebarModel,
     type XlideSidebarActiveWorkbook,
@@ -236,15 +236,8 @@ function findWorkbook(workbooks: readonly vscode.Uri[], filePath: string): vscod
 }
 
 function activeWorkbookPathFromEditor(): string | undefined {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return undefined;
-    }
-    const uri = editor.document.uri;
-    if (uri.scheme !== XLIDE_SCHEME || uri.authority) {
-        return undefined;
-    }
-    return decodeModuleUri(uri).xlsmPath;
+    const editor = activeLocalVbaEditor();
+    return editor ? decodeModuleUri(editor.document.uri).xlsmPath : undefined;
 }
 
 async function sidebarWorkbookForPath(

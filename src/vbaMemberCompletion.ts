@@ -13,8 +13,8 @@ import * as vscode from 'vscode';
 import { PythonBridge } from './pythonBridge';
 import {
 	XLIDE_SCHEME,
-	XLIDE_VBA_LANGUAGE_ID,
 	decodeModuleUri,
+	isVbaDocument,
 	moduleIdentityKey,
 	workbookIdentityKey,
 } from './xlideFileSystem';
@@ -1765,8 +1765,3 @@ function canonicalCandidateFromEditor(
 	return { editor, position: editor.selection.active };
 }
 
-function isVbaDocument(document: vscode.TextDocument): boolean {
-	return document.languageId === 'vba'
-		|| document.languageId === XLIDE_VBA_LANGUAGE_ID
-		|| document.uri.scheme === XLIDE_SCHEME;
-}
