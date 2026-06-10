@@ -3,6 +3,7 @@ import type { ModuleMember, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaDiagnostic } from './analyzeModule';
 import { diagnosticMetadataForCode, DIAGNOSTIC_RULES } from './ruleMetadata';
+import { lineStartOffsets } from '../../vbaStructuralAnalysis';
 
 export const ANALYSIS_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.analysisSuppressionDirective.code;
 
@@ -468,21 +469,6 @@ function tokenText(token: ReturnType<typeof tokenize>[number]): string {
 	return (token.canonicalText ?? token.rawText).toLowerCase();
 }
 
-function lineStartOffsets(source: string): number[] {
-	const starts = [0];
-	for (let i = 0; i < source.length; i++) {
-		const ch = source[i];
-		if (ch === '\r') {
-			if (source[i + 1] === '\n') {
-				i++;
-			}
-			starts.push(i + 1);
-		} else if (ch === '\n') {
-			starts.push(i + 1);
-		}
-	}
-	return starts;
-}
 
 function lineForOffset(starts: readonly number[], offset: number): number {
 	let lo = 0;

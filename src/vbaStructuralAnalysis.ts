@@ -422,11 +422,23 @@ export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParen
     return undefined;
 }
 
-/** Precomputes the absolute offset at which each physical line starts. */
+/**
+ * Precomputes the absolute offset at which each physical line starts.
+ * Treats CR, CRLF, and LF as line terminators, matching the analyzer lexer
+ * and VS Code's own line splitting.
+ */
 export function lineStartOffsets(source: string): number[] {
     const starts = [0];
     for (let i = 0; i < source.length; i++) {
-        if (source[i] === '\n') { starts.push(i + 1); }
+        const ch = source[i];
+        if (ch === '\r') {
+            if (source[i + 1] === '\n') {
+                i++;
+            }
+            starts.push(i + 1);
+        } else if (ch === '\n') {
+            starts.push(i + 1);
+        }
     }
     return starts;
 }
