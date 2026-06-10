@@ -629,7 +629,7 @@
       {
         "name": "xlide_createWorkbook",
         "displayName": "Create New Workbook",
-        "modelDescription": "Creates a new macro-enabled workbook (.xlsm or .xlsb) with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. Overwrites the file if it already exists. Use this to start a fresh workbook before adding modules or cell data.",
+        "modelDescription": "Creates a new macro-enabled workbook (.xlsm or .xlsb) with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. Fails if the file already exists; it never overwrites an existing workbook. Use this to start a fresh workbook before adding modules or cell data.",
         "toolReferenceName": "xlideCreateWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

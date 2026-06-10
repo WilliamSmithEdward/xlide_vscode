@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider, encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
@@ -423,12 +424,44 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<CreateWorkbookInput>('xlide_createWorkbook', {
             async invoke(options, _token) {
-                const result = await bridge.call<{ ok: boolean; path: string }>(
-                    'createWorkbook',
-                    { path: options.input.filePath },
-                );
-                explorer.refresh();
-                return textResult(JSON.stringify(result, null, 2));
+                const { filePath } = options.input;
+                try {
+                    if (fs.existsSync(filePath)) {
+                        throw new Error(
+                            `Workbook already exists: "${filePath}". ` +
+                            `xlide_createWorkbook does not overwrite existing workbooks - choose a different filePath.`,
+                        );
+                    }
+                    const result = await bridge.call<{ ok: boolean; path: string }>(
+                        'createWorkbook',
+                        { path: filePath },
+                    );
+                    explorer.refresh();
+                    const summary = formatChangeSummary({
+                        operation: 'Create workbook',
+                        changed: [filePath],
+                    });
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_createWorkbook',
+                        operation: 'create-workbook',
+                        outcome: 'succeeded',
+                        workbookPath: filePath,
+                        summary,
+                    });
+                    return textResult(JSON.stringify(result, null, 2));
+                } catch (err) {
+                    recordXlideWriteAudit({
+                        timestamp: new Date().toISOString(),
+                        command: 'xlide_createWorkbook',
+                        operation: 'create-workbook',
+                        outcome: 'failed',
+                        workbookPath: filePath,
+                        summary: 'Create workbook: 0 changed, 1 failed',
+                        errorCategory: errorCategoryForSupportLog(err),
+                    });
+                    throw err;
+                }
             },
         }),
 

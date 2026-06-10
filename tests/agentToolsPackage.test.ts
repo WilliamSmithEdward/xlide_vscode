@@ -28,6 +28,14 @@ describe('XLIDE agent tool manifest', () => {
         expect(tool?.inputSchema?.required).toContain('filePath');
     });
 
+    it('tells agents that createWorkbook never overwrites an existing file', () => {
+        const tool = languageModelTools().find((entry) => entry.name === 'xlide_createWorkbook');
+
+        expect(tool?.modelDescription).toContain('never overwrites');
+        expect(tool?.modelDescription).not.toContain('Overwrites the file');
+        expect(tool?.inputSchema?.required).toContain('filePath');
+    });
+
     it('exposes VBA test execution to AI agents', () => {
         const tool = languageModelTools().find((entry) => entry.name === 'xlide_runVbaTests');
 

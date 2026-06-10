@@ -338,7 +338,7 @@ to operate on export files.
 | `xlide_validateWorkbook` | `#xlideValidateWorkbook` | none | No |
 | `xlide_analyzeWorkbook` | `#xlideAnalyzeWorkbook` | none | No |
 | `xlide_runVbaTests` | `#xlideRunVbaTests` | runs tests + writes artifacts | Yes |
-| `xlide_createWorkbook` | `#xlideCreateWorkbook` | creates/overwrites .xlsm | Yes |
+| `xlide_createWorkbook` | `#xlideCreateWorkbook` | creates .xlsm (fails if the file exists) | Yes |
 | `xlide_readCells` | `#xlideReadCells` | none | No |
 | `xlide_readFormulas` | `#xlideReadFormulas` | none | No |
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |
