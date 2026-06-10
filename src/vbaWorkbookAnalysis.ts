@@ -30,7 +30,7 @@ import {
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { openModuleSourceMapForWorkbook } from './vbaOpenDocuments';
 import {
-    validAnalysisSuppressionScopesForDiagnostic,
+    analysisSuppressionScopeResolver,
     type AnalysisSuppressionScope,
 } from './analysisSuppressionScopes';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
@@ -217,11 +217,11 @@ export function workbookProblemsForModule(
     options: { suppressed?: boolean } = {},
 ): WorkbookAnalysisProblem[] {
     const starts = lineStartOffsets(source);
+    const suppressionScopesFor = analysisSuppressionScopeResolver(source);
     return diagnostics.map((diagnostic) => {
         const start = offsetToLineColumn(starts, diagnostic.span.start);
         const end = offsetToLineColumn(starts, diagnostic.span.end);
-        const suppressionScopes = validAnalysisSuppressionScopesForDiagnostic(
-            source,
+        const suppressionScopes = suppressionScopesFor(
             diagnostic.code,
             diagnostic.span.start,
         );
