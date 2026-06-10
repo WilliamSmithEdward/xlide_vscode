@@ -58,6 +58,23 @@ function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
 	} as PythonBridge;
 }
 
+function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): PythonBridge {
+	return {
+		async call<T>(method: string): Promise<T> {
+			calls.push(method);
+			if (method === 'readModules') {
+				return modules.map((mod) => ({
+					name: mod.name,
+					type: mod.type,
+					documentType: mod.documentType,
+					source: mod.source,
+				})) as T;
+			}
+			throw new Error(`Unexpected bridge call ${method}`);
+		},
+	} as PythonBridge;
+}
+
 describe('module sync plan', () => {
 	it('plans export row statuses from one workbook-vs-repo comparison path', async () => {
 		const { workbook, repo } = tempWorkbook();
@@ -94,6 +111,26 @@ describe('module sync plan', () => {
 		});
 		expect(byName.get('NewModule')?.warning).toBeUndefined();
 		expect(byName.get('NewModule')?.diff.filter((line) => line.left).every((line) => line.kind === 'added')).toBe(true);
+	});
+
+	it('builds the export plan from a single batch readModules call when available', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'Existing.bas'), 'Sub Same()\nEnd Sub\n', 'utf8');
+		const calls: string[] = [];
+
+		const plan = await buildExportModuleSyncPlan(batchFakeBridge([
+			{ name: 'Existing', type: 'standard', source: 'Sub Same()\nEnd Sub\n' },
+			{ name: 'Changed', type: 'standard', source: 'Sub Newer()\nEnd Sub\n' },
+		], calls), {
+			workbookPath: workbook,
+			exportFolder: repo,
+			exportMode: 'exportAll',
+		});
+
+		expect(calls).toEqual(['readModules']);
+		const byName = new Map(plan.items.map((item) => [item.moduleName, item]));
+		expect(byName.get('Existing')?.status).toBe('unchanged');
+		expect(byName.get('Changed')?.status).toBe('will-create');
 	});
 
 	it('surfaces true-up stale root module files as removable preview rows', async () => {

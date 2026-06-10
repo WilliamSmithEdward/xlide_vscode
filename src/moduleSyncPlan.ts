@@ -4,6 +4,7 @@ import type { PythonBridge } from './pythonBridge';
 import {
     type ModuleInfo,
     listRootVbaModuleFiles,
+    loadWorkbookModulesWithSources,
     relativeNameForModule,
     sanitizeFileName,
 } from './moduleExport';
@@ -112,13 +113,13 @@ export async function buildExportModuleSyncPlan(
     return measurePerformance('moduleSync.buildExportPlan', path.basename(params.workbookPath), async () => {
     const exportMode = normalizeExportMode(params.exportMode);
     await fs.promises.mkdir(params.exportFolder, { recursive: true });
-    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.workbookPath });
+    const { modules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
     const liveRelativeNames = new Set(modules.map(relativeNameForModule));
     const items = await Promise.all(modules.map(async (mod): Promise<ModuleSyncPlanItem> => {
         const relativeName = relativeNameForModule(mod);
         const targetPath = path.join(params.exportFolder, relativeName);
         const existsInRepo = await fileExists(targetPath);
-        const liveSource = await readWorkbookModuleSource(bridge, params.workbookPath, mod.name);
+        const liveSource = await sourceFor(mod.name);
         const repoSource = existsInRepo
             ? await fs.promises.readFile(targetPath, 'utf8')
             : '';
@@ -226,7 +227,7 @@ export async function buildImportModuleSyncPlan(
 ): Promise<ModuleSyncPlan> {
     return measurePerformance('moduleSync.buildImportPlan', path.basename(params.workbookPath), async () => {
     const importMode = normalizeImportMode(params.importMode);
-    const liveModules = await bridge.call<ModuleInfo[]>('listModules', { path: params.workbookPath });
+    const { modules: liveModules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
     const entries = (await fs.promises.readdir(params.importFolder))
         .filter((entry) => /\.(bas|cls)$/i.test(entry))
@@ -243,7 +244,7 @@ export async function buildImportModuleSyncPlan(
         const unsupportedDirectCreation =
             !existsInWorkbook && (repo.subtype === 'document' || repo.subtype === 'userform');
         const workbookSource = existsInWorkbook
-            ? await readWorkbookModuleSource(bridge, params.workbookPath, repo.moduleName)
+            ? await sourceFor(repo.moduleName)
             : '';
         const repoDisplaySource = editorPreviewSource(repo.source);
         const workbookDisplaySource = editorPreviewSource(workbookSource);
@@ -294,7 +295,7 @@ export async function buildImportModuleSyncPlan(
                 continue;
             }
             const relativeName = relativeNameForModule(mod);
-            const workbookSource = await readWorkbookModuleSource(bridge, params.workbookPath, mod.name);
+            const workbookSource = await sourceFor(mod.name);
             const workbookDisplaySource = editorPreviewSource(workbookSource);
             workbookOnlyItems.push({
                 id: `import-stale:${mod.name}`,
@@ -465,19 +466,6 @@ export function statusLabel(status: ModuleSyncItemStatus): string {
         case 'read-error':
             return 'Read error';
     }
-}
-
-async function readWorkbookModuleSource(
-    bridge: PythonBridge,
-    workbookPath: string,
-    moduleName: string,
-): Promise<string> {
-    const result = await bridge.call<{ source: string }>('readModule', {
-        path: workbookPath,
-        module: moduleName,
-        full: true,
-    });
-    return result.source;
 }
 
 async function readRepoModuleFile(folder: string, file: string): Promise<RepoModuleFile> {

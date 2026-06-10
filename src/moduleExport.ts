@@ -105,17 +105,73 @@ async function exportModuleFile(
     filePath: string,
     mod: ModuleInfo,
     exportFolder: string,
+    source?: string,
 ): Promise<{ relativeName: string; written: boolean }> {
     const relativeName = relativeNameForModule(mod);
     const outPath = path.join(exportFolder, relativeName);
 
-    const sourceResult = await bridge.call<{ source: string }>('readModule', {
+    const moduleSource = source ?? await readFullModuleSource(bridge, filePath, mod.name);
+    await fs.promises.writeFile(outPath, moduleSource, 'utf8');
+    return { relativeName, written: true };
+}
+
+async function readFullModuleSource(
+    bridge: PythonBridge,
+    filePath: string,
+    moduleName: string,
+): Promise<string> {
+    const result = await bridge.call<{ source: string }>('readModule', {
         path: filePath,
-        module: mod.name,
+        module: moduleName,
         full: true,   // include VBA attribute headers so exported files round-trip cleanly
     });
-    await fs.promises.writeFile(outPath, sourceResult.source, 'utf8');
-    return { relativeName, written: true };
+    return result.source;
+}
+
+interface WorkbookModulesWithSources {
+    modules: ModuleInfo[];
+    sourceFor: (moduleName: string) => Promise<string>;
+}
+
+// Full-source batch read in a single workbook open; falls back to listModules
+// plus one readModule per module for backends without readModules.
+async function loadWorkbookModulesWithSources(
+    bridge: PythonBridge,
+    filePath: string,
+): Promise<WorkbookModulesWithSources> {
+    try {
+        const modules = await bridge.call<Array<ModuleInfo & { source?: string }>>(
+            'readModules',
+            { path: filePath, full: true },
+        );
+        const sources = new Map<string, string>();
+        for (const mod of modules) {
+            if (typeof mod.source === 'string') {
+                sources.set(mod.name.toLowerCase(), mod.source);
+            }
+        }
+        return {
+            modules: modules.map(({ name, type, documentType }) => ({ name, type, documentType })),
+            sourceFor: async (moduleName) =>
+                sources.get(moduleName.toLowerCase()) ??
+                    readFullModuleSource(bridge, filePath, moduleName),
+        };
+    } catch (err) {
+        if (!isReadModulesUnavailable(err)) {
+            throw err;
+        }
+    }
+    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: filePath });
+    return {
+        modules,
+        sourceFor: (moduleName) => readFullModuleSource(bridge, filePath, moduleName),
+    };
+}
+
+function isReadModulesUnavailable(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err);
+    return /Method not found:\s*readModules/i.test(message) ||
+        /Unexpected bridge call readModules/i.test(message);
 }
 
 async function exportWorkbookModule(
@@ -175,7 +231,7 @@ async function exportWorkbookModules(
     const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
     await fs.promises.mkdir(exportFolder, { recursive: true });
 
-    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
+    const { modules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.filePath);
     const liveRelativeNames = new Set<string>();
     const writtenFiles: string[] = [];
     const removedFiles: string[] = [];
@@ -186,6 +242,7 @@ async function exportWorkbookModules(
             params.filePath,
             mod,
             exportFolder,
+            await sourceFor(mod.name),
         );
         liveRelativeNames.add(exported.relativeName);
         writtenFiles.push(exported.relativeName);
@@ -235,8 +292,10 @@ export {
     type ExportModulesResult,
     type ExportModuleParams,
     type ExportModuleResult,
+    type WorkbookModulesWithSources,
     extensionForModuleType,
     listRootVbaModuleFiles,
+    loadWorkbookModulesWithSources,
     relativeNameForModule,
     sanitizeFileName,
     exportWorkbookModule,
