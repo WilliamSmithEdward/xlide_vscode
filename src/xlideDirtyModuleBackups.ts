@@ -17,6 +17,9 @@ interface PendingDirtyModuleBackup {
 }
 
 const DIRTY_BACKUP_DEBOUNCE_MS = 250;
+// Backups for workbooks that are deleted/moved (or modules that are renamed)
+// while dirty never get reopened, so their files are pruned once stale.
+const DIRTY_BACKUP_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 function isLocalXlideModule(document: vscode.TextDocument): boolean {
     return document.uri.scheme === XLIDE_SCHEME && document.uri.authority !== XLIDE_LIVESHARE_AUTHORITY;
@@ -33,6 +36,7 @@ function backupName(uri: vscode.Uri): string {
 
 export class XlideDirtyModuleBackups implements vscode.Disposable {
     private readonly _dir: string;
+    private readonly _dirReady: Promise<void>;
     private readonly _disposables: vscode.Disposable[] = [];
     private readonly _restoring = new Set<string>();
     private readonly _announced = new Set<string>();
@@ -45,7 +49,13 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         private readonly _out: vscode.OutputChannel,
     ) {
         this._dir = path.join(context.globalStorageUri.fsPath, 'dirty-vba-modules');
-        fs.mkdirSync(this._dir, { recursive: true });
+        this._dirReady = fs.promises.mkdir(this._dir, { recursive: true }).then(
+            () => undefined,
+            (err) => {
+                const message = err instanceof Error ? err.message : String(err);
+                this._out.appendLine(`XLIDE: Failed to create dirty backup directory: ${message}`);
+            },
+        );
 
         this._disposables.push(
             vscode.workspace.onDidChangeTextDocument((event) => this.onDocumentChanged(event.document)),
@@ -62,6 +72,8 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         for (const document of vscode.workspace.textDocuments) {
             void this.restoreIfAvailable(document);
         }
+
+        void this.pruneStaleBackups();
     }
 
     dispose(): void {
@@ -243,6 +255,44 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         });
     }
 
+    private async pruneStaleBackups(): Promise<void> {
+        await this._dirReady;
+        let entries: string[];
+        try {
+            entries = await fs.promises.readdir(this._dir);
+        } catch {
+            return;
+        }
+        // Backups for open documents are owned by the restore/write flow above.
+        const openBackupNames = new Set(
+            vscode.workspace.textDocuments
+                .filter((document) => isLocalXlideModule(document))
+                .map((document) => backupName(document.uri)),
+        );
+        const cutoff = Date.now() - DIRTY_BACKUP_RETENTION_MS;
+        for (const entry of entries) {
+            if (!entry.endsWith('.json') || openBackupNames.has(entry)) {
+                continue;
+            }
+            const fullPath = path.join(this._dir, entry);
+            try {
+                const raw = await fs.promises.readFile(fullPath, 'utf8');
+                let updatedAt: unknown;
+                try {
+                    updatedAt = (JSON.parse(raw) as Partial<DirtyModuleBackup>).updatedAt;
+                } catch {
+                    updatedAt = undefined;
+                }
+                if (typeof updatedAt === 'number' && updatedAt >= cutoff) {
+                    continue;
+                }
+                await fs.promises.rm(fullPath, { force: true });
+            } catch {
+                /* best effort cleanup */
+            }
+        }
+    }
+
     private bumpWriteGeneration(key: string): number {
         const next = this.currentWriteGeneration(key) + 1;
         this._writeGenerations.set(key, next);
@@ -254,7 +304,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
     }
 
     private enqueueFileOperation(key: string, operation: () => Promise<void>): Promise<void> {
-        const previous = this._fileOperations.get(key) ?? Promise.resolve();
+        const previous = this._fileOperations.get(key) ?? this._dirReady;
         const next = previous
             .catch(() => {
                 /* each operation handles its own reporting */
