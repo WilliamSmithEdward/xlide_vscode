@@ -38,7 +38,7 @@ xlide_vscode/
     liveShare.ts        LiveShareIntegration — host/guest Live Share bridge over the VSLS service API
     statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
-    vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of parsed VBA symbols
+    vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of VBA module sources
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
     vbaStructuralAnalysis.ts        Pure structural block-balance analysis (analyzeVbaStructure), smart-enter helpers, and the shared smart-block snippet catalogue (no vscode dependency)
     vbaModuleAnalysis.ts    Shared module analysis core used by live diagnostics, current-module analysis, and workbook analysis; merges structural analysis, semantic analysis, and analysis suppression directives
@@ -460,18 +460,18 @@ code actions, and tree/module commands should reuse those helpers rather than
 carrying local regex copies.
 
 **Symbol intelligence** — `src/vbaSymbolIndex.ts` keeps a workbook-scoped cache
-of parsed module symbols. Modules are parsed with a lightweight regex pass
-(`parseVbaModule`) that yields each `Sub`, `Function`, and `Property Get/Let/Set`
-with name range and body range. The index loads modules lazily through the
-Python bridge (`listModules` + `readModule`) and can refresh a single module
-after a save.
+of module sources and metadata. The cache loads modules lazily through the
+Python bridge (`readModules`, falling back to `listModules` + `readModule`) and
+can refresh a single module after a save. Symbol extraction itself lives in the
+analyzer (`src/analyzer/symbols/projectIndex.ts`), which consumers feed with the
+cached sources.
 
 `src/vbaLanguageProviders.ts` registers the language providers plus diagnostics
 and smart-enter editing against the `vba` language under the `xlide-vba` scheme:
 
 | Provider | Behavior |
 |---|---|
-| `DocumentSymbolProvider` | Outlines the current module from `parseVbaModule` |
+| `DocumentSymbolProvider` | Outlines the current module from the analyzer `ProjectIndex` via `documentOutlineSymbolsForSource` |
 | `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations, including enum members exported by their containing `Enum`) |
 | `ReferenceProvider` | Uses semantic binding before textual search: source-backed `object.Member` references are matched by their resolved class-member definition spans, project type-name tokens are matched through `resolveTypeDefinitions`, and ordinary identifiers still use `ProjectIndex.referenceScope` plus word-boundary search restricted to the binding scope; honors VS Code's include-declaration toggle |
 | `RenameProvider` | Uses the same source-backed member binding before falling back to `referenceScope`, so workbook class members rename only their own declarations/usages; VBA component/module rename is intentionally tree-only because standard and class module names are workbook component names rather than in-source declarations |
@@ -498,8 +498,8 @@ The `DefinitionProvider`, `ReferenceProvider`, and `RenameProvider` build a fres
 `ProjectIndex` (`src/analyzer/symbols/projectIndex.ts`) from the cached module
 sources on each query, with the live editor text overlaid for the current
 module. Offset-based symbol spans are converted to editor ranges in the shared
-`vbaNavigation.ts` helpers and provider wiring. `VbaSymbolIndex` still backs the
-`DocumentSymbolProvider` outline and the workbook-scoped source cache.
+`vbaNavigation.ts` helpers and provider wiring. `VbaSymbolIndex` still backs
+the workbook-scoped source cache those queries read from.
 Tree-level module rename uses source-backed project helpers before changing the
 component name through `renameModule`: class modules rewrite workbook
 project-defined class type tokens, while standard modules rewrite bound

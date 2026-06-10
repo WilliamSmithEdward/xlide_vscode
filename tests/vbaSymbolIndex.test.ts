@@ -85,8 +85,6 @@ describe('VbaSymbolIndex workbook identity', () => {
 
 		expect(first.source).toContain('FromOne');
 		expect(second.source).toContain('FromTwo');
-		expect(first.symbols[0].name).toBe('FromOne');
-		expect(second.symbols[0].name).toBe('FromTwo');
 	});
 
 	it('uses one case-insensitive module cache key within a workbook', async () => {
@@ -109,7 +107,6 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const mod = await index.getModule('C:/Book.xlsm', 'module1');
 
 		expect(mod.source).toContain('Saved');
-		expect(mod.symbols.map((symbol) => symbol.name)).toEqual(['Saved']);
 		expect(vi.mocked(bridge.call)).not.toHaveBeenCalled();
 	});
 
@@ -128,7 +125,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const [firstModule, secondModule] = await Promise.all([first, second]);
 
 		expect(firstModule).toBe(secondModule);
-		expect(firstModule.symbols.map((symbol) => symbol.name)).toEqual(['Shared']);
+		expect(firstModule.source).toContain('Shared');
 	});
 
 	it('shares workbook indexing and reuses the cached module list', async () => {
@@ -246,6 +243,5 @@ describe('VbaSymbolIndex workbook identity', () => {
 
 		expect(resolved.source).toContain('Saved');
 		expect(cached.source).toContain('Saved');
-		expect(cached.symbols.map((symbol) => symbol.name)).toEqual(['Saved']);
 	});
 });

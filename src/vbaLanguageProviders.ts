@@ -10,8 +10,8 @@ import {
     sameWorkbookPath,
     workbookIdentityKey,
 } from './xlideFileSystem';
-import { VbaSymbolIndex, VbaModuleSymbols, parseVbaModule } from './vbaSymbolIndex';
-import { applyOpenDocumentSources, openModuleSourceMapForWorkbook } from './vbaOpenDocuments';
+import { VbaSymbolIndex, VbaModuleSymbols } from './vbaSymbolIndex';
+import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import {
     analyzeVbaStructure,
     stripVba,
@@ -317,28 +317,6 @@ function openDocumentVersionsForWorkbook(xlsmPath: string): string {
     return versions.sort().join('|');
 }
 
-function applyOpenDocumentSymbols(
-    modules: readonly VbaModuleSymbols[],
-    xlsmPath: string,
-): VbaModuleSymbols[] {
-    const openSources = openModuleSourceMapForWorkbook(xlsmPath);
-    if (openSources.size === 0) {
-        return [...modules];
-    }
-
-    return modules.map((mod) => {
-        const openSource = openSources.get(moduleIdentityKey(mod.moduleName));
-        if (openSource === undefined || openSource === mod.source) {
-            return mod;
-        }
-        return {
-            ...mod,
-            source: openSource,
-            symbols: parseVbaModule(openSource),
-        };
-    });
-}
-
 class VbaNavigationProjectCache implements vscode.Disposable {
     private readonly _contexts = new Map<string, NavigationProjectCacheEntry>();
 
@@ -416,7 +394,7 @@ class VbaNavigationProjectCache implements vscode.Disposable {
         xlsmPath: string,
         mode: NavigationProjectMode,
     ): Promise<NavigationProjectContext> {
-        const modules = applyOpenDocumentSymbols(
+        const modules = applyOpenDocumentSources(
             await this._index.getAllModules(xlsmPath),
             xlsmPath,
         );
