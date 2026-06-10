@@ -4,6 +4,7 @@ import type { ImportMode, ModuleSyncFolderSource, ModuleSyncModeSource, ModuleSy
 import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
 import { measurePerformance, measurePerformanceSync } from './performanceTrace';
 import { escapeHtml, randomNonce, scriptJson } from './webview/html';
+import { errorMessage } from './util/errors';
 
 export interface ModuleSyncApplyResult {
     summary: string;
@@ -166,7 +167,7 @@ export function openModuleSyncPreview(
                     });
                 });
             } catch (err) {
-                const error = err instanceof Error ? err.message : String(err);
+                const error = errorMessage(err);
                 await panel.webview.postMessage({ type: 'error', error });
             }
         }
@@ -197,7 +198,7 @@ export function openModuleSyncPreview(
                     });
                 });
             } catch (err) {
-                const error = err instanceof Error ? err.message : String(err);
+                const error = errorMessage(err);
                 await panel.webview.postMessage({ type: 'error', error });
             }
         }
@@ -272,7 +273,7 @@ export function openModuleSyncPreview(
                         });
                     });
                 } catch (err) {
-                    const error = err instanceof Error ? err.message : String(err);
+                    const error = errorMessage(err);
                     await panel.webview.postMessage({ type: 'error', error });
                 }
                 return;
@@ -296,7 +297,7 @@ export function openModuleSyncPreview(
                         });
                     });
                 } catch (err) {
-                    const error = err instanceof Error ? err.message : String(err);
+                    const error = errorMessage(err);
                     await panel.webview.postMessage({ type: 'error', error });
                 }
                 return;
@@ -315,7 +316,7 @@ export function openModuleSyncPreview(
                         await panel.webview.postMessage({ type: 'settings-saved', result, quiet: message.quiet === true });
                     });
                 } catch (err) {
-                    const error = err instanceof Error ? err.message : String(err);
+                    const error = errorMessage(err);
                     await panel.webview.postMessage({ type: 'error', error });
                 }
                 return;
@@ -334,7 +335,7 @@ export function openModuleSyncPreview(
                     });
                 });
             } catch (err) {
-                const error = err instanceof Error ? err.message : String(err);
+                const error = errorMessage(err);
                 await panel.webview.postMessage({ type: 'error', error });
             }
         });

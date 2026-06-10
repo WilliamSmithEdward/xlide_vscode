@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
+import { errorMessage } from './util/errors';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
 
@@ -118,7 +119,7 @@ export function openVbaTestsPanel(
         existing.options = options;
         existing.panel.reveal(vscode.ViewColumn.Active);
         void existing.refresh().catch((err) => {
-            const error = err instanceof Error ? err.message : String(err);
+            const error = errorMessage(err);
             void existing.panel.webview.postMessage({ type: 'error', error });
         });
         return existing.panel;
@@ -173,7 +174,7 @@ export function openVbaTestsPanel(
         refreshTimer = setTimeout(() => {
             refreshTimer = undefined;
             void refreshPanel(requestVersion).catch((err) => {
-                const error = err instanceof Error ? err.message : String(err);
+                const error = errorMessage(err);
                 void panel.webview.postMessage({ type: 'error', error });
             });
         }, 250);
@@ -192,7 +193,7 @@ export function openVbaTestsPanel(
     };
 
     void renderPanel().catch((err) => {
-        const error = err instanceof Error ? err.message : String(err);
+        const error = errorMessage(err);
         panel.webview.html = renderVbaTestsErrorHtml(path.basename(filePath), error);
     });
 
@@ -251,7 +252,7 @@ export function openVbaTestsPanel(
                 await runAndRefresh(entry.options.onRerunFailed, 'XLIDE rerun failed is not available.');
             }
         } catch (err) {
-            const error = err instanceof Error ? err.message : String(err);
+            const error = errorMessage(err);
             await panel.webview.postMessage({ type: 'error', error });
             await renderPanel().catch(() => { /* keep existing error visible */ });
         }

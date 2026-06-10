@@ -139,6 +139,7 @@ import {
 } from './workbookModuleSyncSettings';
 import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
+import { errorMessage } from './util/errors';
 
 type AnalysisSuppressionInsertionTarget =
     | { kind: 'module'; startLine: number }
@@ -594,7 +595,7 @@ export function registerCommands(
     }
 
     function showRunMacroFailure(err: unknown): void {
-        const raw = err instanceof Error ? err.message : String(err);
+        const raw = errorMessage(err);
         const pipe = raw.indexOf('|');
         const code = pipe >= 0 ? raw.slice(0, pipe) : '';
         const message = pipe >= 0 ? raw.slice(pipe + 1) : raw;
@@ -877,7 +878,7 @@ export function registerCommands(
                 log(`[runVbaTests] CI status written to ${artifacts.statusPath}`);
                 log(`[runVbaTests] Artifact settings source folder=${testSettings.artifactFolderSource} retention=${testSettings.artifactRetentionSource}`);
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[runVbaTests] Artifact write failed: ${message}`);
                 void vscode.window.showWarningMessage(`XLIDE: VBA test artifacts could not be written: ${message}`);
             }
@@ -888,7 +889,7 @@ export function registerCommands(
             });
             showVbaTestRunOutcome(report);
         } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
+            const msg = errorMessage(err);
             log(`[runVbaTests] FAILED: ${msg}`);
             vscode.window.showErrorMessage(`XLIDE: VBA tests failed: ${msg}`);
         } finally {
@@ -968,7 +969,7 @@ export function registerCommands(
                 })),
             };
         } catch (err) {
-            const error = err instanceof Error ? err.message : String(err);
+            const error = errorMessage(err);
             return {
                 totalTests: 0,
                 taggedTests: 0,
@@ -1587,7 +1588,7 @@ export function registerCommands(
                     }
                 } catch (err) {
                     failed.push(item.relativeName);
-                    log(`[exportModules] Error removing ${item.relativeName}: ${err instanceof Error ? err.message : String(err)}`);
+                    log(`[exportModules] Error removing ${item.relativeName}: ${errorMessage(err)}`);
                 }
                 continue;
             }
@@ -1602,7 +1603,7 @@ export function registerCommands(
                 changed.push(...result.writtenFiles);
             } catch (err) {
                 failed.push(item.relativeName);
-                log(`[exportModules] Error exporting ${item.moduleName}: ${err instanceof Error ? err.message : String(err)}`);
+                log(`[exportModules] Error exporting ${item.moduleName}: ${errorMessage(err)}`);
             }
         }
 
@@ -1619,7 +1620,7 @@ export function registerCommands(
                 summary: 'Sync settings: 0 changed, 1 failed',
                 error: err,
             });
-            log(`[exportModules] Error updating workbook settings: ${err instanceof Error ? err.message : String(err)}`);
+            log(`[exportModules] Error updating workbook settings: ${errorMessage(err)}`);
         }
         const summaryText = logChangeSummary('exportModules', {
             operation: 'Export modules',
@@ -1689,7 +1690,7 @@ export function registerCommands(
                         summary: 'Import true-up: 0 removed, 1 failed',
                         error: err,
                     });
-                    log(`[importModules] Error deleting ${item.moduleName}: ${err instanceof Error ? err.message : String(err)}`);
+                    log(`[importModules] Error deleting ${item.moduleName}: ${errorMessage(err)}`);
                 }
                 continue;
             }
@@ -1743,7 +1744,7 @@ export function registerCommands(
                     summary: 'Import module: 0 changed, 1 failed',
                     error: err,
                 });
-                log(`[importModules] Error importing ${item.moduleName}: ${err instanceof Error ? err.message : String(err)}`);
+                log(`[importModules] Error importing ${item.moduleName}: ${errorMessage(err)}`);
             }
         }
 
@@ -2510,7 +2511,7 @@ export function registerCommands(
             try {
                 await showExportModulesDiffGui(filePath);
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[exportModules] Error: ${message}`);
                 recordWriteAudit({
                     command: 'xlide.exportModulesToFolder',
@@ -2529,7 +2530,7 @@ export function registerCommands(
             try {
                 await exportActiveModule();
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[exportCurrentModule] Error: ${message}`);
                 recordWriteAudit({
                     command: 'xlide.exportCurrentModuleToFolder',
@@ -2551,7 +2552,7 @@ export function registerCommands(
             try {
                 await showImportModulesDiffGui(filePath);
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[importModules] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Import failed: ${message}`);
             }
@@ -2562,7 +2563,7 @@ export function registerCommands(
             try {
                 await exportSupportBundle();
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[supportBundle] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to export support bundle: ${message}`);
             }
@@ -2572,7 +2573,7 @@ export function registerCommands(
             try {
                 await copyDiagnostics();
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[copyDiagnostics] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to copy diagnostics: ${message}`);
             }
@@ -2583,7 +2584,7 @@ export function registerCommands(
                 await vscode.env.clipboard.writeText(formatPerformanceSnapshot());
                 vscode.window.showInformationMessage('XLIDE: Performance snapshot copied to clipboard.');
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[copyPerformanceSnapshot] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to copy performance snapshot: ${message}`);
             }
@@ -2643,7 +2644,7 @@ export function registerCommands(
                             `XLIDE Smoke: OK — ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
                         );
                     } catch (err) {
-                        const msg = err instanceof Error ? err.message : String(err);
+                        const msg = errorMessage(err);
                         log(`[smoke] FAILED: ${msg}`);
                         vscode.window.showErrorMessage(`XLIDE Smoke FAILED: ${msg}`);
                     }
@@ -2678,7 +2679,7 @@ export function registerCommands(
                             `XLIDE: "${name}" has ${issues.length} validation issue(s). See XLIDE Output for details.`,
                         );
                     } catch (err) {
-                        const msg = err instanceof Error ? err.message : String(err);
+                        const msg = errorMessage(err);
                         log(`[validate] FAILED: ${msg}`);
                         vscode.window.showErrorMessage(`XLIDE: Validation failed: ${msg}`);
                     }
@@ -2691,7 +2692,7 @@ export function registerCommands(
             try {
                 await analyzeActiveModule();
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[analyzeCurrentModule] Error: ${message}`);
                 vscode.window.showErrorMessage(`XLIDE: Failed to analyze current module: ${message}`);
             }
@@ -2726,7 +2727,7 @@ export function registerCommands(
                             );
                         }
                     } catch (err) {
-                        const msg = err instanceof Error ? err.message : String(err);
+                        const msg = errorMessage(err);
                         if (err instanceof vscode.CancellationError) {
                             log(`[analyzeWorkbook] Canceled: ${name}`);
                             return;
@@ -2768,7 +2769,7 @@ export function registerCommands(
                         explorer.refresh();
                         void vscode.window.showInformationMessage(`XLIDE: Created "${name}".`);
                     } catch (err) {
-                        const msg = err instanceof Error ? err.message : String(err);
+                        const msg = errorMessage(err);
                         log(`[newWorkbook] FAILED: ${msg}`);
                         vscode.window.showErrorMessage(`XLIDE: Failed to create workbook: ${msg}`);
                     }

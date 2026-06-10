@@ -9,6 +9,7 @@ import {
     effectiveWorkbookTestSettings,
     type EffectiveWorkbookTestSettings,
 } from './workbookTestSettings';
+import { errorMessage } from './util/errors';
 
 export interface AgentVbaTestArtifactSettingsPayload {
     artifactFolder: string;
@@ -83,8 +84,4 @@ export function agentVbaTestArtifactPayload(
             settingsPath: settings.settingsPath,
         },
     };
-}
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }

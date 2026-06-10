@@ -10,6 +10,7 @@ import {
     updateWorkbookModuleSyncSettings,
 } from './workbookModuleSyncSettings';
 import { measurePerformance } from './performanceTrace';
+import { errorMessage } from './util/errors';
 
 interface ModuleInfo {
     name: string;
@@ -169,7 +170,7 @@ async function loadWorkbookModulesWithSources(
 }
 
 function isReadModulesUnavailable(err: unknown): boolean {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return /Method not found:\s*readModules/i.test(message) ||
         /Unexpected bridge call readModules/i.test(message);
 }

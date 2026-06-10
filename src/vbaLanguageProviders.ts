@@ -88,6 +88,7 @@ import {
     xlideEditorBlockLayoutFromConfig,
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
+import { errorMessage } from './util/errors';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -1425,7 +1426,7 @@ function registerVbaDiagnostics(
         const settingsError = isWorkbookSettingsError(err);
         const message = settingsError
             ? `${err.message} Fix or delete the workbook settings sidecar.`
-            : `XLIDE diagnostics failed: ${err instanceof Error ? err.message : String(err)}`;
+            : `XLIDE diagnostics failed: ${errorMessage(err)}`;
         const diagnostic = new vscode.Diagnostic(
             range,
             message,

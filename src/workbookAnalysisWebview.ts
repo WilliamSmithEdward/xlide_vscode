@@ -24,6 +24,7 @@ import { settingsPathForWorkbook } from './workbookSettings';
 import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
+import { errorMessage } from './util/errors';
 
 export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';
 
@@ -89,7 +90,7 @@ export function openWorkbookAnalysisResults(
         existing.setResult(result);
         existing.panel.reveal(vscode.ViewColumn.Active);
         void existing.renderPanel().catch((err) => {
-            const error = err instanceof Error ? err.message : String(err);
+            const error = errorMessage(err);
             existing.panel.webview.html = renderWorkbookAnalysisErrorHtml(
                 path.basename(result.filePath),
                 error,
@@ -190,7 +191,7 @@ export function openWorkbookAnalysisResults(
         refreshTimer = setTimeout(() => {
             refreshTimer = undefined;
             void refreshPanel(requestVersion).catch((err) => {
-                const error = err instanceof Error ? err.message : String(err);
+                const error = errorMessage(err);
                 void panel.webview.postMessage({ type: 'error', error });
             });
         }, delayMs);
@@ -245,7 +246,7 @@ export function openWorkbookAnalysisResults(
     };
 
     void renderPanel().catch((err) => {
-        const error = err instanceof Error ? err.message : String(err);
+        const error = errorMessage(err);
         panel.webview.html = renderWorkbookAnalysisErrorHtml(currentModel.workbookName, error);
     });
     const messageSub = panel.webview.onDidReceiveMessage(async (message: WorkbookAnalysisMessage) => {
@@ -364,7 +365,7 @@ export function openWorkbookAnalysisResults(
                 }
             }
         } catch (err) {
-            const error = err instanceof Error ? err.message : String(err);
+            const error = errorMessage(err);
             await panel.webview.postMessage({ type: 'error', error });
         }
     });

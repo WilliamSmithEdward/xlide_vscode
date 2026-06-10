@@ -20,6 +20,7 @@ import {
 } from './globalSettings';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
 import { registerXlideCommand } from './xlideCommandRegistration';
+import { errorMessage } from './util/errors';
 
 interface XlideGlobalSettingsRuleOption {
     code: string;
@@ -87,7 +88,7 @@ function registerXlideGlobalSettingsWebview(out: vscode.OutputChannel): vscode.D
                     render();
                 }
             } catch (err) {
-                const error = err instanceof Error ? err.message : String(err);
+                const error = errorMessage(err);
                 out.appendLine(`[globalSettings] Settings update failed: ${error}`);
                 await panel?.webview.postMessage({
                     type: 'error',

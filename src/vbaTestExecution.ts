@@ -29,6 +29,7 @@ import {
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
 import { measurePerformance } from './performanceTrace';
+import { errorMessage } from './util/errors';
 
 export interface VbaTestRunOptions {
     selection?: VbaTestSelectionOptions;
@@ -285,7 +286,7 @@ async function runOwnedReadOnlyExcelTestHost(
             }
             hostScriptCleaned = true;
             void fs.promises.rm(hostScriptDir, { recursive: true, force: true }).catch((err) => {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 log(`[runVbaTests] Could not delete temporary host script: ${message}`);
                 setTimeout(() => {
                     void fs.promises.rm(hostScriptDir, { recursive: true, force: true }).catch(() => {
@@ -525,7 +526,7 @@ async function runOwnedReadOnlyExcelTestHost(
                     }
                 } catch (err) {
                     log(`[runVbaTests host stdout] ${trimmed}`);
-                    log(`[runVbaTests host parse] ${err instanceof Error ? err.message : String(err)}`);
+                    log(`[runVbaTests host parse] ${errorMessage(err)}`);
                 }
             }
         };

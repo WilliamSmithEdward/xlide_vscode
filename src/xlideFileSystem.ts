@@ -7,6 +7,7 @@ import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
 import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
+import { errorMessage } from './util/errors';
 
 export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
@@ -216,7 +217,7 @@ export class XlideFileSystemProvider
             return bytes;
         } catch (err) {
             trace.end('failed', moduleName);
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             if (isWorkbookLockedError(message)) {
                 reportWorkbookLocked(xlsmPath, 'read');
                 throw vscode.FileSystemError.Unavailable(
@@ -291,7 +292,7 @@ export class XlideFileSystemProvider
             });
         } catch (err) {
             trace.end('failed', moduleName);
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             recordXlideWriteAudit({
                 timestamp: new Date().toISOString(),
                 command: 'xlide.editorSave',

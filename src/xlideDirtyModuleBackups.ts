@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { decodeModuleUri, XLIDE_LIVESHARE_AUTHORITY, XLIDE_SCHEME } from './xlideFileSystem';
+import { errorMessage } from './util/errors';
 
 interface DirtyModuleBackup {
     uri: string;
@@ -52,7 +53,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         this._dirReady = fs.promises.mkdir(this._dir, { recursive: true }).then(
             () => undefined,
             (err) => {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 this._out.appendLine(`XLIDE: Failed to create dirty backup directory: ${message}`);
             },
         );
@@ -127,7 +128,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
             }
             this.announceRestore(document);
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             this._out.appendLine(`XLIDE: Failed to restore unsaved backup for ${document.uri.toString()}: ${message}`);
         } finally {
             this._restoring.delete(key);
@@ -225,7 +226,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
             try {
                 await fs.promises.writeFile(this.backupPath(uri), `${JSON.stringify(record)}\n`, 'utf8');
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 this._out.appendLine(`XLIDE: Failed to write dirty backup for ${uri.toString()}: ${message}`);
             }
         });

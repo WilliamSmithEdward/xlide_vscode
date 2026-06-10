@@ -12,6 +12,7 @@ import {
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import type { XlideGlobalSettingSource } from './globalSettings';
+import { errorMessage } from './util/errors';
 
 type ExportMode = 'exportAll' | 'trueUp';
 type WorkbookSettingSource = 'workbook' | XlideGlobalSettingSource;
@@ -371,7 +372,7 @@ async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsC
         }
         throw new WorkbookSettingsError(
             configPath,
-            `Unable to read settings: ${err instanceof Error ? err.message : String(err)}`,
+            `Unable to read settings: ${errorMessage(err)}`,
         );
     }
 
@@ -383,7 +384,7 @@ async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsC
         if (parsed === undefined) {
             throw new WorkbookSettingsError(
                 configPath,
-                `Expected valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+                `Expected valid JSON: ${errorMessage(err)}`,
             );
         }
     }

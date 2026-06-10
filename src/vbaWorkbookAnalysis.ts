@@ -35,6 +35,7 @@ import {
 } from './analysisSuppressionScopes';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { measurePerformance, measurePerformanceSync, startPerformanceTrace } from './performanceTrace';
+import { errorMessage } from './util/errors';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -345,7 +346,7 @@ async function loadWorkbookModules(
 }
 
 function isReadModulesUnavailable(err: unknown): boolean {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return /Method not found:\s*readModules/i.test(message);
 }
 

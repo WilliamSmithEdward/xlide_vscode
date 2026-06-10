@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
 import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
+import { errorMessage } from './util/errors';
 
 export interface VbaTestResultsOptions {
     onRerunFailed?: () => Promise<void>;
@@ -85,7 +86,7 @@ export function openVbaTestResults(
             await entry.options.onRerunFailed();
             await panel.webview.postMessage({ type: 'rerunComplete' });
         } catch (err) {
-            const error = err instanceof Error ? err.message : String(err);
+            const error = errorMessage(err);
             await panel.webview.postMessage({ type: 'error', error });
         }
     });

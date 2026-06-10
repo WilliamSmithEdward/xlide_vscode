@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
+import { errorMessage } from './util/errors';
 import { XlsmExplorer } from './xlsmExplorer';
 import {
     XlideFileSystemProvider,
@@ -110,7 +111,7 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         })
         .catch((err) => {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             out.appendLine(`VBA test temp cleanup skipped: ${message}`);
         });
 
@@ -591,7 +592,7 @@ async function ensureXlideVbaEditorOverrides(out: vscode.OutputChannel): Promise
             await config.update(override.key, override.value, vscode.ConfigurationTarget.Global, true);
             out.appendLine(`Set editor.${override.key}=${override.value} for [${XLIDE_VBA_LANGUAGE_ID}].`);
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             out.appendLine(`Could not set editor.${override.key} for [${XLIDE_VBA_LANGUAGE_ID}]: ${message}`);
         }
     }

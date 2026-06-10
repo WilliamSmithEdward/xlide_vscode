@@ -1,3 +1,4 @@
+import { errorMessage } from './util/errors';
 export interface XlideCommandLogEntry {
     timestamp: string;
     command: string;
@@ -33,7 +34,7 @@ export const WORKBOOK_LOCKED_ERROR_RE =
     /WinError\s*32|being used by another process|sharing violation|Permission denied|PermissionError/i;
 
 export function errorCategoryForSupportLog(error: unknown): string {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     if (WORKBOOK_LOCKED_ERROR_RE.test(message)) {
         return 'workbook-locked';
     }

@@ -18,6 +18,7 @@ import {
 } from './xlideSidebarModel';
 import { measurePerformance, startPerformanceTrace } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
+import { errorMessage } from './util/errors';
 
 interface XlideSidebarOptions {
     setupStatus?: () => XlideSidebarSetupStatus;
@@ -164,7 +165,7 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 const document = await vscode.workspace.openTextDocument(vscode.Uri.file(settingsPath));
                 await vscode.window.showTextDocument(document, { preview: false });
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 vscode.window.showErrorMessage(`XLIDE: Could not open workbook settings: ${message}`);
             }
         }),
@@ -286,7 +287,7 @@ async function sidebarWorkbookForPath(
             settingsState: 'invalid',
             settingsMessage: isWorkbookSettingsError(err)
                 ? err.message
-                : `Unable to read workbook settings: ${err instanceof Error ? err.message : String(err)}`,
+                : `Unable to read workbook settings: ${errorMessage(err)}`,
         };
     }
 }

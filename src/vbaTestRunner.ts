@@ -5,6 +5,7 @@ import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes'
 import { lineStartOffsets } from './vbaStructuralAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
+import { errorMessage } from './util/errors';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
 export const VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE = 'vba-test-directive';
@@ -220,7 +221,7 @@ async function listWorkbookModulesForDiscovery(
 }
 
 function isReadModulesUnavailable(err: unknown): boolean {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return /Method not found:\s*readModules/i.test(message) ||
         /Unexpected bridge call readModules/i.test(message);
 }
@@ -387,7 +388,7 @@ export function summarizeVbaTestRun(report: Pick<VbaTestRunReport, 'results'>): 
 }
 
 export function vbaTestFailureMessage(error: unknown): string {
-    const raw = error instanceof Error ? error.message : String(error);
+    const raw = errorMessage(error);
     const unwrapped = raw.replace(/^(?:RUN_FAILED|OPEN_FAILED|RUNNER_FAILED|TIMEOUT|HOST_ERROR)\|/, '');
     return cleanVbaTestFailureMessage(unwrapped);
 }
