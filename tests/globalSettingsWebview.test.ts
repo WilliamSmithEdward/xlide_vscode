@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type * as vscode from 'vscode';
+import * as vscode from 'vscode';
 
 vi.mock('vscode', () => ({
+    CancellationError: class CancellationError extends Error {},
     Disposable: {
         from: (...disposables: Array<{ dispose?: () => void }>) => ({
             dispose: () => disposables.forEach((disposable) => disposable.dispose?.()),
@@ -23,6 +24,7 @@ vi.mock('vscode', () => ({
 import {
     applyXlideGlobalSettingsMessage,
     buildXlideGlobalSettingsModel,
+    registerXlideGlobalSettingsWebview,
     renderXlideGlobalSettingsHtml,
 } from '../src/globalSettingsWebview';
 
@@ -69,6 +71,8 @@ describe('globalSettingsWebview', () => {
         expect(html).toContain('persistGlobalSettingsState();');
         expect(html).toContain('restoreGlobalSettingsState();');
         expect(html).toContain('overrideListScrollTop');
+        expect(html).toContain('id="toast"');
+        expect(html).toContain('showToast(event.data.error');
         expect(html).not.toContain('Add Item');
     });
 
@@ -153,6 +157,54 @@ describe('globalSettingsWebview', () => {
                 target: true,
             },
         ]);
+    });
+
+    it('surfaces settings update failures to the panel and the output channel', async () => {
+        const failure = new Error('settings.json is read-only');
+        const config = {
+            ...fakeConfig(validSettings),
+            update: () => Promise.reject(failure),
+        } as unknown as vscode.WorkspaceConfiguration;
+        vi.mocked(vscode.workspace.getConfiguration).mockReturnValue(config);
+        let messageHandler: ((message: unknown) => Promise<void>) | undefined;
+        const postMessage = vi.fn(() => Promise.resolve(true));
+        const panel = {
+            webview: {
+                html: '',
+                onDidReceiveMessage: vi.fn((handler: (message: unknown) => Promise<void>) => {
+                    messageHandler = handler;
+                    return { dispose: vi.fn() };
+                }),
+                postMessage,
+            },
+            onDidDispose: vi.fn(),
+            reveal: vi.fn(),
+            dispose: vi.fn(),
+        };
+        vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
+        let openCommand: (() => unknown) | undefined;
+        vi.mocked(vscode.commands.registerCommand).mockImplementation((command, callback) => {
+            if (command === 'xlide.openGlobalSettings') {
+                openCommand = callback as () => unknown;
+            }
+            return { dispose: vi.fn() } as unknown as vscode.Disposable;
+        });
+        const appendLine = vi.fn();
+        const registration = registerXlideGlobalSettingsWebview(
+            { appendLine } as unknown as vscode.OutputChannel,
+        );
+
+        await openCommand?.();
+        panel.webview.html = '';
+        await messageHandler?.({ type: 'updateSetting', key: 'docs.enabled', value: false });
+
+        expect(appendLine).toHaveBeenCalledWith(expect.stringContaining('settings.json is read-only'));
+        expect(postMessage).toHaveBeenCalledWith({
+            type: 'error',
+            error: expect.stringContaining('settings.json is read-only'),
+        });
+        expect(panel.webview.html).toContain('XLIDE Global Settings');
+        registration.dispose();
     });
 });
 

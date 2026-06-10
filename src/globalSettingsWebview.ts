@@ -46,7 +46,7 @@ interface XlideGlobalSettingsMessage {
 
 const SETTING_KEY_SET = new Set<string>(XLIDE_GLOBAL_SETTING_KEYS);
 
-function registerXlideGlobalSettingsWebview(): vscode.Disposable {
+function registerXlideGlobalSettingsWebview(out: vscode.OutputChannel): vscode.Disposable {
     let panel: vscode.WebviewPanel | undefined;
 
     const render = () => {
@@ -77,11 +77,21 @@ function registerXlideGlobalSettingsWebview(): vscode.Disposable {
         );
         const panelDisposables: vscode.Disposable[] = [];
         panel.webview.onDidReceiveMessage(async (message: XlideGlobalSettingsMessage) => {
-            const applied = await applyXlideGlobalSettingsMessage(
-                vscode.workspace.getConfiguration('xlide'),
-                message,
-            );
-            if (applied) {
+            try {
+                const applied = await applyXlideGlobalSettingsMessage(
+                    vscode.workspace.getConfiguration('xlide'),
+                    message,
+                );
+                if (applied) {
+                    render();
+                }
+            } catch (err) {
+                const error = err instanceof Error ? err.message : String(err);
+                out.appendLine(`[globalSettings] Settings update failed: ${error}`);
+                await panel?.webview.postMessage({
+                    type: 'error',
+                    error: `XLIDE: Settings update failed: ${error}`,
+                });
                 render();
             }
         }, undefined, panelDisposables);
@@ -388,6 +398,26 @@ function renderXlideGlobalSettingsHtml(
         .overrideRow:last-child {
             border-bottom: 0;
         }
+        .toast {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            max-width: 360px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--vscode-notifications-foreground);
+            background: var(--vscode-notifications-background);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 120ms ease, transform 120ms ease;
+            pointer-events: none;
+        }
+        .toast.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
         @media (max-width: 640px) {
             .shell {
                 padding: 16px;
@@ -427,10 +457,26 @@ function renderXlideGlobalSettingsHtml(
         ${renderDocsSection(model, settingProblems)}
         ${renderAnalysisSection(model, settingProblems)}
     </main>
+    <div class="toast" id="toast"></div>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+        const toast = document.getElementById('toast');
+        let toastTimer;
 
         restoreGlobalSettingsState();
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('visible');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('visible'), 2600);
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'error') {
+                showToast(event.data.error || 'XLIDE settings update failed');
+            }
+        });
 
         document.addEventListener('change', (event) => {
             const target = event.target;
