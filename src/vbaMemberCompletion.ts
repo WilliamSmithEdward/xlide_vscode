@@ -1009,7 +1009,6 @@ class VbaMemberCompletionProvider
 		entries: ModuleEntry[],
 		options: {
 			liveOverride?: VbaProjectLiveOverride;
-			include?: (kind: ModuleSymbolKind) => boolean;
 		} = {},
 	): Promise<ReturnType<typeof buildVbaProjectIndex>> {
 		const modules: VbaProjectModuleInput[] = [];
@@ -1020,9 +1019,6 @@ class VbaMemberCompletionProvider
 				entry.name.toLowerCase() === live.moduleName.toLowerCase();
 			const entryKind = moduleKindFromType(entry.type);
 			const moduleKind = isOverride ? live.moduleKind : entryKind;
-			if (options.include && !options.include(moduleKind)) {
-				continue;
-			}
 			if (isOverride) {
 				continue;
 			}
@@ -1043,17 +1039,13 @@ class VbaMemberCompletionProvider
 				source,
 			});
 		}
-		const liveOverride = live && (!options.include || options.include(live.moduleKind))
-			? live
-			: undefined;
-		return buildLiveVbaProjectIndexAsync(modules, liveOverride);
+		return buildLiveVbaProjectIndexAsync(modules, live);
 	}
 
 	private async _buildProjectIndexFromSourceEntries(
 		entries: ModuleSourceEntry[],
 		options: {
 			liveOverride?: VbaProjectLiveOverride;
-			include?: (kind: ModuleSymbolKind) => boolean;
 		} = {},
 	): Promise<ReturnType<typeof buildVbaProjectIndex>> {
 		const modules: VbaProjectModuleInput[] = [];
@@ -1064,9 +1056,6 @@ class VbaMemberCompletionProvider
 				entry.name.toLowerCase() === live.moduleName.toLowerCase();
 			const entryKind = moduleKindFromType(entry.type);
 			const moduleKind = isOverride ? live.moduleKind : entryKind;
-			if (options.include && !options.include(moduleKind)) {
-				continue;
-			}
 			if (isOverride) {
 				continue;
 			}
@@ -1078,10 +1067,7 @@ class VbaMemberCompletionProvider
 				source: entry.source,
 			});
 		}
-		const liveOverride = live && (!options.include || options.include(live.moduleKind))
-			? live
-			: undefined;
-		return buildLiveVbaProjectIndexAsync(modules, liveOverride);
+		return buildLiveVbaProjectIndexAsync(modules, live);
 	}
 
 	private async _loadWorkbookModuleSources(xlsmPath: string): Promise<ModuleSourceEntry[] | undefined> {
