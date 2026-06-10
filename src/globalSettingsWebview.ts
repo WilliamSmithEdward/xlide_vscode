@@ -82,13 +82,13 @@ function registerXlideGlobalSettingsWebview(out: vscode.OutputChannel): vscode.D
         const panelDisposables: vscode.Disposable[] = [];
         panel.webview.onDidReceiveMessage(async (message: XlideGlobalSettingsMessage) => {
             try {
-                const applied = await applyXlideGlobalSettingsMessage(
+                // The xlide configuration watcher below is the single render
+                // trigger for applied updates; rendering here too would rebuild
+                // the document twice per change.
+                await applyXlideGlobalSettingsMessage(
                     vscode.workspace.getConfiguration('xlide'),
                     message,
                 );
-                if (applied) {
-                    render();
-                }
             } catch (err) {
                 const error = errorMessage(err);
                 out.appendLine(`[globalSettings] Settings update failed: ${error}`);
