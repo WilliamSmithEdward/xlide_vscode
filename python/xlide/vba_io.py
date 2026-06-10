@@ -133,29 +133,33 @@ def _module_type(name: str, source: str) -> str:
     return "standard"
 
 
-def list_modules(*, path: str) -> list[dict[str, Any]]:
-    """Return [{name, type}] for every VBA module in the workbook."""
+def _module_entries(project: Any) -> list[dict[str, Any]]:
     from pyopenvba import VBAModuleKind
 
+    result = []
+    for m in project.modules:
+        if m.kind == VBAModuleKind.standard:
+            mod_type = "standard"
+        else:
+            # VBAModuleKind.other covers both class and document modules.
+            # Use source heuristics to distinguish them.
+            mod_type = _module_type(m.name, m.source)
+            if mod_type == "standard":
+                # .kind says it's not a standard module — treat as class.
+                mod_type = "class"
+        entry = {"name": m.name, "type": mod_type}
+        if mod_type == "document":
+            document_type = _document_type(m.name, m.source)
+            if document_type:
+                entry["documentType"] = document_type
+        result.append(entry)
+    return result
+
+
+def list_modules(*, path: str) -> list[dict[str, Any]]:
+    """Return [{name, type}] for every VBA module in the workbook."""
     with ExcelFile(path) as wb:
-        result = []
-        for m in wb.vba_project().modules:
-            if m.kind == VBAModuleKind.standard:
-                mod_type = "standard"
-            else:
-                # VBAModuleKind.other covers both class and document modules.
-                # Use source heuristics to distinguish them.
-                mod_type = _module_type(m.name, m.source)
-                if mod_type == "standard":
-                    # .kind says it's not a standard module — treat as class.
-                    mod_type = "class"
-            entry = {"name": m.name, "type": mod_type}
-            if mod_type == "document":
-                document_type = _document_type(m.name, m.source)
-                if document_type:
-                    entry["documentType"] = document_type
-            result.append(entry)
-        return result
+        return _module_entries(wb.vba_project())
 
 
 def read_modules(*, path: str, full: bool = False) -> list[dict[str, Any]]:
@@ -300,19 +304,36 @@ def get_protection_info(*, path: str) -> dict[str, Any]:
 
     Both flags are derived from public pyopenvba APIs only.
     """
+    with ExcelFile(path) as wb:
+        return _protection_info(wb)
+
+
+def _protection_info(wb: Any) -> dict[str, Any]:
     from pyopenvba.cfb import CFB
     from pyopenvba.excel import detect_signature
 
-    with ExcelFile(path) as wb:
-        project = wb.vba_project()
-        is_protected = (
-            project.protection is not None and project.protection.has_password
-        )
-        is_signed = detect_signature(CFB(wb.vba_project_bytes())).present
+    project = wb.vba_project()
+    is_protected = (
+        project.protection is not None and project.protection.has_password
+    )
+    is_signed = detect_signature(CFB(wb.vba_project_bytes())).present
     return {
         "isPasswordProtected": bool(is_protected),
         "isSigned": bool(is_signed),
     }
+
+
+def get_modules_and_protection_info(*, path: str) -> dict[str, Any]:
+    """Return {modules, isPasswordProtected, isSigned} from one workbook open.
+
+    get_workbook_info uses this so the module list and protection flags do
+    not each parse the workbook separately.
+    """
+    with ExcelFile(path) as wb:
+        return {
+            "modules": _module_entries(wb.vba_project()),
+            **_protection_info(wb),
+        }
 
 
 def validate_workbook(*, path: str) -> dict[str, Any]:
