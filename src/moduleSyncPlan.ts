@@ -3,7 +3,7 @@ import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import {
     type ModuleInfo,
-    listRootVbaModuleFiles,
+    computeStaleExportFiles,
     loadWorkbookModulesWithSources,
     relativeNameForModule,
     sanitizeFileName,
@@ -164,16 +164,8 @@ export async function buildExportModuleSyncPlan(
     const staleItems: ModuleSyncPlanItem[] = [];
 
     if (exportMode === 'trueUp') {
-        for (const relPath of await listRootVbaModuleFiles(params.exportFolder)) {
-            if (liveRelativeNames.has(relPath)) {
-                continue;
-            }
-
+        for (const relPath of await computeStaleExportFiles(params.exportFolder, liveRelativeNames)) {
             const stalePath = path.join(params.exportFolder, relPath);
-            if (!isPathInside(params.exportFolder, stalePath) || !(await fileExists(stalePath))) {
-                continue;
-            }
-
             const repoSource = await fs.promises.readFile(stalePath, 'utf8');
             const repoDisplaySource = editorPreviewSource(repoSource);
             const moduleName = path.basename(relPath, path.extname(relPath));
@@ -562,12 +554,6 @@ function splitLines(text: string): string[] {
         return [];
     }
     return normalizeEol(text).split('\n');
-}
-
-function isPathInside(baseDir: string, targetPath: string): boolean {
-    const base = path.resolve(baseDir);
-    const target = path.resolve(targetPath);
-    return target === base || target.startsWith(base + path.sep);
 }
 
 function lcsTable(left: readonly string[], right: readonly string[]): number[][] {

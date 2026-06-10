@@ -142,7 +142,7 @@ import {
 import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
 import { errorMessage } from './util/errors';
-import { fileExists } from './util/fs';
+import { fileExists, isPathInside } from './util/fs';
 
 type AnalysisSuppressionInsertionTarget =
     | { kind: 'module'; startLine: number }
@@ -1777,12 +1777,6 @@ export function registerCommands(
     ): ModuleSyncPlanItem[] {
         const selected = new Set(selectedIds);
         return plan.items.filter((item) => selected.has(item.id));
-    }
-
-    function isPathInside(baseDir: string, targetPath: string): boolean {
-        const base = path.resolve(baseDir);
-        const target = path.resolve(targetPath);
-        return target === base || target.startsWith(base + path.sep);
     }
 
     async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<WorkbookAnalysisResult> {

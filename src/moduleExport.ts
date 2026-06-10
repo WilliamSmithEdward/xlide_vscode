@@ -11,7 +11,7 @@ import {
 } from './workbookModuleSyncSettings';
 import { measurePerformance } from './performanceTrace';
 import { isReadModulesUnavailable } from './pythonBridgeErrors';
-import { fileExists } from './util/fs';
+import { fileExists, isPathInside } from './util/fs';
 
 interface ModuleInfo {
     name: string;
@@ -81,10 +81,25 @@ async function listRootVbaModuleFiles(folder: string): Promise<string[]> {
         .sort((left, right) => left.localeCompare(right));
 }
 
-function isPathInside(baseDir: string, targetPath: string): boolean {
-    const base = path.resolve(baseDir);
-    const target = path.resolve(targetPath);
-    return target === base || target.startsWith(base + path.sep);
+// Stale repo files for trueUp export: root .bas/.cls files with no live
+// workbook module, guarded against escaping the export folder. Shared by the
+// sync-plan preview and the export action so both agree on what gets removed.
+async function computeStaleExportFiles(
+    exportFolder: string,
+    liveRelativeNames: ReadonlySet<string>,
+): Promise<string[]> {
+    const stale: string[] = [];
+    for (const relPath of await listRootVbaModuleFiles(exportFolder)) {
+        if (liveRelativeNames.has(relPath)) {
+            continue;
+        }
+        const stalePath = path.join(exportFolder, relPath);
+        if (!isPathInside(exportFolder, stalePath) || !(await fileExists(stalePath))) {
+            continue;
+        }
+        stale.push(relPath);
+    }
+    return stale;
 }
 
 function relativeNameForModule(mod: ModuleInfo): string {
@@ -236,20 +251,8 @@ async function exportWorkbookModules(
     }
 
     if (exportMode === 'trueUp') {
-        for (const relPath of await listRootVbaModuleFiles(exportFolder)) {
-            if (liveRelativeNames.has(relPath)) {
-                continue;
-            }
-
-            const stalePath = path.join(exportFolder, relPath);
-            if (!isPathInside(exportFolder, stalePath)) {
-                continue;
-            }
-            if (!(await fileExists(stalePath))) {
-                continue;
-            }
-
-            await fs.promises.unlink(stalePath);
+        for (const relPath of await computeStaleExportFiles(exportFolder, liveRelativeNames)) {
+            await fs.promises.unlink(path.join(exportFolder, relPath));
             removedFiles.push(relPath);
         }
     }
@@ -280,8 +283,8 @@ export {
     type ExportModuleParams,
     type ExportModuleResult,
     type WorkbookModulesWithSources,
+    computeStaleExportFiles,
     extensionForModuleType,
-    listRootVbaModuleFiles,
     loadWorkbookModulesWithSources,
     relativeNameForModule,
     sanitizeFileName,
