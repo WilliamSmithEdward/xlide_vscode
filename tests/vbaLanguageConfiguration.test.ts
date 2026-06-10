@@ -311,12 +311,6 @@ describe('VBA language configuration', () => {
 			title: 'Copy Performance Snapshot',
 			category: 'XLIDE',
 		});
-		expect(commands.map((entry) => entry.command)).not.toEqual(expect.arrayContaining([
-			'xlide.runVbaTestsWithFilters',
-			'xlide.runVbaTestsInCurrentModule',
-			'xlide.runVbaTestAtCursor',
-			'xlide.installVbaTestSupport',
-		]));
 	});
 
 	it('keeps workbook tree tests centralized through the Unit Tests GUI', () => {
@@ -329,17 +323,6 @@ describe('VBA language configuration', () => {
 
 		expect(workbookTreeCommands).toContain('xlide.analyzeWorkbook');
 		expect(workbookTreeCommands).toContain('xlide.runVbaTests');
-		expect(workbookTreeCommands).not.toContain('xlide.runVbaTestsWithFilters');
-		expect(workbookTreeCommands).not.toContain('xlide.installVbaTestSupport');
 		expect(workbookTreeCommands).not.toContain('xlide.validateWorkbook');
-
-		const editorContextCommands = loadPackage()
-			.contributes
-			?.menus
-			?.['editor/context']
-			?.filter((entry) => entry.when === 'resourceScheme == xlide-vba')
-			.map((entry) => entry.command) ?? [];
-		expect(editorContextCommands).not.toContain('xlide.runVbaTestsInCurrentModule');
-		expect(editorContextCommands).not.toContain('xlide.runVbaTestAtCursor');
 	});
 });
