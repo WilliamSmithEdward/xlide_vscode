@@ -209,7 +209,6 @@ export {
 	AnalyzeModuleOptions,
 	DiagnosticSeverityOverrides,
 	incompleteExpressionEditSpan,
-	incompleteMemberAccessEditSpan,
 	VbaCreateProcedureStubData,
 	VbaDiagnostic,
 	VbaDiagnosticData,

@@ -35,7 +35,6 @@ export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
     source: string;
     moduleType?: string;
     activeIncompleteExpressionOffset?: number;
-    activeIncompleteMemberAccessOffset?: number;
 }
 
 export interface VbaModuleAnalysisResult {
@@ -54,17 +53,15 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         source,
         moduleType,
         activeIncompleteExpressionOffset,
-        activeIncompleteMemberAccessOffset,
         ...analyzeOptions
     } = input;
     const starts = lineStartOffsets(source);
     const suppressions = scanAnalysisSuppressions(source);
     const diagnostics: VbaModuleAnalysisDiagnostic[] = [...suppressions.diagnostics];
     const suppressedDiagnostics: VbaModuleAnalysisDiagnostic[] = [];
-    const activeIncompleteOffset = activeIncompleteExpressionOffset ?? activeIncompleteMemberAccessOffset;
-    const activeIncompleteExpressionSpan = activeIncompleteOffset === undefined
+    const activeIncompleteExpressionSpan = activeIncompleteExpressionOffset === undefined
         ? undefined
-        : incompleteExpressionEditSpan(source, activeIncompleteOffset);
+        : incompleteExpressionEditSpan(source, activeIncompleteExpressionOffset);
     const expectedErrorRuntimeSuppressions = expectedErrorRuntimeSuppressionRanges(
         source,
         analyzeOptions.moduleName ?? 'Module',

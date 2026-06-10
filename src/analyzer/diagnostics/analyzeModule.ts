@@ -257,15 +257,6 @@ export function analyzeModule(
 	}
 }
 
-export function incompleteMemberAccessEditSpan(
-	source: string,
-	offset: number,
-): Span | undefined {
-	const line = physicalLineSpanAtOffset(source, offset);
-	const statement = activeStatementSpanOnLine(source, line, offset);
-	return incompleteMemberAccess(source, statement, { includeLeadingDot: true })?.span;
-}
-
 export function incompleteExpressionEditSpan(
 	source: string,
 	offset: number,
