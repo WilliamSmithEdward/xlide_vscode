@@ -266,7 +266,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'invalidRedimTargets',
-		run: (ctx, push) => checkInvalidRedimTargets(
+		procedureStatements: (ctx, push) => checkInvalidRedimTargets(
 			ctx.source,
 			ctx.mod,
 			ctx.symbols,
@@ -277,7 +277,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'redimImpossibleBounds',
-		run: (ctx, push) => checkRedimImpossibleBounds(ctx.source, ctx.mod, ctx.activity, push),
+		procedureStatements: (ctx, push) => checkRedimImpossibleBounds(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'redimPreserveDimensions',
@@ -289,12 +289,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'eraseTargets',
-		run: (ctx, push) => checkEraseTargets(
+		procedureStatements: (ctx, push) => checkEraseTargets(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
-			ctx.activity,
 			push,
 		),
 	},
@@ -421,12 +419,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'arrayBoundIntrinsicArguments',
-		run: (ctx, push) => checkArrayBoundIntrinsicArguments(
+		procedureStatements: (ctx, push) => checkArrayBoundIntrinsicArguments(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
-			ctx.activity,
 			push,
 		),
 	},

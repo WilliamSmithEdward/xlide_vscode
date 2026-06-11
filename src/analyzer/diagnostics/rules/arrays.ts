@@ -36,7 +36,6 @@ import {
 	absoluteSpan,
 	activeModuleMembers,
 	bareAssignmentTarget,
-	forEachStatement,
 	forEachVariableGroup,
 	isInactiveNode,
 	localsPassedAsCallArguments,
@@ -46,23 +45,20 @@ import {
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
+/** Per-statement rule: rides the shared procedure-statement walk (audit #0). */
 export function checkArrayBoundIntrinsicArguments(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const hit of arrayBoundScalarArguments(
 				source,
 				stmt.span,
@@ -81,8 +77,8 @@ export function checkArrayBoundIntrinsicArguments(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 interface ArrayBoundScalarArgument {
@@ -179,16 +175,13 @@ export function checkInvalidRedimTargets(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const moduleDeclarations = redimBlockedDeclarationsForModule(mod, activity);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const target of redimTargets(source, stmt.span)) {
 				const lower = target.name.toLowerCase();
 				const resolvedShape = declaredShapeForSourceBinding(
@@ -219,8 +212,8 @@ export function checkInvalidRedimTargets(
 					target.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function redimBlockedDeclarationForShape(
@@ -461,15 +454,12 @@ export function checkRedimImpossibleBounds(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const moduleDeclarations = redimBlockedDeclarationsForModule(mod, activity);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const target of redimStatementTargets(source, stmt.span)) {
 				const lowerName = target.name.toLowerCase();
 				const blockedDeclaration = localDeclarations.get(lowerName) ??
@@ -492,8 +482,8 @@ export function checkRedimImpossibleBounds(
 					);
 				});
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 /**
@@ -828,19 +818,14 @@ function eraseStatementSimpleTargets(source: string, span: Span): Set<string> {
  */
 export function checkEraseTargets(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const hit of invalidEraseTargets(source, stmt.span)) {
 				push(
 					'invalidEraseTarget',
@@ -866,8 +851,8 @@ export function checkEraseTargets(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function invalidEraseTargets(source: string, span: Span): Array<{ span: Span }> {
