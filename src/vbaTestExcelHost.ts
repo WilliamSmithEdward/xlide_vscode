@@ -2,6 +2,7 @@ import type { VbaTestCase } from './vbaTestRunner';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
 import { VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
 import { XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES } from './vbaTestSupportModule';
+import { psSingleQuoted } from './util/powershell';
 
 export const XLIDE_TEST_HOST_EVENT_PREFIX = 'XLIDE_TEST_HOST_EVENT|';
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
@@ -1002,10 +1003,6 @@ export function parseVbaTestHostEventLine(line: string): VbaTestHostOracleEvent 
     const json = line.slice(XLIDE_TEST_HOST_EVENT_PREFIX.length);
     const parsed = JSON.parse(json) as VbaTestHostOracleEvent;
     return parsed;
-}
-
-function psSingleQuoted(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
 }
 
 function vbaStringLiteral(value: string): string {

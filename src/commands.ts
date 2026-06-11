@@ -142,6 +142,7 @@ import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
 import { errorMessage } from './util/errors';
 import { fileExists, isPathInside } from './util/fs';
+import { psSingleQuoted, runPowerShell } from './util/powershell';
 
 type AnalysisSuppressionInsertionTarget =
     | { kind: 'module'; startLine: number }
@@ -175,10 +176,6 @@ const VBA_TEST_RERUN_FAILED_STATUSES = new Set<VbaTestRunItem['status']>([
 ]);
 
 type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
-
-function psSingleQuoted(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
-}
 
 function suppressionTargetForProblem(
     source: string,
@@ -613,34 +610,19 @@ export function registerCommands(
         ].join('; ');
 
         log(`[openWorkbook] Running: powershell -Command "${script}"`);
-        const child = cp.spawn('powershell.exe', [
-            '-NoProfile',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-Command',
-            script,
-        ]);
-        child.on('spawn', () => {
-            log(`[openWorkbook] Spawned powershell.exe (pid=${child.pid ?? 'unknown'})`);
+        const run = runPowerShell({
+            args: ['-Command', script],
+            onSpawn: (pid) => log(`[openWorkbook] Spawned powershell.exe (pid=${pid ?? 'unknown'})`),
+            onStdoutLine: (line) => log(`[openWorkbook stdout] ${line}`),
+            onStderrLine: (line) => log(`[openWorkbook stderr] ${line}`),
         });
-        child.on('error', (err) => {
-            log(`[openWorkbook] Error: ${err.message}`);
-            void vscode.window.showErrorMessage(`XLIDE: Open Workbook failed: ${err.message}`);
-        });
-        child.stdout?.on('data', (d: Buffer) => {
-            const text = d.toString().trim();
-            if (text) {
-                log(`[openWorkbook stdout] ${text}`);
+        void run.result.then((result) => {
+            if (result.spawnError) {
+                log(`[openWorkbook] Error: ${result.spawnError.message}`);
+                void vscode.window.showErrorMessage(`XLIDE: Open Workbook failed: ${result.spawnError.message}`);
+                return;
             }
-        });
-        child.stderr?.on('data', (d: Buffer) => {
-            const text = d.toString().trim();
-            if (text) {
-                log(`[openWorkbook stderr] ${text}`);
-            }
-        });
-        child.on('exit', (code, signal) => {
-            log(`[openWorkbook] powershell exited with code=${code} signal=${signal ?? 'none'}`);
+            log(`[openWorkbook] powershell exited with code=${result.code} signal=${result.signal ?? 'none'}`);
         });
     }
 
@@ -699,49 +681,26 @@ export function registerCommands(
 
         log(`[runMacro] Running: ${macroName}`);
         log(`[runMacro] Script: ${script}`);
-        return new Promise<void>((resolve, reject) => {
-            const child = cp.spawn('powershell.exe', [
-                '-NoProfile',
-                '-ExecutionPolicy',
-                'Bypass',
-                '-Command',
-                script,
-            ]);
-            const stderrLines: string[] = [];
-            child.on('spawn', () => {
-                log(`[runMacro] Spawned powershell.exe (pid=${child.pid ?? 'unknown'})`);
-            });
-            child.on('error', (err) => {
-                log(`[runMacro] Error: ${err.message}`);
-                reject(new Error(`RUN_FAILED|${err.message}`));
-            });
-            child.stdout?.on('data', (d: Buffer) => {
-                const text = d.toString().trim();
-                if (text) {
-                    log(`[runMacro stdout] ${text}`);
-                }
-            });
-            child.stderr?.on('data', (d: Buffer) => {
-                for (const line of d.toString().split('\n')) {
-                    const trimmed = line.trimEnd();
-                    if (trimmed) {
-                        stderrLines.push(trimmed);
-                        log(`[runMacro stderr] ${trimmed}`);
-                    }
-                }
-            });
-            child.on('exit', (code, signal) => {
-                log(`[runMacro] powershell exited with code=${code} signal=${signal ?? 'none'}`);
-                if (code === 0) {
-                    resolve();
-                    return;
-                }
-                const sentinel = stderrLines.find((line) => line.includes('XLIDE_MACRO_ERROR|'));
-                const message = sentinel
-                    ? sentinel.slice(sentinel.indexOf('XLIDE_MACRO_ERROR|') + 'XLIDE_MACRO_ERROR|'.length)
-                    : stderrLines.join('\n') || `PowerShell exited with code ${code}`;
-                reject(new Error(message));
-            });
+        const run = runPowerShell({
+            args: ['-Command', script],
+            onSpawn: (pid) => log(`[runMacro] Spawned powershell.exe (pid=${pid ?? 'unknown'})`),
+            onStdoutLine: (line) => log(`[runMacro stdout] ${line}`),
+            onStderrLine: (line) => log(`[runMacro stderr] ${line}`),
+        });
+        return run.result.then((result) => {
+            if (result.spawnError) {
+                log(`[runMacro] Error: ${result.spawnError.message}`);
+                throw new Error(`RUN_FAILED|${result.spawnError.message}`);
+            }
+            log(`[runMacro] powershell exited with code=${result.code} signal=${result.signal ?? 'none'}`);
+            if (result.code === 0) {
+                return;
+            }
+            const sentinel = result.stderrLines.find((line) => line.includes('XLIDE_MACRO_ERROR|'));
+            const message = sentinel
+                ? sentinel.slice(sentinel.indexOf('XLIDE_MACRO_ERROR|') + 'XLIDE_MACRO_ERROR|'.length)
+                : result.stderrLines.join('\n') || `PowerShell exited with code ${result.code}`;
+            throw new Error(message);
         });
     }
 

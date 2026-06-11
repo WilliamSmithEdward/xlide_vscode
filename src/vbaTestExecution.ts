@@ -30,6 +30,7 @@ import {
 } from './vbaTestRunner';
 import { measurePerformance } from './performanceTrace';
 import { errorMessage } from './util/errors';
+import { runPowerShell } from './util/powershell';
 
 export interface VbaTestRunOptions {
     selection?: VbaTestSelectionOptions;
@@ -239,16 +240,7 @@ async function runOwnedReadOnlyExcelTestHost(
     log(`[runVbaTests] Host script path: ${hostScriptPath}`);
 
     return new Promise<OwnedReadOnlyExcelHostRunResult>((resolve) => {
-        const child = cp.spawn('powershell.exe', [
-            '-NoProfile',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-File',
-            hostScriptPath,
-        ]);
         const events: VbaTestHostOracleEvent[] = [];
-        const stderrLines: string[] = [];
-        let stdoutBuffer = '';
         let currentMacro: { excelId: string; qualifiedName: string; timeoutMs: number; startedMs: number } | undefined;
         let currentModalBlocker: Extract<VbaTestHostOracleEvent, { kind: 'modal-blocked' }> | undefined;
         let currentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -385,7 +377,7 @@ async function runOwnedReadOnlyExcelTestHost(
                 } else {
                     log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} after Excel quit; stopping host script.`);
                 }
-                child.kill();
+                hostRun.kill();
                 finish();
             }, DEFAULT_VBA_TEST_CLEANUP_GRACE_MS);
             log(`[runVbaTests] Cleanup watchdog armed after ${stage} (${DEFAULT_VBA_TEST_CLEANUP_GRACE_MS} ms).`);
@@ -407,7 +399,7 @@ async function runOwnedReadOnlyExcelTestHost(
                 message,
             });
             killOwnedExcel('timeout');
-            child.kill();
+            hostRun.kill();
             finish(message);
         }, DEFAULT_VBA_TEST_TIMEOUT_MS);
 
@@ -444,7 +436,7 @@ async function runOwnedReadOnlyExcelTestHost(
                     message,
                 });
                 killOwnedExcel(modalBlocker ? 'modal-blocked' : 'timeout');
-                child.kill();
+                hostRun.kill();
                 finish(message);
             }, timeoutMs);
         };
@@ -486,7 +478,7 @@ async function runOwnedReadOnlyExcelTestHost(
                         message,
                     });
                     killOwnedExcel('modal-blocked');
-                    child.kill();
+                    hostRun.kill();
                     finish(message);
                 }
                 log(`[runVbaTests host] modal-blocked ${event.qualifiedName}: ${event.reason}`);
@@ -508,75 +500,63 @@ async function runOwnedReadOnlyExcelTestHost(
             }
         };
 
-        const handleStdoutText = (text: string) => {
-            stdoutBuffer += text;
-            const lines = stdoutBuffer.split(/\r?\n/);
-            stdoutBuffer = lines.pop() ?? '';
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed) {
-                    continue;
-                }
-                try {
-                    const event = parseVbaTestHostEventLine(trimmed);
-                    if (event) {
-                        handleEvent(event);
-                    } else {
-                        log(`[runVbaTests host stdout] ${trimmed}`);
-                    }
-                } catch (err) {
+        const handleStdoutLine = (line: string) => {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                return;
+            }
+            try {
+                const event = parseVbaTestHostEventLine(trimmed);
+                if (event) {
+                    handleEvent(event);
+                } else {
                     log(`[runVbaTests host stdout] ${trimmed}`);
-                    log(`[runVbaTests host parse] ${errorMessage(err)}`);
                 }
+            } catch (err) {
+                log(`[runVbaTests host stdout] ${trimmed}`);
+                log(`[runVbaTests host parse] ${errorMessage(err)}`);
             }
         };
 
-        child.on('spawn', () => {
-            log(`[runVbaTests] Spawned owned host powershell.exe (pid=${child.pid ?? 'unknown'})`);
+        const hostRun = runPowerShell({
+            args: ['-File', hostScriptPath],
+            onSpawn: (pid) => {
+                log(`[runVbaTests] Spawned owned host powershell.exe (pid=${pid ?? 'unknown'})`);
+            },
+            onStdoutLine: handleStdoutLine,
+            onStderrLine: (line) => {
+                log(`[runVbaTests host stderr] ${line}`);
+            },
         });
-        child.on('error', (err) => {
-            const message = `RUNNER_FAILED|${err.message}`;
-            if (currentMacro) {
-                events.push({
-                    kind: 'macro-finished',
-                    excelId: currentMacro.excelId,
-                    qualifiedName: currentMacro.qualifiedName,
-                    outcome: 'runner-error',
-                    durationMs: Date.now() - currentMacro.startedMs,
-                    message,
-                });
-            }
-            killOwnedExcel('runner-error');
-            finish(message);
-        });
-        child.stdout?.on('data', (data: Buffer) => {
-            handleStdoutText(data.toString());
-        });
-        child.stderr?.on('data', (data: Buffer) => {
-            for (const line of data.toString().split(/\r?\n/)) {
-                const trimmed = line.trimEnd();
-                if (trimmed) {
-                    stderrLines.push(trimmed);
-                    log(`[runVbaTests host stderr] ${trimmed}`);
+        void hostRun.result.then((result) => {
+            if (result.spawnError) {
+                const message = `RUNNER_FAILED|${result.spawnError.message}`;
+                if (currentMacro) {
+                    events.push({
+                        kind: 'macro-finished',
+                        excelId: currentMacro.excelId,
+                        qualifiedName: currentMacro.qualifiedName,
+                        outcome: 'runner-error',
+                        durationMs: Date.now() - currentMacro.startedMs,
+                        message,
+                    });
                 }
+                killOwnedExcel('runner-error');
+                finish(message);
+                return;
             }
-        });
-        child.on('exit', (code, signal) => {
-            if (stdoutBuffer.trim()) {
-                handleStdoutText('\n');
-            }
-            log(`[runVbaTests] owned host powershell exited with code=${code} signal=${signal ?? 'none'}`);
+            log(`[runVbaTests] owned host powershell exited with code=${result.code} signal=${result.signal ?? 'none'}`);
             if (settled) {
                 return;
             }
-            if (code === 0) {
+            if (result.code === 0) {
                 finish();
                 return;
             }
-            const sentinel = stderrLines.find((line) => line.includes('XLIDE_TEST_HOST_ERROR|'));
+            const sentinel = result.stderrLines.find((line) => line.includes('XLIDE_TEST_HOST_ERROR|'));
             const hostError = sentinel
                 ? sentinel.slice(sentinel.indexOf('XLIDE_TEST_HOST_ERROR|') + 'XLIDE_TEST_HOST_ERROR|'.length)
-                : stderrLines.join('\n') || `PowerShell exited with code ${code}`;
+                : result.stderrLines.join('\n') || `PowerShell exited with code ${result.code}`;
             if (currentMacro) {
                 events.push({
                     kind: 'macro-finished',
