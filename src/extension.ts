@@ -29,6 +29,7 @@ import {
 } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
 import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
+import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
@@ -88,6 +89,9 @@ function installDependencies(
 // ---------------------------------------------------------------------------
 
 export function activate(context: vscode.ExtensionContext): void {
+    // Bundled assets (assets/**) resolve against the installed extension root,
+    // not the src/ tree (see extensionAssets.ts).
+    setExtensionAssetRoot(context.extensionUri.fsPath);
     const out = createRecordedOutputChannel(vscode.window.createOutputChannel('XLIDE'));
     setPerformanceTraceLogger(
         (line) => out.appendLine(line),
