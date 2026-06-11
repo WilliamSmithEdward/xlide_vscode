@@ -154,8 +154,17 @@ export function findIdentifierOccurrences(
 
 /** Splits source, strips each line, and joins `_` line continuations. */
 export function toLogicalLines(source: string): { stripped: string[]; logical: LogicalLine[] } {
-    const physical = source.split(/\r\n|\r|\n/);
-    const stripped = physical.map(stripVba);
+    const stripped = source.split(/\r\n|\r|\n/).map(stripVba);
+    return { stripped, logical: logicalLinesFromStripped(stripped) };
+}
+
+/**
+ * Joins `_` line continuations and splits `:` statement separators over lines
+ * that already have strings/comments blanked. Shared by the legacy stripVba
+ * substrate ({@link toLogicalLines}) and the analyzer-lexer substrate Smart
+ * Enter sits on (src/analyzer/lexer/strippedLines.ts, audit #74).
+ */
+export function logicalLinesFromStripped(stripped: string[]): LogicalLine[] {
     const logical: LogicalLine[] = [];
     let i = 0;
     while (i < stripped.length) {
@@ -170,7 +179,7 @@ export function toLogicalLines(source: string): { stripped: string[]; logical: L
         }
         i++;
     }
-    return { stripped, logical };
+    return logical;
 }
 
 function splitColonStatements(text: string): string[] {

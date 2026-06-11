@@ -34,43 +34,16 @@
 // With the only remaining divergence class a verified improvement, the audit
 // #74 work rule (migrate only where the diff is empty or every difference is
 // a verified improvement) no longer blocks rebuilding Smart Enter on the
-// lexer substrate. src/vbaSmartEnter.ts still sits on legacy stripVba; the
-// migration itself is tracked as follow-up work.
+// lexer substrate. The lexer-derived helpers compared here have been promoted
+// to production (src/analyzer/lexer/strippedLines.ts); src/vbaSmartEnter.ts
+// still sits on legacy stripVba, and the switch-over is tracked as follow-up
+// work.
 
 import { describe, expect, it } from 'vitest';
+import { lexerStrippedLine, lexerStrippedLines } from '../src/analyzer/lexer/strippedLines';
 import { tokenize } from '../src/analyzer/lexer/tokenize';
 import { stripVba } from '../src/vbaSourceScan';
 import { allStructuralComparisonSamples } from './helpers/structuralCorpus';
-
-/**
- * The lexer-derived substrate under evaluation: every physical line of
- * `source` with string-literal and comment token spans blanked to spaces,
- * preserving length and column alignment (the stripVba contract). Comments
- * and string literals never span physical lines (MS-VBAL 3.3.1 / 3.3.4), so
- * blanking on the token's start line covers the whole token.
- */
-function lexerStrippedLines(source: string): string[] {
-    const chars = source.split(/\r\n|\r|\n/).map((line) => line.split(''));
-    for (const token of tokenize(source)) {
-        if (token.kind !== 'comment' && token.kind !== 'stringLiteral') {
-            continue;
-        }
-        const lineChars = chars[token.line];
-        if (!lineChars) {
-            continue;
-        }
-        const end = Math.min(token.character + token.rawText.length, lineChars.length);
-        for (let col = token.character; col < end; col++) {
-            lineChars[col] = ' ';
-        }
-    }
-    return chars.map((lineChars) => lineChars.join(''));
-}
-
-/** Isolated-line variant matching the per-line stripVba call sites. */
-function lexerStrippedLine(line: string): string {
-    return lexerStrippedLines(line)[0] ?? line;
-}
 
 type SubstrateDivergenceClass =
     | 'rem-after-colon'
