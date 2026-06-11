@@ -1956,7 +1956,7 @@ export function registerVbaLanguageProviders(
     registerVbaLoopIteratorSync(context);
     const docMetadata = new DocMetadataLoader();
     void docMetadata.start(context);
-    registerVbaMemberCompletion(context, bridge, VBA_SELECTOR, docMetadata.registry);
+    registerVbaMemberCompletion(context, projectIndexService, VBA_SELECTOR, docMetadata.registry);
 
     context.subscriptions.push(
         index,
