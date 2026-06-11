@@ -12,7 +12,6 @@ import {
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
     activeLocalVbaEditor,
-    notifySignatureDropped,
     workbookIdentityKey,
 } from './xlideFileSystem';
 import { applyOpenDocumentSources } from './vbaOpenDocuments';
@@ -61,7 +60,6 @@ import {
     XLIDE_ASSERT_MODULE_SOURCE,
 } from './vbaTestSupportModule';
 import { getVbaTestSupportStatus } from './vbaTestSupportStatus';
-import { invalidateVbaMemberCompletionCache } from './vbaMemberCompletion';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import {
     resolvedXlideGlobalSettingsFromConfig,
@@ -140,6 +138,12 @@ import {
     resolveWorkbookPath,
     showAnalysisSourceDocument,
 } from './commands/shared';
+import {
+    deleteWorkbookModule,
+    refreshWorkbookProjectState,
+    writeWorkbookModule,
+    type WorkbookModuleOperationDeps,
+} from './workbookModuleOperations';
 import { errorMessage } from './util/errors';
 import { fileExists, isPathInside } from './util/fs';
 import {
@@ -215,6 +219,7 @@ export function registerCommands(
     out: vscode.OutputChannel,
     vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
+    const moduleOps: WorkbookModuleOperationDeps = { bridge, explorer, fsProvider, vbaIndex };
     const lastFailedVbaTestRuns = new Map<string, VbaTestLastFailedRun>();
 
     function log(msg: string): void {
@@ -695,12 +700,6 @@ export function registerCommands(
         );
     }
 
-    function refreshVbaProjectState(filePath: string): void {
-        vbaIndex.invalidate(filePath);
-        invalidateVbaMemberCompletionCache(filePath);
-        explorer.refresh();
-    }
-
     async function installVbaTestSupportModule(filePath: string): Promise<boolean> {
         const modules = await bridge.call<Array<{ name: string; type: string }>>(
             'listModules',
@@ -739,17 +738,12 @@ export function registerCommands(
             }
         }
 
-        const result = await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>(
-            'writeModule',
-            {
-                path: filePath,
-                module: XLIDE_ASSERT_MODULE_NAME,
-                source: XLIDE_ASSERT_MODULE_SOURCE,
-                kind: 'standard',
-            },
-        );
-        notifySignatureDropped(filePath, Boolean(result.signatureDropped));
-        fsProvider.notifyFileChanged(encodeModuleUri(filePath, XLIDE_ASSERT_MODULE_NAME));
+        await writeWorkbookModule(moduleOps, {
+            filePath,
+            moduleName: XLIDE_ASSERT_MODULE_NAME,
+            source: XLIDE_ASSERT_MODULE_SOURCE,
+            kind: 'standard',
+        });
         const summaryText = logChangeSummary(log, 'installVbaTestSupport', {
             operation: existing ? 'Update VBA test support module' : 'Install VBA test support module',
             changed: [XLIDE_ASSERT_MODULE_NAME],
@@ -762,7 +756,6 @@ export function registerCommands(
             moduleName: XLIDE_ASSERT_MODULE_NAME,
             summary: summaryText,
         });
-        refreshVbaProjectState(filePath);
         void vscode.window.showInformationMessage(
             `XLIDE: "${XLIDE_ASSERT_MODULE_NAME}" ${existing ? 'updated' : 'installed'} in "${path.basename(filePath)}".`,
         );
@@ -1219,12 +1212,10 @@ export function registerCommands(
             if (item.status === 'will-remove') {
                 try {
                     log(`[importModules] Deleting workbook module ${item.moduleName} during import true-up`);
-                    const result = await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('deleteModule', {
-                        path: plan.workbookPath,
-                        module: item.moduleName,
-                    });
-                    notifySignatureDropped(plan.workbookPath, Boolean(result.signatureDropped));
-                    fsProvider.notifyFileChanged(encodeModuleUri(plan.workbookPath, item.moduleName));
+                    await deleteWorkbookModule(moduleOps, {
+                        filePath: plan.workbookPath,
+                        moduleName: item.moduleName,
+                    }, { refreshProjectState: false });
                     removed.push(item.relativeName);
                     recordWriteAudit({
                         command: 'xlide.importModulesFromFolder',
@@ -1269,14 +1260,12 @@ export function registerCommands(
                 }
                 const source = await fs.promises.readFile(item.sourcePath, 'utf8');
                 log(`[importModules] Importing ${item.moduleName} from ${item.relativeName}`);
-                const result = await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
-                    path: plan.workbookPath,
-                    module: item.moduleName,
+                await writeWorkbookModule(moduleOps, {
+                    filePath: plan.workbookPath,
+                    moduleName: item.moduleName,
                     source,
                     kind: item.moduleType,
-                });
-                notifySignatureDropped(plan.workbookPath, Boolean(result.signatureDropped));
-                fsProvider.notifyFileChanged(encodeModuleUri(plan.workbookPath, item.moduleName));
+                }, { refreshProjectState: false });
                 changed.push(item.relativeName);
                 recordWriteAudit({
                     command: 'xlide.importModulesFromFolder',
@@ -1304,7 +1293,7 @@ export function registerCommands(
         }
 
         if (changed.length > 0 || removed.length > 0) {
-            refreshVbaProjectState(plan.workbookPath);
+            refreshWorkbookProjectState(moduleOps, plan.workbookPath);
         }
         try {
             await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
@@ -1737,9 +1726,9 @@ export function registerCommands(
 
             const stub = `Option Explicit\r\n\r\nSub ${name}_Main()\r\n\r\nEnd Sub\r\n`;
             try {
-                await bridge.call('writeModule', {
-                    path: node.filePath,
-                    module: name,
+                await writeWorkbookModule(moduleOps, {
+                    filePath: node.filePath,
+                    moduleName: name,
                     source: stub,
                 });
                 const summaryText = logChangeSummary(log, 'newModule', {
@@ -1754,10 +1743,8 @@ export function registerCommands(
                     moduleName: name,
                     summary: summaryText,
                 });
-                refreshVbaProjectState(node.filePath);
                 // Open the new module immediately
                 const uri = encodeModuleUri(node.filePath, name);
-                fsProvider.notifyFileChanged(uri);
                 const doc = await vscode.workspace.openTextDocument(uri);
                 await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                 await vscode.window.showTextDocument(doc, { preview: false });
@@ -1787,9 +1774,9 @@ export function registerCommands(
 
             const stub = `Option Explicit\r\n\r\nPrivate Sub Class_Initialize()\r\n\r\nEnd Sub\r\n\r\nPrivate Sub Class_Terminate()\r\n\r\nEnd Sub\r\n`;
             try {
-                await bridge.call('writeModule', {
-                    path: node.filePath,
-                    module: name,
+                await writeWorkbookModule(moduleOps, {
+                    filePath: node.filePath,
+                    moduleName: name,
                     source: stub,
                     kind: 'class',
                 });
@@ -1805,9 +1792,7 @@ export function registerCommands(
                     moduleName: name,
                     summary: summaryText,
                 });
-                refreshVbaProjectState(node.filePath);
                 const uri = encodeModuleUri(node.filePath, name);
-                fsProvider.notifyFileChanged(uri);
                 const doc = await vscode.workspace.openTextDocument(uri);
                 await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
                 await vscode.window.showTextDocument(doc, { preview: false });
@@ -1933,7 +1918,7 @@ export function registerCommands(
                 vscode.window.showErrorMessage(`${prefix}: ${err}`);
             } finally {
                 if (moduleRenamed) {
-                    refreshVbaProjectState(node.filePath);
+                    refreshWorkbookProjectState(moduleOps, node.filePath);
                 }
             }
         }),
@@ -1958,14 +1943,10 @@ export function registerCommands(
             if (choice !== 'Delete') { return; }
 
             try {
-                const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                    'deleteModule',
-                    {
-                        path: node.filePath,
-                        module: node.moduleName,
-                    },
-                );
-                notifySignatureDropped(node.filePath, result.signatureDropped);
+                await deleteWorkbookModule(moduleOps, {
+                    filePath: node.filePath,
+                    moduleName: node.moduleName,
+                });
                 const summaryText = logChangeSummary(log, 'deleteModule', {
                     operation: 'Delete module',
                     changed: [node.moduleName],
@@ -1978,19 +1959,6 @@ export function registerCommands(
                     moduleName: node.moduleName,
                     summary: summaryText,
                 });
-                // Close any open editors for this module
-                const uri = encodeModuleUri(node.filePath, node.moduleName);
-                for (const tab of vscode.window.tabGroups.all.flatMap((g) => g.tabs)) {
-                    const input = tab.input;
-                    if (
-                        input instanceof vscode.TabInputText &&
-                        input.uri.toString() === uri.toString()
-                    ) {
-                        await vscode.window.tabGroups.close(tab);
-                    }
-                }
-                fsProvider.notifyFileChanged(uri);
-                refreshVbaProjectState(node.filePath);
             } catch (err) {
                 recordWriteAudit({
                     command: 'xlide.deleteModule',
