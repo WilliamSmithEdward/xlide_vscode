@@ -16,7 +16,7 @@ import {
 	type VbaProjectModuleInput,
 } from '../src/vbaProjectAnalysis';
 
-import { byCode, spanText } from './helpers/diagnostics';
+import { byCode, expectDiagnostic, expectDiagnostics, spanText } from './helpers/diagnostics';
 
 type ProjectTestModule = VbaProjectModuleInput;
 
@@ -381,10 +381,10 @@ describe('analyzeModule - duplicate Enum members', () => {
 			'End Enum\n';
 		const hits = byCode(analyzeModule(src), 'duplicate-enum-member');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('NegEnumShared');
-		expect(hits[0].message).toContain("Enum 'ENeg_DuplicateMembers'");
+		expectDiagnostic(src, hits, 'duplicate-enum-member', {
+			severity: 'error',
+			span: 'NegEnumShared',
+		});
 	});
 
 	it('treats Enum member duplicate checks as case-insensitive', () => {
@@ -449,11 +449,10 @@ describe('analyzeModule - ambiguous Enum member references', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'ambiguous-enum-member');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('NegAmbiguousValue');
-		expect(hits[0].message).toContain('ENeg_AmbiguousOne');
-		expect(hits[0].message).toContain('ENeg_AmbiguousTwo');
+		expectDiagnostic(src, hits, 'ambiguous-enum-member', {
+			severity: 'error',
+			span: 'NegAmbiguousValue',
+		});
 	});
 
 	it('does not flag qualified reads or local shadows of ambiguous Enum member names', () => {
@@ -849,8 +848,10 @@ describe('analyzeModule - Option Explicit', () => {
 			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
 			'undeclared-variable',
 		);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['missing', 'missingObj']);
-		expect(hits.every((hit) => hit.message.includes('assigning to it'))).toBe(true);
+		expectDiagnostics(src, hits, 'undeclared-variable', [
+			{ span: 'missing', message: 'assigning to it' },
+			{ span: 'missingObj', message: 'assigning to it' },
+		]);
 	});
 
 	it('does not flag type names, labels, named-argument labels, or unknown external-style calls as reads', () => {
@@ -1230,28 +1231,23 @@ describe('analyzeModule - unknown call statement', () => {
 describe('analyzeModule - non-callable call statements', () => {
 	it('flags a bare local variable statement rejected by VBE Compile', () => {
 		const src = 'Sub Main()\n    Dim testStr As String\n    testStr\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'non-callable-call');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('testStr');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('local variable');
+		expectDiagnostic(src, analyzeModule(src), 'non-callable-call', {
+			severity: 'error',
+			span: 'testStr',
+		});
 	});
 
 	it('flags a local variable used with call arguments', () => {
 		const src = 'Sub Main()\n    Dim testStr As String\n    testStr "hello"\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'non-callable-call');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('testStr');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('local variable');
+		expectDiagnostic(src, analyzeModule(src), 'non-callable-call', {
+			severity: 'error',
+			span: 'testStr',
+		});
 	});
 
 	it('flags an explicit Call to a parameter', () => {
 		const src = 'Sub Main(ByVal testStr As String)\n    Call testStr\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'non-callable-call');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('testStr');
-		expect(hits[0].message).toContain('parameter');
+		expectDiagnostic(src, analyzeModule(src), 'non-callable-call', { span: 'testStr' });
 	});
 
 	it('does not flag indexed object variables feeding member access', () => {
@@ -1283,16 +1279,12 @@ describe('analyzeModule - non-callable call statements', () => {
 		], 'Caller');
 		const hits = byCode(diagnostics, 'non-callable-call');
 
-		expect(hits.map((hit) => spanText(caller, hit))).toEqual([
-			'SharedValue',
-			'MaxValue',
-			'SharedMode',
-			'Active',
+		expectDiagnostics(caller, hits, 'non-callable-call', [
+			{ span: 'SharedValue', message: 'module variable' },
+			{ span: 'MaxValue', message: 'constant' },
+			{ span: 'SharedMode', message: 'enum type' },
+			{ span: 'Active', message: 'enum member' },
 		]);
-		expect(hits[0].message).toContain('module variable');
-		expect(hits[1].message).toContain('constant');
-		expect(hits[2].message).toContain('enum type');
-		expect(hits[3].message).toContain('enum member');
 		expect(byCode(diagnostics, 'unknown-call')).toHaveLength(0);
 	});
 
@@ -1323,9 +1315,10 @@ describe('analyzeModule - non-callable call statements', () => {
 		], 'Caller');
 		const hits = byCode(diagnostics, 'non-callable-call');
 
-		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['DoWork', 'SharedName']);
-		expect(hits[0].message).toContain('local variable');
-		expect(hits[1].message).toContain('module variable');
+		expectDiagnostics(caller, hits, 'non-callable-call', [
+			{ span: 'DoWork', message: 'local variable' },
+			{ span: 'SharedName', message: 'module variable' },
+		]);
 		expect(byCode(diagnostics, 'unknown-call')).toHaveLength(0);
 	});
 
@@ -1349,21 +1342,15 @@ describe('analyzeModule - non-callable call statements', () => {
 describe('analyzeModule - scalar member access', () => {
 	it('flags a trailing dot on a local String variable', () => {
 		const src = 'Sub Main()\n    Dim value As String\n    value.\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'scalar-member-access');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('value.');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('String');
-		expect(hits[0].message).toContain('Syntax error');
+		expectDiagnostic(src, analyzeModule(src), 'scalar-member-access', {
+			severity: 'error',
+			span: 'value.',
+		});
 	});
 
 	it('flags named member access on a local Integer variable', () => {
 		const src = 'Sub Main()\n    Dim value As Integer\n    value.Length\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'scalar-member-access');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('value.');
-		expect(hits[0].message).toContain('Integer');
-		expect(hits[0].message).toContain('Invalid qualifier');
+		expectDiagnostic(src, analyzeModule(src), 'scalar-member-access', { span: 'value.' });
 	});
 
 	it('flags scalar parameters and module variables', () => {
@@ -1389,9 +1376,7 @@ describe('analyzeModule - scalar member access', () => {
 			'scalar-member-access',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedText.');
-		expect(hits[0].message).toContain('String');
+		expectDiagnostic(caller, hits, 'scalar-member-access', { span: 'SharedText.' });
 	});
 
 	it('does not leak exported scalar receiver types through local untyped shadows', () => {
@@ -1463,10 +1448,10 @@ describe('analyzeModule - object variable not set', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'object-variable-not-set');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['obj', 'ws']);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain("Run-time error '91'");
+		expectDiagnostics(src, hits, 'object-variable-not-set', [
+			{ severity: 'error', span: 'obj' },
+			{ span: 'ws' },
+		]);
 	});
 
 	it('accepts object locals after Set and flags them again after Set Nothing', () => {
@@ -1711,9 +1696,7 @@ describe('analyzeModule - module declarations inside procedures', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'module-declaration-in-procedure');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Attribute');
-		expect(hits[0].message).toContain('Attribute statements');
+		expectDiagnostic(src, hits, 'module-declaration-in-procedure', { span: 'Attribute' });
 	});
 
 	it('checks nested procedure blocks and ignores inactive conditional branches', () => {
@@ -1747,10 +1730,10 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		const diagnostics = analyzeModule(src);
 		const hits = byCode(diagnostics, 'module-declaration-in-procedure');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Type', 'Enum']);
-		expect(hits[0].message).toContain('Type blocks');
-		expect(hits[1].message).toContain('Enum blocks');
+		expectDiagnostics(src, hits, 'module-declaration-in-procedure', [
+			{ span: 'Type', message: 'Type blocks' },
+			{ span: 'Enum', message: 'Enum blocks' },
+		]);
 		expect(byCode(diagnostics, 'statement-outside-procedure')).toHaveLength(0);
 	});
 
@@ -1783,11 +1766,10 @@ describe('analyzeModule - module declaration placement', () => {
 			'#End If\n';
 		const hits = byCode(analyzeModule(src), 'module-declaration-after-procedure');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('Declare');
-		expect(hits[0].message).toContain('active conditional-compilation branch');
-		expect(hits[0].message).toContain('module declarations section');
+		expectDiagnostic(src, hits, 'module-declaration-after-procedure', {
+			severity: 'error',
+			span: 'Declare',
+		});
 	});
 
 	it('flags only the active #ElseIf declaration after a procedure in a valid conditional block', () => {
@@ -1805,9 +1787,7 @@ describe('analyzeModule - module declaration placement', () => {
 		const diagnostics = analyzeModule(src);
 		const hits = byCode(diagnostics, 'module-declaration-after-procedure');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Const');
-		expect(hits[0].message).toContain('module declarations section');
+		expectDiagnostic(src, hits, 'module-declaration-after-procedure', { span: 'Const' });
 		expect(byCode(diagnostics, 'else-branch-order')).toHaveLength(0);
 	});
 
@@ -1825,9 +1805,7 @@ describe('analyzeModule - module declaration placement', () => {
 			'#End If\n';
 		const hits = byCode(analyzeModule(src), 'module-declaration-after-procedure');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Const');
-		expect(hits[0].message).toContain('active conditional-compilation branch');
+		expectDiagnostic(src, hits, 'module-declaration-after-procedure', { span: 'Const' });
 	});
 
 	it('suppresses declaration-order fallout inside malformed conditional-compilation blocks', () => {
@@ -1908,10 +1886,10 @@ describe('analyzeModule - module-level statements outside procedures', () => {
 		const diagnostics = analyzeModule(src);
 		const hits = byCode(diagnostics, 'statement-outside-procedure');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('NegAmbiguousValue');
-		expect(hits[0].message).toContain('outside a Sub, Function, or Property procedure');
+		expectDiagnostic(src, hits, 'statement-outside-procedure', {
+			severity: 'error',
+			span: 'NegAmbiguousValue',
+		});
 		expect(byCode(diagnostics, 'ambiguous-enum-member')).toHaveLength(0);
 	});
 
@@ -2087,10 +2065,7 @@ describe('analyzeModule - argument count', () => {
 			'End Sub\n' +
 			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Greet');
-		expect(hits[0].message).toContain('expected 2 arguments');
-		expect(hits[0].message).toContain('got 1');
+		expectDiagnostic(src, hits, 'argument-count', { span: 'Greet' });
 		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
 			parameterName: 'b',
 			edit: {
@@ -2110,9 +2085,10 @@ describe('analyzeModule - argument count', () => {
 			'20 Call Greet("Ann")\n' +
 			'End Sub\n' +
 			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Greet', 'Greet']);
-		expect(hits.every((hit) => hit.message.includes('expected 2 arguments'))).toBe(true);
+		expectDiagnostics(src, analyzeModule(src), 'argument-count', [
+			{ span: 'Greet', message: 'expected 2 arguments' },
+			{ span: 'Greet', message: 'expected 2 arguments' },
+		]);
 	});
 
 	it('flags too many arguments to a same-module Sub', () => {
@@ -2121,9 +2097,7 @@ describe('analyzeModule - argument count', () => {
 			'    Greet "Ann", "Bob", "Cat"\n' +
 			'End Sub\n' +
 			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(hits[0].message).toContain('got 3');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count');
 	});
 
 	it('flags a lone-identifier call that omits required arguments', () => {
@@ -2132,18 +2106,13 @@ describe('analyzeModule - argument count', () => {
 			'    Greet\n' +
 			'End Sub\n' +
 			'Sub Greet(ByVal a As String)\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count');
 	});
 
 	it('flags a runtime function call that omits required arguments', () => {
 		const src = 'Sub Main()\n    MsgBox()\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('MsgBox');
-		expect(hits[0].message).toContain('expected between 1 and 5 arguments');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, hits, 'argument-count', { span: 'MsgBox' });
 		const argStart = src.indexOf('MsgBox(') + 'MsgBox('.length;
 		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
 			parameterName: 'Prompt',
@@ -2172,9 +2141,7 @@ describe('analyzeModule - argument count', () => {
 	it('flags a parenless runtime function statement that omits required arguments', () => {
 		const src = 'Sub Main()\n    MsgBox\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('MsgBox');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, hits, 'argument-count', { span: 'MsgBox' });
 		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
 			parameterName: 'Prompt',
 			edit: {
@@ -2204,11 +2171,7 @@ describe('analyzeModule - argument count', () => {
 			'    total2 = InvoiceTotal(total, )\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe(',');
-		expect(hits[0].message).toContain('TaxRate');
-		expect(hits[0].message).toContain('Argument not optional');
+		expectDiagnostic(src, hits, 'argument-count', { severity: 'error', span: ',' });
 		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
 			parameterName: 'TaxRate',
 			edit: {
@@ -2229,9 +2192,7 @@ describe('analyzeModule - argument count', () => {
 			'    total2 = InvoiceTotal(, 0.08)\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe(',');
-		expect(hits[0].message).toContain('Subtotal');
+		expectDiagnostic(src, hits, 'argument-count', { span: ',' });
 		expect(hits[0].data?.missingRequiredArgumentPlaceholder).toEqual({
 			parameterName: 'Subtotal',
 			edit: {
@@ -2309,10 +2270,7 @@ describe('analyzeModule - argument count', () => {
 			'    Greet who:="Ann"\n' +
 			'End Sub\n' +
 			'Sub Greet(ByVal a As String, ByVal b As String)\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('who');
-		expect(hits[0].message).toContain('Named argument not found');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'who' });
 	});
 
 	it('flags duplicate named arguments', () => {
@@ -2324,10 +2282,7 @@ describe('analyzeModule - argument count', () => {
 			'Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-count');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['alpha', 'ALPHA']);
-		expect(hits[0].message).toContain('Named argument already specified');
-		expect(hits[0].message).toContain('alpha');
+		expectDiagnostics(src, hits, 'argument-count', [{ span: 'alpha' }, { span: 'ALPHA' }]);
 	});
 
 	it('accepts a valid named argument', () => {
@@ -2377,9 +2332,7 @@ describe('analyzeModule - argument count', () => {
 			], 'Caller'),
 			'argument-count',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('PrintTotal');
-		expect(hits[0].message).toContain('expected 2 arguments');
+		expectDiagnostic(caller, hits, 'argument-count', { span: 'PrintTotal' });
 	});
 
 	it('validates same-module Declare argument counts', () => {
@@ -2388,10 +2341,7 @@ describe('analyzeModule - argument count', () => {
 			'Sub Main()\n' +
 			'    Sleep\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Sleep');
-		expect(hits[0].message).toContain('expected 1 argument');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Sleep' });
 	});
 
 	it('uses the active conditional Declare signature for same-module calls', () => {
@@ -2439,9 +2389,7 @@ describe('analyzeModule - argument count', () => {
 			}),
 			'argument-count',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('Sleep');
-		expect(hits[0].message).toContain('expected 1 argument');
+		expectDiagnostic(caller, hits, 'argument-count', { span: 'Sleep' });
 	});
 
 	it('does not arity-check ambiguous exported project signatures', () => {
@@ -2488,9 +2436,7 @@ describe('analyzeModule - argument count', () => {
 			}),
 			'argument-count',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('PrintTotal');
-		expect(hits[0].message).toContain('expected 2 arguments');
+		expectDiagnostic(caller, hits, 'argument-count', { span: 'PrintTotal' });
 	});
 
 	it('keeps module-qualified project diagnostics stable under module order changes', () => {
@@ -2551,11 +2497,7 @@ describe('analyzeModule - argument count', () => {
 			'    Dim wb As Workbook\n' +
 			'    Set wb = Workbooks.Open()\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Open');
-		expect(hits[0].message).toContain('expected between 1 and 15 arguments');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Open' });
 	});
 
 	it('flags extra arguments on generated host member calls', () => {
@@ -2563,11 +2505,7 @@ describe('analyzeModule - argument count', () => {
 			'Sub Main()\n' +
 			'    Call Application.Calculate(1)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Calculate');
-		expect(hits[0].message).toContain('expected 0 arguments');
-		expect(hits[0].message).toContain('got 1');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Calculate' });
 	});
 
 	it('flags missing required arguments on host members with fallback signatures', () => {
@@ -2576,11 +2514,7 @@ describe('analyzeModule - argument count', () => {
 			'    Dim r As Range\n' +
 			'    Set r = ActiveSheet.Range()\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Range');
-		expect(hits[0].message).toContain('expected between 1 and 2 arguments');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Range' });
 	});
 
 	it('does not treat collection indexing as member-call arity', () => {
@@ -2589,10 +2523,7 @@ describe('analyzeModule - argument count', () => {
 			'    Dim r As Range\n' +
 			'    Set r = Workbooks(1).Sheets(1).Range()\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Range');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Range' });
 	});
 
 	it('accepts correct host member argument counts', () => {
@@ -2667,10 +2598,7 @@ describe('analyzeModule - argument count', () => {
 			}),
 			'argument-count',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('Save');
-		expect(hits[0].message).toContain('expected 1 argument');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(caller, hits, 'argument-count', { span: 'Save' });
 	});
 
 	it('honours ParamArray on source-backed class member calls', () => {
@@ -2713,9 +2641,7 @@ describe('analyzeModule - argument count', () => {
 			}),
 			'argument-count',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('Save');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(caller, hits, 'argument-count', { span: 'Save' });
 	});
 
 	it('validates parenless generated host member call statements', () => {
@@ -2724,10 +2650,7 @@ describe('analyzeModule - argument count', () => {
 			'    ActiveSheet.Range\n' +
 			'    ActiveSheet.Range "A1"\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Range');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Range' });
 	});
 
 	it('validates required arguments on runtime object member calls', () => {
@@ -2736,10 +2659,7 @@ describe('analyzeModule - argument count', () => {
 			'    Err.Raise\n' +
 			'    Err.Raise vbObjectError + 1\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Raise');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Raise' });
 	});
 
 	it('accepts Debug.Print output lists and validates Debug.Assert arity', () => {
@@ -2748,10 +2668,7 @@ describe('analyzeModule - argument count', () => {
 			'    Debug.Print "value", 1, True\n' +
 			'    Debug.Assert\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-count');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Assert');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'argument-count', { span: 'Assert' });
 	});
 
 	it('flags missing required arguments on current class Me member calls', () => {
@@ -2771,9 +2688,7 @@ describe('analyzeModule - argument count', () => {
 			}),
 			'argument-count',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Save');
-		expect(hits[0].message).toContain('expected 1 argument');
+		expectDiagnostic(src, hits, 'argument-count', { span: 'Save' });
 	});
 });
 
@@ -2785,13 +2700,10 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Sub TestInvoiceTotal()\n' +
 			'    total = InvoiceTotal("blah", 0.08)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('Subtotal');
-		expect(hits[0].message).toContain('Currency');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(src, analyzeModule(src), 'argument-type-mismatch', {
+			severity: 'error',
+			span: '"blah"',
+		});
 	});
 
 	it('flags intrinsic CVErr Error Variants passed to scalar parameters', () => {
@@ -2807,10 +2719,10 @@ describe('analyzeModule - argument type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['CVErr(2015)', 'VBA.CVErr(2015)']);
-		expect(hits[0].message).toContain('Error Variant');
-		expect(hits[0].message).toContain("Run-time error '13'");
+		expectDiagnostics(src, hits, 'argument-type-mismatch', [
+			{ span: 'CVErr(2015)' },
+			{ span: 'VBA.CVErr(2015)' },
+		]);
 	});
 
 	it('flags Null passed to scalar parameters', () => {
@@ -2828,10 +2740,7 @@ describe('analyzeModule - argument type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Null', 'Null']);
-		expect(hits[0].message).toContain('Null');
-		expect(hits[0].message).toContain("Run-time error '94'");
+		expectDiagnostics(src, hits, 'argument-type-mismatch', [{ span: 'Null' }, { span: 'Null' }]);
 	});
 
 	it('lets a source function named CVErr shadow the intrinsic in argument expressions', () => {
@@ -2862,10 +2771,7 @@ describe('analyzeModule - argument type validation', () => {
 			], 'Caller'),
 			'argument-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('"blah"');
-		expect(hits[0].message).toContain('Subtotal');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(caller, hits, 'argument-type-mismatch', { span: '"blah"' });
 	});
 
 	it('validates same-module Declare argument types', () => {
@@ -2874,10 +2780,7 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Sub T()\n' +
 			'    Sleep "bad"\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('Milliseconds');
+		expectDiagnostic(src, analyzeModule(src), 'argument-type-mismatch', { span: '"bad"' });
 	});
 
 	it('uses module-qualified project signatures for argument types', () => {
@@ -2898,10 +2801,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('"blah"');
-		expect(hits[0].message).toContain('Subtotal');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(caller, hits, 'argument-type-mismatch', { span: '"blah"' });
 	});
 
 	it('uses a unique exported project function return type in nested calls', () => {
@@ -2922,9 +2822,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('MakeLabel');
-		expect(hits[0].message).toContain('MakeLabel(...) As String');
+		expectDiagnostic(caller, hits, 'argument-object-type-mismatch', { span: 'MakeLabel' });
 	});
 
 	it('uses visible exported scalar globals as bare argument value types', () => {
@@ -2941,9 +2839,7 @@ describe('analyzeModule - argument type validation', () => {
 			'argument-object-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedText');
-		expect(hits[0].message).toContain('SharedText As String');
+		expectDiagnostic(caller, hits, 'argument-object-type-mismatch', { span: 'SharedText' });
 	});
 
 	it('uses module-qualified exported scalar globals as argument value types', () => {
@@ -2961,10 +2857,10 @@ describe('analyzeModule - argument type validation', () => {
 			'argument-object-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['SharedText', 'Globals.SharedText & ""']);
-		expect(hits[0].message).toContain('Globals.SharedText As String');
-		expect(hits[1].message).toContain('string concatenation expression');
+		expectDiagnostics(caller, hits, 'argument-object-type-mismatch', [
+			{ span: 'SharedText', message: 'Globals.SharedText As String' },
+			{ span: 'Globals.SharedText & ""', message: 'string concatenation expression' },
+		]);
 	});
 
 	it('keeps unknown module-qualified value types quiet for argument inference', () => {
@@ -3019,9 +2915,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('MakeLabel');
-		expect(hits[0].message).toContain('Labels.MakeLabel(...) As String');
+		expectDiagnostic(caller, hits, 'argument-object-type-mismatch', { span: 'MakeLabel' });
 	});
 
 	it('uses source-backed member return types in argument expressions', () => {
@@ -3041,9 +2935,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Name');
-		expect(hits[0].message).toContain('p.Name As String');
+		expectDiagnostic(src, hits, 'argument-object-type-mismatch', { span: 'Name' });
 	});
 
 	it('does not infer bare member functions that require arguments as values', () => {
@@ -3082,9 +2974,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('p.Name & "!"');
-		expect(hits[0].message).toContain('string concatenation expression');
+		expectDiagnostic(src, hits, 'argument-object-type-mismatch', { span: 'p.Name & "!"' });
 	});
 
 	it('accepts numeric literals and numeric string literals for numeric parameters', () => {
@@ -3114,20 +3004,12 @@ describe('analyzeModule - argument type validation', () => {
 			'    TakesInteger 32768\n' +
 			'    TakesInteger -32769\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
-		expect(hits).toHaveLength(4);
-		expect(spanText(src, hits[0])).toBe('256');
-		expect(hits[0].message).toContain('Byte');
-		expect(hits[0].message).toContain("Run-time error '6'");
-		expect(spanText(src, hits[1])).toBe('-1');
-		expect(hits[1].message).toContain('Byte');
-		expect(hits[1].message).toContain("Run-time error '6'");
-		expect(spanText(src, hits[2])).toBe('32768');
-		expect(hits[2].message).toContain('Integer');
-		expect(hits[2].message).toContain("Run-time error '6'");
-		expect(spanText(src, hits[3])).toBe('-32769');
-		expect(hits[3].message).toContain('Integer');
-		expect(hits[3].message).toContain("Run-time error '6'");
+		expectDiagnostics(src, analyzeModule(src), 'argument-type-mismatch', [
+			{ span: '256', message: ['Byte', "Run-time error '6'"] },
+			{ span: '-1', message: ['Byte', "Run-time error '6'"] },
+			{ span: '32768', message: ['Integer', "Run-time error '6'"] },
+			{ span: '-32769', message: ['Integer', "Run-time error '6'"] },
+		]);
 	});
 
 	it('does not warn on string variables whose runtime value is unknown', () => {
@@ -3149,11 +3031,7 @@ describe('analyzeModule - argument type validation', () => {
 			'    Dim amount As Integer\n' +
 			'    Mutate amount\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'byref-argument-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('amount');
-		expect(hits[0].message).toContain('expects Long');
-		expect(hits[0].message).toContain('declared as Integer');
+		expectDiagnostic(src, analyzeModule(src), 'byref-argument-type-mismatch', { span: 'amount' });
 	});
 
 	it('treats omitted parameter passing markers as default ByRef', () => {
@@ -3177,10 +3055,7 @@ describe('analyzeModule - argument type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'byref-argument-type-mismatch');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('obj');
-		expect(hits[0].message).toContain('expects String');
-		expect(hits[0].message).toContain('declared as Object');
+		expectDiagnostic(src, hits, 'byref-argument-type-mismatch', { span: 'obj' });
 	});
 
 	it('does not apply ByRef exactness to ByVal parameters, literals, or expression temporaries', () => {
@@ -3235,9 +3110,7 @@ describe('analyzeModule - argument type validation', () => {
 			'#End If\n';
 		const hits = byCode(analyzeModule(src), 'byref-argument-type-mismatch');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('amount');
-		expect(hits[0].message).toContain('NegSupport01_NeedsLong');
+		expectDiagnostic(src, hits, 'byref-argument-type-mismatch', { span: 'amount' });
 	});
 
 	it('uses unique exported project signatures for ByRef exactness', () => {
@@ -3270,9 +3143,7 @@ describe('analyzeModule - argument type validation', () => {
 			'byref-argument-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedAmount');
-		expect(hits[0].message).toContain('declared as Integer');
+		expectDiagnostic(caller, hits, 'byref-argument-type-mismatch', { span: 'SharedAmount' });
 	});
 
 	it('uses module-qualified exported project variables for ByRef exactness', () => {
@@ -3288,10 +3159,9 @@ describe('analyzeModule - argument type validation', () => {
 			'byref-argument-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('Globals.SharedAmount');
-		expect(hits[0].message).toContain("'Globals.SharedAmount'");
-		expect(hits[0].message).toContain('declared as Integer');
+		expectDiagnostic(caller, hits, 'byref-argument-type-mismatch', {
+			span: 'Globals.SharedAmount',
+		});
 	});
 
 	it('keeps local shadows and ambiguous exported variables quiet for ByRef exactness', () => {
@@ -3334,19 +3204,12 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Sub TestInvoiceTotal()\n' +
 			'    total = InvoiceTotal(TaxRate:=0.08, Subtotal:="blah")\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].message).toContain('Subtotal');
+		expectDiagnostic(src, analyzeModule(src), 'argument-type-mismatch', { span: '"blah"' });
 	});
 
 	it('validates selected native VBA runtime parameter types', () => {
 		const src = 'Sub T()\n    x = Left("abcdef", "bad")\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('Length');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(src, analyzeModule(src), 'argument-type-mismatch', { span: '"bad"' });
 	});
 
 	it('does not validate runtime parameter types when a local shadows the runtime function', () => {
@@ -3369,14 +3232,13 @@ describe('analyzeModule - argument type validation', () => {
 			'    d = String(-4, "x")\n' +
 			'    e = VBA.Left$("abcdef", -5)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
-		expect(hits).toHaveLength(5);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['-1', '-2', '-3', '-4', '-5']);
-		expect(hits[0].message).toContain('Left$');
-		expect(hits[0].message).toContain('Length');
-		expect(hits[0].message).toContain("Run-time error '5'");
-		expect(hits[2].message).toContain('String$');
-		expect(hits[2].message).toContain('Number');
+		expectDiagnostics(src, analyzeModule(src), 'runtime-argument-value', [
+			{ span: '-1', message: ['Left$', 'Length', "Run-time error '5'"] },
+			{ span: '-2' },
+			{ span: '-3', message: ['String$', 'Number'] },
+			{ span: '-4' },
+			{ span: '-5' },
+		]);
 	});
 
 	it('flags oracle-backed runtime argument bounds for Right Space and Mid', () => {
@@ -3390,16 +3252,15 @@ describe('analyzeModule - argument type validation', () => {
 			'    f = Mid("abcdef", -1, 1)\n' +
 			'    g = Mid$("abcdef", 1, -5)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
-		expect(hits).toHaveLength(7);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['-1', '-2', '-3', '-4', '0', '-1', '-5']);
-		expect(hits[0].message).toContain('Right$');
-		expect(hits[0].message).toContain('Length');
-		expect(hits[2].message).toContain('Space$');
-		expect(hits[2].message).toContain('Number');
-		expect(hits[4].message).toContain('Mid$');
-		expect(hits[4].message).toContain('Start');
-		expect(hits[6].message).toContain('Length');
+		expectDiagnostics(src, analyzeModule(src), 'runtime-argument-value', [
+			{ span: '-1', message: ['Right$', 'Length'] },
+			{ span: '-2' },
+			{ span: '-3', message: ['Space$', 'Number'] },
+			{ span: '-4' },
+			{ span: '0', message: ['Mid$', 'Start'] },
+			{ span: '-1' },
+			{ span: '-5', message: 'Length' },
+		]);
 	});
 
 	it('flags oracle-backed runtime argument bounds for Replace', () => {
@@ -3410,12 +3271,12 @@ describe('analyzeModule - argument type validation', () => {
 			'    c = Replace("aaaa", "a", "z", 1, -2)\n' +
 			'    d = Replace("aaaa", "a", "z", Count:=-2, Start:=1)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
-		expect(hits).toHaveLength(4);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '-1', '-2', '-2']);
-		expect(hits[0].message).toContain('Replace');
-		expect(hits[0].message).toContain('Start');
-		expect(hits[2].message).toContain('Count');
+		expectDiagnostics(src, analyzeModule(src), 'runtime-argument-value', [
+			{ span: '0', message: ['Replace', 'Start'] },
+			{ span: '-1' },
+			{ span: '-2', message: 'Count' },
+			{ span: '-2' },
+		]);
 	});
 
 	it('folds deterministic Const Enum and integer expressions for runtime argument bounds', () => {
@@ -3438,21 +3299,12 @@ describe('analyzeModule - argument type validation', () => {
 			'    g = Replace("aaaa", "a", "z", 1, GoodCount)\n' +
 			'    h = Mid$("abcdef", EnumBadStart, 1)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
-		expect(hits).toHaveLength(5);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'BadLength',
-			'1 - 2',
-			'BadStart',
-			'BadCount',
-			'EnumBadStart',
-		]);
-		expect(hits.map((hit) => hit.message)).toEqual([
-			expect.stringContaining('is -1'),
-			expect.stringContaining('is -1'),
-			expect.stringContaining('is 0'),
-			expect.stringContaining('is -2'),
-			expect.stringContaining('is 0'),
+		expectDiagnostics(src, analyzeModule(src), 'runtime-argument-value', [
+			{ span: 'BadLength', message: 'is -1' },
+			{ span: '1 - 2', message: 'is -1' },
+			{ span: 'BadStart', message: 'is 0' },
+			{ span: 'BadCount', message: 'is -2' },
+			{ span: 'EnumBadStart', message: 'is 0' },
 		]);
 	});
 
@@ -3497,14 +3349,10 @@ describe('analyzeModule - argument type validation', () => {
 			'    e = InStr(BadStart, "abcdef", "a")\n' +
 			'    f = InStr(Start:=0, String1:="abcdef", String2:="a")\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
-
-		expect(hits).toHaveLength(3);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '-1', 'BadStart']);
-		expect(hits.map((hit) => hit.message)).toEqual([
-			expect.stringContaining("'Start' of 'InStr' is 0"),
-			expect.stringContaining("'Start' of 'InStr' is -1"),
-			expect.stringContaining("'Start' of 'InStr' is 0"),
+		expectDiagnostics(src, analyzeModule(src), 'runtime-argument-value', [
+			{ span: '0', message: "'Start' of 'InStr' is 0" },
+			{ span: '-1', message: "'Start' of 'InStr' is -1" },
+			{ span: 'BadStart', message: "'Start' of 'InStr' is 0" },
 		]);
 	});
 
@@ -3526,26 +3374,14 @@ describe('analyzeModule - argument type validation', () => {
 			'    j = ChrW(BadChrWHigh)\n' +
 			'    k = VBA.Chr(256)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
-
-		expect(hits).toHaveLength(7);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'-1',
-			'256',
-			'BadChrLow',
-			'BadChrHigh',
-			'65536',
-			'BadChrWHigh',
-			'256',
-		]);
-		expect(hits.map((hit) => hit.message)).toEqual([
-			expect.stringContaining("'CharCode' of 'Chr' is -1"),
-			expect.stringContaining("'CharCode' of 'Chr' is 256"),
-			expect.stringContaining("'CharCode' of 'Chr' is -1"),
-			expect.stringContaining("'CharCode' of 'Chr' is 256"),
-			expect.stringContaining("'CharCode' of 'ChrW' is 65536"),
-			expect.stringContaining("'CharCode' of 'ChrW' is 65536"),
-			expect.stringContaining("'CharCode' of 'Chr' is 256"),
+		expectDiagnostics(src, analyzeModule(src), 'runtime-argument-value', [
+			{ span: '-1', message: "'CharCode' of 'Chr' is -1" },
+			{ span: '256', message: "'CharCode' of 'Chr' is 256" },
+			{ span: 'BadChrLow', message: "'CharCode' of 'Chr' is -1" },
+			{ span: 'BadChrHigh', message: "'CharCode' of 'Chr' is 256" },
+			{ span: '65536', message: "'CharCode' of 'ChrW' is 65536" },
+			{ span: 'BadChrWHigh', message: "'CharCode' of 'ChrW' is 65536" },
+			{ span: '256', message: "'CharCode' of 'Chr' is 256" },
 		]);
 	});
 
@@ -3744,10 +3580,7 @@ describe('analyzeModule - argument type validation', () => {
 			'    a = Left("abcdef", -1)\n' +
 			'    b = VBA.Left$("abcdef", -1)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('-1');
-		expect(hits[0].message).toContain('Left$');
+		expectDiagnostic(src, analyzeModule(src), 'runtime-argument-value', { span: '-1' });
 	});
 
 	it('flags plainly invalid literal CDate conversions', () => {
@@ -3759,11 +3592,10 @@ describe('analyzeModule - argument type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'runtime-conversion-value');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['"not a date"', '""']);
-		expect(hits[0].message).toContain('CDate');
-		expect(hits[0].message).toContain("Run-time error '13'");
-		expect(hits[1].message).toContain('VBA.CDate');
+		expectDiagnostics(src, hits, 'runtime-conversion-value', [
+			{ span: '"not a date"', message: ['CDate', "Run-time error '13'"] },
+			{ span: '""', message: 'VBA.CDate' },
+		]);
 	});
 
 	it('keeps date-looking, localized, variable, and non-CDate conversions quiet', () => {
@@ -3792,9 +3624,7 @@ describe('analyzeModule - argument type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'runtime-conversion-value');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"not a date"');
-		expect(hits[0].message).toContain('VBA.CDate');
+		expectDiagnostic(src, hits, 'runtime-conversion-value', { span: '"not a date"' });
 	});
 
 	it('does not treat project-visible source names as native conversion checks', () => {
@@ -3815,9 +3645,7 @@ describe('analyzeModule - argument type validation', () => {
 		);
 		const hits = byCode(diagnostics, 'runtime-conversion-value');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('"not a date"');
-		expect(hits[0].message).toContain('VBA.CDate');
+		expectDiagnostic(caller, hits, 'runtime-conversion-value', { span: '"not a date"' });
 	});
 
 	it('keeps Close of a literal file number quiet', () => {
@@ -3856,11 +3684,10 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Sub T()\n' +
 			'    NeedsObject MakeLabel()\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('MakeLabel');
-		expect(hits[0].message).toContain('MakeLabel(...) As String');
+		expectDiagnostic(src, analyzeModule(src), 'argument-object-type-mismatch', {
+			severity: 'error',
+			span: 'MakeLabel',
+		});
 	});
 
 	it('uses string-suffixed runtime aliases as argument types', () => {
@@ -3871,10 +3698,7 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Sub T()\n' +
 			'    NeedsObject Left$("abcdef", 2)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Left$');
-		expect(hits[0].message).toContain('Left$(...) As String');
+		expectDiagnostic(src, analyzeModule(src), 'argument-object-type-mismatch', { span: 'Left$' });
 	});
 
 	it('uses verified runtime and host constants as argument value types', () => {
@@ -3889,17 +3713,12 @@ describe('analyzeModule - argument type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
 
-		expect(hits).toHaveLength(4);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'vbFalse',
-			'vbFalse',
-			'xlAbove',
-			'vbNullString',
+		expectDiagnostics(src, hits, 'argument-object-type-mismatch', [
+			{ span: 'vbFalse', message: 'vbFalse As VbTriState' },
+			{ span: 'vbFalse', message: 'VBA.vbFalse As VbTriState' },
+			{ span: 'xlAbove', message: 'xlAbove As Constants' },
+			{ span: 'vbNullString', message: 'vbNullString As String' },
 		]);
-		expect(hits[0].message).toContain('vbFalse As VbTriState');
-		expect(hits[1].message).toContain('VBA.vbFalse As VbTriState');
-		expect(hits[2].message).toContain('xlAbove As Constants');
-		expect(hits[3].message).toContain('vbNullString As String');
 	});
 
 	it('lets source declarations shadow verified external constants for argument value types', () => {
@@ -3928,11 +3747,10 @@ describe('analyzeModule - argument type validation', () => {
 			'    NeedsObject MakeLabel\n' +
 			'    NeedsObject (CurrentLabel)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['MakeLabel', 'CurrentLabel']);
-		expect(hits[0].message).toContain('MakeLabel As String');
-		expect(hits[1].message).toContain('CurrentLabel As String');
+		expectDiagnostics(src, analyzeModule(src), 'argument-object-type-mismatch', [
+			{ span: 'MakeLabel', message: 'MakeLabel As String' },
+			{ span: 'CurrentLabel', message: 'CurrentLabel As String' },
+		]);
 	});
 
 	it('keeps the current Function return variable available for bare argument inference', () => {
@@ -3944,9 +3762,7 @@ describe('analyzeModule - argument type validation', () => {
 			'End Function\n';
 		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('CurrentLabel');
-		expect(hits[0].message).toContain('CurrentLabel As String');
+		expectDiagnostic(src, hits, 'argument-object-type-mismatch', { span: 'CurrentLabel' });
 	});
 
 	it('uses module-qualified parameterless project Function references as argument types', () => {
@@ -3967,9 +3783,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('MakeLabel');
-		expect(hits[0].message).toContain('Labels.MakeLabel As String');
+		expectDiagnostic(caller, hits, 'argument-object-type-mismatch', { span: 'MakeLabel' });
 	});
 
 	it('does not infer ambiguous parameterless project Function references', () => {
@@ -3992,11 +3806,7 @@ describe('analyzeModule - argument type validation', () => {
 			'Sub T()\n' +
 			'    Call Application.DeleteCustomList("bad")\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('ListNum');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostic(src, analyzeModule(src), 'argument-type-mismatch', { span: '"bad"' });
 	});
 
 	it('uses source-backed class member signatures for argument types', () => {
@@ -4016,10 +3826,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('item');
-		expect(hits[0].message).toContain('Object');
+		expectDiagnostic(caller, hits, 'argument-object-type-mismatch', { span: '"bad"' });
 	});
 
 	it('uses parenless source-backed class member signatures for argument types', () => {
@@ -4039,10 +3846,7 @@ describe('analyzeModule - argument type validation', () => {
 			}),
 			'argument-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('Count');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostic(caller, hits, 'argument-type-mismatch', { span: '"bad"' });
 	});
 
 	it('uses nested same-module function return types as argument types', () => {
@@ -4056,10 +3860,9 @@ describe('analyzeModule - argument type validation', () => {
 			'Public Sub T()\n' +
 			'    NeedsObject EchoLabel(MakeLabel())\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('EchoLabel');
-		expect(hits[0].message).toContain('EchoLabel(...) As String');
+		expectDiagnostic(src, analyzeModule(src), 'argument-object-type-mismatch', {
+			span: 'EchoLabel',
+		});
 	});
 
 	it('uses curated runtime conversion function return types as argument types', () => {
@@ -4106,10 +3909,9 @@ describe('analyzeModule - argument type validation', () => {
 			'    Dim fee As Double\n' +
 			'    NeedsObject subtotal + fee * TaxRate()\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('subtotal + fee * TaxRate()');
-		expect(hits[0].message).toContain('numeric expression');
+		expectDiagnostic(src, analyzeModule(src), 'argument-object-type-mismatch', {
+			span: 'subtotal + fee * TaxRate()',
+		});
 	});
 
 	it('does not infer arithmetic expressions with unknown, Variant, or string operands', () => {
@@ -4138,10 +3940,9 @@ describe('analyzeModule - argument type validation', () => {
 			'    Dim amount As Double\n' +
 			'    NeedsObject prefix & amount & CStr(123)\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('prefix & amount & CStr(123)');
-		expect(hits[0].message).toContain('string concatenation expression');
+		expectDiagnostic(src, analyzeModule(src), 'argument-object-type-mismatch', {
+			span: 'prefix & amount & CStr(123)',
+		});
 	});
 
 	it('does not infer string concatenation expressions with unknown or Variant operands', () => {
@@ -4167,13 +3968,10 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Dim total As Double\n' +
 			'    total = "blah"\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].message).toContain('total');
-		expect(hits[0].message).toContain('Double');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(src, analyzeModule(src), 'assignment-type-mismatch', {
+			severity: 'error',
+			span: '"blah"',
+		});
 	});
 
 	it('errors on intrinsic CVErr Error Variants assigned to scalar variables', () => {
@@ -4188,10 +3986,10 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['CVErr(2015)', 'VBA.CVErr(2015)']);
-		expect(hits[0].message).toContain('Error Variant');
-		expect(hits[0].message).toContain("Run-time error '13'");
+		expectDiagnostics(src, hits, 'assignment-type-mismatch', [
+			{ span: 'CVErr(2015)' },
+			{ span: 'VBA.CVErr(2015)' },
+		]);
 	});
 
 	it('errors on Null assigned to scalar variables', () => {
@@ -4206,10 +4004,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Null', 'Null']);
-		expect(hits[0].message).toContain('Null');
-		expect(hits[0].message).toContain("Run-time error '94'");
+		expectDiagnostics(src, hits, 'assignment-type-mismatch', [{ span: 'Null' }, { span: 'Null' }]);
 	});
 
 	it('lets a source function named CVErr shadow the intrinsic in assignment expressions', () => {
@@ -4231,11 +4026,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Dim enabled As Boolean\n' +
 			'    enabled = "maybe"\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"maybe"');
-		expect(hits[0].message).toContain('Boolean');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(src, analyzeModule(src), 'assignment-type-mismatch', { span: '"maybe"' });
 	});
 
 	it('errors on decimal literals outside Byte and Integer assignment bounds', () => {
@@ -4252,20 +4043,12 @@ describe('analyzeModule - assignment type validation', () => {
 			'    count = 32768\n' +
 			'    count = -32769\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
-		expect(hits).toHaveLength(4);
-		expect(spanText(src, hits[0])).toBe('256');
-		expect(hits[0].message).toContain('Byte');
-		expect(hits[0].message).toContain("Run-time error '6'");
-		expect(spanText(src, hits[1])).toBe('-1');
-		expect(hits[1].message).toContain('Byte');
-		expect(hits[1].message).toContain("Run-time error '6'");
-		expect(spanText(src, hits[2])).toBe('32768');
-		expect(hits[2].message).toContain('Integer');
-		expect(hits[2].message).toContain("Run-time error '6'");
-		expect(spanText(src, hits[3])).toBe('-32769');
-		expect(hits[3].message).toContain('Integer');
-		expect(hits[3].message).toContain("Run-time error '6'");
+		expectDiagnostics(src, analyzeModule(src), 'assignment-type-mismatch', [
+			{ span: '256', message: ['Byte', "Run-time error '6'"] },
+			{ span: '-1', message: ['Byte', "Run-time error '6'"] },
+			{ span: '32768', message: ['Integer', "Run-time error '6'"] },
+			{ span: '-32769', message: ['Integer', "Run-time error '6'"] },
+		]);
 	});
 
 	it('accepts VBA scalar coercions and unknown assignment values', () => {
@@ -4294,10 +4077,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'assignment-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('SharedCount');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostic(caller, hits, 'assignment-type-mismatch', { span: '"bad"' });
 	});
 
 	it('does not leak a broader typed declaration through an untyped local assignment target', () => {
@@ -4325,15 +4105,11 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'array-assignment-to-scalar');
 
-		expect(hits).toHaveLength(3);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'Values',
-			'DynamicValues',
-			'ModuleValues',
+		expectDiagnostics(src, hits, 'array-assignment-to-scalar', [
+			{ severity: 'error', span: 'Values' },
+			{ span: 'DynamicValues' },
+			{ span: 'ModuleValues' },
 		]);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('Array variable');
-		expect(hits[0].message).toContain('scalar');
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
@@ -4467,16 +4243,11 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'array-bound-requires-array');
 
-		expect(hits).toHaveLength(3);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'Value',
-			'ModuleValue',
-			'Value',
+		expectDiagnostics(src, hits, 'array-bound-requires-array', [
+			{ severity: 'error', span: 'Value' },
+			{ span: 'ModuleValue' },
+			{ span: 'Value' },
 		]);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('LBound');
-		expect(hits[0].message).toContain('array argument');
-		expect(hits[0].message).toContain('Long');
 	});
 
 	it('uses visible exported scalar globals for array bound argument shapes', () => {
@@ -4491,9 +4262,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'array-bound-requires-array',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedValue');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostic(caller, hits, 'array-bound-requires-array', { span: 'SharedValue' });
 	});
 
 	it('does not leak exported scalar shapes through local untyped array-bound shadows', () => {
@@ -4573,10 +4342,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Dim ws As Worksheet\n' +
 			'    ws = ActiveSheet\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'set-required');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('ws');
-		expect(hits[0].message).toContain('requires Set');
+		expectDiagnostic(src, analyzeModule(src), 'set-required', { span: 'ws' });
 	});
 
 	it('reports missing Set for Object variables without treating it as scalar coercion', () => {
@@ -4594,11 +4360,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'Public Function Total() As Double\n' +
 			'    Total = "blah"\n' +
 			'End Function\n';
-		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].message).toContain('Total');
-		expect(hits[0].message).toContain('Double');
+		expectDiagnostic(src, analyzeModule(src), 'assignment-type-mismatch', { span: '"blah"' });
 	});
 
 	it('requires Set for object Function return assignments', () => {
@@ -4632,9 +4394,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Class1');
-		expect(hits[0].message).toContain('MakePerson');
+		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: 'Class1' });
 	});
 
 	it('accepts compatible object Function return assignment', () => {
@@ -4684,10 +4444,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Class1');
-		expect(hits[0].message).toContain('Person');
-		expect(hits[0].message).toContain('New Class1');
+		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: 'Class1' });
 	});
 
 	it('accepts Set assignment to a project interface implemented by another class', () => {
@@ -4719,9 +4476,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"bad"');
-		expect(hits[0].message).toContain('object value');
+		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: '"bad"' });
 	});
 
 	it('flags scalar Set assignment from a parameterless Function reference', () => {
@@ -4740,9 +4495,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('MakeLabel');
-		expect(hits[0].message).toContain('MakeLabel As String');
+		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: 'MakeLabel' });
 	});
 
 	it('uses source-backed member return types in Set assignment expressions', () => {
@@ -4761,9 +4514,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Name');
-		expect(hits[0].message).toContain('p.Name As String');
+		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: 'Name' });
 	});
 
 	it('uses host member-call return types in Set assignment compatibility', () => {
@@ -4774,11 +4525,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Set rng = ActiveSheet.Range("A1")\n' +
 			'    Set wb = ActiveSheet.Range("A1")\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Range');
-		expect(hits[0].message).toContain('Workbook');
-		expect(hits[0].message).toContain('ActiveSheet.Range("A1") As Excel.Range');
+		expectDiagnostic(src, analyzeModule(src), 'assignment-object-type-mismatch', { span: 'Range' });
 	});
 
 	it('errors on a nonnumeric string literal assigned to a typed class property', () => {
@@ -4804,11 +4551,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].message).toContain('p.Age');
-		expect(hits[0].message).toContain('Integer');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(src, hits, 'assignment-type-mismatch', { span: '"blah"' });
 	});
 
 	it('accepts numeric string assignment to a typed class property', () => {
@@ -4851,10 +4594,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('"blah"');
-		expect(hits[0].message).toContain('p.Age');
-		expect(hits[0].message).toContain('Integer');
+		expectDiagnostic(src, hits, 'assignment-type-mismatch', { span: '"blah"' });
 	});
 
 	it('accepts compatible assignments to public class fields', () => {
@@ -4893,14 +4633,8 @@ describe('analyzeModule - assignment type validation', () => {
 				'Caller',
 			),
 		});
-		const typeHits = byCode(diagnostics, 'assignment-type-mismatch');
-		expect(typeHits).toHaveLength(1);
-		expect(spanText(src, typeHits[0])).toBe('"bad"');
-		expect(typeHits[0].message).toContain('p.X');
-		const memberHits = byCode(diagnostics, 'member-not-found');
-		expect(memberHits).toHaveLength(1);
-		expect(spanText(src, memberHits[0])).toBe('Missing');
-		expect(memberHits[0].message).toContain('TPoint.Missing');
+		expectDiagnostic(src, diagnostics, 'assignment-type-mismatch', { span: '"bad"' });
+		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'Missing' });
 	});
 
 	it('requires Set for object-valued public class fields', () => {
@@ -4919,9 +4653,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'set-required',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Child');
-		expect(hits[0].message).toContain('p.Child');
+		expectDiagnostic(src, hits, 'set-required', { span: 'Child' });
 	});
 
 	it('accepts Set for object-valued public class fields', () => {
@@ -4981,9 +4713,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'set-requires-object',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Age');
-		expect(hits[0].message).toContain('Integer');
+		expectDiagnostic(src, hits, 'set-requires-object', { span: 'Age' });
 	});
 
 	it('flags Set assignment between incompatible source-backed object member types', () => {
@@ -5003,9 +4733,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'assignment-object-type-mismatch',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Class1');
-		expect(hits[0].message).toContain('p.Child');
+		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: 'Class1' });
 	});
 
 	it('errors on assignment to a read-only class property', () => {
@@ -5028,9 +4756,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'readonly-member-assignment',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Age');
-		expect(hits[0].message).toContain('read-only');
+		expectDiagnostic(src, hits, 'readonly-member-assignment', { span: 'Age' });
 	});
 
 	it('errors when a known class receiver uses an unknown member in assignment', () => {
@@ -5056,9 +4782,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'member-not-found',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Height');
-		expect(hits[0].message).toContain('Person.Height');
+		expectDiagnostic(src, hits, 'member-not-found', { span: 'Height' });
 	});
 
 	it('errors when a known class receiver calls an unknown method', () => {
@@ -5096,9 +4820,7 @@ describe('analyzeModule - assignment type validation', () => {
 			}),
 			'member-not-found',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Delete');
-		expect(hits[0].message).toContain('Person.Delete');
+		expectDiagnostic(src, hits, 'member-not-found', { span: 'Delete' });
 	});
 
 	it('accepts known class members and ambiguous project receiver types', () => {
@@ -5166,10 +4888,10 @@ describe('analyzeModule - assignment type validation', () => {
 		const diagnostics = analyzeProjectModule(caller, [
 			{ moduleName: 'Globals', moduleKind: 'standard', source: globals },
 		], 'Caller');
-		const hits = byCode(diagnostics, 'member-not-found');
-		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['MissingValue', 'MissingProcedure']);
-		expect(hits[0].message).toContain('Globals.MissingValue');
-		expect(hits[1].message).toContain('Globals.MissingProcedure');
+		expectDiagnostics(caller, diagnostics, 'member-not-found', [
+			{ span: 'MissingValue', message: 'Globals.MissingValue' },
+			{ span: 'MissingProcedure', message: 'Globals.MissingProcedure' },
+		]);
 	});
 
 	it('does not expose private standard-module members through qualified member diagnostics', () => {
@@ -5183,10 +4905,7 @@ describe('analyzeModule - assignment type validation', () => {
 		const diagnostics = analyzeProjectModule(caller, [
 			{ moduleName: 'Helpers', moduleKind: 'standard', source: helpers },
 		], 'Caller');
-		const hits = byCode(diagnostics, 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('Hidden');
-		expect(hits[0].message).toContain('Helpers.Hidden');
+		expectDiagnostic(caller, diagnostics, 'member-not-found', { span: 'Hidden' });
 	});
 
 	it('does not treat unknown external-style qualifiers as project member surfaces', () => {
@@ -5211,10 +4930,7 @@ describe('analyzeModule - assignment type validation', () => {
 				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: workbook },
 			]),
 		});
-		const hits = byCode(diagnostics, 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('doesnotexist');
-		expect(hits[0].message).toContain('ThisWorkbook.doesnotexist');
+		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'doesnotexist' });
 	});
 
 	it('does not treat Workbook events as callable object members', () => {
@@ -5222,10 +4938,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'Public Sub T()\n' +
 			'    ThisWorkbook.AfterSave True\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('AfterSave');
-		expect(hits[0].message).toContain('Excel.Workbook.AfterSave');
+		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'AfterSave' });
 	});
 
 	it('accepts ThisWorkbook members from source and the exhaustive Workbook host surface', () => {
@@ -5256,10 +4969,7 @@ describe('analyzeModule - assignment type validation', () => {
 				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: '' },
 			]),
 		});
-		const hits = byCode(diagnostics, 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('doesnotexist');
-		expect(hits[0].message).toContain('Excel.Workbook.doesnotexist');
+		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'doesnotexist' });
 	});
 
 	it('uses the exhaustive Workbook host surface for declared Workbook variables', () => {
@@ -5274,10 +4984,7 @@ describe('analyzeModule - assignment type validation', () => {
 				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: '' },
 			]),
 		});
-		const hits = byCode(diagnostics, 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('doesnotexist');
-		expect(hits[0].message).toContain('Excel.Workbook.doesnotexist');
+		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'doesnotexist' });
 	});
 
 	it('uses the exhaustive Worksheet host surface for ActiveSheet', () => {
@@ -5287,10 +4994,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'    ActiveSheet.Range("A1")\n' +
 			'    ActiveSheet.Buttons\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('asdf');
-		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'asdf' });
 	});
 
 	it('lets local object declarations shadow host globals for member diagnostics', () => {
@@ -5340,9 +5044,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'member-not-found',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Range');
-		expect(hits[0].message).toContain('Person.Range');
+		expectDiagnostic(src, hits, 'member-not-found', { span: 'Range' });
 	});
 
 	it('uses the exhaustive Worksheet host surface through workbook worksheet chains', () => {
@@ -5352,10 +5054,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Workbooks(1).Worksheets(1).Range("A1")\n' +
 			'    Workbooks(1).Worksheets(1).Buttons\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('asdf');
-		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'asdf' });
 	});
 
 	it('uses the exhaustive Range host surface for declared, global, and chained receivers', () => {
@@ -5369,13 +5068,11 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Workbooks(1).Worksheets(1).Range("A1").MissingRangeMember\n' +
 			'    Workbooks(1).Worksheets(1).Range("A1").Offset(1, 0).Value = 1\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'NoSuchMember',
-			'DoesNotExist',
-			'MissingRangeMember',
+		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
+			{ span: 'NoSuchMember', message: 'Excel.Range.' },
+			{ span: 'DoesNotExist', message: 'Excel.Range.' },
+			{ span: 'MissingRangeMember', message: 'Excel.Range.' },
 		]);
-		expect(hits.every((hit) => hit.message.includes('Excel.Range.'))).toBe(true);
 	});
 
 	it('uses the exhaustive Application host surface only after generated promotion', () => {
@@ -5385,13 +5082,10 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Application.CentimetersToPoints 1\n' +
 			'    Application.SheetCalculate\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'DoesNotExist',
-			'SheetCalculate',
+		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
+			{ span: 'DoesNotExist', message: 'Excel.Application.DoesNotExist' },
+			{ span: 'SheetCalculate', message: 'Excel.Application.SheetCalculate' },
 		]);
-		expect(hits[0].message).toContain('Excel.Application.DoesNotExist');
-		expect(hits[1].message).toContain('Excel.Application.SheetCalculate');
 	});
 
 	it('uses exhaustive generated collection surfaces, including mixed sheet items once all candidates are promoted', () => {
@@ -5405,16 +5099,12 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Sheets.Add\n' +
 			'    Sheets(1).UnknownSheetOrChartMember\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'MissingCollectionMember',
-			'MissingCollectionMember',
-			'MissingCollectionMember',
-			'UnknownSheetOrChartMember',
+		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
+			{ span: 'MissingCollectionMember', message: 'Excel.Workbooks.MissingCollectionMember' },
+			{ span: 'MissingCollectionMember', message: 'Excel.Worksheets.MissingCollectionMember' },
+			{ span: 'MissingCollectionMember', message: 'Excel.Sheets.MissingCollectionMember' },
+			{ span: 'UnknownSheetOrChartMember' },
 		]);
-		expect(hits[0].message).toContain('Excel.Workbooks.MissingCollectionMember');
-		expect(hits[1].message).toContain('Excel.Worksheets.MissingCollectionMember');
-		expect(hits[2].message).toContain('Excel.Sheets.MissingCollectionMember');
 	});
 
 	it('uses promoted table, chart, formatting, name, and window host surfaces', () => {
@@ -5564,10 +5254,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
-		const hits = byCode(diagnostics, 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('DoesNotExist');
-		expect(hits[0].message).toContain('Err.DoesNotExist');
+		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'DoesNotExist' });
 	});
 
 	it('uses the exhaustive runtime object surface for Debug', () => {
@@ -5580,10 +5267,7 @@ describe('analyzeModule - assignment type validation', () => {
 		const diagnostics = analyzeModule(src, { knownIdentifiers: new Set<string>() });
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
 		expect(byCode(diagnostics, 'argument-count')).toHaveLength(0);
-		const hits = byCode(diagnostics, 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('DoesNotExist');
-		expect(hits[0].message).toContain('Debug.DoesNotExist');
+		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'DoesNotExist' });
 	});
 
 	it('uses the current workbook Me host surface for ThisWorkbook modules', () => {
@@ -5596,9 +5280,7 @@ describe('analyzeModule - assignment type validation', () => {
 			analyzeModule(src, { moduleName: 'ThisWorkbook', moduleKind: 'document' }),
 			'member-not-found',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('asdf');
-		expect(hits[0].message).toContain('Excel.Workbook.asdf');
+		expectDiagnostic(src, hits, 'member-not-found', { span: 'asdf' });
 	});
 
 	it('uses the exhaustive Worksheet host surface for declared Worksheet variables', () => {
@@ -5610,10 +5292,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'    ws.Range("A1")\n' +
 			'    ws.Buttons\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('asdf');
-		expect(hits[0].message).toContain('Excel.Worksheet.asdf');
+		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'asdf' });
 	});
 
 	it('does not prove missing members from late-bound Object or Variant receivers', () => {
@@ -5670,10 +5349,9 @@ describe('analyzeModule - assignment type validation', () => {
 			'Public Sub T()\n' +
 			'    Thing.Missing\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src, { hostModel: model }), 'member-not-found');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Missing');
-		expect(hits[0].message).toContain('Test.Thing.Missing');
+		expectDiagnostic(src, analyzeModule(src, { hostModel: model }), 'member-not-found', {
+			span: 'Missing',
+		});
 	});
 
 	it('does not use a curated non-exhaustive host object model to prove absence', () => {
@@ -5706,10 +5384,10 @@ describe('analyzeModule - missing Function return assignment', () => {
 			'End Function\n';
 		const hits = byCode(analyzeModule(src), 'missing-return-assignment');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('warning');
-		expect(spanText(src, hits[0])).toBe('myFunction');
-		expect(hits[0].message).toContain('default value');
+		expectDiagnostic(src, hits, 'missing-return-assignment', {
+			severity: 'warning',
+			span: 'myFunction',
+		});
 	});
 
 	it('does not warn when a typed Function or Property Get falls through', () => {
@@ -5968,13 +5646,10 @@ describe('analyzeModule - string arithmetic coercion', () => {
 			'    Dim shouldErrorTest1 As Integer\n' +
 			'    shouldErrorTest1 = 1 + "string"\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'string-arithmetic-coercion');
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('"string"');
-		expect(hits[0].message).toContain('shouldErrorTest1');
-		expect(hits[0].message).toContain('Integer');
-		expect(hits[0].message).toContain("will raise Run-time error '13'");
+		expectDiagnostic(src, analyzeModule(src), 'string-arithmetic-coercion', {
+			severity: 'error',
+			span: '"string"',
+		});
 	});
 
 	it('does not warn on numeric strings or unknown arithmetic operands', () => {
@@ -6007,10 +5682,11 @@ describe('analyzeModule - division by zero', () => {
 			'    a = 1 \\ 0\n' +
 			'    a = 1 Mod 0\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'division-by-zero');
-		expect(hits).toHaveLength(3);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '0', '0']);
-		expect(hits[0].message).toContain("Run-time error '11'");
+		expectDiagnostics(src, analyzeModule(src), 'division-by-zero', [
+			{ span: '0' },
+			{ span: '0' },
+			{ span: '0' },
+		]);
 	});
 
 	it('detects parenthesized and signed zero divisors inside nested expressions', () => {
@@ -6670,9 +6346,7 @@ describe('analyzeModule - As type name validation', () => {
 			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
 		}), 'invalid-as-type-name');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Status');
-		expect(hits[0].message).toContain('ambiguous');
+		expectDiagnostic(src, hits, 'invalid-as-type-name', { span: 'Status' });
 	});
 
 	it('flags duplicate visible project type names even when their kind matches', () => {
@@ -6692,9 +6366,7 @@ describe('analyzeModule - As type name validation', () => {
 			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
 		}), 'invalid-as-type-name');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Payload');
-		expect(hits[0].message).toContain('ambiguous');
+		expectDiagnostic(src, hits, 'invalid-as-type-name', { span: 'Payload' });
 	});
 
 	it('defers broad unknown type names to the project-wide binder', () => {
@@ -6728,9 +6400,7 @@ describe('analyzeModule - Set assignment validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'set-requires-object');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('text');
-		expect(hits[0].message).toContain('String');
+		expectDiagnostic(src, hits, 'set-requires-object', { span: 'text' });
 	});
 
 	it('flags Set assignment to visible exported scalar globals', () => {
@@ -6745,9 +6415,7 @@ describe('analyzeModule - Set assignment validation', () => {
 			'set-requires-object',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedText');
-		expect(hits[0].message).toContain('String');
+		expectDiagnostic(caller, hits, 'set-requires-object', { span: 'SharedText' });
 	});
 
 	it('requires Set for visible exported object globals assigned with plain assignment', () => {
@@ -6762,9 +6430,7 @@ describe('analyzeModule - Set assignment validation', () => {
 			'set-required',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedObject');
-		expect(hits[0].message).toContain('Object');
+		expectDiagnostic(caller, hits, 'set-required', { span: 'SharedObject' });
 	});
 
 	it('uses visible exported scalar globals as bare Set RHS value types', () => {
@@ -6780,9 +6446,7 @@ describe('analyzeModule - Set assignment validation', () => {
 			'assignment-object-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedText');
-		expect(hits[0].message).toContain('SharedText As String');
+		expectDiagnostic(caller, hits, 'assignment-object-type-mismatch', { span: 'SharedText' });
 	});
 
 	it('uses module-qualified exported scalar globals as Set RHS value types', () => {
@@ -6798,9 +6462,7 @@ describe('analyzeModule - Set assignment validation', () => {
 			'assignment-object-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedText');
-		expect(hits[0].message).toContain('Globals.SharedText As String');
+		expectDiagnostic(caller, hits, 'assignment-object-type-mismatch', { span: 'SharedText' });
 	});
 
 	it('uses verified runtime and host constants as Set RHS value types', () => {
@@ -6814,17 +6476,12 @@ describe('analyzeModule - Set assignment validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
 
-		expect(hits).toHaveLength(4);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'vbFalse',
-			'vbFalse',
-			'xlAbove',
-			'vbNullString',
+		expectDiagnostics(src, hits, 'assignment-object-type-mismatch', [
+			{ span: 'vbFalse', message: 'vbFalse As VbTriState' },
+			{ span: 'vbFalse', message: 'VBA.vbFalse As VbTriState' },
+			{ span: 'xlAbove', message: 'xlAbove As Constants' },
+			{ span: 'vbNullString', message: 'vbNullString As String' },
 		]);
-		expect(hits[0].message).toContain('vbFalse As VbTriState');
-		expect(hits[1].message).toContain('VBA.vbFalse As VbTriState');
-		expect(hits[2].message).toContain('xlAbove As Constants');
-		expect(hits[3].message).toContain('vbNullString As String');
 	});
 
 	it('lets source declarations shadow verified external constants for Set RHS value types', () => {
@@ -6851,10 +6508,10 @@ describe('analyzeModule - Set assignment validation', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Application', 'ActiveCell']);
-		expect(hits[0].message).toContain('Application As Excel.Application');
-		expect(hits[1].message).toContain('ActiveCell As Excel.Range');
+		expectDiagnostics(src, hits, 'assignment-object-type-mismatch', [
+			{ span: 'Application', message: 'Application As Excel.Application' },
+			{ span: 'ActiveCell', message: 'ActiveCell As Excel.Range' },
+		]);
 	});
 
 	it('allows compatible and generic host global Set assignments', () => {
@@ -6975,11 +6632,7 @@ describe('analyzeModule - array ReDim', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'fixed-array-redim');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('Values');
-		expect(hits[0].message).toContain('Fixed-size array');
-		expect(hits[0].message).toContain('ReDim');
+		expectDiagnostic(src, hits, 'fixed-array-redim', { severity: 'error', span: 'Values' });
 	});
 
 	it('flags ReDim Preserve and module-level fixed-size arrays', () => {
@@ -7004,11 +6657,10 @@ describe('analyzeModule - array ReDim', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'scalar-redim');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Value', 'ModuleValue']);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('Scalar variable');
-		expect(hits[0].message).toContain('ReDim');
+		expectDiagnostics(src, hits, 'scalar-redim', [
+			{ severity: 'error', span: 'Value' },
+			{ span: 'ModuleValue' },
+		]);
 	});
 
 	it('uses visible exported scalar and fixed-array globals for ReDim target shapes', () => {
@@ -7210,12 +6862,11 @@ describe('analyzeModule - array ReDim', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'redim-impossible-bounds');
 
-		expect(hits).toHaveLength(3);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['10 To 1', '-1 To -2', '5 To 2']);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain("Run-time error '9'");
-		expect(hits[0].message).toContain('dimension 1');
-		expect(hits[2].message).toContain('dimension 2');
+		expectDiagnostics(src, hits, 'redim-impossible-bounds', [
+			{ severity: 'error', span: '10 To 1', message: ["Run-time error '9'", 'dimension 1'] },
+			{ span: '-1 To -2' },
+			{ span: '5 To 2', message: 'dimension 2' },
+		]);
 	});
 
 	it('accepts ReDim bounds that are equal, increasing, unknown, upper-only, or inactive', () => {
@@ -7264,11 +6915,10 @@ describe('analyzeModule - array ReDim', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'redim-preserve-dimension-change');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('grid');
-		expect(hits[0].message).toContain('last dimension');
-		expect(hits[0].message).toContain('Dimension 1');
+		expectDiagnostic(src, hits, 'redim-preserve-dimension-change', {
+			severity: 'error',
+			span: 'grid',
+		});
 	});
 
 	it('flags ReDim Preserve changing the known dimension count', () => {
@@ -7280,9 +6930,7 @@ describe('analyzeModule - array ReDim', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'redim-preserve-dimension-change');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].message).toContain('2 dimensions');
-		expect(hits[0].message).toContain('1');
+		expectDiagnostic(src, hits, 'redim-preserve-dimension-change');
 	});
 
 	it('accepts ReDim Preserve changing only the last dimension', () => {
@@ -7304,9 +6952,7 @@ describe('analyzeModule - array ReDim', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'redim-preserve-dimension-change');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].message).toContain('lower bound');
-		expect(hits[0].message).toContain('dimension 2');
+		expectDiagnostic(src, hits, 'redim-preserve-dimension-change');
 	});
 
 	it('does not let ReDim shapes learned inside nested blocks leak outward', () => {
@@ -7332,10 +6978,10 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['values', 'values']);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain("Run-time error '9'");
+		expectDiagnostics(src, hits, 'unallocated-dynamic-array-access', [
+			{ severity: 'error', span: 'values' },
+			{ span: 'values' },
+		]);
 	});
 
 	it('accepts allocated and fixed arrays but flags again after Erase', () => {
@@ -7365,10 +7011,11 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
 
-		expect(hits).toHaveLength(3);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['values', 'values', 'values']);
-		expect(hits[0].message).toContain('LBound');
-		expect(hits[1].message).toContain('UBound');
+		expectDiagnostics(src, hits, 'unallocated-dynamic-array-access', [
+			{ span: 'values', message: 'LBound' },
+			{ span: 'values', message: 'UBound' },
+			{ span: 'values' },
+		]);
 	});
 
 	it('accepts bound intrinsics after ReDim and non-intrinsic member calls', () => {
@@ -7436,10 +7083,7 @@ describe('analyzeModule - array Erase', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'invalid-erase-target');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('1 + 2');
-		expect(hits[0].message).toContain('variable or array name');
+		expectDiagnostic(src, hits, 'invalid-erase-target', { severity: 'error', span: '1 + 2' });
 	});
 
 	it('flags expression targets in comma-separated Erase lists', () => {
@@ -7472,11 +7116,11 @@ describe('analyzeModule - array Erase', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'erase-requires-array');
 
-		expect(hits).toHaveLength(3);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['obj', 'Value', 'ModuleValue']);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('array or Variant');
-		expect(hits[0].message).toContain('Object');
+		expectDiagnostics(src, hits, 'erase-requires-array', [
+			{ severity: 'error', span: 'obj' },
+			{ span: 'Value' },
+			{ span: 'ModuleValue' },
+		]);
 	});
 
 	it('uses visible exported scalar globals for Erase target shapes', () => {
@@ -7609,9 +7253,13 @@ describe('analyzeModule - type-declaration suffixes', () => {
 		const diagnostics = analyzeModule(src);
 		const hits = byCode(diagnostics, 'type-declaration-character-as-clause');
 
-		expect(hits).toHaveLength(5);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['$', '$', '$', '%', '$']);
-		expect(hits[0].message).toContain('type-declaration character');
+		expectDiagnostics(src, hits, 'type-declaration-character-as-clause', [
+			{ span: '$' },
+			{ span: '$' },
+			{ span: '$' },
+			{ span: '%' },
+			{ span: '$' },
+		]);
 		expect(byCode(diagnostics, 'invalid-procedure-header')).toHaveLength(0);
 		expect(byCode(diagnostics, 'unexpected-declaration-token')).toHaveLength(0);
 	});
@@ -7641,11 +7289,10 @@ describe('analyzeModule - type-declaration suffixes', () => {
 describe('analyzeModule - unexpected declaration tokens', () => {
 	it('flags a bare identifier after a complete local As type', () => {
 		const src = 'Sub T()\n    Dim s1 As String thisshoulderror\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'unexpected-declaration-token');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('thisshoulderror');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('will fail to compile');
+		expectDiagnostic(src, analyzeModule(src), 'unexpected-declaration-token', {
+			severity: 'error',
+			span: 'thisshoulderror',
+		});
 	});
 
 	it('flags trailing tokens in module declarations, parameters, and Type fields', () => {
@@ -7722,10 +7369,10 @@ describe('analyzeModule - fixed-length String bounds', () => {
 			'    Dim localName As String * MaxNameLength\n' +
 			'    Dim badLocalName As String * LocalTooSmall\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['HeaderCodeLength', 'LocalTooSmall']);
-		expect(hits[0].message).toContain('got 65527');
-		expect(hits[1].message).toContain('got 0');
+		expectDiagnostics(src, analyzeModule(src), 'fixed-length-string-size', [
+			{ span: 'HeaderCodeLength', message: 'got 65527' },
+			{ span: 'LocalTooSmall', message: 'got 0' },
+		]);
 	});
 
 	it('resolves non-decimal integer Consts used as fixed-length String sizes', () => {
@@ -7738,10 +7385,9 @@ describe('analyzeModule - fixed-length String bounds', () => {
 			'    Const LocalTooSmall As Long = &O0\n' +
 			'    Dim localName As String * LocalTooSmall\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('LocalTooSmall');
-		expect(hits[0].message).toContain('got 0');
+		expectDiagnostic(src, analyzeModule(src), 'fixed-length-string-size', {
+			span: 'LocalTooSmall',
+		});
 	});
 
 	it('defers unknown and non-deterministic Const length expressions', () => {
@@ -7769,9 +7415,11 @@ describe('analyzeModule - fixed-length String bounds', () => {
 			'        Dim localName As String * 0\n' +
 			'    End If\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['0', '65527', '0']);
-		expect(hits[0].message).toContain('between 1 and 65526');
+		expectDiagnostics(src, analyzeModule(src), 'fixed-length-string-size', [
+			{ span: '0' },
+			{ span: '65527' },
+			{ span: '0' },
+		]);
 		expect(byCode(analyzeModule(src), 'unexpected-declaration-token')).toHaveLength(0);
 	});
 
@@ -7783,10 +7431,10 @@ describe('analyzeModule - fixed-length String bounds', () => {
 			'    Const LocalTooSmall As Long = 0\n' +
 			'    Dim localName As String * LocalTooSmall\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['ModuleTooLong', 'LocalTooSmall']);
-		expect(hits[0].message).toContain('got 65527');
-		expect(hits[1].message).toContain('got 0');
+		expectDiagnostics(src, analyzeModule(src), 'fixed-length-string-size', [
+			{ span: 'ModuleTooLong', message: 'got 65527' },
+			{ span: 'LocalTooSmall', message: 'got 0' },
+		]);
 	});
 
 	it('lets procedure-local Const lengths shadow module Const lengths', () => {
@@ -7825,15 +7473,13 @@ describe('analyzeModule - object module public declaration restrictions', () => 
 			analyzeModule(src, { moduleName: 'Person', moduleKind: 'class' }),
 			'object-module-public-member',
 		);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'MaxRows',
-			'Names',
-			'FixedName',
-			'Customer',
-			'Sleep',
+		expectDiagnostics(src, hits, 'object-module-public-member', [
+			{ severity: 'error', span: 'MaxRows' },
+			{ span: 'Names' },
+			{ span: 'FixedName' },
+			{ span: 'Customer' },
+			{ span: 'Sleep' },
 		]);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('object modules');
 	});
 
 	it('does not apply object-module public-member restrictions in standard modules', () => {
@@ -7880,10 +7526,10 @@ describe('analyzeModule - Event declaration module-kind restrictions', () => {
 		const src =
 			'Public Event BeforeAdd(ByRef arr As Variant, ByRef cancel As Boolean)\n' +
 			'Private Event AfterAdd(ByRef arr As Variant)\n';
-		const hits = byCode(analyzeModule(src), 'event-declaration-module-kind');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['BeforeAdd', 'AfterAdd']);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('class, document, or UserForm modules');
+		expectDiagnostics(src, analyzeModule(src), 'event-declaration-module-kind', [
+			{ severity: 'error', span: 'BeforeAdd' },
+			{ span: 'AfterAdd' },
+		]);
 	});
 
 	it('ignores inactive standard-module Event declarations', () => {
@@ -7916,10 +7562,7 @@ describe('analyzeModule - WithEvents declaration restrictions', () => {
 
 	it('flags module-level WithEvents declarations in standard modules', () => {
 		const src = 'Private WithEvents App As Application\n';
-		const hits = byCode(analyzeModule(src), 'withevents-declaration');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('App');
-		expect(hits[0].message).toContain('class, document, or UserForm modules');
+		expectDiagnostic(src, analyzeModule(src), 'withevents-declaration', { span: 'App' });
 	});
 
 	it('flags local WithEvents declarations inside procedures', () => {
@@ -7931,9 +7574,7 @@ describe('analyzeModule - WithEvents declaration restrictions', () => {
 			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
 			'withevents-declaration',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('App');
-		expect(hits[0].message).toContain('module level');
+		expectDiagnostic(src, hits, 'withevents-declaration', { span: 'App' });
 	});
 
 	it('flags WithEvents arrays and As New declarations', () => {
@@ -7944,9 +7585,10 @@ describe('analyzeModule - WithEvents declaration restrictions', () => {
 			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
 			'withevents-declaration',
 		);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['App', 'Apps']);
-		expect(hits[0].message).toContain('As New');
-		expect(hits[1].message).toContain('array');
+		expectDiagnostics(src, hits, 'withevents-declaration', [
+			{ span: 'App', message: 'As New' },
+			{ span: 'Apps', message: 'array' },
+		]);
 	});
 
 	it('ignores inactive WithEvents declarations', () => {
@@ -7982,11 +7624,10 @@ describe('analyzeModule - Friend declaration restrictions', () => {
 
 	it('flags Friend procedures in standard modules', () => {
 		const src = 'Friend Sub InternalOnly()\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'friend-declaration');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Friend');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('class, document, or UserForm modules');
+		expectDiagnostic(src, analyzeModule(src), 'friend-declaration', {
+			severity: 'error',
+			span: 'Friend',
+		});
 	});
 
 	it('flags Friend variable declarations even in object modules', () => {
@@ -7995,9 +7636,7 @@ describe('analyzeModule - Friend declaration restrictions', () => {
 			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
 			'friend-declaration',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Friend');
-		expect(hits[0].message).toContain('procedure declarations');
+		expectDiagnostic(src, hits, 'friend-declaration', { span: 'Friend' });
 	});
 
 	it('ignores inactive Friend declarations', () => {
@@ -8034,11 +7673,10 @@ describe('analyzeModule - Implements statement placement', () => {
 
 	it('flags module-level Implements statements in standard modules', () => {
 		const src = 'Option Explicit\nImplements Person\n';
-		const hits = byCode(analyzeModule(src), 'implements-statement-placement');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Person');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('class, document, or UserForm modules');
+		expectDiagnostic(src, analyzeModule(src), 'implements-statement-placement', {
+			severity: 'error',
+			span: 'Person',
+		});
 	});
 
 	it('flags module-level Implements statements after procedures in object modules', () => {
@@ -8051,9 +7689,7 @@ describe('analyzeModule - Implements statement placement', () => {
 			analyzeModule(src, { moduleName: 'EventSource', moduleKind: 'class' }),
 			'implements-statement-placement',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Person');
-		expect(hits[0].message).toContain('declaration section');
+		expectDiagnostic(src, hits, 'implements-statement-placement', { span: 'Person' });
 	});
 
 	it('flags Implements statements inside procedure bodies', () => {
@@ -8067,10 +7703,7 @@ describe('analyzeModule - Implements statement placement', () => {
 			moduleKind: 'class',
 			knownIdentifiers: new Set<string>(),
 		});
-		const hits = byCode(diagnostics, 'implements-statement-placement');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Person');
-		expect(hits[0].message).toContain('declaration section');
+		expectDiagnostic(src, diagnostics, 'implements-statement-placement', { span: 'Person' });
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
 	});
 
@@ -8093,10 +7726,9 @@ describe('analyzeModule - Implements statement placement', () => {
 
 	it('reports the full qualified interface name after line labels', () => {
 		const src = '10 Implements Excel.Worksheet\n';
-		const hits = byCode(analyzeModule(src), 'implements-statement-placement');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Excel.Worksheet');
-		expect(hits[0].message).toContain('Excel.Worksheet');
+		expectDiagnostic(src, analyzeModule(src), 'implements-statement-placement', {
+			span: 'Excel.Worksheet',
+		});
 	});
 });
 
@@ -8129,11 +7761,10 @@ describe('analyzeModule - RaiseEvent target binding', () => {
 			moduleKind: 'class',
 			knownIdentifiers: new Set<string>(),
 		});
-		const hits = byCode(diagnostics, 'raiseevent-undeclared-event');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Changed');
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('not declared in this module');
+		expectDiagnostic(src, diagnostics, 'raiseevent-undeclared-event', {
+			severity: 'error',
+			span: 'Changed',
+		});
 		expect(byCode(diagnostics, 'undeclared-variable')).toHaveLength(0);
 	});
 
@@ -8226,10 +7857,10 @@ describe('analyzeModule - event handler module scope guidance', () => {
 			analyzeModule(src, { moduleName: 'Module1', moduleKind: 'standard' }),
 			'event-handler-module-scope',
 		);
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('information');
-		expect(spanText(src, hits[0])).toBe('Workbook_Open');
-		expect(hits[0].message).toContain('not where Excel wires that event');
+		expectDiagnostic(src, hits, 'event-handler-module-scope', {
+			severity: 'information',
+			span: 'Workbook_Open',
+		});
 	});
 
 	it('does not guide for workbook handlers in ThisWorkbook', () => {
@@ -8262,9 +7893,7 @@ describe('analyzeModule - event handler module scope guidance', () => {
 			analyzeModule(src, { moduleName: 'ThisWorkbook', moduleKind: 'document' }),
 			'event-handler-module-scope',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Worksheet_Change');
-		expect(hits[0].message).toContain('workbook document module');
+		expectDiagnostic(src, hits, 'event-handler-module-scope', { span: 'Worksheet_Change' });
 	});
 
 	it('uses proven chart document subtype before giving guidance', () => {
@@ -8279,9 +7908,7 @@ describe('analyzeModule - event handler module scope guidance', () => {
 			}),
 			'event-handler-module-scope',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Worksheet_Calculate');
-		expect(hits[0].message).toContain('chart document module');
+		expectDiagnostic(src, hits, 'event-handler-module-scope', { span: 'Worksheet_Calculate' });
 	});
 
 	it('does not guide for chart handlers in chart document modules', () => {
@@ -8312,9 +7939,7 @@ describe('analyzeModule - event handler module scope guidance', () => {
 			}),
 			'event-handler-module-scope',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Chart_Calculate');
-		expect(hits[0].message).toContain('worksheet document module');
+		expectDiagnostic(src, hits, 'event-handler-module-scope', { span: 'Chart_Calculate' });
 	});
 });
 
@@ -8388,9 +8013,7 @@ describe('analyzeModule - Call requires parentheses', () => {
 	it('flags a standalone zero-argument runtime call with empty parentheses', () => {
 		const src = 'Sub T()\n    DoEvents()\nEnd Sub\n';
 		const hits = byCode(analyzeModule(src), 'call-statement-forbids-parens');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('DoEvents()');
-		expect(hits[0].message).toContain("use 'DoEvents' as a statement");
+		expectDiagnostic(src, hits, 'call-statement-forbids-parens', { span: 'DoEvents()' });
 		expect(hits[0].message).not.toContain('prefixed with Call');
 	});
 
@@ -8661,10 +8284,7 @@ describe('analyzeModule - invalid expression syntax', () => {
 
 	it('flags unsupported C-style ternary syntax', () => {
 		const src = 'Sub T()\n    value = flag ? 1 : 2\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('?');
-		expect(hits[0].message).toContain("'?' conditional operator");
+		expectDiagnostic(src, analyzeModule(src), 'invalid-expression-syntax', { span: '?' });
 	});
 
 	it('flags a statement that ends with a binary operator', () => {
@@ -8676,10 +8296,7 @@ describe('analyzeModule - invalid expression syntax', () => {
 
 	it('flags trailing member-access dots on object receivers', () => {
 		const src = 'Sub T()\n    ThisWorkbook.\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('.');
-		expect(hits[0].message).toContain('member name');
+		expectDiagnostic(src, analyzeModule(src), 'invalid-expression-syntax', { span: '.' });
 	});
 
 	it('flags a bare leading dot inside With as incomplete final source', () => {
@@ -8785,11 +8402,10 @@ describe('analyzeModule - parameter order', () => {
 		const diagnostics = analyzeModule(src);
 		const hits = byCode(diagnostics, 'parameter-array-as-type-syntax');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('()');
-		expect(hits[0].message).toContain('values');
-		expect(hits[0].message).toContain('values() As Long');
+		expectDiagnostic(src, hits, 'parameter-array-as-type-syntax', {
+			severity: 'error',
+			span: '()',
+		});
 		expect(byCode(diagnostics, 'unexpected-declaration-token')).toHaveLength(0);
 	});
 
@@ -8814,11 +8430,7 @@ describe('analyzeModule - parameter order', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'paramarray-with-optional');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('values');
-		expect(hits[0].message).toContain('ParamArray');
-		expect(hits[0].message).toContain('Optional');
+		expectDiagnostic(src, hits, 'paramarray-with-optional', { severity: 'error', span: 'values' });
 	});
 
 	it('flags a ParamArray typed as a non-Variant element type', () => {
@@ -8828,11 +8440,7 @@ describe('analyzeModule - parameter order', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'paramarray-non-variant');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('values');
-		expect(hits[0].message).toContain('Variant');
-		expect(hits[0].message).toContain('String');
+		expectDiagnostic(src, hits, 'paramarray-non-variant', { severity: 'error', span: 'values' });
 	});
 
 	it('accepts a trailing ParamArray', () => {
@@ -8852,11 +8460,10 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		const hits = byCode(analyzeModule(src), 'property-setter-missing-value');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('Name');
-		expect(hits[0].message).toContain('Property Let');
-		expect(hits[0].message).toContain('final value parameter');
+		expectDiagnostic(src, hits, 'property-setter-missing-value', {
+			severity: 'error',
+			span: 'Name',
+		});
 	});
 
 	it('flags Property Set declarations with no value parameter', () => {
@@ -8865,9 +8472,7 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		const hits = byCode(analyzeModule(src), 'property-setter-missing-value');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Child');
-		expect(hits[0].message).toContain('Property Set');
+		expectDiagnostic(src, hits, 'property-setter-missing-value', { span: 'Child' });
 	});
 
 	it('flags Property Set declarations with scalar value parameters', () => {
@@ -8876,12 +8481,7 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		const hits = byCode(analyzeModule(src), 'property-set-scalar-value');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('value');
-		expect(hits[0].message).toContain('Property Set');
-		expect(hits[0].message).toContain('object reference');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostic(src, hits, 'property-set-scalar-value', { severity: 'error', span: 'value' });
 	});
 
 	it('flags Property Let declarations with Object value parameters', () => {
@@ -8890,13 +8490,7 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		const hits = byCode(analyzeModule(src), 'property-let-object-value');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('Value');
-		expect(hits[0].message).toContain('Property Let');
-		expect(hits[0].message).toContain('object reference');
-		expect(hits[0].message).toContain('Property Set');
-		expect(hits[0].message).toContain('Object');
+		expectDiagnostic(src, hits, 'property-let-object-value', { severity: 'error', span: 'Value' });
 	});
 
 	it('flags Property Let declarations with known host and project object value parameters', () => {
@@ -8914,10 +8508,10 @@ describe('analyzeModule - property setter shape', () => {
 			'property-let-object-value',
 		);
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['value', 'assigned']);
-		expect(hits[0].message).toContain('Worksheet');
-		expect(hits[1].message).toContain('Person');
+		expectDiagnostics(src, hits, 'property-let-object-value', [
+			{ span: 'value', message: 'Worksheet' },
+			{ span: 'assigned', message: 'Person' },
+		]);
 	});
 
 	it('flags Property Let and Set declarations with return types', () => {
@@ -8930,9 +8524,10 @@ describe('analyzeModule - property setter shape', () => {
 
 		expect(hits).toHaveLength(2);
 		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['As Long', 'As Object']);
-		expect(hits[0].message).toContain('Property Let');
-		expect(hits[1].message).toContain('Property Set');
+		expectDiagnostics(src, hits, 'property-setter-return-type', [
+			{ span: 'As Long', message: 'Property Let' },
+			{ span: 'As Object', message: 'Property Set' },
+		]);
 	});
 
 	it('flags Property Let declarations missing indexed getter parameters', () => {
@@ -8943,12 +8538,10 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		const hits = byCode(analyzeModule(src), 'property-accessor-signature-mismatch');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('Item');
-		expect(hits[0].message).toContain('Property Let');
-		expect(hits[0].message).toContain('Property Get');
-		expect(hits[0].message).toContain('Expected 1 index parameter');
+		expectDiagnostic(src, hits, 'property-accessor-signature-mismatch', {
+			severity: 'error',
+			span: 'Item',
+		});
 	});
 
 	it('flags Property Let and Set indexed parameter shape mismatches', () => {
@@ -8963,10 +8556,10 @@ describe('analyzeModule - property setter shape', () => {
 			'End Property\n';
 		const hits = byCode(analyzeModule(src), 'property-accessor-signature-mismatch');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Label', 'Child']);
-		expect(hits[0].message).toContain('type must match');
-		expect(hits[1].message).toContain('passing mode');
+		expectDiagnostics(src, hits, 'property-accessor-signature-mismatch', [
+			{ span: 'Label', message: 'type must match' },
+			{ span: 'Child', message: 'passing mode' },
+		]);
 	});
 
 	it('accepts standalone read-only indexed Property Get declarations', () => {
@@ -9020,13 +8613,10 @@ describe('analyzeModule - parameter default values', () => {
 	it('flags nonnumeric string defaults for numeric and Boolean Optional parameters', () => {
 		const src =
 			'Sub T(Optional ByVal count As Long = "bad", Optional ByVal enabled As Boolean = "bad")\nEnd Sub\n';
-		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['"bad"', '"bad"']);
-		expect(hits[0].message).toContain('count');
-		expect(hits[0].message).toContain('expects Long');
-		expect(hits[1].message).toContain('enabled');
-		expect(hits[1].message).toContain('expects Boolean');
+		expectDiagnostics(src, analyzeModule(src), 'parameter-default-type-mismatch', [
+			{ span: '"bad"', message: ['count', 'expects Long'] },
+			{ span: '"bad"', message: ['enabled', 'expects Boolean'] },
+		]);
 	});
 
 	it('flags non-Nothing Optional object parameter defaults', () => {
@@ -9035,12 +8625,10 @@ describe('analyzeModule - parameter default values', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('1');
-		expect(hits[0].message).toContain('obj');
-		expect(hits[0].message).toContain('expects Object');
-		expect(hits[0].message).toContain('Nothing');
+		expectDiagnostic(src, hits, 'parameter-default-type-mismatch', {
+			severity: 'error',
+			span: '1',
+		});
 	});
 
 	it('flags scalar defaults on Optional array parameters', () => {
@@ -9049,13 +8637,10 @@ describe('analyzeModule - parameter default values', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('0');
-		expect(hits[0].message).toContain('values');
-		expect(hits[0].message).toContain('expects Long()');
-		expect(hits[0].message).toContain('array parameter');
-		expect(hits[0].message).toContain('scalar values');
+		expectDiagnostic(src, hits, 'parameter-default-type-mismatch', {
+			severity: 'error',
+			span: '0',
+		});
 	});
 
 	it('flags non-Nothing defaults for known host and project object parameters', () => {
@@ -9071,10 +8656,10 @@ describe('analyzeModule - parameter default values', () => {
 			'parameter-default-type-mismatch',
 		);
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['"Sheet1"', 'True']);
-		expect(hits[0].message).toContain('Nothing');
-		expect(hits[1].message).toContain('Nothing');
+		expectDiagnostics(src, hits, 'parameter-default-type-mismatch', [
+			{ span: '"Sheet1"', message: 'Nothing' },
+			{ span: 'True', message: 'Nothing' },
+		]);
 	});
 
 	it('accepts oracle-backed scalar Optional default controls', () => {
@@ -9184,10 +8769,7 @@ describe('analyzeModule - procedure labels', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'duplicate-label');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('StartHere');
-		expect(hits[0].message).toContain('already defined');
+		expectDiagnostic(src, hits, 'duplicate-label', { severity: 'error', span: 'StartHere' });
 	});
 
 	it('flags duplicate normalized numeric labels in the same procedure', () => {
@@ -9314,11 +8896,7 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'else-branch-order');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('#ElseIf');
-		expect(hits[0].message).toContain("'#ElseIf'");
-		expect(hits[0].message).toContain("'#Else'");
+		expectDiagnostic(src, hits, 'else-branch-order', { severity: 'error', span: '#ElseIf' });
 	});
 
 	it('flags duplicate #Else branches in a conditional-compilation block', () => {
@@ -9334,9 +8912,7 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'else-branch-order');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('#Else');
-		expect(hits[0].message).toContain("Only one '#Else'");
+		expectDiagnostic(src, hits, 'else-branch-order', { span: '#Else' });
 	});
 
 	it('accepts conditional-compilation #ElseIf branches before #Else and in nested blocks', () => {
@@ -9371,10 +8947,7 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'else-branch-order');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('ElseIf');
-		expect(hits[0].message).toContain("'ElseIf'");
-		expect(hits[0].message).toContain("'Else'");
+		expectDiagnostic(src, hits, 'else-branch-order', { span: 'ElseIf' });
 	});
 
 	it('flags duplicate Else branches in the same If block', () => {
@@ -9390,9 +8963,7 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'else-branch-order');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Else');
-		expect(hits[0].message).toContain("Only one 'Else'");
+		expectDiagnostic(src, hits, 'else-branch-order', { span: 'Else' });
 	});
 
 	it('accepts ElseIf branches before Else and nested If blocks after Else', () => {
@@ -9518,9 +9089,7 @@ describe('analyzeModule - statement context', () => {
 			}),
 			'member-not-found',
 		);
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Delete');
-		expect(hits[0].message).toContain('Person.Delete');
+		expectDiagnostic(src, hits, 'member-not-found', { span: 'Delete' });
 	});
 
 	it('uses the With receiver for source-backed class member assignment rules', () => {
@@ -9589,10 +9158,7 @@ describe('analyzeModule - statement context', () => {
 				{ moduleName: 'Child', moduleKind: 'class', source: child },
 			]),
 		});
-		const memberHits = byCode(diagnostics, 'member-not-found');
-		expect(memberHits).toHaveLength(1);
-		expect(spanText(src, memberHits[0])).toBe('Delete');
-		expect(memberHits[0].message).toContain('Child.Delete');
+		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'Delete' });
 		expect(byCode(diagnostics, 'readonly-member-assignment')).toHaveLength(1);
 		expect(byCode(diagnostics, 'argument-type-mismatch')).toHaveLength(1);
 	});
@@ -9615,9 +9181,7 @@ describe('analyzeModule - statement context', () => {
 			'member-not-found',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('Delete');
-		expect(hits[0].message).toContain('Child.Delete');
+		expectDiagnostic(src, hits, 'member-not-found', { span: 'Delete' });
 	});
 
 	it('flags Exit For and Exit Do outside matching loops', () => {
@@ -9648,11 +9212,7 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'next-variable-mismatch');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('j');
-		expect(hits[0].message).toContain("'j'");
-		expect(hits[0].message).toContain("'i'");
+		expectDiagnostic(src, hits, 'next-variable-mismatch', { severity: 'error', span: 'j' });
 	});
 
 	it('flags a Next variable that does not match the active For Each loop', () => {
@@ -9710,11 +9270,10 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'for-each-control-variable-type');
 
-		expect(hits).toHaveLength(1);
-		expect(hits[0].severity).toBe('error');
-		expect(spanText(src, hits[0])).toBe('item');
-		expect(hits[0].message).toContain('Variant or Object');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostic(src, hits, 'for-each-control-variable-type', {
+			severity: 'error',
+			span: 'item',
+		});
 	});
 
 	it('flags an array variable used as a For Each control variable', () => {
@@ -9727,9 +9286,7 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'for-each-control-variable-type');
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('values');
-		expect(hits[0].message).toContain('array variable');
+		expectDiagnostic(src, hits, 'for-each-control-variable-type', { span: 'values' });
 	});
 
 	it('uses visible exported scalar and array globals for For Each control variables', () => {
@@ -9750,10 +9307,10 @@ describe('analyzeModule - statement context', () => {
 		], 'Caller');
 		const hits = byCode(diagnostics, 'for-each-control-variable-type');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(caller, hit))).toEqual(['SharedItem', 'SharedValues']);
-		expect(hits[0].message).toContain('Long');
-		expect(hits[1].message).toContain('array variable');
+		expectDiagnostics(caller, hits, 'for-each-control-variable-type', [
+			{ span: 'SharedItem', message: 'Long' },
+			{ span: 'SharedValues', message: 'array variable' },
+		]);
 	});
 
 	it('keeps local Variant shadows and ambiguous exported For Each controls quiet', () => {
@@ -9815,9 +9372,7 @@ describe('analyzeModule - statement context', () => {
 			'for-each-control-variable-type',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(src, hits[0])).toBe('item');
-		expect(hits[0].message).toContain('user-defined Type');
+		expectDiagnostic(src, hits, 'for-each-control-variable-type', { span: 'item' });
 	});
 
 	it('does not report For Each control variable type diagnostics from inactive branches', () => {
@@ -9854,11 +9409,10 @@ describe('analyzeModule - statement context', () => {
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'for-each-source-type');
 
-		expect(hits).toHaveLength(2);
-		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Value', 'ModuleValue']);
-		expect(hits[0].severity).toBe('error');
-		expect(hits[0].message).toContain('collection object or array');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostics(src, hits, 'for-each-source-type', [
+			{ severity: 'error', span: 'Value' },
+			{ span: 'ModuleValue' },
+		]);
 	});
 
 	it('uses visible exported scalar globals for For Each source types', () => {
@@ -9875,9 +9429,7 @@ describe('analyzeModule - statement context', () => {
 			'for-each-source-type',
 		);
 
-		expect(hits).toHaveLength(1);
-		expect(spanText(caller, hits[0])).toBe('SharedValue');
-		expect(hits[0].message).toContain('Long');
+		expectDiagnostic(caller, hits, 'for-each-source-type', { span: 'SharedValue' });
 	});
 
 	it('keeps exported arrays Variants local shadows and ambiguous For Each sources quiet', () => {
@@ -10019,3 +9571,649 @@ describe('analyzeModule - Option placement', () => {
 	});
 });
 
+// Exact diagnostic wording is pinned here once per rule; behavior tests above
+// assert rule code + severity + span via expectDiagnostic and stay wording-free.
+describe('diagnostic message wording', () => {
+	it('pins the message for ambiguous-enum-member', () => {
+		const src =
+			'Public Enum ENeg_AmbiguousOne\n' +
+			'    NegAmbiguousValue = 1\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Enum ENeg_AmbiguousTwo\n' +
+			'    NegAmbiguousValue = 2\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Sub T()\n' +
+			'    Debug.Print NegAmbiguousValue\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'ambiguous-enum-member');
+		expect(hits[0].message).toBe("Ambiguous Enum member reference: 'NegAmbiguousValue' is defined by multiple visible Enums (ENeg_AmbiguousOne, ENeg_AmbiguousTwo). Qualify the reference with an Enum or module name.");
+	});
+
+	it('pins the message for argument-count', () => {
+		const src = 'Sub Main()\n    MsgBox()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits[0].message).toBe("Wrong number of arguments to 'MsgBox': expected between 1 and 5 arguments, but got 0.");
+	});
+
+	it('pins the message for argument-object-type-mismatch', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Sub NeedsObject(ByVal item As Object)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    NeedsObject Left$("abcdef", 2)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-object-type-mismatch');
+		expect(hits[0].message).toBe("Argument 'item' of 'NeedsObject' expects Object, but got Left$(...) As String. An object parameter requires an object value.");
+	});
+
+	it('pins the message for argument-type-mismatch', () => {
+		const src = 'Sub T()\n    x = Left("abcdef", "bad")\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-type-mismatch');
+		expect(hits[0].message).toBe("Argument 'Length' of 'Left' expects Long, but got String literal \"bad\". This string literal cannot be converted to a numeric value. This will raise Run-time error '13': Type mismatch.");
+	});
+
+	it('pins the message for array-assignment-to-scalar', () => {
+		const src =
+			'Private ModuleValues(1 To 3) As Long\n' +
+			'Public Sub T()\n' +
+			'    Dim Values(1 To 3) As Long\n' +
+			'    Dim DynamicValues() As String\n' +
+			'    Dim Value As Long\n' +
+			'    Dim ScalarText As String\n' +
+			'    Value = Values\n' +
+			'    ScalarText = DynamicValues\n' +
+			'    Value = ModuleValues\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'array-assignment-to-scalar');
+		expect(hits[0].message).toBe("Array variable 'Values' cannot be assigned to scalar 'Value'. Assign an array element or use a Variant/array target.");
+	});
+
+	it('pins the message for array-bound-requires-array', () => {
+		const caller =
+			'Public Sub T()\n' +
+			'    Debug.Print LBound(SharedValue)\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedValue As Long\n' },
+			], 'Caller'),
+			'array-bound-requires-array',
+		);
+		expect(hits[0].message).toBe("LBound requires an array argument, but 'SharedValue' is declared As Long.");
+	});
+
+	it('pins the message for assignment-object-type-mismatch', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim wb As Workbook\n' +
+			'    Dim rng As Range\n' +
+			'    Set rng = ActiveSheet.Range("A1")\n' +
+			'    Set wb = ActiveSheet.Range("A1")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
+		expect(hits[0].message).toBe("Object assignment to 'wb' expects Workbook, but got ActiveSheet.Range(\"A1\") As Excel.Range. This object type is not compatible with Workbook.");
+	});
+
+	it('pins the message for assignment-type-mismatch', () => {
+		const src =
+			'Public Function Total() As Double\n' +
+			'    Total = "blah"\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+		expect(hits[0].message).toBe("Assignment to 'Total' expects Double, but got String literal \"blah\". This string literal cannot be converted to a numeric value. This will raise Run-time error '13': Type mismatch.");
+	});
+
+	it('pins the message for byref-argument-type-mismatch', () => {
+		const src =
+			'Public Sub Mutate(ByRef value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim amount As Integer\n' +
+			'    Mutate amount\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'byref-argument-type-mismatch');
+		expect(hits[0].message).toBe("ByRef argument 'value' of 'Mutate' expects Long, but 'amount' is declared as Integer. This is a VBE compile error: ByRef argument type mismatch.");
+	});
+
+	it('pins the message for call-statement-forbids-parens', () => {
+		const src = 'Sub T()\n    DoEvents()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-forbids-parens');
+		expect(hits[0].message).toBe("Standalone 'DoEvents()' cannot use empty parentheses in statement context; use 'DoEvents' as a statement or use it in an expression.");
+	});
+
+	it('pins the message for division-by-zero', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    a = 1 / 0\n' +
+			'    a = 1 \\ 0\n' +
+			'    a = 1 Mod 0\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'division-by-zero');
+		expect(hits[0].message).toBe("Expression uses '/' with a zero divisor. This will raise Run-time error '11': Division by zero.");
+	});
+
+	it('pins the message for duplicate-enum-member', () => {
+		const src =
+			'Public Enum ENeg_DuplicateMembers\n' +
+			'    NegEnumShared = 1\n' +
+			'    NegEnumShared = 2\n' +
+			'End Enum\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-enum-member');
+		expect(hits[0].message).toBe("Duplicate Enum member 'NegEnumShared' in Enum 'ENeg_DuplicateMembers'.");
+	});
+
+	it('pins the message for duplicate-label', () => {
+		const src =
+			'Sub T()\n' +
+			'StartHere:\n' +
+			'    Debug.Print "first"\n' +
+			'StartHere:\n' +
+			'    Debug.Print "second"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-label');
+		expect(hits[0].message).toBe("Label 'StartHere' is already defined in procedure 'T'.");
+	});
+
+	it('pins the message for else-branch-order', () => {
+		const src =
+			'Sub T()\n' +
+			'#If False Then\n' +
+			'    Debug.Print 0\n' +
+			'#Else\n' +
+			'    Debug.Print 1\n' +
+			'#ElseIf True Then\n' +
+			'    Debug.Print 2\n' +
+			'#End If\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'else-branch-order');
+		expect(hits[0].message).toBe("'#ElseIf' cannot appear after '#Else' in the same conditional-compilation block.");
+	});
+
+	it('pins the message for erase-requires-array', () => {
+		const src =
+			'Private ModuleValue As Long\n' +
+			'Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Dim Value As Long\n' +
+			'    Erase obj, Value, ModuleValue\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'erase-requires-array');
+		expect(hits[0].message).toBe("Erase target 'obj' must be an array or Variant, but it is declared As Object.");
+	});
+
+	it('pins the message for event-declaration-module-kind', () => {
+		const src =
+			'Public Event BeforeAdd(ByRef arr As Variant, ByRef cancel As Boolean)\n' +
+			'Private Event AfterAdd(ByRef arr As Variant)\n';
+		const hits = byCode(analyzeModule(src), 'event-declaration-module-kind');
+		expect(hits[0].message).toBe("Event declaration 'BeforeAdd' is only valid in class, document, or UserForm modules.");
+	});
+
+	it('pins the message for event-handler-module-scope', () => {
+		const src = 'Option Explicit\nPrivate Sub Workbook_Open()\nEnd Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'Module1', moduleKind: 'standard' }),
+			'event-handler-module-scope',
+		);
+		expect(hits[0].message).toBe("'Workbook_Open' matches a Workbook event handler, but this standard module is not where Excel wires that event. It will behave like an ordinary procedure here.");
+	});
+
+	it('pins the message for fixed-array-redim', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim Values(1 To 3) As Long\n' +
+			'    ReDim Values(1 To 10) As Long\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-array-redim');
+		expect(hits[0].message).toBe("Fixed-size array 'Values' cannot be resized with ReDim.");
+	});
+
+	it('pins the message for fixed-length-string-size', () => {
+		const src =
+			'Private Const HeaderCodeLength As Long = &H14\n' +
+			'Private Type Header\n' +
+			'    Code As String * HeaderCodeLength\n' +
+			'End Type\n' +
+			'Sub T()\n' +
+			'    Const LocalTooSmall As Long = &O0\n' +
+			'    Dim localName As String * LocalTooSmall\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'fixed-length-string-size');
+		expect(hits[0].message).toBe("Fixed-length String size must be between 1 and 65526 characters; got 0.");
+	});
+
+	it('pins the message for for-each-control-variable-type', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim item As Long\n' +
+			'    For Each item In Array(1, 2, 3)\n' +
+			'        Debug.Print item\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'for-each-control-variable-type');
+		expect(hits[0].message).toBe("For Each control variable 'item' must be Variant or Object, but it is declared As Long.");
+	});
+
+	it('pins the message for for-each-source-type', () => {
+		const caller =
+			'Sub T()\n' +
+			'    Dim item As Variant\n' +
+			'    For Each item In SharedValue\n' +
+			'    Next item\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(caller, [
+				{ moduleName: 'Globals', source: 'Public SharedValue As Long\n' },
+			], 'Caller'),
+			'for-each-source-type',
+		);
+		expect(hits[0].message).toBe("For Each source 'SharedValue' must be a collection object or array, but it is declared As Long.");
+	});
+
+	it('pins the message for friend-declaration', () => {
+		const src = 'Friend Sub InternalOnly()\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'friend-declaration');
+		expect(hits[0].message).toBe("Friend procedure 'InternalOnly' is only valid in class, document, or UserForm modules.");
+	});
+
+	it('pins the message for implements-statement-placement', () => {
+		const src = 'Option Explicit\nImplements Person\n';
+		const hits = byCode(analyzeModule(src), 'implements-statement-placement');
+		expect(hits[0].message).toBe("Implements statement 'Person' is only valid in class, document, or UserForm modules.");
+	});
+
+	it('pins the message for invalid-as-type-name', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim state As Status\n' +
+			'End Sub\n';
+		const modules = [
+			{ moduleName: 'Consumer', source: src },
+			{ moduleName: 'Status', moduleKind: 'class' as const, source: '' },
+			{ moduleName: 'Types', source: 'Public Enum Status\n    Active\nEnd Enum\n' },
+		];
+
+		const hits = byCode(analyzeModule(src, {
+			moduleName: 'Consumer',
+			projectTypes: visibleProjectTypes(modules, 'Consumer'),
+			knownNonTypeNames: visibleProjectNonTypeNames(modules, 'Consumer'),
+		}), 'invalid-as-type-name');
+		expect(hits[0].message).toBe("'Status' is ambiguous because multiple visible project types use that name.");
+	});
+
+	it('pins the message for invalid-erase-target', () => {
+		const src =
+			'Sub T()\n' +
+			'    Erase 1 + 2\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-erase-target');
+		expect(hits[0].message).toBe("Erase target must be a variable or array name, not an arbitrary expression.");
+	});
+
+	it('pins the message for invalid-expression-syntax', () => {
+		const src = 'Sub T()\n    value = flag ? 1 : 2\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits[0].message).toBe("VBA does not support the '?' conditional operator in code modules; use If...Then...Else, or IIf(...) only when both branches are safe to evaluate.");
+	});
+
+	it('pins the message for member-not-found', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    ThisWorkbook.AfterSave True\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'member-not-found');
+		expect(hits[0].message).toBe("Method or data member not found: 'Excel.Workbook.AfterSave'.");
+	});
+
+	it('pins the message for missing-return-assignment', () => {
+		const src =
+			'Public Function myFunction()\n' +
+			'\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src), 'missing-return-assignment');
+		expect(hits[0].message).toBe("Function 'myFunction' has no return assignment; VBA will return the default value. Assign to 'myFunction' before exit if a value is intended.");
+	});
+
+	it('pins the message for module-declaration-after-procedure', () => {
+		const src =
+			'Public Sub Combined002DeclareAfterProc()\n' +
+			'    Debug.Print "procedure before declare"\n' +
+			'End Sub\n' +
+			'\n' +
+			'#If VBA7 Then\n' +
+			'    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)\n' +
+			'#Else\n' +
+			'    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)\n' +
+			'#End If\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-after-procedure');
+		expect(hits[0].message).toBe("Declare statements in the active conditional-compilation branch belong in the module declarations section, before procedures.");
+	});
+
+	it('pins the message for module-declaration-in-procedure', () => {
+		const src =
+			'Sub T()\n' +
+			'    Debug.Print "body"\n' +
+			'    Attribute T.VB_Description = "bad placement"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'module-declaration-in-procedure');
+		expect(hits[0].message).toBe("Attribute statements must appear in the module declarations section, not inside a procedure.");
+	});
+
+	it('pins the message for next-variable-mismatch', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim i As Long\n' +
+			'    Dim j As Long\n' +
+			'    For i = 1 To 3\n' +
+			'        Debug.Print i\n' +
+			'    Next j\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'next-variable-mismatch');
+		expect(hits[0].message).toBe("Next variable 'j' does not match active For control variable 'i'.");
+	});
+
+	it('pins the message for non-callable-call', () => {
+		const src = 'Sub Main()\n    Dim testStr As String\n    testStr\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'non-callable-call');
+		expect(hits[0].message).toBe("Cannot call 'testStr' because it resolves to a local variable, not a Sub or Function.");
+	});
+
+	it('pins the message for object-module-public-member', () => {
+		const src =
+			'Public Const MaxRows As Long = 1000\n' +
+			'Public Names() As String\n' +
+			'Public FixedName As String * 20\n' +
+			'Public Type Customer\n' +
+			'    Name As String\n' +
+			'End Type\n' +
+			'Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
+		const hits = byCode(
+			analyzeModule(src, { moduleName: 'Person', moduleKind: 'class' }),
+			'object-module-public-member',
+		);
+		expect(hits[0].message).toBe("Public constants are not allowed as Public members of object modules; VBE Compile rejects this declaration.");
+	});
+
+	it('pins the message for object-variable-not-set', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    obj.ToString\n' +
+			'    Dim ws As Worksheet\n' +
+			'    ws.Range("A1").Value = 1\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'object-variable-not-set');
+		expect(hits[0].message).toBe("Object variable 'obj' is Nothing before member access. This will raise Run-time error '91': Object variable or With block variable not set.");
+	});
+
+	it('pins the message for paramarray-non-variant', () => {
+		const src =
+			'Public Sub Combined012TypedParamarray(ParamArray values() As String)\n' +
+			'    Debug.Print values(0)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'paramarray-non-variant');
+		expect(hits[0].message).toBe("ParamArray 'values' elements must be Variant, but this parameter is declared As String.");
+	});
+
+	it('pins the message for paramarray-with-optional', () => {
+		const src =
+			'Public Sub Combined011ParamarrayWithOptional(Optional ByVal prefix As String = "x", ParamArray values() As Variant)\n' +
+			'    Debug.Print prefix\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'paramarray-with-optional');
+		expect(hits[0].message).toBe("ParamArray 'values' cannot be used in the same parameter list as Optional arguments.");
+	});
+
+	it('pins the message for parameter-array-as-type-syntax', () => {
+		const src =
+			'Public Sub NegParam06_BadArrayParameterSyntax(ByVal values As Long())\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'parameter-array-as-type-syntax');
+		expect(hits[0].message).toBe("Array parameter 'values' must place parentheses after the parameter name, before the As clause; use 'values() As Long'.");
+	});
+
+	it('pins the message for parameter-default-type-mismatch', () => {
+		const src =
+			'Public Sub NegParam07_OptionalObjectDefaultNonNothing(Optional ByVal obj As Object = 1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'parameter-default-type-mismatch');
+		expect(hits[0].message).toBe("Optional parameter 'obj' expects Object, but its default value is numeric literal 1. Optional object parameter defaults must be Nothing.");
+	});
+
+	it('pins the message for property-accessor-signature-mismatch', () => {
+		const src =
+			'Public Property Get Item(ByVal index As Long) As String\n' +
+			'End Property\n' +
+			'Public Property Let Item(ByVal value As String)\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-accessor-signature-mismatch');
+		expect(hits[0].message).toBe("Property Let 'Item' argument list must match Property Get 'Item' before the final value parameter. Expected 1 index parameter, but found 0.");
+	});
+
+	it('pins the message for property-let-object-value', () => {
+		const src =
+			'Public Property Let NegProp06_LetObjectValue(ByVal Value As Object)\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-let-object-value');
+		expect(hits[0].message).toBe("Property Let 'NegProp06_LetObjectValue' final value parameter 'Value' must not be an object reference; use Property Set because it is declared As Object.");
+	});
+
+	it('pins the message for property-set-scalar-value', () => {
+		const src =
+			'Public Property Set Number(ByVal value As Long)\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-set-scalar-value');
+		expect(hits[0].message).toBe("Property Set 'Number' final value parameter 'value' must be an object reference, but it is declared As Long.");
+	});
+
+	it('pins the message for property-setter-missing-value', () => {
+		const src =
+			'Public Property Let Name()\n' +
+			'End Property\n';
+		const hits = byCode(analyzeModule(src), 'property-setter-missing-value');
+		expect(hits[0].message).toBe("Property Let 'Name' must include a final value parameter.");
+	});
+
+	it('pins the message for raiseevent-undeclared-event', () => {
+		const src =
+			'Option Explicit\n' +
+			'Public Sub Touch()\n' +
+			'    RaiseEvent Changed()\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src, {
+			moduleName: 'EventSource',
+			moduleKind: 'class',
+			knownIdentifiers: new Set<string>(),
+		});
+		expect(diagnostics[0].message).toBe("Event 'Changed' is not declared in this module, so it cannot be raised with RaiseEvent.");
+	});
+
+	it('pins the message for readonly-member-assignment', () => {
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    Set p = New Person\n' +
+			'    p.Age = 2\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, {
+				projectClassMembers: projectClassMembers([
+					{ moduleName: 'Person', moduleKind: 'class', source: person },
+				]),
+			}),
+			'readonly-member-assignment',
+		);
+		expect(hits[0].message).toBe("Cannot assign to read-only property 'p.Age'.");
+	});
+
+	it('pins the message for redim-preserve-dimension-change', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim grid() As Long\n' +
+			'    ReDim grid(1 To 2, 1 To 2)\n' +
+			'    ReDim Preserve grid(1 To 3, 1 To 2)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'redim-preserve-dimension-change');
+		expect(hits[0].message).toBe("ReDim Preserve can only resize the last dimension of 'grid'. Dimension 1 changes before the final dimension.");
+	});
+
+	it('pins the message for runtime-argument-value', () => {
+		const src =
+			'Public Function Left(ByVal text As String, ByVal count As Long) As String\n' +
+			'End Function\n' +
+			'Sub T()\n' +
+			'    Dim localValue As Long\n' +
+			'    Dim Left As Long\n' +
+			'    a = Left("abcdef", -1)\n' +
+			'    b = VBA.Left$("abcdef", -1)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-argument-value');
+		expect(hits[0].message).toBe("Argument 'Length' of 'Left$' is -1; this will raise Run-time error '5': Invalid procedure call or argument.");
+	});
+
+	it('pins the message for runtime-conversion-value', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim CDate As Variant\n' +
+			'    Dim Value As Date\n' +
+			'    Value = CDate("not a date")\n' +
+			'    Value = VBA.CDate("not a date")\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'runtime-conversion-value');
+		expect(hits[0].message).toBe("VBA.CDate cannot convert \"not a date\" to Date. This will raise Run-time error '13': Type mismatch.");
+	});
+
+	it('pins the message for scalar-member-access', () => {
+		const src = 'Sub Main()\n    Dim value As String\n    value.\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'scalar-member-access');
+		expect(hits[0].message).toBe("Member access on 'value' is invalid because it is declared as String. This is a VBE compile error: Syntax error.");
+	});
+
+	it('pins the message for scalar-redim', () => {
+		const src =
+			'Private ModuleValue As Long\n' +
+			'Sub T()\n' +
+			'    Dim Value As Long\n' +
+			'    ReDim Value(1 To 10)\n' +
+			'    ReDim Preserve ModuleValue(1 To 10)\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'scalar-redim');
+		expect(hits[0].message).toBe("Scalar variable 'Value' cannot be resized with ReDim; declare it as a dynamic array first.");
+	});
+
+	it('pins the message for set-required', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    ws = ActiveSheet\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'set-required');
+		expect(hits[0].message).toBe("Object assignment to 'ws' requires Set because it is declared as Worksheet.");
+	});
+
+	it('pins the message for set-requires-object', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim Text As String\n' +
+			'    Set text = New Collection\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'set-requires-object');
+		expect(hits[0].message).toBe("Set assignment requires an object variable, but 'text' is declared as String.");
+	});
+
+	it('pins the message for statement-outside-procedure', () => {
+		const src =
+			'Public Enum ENeg_AmbiguousOne\n' +
+			'    NegAmbiguousValue = 1\n' +
+			'End Enum\n' +
+			'\n' +
+			'Public Enum ENeg_AmbiguousTwo\n' +
+			'    NegAmbiguousValue = 2\n' +
+			'End Enum\n' +
+			'\n' +
+			'NegAmbiguousValue\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'statement-outside-procedure');
+		expect(hits[0].message).toBe("NegAmbiguousValue statement is invalid outside a Sub, Function, or Property procedure.");
+	});
+
+	it('pins the message for string-arithmetic-coercion', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim shouldErrorTest1 As Integer\n' +
+			'    shouldErrorTest1 = 1 + "string"\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'string-arithmetic-coercion');
+		expect(hits[0].message).toBe("Assignment to 'shouldErrorTest1' expects Integer, but this numeric expression contains nonnumeric string literal \"string\". This will raise Run-time error '13': Type mismatch.");
+	});
+
+	it('pins the message for type-declaration-character-as-clause', () => {
+		const src =
+			'Private Type Header\n' +
+			'    Code$ As String\n' +
+			'End Type\n' +
+			'\n' +
+			'Public Function GetName$() As String\n' +
+			'    GetName = "XLIDE"\n' +
+			'End Function\n' +
+			'\n' +
+			'Public Sub Demo(ByVal label$ As String)\n' +
+			'    Const answer% As Long = 1\n' +
+			'    Dim value$ As Long\n' +
+			'End Sub\n';
+		const diagnostics = analyzeModule(src);
+		const hits = byCode(diagnostics, 'type-declaration-character-as-clause');
+		expect(hits[0].message).toBe("Type field 'Code' combines type-declaration character '$' with an As clause; use only one type declaration form.");
+	});
+
+	it('pins the message for unallocated-dynamic-array-access', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Debug.Print values(0)\n' +
+			'    values(1) = 2\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
+		expect(hits[0].message).toBe("Dynamic array 'values' is not allocated before indexed access. This will raise Run-time error '9': Subscript out of range.");
+	});
+
+	it('pins the message for undeclared-variable', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Dim declared As Long\n' +
+			'    Dim obj As Object\n' +
+			'10 declared = 1\n' +
+			'20 Set obj = ActiveSheet\n' +
+			'30 missing = 1\n' +
+			'40 Set missingObj = ActiveSheet\n' +
+			'End Sub\n';
+		const hits = byCode(
+			analyzeModule(src, { knownIdentifiers: new Set<string>() }),
+			'undeclared-variable',
+		);
+		expect(hits[0].message).toBe("Variable not defined: 'missing'. Declare it before assigning to it, or remove Option Explicit.");
+	});
+
+	it('pins the message for unexpected-declaration-token', () => {
+		const src = 'Sub T()\n    Dim s1 As String thisshoulderror\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unexpected-declaration-token');
+		expect(hits[0].message).toBe("Unexpected token 'thisshoulderror' after a complete declaration type; this will fail to compile as a syntax error.");
+	});
+
+	it('pins the message for withevents-declaration', () => {
+		const src = 'Private WithEvents App As Application\n';
+		const hits = byCode(analyzeModule(src), 'withevents-declaration');
+		expect(hits[0].message).toBe("WithEvents variable 'App' is only valid in class, document, or UserForm modules.");
+	});
+});
