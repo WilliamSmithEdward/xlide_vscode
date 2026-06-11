@@ -6,13 +6,14 @@
 // Excel object-model members for that type. The same provider also offers
 // type-name completions in a declaration type position (after `As` / `As New`),
 // event-handler stubs, procedure labels, keywords/snippets, and identifiers.
-// See the Host-Context Member Completion addendum and Phases 6-7 in
-// docs/xlide_vba_language_service_roadmap.md.
+// VbaKeywordSnippetTracker owns the companion leave-detection state machine
+// for accepted keyword snippets. See the Host-Context Member Completion
+// addendum and Phases 6-7 in docs/xlide_vba_language_service_roadmap.md.
 //
 // Extracted verbatim from vbaMemberCompletion.ts (audit #27).
 
 import * as vscode from 'vscode';
-import { XLIDE_SCHEME } from './xlideFileSystem';
+import { XLIDE_SCHEME, isVbaDocument } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
@@ -47,7 +48,81 @@ import {
 import { startPerformanceTrace } from './performanceTrace';
 
 export const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
+const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
 const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
+
+/**
+ * Tracks the keyword snippet most recently accepted from completion (via
+ * KEYWORD_SNIPPET_ACCEPTED_COMMAND) and forces `leaveSnippet` when the user
+ * navigates away from it by mouse or keyboard, so stale tab stops do not
+ * capture Tab/Enter. Keyboard moves within the grace window of a text change
+ * are treated as typing (snippet navigation), not leaving.
+ */
+export class VbaKeywordSnippetTracker {
+	private _activeKeywordSnippet:
+		| { editor: vscode.TextEditor; documentKey: string; textChangeSerialAtAccept: number }
+		| undefined;
+	private _textChangeSerial = 0;
+	private readonly _lastTextChange = new Map<string, { at: number; serial: number }>();
+
+	/** Command handler attached to accepted keyword-snippet completion items. */
+	handleSnippetAccepted(): void {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor || !isVbaDocument(editor.document)) {
+			return;
+		}
+		this._activeKeywordSnippet = {
+			editor,
+			documentKey: editor.document.uri.toString(),
+			textChangeSerialAtAccept: this._textChangeSerial,
+		};
+	}
+
+	handleTextDocumentChange(event: vscode.TextDocumentChangeEvent): void {
+		const document = event.document;
+		if (isVbaDocument(document)) {
+			this._textChangeSerial += 1;
+			this._lastTextChange.set(document.uri.toString(), {
+				at: Date.now(),
+				serial: this._textChangeSerial,
+			});
+		}
+	}
+
+	handleSelectionChange(event: vscode.TextEditorSelectionChangeEvent): void {
+		if (!this._activeKeywordSnippet || event.textEditor !== this._activeKeywordSnippet.editor) {
+			return;
+		}
+		if (!isVbaDocument(event.textEditor.document)) {
+			this._activeKeywordSnippet = undefined;
+			return;
+		}
+		if (
+			event.kind !== vscode.TextEditorSelectionChangeKind.Mouse &&
+			event.kind !== vscode.TextEditorSelectionChangeKind.Keyboard
+		) {
+			return;
+		}
+		if (event.kind === vscode.TextEditorSelectionChangeKind.Keyboard) {
+			const changed = this._lastTextChange.get(this._activeKeywordSnippet.documentKey);
+			if (
+				changed &&
+				changed.serial > this._activeKeywordSnippet.textChangeSerialAtAccept &&
+				Date.now() - changed.at <= KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS
+			) {
+				return;
+			}
+		}
+		this._activeKeywordSnippet = undefined;
+		void vscode.commands.executeCommand('leaveSnippet');
+	}
+
+	handleActiveEditorChange(editor: vscode.TextEditor | undefined): void {
+		if (this._activeKeywordSnippet && editor !== this._activeKeywordSnippet.editor) {
+			this._activeKeywordSnippet = undefined;
+		}
+	}
+}
 
 export class VbaMemberCompletionProvider implements vscode.CompletionItemProvider {
 	constructor(

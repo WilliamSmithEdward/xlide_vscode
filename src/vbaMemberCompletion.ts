@@ -1,16 +1,15 @@
 // Registration wiring for the VBA completion stack.
 //
 // Constructs the per-window editor project-context service and wires the
-// completion provider (vbaCompletionProvider.ts), hover/signature provider
-// (vbaHoverSignatureProvider.ts), and canonical-case controller
-// (vbaCanonicalCaseController.ts) into VS Code, plus the keyword-snippet
-// leave-detection state machine and the workbook-save cache invalidation.
+// completion provider + keyword-snippet tracker (vbaCompletionProvider.ts),
+// hover/signature provider (vbaHoverSignatureProvider.ts), and canonical-case
+// controller (vbaCanonicalCaseController.ts) into VS Code, plus the
+// workbook-save cache invalidation.
 
 import * as vscode from 'vscode';
 import {
 	XLIDE_SCHEME,
 	decodeModuleUri,
-	isVbaDocument,
 } from './xlideFileSystem';
 import { DocRegistry } from './analyzer';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
@@ -19,10 +18,9 @@ import { VbaEditorProjectContextService } from './vbaEditorProjectContext';
 import { VbaHoverSignatureProvider } from './vbaHoverSignatureProvider';
 import {
 	KEYWORD_SNIPPET_ACCEPTED_COMMAND,
+	VbaKeywordSnippetTracker,
 	VbaMemberCompletionProvider,
 } from './vbaCompletionProvider';
-
-const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
 
 const ACTIVE_MEMBER_COMPLETION_PROVIDERS = new Set<VbaMemberCompletionProvider>();
 
@@ -43,64 +41,17 @@ export function registerVbaMemberCompletion(
 	const provider = new VbaMemberCompletionProvider(projectContext);
 	const hoverSignature = new VbaHoverSignatureProvider(projectContext, docs);
 	const canonicalCase = new VbaCanonicalCaseController(projectContext);
+	const keywordSnippets = new VbaKeywordSnippetTracker();
 	ACTIVE_MEMBER_COMPLETION_PROVIDERS.add(provider);
 	context.subscriptions.push({
 		dispose: () => ACTIVE_MEMBER_COMPLETION_PROVIDERS.delete(provider),
 	});
-	let activeKeywordSnippet:
-		| { editor: vscode.TextEditor; documentKey: string; textChangeSerialAtAccept: number }
-		| undefined;
-	let textChangeSerial = 0;
-	const lastTextChange = new Map<string, { at: number; serial: number }>();
-	const markTextChange = (document: vscode.TextDocument): void => {
-		if (isVbaDocument(document)) {
-			textChangeSerial += 1;
-			lastTextChange.set(document.uri.toString(), {
-				at: Date.now(),
-				serial: textChangeSerial,
-			});
-		}
-	};
-	const maybeLeaveKeywordSnippet = (event: vscode.TextEditorSelectionChangeEvent): void => {
-		if (!activeKeywordSnippet || event.textEditor !== activeKeywordSnippet.editor) {
-			return;
-		}
-		if (!isVbaDocument(event.textEditor.document)) {
-			activeKeywordSnippet = undefined;
-			return;
-		}
-		if (
-			event.kind !== vscode.TextEditorSelectionChangeKind.Mouse &&
-			event.kind !== vscode.TextEditorSelectionChangeKind.Keyboard
-		) {
-			return;
-		}
-		if (event.kind === vscode.TextEditorSelectionChangeKind.Keyboard) {
-			const changed = lastTextChange.get(activeKeywordSnippet.documentKey);
-			if (
-				changed &&
-				changed.serial > activeKeywordSnippet.textChangeSerialAtAccept &&
-				Date.now() - changed.at <= KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS
-			) {
-				return;
-			}
-		}
-		activeKeywordSnippet = undefined;
-		void vscode.commands.executeCommand('leaveSnippet');
-	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand(KEYWORD_SNIPPET_ACCEPTED_COMMAND, () => {
-			const editor = vscode.window.activeTextEditor;
-			if (!editor || !isVbaDocument(editor.document)) {
-				return;
-			}
-			activeKeywordSnippet = {
-				editor,
-				documentKey: editor.document.uri.toString(),
-				textChangeSerialAtAccept: textChangeSerial,
-			};
-		}),
+		vscode.commands.registerCommand(
+			KEYWORD_SNIPPET_ACCEPTED_COMMAND,
+			() => keywordSnippets.handleSnippetAccepted(),
+		),
 		vscode.languages.registerCompletionItemProvider(
 			selector,
 			provider,
@@ -110,17 +61,15 @@ export function registerVbaMemberCompletion(
 			'@',
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {
-			markTextChange(event.document);
+			keywordSnippets.handleTextDocumentChange(event);
 			canonicalCase.handleTextDocumentChange(event);
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
-			maybeLeaveKeywordSnippet(event);
+			keywordSnippets.handleSelectionChange(event);
 			canonicalCase.handleSelectionChange(event);
 		}),
 		vscode.window.onDidChangeActiveTextEditor((editor) => {
-			if (activeKeywordSnippet && editor !== activeKeywordSnippet.editor) {
-				activeKeywordSnippet = undefined;
-			}
+			keywordSnippets.handleActiveEditorChange(editor);
 			canonicalCase.handleActiveEditorChange(editor);
 		}),
 		vscode.window.onDidChangeWindowState((state) => {
