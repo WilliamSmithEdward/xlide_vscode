@@ -1,6 +1,7 @@
 // Live VBA diagnostics engine: runs the analyzer's module analysis on open
-// and (debounced) on every edit, with local/full pass scheduling, generation
-// tracking, a TTL'd analysis-settings cache, and per-workbook settings-sidecar
+// and (debounced) on every edit. Local/full pass scheduling and generation
+// tracking live in DiagnosticScheduler; the engine adds a TTL'd
+// analysis-settings cache and per-workbook settings-sidecar
 // FileSystemWatcher lifecycle.
 //
 // Extracted verbatim from vbaLanguageProviders.ts (audit #21).
@@ -58,6 +59,109 @@ const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
 const DIAGNOSTIC_ANALYSIS_SETTINGS_CACHE_TTL_MS = 2_000;
 
+type DiagnosticPassKind = 'local' | 'full';
+
+interface DiagnosticScheduleDelays {
+    localDelayMs: number;
+    fullDelayMs?: number;
+}
+
+/**
+ * Owns the per-document debounce timers and generation counters for the
+ * local/full diagnostic passes. Scheduling bumps the document's generation
+ * (invalidating in-flight runs) and re-arms both pass timers; a completed
+ * full pass suppresses publishing a stale local pass of the same generation.
+ */
+class DiagnosticScheduler {
+    private readonly _localTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private readonly _fullTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private readonly _generations = new Map<string, number>();
+    private readonly _completedFullGenerations = new Map<string, number>();
+
+    constructor(
+        private readonly _runPass: (
+            document: vscode.TextDocument,
+            generation: number,
+            pass: DiagnosticPassKind,
+        ) => void,
+    ) {}
+
+    schedule(
+        document: vscode.TextDocument,
+        delays: DiagnosticScheduleDelays = {
+            localDelayMs: DIAGNOSTIC_EDIT_LOCAL_DELAY_MS,
+            fullDelayMs: DIAGNOSTIC_EDIT_FULL_DELAY_MS,
+        },
+    ): void {
+        if (!isVbaDocument(document)) { return; }
+        const key = document.uri.toString();
+        const generation = this._nextGeneration(key);
+        this._clearTimer(this._localTimers, key);
+        this._clearTimer(this._fullTimers, key);
+        this._localTimers.set(key, setTimeout(() => {
+            this._localTimers.delete(key);
+            this._runPass(document, generation, 'local');
+        }, delays.localDelayMs));
+        if (document.uri.scheme === XLIDE_SCHEME && delays.fullDelayMs !== undefined) {
+            this._fullTimers.set(key, setTimeout(() => {
+                this._fullTimers.delete(key);
+                this._runPass(document, generation, 'full');
+            }, delays.fullDelayMs));
+        }
+    }
+
+    /** Cancels pending passes and invalidates in-flight runs (document closed). */
+    cancel(key: string): void {
+        this._clearTimer(this._localTimers, key);
+        this._clearTimer(this._fullTimers, key);
+        this._nextGeneration(key);
+    }
+
+    isCurrentRun(
+        document: vscode.TextDocument,
+        key: string,
+        generation: number,
+        documentVersion: number,
+    ): boolean {
+        return this._generations.get(key) === generation &&
+            document.version === documentVersion &&
+            vscode.workspace.textDocuments.includes(document);
+    }
+
+    /**
+     * Whether a current run's diagnostics may be published: a local pass is
+     * dropped once the same generation's full pass completed; a full pass
+     * records its completion.
+     */
+    shouldPublish(key: string, generation: number, pass: DiagnosticPassKind): boolean {
+        if (pass === 'local' && this._completedFullGenerations.get(key) === generation) {
+            return false;
+        }
+        if (pass === 'full') {
+            this._completedFullGenerations.set(key, generation);
+        }
+        return true;
+    }
+
+    private _nextGeneration(key: string): number {
+        const next = (this._generations.get(key) ?? 0) + 1;
+        this._generations.set(key, next);
+        this._completedFullGenerations.delete(key);
+        return next;
+    }
+
+    private _clearTimer(
+        timers: Map<string, ReturnType<typeof setTimeout>>,
+        key: string,
+    ): void {
+        const existing = timers.get(key);
+        if (existing) {
+            clearTimeout(existing);
+            timers.delete(key);
+        }
+    }
+}
+
 /**
  * Live diagnostics: structural block-balance (analyzeVbaStructure) plus the analyzer's
  * high-confidence semantic rules (analyzeModule) - unterminated strings,
@@ -71,22 +175,14 @@ export function registerVbaDiagnostics(
     projectIndexService: VbaProjectIndexService,
 ): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
-    const localTimers = new Map<string, ReturnType<typeof setTimeout>>();
-    const fullTimers = new Map<string, ReturnType<typeof setTimeout>>();
-    const diagnosticGenerations = new Map<string, number>();
-    const completedFullGenerations = new Map<string, number>();
+    const scheduler = new DiagnosticScheduler(
+        (document, generation, pass) => runPass(document, generation, pass),
+    );
     const workbookSettingsWatchers = new Map<string, vscode.Disposable[]>();
     const analysisSettingsCache = new Map<string, {
         loadedAt: number;
         promise: Promise<EffectiveWorkbookAnalysisSettings>;
     }>();
-
-    type DiagnosticPassKind = 'local' | 'full';
-
-    interface DiagnosticScheduleDelays {
-        localDelayMs: number;
-        fullDelayMs?: number;
-    }
 
     const workbookKey = (workbookPath: string): string => workbookContextKey(workbookPath);
 
@@ -102,7 +198,7 @@ export function registerVbaDiagnostics(
         document: vscode.TextDocument,
         delays: DiagnosticScheduleDelays = { localDelayMs: 0, fullDelayMs: 0 },
     ): void => {
-        schedule(document, delays);
+        scheduler.schedule(document, delays);
     };
 
     const runPass = (
@@ -119,7 +215,7 @@ export function registerVbaDiagnostics(
                 return;
             }
             const key = document.uri.toString();
-            if (!isCurrentDiagnosticRun(document, key, generation, document.version)) {
+            if (!scheduler.isCurrentRun(document, key, generation, document.version)) {
                 return;
             }
             collection.set(document.uri, [diagnosticForAnalysisRunError(document, err)]);
@@ -207,7 +303,7 @@ export function registerVbaDiagnostics(
             validateXlideGlobalSettingsFromConfig(config),
         );
         if (!xlideDiagnosticsEnabledFromConfig(config).value) {
-            if (!isCurrentDiagnosticRun(document, key, generation, documentVersion)) {
+            if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) {
                 return;
             }
             if (settingsDiagnostics.length > 0) {
@@ -312,69 +408,13 @@ export function registerVbaDiagnostics(
         pass: DiagnosticPassKind,
         diagnostics: vscode.Diagnostic[],
     ): void => {
-        if (!isCurrentDiagnosticRun(document, key, generation, documentVersion)) {
+        if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) {
             return;
         }
-        if (pass === 'local' && completedFullGenerations.get(key) === generation) {
+        if (!scheduler.shouldPublish(key, generation, pass)) {
             return;
-        }
-        if (pass === 'full') {
-            completedFullGenerations.set(key, generation);
         }
         collection.set(document.uri, diagnostics);
-    };
-
-    const isCurrentDiagnosticRun = (
-        document: vscode.TextDocument,
-        key: string,
-        generation: number,
-        documentVersion: number,
-    ): boolean => {
-        return diagnosticGenerations.get(key) === generation &&
-            document.version === documentVersion &&
-            vscode.workspace.textDocuments.includes(document);
-    };
-
-    const nextDiagnosticGeneration = (key: string): number => {
-        const next = (diagnosticGenerations.get(key) ?? 0) + 1;
-        diagnosticGenerations.set(key, next);
-        completedFullGenerations.delete(key);
-        return next;
-    };
-
-    const clearTimer = (
-        timers: Map<string, ReturnType<typeof setTimeout>>,
-        key: string,
-    ): void => {
-        const existing = timers.get(key);
-        if (existing) {
-            clearTimeout(existing);
-            timers.delete(key);
-        }
-    };
-
-    const schedule = (
-        document: vscode.TextDocument,
-        delays: DiagnosticScheduleDelays = {
-            localDelayMs: DIAGNOSTIC_EDIT_LOCAL_DELAY_MS,
-            fullDelayMs: DIAGNOSTIC_EDIT_FULL_DELAY_MS,
-        },
-    ): void => {
-        if (!isVbaDocument(document)) { return; }
-        const key = document.uri.toString();
-        const generation = nextDiagnosticGeneration(key);
-        clearTimer(localTimers, key);
-        clearTimer(fullTimers, key);
-        localTimers.set(key, setTimeout(() => {
-            localTimers.delete(key);
-            runPass(document, generation, 'local');
-        }, delays.localDelayMs));
-        if (document.uri.scheme === XLIDE_SCHEME && delays.fullDelayMs !== undefined) {
-            fullTimers.set(key, setTimeout(() => {
-                fullTimers.delete(key);
-                runPass(document, generation, 'full');
-            }, delays.fullDelayMs));
-        }
     };
 
     const rerunWorkbookDocuments = (workbookPath: string): void => {
@@ -442,25 +482,22 @@ export function registerVbaDiagnostics(
 
     context.subscriptions.push(
         collection,
-        vscode.workspace.onDidOpenTextDocument((document) => schedule(document, {
+        vscode.workspace.onDidOpenTextDocument((document) => scheduler.schedule(document, {
             localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
             fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,
         })),
-        vscode.workspace.onDidChangeTextDocument((e) => schedule(e.document)),
+        vscode.workspace.onDidChangeTextDocument((e) => scheduler.schedule(e.document)),
         vscode.window.onDidChangeActiveTextEditor(() => {
             const editor = vscode.window.activeTextEditor;
             if (editor) {
-                schedule(editor.document, {
+                scheduler.schedule(editor.document, {
                     localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
                     fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,
                 });
             }
         }),
         vscode.workspace.onDidCloseTextDocument((doc) => {
-            const key = doc.uri.toString();
-            clearTimer(localTimers, key);
-            clearTimer(fullTimers, key);
-            nextDiagnosticGeneration(key);
+            scheduler.cancel(doc.uri.toString());
             collection.delete(doc.uri);
             pruneWorkbookSettingsWatchers();
         }),
@@ -473,7 +510,7 @@ export function registerVbaDiagnostics(
         }),
         { dispose: disposeWorkbookSettingsWatchers },
     );
-    vscode.workspace.textDocuments.forEach((document) => schedule(document, {
+    vscode.workspace.textDocuments.forEach((document) => scheduler.schedule(document, {
         localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
         fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,
     }));
