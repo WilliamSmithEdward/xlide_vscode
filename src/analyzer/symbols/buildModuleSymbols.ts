@@ -45,6 +45,11 @@ export interface BuildModuleSymbolsOptions {
 	 * removed from the shared symbol graph.
 	 */
 	conditionalCompilation?: ConditionalCompilationEnvironment;
+	/**
+	 * Pre-parsed AST for `source`. When omitted, the builder parses the source
+	 * itself.
+	 */
+	parsedModule?: ModuleNode;
 }
 
 function isInactiveSymbolNode(
@@ -441,7 +446,7 @@ export function buildModuleSymbols(
 	source: string,
 	options: BuildModuleSymbolsOptions = {},
 ): ModuleSymbols {
-	const module: ModuleNode = parseModule(source);
+	const module: ModuleNode = options.parsedModule ?? parseModule(source);
 	const activity = createConditionalActivityTracker(module, options.conditionalCompilation);
 	const rootChildren: VbaSymbol[] = [];
 	const flat: VbaSymbol[] = [];

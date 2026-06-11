@@ -20,7 +20,7 @@
 // statement-level reads while deliberately skipping unresolved external-style
 // calls and type-name positions to avoid false positives.
 
-import { tokenize } from '../lexer/tokenize';
+import { tokenize, tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isReservedIdentifier } from '../lexer/keywordTable';
 import {
@@ -229,6 +229,11 @@ export interface AnalyzeModuleOptions {
 	 * that remain unknown are still analyzed; only proven-inactive code is skipped.
 	 */
 	conditionalCompilation?: ConditionalCompilationEnvironment;
+	/**
+	 * Pre-parsed AST for the analyzed source. When omitted, the analyzer parses
+	 * the source itself.
+	 */
+	parsedModule?: ModuleNode;
 }
 
 /** Counts double-quote characters; an odd count means the string is unterminated. */
@@ -311,9 +316,10 @@ function runRules(
 		});
 	};
 
-	const mod = parseModule(source);
+	const mod = opts.parsedModule ?? parseModule(source);
 	const symbols = buildModuleSymbols(moduleName, moduleKind, source, {
 		conditionalCompilation: opts.conditionalCompilation,
+		parsedModule: mod,
 	});
 	const activity = createConditionalActivityTracker(mod, opts.conditionalCompilation);
 	const memberCtx = diagnosticMemberCompletionContext(opts);
@@ -525,7 +531,7 @@ function isObjectModuleKind(moduleKind: ModuleSymbolKind | undefined): boolean {
 
 /** Rule: a string literal with an odd number of quotes is never closed. */
 function checkUnterminatedStrings(source: string, push: PushFn): void {
-	for (const tok of tokenize(source)) {
+	for (const tok of tokenizeCached(source)) {
 		if (tok.kind === 'stringLiteral' && countQuotes(tok.rawText) % 2 === 1) {
 			push(
 				'unterminatedString',
@@ -2489,7 +2495,7 @@ function nameTokenHit(base: Span, tok: VbaToken, name: string): NameTokenHit {
  * one diagnostic is reported per statement.
  */
 function checkUnbalancedParens(source: string, push: PushFn): void {
-	const toks = tokenize(source);
+	const toks = tokenizeCached(source);
 	let depth = 0;
 	const openOffsets: number[] = [];
 	let flagged = false;

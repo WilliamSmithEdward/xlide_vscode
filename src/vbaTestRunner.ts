@@ -1,7 +1,7 @@
 import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import { parseModule } from './analyzer/parser/parseModule';
-import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes';
+import type { ModuleMember, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaSourceScan';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
@@ -106,13 +106,16 @@ export interface VbaTestRunSummary {
     hostError: number;
 }
 
-export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestCase[] {
+export function discoverVbaTestsFromModule(
+    module: VbaTestModuleEntry,
+    parsedModule?: ModuleNode,
+): VbaTestCase[] {
     if (module.type !== 'standard' || module.source === undefined) {
         return [];
     }
 
     const source = module.source;
-    const ast = parseModule(source);
+    const ast = parsedModule ?? parseModule(source);
     const starts = lineStartOffsets(source);
     const lines = source.split(/\r\n|\r|\n/);
     const tests: VbaTestCase[] = [];
@@ -142,13 +145,16 @@ export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestC
     return tests;
 }
 
-export function validateVbaTestDirectivesFromModule(module: VbaTestModuleEntry): VbaTestDirectiveIssue[] {
+export function validateVbaTestDirectivesFromModule(
+    module: VbaTestModuleEntry,
+    parsedModule?: ModuleNode,
+): VbaTestDirectiveIssue[] {
     if (module.source === undefined) {
         return [];
     }
 
     const source = module.source;
-    const ast = parseModule(source);
+    const ast = parsedModule ?? parseModule(source);
     const starts = lineStartOffsets(source);
     const lines = source.split(/\r\n|\r|\n/);
     const issues: VbaTestDirectiveIssue[] = [];

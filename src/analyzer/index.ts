@@ -209,4 +209,5 @@ export {
 	filterDiagnosticsWithSuppressions,
 	ANALYSIS_SUPPRESSION_DIRECTIVE_CODE,
 	scanAnalysisSuppressions,
+	ScanAnalysisSuppressionsContext,
 } from './diagnostics/analysisSuppressions';
