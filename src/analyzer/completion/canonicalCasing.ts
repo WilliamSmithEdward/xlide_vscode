@@ -75,12 +75,8 @@ export function resolveCanonicalCaseEdit(
 		return undefined;
 	}
 
-	const canonical =
-		token.canonicalText ??
-		canonicalFromTypeCompletion(source, span.end, word, ctx.type) ??
-		canonicalFromMemberCompletion(source, span.end, word, ctx.member) ??
-		canonicalFromIdentifierCompletion(source, span.end, word, ctx.identifier);
-	if (!canonical || canonical === word) {
+	const canonical = canonicalTextForWord(source, span.end, word, token, ctx);
+	if (!canonical) {
 		return undefined;
 	}
 	return { ...span, text: canonical };
@@ -93,21 +89,74 @@ export function resolveCanonicalCaseEdits(
 ): CanonicalCaseEdit[] {
 	const safeStart = Math.max(0, Math.min(span.start, source.length));
 	const safeEnd = Math.max(safeStart, Math.min(span.end, source.length));
+	const window = physicalLineWindow(source, safeStart, safeEnd);
 	const edits: CanonicalCaseEdit[] = [];
-	for (const token of tokenize(source)) {
-		if (token.start < safeStart || token.end > safeEnd || !isIdentifierToken(token)) {
+	for (const token of tokenize(source.slice(window.start, window.end))) {
+		const start = window.start + token.start;
+		const end = window.start + token.end;
+		if (start < safeStart || end > safeEnd || !isIdentifierToken(token)) {
 			continue;
 		}
-		const edit = resolveCanonicalCaseEdit(source, token.end, ctx);
-		if (edit && edit.start === token.start && edit.end === token.end) {
-			edits.push(edit);
+		// Match the single-position path: the char-level span ending at the
+		// token end must agree with the token, so e.g. an identifier glued to
+		// a numeric literal never produces an edit.
+		const charSpan = identifierSpanEndingAt(source, end);
+		if (!charSpan || charSpan.start !== start || charSpan.end !== end) {
+			continue;
+		}
+		const word = source.slice(start, end);
+		const canonical = canonicalTextForWord(source, end, word, token, ctx);
+		if (canonical) {
+			edits.push({ start, end, text: canonical });
 		}
 	}
 	return edits;
 }
 
+/** Canonical replacement text for `word` ending at `offset`, if it differs. */
+function canonicalTextForWord(
+	source: string,
+	offset: number,
+	word: string,
+	token: VbaToken,
+	ctx: CanonicalCaseContext,
+): string | undefined {
+	const canonical =
+		token.canonicalText ??
+		canonicalFromTypeCompletion(source, offset, word, ctx.type) ??
+		canonicalFromMemberCompletion(source, offset, word, ctx.member) ??
+		canonicalFromIdentifierCompletion(source, offset, word, ctx.identifier);
+	return canonical && canonical !== word ? canonical : undefined;
+}
+
+/**
+ * Finds the token covering exactly [start, end) by tokenizing only the
+ * physical line(s) of the span. VBA comments and string literals never span
+ * physical lines, so the line-local classification matches the whole-module
+ * tokenization without rescanning the entire document per keystroke.
+ */
 function tokenAtSpan(source: string, start: number, end: number): VbaToken | undefined {
-	return tokenize(source).find((token) => token.start === start && token.end === end);
+	const window = physicalLineWindow(source, start, end);
+	return tokenize(source.slice(window.start, window.end)).find(
+		(token) => window.start + token.start === start && window.start + token.end === end,
+	);
+}
+
+/** Expands [start, end] to the enclosing physical line boundaries. */
+function physicalLineWindow(
+	source: string,
+	start: number,
+	end: number,
+): { start: number; end: number } {
+	const before = Math.max(
+		source.lastIndexOf('\n', Math.max(0, start - 1)),
+		source.lastIndexOf('\r', Math.max(0, start - 1)),
+	);
+	let windowEnd = end;
+	while (windowEnd < source.length && source[windowEnd] !== '\n' && source[windowEnd] !== '\r') {
+		windowEnd += 1;
+	}
+	return { start: before + 1, end: windowEnd };
 }
 
 function isIdentifierToken(token: VbaToken): boolean {

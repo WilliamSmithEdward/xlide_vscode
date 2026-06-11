@@ -1692,19 +1692,16 @@ export function registerVbaMemberCompletion(
 				if (!change.range.isEmpty) {
 					continue;
 				}
-				const boundary = canonicalCaseBoundaryKind(change.text);
-				if (!boundary) {
-					continue;
-				}
-				if (boundary === 'line') {
+				// Token-boundary characters (space, '(', '=', ...) no longer
+				// resolve casing synchronously inside the change event; the
+				// idle line pass below covers every touched line.
+				if (canonicalCaseBoundaryKind(change.text) === 'line') {
 					immediateLines.add(change.range.start.line);
 					scheduleCanonicalLine(
 						event.document,
 						change.range.start.line,
 						editorHint,
 					);
-				} else {
-					applyCanonicalPosition(event.document, change.range.start, editorHint);
 				}
 			}
 			for (const lineNumber of touchedLines) {
