@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { VbaTestCase, VbaTestRunItem, VbaTestRunReport, VbaTestRunSummary } from './vbaTestRunner';
-import { describeVbaTestSelection, summarizeVbaTestRun, vbaTestFailureMessage } from './vbaTestRunner';
+import { describeVbaTestSelection, summarizeVbaTestRun } from './vbaTestRunner';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
 import {
     statHtml,
@@ -564,8 +564,9 @@ function testMetadataHtml(metadata: {
     return `<div class="tagSet">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`;
 }
 
+// result.error is already cleaned by the execution layer (vbaTestFailureMessages.ts).
 function resultDetailsHtml(result: VbaTestRunItem): string {
-    const details = result.error ? `<div>${escapeHtml(vbaTestFailureMessage(result.error))}</div>` : '';
+    const details = result.error ? `<div>${escapeHtml(result.error)}</div>` : '';
     const output = result.output?.length
         ? `<div class="testOutput"><div class="outputLabel">Output</div>${result.output
             .map((line) => `<div class="outputLine">${escapeHtml(line)}</div>`)

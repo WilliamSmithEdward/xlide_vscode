@@ -22,12 +22,12 @@ import {
     createVbaTestRunReport,
     describeVbaTestSelection,
     discoverWorkbookVbaTests,
-    vbaTestFailureMessage,
     type VbaTestCase,
     type VbaTestRunItem,
     type VbaTestRunReport,
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
+import { vbaTestFailureMessage } from './vbaTestFailureMessages';
 import { measurePerformance } from './performanceTrace';
 import { errorMessage } from './util/errors';
 import { runPowerShell } from './util/powershell';
@@ -346,7 +346,7 @@ async function runOwnedReadOnlyExcelTestHost(
             resolve({
                 events,
                 resultsByName,
-                hostError,
+                hostError: hostError === undefined ? undefined : vbaTestFailureMessage(hostError),
                 timedOutAfter,
             });
         };
@@ -578,7 +578,7 @@ export function vbaTestRunItemFromHostResult(
     test: VbaTestCase,
     hostResult: OwnedReadOnlyExcelHostTestResult,
 ): VbaTestRunItem {
-    const message = hostResult.message ? vbaTestFailureMessage(new Error(hostResult.message)) : undefined;
+    const message = hostResult.message ? vbaTestFailureMessage(hostResult.message) : undefined;
     const expectedError = test.metadata.expectedError;
     if (expectedError !== undefined && (hostResult.outcome === 'passed' || hostResult.outcome === 'failed')) {
         return vbaTestRunItemFromExpectedError(test, hostResult, expectedError, message);

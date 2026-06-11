@@ -11,7 +11,6 @@ import {
     summarizeVbaTestTags,
     summarizeVbaTestRun,
     validateVbaTestDirectivesFromModule,
-    vbaTestFailureMessage,
 } from '../src/vbaTestRunner';
 
 describe('VBA test runner discovery', () => {
@@ -386,35 +385,6 @@ describe('VBA test runner reporting', () => {
             timeout: 1,
             hostError: 1,
         });
-        expect(vbaTestFailureMessage(new Error('RUN_FAILED|Assertion failed'))).toBe('Assertion failed');
-        expect(vbaTestFailureMessage(new Error([
-            'RUN_FAILED|Exception calling "Run" with "1" argument(s):',
-            '"Exception from HRESULT: 0x800A9C68"',
-            'HRESULT: 0x80131501',
-            'Inner: Exception from HRESULT: 0x800A9C68',
-            'Inner HRESULT: 0x800A9C68',
-            'At C:\\Users\\William\\AppData\\Local\\Temp\\xlide-vba-test-host-DDT6Nq\\run-vba-tests.ps1:677 char:4587',
-            '+ ... tPrefix, $excelId, $macroName) }; $excel.Run($macroRef);',
-            '+                       ~~~~~~~~~~~~~~~~~~~~',
-        ].join('\n')))).toBe(
-            'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.',
-        );
-        expect(vbaTestFailureMessage('A user message with | punctuation')).toBe('A user message with | punctuation');
-        expect(vbaTestFailureMessage([
-            'RUN_FAILED|HRESULT: 0x80131501',
-            'Exception calling "Run" with "2" argument(s): "The remote procedure call failed. (Exception from HRESULT: 0x800706BE)"',
-            'Inner: The remote procedure call failed. (Exception from HRESULT: 0x800706BE)',
-            'Inner HRESULT: 0x800706BE',
-        ].join('\n'))).toBe(
-            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BE.',
-        );
-        expect(vbaTestFailureMessage([
-            'RUN_FAILED|HRESULT: 0x80131501',
-            'Exception calling "Run" with "2" argument(s): "The RPC server is unavailable. (Exception from HRESULT: 0x800706BA)"',
-            'Inner HRESULT: 0x800706BA',
-        ].join('\n'))).toBe(
-            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BA.',
-        );
     });
 });
 

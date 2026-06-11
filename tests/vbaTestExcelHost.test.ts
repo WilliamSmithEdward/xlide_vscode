@@ -66,11 +66,12 @@ describe('VBA test Excel host script', () => {
         expect(script).not.toContain('[uint32]$exception.HResult');
         expect(script).toContain('XlideTestRuntime');
         expect(script).toContain('HRESULT: ');
-        expect(script).toContain('0x800A9C68');
-        expect(script).toContain('0x800706BE');
-        expect(script).toContain('0x800706BA');
-        expect(script).toContain('Excel could not run the test macro');
-        expect(script).toContain('Excel automation became unavailable while running the test');
+        // Friendly wording for known HRESULTs lives in vbaTestFailureMessages.ts only.
+        expect(script).not.toContain('0x800A9C68');
+        expect(script).not.toContain('0x800706BE');
+        expect(script).not.toContain('0x800706BA');
+        expect(script).not.toContain('Excel could not run the test macro');
+        expect(script).not.toContain('Excel automation became unavailable while running the test');
         expect(script).not.toContain('InvocationInfo.PositionMessage');
         expect(script).toContain('$message = "RUN_FAILED|" + (Format-XlideVbaRunResult $vbaRunResult)');
         expect(script).toContain('$errorNumber = Convert-XlideNullableInt $vbaRunResult.number');
