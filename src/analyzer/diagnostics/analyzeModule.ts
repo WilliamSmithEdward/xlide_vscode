@@ -35,7 +35,6 @@ import {
 	bareAssignmentTarget,
 	blockHeaderLineSpan,
 	declaredNameSpan,
-	firstExecutableTokenIndex,
 	firstTokenSpan,
 	forEachProcedureBodyLine,
 	forEachStatement,
@@ -48,7 +47,6 @@ import {
 	setAssignmentTarget,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
-	stripHeaderBrackets,
 	tokenName,
 	tokenText,
 	topLevelOperatorIndex,
@@ -56,11 +54,9 @@ import {
 import {
 	callableAcceptsZeroArguments,
 	extractCall,
-	extractQualifiedCall,
 	isNamedSlot,
 	splitArgSlots,
 	type CallArguments,
-	type CallableParamType,
 	type CallableTypeSignature,
 } from './callExtraction';
 import {
@@ -70,24 +66,15 @@ import {
 } from './constExpr';
 import {
 	bareCallableSourceShadowed,
-	buildModuleTypeSignatures,
 	callableSignatureFor,
-	callableSignatureForCall,
 	callableTypeSignaturesFor,
 	declarationShapeEnvironmentFor,
 	declaredShapeForSourceBinding,
 	declaredTypeForSourceBinding,
-	declaredValueTypeForQualifiedSourceBinding,
-	declaredValueTypeForSourceBinding,
-	incompatibilityReason,
-	inferArgumentType,
 	isKnownObjectAssignmentType,
 	isKnownScalarType,
 	isNonCallableSymbol,
-	namedArgumentSlot,
-	nonnumericStringArithmeticOperand,
 	normalizeType,
-	objectAssignmentIncompatibilityReason,
 	resolveExactMemberCompletion,
 	runtimeCallableSourceShadowed,
 	scopedIntegerConstantLookup,
@@ -100,7 +87,6 @@ import {
 	type SourceDeclaredType,
 	type SourceDeclaredTypeResolver,
 	type SourceNameScope,
-	type SourceQualifiedDeclaredTypeResolver,
 } from './typeInference';
 import { detectEol, VBA_IDENTIFIER_NAME_RE } from '../../vbaSourceScan';
 import {
@@ -226,6 +212,12 @@ import {
 	checkRuntimeArgumentValues,
 	checkRuntimeConversionValues,
 } from './rules/runtimeValues';
+import {
+	checkAssignmentTypes,
+	checkConstAssignment,
+	checkMissingReturnAssignments,
+	checkSetAssignments,
+} from './rules/assignments';
 
 /** Resolves the effective severity of a rule, or undefined when switched off. */
 function severityOf(
@@ -486,96 +478,6 @@ function meHostTypeFor(
 		return undefined;
 	}
 	return moduleName.toLowerCase() === 'thisworkbook' ? 'Excel.Workbook' : undefined;
-}
-
-/**
- * Rule: assigning to a constant is illegal. High-confidence form only - the
- * left-hand side must be a bare identifier (no member access, no index) that
- * resolves to a Const declared at module level or in the enclosing procedure.
- */
-function checkConstAssignment(
-	source: string,
-	mod: ModuleNode,
-	symbols: ReturnType<typeof buildModuleSymbols>,
-	activity: ConditionalActivityTracker | undefined,
-	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
-		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
-			const hit = bareAssignmentTarget(source, stmt.span);
-			if (!hit) {
-				return;
-			}
-			const binding = sourceIdentifierBinding(
-				symbols,
-				procSym,
-				projectVisibleSymbols,
-				hit.name,
-				'assignmentTarget',
-			);
-			if (
-				binding.scope !== 'ambiguous' &&
-				binding.definitions.some((definition) => definition.kind === 'constant')
-			) {
-				push(
-					'constAssignment',
-					`Cannot assign to constant '${hit.name}'.`,
-					hit.span,
-				);
-			}
-		}, activity);
-	}
-}
-
-function memberAssignmentTarget(
-	source: string,
-	span: Span,
-): {
-	member: string;
-	label: string;
-	memberSpan: Span;
-	valueTokens: VbaToken[];
-	usesSet: boolean;
-} | undefined {
-	const toks = statementTokens(source, span);
-	let i = firstExecutableTokenIndex(toks);
-	const usesSet = tokenText(toks[i]) === 'set';
-	if (usesSet || tokenText(toks[i]) === 'let') {
-		i++;
-	}
-	const eq = topLevelOperatorIndex(toks.slice(i), '=');
-	if (eq < 0) {
-		return undefined;
-	}
-	const equalsIndex = i + eq;
-	const lhs = toks.slice(i, equalsIndex);
-	if (lhs.length < 2) {
-		return undefined;
-	}
-	const memberTok = lhs[lhs.length - 1];
-	if (!tokenName(memberTok) || lhs[lhs.length - 2]?.rawText !== '.') {
-		return undefined;
-	}
-	if (lhs.some((tok) => tok.kind === 'operator' && tok.rawText === '=')) {
-		return undefined;
-	}
-	return {
-		member: tokenName(memberTok)!,
-		label: source
-			.slice(span.start + lhs[0].start, span.start + memberTok.end)
-			.trim(),
-		memberSpan: {
-			start: span.start + memberTok.start,
-			end: span.start + memberTok.end,
-		},
-		valueTokens: toks.slice(equalsIndex + 1),
-		usesSet,
-	};
 }
 
 function checkMemberNotFound(
@@ -927,192 +829,6 @@ function checkUnbalancedParens(source: string, push: PushFn): void {
 	flush();
 }
 
-function checkAssignmentTypes(
-	source: string,
-	mod: ModuleNode,
-	symbols: ReturnType<typeof buildModuleSymbols>,
-	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
-	push: PushFn,
-): void {
-	const moduleSignatures = buildModuleTypeSignatures(symbols);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
-		const env = typeEnvironmentFor(symbols, member);
-		const shapes = declarationShapeEnvironmentFor(symbols, member);
-		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		const procSym = procedureSymbolFor(symbols, member);
-		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
-			symbols,
-			procSym,
-			projectVisibleSymbols,
-			name,
-		);
-		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
-			declaredValueTypeForQualifiedSourceBinding(
-				symbols,
-				projectVisibleSymbols,
-				qualifier,
-				name,
-			);
-		forEachStatement(member.body, (stmt) => {
-			const assignment = bareAssignmentTarget(source, stmt.span);
-			if (!assignment) {
-				return;
-			}
-			const targetType = declaredTypeForSourceBinding(
-				symbols,
-				procSym,
-				projectVisibleSymbols,
-				assignment.name,
-				'assignmentTarget',
-			);
-			const expected = targetType.resolved
-				? targetType.asType
-				: env.get(assignment.name.toLowerCase());
-			if (!expected) {
-				return;
-			}
-			if (isKnownObjectAssignmentType(expected, memberCtx)) {
-				push(
-					'setRequired',
-					`Object assignment to '${assignment.name}' requires Set because it is declared as ${expected}.`,
-					assignment.span,
-				);
-				return;
-			}
-			const arraySource = arrayAssignmentToScalarSource(
-				assignment,
-				stmt.span.start,
-				expected,
-				shapes,
-				(name) => declaredShapeForSourceBinding(
-					symbols,
-					procSym,
-					projectVisibleSymbols,
-					name,
-					'assignmentTarget',
-				),
-				(name) => declaredShapeForSourceBinding(
-					symbols,
-					procSym,
-					projectVisibleSymbols,
-					name,
-					'expression',
-				),
-			);
-			if (arraySource) {
-				push(
-					'arrayAssignmentToScalar',
-					`Array variable '${arraySource.name}' cannot be assigned to scalar '${assignment.name}'. Assign an array element or use a Variant/array target.`,
-					arraySource.span,
-				);
-				return;
-			}
-			const stringArithmetic = nonnumericStringArithmeticOperand(
-				expected,
-				assignment.valueTokens,
-				stmt.span.start,
-			);
-			if (stringArithmetic) {
-				push(
-					'stringArithmeticCoercion',
-					`Assignment to '${assignment.name}' expects ${expected}, but this numeric expression contains ${stringArithmetic.label}. This will raise Run-time error '13': Type mismatch.`,
-					stringArithmetic.span,
-				);
-				return;
-			}
-			const actual = inferArgumentType(
-				assignment.valueTokens,
-				stmt.span.start,
-				env,
-				moduleSignatures,
-				sourceNames,
-				source,
-				memberCtx,
-				resolveExpressionType,
-				resolveQualifiedExpressionType,
-			);
-			if (!actual) {
-				return;
-			}
-			const reason = incompatibilityReason(expected, actual);
-			if (!reason) {
-				return;
-			}
-			push(
-				'assignmentTypeMismatch',
-				`Assignment to '${assignment.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
-				actual.span,
-			);
-		}, activity);
-		checkMemberAssignmentTypes(
-			source,
-			member,
-			env,
-			moduleSignatures,
-			sourceNames,
-			memberCtx,
-			activity,
-			push,
-			resolveExpressionType,
-			resolveQualifiedExpressionType,
-		);
-	}
-}
-
-function arrayAssignmentToScalarSource(
-	assignment: { name: string; valueTokens: VbaToken[] },
-	baseOffset: number,
-	expectedType: string,
-	shapes: ReadonlyMap<string, DeclaredValueShape>,
-	resolveTargetShape?: (name: string) => SourceDeclaredShape,
-	resolveSourceShape?: (name: string) => SourceDeclaredShape,
-): { name: string; span: Span } | undefined {
-	if (!isKnownScalarAssignmentTarget(assignment.name, expectedType, shapes, resolveTargetShape)) {
-		return undefined;
-	}
-	if (assignment.valueTokens.length !== 1) {
-		return undefined;
-	}
-	const tok = assignment.valueTokens[0];
-	const sourceName = tokenName(tok);
-	if (!sourceName) {
-		return undefined;
-	}
-	const resolvedSourceShape = resolveSourceShape?.(sourceName);
-	const sourceShape = resolvedSourceShape?.resolved
-		? resolvedSourceShape.shape
-		: shapes.get(sourceName.toLowerCase());
-	if (!sourceShape?.isArray) {
-		return undefined;
-	}
-	return {
-		name: sourceName,
-		span: { start: baseOffset + tok.start, end: baseOffset + tok.end },
-	};
-}
-
-function isKnownScalarAssignmentTarget(
-	name: string,
-	expectedType: string,
-	shapes: ReadonlyMap<string, DeclaredValueShape>,
-	resolveShape?: (name: string) => SourceDeclaredShape,
-): boolean {
-	const resolvedTargetShape = resolveShape?.(name);
-	const targetShape = resolvedTargetShape?.resolved
-		? resolvedTargetShape.shape
-		: shapes.get(name.toLowerCase());
-	if (targetShape?.isArray) {
-		return false;
-	}
-	const normalized = normalizeType(targetShape?.asType ?? expectedType);
-	return !!normalized && isKnownScalarType(normalized);
-}
-
 function checkArrayBoundIntrinsicArguments(
 	source: string,
 	mod: ModuleNode,
@@ -1210,321 +926,6 @@ function arrayBoundScalarArguments(
 		});
 	}
 	return hits;
-}
-
-/**
- * Rule: a Function/Property Get returns through its hidden return variable.
- * Falling through without assigning that variable is legal VBA, but it silently
- * returns the default value. XLIDE only surfaces this for untyped returns, where
- * the implicit Variant fallthrough is more likely to be accidental than an
- * intentional typed default value.
- */
-function checkMissingReturnAssignments(
-	source: string,
-	mod: ModuleNode,
-	symbols: ReturnType<typeof buildModuleSymbols>,
-	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
-	activity: ConditionalActivityTracker | undefined,
-	push: PushFn,
-): void {
-	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (
-			member.kind !== 'Procedure' ||
-			(member.procKind !== 'Function' && member.procKind !== 'PropertyGet')
-		) {
-			continue;
-		}
-		if (!member.closed) {
-			continue;
-		}
-		if (member.returnType) {
-			continue;
-		}
-		if (procedureHasReturnAssignment(source, member, activity, moduleSignatures)) {
-			continue;
-		}
-		const procLabel = member.procKind === 'PropertyGet' ? 'Property Get' : 'Function';
-		push(
-			'missingReturnAssignment',
-			`${procLabel} '${member.name}' has no return assignment; VBA will return the default value. Assign to '${member.name}' before exit if a value is intended.`,
-			declaredNameSpan(source, member.span, member.name),
-		);
-	}
-}
-
-function procedureHasReturnAssignment(
-	source: string,
-	proc: ProcedureNode,
-	activity: ConditionalActivityTracker | undefined,
-	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
-): boolean {
-	const lower = proc.name.toLowerCase();
-	let found = false;
-	forEachStatement(proc.body, (stmt) => {
-		if (found) {
-			return;
-		}
-		const bare = bareAssignmentTarget(source, stmt.span);
-		if (bare?.name.toLowerCase() === lower) {
-			found = true;
-			return;
-		}
-		const set = setAssignmentTarget(source, stmt.span);
-		if (set?.name.toLowerCase() === lower) {
-			found = true;
-			return;
-		}
-		const call = extractCall(source, stmt.span);
-		const qualifiedCall = call
-			? undefined
-			: extractQualifiedCall(source, stmt.span, moduleSignatures);
-		const effectiveCall = call ?? qualifiedCall;
-		if (effectiveCall && callPassesNameToByRefParam(effectiveCall, lower, moduleSignatures)) {
-			found = true;
-		}
-	}, activity);
-	return found;
-}
-
-function callPassesNameToByRefParam(
-	call: CallArguments,
-	lowerName: string,
-	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
-): boolean {
-	const sig = callableSignatureForCall(call, moduleSignatures);
-	if (!sig) {
-		return false;
-	}
-	let positionalIndex = 0;
-	for (const slot of call.slots) {
-		const named = namedArgumentSlot(slot);
-		let param: CallableParamType | undefined;
-		let valueSlot = slot;
-		if (named) {
-			param = sig.params.find((p) => stripHeaderBrackets(p.name).toLowerCase() === named.name.toLowerCase());
-			valueSlot = named.value;
-		} else {
-			param = sig.params[Math.min(positionalIndex, sig.params.length - 1)];
-			positionalIndex++;
-		}
-		if (!param?.byRef || !singleSlotNameEquals(valueSlot, lowerName)) {
-			continue;
-		}
-		return true;
-	}
-	return false;
-}
-
-function singleSlotNameEquals(slot: readonly VbaToken[], lowerName: string): boolean {
-	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-	return toks.length === 1 && tokenName(toks[0])?.toLowerCase() === lowerName;
-}
-
-function checkMemberAssignmentTypes(
-	source: string,
-	member: ProcedureNode,
-	env: ReadonlyMap<string, string>,
-	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
-	sourceNames: SourceNameScope,
-	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
-	push: PushFn,
-	resolveExpressionType?: SourceDeclaredTypeResolver,
-	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
-): void {
-	if (!memberCtx.projectClassMembers || memberCtx.projectClassMembers.length === 0) {
-		return;
-	}
-	forEachStatement(member.body, (stmt) => {
-		const assignment = memberAssignmentTarget(source, stmt.span);
-		if (!assignment) {
-			return;
-		}
-		const target = resolveExactMemberCompletion(
-			source,
-			assignment.member,
-			assignment.memberSpan.end,
-			memberCtx,
-		);
-		if (!target || target.writable === undefined) {
-			return;
-		}
-		if (target.writable === false) {
-			push(
-				'readonlyMemberAssignment',
-				`Cannot assign to read-only property '${assignment.label}'.`,
-				assignment.memberSpan,
-			);
-			return;
-		}
-		const expected = target.writeType ?? target.returns;
-		if (assignment.usesSet) {
-			if (expected && isKnownScalarType(normalizeType(expected) ?? '')) {
-				push(
-					'setRequiresObject',
-					`Set assignment requires an object-valued target, but '${assignment.label}' expects ${expected}.`,
-					assignment.memberSpan,
-				);
-				return;
-			}
-			const actual = inferArgumentType(
-				assignment.valueTokens,
-				stmt.span.start,
-				env,
-				moduleSignatures,
-				sourceNames,
-				source,
-				memberCtx,
-				resolveExpressionType,
-				resolveQualifiedExpressionType,
-			);
-			const reason = objectAssignmentIncompatibilityReason(
-				expected,
-				actual,
-				memberCtx,
-			);
-			if (reason) {
-				push(
-					'assignmentObjectTypeMismatch',
-					`Object assignment to '${assignment.label}' expects ${expected}, but got ${actual?.label}. ${reason}`,
-					actual?.span ?? assignment.memberSpan,
-				);
-			}
-			return;
-		}
-		if (isKnownObjectAssignmentType(expected, memberCtx)) {
-			push(
-				'setRequired',
-				`Object assignment to '${assignment.label}' requires Set because it expects ${expected}.`,
-				assignment.memberSpan,
-			);
-			return;
-		}
-		if (!expected || normalizeType(expected) === 'object') {
-			return;
-		}
-		const stringArithmetic = nonnumericStringArithmeticOperand(
-			expected,
-			assignment.valueTokens,
-			stmt.span.start,
-		);
-		if (stringArithmetic) {
-			push(
-				'stringArithmeticCoercion',
-				`Assignment to '${assignment.label}' expects ${expected}, but this numeric expression contains ${stringArithmetic.label}. This will raise Run-time error '13': Type mismatch.`,
-				stringArithmetic.span,
-			);
-			return;
-		}
-		const actual = inferArgumentType(
-			assignment.valueTokens,
-			stmt.span.start,
-			env,
-			moduleSignatures,
-			sourceNames,
-			source,
-			memberCtx,
-			resolveExpressionType,
-			resolveQualifiedExpressionType,
-		);
-		if (!actual) {
-			return;
-		}
-		const reason = incompatibilityReason(expected, actual);
-		if (!reason) {
-			return;
-		}
-		push(
-			'assignmentTypeMismatch',
-			`Assignment to '${assignment.label}' expects ${expected}, but got ${actual.label}. ${reason}`,
-			actual.span,
-		);
-	}, activity);
-}
-
-function checkSetAssignments(
-	source: string,
-	mod: ModuleNode,
-	symbols: ReturnType<typeof buildModuleSymbols>,
-	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
-	push: PushFn,
-): void {
-	const moduleSignatures = buildModuleTypeSignatures(symbols);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
-		const env = typeEnvironmentFor(symbols, member);
-		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		const procSym = procedureSymbolFor(symbols, member);
-		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
-			symbols,
-			procSym,
-			projectVisibleSymbols,
-			name,
-		);
-		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
-			declaredValueTypeForQualifiedSourceBinding(
-				symbols,
-				projectVisibleSymbols,
-				qualifier,
-				name,
-			);
-		forEachStatement(member.body, (stmt) => {
-			const target = setAssignmentTarget(source, stmt.span);
-			if (!target) {
-				return;
-			}
-			const targetDeclaredType = declaredTypeForSourceBinding(
-				symbols,
-				procSym,
-				projectVisibleSymbols,
-				target.name,
-				'assignmentTarget',
-			);
-			const expected = targetDeclaredType.resolved
-				? targetDeclaredType.asType
-				: env.get(target.name.toLowerCase());
-			const targetType = normalizeType(expected);
-			if (!targetType || !isKnownScalarType(targetType)) {
-				if (!isKnownObjectAssignmentType(expected, memberCtx)) {
-					return;
-				}
-				const actual = inferArgumentType(
-					target.valueTokens,
-					stmt.span.start,
-					env,
-					moduleSignatures,
-					sourceNames,
-					source,
-					memberCtx,
-					resolveExpressionType,
-					resolveQualifiedExpressionType,
-				);
-				const reason = objectAssignmentIncompatibilityReason(
-					expected,
-					actual,
-					memberCtx,
-				);
-				if (reason) {
-					push(
-						'assignmentObjectTypeMismatch',
-						`Object assignment to '${target.name}' expects ${expected}, but got ${actual?.label}. ${reason}`,
-						actual?.span ?? target.span,
-					);
-				}
-				return;
-			}
-			push(
-				'setRequiresObject',
-				`Set assignment requires an object variable, but '${target.name}' is declared as ${expected}.`,
-				target.span,
-			);
-		}, activity);
-	}
 }
 
 function checkScalarMemberAccess(
