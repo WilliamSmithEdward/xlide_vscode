@@ -9,10 +9,8 @@ import {
 import { type ExportMode } from './workbookSettings';
 import { setWorkbookModuleSyncExportMode } from './workbookModuleSyncSettings';
 import { analyzeWorkbook } from './vbaWorkbookAnalysis';
-import { checkExcelComAvailability } from './excelComAvailability';
-import { runWorkbookVbaTests } from './vbaTestExecution';
-import { getVbaTestSupportStatus } from './vbaTestSupportStatus';
-import { writeAgentVbaTestArtifacts } from './agentVbaTestArtifacts';
+import { executeVbaTestRun } from './vbaTestRunPipeline';
+import { agentVbaTestArtifactPayloadFromPipeline } from './agentVbaTestArtifacts';
 import {
     describeVbaTestSelection,
     summarizeVbaTestRun,
@@ -331,38 +329,33 @@ export function registerAgentTools(
             async invoke(options, _token) {
                 const { filePath, failFast, includeHostEvents } = options.input;
                 const selection = vbaTestSelectionFromInput(options.input);
-                const support = await getVbaTestSupportStatus(bridge, filePath);
-                if (!support.canRun) {
+                const result = await executeVbaTestRun(bridge, filePath, { selection, failFast });
+                if (result.kind === 'blocked-support') {
                     return textResult(JSON.stringify({
                         ok: false,
                         blocked: true,
                         reason: 'test-support',
                         filePath,
-                        support,
+                        support: result.support,
                     }, null, 2));
                 }
-
-                const runtime = await checkExcelComAvailability();
-                if (!runtime.canRun) {
+                if (result.kind === 'blocked-com') {
                     return textResult(JSON.stringify({
                         ok: false,
                         blocked: true,
                         reason: 'excel-com',
                         filePath,
-                        runtime,
+                        runtime: result.runtime,
                     }, null, 2));
                 }
 
-                const execution = await runWorkbookVbaTests(bridge, filePath, {
-                    selection,
-                    failFast,
-                });
+                const { execution } = result;
                 const summary = summarizeVbaTestRun(execution.report);
                 const ok = summary.failed === 0 &&
                     summary.timeout === 0 &&
                     summary.hostError === 0 &&
                     summary.xpass === 0;
-                const artifacts = await writeAgentVbaTestArtifacts(execution.report, execution.hostEvents);
+                const artifacts = agentVbaTestArtifactPayloadFromPipeline(result.artifacts);
                 return textResult(JSON.stringify({
                     ok,
                     summary,

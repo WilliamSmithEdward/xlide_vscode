@@ -45,10 +45,8 @@ vi.mock('../src/xlideFileSystem', () => ({
 vi.mock('../src/moduleExport', () => ({ exportWorkbookModules: vi.fn() }));
 vi.mock('../src/workbookModuleSyncSettings', () => ({ setWorkbookModuleSyncExportMode: vi.fn() }));
 vi.mock('../src/vbaWorkbookAnalysis', () => ({ analyzeWorkbook: vi.fn() }));
-vi.mock('../src/excelComAvailability', () => ({ checkExcelComAvailability: vi.fn() }));
-vi.mock('../src/vbaTestExecution', () => ({ runWorkbookVbaTests: vi.fn() }));
-vi.mock('../src/vbaTestSupportStatus', () => ({ getVbaTestSupportStatus: vi.fn() }));
-vi.mock('../src/agentVbaTestArtifacts', () => ({ writeAgentVbaTestArtifacts: vi.fn() }));
+vi.mock('../src/vbaTestRunPipeline', () => ({ executeVbaTestRun: vi.fn() }));
+vi.mock('../src/agentVbaTestArtifacts', () => ({ agentVbaTestArtifactPayloadFromPipeline: vi.fn() }));
 vi.mock('../src/vbaTestRunner', () => ({
     describeVbaTestSelection: vi.fn(() => ''),
     summarizeVbaTestRun: vi.fn(),

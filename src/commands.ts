@@ -44,12 +44,8 @@ import {
     type VbaTestRunReport,
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
-import {
-    runWorkbookVbaTests,
-    type VbaTestRunExecution,
-    type VbaTestRunOptions,
-} from './vbaTestExecution';
-import { writeVbaTestRunArtifacts } from './vbaTestArtifacts';
+import { type VbaTestRunOptions } from './vbaTestExecution';
+import { executeVbaTestRun } from './vbaTestRunPipeline';
 import { openVbaTestResults, setVbaTestResultsRunning } from './vbaTestResultsWebview';
 import { checkExcelComAvailability } from './excelComAvailability';
 import {
@@ -647,55 +643,44 @@ export function registerCommands(
         const runScope = selectionDescription ? ` (${selectionDescription})` : '';
         let resultsPanelRunning = false;
         try {
-            const support = await vbaTestSupportStatus(filePath);
-            if (!support.canRun) {
+            const result = await executeVbaTestRun(bridge, filePath, {
+                ...options,
+                log,
+                runTests: (run) => {
+                    resultsPanelRunning = true;
+                    setVbaTestResultsRunning(filePath, true);
+                    return vscode.window.withProgress(
+                        {
+                            location: vscode.ProgressLocation.Notification,
+                            title: `XLIDE: Running VBA tests${runScope} for "${name}"...`,
+                            cancellable: false,
+                        },
+                        (progress) => run(progress),
+                    );
+                },
+            });
+            if (result.kind === 'blocked-support') {
                 openVbaTestsForWorkbook(filePath);
                 void vscode.window.showWarningMessage(
                     `XLIDE: Install XlideAssert.bas from the Unit Tests GUI before running tests for "${name}".`,
                 );
                 return;
             }
-            const runtime = await checkExcelComAvailability();
-            if (!runtime.canRun) {
+            if (result.kind === 'blocked-com') {
                 openVbaTestsForWorkbook(filePath);
-                void vscode.window.showWarningMessage(`XLIDE: ${runtime.description}`);
+                void vscode.window.showWarningMessage(`XLIDE: ${result.runtime.description}`);
                 return;
             }
-            resultsPanelRunning = true;
-            setVbaTestResultsRunning(filePath, true);
-            let execution: VbaTestRunExecution | undefined;
-            await vscode.window.withProgress(
-                {
-                    location: vscode.ProgressLocation.Notification,
-                    title: `XLIDE: Running VBA tests${runScope} for "${name}"...`,
-                    cancellable: false,
-                },
-                async (progress) => {
-                    execution = await runWorkbookVbaTests(bridge, filePath, {
-                        ...options,
-                        progress,
-                        log,
-                    });
-                },
-            );
-            if (!execution) {
-                return;
-            }
-            const { report, hostEvents } = execution;
+            const { report } = result.execution;
             log(`[runVbaTests] Report JSON:\n${JSON.stringify(report, null, 2)}`);
-            try {
-                const testSettings = await effectiveWorkbookTestSettings(filePath);
-                const artifacts = await writeVbaTestRunArtifacts(report, hostEvents, {
-                    outputFolder: testSettings.artifactFolder,
-                    retention: testSettings.artifactRetention,
-                });
+            if (result.artifacts.ok) {
+                const { artifacts, settings } = result.artifacts;
                 log(`[runVbaTests] Artifacts written to ${artifacts.runDirectory}`);
                 log(`[runVbaTests] CI status written to ${artifacts.statusPath}`);
-                log(`[runVbaTests] Artifact settings source folder=${testSettings.artifactFolderSource} retention=${testSettings.artifactRetentionSource}`);
-            } catch (err) {
-                const message = errorMessage(err);
-                log(`[runVbaTests] Artifact write failed: ${message}`);
-                void vscode.window.showWarningMessage(`XLIDE: VBA test artifacts could not be written: ${message}`);
+                log(`[runVbaTests] Artifact settings source folder=${settings.artifactFolderSource} retention=${settings.artifactRetentionSource}`);
+            } else {
+                log(`[runVbaTests] Artifact write failed: ${result.artifacts.error}`);
+                void vscode.window.showWarningMessage(`XLIDE: VBA test artifacts could not be written: ${result.artifacts.error}`);
             }
             updateLastFailedVbaTestRun(report);
             openVbaTestResults(context, report, {
