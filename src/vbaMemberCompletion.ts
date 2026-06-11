@@ -16,7 +16,6 @@ import {
 	isVbaDocument,
 } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
-import { procedureHeaderParensEdit } from './vbaSmartEnter';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
 	DocRegistry,
@@ -27,11 +26,6 @@ import {
 	MemberCompletion,
 	materializeKeywordSnippet,
 	callableCompletionShouldInsertParens,
-	type CanonicalCaseContext,
-	type CanonicalCaseEdit,
-	canonicalCaseBoundaryKind,
-	resolveCanonicalCaseEdit,
-	resolveCanonicalCaseEdits,
 	resolveEventHandlerCompletions,
 	resolveIdentifierCompletions,
 	resolveKeywordCompletions,
@@ -43,6 +37,7 @@ import {
 	type VbaProcedureLabelCompletion,
 } from './analyzer';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
+import { VbaCanonicalCaseController } from './vbaCanonicalCaseController';
 import {
 	VbaEditorProjectContextService,
 	toEventHandlerCompletionContext,
@@ -59,24 +54,9 @@ import { startPerformanceTrace } from './performanceTrace';
 
 const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
-const MAX_PENDING_CANONICAL_CASE_REQUESTS = 16;
-const CANONICAL_LINE_IDLE_DELAY_MS = 200;
 const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
 
-type CanonicalCaseRequest = {
-	document: vscode.TextDocument;
-	editorHint?: vscode.TextEditor;
-	resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[];
-};
-
-interface CanonicalLineOptions {
-	completeProcedureHeader?: boolean;
-}
-
 class VbaMemberCompletionProvider implements vscode.CompletionItemProvider {
-	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
-	private _applyingCanonicalCase = false;
-
 	constructor(
 		private readonly _projectContext: VbaEditorProjectContextService,
 	) {}
@@ -210,113 +190,6 @@ class VbaMemberCompletionProvider implements vscode.CompletionItemProvider {
 			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		];
-	}
-
-	async applyCanonicalCase(
-		document: vscode.TextDocument,
-		candidateEnd: vscode.Position,
-		editorHint?: vscode.TextEditor,
-	): Promise<void> {
-		await this._applyCanonicalCaseEdits(document, editorHint, (source, ctx) => {
-			const offset = document.offsetAt(candidateEnd);
-			const edit = resolveCanonicalCaseEdit(source, offset, ctx);
-			return edit ? [edit] : [];
-		});
-	}
-
-	async applyCanonicalCaseForLine(
-		document: vscode.TextDocument,
-		lineNumber: number,
-		editorHint?: vscode.TextEditor,
-		options: CanonicalLineOptions = {},
-	): Promise<void> {
-		if (lineNumber < 0 || lineNumber >= document.lineCount) {
-			return;
-		}
-		await this._applyCanonicalCaseEdits(document, editorHint, (source, ctx) => {
-			if (lineNumber >= document.lineCount) {
-				return [];
-			}
-			const line = document.lineAt(lineNumber);
-			const start = document.offsetAt(line.range.start);
-			const end = document.offsetAt(line.range.end);
-			const edits = resolveCanonicalCaseEdits(source, { start, end }, ctx);
-			if (options.completeProcedureHeader) {
-				const headerEdit = procedureHeaderParensEdit(line.text);
-				if (headerEdit) {
-					edits.push({
-						start: start + headerEdit.startCol,
-						end: start + headerEdit.endCol,
-						text: headerEdit.newText,
-					});
-				}
-			}
-			return edits;
-		});
-	}
-
-	private async _applyCanonicalCaseEdits(
-		document: vscode.TextDocument,
-		editorHint: vscode.TextEditor | undefined,
-		resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[],
-	): Promise<void> {
-		if (this._applyingCanonicalCase) {
-			this._enqueueCanonicalCaseRequest({ document, editorHint, resolveEdits });
-			return;
-		}
-		this._applyingCanonicalCase = true;
-		try {
-			const editor = editorHint?.document === document
-				? editorHint
-				: vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);
-			if (!editor || editor.document !== document) {
-				return;
-			}
-			const source = document.getText();
-			const projectCtx = this._projectContext.cachedEditorProjectContext(document) ?? {};
-			const edits = resolveEdits(source, {
-				member: toMemberCompletionContext(projectCtx),
-				identifier: toIdentifierCompletionContext(projectCtx),
-				type: toTypeCompletionContext(projectCtx),
-			}).filter((edit) => {
-				const range = new vscode.Range(
-					document.positionAt(edit.start),
-					document.positionAt(edit.end),
-				);
-				return document.getText(range) !== edit.text;
-			});
-			if (edits.length === 0) {
-				return;
-			}
-			await editor.edit((builder) => {
-				for (const edit of edits) {
-					builder.replace(
-						new vscode.Range(
-							document.positionAt(edit.start),
-							document.positionAt(edit.end),
-						),
-						edit.text,
-					);
-				}
-			}, {
-				undoStopBefore: false,
-				undoStopAfter: false,
-			});
-		} finally {
-			this._applyingCanonicalCase = false;
-			const next = this._pendingCanonicalCaseRequests.shift();
-			if (next) {
-				void this._applyCanonicalCaseEdits(next.document, next.editorHint, next.resolveEdits);
-			}
-		}
-	}
-
-	private _enqueueCanonicalCaseRequest(request: CanonicalCaseRequest): void {
-		this._pendingCanonicalCaseRequests.push(request);
-		const overflow = this._pendingCanonicalCaseRequests.length - MAX_PENDING_CANONICAL_CASE_REQUESTS;
-		if (overflow > 0) {
-			this._pendingCanonicalCaseRequests.splice(0, overflow);
-		}
 	}
 
 	private _toItem(
@@ -604,102 +477,16 @@ export function registerVbaMemberCompletion(
 	const projectContext = new VbaEditorProjectContextService(projectIndexService);
 	const provider = new VbaMemberCompletionProvider(projectContext);
 	const hoverSignature = new VbaHoverSignatureProvider(projectContext, docs);
+	const canonicalCase = new VbaCanonicalCaseController(projectContext);
 	ACTIVE_MEMBER_COMPLETION_PROVIDERS.add(provider);
 	context.subscriptions.push({
 		dispose: () => ACTIVE_MEMBER_COMPLETION_PROVIDERS.delete(provider),
 	});
-	let lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
 	let activeKeywordSnippet:
 		| { editor: vscode.TextEditor; documentKey: string; textChangeSerialAtAccept: number }
 		| undefined;
 	let textChangeSerial = 0;
 	const lastTextChange = new Map<string, { at: number; serial: number }>();
-	const canonicalLineTimers = new Map<string, ReturnType<typeof setTimeout>>();
-	const userTouchedCanonicalLines = new Set<string>();
-	const editorHintFor = (document: vscode.TextDocument): vscode.TextEditor | undefined => {
-		const active = vscode.window.activeTextEditor;
-		return active?.document === document ? active : undefined;
-	};
-	const canonicalLineKey = (document: vscode.TextDocument, lineNumber: number): string =>
-		`${document.uri.toString()}\n${lineNumber}`;
-	const canonicalLineWasTouched = (document: vscode.TextDocument, lineNumber: number): boolean =>
-		userTouchedCanonicalLines.has(canonicalLineKey(document, lineNumber));
-	const applyCanonicalLine = (
-		document: vscode.TextDocument,
-		lineNumber: number,
-		editorHint?: vscode.TextEditor,
-		options: CanonicalLineOptions = {},
-	): void => {
-		if (!canonicalLineWasTouched(document, lineNumber)) {
-			return;
-		}
-		void provider.applyCanonicalCaseForLine(document, lineNumber, editorHint, options);
-	};
-	const applyCanonicalPosition = (
-		document: vscode.TextDocument,
-		position: vscode.Position,
-		editorHint?: vscode.TextEditor,
-	): void => {
-		if (!canonicalLineWasTouched(document, position.line)) {
-			return;
-		}
-		void provider.applyCanonicalCase(document, position, editorHint);
-	};
-	const scheduleCanonicalLine = (
-		document: vscode.TextDocument,
-		lineNumber: number,
-		editorHint?: vscode.TextEditor,
-		options: CanonicalLineOptions = {},
-		delayMs = 0,
-	): void => {
-		const key = canonicalLineKey(document, lineNumber);
-		const existing = canonicalLineTimers.get(key);
-		if (existing) {
-			clearTimeout(existing);
-		}
-		const timer = setTimeout(() => {
-			canonicalLineTimers.delete(key);
-			if (!isVbaDocument(document)) {
-				return;
-			}
-			applyCanonicalLine(document, lineNumber, editorHint, options);
-		}, delayMs);
-		canonicalLineTimers.set(key, timer);
-	};
-	const clearCanonicalLineTimers = (document: vscode.TextDocument): void => {
-		const prefix = `${document.uri.toString()}\n`;
-		for (const [key, timer] of canonicalLineTimers) {
-			if (!key.startsWith(prefix)) {
-				continue;
-			}
-			clearTimeout(timer);
-			canonicalLineTimers.delete(key);
-		}
-		for (const key of [...userTouchedCanonicalLines]) {
-			if (key.startsWith(prefix)) {
-				userTouchedCanonicalLines.delete(key);
-			}
-		}
-	};
-	const scheduleCanonicalLineIdle = (
-		document: vscode.TextDocument,
-		lineNumber: number,
-		editorHint?: vscode.TextEditor,
-	): void => {
-		scheduleCanonicalLine(document, lineNumber, editorHint, {}, CANONICAL_LINE_IDLE_DELAY_MS);
-	};
-	const flushCanonicalLine = (): void => {
-		const candidate = lastCanonicalCandidate;
-		if (!candidate || !isVbaDocument(candidate.editor.document)) {
-			return;
-		}
-		applyCanonicalLine(
-			candidate.editor.document,
-			candidate.position.line,
-			candidate.editor,
-			{ completeProcedureHeader: true },
-		);
-	};
 	const markTextChange = (document: vscode.TextDocument): void => {
 		if (isVbaDocument(document)) {
 			textChangeSerial += 1;
@@ -759,78 +546,20 @@ export function registerVbaMemberCompletion(
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			markTextChange(event.document);
-			if (!isVbaDocument(event.document)) {
-				return;
-			}
-			const editorHint = editorHintFor(event.document);
-			const touchedLines = new Set<number>();
-			const immediateLines = new Set<number>();
-			for (const change of event.contentChanges) {
-				const lineNumber = Math.min(change.range.start.line, Math.max(0, event.document.lineCount - 1));
-				touchedLines.add(lineNumber);
-				userTouchedCanonicalLines.add(canonicalLineKey(event.document, lineNumber));
-				if (!change.range.isEmpty) {
-					continue;
-				}
-				// Token-boundary characters (space, '(', '=', ...) no longer
-				// resolve casing synchronously inside the change event; the
-				// idle line pass below covers every touched line.
-				if (canonicalCaseBoundaryKind(change.text) === 'line') {
-					immediateLines.add(change.range.start.line);
-					scheduleCanonicalLine(
-						event.document,
-						change.range.start.line,
-						editorHint,
-					);
-				}
-			}
-			for (const lineNumber of touchedLines) {
-				if (immediateLines.has(lineNumber)) {
-					continue;
-				}
-				scheduleCanonicalLineIdle(event.document, lineNumber, editorHint);
-			}
+			canonicalCase.handleTextDocumentChange(event);
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
 			maybeLeaveKeywordSnippet(event);
-			const previous = lastCanonicalCandidate;
-			if (previous && previous.editor !== event.textEditor) {
-				applyCanonicalLine(
-					previous.editor.document,
-					previous.position.line,
-					previous.editor,
-					{ completeProcedureHeader: true },
-				);
-			} else if (previous?.editor === event.textEditor) {
-				const nextPosition = event.textEditor.selection.active;
-				if (previous.position.line !== nextPosition.line) {
-					applyCanonicalLine(
-						previous.editor.document,
-						previous.position.line,
-						previous.editor,
-						{ completeProcedureHeader: true },
-					);
-				} else {
-					applyCanonicalPosition(
-						previous.editor.document,
-						previous.position,
-						previous.editor,
-					);
-				}
-			}
-			lastCanonicalCandidate = canonicalCandidateFromEditor(event.textEditor);
+			canonicalCase.handleSelectionChange(event);
 		}),
 		vscode.window.onDidChangeActiveTextEditor((editor) => {
 			if (activeKeywordSnippet && editor !== activeKeywordSnippet.editor) {
 				activeKeywordSnippet = undefined;
 			}
-			flushCanonicalLine();
-			lastCanonicalCandidate = canonicalCandidateFromEditor(editor);
+			canonicalCase.handleActiveEditorChange(editor);
 		}),
 		vscode.window.onDidChangeWindowState((state) => {
-			if (!state.focused) {
-				flushCanonicalLine();
-			}
+			canonicalCase.handleWindowStateChange(state);
 		}),
 		vscode.languages.registerHoverProvider(selector, hoverSignature),
 		vscode.languages.registerSignatureHelpProvider(
@@ -851,16 +580,7 @@ export function registerVbaMemberCompletion(
 				// Ignore URIs we cannot decode.
 			}
 		}),
-		vscode.workspace.onDidCloseTextDocument(clearCanonicalLineTimers),
+		vscode.workspace.onDidCloseTextDocument((doc) => canonicalCase.handleDocumentClose(doc)),
 	);
-}
-
-function canonicalCandidateFromEditor(
-	editor: vscode.TextEditor | undefined,
-): { editor: vscode.TextEditor; position: vscode.Position } | undefined {
-	if (!editor || !isVbaDocument(editor.document)) {
-		return undefined;
-	}
-	return { editor, position: editor.selection.active };
 }
 
