@@ -17,13 +17,16 @@ import type {
 	VariableGroupNode,
 } from '../parser/nodes';
 
-// `tokenText` is byte-identical to the shared lexer helper `tokenWord`;
-// re-export it so the diagnostics engine keeps one implementation.
-// `statementTokens` comes from the per-pass cache in analysisContext.ts
-// (audit #5) so every rule shares one tokenization per statement.
-export { tokenWord as tokenText } from '../lexer/tokenHelpers';
+// `tokenText` and `matchParenFrom` are byte-identical to the shared lexer
+// helpers (`tokenWord`, `matchParenFrom`); re-export them so the diagnostics
+// engine keeps one implementation. `statementTokens` comes from the per-pass
+// cache in analysisContext.ts (audit #5) so every rule shares one
+// tokenization per statement.
+export { matchParenFrom, tokenWord as tokenText } from '../lexer/tokenHelpers';
 export { statementTokens } from './analysisContext';
+import { tokenWord as tokenText } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
+import { trackedLocalsPassedAsCallArguments } from './dataflow';
 
 export function isInactiveNode(
 	activity: ConditionalActivityTracker | undefined,
@@ -190,6 +193,115 @@ export function stripHeaderBrackets(text: string): string {
 
 export function absoluteSpan(base: Span, token: VbaToken): Span {
 	return { start: base.start + token.start, end: base.start + token.end };
+}
+
+/**
+ * If the statement spanning `span` is a simple assignment to a bare identifier
+ * (`name = ...` or `Let name = ...`), returns that identifier and its span;
+ * otherwise undefined. `Set` (object) assignments and any left-hand side with a
+ * `.` or `(` are excluded so only true scalar-name assignments are considered.
+ */
+export function bareAssignmentTarget(
+	source: string,
+	span: Span,
+): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
+	const toks = statementTokens(source, span);
+	let i = firstExecutableTokenIndex(toks);
+	// Skip an explicit `Let`; bail on `Set` (object assignment).
+	if (toks[i] && toks[i].kind === 'keyword') {
+		const kw = toks[i].rawText.toLowerCase();
+		if (kw === 'set') {
+			return undefined;
+		}
+		if (kw === 'let') {
+			i++;
+		}
+	}
+	const nameTok = toks[i];
+	if (!nameTok || nameTok.kind !== 'identifier') {
+		return undefined; // first token must be a plain identifier LHS
+	}
+	const next = toks[i + 1];
+	if (!next || next.kind !== 'operator' || next.rawText !== '=') {
+		return undefined; // not `name =` (excludes `.`, `(`, `<=`, `<>`, comparisons)
+	}
+	return {
+		name: nameTok.rawText,
+		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
+		valueTokens: toks.slice(i + 2),
+	};
+}
+
+export function setAssignmentTarget(
+	source: string,
+	span: Span,
+): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
+	const toks = statementTokens(source, span);
+	const i = firstExecutableTokenIndex(toks);
+	if (tokenText(toks[i]) !== 'set') {
+		return undefined;
+	}
+	const nameTok = toks[i + 1];
+	const name = nameTok ? tokenName(nameTok) : undefined;
+	if (!nameTok || !name) {
+		return undefined;
+	}
+	const equals = toks[i + 2];
+	if (!equals || equals.kind !== 'operator' || equals.rawText !== '=') {
+		return undefined;
+	}
+	return {
+		name,
+		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
+		valueTokens: toks.slice(i + 3),
+	};
+}
+
+/** Lowercased tracked locals passed as bare call arguments in one statement. */
+export function localsPassedAsCallArguments(
+	source: string,
+	span: Span,
+	tracked: ReadonlyMap<string, unknown>,
+): Set<string> {
+	return trackedLocalsPassedAsCallArguments(
+		statementTokensAfterLeadingLabel(source, span),
+		(lower) => tracked.has(lower),
+	);
+}
+
+export function blockHeaderLineSpan(source: string, span: Span): Span {
+	const nl = firstLineBreakAtOrAfter(source, span.start);
+	if (nl < 0 || nl > span.end) {
+		return span;
+	}
+	return { start: span.start, end: nl };
+}
+
+export function blockFooterLineSpan(source: string, span: Span): Span {
+	let start = span.end;
+	while (start > span.start && source[start - 1] !== '\n' && source[start - 1] !== '\r') {
+		start--;
+	}
+	return { start, end: span.end };
+}
+
+export function declaredNameSpan(source: string, span: Span, name: string): Span {
+	const lower = name.toLowerCase();
+	for (const tok of statementTokens(source, span)) {
+		if (tokenName(tok)?.toLowerCase() === lower) {
+			return absoluteSpan(span, tok);
+		}
+	}
+	return span;
+}
+
+export function firstTokenSpan(source: string, span: Span): Span {
+	const tok = statementTokens(source, span)[0];
+	return tok ? absoluteSpan(span, tok) : span;
+}
+
+export function pluralizeCount(count: number, singular: string): string {
+	return `${count} ${singular}${count === 1 ? '' : 's'}`;
 }
 
 export function physicalLineSpanAtOffset(source: string, offset: number): Span {

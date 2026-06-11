@@ -32,21 +32,27 @@ import {
 	safeInteger,
 	type IntegerConstantLookup,
 } from '../constants/integerConstantExpression';
-import {
-	trackedLocalsPassedAsCallArguments,
-	walkStraightLineBody,
-} from './dataflow';
+import { walkStraightLineBody } from './dataflow';
 import {
 	absoluteSpan,
 	activeModuleMembers,
+	bareAssignmentTarget,
+	blockFooterLineSpan,
+	blockHeaderLineSpan,
+	declaredNameSpan,
 	firstExecutableTokenIndex,
 	firstLineBreakAtOrAfter,
+	firstTokenSpan,
 	forEachBodyStatement,
 	forEachProcedureBodyLine,
 	forEachStatement,
 	forEachVariableGroup,
 	isInactiveNode,
+	localsPassedAsCallArguments,
+	matchParenFrom,
 	physicalLineSpanAtOffset,
+	pluralizeCount,
+	setAssignmentTarget,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	stripHeaderBrackets,
@@ -123,7 +129,6 @@ import {
 } from './typeInference';
 import { detectEol, VBA_IDENTIFIER_NAME_RE } from '../../vbaSourceScan';
 import {
-	getHostMembers,
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
@@ -228,7 +233,11 @@ export type {
 	VbaDiagnosticData,
 	VbaMissingRequiredArgumentPlaceholderData,
 } from './analysisContext';
-import { procedureSymbolFor } from './analysisContext';
+import {
+	applicationMemberNames,
+	isObjectModuleKind,
+	procedureSymbolFor,
+} from './analysisContext';
 import type {
 	AnalyzeModuleOptions,
 	DiagnosticSeverityOverrides,
@@ -507,10 +516,6 @@ function meHostTypeFor(
 		return undefined;
 	}
 	return moduleName.toLowerCase() === 'thisworkbook' ? 'Excel.Workbook' : undefined;
-}
-
-function isObjectModuleKind(moduleKind: ModuleSymbolKind | undefined): boolean {
-	return moduleKind === 'class' || moduleKind === 'document' || moduleKind === 'userform';
 }
 
 /** Rule: a string literal with an odd number of quotes is never closed. */
@@ -833,20 +838,6 @@ function checkDuplicateEnumMembers(
 	}
 }
 
-// Excel injects Application's members into the global scope; several rules
-// need the lowercased member-name set, so build it once on first use.
-let APPLICATION_MEMBER_NAMES: ReadonlySet<string> | undefined;
-
-function applicationMemberNames(): ReadonlySet<string> {
-	if (!APPLICATION_MEMBER_NAMES) {
-		const appType = resolveHostGlobal('Application');
-		APPLICATION_MEMBER_NAMES = new Set(
-			(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
-		);
-	}
-	return APPLICATION_MEMBER_NAMES;
-}
-
 /**
  * Rule: duplicate member names in different Enum blocks compile, but an
  * unqualified read of that shared member name is rejected as "Ambiguous name
@@ -1030,43 +1021,6 @@ function checkConstAssignment(
 			}
 		}, activity);
 	}
-}
-
-/**
- * If the statement spanning `span` is a simple assignment to a bare identifier
- * (`name = ...` or `Let name = ...`), returns that identifier and its span;
- * otherwise undefined. `Set` (object) assignments and any left-hand side with a
- * `.` or `(` are excluded so only true scalar-name assignments are considered.
- */
-function bareAssignmentTarget(
-	source: string,
-	span: Span,
-): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
-	const toks = statementTokens(source, span);
-	let i = firstExecutableTokenIndex(toks);
-	// Skip an explicit `Let`; bail on `Set` (object assignment).
-	if (toks[i] && toks[i].kind === 'keyword') {
-		const kw = toks[i].rawText.toLowerCase();
-		if (kw === 'set') {
-			return undefined;
-		}
-		if (kw === 'let') {
-			i++;
-		}
-	}
-	const nameTok = toks[i];
-	if (!nameTok || nameTok.kind !== 'identifier') {
-		return undefined; // first token must be a plain identifier LHS
-	}
-	const next = toks[i + 1];
-	if (!next || next.kind !== 'operator' || next.rawText !== '=') {
-		return undefined; // not `name =` (excludes `.`, `(`, `<=`, `<>`, comparisons)
-	}
-	return {
-		name: nameTok.rawText,
-		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
-		valueTokens: toks.slice(i + 2),
-	};
 }
 
 function memberAssignmentTarget(
@@ -2307,10 +2261,6 @@ function propertyProcedureLabel(kind: ProcedureNode['procKind']): string {
 		default:
 			return 'Property';
 	}
-}
-
-function pluralizeCount(count: number, singular: string): string {
-	return `${count} ${singular}${count === 1 ? '' : 's'}`;
 }
 
 interface NameTokenHit {
@@ -4004,43 +3954,6 @@ function setAssignmentValueIsNothing(
 	return toks.length === 1 && tokenText(toks[0]) === 'nothing';
 }
 
-/** Lowercased tracked locals passed as bare call arguments in one statement. */
-function localsPassedAsCallArguments(
-	source: string,
-	span: Span,
-	tracked: ReadonlyMap<string, unknown>,
-): Set<string> {
-	return trackedLocalsPassedAsCallArguments(
-		statementTokensAfterLeadingLabel(source, span),
-		(lower) => tracked.has(lower),
-	);
-}
-
-function setAssignmentTarget(
-	source: string,
-	span: Span,
-): { name: string; span: Span; valueTokens: VbaToken[] } | undefined {
-	const toks = statementTokens(source, span);
-	const i = firstExecutableTokenIndex(toks);
-	if (tokenText(toks[i]) !== 'set') {
-		return undefined;
-	}
-	const nameTok = toks[i + 1];
-	const name = nameTok ? tokenName(nameTok) : undefined;
-	if (!nameTok || !name) {
-		return undefined;
-	}
-	const equals = toks[i + 2];
-	if (!equals || equals.kind !== 'operator' || equals.rawText !== '=') {
-		return undefined;
-	}
-	return {
-		name,
-		span: { start: span.start + nameTok.start, end: span.start + nameTok.end },
-		valueTokens: toks.slice(i + 3),
-	};
-}
-
 /**
  * Rule: a code module that contains real code but no `Option Explicit` lets
  * variables be used without declaration. Empty/attribute-only modules are
@@ -4189,22 +4102,6 @@ function forEachUndeclaredReferenceSpan(
 			forEachUndeclaredReferenceSpan(source, node.body, visit, activity);
 		}
 	}
-}
-
-function blockHeaderLineSpan(source: string, span: Span): Span {
-	const nl = firstLineBreakAtOrAfter(source, span.start);
-	if (nl < 0 || nl > span.end) {
-		return span;
-	}
-	return { start: span.start, end: nl };
-}
-
-function blockFooterLineSpan(source: string, span: Span): Span {
-	let start = span.end;
-	while (start > span.start && source[start - 1] !== '\n' && source[start - 1] !== '\r') {
-		start--;
-	}
-	return { start, end: span.end };
 }
 
 function undeclaredReadReferences(
@@ -6178,21 +6075,6 @@ function containsSpan(container: Span, inner: Span): boolean {
 	return inner.start >= container.start && inner.end <= container.end;
 }
 
-function declaredNameSpan(source: string, span: Span, name: string): Span {
-	const lower = name.toLowerCase();
-	for (const tok of statementTokens(source, span)) {
-		if (tokenName(tok)?.toLowerCase() === lower) {
-			return absoluteSpan(span, tok);
-		}
-	}
-	return span;
-}
-
-function firstTokenSpan(source: string, span: Span): Span {
-	const tok = statementTokens(source, span)[0];
-	return tok ? absoluteSpan(span, tok) : span;
-}
-
 function keywordSpan(source: string, span: Span, ...keywords: string[]): Span {
 	const expected = new Set(keywords);
 	const tok = statementTokensAfterLeadingLabel(source, span)
@@ -7186,22 +7068,6 @@ function implicitParenthesizedMemberCall(
 }
 
 /** Index of the `)` matching the `(` at `open`, or -1 if unbalanced. */
-function matchParenFrom(toks: readonly VbaToken[], open: number): number {
-	let depth = 0;
-	for (let k = open; k < toks.length; k++) {
-		const r = toks[k].rawText;
-		if (r === '(') {
-			depth++;
-		} else if (r === ')') {
-			depth--;
-			if (depth === 0) {
-				return k;
-			}
-		}
-	}
-	return -1;
-}
-
 /**
  * Rule: an `Exit Sub` / `Exit Function` / `Exit Property` must match the kind of
  * the procedure that encloses it (the three Property accessors all map to

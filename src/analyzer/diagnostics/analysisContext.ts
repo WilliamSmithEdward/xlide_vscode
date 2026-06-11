@@ -11,6 +11,7 @@
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import { statementTokens as computeStatementTokens } from '../lexer/tokenHelpers';
+import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
 import type { ModuleNode, Span } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
@@ -139,6 +140,22 @@ export type PushFn = (
 	span: Span,
 	data?: VbaDiagnosticData,
 ) => void;
+
+export function isObjectModuleKind(moduleKind: ModuleSymbolKind | undefined): boolean {
+	return moduleKind === 'class' || moduleKind === 'document' || moduleKind === 'userform';
+}
+
+let APPLICATION_MEMBER_NAMES: ReadonlySet<string> | undefined;
+
+export function applicationMemberNames(): ReadonlySet<string> {
+	if (!APPLICATION_MEMBER_NAMES) {
+		const appType = resolveHostGlobal('Application');
+		APPLICATION_MEMBER_NAMES = new Set(
+			(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
+		);
+	}
+	return APPLICATION_MEMBER_NAMES;
+}
 
 // Statement-token cache (audit #5): independent rules re-tokenized the same
 // statement 25-40 times per analysis pass. Tokens are cached per source
