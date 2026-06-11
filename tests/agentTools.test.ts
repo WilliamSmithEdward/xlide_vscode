@@ -27,6 +27,7 @@ vi.mock('../src/xlideFileSystem', () => ({
     encodeModuleUri: vi.fn(() => ({ path: '/stub' })),
     notifySignatureDropped: vi.fn(),
 }));
+vi.mock('../src/vbaMemberCompletion', () => ({ invalidateVbaMemberCompletionCache: vi.fn() }));
 vi.mock('../src/moduleExport', () => ({ exportWorkbookModules: vi.fn() }));
 vi.mock('../src/workbookModuleSyncSettings', () => ({ setWorkbookModuleSyncExportMode: vi.fn() }));
 vi.mock('../src/vbaWorkbookAnalysis', () => ({ analyzeWorkbook: vi.fn() }));
@@ -48,6 +49,7 @@ function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
         { call: bridgeCall } as never,
         explorer as never,
         { notifyFileChanged: vi.fn() } as never,
+        { invalidate: vi.fn() } as never,
     );
     return { explorer };
 }

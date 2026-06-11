@@ -2,7 +2,14 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer } from './xlsmExplorer';
-import { XlideFileSystemProvider, encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
+import { XlideFileSystemProvider } from './xlideFileSystem';
+import { VbaSymbolIndex } from './vbaSymbolIndex';
+import {
+    deleteWorkbookModule,
+    renameWorkbookModule,
+    writeWorkbookModule,
+    type WorkbookModuleOperationDeps,
+} from './workbookModuleOperations';
 import {
     exportWorkbookModules,
 } from './moduleExport';
@@ -81,7 +88,9 @@ export function registerAgentTools(
     bridge: PythonBridge,
     explorer: XlsmExplorer,
     fsProvider: XlideFileSystemProvider,
+    vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
+    const ops: WorkbookModuleOperationDeps = { bridge, explorer, fsProvider, vbaIndex };
     return [
         // ----------------------------------------------------------------
         // xlide_listWorkbooks
@@ -149,16 +158,7 @@ export function registerAgentTools(
                     moduleName,
                     failedSummary: 'Write module: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>('writeModule', {
-                        path: filePath,
-                        module: moduleName,
-                        source,
-                    });
-                    notifySignatureDropped(filePath, result.signatureDropped);
-                    explorer.refresh();
-                    // Notify VS Code that the file changed so open editors reload
-                    const uri = encodeModuleUri(filePath, moduleName);
-                    fsProvider.notifyFileChanged(uri);
+                    const result = await writeWorkbookModule(ops, { filePath, moduleName, source });
                     return {
                         result,
                         summary: formatChangeSummary({
@@ -197,11 +197,7 @@ export function registerAgentTools(
                     moduleName,
                     failedSummary: 'Rename module: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                        'renameModule', { path: filePath, module: moduleName, newName },
-                    );
-                    notifySignatureDropped(filePath, result.signatureDropped);
-                    explorer.refresh();
+                    const result = await renameWorkbookModule(ops, { filePath, moduleName, newName });
                     return {
                         result,
                         moduleName: newName,
@@ -240,11 +236,7 @@ export function registerAgentTools(
                     moduleName,
                     failedSummary: 'Delete module: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                        'deleteModule', { path: filePath, module: moduleName },
-                    );
-                    notifySignatureDropped(filePath, result.signatureDropped);
-                    explorer.refresh();
+                    const result = await deleteWorkbookModule(ops, { filePath, moduleName });
                     return {
                         result,
                         summary: formatChangeSummary({

@@ -554,7 +554,7 @@ export function activate(context: vscode.ExtensionContext): void {
         ...sidebar.disposables,
         registerXlideGlobalSettingsWebview(out),
         ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
-        ...registerAgentTools(context, bridge, explorer, fsProvider),
+        ...registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
 
         statusBar,
         liveShare,
