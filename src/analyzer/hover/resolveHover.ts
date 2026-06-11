@@ -8,7 +8,7 @@
 // Pure analyzer code: depends only on the lexer, symbol graph, and host model,
 // never on vscode. See docs/xlide_vba_language_service_roadmap.md (Phase 7).
 
-import { tokenize } from '../lexer/tokenize';
+import { tokenizeCached } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { isIdentLike } from '../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -92,7 +92,7 @@ export function resolveHover(
 	offset: number,
 	ctx: HoverContext = {},
 ): HoverInfo | undefined {
-	const tokens = tokenize(source);
+	const tokens = tokenizeCached(source);
 	const idx = findIdentTokenIndex(tokens, offset);
 	if (idx < 0) {
 		return undefined;

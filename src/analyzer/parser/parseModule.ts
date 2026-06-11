@@ -107,10 +107,31 @@ const CLOSER_LABELS: Readonly<Record<string, string>> = {
 	endenum: 'End Enum',
 };
 
+// Editor surfaces (completion, hover, signature help, references) re-parse
+// the same module text many times within one request, so a tiny value-keyed
+// memo collapses those parses to one. The AST is treated as immutable by all
+// consumers; callers must not mutate the returned nodes.
+const PARSE_CACHE_MAX = 2;
+const parseCache: { source: string; module: ModuleNode }[] = [];
+
 /** Parse VBA source text into a ModuleNode AST. Never throws. */
 export function parseModule(source: string): ModuleNode {
-	const tokens = tokenize(source);
-	return new Parser(source, tokens).parse();
+	for (let i = 0; i < parseCache.length; i += 1) {
+		if (parseCache[i].source === source) {
+			const hit = parseCache[i];
+			if (i > 0) {
+				parseCache.splice(i, 1);
+				parseCache.unshift(hit);
+			}
+			return hit.module;
+		}
+	}
+	const module = new Parser(source, tokenize(source)).parse();
+	parseCache.unshift({ source, module });
+	if (parseCache.length > PARSE_CACHE_MAX) {
+		parseCache.pop();
+	}
+	return module;
 }
 
 class Parser {

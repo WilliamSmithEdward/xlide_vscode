@@ -55,6 +55,32 @@ function isIdentPart(ch: string): boolean {
 	return isIdentStart(ch);
 }
 
+// Hot editor paths (hover, canonical casing) re-tokenize the same full module
+// text several times per request; a tiny value-keyed memo collapses those
+// scans to one. Callers must not mutate the returned array or its tokens.
+const TOKENIZE_CACHE_MAX = 2;
+const tokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
+
+/** Cached variant of {@link tokenize} for read-only consumers on hot paths. */
+export function tokenizeCached(src: string): VbaToken[] {
+	for (let i = 0; i < tokenizeCache.length; i += 1) {
+		if (tokenizeCache[i].src === src) {
+			const hit = tokenizeCache[i];
+			if (i > 0) {
+				tokenizeCache.splice(i, 1);
+				tokenizeCache.unshift(hit);
+			}
+			return hit.tokens;
+		}
+	}
+	const tokens = tokenize(src);
+	tokenizeCache.unshift({ src, tokens });
+	if (tokenizeCache.length > TOKENIZE_CACHE_MAX) {
+		tokenizeCache.pop();
+	}
+	return tokens;
+}
+
 /**
  * Tokenize a VBA module body into a flat, round-trippable token stream.
  *

@@ -26,6 +26,14 @@ function memberKinds(source: string): ModuleMember['kind'][] {
 	return parseModule(source).members.map((m) => m.kind);
 }
 
+describe('parseModule - request-scoped memoization', () => {
+	it('returns the same AST for repeated parses of identical source', () => {
+		const src = 'Sub T()\n    x = 1\nEnd Sub\n';
+		expect(parseModule(src)).toBe(parseModule(src));
+		expect(parseModule(src)).not.toBe(parseModule(`${src}\n`));
+	});
+});
+
 describe('parseModule - module header (MS-VBAL 4.2)', () => {
 	it('parses Attribute lines into attribute nodes', () => {
 		const m = parseModule('Attribute VB_Name = "Module1"\n');

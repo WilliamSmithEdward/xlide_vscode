@@ -73,4 +73,11 @@ describe('completionCursorContext', () => {
 		expect(completionCursorContext('x = 1', -3).tokens).toHaveLength(0);
 		expect(completionCursorContext('x = 1', 99).offset).toBe(5);
 	});
+
+	it('reuses one tokenize pass for repeated lookups at the same position', () => {
+		const src = 'Sub T()\n    ws.Ran\nEnd Sub\n';
+		const offset = src.indexOf('Ran') + 3;
+		expect(completionCursorContext(src, offset)).toBe(completionCursorContext(src, offset));
+		expect(completionCursorContext(src, offset)).not.toBe(completionCursorContext(src, offset - 1));
+	});
 });

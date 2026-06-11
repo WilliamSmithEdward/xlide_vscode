@@ -16,6 +16,7 @@ import {
 	tokensWithoutLeadingLineNumber,
 	tokenWord,
 } from '../lexer/tokenHelpers';
+import { completionCursorContext } from '../completion/cursorContext';
 
 export { isIdentLike } from '../lexer/tokenHelpers';
 
@@ -330,8 +331,7 @@ export function findActiveCallSite(source: string, offset: number): VbaCallSite 
 	if (offset < 0) {
 		return undefined;
 	}
-	const prefix = source.slice(0, offset);
-	const tokens = tokenize(prefix).filter((t) => t.kind !== 'comment');
+	const tokens = completionCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -347,8 +347,7 @@ export function callableCompletionShouldInsertParens(
 	source: string,
 	offset: number,
 ): boolean {
-	const prefixText = source.slice(0, Math.max(0, offset));
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	const tokens = completionCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return false;
 	}

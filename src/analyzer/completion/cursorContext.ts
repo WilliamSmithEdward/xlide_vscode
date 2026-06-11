@@ -32,6 +32,16 @@ export interface CompletionCursorContext {
 	inString: boolean;
 }
 
+// One completion/signature/hover request fans out to many resolvers (and to
+// per-item helpers) that all ask for the same cursor context, so a tiny memo
+// keyed on (source, offset) collapses the prefix tokenizations to one.
+const CURSOR_CONTEXT_CACHE_MAX = 4;
+const cursorContextCache: {
+	source: string;
+	offset: number;
+	context: CompletionCursorContext;
+}[] = [];
+
 /**
  * Analyzes the cursor position in one tokenize pass over the prefix. Callers
  * must not mutate the returned token arrays or their tokens.
@@ -41,6 +51,28 @@ export function completionCursorContext(
 	offset: number,
 ): CompletionCursorContext {
 	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	for (let i = 0; i < cursorContextCache.length; i += 1) {
+		const entry = cursorContextCache[i];
+		if (entry.offset === safeOffset && entry.source === source) {
+			if (i > 0) {
+				cursorContextCache.splice(i, 1);
+				cursorContextCache.unshift(entry);
+			}
+			return entry.context;
+		}
+	}
+	const context = buildCursorContext(source, safeOffset);
+	cursorContextCache.unshift({ source, offset: safeOffset, context });
+	if (cursorContextCache.length > CURSOR_CONTEXT_CACHE_MAX) {
+		cursorContextCache.pop();
+	}
+	return context;
+}
+
+function buildCursorContext(
+	source: string,
+	safeOffset: number,
+): CompletionCursorContext {
 	const tokens = tokenize(source.slice(0, safeOffset));
 	const significantTokens = tokens.filter((t) => t.kind !== 'comment');
 	const last = tokens[tokens.length - 1];
