@@ -8,7 +8,6 @@
 //
 // No `vscode` dependency: pure AST -> symbol projection, unit-tested directly.
 
-import { tokenize } from '../lexer/tokenize';
 import {
 	createConditionalActivityTracker,
 	type ConditionalActivityTracker,
@@ -166,36 +165,9 @@ function leadingAttributeEnd(module: ModuleNode): number {
 	return end;
 }
 
-/**
- * Locates the span of the first occurrence of `name` (case-insensitive identifier
- * or keyword token) inside `span`, using the real lexer so the result is
- * deterministic and never matches text inside a comment or string. Falls back to
- * the whole span when the token is not found.
- */
-function locateName(source: string, span: Span, name: string): Span {
-	const slice = source.slice(span.start, span.end);
-	const lower = name.toLowerCase();
-	for (const tok of tokenize(slice)) {
-		if (
-			(tok.kind === 'identifier' || tok.kind === 'keyword') &&
-			tok.rawText.toLowerCase() === lower
-		) {
-			return { start: span.start + tok.start, end: span.start + tok.end };
-		}
-		if (tok.kind === 'bracketedIdentifier') {
-			const inner = tok.rawText.replace(/^\[|\]$/g, '');
-			if (inner.toLowerCase() === lower) {
-				return { start: span.start + tok.start, end: span.start + tok.end };
-			}
-		}
-	}
-	return span;
-}
-
 /** Recursively collects local variable declarations inside a procedure body. */
 function collectLocals(
 	body: BodyNode[],
-	source: string,
 	moduleName: string,
 	containerName: string,
 	out: VbaSymbol[],
@@ -210,7 +182,7 @@ function collectLocals(
 				out.push({
 					name: decl.name,
 					kind: node.isConst ? 'constant' : 'localVariable',
-					nameSpan: locateName(source, decl.span, decl.name),
+					nameSpan: decl.nameSpan ?? decl.span,
 					fullSpan: decl.span,
 					moduleName,
 					containerName,
@@ -223,13 +195,14 @@ function collectLocals(
 				});
 			}
 		} else if ('body' in node && Array.isArray(node.body)) {
-			collectLocals(node.body, source, moduleName, containerName, out, activity);
+			collectLocals(node.body, moduleName, containerName, out, activity);
 		}
 	}
 }
 
 interface SymbolParameter {
 	name: string;
+	nameSpan?: Span;
 	span: Span;
 	asType?: string;
 	optional: boolean;
@@ -242,14 +215,13 @@ interface SymbolParameter {
 
 function buildParameterSymbol(
 	param: SymbolParameter,
-	source: string,
 	moduleName: string,
 	containerName: string,
 ): VbaSymbol {
 	return {
 		name: param.name,
 		kind: 'parameter',
-		nameSpan: locateName(source, param.span, param.name),
+		nameSpan: param.nameSpan ?? param.span,
 		fullSpan: param.span,
 		moduleName,
 		containerName,
@@ -266,7 +238,6 @@ function buildParameterSymbol(
 /** Builds the symbol for one procedure, with parameter and local children. */
 function buildProcedure(
 	proc: ProcedureNode,
-	source: string,
 	moduleName: string,
 	flat: VbaSymbol[],
 	activity: ConditionalActivityTracker | undefined,
@@ -275,7 +246,7 @@ function buildProcedure(
 	const symbol: VbaSymbol = {
 		name: proc.name,
 		kind: procSymbolKind(proc.procKind),
-		nameSpan: locateName(source, proc.span, proc.name),
+		nameSpan: proc.nameSpan ?? proc.span,
 		fullSpan: proc.span,
 		moduleName,
 		visibility: procVisibility(proc.modifiers),
@@ -286,13 +257,13 @@ function buildProcedure(
 	};
 
 	for (const param of proc.params) {
-		const paramSymbol = buildParameterSymbol(param, source, moduleName, proc.name);
+		const paramSymbol = buildParameterSymbol(param, moduleName, proc.name);
 		children.push(paramSymbol);
 		flat.push(paramSymbol);
 	}
 
 	const locals: VbaSymbol[] = [];
-	collectLocals(proc.body, source, moduleName, proc.name, locals, activity);
+	collectLocals(proc.body, moduleName, proc.name, locals, activity);
 	for (const local of locals) {
 		children.push(local);
 		flat.push(local);
@@ -308,7 +279,6 @@ function procedureReturnIsArray(returnType: string | undefined): boolean {
 /** Builds the symbol for one external Declare, with parameter children. */
 function buildDeclare(
 	declare: Extract<ModuleMember, { kind: 'Declare' }>,
-	source: string,
 	moduleName: string,
 	flat: VbaSymbol[],
 ): VbaSymbol {
@@ -316,7 +286,7 @@ function buildDeclare(
 	const symbol: VbaSymbol = {
 		name: declare.name,
 		kind: 'declare',
-		nameSpan: locateName(source, declare.span, declare.name),
+		nameSpan: declare.nameSpan ?? declare.span,
 		fullSpan: declare.span,
 		moduleName,
 		visibility: toVisibility(declare.visibility),
@@ -329,7 +299,7 @@ function buildDeclare(
 	};
 
 	for (const param of declare.params) {
-		const paramSymbol = buildParameterSymbol(param, source, moduleName, declare.name);
+		const paramSymbol = buildParameterSymbol(param, moduleName, declare.name);
 		children.push(paramSymbol);
 		flat.push(paramSymbol);
 	}
@@ -340,7 +310,6 @@ function buildDeclare(
 /** Builds the symbol for one Event declaration, with parameter children. */
 function buildEvent(
 	event: EventNode,
-	source: string,
 	moduleName: string,
 	flat: VbaSymbol[],
 ): VbaSymbol {
@@ -348,7 +317,7 @@ function buildEvent(
 	const symbol: VbaSymbol = {
 		name: event.name,
 		kind: 'event',
-		nameSpan: locateName(source, event.span, event.name),
+		nameSpan: event.nameSpan ?? event.span,
 		fullSpan: event.span,
 		moduleName,
 		visibility: toVisibility(event.visibility),
@@ -356,7 +325,7 @@ function buildEvent(
 	};
 
 	for (const param of event.params) {
-		const paramSymbol = buildParameterSymbol(param, source, moduleName, event.name);
+		const paramSymbol = buildParameterSymbol(param, moduleName, event.name);
 		children.push(paramSymbol);
 		flat.push(paramSymbol);
 	}
@@ -367,7 +336,6 @@ function buildEvent(
 /** Builds the symbol for a Type ... End Type, with field children. */
 function buildType(
 	node: TypeNode,
-	source: string,
 	moduleName: string,
 	flat: VbaSymbol[],
 ): VbaSymbol {
@@ -375,7 +343,7 @@ function buildType(
 	const symbol: VbaSymbol = {
 		name: node.name,
 		kind: 'type',
-		nameSpan: locateName(source, node.span, node.name),
+		nameSpan: node.nameSpan ?? node.span,
 		fullSpan: node.span,
 		moduleName,
 		visibility: toVisibility(node.visibility),
@@ -385,7 +353,7 @@ function buildType(
 		const fieldSymbol: VbaSymbol = {
 			name: field.name,
 			kind: 'typeField',
-			nameSpan: locateName(source, field.span, field.name),
+			nameSpan: field.nameSpan ?? field.span,
 			fullSpan: field.span,
 			moduleName,
 			containerName: node.name,
@@ -401,7 +369,6 @@ function buildType(
 /** Builds the symbol for an Enum ... End Enum, with member children. */
 function buildEnum(
 	node: EnumNode,
-	source: string,
 	moduleName: string,
 	flat: VbaSymbol[],
 ): VbaSymbol {
@@ -409,7 +376,7 @@ function buildEnum(
 	const symbol: VbaSymbol = {
 		name: node.name,
 		kind: 'enum',
-		nameSpan: locateName(source, node.span, node.name),
+		nameSpan: node.nameSpan ?? node.span,
 		fullSpan: node.span,
 		moduleName,
 		visibility: toVisibility(node.visibility),
@@ -419,7 +386,7 @@ function buildEnum(
 		const memberSymbol: VbaSymbol = {
 			name: member.name,
 			kind: 'enumMember',
-			nameSpan: locateName(source, member.span, member.name),
+			nameSpan: member.nameSpan ?? member.span,
 			fullSpan: member.span,
 			moduleName,
 			containerName: node.name,
@@ -444,7 +411,7 @@ function buildModuleVariables(
 		const symbol: VbaSymbol = {
 			name: decl.name,
 			kind: group.isConst ? 'constant' : 'moduleVariable',
-			nameSpan: locateName(source, decl.span, decl.name),
+			nameSpan: decl.nameSpan ?? decl.span,
 			fullSpan: decl.span,
 			moduleName,
 			visibility: toVisibility(group.modifier),
@@ -496,21 +463,21 @@ export function buildModuleSymbols(
 				break;
 			}
 			case 'Procedure': {
-				const proc = buildProcedure(member, source, moduleName, flat, activity);
+				const proc = buildProcedure(member, moduleName, flat, activity);
 				proc.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(proc);
 				flat.push(proc);
 				break;
 			}
 			case 'Type': {
-				const type = buildType(member, source, moduleName, flat);
+				const type = buildType(member, moduleName, flat);
 				type.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(type);
 				flat.push(type);
 				break;
 			}
 			case 'Enum': {
-				const en = buildEnum(member, source, moduleName, flat);
+				const en = buildEnum(member, moduleName, flat);
 				en.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(en);
 				flat.push(en);
@@ -521,14 +488,14 @@ export function buildModuleSymbols(
 				break;
 			}
 			case 'Declare': {
-				const symbol = buildDeclare(member, source, moduleName, flat);
+				const symbol = buildDeclare(member, moduleName, flat);
 				symbol.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(symbol);
 				flat.push(symbol);
 				break;
 			}
 			case 'Event': {
-				const symbol = buildEvent(member, source, moduleName, flat);
+				const symbol = buildEvent(member, moduleName, flat);
 				symbol.doc = extractLeadingDoc(source, member.span.start);
 				rootChildren.push(symbol);
 				flat.push(symbol);

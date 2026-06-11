@@ -81,6 +81,7 @@ import {
 
 interface DeclaredNameInfo {
 	name: string;
+	nameSpan?: Span;
 	nextIndex: number;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
@@ -280,6 +281,7 @@ class Parser {
 			? this.parseDeclaredName(tokens, nameIndex, true)
 			: {
 				name: nameToken ? this.stripBrackets(nameToken.rawText) : '',
+				nameSpan: this.tokenSpan(nameToken),
 				nextIndex: nameIndex + 1,
 			};
 		const ptrSafe = kindIndex >= 0 && tokens
@@ -316,6 +318,7 @@ class Parser {
 		return {
 			kind: 'Declare',
 			name: declaredName.name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -348,6 +351,7 @@ class Parser {
 		return {
 			kind: 'Event',
 			name,
+			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			params,
 			span: { start: stmt.start, end: stmt.end },
@@ -518,6 +522,7 @@ class Parser {
 		return {
 			kind: 'VariableDecl',
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -564,6 +569,7 @@ class Parser {
 		return {
 			kind: 'Type',
 			name,
+			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			fields,
 			closed,
@@ -594,6 +600,7 @@ class Parser {
 		return {
 			kind: 'TypeField',
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -646,6 +653,7 @@ class Parser {
 				members.push({
 					kind: 'EnumMember',
 					name: this.stripBrackets(mtokens[0].rawText),
+					nameSpan: this.tokenSpan(mtokens[0]),
 					valueRaw,
 					span: { start: stmt.start, end: stmt.end },
 				});
@@ -657,6 +665,7 @@ class Parser {
 		return {
 			kind: 'Enum',
 			name,
+			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			members,
 			closed,
@@ -786,6 +795,7 @@ class Parser {
 			kind: 'Procedure',
 			procKind,
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -905,6 +915,7 @@ class Parser {
 		return {
 			kind: 'Parameter',
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -1411,6 +1422,7 @@ class Parser {
 	): DeclaredNameInfo {
 		const nameToken = tokens[index];
 		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
+		const nameSpan = this.tokenSpan(nameToken);
 		const suffixToken = allowTypeSuffix ? tokens[index + 1] : undefined;
 		if (
 			nameToken &&
@@ -1420,12 +1432,18 @@ class Parser {
 		) {
 			return {
 				name,
+				nameSpan,
 				nextIndex: index + 2,
 				typeSuffix: suffixToken.rawText,
 				typeSuffixSpan: { start: suffixToken.start, end: suffixToken.end },
 			};
 		}
-		return { name, nextIndex: index + 1 };
+		return { name, nameSpan, nextIndex: index + 1 };
+	}
+
+	/** Span of one token, or undefined when the token is missing. */
+	private tokenSpan(token: VbaToken | undefined): Span | undefined {
+		return token ? { start: token.start, end: token.end } : undefined;
 	}
 
 	private stripBrackets(raw: string): string {
