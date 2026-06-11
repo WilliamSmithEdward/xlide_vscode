@@ -551,7 +551,9 @@ corpus-wide comparison harnesses: `tests/structuralEngineComparison.test.ts` dif
 this engine against the parser's block-balance recovery diagnostics (ten verified
 divergence classes, with regressions in both directions, so the legacy engine
 stays), and `tests/smartEnterSubstrateComparison.test.ts` diffs `stripVba` against
-lexer-token stripping (blocked by the lexer's file-number/date-literal confusion).
+lexer-token stripping (with the lexer's file-number/date-literal confusion fixed,
+the only remaining divergence is a verified lexer improvement, so that migration
+is unblocked and tracked as follow-up work).
 Both harnesses fail on any new, unexplained drift between the engines.
 
 **Conditional compilation model** — The core parser models `#Const`, `#If`,
