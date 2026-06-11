@@ -4,11 +4,11 @@ import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import {
     buildOwnedReadOnlyExcelTestHostScript,
-    buildVbaTestDirectRunnerModule,
     DEFAULT_VBA_TEST_TIMEOUT_MS,
     parseVbaTestHostEventLine,
     vbaTestHostPlanItems,
 } from './vbaTestExcelHost';
+import { buildVbaTestDirectRunnerModule } from './vbaTestRunnerModuleCodegen';
 import {
     validateVbaTestHostOracleTrace,
     type VbaTestHostOracleEvent,

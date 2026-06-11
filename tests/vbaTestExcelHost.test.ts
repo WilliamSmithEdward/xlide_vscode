@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-    buildVbaTestDirectRunnerModule,
     buildOwnedReadOnlyExcelTestHostScript,
     parseVbaTestHostEventLine,
     vbaTestHostPlanItems,
-    XLIDE_TEST_RUNNER_MODULE_NAME,
     XLIDE_TEST_HOST_EVENT_PREFIX,
 } from '../src/vbaTestExcelHost';
+import {
+    buildVbaTestDirectRunnerModule,
+    XLIDE_TEST_RUNNER_MODULE_NAME,
+} from '../src/vbaTestRunnerModuleCodegen';
 import type { VbaTestCase } from '../src/vbaTestRunner';
 
 describe('VBA test Excel host script', () => {
