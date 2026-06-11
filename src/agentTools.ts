@@ -100,10 +100,11 @@ export function registerAgentTools(
         // xlide_listModules
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListModulesInput>('xlide_listModules', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const modules = await bridge.call<Array<{ name: string; type: string }>>(
                     'listModules',
                     { path: options.input.filePath },
+                    token,
                 );
                 return textResult(JSON.stringify(modules, null, 2));
             },
@@ -113,10 +114,11 @@ export function registerAgentTools(
         // xlide_listSubs
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListSubsInput>('xlide_listSubs', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const subs = await bridge.call<Array<{ name: string; kind: string; line: number }>>(
                     'listSubs',
                     { path: options.input.filePath, module: options.input.moduleName },
+                    token,
                 );
                 return textResult(JSON.stringify(subs, null, 2));
             },
@@ -126,10 +128,11 @@ export function registerAgentTools(
         // xlide_readModule
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadModuleInput>('xlide_readModule', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const result = await bridge.call<{ source: string }>(
                     'readModule',
                     { path: options.input.filePath, module: options.input.moduleName },
+                    token,
                 );
                 return textResult(result.source);
             },
@@ -273,10 +276,11 @@ export function registerAgentTools(
         // xlide_listSheets
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListSheetsInput>('xlide_listSheets', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const result = await bridge.call<{ sheets: Array<{ name: string; dimensions: string }> }>(
                     'listSheets',
                     { path: options.input.filePath },
+                    token,
                 );
                 return textResult(JSON.stringify(result.sheets, null, 2));
             },
@@ -286,12 +290,12 @@ export function registerAgentTools(
         // xlide_getWorkbookInfo
         // ----------------------------------------------------------------
         vscode.lm.registerTool<GetWorkbookInfoInput>('xlide_getWorkbookInfo', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const result = await bridge.call<{
                     modules: Array<{ name: string; type: string }>;
                     sheets: Array<{ name: string; dimensions: string }>;
                     namedRanges: Array<{ name: string; ref: string }>;
-                }>('getWorkbookInfo', { path: options.input.filePath });
+                }>('getWorkbookInfo', { path: options.input.filePath }, token);
                 return textResult(JSON.stringify(result, null, 2));
             },
         }),
@@ -300,10 +304,11 @@ export function registerAgentTools(
         // xlide_validateWorkbook
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ValidateWorkbookInput>('xlide_validateWorkbook', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const result = await bridge.call<{ issues: string[] }>(
                     'validateWorkbook',
                     { path: options.input.filePath },
+                    token,
                 );
                 return textResult(JSON.stringify(result, null, 2));
             },
@@ -422,11 +427,12 @@ export function registerAgentTools(
         // xlide_readCells
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadCellsInput>('xlide_readCells', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const { filePath, sheet, range } = options.input;
                 const result = await bridge.call<{ data: unknown[][] }>(
                     'readCells',
                     { path: filePath, sheet, range },
+                    token,
                 );
                 return textResult(JSON.stringify(result.data, null, 2));
             },
@@ -436,11 +442,12 @@ export function registerAgentTools(
         // xlide_readFormulas
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadFormulasInput>('xlide_readFormulas', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const { filePath, sheet, range } = options.input;
                 const result = await bridge.call<{ data: unknown[][] }>(
                     'readFormulas',
                     { path: filePath, sheet, range },
+                    token,
                 );
                 return textResult(JSON.stringify(result.data, null, 2));
             },
@@ -492,13 +499,14 @@ export function registerAgentTools(
         // xlide_runOpenpyxl  (requires user confirmation)
         // ----------------------------------------------------------------
         vscode.lm.registerTool<RunOpenpyxlInput>('xlide_runOpenpyxl', {
-            async invoke(options, _token) {
+            async invoke(options, token) {
                 const { filePath, code, save } = options.input;
                 const shouldSave = save !== false;
                 const run = async () => {
                     const result = await bridge.call<{ result: unknown; stdout: string }>(
                         'runOpenpyxl',
                         { path: filePath, code, save: shouldSave },
+                        token,
                     );
                     const parts: string[] = [];
                     if (result.stdout) { parts.push(`stdout:\n${result.stdout}`); }

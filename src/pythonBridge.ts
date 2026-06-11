@@ -24,11 +24,22 @@ interface PendingRequest {
     resolve: (value: unknown) => void;
     reject: (err: Error) => void;
     cancel?: vscode.Disposable;
+    timer?: ReturnType<typeof setTimeout>;
+}
+
+export interface PythonBridgeCallOptions {
+    /** Per-request watchdog; defaults to DEFAULT_BRIDGE_CALL_TIMEOUT_MS. Pass 0 to disable. */
+    timeoutMs?: number;
 }
 
 // Stderr is mirrored to the output channel; keep only the most recent lines
 // for the startup-failure message so the buffer cannot grow unbounded.
 const MAX_STDERR_LINES = 50;
+
+// Generous default so long workbook operations (runOpenpyxl, large module
+// writes) still finish, while a hung single-threaded server cannot wedge
+// callers forever (python/server.py handles one request at a time).
+export const DEFAULT_BRIDGE_CALL_TIMEOUT_MS = 120_000;
 
 export class PythonBridge implements vscode.Disposable {
     private _proc: cp.ChildProcess | undefined;
@@ -228,10 +239,8 @@ export class PythonBridge implements vscode.Disposable {
             this._out.appendLine(`Unparsable response from Python: ${line}`);
             return;
         }
-        const pending = this._pending.get(msg.id);
+        const pending = this._takePending(msg.id);
         if (!pending) { return; }
-        this._pending.delete(msg.id);
-        pending.cancel?.dispose();
         if (msg.error) {
             pending.reject(new BridgeError(msg.error.message, msg.error.code));
         } else {
@@ -239,8 +248,14 @@ export class PythonBridge implements vscode.Disposable {
         }
     }
 
-    call<T = unknown>(method: string, params?: unknown, token?: vscode.CancellationToken): Promise<T> {
+    call<T = unknown>(
+        method: string,
+        params?: unknown,
+        token?: vscode.CancellationToken,
+        options?: PythonBridgeCallOptions,
+    ): Promise<T> {
         const trace = startPerformanceTrace('pythonBridge.call', method);
+        const timeoutMs = options?.timeoutMs ?? DEFAULT_BRIDGE_CALL_TIMEOUT_MS;
         const doSend = (): Promise<T> => new Promise<T>((resolve, reject) => {
             if (token?.isCancellationRequested) {
                 reject(new vscode.CancellationError());
@@ -255,12 +270,9 @@ export class PythonBridge implements vscode.Disposable {
             });
             if (token) {
                 cancel = token.onCancellationRequested(() => {
-                    const pending = this._pending.get(id);
-                    if (pending) {
-                        this._pending.delete(id);
-                        pending.cancel?.dispose();
-                        pending.reject(new vscode.CancellationError());
-                    }
+                    // Stops waiting locally; the single-threaded server keeps
+                    // running the request, but its late response is ignored.
+                    this._takePending(id)?.reject(new vscode.CancellationError());
                 });
                 const pending = this._pending.get(id);
                 if (pending) {
@@ -274,6 +286,16 @@ export class PythonBridge implements vscode.Disposable {
                 this._pending.delete(id);
                 cancel?.dispose();
                 reject(err instanceof Error ? err : new Error(String(err)));
+                return;
+            }
+            const sent = this._pending.get(id);
+            if (sent && timeoutMs > 0) {
+                sent.timer = setTimeout(() => {
+                    this._takePending(id)?.reject(new Error(
+                        `XLIDE: Python backend request '${method}' timed out after ${Math.round(timeoutMs / 1000)}s. ` +
+                        'The backend may be busy or hung; restart it if XLIDE stays unresponsive.',
+                    ));
+                }, timeoutMs);
             }
         });
 
@@ -297,9 +319,24 @@ export class PythonBridge implements vscode.Disposable {
         );
     }
 
+    /** Removes a pending request and releases its cancellation/timeout hooks. */
+    private _takePending(id: number): PendingRequest | undefined {
+        const pending = this._pending.get(id);
+        if (!pending) { return undefined; }
+        this._pending.delete(id);
+        pending.cancel?.dispose();
+        if (pending.timer !== undefined) {
+            clearTimeout(pending.timer);
+        }
+        return pending;
+    }
+
     private _rejectAll(err: Error): void {
         for (const [, pending] of this._pending) {
             pending.cancel?.dispose();
+            if (pending.timer !== undefined) {
+                clearTimeout(pending.timer);
+            }
             pending.reject(err);
         }
         this._pending.clear();
