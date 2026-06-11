@@ -164,11 +164,9 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'constAssignment',
-		run: (ctx, push) => checkConstAssignment(
+		procedureStatements: (ctx, push) => checkConstAssignment(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
-			ctx.activity,
 			ctx.opts.projectVisibleSymbols,
 			push,
 		),
@@ -389,13 +387,11 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'setAssignments',
-		run: (ctx, push) => checkSetAssignments(
+		procedureStatements: (ctx, push) => checkSetAssignments(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
-			ctx.activity,
 			push,
 		),
 	},

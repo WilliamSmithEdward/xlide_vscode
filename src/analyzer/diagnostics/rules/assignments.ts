@@ -67,6 +67,7 @@ import {
 	tokenName,
 	tokenText,
 	topLevelOperatorIndex,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
 /**
@@ -76,18 +77,13 @@ import {
  */
 export function checkConstAssignment(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
-	activity: ConditionalActivityTracker | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const hit = bareAssignmentTarget(source, stmt.span);
 			if (!hit) {
 				return;
@@ -109,8 +105,8 @@ export function checkConstAssignment(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function memberAssignmentTarget(
@@ -578,18 +574,13 @@ function checkMemberAssignmentTypes(
 
 export function checkSetAssignments(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
@@ -606,7 +597,7 @@ export function checkSetAssignments(
 				qualifier,
 				name,
 			);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const target = setAssignmentTarget(source, stmt.span);
 			if (!target) {
 				return;
@@ -656,6 +647,6 @@ export function checkSetAssignments(
 				`Set assignment requires an object variable, but '${target.name}' is declared as ${expected}.`,
 				target.span,
 			);
-		}, activity);
-	}
+		};
+	};
 }
