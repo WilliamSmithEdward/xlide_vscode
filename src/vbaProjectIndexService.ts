@@ -57,9 +57,9 @@ export interface VbaWorkbookProjectContext {
     readonly project: ProjectIndex;
     /** Module views whose source is the text the project index last parsed. */
     readonly modules: VbaModuleSymbols[];
-    readonly byModule: ReadonlyMap<string, VbaModuleSymbols>;
+    readonly byModule: Map<string, VbaModuleSymbols>;
     /** Metadata for every known module, including currently invalid ones. */
-    readonly moduleMetadata: ReadonlyMap<string, VbaProjectModuleMetadata>;
+    readonly moduleMetadata: Map<string, VbaProjectModuleMetadata>;
     /** Consumer-memoized signatures; the service resets this on any change. */
     projectProcedures?: ReturnType<typeof projectProcedureSignatures>;
     readonly loadedAt: number;
