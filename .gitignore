@@ -28,3 +28,4 @@ reference/
 *.xlsb
 *.xlam
 excel_test_workbook/
+.claude/
