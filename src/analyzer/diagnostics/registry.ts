@@ -6,7 +6,7 @@
 // engine's historical invocation order and is part of the public behavior
 // (diagnostic output order), so append new rules thoughtfully and never
 // reorder entries without updating the snapshot expectations in
-// tests/vbaDiagnostics.test.ts.
+// tests/vbaDiagnostics.test.ts and tests/diagnostics/.
 
 import type { PushFn, RulePassContext } from './analysisContext';
 import type { ProcedureStatementVisitor } from './walker';
