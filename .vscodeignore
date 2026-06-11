@@ -1,6 +1,8 @@
 .vscode/**
 .github/**
+.claude/**
 dist/**
+coverage/**
 assets/images/extension_logo_full.png
 .venv/**
 .pytest_cache/**
