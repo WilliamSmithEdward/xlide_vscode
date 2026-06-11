@@ -142,7 +142,11 @@ import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
 import { errorMessage } from './util/errors';
 import { fileExists, isPathInside } from './util/fs';
-import { psSingleQuoted, runPowerShell } from './util/powershell';
+import {
+    ExcelMacroError,
+    openWorkbookInExcel,
+    runWorkbookMacroReadOnly,
+} from './excelLauncher';
 
 type AnalysisSuppressionInsertionTarget =
     | { kind: 'module'; startLine: number }
@@ -569,138 +573,18 @@ export function registerCommands(
     }
 
     function showRunMacroFailure(err: unknown): void {
-        const raw = errorMessage(err);
-        const pipe = raw.indexOf('|');
-        const code = pipe >= 0 ? raw.slice(0, pipe) : '';
-        const message = pipe >= 0 ? raw.slice(pipe + 1) : raw;
-        if (code === 'REOPEN_BLOCKED' || code === 'REOPEN_FAILED') {
-            void vscode.window.showWarningMessage(`XLIDE: ${message}`);
+        if (err instanceof ExcelMacroError &&
+            (err.code === 'REOPEN_BLOCKED' || err.code === 'REOPEN_FAILED')) {
+            void vscode.window.showWarningMessage(`XLIDE: ${err.message}`);
             return;
         }
-        void vscode.window.showErrorMessage(`XLIDE: Failed to run macro: ${message}`);
+        void vscode.window.showErrorMessage(`XLIDE: Failed to run macro: ${errorMessage(err)}`);
     }
 
-    // Helper functions for Windows COM-based Excel operations
+    // Windows COM-based Excel launch; the script lives in excelLauncher.ts.
     function runWindowsExcel(filePath: string, attachToRunning: boolean, readOnly: boolean): void {
-        const roFlag = readOnly ? '$true' : '$false';
-        const script = [
-            '$ErrorActionPreference = "Stop"',
-            `$targetPath = ${psSingleQuoted(filePath)}`,
-            `$targetName = ${psSingleQuoted(path.basename(filePath))}`,
-            '$excel = $null',
-            '$workbook = $null',
-            `$attachToRunning = ${attachToRunning ? '$true' : '$false'}`,
-            'if ($attachToRunning) {',
-            '  try { $excel = [Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application") } catch { }',
-            '}',
-            'if (-not $excel) {',
-            '  $excel = New-Object -ComObject Excel.Application',
-            '}',
-            '$excel.Visible = $true',
-            'foreach ($wb in @($excel.Workbooks)) {',
-            '  if (($wb.FullName -ieq $targetPath) -or ($wb.Name -ieq $targetName)) { $workbook = $wb; break }',
-            '}',
-            'if (-not $workbook) {',
-            `  $workbook = $excel.Workbooks.Open($targetPath, 0, ${roFlag})`,
-            '}',
-            '$workbook.Activate()',
-            "try { Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);' -Name XlideWin32 -Namespace XlideHelper } catch { }",
-            '[XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
-            '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
-        ].join('; ');
-
-        log(`[openWorkbook] Running: powershell -Command "${script}"`);
-        const run = runPowerShell({
-            args: ['-Command', script],
-            onSpawn: (pid) => log(`[openWorkbook] Spawned powershell.exe (pid=${pid ?? 'unknown'})`),
-            onStdoutLine: (line) => log(`[openWorkbook stdout] ${line}`),
-            onStderrLine: (line) => log(`[openWorkbook stderr] ${line}`),
-        });
-        void run.result.then((result) => {
-            if (result.spawnError) {
-                log(`[openWorkbook] Error: ${result.spawnError.message}`);
-                void vscode.window.showErrorMessage(`XLIDE: Open Workbook failed: ${result.spawnError.message}`);
-                return;
-            }
-            log(`[openWorkbook] powershell exited with code=${result.code} signal=${result.signal ?? 'none'}`);
-        });
-    }
-
-    function runWindowsExcelMacroReadOnly(filePath: string, macroName: string, attachToRunning: boolean): Promise<void> {
-        const script = [
-            '$ErrorActionPreference = "Stop"',
-            'try {',
-            `  $targetPath = ${psSingleQuoted(filePath)}`,
-            `  $targetName = ${psSingleQuoted(path.basename(filePath))}`,
-            `  $macroName = ${psSingleQuoted(macroName)}`,
-            '  $excel = $null',
-            '  $workbook = $null',
-            `  $attachToRunning = ${attachToRunning ? '$true' : '$false'}`,
-            '  if ($attachToRunning) {',
-            '    try { $excel = [Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application") } catch { }',
-            '  }',
-            '  if (-not $excel) {',
-            '    $excel = New-Object -ComObject Excel.Application',
-            '  }',
-            '  $excel.Visible = $true',
-            '  foreach ($wb in @($excel.Workbooks)) {',
-            '    if (($wb.FullName -ieq $targetPath) -or ($wb.Name -ieq $targetName)) { $workbook = $wb; break }',
-            '  }',
-            '  if ($workbook) {',
-            '    if (-not $workbook.ReadOnly) {',
-            '      throw "REOPEN_BLOCKED|Workbook is already open for editing in Excel. Close it in Excel, then press F5 again so XLIDE can reopen the saved workbook before running the macro."',
-            '    }',
-            '    try {',
-            '      $workbook.Close($false)',
-            '      $workbook = $null',
-            '    } catch {',
-            '      throw ("REOPEN_FAILED|XLIDE could not close the existing read-only workbook before running the macro: " + $_.Exception.Message)',
-            '    }',
-            '  }',
-            '  try {',
-            '    $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
-            '  } catch {',
-            '    throw ("REOPEN_FAILED|XLIDE could not reopen the workbook. If it is open outside XLIDE, close it in Excel and try again: " + $_.Exception.Message)',
-            '  }',
-            '  $workbook.Activate()',
-            '  try { Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);\' -Name XlideWin32 -Namespace XlideHelper } catch { }',
-            '  [XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
-            '  [XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
-            '  $macroRef = "\'" + $workbook.Name + "\'!" + $macroName',
-            '  try {',
-            '    $excel.Run($macroRef)',
-            '  } catch {',
-            '    throw ("RUN_FAILED|XLIDE could not run the macro: " + $_.Exception.Message)',
-            '  }',
-            '  [Console]::Out.WriteLine("XLIDE_MACRO_OK")',
-            '} catch {',
-            '  [Console]::Error.WriteLine("XLIDE_MACRO_ERROR|" + $_.Exception.Message)',
-            '  exit 1',
-            '}',
-        ].join('; ');
-
-        log(`[runMacro] Running: ${macroName}`);
-        log(`[runMacro] Script: ${script}`);
-        const run = runPowerShell({
-            args: ['-Command', script],
-            onSpawn: (pid) => log(`[runMacro] Spawned powershell.exe (pid=${pid ?? 'unknown'})`),
-            onStdoutLine: (line) => log(`[runMacro stdout] ${line}`),
-            onStderrLine: (line) => log(`[runMacro stderr] ${line}`),
-        });
-        return run.result.then((result) => {
-            if (result.spawnError) {
-                log(`[runMacro] Error: ${result.spawnError.message}`);
-                throw new Error(`RUN_FAILED|${result.spawnError.message}`);
-            }
-            log(`[runMacro] powershell exited with code=${result.code} signal=${result.signal ?? 'none'}`);
-            if (result.code === 0) {
-                return;
-            }
-            const sentinel = result.stderrLines.find((line) => line.includes('XLIDE_MACRO_ERROR|'));
-            const message = sentinel
-                ? sentinel.slice(sentinel.indexOf('XLIDE_MACRO_ERROR|') + 'XLIDE_MACRO_ERROR|'.length)
-                : result.stderrLines.join('\n') || `PowerShell exited with code ${result.code}`;
-            throw new Error(message);
+        void openWorkbookInExcel(filePath, { attachToRunning, readOnly }, log).catch((err: Error) => {
+            void vscode.window.showErrorMessage(`XLIDE: Open Workbook failed: ${err.message}`);
         });
     }
 
@@ -2621,7 +2505,7 @@ export function registerCommands(
                 if (process.platform === 'win32') {
                     const attachToRunning = shouldAttachToRunningExcel();
                     log(`[runMacro] attachToRunningExcel=${attachToRunning}`);
-                    await runWindowsExcelMacroReadOnly(xlsmPath, `${moduleName}.${currentProc}`, attachToRunning);
+                    await runWorkbookMacroReadOnly(xlsmPath, `${moduleName}.${currentProc}`, { attachToRunning }, log);
                 } else if (process.platform === 'darwin') {
                     cp.spawn('open', ['-a', 'Microsoft Excel', xlsmPath]);
                     vscode.window.showInformationMessage(
