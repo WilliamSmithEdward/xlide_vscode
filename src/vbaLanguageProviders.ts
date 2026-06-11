@@ -109,6 +109,10 @@ import {
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
 import { errorMessage } from './util/errors';
+import {
+    XLIDE_DIAGNOSTIC_DATA,
+    type XlideDiagnosticWithData,
+} from './xlideDiagnosticData';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -120,11 +124,6 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
 const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
 const XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('analyzeCurrentModule');
 const XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('exportCurrentModule');
-const XLIDE_DIAGNOSTIC_DATA = Symbol('xlideDiagnosticData');
-
-type XlideDiagnosticWithData = vscode.Diagnostic & {
-    [XLIDE_DIAGNOSTIC_DATA]?: VbaDiagnosticData;
-};
 
 function workbookContextKey(xlsmPath: string): string {
     return workbookIdentityKey(path.resolve(xlsmPath));
