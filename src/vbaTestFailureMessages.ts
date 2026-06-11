@@ -1,4 +1,4 @@
-import { normalizeEol } from './vbaStructuralAnalysis';
+import { normalizeEol } from './vbaSourceScan';
 import { errorMessage } from './util/errors';
 
 // Single owner of the user-facing failure text for VBA test runs: strips the

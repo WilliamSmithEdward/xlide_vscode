@@ -15,7 +15,7 @@ import {
     type WorkbookSettingSource,
 } from './workbookSettings';
 import { measurePerformance } from './performanceTrace';
-import { isVbaAttributeLine, normalizeEol } from './vbaStructuralAnalysis';
+import { isVbaAttributeLine, normalizeEol } from './vbaSourceScan';
 import { fileExists } from './util/fs';
 
 export type ModuleSyncDirection = 'export' | 'import';

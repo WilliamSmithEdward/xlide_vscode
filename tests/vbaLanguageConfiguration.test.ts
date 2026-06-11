@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
-import { detectSmartBlockOpener, VBA_SMART_BLOCK_SNIPPETS } from '../src/vbaStructuralAnalysis';
+import { detectSmartBlockOpener } from '../src/vbaSmartEnter';
+import { VBA_SMART_BLOCK_SNIPPETS } from '../src/vbaSmartBlockSnippets';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from '../src/xlideVbaEditorOverrides';
 
 interface VbaLanguageConfiguration {

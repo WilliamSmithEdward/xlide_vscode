@@ -7,7 +7,7 @@ import {
 	type VbaDiagnostic,
 	type VbaTextEdit,
 } from '../src/analyzer';
-import { analyzeVbaStructure, type VbaStructuralDiagnostic } from '../src/vbaStructuralAnalysis';
+import { analyzeVbaStructure, type VbaStructuralDiagnostic } from '../src/vbaStructuralDiagnostics';
 import { byCode } from './helpers/diagnostics';
 
 function firstDiagnostic(

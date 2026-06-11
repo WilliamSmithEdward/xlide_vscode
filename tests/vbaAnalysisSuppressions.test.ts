@@ -6,7 +6,7 @@ import {
 	scanAnalysisSuppressions,
 	type VbaDiagnostic,
 } from '../src/analyzer';
-import { analyzeVbaStructure } from '../src/vbaStructuralAnalysis';
+import { analyzeVbaStructure } from '../src/vbaStructuralDiagnostics';
 
 function semanticDiagnostics(source: string): VbaDiagnostic[] {
 	return analyzeModule(source, {

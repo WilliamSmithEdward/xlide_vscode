@@ -19,7 +19,7 @@ import {
     resolveDiagnosticCodeActions,
     type VbaDiagnosticData,
 } from './analyzer';
-import { lineStartOffsets } from './vbaStructuralAnalysis';
+import { lineStartOffsets } from './vbaSourceScan';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
 import {
     buildVbaProjectIndexAsync,

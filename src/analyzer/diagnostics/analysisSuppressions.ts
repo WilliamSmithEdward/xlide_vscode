@@ -3,7 +3,7 @@ import type { ModuleMember, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaDiagnostic } from './analyzeModule';
 import { diagnosticMetadataForCode, DIAGNOSTIC_RULES } from './ruleMetadata';
-import { lineStartOffsets } from '../../vbaStructuralAnalysis';
+import { lineStartOffsets } from '../../vbaSourceScan';
 
 export const ANALYSIS_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.analysisSuppressionDirective.code;
 

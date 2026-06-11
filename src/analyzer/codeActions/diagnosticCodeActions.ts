@@ -5,7 +5,7 @@ import {
 	explicitCallStatementBareRuntimeRewrite,
 	standaloneEmptyParenthesizedCallStatement,
 } from '../call/callContext';
-import { detectEol, leadingWhitespace } from '../../vbaStructuralAnalysis';
+import { detectEol, leadingWhitespace } from '../../vbaSourceScan';
 import { ANALYSIS_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/analysisSuppressions';
 import type { VbaDiagnosticData } from '../diagnostics/analyzeModule';
 

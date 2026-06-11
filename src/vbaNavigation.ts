@@ -10,7 +10,7 @@ import {
     moduleKindFromType,
     type VbaProjectModuleInput,
 } from './vbaProjectAnalysis';
-import { lineStartOffsets } from './vbaStructuralAnalysis';
+import { lineStartOffsets } from './vbaSourceScan';
 
 export { buildVbaProjectIndex, moduleKindFromType };
 

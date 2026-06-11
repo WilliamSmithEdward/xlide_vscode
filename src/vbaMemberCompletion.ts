@@ -22,7 +22,8 @@ import {
 	openModuleSourceForWorkbook,
 	openModuleSourceMapForWorkbook,
 } from './vbaOpenDocuments';
-import { leadingWhitespace, procedureHeaderParensEdit } from './vbaStructuralAnalysis';
+import { leadingWhitespace } from './vbaSourceScan';
+import { procedureHeaderParensEdit } from './vbaSmartEnter';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
 	DocRegistry,

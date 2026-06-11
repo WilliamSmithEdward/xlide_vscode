@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { materializeKeywordSnippet, resolveKeywordCompletions } from '../src/analyzer';
-import {
-	detectSmartBlockOpener,
-	VBA_BLOCK_INDENT_UNIT,
-	VBA_SMART_BLOCK_SNIPPETS,
-} from '../src/vbaStructuralAnalysis';
+import { detectSmartBlockOpener, VBA_BLOCK_INDENT_UNIT } from '../src/vbaSmartEnter';
+import { VBA_SMART_BLOCK_SNIPPETS } from '../src/vbaSmartBlockSnippets';
 
 function at(src: string, marker: string): number {
 	const idx = src.indexOf(marker);

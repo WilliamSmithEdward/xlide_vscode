@@ -1,4 +1,4 @@
-import { isVbaAttributeLine, normalizeEol } from './vbaStructuralAnalysis';
+import { isVbaAttributeLine, normalizeEol } from './vbaSourceScan';
 
 export const XLIDE_ASSERT_MODULE_NAME = 'XlideAssert';
 

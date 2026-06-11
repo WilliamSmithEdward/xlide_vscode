@@ -11,10 +11,12 @@ import { completionCursorContext } from './cursorContext';
 import {
 	openSmartBlockClosersBefore,
 	VBA_BLOCK_INDENT_UNIT,
-	vbaSmartBlockSnippetsFor,
 	type VbaSmartBlockLayout,
+} from '../../vbaSmartEnter';
+import {
+	vbaSmartBlockSnippetsFor,
 	type VbaSmartBlockSnippetSpec,
-} from '../../vbaStructuralAnalysis';
+} from '../../vbaSmartBlockSnippets';
 
 export type KeywordCompletionKind = 'keyword' | 'snippet';
 

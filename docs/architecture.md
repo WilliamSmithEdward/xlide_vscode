@@ -40,7 +40,10 @@ xlide_vscode/
     vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of VBA module sources
     vbaLanguageProviders.ts  Document/definition/reference/rename/code-action providers, diagnostics, and smart-enter for the vba language
-    vbaStructuralAnalysis.ts        Pure structural block-balance analysis (analyzeVbaStructure), smart-enter helpers, and the shared smart-block snippet catalogue (no vscode dependency)
+    vbaSourceScan.ts    Pure shared VBA source-scan utilities — stripVba, line start offsets, logical lines, identifier search/validation (no vscode dependency)
+    vbaStructuralDiagnostics.ts     Pure structural block-balance analysis (analyzeVbaStructure) and the block opener/closer grammar (no vscode dependency)
+    vbaSmartEnter.ts    Pure Smart Enter block completion, With-member continuation, loop-iterator sync, and procedure-header paren repair (no vscode dependency)
+    vbaSmartBlockSnippets.ts        Shared smart-block snippet catalogue projected into keyword completion and conformance tests (no vscode dependency)
     vbaModuleAnalysis.ts    Shared module analysis core used by live diagnostics, current-module analysis, and workbook analysis; merges structural analysis, semantic analysis, and analysis suppression directives
     vbaOpenDocuments.ts Shared same-workbook open-document source overlay helper for editor-backed project analysis
     vbaProjectAnalysis.ts  Shared ProjectIndex construction and analyzer-option derivation for project-aware analysis, diagnostics, semantic tokens, completion, and hover surfaces
@@ -457,12 +460,13 @@ and constants, control-flow keywords, and built-in functions.
 apostrophe line comment, brackets, indent rules, and procedure-based folding.
 Because VS Code language configuration is static JSON, tests keep its block
 indent/folding regexes aligned with the shared smart-block rules in
-`src/vbaStructuralAnalysis.ts` instead of letting it become a second behavioral source.
+`src/vbaSmartEnter.ts` instead of letting it become a second behavioral source.
 Block keyword snippets are also projected from the same `VBA_SMART_BLOCK_SNIPPETS`
-catalogue, so adding a block archetype requires updating one pure contract and
-then satisfying the completion, Smart Enter, and static JSON conformance tests.
-The same dependency-free module also owns shared VBA source-text helpers such as
-identifier validation, comment/string-safe identifier occurrence search, line
+catalogue (`src/vbaSmartBlockSnippets.ts`), so adding a block archetype requires
+updating one pure contract and then satisfying the completion, Smart Enter, and
+static JSON conformance tests.
+The dependency-free `src/vbaSourceScan.ts` owns shared VBA source-text helpers such
+as identifier validation, comment/string-safe identifier occurrence search, line
 start offsets, and leading-whitespace detection. Providers, workbook analysis,
 code actions, and tree/module commands should reuse those helpers rather than
 carrying local regex copies.
@@ -535,13 +539,13 @@ the same workbook participate in cross-module diagnostics, type coloring,
 navigation, completion, hover, and signature help without crossing workbook
 boundaries.
 
-**Structural analysis** — `src/vbaStructuralAnalysis.ts` is a pure, `vscode`-free module so it
+**Structural analysis** — `src/vbaStructuralDiagnostics.ts` is a pure, `vscode`-free module so it
 is unit-tested directly (`tests/vbaStructuralAnalysis.test.ts`). It strips strings/comments,
-joins `_` line continuations, then walks a block stack to detect imbalance.
-Missing-block diagnostics carry stable codes plus the expected closer and
+joins `_` line continuations (via `src/vbaSourceScan.ts`), then walks a block stack to detect
+imbalance. Missing-block diagnostics carry stable codes plus the expected closer and
 deterministic insertion line, so quick fixes can insert `End Sub`, `End If`,
-`Next`, and related closers without parsing diagnostic text. The same module
-exports smart-enter helpers used by the auto-block feature.
+`Next`, and related closers without parsing diagnostic text. The sibling
+`src/vbaSmartEnter.ts` exports the smart-enter helpers used by the auto-block feature.
 
 **Conditional compilation model** — The core parser models `#Const`, `#If`,
 `#ElseIf`, `#Else`, and `#End If` as `ConditionalDirective` AST nodes at module
@@ -600,7 +604,7 @@ declarations, Type/Enum, procedures + parameters, and nested block statements)
 that never throws on malformed input and emits block-mismatch diagnostics. Every
 rule cites an MS-VBAL section; coverage and deviations are tracked in
 `docs/spec/MS-VBAL.verification-map.md`. This layer will eventually replace the
-interim regex analyzer in `src/vbaStructuralAnalysis.ts`.
+interim regex analyzer in `src/vbaStructuralDiagnostics.ts`.
 
 **Host-context member completion** — built on top of the analyzer, this is the
 feature that distinguishes XLIDE from a generic VBA syntax extension. It is split
@@ -735,7 +739,7 @@ into a pure analyzer layer and a thin VS Code provider:
   panel includes the runtime kind plus curated parameter types where available;
   constant completion shows the owning enum/type and known value.
   Curated runtime calls are intentionally not duplicated as VS Code snippets.
-  Block keyword completions are projected from `src/vbaStructuralAnalysis.ts`'s shared
+  Block keyword completions are projected from `src/vbaSmartBlockSnippets.ts`'s shared
   `VBA_SMART_BLOCK_SNIPPETS` catalogue and remain explicit full-block scaffolds for Tab-driven
   shortcut gestures, while Smart Enter handles the line-by-line workflow after a
   user-typed opener. Close-keyword suggestions still consume the same
@@ -1147,7 +1151,7 @@ Diagnostic severity policy:
   `severities` overrides (including `'off'`) per rule.
 
 `src/vbaModuleAnalysis.ts` merges this engine with the structural block-balance
-analyzer (`src/vbaStructuralAnalysis.ts`, which owns the "Missing End .../unexpected
+analyzer (`src/vbaStructuralDiagnostics.ts`, which owns the "Missing End .../unexpected
 terminator" family) and analysis suppression directives. `registerVbaDiagnostics` in
 `src/vbaLanguageProviders.ts` runs that shared module core on open and debounced
 (300 ms) on every edit, on real `.vba` files and on virtual `xlide-vba` module
@@ -1300,7 +1304,7 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 | New workbook-wide analysis behavior | `src/vbaModuleAnalysis.ts` (shared module analysis core), `src/vbaWorkbookAnalysis.ts` (workbook analysis core), `src/workbookAnalysisResultsModel.ts` (results view model/copy report), `src/workbookAnalysisWebview.ts` (analysis results GUI), `src/commands.ts` (command wiring + location navigation), `src/agentTools.ts` (`xlide_analyzeWorkbook`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
 | New Python source file | `python/xlide/__init__.py` (if re-exported), `docs/architecture.md` |
 | Dependency added/removed | `python/requirements.txt`, `README.md` |
-| New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaStructuralAnalysis.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
+| New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaStructuralDiagnostics.ts` (structural analysis), `src/vbaLanguageProviders.ts` (provider), `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` or generated `src/analyzer/host/excelReferenceMembers.ts` (metadata transcribed or generated with provenance), `tests/vbaMemberCompletion.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |

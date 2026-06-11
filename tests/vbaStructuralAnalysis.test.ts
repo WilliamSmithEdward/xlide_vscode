@@ -1,22 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import {
-    analyzeVbaStructure,
-    stripVba,
-    detectSmartBlockOpener,
     findIdentifierOccurrences,
-    isSmartBlockClosedAhead,
-    lineStartOffsets,
     leadingWhitespace,
+    lineStartOffsets,
+    stripVba,
+    validateVbaModuleName,
+} from '../src/vbaSourceScan';
+import { analyzeVbaStructure } from '../src/vbaStructuralDiagnostics';
+import {
+    detectSmartBlockOpener,
+    isSmartBlockClosedAhead,
+    normalizeSmartBlockLayout,
     openSmartBlockClosersBefore,
+    procedureHeaderParensEdit,
     resolveLoopIteratorSyncEdit,
     smartBlockBodyIndent,
     smartBlockBodyText,
     smartBlockInsertion,
     withMemberContinuationText,
-    normalizeSmartBlockLayout,
-    procedureHeaderParensEdit,
-    validateVbaModuleName,
-} from '../src/vbaStructuralAnalysis';
+} from '../src/vbaSmartEnter';
 
 describe('analyzeVbaStructure', () => {
     it('reports no problems for a balanced Sub', () => {

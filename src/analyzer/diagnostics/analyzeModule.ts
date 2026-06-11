@@ -36,7 +36,7 @@ import {
 	trackedLocalsPassedAsCallArguments,
 	walkStraightLineBody,
 } from './dataflow';
-import { detectEol, VBA_IDENTIFIER_NAME_RE } from '../../vbaStructuralAnalysis';
+import { detectEol, VBA_IDENTIFIER_NAME_RE } from '../../vbaSourceScan';
 import {
 	getHostMembers,
 	resolveHostAlias,

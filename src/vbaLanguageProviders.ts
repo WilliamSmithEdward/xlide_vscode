@@ -13,19 +13,21 @@ import {
 import { VbaSymbolIndex, VbaModuleSymbols } from './vbaSymbolIndex';
 import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import {
-    analyzeVbaStructure,
-    stripVba,
-    detectSmartBlockOpener,
     findIdentifierOccurrences,
-    isSmartBlockClosedAhead,
     lineStartOffsets,
+    stripVba,
+    VBA_IDENTIFIER_NAME_RE,
+    VBA_IDENTIFIER_RE,
+} from './vbaSourceScan';
+import { analyzeVbaStructure } from './vbaStructuralDiagnostics';
+import {
+    detectSmartBlockOpener,
+    isSmartBlockClosedAhead,
     procedureHeaderParensEdit,
     resolveLoopIteratorSyncEdit,
     smartBlockInsertion,
-    VBA_IDENTIFIER_NAME_RE,
-    VBA_IDENTIFIER_RE,
     withMemberContinuationText,
-} from './vbaStructuralAnalysis';
+} from './vbaSmartEnter';
 import {
     diagnosticSourceForCode,
     DiagnosticSeverity as RuleSeverity,

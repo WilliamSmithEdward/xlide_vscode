@@ -16,7 +16,7 @@ import {
     DEFAULT_VBA_SMART_BLOCK_LAYOUT,
     normalizeSmartBlockLayout,
     type VbaSmartBlockLayout,
-} from './vbaStructuralAnalysis';
+} from './vbaSmartEnter';
 
 type XlideGlobalSettingSeverity = 'error';
 

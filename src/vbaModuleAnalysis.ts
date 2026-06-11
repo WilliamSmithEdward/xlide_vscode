@@ -12,11 +12,11 @@ import {
     type VbaDiagnosticData,
 } from './analyzer';
 import type { ProcedureNode, Span } from './analyzer/parser/nodes';
+import { lineStartOffsets } from './vbaSourceScan';
 import {
     analyzeVbaStructure,
-    lineStartOffsets,
     type VbaStructuralDiagnostic,
-} from './vbaStructuralAnalysis';
+} from './vbaStructuralDiagnostics';
 import { discoverVbaTestsFromModule, validateVbaTestDirectivesFromModule } from './vbaTestRunner';
 
 export interface VbaModuleAnalysisDiagnostic {

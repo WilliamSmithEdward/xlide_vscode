@@ -69,7 +69,7 @@ import {
 } from './globalSettings';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { effectiveWorkbookTestSettings } from './workbookTestSettings';
-import { lineStartOffsets, validateVbaModuleName } from './vbaStructuralAnalysis';
+import { lineStartOffsets, validateVbaModuleName } from './vbaSourceScan';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
     moduleKindFromType,

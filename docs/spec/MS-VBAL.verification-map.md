@@ -238,7 +238,7 @@ Phase 5 adds live semantic diagnostics computed from module text by
 `src/analyzer/diagnostics/analyzeModule.ts` (rule catalogue in
 `ruleMetadata.ts`). Each rule is high-confidence and cites the MS-VBAL section
 it enforces; the engine is merged with the structural block-balance analyzer
-(`src/vbaStructuralAnalysis.ts`, which covers the "Missing End .../unexpected terminator"
+(`src/vbaStructuralDiagnostics.ts`, which covers the "Missing End .../unexpected terminator"
 family) in `registerVbaDiagnostics`.
 
 | Rule code | Meaning | MS-VBAL | Implementation File | Fixture | Status |

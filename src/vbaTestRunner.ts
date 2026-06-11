@@ -2,7 +2,7 @@ import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import { parseModule } from './analyzer/parser/parseModule';
 import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes';
-import { lineStartOffsets } from './vbaStructuralAnalysis';
+import { lineStartOffsets } from './vbaSourceScan';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
 import { isReadModulesUnavailable } from './pythonBridgeErrors';

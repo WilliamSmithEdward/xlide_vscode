@@ -1,6 +1,6 @@
 import type { VbaTestCase } from './vbaTestRunner';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
-import { VBA_IDENTIFIER_NAME_RE } from './vbaStructuralAnalysis';
+import { VBA_IDENTIFIER_NAME_RE } from './vbaSourceScan';
 import { XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES } from './vbaTestSupportModule';
 import { psSingleQuoted } from './util/powershell';
 
