@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{head}}
+    <style nonce="{{nonce}}">
+{{css}}
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header>
+            <div>
+                <h1>XLIDE Unit Tests</h1>
+                <div class="subtle">{{workbookName}}</div>
+            </div>
+        </header>
+        <main>
+            <div class="statusGrid">
+                <section class="status-{{supportState}}">
+                    <div class="sectionHeader">
+                        <h2>Test Support</h2>
+                        <button type="button" data-action="installSupport" title="{{installTitle}}" {{installDisabled}}>{{installLabel}}</button>
+                    </div>
+                    <div class="sectionBody">
+                        <div class="statusRow">
+                            <span class="statusDot"></span>
+                            <div>
+                                <div class="statusTitle">{{supportTitle}}</div>
+                                <div class="helpText">{{supportDescription}}</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="status-{{runtimeState}}">
+                    <div class="sectionHeader">
+                        <h2>Runtime</h2>
+                    </div>
+                    <div class="sectionBody">
+                        <div class="statusRow">
+                            <span class="statusDot"></span>
+                            <div>
+                                <div class="statusTitle">{{runtimeTitle}}</div>
+                                <div class="helpText">{{runtimeDescription}}</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <section>
+                <div class="sectionHeader">
+                    <h2>Run</h2>
+                </div>
+                <div class="sectionBody">
+                    <div class="runGrid">
+                        <button class="runButton" type="button" data-action="runAll" {{runDisabled}}>Run All Tests</button>
+                        <button class="runButton" type="button" data-action="runSelected" title="{{selectedRunTitle}}" {{selectedRunDisabled}}>Run Selected</button>
+                        <button class="runButton" type="button" data-action="runCurrentModule" title="{{currentScopeTitle}}" {{runDisabled}}>Run Current Module</button>
+                        <button class="runButton" type="button" data-action="runCurrentTest" title="{{currentScopeTitle}}" {{runDisabled}}>Run Current Test</button>
+                        <button class="runButton" type="button" data-action="runWithFilters" title="{{filterRunTitle}}" {{filterRunDisabled}}>Run With Filters</button>
+                        <button class="runButton" type="button" data-action="rerunFailed" title="{{rerunFailedTitle}}" {{rerunFailedDisabled}}>Rerun Failed{{rerunFailedCount}}</button>
+                    </div>
+                    {{runHelp}}
+                    {{testSelection}}
+                    {{tagFilters}}
+                </div>
+            </section>
+        </main>
+    </div>
+    {{toastHtml}}
+    <script nonce="{{nonce}}">
+{{js}}
+    </script>
+</body>
+</html>
