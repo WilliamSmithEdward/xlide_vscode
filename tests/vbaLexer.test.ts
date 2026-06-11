@@ -181,6 +181,37 @@ describe('tokenize - date literals (MS-VBAL 3.3.3)', () => {
 		expect(date.kind).toBe('dateLiteral');
 		expect(date.rawText).toBe('#1/2/2020#');
 	});
+
+	it('lexes time and month-name date-or-time bodies', () => {
+		expect(tokenize('t = #3:15:30 PM#')[2].kind).toBe('dateLiteral');
+		expect(tokenize('t = #12:30#')[2].kind).toBe('dateLiteral');
+		expect(tokenize('d = #March 15, 2026#')[2].kind).toBe('dateLiteral');
+		expect(tokenize('d = #1/1/2026 3:30 am#')[2].kind).toBe('dateLiteral');
+	});
+
+	it('lexes a file-number # as an operator, not a date-literal opener', () => {
+		// The '#' pair encloses `ff, "csv", 1, ` -- not a date-or-time body, so
+		// the file-number '#' must not swallow the statement (file-I/O syntax,
+		// e.g. Open/Close/Print/Write/Get/Put, MS-VBAL 5.4.5).
+		const kinds = tokenize('Write #ff, "csv", 1, #1/1/2026#').map((t) => `${t.kind}:${t.rawText}`);
+		expect(kinds).toEqual([
+			'keyword:Write',
+			'operator:#',
+			'identifier:ff',
+			'punctuation:,',
+			'stringLiteral:"csv"',
+			'punctuation:,',
+			'integerLiteral:1',
+			'punctuation:,',
+			'dateLiteral:#1/1/2026#',
+		]);
+	});
+
+	it('does not pair a type-suffix # with a later file-number #', () => {
+		const kinds = tokenize('x# = 1: Print #1, "y"').map((t) => `${t.kind}:${t.rawText}`);
+		expect(kinds).not.toContain('dateLiteral:# = 1: Print #');
+		expect(kinds).toContain('stringLiteral:"y"');
+	});
 });
 
 describe('tokenize - directives (MS-VBAL 3.4)', () => {

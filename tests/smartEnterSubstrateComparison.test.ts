@@ -12,8 +12,8 @@
 // both per source (full lexer context) and per isolated line (the contract
 // the Smart-Enter call sites actually use).
 //
-// Verdict recorded by this harness: the migration is BLOCKED. Across 1,103
-// samples the substrates disagree on exactly two classes of line:
+// Verdict recorded by this harness: the migration is UNBLOCKED. Across 1,103
+// samples the substrates disagree on exactly one class of line:
 //
 //   rem-after-colon            (lexer correct) stripVba blanks only
 //       whole-line Rem comments; the lexer recognizes Rem at any statement
@@ -21,21 +21,21 @@
 //       by the lexer but leaks through stripVba. Migrating would be a strict
 //       improvement here.
 //
-//   file-number-date-literal   (legacy correct -- BLOCKS the migration) In
-//       `Write #ff, "csv", 1, #1/1/2026#` the lexer's date-literal scan
-//       (tokenize.ts, '#' branch) treats the file-number '#' as the start of
-//       a date literal and swallows `#ff, "csv", 1, #` as one dateLiteral
-//       token, so the enclosed string literal is NOT blanked. stripVba blanks
-//       it correctly. Under the lexer substrate, a string such as
-//       `Write #1, "x: End If"` would leak a fake block closer into the
-//       Smart-Enter grammar -- a regression, not an improvement.
+// A second class -- file-number-date-literal, where the lexer's date-literal
+// scan treated the file-number '#' of `Write #ff, "csv", 1, #1/1/2026#` as a
+// date-literal opener and swallowed `#ff, "csv", 1, #` as one dateLiteral
+// token, leaving the enclosed string un-blanked -- was a verified lexer bug.
+// The lexer now validates the text between a '#' pair against the MS-VBAL
+// 3.3.3 date-or-time grammar (tokenize.ts, isDateLiteralBody) and lexes a
+// non-matching '#' as an operator, so both substrates blank such lines
+// identically. The pinned repro below asserts the corrected lexing; if the
+// divergence ever reappears, this harness fails it as UNCLASSIFIED.
 //
-// Because one divergence class is a lexer regression, Smart Enter keeps the
-// legacy substrate (audit #74 work rule: migrate only where the diff is empty
-// or every difference is a verified improvement; do not tweak either engine
-// to force equivalence). When the lexer learns to distinguish file numbers
-// from date literals, the 'file-number-date-literal' repro below will fail --
-// that is the signal that this migration is unblocked.
+// With the only remaining divergence class a verified improvement, the audit
+// #74 work rule (migrate only where the diff is empty or every difference is
+// a verified improvement) no longer blocks rebuilding Smart Enter on the
+// lexer substrate. src/vbaSmartEnter.ts still sits on legacy stripVba; the
+// migration itself is tracked as follow-up work.
 
 import { describe, expect, it } from 'vitest';
 import { tokenize } from '../src/analyzer/lexer/tokenize';
@@ -74,29 +74,13 @@ function lexerStrippedLine(line: string): string {
 
 type SubstrateDivergenceClass =
     | 'rem-after-colon'
-    | 'file-number-date-literal'
     | 'UNCLASSIFIED';
 
 const MIDLINE_REM_RE = /:\s*Rem\b/i;
-// A '#' file-number argument later mistaken for a date-literal opener: the
-// statement carries `#<name-or-number>` and a second '#' later on the line.
-const FILE_NUMBER_RE = /#\s*[A-Za-z_0-9]/;
 
-function classifyLine(raw: string, legacy: string, lexer: string): SubstrateDivergenceClass {
+function classifyLine(raw: string): SubstrateDivergenceClass {
     if (MIDLINE_REM_RE.test(raw)) {
         return 'rem-after-colon';
-    }
-    // The lexer under-blanks (keeps text legacy blanked) when a file-number
-    // '#' swallowed the rest of the statement as a date literal.
-    const lexerKeptWhatLegacyBlanked = [...raw].some(
-        (_, i) => legacy[i] === ' ' && lexer[i] !== ' ',
-    );
-    if (
-        lexerKeptWhatLegacyBlanked &&
-        FILE_NUMBER_RE.test(raw) &&
-        raw.split('#').length > 2
-    ) {
-        return 'file-number-date-literal';
     }
     return 'UNCLASSIFIED';
 }
@@ -125,7 +109,7 @@ describe('smart-enter substrate comparison (audit #74)', () => {
                     if (legacy === lexer) {
                         continue;
                     }
-                    const cls = classifyLine(rawLines[i], legacy, lexer);
+                    const cls = classifyLine(rawLines[i]);
                     counts.set(cls, (counts.get(cls) ?? 0) + 1);
                     if (cls === 'UNCLASSIFIED') {
                         unclassified.push(
@@ -151,7 +135,8 @@ describe('smart-enter substrate comparison (audit #74)', () => {
         ).toEqual([]);
     });
 
-    // -- Pinned minimal repros, one per divergence class --------------------
+    // -- Pinned minimal repros: the surviving divergence class, plus a
+    // regression pin for the fixed file-number/date-literal lexer bug -------
 
     it('rem-after-colon: only the lexer blanks a trailing ": Rem ..." comment', () => {
         const line = '    Debug.Print 1: Rem hidden: End If';
@@ -159,15 +144,15 @@ describe('smart-enter substrate comparison (audit #74)', () => {
         expect(lexerStrippedLine(line)).toBe('    Debug.Print 1:                   ');
     });
 
-    it('file-number-date-literal: the lexer swallows a Write # statement as a date literal (blocks migration)', () => {
+    it('file-number-date-literal: the lexer lexes a Write # file number as an operator, not a date-literal opener', () => {
         const line = '    Write #ff, "csv", 1, #1/1/2026#';
-        // Legacy strips the string correctly.
+        // Both substrates blank the string and keep the genuine date literal.
         expect(stripVba(line)).toBe('    Write #ff,      , 1, #1/1/2026#');
-        // The lexer leaves the string un-blanked: `#ff, "csv", 1, #` lexed as
-        // one dateLiteral token. When this assertion fails, the lexer has
-        // learned file numbers and the Smart-Enter migration is unblocked.
-        expect(lexerStrippedLine(line)).toBe('    Write #ff, "csv", 1, #1/1/2026#');
+        expect(lexerStrippedLine(line)).toBe('    Write #ff,      , 1, #1/1/2026#');
         const kinds = tokenize(line).map((t) => `${t.kind}:${t.rawText}`);
-        expect(kinds).toContain('dateLiteral:#ff, "csv", 1, #');
+        expect(kinds).toContain('operator:#');
+        expect(kinds).toContain('stringLiteral:"csv"');
+        expect(kinds).toContain('dateLiteral:#1/1/2026#');
+        expect(kinds).not.toContain('dateLiteral:#ff, "csv", 1, #');
     });
 });
