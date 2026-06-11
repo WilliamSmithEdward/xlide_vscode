@@ -155,6 +155,21 @@ export function firstExecutableTokenIndex(toks: readonly VbaToken[]): number {
 	return 0;
 }
 
+export function topLevelOperatorIndex(toks: readonly VbaToken[], operator: string): number {
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+		} else if (raw === ')' || raw === ']') {
+			depth--;
+		} else if (depth === 0 && toks[i].kind === 'operator' && raw === operator) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 export function tokenName(tok: VbaToken): string | undefined {
 	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
 		return tok.rawText;

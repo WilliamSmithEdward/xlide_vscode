@@ -314,6 +314,10 @@ export function isNamedSlot(slot: VbaToken[]): boolean {
 	);
 }
 
+export function callableAcceptsZeroArguments(sig: CallableTypeSignature): boolean {
+	return sig.params.every((param) => param.optional || param.paramArray);
+}
+
 /** Describes a procedure's acceptable argument-count range for a message. */
 export function describeArity(required: number, max: number): string {
 	if (max === Infinity) {
