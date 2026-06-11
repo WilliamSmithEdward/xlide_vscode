@@ -1945,7 +1945,7 @@ export function registerCommands(
             // Prevent deletion of document-type modules
             if (node.moduleType === 'document') {
                 vscode.window.showWarningMessage(
-                    `Cannot delete "${node.moduleName}" â€” document modules are protected.`,
+                    `Cannot delete "${node.moduleName}" — document modules are protected.`,
                 );
                 return;
             }
@@ -2068,7 +2068,7 @@ export function registerCommands(
             log,
         }),
 
-        // DEV: smoke test â€” verifies listModules + readModule against a workspace workbook
+        // DEV: smoke test — verifies listModules + readModule against a workspace workbook
         registerXlideCommand('xlide.dev.smoke', async () => {
             log('[smoke] Starting smoke test...');
 
@@ -2103,7 +2103,7 @@ export function registerCommands(
                         const modules = await bridge.call<Array<{ name: string; type: string }>>(
                             'listModules', { path: workbookPath },
                         );
-                        log(`[smoke] listModules OK â€” ${modules.length} module(s): ${modules.map(m => m.name).join(', ')}`);
+                        log(`[smoke] listModules OK — ${modules.length} module(s): ${modules.map(m => m.name).join(', ')}`);
 
                         if (modules.length === 0) {
                             vscode.window.showWarningMessage('XLIDE Smoke: workbook has no VBA modules.');
@@ -2115,11 +2115,11 @@ export function registerCommands(
                         const source = await bridge.call<string>(
                             'readModule', { path: workbookPath, module: target.name, full: false },
                         );
-                        log(`[smoke] readModule "${target.name}" OK â€” ${source.length} chars`);
+                        log(`[smoke] readModule "${target.name}" OK — ${source.length} chars`);
 
                         log('[smoke] All checks passed.');
                         void vscode.window.showInformationMessage(
-                            `XLIDE Smoke: OK â€” ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
+                            `XLIDE Smoke: OK — ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
                         );
                     } catch (err) {
                         const msg = errorMessage(err);
