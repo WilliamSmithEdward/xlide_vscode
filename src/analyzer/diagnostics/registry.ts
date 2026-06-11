@@ -452,15 +452,13 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'memberNotFound',
-		run: (ctx, push) => checkMemberNotFound(ctx.source, ctx.mod, ctx.memberCtx, ctx.activity, push),
+		procedureStatements: (ctx, push) => checkMemberNotFound(ctx.source, ctx.memberCtx, push),
 	},
 	{
 		name: 'nonCallableCallStatement',
-		run: (ctx, push) => checkNonCallableCallStatement(
+		procedureStatements: (ctx, push) => checkNonCallableCallStatement(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
-			ctx.activity,
 			ctx.opts.knownProcedures,
 			ctx.opts.projectVisibleSymbols,
 			push,
@@ -537,16 +535,15 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		// Cross-module rule: only runs when the caller supplied the project's
 		// visible procedure names (see AnalyzeModuleOptions.knownProcedures).
 		name: 'unknownCallStatement',
-		run: (ctx, push) => {
-			if (!ctx.opts.knownProcedures) {
-				return;
+		procedureStatements: (ctx, push) => {
+			const knownProcedures = ctx.opts.knownProcedures;
+			if (!knownProcedures) {
+				return () => undefined;
 			}
-			checkUnknownCallStatement(
+			return checkUnknownCallStatement(
 				ctx.source,
-				ctx.mod,
 				ctx.symbols,
-				ctx.activity,
-				ctx.opts.knownProcedures,
+				knownProcedures,
 				ctx.opts.projectVisibleSymbols,
 				push,
 			);

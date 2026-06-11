@@ -60,50 +60,44 @@ import {
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
-	forEachStatement,
 	matchParenFrom,
 	setAssignmentTarget,
 	statementTokens,
 	tokenName,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
+/** Per-statement rule: rides the shared procedure-statement walk (audit #0). */
 export function checkMemberNotFound(
 	source: string,
-	mod: ModuleNode,
 	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
-		forEachStatement(member.body, (stmt) => {
-			for (const ref of memberAccessReferences(source, stmt.span)) {
-				const surface = resolveExhaustiveMemberSurface(
-					source,
-					ref.dotEndOffset,
-					memberCtx,
-				);
-				if (!surface) {
-					continue;
-				}
-				if (
-					surface.members.some(
-						(candidate) =>
-							candidate.name.toLowerCase() === ref.member.toLowerCase(),
-					)
-				) {
-					continue;
-				}
-				push(
-					'memberNotFound',
-					`Method or data member not found: '${surface.owner}.${ref.member}'.`,
-					ref.memberSpan,
-				);
+): ProcedureStatementVisitor {
+	return () => (stmt) => {
+		for (const ref of memberAccessReferences(source, stmt.span)) {
+			const surface = resolveExhaustiveMemberSurface(
+				source,
+				ref.dotEndOffset,
+				memberCtx,
+			);
+			if (!surface) {
+				continue;
 			}
-		}, activity);
-	}
+			if (
+				surface.members.some(
+					(candidate) =>
+						candidate.name.toLowerCase() === ref.member.toLowerCase(),
+				)
+			) {
+				continue;
+			}
+			push(
+				'memberNotFound',
+				`Method or data member not found: '${surface.owner}.${ref.member}'.`,
+				ref.memberSpan,
+			);
+		}
+	};
 }
 
 function memberAccessReferences(
@@ -147,16 +141,16 @@ function memberAccessReferences(
  * detection ({@link callStatementTarget}) deliberately ignores assignments,
  * member calls, line labels, and the bare `Name(...)` indexed/implicit-member
  * form so those never produce a false positive.
+ *
+ * Per-statement rule: rides the shared procedure-statement walk (audit #0).
  */
 export function checkUnknownCallStatement(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
-	activity: ConditionalActivityTracker | undefined,
 	knownProcedures: ReadonlySet<string>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	// Excel injects Application's members into the global scope, so a bare call
 	// may legitimately bind to one of them (Calculate, Volatile, Evaluate, ...).
 	const appMembers = applicationMemberNames();
@@ -173,12 +167,9 @@ export function checkUnknownCallStatement(
 		);
 	};
 
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const hit = callStatementTarget(source, stmt.span);
 			if (hit && !isKnown(hit.name, procSym)) {
 				const call = extractCall(source, stmt.span);
@@ -191,8 +182,8 @@ export function checkUnknownCallStatement(
 						: undefined,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function createProcedureStubData(
@@ -268,19 +259,14 @@ function endsWithBlankPhysicalLine(source: string): boolean {
  */
 export function checkNonCallableCallStatement(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
-	activity: ConditionalActivityTracker | undefined,
 	knownProcedures: ReadonlySet<string> | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const call = extractCall(source, stmt.span);
 			if (!call) {
 				return;
@@ -310,8 +296,8 @@ export function checkNonCallableCallStatement(
 				`Cannot call '${call.name}' because it resolves to ${symbolKindLabel(target)}, not a Sub or Function.`,
 				call.nameSpan,
 			);
-		}, activity);
-	}
+		};
+	};
 }
 
 function callTargetFeedsMemberAccess(source: string, span: Span, call: CallArguments): boolean {
