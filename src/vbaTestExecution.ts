@@ -1,23 +1,13 @@
 import * as cp from 'child_process';
-import * as fs from 'fs';
 import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
-import {
-    buildOwnedReadOnlyExcelTestHostScript,
-    DEFAULT_VBA_TEST_TIMEOUT_MS,
-    vbaTestHostPlanItems,
-} from './vbaTestExcelHost';
-import { buildVbaTestDirectRunnerModule } from './vbaTestRunnerModuleCodegen';
+import { DEFAULT_VBA_TEST_TIMEOUT_MS } from './vbaTestExcelHost';
 import {
     parseVbaTestHostEventLine,
     validateVbaTestHostOracleTrace,
     type VbaTestHostOracleEvent,
 } from './vbaTestHostOracle';
-import { createVbaTestHostTempDir } from './vbaTestTempFiles';
-import {
-    XLIDE_ASSERT_MODULE_NAME,
-    XLIDE_ASSERT_MODULE_SOURCE,
-} from './vbaTestSupportModule';
+import { stageOwnedReadOnlyExcelTestHost } from './vbaTestHostStaging';
 import {
     createVbaTestRunReport,
     describeVbaTestSelection,
@@ -203,40 +193,13 @@ async function runOwnedReadOnlyExcelTestHost(
     log: (message: string) => void,
 ): Promise<OwnedReadOnlyExcelHostRunResult> {
     return measurePerformance('vbaTests.ownedExcelHost', `${path.basename(filePath)} ${tests.length} tests`, async () => {
-    const hostScriptDir = await createVbaTestHostTempDir();
-    const tempWorkbookPath = path.join(hostScriptDir, path.basename(filePath));
-    const hostScriptPath = path.join(hostScriptDir, 'run-vba-tests.ps1');
-    const runnerModuleName = `XlideRun${Date.now().toString(36).slice(-8)}`;
-    try {
-        await fs.promises.copyFile(filePath, tempWorkbookPath);
-        await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
-            path: tempWorkbookPath,
-            module: XLIDE_ASSERT_MODULE_NAME,
-            source: XLIDE_ASSERT_MODULE_SOURCE,
-            kind: 'standard',
-        });
-        await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
-            path: tempWorkbookPath,
-            module: runnerModuleName,
-            source: buildVbaTestDirectRunnerModule(tests, runnerModuleName),
-            kind: 'standard',
-        });
-        const script = buildOwnedReadOnlyExcelTestHostScript(
-            tempWorkbookPath,
-            vbaTestHostPlanItems(tests),
-            { failFast: options.failFast, runnerModuleName },
-        );
-        await fs.promises.writeFile(hostScriptPath, script, 'utf8');
-    } catch (err) {
-        try {
-            await fs.promises.rm(hostScriptDir, { recursive: true, force: true });
-        } catch {
-            // Best-effort cleanup only.
-        }
-        throw err;
-    }
+    const staging = await stageOwnedReadOnlyExcelTestHost(bridge, filePath, tests, {
+        failFast: options.failFast,
+        log,
+    });
+    const hostScriptPath = staging.hostScriptPath;
     log(`[runVbaTests] Running owned read-only Excel host for ${tests.length} test(s).`);
-    log(`[runVbaTests] Temporary workbook path: ${tempWorkbookPath}`);
+    log(`[runVbaTests] Temporary workbook path: ${staging.tempWorkbookPath}`);
     log(`[runVbaTests] Host script path: ${hostScriptPath}`);
 
     return new Promise<OwnedReadOnlyExcelHostRunResult>((resolve) => {
@@ -252,7 +215,6 @@ async function runOwnedReadOnlyExcelTestHost(
         let sawExcelQuit = false;
         let timedOutAfter: string | undefined;
         let settled = false;
-        let hostScriptCleaned = false;
 
         const clearCurrentTimer = () => {
             if (currentTimer) {
@@ -272,22 +234,6 @@ async function runOwnedReadOnlyExcelTestHost(
                 cleanupTimer = undefined;
             }
         };
-        const cleanupHostScript = () => {
-            if (hostScriptCleaned) {
-                return;
-            }
-            hostScriptCleaned = true;
-            void fs.promises.rm(hostScriptDir, { recursive: true, force: true }).catch((err) => {
-                const message = errorMessage(err);
-                log(`[runVbaTests] Could not delete temporary host script: ${message}`);
-                setTimeout(() => {
-                    void fs.promises.rm(hostScriptDir, { recursive: true, force: true }).catch(() => {
-                        // Best-effort cleanup only.
-                    });
-                }, 1000);
-            });
-        };
-
         const eventResult = (event: VbaTestHostOracleEvent): OwnedReadOnlyExcelHostTestResult | undefined => {
             if (event.kind !== 'macro-finished') {
                 return undefined;
@@ -331,7 +277,7 @@ async function runOwnedReadOnlyExcelTestHost(
             clearCurrentTimer();
             clearStartupTimer();
             clearCleanupTimer();
-            cleanupHostScript();
+            staging.dispose();
             const resultsByName = new Map<string, OwnedReadOnlyExcelHostTestResult>();
             for (const event of events) {
                 const result = eventResult(event);
