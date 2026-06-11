@@ -6,9 +6,16 @@ import {
     XLIDE_VBA_LANGUAGE_ID,
     decodeModuleUri,
     encodeModuleUri,
+    isVbaDocument,
     moduleIdentityKey,
     workbookIdentityKey,
 } from './xlideFileSystem';
+import {
+    isStandaloneVbaDocument,
+    liveProjectIndexForDocument,
+    moduleKindFromDocument,
+    moduleNameFromDocument,
+} from './vbaDocumentIdentity';
 import { VbaSymbolIndex, VbaModuleSymbols } from './vbaSymbolIndex';
 import {
     findIdentifierOccurrences,
@@ -931,74 +938,6 @@ class VbaRenameProvider implements vscode.RenameProvider {
         }
         return edit;
     }
-}
-
-// ---------------------------------------------------------------------------
-// Registration
-// ---------------------------------------------------------------------------
-
-function isVbaDocument(document: vscode.TextDocument): boolean {
-    return document.languageId === 'vba'
-        || document.languageId === XLIDE_VBA_LANGUAGE_ID
-        || document.uri.scheme === XLIDE_SCHEME;
-}
-
-function isStandaloneVbaDocument(document: vscode.TextDocument): boolean {
-    return document.uri.scheme !== XLIDE_SCHEME && document.languageId === 'vba';
-}
-
-function moduleNameFromDocument(document: vscode.TextDocument): string {
-    if (document.uri.scheme === XLIDE_SCHEME) {
-        try {
-            return decodeModuleUri(document.uri).moduleName;
-        } catch {
-            /* fall through */
-        }
-    }
-    const base = document.uri.path.split('/').pop() ?? 'Module';
-    return base.replace(/\.[^.]+$/, '') || 'Module';
-}
-
-function moduleKindFromDocument(document: vscode.TextDocument): ModuleSymbolKind {
-    const fileName = document.uri.path.split('/').pop() ?? '';
-    if (/\.cls$/i.test(fileName)) {
-        return 'class';
-    }
-    if (/\.frm$/i.test(fileName)) {
-        return 'userform';
-    }
-    return 'standard';
-}
-
-async function liveProjectIndexForDocument(
-    projectIndexService: VbaProjectIndexService,
-    document: vscode.TextDocument,
-    source: string,
-    moduleName: string,
-    token?: vscode.CancellationToken,
-): Promise<ProjectIndex> {
-    if (document.uri.scheme !== XLIDE_SCHEME) {
-        return buildLiveVbaProjectIndexAsync([], {
-            moduleName,
-            moduleKind: moduleKindFromDocument(document),
-            source,
-        }, {
-            cancelIfRequested: () => {
-                if (token?.isCancellationRequested) {
-                    throw new vscode.CancellationError();
-                }
-            },
-        });
-    }
-
-    // The shared workbook context already folds in the open editors' text
-    // (including this document) one changed module at a time.
-    const decoded = decodeModuleUri(document.uri);
-    const context = await projectIndexService.contextForWorkbook(decoded.xlsmPath, 'live');
-    if (token?.isCancellationRequested) {
-        throw new vscode.CancellationError();
-    }
-    return context.project;
 }
 
 const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
