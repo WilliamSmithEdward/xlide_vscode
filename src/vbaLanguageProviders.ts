@@ -36,8 +36,10 @@ import {
     ProjectIndex,
     ReferenceScope,
     resolveDiagnosticCodeActions,
-    resolveMemberCompletionNamed,
+    resolveMemberDefinitionsAt,
     resolveProcedureLabelDefinitionAt,
+    tokenizeCached,
+    type MemberCompletionContext,
     resolveTypeReferenceAt,
     resolveTypeSemanticTokens,
     TypeSemanticTokenType,
@@ -425,13 +427,12 @@ function sourceMemberDefinitionsAt(
     currentModuleType?: string,
     currentDocumentType?: EventHandlerDocumentType,
 ): readonly VbaProjectClassMemberDefinition[] {
-    const member = resolveMemberCompletionNamed(source, memberEndOffset, memberName, {
+    return resolveMemberDefinitionsAt(source, memberEndOffset, memberName, {
         codeNames: codeNamesForModules(modules),
         meType: meHostTypeForModule(currentModuleName, currentModuleType, currentDocumentType),
         meProjectType: meProjectTypeForModule(currentModuleName, currentModuleType),
         projectClassMembers: project.projectMemberSurfaces(currentModuleName),
     });
-    return member?.definitions ?? [];
 }
 
 function projectClassMemberAtDefinition(
@@ -486,18 +487,32 @@ function projectMemberReferenceLocations(
         }
     }
 
+    const codeNames = codeNamesForModules(modules);
     for (const mod of byModule.values()) {
+        const occurrences = findIdentifierOccurrences(mod.source, memberName);
+        if (occurrences.length === 0) { continue; }
         const uri = encodeModuleUri(xlsmPath, mod.moduleName);
-        for (const occ of findIdentifierOccurrences(mod.source, memberName)) {
-            const resolved = sourceMemberDefinitionsAt(
+        const ctx: MemberCompletionContext = {
+            codeNames,
+            meType: meHostTypeForModule(mod.moduleName, mod.type, mod.documentType),
+            meProjectType: meProjectTypeForModule(mod.moduleName, mod.type),
+            projectClassMembers: project.projectMemberSurfaces(mod.moduleName),
+        };
+        // Tokenize the module once and hand each occurrence its prefix slice;
+        // occurrence offsets ascend, so one pass over the tokens suffices.
+        const moduleTokens = tokenizeCached(mod.source).filter((t) => t.kind !== 'comment');
+        let tokenEnd = 0;
+        for (const occ of occurrences) {
+            const occEnd = occ.offset + memberName.length;
+            while (tokenEnd < moduleTokens.length && moduleTokens[tokenEnd].end <= occEnd) {
+                tokenEnd += 1;
+            }
+            const resolved = resolveMemberDefinitionsAt(
                 mod.source,
+                occEnd,
                 memberName,
-                occ.offset + memberName.length,
-                project,
-                modules,
-                mod.moduleName,
-                mod.type,
-                mod.documentType,
+                ctx,
+                moduleTokens.slice(0, tokenEnd),
             );
             if (!resolved.some((definition) => targetKeys.has(memberDefinitionKey(definition)))) {
                 continue;

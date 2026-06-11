@@ -191,14 +191,89 @@ export function resolveMemberCompletionNamed(
 		: undefined;
 }
 
+/**
+ * Resolves just the source definition locations of the member named
+ * `memberName` ending at `offset`. Reference/rename providers call this once
+ * per textual occurrence, so it skips completion-row construction (signature
+ * lookup, documentation markdown) and bails on a cheap char-level scan when
+ * no member-access dot precedes the name. Callers that already hold the
+ * module's significant prefix tokens can pass them to skip the tokenization.
+ */
+export function resolveMemberDefinitionsAt(
+	source: string,
+	offset: number,
+	memberName: string,
+	ctx: MemberCompletionContext = {},
+	prefixTokens?: VbaToken[],
+): readonly VbaProjectClassMemberDefinition[] {
+	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	if (!precededByMemberAccessDot(source, safeOffset - memberName.length)) {
+		return [];
+	}
+	// Only trust supplied tokens that end exactly with the member name; when a
+	// surrounding token swallows the name (e.g. a bracketed identifier), fall
+	// back to tokenizing the prefix so behavior matches the unsliced path.
+	const last = prefixTokens?.[prefixTokens.length - 1];
+	const tokens =
+		last && last.end === safeOffset &&
+		last.rawText.toLowerCase() === memberName.toLowerCase()
+			? prefixTokens
+			: undefined;
+	const hit = memberSurfaceAtDot(source, safeOffset, ctx, tokens);
+	if (!hit) {
+		return [];
+	}
+	const lowerName = memberName.toLowerCase();
+	return hit.surface.members.find((m) => m.name.toLowerCase() === lowerName)
+		?.definitions ?? [];
+}
+
+/**
+ * Char-level fast path: true when the identifier starting at `nameStart` is
+ * preceded by a member-access dot, allowing for whitespace and `_` line
+ * continuations (the only trivia the lexer permits between the dot and the
+ * member name).
+ */
+function precededByMemberAccessDot(source: string, nameStart: number): boolean {
+	let i = nameStart - 1;
+	for (;;) {
+		while (i >= 0 && (source[i] === ' ' || source[i] === '\t')) {
+			i -= 1;
+		}
+		if (i < 0) {
+			return false;
+		}
+		const ch = source[i];
+		if (ch === '.') {
+			return true;
+		}
+		if (ch === '\n' || ch === '\r') {
+			if (ch === '\n' && i > 0 && source[i - 1] === '\r') {
+				i -= 1;
+			}
+			i -= 1;
+			while (i >= 0 && (source[i] === ' ' || source[i] === '\t')) {
+				i -= 1;
+			}
+			if (i < 0 || source[i] !== '_') {
+				return false;
+			}
+			i -= 1;
+			continue;
+		}
+		return false;
+	}
+}
+
 function memberSurfaceAtDot(
 	source: string,
 	offset: number,
 	ctx: MemberCompletionContext,
+	prefixTokens?: VbaToken[],
 ): { currentType: string; surface: MemberSurface; typedPrefix: string } | undefined {
 	// Keep newline tokens: they mark statement boundaries so a dangling
 	// member-access dot on a previous line is not merged into this chain.
-	const tokens = completionCursorContext(source, offset).significantTokens;
+	const tokens = prefixTokens ?? completionCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return undefined;
 	}

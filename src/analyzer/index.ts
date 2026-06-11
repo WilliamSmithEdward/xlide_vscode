@@ -5,7 +5,7 @@
 // from any host. See docs/xlide_vba_language_service_roadmap.md.
 
 export * from './lexer/tokenKinds';
-export { tokenize } from './lexer/tokenize';
+export { tokenize, tokenizeCached } from './lexer/tokenize';
 export {
 	canonicalKeyword,
 	isReservedIdentifier,
@@ -48,6 +48,7 @@ export {
 	MemberCompletionContext,
 	resolveMemberCompletionNamed,
 	resolveMemberCompletions,
+	resolveMemberDefinitionsAt,
 } from './completion/memberAccess';
 export {
 	CanonicalCaseContext,
