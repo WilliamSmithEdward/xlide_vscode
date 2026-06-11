@@ -546,6 +546,13 @@ imbalance. Missing-block diagnostics carry stable codes plus the expected closer
 deterministic insertion line, so quick fixes can insert `End Sub`, `End If`,
 `Next`, and related closers without parsing diagnostic text. The sibling
 `src/vbaSmartEnter.ts` exports the smart-enter helpers used by the auto-block feature.
+The planned convergence onto the token-based analyzer (audit #74) is gated by two
+corpus-wide comparison harnesses: `tests/structuralEngineComparison.test.ts` diffs
+this engine against the parser's block-balance recovery diagnostics (ten verified
+divergence classes, with regressions in both directions, so the legacy engine
+stays), and `tests/smartEnterSubstrateComparison.test.ts` diffs `stripVba` against
+lexer-token stripping (blocked by the lexer's file-number/date-literal confusion).
+Both harnesses fail on any new, unexplained drift between the engines.
 
 **Conditional compilation model** — The core parser models `#Const`, `#If`,
 `#ElseIf`, `#Else`, and `#End If` as `ConditionalDirective` AST nodes at module
@@ -604,7 +611,11 @@ declarations, Type/Enum, procedures + parameters, and nested block statements)
 that never throws on malformed input and emits block-mismatch diagnostics. Every
 rule cites an MS-VBAL section; coverage and deviations are tracked in
 `docs/spec/MS-VBAL.verification-map.md`. This layer will eventually replace the
-interim regex analyzer in `src/vbaStructuralDiagnostics.ts`.
+interim regex analyzer in `src/vbaStructuralDiagnostics.ts`; the audit #74
+comparison harnesses (`tests/structuralEngineComparison.test.ts`,
+`tests/smartEnterSubstrateComparison.test.ts`) document the exact behavioral
+gaps that must close before that replacement can happen without changing
+user-visible diagnostics or Smart Enter behavior.
 
 **Host-context member completion** — built on top of the analyzer, this is the
 feature that distinguishes XLIDE from a generic VBA syntax extension. It is split
