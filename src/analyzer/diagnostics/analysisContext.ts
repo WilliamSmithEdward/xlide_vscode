@@ -9,6 +9,8 @@
 // share one computation without threading a context object through every
 // helper signature.
 
+import type { VbaToken } from '../lexer/tokenKinds';
+import { statementTokens as computeStatementTokens } from '../lexer/tokenHelpers';
 import type { ModuleNode, Span } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
@@ -137,6 +139,45 @@ export type PushFn = (
 	span: Span,
 	data?: VbaDiagnosticData,
 ) => void;
+
+// Statement-token cache (audit #5): independent rules re-tokenized the same
+// statement 25-40 times per analysis pass. Tokens are cached per source
+// string (value identity, LRU of 2 like tokenizeCached) and per statement
+// span, so one pass lexes each statement once. Callers must not mutate the
+// returned arrays or their tokens; the diagnostics engine treats token
+// streams as read-only throughout.
+const STATEMENT_TOKEN_CACHE_MAX = 2;
+const statementTokenCache: { src: string; bySpan: Map<number, VbaToken[]> }[] = [];
+
+/** Significant tokens of a statement span, excluding comments and newlines (memoized per pass). */
+export function statementTokens(source: string, span: Span): VbaToken[] {
+	let entry: { src: string; bySpan: Map<number, VbaToken[]> } | undefined;
+	for (let i = 0; i < statementTokenCache.length; i += 1) {
+		if (statementTokenCache[i].src === source) {
+			entry = statementTokenCache[i];
+			if (i > 0) {
+				statementTokenCache.splice(i, 1);
+				statementTokenCache.unshift(entry);
+			}
+			break;
+		}
+	}
+	if (!entry) {
+		entry = { src: source, bySpan: new Map() };
+		statementTokenCache.unshift(entry);
+		if (statementTokenCache.length > STATEMENT_TOKEN_CACHE_MAX) {
+			statementTokenCache.pop();
+		}
+	}
+	// Statement spans never overlap, so the start offset identifies the span.
+	const key = span.start * 0x100000000 + span.end;
+	let toks = entry.bySpan.get(key);
+	if (!toks) {
+		toks = computeStatementTokens(source, span);
+		entry.bySpan.set(key, toks);
+	}
+	return toks;
+}
 
 // Procedure symbols are looked up per procedure per rule, so index them once
 // per buildModuleSymbols result instead of scanning the children every time.

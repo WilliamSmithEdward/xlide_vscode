@@ -82,21 +82,59 @@ export function resolveExactMemberCompletion(
 ): MemberCompletion | undefined {
 	return resolveMemberCompletionNamed(source, memberEndOffset, memberName, memberCtx);
 }
+// Signature tables and per-procedure environments used to be rebuilt by every
+// rule (7+ call sites each iterating all module symbols plus all project
+// procedures; audit #5). They are pure functions of the per-pass
+// buildModuleSymbols result (plus the per-pass projectProcedures /
+// projectVisibleSymbols identities), so memoize them per pass with value-keyed
+// WeakMaps, following the procedureSymbolFor precedent. Results are shared:
+// callers must not mutate the returned maps (none do - the engine treats all
+// derived tables as read-only).
+const MODULE_TYPE_SIGNATURES = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	Map<string, CallableTypeSignature>
+>();
+const SAME_MODULE_CALLABLE_SIGNATURES = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	Map<string, CallableTypeSignature[]>
+>();
+const CALLABLE_TYPE_SIGNATURES = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	{
+		projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined;
+		result: Map<string, CallableTypeSignature>;
+	}
+>();
+const UNIQUE_PROJECT_TYPE_SIGNATURES = new WeakMap<
+	ReadonlyMap<string, readonly VbaProcedureSignature[]>,
+	Map<string, CallableTypeSignature>
+>();
+const EMPTY_PROJECT_TYPE_SIGNATURES = new Map<string, CallableTypeSignature>();
+
 export function buildModuleTypeSignatures(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 ): Map<string, CallableTypeSignature> {
+	const cached = MODULE_TYPE_SIGNATURES.get(symbols);
+	if (cached) {
+		return cached;
+	}
 	const out = new Map<string, CallableTypeSignature>();
 	for (const symbol of symbols.root.children ?? []) {
 		if (isProcedureKind(symbol.kind) || symbol.kind === 'declare') {
 			out.set(symbol.name.toLowerCase(), callableTypeSignatureFromSymbol(symbol));
 		}
 	}
+	MODULE_TYPE_SIGNATURES.set(symbols, out);
 	return out;
 }
 
 export function sameModuleCallableSignatures(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 ): Map<string, CallableTypeSignature[]> {
+	const cached = SAME_MODULE_CALLABLE_SIGNATURES.get(symbols);
+	if (cached) {
+		return cached;
+	}
 	const out = new Map<string, CallableTypeSignature[]>();
 	for (const symbol of symbols.root.children ?? []) {
 		if (!isBareCallableKind(symbol.kind)) {
@@ -111,6 +149,7 @@ export function sameModuleCallableSignatures(
 			out.set(key, [signature]);
 		}
 	}
+	SAME_MODULE_CALLABLE_SIGNATURES.set(symbols, out);
 	return out;
 }
 
@@ -132,22 +171,32 @@ export function callableTypeSignaturesFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 ): Map<string, CallableTypeSignature> {
-	const out = buildModuleTypeSignatures(symbols);
+	const cached = CALLABLE_TYPE_SIGNATURES.get(symbols);
+	if (cached && cached.projectProcedures === projectProcedures) {
+		return cached.result;
+	}
+	// Copy: buildModuleTypeSignatures' result is memoized and must stay pure.
+	const out = new Map(buildModuleTypeSignatures(symbols));
 	for (const [lower, sig] of uniqueProjectTypeSignatures(projectProcedures)) {
 		if (!out.has(lower)) {
 			out.set(lower, sig);
 		}
 	}
+	CALLABLE_TYPE_SIGNATURES.set(symbols, { projectProcedures, result: out });
 	return out;
 }
 
 export function uniqueProjectTypeSignatures(
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 ): Map<string, CallableTypeSignature> {
-	const out = new Map<string, CallableTypeSignature>();
 	if (!projectProcedures) {
-		return out;
+		return EMPTY_PROJECT_TYPE_SIGNATURES;
 	}
+	const cached = UNIQUE_PROJECT_TYPE_SIGNATURES.get(projectProcedures);
+	if (cached) {
+		return cached;
+	}
+	const out = new Map<string, CallableTypeSignature>();
 	for (const [lower, candidates] of projectProcedures) {
 		if (candidates.length !== 1) {
 			continue;
@@ -165,6 +214,7 @@ export function uniqueProjectTypeSignatures(
 			returnType: candidate.returnType,
 		});
 	}
+	UNIQUE_PROJECT_TYPE_SIGNATURES.set(projectProcedures, out);
 	return out;
 }
 
@@ -175,10 +225,45 @@ export function isByRefProcedureParam(param: { byRef?: boolean; byVal?: boolean;
 	return param.byRef === true || param.byVal !== true;
 }
 
+// Per-procedure environments, memoized per pass (audit #5): every type rule
+// used to rebuild these for each procedure it visited.
+const TYPE_ENVIRONMENTS = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	WeakMap<ProcedureNode, Map<string, string>>
+>();
+const DECLARATION_SHAPE_ENVIRONMENTS = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	WeakMap<ProcedureNode, Map<string, DeclaredValueShape>>
+>();
+const SOURCE_NAME_SCOPES = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	WeakMap<
+		ProcedureNode,
+		{ projectVisibleSymbols: readonly VbaSymbol[] | undefined; result: SourceNameScope }
+	>
+>();
+
+function perProcedureCache<V>(
+	store: WeakMap<ReturnType<typeof buildModuleSymbols>, WeakMap<ProcedureNode, V>>,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): WeakMap<ProcedureNode, V> {
+	let byProc = store.get(symbols);
+	if (!byProc) {
+		byProc = new WeakMap<ProcedureNode, V>();
+		store.set(symbols, byProc);
+	}
+	return byProc;
+}
+
 export function typeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
 ): Map<string, string> {
+	const cache = perProcedureCache(TYPE_ENVIRONMENTS, symbols);
+	const cached = cache.get(proc);
+	if (cached) {
+		return cached;
+	}
 	const out = new Map<string, string>();
 	for (const sym of symbols.root.children ?? []) {
 		if (sym.asType && !isProcedureKind(sym.kind)) {
@@ -195,6 +280,7 @@ export function typeEnvironmentFor(
 			out.set(child.name.toLowerCase(), child.asType);
 		}
 	}
+	cache.set(proc, out);
 	return out;
 }
 
@@ -208,6 +294,11 @@ export function declarationShapeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
 ): Map<string, DeclaredValueShape> {
+	const cache = perProcedureCache(DECLARATION_SHAPE_ENVIRONMENTS, symbols);
+	const cached = cache.get(proc);
+	if (cached) {
+		return cached;
+	}
 	const out = new Map<string, DeclaredValueShape>();
 	for (const sym of symbols.root.children ?? []) {
 		if (isValueDeclarationSymbol(sym)) {
@@ -236,6 +327,7 @@ export function declarationShapeEnvironmentFor(
 			});
 		}
 	}
+	cache.set(proc, out);
 	return out;
 }
 
@@ -385,6 +477,11 @@ export function sourceNameScopeFor(
 	proc: ProcedureNode,
 	projectVisibleSymbols?: readonly VbaSymbol[],
 ): SourceNameScope {
+	const cache = perProcedureCache(SOURCE_NAME_SCOPES, symbols);
+	const cached = cache.get(proc);
+	if (cached && cached.projectVisibleSymbols === projectVisibleSymbols) {
+		return cached.result;
+	}
 	const callableShadows = new Set(moduleNonCallableSymbols(symbols).keys());
 	const procSym = procedureSymbolFor(symbols, proc);
 	const runtimeShadows = sourceIdentifierNames({
@@ -398,7 +495,9 @@ export function sourceNameScopeFor(
 			callableShadows.add(lower);
 		}
 	}
-	return { callableShadows, runtimeShadows };
+	const result: SourceNameScope = { callableShadows, runtimeShadows };
+	cache.set(proc, { projectVisibleSymbols, result });
+	return result;
 }
 
 export function sourceIdentifierBinding(

@@ -17,11 +17,13 @@ import type {
 	VariableGroupNode,
 } from '../parser/nodes';
 
-// `statementTokens` and `tokenText` are byte-identical to the shared lexer
-// helpers (`statementTokens`, `tokenWord`); re-export them so the diagnostics
-// engine keeps one implementation.
-export { statementTokens, tokenWord as tokenText } from '../lexer/tokenHelpers';
-import { statementTokens } from '../lexer/tokenHelpers';
+// `tokenText` is byte-identical to the shared lexer helper `tokenWord`;
+// re-export it so the diagnostics engine keeps one implementation.
+// `statementTokens` comes from the per-pass cache in analysisContext.ts
+// (audit #5) so every rule shares one tokenization per statement.
+export { tokenWord as tokenText } from '../lexer/tokenHelpers';
+export { statementTokens } from './analysisContext';
+import { statementTokens } from './analysisContext';
 
 export function isInactiveNode(
 	activity: ConditionalActivityTracker | undefined,

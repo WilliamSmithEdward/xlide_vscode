@@ -94,7 +94,6 @@ import {
 	isNonCallableSymbol,
 	memberExpressionCalls,
 	memberStatementCalls,
-	moduleNonCallableSymbols,
 	namedArgumentSlot,
 	nonnumericStringArithmeticOperand,
 	normalizeType,
