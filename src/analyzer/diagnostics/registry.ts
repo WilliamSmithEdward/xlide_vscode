@@ -496,7 +496,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'runtimeArgumentValues',
-		run: (ctx, push) => checkRuntimeArgumentValues(
+		procedureStatements: (ctx, push) => checkRuntimeArgumentValues(
 			ctx.source,
 			ctx.mod,
 			ctx.symbols,
@@ -509,12 +509,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'runtimeConversionValues',
-		run: (ctx, push) => checkRuntimeConversionValues(
+		procedureStatements: (ctx, push) => checkRuntimeConversionValues(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
-			ctx.activity,
 			push,
 		),
 	},

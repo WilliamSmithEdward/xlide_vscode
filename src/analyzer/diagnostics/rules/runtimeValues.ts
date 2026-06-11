@@ -47,12 +47,11 @@ import {
 	unwrapOuterParens,
 } from '../typeInference';
 import {
-	activeModuleMembers,
-	forEachStatement,
 	matchParenFrom,
 	statementTokens,
 	tokenName,
 	tokenText,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
 interface RuntimeArgumentValueSpec {
@@ -87,14 +86,11 @@ export function checkRuntimeArgumentValues(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procedureConstants = new Map(moduleConstants);
@@ -106,7 +102,7 @@ export function checkRuntimeArgumentValues(
 			procSym,
 			projectVisibleSymbols,
 		);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, constants, sourceNames)) {
 				push(
 					'runtimeArgumentValue',
@@ -114,8 +110,8 @@ export function checkRuntimeArgumentValues(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function runtimeArgumentValueHits(
@@ -395,18 +391,13 @@ interface RuntimeConversionValueHit {
  */
 export function checkRuntimeConversionValues(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames)) {
 				push(
 					'runtimeConversionValue',
@@ -414,8 +405,8 @@ export function checkRuntimeConversionValues(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function runtimeConversionValueHits(
