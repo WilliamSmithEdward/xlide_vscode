@@ -31,7 +31,6 @@ import {
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
-	forEachStatement,
 	isInactiveNode,
 	localsPassedAsCallArguments,
 	setAssignmentTarget,
@@ -39,23 +38,20 @@ import {
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
+/** Per-statement rule: rides the shared procedure-statement walk (audit #0). */
 export function checkScalarMemberAccess(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const hit of scalarMemberAccesses(
 				source,
 				stmt.span,
@@ -74,8 +70,8 @@ export function checkScalarMemberAccess(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function scalarMemberAccesses(

@@ -40,12 +40,12 @@ import {
 import {
 	absoluteSpan,
 	activeModuleMembers,
-	forEachStatement,
 	isInactiveNode,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
 /** Index of the `)` matching the `(` at `open`, or -1 if unbalanced. */
@@ -53,20 +53,17 @@ import {
  * Rule: an `Exit Sub` / `Exit Function` / `Exit Property` must match the kind of
  * the procedure that encloses it (the three Property accessors all map to
  * `Property`). `Exit Do` / `Exit For` are loop exits and are ignored here.
+ *
+ * Per-statement rule: rides the shared procedure-statement walk (audit #0).
  */
 export function checkExitStatements(
 	source: string,
-	mod: ModuleNode,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const expected = expectedExitWord(member.procKind);
 		const label = enclosingProcLabel(member.procKind);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const hit = exitTarget(source, stmt.span);
 			if (hit && hit.word !== expected) {
 				push(
@@ -75,8 +72,8 @@ export function checkExitStatements(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 /** Maps a procedure kind to the keyword its `Exit` statement must use. */

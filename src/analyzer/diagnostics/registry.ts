@@ -397,7 +397,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'exitStatements',
-		run: (ctx, push) => checkExitStatements(ctx.source, ctx.mod, ctx.activity, push),
+		procedureStatements: (ctx, push) => checkExitStatements(ctx.source, push),
 	},
 	{
 		name: 'duplicateLabels',
@@ -432,12 +432,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'scalarMemberAccess',
-		run: (ctx, push) => checkScalarMemberAccess(
+		procedureStatements: (ctx, push) => checkScalarMemberAccess(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
-			ctx.activity,
 			push,
 		),
 	},
