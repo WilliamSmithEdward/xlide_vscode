@@ -4,7 +4,7 @@
 // catalogue over one module's source and returns offset-based diagnostics. It
 // is pure (no `vscode`): the editor layer converts spans to ranges and severity
 // names to the VS Code enum. Structural block-balance checking stays in
-// `src/vbaStructuralAnalysis.ts` (analyzeVbaStructure); this engine adds the semantic rules on
+// `src/vbaStructuralDiagnostics.ts` (analyzeVbaStructure); this engine adds the semantic rules on
 // top, so the two do not overlap or double-report.
 //
 // Design rule (see /memories): no "looks like" heuristics. Every rule here is
