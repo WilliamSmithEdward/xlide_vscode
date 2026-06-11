@@ -10,9 +10,10 @@
 // docs/spec/MS-VBAL.verification-map.md.
 
 import { buildModuleSymbols, type BuildModuleSymbolsOptions } from './buildModuleSymbols';
-import { tokenize } from '../lexer/tokenize';
-import type { VbaToken } from '../lexer/tokenKinds';
-import { tokenName as tokenIdentifierName } from '../lexer/tokenHelpers';
+import {
+	enumMemberRawExpression,
+	resolveRawIntegerConstants,
+} from '../constants/integerConstantExpression';
 import {
 	isBareCallableKind,
 	isProcedureKind,
@@ -157,176 +158,6 @@ function isEnumMemberExported(
 	return moduleKind === 'standard' && isTypeExported(enumSymbol);
 }
 
-interface ProjectIntegerConstantLookup {
-	get(name: string): number | undefined;
-}
-
-function parseProjectIntegerLiteral(raw: string): number | undefined {
-	const text = raw.trim().replace(/[%&^]$/, '');
-	const hex = /^&[hH]([0-9A-Fa-f]+)$/.exec(text);
-	if (hex) {
-		const value = Number.parseInt(hex[1], 16);
-		return Number.isSafeInteger(value) ? value : undefined;
-	}
-	const octal = /^&[oO]([0-7]+)$/.exec(text);
-	if (octal) {
-		const value = Number.parseInt(octal[1], 8);
-		return Number.isSafeInteger(value) ? value : undefined;
-	}
-	if (!/^\d+$/.test(text)) {
-		return undefined;
-	}
-	const value = Number(text);
-	return Number.isSafeInteger(value) ? value : undefined;
-}
-
-function safeProjectInteger(value: number): number | undefined {
-	return Number.isSafeInteger(value) ? value : undefined;
-}
-
-function evaluateProjectIntegerExpression(
-	raw: string,
-	constants: ProjectIntegerConstantLookup,
-): number | undefined {
-	return new ProjectIntegerExpressionParser(raw, constants).parse();
-}
-
-class ProjectIntegerExpressionParser {
-	private readonly tokens: VbaToken[];
-	private index = 0;
-
-	constructor(
-		raw: string,
-		private readonly constants: ProjectIntegerConstantLookup,
-	) {
-		this.tokens = tokenize(raw).filter((token) => token.kind !== 'comment' && token.kind !== 'newline');
-	}
-
-	parse(): number | undefined {
-		if (this.tokens.length === 0) {
-			return undefined;
-		}
-		const value = this.expression();
-		return value !== undefined && !this.current() ? value : undefined;
-	}
-
-	private expression(): number | undefined {
-		let value = this.term();
-		while (value !== undefined) {
-			if (this.accept('+')) {
-				const right = this.term();
-				value = right === undefined ? undefined : safeProjectInteger(value + right);
-				continue;
-			}
-			if (this.accept('-')) {
-				const right = this.term();
-				value = right === undefined ? undefined : safeProjectInteger(value - right);
-				continue;
-			}
-			break;
-		}
-		return value;
-	}
-
-	private term(): number | undefined {
-		let value = this.factor();
-		while (value !== undefined) {
-			if (!this.accept('*')) {
-				break;
-			}
-			const right = this.factor();
-			value = right === undefined ? undefined : safeProjectInteger(value * right);
-		}
-		return value;
-	}
-
-	private factor(): number | undefined {
-		if (this.accept('+')) {
-			return this.factor();
-		}
-		if (this.accept('-')) {
-			const value = this.factor();
-			return value === undefined ? undefined : safeProjectInteger(-value);
-		}
-		if (this.accept('(')) {
-			const value = this.expression();
-			return value !== undefined && this.accept(')') ? value : undefined;
-		}
-		const token = this.current();
-		if (!token) {
-			return undefined;
-		}
-		if (token.kind === 'integerLiteral') {
-			this.index++;
-			return parseProjectIntegerLiteral(token.rawText);
-		}
-		const qualified = this.qualifiedName();
-		if (qualified) {
-			return this.constants.get(qualified.toLowerCase());
-		}
-		const name = tokenIdentifierName(token);
-		if (name) {
-			this.index++;
-			return this.constants.get(name.toLowerCase());
-		}
-		return undefined;
-	}
-
-	private qualifiedName(): string | undefined {
-		const qualifier = tokenIdentifierName(this.current());
-		const dot = this.tokens[this.index + 1];
-		const member = tokenIdentifierName(this.tokens[this.index + 2]);
-		if (!qualifier || dot?.rawText !== '.' || !member) {
-			return undefined;
-		}
-		this.index += 3;
-		return `${qualifier}.${member}`;
-	}
-
-	private current(): VbaToken | undefined {
-		return this.tokens[this.index];
-	}
-
-	private accept(raw: string): boolean {
-		if (this.current()?.rawText !== raw) {
-			return false;
-		}
-		this.index++;
-		return true;
-	}
-}
-
-function resolveProjectRawIntegerConstants(
-	rawConstants: ReadonlyMap<string, string | undefined>,
-): Map<string, number | undefined> {
-	const resolved = new Map<string, number | undefined>();
-	const resolving = new Set<string>();
-	const resolve = (name: string): number | undefined => {
-		const key = name.toLowerCase();
-		if (resolved.has(key)) {
-			return resolved.get(key);
-		}
-		if (!rawConstants.has(key) || resolving.has(key)) {
-			resolved.set(key, undefined);
-			return undefined;
-		}
-		const raw = rawConstants.get(key);
-		if (raw === undefined) {
-			resolved.set(key, undefined);
-			return undefined;
-		}
-		resolving.add(key);
-		const value = evaluateProjectIntegerExpression(raw, { get: resolve });
-		resolving.delete(key);
-		resolved.set(key, value);
-		return value;
-	};
-	for (const key of rawConstants.keys()) {
-		resolve(key);
-	}
-	return resolved;
-}
-
 function moduleRawIntegerConstantExpressions(mod: ModuleSymbols): Map<string, string | undefined> {
 	const out = new Map<string, string | undefined>();
 	const seen = new Set<string>();
@@ -349,7 +180,7 @@ function moduleRawIntegerConstantExpressions(mod: ModuleSymbols): Map<string, st
 		if (symbol.kind === 'enum') {
 			let previousName: string | undefined;
 			for (const member of symbol.children ?? []) {
-				add(member.name, member.defaultRaw ?? (previousName ? `${previousName} + 1` : '0'));
+				add(member.name, enumMemberRawExpression(member.defaultRaw, previousName));
 				previousName = member.name;
 			}
 		}
@@ -726,7 +557,7 @@ export class ProjectIndex {
 				continue;
 			}
 			const moduleRaw = moduleRawIntegerConstantExpressions(mod);
-			const moduleResolved = resolveProjectRawIntegerConstants(moduleRaw);
+			const moduleResolved = resolveRawIntegerConstants(moduleRaw);
 			for (const symbol of mod.root.children ?? []) {
 				if (symbol.kind === 'constant' && isExported(symbol, mod.moduleKind)) {
 					const raw = resolvedRaw(moduleResolved, symbol.name, symbol.defaultRaw);
@@ -737,7 +568,7 @@ export class ProjectIndex {
 				if (symbol.kind === 'enum' && isEnumMemberExported(symbol, mod.moduleKind)) {
 					let previousName: string | undefined;
 					for (const member of symbol.children ?? []) {
-						const fallback = member.defaultRaw ?? (previousName ? `${previousName} + 1` : '0');
+						const fallback = enumMemberRawExpression(member.defaultRaw, previousName);
 						const raw = resolvedRaw(moduleResolved, member.name, fallback);
 						add(member.name, raw);
 						addQualified(mod, member.name, raw);

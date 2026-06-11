@@ -23,6 +23,15 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isReservedIdentifier } from '../lexer/keywordTable';
+import {
+	enumMemberRawExpression,
+	evaluateIntegerConstantExpression,
+	parseDecimalIntegerLiteral,
+	parseVbaIntegerLiteral,
+	resolveRawIntegerConstants,
+	safeInteger,
+	type IntegerConstantLookup,
+} from '../constants/integerConstantExpression';
 import { detectEol, VBA_IDENTIFIER_NAME_RE } from '../../vbaStructuralAnalysis';
 import {
 	getHostMembers,
@@ -8399,7 +8408,7 @@ function addRawEnumIntegerConstants(
 			continue;
 		}
 		seen.add(key);
-		rawConstants.set(key, member.valueRaw ?? (previousName ? `${previousName} + 1` : '0'));
+		rawConstants.set(key, enumMemberRawExpression(member.valueRaw, previousName));
 		previousName = name;
 	}
 }
@@ -8411,203 +8420,9 @@ function resolveFixedLengthStringSize(
 	return evaluateIntegerConstantExpression(raw, constants);
 }
 
-function resolveRawIntegerConstants(
-	rawConstants: ReadonlyMap<string, string | undefined>,
-	base: ReadonlyMap<string, number | undefined>,
-): Map<string, number | undefined> {
-	const resolved = new Map<string, number | undefined>();
-	const resolving = new Set<string>();
-	const resolve = (name: string): number | undefined => {
-		const key = name.toLowerCase();
-		if (resolved.has(key)) {
-			return resolved.get(key);
-		}
-		if (!rawConstants.has(key)) {
-			return base.get(key);
-		}
-		if (resolving.has(key)) {
-			resolved.set(key, undefined);
-			return undefined;
-		}
-		const raw = rawConstants.get(key);
-		if (raw === undefined) {
-			resolved.set(key, undefined);
-			return undefined;
-		}
-		resolving.add(key);
-		const value = evaluateIntegerConstantExpression(raw, {
-			get: resolve,
-		});
-		resolving.delete(key);
-		resolved.set(key, value);
-		return value;
-	};
-	for (const key of rawConstants.keys()) {
-		resolve(key);
-	}
-	return resolved;
-}
-
-interface IntegerConstantLookup {
-	get(name: string): number | undefined;
-}
-
-function evaluateIntegerConstantExpression(
-	raw: string,
-	constants: IntegerConstantLookup,
-): number | undefined {
-	const parser = new IntegerConstantExpressionParser(raw, constants);
-	return parser.parse();
-}
-
-class IntegerConstantExpressionParser {
-	private readonly tokens: VbaToken[];
-	private index = 0;
-
-	constructor(
-		raw: string,
-		private readonly constants: IntegerConstantLookup,
-	) {
-		this.tokens = tokenize(raw).filter((token) => token.kind !== 'comment' && token.kind !== 'newline');
-	}
-
-	parse(): number | undefined {
-		if (this.tokens.length === 0) {
-			return undefined;
-		}
-		const value = this.expression();
-		if (value === undefined || this.current()) {
-			return undefined;
-		}
-		return value;
-	}
-
-	private expression(): number | undefined {
-		let value = this.term();
-		while (value !== undefined) {
-			if (this.accept('+')) {
-				const right = this.term();
-				value = right === undefined ? undefined : safeInteger(value + right);
-				continue;
-			}
-			if (this.accept('-')) {
-				const right = this.term();
-				value = right === undefined ? undefined : safeInteger(value - right);
-				continue;
-			}
-			break;
-		}
-		return value;
-	}
-
-	private term(): number | undefined {
-		let value = this.factor();
-		while (value !== undefined) {
-			if (!this.accept('*')) {
-				break;
-			}
-			const right = this.factor();
-			value = right === undefined ? undefined : safeInteger(value * right);
-		}
-		return value;
-	}
-
-	private factor(): number | undefined {
-		if (this.accept('+')) {
-			return this.factor();
-		}
-		if (this.accept('-')) {
-			const value = this.factor();
-			return value === undefined ? undefined : safeInteger(-value);
-		}
-		if (this.accept('(')) {
-			const value = this.expression();
-			return value !== undefined && this.accept(')') ? value : undefined;
-		}
-		const token = this.current();
-		if (!token) {
-			return undefined;
-		}
-		if (token.kind === 'integerLiteral') {
-			this.index++;
-			return parseVbaIntegerLiteral(token.rawText);
-		}
-		const qualifiedName = this.qualifiedConstantName();
-		if (qualifiedName) {
-			return this.constants.get(qualifiedName.toLowerCase());
-		}
-		const name = normalizeFixedLengthConstantName(token.rawText);
-		if (name) {
-			this.index++;
-			return this.constants.get(name.toLowerCase());
-		}
-		return undefined;
-	}
-
-	private qualifiedConstantName(): string | undefined {
-		const qualifier = this.current();
-		const dot = this.tokens[this.index + 1];
-		const member = this.tokens[this.index + 2];
-		const qualifierName = qualifier ? normalizeFixedLengthConstantName(qualifier.rawText) : undefined;
-		const memberName = member ? normalizeFixedLengthConstantName(member.rawText) : undefined;
-		if (!qualifierName || dot?.rawText !== '.' || !memberName) {
-			return undefined;
-		}
-		this.index += 3;
-		return `${qualifierName}.${memberName}`;
-	}
-
-	private current(): VbaToken | undefined {
-		return this.tokens[this.index];
-	}
-
-	private accept(raw: string): boolean {
-		if (this.current()?.rawText !== raw) {
-			return false;
-		}
-		this.index++;
-		return true;
-	}
-}
-
-function parseDecimalIntegerLiteral(raw: string): number | undefined {
-	if (!/^\d+$/.test(raw)) {
-		return undefined;
-	}
-	const value = Number(raw);
-	return Number.isSafeInteger(value) ? value : undefined;
-}
-
-function parseVbaIntegerLiteral(raw: string): number | undefined {
-	const text = raw.trim().replace(/[%&^]$/, '');
-	const hex = /^&[hH]([0-9A-Fa-f]+)$/.exec(text);
-	if (hex) {
-		const value = Number.parseInt(hex[1], 16);
-		return Number.isSafeInteger(value) ? value : undefined;
-	}
-	const octal = /^&[oO]([0-7]+)$/.exec(text);
-	if (octal) {
-		const value = Number.parseInt(octal[1], 8);
-		return Number.isSafeInteger(value) ? value : undefined;
-	}
-	return parseDecimalIntegerLiteral(text);
-}
-
-function safeInteger(value: number): number | undefined {
-	return Number.isSafeInteger(value) ? value : undefined;
-}
-
 function normalizeDeclaredConstantName(raw: string): string | undefined {
 	const text = raw.trim();
 	return text.length > 0 ? text : undefined;
-}
-
-function normalizeFixedLengthConstantName(raw: string): string | undefined {
-	const text = raw.trim();
-	if (/^\[[^\]]+\]$/.test(text)) {
-		return text.slice(1, -1);
-	}
-	return VBA_IDENTIFIER_NAME_RE.test(text) ? text : undefined;
 }
 
 function fixedLengthStringLengthSpan(source: string, span: Span): Span | undefined {
