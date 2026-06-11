@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { isVbaDocument } from './xlideFileSystem';
-import { stripVba } from './vbaSourceScan';
+import { lexerStrippedLine, lexerStrippedLines } from './analyzer/lexer/strippedLines';
 import {
     detectSmartBlockOpener,
     isSmartBlockClosedAhead,
@@ -43,7 +43,7 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const normalizedOpenerLine = headerParensEdit
             ? `${openerLine.slice(0, headerParensEdit.startCol)}${headerParensEdit.newText}${openerLine.slice(headerParensEdit.endCol)}`
             : openerLine;
-        const opener = detectSmartBlockOpener(stripVba(normalizedOpenerLine));
+        const opener = detectSmartBlockOpener(lexerStrippedLine(normalizedOpenerLine));
         if (!opener) {
             await maybeContinueWithMemberLine(doc, openerLineIndex);
             return;
@@ -52,8 +52,8 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         const bodyLineIndex = openerLineIndex + 1;
         if (bodyLineIndex >= doc.lineCount) { return; }
 
-        const strippedLines = doc.getText().split(/\r\n|\r|\n/).map(stripVba);
-        strippedLines[openerLineIndex] = stripVba(normalizedOpenerLine);
+        const strippedLines = lexerStrippedLines(doc.getText());
+        strippedLines[openerLineIndex] = lexerStrippedLine(normalizedOpenerLine);
         const closedAhead = isSmartBlockClosedAhead(strippedLines, openerLineIndex, opener);
 
         const editor = vscode.window.activeTextEditor;

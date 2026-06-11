@@ -2,12 +2,18 @@
 // Enter block completion, With-member continuation, loop-iterator sync, and
 // procedure-header paren repair. Keeping this module free of any `vscode`
 // import means it can be unit-tested directly with vitest.
+//
+// The stripped-line substrate (strings/comments blanked, columns preserved)
+// is derived from the analyzer lexer (src/analyzer/lexer/strippedLines.ts,
+// audit #74), so one lexer defines string/comment semantics for Smart Enter
+// and keyword completion. tests/smartEnterSubstrateComparison.test.ts pins
+// the substrate against the legacy stripVba scanner corpus-wide.
 
+import { lexerStrippedLine, lexerStrippedLines } from './analyzer/lexer/strippedLines';
 import {
     leadingWhitespace,
     lineStartOffsets,
-    stripVba,
-    toLogicalLines,
+    logicalLinesFromStripped,
     VBA_IDENTIFIER_PATTERN,
 } from './vbaSourceScan';
 import { CLOSE_PHRASE, matchCloser, matchOpener, type BlockKind } from './vbaStructuralDiagnostics';
@@ -80,7 +86,7 @@ interface LoopNextLine {
 type LoopLineInfo = LoopOpenerLine | LoopNextLine;
 
 export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParensEdit | undefined {
-    const stripped = stripVba(line);
+    const stripped = lexerStrippedLine(line);
     const patterns = [
         new RegExp(
             `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Sub\\s+${VBA_IDENTIFIER_PATTERN})(\\s*)$`,
@@ -144,7 +150,7 @@ export function openSmartBlockClosersBefore(
     offset = source.length,
 ): string[] {
     const safeOffset = Math.max(0, Math.min(offset, source.length));
-    const { logical } = toLogicalLines(source.slice(0, safeOffset));
+    const logical = logicalLinesFromStripped(lexerStrippedLines(source.slice(0, safeOffset)));
     const stack: SmartOpenBlock[] = [];
 
     const closeOne = (kind: BlockKind): void => {
@@ -313,7 +319,7 @@ export function withMemberContinuationText(
     if (previousLine === undefined) {
         return undefined;
     }
-    if (!/^[ \t]*\./.test(stripVba(previousLine))) {
+    if (!/^[ \t]*\./.test(lexerStrippedLine(previousLine))) {
         return undefined;
     }
 
@@ -387,7 +393,7 @@ function physicalLineAt(source: string, offset: number): PhysicalLine {
 }
 
 function parseLoopLine(line: PhysicalLine): LoopLineInfo | undefined {
-    const stripped = stripVba(line.text);
+    const stripped = lexerStrippedLine(line.text);
 
     let m = /^(\s*)For\s+Each\s+([A-Za-z_]\w*)\s+In\b/i.exec(stripped);
     if (m) {

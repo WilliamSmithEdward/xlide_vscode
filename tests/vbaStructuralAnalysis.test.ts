@@ -513,6 +513,21 @@ describe('openSmartBlockClosersBefore', () => {
         const src = 'Sub T()\n    If ready Then value = 1\n    \n';
         expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub']);
     });
+
+    // Rem-after-colon improvement from the lexer substrate (audit #74): the
+    // legacy stripVba scanner only blanked whole-line Rem comments, so the
+    // text of a trailing ": Rem ..." comment leaked into the colon-split
+    // logical lines as phantom statements.
+
+    it('ignores closers hidden in a trailing ": Rem ..." comment', () => {
+        const src = 'Sub T()\n    If ready Then\n        Debug.Print 1: Rem hidden: End If\n        \n';
+        expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub', 'End If']);
+    });
+
+    it('ignores openers hidden in a trailing ": Rem ..." comment', () => {
+        const src = 'Sub T()\n    Debug.Print 1: Rem note: With ActiveSheet\n    \n';
+        expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub']);
+    });
 });
 
 describe('resolveLoopIteratorSyncEdit', () => {
@@ -730,5 +745,21 @@ describe('withMemberContinuationText', () => {
     it('does not seed dots outside active With blocks', () => {
         expect(withMemberContinuationText('Sub T()\n    .Range("A1")\nEnd Sub\n', 1)).toBeUndefined();
         expect(withMemberContinuationText('Sub T()\n    With x\n    End With\n    .Range("A1")\nEnd Sub\n', 3)).toBeUndefined();
+    });
+
+    it('keeps the With block active when a member line hides "End With" in a ": Rem ..." comment', () => {
+        // Rem-after-colon improvement from the lexer substrate (audit #74):
+        // legacy stripVba leaked the comment, so the phantom "End With"
+        // closed the block and suppressed the dot continuation.
+        const src = [
+            'Sub T()',
+            '    With ActiveSheet',
+            '        .Cells.Clear: Rem keep: End With',
+            '',
+            '    End With',
+            'End Sub',
+        ].join('\n');
+
+        expect(withMemberContinuationText(src, 2)).toBe('        .');
     });
 });
