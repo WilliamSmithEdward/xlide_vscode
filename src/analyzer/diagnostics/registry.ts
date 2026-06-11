@@ -239,18 +239,16 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'invalidExpressionSyntax',
-		run: (ctx, push) => checkInvalidExpressionSyntax(
+		procedureStatements: (ctx, push) => checkInvalidExpressionSyntax(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
-			ctx.activity,
 			push,
 		),
 	},
 	{
 		name: 'divisionByZeroExpressions',
-		run: (ctx, push) => checkDivisionByZeroExpressions(
+		procedureStatements: (ctx, push) => checkDivisionByZeroExpressions(
 			ctx.source,
 			ctx.mod,
 			ctx.symbols,
@@ -360,26 +358,22 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'callParens',
-		run: (ctx, push) => checkCallParens(
+		procedureStatements: (ctx, push) => checkCallParens(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectProcedures,
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
-			ctx.activity,
 			push,
 		),
 	},
 	{
 		name: 'expressionCallParens',
-		run: (ctx, push) => checkExpressionCallParens(
+		procedureStatements: (ctx, push) => checkExpressionCallParens(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectProcedures,
 			ctx.opts.projectVisibleSymbols,
-			ctx.activity,
 			push,
 		),
 	},

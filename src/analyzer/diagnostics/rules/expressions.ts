@@ -61,13 +61,12 @@ import {
 } from '../typeInference';
 import {
 	absoluteSpan,
-	activeModuleMembers,
-	forEachStatement,
 	matchParenFrom,
 	statementTokens,
 	tokenName,
 	tokenText,
 	topLevelOperatorIndex,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
 /**
@@ -147,21 +146,16 @@ export function checkUnbalancedParens(source: string, push: PushFn): void {
  */
 export function checkCallParens(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const invalidCallTarget = invalidExplicitCallTarget(source, stmt.span, moduleSignatures, sourceNames);
 			if (invalidCallTarget) {
 				push(
@@ -195,8 +189,8 @@ export function checkCallParens(
 					implicit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function bareCallForbidsParensMessage(
@@ -239,19 +233,14 @@ function invalidExplicitCallTarget(
 
 export function checkInvalidExpressionSyntax(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureStatementVisitor {
+	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const incompleteMember = incompleteMemberAccess(source, stmt.span, {
 				scalarTypes: env,
 				resolveScalarType: (name) => declaredTypeForSourceBinding(
@@ -287,8 +276,8 @@ export function checkInvalidExpressionSyntax(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 const NON_UNARY_BINARY_OPERATORS = new Set([
@@ -408,13 +397,10 @@ export function checkDivisionByZeroExpressions(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const procedureConstants = new Map(moduleConstants);
 		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
 		const procSym = procedureSymbolFor(symbols, member);
@@ -424,7 +410,7 @@ export function checkDivisionByZeroExpressions(
 			procSym,
 			projectVisibleSymbols,
 		);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const hit of divisionByZeroDivisors(source, stmt.span, constants)) {
 				push(
 					'divisionByZero',
@@ -432,8 +418,8 @@ export function checkDivisionByZeroExpressions(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function divisionByZeroDivisors(
@@ -587,20 +573,15 @@ function absoluteTokenGroupSpan(base: Span, toks: readonly VbaToken[]): Span {
  */
 export function checkExpressionCallParens(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const functions = expressionCallableFunctionNames(symbols, projectProcedures);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const hit = parenlessExpressionCall(source, stmt.span, functions, sourceNames);
 			if (hit) {
 				push(
@@ -609,8 +590,8 @@ export function checkExpressionCallParens(
 					hit.span,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 interface ExpressionCallableFunctions {
