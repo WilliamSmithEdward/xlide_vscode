@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { PythonBridge } from '../src/pythonBridge';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
 import {
 	exportWorkbookModule,
 	exportWorkbookModules,
@@ -50,7 +51,7 @@ function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
 				}
 				return { source: mod.source } as T;
 			}
-			throw new Error(`Unexpected bridge call ${method}`);
+			throw new BridgeError(`Method not found: ${method}`, JSONRPC_METHOD_NOT_FOUND);
 		},
 	} as PythonBridge;
 }

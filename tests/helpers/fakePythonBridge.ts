@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { PythonBridge } from '../../src/pythonBridge';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../../src/pythonBridgeErrors';
 
 export interface FakeBridgeModule {
 	name: string;
@@ -32,7 +33,7 @@ export function fakePythonBridge(
 			const modules = modulesFor(payload.path);
 			if (method === 'readModules') {
 				if (options.supportsBatchRead === false) {
-					throw new Error('Method not found: readModules');
+					throw new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND);
 				}
 				if (!modules) {
 					throw new Error(`Unknown workbook ${payload.path}`);

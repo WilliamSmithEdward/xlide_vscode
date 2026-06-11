@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { xlidePythonPathFromConfig } from './globalSettings';
 import { isCancellationLike, startPerformanceTrace } from './performanceTrace';
+import { BridgeError } from './pythonBridgeErrors';
 
 interface JsonRpcRequest {
     jsonrpc: '2.0';
@@ -232,7 +233,7 @@ export class PythonBridge implements vscode.Disposable {
         this._pending.delete(msg.id);
         pending.cancel?.dispose();
         if (msg.error) {
-            pending.reject(new Error(msg.error.message));
+            pending.reject(new BridgeError(msg.error.message, msg.error.code));
         } else {
             pending.resolve(msg.result);
         }

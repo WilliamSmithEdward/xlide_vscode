@@ -10,6 +10,7 @@ vi.mock('vscode', () => ({
 
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { PythonBridge } from '../src/pythonBridge';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
 import { fakePythonBridge } from './helpers/fakePythonBridge';
 import { deferred, flushPromises } from './helpers/async';
 
@@ -54,7 +55,7 @@ describe('analyzeWorkbook metadata summary', () => {
 		const bridge = {
 			call: vi.fn((method: string, payload: { module?: string }) => {
 				if (method === 'readModules') {
-					return Promise.reject(new Error('Method not found: readModules'));
+					return Promise.reject(new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND));
 				}
 				if (method === 'listModules') {
 					return Promise.resolve([

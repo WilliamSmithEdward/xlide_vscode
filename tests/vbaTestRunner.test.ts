@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PythonBridge } from '../src/pythonBridge';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
 import { fakePythonBridge } from './helpers/fakePythonBridge';
 import {
     createVbaTestRunReport,
@@ -161,7 +162,7 @@ describe('VBA test runner discovery', () => {
             async call<T>(method: string, params: { module?: string }): Promise<T> {
                 calls.push(params.module ? `${method}:${params.module}` : method);
                 if (method === 'readModules') {
-                    throw new Error('Method not found: readModules');
+                    throw new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND);
                 }
                 if (method === 'listModules') {
                     return [
