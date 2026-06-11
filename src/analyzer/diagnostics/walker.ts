@@ -155,6 +155,22 @@ export function firstExecutableTokenIndex(toks: readonly VbaToken[]): number {
 	return 0;
 }
 
+export function tokenName(tok: VbaToken): string | undefined {
+	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
+		return tok.rawText;
+	}
+	if (tok.kind === 'bracketedIdentifier') {
+		return stripHeaderBrackets(tok.rawText);
+	}
+	return undefined;
+}
+
+export function stripHeaderBrackets(text: string): string {
+	return text.startsWith('[') && text.endsWith(']')
+		? text.slice(1, -1)
+		: text;
+}
+
 export function absoluteSpan(base: Span, token: VbaToken): Span {
 	return { start: base.start + token.start, end: base.start + token.end };
 }
