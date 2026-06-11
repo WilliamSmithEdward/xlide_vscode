@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
     buildOwnedReadOnlyExcelTestHostScript,
-    parseVbaTestHostEventLine,
     vbaTestHostPlanItems,
-    XLIDE_TEST_HOST_EVENT_PREFIX,
 } from '../src/vbaTestExcelHost';
+import {
+    parseVbaTestHostEventLine,
+    XLIDE_TEST_HOST_EVENT_PREFIX,
+} from '../src/vbaTestHostOracle';
 import {
     buildVbaTestDirectRunnerModule,
     XLIDE_TEST_RUNNER_MODULE_NAME,

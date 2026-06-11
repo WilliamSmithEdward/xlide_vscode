@@ -1,10 +1,9 @@
 import type { VbaTestCase } from './vbaTestRunner';
-import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
+import { XLIDE_TEST_HOST_EVENT_PREFIX } from './vbaTestHostOracle';
 import { readExtensionTextAsset } from './extensionAssets';
 import { XLIDE_TEST_RUNNER_MODULE_NAME } from './vbaTestRunnerModuleCodegen';
 import { psSingleQuoted } from './util/powershell';
 
-export const XLIDE_TEST_HOST_EVENT_PREFIX = 'XLIDE_TEST_HOST_EVENT|';
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
 
 export interface VbaTestHostPlanItem {
@@ -55,13 +54,4 @@ export function buildOwnedReadOnlyExcelTestHostScript(
         `$modalWatcherSource = ${psSingleQuoted(modalWatcherSource)}`,
         readExtensionTextAsset('assets/testhost/run-vba-tests.ps1'),
     ].join('\n');
-}
-
-export function parseVbaTestHostEventLine(line: string): VbaTestHostOracleEvent | undefined {
-    if (!line.startsWith(XLIDE_TEST_HOST_EVENT_PREFIX)) {
-        return undefined;
-    }
-    const json = line.slice(XLIDE_TEST_HOST_EVENT_PREFIX.length);
-    const parsed = JSON.parse(json) as VbaTestHostOracleEvent;
-    return parsed;
 }

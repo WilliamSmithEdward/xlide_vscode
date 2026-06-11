@@ -5,11 +5,11 @@ import type { PythonBridge } from './pythonBridge';
 import {
     buildOwnedReadOnlyExcelTestHostScript,
     DEFAULT_VBA_TEST_TIMEOUT_MS,
-    parseVbaTestHostEventLine,
     vbaTestHostPlanItems,
 } from './vbaTestExcelHost';
 import { buildVbaTestDirectRunnerModule } from './vbaTestRunnerModuleCodegen';
 import {
+    parseVbaTestHostEventLine,
     validateVbaTestHostOracleTrace,
     type VbaTestHostOracleEvent,
 } from './vbaTestHostOracle';
