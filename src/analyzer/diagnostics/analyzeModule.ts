@@ -323,7 +323,7 @@ function runRules(
 		parsedModule: mod,
 	});
 	const activity = createConditionalActivityTracker(mod, opts.conditionalCompilation);
-	const memberCtx = diagnosticMemberCompletionContext(opts);
+	const memberCtx = diagnosticMemberCompletionContext(opts, source, mod);
 
 	checkUnterminatedStrings(source, push);
 	checkInvalidLineContinuations(source, push);
@@ -468,11 +468,18 @@ function runRules(
 
 function diagnosticMemberCompletionContext(
 	opts: AnalyzeModuleOptions,
+	source: string,
+	mod: ModuleNode,
 ): MemberCompletionContext {
 	const ctx: MemberCompletionContext = {
 		projectClassMembers: opts.projectClassMembers,
 		allowSetAssignmentRefinement: false,
 		model: opts.hostModel,
+		// Audit #1: member resolution used to re-parse the module and re-lex the
+		// source prefix once per dotted reference. Hand it the per-pass AST and
+		// the shared full-source token stream instead.
+		parsedModule: mod,
+		sourceTokens: tokenizeCached(source).filter((t) => t.kind !== 'comment'),
 	};
 	const meProjectType = meProjectTypeFor(opts.moduleName, opts.moduleKind);
 	if (meProjectType) {

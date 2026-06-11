@@ -66,6 +66,22 @@ export interface MemberCompletionContext {
 	allowSetAssignmentRefinement?: boolean;
 	/** Host object model to resolve against. Defaults to the Excel model. */
 	model?: HostObjectModel;
+	/**
+	 * Pre-parsed AST of the analyzed source, when the caller already holds one
+	 * (the diagnostics engine parses once per pass and resolves many member
+	 * references). Used instead of re-parsing the full module for With-scan
+	 * windows and declared-binding lookups. Must correspond exactly to the
+	 * `source` string passed to the resolver alongside this context.
+	 */
+	parsedModule?: ModuleNode;
+	/**
+	 * Full-source significant tokens (comments removed, newlines kept), used to
+	 * slice the prefix token stream by offset instead of re-lexing the source
+	 * prefix per dotted reference. Only consulted when a token ends exactly at
+	 * the requested offset; other offsets fall back to the prefix tokenizer.
+	 * Must correspond exactly to the `source` string passed alongside.
+	 */
+	sourceTokens?: readonly VbaToken[];
 }
 
 /** A single member-completion result. */
@@ -265,6 +281,39 @@ function precededByMemberAccessDot(source: string, nameStart: number): boolean {
 	}
 }
 
+/**
+ * Significant prefix tokens (comments removed, newlines kept) for `offset`.
+ * When the context carries full-source tokens and a token ends exactly at
+ * `offset`, slices the shared stream instead of re-lexing the prefix; the two
+ * paths produce identical tokens because the cut sits on a token boundary.
+ */
+function prefixSignificantTokens(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): VbaToken[] {
+	const shared = ctx.sourceTokens;
+	if (shared && shared.length > 0) {
+		// Binary search for the last token with end <= offset.
+		let lo = 0;
+		let hi = shared.length - 1;
+		let found = -1;
+		while (lo <= hi) {
+			const mid = (lo + hi) >> 1;
+			if (shared[mid].end <= offset) {
+				found = mid;
+				lo = mid + 1;
+			} else {
+				hi = mid - 1;
+			}
+		}
+		if (found >= 0 && shared[found].end === offset) {
+			return shared.slice(0, found + 1);
+		}
+	}
+	return completionCursorContext(source, offset).significantTokens;
+}
+
 function memberSurfaceAtDot(
 	source: string,
 	offset: number,
@@ -273,7 +322,7 @@ function memberSurfaceAtDot(
 ): { currentType: string; surface: MemberSurface; typedPrefix: string } | undefined {
 	// Keep newline tokens: they mark statement boundaries so a dangling
 	// member-access dot on a previous line is not merged into this chain.
-	const tokens = prefixTokens ?? completionCursorContext(source, offset).significantTokens;
+	const tokens = prefixTokens ?? prefixSignificantTokens(source, offset, ctx);
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -412,7 +461,7 @@ export function resolveReceiverTypeAt(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): string | undefined {
-	const tokens = completionCursorContext(source, offset).significantTokens;
+	const tokens = prefixSignificantTokens(source, offset, ctx);
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -700,7 +749,7 @@ function resolveRoot(
 		}
 		return projectKey ? projectTypeKey(projectKey) : undefined;
 	}
-	const declared = findDeclaredBinding(source, offset, root);
+	const declared = findDeclaredBinding(source, offset, root, ctx);
 	if (declared) {
 		if (declared.asType) {
 			const declaredObjectType = resolveDeclaredObjectType(declared.asType, ctx, model);
@@ -743,7 +792,7 @@ function withReceiverTypeAt(
 	ctx: MemberCompletionContext,
 ): string | undefined {
 	let currentType: string | undefined;
-	for (const expression of activeWithExpressionsAt(source, offset)) {
+	for (const expression of activeWithExpressionsAt(source, offset, ctx)) {
 		const explicitType = receiverTypeFromExpressionTokens(
 			expression.tokens,
 			source,
@@ -774,8 +823,12 @@ interface ActiveWithExpression {
 	sliceStart: number;
 }
 
-function activeWithExpressionsAt(source: string, offset: number): ActiveWithExpression[] {
-	const scan = activeWithScanWindow(source, offset);
+function activeWithExpressionsAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): ActiveWithExpression[] {
+	const scan = activeWithScanWindow(source, offset, ctx);
 	const stack: ActiveWithExpression[] = [];
 	let statement: VbaToken[] = [];
 	const flush = (): void => {
@@ -799,9 +852,10 @@ function activeWithExpressionsAt(source: string, offset: number): ActiveWithExpr
 function activeWithScanWindow(
 	source: string,
 	offset: number,
+	ctx: MemberCompletionContext,
 ): { text: string; sliceStart: number } {
 	const safeOffset = Math.max(0, offset);
-	const module: ModuleNode = parseModule(source);
+	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const enclosing = module.members.find(
 		(mem): mem is ProcedureNode =>
 			mem.kind === 'Procedure' &&
@@ -1169,7 +1223,7 @@ function findSetAssignedObjectType(
 	name: string,
 	ctx: MemberCompletionContext,
 ): string | undefined {
-	const module: ModuleNode = parseModule(source);
+	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
 	const enclosing = module.members.find(
 		(mem): mem is ProcedureNode =>
@@ -1276,8 +1330,9 @@ function findDeclaredBinding(
 	source: string,
 	offset: number,
 	name: string,
+	ctx: MemberCompletionContext,
 ): DeclaredBinding | undefined {
-	const module: ModuleNode = parseModule(source);
+	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
 
 	const enclosing = module.members.find(
