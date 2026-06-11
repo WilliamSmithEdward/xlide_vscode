@@ -894,6 +894,42 @@ describe('ProjectIndex visible identifier names', () => {
 		expect(constants.get('globals.sharedbadstart')).toBe('0');
 		expect(constants.get('globals.sharednextstart')).toBe('1');
 	});
+
+	it('serves repeated aggregate queries from cache and invalidates on module change', () => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Caller',
+			moduleKind: 'standard',
+			source: '',
+		});
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source: 'Public Const MaxRows As Long = 10\n',
+		});
+
+		expect(index.visibleExternalIntegerConstantExpressions('Caller').get('maxrows')).toBe('10');
+		expect(index.visibleIdentifierNames('Caller').has('maxrows')).toBe(true);
+
+		// Mutating a returned container must not leak into later queries.
+		index.visibleExternalIntegerConstantExpressions('Caller').set('maxrows', '99');
+		index.visibleIdentifierNames('Caller').delete('maxrows');
+		expect(index.visibleExternalIntegerConstantExpressions('Caller').get('maxrows')).toBe('10');
+		expect(index.visibleIdentifierNames('Caller').has('maxrows')).toBe(true);
+
+		// setModule invalidates whole-project aggregates and per-module memos.
+		index.setModule({
+			moduleName: 'Globals',
+			moduleKind: 'standard',
+			source: 'Public Const MaxRows As Long = 20\n',
+		});
+		expect(index.visibleExternalIntegerConstantExpressions('Caller').get('maxrows')).toBe('20');
+
+		// removeModule drops the module from every aggregate.
+		index.removeModule('Globals');
+		expect(index.visibleExternalIntegerConstantExpressions('Caller').get('maxrows')).toBeUndefined();
+		expect(index.visibleIdentifierNames('Caller').has('maxrows')).toBe(false);
+	});
 });
 
 describe('ProjectIndex visible non-type names', () => {
