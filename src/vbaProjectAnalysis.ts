@@ -28,6 +28,8 @@ export interface VbaProjectIndexBuildOptions {
     cancelIfRequested?: () => void;
     /** Test/host override for how often the async builder yields. */
     yieldEveryModules?: number;
+    /** Called for each module skipped by ignoreInvalidModules. */
+    onInvalidModule?: (moduleName: string, error: unknown) => void;
 }
 
 const PROJECT_INDEX_YIELD_EVERY_MODULES = 8;
@@ -77,7 +79,8 @@ function projectIndexModuleSetter(
         try {
             index.setModule(module);
             return true;
-        } catch {
+        } catch (err) {
+            options.onInvalidModule?.(module.moduleName, err);
             return false;
         }
     };
