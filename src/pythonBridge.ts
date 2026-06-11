@@ -51,6 +51,7 @@ export class PythonBridge implements vscode.Disposable {
     private _readyReject: ((err: Error) => void) | undefined;
     private _stderrLines: string[] = [];
     private _stopping = false;
+    private _onDemandStart: (() => Promise<void>) | undefined;
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -59,6 +60,15 @@ export class PythonBridge implements vscode.Disposable {
 
     /** Exposed so callers can run pip install against the same Python. */
     resolvePython(): string { return this._resolvePython(); }
+
+    /**
+     * call() invokes this when the backend was never started, so the Python
+     * process is spawned lazily on first bridge use instead of at activation.
+     * The host memoizes the start attempt and owns its status/error UX.
+     */
+    setOnDemandStart(start: () => Promise<void>): void {
+        this._onDemandStart = start;
+    }
 
     async restart(): Promise<void> {
         await this.stop();
@@ -279,9 +289,15 @@ export class PythonBridge implements vscode.Disposable {
                     pending.cancel = cancel;
                 }
             }
+            const proc = this._proc;
+            if (!proc?.stdin) {
+                this._takePending(id);
+                reject(new Error('XLIDE: Python bridge not started.'));
+                return;
+            }
             const req: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
             try {
-                this._proc!.stdin!.write(JSON.stringify(req) + '\n');
+                proc.stdin.write(JSON.stringify(req) + '\n');
             } catch (err) {
                 this._pending.delete(id);
                 cancel?.dispose();
@@ -304,6 +320,8 @@ export class PythonBridge implements vscode.Disposable {
             promise = doSend();
         } else if (this._startPromise) {
             promise = this._startPromise.then(() => doSend());
+        } else if (this._onDemandStart) {
+            promise = this._onDemandStart().then(() => doSend());
         } else {
             promise = Promise.reject(new Error('XLIDE: Python bridge not started.'));
         }

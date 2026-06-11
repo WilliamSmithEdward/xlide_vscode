@@ -27,6 +27,8 @@ import { debounce } from './util/debounce';
 interface XlideSidebarOptions {
     setupStatus?: () => XlideSidebarSetupStatus;
     workspaceState?: vscode.Memento;
+    /** Fired whenever the sidebar view is (re)shown, e.g. to lazy-start the backend. */
+    onDidBecomeVisible?: () => void;
 }
 
 interface XlideSidebarRegistration {
@@ -71,6 +73,7 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         view.webview.onDidReceiveMessage((message: unknown) => {
             void this._handleMessage(message);
         });
+        this._options.onDidBecomeVisible?.();
         this.refresh();
     }
 
