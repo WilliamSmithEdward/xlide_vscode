@@ -474,14 +474,12 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentCount',
-		run: (ctx, push) => checkArgumentCount(
+		procedureStatements: (ctx, push) => checkArgumentCount(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectProcedures,
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
-			ctx.activity,
 			push,
 		),
 	},

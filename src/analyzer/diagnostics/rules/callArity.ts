@@ -4,8 +4,6 @@
 // validation for every callable form one statement can contain.
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import type { ModuleNode } from '../../parser/nodes';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
@@ -33,10 +31,7 @@ import {
 	sourceNameScopeFor,
 	uniqueProjectTypeSignatures,
 } from '../typeInference';
-import {
-	activeModuleMembers,
-	forEachStatement,
-} from '../walker';
+import type { ProcedureStatementVisitor } from '../walker';
 
 /**
  * Rule: a call to a known Sub/Function/Declare must supply an argument count the
@@ -51,26 +46,23 @@ import {
  * The inspected forms are the parenless call statement (`Foo 1, 2`), the
  * explicit `Call Foo(1, 2)`, and parenthesized current-module calls inside
  * expressions (`x = Foo(1, 2)`) or member access (`Application.Calculate()`).
+ *
+ * Per-statement rule: rides the shared procedure-statement walk (audit #0).
  */
 export function checkArgumentCount(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const sameModuleSignatures = sameModuleCallableSignatures(symbols);
 	const projectSignatures = uniqueProjectTypeSignatures(projectProcedures);
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			const projectQualifiedCallSpans = new Set<string>();
 			const statementCall = extractCall(source, stmt.span);
 			const qualifiedStatementCall = statementCall
@@ -116,8 +108,8 @@ export function checkArgumentCount(
 				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
 			}
-		}, activity);
-	}
+		};
+	};
 }
 
 function recordProjectQualifiedCallSpan(call: CallArguments, out: Set<string>): void {
