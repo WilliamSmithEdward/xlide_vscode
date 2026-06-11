@@ -11,27 +11,12 @@ const vscodeMock = vi.hoisted(() => ({
     registeredTools: new Map<string, RegisteredTool>(),
 }));
 
-vi.mock('vscode', () => ({
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     lm: {
         registerTool: vi.fn((name: string, tool: RegisteredTool) => {
             vscodeMock.registeredTools.set(name, tool);
             return { dispose: vi.fn() };
         }),
-    },
-    LanguageModelToolResult: class {
-        constructor(readonly parts: unknown[]) {}
-    },
-    LanguageModelTextPart: class {
-        constructor(readonly value: string) {}
-    },
-    MarkdownString: class {
-        constructor(readonly value = '') {}
-    },
-    workspace: {
-        findFiles: vi.fn(async () => []),
-    },
-    window: {
-        showWarningMessage: vi.fn(),
     },
 }));
 

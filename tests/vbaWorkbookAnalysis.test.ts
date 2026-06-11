@@ -1,12 +1,6 @@
 ﻿import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', () => ({
-	workspace: {
-		getConfiguration: () => ({
-			get: (_key: string, fallback: unknown) => fallback,
-		}),
-	},
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { PythonBridge } from '../src/pythonBridge';

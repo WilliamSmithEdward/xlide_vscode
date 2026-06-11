@@ -2,39 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type * as VscodeType from 'vscode';
 import * as path from 'path';
 
-vi.mock('vscode', () => {
-	class Position {
-		constructor(
-			public line: number,
-			public character: number,
-		) {}
-	}
-	class Range {
-		constructor(
-			public start: Position,
-			public end: Position,
-		) {}
-	}
-	class Location {
-		constructor(
-			public uri: VscodeType.Uri,
-			public range: Range,
-		) {}
-	}
-	return {
-		workspace: { textDocuments: [] },
-		Position,
-		Range,
-		Location,
-		Uri: {
-			parse: (value: string) => ({
-				scheme: value.split(':', 1)[0],
-				path: value.replace(/^xlide-vba:/, ''),
-				toString: () => value,
-			}),
-		},
-	};
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import {
 	analyzeModule,

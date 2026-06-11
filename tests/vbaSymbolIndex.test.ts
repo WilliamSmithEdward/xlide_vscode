@@ -1,16 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', () => {
-	class Disposable {
-		dispose(): void { /* no-op */ }
-	}
-	class EventEmitter<T> {
-		readonly event = () => new Disposable();
-		fire(_value: T): void { /* no-op */ }
-		dispose(): void { /* no-op */ }
-	}
-	return { EventEmitter };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 
 import type { PythonBridge } from '../src/pythonBridge';

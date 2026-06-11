@@ -10,7 +10,7 @@ const mockConfig = vi.hoisted(() => ({
 	machineKeys: new Set<string>(),
 }));
 
-vi.mock('vscode', () => ({
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
 	workspace: {
 		getConfiguration: () => ({
 			get: (key: string, fallback: unknown) => {

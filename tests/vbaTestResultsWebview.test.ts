@@ -1,12 +1,7 @@
 import * as vscode from 'vscode';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', () => ({
-    ViewColumn: { Active: -1 },
-    window: {
-        createWebviewPanel: vi.fn(),
-    },
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import { openVbaTestResults, renderVbaTestResultsHtml, setVbaTestResultsRunning } from '../src/vbaTestResultsWebview';
 import type { VbaTestRunReport } from '../src/vbaTestRunner';

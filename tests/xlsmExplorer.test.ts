@@ -6,34 +6,12 @@ const vscodeMock = vi.hoisted(() => ({
     treeEvents: [] as unknown[],
 }));
 
-vi.mock('vscode', () => ({
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     EventEmitter: class {
         event = vi.fn();
         fire = vi.fn((node?: unknown) => {
             vscodeMock.treeEvents.push(node);
         });
-    },
-    MarkdownString: class {
-        supportThemeIcons = false;
-        constructor(readonly value = '') {}
-        appendMarkdown = vi.fn();
-    },
-    ThemeIcon: class {
-        constructor(readonly id: string) {}
-    },
-    TreeItem: class {
-        id?: string;
-        iconPath?: unknown;
-        tooltip?: unknown;
-        description?: string;
-        contextValue?: string;
-        command?: unknown;
-        constructor(readonly label: string, readonly collapsibleState: number) {}
-    },
-    TreeItemCollapsibleState: {
-        None: 0,
-        Collapsed: 1,
-        Expanded: 2,
     },
     window: {
         showErrorMessage: vscodeMock.showErrorMessage,

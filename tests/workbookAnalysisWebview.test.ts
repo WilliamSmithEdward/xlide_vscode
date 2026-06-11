@@ -4,43 +4,7 @@ import type { WorkbookAnalysisResult } from '../src/vbaWorkbookAnalysis';
 import { buildWorkbookAnalysisResultsModel } from '../src/workbookAnalysisResultsModel';
 import { openWorkbookAnalysisResults, renderWorkbookAnalysisResultsHtml } from '../src/workbookAnalysisWebview';
 
-vi.mock('vscode', () => ({
-    ViewColumn: { Active: -1 },
-    env: {
-        clipboard: {
-            writeText: vi.fn(),
-        },
-    },
-    Uri: {
-        file: (fsPath: string) => ({ fsPath }),
-    },
-    RelativePattern: vi.fn(function (this: { baseUri: string; pattern: string }, baseUri: string, pattern: string) {
-        this.baseUri = baseUri;
-        this.pattern = pattern;
-    }),
-    window: {
-        createWebviewPanel: vi.fn(),
-        showSaveDialog: vi.fn(),
-    },
-    workspace: {
-        getConfiguration: () => ({
-            get: (_key: string, fallback: unknown) => fallback,
-            inspect: () => ({}),
-        }),
-        onDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() })),
-        onDidChangeTextDocument: vi.fn(() => ({ dispose: vi.fn() })),
-        onDidSaveTextDocument: vi.fn(() => ({ dispose: vi.fn() })),
-        createFileSystemWatcher: vi.fn(() => ({
-            dispose: vi.fn(),
-            onDidCreate: vi.fn(() => ({ dispose: vi.fn() })),
-            onDidChange: vi.fn(() => ({ dispose: vi.fn() })),
-            onDidDelete: vi.fn(() => ({ dispose: vi.fn() })),
-        })),
-        fs: {
-            writeFile: vi.fn(),
-        },
-    },
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 function resultFixture(): WorkbookAnalysisResult {
     return {

@@ -2,14 +2,7 @@ import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type * as VscodeType from 'vscode';
 
-vi.mock('vscode', () => ({
-	workspace: {
-		getConfiguration: () => ({
-			get: (_key: string, fallback: unknown) => fallback,
-		}),
-		textDocuments: [],
-	},
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import * as vscode from 'vscode';
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';

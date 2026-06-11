@@ -1,25 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
 
-vi.mock('vscode', () => ({
-    CancellationError: class CancellationError extends Error {},
-    Disposable: {
-        from: (...disposables: Array<{ dispose?: () => void }>) => ({
-            dispose: () => disposables.forEach((disposable) => disposable.dispose?.()),
-        }),
-    },
-    ViewColumn: { Active: 1 },
-    commands: {
-        registerCommand: vi.fn(() => ({ dispose: vi.fn() })),
-    },
-    window: {
-        createWebviewPanel: vi.fn(),
-    },
-    workspace: {
-        getConfiguration: vi.fn(),
-        onDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() })),
-    },
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import {
     applyXlideGlobalSettingsMessage,

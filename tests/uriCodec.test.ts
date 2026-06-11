@@ -4,38 +4,7 @@ import * as os from 'os';
 import * as nodePath from 'path';
 import type * as VscodeType from 'vscode';
 
-vi.mock('vscode', () => {
-    class Disposable {
-        constructor(private readonly fn: () => void = () => undefined) {}
-        dispose(): void { this.fn(); }
-    }
-    class EventEmitter<T> {
-        readonly events: T[] = [];
-        readonly event = () => new Disposable();
-        fire(value: T): void { this.events.push(value); }
-        dispose(): void { /* no-op */ }
-    }
-    return {
-        Disposable,
-        EventEmitter,
-        FileType: { File: 1 },
-        FileChangeType: { Changed: 1 },
-        FileSystemError: {
-            NoPermissions: (message: string) => new Error(message),
-            Unavailable: (message: string) => new Error(message),
-        },
-        window: {
-            showWarningMessage: vi.fn(() => Promise.resolve(undefined)),
-        },
-        commands: {
-            executeCommand: vi.fn(),
-        },
-        Uri: {
-            file: (fsPath: string) => ({ fsPath, path: fsPath, toString: () => fsPath }),
-            parse: (value: string) => ({ path: value, toString: () => value }),
-        },
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 vi.mock('../src/liveShare', () => ({
     decodeRemoteModuleUri: vi.fn(),
