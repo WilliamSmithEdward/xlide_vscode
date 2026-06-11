@@ -10,6 +10,8 @@
 
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
+import { IDENT_RE, isIdentLike } from '../lexer/tokenHelpers';
+import { completionCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
 import {
 	BodyNode,
@@ -100,7 +102,6 @@ export interface ResolvedMemberSurface {
 	exhaustive: boolean;
 }
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PROJECT_TYPE_PREFIX = 'project:';
 const COMBINED_TYPE_PREFIX = 'combined:';
 const COMBINED_TYPE_SEPARATOR = '|';
@@ -141,13 +142,6 @@ interface ResolvedMemberReturn {
 
 function word(token: VbaToken): string {
 	return token.rawText;
-}
-
-function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
-	);
 }
 
 /** A logical-line boundary: a newline or a statement-separating colon. */
@@ -202,10 +196,9 @@ function memberSurfaceAtDot(
 	offset: number,
 	ctx: MemberCompletionContext,
 ): { currentType: string; surface: MemberSurface; typedPrefix: string } | undefined {
-	const prefixText = source.slice(0, Math.max(0, offset));
 	// Keep newline tokens: they mark statement boundaries so a dangling
 	// member-access dot on a previous line is not merged into this chain.
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	const tokens = completionCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -344,8 +337,7 @@ export function resolveReceiverTypeAt(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): string | undefined {
-	const prefixText = source.slice(0, Math.max(0, offset));
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	const tokens = completionCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return undefined;
 	}

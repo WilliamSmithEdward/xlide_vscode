@@ -57,6 +57,11 @@ export {
 	resolveCanonicalCaseEdits,
 } from './completion/canonicalCasing';
 export {
+	CompletionCursorContext,
+	completionCursorContext,
+	identifierSpanEndingAt,
+} from './completion/cursorContext';
+export {
 	isCreatableTypeCompletion,
 	ProjectTypeName,
 	resolveTypeCompletions,

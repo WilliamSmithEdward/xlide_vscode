@@ -1,5 +1,6 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { identifierSpanEndingAt } from './cursorContext';
 import {
 	resolveIdentifierCompletions,
 	type IdentifierCompletionContext,
@@ -32,7 +33,6 @@ export interface CanonicalCaseSpan {
 
 export type CanonicalCaseBoundaryKind = 'token' | 'line';
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TOKEN_BOUNDARY_CHARS = new Set([
 	'(',
 	')',
@@ -104,22 +104,6 @@ export function resolveCanonicalCaseEdits(
 		}
 	}
 	return edits;
-}
-
-function identifierSpanEndingAt(
-	source: string,
-	offset: number,
-): { start: number; end: number } | undefined {
-	const end = Math.max(0, Math.min(offset, source.length));
-	let start = end;
-	while (start > 0 && /[A-Za-z0-9_]/.test(source[start - 1])) {
-		start -= 1;
-	}
-	if (start === end) {
-		return undefined;
-	}
-	const word = source.slice(start, end);
-	return IDENT_RE.test(word) ? { start, end } : undefined;
 }
 
 function tokenAtSpan(source: string, start: number, end: number): VbaToken | undefined {

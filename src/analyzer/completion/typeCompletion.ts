@@ -12,8 +12,8 @@
 // This module is pure (lexer + host model only); no `vscode` dependency, so it
 // is unit-tested directly. The VS Code provider supplies the project type names.
 
-import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { completionCursorContext } from './cursorContext';
 import {
 	getExcelObjectModel,
 	type HostObjectModel,
@@ -99,18 +99,6 @@ const OLE_AUTOMATION_TYPES: readonly TypeCompletion[] = [
 	},
 ];
 
-/** Non-trivia, non-comment, non-newline tokens of a prefix slice. */
-function meaningfulTokens(slice: string): VbaToken[] {
-	const out: VbaToken[] = [];
-	for (const tok of tokenize(slice)) {
-		if (tok.kind === 'comment' || tok.kind === 'newline') {
-			continue;
-		}
-		out.push(tok);
-	}
-	return out;
-}
-
 function isWordToken(tok: VbaToken): boolean {
 	return (
 		tok.kind === 'identifier' ||
@@ -190,8 +178,7 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 	return { prefix, qualifier, memberPrefix, beforeIndex: i };
 }
 
-function detectTypePosition(slice: string): TypePosition | undefined {
-	const tokens = meaningfulTokens(slice);
+function detectTypePosition(tokens: readonly VbaToken[]): TypePosition | undefined {
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -440,7 +427,10 @@ export function resolveTypeCompletions(
 	offset: number,
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
-	const pos = detectTypePosition(source.slice(0, offset));
+	const pos = detectTypePosition(
+		completionCursorContext(source, offset).significantTokens
+			.filter((tok) => tok.kind !== 'newline'),
+	);
 	if (!pos) {
 		return [];
 	}
