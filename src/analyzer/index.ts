@@ -60,6 +60,7 @@ export {
 	CompletionCursorContext,
 	completionCursorContext,
 	identifierSpanEndingAt,
+	spaceTriggerMayComplete,
 } from './completion/cursorContext';
 export {
 	isCreatableTypeCompletion,

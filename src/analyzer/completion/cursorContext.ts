@@ -9,7 +9,7 @@
 
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
-import { isIdentLike } from '../lexer/tokenHelpers';
+import { isIdentLike, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
 
 export interface CompletionCursorContext {
 	/** Cursor offset clamped into the source. */
@@ -104,6 +104,49 @@ function statementStartOffset(tokens: readonly VbaToken[]): number {
 		}
 	}
 	return 0;
+}
+
+/**
+ * Cheap line-local gate for space-triggered completion requests. Every typed
+ * space fires the completion provider; only a few grammar positions can
+ * actually produce results there (a statement led by a keyword or directive,
+ * a member-access dot, a fresh statement, or a statement continued from the
+ * previous physical line). Returns false when the space landed in ordinary
+ * code (expressions, argument lists, comments, strings) so the provider can
+ * bail before running any full-source resolver.
+ */
+export function spaceTriggerMayComplete(
+	linePrefix: string,
+	continuedFromPreviousLine = false,
+): boolean {
+	if (continuedFromPreviousLine) {
+		return true; // the statement starts on an earlier physical line
+	}
+	if (/^[ \t]*$/.test(linePrefix) || /\.[ \t]*$/.test(linePrefix)) {
+		return true; // statement start, or a member-access dot
+	}
+	const tokens = tokenize(linePrefix);
+	const last = tokens[tokens.length - 1];
+	if (
+		(last?.kind === 'comment' || last?.kind === 'stringLiteral') &&
+		last.end === linePrefix.length
+	) {
+		return false;
+	}
+	const significant = tokens.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	let start = 0;
+	for (let i = significant.length - 1; i >= 0; i -= 1) {
+		if (significant[i].kind === 'colon') {
+			start = i + 1;
+			break;
+		}
+	}
+	const statement = tokensWithoutLeadingLineNumber(significant.slice(start));
+	const head = statement[0];
+	if (!head) {
+		return true; // fresh statement after a ':' separator
+	}
+	return head.kind === 'keyword' || head.kind === 'directive';
 }
 
 /**

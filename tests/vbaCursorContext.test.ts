@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { completionCursorContext, identifierSpanEndingAt } from '../src/analyzer';
+import {
+	completionCursorContext,
+	identifierSpanEndingAt,
+	spaceTriggerMayComplete,
+} from '../src/analyzer';
 
 /** Context at the | marker in `src`. */
 function contextAtMarker(src: string) {
@@ -79,5 +83,47 @@ describe('completionCursorContext', () => {
 		const offset = src.indexOf('Ran') + 3;
 		expect(completionCursorContext(src, offset)).toBe(completionCursorContext(src, offset));
 		expect(completionCursorContext(src, offset)).not.toBe(completionCursorContext(src, offset - 1));
+	});
+});
+
+describe('spaceTriggerMayComplete', () => {
+	it('keeps the grammar positions that space completion powers', () => {
+		// Declaration / New type positions.
+		expect(spaceTriggerMayComplete('    Dim x As ')).toBe(true);
+		expect(spaceTriggerMayComplete('    Set wb = New ')).toBe(true);
+		// Keyword grammar: End/Exit/Option/On Error/Then/To and friends.
+		expect(spaceTriggerMayComplete('End ')).toBe(true);
+		expect(spaceTriggerMayComplete('    Exit ')).toBe(true);
+		expect(spaceTriggerMayComplete('Option ')).toBe(true);
+		expect(spaceTriggerMayComplete('    On Error ')).toBe(true);
+		expect(spaceTriggerMayComplete('    If x > 1 ')).toBe(true);
+		expect(spaceTriggerMayComplete('    For i = 1 ')).toBe(true);
+		expect(spaceTriggerMayComplete('    For Each item ')).toBe(true);
+		// Procedure labels.
+		expect(spaceTriggerMayComplete('    GoTo ')).toBe(true);
+		expect(spaceTriggerMayComplete('    Resume ')).toBe(true);
+		// Declaration headers (parameter/return As positions, event stubs).
+		expect(spaceTriggerMayComplete('Private Sub ')).toBe(true);
+		expect(spaceTriggerMayComplete('Function F(ByVal x As Long) ')).toBe(true);
+		// Statement starts and member dots.
+		expect(spaceTriggerMayComplete('    ')).toBe(true);
+		expect(spaceTriggerMayComplete('')).toBe(true);
+		expect(spaceTriggerMayComplete('    ws. ')).toBe(true);
+		expect(spaceTriggerMayComplete('x = 1: ')).toBe(true);
+		expect(spaceTriggerMayComplete('Handler: Resume ')).toBe(true);
+		expect(spaceTriggerMayComplete('10 GoTo ')).toBe(true);
+		expect(spaceTriggerMayComplete('#If VBA7 ')).toBe(true);
+		// Statements continued from the previous physical line.
+		expect(spaceTriggerMayComplete('    y ', true)).toBe(true);
+	});
+
+	it('bails on ordinary code, comments, and strings', () => {
+		expect(spaceTriggerMayComplete('    x = y ')).toBe(false);
+		expect(spaceTriggerMayComplete('    MySub arg1, ')).toBe(false);
+		expect(spaceTriggerMayComplete('    ws.Range("A1").Select ')).toBe(false);
+		expect(spaceTriggerMayComplete("    x = 1 ' a comment ")).toBe(false);
+		expect(spaceTriggerMayComplete('    Rem old-style comment ')).toBe(false);
+		expect(spaceTriggerMayComplete('    x = "inside a string ')).toBe(false);
+		expect(spaceTriggerMayComplete('    .Cells(1, 1).Value = x ')).toBe(false);
 	});
 });

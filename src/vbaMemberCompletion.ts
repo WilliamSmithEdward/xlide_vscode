@@ -54,6 +54,7 @@ import {
 	resolveProcedureLabelCompletions,
 	resolveSignatureHelp,
 	resolveTypeCompletions,
+	spaceTriggerMayComplete,
 	SignatureHelpContext,
 	TypeCompletion,
 	TypeCompletionContext,
@@ -255,10 +256,11 @@ class VbaMemberCompletionProvider
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
+		context?: vscode.CompletionContext,
 	): Promise<vscode.CompletionItem[]> {
 		const trace = startPerformanceTrace('completion', document.uri.scheme);
 		try {
-			return await this._provideCompletionItems(document, position, token);
+			return await this._provideCompletionItems(document, position, token, context);
 		} finally {
 			trace.end(token?.isCancellationRequested ? 'canceled' : 'ok', document.uri.scheme);
 		}
@@ -268,6 +270,7 @@ class VbaMemberCompletionProvider
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
+		context?: vscode.CompletionContext,
 	): Promise<vscode.CompletionItem[]> {
 		if (token?.isCancellationRequested) {
 			return [];
@@ -278,6 +281,17 @@ class VbaMemberCompletionProvider
 			(completion) => this._toTestDirectiveItem(completion, position.line),
 		);
 		if (directiveCompletions.some((completion) => completion.exclusive)) {
+			return directiveItems;
+		}
+
+		// A space is typed far more often than it opens a grammar position
+		// (after As/New, End/Exit, a member dot, ...); bail on ordinary code
+		// before any full-source resolver runs.
+		if (
+			context?.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter &&
+			context.triggerCharacter === ' ' &&
+			!this._spaceTriggerMayComplete(document, position)
+		) {
 			return directiveItems;
 		}
 
@@ -1380,6 +1394,16 @@ class VbaMemberCompletionProvider
 			};
 		}
 		return item;
+	}
+
+	private _spaceTriggerMayComplete(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+	): boolean {
+		const linePrefix = document.lineAt(position.line).text.slice(0, position.character);
+		const continued = position.line > 0 &&
+			/\s_[ \t]*$/.test(document.lineAt(position.line - 1).text);
+		return spaceTriggerMayComplete(linePrefix, continued);
 	}
 
 	private _testDirectiveCompletions(
