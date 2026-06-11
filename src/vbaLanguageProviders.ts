@@ -10,7 +10,6 @@ import {
     workbookIdentityKey,
 } from './xlideFileSystem';
 import { VbaSymbolIndex, VbaModuleSymbols } from './vbaSymbolIndex';
-import { applyOpenDocumentSources } from './vbaOpenDocuments';
 import {
     findIdentifierOccurrences,
     lineStartOffsets,
@@ -972,7 +971,7 @@ function moduleKindFromDocument(document: vscode.TextDocument): ModuleSymbolKind
 }
 
 async function liveProjectIndexForDocument(
-    index: VbaSymbolIndex,
+    projectIndexService: VbaProjectIndexService,
     document: vscode.TextDocument,
     source: string,
     moduleName: string,
@@ -992,28 +991,14 @@ async function liveProjectIndexForDocument(
         });
     }
 
+    // The shared workbook context already folds in the open editors' text
+    // (including this document) one changed module at a time.
     const decoded = decodeModuleUri(document.uri);
-    const modules = applyOpenDocumentSources(
-        await index.getAllModules(decoded.xlsmPath),
-        decoded.xlsmPath,
-    );
+    const context = await projectIndexService.contextForWorkbook(decoded.xlsmPath, 'live');
     if (token?.isCancellationRequested) {
         throw new vscode.CancellationError();
     }
-    const current = modules.find(
-        (m) => m.moduleName.toLowerCase() === moduleName.toLowerCase(),
-    );
-    return buildLiveVbaProjectIndexAsync(modules, {
-        moduleName,
-        moduleKind: moduleKindFromType(current?.type),
-        source,
-    }, {
-        cancelIfRequested: () => {
-            if (token?.isCancellationRequested) {
-                throw new vscode.CancellationError();
-            }
-        },
-    });
+    return context.project;
 }
 
 const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
@@ -1052,7 +1037,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
 
     readonly onDidChangeSemanticTokens = this._onDidChangeSemanticTokens.event;
 
-    constructor(private readonly _index: VbaSymbolIndex) {}
+    constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
 
     async provideDocumentSemanticTokens(
         document: vscode.TextDocument,
@@ -1202,7 +1187,7 @@ class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProv
 
         try {
             const project = await liveProjectIndexForDocument(
-                this._index,
+                this._projectIndexService,
                 document,
                 source,
                 moduleName,
@@ -1994,7 +1979,7 @@ export function registerVbaLanguageProviders(
         ),
         vscode.languages.registerDocumentSemanticTokensProvider(
             VBA_SELECTOR,
-            new VbaTypeSemanticTokensProvider(index),
+            new VbaTypeSemanticTokensProvider(projectIndexService),
             TYPE_TOKEN_LEGEND,
         ),
         // Keep the index consistent with saves to virtual VBA documents.
