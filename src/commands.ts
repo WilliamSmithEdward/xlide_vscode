@@ -109,8 +109,6 @@ import {
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { recentXlideOutputLog } from './xlideOutputLog';
 import {
-    formatChangeSummary,
-    formatChangeSummaryDetails,
     recentXlideWriteAudits,
     recordXlideWriteAuditEvent as recordWriteAudit,
     type XlideChangeSummary,
@@ -134,13 +132,14 @@ import {
     type WorkbookModuleSyncFolderSource,
     type WorkbookModuleSyncModeSource,
 } from './workbookModuleSyncSettings';
-import { parseModule } from './analyzer/parser/parseModule';
-import type { ModuleMember } from './analyzer/parser/nodes';
+import { suppressionTargetForProblem } from './vbaAnalysisSuppression';
 import {
-    spanContainsOffset,
-    spanLength,
-    suppressionTargetForProblem,
-} from './vbaAnalysisSuppression';
+    activeLocalWorkbookPath,
+    logChangeSummary,
+    procedureNameAtCursor,
+    resolveWorkbookPath,
+    showAnalysisSourceDocument,
+} from './commands/shared';
 import { errorMessage } from './util/errors';
 import { fileExists, isPathInside } from './util/fs';
 import {
@@ -171,8 +170,6 @@ const VBA_TEST_RERUN_FAILED_STATUSES = new Set<VbaTestRunItem['status']>([
     'host-error',
     'xpass',
 ]);
-
-type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
 
 function copilotAnalysisPrompt(
     filePath: string,
@@ -222,14 +219,6 @@ export function registerCommands(
 
     function log(msg: string): void {
         out.appendLine(msg);
-    }
-
-    function logChangeSummary(prefix: string, summary: XlideChangeSummary): string {
-        const lines = formatChangeSummaryDetails(summary);
-        for (const line of lines) {
-            log(`[${prefix}] ${line}`);
-        }
-        return lines[0];
     }
 
     let analysisSourceOpenQueue: Promise<void> = Promise.resolve();
@@ -418,42 +407,6 @@ export function registerCommands(
             });
         analysisSourceOpenQueue = run;
         await run;
-    }
-
-    async function showAnalysisSourceDocument(
-        doc: vscode.TextDocument,
-        viewColumn?: vscode.ViewColumn,
-    ): Promise<vscode.TextEditor> {
-        let lastError: unknown;
-        let lastEditor: vscode.TextEditor | undefined;
-        for (let attempt = 0; attempt < 3; attempt++) {
-            if (attempt > 0) {
-                await delay(50 * attempt);
-            }
-            try {
-                const editor = await vscode.window.showTextDocument(doc, { preview: false, viewColumn });
-                if (sameDocumentUri(editor.document.uri, doc.uri)) {
-                    return editor;
-                }
-                lastEditor = editor;
-            } catch (err) {
-                lastError = err;
-            }
-        }
-        if (lastEditor) {
-            return lastEditor;
-        }
-        throw lastError instanceof Error
-            ? lastError
-            : new Error('VS Code did not open the analysis source document.');
-    }
-
-    function sameDocumentUri(left: vscode.Uri, right: vscode.Uri): boolean {
-        return left.toString() === right.toString();
-    }
-
-    function delay(milliseconds: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, milliseconds));
     }
 
     function shouldAttachToRunningExcel(): boolean {
@@ -797,7 +750,7 @@ export function registerCommands(
         );
         notifySignatureDropped(filePath, Boolean(result.signatureDropped));
         fsProvider.notifyFileChanged(encodeModuleUri(filePath, XLIDE_ASSERT_MODULE_NAME));
-        const summaryText = logChangeSummary('installVbaTestSupport', {
+        const summaryText = logChangeSummary(log, 'installVbaTestSupport', {
             operation: existing ? 'Update VBA test support module' : 'Install VBA test support module',
             changed: [XLIDE_ASSERT_MODULE_NAME],
         });
@@ -814,28 +767,6 @@ export function registerCommands(
             `XLIDE: "${XLIDE_ASSERT_MODULE_NAME}" ${existing ? 'updated' : 'installed'} in "${path.basename(filePath)}".`,
         );
         return true;
-    }
-
-    function resolveWorkbookPath(node?: XlideNode): string | undefined {
-        let filePath = node?.filePath;
-        if (!filePath) {
-            const active = vscode.window.activeTextEditor;
-            if (active && active.document.uri.scheme === XLIDE_SCHEME) {
-                filePath = decodeModuleUri(active.document.uri).xlsmPath;
-            }
-        }
-        return filePath;
-    }
-
-    function procedureNameAtCursor(editor: vscode.TextEditor): string | undefined {
-        const source = editor.document.getText();
-        const offset = editor.document.offsetAt(editor.selection.active);
-        const parsed = parseModule(source);
-        const procedure = parsed.members
-            .filter((member): member is ProcedureMember => member.kind === 'Procedure')
-            .filter((member) => spanContainsOffset(member.span, offset))
-            .sort((left, right) => spanLength(left.span) - spanLength(right.span))[0];
-        return procedure?.name;
     }
 
     async function runCurrentModuleVbaTestsForWorkbook(filePath: string, failFast = false): Promise<void> {
@@ -1078,7 +1009,7 @@ export function registerCommands(
             operation: 'Export current module',
             changed: result.writtenFiles,
         };
-        const summaryText = logChangeSummary('exportCurrentModule', changeSummary);
+        const summaryText = logChangeSummary(log, 'exportCurrentModule', changeSummary);
         recordWriteAudit({
             command: 'xlide.exportCurrentModuleToFolder',
             operation: 'export-current-module',
@@ -1246,7 +1177,7 @@ export function registerCommands(
             });
             log(`[exportModules] Error updating workbook settings: ${errorMessage(err)}`);
         }
-        const summaryText = logChangeSummary('exportModules', {
+        const summaryText = logChangeSummary(log, 'exportModules', {
             operation: 'Export modules',
             changed,
             skipped,
@@ -1389,7 +1320,7 @@ export function registerCommands(
                 error: err,
             });
         }
-        const summaryText = logChangeSummary('importModules', {
+        const summaryText = logChangeSummary(log, 'importModules', {
             operation: 'Import modules',
             changed,
             skipped,
@@ -1510,11 +1441,6 @@ export function registerCommands(
     interface SupportBundleOptions {
         includeAnonymizedWorkbookAnalysisReport?: boolean;
         includeSelectedLogs?: boolean;
-    }
-
-    async function activeLocalWorkbookPath(): Promise<string | undefined> {
-        const editor = activeLocalVbaEditor();
-        return editor ? decodeModuleUri(editor.document.uri).xlsmPath : undefined;
     }
 
     async function activeModuleSupportData(): Promise<{
@@ -1816,7 +1742,7 @@ export function registerCommands(
                     module: name,
                     source: stub,
                 });
-                const summaryText = logChangeSummary('newModule', {
+                const summaryText = logChangeSummary(log, 'newModule', {
                     operation: 'Create module',
                     changed: [name],
                 });
@@ -1867,7 +1793,7 @@ export function registerCommands(
                     source: stub,
                     kind: 'class',
                 });
-                const summaryText = logChangeSummary('newClassModule', {
+                const summaryText = logChangeSummary(log, 'newClassModule', {
                     operation: 'Create class module',
                     changed: [name],
                 });
@@ -1977,7 +1903,7 @@ export function registerCommands(
                 }
                 // Tell open editors the old module is gone and refresh workbook stats
                 fsProvider.notifyFileChanged(encodeModuleUri(node.filePath, node.moduleName));
-                const summaryText = logChangeSummary('renameModule', {
+                const summaryText = logChangeSummary(log, 'renameModule', {
                     operation: 'Rename module',
                     changed: [`${node.moduleName} -> ${newName}`],
                 });
@@ -2019,7 +1945,7 @@ export function registerCommands(
             // Prevent deletion of document-type modules
             if (node.moduleType === 'document') {
                 vscode.window.showWarningMessage(
-                    `Cannot delete "${node.moduleName}" — document modules are protected.`,
+                    `Cannot delete "${node.moduleName}" â€” document modules are protected.`,
                 );
                 return;
             }
@@ -2040,7 +1966,7 @@ export function registerCommands(
                     },
                 );
                 notifySignatureDropped(node.filePath, result.signatureDropped);
-                const summaryText = logChangeSummary('deleteModule', {
+                const summaryText = logChangeSummary(log, 'deleteModule', {
                     operation: 'Delete module',
                     changed: [node.moduleName],
                 });
@@ -2142,7 +2068,7 @@ export function registerCommands(
             log,
         }),
 
-        // DEV: smoke test — verifies listModules + readModule against a workspace workbook
+        // DEV: smoke test â€” verifies listModules + readModule against a workspace workbook
         registerXlideCommand('xlide.dev.smoke', async () => {
             log('[smoke] Starting smoke test...');
 
@@ -2177,7 +2103,7 @@ export function registerCommands(
                         const modules = await bridge.call<Array<{ name: string; type: string }>>(
                             'listModules', { path: workbookPath },
                         );
-                        log(`[smoke] listModules OK — ${modules.length} module(s): ${modules.map(m => m.name).join(', ')}`);
+                        log(`[smoke] listModules OK â€” ${modules.length} module(s): ${modules.map(m => m.name).join(', ')}`);
 
                         if (modules.length === 0) {
                             vscode.window.showWarningMessage('XLIDE Smoke: workbook has no VBA modules.');
@@ -2189,11 +2115,11 @@ export function registerCommands(
                         const source = await bridge.call<string>(
                             'readModule', { path: workbookPath, module: target.name, full: false },
                         );
-                        log(`[smoke] readModule "${target.name}" OK — ${source.length} chars`);
+                        log(`[smoke] readModule "${target.name}" OK â€” ${source.length} chars`);
 
                         log('[smoke] All checks passed.');
                         void vscode.window.showInformationMessage(
-                            `XLIDE Smoke: OK — ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
+                            `XLIDE Smoke: OK â€” ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
                         );
                     } catch (err) {
                         const msg = errorMessage(err);
