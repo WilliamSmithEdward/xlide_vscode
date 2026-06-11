@@ -4356,21 +4356,6 @@ function hasOptionExplicit(
 	);
 }
 
-function moduleLevelIdentifierNames(
-	symbols: ReturnType<typeof buildModuleSymbols>,
-): Set<string> {
-	const names = new Set<string>();
-	for (const sym of symbols.root.children ?? []) {
-		names.add(sym.name.toLowerCase());
-		if (sym.kind === 'enum') {
-			for (const child of sym.children ?? []) {
-				names.add(child.name.toLowerCase());
-			}
-		}
-	}
-	return names;
-}
-
 /**
  * Rule: a variable declaration cannot include an inline initializer. VBA has no
  * VB.NET-style `Dim x As Long = 1`; the `= value` is a syntax error. `Const`
