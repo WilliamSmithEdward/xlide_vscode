@@ -23,7 +23,11 @@ import type {
 import { isProcedureKind } from '../symbols/symbolModel';
 import type { ProcedureNode } from '../parser/nodes';
 import type { HostObjectModel } from '../host/excelObjectModel';
-import type { ConditionalCompilationEnvironment } from '../conditional/conditionalCompilation';
+import type {
+	ConditionalActivityTracker,
+	ConditionalCompilationEnvironment,
+} from '../conditional/conditionalCompilation';
+import type { MemberCompletionContext } from '../completion/memberAccess';
 import type { EventHandlerDocumentType } from '../completion/eventHandlers';
 import type { ProjectTypeName } from '../completion/typeCompletion';
 import type {
@@ -140,6 +144,24 @@ export type PushFn = (
 	span: Span,
 	data?: VbaDiagnosticData,
 ) => void;
+
+/**
+ * Everything one diagnostics pass computes once and every rule shares: the
+ * analyzed source, the resolved module identity, the caller's options, the
+ * parsed AST, the module symbol table, the conditional-compilation activity
+ * tracker, and the member-resolution context primed with the per-pass AST and
+ * token stream (audit #0/#1).
+ */
+export interface RulePassContext {
+	source: string;
+	moduleName: string;
+	moduleKind: ModuleSymbolKind;
+	opts: AnalyzeModuleOptions;
+	mod: ModuleNode;
+	symbols: ReturnType<typeof buildModuleSymbols>;
+	activity: ConditionalActivityTracker | undefined;
+	memberCtx: MemberCompletionContext;
+}
 
 export function isObjectModuleKind(moduleKind: ModuleSymbolKind | undefined): boolean {
 	return moduleKind === 'class' || moduleKind === 'document' || moduleKind === 'userform';

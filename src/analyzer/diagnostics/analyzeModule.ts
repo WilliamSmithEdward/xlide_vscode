@@ -55,96 +55,15 @@ import { isObjectModuleKind } from './analysisContext';
 import type {
 	AnalyzeModuleOptions,
 	DiagnosticSeverityOverrides,
+	RulePassContext,
 	VbaDiagnostic,
 	VbaDiagnosticData,
 } from './analysisContext';
+import { DIAGNOSTIC_RULE_REGISTRY } from './registry';
 import {
-	checkInvalidLineContinuations,
-	checkUnterminatedStrings,
-} from './rules/lexical';
-import {
-	checkAmbiguousEnumMemberReferences,
-	checkDuplicateDeclarations,
-	checkDuplicateEnumMembers,
-	checkDuplicateModuleMembers,
-	checkDuplicateProcedures,
-} from './rules/duplicates';
-import {
-	checkDimInitializer,
-	checkFixedLengthStringBounds,
-	checkInvalidAsTypeNames,
-	checkInvalidIdentifierStarts,
-	checkModuleDeclarationsAfterProcedures,
-	checkModuleDeclarationsInProcedureBodies,
-	checkModuleLevelStatementsOutsideProcedures,
-	checkOptionPlacement,
-	checkParameterDefaultValues,
-	checkParameterOrder,
-	checkProcedureHeader,
-	checkPropertyAccessorSignatures,
-	checkPropertySetterValueParameters,
-	checkReservedDeclarationNames,
-	checkTypeDeclarationCharacterAsClause,
-	checkUnexpectedDeclarationTokens,
-} from './rules/declarations';
-import { checkArgumentCount } from './rules/callArity';
-import { checkArgumentTypes } from './rules/argumentTypes';
-import {
-	checkRuntimeArgumentValues,
-	checkRuntimeConversionValues,
-} from './rules/runtimeValues';
-import {
-	checkAssignmentTypes,
-	checkConstAssignment,
-	checkMissingReturnAssignments,
-	checkSetAssignments,
-} from './rules/assignments';
-import {
-	checkObjectVariableNotSet,
-	checkScalarMemberAccess,
-} from './rules/objectState';
-import {
-	checkMemberNotFound,
-	checkNonCallableCallStatement,
-	checkOptionExplicit,
-	checkUndeclaredVariables,
-	checkUnknownCallStatement,
-} from './rules/undeclared';
-import {
-	checkArrayBoundIntrinsicArguments,
-	checkEraseTargets,
-	checkInvalidRedimTargets,
-	checkRedimImpossibleBounds,
-	checkRedimPreserveDimensions,
-	checkUnallocatedDynamicArrayAccess,
-} from './rules/arrays';
-import {
-	checkDeclarePtrSafeForWin64,
-	checkEventDeclarationModuleKind,
-	checkEventHandlerModuleScope,
-	checkFriendDeclarations,
-	checkImplementsStatementPlacement,
-	checkObjectModulePublicMembers,
-	checkRaiseEventTargets,
-	checkWithEventsDeclarations,
-} from './rules/moduleKind';
-import {
-	checkCallParens,
-	checkDivisionByZeroExpressions,
-	checkExpressionCallParens,
-	checkInvalidExpressionSyntax,
-	checkUnbalancedParens,
 	incompleteMemberAccess,
 	isNonUnaryBinaryOperator,
 } from './rules/expressions';
-import {
-	checkDuplicateLabels,
-	checkElseBranchOrder,
-	checkExitStatements,
-	checkForEachLoopTypes,
-	checkStatementContext,
-	checkUndefinedLabels,
-} from './rules/controlFlow';
 
 /** Resolves the effective severity of a rule, or undefined when switched off. */
 function severityOf(
@@ -216,149 +135,22 @@ function runRules(
 	};
 
 	const mod = opts.parsedModule ?? parseModule(source);
-	const symbols = buildModuleSymbols(moduleName, moduleKind, source, {
-		conditionalCompilation: opts.conditionalCompilation,
-		parsedModule: mod,
-	});
-	const activity = createConditionalActivityTracker(mod, opts.conditionalCompilation);
-	const memberCtx = diagnosticMemberCompletionContext(opts, source, mod);
-
-	checkUnterminatedStrings(source, push);
-	checkInvalidLineContinuations(source, push);
-	checkDuplicateProcedures(symbols.root.children ?? [], push);
-	checkDuplicateDeclarations(symbols.root.children ?? [], push);
-	checkDuplicateModuleMembers(symbols.root.children ?? [], push);
-	checkDuplicateEnumMembers(source, mod, activity, push);
-	checkAmbiguousEnumMemberReferences(
+	const ctx: RulePassContext = {
 		source,
-		mod,
-		symbols,
-		activity,
 		moduleName,
-		opts.knownProcedures,
-		opts.projectProcedures,
-		opts.projectClassMembers,
-		opts.projectVisibleSymbols,
-		push,
-	);
-	checkConstAssignment(source, mod, symbols, activity, opts.projectVisibleSymbols, push);
-	checkOptionExplicit(source, mod, activity, push);
-	checkUndeclaredVariables(
-		source,
+		moduleKind,
+		opts,
 		mod,
-		symbols,
-		activity,
-		opts.knownIdentifiers,
-		opts.projectProcedures,
-		opts.projectClassMembers,
-		opts.projectVisibleSymbols,
-		push,
-	);
-	checkOptionPlacement(source, mod, activity, push);
-	checkProcedureHeader(source, mod, activity, push);
-	checkInvalidIdentifierStarts(source, mod, activity, push);
-	checkModuleDeclarationsInProcedureBodies(source, mod, activity, push);
-	checkModuleDeclarationsAfterProcedures(source, mod, activity, push);
-	checkModuleLevelStatementsOutsideProcedures(source, mod, activity, push);
-	checkReservedDeclarationNames(source, mod, activity, push);
-	checkPropertySetterValueParameters(source, mod, activity, opts, push);
-	checkPropertyAccessorSignatures(source, mod, activity, push);
-	checkParameterOrder(source, mod, activity, push);
-	checkParameterDefaultValues(source, mod, activity, memberCtx, push);
-	checkUnbalancedParens(source, push);
-	checkInvalidExpressionSyntax(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
-	checkDivisionByZeroExpressions(
-		source,
-		mod,
-		symbols,
-		opts.projectIntegerConstants,
-		opts.projectVisibleSymbols,
-		activity,
-		push,
-	);
-	checkDimInitializer(source, mod, activity, push);
-	checkInvalidRedimTargets(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
-	checkRedimImpossibleBounds(source, mod, activity, push);
-	checkRedimPreserveDimensions(source, mod, activity, push);
-	checkUnallocatedDynamicArrayAccess(source, mod, activity, push);
-	checkEraseTargets(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
-	checkTypeDeclarationCharacterAsClause(mod, activity, push);
-	checkUnexpectedDeclarationTokens(source, mod, activity, push);
-	checkFixedLengthStringBounds(source, mod, activity, push);
-	checkObjectModulePublicMembers(source, mod, moduleKind, activity, push);
-	checkEventDeclarationModuleKind(source, mod, moduleKind, activity, push);
-	checkWithEventsDeclarations(source, mod, moduleKind, activity, push);
-	checkFriendDeclarations(source, mod, moduleKind, activity, push);
-	checkImplementsStatementPlacement(source, mod, moduleKind, activity, push);
-	checkRaiseEventTargets(source, mod, activity, push);
-	checkDeclarePtrSafeForWin64(source, mod, opts.conditionalCompilation, activity, push);
-	checkEventHandlerModuleScope(source, mod, moduleName, moduleKind, opts.documentType, activity, push);
-	checkInvalidAsTypeNames(source, mod, activity, opts, push);
-	checkCallParens(source, mod, symbols, opts.projectProcedures, opts.projectVisibleSymbols, memberCtx, activity, push);
-	checkExpressionCallParens(source, mod, symbols, opts.projectProcedures, opts.projectVisibleSymbols, activity, push);
-	checkSetAssignments(source, mod, symbols, opts.projectVisibleSymbols, memberCtx, activity, push);
-	checkExitStatements(source, mod, activity, push);
-	checkDuplicateLabels(source, mod, activity, push);
-	checkUndefinedLabels(source, mod, activity, push);
-	checkElseBranchOrder(source, mod, activity, push);
-	checkStatementContext(source, mod, activity, push);
-	checkForEachLoopTypes(mod, symbols, opts, activity, push);
-	checkArrayBoundIntrinsicArguments(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
-	checkScalarMemberAccess(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
-	checkObjectVariableNotSet(source, mod, symbols, memberCtx, activity, push);
-	checkMemberNotFound(source, mod, memberCtx, activity, push);
-	checkNonCallableCallStatement(
-		source,
-		mod,
-		symbols,
-		activity,
-		opts.knownProcedures,
-		opts.projectVisibleSymbols,
-		push,
-	);
-	checkArgumentCount(
-		source,
-		mod,
-		symbols,
-		opts.projectProcedures,
-		opts.projectVisibleSymbols,
-		memberCtx,
-		activity,
-		push,
-	);
-	checkArgumentTypes(
-		source,
-		mod,
-		symbols,
-		opts.projectProcedures,
-		opts.projectVisibleSymbols,
-		memberCtx,
-		activity,
-		push,
-	);
-	checkRuntimeArgumentValues(
-		source,
-		mod,
-		symbols,
-		opts.projectProcedures,
-		opts.projectIntegerConstants,
-		opts.projectVisibleSymbols,
-		activity,
-		push,
-	);
-	checkRuntimeConversionValues(source, mod, symbols, opts.projectVisibleSymbols, activity, push);
-	checkAssignmentTypes(source, mod, symbols, opts.projectVisibleSymbols, memberCtx, activity, push);
-	checkMissingReturnAssignments(source, mod, symbols, opts.projectProcedures, activity, push);
-	if (opts.knownProcedures) {
-		checkUnknownCallStatement(
-			source,
-			mod,
-			symbols,
-			activity,
-			opts.knownProcedures,
-			opts.projectVisibleSymbols,
-			push,
-		);
+		symbols: buildModuleSymbols(moduleName, moduleKind, source, {
+			conditionalCompilation: opts.conditionalCompilation,
+			parsedModule: mod,
+		}),
+		activity: createConditionalActivityTracker(mod, opts.conditionalCompilation),
+		memberCtx: diagnosticMemberCompletionContext(opts, source, mod),
+	};
+
+	for (const rule of DIAGNOSTIC_RULE_REGISTRY) {
+		rule.run(ctx, push);
 	}
 
 	return out;
