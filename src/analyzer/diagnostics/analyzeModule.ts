@@ -32,6 +32,10 @@ import {
 	safeInteger,
 	type IntegerConstantLookup,
 } from '../constants/integerConstantExpression';
+import {
+	trackedLocalsPassedAsCallArguments,
+	walkStraightLineBody,
+} from './dataflow';
 import { detectEol, VBA_IDENTIFIER_NAME_RE } from '../../vbaStructuralAnalysis';
 import {
 	getHostMembers,
@@ -4409,62 +4413,61 @@ function checkObjectVariableNotSet(
 		for (const key of locals.keys()) {
 			state.set(key, 'unset');
 		}
-		for (const node of member.body) {
-			checkObjectVariableNotSetNode(source, node, locals, state, memberCtx, activity, push);
-		}
+		walkStraightLineBody(member.body, (node) => isInactiveNode(activity, node), {
+			onStatement: (stmt) =>
+				checkObjectVariableNotSetStatement(source, stmt, locals, state, memberCtx, push),
+			onBlock: (node) => {
+				if (node.kind !== 'WithBlock') {
+					return;
+				}
+				const receiver = unsetWithObjectReceiver(source, node.span, locals, state);
+				if (receiver) {
+					push(
+						'objectVariableNotSet',
+						`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+						receiver.span,
+					);
+				}
+			},
+			touchesInStatement: (stmt) => {
+				const lower = setAssignmentTarget(source, stmt.span)?.name.toLowerCase();
+				return lower && locals.has(lower) ? [lower] : [];
+			},
+			demoteToUnknown: (lower) => {
+				if (state.get(lower) === 'unset') {
+					state.set(lower, 'unknown');
+				}
+			},
+		});
 	}
 }
 
-function checkObjectVariableNotSetNode(
+function checkObjectVariableNotSetStatement(
 	source: string,
-	node: BodyNode,
+	stmt: StatementNode,
 	locals: ReadonlyMap<string, LocalObjectVariable>,
 	state: Map<string, ObjectVariableState>,
 	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	if (isInactiveNode(activity, node)) {
-		return;
+	for (const hit of unsetObjectMemberAccesses(source, stmt.span, locals, state, memberCtx)) {
+		push(
+			'objectVariableNotSet',
+			`Object variable '${hit.name}' is Nothing before member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+			hit.span,
+		);
 	}
-	if (node.kind === 'Statement') {
-		for (const hit of unsetObjectMemberAccesses(source, node.span, locals, state, memberCtx)) {
-			push(
-				'objectVariableNotSet',
-				`Object variable '${hit.name}' is Nothing before member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
-				hit.span,
-			);
-		}
-		const target = setAssignmentTarget(source, node.span);
-		if (target) {
-			const lower = target.name.toLowerCase();
-			if (locals.has(lower)) {
-				state.set(lower, setAssignmentValueIsNothing(target) ? 'unset' : 'set');
-				return;
-			}
-		}
-		for (const lower of objectVariablesPassedAsCallArguments(source, node.span, locals)) {
-			if (state.get(lower) === 'unset') {
-				state.set(lower, 'unknown');
-			}
-		}
-		return;
-	}
-	if (node.kind === 'WithBlock') {
-		const receiver = unsetWithObjectReceiver(source, node.span, locals, state);
-		if (receiver) {
-			push(
-				'objectVariableNotSet',
-				`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
-				receiver.span,
-			);
+	const target = setAssignmentTarget(source, stmt.span);
+	if (target) {
+		const lower = target.name.toLowerCase();
+		if (locals.has(lower)) {
+			state.set(lower, setAssignmentValueIsNothing(target) ? 'unset' : 'set');
+			return;
 		}
 	}
-	if ('body' in node && Array.isArray(node.body)) {
-		for (const lower of objectVariablesSetInsideBody(source, node.body, locals, activity)) {
-			if (state.get(lower) === 'unset') {
-				state.set(lower, 'unknown');
-			}
+	for (const lower of localsPassedAsCallArguments(source, stmt.span, locals)) {
+		if (state.get(lower) === 'unset') {
+			state.set(lower, 'unknown');
 		}
 	}
 }
@@ -4574,57 +4577,16 @@ function setAssignmentValueIsNothing(
 	return toks.length === 1 && tokenText(toks[0]) === 'nothing';
 }
 
-function objectVariablesPassedAsCallArguments(
+/** Lowercased tracked locals passed as bare call arguments in one statement. */
+function localsPassedAsCallArguments(
 	source: string,
 	span: Span,
-	locals: ReadonlyMap<string, LocalObjectVariable>,
+	tracked: ReadonlyMap<string, unknown>,
 ): Set<string> {
-	const toks = statementTokensAfterLeadingLabel(source, span);
-	if (toks.length < 2 || topLevelOperatorIndex(toks, '=') >= 0) {
-		return new Set();
-	}
-	const start = tokenText(toks[0]) === 'call' ? 1 : 0;
-	if (!tokenName(toks[start]) || toks[start + 1]?.rawText === '.') {
-		return new Set();
-	}
-	const out = new Set<string>();
-	for (let i = start + 1; i < toks.length; i++) {
-		if (toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
-			continue;
-		}
-		const name = tokenName(toks[i]);
-		const lower = name?.toLowerCase();
-		if (lower && locals.has(lower)) {
-			out.add(lower);
-		}
-	}
-	return out;
-}
-
-function objectVariablesSetInsideBody(
-	source: string,
-	body: readonly BodyNode[],
-	locals: ReadonlyMap<string, LocalObjectVariable>,
-	activity: ConditionalActivityTracker | undefined,
-): Set<string> {
-	const out = new Set<string>();
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
-		}
-		if (node.kind === 'Statement') {
-			const target = setAssignmentTarget(source, node.span);
-			const lower = target?.name.toLowerCase();
-			if (lower && locals.has(lower)) {
-				out.add(lower);
-			}
-		} else if ('body' in node && Array.isArray(node.body)) {
-			for (const lower of objectVariablesSetInsideBody(source, node.body, locals, activity)) {
-				out.add(lower);
-			}
-		}
-	}
-	return out;
+	return trackedLocalsPassedAsCallArguments(
+		statementTokensAfterLeadingLabel(source, span),
+		(lower) => tracked.has(lower),
+	);
 }
 
 function setAssignmentTarget(
@@ -7705,31 +7667,14 @@ function checkUnallocatedDynamicArrayAccess(
 		for (const lower of arrays.keys()) {
 			state.set(lower, 'unallocated');
 		}
-		checkUnallocatedDynamicArrayAccessInBody(source, member.body, arrays, state, activity, push);
-	}
-}
-
-function checkUnallocatedDynamicArrayAccessInBody(
-	source: string,
-	body: readonly BodyNode[],
-	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
-	state: Map<string, DynamicArrayAllocationState>,
-	activity: ConditionalActivityTracker | undefined,
-	push: PushFn,
-): void {
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
-		}
-		if (node.kind === 'Statement') {
-			checkUnallocatedDynamicArrayAccessStatement(source, node, arrays, state, push);
-			continue;
-		}
-		if ('body' in node && Array.isArray(node.body)) {
-			for (const lower of dynamicArraysTouchedInsideBody(source, node.body, arrays, activity)) {
+		walkStraightLineBody(member.body, (node) => isInactiveNode(activity, node), {
+			onStatement: (stmt) =>
+				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, push),
+			touchesInStatement: (stmt) => dynamicArrayTouchesInStatement(source, stmt, arrays),
+			demoteToUnknown: (lower) => {
 				state.set(lower, 'unknown');
-			}
-		}
+			},
+		});
 	}
 }
 
@@ -7778,7 +7723,7 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	if (assignmentLower && arrays.has(assignmentLower)) {
 		state.set(assignmentLower, 'unknown');
 	}
-	for (const lower of dynamicArraysPassedAsCallArguments(source, stmt.span, arrays)) {
+	for (const lower of localsPassedAsCallArguments(source, stmt.span, arrays)) {
 		if (state.get(lower) === 'unallocated') {
 			state.set(lower, 'unknown');
 		}
@@ -7876,71 +7821,30 @@ function unallocatedDynamicArrayBoundCalls(
 	return out;
 }
 
-function dynamicArraysPassedAsCallArguments(
+function dynamicArrayTouchesInStatement(
 	source: string,
-	span: Span,
+	stmt: StatementNode,
 	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
 ): Set<string> {
-	const toks = statementTokensAfterLeadingLabel(source, span);
-	if (toks.length < 2 || topLevelOperatorIndex(toks, '=') >= 0) {
-		return new Set();
-	}
-	const start = tokenText(toks[0]) === 'call' ? 1 : 0;
-	if (!tokenName(toks[start]) || toks[start + 1]?.rawText === '.') {
-		return new Set();
-	}
 	const out = new Set<string>();
-	for (let i = start + 1; i < toks.length; i++) {
-		if (toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
-			continue;
-		}
-		const name = tokenName(toks[i]);
-		const lower = name?.toLowerCase();
-		if (lower && arrays.has(lower)) {
+	for (const target of redimStatementTargets(source, stmt.span)) {
+		const lower = target.name.toLowerCase();
+		if (arrays.has(lower)) {
 			out.add(lower);
 		}
 	}
-	return out;
-}
-
-function dynamicArraysTouchedInsideBody(
-	source: string,
-	body: readonly BodyNode[],
-	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
-	activity: ConditionalActivityTracker | undefined,
-): Set<string> {
-	const out = new Set<string>();
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
+	for (const lower of eraseStatementSimpleTargets(source, stmt.span)) {
+		if (arrays.has(lower)) {
+			out.add(lower);
 		}
-		if (node.kind === 'Statement') {
-			for (const target of redimStatementTargets(source, node.span)) {
-				const lower = target.name.toLowerCase();
-				if (arrays.has(lower)) {
-					out.add(lower);
-				}
-			}
-			for (const lower of eraseStatementSimpleTargets(source, node.span)) {
-				if (arrays.has(lower)) {
-					out.add(lower);
-				}
-			}
-			const assignment = bareAssignmentTarget(source, node.span);
-			const assignmentLower = assignment?.name.toLowerCase();
-			if (assignmentLower && arrays.has(assignmentLower)) {
-				out.add(assignmentLower);
-			}
-			for (const lower of dynamicArraysPassedAsCallArguments(source, node.span, arrays)) {
-				out.add(lower);
-			}
-			continue;
-		}
-		if ('body' in node && Array.isArray(node.body)) {
-			for (const lower of dynamicArraysTouchedInsideBody(source, node.body, arrays, activity)) {
-				out.add(lower);
-			}
-		}
+	}
+	const assignment = bareAssignmentTarget(source, stmt.span);
+	const assignmentLower = assignment?.name.toLowerCase();
+	if (assignmentLower && arrays.has(assignmentLower)) {
+		out.add(assignmentLower);
+	}
+	for (const lower of localsPassedAsCallArguments(source, stmt.span, arrays)) {
+		out.add(lower);
 	}
 	return out;
 }
