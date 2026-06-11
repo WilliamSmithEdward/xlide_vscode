@@ -485,14 +485,12 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'argumentTypes',
-		run: (ctx, push) => checkArgumentTypes(
+		procedureStatements: (ctx, push) => checkArgumentTypes(
 			ctx.source,
-			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectProcedures,
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
-			ctx.activity,
 			push,
 		),
 	},

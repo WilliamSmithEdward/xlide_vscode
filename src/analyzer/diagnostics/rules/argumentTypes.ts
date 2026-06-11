@@ -4,8 +4,6 @@
 // validation for the same call surface the arity family walks.
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import type { ModuleNode } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
 	VbaProcedureSignature,
@@ -31,32 +29,26 @@ import {
 	validateArgumentTypes,
 	validateArgumentTypesForSignature,
 } from '../typeInference';
-import {
-	activeModuleMembers,
-	forEachStatement,
-} from '../walker';
+import type { ProcedureStatementVisitor } from '../walker';
 
 /**
  * Rule: when both a callable parameter type and an argument type are known, flag
  * high-confidence mismatches. This first slice is deliberately conservative:
  * unknowns and Variant are accepted, and VBA's normal coercions are allowed
  * unless a literal is clearly incompatible (for example `"blah"` for Currency).
+ *
+ * Per-statement rule: rides the shared procedure-statement walk (audit #0).
  */
 export function checkArgumentTypes(
 	source: string,
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
@@ -73,7 +65,7 @@ export function checkArgumentTypes(
 				qualifier,
 				name,
 			);
-		forEachStatement(member.body, (stmt) => {
+		return (stmt) => {
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
 				validateArgumentTypes(
 					call,
@@ -141,6 +133,6 @@ export function checkArgumentTypes(
 					resolveQualifiedExpressionType,
 				);
 			}
-		}, activity);
-	}
+		};
+	};
 }
