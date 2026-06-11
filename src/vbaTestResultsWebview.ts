@@ -11,6 +11,7 @@ import {
 } from './webview/page';
 import { bridgeWebviewMessages, createWebviewPanelRegistry } from './webview/panelRegistry';
 import { WEBVIEW_BODY_CSS, WEBVIEW_PRIMARY_BUTTON_CSS, xlideAccentPaletteCss } from './webview/styles';
+import { renderWebviewTemplate } from './webview/templates';
 
 export interface VbaTestResultsOptions {
     onRerunFailed?: () => Promise<void>;
@@ -136,270 +137,31 @@ export function renderVbaTestResultsHtml(
         </tr>
     `).join('');
 
-    return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-    ${webviewHeadHtml(nonce, 'XLIDE VBA Test Results')}
-    <style nonce="${nonce}">
-        :root {
-            color-scheme: dark light;
-            ${xlideAccentPaletteCss()}
-        }
-        ${WEBVIEW_BODY_CSS}
-        body {
-            padding: 24px;
-            font: 13px/1.45 var(--vscode-font-family);
-        }
-        .shell {
-            max-width: 1120px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 16px;
-            padding-bottom: 18px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-        }
-        .headerRight {
-            display: grid;
-            gap: 12px;
-            justify-items: end;
-        }
-        h1 {
-            margin: 0;
-            font-size: 22px;
-            line-height: 1.2;
-        }
-        .subtitle,
-        .meta,
-        .contract,
-        .empty {
-            color: var(--vscode-descriptionForeground);
-        }
-        .runTiming {
-            display: grid;
-            gap: 4px;
-            min-width: 260px;
-            text-align: right;
-        }
-        .runTimingRow {
-            display: grid;
-            grid-template-columns: 72px 1fr;
-            gap: 10px;
-            align-items: baseline;
-        }
-        .runTimingLabel {
-            color: var(--vscode-descriptionForeground);
-        }
-        .runTimingValue {
-            font-weight: 650;
-        }
-        .actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-        }
-        ${WEBVIEW_PRIMARY_BUTTON_CSS}
-        ${WEBVIEW_TOAST_CSS}
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(6, minmax(92px, 1fr));
-            gap: 10px;
-            margin: 20px 0;
-        }
-        .stat {
-            border: 1px solid var(--vscode-panel-border);
-            background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
-            border-radius: 6px;
-            padding: 12px;
-        }
-        .stat strong {
-            display: block;
-            font-size: 20px;
-            line-height: 1.1;
-        }
-        .stat span {
-            color: var(--vscode-descriptionForeground);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid var(--vscode-panel-border);
-            table-layout: fixed;
-        }
-        th,
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            text-align: left;
-            vertical-align: top;
-        }
-        th {
-            color: var(--vscode-descriptionForeground);
-            background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
-            font-weight: 600;
-        }
-        tr:last-child td {
-            border-bottom: 0;
-        }
-        .testNameLink {
-            display: inline;
-            border: 0;
-            padding: 0;
-            color: var(--vscode-textLink-foreground);
-            background: transparent;
-            font: inherit;
-            font-weight: 650;
-            text-align: left;
-            cursor: pointer;
-            text-decoration: underline;
-            text-underline-offset: 2px;
-        }
-        .testNameLink:hover,
-        .testNameLink:focus {
-            color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
-            outline: none;
-        }
-        th:nth-child(1),
-        td:nth-child(1) {
-            width: 90px;
-        }
-        th:nth-child(3),
-        td:nth-child(3) {
-            width: 210px;
-        }
-        th:nth-child(4),
-        td:nth-child(4) {
-            width: 84px;
-        }
-        .testNameLink,
-        .meta {
-            overflow-wrap: anywhere;
-        }
-        .detailsCell {
-            white-space: pre-wrap;
-            overflow-wrap: anywhere;
-        }
-        .testOutput {
-            margin-top: 8px;
-            color: var(--vscode-descriptionForeground);
-        }
-        .detailsCell > .testOutput:first-child {
-            margin-top: 0;
-        }
-        .outputLabel {
-            margin-bottom: 2px;
-            font-weight: 650;
-            color: var(--vscode-foreground);
-        }
-        .outputLine {
-            padding-left: 10px;
-            border-left: 2px solid var(--vscode-panel-border);
-        }
-        .status {
-            display: inline-block;
-            min-width: 68px;
-            border-radius: 999px;
-            padding: 2px 8px;
-            text-align: center;
-            font-weight: 650;
-        }
-        .passed .status {
-            color: var(--vscode-testing-iconPassed, #73c991);
-            background: color-mix(in srgb, var(--vscode-testing-iconPassed, #73c991) 16%, transparent);
-        }
-        .failed .status {
-            color: var(--vscode-testing-iconFailed, #f48771);
-            background: color-mix(in srgb, var(--vscode-testing-iconFailed, #f48771) 16%, transparent);
-        }
-        .timeout .status,
-        .host-error .status {
-            color: var(--vscode-errorForeground, #f48771);
-            background: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 16%, transparent);
-        }
-        .skipped .status {
-            color: var(--vscode-testing-iconSkipped, #cca700);
-            background: color-mix(in srgb, var(--vscode-testing-iconSkipped, #cca700) 16%, transparent);
-        }
-        .xfail .status {
-            color: var(--vscode-testing-iconSkipped, #cca700);
-            background: color-mix(in srgb, var(--vscode-testing-iconSkipped, #cca700) 16%, transparent);
-        }
-        .xpass .status {
-            color: var(--vscode-testing-iconQueued, #4fc1ff);
-            background: color-mix(in srgb, var(--vscode-testing-iconQueued, #4fc1ff) 16%, transparent);
-        }
-        .tagSet {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin: 0;
-        }
-        .tag {
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 999px;
-            padding: 1px 8px;
-            color: var(--vscode-descriptionForeground);
-            background: color-mix(in srgb, var(--xlide-accent-blue) 14%, transparent);
-            font-weight: 600;
-            line-height: 1.45;
-        }
-        .contract {
-            margin-top: 16px;
-        }
-        @media (max-width: 720px) {
-            body {
-                padding: 16px;
-            }
-            .header {
-                display: block;
-            }
-            .runTiming {
-                margin-top: 12px;
-                text-align: left;
-            }
-            .stats {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-    </style>
-</head>
-<body>
-    <main class="shell">
-        <header class="header">
-            <div>
-                <h1>XLIDE VBA Test Results</h1>
-                <div class="subtitle">${escapeHtml(
-                    selectionDescription
-                        ? `${report.workbookName} - ${selectionDescription}`
-                        : report.workbookName,
-                )}</div>
-            </div>
-            <div class="headerRight">
-                <div class="runTiming" aria-label="Run timing">
-                    <div class="runTimingRow">
-                        <span class="runTimingLabel">Started</span>
-                        <span class="runTimingValue" title="${escapeAttr(timing.startedIso)}">${escapeHtml(timing.startedLabel)}</span>
-                    </div>
-                    <div class="runTimingRow">
-                        <span class="runTimingLabel">Stopped</span>
-                        <span class="runTimingValue" title="${escapeAttr(timing.stoppedIso)}">${escapeHtml(timing.stoppedLabel)}</span>
-                    </div>
-                    <div class="runTimingRow">
-                        <span class="runTimingLabel">Elapsed</span>
-                        <span class="runTimingValue">${escapeHtml(`${report.durationMs} ms total`)}</span>
-                    </div>
-                </div>
-                ${canRerunFailed ? `<div class="actions">
+    return renderWebviewTemplate('assets/webview/vbaTestResults.html', {
+        head: webviewHeadHtml(nonce, 'XLIDE VBA Test Results'),
+        nonce,
+        css: renderWebviewTemplate('assets/webview/vbaTestResults.css', {
+            accentPalette: xlideAccentPaletteCss(),
+            bodyCss: WEBVIEW_BODY_CSS,
+            primaryButtonCss: WEBVIEW_PRIMARY_BUTTON_CSS,
+            toastCss: WEBVIEW_TOAST_CSS,
+        }),
+        subtitle: escapeHtml(
+            selectionDescription
+                ? `${report.workbookName} - ${selectionDescription}`
+                : report.workbookName,
+        ),
+        startedIso: escapeAttr(timing.startedIso),
+        startedLabel: escapeHtml(timing.startedLabel),
+        stoppedIso: escapeAttr(timing.stoppedIso),
+        stoppedLabel: escapeHtml(timing.stoppedLabel),
+        elapsed: escapeHtml(`${report.durationMs} ms total`),
+        rerunActions: canRerunFailed ? `<div class="actions">
                     <button type="button" data-action="rerunFailed" title="${escapeAttr(`Rerun ${rerunFailedCount} failed, timed out, host-error, or unexpected-pass test${rerunFailedCount === 1 ? '' : 's'} from this result.`)}">Rerun Failed (${rerunFailedCount})</button>
-                </div>` : ''}
-            </div>
-        </header>
-        ${renderSummary(summary)}
-        ${rows
-        ? `<table aria-label="VBA Test Results">
+                </div>` : '',
+        summary: renderSummary(summary),
+        results: rows
+            ? `<table aria-label="VBA Test Results">
             <thead>
                 <tr>
                     <th>Status</th>
@@ -411,52 +173,13 @@ export function renderVbaTestResultsHtml(
             </thead>
             <tbody>${rows}</tbody>
         </table>`
-        : `<div class="empty">${escapeHtml(emptyResultsMessage(report, selectionDescription))}</div>`}
-        <div class="contract">${escapeHtml(report.discovery.contract)}</div>
-    </main>
-    ${WEBVIEW_TOAST_HTML}
-    <script nonce="${nonce}">
-        const vscode = acquireVsCodeApi();
-        ${WEBVIEW_TOAST_SCRIPT}
-        let running = false;
-
-        function setRunning(next) {
-            running = next;
-            document.querySelectorAll('button[data-action="rerunFailed"]').forEach((button) => {
-                button.disabled = running;
-            });
-        }
-
-        document.addEventListener('click', (event) => {
-            const testLink = event.target.closest?.('[data-open-test-index]');
-            if (testLink) {
-                vscode.postMessage({
-                    type: 'openTest',
-                    index: Number(testLink.dataset.openTestIndex),
-                });
-                return;
-            }
-            const button = event.target.closest?.('button[data-action="rerunFailed"]');
-            if (!button || button.disabled) {
-                return;
-            }
-            setRunning(true);
-            vscode.postMessage({ type: 'rerunFailed' });
-        });
-
-        window.addEventListener('message', (event) => {
-            if (event.data?.type === 'error') {
-                setRunning(false);
-                showToast(event.data.error || 'XLIDE test action failed');
-            } else if (event.data?.type === 'rerunComplete') {
-                setRunning(false);
-            } else if (event.data?.type === 'setRunning') {
-                setRunning(Boolean(event.data.running));
-            }
-        });
-    </script>
-</body>
-</html>`;
+            : `<div class="empty">${escapeHtml(emptyResultsMessage(report, selectionDescription))}</div>`,
+        contract: escapeHtml(report.discovery.contract),
+        toastHtml: WEBVIEW_TOAST_HTML,
+        js: renderWebviewTemplate('assets/webview/vbaTestResults.js', {
+            toastScript: WEBVIEW_TOAST_SCRIPT,
+        }),
+    });
 }
 
 function emptyResultsMessage(report: VbaTestRunReport, selectionDescription: string): string {

@@ -1,0 +1,223 @@
+        :root {
+            color-scheme: dark light;
+            {{accentPalette}}
+        }
+        {{bodyCss}}
+        body {
+            padding: 24px;
+            font: 13px/1.45 var(--vscode-font-family);
+        }
+        .shell {
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .headerRight {
+            display: grid;
+            gap: 12px;
+            justify-items: end;
+        }
+        h1 {
+            margin: 0;
+            font-size: 22px;
+            line-height: 1.2;
+        }
+        .subtitle,
+        .meta,
+        .contract,
+        .empty {
+            color: var(--vscode-descriptionForeground);
+        }
+        .runTiming {
+            display: grid;
+            gap: 4px;
+            min-width: 260px;
+            text-align: right;
+        }
+        .runTimingRow {
+            display: grid;
+            grid-template-columns: 72px 1fr;
+            gap: 10px;
+            align-items: baseline;
+        }
+        .runTimingLabel {
+            color: var(--vscode-descriptionForeground);
+        }
+        .runTimingValue {
+            font-weight: 650;
+        }
+        .actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        {{primaryButtonCss}}
+        {{toastCss}}
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(92px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .stat {
+            border: 1px solid var(--vscode-panel-border);
+            background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+            border-radius: 6px;
+            padding: 12px;
+        }
+        .stat strong {
+            display: block;
+            font-size: 20px;
+            line-height: 1.1;
+        }
+        .stat span {
+            color: var(--vscode-descriptionForeground);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid var(--vscode-panel-border);
+            table-layout: fixed;
+        }
+        th,
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            color: var(--vscode-descriptionForeground);
+            background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+            font-weight: 600;
+        }
+        tr:last-child td {
+            border-bottom: 0;
+        }
+        .testNameLink {
+            display: inline;
+            border: 0;
+            padding: 0;
+            color: var(--vscode-textLink-foreground);
+            background: transparent;
+            font: inherit;
+            font-weight: 650;
+            text-align: left;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .testNameLink:hover,
+        .testNameLink:focus {
+            color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+            outline: none;
+        }
+        th:nth-child(1),
+        td:nth-child(1) {
+            width: 90px;
+        }
+        th:nth-child(3),
+        td:nth-child(3) {
+            width: 210px;
+        }
+        th:nth-child(4),
+        td:nth-child(4) {
+            width: 84px;
+        }
+        .testNameLink,
+        .meta {
+            overflow-wrap: anywhere;
+        }
+        .detailsCell {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+        .testOutput {
+            margin-top: 8px;
+            color: var(--vscode-descriptionForeground);
+        }
+        .detailsCell > .testOutput:first-child {
+            margin-top: 0;
+        }
+        .outputLabel {
+            margin-bottom: 2px;
+            font-weight: 650;
+            color: var(--vscode-foreground);
+        }
+        .outputLine {
+            padding-left: 10px;
+            border-left: 2px solid var(--vscode-panel-border);
+        }
+        .status {
+            display: inline-block;
+            min-width: 68px;
+            border-radius: 999px;
+            padding: 2px 8px;
+            text-align: center;
+            font-weight: 650;
+        }
+        .passed .status {
+            color: var(--vscode-testing-iconPassed, #73c991);
+            background: color-mix(in srgb, var(--vscode-testing-iconPassed, #73c991) 16%, transparent);
+        }
+        .failed .status {
+            color: var(--vscode-testing-iconFailed, #f48771);
+            background: color-mix(in srgb, var(--vscode-testing-iconFailed, #f48771) 16%, transparent);
+        }
+        .timeout .status,
+        .host-error .status {
+            color: var(--vscode-errorForeground, #f48771);
+            background: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 16%, transparent);
+        }
+        .skipped .status {
+            color: var(--vscode-testing-iconSkipped, #cca700);
+            background: color-mix(in srgb, var(--vscode-testing-iconSkipped, #cca700) 16%, transparent);
+        }
+        .xfail .status {
+            color: var(--vscode-testing-iconSkipped, #cca700);
+            background: color-mix(in srgb, var(--vscode-testing-iconSkipped, #cca700) 16%, transparent);
+        }
+        .xpass .status {
+            color: var(--vscode-testing-iconQueued, #4fc1ff);
+            background: color-mix(in srgb, var(--vscode-testing-iconQueued, #4fc1ff) 16%, transparent);
+        }
+        .tagSet {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 0;
+        }
+        .tag {
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 999px;
+            padding: 1px 8px;
+            color: var(--vscode-descriptionForeground);
+            background: color-mix(in srgb, var(--xlide-accent-blue) 14%, transparent);
+            font-weight: 600;
+            line-height: 1.45;
+        }
+        .contract {
+            margin-top: 16px;
+        }
+        @media (max-width: 720px) {
+            body {
+                padding: 16px;
+            }
+            .header {
+                display: block;
+            }
+            .runTiming {
+                margin-top: 12px;
+                text-align: left;
+            }
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
