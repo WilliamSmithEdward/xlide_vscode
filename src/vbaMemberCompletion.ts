@@ -14,7 +14,6 @@ import {
 	XLIDE_SCHEME,
 	decodeModuleUri,
 	isVbaDocument,
-	workbookIdentityKey,
 } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
 import { procedureHeaderParensEdit } from './vbaSmartEnter';
@@ -22,19 +21,12 @@ import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
 import {
 	DocRegistry,
 	EventHandlerCompletion,
-	EventHandlerCompletionContext,
-	EventHandlerDocumentType,
-	eventHandlerDocumentTypeForContext,
 	getHostType,
 	HoverContext,
 	IdentifierCompletion,
-	IdentifierCompletionContext,
 	KeywordCompletion,
 	MemberCompletion,
-	MemberCompletionContext,
-	ModuleSymbolKind,
 	materializeKeywordSnippet,
-	VbaProcedureSignature,
 	callableCompletionShouldInsertParens,
 	type CanonicalCaseContext,
 	type CanonicalCaseEdit,
@@ -52,54 +44,30 @@ import {
 	spaceTriggerMayComplete,
 	SignatureHelpContext,
 	TypeCompletion,
-	TypeCompletionContext,
 	type VbaProcedureLabelCompletion,
 } from './analyzer';
-import {
-	buildLiveVbaProjectIndex,
-	buildLiveVbaProjectIndexAsync,
-	moduleKindFromType,
-	projectEditorSymbolContextForModule,
-} from './vbaProjectAnalysis';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
+import {
+	VbaEditorProjectContextService,
+	toEventHandlerCompletionContext,
+	toIdentifierCompletionContext,
+	toMemberCompletionContext,
+	toTypeCompletionContext,
+	type EditorProjectContext,
+} from './vbaEditorProjectContext';
 import {
 	resolveVbaTestDirectiveCompletions,
 	type VbaTestDirectiveCompletion,
 } from './vbaTestDirectiveCompletion';
 import { startPerformanceTrace } from './performanceTrace';
 
-const WORKBOOK = 'Excel.Workbook';
-const WORKSHEET = 'Excel.Worksheet';
-const CHART = 'Excel.Chart';
 const KEYWORD_SNIPPET_ACCEPTED_COMMAND = 'xlide.vba.keywordSnippetAccepted';
 const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
 const MAX_PENDING_CANONICAL_CASE_REQUESTS = 16;
-const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
 const CANONICAL_LINE_IDLE_DELAY_MS = 200;
 const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
 const HOVER_PROJECT_CONTEXT_BUDGET_MS = 120;
 const SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS = 150;
-const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
-
-interface ModuleEntry {
-	name: string;
-	type: string;
-	documentType?: EventHandlerDocumentType;
-}
-
-interface EditorProjectContext {
-	moduleName?: string;
-	moduleKind?: ModuleSymbolKind;
-	documentType?: EventHandlerDocumentType;
-	codeNameMap?: Record<string, string>;
-	codeNameList?: string[];
-	meType?: string;
-	meProjectType?: string;
-	projectTypes?: TypeCompletionContext['projectTypes'];
-	projectClassMembers?: MemberCompletionContext['projectClassMembers'];
-	projectProcedures?: readonly VbaProcedureSignature[];
-	projectSymbols?: IdentifierCompletionContext['projectSymbols'];
-}
 
 type CanonicalCaseRequest = {
 	document: vscode.TextDocument;
@@ -107,84 +75,8 @@ type CanonicalCaseRequest = {
 	resolveEdits: (source: string, ctx: CanonicalCaseContext) => CanonicalCaseEdit[];
 };
 
-interface CachedEditorProjectContext {
-	documentVersion: number;
-	loadedAt: number;
-	context: EditorProjectContext;
-}
-
-interface EditorProjectContextBuild {
-	documentVersion: number;
-	promise: Promise<EditorProjectContext>;
-}
-
 interface CanonicalLineOptions {
 	completeProcedureHeader?: boolean;
-}
-
-/** Maps a document module to the host type that `Me` denotes inside it. */
-function meTypeFor(entry: ModuleEntry | undefined): string | undefined {
-	if (!entry || entry.type !== 'document') {
-		return undefined;
-	}
-	switch (documentTypeFor(entry)) {
-		case 'workbook':
-			return WORKBOOK;
-		case 'chart':
-			return CHART;
-		default:
-			return WORKSHEET;
-	}
-}
-
-/** Maps `Me` to the source-backed current object module when applicable. */
-function meProjectTypeFor(entry: ModuleEntry | undefined): string | undefined {
-	if (!entry || !['class', 'document', 'userform'].includes(entry.type)) {
-		return undefined;
-	}
-	return entry.name;
-}
-
-/** Builds the lowercased code-name -> host type map for a workbook project. */
-function codeNamesFor(entries: ModuleEntry[]): Record<string, string> {
-	const out: Record<string, string> = {};
-	for (const entry of entries) {
-		if (entry.type !== 'document') {
-			continue;
-		}
-		out[entry.name.toLowerCase()] = meTypeFor(entry) ?? WORKSHEET;
-	}
-	return out;
-}
-
-function codeNameListFor(entries: ModuleEntry[]): string[] {
-	return entries
-		.filter((entry) => entry.type === 'document')
-		.map((entry) => entry.name);
-}
-
-function documentTypeFor(entry: ModuleEntry | undefined): EventHandlerDocumentType | undefined {
-	if (!entry || entry.type !== 'document') {
-		return undefined;
-	}
-	return eventHandlerDocumentTypeForContext({
-		moduleName: entry.name,
-		moduleKind: 'document',
-		documentType: entry.documentType,
-	});
-}
-
-function localDocumentTypeFromModuleName(moduleName: string): EventHandlerDocumentType | undefined {
-	if (/^thisworkbook$/i.test(moduleName)) {
-		return 'workbook';
-	}
-	if (/^chart\d*$/i.test(moduleName)) {
-		return 'chart';
-	}
-	if (/^sheet\d+$/i.test(moduleName)) {
-		return 'worksheet';
-	}
-	return undefined;
 }
 
 class VbaMemberCompletionProvider
@@ -193,24 +85,17 @@ class VbaMemberCompletionProvider
 		vscode.HoverProvider,
 		vscode.SignatureHelpProvider
 {
-	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
-	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
 	private readonly _pendingCanonicalCaseRequests: CanonicalCaseRequest[] = [];
 	private _applyingCanonicalCase = false;
 
 	constructor(
-		private readonly _projectIndexService: VbaProjectIndexService,
+		private readonly _projectContext: VbaEditorProjectContextService,
 		private readonly _docs?: DocRegistry,
 	) {}
 
 	/** Drop derived editor contexts for a workbook (e.g. after a project change). */
 	invalidate(xlsmPath?: string): void {
-		if (xlsmPath === undefined) {
-			this._projectContextCache.clear();
-			this._projectContextBuilds.clear();
-		} else {
-			this._clearProjectContextCacheForWorkbook(xlsmPath);
-		}
+		this._projectContext.invalidate(xlsmPath);
 	}
 
 	async provideCompletionItems(
@@ -265,30 +150,30 @@ class VbaMemberCompletionProvider
 			return quickTypes.map((t) => this._toTypeItem(t, range));
 		}
 
-		const cachedProjectCtx = this._cachedEditorProjectContext(document);
-		const fastProjectCtx = cachedProjectCtx ?? this._localEditorProjectContext(document, source);
+		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
+		const fastProjectCtx = cachedProjectCtx ?? this._projectContext.localEditorProjectContext(document, source);
 		if (!cachedProjectCtx && document.uri.scheme === XLIDE_SCHEME) {
-			this._warmEditorProjectContext(document, source);
+			this._projectContext.warmEditorProjectContext(document, source);
 		}
 
-		const fastTypes = resolveTypeCompletions(source, offset, this._typeContext(fastProjectCtx));
+		const fastTypes = resolveTypeCompletions(source, offset, toTypeCompletionContext(fastProjectCtx));
 		if (fastTypes.length > 0) {
 			return fastTypes.map((t) => this._toTypeItem(t, range));
 		}
 
-		const fastMembers = resolveMemberCompletions(source, offset, this._memberContext(fastProjectCtx));
+		const fastMembers = resolveMemberCompletions(source, offset, toMemberCompletionContext(fastProjectCtx));
 		if (fastMembers.length > 0) {
 			return fastMembers.map((mem) => this._toItem(mem, range, source, offset));
 		}
 
-		const fastEvents = resolveEventHandlerCompletions(source, offset, this._eventHandlerContext(fastProjectCtx));
+		const fastEvents = resolveEventHandlerCompletions(source, offset, toEventHandlerCompletionContext(fastProjectCtx));
 		if (fastEvents.length > 0) {
 			return fastEvents.map((event) => this._toEventHandlerItem(event, range));
 		}
 
 		let projectCtx = cachedProjectCtx;
 		if (!projectCtx) {
-			projectCtx = await this._buildEditorProjectContextWithin(
+			projectCtx = await this._projectContext.buildEditorProjectContextWithin(
 				document,
 				source,
 				COMPLETION_PROJECT_CONTEXT_BUDGET_MS,
@@ -297,19 +182,19 @@ class VbaMemberCompletionProvider
 				return [];
 			}
 		}
-		const typeCtx = this._typeContext(projectCtx);
+		const typeCtx = toTypeCompletionContext(projectCtx);
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
 			return types.map((t) => this._toTypeItem(t, range));
 		}
 
-		const memberCtx = this._memberContext(projectCtx);
+		const memberCtx = toMemberCompletionContext(projectCtx);
 		const members = resolveMemberCompletions(source, offset, memberCtx);
 		if (members.length > 0) {
 			return members.map((mem) => this._toItem(mem, range, source, offset));
 		}
 
-		const eventCtx = this._eventHandlerContext(projectCtx);
+		const eventCtx = toEventHandlerCompletionContext(projectCtx);
 		const events = resolveEventHandlerCompletions(source, offset, eventCtx);
 		if (events.length > 0) {
 			return events.map((event) => this._toEventHandlerItem(event, range));
@@ -330,7 +215,7 @@ class VbaMemberCompletionProvider
 			];
 		}
 
-		const identCtx = this._identifierContext(projectCtx);
+		const identCtx = toIdentifierCompletionContext(projectCtx);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
 		return [
 			...directiveItems,
@@ -400,11 +285,11 @@ class VbaMemberCompletionProvider
 				return;
 			}
 			const source = document.getText();
-			const projectCtx = this._cachedEditorProjectContext(document) ?? {};
+			const projectCtx = this._projectContext.cachedEditorProjectContext(document) ?? {};
 			const edits = resolveEdits(source, {
-				member: this._memberContext(projectCtx),
-				identifier: this._identifierContext(projectCtx),
-				type: this._typeContext(projectCtx),
+				member: toMemberCompletionContext(projectCtx),
+				identifier: toIdentifierCompletionContext(projectCtx),
+				type: toTypeCompletionContext(projectCtx),
 			}).filter((edit) => {
 				const range = new vscode.Range(
 					document.positionAt(edit.start),
@@ -446,82 +331,6 @@ class VbaMemberCompletionProvider
 		}
 	}
 
-	private _cachedEditorProjectContext(document: vscode.TextDocument): EditorProjectContext | undefined {
-		const cached = this._projectContextCache.get(document.uri.toString());
-		if (
-			!cached ||
-			cached.documentVersion !== document.version ||
-			Date.now() - cached.loadedAt > EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS
-		) {
-			return undefined;
-		}
-		return cached.context;
-	}
-
-	private _storeEditorProjectContext(
-		document: vscode.TextDocument,
-		context: EditorProjectContext,
-		documentVersion = document.version,
-	): EditorProjectContext {
-		const key = document.uri.toString();
-		const existing = this._projectContextCache.get(key);
-		if (existing && existing.documentVersion > documentVersion) {
-			return existing.context;
-		}
-		this._projectContextCache.set(key, {
-			documentVersion,
-			loadedAt: Date.now(),
-			context,
-		});
-		this._pruneEditorProjectContextCache();
-		return context;
-	}
-
-	private _isCurrentProjectContextBuild(document: vscode.TextDocument, documentVersion: number): boolean {
-		const build = this._projectContextBuilds.get(document.uri.toString());
-		return !build || build.documentVersion === documentVersion;
-	}
-
-	private _pruneEditorProjectContextCache(): void {
-		const openKeys = new Set(vscode.workspace.textDocuments.map((document) => document.uri.toString()));
-		for (const key of this._projectContextCache.keys()) {
-			if (!openKeys.has(key)) {
-				this._projectContextCache.delete(key);
-			}
-		}
-		const overflow = this._projectContextCache.size - EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS;
-		if (overflow <= 0) {
-			return;
-		}
-		for (const key of [...this._projectContextCache.keys()].slice(0, overflow)) {
-			this._projectContextCache.delete(key);
-		}
-	}
-
-	private _clearProjectContextCacheForWorkbook(xlsmPath: string): void {
-		const workbookKey = workbookIdentityKey(xlsmPath);
-		for (const key of [...this._projectContextCache.keys()]) {
-			try {
-				const decoded = decodeModuleUri(vscode.Uri.parse(key));
-				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
-					this._projectContextCache.delete(key);
-				}
-			} catch {
-				this._projectContextCache.delete(key);
-			}
-		}
-		for (const key of [...this._projectContextBuilds.keys()]) {
-			try {
-				const decoded = decodeModuleUri(vscode.Uri.parse(key));
-				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
-					this._projectContextBuilds.delete(key);
-				}
-			} catch {
-				this._projectContextBuilds.delete(key);
-			}
-		}
-	}
-
 	async provideHover(
 		document: vscode.TextDocument,
 		position: vscode.Position,
@@ -546,19 +355,19 @@ class VbaMemberCompletionProvider
 		const requestVersion = document.version;
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const cached = this._cachedEditorProjectContext(document);
-		const fastCtx = cached ?? this._cheapEditorProjectContext(document);
+		const cached = this._projectContext.cachedEditorProjectContext(document);
+		const fastCtx = cached ?? this._projectContext.cheapEditorProjectContext(document);
 		if (!cached && document.uri.scheme === XLIDE_SCHEME) {
-			this._warmEditorProjectContext(document, source);
+			this._projectContext.warmEditorProjectContext(document, source);
 		}
 		let info = resolveHover(source, offset, this._hoverContext(fastCtx));
 		if (!info && !cached) {
 			info = resolveHover(source, offset, this._hoverContext(
-				this._localEditorProjectContext(document, source),
+				this._projectContext.localEditorProjectContext(document, source),
 			));
 		}
 		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
-			const projectCtx = await this._buildEditorProjectContextWithin(
+			const projectCtx = await this._projectContext.buildEditorProjectContextWithin(
 				document,
 				source,
 				HOVER_PROJECT_CONTEXT_BUDGET_MS,
@@ -600,21 +409,21 @@ class VbaMemberCompletionProvider
 		const requestVersion = document.version;
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const cached = this._cachedEditorProjectContext(document);
-		const fastCtx = cached ?? this._cheapEditorProjectContext(document);
+		const cached = this._projectContext.cachedEditorProjectContext(document);
+		const fastCtx = cached ?? this._projectContext.cheapEditorProjectContext(document);
 		if (!cached && document.uri.scheme === XLIDE_SCHEME) {
-			this._warmEditorProjectContext(document, source);
+			this._projectContext.warmEditorProjectContext(document, source);
 		}
 		let info = resolveSignatureHelp(source, offset, this._signatureHelpContext(fastCtx, source));
 		if (!info && !cached) {
 			info = resolveSignatureHelp(
 				source,
 				offset,
-				this._signatureHelpContext(this._localEditorProjectContext(document, source), source),
+				this._signatureHelpContext(this._projectContext.localEditorProjectContext(document, source), source),
 			);
 		}
 		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
-			const projectCtx = await this._buildEditorProjectContextWithin(
+			const projectCtx = await this._projectContext.buildEditorProjectContextWithin(
 				document,
 				source,
 				SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS,
@@ -668,35 +477,9 @@ class VbaMemberCompletionProvider
 		return new vscode.Hover(md, range);
 	}
 
-	private _memberContext(ctx: EditorProjectContext): MemberCompletionContext {
-		return {
-			codeNames: ctx.codeNameMap,
-			meType: ctx.meType,
-			meProjectType: ctx.meProjectType,
-			projectClassMembers: ctx.projectClassMembers,
-		};
-	}
-
-	private _typeContext(ctx: EditorProjectContext): TypeCompletionContext {
-		return {
-			projectTypes: ctx.projectTypes,
-		};
-	}
-
-	private _identifierContext(ctx: EditorProjectContext): IdentifierCompletionContext {
-		return {
-			codeNames: ctx.codeNameList,
-			moduleName: ctx.moduleName,
-			moduleKind: ctx.moduleKind,
-			projectMemberSurfaces: ctx.projectClassMembers,
-			projectProcedures: ctx.projectProcedures,
-			projectSymbols: ctx.projectSymbols,
-		};
-	}
-
 	private _hoverContext(ctx: EditorProjectContext): HoverContext {
 		return {
-			...this._memberContext(ctx),
+			...toMemberCompletionContext(ctx),
 			moduleName: ctx.moduleName,
 			moduleKind: ctx.moduleKind,
 			projectTypes: ctx.projectTypes,
@@ -710,223 +493,11 @@ class VbaMemberCompletionProvider
 		source: string,
 	): SignatureHelpContext {
 		return {
-			...this._memberContext(ctx),
+			...toMemberCompletionContext(ctx),
 			moduleName: ctx.moduleName,
 			moduleSource: source,
 			projectProcedures: ctx.projectProcedures,
 			docRegistry: this._docs,
-		};
-	}
-
-	private _eventHandlerContext(ctx: EditorProjectContext): EventHandlerCompletionContext {
-		return {
-			moduleName: ctx.moduleName,
-			moduleKind: ctx.moduleKind,
-			documentType: ctx.documentType,
-		};
-	}
-
-	private async _buildEditorProjectContext(
-		document: vscode.TextDocument,
-		source: string,
-	): Promise<EditorProjectContext> {
-		const cached = this._cachedEditorProjectContext(document);
-		if (cached) {
-			return cached;
-		}
-		const buildKey = document.uri.toString();
-		const existingBuild = this._projectContextBuilds.get(buildKey);
-		if (existingBuild?.documentVersion === document.version) {
-			return existingBuild.promise;
-		}
-		const documentVersion = document.version;
-		const build = this._computeEditorProjectContext(document, source, documentVersion)
-			.finally(() => {
-				if (this._projectContextBuilds.get(buildKey)?.promise === build) {
-					this._projectContextBuilds.delete(buildKey);
-				}
-			});
-		this._projectContextBuilds.set(buildKey, { documentVersion, promise: build });
-		return build;
-	}
-
-	private async _computeEditorProjectContext(
-		document: vscode.TextDocument,
-		source: string,
-		documentVersion: number,
-	): Promise<EditorProjectContext> {
-		if (document.uri.scheme !== XLIDE_SCHEME) {
-			try {
-				const project = await buildLiveVbaProjectIndexAsync(
-					[{ moduleName: 'Module', moduleKind: 'standard', source }],
-				);
-				if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
-					return this._cachedEditorProjectContext(document) ?? {};
-				}
-				const context = projectEditorSymbolContextForModule(project, 'Module');
-				return this._storeEditorProjectContext(document, {
-					moduleName: 'Module',
-					moduleKind: 'standard',
-					projectTypes: context.analysisOptions.projectTypes,
-					projectClassMembers: context.analysisOptions.projectClassMembers,
-					projectProcedures: context.externalProjectProcedures,
-					projectSymbols: context.externalProjectSymbols,
-				}, documentVersion);
-			} catch {
-				return {};
-			}
-		}
-
-		try {
-			const decoded = decodeModuleUri(document.uri);
-			// The shared workbook context already folds in the open editors'
-			// text (including this document) one changed module at a time.
-			const workbookContext = await this._projectIndexService.contextForWorkbook(
-				decoded.xlsmPath,
-				'live',
-			);
-			if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
-				return this._cachedEditorProjectContext(document) ?? {};
-			}
-			const allEntries: ModuleEntry[] = [...workbookContext.moduleMetadata.values()].map(
-				(metadata) => ({
-					name: metadata.moduleName,
-					type: metadata.moduleType ?? 'standard',
-					documentType: metadata.documentType,
-				}),
-			);
-			const current = allEntries.find(
-				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
-			);
-			const moduleKind = moduleKindFromType(current?.type);
-			const context = projectEditorSymbolContextForModule(
-				workbookContext.project,
-				decoded.moduleName,
-			);
-			return this._storeEditorProjectContext(document, {
-				moduleName: decoded.moduleName,
-				moduleKind,
-				documentType: documentTypeFor(current),
-				codeNameMap: codeNamesFor(allEntries),
-				codeNameList: codeNameListFor(allEntries),
-				meType: meTypeFor(current),
-				meProjectType: meProjectTypeFor(current),
-				projectTypes: context.analysisOptions.projectTypes,
-				projectClassMembers: context.analysisOptions.projectClassMembers,
-				projectProcedures: context.externalProjectProcedures,
-				projectSymbols: context.externalProjectSymbols,
-			}, documentVersion);
-		} catch {
-			return {};
-		}
-	}
-
-	private _warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
-		if (this._projectContextBuilds.has(document.uri.toString())) {
-			return;
-		}
-		void this._buildEditorProjectContext(document, source).catch(() => {
-			/* best-effort cache warm */
-		});
-	}
-
-	private async _buildEditorProjectContextWithin(
-		document: vscode.TextDocument,
-		source: string,
-		timeoutMs: number,
-	): Promise<EditorProjectContext | undefined> {
-		const build = this._buildEditorProjectContext(document, source);
-		let timeout: ReturnType<typeof setTimeout> | undefined;
-		try {
-			return await new Promise<EditorProjectContext | undefined>((resolve) => {
-				let settled = false;
-				const finish = (value: EditorProjectContext | undefined): void => {
-					if (settled) {
-						return;
-					}
-					settled = true;
-					if (timeout) {
-						clearTimeout(timeout);
-					}
-					resolve(value);
-				};
-				timeout = setTimeout(() => finish(undefined), timeoutMs);
-				build.then(finish, () => finish(undefined));
-			});
-		} finally {
-			if (timeout) {
-				clearTimeout(timeout);
-			}
-		}
-	}
-
-	private _cheapEditorProjectContext(document: vscode.TextDocument): EditorProjectContext {
-		return this._localModuleIdentity(document);
-	}
-
-	private _localEditorProjectContext(
-		document: vscode.TextDocument,
-		source: string,
-	): EditorProjectContext {
-		const identity = this._localModuleIdentity(document);
-		try {
-			const project = buildLiveVbaProjectIndex([{
-				moduleName: identity.moduleName,
-				moduleKind: identity.moduleKind,
-				source,
-			}]);
-			const context = projectEditorSymbolContextForModule(project, identity.moduleName);
-			return {
-				moduleName: identity.moduleName,
-				moduleKind: identity.moduleKind,
-				documentType: identity.documentType,
-				meType: identity.meType,
-				meProjectType: identity.meProjectType,
-				projectTypes: context.analysisOptions.projectTypes,
-				projectClassMembers: context.analysisOptions.projectClassMembers,
-				projectProcedures: context.externalProjectProcedures,
-				projectSymbols: context.externalProjectSymbols,
-			};
-		} catch {
-			return {
-				moduleName: identity.moduleName,
-				moduleKind: identity.moduleKind,
-				documentType: identity.documentType,
-				meType: identity.meType,
-				meProjectType: identity.meProjectType,
-			};
-		}
-	}
-
-	private _localModuleIdentity(document: vscode.TextDocument): {
-		moduleName: string;
-		moduleKind: ModuleSymbolKind;
-		documentType?: EventHandlerDocumentType;
-		meType?: string;
-		meProjectType?: string;
-	} {
-		let moduleName = 'Module';
-		if (document.uri.scheme === XLIDE_SCHEME) {
-			try {
-				moduleName = decodeModuleUri(document.uri).moduleName;
-			} catch {
-				moduleName = 'Module';
-			}
-		}
-		const documentType = localDocumentTypeFromModuleName(moduleName);
-		const moduleKind: ModuleSymbolKind = documentType ? 'document' : 'standard';
-		return {
-			moduleName,
-			moduleKind,
-			documentType,
-			meType: documentType === 'workbook'
-				? WORKBOOK
-				: documentType === 'chart'
-					? CHART
-					: documentType === 'worksheet'
-						? WORKSHEET
-						: undefined,
-			meProjectType: moduleKind === 'document' ? moduleName : undefined,
 		};
 	}
 
@@ -1212,7 +783,10 @@ export function registerVbaMemberCompletion(
 	selector: vscode.DocumentSelector,
 	docs?: DocRegistry,
 ): void {
-	const provider = new VbaMemberCompletionProvider(projectIndexService, docs);
+	const provider = new VbaMemberCompletionProvider(
+		new VbaEditorProjectContextService(projectIndexService),
+		docs,
+	);
 	ACTIVE_MEMBER_COMPLETION_PROVIDERS.add(provider);
 	context.subscriptions.push({
 		dispose: () => ACTIVE_MEMBER_COMPLETION_PROVIDERS.delete(provider),

@@ -1,0 +1,464 @@
+// Editor project-context service for the VBA completion stack.
+//
+// Builds and caches the per-document EditorProjectContext (module identity,
+// code names, Me types, project types/members/procedures/symbols) on top of
+// the shared VbaProjectIndexService, with in-flight build dedup, a TTL'd
+// per-document cache, and budgeted builds for latency-sensitive callers.
+// Extracted verbatim from vbaMemberCompletion.ts (audit #27).
+
+import * as vscode from 'vscode';
+import {
+	XLIDE_SCHEME,
+	decodeModuleUri,
+	workbookIdentityKey,
+} from './xlideFileSystem';
+import {
+	EventHandlerCompletionContext,
+	EventHandlerDocumentType,
+	eventHandlerDocumentTypeForContext,
+	IdentifierCompletionContext,
+	MemberCompletionContext,
+	ModuleSymbolKind,
+	VbaProcedureSignature,
+	TypeCompletionContext,
+} from './analyzer';
+import {
+	buildLiveVbaProjectIndex,
+	buildLiveVbaProjectIndexAsync,
+	moduleKindFromType,
+	projectEditorSymbolContextForModule,
+} from './vbaProjectAnalysis';
+import { VbaProjectIndexService } from './vbaProjectIndexService';
+
+const WORKBOOK = 'Excel.Workbook';
+const WORKSHEET = 'Excel.Worksheet';
+const CHART = 'Excel.Chart';
+const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
+const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
+
+interface ModuleEntry {
+	name: string;
+	type: string;
+	documentType?: EventHandlerDocumentType;
+}
+
+export interface EditorProjectContext {
+	moduleName?: string;
+	moduleKind?: ModuleSymbolKind;
+	documentType?: EventHandlerDocumentType;
+	codeNameMap?: Record<string, string>;
+	codeNameList?: string[];
+	meType?: string;
+	meProjectType?: string;
+	projectTypes?: TypeCompletionContext['projectTypes'];
+	projectClassMembers?: MemberCompletionContext['projectClassMembers'];
+	projectProcedures?: readonly VbaProcedureSignature[];
+	projectSymbols?: IdentifierCompletionContext['projectSymbols'];
+}
+
+interface CachedEditorProjectContext {
+	documentVersion: number;
+	loadedAt: number;
+	context: EditorProjectContext;
+}
+
+interface EditorProjectContextBuild {
+	documentVersion: number;
+	promise: Promise<EditorProjectContext>;
+}
+
+/** Maps a document module to the host type that `Me` denotes inside it. */
+function meTypeFor(entry: ModuleEntry | undefined): string | undefined {
+	if (!entry || entry.type !== 'document') {
+		return undefined;
+	}
+	switch (documentTypeFor(entry)) {
+		case 'workbook':
+			return WORKBOOK;
+		case 'chart':
+			return CHART;
+		default:
+			return WORKSHEET;
+	}
+}
+
+/** Maps `Me` to the source-backed current object module when applicable. */
+function meProjectTypeFor(entry: ModuleEntry | undefined): string | undefined {
+	if (!entry || !['class', 'document', 'userform'].includes(entry.type)) {
+		return undefined;
+	}
+	return entry.name;
+}
+
+/** Builds the lowercased code-name -> host type map for a workbook project. */
+function codeNamesFor(entries: ModuleEntry[]): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const entry of entries) {
+		if (entry.type !== 'document') {
+			continue;
+		}
+		out[entry.name.toLowerCase()] = meTypeFor(entry) ?? WORKSHEET;
+	}
+	return out;
+}
+
+function codeNameListFor(entries: ModuleEntry[]): string[] {
+	return entries
+		.filter((entry) => entry.type === 'document')
+		.map((entry) => entry.name);
+}
+
+function documentTypeFor(entry: ModuleEntry | undefined): EventHandlerDocumentType | undefined {
+	if (!entry || entry.type !== 'document') {
+		return undefined;
+	}
+	return eventHandlerDocumentTypeForContext({
+		moduleName: entry.name,
+		moduleKind: 'document',
+		documentType: entry.documentType,
+	});
+}
+
+function localDocumentTypeFromModuleName(moduleName: string): EventHandlerDocumentType | undefined {
+	if (/^thisworkbook$/i.test(moduleName)) {
+		return 'workbook';
+	}
+	if (/^chart\d*$/i.test(moduleName)) {
+		return 'chart';
+	}
+	if (/^sheet\d+$/i.test(moduleName)) {
+		return 'worksheet';
+	}
+	return undefined;
+}
+
+export function toMemberCompletionContext(ctx: EditorProjectContext): MemberCompletionContext {
+	return {
+		codeNames: ctx.codeNameMap,
+		meType: ctx.meType,
+		meProjectType: ctx.meProjectType,
+		projectClassMembers: ctx.projectClassMembers,
+	};
+}
+
+export function toTypeCompletionContext(ctx: EditorProjectContext): TypeCompletionContext {
+	return {
+		projectTypes: ctx.projectTypes,
+	};
+}
+
+export function toIdentifierCompletionContext(ctx: EditorProjectContext): IdentifierCompletionContext {
+	return {
+		codeNames: ctx.codeNameList,
+		moduleName: ctx.moduleName,
+		moduleKind: ctx.moduleKind,
+		projectMemberSurfaces: ctx.projectClassMembers,
+		projectProcedures: ctx.projectProcedures,
+		projectSymbols: ctx.projectSymbols,
+	};
+}
+
+export function toEventHandlerCompletionContext(ctx: EditorProjectContext): EventHandlerCompletionContext {
+	return {
+		moduleName: ctx.moduleName,
+		moduleKind: ctx.moduleKind,
+		documentType: ctx.documentType,
+	};
+}
+
+export class VbaEditorProjectContextService {
+	private readonly _projectContextCache = new Map<string, CachedEditorProjectContext>();
+	private readonly _projectContextBuilds = new Map<string, EditorProjectContextBuild>();
+
+	constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
+
+	/** Drop derived editor contexts for a workbook (e.g. after a project change). */
+	invalidate(xlsmPath?: string): void {
+		if (xlsmPath === undefined) {
+			this._projectContextCache.clear();
+			this._projectContextBuilds.clear();
+		} else {
+			this._clearProjectContextCacheForWorkbook(xlsmPath);
+		}
+	}
+
+	cachedEditorProjectContext(document: vscode.TextDocument): EditorProjectContext | undefined {
+		const cached = this._projectContextCache.get(document.uri.toString());
+		if (
+			!cached ||
+			cached.documentVersion !== document.version ||
+			Date.now() - cached.loadedAt > EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS
+		) {
+			return undefined;
+		}
+		return cached.context;
+	}
+
+	private _storeEditorProjectContext(
+		document: vscode.TextDocument,
+		context: EditorProjectContext,
+		documentVersion = document.version,
+	): EditorProjectContext {
+		const key = document.uri.toString();
+		const existing = this._projectContextCache.get(key);
+		if (existing && existing.documentVersion > documentVersion) {
+			return existing.context;
+		}
+		this._projectContextCache.set(key, {
+			documentVersion,
+			loadedAt: Date.now(),
+			context,
+		});
+		this._pruneEditorProjectContextCache();
+		return context;
+	}
+
+	private _isCurrentProjectContextBuild(document: vscode.TextDocument, documentVersion: number): boolean {
+		const build = this._projectContextBuilds.get(document.uri.toString());
+		return !build || build.documentVersion === documentVersion;
+	}
+
+	private _pruneEditorProjectContextCache(): void {
+		const openKeys = new Set(vscode.workspace.textDocuments.map((document) => document.uri.toString()));
+		for (const key of this._projectContextCache.keys()) {
+			if (!openKeys.has(key)) {
+				this._projectContextCache.delete(key);
+			}
+		}
+		const overflow = this._projectContextCache.size - EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS;
+		if (overflow <= 0) {
+			return;
+		}
+		for (const key of [...this._projectContextCache.keys()].slice(0, overflow)) {
+			this._projectContextCache.delete(key);
+		}
+	}
+
+	private _clearProjectContextCacheForWorkbook(xlsmPath: string): void {
+		const workbookKey = workbookIdentityKey(xlsmPath);
+		for (const key of [...this._projectContextCache.keys()]) {
+			try {
+				const decoded = decodeModuleUri(vscode.Uri.parse(key));
+				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
+					this._projectContextCache.delete(key);
+				}
+			} catch {
+				this._projectContextCache.delete(key);
+			}
+		}
+		for (const key of [...this._projectContextBuilds.keys()]) {
+			try {
+				const decoded = decodeModuleUri(vscode.Uri.parse(key));
+				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
+					this._projectContextBuilds.delete(key);
+				}
+			} catch {
+				this._projectContextBuilds.delete(key);
+			}
+		}
+	}
+
+	private async _buildEditorProjectContext(
+		document: vscode.TextDocument,
+		source: string,
+	): Promise<EditorProjectContext> {
+		const cached = this.cachedEditorProjectContext(document);
+		if (cached) {
+			return cached;
+		}
+		const buildKey = document.uri.toString();
+		const existingBuild = this._projectContextBuilds.get(buildKey);
+		if (existingBuild?.documentVersion === document.version) {
+			return existingBuild.promise;
+		}
+		const documentVersion = document.version;
+		const build = this._computeEditorProjectContext(document, source, documentVersion)
+			.finally(() => {
+				if (this._projectContextBuilds.get(buildKey)?.promise === build) {
+					this._projectContextBuilds.delete(buildKey);
+				}
+			});
+		this._projectContextBuilds.set(buildKey, { documentVersion, promise: build });
+		return build;
+	}
+
+	private async _computeEditorProjectContext(
+		document: vscode.TextDocument,
+		source: string,
+		documentVersion: number,
+	): Promise<EditorProjectContext> {
+		if (document.uri.scheme !== XLIDE_SCHEME) {
+			try {
+				const project = await buildLiveVbaProjectIndexAsync(
+					[{ moduleName: 'Module', moduleKind: 'standard', source }],
+				);
+				if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+					return this.cachedEditorProjectContext(document) ?? {};
+				}
+				const context = projectEditorSymbolContextForModule(project, 'Module');
+				return this._storeEditorProjectContext(document, {
+					moduleName: 'Module',
+					moduleKind: 'standard',
+					projectTypes: context.analysisOptions.projectTypes,
+					projectClassMembers: context.analysisOptions.projectClassMembers,
+					projectProcedures: context.externalProjectProcedures,
+					projectSymbols: context.externalProjectSymbols,
+				}, documentVersion);
+			} catch {
+				return {};
+			}
+		}
+
+		try {
+			const decoded = decodeModuleUri(document.uri);
+			// The shared workbook context already folds in the open editors'
+			// text (including this document) one changed module at a time.
+			const workbookContext = await this._projectIndexService.contextForWorkbook(
+				decoded.xlsmPath,
+				'live',
+			);
+			if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
+				return this.cachedEditorProjectContext(document) ?? {};
+			}
+			const allEntries: ModuleEntry[] = [...workbookContext.moduleMetadata.values()].map(
+				(metadata) => ({
+					name: metadata.moduleName,
+					type: metadata.moduleType ?? 'standard',
+					documentType: metadata.documentType,
+				}),
+			);
+			const current = allEntries.find(
+				(entry) => entry.name.toLowerCase() === decoded.moduleName.toLowerCase(),
+			);
+			const moduleKind = moduleKindFromType(current?.type);
+			const context = projectEditorSymbolContextForModule(
+				workbookContext.project,
+				decoded.moduleName,
+			);
+			return this._storeEditorProjectContext(document, {
+				moduleName: decoded.moduleName,
+				moduleKind,
+				documentType: documentTypeFor(current),
+				codeNameMap: codeNamesFor(allEntries),
+				codeNameList: codeNameListFor(allEntries),
+				meType: meTypeFor(current),
+				meProjectType: meProjectTypeFor(current),
+				projectTypes: context.analysisOptions.projectTypes,
+				projectClassMembers: context.analysisOptions.projectClassMembers,
+				projectProcedures: context.externalProjectProcedures,
+				projectSymbols: context.externalProjectSymbols,
+			}, documentVersion);
+		} catch {
+			return {};
+		}
+	}
+
+	warmEditorProjectContext(document: vscode.TextDocument, source: string): void {
+		if (this._projectContextBuilds.has(document.uri.toString())) {
+			return;
+		}
+		void this._buildEditorProjectContext(document, source).catch(() => {
+			/* best-effort cache warm */
+		});
+	}
+
+	async buildEditorProjectContextWithin(
+		document: vscode.TextDocument,
+		source: string,
+		timeoutMs: number,
+	): Promise<EditorProjectContext | undefined> {
+		const build = this._buildEditorProjectContext(document, source);
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		try {
+			return await new Promise<EditorProjectContext | undefined>((resolve) => {
+				let settled = false;
+				const finish = (value: EditorProjectContext | undefined): void => {
+					if (settled) {
+						return;
+					}
+					settled = true;
+					if (timeout) {
+						clearTimeout(timeout);
+					}
+					resolve(value);
+				};
+				timeout = setTimeout(() => finish(undefined), timeoutMs);
+				build.then(finish, () => finish(undefined));
+			});
+		} finally {
+			if (timeout) {
+				clearTimeout(timeout);
+			}
+		}
+	}
+
+	cheapEditorProjectContext(document: vscode.TextDocument): EditorProjectContext {
+		return this._localModuleIdentity(document);
+	}
+
+	localEditorProjectContext(
+		document: vscode.TextDocument,
+		source: string,
+	): EditorProjectContext {
+		const identity = this._localModuleIdentity(document);
+		try {
+			const project = buildLiveVbaProjectIndex([{
+				moduleName: identity.moduleName,
+				moduleKind: identity.moduleKind,
+				source,
+			}]);
+			const context = projectEditorSymbolContextForModule(project, identity.moduleName);
+			return {
+				moduleName: identity.moduleName,
+				moduleKind: identity.moduleKind,
+				documentType: identity.documentType,
+				meType: identity.meType,
+				meProjectType: identity.meProjectType,
+				projectTypes: context.analysisOptions.projectTypes,
+				projectClassMembers: context.analysisOptions.projectClassMembers,
+				projectProcedures: context.externalProjectProcedures,
+				projectSymbols: context.externalProjectSymbols,
+			};
+		} catch {
+			return {
+				moduleName: identity.moduleName,
+				moduleKind: identity.moduleKind,
+				documentType: identity.documentType,
+				meType: identity.meType,
+				meProjectType: identity.meProjectType,
+			};
+		}
+	}
+
+	private _localModuleIdentity(document: vscode.TextDocument): {
+		moduleName: string;
+		moduleKind: ModuleSymbolKind;
+		documentType?: EventHandlerDocumentType;
+		meType?: string;
+		meProjectType?: string;
+	} {
+		let moduleName = 'Module';
+		if (document.uri.scheme === XLIDE_SCHEME) {
+			try {
+				moduleName = decodeModuleUri(document.uri).moduleName;
+			} catch {
+				moduleName = 'Module';
+			}
+		}
+		const documentType = localDocumentTypeFromModuleName(moduleName);
+		const moduleKind: ModuleSymbolKind = documentType ? 'document' : 'standard';
+		return {
+			moduleName,
+			moduleKind,
+			documentType,
+			meType: documentType === 'workbook'
+				? WORKBOOK
+				: documentType === 'chart'
+					? CHART
+					: documentType === 'worksheet'
+						? WORKSHEET
+						: undefined,
+			meProjectType: moduleKind === 'document' ? moduleName : undefined,
+		};
+	}
+}
