@@ -26,6 +26,8 @@ import {
 	absoluteSpan,
 	physicalLineSpanAtOffset,
 	statementTokens,
+	walkProcedureStatements,
+	type ProcedureStatementVisitor,
 } from './walker';
 import type {
 	ModuleNode,
@@ -55,6 +57,7 @@ import { isObjectModuleKind } from './analysisContext';
 import type {
 	AnalyzeModuleOptions,
 	DiagnosticSeverityOverrides,
+	PushFn,
 	RulePassContext,
 	VbaDiagnostic,
 	VbaDiagnosticData,
@@ -108,12 +111,11 @@ function runRules(
 	source: string,
 	opts: AnalyzeModuleOptions,
 ): VbaDiagnostic[] {
-	const out: VbaDiagnostic[] = [];
 	const moduleName = opts.moduleName ?? 'Module';
 	const moduleKind = opts.moduleKind ?? 'standard';
 	const overrides = opts.severityOverrides;
 
-	const push = (
+	const pushInto = (sink: VbaDiagnostic[]): PushFn => (
 		rule: DiagnosticRuleName,
 		message: string,
 		span: Span,
@@ -124,7 +126,7 @@ function runRules(
 			return;
 		}
 		const meta = DIAGNOSTIC_RULES[rule];
-		out.push({
+		sink.push({
 			code: meta.code,
 			message,
 			severity,
@@ -149,10 +151,28 @@ function runRules(
 		memberCtx: diagnosticMemberCompletionContext(opts, source, mod),
 	};
 
+	// Each rule reports into its own buffer; per-statement rules all ride the
+	// one shared procedure-statement walk (audit #0). Flushing the buffers in
+	// registry order keeps the historical rule-major diagnostic order.
+	const buffers: VbaDiagnostic[][] = [];
+	const statementVisitors: ProcedureStatementVisitor[] = [];
 	for (const rule of DIAGNOSTIC_RULE_REGISTRY) {
-		rule.run(ctx, push);
+		const buffer: VbaDiagnostic[] = [];
+		buffers.push(buffer);
+		const push = pushInto(buffer);
+		if (rule.run) {
+			rule.run(ctx, push);
+		}
+		if (rule.procedureStatements) {
+			statementVisitors.push(rule.procedureStatements(ctx, push));
+		}
 	}
+	walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors);
 
+	const out: VbaDiagnostic[] = [];
+	for (const buffer of buffers) {
+		out.push(...buffer);
+	}
 	return out;
 }
 

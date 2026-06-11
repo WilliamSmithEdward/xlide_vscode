@@ -63,6 +63,51 @@ export function forEachStatement(
 	}
 }
 
+/**
+ * One per-procedure visitor of the shared statement walk (audit #0): given a
+ * procedure, returns the per-statement callback to run inside it, or
+ * undefined to skip the procedure entirely.
+ */
+export type ProcedureStatementVisitor = (
+	proc: ProcedureNode,
+) => ((stmt: StatementNode) => void) | undefined;
+
+/**
+ * Runs every registered per-statement rule on ONE walk over the module's
+ * active procedures and statements (audit #0). Each visitor sees procedures
+ * and statements in exactly the order the rules' former private walks used:
+ * active members in source order, `forEachStatement` within each body.
+ */
+export function walkProcedureStatements(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	visitors: readonly ProcedureStatementVisitor[],
+): void {
+	if (visitors.length === 0) {
+		return;
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const callbacks: Array<(stmt: StatementNode) => void> = [];
+		for (const visitor of visitors) {
+			const callback = visitor(member);
+			if (callback) {
+				callbacks.push(callback);
+			}
+		}
+		if (callbacks.length === 0) {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			for (const callback of callbacks) {
+				callback(stmt);
+			}
+		}, activity);
+	}
+}
+
 /** Walks every VariableGroupNode in a body, descending into nested blocks. */
 export function forEachVariableGroup(
 	body: BodyNode[],

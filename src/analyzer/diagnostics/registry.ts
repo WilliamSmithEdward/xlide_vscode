@@ -9,6 +9,7 @@
 // tests/vbaDiagnostics.test.ts.
 
 import type { PushFn, RulePassContext } from './analysisContext';
+import type { ProcedureStatementVisitor } from './walker';
 import {
 	checkInvalidLineContinuations,
 	checkUnterminatedStrings,
@@ -95,10 +96,25 @@ import {
 	checkUndefinedLabels,
 } from './rules/controlFlow';
 
-/** One registered rule: a stable name and an adapter onto the shared context. */
+/**
+ * One registered rule: a stable name plus exactly one execution form.
+ *
+ * - `run` rules own their full traversal (module-level rules, rules with
+ *   cross-member state, and rules whose internal walk order is part of their
+ *   output order).
+ * - `procedureStatements` rules are per-statement: the factory does the
+ *   rule's per-pass setup and returns a visitor for the ONE shared
+ *   procedure-statement walk (audit #0), instead of each rule walking the
+ *   AST itself.
+ *
+ * Every rule reports through its own buffered `push`, and runRules flushes
+ * the buffers in registry order, so both forms preserve the engine's
+ * historical rule-major diagnostic order.
+ */
 export interface DiagnosticRuleEntry {
 	name: string;
-	run(ctx: RulePassContext, push: PushFn): void;
+	run?(ctx: RulePassContext, push: PushFn): void;
+	procedureStatements?(ctx: RulePassContext, push: PushFn): ProcedureStatementVisitor;
 }
 
 /**
