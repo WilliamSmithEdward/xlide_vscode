@@ -163,6 +163,67 @@ class DiagnosticScheduler {
 }
 
 /**
+ * Lazily creates one FileSystemWatcher per workbook settings sidecar the
+ * first time a module of that workbook is analyzed, notifies the engine when
+ * the sidecar changes, and prunes watchers for workbooks that no longer have
+ * open XLIDE documents.
+ */
+class WorkbookSettingsWatcherRegistry implements vscode.Disposable {
+    private readonly _watchers = new Map<string, vscode.Disposable[]>();
+
+    constructor(
+        private readonly _onSettingsChanged: (workbookPath: string) => void,
+    ) {}
+
+    ensure(workbookPath: string): void {
+        const key = workbookContextKey(workbookPath);
+        if (this._watchers.has(key)) {
+            return;
+        }
+        const settingsPath = settingsPathForWorkbook(workbookPath);
+        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
+            path.dirname(settingsPath),
+            path.basename(settingsPath),
+        ));
+        const rerun = () => this._onSettingsChanged(workbookPath);
+        this._watchers.set(key, [
+            watcher.onDidCreate(rerun),
+            watcher.onDidChange(rerun),
+            watcher.onDidDelete(rerun),
+            watcher,
+        ]);
+    }
+
+    prune(): void {
+        const openWorkbookKeys = new Set<string>();
+        for (const document of vscode.workspace.textDocuments) {
+            if (document.uri.scheme !== XLIDE_SCHEME) {
+                continue;
+            }
+            try {
+                openWorkbookKeys.add(workbookContextKey(decodeModuleUri(document.uri).xlsmPath));
+            } catch {
+                // Ignore invalid XLIDE URIs.
+            }
+        }
+        for (const [key, disposables] of this._watchers) {
+            if (openWorkbookKeys.has(key)) {
+                continue;
+            }
+            disposables.forEach((disposable) => disposable.dispose());
+            this._watchers.delete(key);
+        }
+    }
+
+    dispose(): void {
+        for (const disposables of this._watchers.values()) {
+            disposables.forEach((disposable) => disposable.dispose());
+        }
+        this._watchers.clear();
+    }
+}
+
+/**
  * Live diagnostics: structural block-balance (analyzeVbaStructure) plus the analyzer's
  * high-confidence semantic rules (analyzeModule) - unterminated strings,
  * duplicate procedures/declarations, assignment to a constant, and a
@@ -178,7 +239,10 @@ export function registerVbaDiagnostics(
     const scheduler = new DiagnosticScheduler(
         (document, generation, pass) => runPass(document, generation, pass),
     );
-    const workbookSettingsWatchers = new Map<string, vscode.Disposable[]>();
+    const settingsWatchers = new WorkbookSettingsWatcherRegistry((workbookPath) => {
+        invalidateAnalysisSettingsForWorkbook(workbookPath);
+        rerunWorkbookDocuments(workbookPath);
+    });
     const analysisSettingsCache = new Map<string, {
         loadedAt: number;
         promise: Promise<EffectiveWorkbookAnalysisSettings>;
@@ -325,7 +389,7 @@ export function registerVbaDiagnostics(
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
                 workbookPath = xlsmPath;
-                ensureWorkbookSettingsWatcher(xlsmPath);
+                settingsWatchers.ensure(xlsmPath);
                 if (pass === 'full') {
                     const diagnosticProject = await projectIndexService.contextForWorkbook(xlsmPath);
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
@@ -432,53 +496,6 @@ export function registerVbaDiagnostics(
             }
         }
     };
-    const ensureWorkbookSettingsWatcher = (workbookPath: string): void => {
-        const key = workbookKey(workbookPath);
-        if (workbookSettingsWatchers.has(key)) {
-            return;
-        }
-        const settingsPath = settingsPathForWorkbook(workbookPath);
-        const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
-            path.dirname(settingsPath),
-            path.basename(settingsPath),
-        ));
-        const rerun = () => {
-            invalidateAnalysisSettingsForWorkbook(workbookPath);
-            rerunWorkbookDocuments(workbookPath);
-        };
-        workbookSettingsWatchers.set(key, [
-            watcher.onDidCreate(rerun),
-            watcher.onDidChange(rerun),
-            watcher.onDidDelete(rerun),
-            watcher,
-        ]);
-    };
-    const pruneWorkbookSettingsWatchers = (): void => {
-        const openWorkbookKeys = new Set<string>();
-        for (const document of vscode.workspace.textDocuments) {
-            if (document.uri.scheme !== XLIDE_SCHEME) {
-                continue;
-            }
-            try {
-                openWorkbookKeys.add(workbookKey(decodeModuleUri(document.uri).xlsmPath));
-            } catch {
-                // Ignore invalid XLIDE URIs.
-            }
-        }
-        for (const [key, disposables] of workbookSettingsWatchers) {
-            if (openWorkbookKeys.has(key)) {
-                continue;
-            }
-            disposables.forEach((disposable) => disposable.dispose());
-            workbookSettingsWatchers.delete(key);
-        }
-    };
-    const disposeWorkbookSettingsWatchers = (): void => {
-        for (const disposables of workbookSettingsWatchers.values()) {
-            disposables.forEach((disposable) => disposable.dispose());
-        }
-        workbookSettingsWatchers.clear();
-    };
 
     context.subscriptions.push(
         collection,
@@ -499,7 +516,7 @@ export function registerVbaDiagnostics(
         vscode.workspace.onDidCloseTextDocument((doc) => {
             scheduler.cancel(doc.uri.toString());
             collection.delete(doc.uri);
-            pruneWorkbookSettingsWatchers();
+            settingsWatchers.prune();
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('xlide.diagnostics') ||
@@ -508,7 +525,7 @@ export function registerVbaDiagnostics(
                 vscode.workspace.textDocuments.forEach((document) => run(document));
             }
         }),
-        { dispose: disposeWorkbookSettingsWatchers },
+        settingsWatchers,
     );
     vscode.workspace.textDocuments.forEach((document) => scheduler.schedule(document, {
         localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
