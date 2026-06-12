@@ -11,6 +11,8 @@
 //   - 5.2.3.3 User Defined Type (Type ... End Type)
 //   - 5.2.3.4 Enum Declarations (Enum ... End Enum)
 //   - 5.4   Statements (block statements: If/For/Do/While/With/Select)
+//   - 5.4.2 Call statements / 5.4.3 Assignment statements
+//   - 5.6   Value expressions (ExprNode hierarchy — partial)
 //
 // The parser is error-tolerant: every node carries an absolute source span so a
 // VS Code provider can map it to a Position with TextDocument.positionAt, and
@@ -50,6 +52,8 @@ export type NodeKind =
 	| 'EnumMember'
 	| 'Procedure'
 	| 'Parameter'
+	| 'Assignment'
+	| 'Call'
 	| 'IfBlock'
 	| 'ForBlock'
 	| 'DoBlock'
@@ -255,7 +259,167 @@ export interface ParameterNode extends NodeBase {
 	defaultRaw?: string;
 }
 
-/** Generic catch-all statement (assignment, call, Set, Exit, GoTo, label, ...). */
+// ---------------------------------------------------------------------------
+// Expressions (MS-VBAL §5.6 — partial; see MS-VBAL.verification-map.md)
+// ---------------------------------------------------------------------------
+
+/** Discriminated-union tag for expression nodes. */
+export type ExprKind =
+	| 'LiteralExpr'
+	| 'IdentifierExpr'
+	| 'MemberAccessExpr'
+	| 'IndexExpr'
+	| 'ParenExpr'
+	| 'UnaryExpr'
+	| 'BinaryExpr'
+	| 'NewExpr'
+	| 'AddressOfExpr'
+	| 'TypeOfIsExpr';
+
+export interface ExprBase {
+	exprKind: ExprKind;
+	span: Span;
+}
+
+/** Literal value kind per MS-VBAL §5.6 literal-expression. */
+export type LiteralKind =
+	| 'integer'
+	| 'float'
+	| 'string'
+	| 'date'
+	| 'boolean'
+	| 'nothing'
+	| 'null'
+	| 'empty';
+
+/** A literal value: number, string, date, boolean, or Nothing/Null/Empty. */
+export interface LiteralExpr extends ExprBase {
+	exprKind: 'LiteralExpr';
+	literalKind: LiteralKind;
+	raw: string;
+}
+
+/** A simple identifier reference — local, module-level, or project-visible name. */
+export interface IdentifierExpr extends ExprBase {
+	exprKind: 'IdentifierExpr';
+	name: string;
+	/** Type-declaration character (%, &, #, !, @, $) if present. */
+	typeSuffix?: string;
+}
+
+/**
+ * `object.member` member-access expression, or leading `.member` inside a
+ * With block. When `object` is null the member resolves against the innermost
+ * With receiver.
+ */
+export interface MemberAccessExpr extends ExprBase {
+	exprKind: 'MemberAccessExpr';
+	object: ExprNode | null;
+	member: string;
+	memberSpan: Span;
+}
+
+/** `callee(arg, ...)` — covers function calls and array indexing. */
+export interface IndexExpr extends ExprBase {
+	exprKind: 'IndexExpr';
+	callee: ExprNode;
+	args: ExprNode[];
+}
+
+/**
+ * `(inner)` parenthesized expression.
+ * Wrapping a ByRef argument in parens coerces it to ByVal at the call site.
+ */
+export interface ParenExpr extends ExprBase {
+	exprKind: 'ParenExpr';
+	inner: ExprNode;
+}
+
+export type UnaryOperator = '-' | '+' | 'Not';
+
+export type BinaryOperator =
+	| '+' | '-' | '*' | '/' | '\\' | 'Mod' | '^'
+	| '&'
+	| '=' | '<>' | '<' | '>' | '<=' | '>='
+	| 'And' | 'Or' | 'Xor' | 'Eqv' | 'Imp'
+	| 'Like' | 'Is';
+
+export interface UnaryExpr extends ExprBase {
+	exprKind: 'UnaryExpr';
+	operator: UnaryOperator;
+	operand: ExprNode;
+}
+
+export interface BinaryExpr extends ExprBase {
+	exprKind: 'BinaryExpr';
+	operator: BinaryOperator;
+	left: ExprNode;
+	right: ExprNode;
+}
+
+/** `New TypeName` expression. */
+export interface NewExpr extends ExprBase {
+	exprKind: 'NewExpr';
+	typeName: string;
+	typeNameSpan: Span;
+}
+
+/** `AddressOf procedureName` expression. */
+export interface AddressOfExpr extends ExprBase {
+	exprKind: 'AddressOfExpr';
+	target: IdentifierExpr;
+}
+
+/** `TypeOf expr Is TypeName` expression. */
+export interface TypeOfIsExpr extends ExprBase {
+	exprKind: 'TypeOfIsExpr';
+	operand: ExprNode;
+	typeName: string;
+	typeNameSpan: Span;
+}
+
+/** Any expression node (MS-VBAL §5.6). */
+export type ExprNode =
+	| LiteralExpr
+	| IdentifierExpr
+	| MemberAccessExpr
+	| IndexExpr
+	| ParenExpr
+	| UnaryExpr
+	| BinaryExpr
+	| NewExpr
+	| AddressOfExpr
+	| TypeOfIsExpr;
+
+// ---------------------------------------------------------------------------
+// Structured statement nodes (MS-VBAL §5.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * `[Let] lhs = rhs` or `Set lhs = rhs` — MS-VBAL §5.4.3.
+ * `isSet` distinguishes object-reference assignment from value assignment.
+ */
+export interface AssignmentNode extends NodeBase {
+	kind: 'Assignment';
+	isSet: boolean;
+	isLet: boolean;
+	lhs: ExprNode;
+	rhs: ExprNode;
+}
+
+/**
+ * `[Call] callee [(args)]` or implicit call `callee arg, ...` — MS-VBAL §5.4.2.
+ * When `hasCallKeyword` is true the argument list must be parenthesised.
+ */
+export interface CallNode extends NodeBase {
+	kind: 'Call';
+	hasCallKeyword: boolean;
+	callee: ExprNode;
+	args: ExprNode[];
+}
+
+/** Generic catch-all statement (Exit, GoTo, label, Return, and anything not yet
+ *  parsed into a structured node). */
 export interface StatementNode extends NodeBase {
 	kind: 'Statement';
 	/** Raw source text of the statement (without separators). */
@@ -310,6 +474,8 @@ export interface SelectBlockNode extends NodeBase {
 
 /** Any node that can appear inside a procedure body. */
 export type BodyNode =
+	| AssignmentNode
+	| CallNode
 	| StatementNode
 	| ConditionalDirectiveNode
 	| VariableGroupNode

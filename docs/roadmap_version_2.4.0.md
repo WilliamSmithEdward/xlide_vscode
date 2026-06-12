@@ -59,8 +59,10 @@ Until the full expression AST lands, these stay deferred and must remain quiet:
 - Arbitrary-expression argument and assignment typing beyond literals and single
   declared variables.
 - `If` / `ElseIf` / `Else` branch modeling, currently flattened into one block.
-- Comparisons, array element typing, bang (`!`) member access, `[A1]` evaluate
-  shorthand, and `TypeOf ... Is`.
+- Comparisons, array element typing, bang (`!`) member access, and `TypeOf ... Is`.
+- Default-member implicit access (`textValue = p` where `p` exposes a default
+  member via `VB_UserMemId = 0`): the expression binder must identify implicit
+  call sites before a rule can fire without false positives.
 
 Land the section 5.6 expression layer before the Priority 4 type families that
 depend on it. See Suggested Sequencing.
@@ -127,9 +129,8 @@ Scope:
   rows.
 - [ ] Promote remaining MS-VBAL-backed syntax and declaration behavior to
   `Verified` when implementation, fixtures, and section references line up.
-- [ ] Finish or explicitly defer exact legacy-codepage identifier behavior,
-  date literal grammar, implementation-reserved names, expression grammar, and
-  conditional-compilation edge cases.
+- [ ] Finish or explicitly defer implementation-reserved names, expression
+  grammar, and conditional-compilation edge cases.
 - [ ] Add missing section citations to analyzer rules that currently rely on
   broad or inherited spec references.
 - [ ] Separate core-language MS-VBAL facts from host, runtime-library, and
@@ -144,8 +145,8 @@ Progress:
   reserved for declaration validation while keeping them out of keyword casing
   so exported Attribute-line metadata remains raw and round-trippable.
 - [x] Added focused non-Latin identifier lexer fixtures for the current
-  Unicode-letter approximation and kept exact legacy-codepage support explicitly
-  deferred in the MS-VBAL verification map.
+  Unicode-letter approximation; exact legacy-codepage identifier ranges are
+  recorded as won't-implement in the MS-VBAL verification map.
 
 Definition of done:
 
@@ -234,19 +235,27 @@ Progress:
 Type-family closure status (live detail in
 `docs/type_analysis_corpus_coverage.md`):
 
+**Can advance now — declaration-metadata-based, no expression binder required:**
+
+| Type family | Status | Remaining for closure |
+| --- | --- | --- |
+| Numeric family / overflow | Partial (Byte/Integer decimal) | Long/LongLong/LongPtr, Single, Decimal, Currency, suffixes, hex/octal bounds |
+| Fixed-length strings | Partial (declaration metadata) | assignment/truncation, nonliteral length expressions |
+| Enums | Partial | enum-to-integer compatibility, unknown and ambiguous enum names |
+| UDTs | Partial | nested fields, arrays in UDTs, object members in UDTs |
+| Optional / default parameters | Partial (scalar defaults) | Date defaults, object/array invalid defaults, missing and named optional slots |
+| Return assignment | Partial | simple `FunctionName = value` and `PropertyName = value` forms now; object returns via default members are binder-dependent |
+
+**Requires the expression binder:**
+
 | Type family | Status | Remaining for closure |
 | --- | --- | --- |
 | ByRef compatibility | Partial (scalar exactness) | object references, arrays, Variant behavior, named arguments, runtime mutation |
 | Date coercion | Missing | string/numeric-to-Date, Date parameters; locale-sensitive strings stay no-diagnostic |
 | Comparisons | Missing | numeric/string/Date/Object, `Like`, `Is` operator matrix |
 | Arrays | Pending | dynamic/fixed, element type, array-parameter compatibility, `ParamArray` elements |
-| Numeric family / overflow | Partial (Byte/Integer decimal) | Long/LongLong/LongPtr, Single, Decimal, Currency, suffixes, hex/octal bounds |
 | Boolean | Partial | parameters, numeric-to-Boolean, `And`/`Or`/`Not` operands |
-| Optional / default parameters | Partial (scalar defaults) | Date defaults, object/array invalid defaults, missing and named optional slots |
-| Fixed-length strings | Partial (declaration metadata) | assignment/truncation, nonliteral length expressions |
-| Enums | Partial | enum-to-integer compatibility, unknown and ambiguous enum names |
-| UDTs | Partial | nested fields, arrays in UDTs, object members in UDTs |
-| Return assignment | Partial | Property Let/Set consistency, object returns through default members |
+| Default members | Missing | `VB_UserMemId = 0` metadata resolution, implicit `.Value`/`.Item` chains, assignment and call sites; stays quiet when receiver type's default member is unknown or ambiguous |
 
 Each row ships only with the valid, invalid, and unknown/no-diagnostic controls
 and the verification path required below.
@@ -273,35 +282,31 @@ Developer-experience impact:
 
 Scope:
 
-- [ ] Treat `docs/development_strategy_guide.md` as the working checklist for
-  meaningful 2.4.0 analyzer and language-service changes.
-- [ ] During each static-analysis slice, identify the broader rule behind the
-  case and route all relevant surfaces through the same helper or owner.
-- [x] Look for duplicated validation, parsing, binding, metadata-precedence,
-  diagnostic, completion, navigation, formatting, or fixture-building paths and
-  consolidate them when the change is connected to the active behavior.
-  (Completed by the v2.3.0 audit-remediation release: shared per-workbook
-  project index, workbook module operations, sidecar codec, test-run
-  pipeline, identity/text helpers, and consolidated webview scaffolding.)
-- [x] Split large analyzer or provider modules into focused files when a
-  stable ownership boundary emerges, especially for expression binding,
-  diagnostic families, metadata resolution, corpus/oracle plumbing, or
-  provider adapters.
-  (Completed by the v2.3.0 audit-remediation release: diagnostics rule
-  registry with per-family rule modules, per-domain command modules,
-  provider subsystem modules, and externalized webview/test-host assets.)
+Completed in v2.3.0:
+
+- [x] Consolidate duplicated validation, parsing, binding, metadata-precedence,
+  diagnostic, completion, navigation, formatting, and fixture-building paths.
+  (Shared per-workbook project index, workbook module operations, sidecar
+  codec, test-run pipeline, identity/text helpers, and webview scaffolding.)
+- [x] Split large analyzer and provider modules at stable ownership boundaries.
+  (Diagnostics rule registry with per-family modules, per-domain command
+  modules, provider subsystem modules, externalized webview/test-host assets.)
 - [x] Remove dead code, stale helpers, redundant fallbacks, and secondary
-  pipelines once the shared rule and regression tests cover the old behavior.
-  (Completed by the v2.3.0 audit-remediation release's dead-code sweep across
-  the analyzer barrel, symbol index, settings mutators, and test plumbing.)
-- [ ] Keep confidence levels explicit: known facts can drive hard diagnostics,
-  inferred facts can guide completion or non-red help, and unknown facts must
-  stay quiet.
-- [ ] Add tests for the general rule, not only the reported example, and verify
-  affected surfaces that consume the same shared helper.
-- [ ] Avoid broad cleanup that is unrelated to the active 2.4.0 completeness
-  work; refactors should leave a clearer rule, simpler ownership, or fewer
-  valid implementation paths.
+  pipelines once shared rules and regression tests cover the old behavior.
+  (Dead-code sweep across the analyzer barrel, symbol index, settings
+  mutators, and test plumbing.)
+
+Operating principles for every 2.4.0 change:
+
+- Use `docs/development_strategy_guide.md` as the working checklist.
+- Identify the broader rule behind each case; route all affected surfaces
+  through the same helper or owner rather than duplicating logic.
+- Keep confidence levels explicit: known facts drive hard diagnostics, inferred
+  facts guide completion or non-red help, unknown facts stay quiet.
+- Test the general rule, not only the reported example; verify every surface
+  that consumes the same shared helper.
+- Avoid cleanup unrelated to active completeness work; each refactor should
+  leave a clearer rule, simpler ownership, or fewer valid implementation paths.
 
 Definition of done:
 
@@ -343,40 +348,60 @@ These are intentionally excluded from static-analysis completeness so the
 analyzer surface can close with clean edges. They are tracked in
 `docs/roadmap_version_3.0.0.md`:
 
-- UserForm designer-backed members and form/control event-handler authoring.
 - Declared `Event` member binding beyond module-kind validation, `WithEvents`
   event-source type compatibility, and `RaiseEvent` signature/arity validation.
 - `Implements` interface-member completeness.
 - External `.vbref.xml` object/member metadata as a diagnostic source.
-- Default-member expression semantics such as `textValue = p`.
 
 Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
+
+## Won't Implement
+
+These are permanently removed from the backlog. The rationale is recorded here
+so the decision is not revisited.
+
+- **UserForm designer-backed members.** Requires parsing `.frm`/`.frx`
+  designer-format files to extract control member names and event stubs. Cost
+  is high; static-analysis payoff is low compared to a full IDE. Staying quiet
+  on form-control members is the correct permanent policy.
+- **`[A1]` evaluate shorthand.** `[A1]` desugars to
+  `Application.Evaluate("A1")` at runtime; the content is a string evaluated
+  dynamically. Static analysis cannot type-check it without executing the
+  expression. Staying quiet is correct, not a gap.
+- **Date-literal inner grammar validation.** `#1/1/2020#` validity is
+  locale-sensitive at runtime. Validating the inner format produces false
+  positives across locales. Parsing it as an opaque date literal and staying
+  quiet on the content is the correct permanent policy.
+- **Exact legacy-codepage identifier ranges.** Windows-1252, Shift-JIS, and
+  similar codepage identifier ranges are an implementation detail of old VBE
+  versions. The current Unicode-letter approximation covers all modern VBA
+  code; full codepage fidelity has near-zero real-world payoff and no oracle
+  path.
 
 ## Suggested Sequencing
 
 1. Expression binder (MS-VBAL section 5.6): the critical-path keystone that
    unblocks flow-sensitive binding, branch modeling, and arbitrary-expression
    typing.
-2. Type families (Priority 4): ByRef, Date, comparisons, and arrays first; most
-   fall out of step 1 once expression types are available.
+2. Type families (Priority 4): binder-independent families (numeric overflow,
+   fixed-length strings, enums, UDTs, optional parameters, return assignment
+   simple forms) can advance in parallel with step 1; binder-dependent families
+   (ByRef non-scalar, Date, comparisons, arrays, Boolean, default members)
+   start once the expression binder is in place.
 3. Deterministic runtime slice (Priority 1): division-by-zero reachability and
    `On Error Resume Next` policy, broader runtime-argument bounds, `IIf` eager
    branch faults, and `Null`/`Empty` coercion controls, now feasible on the
    binder.
 4. MS-VBAL Partial decisions (Priority 2): finish or explicitly defer the
-   remaining `Partial`/`Pending` rows - date-literal inner grammar, non-Latin
-   codepage ranges, malformed directive blocks, and pointer-sized API checks -
-   each with a documented reason.
+   remaining `Partial`/`Pending` rows - malformed directive blocks and
+   pointer-sized API checks - each with a documented reason.
 5. Corpus promotion, per-rule audit, and the completeness report (Priorities 3
    and 6): the release gate that lets this roadmap close and hands the remainder
    to Version 3.0.0.
 
 ## Files To Keep In Sync
 
-- `docs/roadmap_version_2.x.md`
-- `docs/roadmap_version_2.1.0.md`
 - `docs/roadmap_version_2.4.0.md`
-- `docs/roadmap_version_3.0.0.md`
 - `docs/development_strategy_guide.md`
 - `docs/spec/MS-VBAL.verification-map.md`
 - `docs/spec/MS-VBAL.version.md`
