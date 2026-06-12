@@ -755,8 +755,9 @@ into a pure analyzer layer and a thin VS Code provider:
   `resolveEventHandlerCompletions`: `ThisWorkbook`/`documentType: workbook`
   gets `Workbook_*` handlers, worksheet document modules get `Worksheet_*`
   handlers, and chart document modules get `Chart_*` handlers. UserForm
-  handler authoring stays out until designer-backed form/control event metadata
-  can prove those surfaces. Existing handlers are not re-suggested, and
+  handler authoring stays out: designer-backed form/control event metadata is a
+  permanent won't-implement (see the Won't Implement section in
+  `docs/spec/MS-VBAL.verification-map.md`). Existing handlers are not re-suggested, and
   accepting an event completion inserts either the full `Private Sub ... End
   Sub` stub or only the declaration tail after an existing `Private Sub`
   prefix. Known workbook/worksheet/chart event-handler-shaped `Sub`

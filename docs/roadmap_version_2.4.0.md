@@ -355,29 +355,6 @@ analyzer surface can close with clean edges. They are tracked in
 
 Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 
-## Won't Implement
-
-These are permanently removed from the backlog. The rationale is recorded here
-so the decision is not revisited.
-
-- **UserForm designer-backed members.** Requires parsing `.frm`/`.frx`
-  designer-format files to extract control member names and event stubs. Cost
-  is high; static-analysis payoff is low compared to a full IDE. Staying quiet
-  on form-control members is the correct permanent policy.
-- **`[A1]` evaluate shorthand.** `[A1]` desugars to
-  `Application.Evaluate("A1")` at runtime; the content is a string evaluated
-  dynamically. Static analysis cannot type-check it without executing the
-  expression. Staying quiet is correct, not a gap.
-- **Date-literal inner grammar validation.** `#1/1/2020#` validity is
-  locale-sensitive at runtime. Validating the inner format produces false
-  positives across locales. Parsing it as an opaque date literal and staying
-  quiet on the content is the correct permanent policy.
-- **Exact legacy-codepage identifier ranges.** Windows-1252, Shift-JIS, and
-  similar codepage identifier ranges are an implementation detail of old VBE
-  versions. The current Unicode-letter approximation covers all modern VBA
-  code; full codepage fidelity has near-zero real-world payoff and no oracle
-  path.
-
 ## Suggested Sequencing
 
 1. Expression binder (MS-VBAL section 5.6): the critical-path keystone that

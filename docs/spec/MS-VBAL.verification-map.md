@@ -31,15 +31,16 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 ### Documented deviations
 
 - **Date literals (Partial):** the lexer recognizes a `#...#` span on a single
-  physical line as a date token but does not yet validate the inner
-  `date-or-time` grammar (section 3.3.3). A `#` at statement start is treated as
-  a conditional-compilation directive marker instead of a date literal.
+  physical line as a date token but does not validate the inner `date-or-time`
+  grammar (section 3.3.3). A `#` at statement start is treated as a
+  conditional-compilation directive marker instead of a date literal.
+  Inner-grammar validation is **won't-implement** - see Won't Implement below.
 - **Non-Latin identifiers (Partial):** Latin identifiers (section 3.3.5) are
   fully supported. Non-Latin forms (section 3.3.5.1, codepage 874/932/936/949/
   950/125x) are approximated by accepting any Unicode letter (`\p{L}`) rather
   than the exact legacy-codepage ranges. Focused lexer fixtures cover the
-  current Unicode-letter approximation; exact legacy-codepage ranges remain
-  deferred.
+  current Unicode-letter approximation; the exact legacy-codepage ranges are
+  **won't-implement** - see Won't Implement below.
 - **Apostrophe comments:** stop at the physical line terminator (VBE behavior);
   the spec `comment-body` grammar permits embedded line-continuations, which the
   VBE does not honor.
@@ -359,3 +360,27 @@ final continuations remain a separate realtime-recovery/save-validation policy.
 Verification rule: a new diagnostic rule must (1) carry an MS-VBAL
 `specReference` in `ruleMetadata.ts`, (2) be high-confidence, and (3) have
 positive and negative fixtures in `tests/vbaDiagnostics.test.ts`.
+
+## Won't Implement
+
+These are permanently removed from the backlog. Unlike a deferral, these will
+not be revisited; the rationale is recorded here so the decision stays settled.
+Staying quiet on each is the correct permanent policy, not a coverage gap.
+
+- **UserForm designer-backed members.** Requires parsing `.frm`/`.frx`
+  designer-format files to extract control member names and event stubs. Cost is
+  high; static-analysis payoff is low compared to a full IDE. UserForm
+  event-handler completion stays out (see the Host-Context Member Completion
+  addendum), and form-control members stay quiet.
+- **`[A1]` evaluate shorthand.** `[A1]` desugars to `Application.Evaluate("A1")`
+  at runtime; the bracket content is a string evaluated dynamically. Static
+  analysis cannot type-check it without executing the expression.
+- **Date-literal inner grammar validation.** `#1/1/2020#` validity is
+  locale-sensitive at runtime. Validating the inner `date-or-time` format
+  produces false positives across locales, so the lexer parses it as an opaque
+  date literal (Phase 1 deviation above) and stays quiet on the content.
+- **Exact legacy-codepage identifier ranges.** Windows-1252, Shift-JIS, and
+  similar codepage identifier ranges (section 3.3.5.1) are an implementation
+  detail of old VBE versions. The current Unicode-letter approximation covers all
+  modern VBA code; full codepage fidelity has near-zero real-world payoff and no
+  oracle path.
