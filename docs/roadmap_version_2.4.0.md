@@ -17,6 +17,54 @@ centralize shared rules, simplify ownership, remove dead or duplicate paths,
 split monolithic files when a clearer boundary exists, and keep each refactor
 tied to a concrete behavior or verification improvement.
 
+## Release Relationship
+
+This roadmap is the thematic owner of static-analysis completeness; it is not a
+single release. The structural consolidation in Priority 5 - shared per-workbook
+index, module splits, and dead-code removal - shipped in the v2.3.0
+audit-remediation release; its ongoing-discipline items, along with Priorities
+1-4 and 6, remain open and may land across one or more subsequent releases. Keep
+this file as the completeness source of truth even as individual priorities
+ship, and move work out only through the Out Of Scope boundary below.
+
+## What "Complete" Means Here
+
+Completeness is evidence-led, not feature-count-led. The shared bar for every
+shipped analyzer behavior is:
+
+- A positive control (valid code stays quiet), a negative control (invalid code
+  is flagged), and a no-diagnostic control (unknown, ambiguous, or incomplete
+  code stays quiet).
+- A named evidence source: MS-VBAL for core grammar/semantics, Microsoft
+  VBA/Office documentation for documented runtime/host behavior, the Excel/VBE
+  oracle for compiler/runtime verdicts, or deterministic XLIDE-owned metadata
+  with tests.
+- A documented suppression boundary for everything the rule cannot prove.
+
+Static analysis is "complete" when Priority 6 can publish that audit, not when a
+test run is green. Anything XLIDE cannot prove stays quiet and is recorded as an
+intentional deferral.
+
+## Critical Path: Finish The Expression Binder First
+
+Most remaining completeness work depends on one capability gap. The parser
+models declarations, procedures, parameters, and block balance fully, but
+procedure-body statements are still captured as raw `Statement` text and only
+member-access chains are parsed. `docs/spec/MS-VBAL.verification-map.md` records
+the `Expression AST (calls/member/ops)` row (MS-VBAL section 5.6) as `Partial`.
+
+Until the full expression AST lands, these stay deferred and must remain quiet:
+
+- Flow-sensitive identifier binding and full shadowing.
+- Arbitrary-expression argument and assignment typing beyond literals and single
+  declared variables.
+- `If` / `ElseIf` / `Else` branch modeling, currently flattened into one block.
+- Comparisons, array element typing, bang (`!`) member access, `[A1]` evaluate
+  shorthand, and `TypeOf ... Is`.
+
+Land the section 5.6 expression layer before the Priority 4 type families that
+depend on it. See Suggested Sequencing.
+
 ## Priority 1: Static Analysis Completeness
 
 Purpose: finish the high-confidence analyzer surface without weakening the
@@ -183,6 +231,26 @@ Progress:
   `paramarray-with-optional`, and `paramarray-non-variant` diagnostic slice,
   while call element inference remains explicitly partial.
 
+Type-family closure status (live detail in
+`docs/type_analysis_corpus_coverage.md`):
+
+| Type family | Status | Remaining for closure |
+| --- | --- | --- |
+| ByRef compatibility | Partial (scalar exactness) | object references, arrays, Variant behavior, named arguments, runtime mutation |
+| Date coercion | Missing | string/numeric-to-Date, Date parameters; locale-sensitive strings stay no-diagnostic |
+| Comparisons | Missing | numeric/string/Date/Object, `Like`, `Is` operator matrix |
+| Arrays | Pending | dynamic/fixed, element type, array-parameter compatibility, `ParamArray` elements |
+| Numeric family / overflow | Partial (Byte/Integer decimal) | Long/LongLong/LongPtr, Single, Decimal, Currency, suffixes, hex/octal bounds |
+| Boolean | Partial | parameters, numeric-to-Boolean, `And`/`Or`/`Not` operands |
+| Optional / default parameters | Partial (scalar defaults) | Date defaults, object/array invalid defaults, missing and named optional slots |
+| Fixed-length strings | Partial (declaration metadata) | assignment/truncation, nonliteral length expressions |
+| Enums | Partial | enum-to-integer compatibility, unknown and ambiguous enum names |
+| UDTs | Partial | nested fields, arrays in UDTs, object members in UDTs |
+| Return assignment | Partial | Property Let/Set consistency, object returns through default members |
+
+Each row ships only with the valid, invalid, and unknown/no-diagnostic controls
+and the verification path required below.
+
 Definition of done:
 
 - Type-analysis coverage is complete enough to drive future binder slices from
@@ -268,6 +336,40 @@ Definition of done:
 
 - The release has an auditable static-analysis completeness record, not just a
   set of passing tests.
+
+## Out Of Scope: Deferred To Version 3.0.0
+
+These are intentionally excluded from static-analysis completeness so the
+analyzer surface can close with clean edges. They are tracked in
+`docs/roadmap_version_3.0.0.md`:
+
+- UserForm designer-backed members and form/control event-handler authoring.
+- Declared `Event` member binding beyond module-kind validation, `WithEvents`
+  event-source type compatibility, and `RaiseEvent` signature/arity validation.
+- `Implements` interface-member completeness.
+- External `.vbref.xml` object/member metadata as a diagnostic source.
+- Default-member expression semantics such as `textValue = p`.
+
+Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
+
+## Suggested Sequencing
+
+1. Expression binder (MS-VBAL section 5.6): the critical-path keystone that
+   unblocks flow-sensitive binding, branch modeling, and arbitrary-expression
+   typing.
+2. Type families (Priority 4): ByRef, Date, comparisons, and arrays first; most
+   fall out of step 1 once expression types are available.
+3. Deterministic runtime slice (Priority 1): division-by-zero reachability and
+   `On Error Resume Next` policy, broader runtime-argument bounds, `IIf` eager
+   branch faults, and `Null`/`Empty` coercion controls, now feasible on the
+   binder.
+4. MS-VBAL Partial decisions (Priority 2): finish or explicitly defer the
+   remaining `Partial`/`Pending` rows - date-literal inner grammar, non-Latin
+   codepage ranges, malformed directive blocks, and pointer-sized API checks -
+   each with a documented reason.
+5. Corpus promotion, per-rule audit, and the completeness report (Priorities 3
+   and 6): the release gate that lets this roadmap close and hands the remainder
+   to Version 3.0.0.
 
 ## Files To Keep In Sync
 
