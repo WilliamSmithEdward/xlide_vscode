@@ -28,7 +28,9 @@ export interface ExcelLaunchScriptOptions {
 function attachLines(filePath: string, attachToRunning: boolean): string[] {
     return [
         `$targetPath = ${psSingleQuoted(filePath)}`,
-        `$targetName = ${psSingleQuoted(path.basename(filePath))}`,
+        // win32 semantics regardless of host platform: this script always
+        // drives Windows Excel against a Windows path.
+        `$targetName = ${psSingleQuoted(path.win32.basename(filePath))}`,
         '$excel = $null',
         '$workbook = $null',
         `$attachToRunning = ${attachToRunning ? '$true' : '$false'}`,

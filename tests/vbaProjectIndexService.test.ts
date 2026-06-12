@@ -12,7 +12,11 @@ import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
 import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
 import { fakePythonBridge, type FakeBridgeModule } from './helpers/fakePythonBridge';
 
-const BOOK = 'C:/Book.xlsm';
+// Platform-appropriate absolute path: decodeModuleUri and path.resolve are
+// deliberately platform-sensitive, so a hardcoded Windows path never matches
+// on POSIX runners.
+const BOOK = process.platform === 'win32' ? 'C:/Book.xlsm' : '/work/Book.xlsm';
+const BOOK_URI_PATH = BOOK.startsWith('/') ? BOOK : `/${BOOK}`;
 
 function service(modules: FakeBridgeModule[]): {
 	index: VbaSymbolIndex;
@@ -35,11 +39,11 @@ interface FakeOpenDocument {
 }
 
 function openXlideDocument(moduleName: string, source: string): FakeOpenDocument {
-	const value = `xlide-vba:/${BOOK}/${moduleName}.bas`;
+	const value = `xlide-vba:${BOOK_URI_PATH}/${moduleName}.bas`;
 	return {
 		uri: {
 			scheme: 'xlide-vba',
-			path: `/${BOOK}/${moduleName}.bas`,
+			path: `${BOOK_URI_PATH}/${moduleName}.bas`,
 			toString: () => value,
 		},
 		version: 1,

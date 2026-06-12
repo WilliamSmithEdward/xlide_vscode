@@ -2,7 +2,7 @@
 // harnesses: every ```vba block in syntax_corpus/*.md, every oracle case
 // source, and every .bas/.cls/.frm fixture under excel_test_workbook/.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface CorpusSample {
@@ -57,6 +57,11 @@ function oracleCaseSources(): CorpusSample[] {
 
 function workbookFixtureModules(): CorpusSample[] {
     const samples: CorpusSample[] = [];
+    // excel_test_workbook/ is a local-only fixture (gitignored), absent on CI
+    // runners; the comparison harnesses must not depend on its presence.
+    if (!existsSync(fixtureRoot)) {
+        return samples;
+    }
     const walk = (dir: string): void => {
         for (const entry of readdirSync(dir, { withFileTypes: true })) {
             const path = join(dir, entry.name);
