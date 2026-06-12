@@ -1,6 +1,6 @@
-# XLIDE Roadmap Version 2.2.0
+# XLIDE Roadmap Version 2.4.0
 
-Version 2.2.0 is the static-analysis completeness sprint. Its job is to close
+Version 2.4.0 is the static-analysis completeness sprint. Its job is to close
 the remaining evidence and coverage gaps around the VBA analyzer before the
 broader product/backlog work resumes in Version 3.0.0.
 
@@ -11,7 +11,7 @@ VBA or Office documentation for documented runtime/host behavior, the Excel/VBE
 oracle for compiler/runtime behavior, or deterministic XLIDE-owned metadata
 with tests.
 
-Version 2.2.0 also adopts `docs/development_strategy_guide.md` as an operating
+Version 2.4.0 also adopts `docs/development_strategy_guide.md` as an operating
 guide. Static-analysis completeness work should look for opportunities to
 centralize shared rules, simplify ownership, remove dead or duplicate paths,
 split monolithic files when a clearer boundary exists, and keep each refactor
@@ -274,7 +274,7 @@ Developer-experience impact:
 Scope:
 
 - [ ] Treat `docs/development_strategy_guide.md` as the working checklist for
-  meaningful 2.2.0 analyzer and language-service changes.
+  meaningful 2.4.0 analyzer and language-service changes.
 - [ ] During each static-analysis slice, identify the broader rule behind the
   case and route all relevant surfaces through the same helper or owner.
 - [x] Look for duplicated validation, parsing, binding, metadata-precedence,
@@ -299,19 +299,19 @@ Scope:
   stay quiet.
 - [ ] Add tests for the general rule, not only the reported example, and verify
   affected surfaces that consume the same shared helper.
-- [ ] Avoid broad cleanup that is unrelated to the active 2.2.0 completeness
+- [ ] Avoid broad cleanup that is unrelated to the active 2.4.0 completeness
   work; refactors should leave a clearer rule, simpler ownership, or fewer
   valid implementation paths.
 
 Definition of done:
 
-- Major 2.2.0 analyzer changes leave behind fewer duplicated paths, clearer
+- Major 2.4.0 analyzer changes leave behind fewer duplicated paths, clearer
   module ownership, and tests that prove shared-rule behavior across affected
   surfaces.
 
 ## Priority 6: Completeness Reporting and Release Gate
 
-Purpose: make the 2.2.0 completeness claim auditable before closing the release.
+Purpose: make the 2.4.0 completeness claim auditable before closing the release.
 
 Developer-experience impact:
 
@@ -327,9 +327,9 @@ Scope:
 - [ ] Run the TypeScript analyzer tests and any targeted oracle checks needed
   to verify newly promoted cases.
 - [ ] Ensure README, architecture, roadmap, and corpus docs point to Version
-  2.2.0 as the active completeness sprint and Version 3.0.0 as the deferred
+  2.4.0 as the active completeness sprint and Version 3.0.0 as the deferred
   product/backlog roadmap.
-- [ ] Close 2.2.0 only with a clear list of what is complete, what is
+- [ ] Close 2.4.0 only with a clear list of what is complete, what is
   intentionally quiet, and what moved to Version 3.0.0 or later.
 
 Definition of done:
@@ -375,7 +375,7 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 
 - `docs/roadmap_version_2.x.md`
 - `docs/roadmap_version_2.1.0.md`
-- `docs/roadmap_version_2.2.0.md`
+- `docs/roadmap_version_2.4.0.md`
 - `docs/roadmap_version_3.0.0.md`
 - `docs/development_strategy_guide.md`
 - `docs/spec/MS-VBAL.verification-map.md`
