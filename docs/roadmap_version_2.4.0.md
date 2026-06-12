@@ -11,7 +11,7 @@ VBA or Office documentation for documented runtime/host behavior, the Excel/VBE
 oracle for compiler/runtime behavior, or deterministic XLIDE-owned metadata
 with tests.
 
-Version 2.4.0 also adopts `docs/development_strategy_guide.md` as an operating
+Version 2.4.0 also adopts `docs/agentic_ai_programming_best_practices.md` as an operating
 guide. Static-analysis completeness work should look for opportunities to
 centralize shared rules, simplify ownership, remove dead or duplicate paths,
 split monolithic files when a clearer boundary exists, and keep each refactor
@@ -66,6 +66,23 @@ Until the full expression AST lands, these stay deferred and must remain quiet:
 
 Land the section 5.6 expression layer before the Priority 4 type families that
 depend on it. See Suggested Sequencing.
+
+Progress (expression binder, sliced):
+
+- [x] Slice 1 - expression AST + standalone parser. The `ExprNode` hierarchy is
+  defined (`src/analyzer/parser/nodes.ts`) and a standalone, error-tolerant
+  value-expression parser (`src/analyzer/parser/parseExpression.ts`) implements
+  the full §5.6 precedence ladder, member/index access, calls with positional
+  arguments, `New`/`AddressOf`/`TypeOf...Is`, with span accuracy and recovery,
+  covered by `tests/parseExpression.test.ts`. Named arguments, omitted
+  arguments, and bang (`!`) access are deferred to the statement-wiring slice.
+- [ ] Slice 2 - statement wiring. Route procedure-body assignments and calls
+  through the parser into `Assignment`/`Call` nodes in `parseModule`, keeping the
+  raw `Statement` fallback so no existing rule loses its input. This is the slice
+  that flips the §5.6 verification-map row from `Partial` toward `Verified` and
+  unblocks the deferred items above.
+- [ ] Slice 3 - branch modeling (`If`/`ElseIf`/`Else` arms), then the
+  flow-sensitive binder rules and the Priority 4 binder-dependent type families.
 
 ## Priority 1: Static Analysis Completeness
 
@@ -185,6 +202,20 @@ Scope:
 - [ ] Keep `diagnostic_influence_audit.json` synchronized with active rule
   evidence.
 
+Progress:
+
+- [x] Catalogued the deterministic, binder-independent compile-error candidates
+  not yet covered by a rule, oracle case, or other corpus file as
+  `syntax_corpus/xlide_vba_provable_compile_error_candidates.md`
+  (`PCEC_001`-`PCEC_008`: duplicate parameter name, `ByVal ParamArray`, empty
+  `Enum`/`Type`, invalid `Const` type, duplicate/conflicting `Option`,
+  duplicate/mis-ordered `Case Else`, positional-after-named argument). Each names
+  an `observed-not-asserted` oracle probe added to
+  `syntax_corpus/oracle/vbe_oracle_cases.json`, is registered in
+  `corpus_provenance.json` as `pending-verification`, and is wired into
+  `managed_backlog.md`. Discovery only - none drives a diagnostic until a VBE
+  verdict or MS-VBAL citation promotes it.
+
 Definition of done:
 
 - The syntax corpus can be used as a reliable backlog and regression source
@@ -298,7 +329,7 @@ Completed in v2.3.0:
 
 Operating principles for every 2.4.0 change:
 
-- Use `docs/development_strategy_guide.md` as the working checklist.
+- Use `docs/agentic_ai_programming_best_practices.md` as the working checklist.
 - Identify the broader rule behind each case; route all affected surfaces
   through the same helper or owner rather than duplicating logic.
 - Keep confidence levels explicit: known facts drive hard diagnostics, inferred
@@ -379,7 +410,7 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 ## Files To Keep In Sync
 
 - `docs/roadmap_version_2.4.0.md`
-- `docs/development_strategy_guide.md`
+- `docs/agentic_ai_programming_best_practices.md`
 - `docs/spec/MS-VBAL.verification-map.md`
 - `docs/spec/MS-VBAL.version.md`
 - `docs/xlide_vba_language_service_roadmap.md`
@@ -392,8 +423,11 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 - `syntax_corpus/corpus_provenance.json`
 - `syntax_corpus/diagnostic_influence_audit.json`
 - `syntax_corpus/oracle/vbe_oracle_cases.json`
+- `syntax_corpus/xlide_vba_provable_compile_error_candidates.md`
+- `src/analyzer/parser/parseExpression.ts`
 - `tests/fixtures/vbaProjects/`
 - `tests/vbaDiagnostics.test.ts`
 - `tests/vbaParser.test.ts`
+- `tests/parseExpression.test.ts`
 - `tests/vbaSymbolGraph.test.ts`
 - `tests/vbaRuntime.test.ts`

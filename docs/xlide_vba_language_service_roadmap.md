@@ -563,10 +563,14 @@ On Error Resume Next
 > `ModuleNode` AST (attributes, options, conditional-compilation directives,
 > declarations, `Type`/`Enum`, procedures + parameters, nested block statements)
 > with absolute source spans;
-> never throws on malformed input; emits block-mismatch diagnostics. Deferred:
-> full expression AST (calls/member-access/operators, section 5.6) and `If`
-> branch modeling — captured as raw `Statement` nodes for now and tracked as
-> Pending in the verification map.
+> never throws on malformed input; emits block-mismatch diagnostics. In progress:
+> the full expression AST (calls/member-access/operators, section 5.6) now has a
+> standalone, unit-tested parser (`src/analyzer/parser/parseExpression.ts`,
+> `tests/parseExpression.test.ts`), but `parseModule` does not yet route body
+> statements through it — assignments/calls are still raw `Statement` nodes
+> pending the statement-wiring slice. Deferred: `If` branch modeling. Both remain
+> `Partial` in the verification map. See the sliced progress in
+> `docs/roadmap_version_2.4.0.md`.
 
 ### Goal
 

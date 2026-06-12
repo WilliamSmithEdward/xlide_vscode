@@ -108,7 +108,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | With ... End With | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.3 | Verified |
 | Block-mismatch diagnostics | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4 | Verified |
 | Error recovery (never throws) | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 3.3.1 (recovery) | Verified |
-| Expression AST (calls/member/ops) | src/analyzer/completion/memberAccess.ts (member-access chains only) | tests/vbaMemberCompletion.test.ts | 5.6 | Partial |
+| Expression AST (calls/member/ops) | src/analyzer/parser/parseExpression.ts (standalone value-expression parser) + src/analyzer/completion/memberAccess.ts (completion-time member chains) | tests/parseExpression.test.ts + tests/vbaMemberCompletion.test.ts | 5.6 | Partial |
 | Module symbol extraction (procs/vars/types/enums/Declares/member attributes) | src/analyzer/symbols/buildModuleSymbols.ts | tests/vbaSymbolGraph.test.ts | 5.2.3 / 5.2.3.5 / 5.2.4 / 5.3 / 4.2 | Verified |
 | Project symbol graph + name resolution, including exported enum-member binding and context-aware bare identifier precedence | src/analyzer/symbols/projectIndex.ts + src/analyzer/symbols/nameResolution.ts | tests/vbaSymbolGraph.test.ts | 5.3 (scope) / 5.2.3.4 (Enum) / 4.2 (visibility/default-member attributes) | Verified |
 | Project visible procedure/Declare callable-name and signature surfaces | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 5.2.3.5 / 5.3 / 4.2 (visibility) | Verified |
@@ -123,9 +123,12 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 
 - **Body statements (by design):** non-declaration statements inside a procedure
   body (assignments, calls, `Set`, `GoTo`, labels, `ElseIf`/`Else`/`Case`
-  intermediates, etc.) are captured as a generic `Statement` node holding raw
-  text. A full expression AST (section 5.6) is a later phase; the current parser
-  targets reliable declaration/procedure/parameter extraction and block balance.
+  intermediates, etc.) are still captured as a generic `Statement` node holding
+  raw text. The standalone value-expression parser (`parseExpression.ts`, full
+  §5.6 precedence ladder + member/index/`New`/`AddressOf`/`TypeOf`, error
+  tolerant) now exists and is unit-tested, but `parseModule` does not yet route
+  body statements through it; wiring assignments/calls into `Assignment`/`Call`
+  nodes is the next slice. Until then this row stays `Partial`.
 - **If blocks (by design):** `ElseIf` and `Else` lines are kept as ordinary body
   statements inside a single `IfBlock` rather than modeled as separate branch
   nodes. This is sufficient for block-balance diagnostics; branch modeling is
