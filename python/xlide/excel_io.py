@@ -18,10 +18,29 @@ def _parse_cell(ref: str) -> tuple[int, int]:
     return row, column_index_from_string(col_str)
 
 
+def _ws_dimensions(ws: Any) -> str:
+    """Used range of a worksheet, tolerating openpyxl read-only sheets.
+
+    ReadOnlyWorksheet (openpyxl >= 3.1) exposes no `dimensions` property, only
+    calculate_dimension(), which itself raises when the sheet XML carries no
+    dimension hint and the sheet has not been scanned.
+    """
+    dims = getattr(ws, "dimensions", None)
+    if dims:
+        return dims
+    calculate = getattr(ws, "calculate_dimension", None)
+    if callable(calculate):
+        try:
+            return calculate() or ""
+        except ValueError:
+            return ""
+    return ""
+
+
 def _sheet_summaries(wb: Any) -> list[dict[str, Any]]:
     """Return [{name, dimensions}] for every worksheet in an open workbook."""
     return [
-        {"name": ws.title, "dimensions": ws.dimensions or ""}
+        {"name": ws.title, "dimensions": _ws_dimensions(ws)}
         for ws in wb.worksheets
     ]
 
@@ -32,10 +51,11 @@ def get_workbook_info(*, path: str) -> dict[str, Any]:
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
         sheets = _sheet_summaries(wb)
-        named_ranges = [
-            {"name": nr.name, "ref": nr.attr_text}
-            for nr in wb.defined_names.definedName
-        ]
+        defined = wb.defined_names
+        # openpyxl >= 3.1 exposes defined_names as a dict of name -> DefinedName;
+        # older versions exposed a .definedName sequence.
+        names = defined.values() if hasattr(defined, "values") else defined.definedName
+        named_ranges = [{"name": nr.name, "ref": nr.attr_text} for nr in names]
     finally:
         wb.close()
     return {
