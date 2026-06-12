@@ -209,15 +209,23 @@ Scope:
   meaningful 2.2.0 analyzer and language-service changes.
 - [ ] During each static-analysis slice, identify the broader rule behind the
   case and route all relevant surfaces through the same helper or owner.
-- [ ] Look for duplicated validation, parsing, binding, metadata-precedence,
+- [x] Look for duplicated validation, parsing, binding, metadata-precedence,
   diagnostic, completion, navigation, formatting, or fixture-building paths and
   consolidate them when the change is connected to the active behavior.
-- [ ] Split large analyzer or provider modules into focused files when a
+  (Completed by the v2.3.0 audit-remediation release: shared per-workbook
+  project index, workbook module operations, sidecar codec, test-run
+  pipeline, identity/text helpers, and consolidated webview scaffolding.)
+- [x] Split large analyzer or provider modules into focused files when a
   stable ownership boundary emerges, especially for expression binding,
   diagnostic families, metadata resolution, corpus/oracle plumbing, or
   provider adapters.
-- [ ] Remove dead code, stale helpers, redundant fallbacks, and secondary
+  (Completed by the v2.3.0 audit-remediation release: diagnostics rule
+  registry with per-family rule modules, per-domain command modules,
+  provider subsystem modules, and externalized webview/test-host assets.)
+- [x] Remove dead code, stale helpers, redundant fallbacks, and secondary
   pipelines once the shared rule and regression tests cover the old behavior.
+  (Completed by the v2.3.0 audit-remediation release's dead-code sweep across
+  the analyzer barrel, symbol index, settings mutators, and test plumbing.)
 - [ ] Keep confidence levels explicit: known facts can drive hard diagnostics,
   inferred facts can guide completion or non-red help, and unknown facts must
   stay quiet.

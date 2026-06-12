@@ -70,8 +70,8 @@ one large parser/analyzer module.
 
 Current pure pieces:
 
-- `src/vbaStructuralAnalysis.ts` owns fast structural block-balance diagnostics and
-  smart-enter helpers.
+- `src/vbaStructuralDiagnostics.ts` owns fast structural block-balance diagnostics;
+  `src/vbaSmartEnter.ts` owns the smart-enter helpers.
 - `src/analyzer/diagnostics/analyzeModule.ts` owns high-confidence semantic and
   syntax-adjacent diagnostics over one module.
 - `src/analyzer/diagnostics/ruleMetadata.ts` owns the diagnostic rule catalogue.

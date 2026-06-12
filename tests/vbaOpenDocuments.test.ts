@@ -2,9 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type * as VscodeType from 'vscode';
 import * as path from 'path';
 
-vi.mock('vscode', () => ({
-	workspace: { textDocuments: [] },
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import {
 	applyOpenDocumentSources,

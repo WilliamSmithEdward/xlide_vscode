@@ -10,8 +10,10 @@
 // docs/spec/MS-VBAL.verification-map.md.
 
 import { buildModuleSymbols, type BuildModuleSymbolsOptions } from './buildModuleSymbols';
-import { tokenize } from '../lexer/tokenize';
-import type { VbaToken } from '../lexer/tokenKinds';
+import {
+	enumMemberRawExpression,
+	resolveRawIntegerConstants,
+} from '../constants/integerConstantExpression';
 import {
 	isBareCallableKind,
 	isProcedureKind,
@@ -156,189 +158,6 @@ function isEnumMemberExported(
 	return moduleKind === 'standard' && isTypeExported(enumSymbol);
 }
 
-interface ProjectIntegerConstantLookup {
-	get(name: string): number | undefined;
-}
-
-function tokenIdentifierName(tok: VbaToken | undefined): string | undefined {
-	if (!tok) {
-		return undefined;
-	}
-	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
-		return tok.rawText;
-	}
-	if (tok.kind === 'bracketedIdentifier') {
-		return tok.rawText.slice(1, -1);
-	}
-	return undefined;
-}
-
-function parseProjectIntegerLiteral(raw: string): number | undefined {
-	const text = raw.trim().replace(/[%&^]$/, '');
-	const hex = /^&[hH]([0-9A-Fa-f]+)$/.exec(text);
-	if (hex) {
-		const value = Number.parseInt(hex[1], 16);
-		return Number.isSafeInteger(value) ? value : undefined;
-	}
-	const octal = /^&[oO]([0-7]+)$/.exec(text);
-	if (octal) {
-		const value = Number.parseInt(octal[1], 8);
-		return Number.isSafeInteger(value) ? value : undefined;
-	}
-	if (!/^\d+$/.test(text)) {
-		return undefined;
-	}
-	const value = Number(text);
-	return Number.isSafeInteger(value) ? value : undefined;
-}
-
-function safeProjectInteger(value: number): number | undefined {
-	return Number.isSafeInteger(value) ? value : undefined;
-}
-
-function evaluateProjectIntegerExpression(
-	raw: string,
-	constants: ProjectIntegerConstantLookup,
-): number | undefined {
-	return new ProjectIntegerExpressionParser(raw, constants).parse();
-}
-
-class ProjectIntegerExpressionParser {
-	private readonly tokens: VbaToken[];
-	private index = 0;
-
-	constructor(
-		raw: string,
-		private readonly constants: ProjectIntegerConstantLookup,
-	) {
-		this.tokens = tokenize(raw).filter((token) => token.kind !== 'comment' && token.kind !== 'newline');
-	}
-
-	parse(): number | undefined {
-		if (this.tokens.length === 0) {
-			return undefined;
-		}
-		const value = this.expression();
-		return value !== undefined && !this.current() ? value : undefined;
-	}
-
-	private expression(): number | undefined {
-		let value = this.term();
-		while (value !== undefined) {
-			if (this.accept('+')) {
-				const right = this.term();
-				value = right === undefined ? undefined : safeProjectInteger(value + right);
-				continue;
-			}
-			if (this.accept('-')) {
-				const right = this.term();
-				value = right === undefined ? undefined : safeProjectInteger(value - right);
-				continue;
-			}
-			break;
-		}
-		return value;
-	}
-
-	private term(): number | undefined {
-		let value = this.factor();
-		while (value !== undefined) {
-			if (!this.accept('*')) {
-				break;
-			}
-			const right = this.factor();
-			value = right === undefined ? undefined : safeProjectInteger(value * right);
-		}
-		return value;
-	}
-
-	private factor(): number | undefined {
-		if (this.accept('+')) {
-			return this.factor();
-		}
-		if (this.accept('-')) {
-			const value = this.factor();
-			return value === undefined ? undefined : safeProjectInteger(-value);
-		}
-		if (this.accept('(')) {
-			const value = this.expression();
-			return value !== undefined && this.accept(')') ? value : undefined;
-		}
-		const token = this.current();
-		if (!token) {
-			return undefined;
-		}
-		if (token.kind === 'integerLiteral') {
-			this.index++;
-			return parseProjectIntegerLiteral(token.rawText);
-		}
-		const qualified = this.qualifiedName();
-		if (qualified) {
-			return this.constants.get(qualified.toLowerCase());
-		}
-		const name = tokenIdentifierName(token);
-		if (name) {
-			this.index++;
-			return this.constants.get(name.toLowerCase());
-		}
-		return undefined;
-	}
-
-	private qualifiedName(): string | undefined {
-		const qualifier = tokenIdentifierName(this.current());
-		const dot = this.tokens[this.index + 1];
-		const member = tokenIdentifierName(this.tokens[this.index + 2]);
-		if (!qualifier || dot?.rawText !== '.' || !member) {
-			return undefined;
-		}
-		this.index += 3;
-		return `${qualifier}.${member}`;
-	}
-
-	private current(): VbaToken | undefined {
-		return this.tokens[this.index];
-	}
-
-	private accept(raw: string): boolean {
-		if (this.current()?.rawText !== raw) {
-			return false;
-		}
-		this.index++;
-		return true;
-	}
-}
-
-function resolveProjectRawIntegerConstants(
-	rawConstants: ReadonlyMap<string, string | undefined>,
-): Map<string, number | undefined> {
-	const resolved = new Map<string, number | undefined>();
-	const resolving = new Set<string>();
-	const resolve = (name: string): number | undefined => {
-		const key = name.toLowerCase();
-		if (resolved.has(key)) {
-			return resolved.get(key);
-		}
-		if (!rawConstants.has(key) || resolving.has(key)) {
-			resolved.set(key, undefined);
-			return undefined;
-		}
-		const raw = rawConstants.get(key);
-		if (raw === undefined) {
-			resolved.set(key, undefined);
-			return undefined;
-		}
-		resolving.add(key);
-		const value = evaluateProjectIntegerExpression(raw, { get: resolve });
-		resolving.delete(key);
-		resolved.set(key, value);
-		return value;
-	};
-	for (const key of rawConstants.keys()) {
-		resolve(key);
-	}
-	return resolved;
-}
-
 function moduleRawIntegerConstantExpressions(mod: ModuleSymbols): Map<string, string | undefined> {
 	const out = new Map<string, string | undefined>();
 	const seen = new Set<string>();
@@ -361,7 +180,7 @@ function moduleRawIntegerConstantExpressions(mod: ModuleSymbols): Map<string, st
 		if (symbol.kind === 'enum') {
 			let previousName: string | undefined;
 			for (const member of symbol.children ?? []) {
-				add(member.name, member.defaultRaw ?? (previousName ? `${previousName} + 1` : '0'));
+				add(member.name, enumMemberRawExpression(member.defaultRaw, previousName));
 				previousName = member.name;
 			}
 		}
@@ -578,6 +397,12 @@ function userTypeFieldSignature(symbol: VbaSymbol): string {
 export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
 	private readonly moduleSources = new Map<string, string>();
+	/** Lazily resolved per-module integer constants, dropped on module change. */
+	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
+	/** Lazily scanned per-module Implements lists, dropped on module change. */
+	private readonly moduleImplementsLists = new Map<string, string[]>();
+	/** Whole-project query memo for the current index revision. */
+	private readonly queryCache = new Map<string, unknown>();
 
 	constructor(private readonly options: ProjectIndexOptions = {}) {}
 
@@ -595,6 +420,7 @@ export class ProjectIndex {
 		const key = input.moduleName.toLowerCase();
 		this.modules.set(key, symbols);
 		this.moduleSources.set(key, input.source);
+		this.invalidate(key);
 	}
 
 	/** Removes a module from the index. */
@@ -602,28 +428,51 @@ export class ProjectIndex {
 		const key = moduleName.toLowerCase();
 		this.modules.delete(key);
 		this.moduleSources.delete(key);
+		this.invalidate(key);
+	}
+
+	/** Drops module-derived artifacts and every whole-project query memo. */
+	private invalidate(key: string): void {
+		this.moduleResolvedConstants.delete(key);
+		this.moduleImplementsLists.delete(key);
+		this.queryCache.clear();
+	}
+
+	/** Memoizes a whole-project query until the indexed modules change. */
+	private cached<T>(key: string, compute: () => T): T {
+		if (this.queryCache.has(key)) {
+			return this.queryCache.get(key) as T;
+		}
+		const value = compute();
+		this.queryCache.set(key, value);
+		return value;
+	}
+
+	/** Resolved integer constant values of one module, computed at most once. */
+	private moduleIntegerConstants(mod: ModuleSymbols): ReadonlyMap<string, number | undefined> {
+		const key = mod.moduleName.toLowerCase();
+		let resolved = this.moduleResolvedConstants.get(key);
+		if (!resolved) {
+			resolved = resolveRawIntegerConstants(moduleRawIntegerConstantExpressions(mod));
+			this.moduleResolvedConstants.set(key, resolved);
+		}
+		return resolved;
+	}
+
+	/** Implements declarations of one module, scanned at most once. */
+	private moduleImplementsFor(mod: ModuleSymbols): string[] {
+		const key = mod.moduleName.toLowerCase();
+		let list = this.moduleImplementsLists.get(key);
+		if (!list) {
+			list = moduleImplements(this.moduleSources.get(key) ?? '');
+			this.moduleImplementsLists.set(key, list);
+		}
+		return list;
 	}
 
 	/** All module names currently indexed (original casing). */
 	moduleNames(): string[] {
 		return [...this.modules.values()].map((m) => m.moduleName);
-	}
-
-	/**
-	 * Lowercased names of every procedure/Declare callable across all
-	 * indexed modules. Used by the unknown-call diagnostic to decide whether a
-	 * bare call statement names a procedure that exists anywhere in the project.
-	 */
-	procedureNames(): Set<string> {
-		const names = new Set<string>();
-		for (const mod of this.modules.values()) {
-			for (const symbol of mod.all) {
-				if (isBareCallableKind(symbol.kind) || isProcedureKind(symbol.kind)) {
-					names.add(symbol.name.toLowerCase());
-				}
-			}
-		}
-		return names;
 	}
 
 	/**
@@ -635,22 +484,24 @@ export class ProjectIndex {
 	 */
 	visibleProcedureNames(moduleName: string): Set<string> {
 		const currentLower = moduleName.toLowerCase();
-		const names = new Set<string>();
-		for (const mod of this.modules.values()) {
-			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			for (const symbol of mod.root.children ?? []) {
-				if (!isBareCallableKind(symbol.kind)) {
-					continue;
-				}
-				if (
-					sameModule ||
-					(mod.moduleKind === 'standard' && isExported(symbol, mod.moduleKind))
-				) {
-					names.add(symbol.name.toLowerCase());
+		return new Set(this.cached(`procedureNames:${currentLower}`, () => {
+			const names = new Set<string>();
+			for (const mod of this.modules.values()) {
+				const sameModule = mod.moduleName.toLowerCase() === currentLower;
+				for (const symbol of mod.root.children ?? []) {
+					if (!isBareCallableKind(symbol.kind)) {
+						continue;
+					}
+					if (
+						sameModule ||
+						(mod.moduleKind === 'standard' && isExported(symbol, mod.moduleKind))
+					) {
+						names.add(symbol.name.toLowerCase());
+					}
 				}
 			}
-		}
-		return names;
+			return names;
+		}));
 	}
 
 	/**
@@ -661,26 +512,28 @@ export class ProjectIndex {
 	 */
 	visibleProcedureSignatures(moduleName: string): VbaProcedureSignature[] {
 		const currentLower = moduleName.toLowerCase();
-		const out: VbaProcedureSignature[] = [];
-		for (const mod of this.modules.values()) {
-			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			for (const symbol of mod.root.children ?? []) {
-				if (!isBareCallableKind(symbol.kind)) {
-					continue;
-				}
-				if (
-					!sameModule &&
-					(mod.moduleKind !== 'standard' || !isExported(symbol, mod.moduleKind))
-				) {
-					continue;
-				}
-				const signature = procedureSignatureFromSymbol(symbol);
-				if (signature) {
-					out.push(signature);
+		return this.cached(`procedureSignatures:${currentLower}`, () => {
+			const out: VbaProcedureSignature[] = [];
+			for (const mod of this.modules.values()) {
+				const sameModule = mod.moduleName.toLowerCase() === currentLower;
+				for (const symbol of mod.root.children ?? []) {
+					if (!isBareCallableKind(symbol.kind)) {
+						continue;
+					}
+					if (
+						!sameModule &&
+						(mod.moduleKind !== 'standard' || !isExported(symbol, mod.moduleKind))
+					) {
+						continue;
+					}
+					const signature = procedureSignatureFromSymbol(symbol);
+					if (signature) {
+						out.push(signature);
+					}
 				}
 			}
-		}
-		return out;
+			return out;
+		}).slice();
 	}
 
 	/**
@@ -692,17 +545,19 @@ export class ProjectIndex {
 	 */
 	visibleIdentifierNames(moduleName: string): Set<string> {
 		const currentLower = moduleName.toLowerCase();
-		const names = new Set<string>();
-		for (const mod of this.modules.values()) {
-			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			if (mod.moduleKind === 'document' || mod.moduleKind === 'userform') {
-				names.add(mod.moduleName.toLowerCase());
+		return new Set(this.cached(`identifierNames:${currentLower}`, () => {
+			const names = new Set<string>();
+			for (const mod of this.modules.values()) {
+				const sameModule = mod.moduleName.toLowerCase() === currentLower;
+				if (mod.moduleKind === 'document' || mod.moduleKind === 'userform') {
+					names.add(mod.moduleName.toLowerCase());
+				}
+				for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
+					names.add(symbol.name.toLowerCase());
+				}
 			}
-			for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
-				names.add(symbol.name.toLowerCase());
-			}
-		}
-		return names;
+			return names;
+		}));
 	}
 
 	/**
@@ -713,12 +568,14 @@ export class ProjectIndex {
 	 */
 	visibleIdentifierSymbols(moduleName: string): VbaSymbol[] {
 		const currentLower = moduleName.toLowerCase();
-		const out: VbaSymbol[] = [];
-		for (const mod of this.modules.values()) {
-			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			out.push(...this.visibleModuleLevelIdentifierSymbols(mod, sameModule));
-		}
-		return out;
+		return this.cached(`identifierSymbols:${currentLower}`, () => {
+			const out: VbaSymbol[] = [];
+			for (const mod of this.modules.values()) {
+				const sameModule = mod.moduleName.toLowerCase() === currentLower;
+				out.push(...this.visibleModuleLevelIdentifierSymbols(mod, sameModule));
+			}
+			return out;
+		}).slice();
 	}
 
 	/**
@@ -728,54 +585,55 @@ export class ProjectIndex {
 	 */
 	visibleExternalIntegerConstantExpressions(moduleName: string): Map<string, string | undefined> {
 		const currentLower = moduleName.toLowerCase();
-		const out = new Map<string, string | undefined>();
-		const seen = new Set<string>();
-		const add = (name: string, raw: string | undefined): void => {
-			const key = name.toLowerCase();
-			if (seen.has(key)) {
-				out.set(key, undefined);
-				return;
-			}
-			seen.add(key);
-			out.set(key, raw);
-		};
-		const addQualified = (mod: ModuleSymbols, name: string, raw: string | undefined): void => {
-			out.set(`${mod.moduleName.toLowerCase()}.${name.toLowerCase()}`, raw);
-		};
-		const resolvedRaw = (
-			resolved: ReadonlyMap<string, number | undefined>,
-			key: string,
-			fallback: string | undefined,
-		): string | undefined => {
-			const value = resolved.get(key.toLowerCase());
-			return value === undefined ? fallback : String(value);
-		};
-		for (const mod of this.modules.values()) {
-			if (mod.moduleName.toLowerCase() === currentLower || mod.moduleKind !== 'standard') {
-				continue;
-			}
-			const moduleRaw = moduleRawIntegerConstantExpressions(mod);
-			const moduleResolved = resolveProjectRawIntegerConstants(moduleRaw);
-			for (const symbol of mod.root.children ?? []) {
-				if (symbol.kind === 'constant' && isExported(symbol, mod.moduleKind)) {
-					const raw = resolvedRaw(moduleResolved, symbol.name, symbol.defaultRaw);
-					add(symbol.name, raw);
-					addQualified(mod, symbol.name, raw);
+		return new Map(this.cached(`integerConstants:${currentLower}`, () => {
+			const out = new Map<string, string | undefined>();
+			const seen = new Set<string>();
+			const add = (name: string, raw: string | undefined): void => {
+				const key = name.toLowerCase();
+				if (seen.has(key)) {
+					out.set(key, undefined);
+					return;
+				}
+				seen.add(key);
+				out.set(key, raw);
+			};
+			const addQualified = (mod: ModuleSymbols, name: string, raw: string | undefined): void => {
+				out.set(`${mod.moduleName.toLowerCase()}.${name.toLowerCase()}`, raw);
+			};
+			const resolvedRaw = (
+				resolved: ReadonlyMap<string, number | undefined>,
+				key: string,
+				fallback: string | undefined,
+			): string | undefined => {
+				const value = resolved.get(key.toLowerCase());
+				return value === undefined ? fallback : String(value);
+			};
+			for (const mod of this.modules.values()) {
+				if (mod.moduleName.toLowerCase() === currentLower || mod.moduleKind !== 'standard') {
 					continue;
 				}
-				if (symbol.kind === 'enum' && isEnumMemberExported(symbol, mod.moduleKind)) {
-					let previousName: string | undefined;
-					for (const member of symbol.children ?? []) {
-						const fallback = member.defaultRaw ?? (previousName ? `${previousName} + 1` : '0');
-						const raw = resolvedRaw(moduleResolved, member.name, fallback);
-						add(member.name, raw);
-						addQualified(mod, member.name, raw);
-						previousName = member.name;
+				const moduleResolved = this.moduleIntegerConstants(mod);
+				for (const symbol of mod.root.children ?? []) {
+					if (symbol.kind === 'constant' && isExported(symbol, mod.moduleKind)) {
+						const raw = resolvedRaw(moduleResolved, symbol.name, symbol.defaultRaw);
+						add(symbol.name, raw);
+						addQualified(mod, symbol.name, raw);
+						continue;
+					}
+					if (symbol.kind === 'enum' && isEnumMemberExported(symbol, mod.moduleKind)) {
+						let previousName: string | undefined;
+						for (const member of symbol.children ?? []) {
+							const fallback = enumMemberRawExpression(member.defaultRaw, previousName);
+							const raw = resolvedRaw(moduleResolved, member.name, fallback);
+							add(member.name, raw);
+							addQualified(mod, member.name, raw);
+							previousName = member.name;
+						}
 					}
 				}
 			}
-		}
-		return out;
+			return out;
+		}));
 	}
 
 	/**
@@ -785,17 +643,19 @@ export class ProjectIndex {
 	 */
 	visibleNonTypeNames(moduleName: string): Set<string> {
 		const currentLower = moduleName.toLowerCase();
-		const names = new Set<string>();
-		for (const mod of this.modules.values()) {
-			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
-				if (projectTypeKind(symbol)) {
-					continue;
+		return new Set(this.cached(`nonTypeNames:${currentLower}`, () => {
+			const names = new Set<string>();
+			for (const mod of this.modules.values()) {
+				const sameModule = mod.moduleName.toLowerCase() === currentLower;
+				for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
+					if (projectTypeKind(symbol)) {
+						continue;
+					}
+					names.add(symbol.name.toLowerCase());
 				}
-				names.add(symbol.name.toLowerCase());
 			}
-		}
-		return names;
+			return names;
+		}));
 	}
 
 	/**
@@ -810,28 +670,30 @@ export class ProjectIndex {
 	 * object/member binder.
 	 */
 	procedureSignatures(): Map<string, VbaProcedureSignature[]> {
-		const signatures = new Map<string, VbaProcedureSignature[]>();
-		for (const mod of this.modules.values()) {
-			for (const symbol of mod.root.children ?? []) {
-				if (
-					!isBareCallableKind(symbol.kind) ||
-					mod.moduleKind !== 'standard' ||
-					!isExported(symbol, mod.moduleKind)
-				) {
-					continue;
-				}
-				const sig = procedureSignatureFromSymbol(symbol);
-				if (sig) {
-					addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
-					addProcedureSignature(
-						signatures,
-						qualifiedProcedureKey(symbol.moduleName, symbol.name),
-						sig,
-					);
+		return new Map(this.cached('procedureSignaturesByKey', () => {
+			const signatures = new Map<string, VbaProcedureSignature[]>();
+			for (const mod of this.modules.values()) {
+				for (const symbol of mod.root.children ?? []) {
+					if (
+						!isBareCallableKind(symbol.kind) ||
+						mod.moduleKind !== 'standard' ||
+						!isExported(symbol, mod.moduleKind)
+					) {
+						continue;
+					}
+					const sig = procedureSignatureFromSymbol(symbol);
+					if (sig) {
+						addProcedureSignature(signatures, symbol.name.toLowerCase(), sig);
+						addProcedureSignature(
+							signatures,
+							qualifiedProcedureKey(symbol.moduleName, symbol.name),
+							sig,
+						);
+					}
 				}
 			}
-		}
-		return signatures;
+			return signatures;
+		}));
 	}
 
 	/**
@@ -847,41 +709,43 @@ export class ProjectIndex {
 	 */
 	visibleTypeNames(moduleName: string): VbaProjectTypeName[] {
 		const currentLower = moduleName.toLowerCase();
-		const out: VbaProjectTypeName[] = [];
-		for (const mod of this.modules.values()) {
-			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			const moduleTypeKind = moduleKindAsTypeName(mod.moduleKind);
-			if (moduleTypeKind) {
-				out.push({
-					name: mod.moduleName,
-					kind: moduleTypeKind,
-					moduleName: mod.moduleName,
-					nameSpan: mod.root.nameSpan,
-					fullSpan: mod.root.fullSpan,
-					doc: mod.root.doc,
-				});
-			}
+		return this.cached(`typeNames:${currentLower}`, () => {
+			const out: VbaProjectTypeName[] = [];
+			for (const mod of this.modules.values()) {
+				const sameModule = mod.moduleName.toLowerCase() === currentLower;
+				const moduleTypeKind = moduleKindAsTypeName(mod.moduleKind);
+				if (moduleTypeKind) {
+					out.push({
+						name: mod.moduleName,
+						kind: moduleTypeKind,
+						moduleName: mod.moduleName,
+						nameSpan: mod.root.nameSpan,
+						fullSpan: mod.root.fullSpan,
+						doc: mod.root.doc,
+					});
+				}
 
-			for (const symbol of mod.root.children ?? []) {
-				const kind = projectTypeKind(symbol);
-				if (!kind) {
-					continue;
+				for (const symbol of mod.root.children ?? []) {
+					const kind = projectTypeKind(symbol);
+					if (!kind) {
+						continue;
+					}
+					if (!sameModule && !isTypeExported(symbol)) {
+						continue;
+					}
+					out.push({
+						name: symbol.name,
+						kind,
+						moduleName: mod.moduleName,
+						nameSpan: symbol.nameSpan,
+						fullSpan: symbol.fullSpan,
+						visibility: symbol.visibility,
+						doc: symbol.doc,
+					});
 				}
-				if (!sameModule && !isTypeExported(symbol)) {
-					continue;
-				}
-				out.push({
-					name: symbol.name,
-					kind,
-					moduleName: mod.moduleName,
-					nameSpan: symbol.nameSpan,
-					fullSpan: symbol.fullSpan,
-					visibility: symbol.visibility,
-					doc: symbol.doc,
-				});
 			}
-		}
-		return out;
+			return out;
+		}).slice();
 	}
 
 	/**
@@ -906,24 +770,26 @@ export class ProjectIndex {
 	 * modules.
 	 */
 	projectClassMembers(): VbaProjectClassMembers[] {
-		const out: VbaProjectClassMembers[] = [];
-		for (const mod of this.modules.values()) {
-			const kind = moduleKindAsTypeName(mod.moduleKind);
-			if (kind !== 'class' && kind !== 'document' && kind !== 'userform') {
-				continue;
+		return this.cached('projectClassMembers', () => {
+			const out: VbaProjectClassMembers[] = [];
+			for (const mod of this.modules.values()) {
+				const kind = moduleKindAsTypeName(mod.moduleKind);
+				if (kind !== 'class' && kind !== 'document' && kind !== 'userform') {
+					continue;
+				}
+				const members = this.visibleObjectMembers(mod);
+				out.push({
+					name: mod.moduleName,
+					kind,
+					moduleName: mod.moduleName,
+					implements: this.moduleImplementsFor(mod),
+					doc: mod.root.doc,
+					exhaustive: kind === 'class',
+					members,
+				});
 			}
-			const members = this.visibleObjectMembers(mod);
-			out.push({
-				name: mod.moduleName,
-				kind,
-				moduleName: mod.moduleName,
-				implements: moduleImplements(this.moduleSources.get(mod.moduleName.toLowerCase()) ?? ''),
-				doc: mod.root.doc,
-				exhaustive: kind === 'class',
-				members,
-			});
-		}
-		return out;
+			return out;
+		}).slice();
 	}
 
 	/**
@@ -957,11 +823,12 @@ export class ProjectIndex {
 	 * declarations. UDT fields are exhaustive, writable property-like members.
 	 */
 	projectMemberSurfaces(moduleName: string): VbaProjectClassMembers[] {
-		return [
+		const currentLower = moduleName.toLowerCase();
+		return this.cached(`memberSurfaces:${currentLower}`, () => [
 			...this.projectClassMembers(),
 			...this.projectStandardModuleMembers(moduleName),
 			...this.projectUserTypeMembers(moduleName),
-		];
+		]).slice();
 	}
 
 	/** The {@link ModuleSymbols} for a module, or undefined. */
@@ -1235,11 +1102,6 @@ export class ProjectIndex {
 			}
 		}
 		return out;
-	}
-
-	/** Module-level declarations (incl. enum members) matching a lowercased name. */
-	private moduleLevelMatches(mod: ModuleSymbols, lower: string): VbaSymbol[] {
-		return this.moduleLevelBindings(mod, lower).map((binding) => binding.symbol);
 	}
 
 	/** Exported module-level declarations (incl. exported enum members). */

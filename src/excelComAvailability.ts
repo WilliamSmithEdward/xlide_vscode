@@ -1,4 +1,4 @@
-import * as cp from 'child_process';
+import { runPowerShell } from './util/powershell';
 
 export type ExcelComAvailabilityState = 'installed' | 'missing' | 'blocked' | 'unknown';
 
@@ -62,61 +62,37 @@ export function excelComAvailabilityFromProbe(
     };
 }
 
-export function checkExcelComAvailability(
+export async function checkExcelComAvailability(
     platform: NodeJS.Platform = process.platform,
 ): Promise<ExcelComAvailabilityStatus> {
     if (platform !== 'win32') {
-        return Promise.resolve(excelComAvailabilityFromProbe(platform, null, '', ''));
+        return excelComAvailabilityFromProbe(platform, null, '', '');
     }
 
-    return new Promise<ExcelComAvailabilityStatus>((resolve) => {
-        const child = cp.spawn('powershell.exe', [
-            '-NoProfile',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-Command',
-            excelComProbePowerShellScript(),
-        ], { windowsHide: true });
-        let stdout = '';
-        let stderr = '';
-        let settled = false;
-        let timer: ReturnType<typeof setTimeout>;
-
-        const finish = (status: ExcelComAvailabilityStatus): void => {
-            if (settled) {
-                return;
-            }
-            settled = true;
-            clearTimeout(timer);
-            resolve(status);
+    const probe = await runPowerShell({
+        args: ['-Command', excelComProbePowerShellScript()],
+        timeoutMs: EXCEL_COM_PROBE_TIMEOUT_MS,
+    }).result;
+    if (probe.timedOut) {
+        return {
+            state: 'unknown',
+            title: 'Excel COM Check Timed Out',
+            description: 'XLIDE could not confirm Microsoft Excel COM availability before the setup check timed out.',
+            canRun: false,
         };
-
-        timer = setTimeout(() => {
-            child.kill();
-            finish({
-                state: 'unknown',
-                title: 'Excel COM Check Timed Out',
-                description: 'XLIDE could not confirm Microsoft Excel COM availability before the setup check timed out.',
-                canRun: false,
-            });
-        }, EXCEL_COM_PROBE_TIMEOUT_MS);
-
-        child.stdout?.on('data', (data: Buffer) => {
-            stdout += data.toString();
-        });
-        child.stderr?.on('data', (data: Buffer) => {
-            stderr += data.toString();
-        });
-        child.on('error', (err) => {
-            finish({
-                state: 'unknown',
-                title: 'Excel COM Check Failed',
-                description: `XLIDE could not run the Excel COM availability check: ${err.message}`,
-                canRun: false,
-            });
-        });
-        child.on('exit', (code) => {
-            finish(excelComAvailabilityFromProbe(platform, code, stdout, stderr));
-        });
-    });
+    }
+    if (probe.spawnError) {
+        return {
+            state: 'unknown',
+            title: 'Excel COM Check Failed',
+            description: `XLIDE could not run the Excel COM availability check: ${probe.spawnError.message}`,
+            canRun: false,
+        };
+    }
+    return excelComAvailabilityFromProbe(
+        platform,
+        probe.code,
+        probe.stdoutLines.join('\n'),
+        probe.stderrLines.join('\n'),
+    );
 }

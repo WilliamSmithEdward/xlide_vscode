@@ -7,7 +7,7 @@ import {
     settingsPathForWorkbook,
 } from './workbookSettings';
 import { registerXlideCommand } from './xlideCommandRegistration';
-import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { activeLocalVbaEditor, decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
 import {
     buildXlideSidebarModel,
     type XlideSidebarActiveWorkbook,
@@ -17,10 +17,18 @@ import {
     type XlideSidebarWorkbookChoice,
 } from './xlideSidebarModel';
 import { measurePerformance, startPerformanceTrace } from './performanceTrace';
+import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
+import { webviewHeadHtml } from './webview/page';
+import { WEBVIEW_BODY_CSS, xlideAccentPaletteCss } from './webview/styles';
+import { errorMessage } from './util/errors';
+import { fileExists } from './util/fs';
+import { debounce } from './util/debounce';
 
 interface XlideSidebarOptions {
     setupStatus?: () => XlideSidebarSetupStatus;
     workspaceState?: vscode.Memento;
+    /** Fired whenever the sidebar view is (re)shown, e.g. to lazy-start the backend. */
+    onDidBecomeVisible?: () => void;
 }
 
 interface XlideSidebarRegistration {
@@ -32,6 +40,9 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
     private _view: vscode.WebviewView | undefined;
     private _refreshVersion = 0;
     private _selectedWorkbookPath: string | undefined;
+    private _lastSelectionSource: XlideSidebarActiveWorkbook['selectionSource'] | undefined;
+    private _lastRenderedModelJson: string | undefined;
+    private _workbookFilesPromise: Promise<vscode.Uri[]> | undefined;
 
     constructor(private readonly _options: XlideSidebarOptions = {}) {
         this._selectedWorkbookPath = _options.workspaceState?.get<string>(SELECTED_WORKBOOK_KEY);
@@ -41,19 +52,41 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         void this._render();
     }
 
+    /** Drops the cached workspace workbook scan; the next render re-globs. */
+    invalidateWorkbookFiles(): void {
+        this._workbookFilesPromise = undefined;
+    }
+
+    /**
+     * An editor change only affects the model when an XLIDE editor became
+     * active or the displayed workbook was derived from the active editor.
+     */
+    shouldRefreshForActiveEditorChange(editor: vscode.TextEditor | undefined): boolean {
+        return editor?.document.uri.scheme === XLIDE_SCHEME ||
+            this._lastSelectionSource === 'activeEditor';
+    }
+
     resolveWebviewView(view: vscode.WebviewView): void {
         this._view = view;
+        this._lastRenderedModelJson = undefined;
         view.webview.options = { enableScripts: true };
         view.webview.onDidReceiveMessage((message: unknown) => {
             void this._handleMessage(message);
         });
+        this._options.onDidBecomeVisible?.();
         this.refresh();
     }
 
+    private _workbookFiles(): Promise<vscode.Uri[]> {
+        this._workbookFilesPromise ??= workbookFiles();
+        return this._workbookFilesPromise;
+    }
+
     private async _model(): Promise<XlideSidebarNode[]> {
-        const workbooks = await workbookFiles();
+        const workbooks = await this._workbookFiles();
         const selectedWorkbookPath = await this._validSelectedWorkbookPath(workbooks);
         const activeWorkbook = await activeWorkbookContext(workbooks, selectedWorkbookPath);
+        this._lastSelectionSource = activeWorkbook?.selectionSource;
         return buildXlideSidebarModel({
             workbookChoices: workbookChoices(workbooks),
             activeWorkbook,
@@ -74,6 +107,12 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
                 trace.end('superseded');
                 return;
             }
+            const modelJson = JSON.stringify(model);
+            if (modelJson === this._lastRenderedModelJson) {
+                trace.end('ok', 'unchanged');
+                return;
+            }
+            this._lastRenderedModelJson = modelJson;
             this._view.webview.html = renderXlideSidebarHtml(model);
             trace.end('ok', `${model.length} nodes`);
         } catch (err) {
@@ -99,7 +138,7 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     private async _selectWorkbook(filePath: string | undefined): Promise<void> {
-        const workbooks = await workbookFiles();
+        const workbooks = await this._workbookFiles();
         const workbook = filePath
             ? findWorkbook(workbooks, filePath)
             : undefined;
@@ -132,26 +171,36 @@ const SELECTED_WORKBOOK_KEY = 'xlide.sidebar.selectedWorkbookPath';
 
 function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRegistration {
     const provider = new XlideSidebarProvider(options);
-    const view = vscode.window.registerWebviewViewProvider('xlide.sidebar', provider, {
-        webviewOptions: { retainContextWhenHidden: true },
-    });
+    // No retainContextWhenHidden: webview.html always carries the latest model,
+    // so a re-shown sidebar rebuilds for free.
+    const view = vscode.window.registerWebviewViewProvider('xlide.sidebar', provider);
+    const scheduleRefresh = debounce(() => provider.refresh(), 200);
+    const workbookFilesChanged = () => {
+        provider.invalidateWorkbookFiles();
+        scheduleRefresh();
+    };
 
     const disposables = [
         view,
+        scheduleRefresh,
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration('xlide')) {
-                provider.refresh();
+                scheduleRefresh();
             }
         }),
-        vscode.workspace.onDidChangeWorkspaceFolders(() => provider.refresh()),
-        vscode.window.onDidChangeActiveTextEditor(() => provider.refresh()),
+        vscode.workspace.onDidChangeWorkspaceFolders(workbookFilesChanged),
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (provider.shouldRefreshForActiveEditorChange(editor)) {
+                scheduleRefresh();
+            }
+        }),
         vscode.commands.registerCommand('xlide.openWorkbookSettings', async (settingsPath?: string) => {
             if (!settingsPath) {
                 vscode.window.showWarningMessage('XLIDE: No workbook settings file is available.');
                 return;
             }
             try {
-                if (!(await pathExists(settingsPath))) {
+                if (!(await fileExists(settingsPath))) {
                     try {
                         await fs.promises.writeFile(settingsPath, '{}\n', { encoding: 'utf8', flag: 'wx' });
                     } catch (err) {
@@ -163,41 +212,21 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 const document = await vscode.workspace.openTextDocument(vscode.Uri.file(settingsPath));
                 await vscode.window.showTextDocument(document, { preview: false });
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message = errorMessage(err);
                 vscode.window.showErrorMessage(`XLIDE: Could not open workbook settings: ${message}`);
             }
         }),
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const refresh = () => {
-                if (timer !== undefined) {
-                    clearTimeout(timer);
-                }
-                timer = setTimeout(() => {
-                    timer = undefined;
-                    provider.refresh();
-                }, 200);
-            };
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
-            watcher.onDidCreate(refresh);
-            watcher.onDidDelete(refresh);
+            watcher.onDidCreate(workbookFilesChanged);
+            watcher.onDidDelete(workbookFilesChanged);
             return watcher;
         })(),
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const refresh = () => {
-                if (timer !== undefined) {
-                    clearTimeout(timer);
-                }
-                timer = setTimeout(() => {
-                    timer = undefined;
-                    provider.refresh();
-                }, 200);
-            };
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.xlide_settings.json');
-            watcher.onDidCreate(refresh);
-            watcher.onDidChange(refresh);
-            watcher.onDidDelete(refresh);
+            watcher.onDidCreate(scheduleRefresh);
+            watcher.onDidChange(scheduleRefresh);
+            watcher.onDidDelete(scheduleRefresh);
             return watcher;
         })(),
     ];
@@ -206,10 +235,6 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
         disposables,
         refresh: () => provider.refresh(),
     };
-}
-
-async function workbookFileCount(): Promise<number> {
-    return (await workbookFiles()).length;
 }
 
 async function workbookFiles(): Promise<vscode.Uri[]> {
@@ -254,15 +279,8 @@ function findWorkbook(workbooks: readonly vscode.Uri[], filePath: string): vscod
 }
 
 function activeWorkbookPathFromEditor(): string | undefined {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return undefined;
-    }
-    const uri = editor.document.uri;
-    if (uri.scheme !== XLIDE_SCHEME || uri.authority) {
-        return undefined;
-    }
-    return decodeModuleUri(uri).xlsmPath;
+    const editor = activeLocalVbaEditor();
+    return editor ? decodeModuleUri(editor.document.uri).xlsmPath : undefined;
 }
 
 async function sidebarWorkbookForPath(
@@ -277,7 +295,7 @@ async function sidebarWorkbookForPath(
         selectionSource,
     };
     try {
-        const exists = await pathExists(settingsPath);
+        const exists = await fileExists(settingsPath);
         await readWorkbookSettings(workbookPath);
         return {
             ...base,
@@ -289,19 +307,11 @@ async function sidebarWorkbookForPath(
             settingsState: 'invalid',
             settingsMessage: isWorkbookSettingsError(err)
                 ? err.message
-                : `Unable to read workbook settings: ${err instanceof Error ? err.message : String(err)}`,
+                : `Unable to read workbook settings: ${errorMessage(err)}`,
         };
     }
 }
 
-async function pathExists(filePath: string): Promise<boolean> {
-    try {
-        await fs.promises.access(filePath);
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 function isFileAlreadyExistsError(err: unknown): boolean {
     return typeof err === 'object' &&
@@ -311,33 +321,26 @@ function isFileAlreadyExistsError(err: unknown): boolean {
 }
 
 function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
-    const nonce = nonceString();
+    const nonce = randomNonce();
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE</title>
+    ${webviewHeadHtml(nonce, 'XLIDE')}
     <style nonce="${nonce}">
         :root {
             color-scheme: light dark;
-            --xlide-accent-blue: #2d5f94;
-            --xlide-accent-blue-hover: #376fa8;
-            --xlide-accent-background: color-mix(in srgb, var(--xlide-accent-blue) 82%, var(--vscode-sideBar-background));
-            --xlide-accent-hover-background: color-mix(in srgb, var(--xlide-accent-blue-hover) 84%, var(--vscode-sideBar-background));
-            --xlide-accent-border: color-mix(in srgb, var(--xlide-accent-blue) 72%, var(--vscode-dropdown-border));
+            ${xlideAccentPaletteCss({
+                surface: 'var(--vscode-sideBar-background)',
+                accentBorder: 'color-mix(in srgb, var(--xlide-accent-blue) 72%, var(--vscode-dropdown-border))',
+            })}
         }
         * {
             box-sizing: border-box;
         }
+        ${WEBVIEW_BODY_CSS}
         body {
-            margin: 0;
             padding: 12px;
-            color: var(--vscode-foreground);
             background: var(--vscode-sideBar-background);
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
             line-height: 1.35;
         }
         .shell {
@@ -841,26 +844,6 @@ function commandAttr(command: XlideSidebarCommand): string {
     return escapeAttr(JSON.stringify(command));
 }
 
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(value: string): string {
-    return escapeHtml(value).replace(/"/g, '&quot;');
-}
-
-function nonceString(): string {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 24; i++) {
-        result += alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
-    return result;
-}
-
 function slugId(value: string): string {
     return value.replace(/[^a-z0-9_-]/gi, '-');
 }
@@ -869,6 +852,5 @@ export {
     XlideSidebarProvider,
     type XlideSidebarRegistration,
     registerXlideSidebar,
-    workbookFileCount,
     workbookFiles,
 };

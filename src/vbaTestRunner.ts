@@ -1,10 +1,11 @@
 import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import { parseModule } from './analyzer/parser/parseModule';
-import type { ModuleMember, ProcedureNode, Span } from './analyzer/parser/nodes';
-import { lineStartOffsets } from './vbaStructuralAnalysis';
+import type { ModuleMember, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
+import { lineStartOffsets } from './vbaSourceScan';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
+import { isReadModulesUnavailable } from './pythonBridgeErrors';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
 export const VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE = 'vba-test-directive';
@@ -41,7 +42,7 @@ export interface VbaTestMetadata {
     owner?: string;
     requirement?: string;
     timeoutMs?: number;
-    expectedError?: string;
+    expectedError?: number | 'any';
     skipReason?: string;
     xfailReason?: string;
 }
@@ -105,13 +106,16 @@ export interface VbaTestRunSummary {
     hostError: number;
 }
 
-export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestCase[] {
+export function discoverVbaTestsFromModule(
+    module: VbaTestModuleEntry,
+    parsedModule?: ModuleNode,
+): VbaTestCase[] {
     if (module.type !== 'standard' || module.source === undefined) {
         return [];
     }
 
     const source = module.source;
-    const ast = parseModule(source);
+    const ast = parsedModule ?? parseModule(source);
     const starts = lineStartOffsets(source);
     const lines = source.split(/\r\n|\r|\n/);
     const tests: VbaTestCase[] = [];
@@ -141,13 +145,16 @@ export function discoverVbaTestsFromModule(module: VbaTestModuleEntry): VbaTestC
     return tests;
 }
 
-export function validateVbaTestDirectivesFromModule(module: VbaTestModuleEntry): VbaTestDirectiveIssue[] {
+export function validateVbaTestDirectivesFromModule(
+    module: VbaTestModuleEntry,
+    parsedModule?: ModuleNode,
+): VbaTestDirectiveIssue[] {
     if (module.source === undefined) {
         return [];
     }
 
     const source = module.source;
-    const ast = parseModule(source);
+    const ast = parsedModule ?? parseModule(source);
     const starts = lineStartOffsets(source);
     const lines = source.split(/\r\n|\r|\n/);
     const issues: VbaTestDirectiveIssue[] = [];
@@ -199,6 +206,26 @@ export function validateVbaTestDirectivesFromModule(module: VbaTestModuleEntry):
     );
 }
 
+// Batch read of every module in one workbook open; falls back to listModules
+// plus one readModule per standard module for backends without readModules.
+async function listWorkbookModulesForDiscovery(
+    bridge: PythonBridge,
+    filePath: string,
+): Promise<VbaTestModuleEntry[]> {
+    try {
+        const modules = await bridge.call<VbaTestModuleEntry[]>(
+            'readModules',
+            { path: filePath },
+        );
+        return modules.filter((module) => typeof module.source === 'string');
+    } catch (err) {
+        if (!isReadModulesUnavailable(err)) {
+            throw err;
+        }
+    }
+    return bridge.call<VbaTestModuleEntry[]>('listModules', { path: filePath });
+}
+
 export async function discoverWorkbookVbaTests(
     bridge: PythonBridge,
     filePath: string,
@@ -206,10 +233,7 @@ export async function discoverWorkbookVbaTests(
 ): Promise<VbaTestDiscoveryResult> {
     return measurePerformance('vbaTests.discoverWorkbook', path.basename(filePath), async () => {
     const normalizedSelection = normalizeVbaTestSelection(selection);
-    const modules = await bridge.call<Array<{ name: string; type: string }>>(
-        'listModules',
-        { path: filePath },
-    );
+    const modules = await listWorkbookModulesForDiscovery(bridge, filePath);
     const orderedModules = [...modules].sort(compareVbaModulesForTreeOrder);
     const testableModules = orderedModules.filter((module) =>
         module.type === 'standard' &&
@@ -218,14 +242,14 @@ export async function discoverWorkbookVbaTests(
     const discoveredTests: VbaTestCase[] = [];
 
     for (const module of testableModules) {
-        const result = await bridge.call<{ source: string }>(
+        const source = module.source ?? (await bridge.call<{ source: string }>(
             'readModule',
             { path: filePath, module: module.name },
-        );
+        )).source;
         discoveredTests.push(...discoverVbaTestsFromModule({
             name: module.name,
             type: module.type,
-            source: result.source,
+            source,
         }));
     }
     const tests = filterVbaTests(discoveredTests, normalizedSelection);
@@ -361,42 +385,6 @@ export function summarizeVbaTestRun(report: Pick<VbaTestRunReport, 'results'>): 
         }
     }
     return summary;
-}
-
-export function vbaTestFailureMessage(error: unknown): string {
-    const raw = error instanceof Error ? error.message : String(error);
-    const unwrapped = raw.replace(/^(?:RUN_FAILED|OPEN_FAILED|RUNNER_FAILED|TIMEOUT|HOST_ERROR)\|/, '');
-    return cleanVbaTestFailureMessage(unwrapped);
-}
-
-function cleanVbaTestFailureMessage(raw: string): string {
-    const text = raw.replace(/\r\n|\r/g, '\n').trim();
-    if (!text) {
-        return text;
-    }
-    const rpcHresult = /0x800706(?:BE|BA)/i.exec(text)?.[0];
-    if (rpcHresult && /Exception calling "Run"|RPC server|remote procedure call|HRESULT:/i.test(text)) {
-        return `Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x${rpcHresult.slice(2).toUpperCase()}.`;
-    }
-    if (/0x800A9C68/i.test(text) && /Exception calling "Run"|Exception from HRESULT|run-vba-tests\.ps1|HRESULT:/i.test(text)) {
-        return 'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.';
-    }
-    const lines = text
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0 && !isNoisyPowerShellDetail(line));
-    if (lines.length === 0) {
-        return text;
-    }
-    return [...new Set(lines)].join('\n');
-}
-
-function isNoisyPowerShellDetail(line: string): boolean {
-    return /^At .*run-vba-tests\.ps1:\d+ char:\d+/i.test(line) ||
-        /^\+ /.test(line) ||
-        /^~{6,}$/.test(line) ||
-        /^CategoryInfo\s*:/i.test(line) ||
-        /^FullyQualifiedErrorId\s*:/i.test(line);
 }
 
 function normalizeVbaTestSelection(selection?: VbaTestSelectionOptions): VbaTestSelectionOptions | undefined {
@@ -834,13 +822,12 @@ function parseExpectedVbaErrorNumber(value: string | undefined): number | undefi
     return Number.isSafeInteger(amount) && amount > 0 ? amount : undefined;
 }
 
-function parseExpectedVbaErrorMetadata(value: string | undefined): string | undefined {
+function parseExpectedVbaErrorMetadata(value: string | undefined): number | 'any' | undefined {
     const normalized = value?.trim().toLowerCase();
     if (normalized === 'any') {
         return 'any';
     }
-    const amount = parseExpectedVbaErrorNumber(value);
-    return amount !== undefined ? String(amount) : undefined;
+    return parseExpectedVbaErrorNumber(value);
 }
 
 function offsetToLineColumn(

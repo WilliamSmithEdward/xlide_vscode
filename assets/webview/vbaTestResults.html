@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{head}}
+    <style nonce="{{nonce}}">
+{{css}}
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <header class="header">
+            <div>
+                <h1>XLIDE VBA Test Results</h1>
+                <div class="subtitle">{{subtitle}}</div>
+            </div>
+            <div class="headerRight">
+                <div class="runTiming" aria-label="Run timing">
+                    <div class="runTimingRow">
+                        <span class="runTimingLabel">Started</span>
+                        <span class="runTimingValue" title="{{startedIso}}">{{startedLabel}}</span>
+                    </div>
+                    <div class="runTimingRow">
+                        <span class="runTimingLabel">Stopped</span>
+                        <span class="runTimingValue" title="{{stoppedIso}}">{{stoppedLabel}}</span>
+                    </div>
+                    <div class="runTimingRow">
+                        <span class="runTimingLabel">Elapsed</span>
+                        <span class="runTimingValue">{{elapsed}}</span>
+                    </div>
+                </div>
+                {{rerunActions}}
+            </div>
+        </header>
+        {{summary}}
+        {{results}}
+        <div class="contract">{{contract}}</div>
+    </main>
+    {{toastHtml}}
+    <script nonce="{{nonce}}">
+{{js}}
+    </script>
+</body>
+</html>

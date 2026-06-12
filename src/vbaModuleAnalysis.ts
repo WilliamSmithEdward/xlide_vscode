@@ -7,16 +7,17 @@ import {
     conditionalActivityAtOffset,
     parseModule,
     scanAnalysisSuppressions,
+    tokenizeCached,
     type AnalyzeModuleOptions,
     type DiagnosticSeverity as RuleSeverity,
     type VbaDiagnosticData,
 } from './analyzer';
-import type { ProcedureNode, Span } from './analyzer/parser/nodes';
+import type { ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
+import { lineStartOffsets } from './vbaSourceScan';
 import {
     analyzeVbaStructure,
-    lineStartOffsets,
     type VbaStructuralDiagnostic,
-} from './vbaStructuralAnalysis';
+} from './vbaStructuralDiagnostics';
 import { discoverVbaTestsFromModule, validateVbaTestDirectivesFromModule } from './vbaTestRunner';
 
 export interface VbaModuleAnalysisDiagnostic {
@@ -35,7 +36,6 @@ export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
     source: string;
     moduleType?: string;
     activeIncompleteExpressionOffset?: number;
-    activeIncompleteMemberAccessOffset?: number;
 }
 
 export interface VbaModuleAnalysisResult {
@@ -54,19 +54,24 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         source,
         moduleType,
         activeIncompleteExpressionOffset,
-        activeIncompleteMemberAccessOffset,
         ...analyzeOptions
     } = input;
     const starts = lineStartOffsets(source);
-    const suppressions = scanAnalysisSuppressions(source);
+    // Lex and parse once per invocation; every pass below reuses these results.
+    const module = analyzeOptions.parsedModule ?? parseModule(source);
+    analyzeOptions.parsedModule = module;
+    const suppressions = scanAnalysisSuppressions(source, {
+        tokens: tokenizeCached(source),
+        parsedModule: module,
+    });
     const diagnostics: VbaModuleAnalysisDiagnostic[] = [...suppressions.diagnostics];
     const suppressedDiagnostics: VbaModuleAnalysisDiagnostic[] = [];
-    const activeIncompleteOffset = activeIncompleteExpressionOffset ?? activeIncompleteMemberAccessOffset;
-    const activeIncompleteExpressionSpan = activeIncompleteOffset === undefined
+    const activeIncompleteExpressionSpan = activeIncompleteExpressionOffset === undefined
         ? undefined
-        : incompleteExpressionEditSpan(source, activeIncompleteOffset);
+        : incompleteExpressionEditSpan(source, activeIncompleteExpressionOffset);
     const expectedErrorRuntimeSuppressions = expectedErrorRuntimeSuppressionRanges(
         source,
+        module,
         analyzeOptions.moduleName ?? 'Module',
         moduleType ?? analyzeOptions.moduleKind ?? 'standard',
     );
@@ -82,7 +87,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
                 name: analyzeOptions.moduleName ?? 'Module',
                 type: moduleType ?? analyzeOptions.moduleKind ?? 'standard',
                 source,
-            })) {
+            }, module)) {
                 const diagnostic: VbaModuleAnalysisDiagnostic = {
                     code: meta.code,
                     message: issue.message,
@@ -118,7 +123,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     };
 
     try {
-        const isInactiveLine = inactiveConditionalLinePredicate(source, starts, analyzeOptions);
+        const isInactiveLine = inactiveConditionalLinePredicate(source, module, starts, analyzeOptions);
         for (const problem of analyzeVbaStructure(source, { isInactiveLine })) {
             const span = {
                 start: (starts[problem.line] ?? 0) + problem.startCol,
@@ -213,34 +218,31 @@ function diagnosticIdentityKey(diagnostic: VbaModuleAnalysisDiagnostic): string 
 
 function inactiveConditionalLinePredicate(
     source: string,
+    module: ModuleNode,
     starts: readonly number[],
     analyzeOptions: AnalyzeModuleOptions,
 ): ((line: number) => boolean) | undefined {
     if (!source.includes('#')) {
         return undefined;
     }
-    try {
-        const module = parseModule(source);
-        return (line: number): boolean => {
-            const offset = starts[line] ?? source.length;
-            return conditionalActivityAtOffset(
-                module,
-                offset,
-                analyzeOptions.conditionalCompilation,
-            ) === 'inactive';
-        };
-    } catch {
-        return undefined;
-    }
+    return (line: number): boolean => {
+        const offset = starts[line] ?? source.length;
+        return conditionalActivityAtOffset(
+            module,
+            offset,
+            analyzeOptions.conditionalCompilation,
+        ) === 'inactive';
+    };
 }
 
 interface ExpectedErrorRuntimeSuppression {
     span: Span;
-    expectedError: string;
+    expectedError: number | 'any';
 }
 
 function expectedErrorRuntimeSuppressionRanges(
     source: string,
+    module: ModuleNode,
     moduleName: string,
     moduleType: string,
 ): ExpectedErrorRuntimeSuppression[] {
@@ -248,19 +250,19 @@ function expectedErrorRuntimeSuppressionRanges(
         name: moduleName,
         type: moduleType,
         source,
-    }).filter((test) => test.metadata.expectedError);
+    }, module).filter((test) => test.metadata.expectedError);
     if (tests.length === 0) {
         return [];
     }
 
-    const byProcedureName = new Map<string, string>();
+    const byProcedureName = new Map<string, number | 'any'>();
     for (const test of tests) {
         if (test.metadata.expectedError) {
             byProcedureName.set(test.procedureName.toLowerCase(), test.metadata.expectedError);
         }
     }
 
-    return parseModule(source).members
+    return module.members
         .filter((member): member is ProcedureNode => member.kind === 'Procedure')
         .flatMap((member) => {
             const expectedError = byProcedureName.get(member.name.toLowerCase());
@@ -282,11 +284,7 @@ function isExpectedErrorRuntimeDiagnosticSuppressed(
     if (range.expectedError === 'any') {
         return true;
     }
-    const expectedNumber = Number(range.expectedError);
-    if (!Number.isSafeInteger(expectedNumber) || expectedNumber <= 0) {
-        return false;
-    }
-    return runtimeErrorNumberForDiagnostic(diagnostic) === expectedNumber;
+    return runtimeErrorNumberForDiagnostic(diagnostic) === range.expectedError;
 }
 
 function isDeterministicRuntimeDiagnostic(code: string | undefined): boolean {

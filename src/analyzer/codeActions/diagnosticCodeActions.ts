@@ -5,7 +5,7 @@ import {
 	explicitCallStatementBareRuntimeRewrite,
 	standaloneEmptyParenthesizedCallStatement,
 } from '../call/callContext';
-import { leadingWhitespace } from '../../vbaStructuralAnalysis';
+import { detectEol, leadingWhitespace } from '../../vbaSourceScan';
 import { ANALYSIS_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/analysisSuppressions';
 import type { VbaDiagnosticData } from '../diagnostics/analyzeModule';
 
@@ -628,6 +628,3 @@ function readPhysicalLine(
 	};
 }
 
-function detectEol(source: string): string {
-	return source.includes('\r\n') ? '\r\n' : '\n';
-}

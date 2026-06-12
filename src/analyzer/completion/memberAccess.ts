@@ -10,6 +10,8 @@
 
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
+import { IDENT_RE, isIdentLike } from '../lexer/tokenHelpers';
+import { completionCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
 import {
 	BodyNode,
@@ -64,6 +66,22 @@ export interface MemberCompletionContext {
 	allowSetAssignmentRefinement?: boolean;
 	/** Host object model to resolve against. Defaults to the Excel model. */
 	model?: HostObjectModel;
+	/**
+	 * Pre-parsed AST of the analyzed source, when the caller already holds one
+	 * (the diagnostics engine parses once per pass and resolves many member
+	 * references). Used instead of re-parsing the full module for With-scan
+	 * windows and declared-binding lookups. Must correspond exactly to the
+	 * `source` string passed to the resolver alongside this context.
+	 */
+	parsedModule?: ModuleNode;
+	/**
+	 * Full-source significant tokens (comments removed, newlines kept), used to
+	 * slice the prefix token stream by offset instead of re-lexing the source
+	 * prefix per dotted reference. Only consulted when a token ends exactly at
+	 * the requested offset; other offsets fall back to the prefix tokenizer.
+	 * Must correspond exactly to the `source` string passed alongside.
+	 */
+	sourceTokens?: readonly VbaToken[];
 }
 
 /** A single member-completion result. */
@@ -100,7 +118,6 @@ export interface ResolvedMemberSurface {
 	exhaustive: boolean;
 }
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PROJECT_TYPE_PREFIX = 'project:';
 const COMBINED_TYPE_PREFIX = 'combined:';
 const COMBINED_TYPE_SEPARATOR = '|';
@@ -143,13 +160,6 @@ function word(token: VbaToken): string {
 	return token.rawText;
 }
 
-function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
-	);
-}
-
 /** A logical-line boundary: a newline or a statement-separating colon. */
 function isBoundary(token: VbaToken): boolean {
 	return token.kind === 'newline' || token.rawText === ':';
@@ -165,12 +175,156 @@ export function resolveMemberCompletions(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): MemberCompletion[] {
-	const prefixText = source.slice(0, Math.max(0, offset));
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit) {
+		return [];
+	}
+	const { currentType, surface, typedPrefix } = hit;
+	const lowerPrefix = typedPrefix.toLowerCase();
+	return surface.members
+		.filter((mem) => mem.name.toLowerCase().startsWith(lowerPrefix))
+		.map((mem) => completionFromSurfaceMember(currentType, surface, mem, ctx));
+}
+
+/**
+ * Resolves the single member named `memberName` at `offset` without building
+ * completion rows (and rendering documentation) for the whole member surface.
+ */
+export function resolveMemberCompletionNamed(
+	source: string,
+	offset: number,
+	memberName: string,
+	ctx: MemberCompletionContext = {},
+): MemberCompletion | undefined {
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit) {
+		return undefined;
+	}
+	const lowerName = memberName.toLowerCase();
+	const mem = hit.surface.members.find((m) => m.name.toLowerCase() === lowerName);
+	return mem
+		? completionFromSurfaceMember(hit.currentType, hit.surface, mem, ctx)
+		: undefined;
+}
+
+/**
+ * Resolves just the source definition locations of the member named
+ * `memberName` ending at `offset`. Reference/rename providers call this once
+ * per textual occurrence, so it skips completion-row construction (signature
+ * lookup, documentation markdown) and bails on a cheap char-level scan when
+ * no member-access dot precedes the name. Callers that already hold the
+ * module's significant prefix tokens can pass them to skip the tokenization.
+ */
+export function resolveMemberDefinitionsAt(
+	source: string,
+	offset: number,
+	memberName: string,
+	ctx: MemberCompletionContext = {},
+	prefixTokens?: VbaToken[],
+): readonly VbaProjectClassMemberDefinition[] {
+	const safeOffset = Math.max(0, Math.min(offset, source.length));
+	if (!precededByMemberAccessDot(source, safeOffset - memberName.length)) {
+		return [];
+	}
+	// Only trust supplied tokens that end exactly with the member name; when a
+	// surrounding token swallows the name (e.g. a bracketed identifier), fall
+	// back to tokenizing the prefix so behavior matches the unsliced path.
+	const last = prefixTokens?.[prefixTokens.length - 1];
+	const tokens =
+		last && last.end === safeOffset &&
+		last.rawText.toLowerCase() === memberName.toLowerCase()
+			? prefixTokens
+			: undefined;
+	const hit = memberSurfaceAtDot(source, safeOffset, ctx, tokens);
+	if (!hit) {
+		return [];
+	}
+	const lowerName = memberName.toLowerCase();
+	return hit.surface.members.find((m) => m.name.toLowerCase() === lowerName)
+		?.definitions ?? [];
+}
+
+/**
+ * Char-level fast path: true when the identifier starting at `nameStart` is
+ * preceded by a member-access dot, allowing for whitespace and `_` line
+ * continuations (the only trivia the lexer permits between the dot and the
+ * member name).
+ */
+function precededByMemberAccessDot(source: string, nameStart: number): boolean {
+	let i = nameStart - 1;
+	for (;;) {
+		while (i >= 0 && (source[i] === ' ' || source[i] === '\t')) {
+			i -= 1;
+		}
+		if (i < 0) {
+			return false;
+		}
+		const ch = source[i];
+		if (ch === '.') {
+			return true;
+		}
+		if (ch === '\n' || ch === '\r') {
+			if (ch === '\n' && i > 0 && source[i - 1] === '\r') {
+				i -= 1;
+			}
+			i -= 1;
+			while (i >= 0 && (source[i] === ' ' || source[i] === '\t')) {
+				i -= 1;
+			}
+			if (i < 0 || source[i] !== '_') {
+				return false;
+			}
+			i -= 1;
+			continue;
+		}
+		return false;
+	}
+}
+
+/**
+ * Significant prefix tokens (comments removed, newlines kept) for `offset`.
+ * When the context carries full-source tokens and a token ends exactly at
+ * `offset`, slices the shared stream instead of re-lexing the prefix; the two
+ * paths produce identical tokens because the cut sits on a token boundary.
+ */
+function prefixSignificantTokens(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): VbaToken[] {
+	const shared = ctx.sourceTokens;
+	if (shared && shared.length > 0) {
+		// Binary search for the last token with end <= offset.
+		let lo = 0;
+		let hi = shared.length - 1;
+		let found = -1;
+		while (lo <= hi) {
+			const mid = (lo + hi) >> 1;
+			if (shared[mid].end <= offset) {
+				found = mid;
+				lo = mid + 1;
+			} else {
+				hi = mid - 1;
+			}
+		}
+		if (found >= 0 && shared[found].end === offset) {
+			return shared.slice(0, found + 1);
+		}
+	}
+	return completionCursorContext(source, offset).significantTokens;
+}
+
+function memberSurfaceAtDot(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+	prefixTokens?: VbaToken[],
+): { currentType: string; surface: MemberSurface; typedPrefix: string } | undefined {
 	// Keep newline tokens: they mark statement boundaries so a dangling
 	// member-access dot on a previous line is not merged into this chain.
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	const tokens = prefixTokens ?? prefixSignificantTokens(source, offset, ctx);
 	if (tokens.length === 0) {
-		return [];
+		return undefined;
 	}
 
 	// Identify the typed member prefix (text after the dot) and the dot itself.
@@ -181,22 +335,18 @@ export function resolveMemberCompletions(
 		i -= 1;
 	}
 	if (i < 0 || tokens[i].rawText !== '.') {
-		return [];
+		return undefined;
 	}
 	// tokens[i] is the member-access dot; the receiver chain ends at i-1.
 	const currentType = receiverTypeFromTokens(tokens, i, source, offset, ctx);
 	if (!currentType) {
-		return [];
+		return undefined;
 	}
-
-	const lowerPrefix = typedPrefix.toLowerCase();
 	const surface = memberSurfaceForType(currentType, ctx);
 	if (!surface) {
-		return [];
+		return undefined;
 	}
-	return surface.members
-		.filter((mem) => mem.name.toLowerCase().startsWith(lowerPrefix))
-		.map((mem) => completionFromSurfaceMember(currentType, surface, mem, ctx));
+	return { currentType, surface, typedPrefix };
 }
 
 /**
@@ -311,8 +461,7 @@ export function resolveReceiverTypeAt(
 	offset: number,
 	ctx: MemberCompletionContext = {},
 ): string | undefined {
-	const prefixText = source.slice(0, Math.max(0, offset));
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	const tokens = prefixSignificantTokens(source, offset, ctx);
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -600,7 +749,7 @@ function resolveRoot(
 		}
 		return projectKey ? projectTypeKey(projectKey) : undefined;
 	}
-	const declared = findDeclaredBinding(source, offset, root);
+	const declared = findDeclaredBinding(source, offset, root, ctx);
 	if (declared) {
 		if (declared.asType) {
 			const declaredObjectType = resolveDeclaredObjectType(declared.asType, ctx, model);
@@ -643,7 +792,7 @@ function withReceiverTypeAt(
 	ctx: MemberCompletionContext,
 ): string | undefined {
 	let currentType: string | undefined;
-	for (const expression of activeWithExpressionsAt(source, offset)) {
+	for (const expression of activeWithExpressionsAt(source, offset, ctx)) {
 		const explicitType = receiverTypeFromExpressionTokens(
 			expression.tokens,
 			source,
@@ -674,8 +823,12 @@ interface ActiveWithExpression {
 	sliceStart: number;
 }
 
-function activeWithExpressionsAt(source: string, offset: number): ActiveWithExpression[] {
-	const scan = activeWithScanWindow(source, offset);
+function activeWithExpressionsAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext,
+): ActiveWithExpression[] {
+	const scan = activeWithScanWindow(source, offset, ctx);
 	const stack: ActiveWithExpression[] = [];
 	let statement: VbaToken[] = [];
 	const flush = (): void => {
@@ -699,9 +852,10 @@ function activeWithExpressionsAt(source: string, offset: number): ActiveWithExpr
 function activeWithScanWindow(
 	source: string,
 	offset: number,
+	ctx: MemberCompletionContext,
 ): { text: string; sliceStart: number } {
 	const safeOffset = Math.max(0, offset);
-	const module: ModuleNode = parseModule(source);
+	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const enclosing = module.members.find(
 		(mem): mem is ProcedureNode =>
 			mem.kind === 'Procedure' &&
@@ -1069,7 +1223,7 @@ function findSetAssignedObjectType(
 	name: string,
 	ctx: MemberCompletionContext,
 ): string | undefined {
-	const module: ModuleNode = parseModule(source);
+	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
 	const enclosing = module.members.find(
 		(mem): mem is ProcedureNode =>
@@ -1176,8 +1330,9 @@ function findDeclaredBinding(
 	source: string,
 	offset: number,
 	name: string,
+	ctx: MemberCompletionContext,
 ): DeclaredBinding | undefined {
-	const module: ModuleNode = parseModule(source);
+	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const lower = name.toLowerCase();
 
 	const enclosing = module.members.find(

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { writeAgentVbaTestArtifacts } from '../src/agentVbaTestArtifacts';
+import { agentVbaTestArtifactPayloadFromPipeline } from '../src/agentVbaTestArtifacts';
+import { writeVbaTestRunPipelineArtifacts } from '../src/vbaTestRunPipeline';
 import type { VbaTestCase, VbaTestRunReport } from '../src/vbaTestRunner';
 import { writeWorkbookSettings } from '../src/workbookSettings';
 
@@ -72,7 +73,9 @@ describe('agent VBA test artifacts', () => {
             },
         });
 
-        const artifacts = await writeAgentVbaTestArtifacts(reportFor(workbook), []);
+        const artifacts = agentVbaTestArtifactPayloadFromPipeline(
+            await writeVbaTestRunPipelineArtifacts({ report: reportFor(workbook), hostEvents: [] }),
+        );
 
         expect(artifacts.ok).toBe(true);
         if (!artifacts.ok) {

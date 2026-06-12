@@ -1,38 +1,10 @@
-import { vi, describe, it, expect } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as nodePath from 'path';
 import type * as VscodeType from 'vscode';
 
-vi.mock('vscode', () => {
-    class Disposable {
-        constructor(private readonly fn: () => void = () => undefined) {}
-        dispose(): void { this.fn(); }
-    }
-    class EventEmitter<T> {
-        readonly events: T[] = [];
-        readonly event = () => new Disposable();
-        fire(value: T): void { this.events.push(value); }
-        dispose(): void { /* no-op */ }
-    }
-    return {
-        Disposable,
-        EventEmitter,
-        FileType: { File: 1 },
-        FileChangeType: { Changed: 1 },
-        FileSystemError: {
-            NoPermissions: (message: string) => new Error(message),
-            Unavailable: (message: string) => new Error(message),
-        },
-        window: {
-            showWarningMessage: vi.fn(() => Promise.resolve(undefined)),
-        },
-        commands: {
-            executeCommand: vi.fn(),
-        },
-        Uri: {
-            file: (fsPath: string) => ({ fsPath, path: fsPath, toString: () => fsPath }),
-            parse: (value: string) => ({ path: value, toString: () => value }),
-        },
-    };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 vi.mock('../src/liveShare', () => ({
     decodeRemoteModuleUri: vi.fn(),
@@ -99,9 +71,10 @@ describe('decodeModuleUri', () => {
 
 describe('workbook identity helpers', () => {
     it('normalizes workbook paths case-insensitively on Windows only', () => {
-        expect(workbookIdentityKey('C:/Repo/Book.xlsm', 'win32')).toBe('c:/repo/book.xlsm');
+        expect(workbookIdentityKey('C:/Repo/Book.xlsm', 'win32')).toBe('c:\\repo\\book.xlsm');
         expect(workbookIdentityKey('/Users/me/Book.xlsm', 'darwin')).toBe('/Users/me/Book.xlsm');
         expect(sameWorkbookPath('C:/Repo/Book.xlsm', 'c:/repo/book.xlsm', 'win32')).toBe(true);
+        expect(sameWorkbookPath('C:/Repo/Book.xlsm', 'C:\\Repo\\Book.xlsm', 'win32')).toBe(true);
         expect(sameWorkbookPath('/repo/Book.xlsm', '/repo/book.xlsm', 'linux')).toBe(false);
     });
 
@@ -112,8 +85,8 @@ describe('workbook identity helpers', () => {
 });
 
 describe('XlideFileSystemProvider stats', () => {
-    it('uses provider-owned initial module mtimes without consulting the backing workbook file', () => {
-        const uri = fakeUri(moduleUriPath('C:/Users/me/book.xlsm'));
+    it('falls back to provider-owned mtimes when the workbook file cannot be statted', () => {
+        const uri = fakeUri(moduleUriPath('C:/xlide-does-not-exist/book.xlsm'));
         const firstProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
         const secondProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
 
@@ -164,5 +137,92 @@ describe('XlideFileSystemProvider stats', () => {
         const after = provider.stat(uri);
         expect(after.mtime).toBeGreaterThan(before.mtime);
         expect(after.size).toBe(Buffer.byteLength('Sub Saved()\nEnd Sub\n', 'utf-8'));
+    });
+});
+
+describe('XlideFileSystemProvider stats (real workbook file)', () => {
+    const t0 = Date.parse('2024-01-01T00:00:00Z');
+    const t1 = Date.parse('2024-01-02T00:00:00Z');
+    const t2 = Date.parse('2024-01-03T00:00:00Z');
+    let tempDir: string;
+    let workbookPath: string;
+
+    beforeEach(() => {
+        tempDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'xlide-fs-stats-'));
+        workbookPath = nodePath.join(tempDir, 'book.xlsm');
+        fs.writeFileSync(workbookPath, 'stub');
+        setWorkbookMtime(t0);
+    });
+
+    afterEach(() => {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    function setWorkbookMtime(ms: number): void {
+        fs.utimesSync(workbookPath, new Date(ms), new Date(ms));
+    }
+
+    it('derives module mtimes from the backing workbook file', () => {
+        const provider = new XlideFileSystemProvider({ call: vi.fn() } as never);
+        const uri = fakeUri(moduleUriPath(workbookPath));
+
+        const stat = provider.stat(uri);
+
+        expect(stat.mtime).toBe(t0);
+        expect(stat.ctime).toBe(t0);
+    });
+
+    it('bumps every open module stat when the workbook changes out of band', () => {
+        const provider = new XlideFileSystemProvider({ call: vi.fn() } as never);
+        const uriA = fakeUri(moduleUriPath(workbookPath, 'ModuleA'));
+        const uriB = fakeUri(moduleUriPath(workbookPath, 'ModuleB'));
+        expect(provider.stat(uriA).mtime).toBe(t0);
+        expect(provider.stat(uriB).mtime).toBe(t0);
+
+        setWorkbookMtime(t1);
+
+        expect(provider.stat(uriA).mtime).toBe(t1);
+        expect(provider.stat(uriB).mtime).toBe(t1);
+    });
+
+    it('does not flag sibling modules when the provider itself saves the workbook', async () => {
+        const bridge = {
+            call: vi.fn(async () => {
+                // The bridge saves the workbook in place
+                setWorkbookMtime(t1);
+                return { ok: true, signatureDropped: false };
+            }),
+        };
+        const provider = new XlideFileSystemProvider(bridge as never);
+        const uriA = fakeUri(moduleUriPath(workbookPath, 'ModuleA'));
+        const uriB = fakeUri(moduleUriPath(workbookPath, 'ModuleB'));
+        expect(provider.stat(uriA).mtime).toBe(t0);
+        expect(provider.stat(uriB).mtime).toBe(t0);
+
+        await provider.writeFile(uriA, Buffer.from('Sub A()\nEnd Sub\n'), {
+            create: false,
+            overwrite: true,
+        });
+
+        expect(provider.stat(uriA).mtime).toBe(t1);
+        expect(provider.stat(uriB).mtime).toBe(t0);
+
+        // ...but a later out-of-band change (e.g. Excel VBE edit) is seen
+        setWorkbookMtime(t2);
+        expect(provider.stat(uriB).mtime).toBe(t2);
+    });
+
+    it('adopts the new workbook mtime via notifyFileChanged without disturbing siblings', () => {
+        const provider = new XlideFileSystemProvider({ call: vi.fn() } as never);
+        const uriA = fakeUri(moduleUriPath(workbookPath, 'ModuleA'));
+        const uriB = fakeUri(moduleUriPath(workbookPath, 'ModuleB'));
+        expect(provider.stat(uriA).mtime).toBe(t0);
+        expect(provider.stat(uriB).mtime).toBe(t0);
+
+        setWorkbookMtime(t1);
+        provider.notifyFileChanged(uriA);
+
+        expect(provider.stat(uriA).mtime).toBe(t1);
+        expect(provider.stat(uriB).mtime).toBe(t0);
     });
 });

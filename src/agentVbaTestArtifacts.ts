@@ -1,14 +1,9 @@
 import {
-    writeVbaTestRunArtifacts,
     type VbaTestCiStatus,
     type VbaTestRunArtifactWriteResult,
 } from './vbaTestArtifacts';
-import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
-import type { VbaTestRunReport } from './vbaTestRunner';
-import {
-    effectiveWorkbookTestSettings,
-    type EffectiveWorkbookTestSettings,
-} from './workbookTestSettings';
+import type { VbaTestRunPipelineArtifacts } from './vbaTestRunPipeline';
+import type { EffectiveWorkbookTestSettings } from './workbookTestSettings';
 
 export interface AgentVbaTestArtifactSettingsPayload {
     artifactFolder: string;
@@ -41,23 +36,16 @@ export type AgentVbaTestArtifactPayload =
     | AgentVbaTestArtifactSuccessPayload
     | AgentVbaTestArtifactErrorPayload;
 
-export async function writeAgentVbaTestArtifacts(
-    report: VbaTestRunReport,
-    hostEvents: readonly VbaTestHostOracleEvent[],
-): Promise<AgentVbaTestArtifactPayload> {
-    try {
-        const settings = await effectiveWorkbookTestSettings(report.filePath);
-        const artifacts = await writeVbaTestRunArtifacts(report, hostEvents, {
-            outputFolder: settings.artifactFolder,
-            retention: settings.artifactRetention,
-        });
-        return agentVbaTestArtifactPayload(artifacts, settings);
-    } catch (error) {
+export function agentVbaTestArtifactPayloadFromPipeline(
+    artifacts: VbaTestRunPipelineArtifacts,
+): AgentVbaTestArtifactPayload {
+    if (!artifacts.ok) {
         return {
             ok: false,
-            error: errorMessage(error),
+            error: artifacts.error,
         };
     }
+    return agentVbaTestArtifactPayload(artifacts.artifacts, artifacts.settings);
 }
 
 export function agentVbaTestArtifactPayload(
@@ -83,8 +71,4 @@ export function agentVbaTestArtifactPayload(
             settingsPath: settings.settingsPath,
         },
     };
-}
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }

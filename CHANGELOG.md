@@ -2,6 +2,76 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.3.0] - 2026-06-11
+
+Version 2.3.0 is the audit-remediation release: roughly 205 commits of
+performance, correctness, and packaging hardening across the analyzer, editor
+providers, commands, webviews, Python bridge, and VSIX layout. The headline is
+the VBA analysis engine, whose quadratic hot paths were rebuilt to scale
+near-linearly with module size.
+
+Internally, the release also restructured the code it hardened: the
+diagnostics engine moved to a rule registry with per-family rule modules,
+commands split into per-domain modules, webview HTML/CSS/JS moved to template
+assets under `assets/webview/`, workbook module operations and the
+per-workbook project index became shared services, and the C# and PowerShell
+test-host sources were externalized to `assets/testhost/`. The TypeScript
+test suite grew from 1,604 to 1,735 tests over the effort, joined by new
+real-workbook Python backend tests.
+
+### Changed
+
+- **Analysis engine performance** - each analysis pass now lexes and parses a
+  module once and shares statement tokens, signature tables, type
+  environments, and member resolution across all rules, instead of re-lexing
+  per statement and re-parsing the module for every dotted reference.
+  Measured on a ~4,000-line module, full analysis dropped from ~115 s to
+  ~0.95 s (~122x faster), and warm member completion resolves ~350x faster.
+- **One shared project index per workbook** - diagnostics, completion, hover,
+  signature help, navigation, and semantic tokens now read a single
+  incremental per-workbook project index that folds in module changes,
+  replacing four divergent caches that each rebuilt project context while
+  typing.
+- **Faster startup** - the Python backend now starts lazily on first use
+  (expanding a workbook, an XLIDE command, or the sidebar becoming visible)
+  instead of spawning in every window at activation, the Excel host object
+  model builds lazily, and the extension bundle is smaller; measured window
+  startup improved by about 12%. Workspaces without Excel workbooks never
+  start Python.
+- Rebuilt Smart Enter on the analyzer lexer's stripped-line substrate, so
+  statements hidden in trailing `: Rem ...` comments no longer fool block
+  auto-close, `With` continuation, or loop-iterator sync.
+- Shrank the VSIX download from about 2.1 MB to about 536 KB: the marketplace
+  icon went from 1.69 MB to a 28 KB 256x256 PNG, dev-only commands are hidden
+  from the Command Palette outside development mode, and local development
+  configuration and coverage output no longer leak into the package.
+
+### Fixed
+
+- Fixed silent data loss when saving a module that had also been edited in
+  the Excel VBE: module file stats now derive from the real workbook file
+  mtime, so VS Code's save-conflict detection prompts instead of silently
+  overwriting the newer workbook copy.
+- Fixed `getWorkbookInfo` and `listSheets` crashing on every workbook with
+  openpyxl 3.1 and newer, where `ReadOnlyWorksheet` lost its `dimensions`
+  property and `defined_names` became a dict.
+- Fixed the lexer reading a file-number `#` (for example `Write #1, x`) as a
+  date-literal opener, which swallowed the rest of the statement's tokens.
+- Space-triggered completion no longer fires the full resolver cascade for
+  spaces typed in ordinary code; `As `-type completion, `End`/`Exit`
+  keywords, event stubs, and labels still work.
+- Module-name input boxes now share one validator, closing the creation path
+  that accepted digit-leading module names VBA rejects.
+- The `xlide_createWorkbook` agent tool now refuses to overwrite an existing
+  workbook instead of silently replacing it.
+- A crashed Python backend now offers a Restart Backend action instead of
+  asking for a whole window reload.
+- Live Share guest writes are now recorded in the host's write audit and
+  refresh the host's open editors instead of clobbering the guest's change on
+  the next save.
+- Stale dirty-module backups are now pruned on activation instead of
+  accumulating in extension global storage.
+
 ## [2.1.2] - 2026-06-09
 
 ### Changed

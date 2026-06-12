@@ -100,14 +100,4 @@ export function codeTokens(statement: LogicalStatement): VbaToken[] {
 	return statement.tokens.filter((t) => t.kind !== 'comment');
 }
 
-/**
- * Canonical (case-folded) text of a token used for keyword matching. For
- * keyword tokens the lexer already provides canonicalText; otherwise we lower
- * the raw text because VBA is case-insensitive (MS-VBAL 3.3.5).
- */
-export function tokenWord(token: VbaToken | undefined): string {
-	if (!token) {
-		return '';
-	}
-	return (token.canonicalText ?? token.rawText).toLowerCase();
-}
+export { tokenWord } from '../lexer/tokenHelpers';

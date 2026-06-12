@@ -1,4 +1,4 @@
-// Type-position completion (Phase 6: IntelliSense and Completions).
+﻿// Type-position completion (Phase 6: IntelliSense and Completions).
 //
 // Offers a list of known type names when the cursor is in a declaration type
 // position, i.e. immediately after `As` (or `As New`), or after an expression
@@ -12,10 +12,10 @@
 // This module is pure (lexer + host model only); no `vscode` dependency, so it
 // is unit-tested directly. The VS Code provider supplies the project type names.
 
-import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { completionCursorContext } from './cursorContext';
 import {
-	EXCEL_OBJECT_MODEL,
+	getExcelObjectModel,
 	type HostObjectModel,
 } from '../host/excelObjectModel';
 import type { VbaProjectTypeKind } from '../symbols/symbolModel';
@@ -99,18 +99,6 @@ const OLE_AUTOMATION_TYPES: readonly TypeCompletion[] = [
 	},
 ];
 
-/** Non-trivia, non-comment, non-newline tokens of a prefix slice. */
-function meaningfulTokens(slice: string): VbaToken[] {
-	const out: VbaToken[] = [];
-	for (const tok of tokenize(slice)) {
-		if (tok.kind === 'comment' || tok.kind === 'newline') {
-			continue;
-		}
-		out.push(tok);
-	}
-	return out;
-}
-
 function isWordToken(tok: VbaToken): boolean {
 	return (
 		tok.kind === 'identifier' ||
@@ -190,8 +178,7 @@ function readPartialTypeName(tokens: readonly VbaToken[]): {
 	return { prefix, qualifier, memberPrefix, beforeIndex: i };
 }
 
-function detectTypePosition(slice: string): TypePosition | undefined {
-	const tokens = meaningfulTokens(slice);
+function detectTypePosition(tokens: readonly VbaToken[]): TypePosition | undefined {
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -287,7 +274,7 @@ function projectTypeCandidates(projectTypes: readonly ProjectTypeName[]): TypeCo
 export function typeCompletionCandidates(
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
-	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
+	const model = ctx.model ?? getExcelObjectModel();
 	const seen = new Set<string>();
 	const out: TypeCompletion[] = [];
 	const add = (
@@ -440,11 +427,14 @@ export function resolveTypeCompletions(
 	offset: number,
 	ctx: TypeCompletionContext = {},
 ): TypeCompletion[] {
-	const pos = detectTypePosition(source.slice(0, offset));
+	const pos = detectTypePosition(
+		completionCursorContext(source, offset).significantTokens
+			.filter((tok) => tok.kind !== 'newline'),
+	);
 	if (!pos) {
 		return [];
 	}
-	const model = ctx.model ?? EXCEL_OBJECT_MODEL;
+	const model = ctx.model ?? getExcelObjectModel();
 	if (pos.qualifier !== undefined) {
 		const memberPrefix = (pos.memberPrefix ?? '').toLowerCase();
 		return [

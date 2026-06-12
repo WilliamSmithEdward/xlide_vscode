@@ -32,6 +32,11 @@
 import { VbaToken } from '../lexer/tokenKinds';
 import { tokenize } from '../lexer/tokenize';
 import {
+	matchParenFrom,
+	splitTopLevelTokenGroups,
+	tokensWithoutLeadingLineNumber,
+} from '../lexer/tokenHelpers';
+import {
 	AttributeNode,
 	BodyNode,
 	ConditionalDirectiveNode,
@@ -76,6 +81,7 @@ import {
 
 interface DeclaredNameInfo {
 	name: string;
+	nameSpan?: Span;
 	nextIndex: number;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
@@ -102,10 +108,31 @@ const CLOSER_LABELS: Readonly<Record<string, string>> = {
 	endenum: 'End Enum',
 };
 
+// Editor surfaces (completion, hover, signature help, references) re-parse
+// the same module text many times within one request, so a tiny value-keyed
+// memo collapses those parses to one. The AST is treated as immutable by all
+// consumers; callers must not mutate the returned nodes.
+const PARSE_CACHE_MAX = 2;
+const parseCache: { source: string; module: ModuleNode }[] = [];
+
 /** Parse VBA source text into a ModuleNode AST. Never throws. */
 export function parseModule(source: string): ModuleNode {
-	const tokens = tokenize(source);
-	return new Parser(source, tokens).parse();
+	for (let i = 0; i < parseCache.length; i += 1) {
+		if (parseCache[i].source === source) {
+			const hit = parseCache[i];
+			if (i > 0) {
+				parseCache.splice(i, 1);
+				parseCache.unshift(hit);
+			}
+			return hit.module;
+		}
+	}
+	const module = new Parser(source, tokenize(source)).parse();
+	parseCache.unshift({ source, module });
+	if (parseCache.length > PARSE_CACHE_MAX) {
+		parseCache.pop();
+	}
+	return module;
 }
 
 class Parser {
@@ -254,6 +281,7 @@ class Parser {
 			? this.parseDeclaredName(tokens, nameIndex, true)
 			: {
 				name: nameToken ? this.stripBrackets(nameToken.rawText) : '',
+				nameSpan: this.tokenSpan(nameToken),
 				nextIndex: nameIndex + 1,
 			};
 		const ptrSafe = kindIndex >= 0 && tokens
@@ -290,6 +318,7 @@ class Parser {
 		return {
 			kind: 'Declare',
 			name: declaredName.name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -322,6 +351,7 @@ class Parser {
 		return {
 			kind: 'Event',
 			name,
+			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			params,
 			span: { start: stmt.start, end: stmt.end },
@@ -492,6 +522,7 @@ class Parser {
 		return {
 			kind: 'VariableDecl',
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -538,6 +569,7 @@ class Parser {
 		return {
 			kind: 'Type',
 			name,
+			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			fields,
 			closed,
@@ -568,6 +600,7 @@ class Parser {
 		return {
 			kind: 'TypeField',
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -620,6 +653,7 @@ class Parser {
 				members.push({
 					kind: 'EnumMember',
 					name: this.stripBrackets(mtokens[0].rawText),
+					nameSpan: this.tokenSpan(mtokens[0]),
 					valueRaw,
 					span: { start: stmt.start, end: stmt.end },
 				});
@@ -631,6 +665,7 @@ class Parser {
 		return {
 			kind: 'Enum',
 			name,
+			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			members,
 			closed,
@@ -760,6 +795,7 @@ class Parser {
 			kind: 'Procedure',
 			procKind,
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -879,6 +915,7 @@ class Parser {
 		return {
 			kind: 'Parameter',
 			name,
+			nameSpan: declaredName.nameSpan,
 			typeSuffix: declaredName.typeSuffix,
 			typeSuffixSpan: declaredName.typeSuffixSpan,
 			hasAsClause,
@@ -1285,25 +1322,7 @@ class Parser {
 
 	/** Split tokens[from, to) into comma-separated groups at paren depth 0. */
 	private splitTopLevelCommas(tokens: VbaToken[], from: number, to: number): VbaToken[][] {
-		const groups: VbaToken[][] = [];
-		let current: VbaToken[] = [];
-		let depth = 0;
-		for (let i = from; i < to; i++) {
-			const t = tokens[i];
-			if (t.rawText === '(') {
-				depth++;
-			} else if (t.rawText === ')') {
-				depth--;
-			}
-			if (depth === 0 && t.rawText === ',') {
-				groups.push(current);
-				current = [];
-				continue;
-			}
-			current.push(t);
-		}
-		groups.push(current);
-		return groups;
+		return splitTopLevelTokenGroups(tokens, from, ',', to);
 	}
 
 	private directiveCondition(
@@ -1335,20 +1354,10 @@ class Parser {
 		};
 	}
 
-	/** Index just past the ')' matching the '(' at lparen. */
+	/** Index of the matching ')', or the last token when unmatched. */
 	private matchParen(tokens: VbaToken[], lparen: number): number {
-		let depth = 0;
-		for (let i = lparen; i < tokens.length; i++) {
-			if (tokens[i].rawText === '(') {
-				depth++;
-			} else if (tokens[i].rawText === ')') {
-				depth--;
-				if (depth === 0) {
-					return i;
-				}
-			}
-		}
-		return tokens.length - 1;
+		const close = matchParenFrom(tokens, lparen);
+		return close >= 0 ? close : tokens.length - 1;
 	}
 
 	/** Index just past a parenthesized group starting at index i (on '('). */
@@ -1413,6 +1422,7 @@ class Parser {
 	): DeclaredNameInfo {
 		const nameToken = tokens[index];
 		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
+		const nameSpan = this.tokenSpan(nameToken);
 		const suffixToken = allowTypeSuffix ? tokens[index + 1] : undefined;
 		if (
 			nameToken &&
@@ -1422,12 +1432,18 @@ class Parser {
 		) {
 			return {
 				name,
+				nameSpan,
 				nextIndex: index + 2,
 				typeSuffix: suffixToken.rawText,
 				typeSuffixSpan: { start: suffixToken.start, end: suffixToken.end },
 			};
 		}
-		return { name, nextIndex: index + 1 };
+		return { name, nameSpan, nextIndex: index + 1 };
+	}
+
+	/** Span of one token, or undefined when the token is missing. */
+	private tokenSpan(token: VbaToken | undefined): Span | undefined {
+		return token ? { start: token.start, end: token.end } : undefined;
 	}
 
 	private stripBrackets(raw: string): string {
@@ -1481,10 +1497,5 @@ class Parser {
 }
 
 function codeTokensAfterLineNumber(statement: LogicalStatement): VbaToken[] {
-	const tokens = codeTokens(statement);
-	return tokens.length > 1 && isDecimalLineNumber(tokens[0]) ? tokens.slice(1) : tokens;
-}
-
-function isDecimalLineNumber(token: VbaToken | undefined): boolean {
-	return token?.kind === 'integerLiteral' && /^\d+$/.test(token.rawText);
+	return tokensWithoutLeadingLineNumber(codeTokens(statement));
 }

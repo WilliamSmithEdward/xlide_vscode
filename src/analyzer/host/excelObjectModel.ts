@@ -368,11 +368,6 @@ function mergeHostConstants(
 	return out;
 }
 
-const EXCEL_HOST_ENUM_CONSTANTS = mergeHostConstants(
-	OFFICE_REFERENCE_ENUM_CONSTANTS,
-	EXCEL_REFERENCE_ENUM_CONSTANTS,
-);
-
 function promotedExcelReferenceProvenance(displayName: string): string {
 	return EXCEL_REFERENCE_PROVENANCE[displayName] ?? `reference/excel/json/${displayName}.json`;
 }
@@ -411,7 +406,19 @@ function promotedExcelHostTypes(displayNames: readonly string[]): Record<string,
 	return types;
 }
 
-export const EXCEL_OBJECT_MODEL: HostObjectModel = {
+let EXCEL_OBJECT_MODEL_CACHE: HostObjectModel | undefined;
+
+/**
+ * Lazily builds the Excel host object model on first access so the
+ * generated-table merge (229 types, ~5,900 member copies) is not paid at
+ * extension startup.
+ */
+export function getExcelObjectModel(): HostObjectModel {
+	EXCEL_OBJECT_MODEL_CACHE ??= buildExcelObjectModel();
+	return EXCEL_OBJECT_MODEL_CACHE;
+}
+
+const buildExcelObjectModel = (): HostObjectModel => ({
 	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel and Office reference enum constants; promoted Excel reference metadata for ${EXCEL_REFERENCE_PROMOTED_TYPES.join(', ')}; hard member-not-found diagnostics limited to ${EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES.join(', ')}; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
 	aliases: {
 		...promotedExcelReferenceAliases(),
@@ -470,7 +477,10 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 		Worksheets: WORKSHEETS,
 		Sheets: SHEETS,
 	},
-	constants: EXCEL_HOST_ENUM_CONSTANTS,
+	constants: mergeHostConstants(
+		OFFICE_REFERENCE_ENUM_CONSTANTS,
+		EXCEL_REFERENCE_ENUM_CONSTANTS,
+	),
 	types: {
 		...promotedExcelHostTypes(EXCEL_REFERENCE_PROMOTED_TYPES),
 		[APPLICATION]: {
@@ -3054,4 +3064,4 @@ export const EXCEL_OBJECT_MODEL: HostObjectModel = {
 			item: 'Item(Index) As ChartObject',
 		},
 	},
-};
+});

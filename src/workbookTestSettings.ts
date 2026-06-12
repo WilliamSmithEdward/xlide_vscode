@@ -6,10 +6,8 @@ import {
     readWorkbookSettings,
     resolveWorkbookSetting,
     settingsPathForWorkbook,
-    updateWorkbookSettings,
     type WorkbookSettingSource,
     type WorkbookSettingsConfig,
-    type WorkbookTestSettingsConfig,
 } from './workbookSettings';
 
 export type WorkbookTestSettingsSource = WorkbookSettingSource;
@@ -20,11 +18,6 @@ export interface EffectiveWorkbookTestSettings {
     artifactRetention: number;
     artifactRetentionSource: WorkbookTestSettingsSource;
     settingsPath: string;
-}
-
-export interface WorkbookTestSettingsPatch {
-    artifactFolder?: string;
-    artifactRetention?: number;
 }
 
 export async function effectiveWorkbookTestSettings(
@@ -57,38 +50,3 @@ export function effectiveWorkbookTestSettingsFromConfig(
     };
 }
 
-export async function updateWorkbookTestSettings(
-    workbookPath: string,
-    patch: WorkbookTestSettingsPatch,
-): Promise<EffectiveWorkbookTestSettings> {
-    await updateWorkbookSettings(workbookPath, (existing) =>
-        workbookSettingsWithTestPatch(existing, patch),
-    );
-    return effectiveWorkbookTestSettings(workbookPath);
-}
-
-export function workbookSettingsWithTestPatch(
-    existing: WorkbookSettingsConfig,
-    patch: WorkbookTestSettingsPatch,
-): WorkbookSettingsConfig {
-    return {
-        ...existing,
-        tests: compactTestSettings({
-            ...existing.tests,
-            ...patch,
-        }),
-    };
-}
-
-function compactTestSettings(
-    settings: WorkbookTestSettingsConfig,
-): WorkbookTestSettingsConfig | undefined {
-    const compacted: WorkbookTestSettingsConfig = {};
-    if (settings.artifactFolder !== undefined) {
-        compacted.artifactFolder = settings.artifactFolder;
-    }
-    if (settings.artifactRetention !== undefined) {
-        compacted.artifactRetention = settings.artifactRetention;
-    }
-    return Object.keys(compacted).length > 0 ? compacted : undefined;
-}

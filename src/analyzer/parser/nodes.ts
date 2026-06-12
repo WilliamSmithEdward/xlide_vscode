@@ -119,6 +119,8 @@ export interface ConditionalDirectiveNode extends NodeBase {
 export interface DeclareNode extends NodeBase {
 	kind: 'Declare';
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
 	hasAsClause?: boolean;
@@ -135,6 +137,8 @@ export interface DeclareNode extends NodeBase {
 export interface EventNode extends NodeBase {
 	kind: 'Event';
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	visibility?: string;
 	params: ParameterNode[];
 }
@@ -155,6 +159,8 @@ export interface VariableGroupNode extends NodeBase {
 export interface VariableDeclNode extends NodeBase {
 	kind: 'VariableDecl';
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
 	hasAsClause?: boolean;
@@ -170,6 +176,8 @@ export interface VariableDeclNode extends NodeBase {
 export interface TypeNode extends NodeBase {
 	kind: 'Type';
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	visibility?: string;
 	fields: TypeFieldNode[];
 	closed: boolean;
@@ -178,6 +186,8 @@ export interface TypeNode extends NodeBase {
 export interface TypeFieldNode extends NodeBase {
 	kind: 'TypeField';
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
 	hasAsClause?: boolean;
@@ -190,6 +200,8 @@ export interface TypeFieldNode extends NodeBase {
 export interface EnumNode extends NodeBase {
 	kind: 'Enum';
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	visibility?: string;
 	members: EnumMemberNode[];
 	closed: boolean;
@@ -198,6 +210,8 @@ export interface EnumNode extends NodeBase {
 export interface EnumMemberNode extends NodeBase {
 	kind: 'EnumMember';
 	name: string;
+	/** Span of the declared name token. */
+	nameSpan?: Span;
 	/** Raw member value expression after `=`, when present. */
 	valueRaw?: string;
 }
@@ -209,6 +223,8 @@ export interface ProcedureNode extends NodeBase {
 	kind: 'Procedure';
 	procKind: ProcKind;
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
 	hasAsClause?: boolean;
@@ -225,6 +241,8 @@ export interface ProcedureNode extends NodeBase {
 export interface ParameterNode extends NodeBase {
 	kind: 'Parameter';
 	name: string;
+	/** Span of the declared name token (absent when the name is missing). */
+	nameSpan?: Span;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
 	hasAsClause?: boolean;

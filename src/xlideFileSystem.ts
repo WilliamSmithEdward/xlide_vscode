@@ -1,33 +1,38 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import type { LiveShareIntegration } from './liveShare';
 import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
-import { errorCategoryForSupportLog } from './xlideCommandLog';
+import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
+import { errorMessage } from './util/errors';
+import { workbookIdentityKey } from './workbookIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
 export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
-export function workbookIdentityKey(
-    workbookPath: string,
-    platform: NodeJS.Platform = process.platform,
-): string {
-    return platform === 'win32' ? workbookPath.toLowerCase() : workbookPath;
+export { moduleIdentityKey, sameWorkbookPath, workbookIdentityKey } from './workbookIdentity';
+
+/** True for any VBA document: by language id or by xlide scheme. */
+export function isVbaDocument(document: vscode.TextDocument): boolean {
+    return document.languageId === 'vba'
+        || document.languageId === XLIDE_VBA_LANGUAGE_ID
+        || document.uri.scheme === XLIDE_SCHEME;
 }
 
-export function sameWorkbookPath(
-    a: string,
-    b: string,
-    platform: NodeJS.Platform = process.platform,
-): boolean {
-    return workbookIdentityKey(a, platform) === workbookIdentityKey(b, platform);
+/** True for xlide-scheme documents backed by a local workbook (not Live Share). */
+export function isLocalXlideDocument(document: vscode.TextDocument): boolean {
+    return document.uri.scheme === XLIDE_SCHEME
+        && document.uri.authority !== XLIDE_LIVESHARE_AUTHORITY;
 }
 
-export function moduleIdentityKey(moduleName: string): string {
-    return moduleName.toLowerCase();
+/** The active editor when it shows a local workbook VBA module, else undefined. */
+export function activeLocalVbaEditor(): vscode.TextEditor | undefined {
+    const editor = vscode.window.activeTextEditor;
+    return editor && isLocalXlideDocument(editor.document) ? editor : undefined;
 }
 
 /**
@@ -56,8 +61,7 @@ export function notifySignatureDropped(filePath: string, signatureDropped: boole
  * caused by Excel having the workbook open?
  */
 function isWorkbookLockedError(message: string): boolean {
-    return /WinError\s*32|being used by another process|sharing violation|Permission denied|PermissionError/i
-        .test(message);
+    return WORKBOOK_LOCKED_ERROR_RE.test(message);
 }
 
 function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): void {
@@ -125,7 +129,9 @@ export class XlideFileSystemProvider
 
     private _liveShare: LiveShareIntegration | undefined;
     private _clock = Date.now();
-    private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number }>();
+    private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number; workbookKey?: string }>();
+    /** Last known real workbook file mtime per workbook identity key. */
+    private readonly _workbookMtimes = new Map<string, number>();
 
     constructor(private readonly _bridge: PythonBridge) {}
 
@@ -136,6 +142,10 @@ export class XlideFileSystemProvider
             const uri = encodeRemoteModuleUri(workbookId, moduleName);
             this.bumpStat(uri);
             this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+        };
+        liveShare.onHostModuleWritten = (workbookPath, moduleName, signatureDropped) => {
+            notifySignatureDropped(workbookPath, signatureDropped);
+            this.notifyFileChanged(encodeModuleUri(workbookPath, moduleName));
         };
     }
 
@@ -149,6 +159,7 @@ export class XlideFileSystemProvider
 
     stat(uri: vscode.Uri): vscode.FileStat {
         const state = this.ensureStat(uri);
+        this.syncWithWorkbookFile(state, uri);
         return {
             type: vscode.FileType.File,
             ctime: state.ctime,
@@ -209,7 +220,7 @@ export class XlideFileSystemProvider
             return bytes;
         } catch (err) {
             trace.end('failed', moduleName);
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             if (isWorkbookLockedError(message)) {
                 reportWorkbookLocked(xlsmPath, 'read');
                 throw vscode.FileSystemError.Unavailable(
@@ -284,7 +295,7 @@ export class XlideFileSystemProvider
             });
         } catch (err) {
             trace.end('failed', moduleName);
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             recordXlideWriteAudit({
                 timestamp: new Date().toISOString(),
                 command: 'xlide.editorSave',
@@ -308,7 +319,8 @@ export class XlideFileSystemProvider
         trace.end('ok', moduleName);
     }
 
-    // Public method for agent tools to notify that a file has changed
+    // Public method for out-of-band mutators (agent tools, commands, Live Share)
+    // to notify that a module changed so open editors reload and stats refresh
     notifyFileChanged(uri: vscode.Uri): void {
         this.markChanged(uri);
         this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
@@ -318,16 +330,64 @@ export class XlideFileSystemProvider
         this._emitter.dispose();
     }
 
-    private ensureStat(uri: vscode.Uri): { ctime: number; mtime: number; size: number } {
+    private ensureStat(uri: vscode.Uri): { ctime: number; mtime: number; size: number; workbookKey?: string } {
         const key = this.statKey(uri);
         const existing = this._stats.get(key);
         if (existing) {
             return existing;
         }
-        const now = this.nextTimestamp();
-        const created = { ctime: now, mtime: now, size: 0 };
+        const real = this.workbookFileMtime(uri);
+        const now = real?.mtime ?? this.nextTimestamp();
+        const created = { ctime: now, mtime: now, size: 0, workbookKey: real?.workbookKey };
         this._stats.set(key, created);
+        if (real && !this._workbookMtimes.has(real.workbookKey)) {
+            this._workbookMtimes.set(real.workbookKey, real.mtime);
+        }
         return created;
+    }
+
+    /**
+     * Real mtime of the backing workbook file, keyed by workbook identity.
+     * Module mtimes are derived from it so VS Code's save-conflict detection
+     * sees out-of-band changes (Excel VBE edits, module sync, agent writes).
+     * Undefined for Live Share URIs and paths that cannot be statted.
+     */
+    private workbookFileMtime(uri: vscode.Uri): { workbookKey: string; mtime: number } | undefined {
+        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
+            return undefined;
+        }
+        try {
+            const { xlsmPath } = decodeModuleUri(uri);
+            return {
+                workbookKey: workbookIdentityKey(xlsmPath),
+                mtime: Math.floor(fs.statSync(xlsmPath).mtimeMs),
+            };
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Detect workbook file changes made outside this provider. When the real
+     * file mtime moved past the last mtime this provider produced or observed,
+     * any module may differ, so every cached module stat of that workbook is
+     * bumped to the new file mtime.
+     */
+    private syncWithWorkbookFile(state: { mtime: number; workbookKey?: string }, uri: vscode.Uri): void {
+        const real = this.workbookFileMtime(uri);
+        if (!real) {
+            return;
+        }
+        state.workbookKey = real.workbookKey;
+        const baseline = this._workbookMtimes.get(real.workbookKey);
+        if (baseline !== undefined && real.mtime !== baseline) {
+            for (const entry of this._stats.values()) {
+                if (entry.workbookKey === real.workbookKey) {
+                    entry.mtime = real.mtime;
+                }
+            }
+        }
+        this._workbookMtimes.set(real.workbookKey, real.mtime);
     }
 
     private updateSize(uri: vscode.Uri, size: number): void {
@@ -344,7 +404,14 @@ export class XlideFileSystemProvider
 
     private markChanged(uri: vscode.Uri, size?: number): void {
         const state = this.ensureStat(uri);
-        state.mtime = this.nextTimestamp(state.mtime);
+        const real = this.workbookFileMtime(uri);
+        if (real) {
+            state.workbookKey = real.workbookKey;
+            state.mtime = real.mtime;
+            this._workbookMtimes.set(real.workbookKey, real.mtime);
+        } else {
+            state.mtime = this.nextTimestamp(state.mtime);
+        }
         if (size !== undefined) {
             state.size = size;
         }

@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "2.1.2",
+  "version": "2.3.0",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
   "repository": {
@@ -414,6 +414,16 @@
           "when": "resourceScheme == xlide-vba",
           "group": "xlide@2"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "xlide.previewErrors",
+          "when": "xlide.devMode"
+        },
+        {
+          "command": "xlide.dev.smoke",
+          "when": "xlide.devMode"
+        }
       ]
     },
     "keybindings": [
@@ -619,7 +629,7 @@
       {
         "name": "xlide_createWorkbook",
         "displayName": "Create New Workbook",
-        "modelDescription": "Creates a new macro-enabled workbook (.xlsm or .xlsb) with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. Overwrites the file if it already exists. Use this to start a fresh workbook before adding modules or cell data.",
+        "modelDescription": "Creates a new macro-enabled workbook (.xlsm or .xlsb) with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. Fails if the file already exists; it never overwrites an existing workbook. Use this to start a fresh workbook before adding modules or cell data.",
         "toolReferenceName": "xlideCreateWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -995,10 +1005,10 @@
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check-types && node esbuild.js --production",
-    "vsix": "npm run package && node -e \"const {execSync}=require('child_process'),{version}=require('./package.json');require('fs').mkdirSync('dist',{recursive:true});execSync('npx vsce package --out dist/xlide-'+version+'.vsix',{stdio:'inherit'})\"",
+    "vsix": "node -e \"const {execSync}=require('child_process'),{version}=require('./package.json');require('fs').mkdirSync('dist',{recursive:true});execSync('npx @vscode/vsce package --out dist/xlide-'+version+'.vsix',{stdio:'inherit'})\"",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
     "test:oracle:vbe": "python syntax_corpus/oracle/run_excel_vbe_oracle.py"
@@ -1006,8 +1016,8 @@
   "devDependencies": {
     "@types/node": "20.x",
     "@types/vscode": "^1.95.0",
-    "@typescript-eslint/eslint-plugin": "^8.10.0",
-    "@typescript-eslint/parser": "^8.10.0",
+    "@vitest/coverage-v8": "^4.1.8",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.6.3",

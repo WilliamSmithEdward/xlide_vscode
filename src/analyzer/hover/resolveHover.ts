@@ -8,8 +8,9 @@
 // Pure analyzer code: depends only on the lexer, symbol graph, and host model,
 // never on vscode. See docs/xlide_vba_language_service_roadmap.md (Phase 7).
 
-import { tokenize } from '../lexer/tokenize';
+import { tokenizeCached } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
+import { isIdentLike } from '../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import {
 	ModuleSymbolKind,
@@ -25,7 +26,7 @@ import { getHostType, resolveHostConstant, resolveHostGlobal } from '../host/hos
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
 	MemberCompletion,
-	resolveMemberCompletions,
+	resolveMemberCompletionNamed,
 } from '../completion/memberAccess';
 import type { ProjectTypeName } from '../completion/typeCompletion';
 import {
@@ -72,15 +73,6 @@ export interface HoverContext {
 	docRegistry?: DocRegistry;
 }
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
-	);
-}
-
 function contains(span: Span, offset: number): boolean {
 	return offset >= span.start && offset <= span.end;
 }
@@ -100,7 +92,7 @@ export function resolveHover(
 	offset: number,
 	ctx: HoverContext = {},
 ): HoverInfo | undefined {
-	const tokens = tokenize(source);
+	const tokens = tokenizeCached(source);
 	const idx = findIdentTokenIndex(tokens, offset);
 	if (idx < 0) {
 		return undefined;
@@ -123,9 +115,7 @@ export function resolveHover(
 
 	// Member access: `receiver.member` - describe the host or project member.
 	if (idx > 0 && tokens[idx - 1].rawText === '.') {
-		const member = resolveMemberCompletions(source, token.end, ctx).find(
-			(mem) => mem.name.toLowerCase() === name.toLowerCase(),
-		);
+		const member = resolveMemberCompletionNamed(source, token.end, name, ctx);
 		if (member) {
 			return buildMemberHover(member, ctx, span);
 		}

@@ -1,12 +1,7 @@
 import * as vscode from 'vscode';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', () => ({
-    ViewColumn: { Active: -1 },
-    window: {
-        createWebviewPanel: vi.fn(),
-    },
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import { openVbaTestResults, renderVbaTestResultsHtml, setVbaTestResultsRunning } from '../src/vbaTestResultsWebview';
 import type { VbaTestRunReport } from '../src/vbaTestRunner';
@@ -49,7 +44,7 @@ describe('VBA test results webview', () => {
     });
 
     it('renders a rerun failed action when the command surface provides one', () => {
-        const html = renderVbaTestResultsHtml(reportFixture(), undefined, {
+        const html = renderVbaTestResultsHtml(reportFixture(), {
             canRerunFailed: true,
         });
 
@@ -98,28 +93,16 @@ describe('VBA test results webview', () => {
         expect(html).toContain('@xlide-test');
     });
 
-    it('renders developer-friendly details for raw Excel automation run failures', () => {
+    it('renders failure details exactly as cleaned by the execution layer', () => {
         const report = reportFixture();
         report.results[1] = {
             ...report.results[1],
-            error: [
-                'RUN_FAILED|Exception calling "Run" with "1" argument(s):',
-                '"Exception from HRESULT: 0x800A9C68"',
-                'HRESULT: 0x80131501',
-                'Inner: Exception from HRESULT: 0x800A9C68',
-                'Inner HRESULT: 0x800A9C68',
-                'At C:\\Users\\William\\AppData\\Local\\Temp\\xlide-vba-test-host-DDT6Nq\\run-vba-tests.ps1:677 char:4587',
-                '+ ... tPrefix, $excelId, $macroName) }; $excel.Run($macroRef);',
-                '+                       ~~~~~~~~~~~~~~~~~~~~',
-            ].join('\n'),
+            error: 'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.',
         };
 
         const html = renderVbaTestResultsHtml(report);
 
         expect(html).toContain('Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.');
-        expect(html).not.toContain('run-vba-tests.ps1');
-        expect(html).not.toContain('$excel.Run');
-        expect(html).not.toContain('0x80131501');
     });
 
     it('opens the clicked test from the latest rendered report', async () => {

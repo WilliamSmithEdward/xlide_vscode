@@ -14,11 +14,19 @@ import {
     setXlideGlobalAnalysisRuleSeverityOverride,
     setXlideGlobalSettingValue,
     validateXlideGlobalSettingsFromConfig,
+    xlideGlobalSettingCards,
     type ResolvedXlideGlobalSetting,
+    type XlideGlobalSettingCard,
     type XlideGlobalSettingKey,
+    type XlideGlobalSettingSection,
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
+import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
+import { webviewHeadHtml, WEBVIEW_TOAST_CSS } from './webview/page';
+import { WEBVIEW_BODY_CSS } from './webview/styles';
+import { renderWebviewTemplate } from './webview/templates';
 import { registerXlideCommand } from './xlideCommandRegistration';
+import { errorMessage } from './util/errors';
 
 interface XlideGlobalSettingsRuleOption {
     code: string;
@@ -46,7 +54,14 @@ interface XlideGlobalSettingsMessage {
 
 const SETTING_KEY_SET = new Set<string>(XLIDE_GLOBAL_SETTING_KEYS);
 
-function registerXlideGlobalSettingsWebview(): vscode.Disposable {
+const SETTING_SECTIONS: ReadonlyArray<{ id: XlideGlobalSettingSection; title: string }> = [
+    { id: 'runtime', title: 'Runtime' },
+    { id: 'editor', title: 'Editor And Diagnostics' },
+    { id: 'docs', title: 'Documentation' },
+    { id: 'analysis', title: 'Analysis' },
+];
+
+function registerXlideGlobalSettingsWebview(out: vscode.OutputChannel): vscode.Disposable {
     let panel: vscode.WebviewPanel | undefined;
 
     const render = () => {
@@ -71,17 +86,28 @@ function registerXlideGlobalSettingsWebview(): vscode.Disposable {
             'XLIDE Global Settings',
             vscode.ViewColumn.Active,
             {
+                // No retainContextWhenHidden: the document is rebuilt on every
+                // config change and scroll/search restore via vscode.getState.
                 enableScripts: true,
-                retainContextWhenHidden: true,
             },
         );
         const panelDisposables: vscode.Disposable[] = [];
         panel.webview.onDidReceiveMessage(async (message: XlideGlobalSettingsMessage) => {
-            const applied = await applyXlideGlobalSettingsMessage(
-                vscode.workspace.getConfiguration('xlide'),
-                message,
-            );
-            if (applied) {
+            try {
+                // The xlide configuration watcher below is the single render
+                // trigger for applied updates; rendering here too would rebuild
+                // the document twice per change.
+                await applyXlideGlobalSettingsMessage(
+                    vscode.workspace.getConfiguration('xlide'),
+                    message,
+                );
+            } catch (err) {
+                const error = errorMessage(err);
+                out.appendLine(`[globalSettings] Settings update failed: ${error}`);
+                await panel?.webview.postMessage({
+                    type: 'error',
+                    error: `XLIDE: Settings update failed: ${error}`,
+                });
                 render();
             }
         }, undefined, panelDisposables);
@@ -155,461 +181,56 @@ function renderXlideGlobalSettingsHtml(
     maybeModel?: XlideGlobalSettingsModel,
 ): string {
     const model = maybeModel ?? webviewOrModel as XlideGlobalSettingsModel;
-    const nonce = nonceString();
+    const nonce = randomNonce();
     const settingProblems = settingProblemsByKey(model.problems);
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLIDE Global Settings</title>
-    <style nonce="${nonce}">
-        :root {
-            color-scheme: light dark;
-        }
-        * {
-            box-sizing: border-box;
-        }
-        body {
-            margin: 0;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editor-background);
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-            line-height: 1.4;
-        }
-        .shell {
-            max-width: 1120px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-        .pageHeader {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 16px;
-            padding-bottom: 18px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-        }
-        h1,
-        h2,
-        h3 {
-            margin: 0;
-            letter-spacing: 0;
-        }
-        h1 {
-            font-size: 24px;
-            line-height: 1.2;
-        }
-        h2 {
-            font-size: 17px;
-            font-weight: 700;
-        }
-        h3 {
-            font-size: 15px;
-            font-weight: 700;
-        }
-        .subtitle,
-        .source,
-        .description,
-        .code,
-        .empty {
-            color: var(--vscode-descriptionForeground);
-        }
-        .subtitle {
-            margin-top: 4px;
-        }
-        .section {
-            margin-top: 22px;
-        }
-        .sectionHeader {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 10px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 12px;
-        }
-        .card {
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 6px;
-            background: var(--vscode-sideBar-background);
-            overflow: hidden;
-            min-width: 0;
-        }
-        .wide {
-            grid-column: 1 / -1;
-        }
-        .cardHeader {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: flex-start;
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
-        }
-        .cardBody {
-            padding: 14px;
-        }
-        .titleBlock {
-            min-width: 0;
-        }
-        .source {
-            margin-top: 2px;
-            font-size: 12px;
-        }
-        .problem {
-            margin-top: 10px;
-            border-left: 3px solid var(--vscode-editorError-foreground);
-            padding-left: 9px;
-            color: var(--vscode-editorError-foreground);
-        }
-        .problemBanner {
-            margin-top: 14px;
-            border: 1px solid var(--vscode-editorError-foreground);
-            border-radius: 6px;
-            padding: 10px 12px;
-            color: var(--vscode-editorError-foreground);
-            background: color-mix(in srgb, var(--vscode-editorError-foreground) 8%, transparent);
-        }
-        input[type="text"],
-        input[type="search"],
-        select {
-            width: 100%;
-            min-width: 0;
-            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-            border-radius: 4px;
-            padding: 6px 8px;
-            color: var(--vscode-input-foreground);
-            background: var(--vscode-input-background);
-            font: inherit;
-        }
-        input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            margin: 0;
-        }
-        input:focus,
-        select:focus,
-        button:focus {
-            outline: 1px solid var(--vscode-focusBorder);
-            outline-offset: 2px;
-        }
-        button {
-            border: 1px solid var(--vscode-button-border, transparent);
-            border-radius: 4px;
-            padding: 4px 8px;
-            color: var(--vscode-button-secondaryForeground);
-            background: var(--vscode-button-secondaryBackground);
-            font: inherit;
-            cursor: pointer;
-            min-height: 26px;
-        }
-        button:hover {
-            background: var(--vscode-button-secondaryHoverBackground);
-        }
-        .checkRow,
-        .severityRow,
-        .ruleRow,
-        .overrideRow {
-            display: grid;
-            gap: 10px;
-            align-items: center;
-        }
-        .checkRow {
-            grid-template-columns: 18px minmax(0, 1fr);
-        }
-        .severitySet {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .severityRow {
-            grid-template-columns: 18px auto;
-        }
-        .ruleTools {
-            margin-bottom: 10px;
-        }
-        .ruleList,
-        .overrideList {
-            display: grid;
-            gap: 8px;
-            max-height: 430px;
-            overflow: auto;
-            padding-right: 4px;
-        }
-        .ruleRow {
-            grid-template-columns: 18px minmax(0, 1fr) auto;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 8px;
-            background: var(--vscode-editor-background);
-        }
-        .ruleRow[hidden] {
-            display: none;
-        }
-        .ruleTitle {
-            font-weight: 600;
-            overflow-wrap: anywhere;
-        }
-        .code {
-            font-family: var(--vscode-editor-font-family);
-            font-size: 12px;
-            overflow-wrap: anywhere;
-        }
-        .tagSet {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-        .tag {
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 2px 6px;
-            color: var(--vscode-foreground);
-            background: var(--vscode-editorWidget-background, var(--vscode-input-background));
-            font-size: 12px;
-            white-space: nowrap;
-        }
-        .overrideRow {
-            grid-template-columns: minmax(0, 1fr) minmax(140px, 220px);
-            border-bottom: 1px solid var(--vscode-panel-border);
-            padding: 8px 0;
-        }
-        .overrideRow:last-child {
-            border-bottom: 0;
-        }
-        @media (max-width: 640px) {
-            .shell {
-                padding: 16px;
-            }
-            .pageHeader,
-            .sectionHeader,
-            .cardHeader {
-                display: grid;
-            }
-            .overrideRow,
-            .ruleRow {
-                grid-template-columns: 18px minmax(0, 1fr);
-            }
-            .overrideRow {
-                grid-template-columns: minmax(0, 1fr);
-            }
-            .tagSet {
-                grid-column: 2;
-                justify-content: flex-start;
-            }
-        }
-    </style>
-</head>
-<body>
-    <main class="shell">
-        <header class="pageHeader">
-            <div>
-                <h1>XLIDE Global Settings</h1>
-                <div class="subtitle">VS Code / Machine</div>
-            </div>
-        </header>
-        ${model.problems.length > 0 ? `<div class="problemBanner">${escapeHtml(model.problems.length === 1
+    return renderWebviewTemplate('assets/webview/globalSettings.html', {
+        head: webviewHeadHtml(nonce, 'XLIDE Global Settings'),
+        nonce,
+        css: renderWebviewTemplate('assets/webview/globalSettings.css', {
+            bodyCss: WEBVIEW_BODY_CSS,
+            toastCss: WEBVIEW_TOAST_CSS,
+        }),
+        problemBanner: model.problems.length > 0 ? `<div class="problemBanner">${escapeHtml(model.problems.length === 1
         ? model.problems[0].message
-        : `${model.problems.length} XLIDE settings need attention.`)}</div>` : ''}
-        ${renderRuntimeSection(model, settingProblems)}
-        ${renderEditorSection(model, settingProblems)}
-        ${renderDocsSection(model, settingProblems)}
-        ${renderAnalysisSection(model, settingProblems)}
-    </main>
-    <script nonce="${nonce}">
-        const vscode = acquireVsCodeApi();
-
-        restoreGlobalSettingsState();
-
-        document.addEventListener('change', (event) => {
-            const target = event.target;
-            if (!(target instanceof HTMLElement)) {
-                return;
-            }
-            if (target.matches('input[data-setting-kind="boolean"]')) {
-                persistGlobalSettingsState();
-                vscode.postMessage({
-                    type: 'updateSetting',
-                    key: target.dataset.settingKey,
-                    value: target.checked === true
-                });
-                return;
-            }
-            if (target.matches('input[data-setting-kind="text"]')) {
-                persistGlobalSettingsState();
-                vscode.postMessage({
-                    type: 'updateSetting',
-                    key: target.dataset.settingKey,
-                    value: target.value
-                });
-                return;
-            }
-            if (target.matches('select[data-setting-kind="enum"]')) {
-                persistGlobalSettingsState();
-                vscode.postMessage({
-                    type: 'updateSetting',
-                    key: target.dataset.settingKey,
-                    value: target.value
-                });
-                return;
-            }
-            if (target.matches('input[data-severity-filter]')) {
-                persistGlobalSettingsState();
-                vscode.postMessage({
-                    type: 'updateSetting',
-                    key: 'analysis.visibleSeverities',
-                    value: checkedValues('input[data-severity-filter]:checked')
-                });
-                return;
-            }
-            if (target.matches('input[data-rule-untracked]')) {
-                persistGlobalSettingsState();
-                vscode.postMessage({
-                    type: 'updateSetting',
-                    key: 'analysis.untrackedRules',
-                    value: checkedValues('input[data-rule-untracked]:checked')
-                });
-                return;
-            }
-            if (target.matches('select[data-rule-severity]')) {
-                persistGlobalSettingsState();
-                vscode.postMessage({
-                    type: 'setRuleSeverityOverride',
-                    code: target.dataset.ruleCode,
-                    severity: target.value
-                });
-            }
-        });
-
-        document.addEventListener('input', (event) => {
-            const search = event.target.closest?.('#ruleSearch');
-            if (!search) {
-                return;
-            }
-            applyRuleSearch(search.value);
-            persistGlobalSettingsState();
-        });
-
-        document.addEventListener('click', (event) => {
-            const button = event.target.closest?.('button[data-reset-setting]');
-            if (!button) {
-                return;
-            }
-            persistGlobalSettingsState();
-            vscode.postMessage({
-                type: 'resetSetting',
-                key: button.dataset.resetSetting
-            });
-        });
-
-        function checkedValues(selector) {
-            return Array.from(document.querySelectorAll(selector)).map((input) => input.value);
-        }
-
-        function applyRuleSearch(value) {
-            const query = value.trim().toLowerCase();
-            for (const row of document.querySelectorAll('[data-rule-row]')) {
-                row.hidden = query.length > 0 && !row.dataset.search.includes(query);
-            }
-        }
-
-        function persistGlobalSettingsState() {
-            vscode.setState({
-                pageScrollTop: window.scrollY,
-                ruleSearch: document.getElementById('ruleSearch')?.value ?? '',
-                ruleListScrollTop: document.getElementById('ruleList')?.scrollTop ?? 0,
-                overrideListScrollTop: document.getElementById('overrideList')?.scrollTop ?? 0
-            });
-        }
-
-        function restoreGlobalSettingsState() {
-            const state = typeof vscode.getState === 'function' ? vscode.getState() || {} : {};
-            const ruleSearch = document.getElementById('ruleSearch');
-            if (ruleSearch && typeof state.ruleSearch === 'string') {
-                ruleSearch.value = state.ruleSearch;
-                applyRuleSearch(state.ruleSearch);
-            }
-            requestAnimationFrame(() => {
-                if (typeof state.pageScrollTop === 'number') {
-                    window.scrollTo(0, state.pageScrollTop);
-                }
-                const ruleList = document.getElementById('ruleList');
-                if (ruleList && typeof state.ruleListScrollTop === 'number') {
-                    ruleList.scrollTop = state.ruleListScrollTop;
-                }
-                const overrideList = document.getElementById('overrideList');
-                if (overrideList && typeof state.overrideListScrollTop === 'number') {
-                    overrideList.scrollTop = state.overrideListScrollTop;
-                }
-            });
-        }
-    </script>
-</body>
-</html>`;
+        : `${model.problems.length} XLIDE settings need attention.`)}</div>` : '',
+        sections: SETTING_SECTIONS.map((section) => renderSettingsSection(model, settingProblems, section)).join('\n        '),
+        js: renderWebviewTemplate('assets/webview/globalSettings.js', {}),
+    });
 }
 
-function renderRuntimeSection(
+function renderSettingsSection(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    section: { id: XlideGlobalSettingSection; title: string },
 ): string {
-    return `<section class="section" aria-label="Runtime">
-        <div class="sectionHeader"><h2>Runtime</h2></div>
+    const cards = xlideGlobalSettingCards().filter((card) => card.section === section.id);
+    return `<section class="section" aria-label="${escapeAttr(section.title)}">
+        <div class="sectionHeader"><h2>${escapeHtml(section.title)}</h2></div>
         <div class="grid">
-            ${renderTextSetting(model, problems, 'pythonPath', 'Python Path')}
-            ${renderBooleanSetting(model, problems, 'attachToRunningExcel', 'Attach To Running Excel')}
+            ${cards.map((card) => renderSettingControl(model, problems, card)).join('\n            ')}
         </div>
     </section>`;
 }
 
-function renderEditorSection(
+function renderSettingControl(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    card: XlideGlobalSettingCard,
 ): string {
-    return `<section class="section" aria-label="Editor And Diagnostics">
-        <div class="sectionHeader"><h2>Editor And Diagnostics</h2></div>
-        <div class="grid">
-            ${renderBooleanSetting(model, problems, 'diagnostics.enabled', 'Diagnostics Enabled')}
-            ${renderEnumSetting(model, problems, 'editor.blockLayout', 'Editor Block Layout', ['comfy', 'compact'])}
-        </div>
-    </section>`;
-}
-
-function renderDocsSection(
-    model: XlideGlobalSettingsModel,
-    problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
-): string {
-    return `<section class="section" aria-label="Documentation">
-        <div class="sectionHeader"><h2>Documentation</h2></div>
-        <div class="grid">
-            ${renderBooleanSetting(model, problems, 'docs.enabled', 'Docs Enabled')}
-            ${renderTextSetting(model, problems, 'docs.metadataGlob', 'Docs Metadata Glob')}
-        </div>
-    </section>`;
-}
-
-function renderAnalysisSection(
-    model: XlideGlobalSettingsModel,
-    problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
-): string {
-    return `<section class="section" aria-label="Analysis">
-        <div class="sectionHeader"><h2>Analysis</h2></div>
-        <div class="grid">
-            ${renderVisibleSeveritiesSetting(model, problems)}
-            ${renderRulePickerSetting(model, problems)}
-            ${renderRuleSeverityOverridesSetting(model, problems)}
-        </div>
-    </section>`;
+    switch (card.control.kind) {
+        case 'text':
+            return renderTextSetting(model, problems, card.key, card.label);
+        case 'boolean':
+            return renderBooleanSetting(model, problems, card.key, card.label);
+        case 'enum':
+            return renderEnumSetting(model, problems, card.key, card.label, card.control.values);
+        case 'severityFilter':
+            return renderVisibleSeveritiesSetting(model, problems, card.key, card.label);
+        case 'rulePicker':
+            return renderRulePickerSetting(model, problems, card.key, card.label);
+        case 'ruleSeverityOverrides':
+            return renderRuleSeverityOverridesSetting(model, problems, card.key, card.label);
+    }
 }
 
 function renderTextSetting(
@@ -657,9 +278,11 @@ function renderEnumSetting(
 function renderVisibleSeveritiesSetting(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    key: XlideGlobalSettingKey,
+    title: string,
 ): string {
-    const selected = new Set(settingValue<AnalysisSeverityFilter[]>(model, 'analysis.visibleSeverities', []));
-    return renderSettingCard(model, problems, 'analysis.visibleSeverities', 'Visible Severities', `
+    const selected = new Set(settingValue<AnalysisSeverityFilter[]>(model, key, []));
+    return renderSettingCard(model, problems, key, title, `
         <div class="severitySet">
             ${ANALYSIS_SEVERITIES.map((severity) => `<label class="severityRow">
                 <input type="checkbox" data-severity-filter value="${escapeAttr(severity)}"${selected.has(severity) ? ' checked' : ''}>
@@ -672,8 +295,10 @@ function renderVisibleSeveritiesSetting(
 function renderRulePickerSetting(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    key: XlideGlobalSettingKey,
+    title: string,
 ): string {
-    const untrackedRules = new Set(settingValue<string[]>(model, 'analysis.untrackedRules', []));
+    const untrackedRules = new Set(settingValue<string[]>(model, key, []));
     const rows = model.rules.map((rule) => {
         const checked = untrackedRules.has(rule.code) ? ' checked' : '';
         const search = `${rule.title} ${rule.code} ${rule.category} ${rule.defaultSeverity}`.toLowerCase();
@@ -689,11 +314,11 @@ function renderRulePickerSetting(
             </span>
         </label>`;
     }).join('');
-    return renderSettingCard(model, problems, 'analysis.untrackedRules', 'Globally Untracked Rules', `
+    return renderSettingCard(model, problems, key, title, `
         <div class="ruleTools">
             <input type="search" id="ruleSearch" aria-label="Search Analysis Rules" placeholder="Search Rules">
         </div>
-        <div class="ruleList" id="ruleList" aria-label="Globally Untracked Rules">
+        <div class="ruleList" id="ruleList" aria-label="${escapeAttr(title)}">
             ${rows || '<div class="empty">No rules</div>'}
         </div>
     `, 'wide');
@@ -702,12 +327,10 @@ function renderRulePickerSetting(
 function renderRuleSeverityOverridesSetting(
     model: XlideGlobalSettingsModel,
     problems: ReadonlyMap<string, XlideGlobalSettingsProblem[]>,
+    key: XlideGlobalSettingKey,
+    title: string,
 ): string {
-    const overrides = settingValue<Record<string, DiagnosticSeverityOverride>>(
-        model,
-        'analysis.ruleSeverityOverrides',
-        {},
-    );
+    const overrides = settingValue<Record<string, DiagnosticSeverityOverride>>(model, key, {});
     const rules = model.rules
         .filter((rule) => rule.allowedSeverityOverrides.length > 0)
         .sort((left, right) => left.title.localeCompare(right.title) || left.code.localeCompare(right.code));
@@ -721,7 +344,7 @@ function renderRuleSeverityOverridesSetting(
             ${rule.allowedSeverityOverrides.map((severity) => `<option value="${escapeAttr(severity)}"${overrides[rule.code] === severity ? ' selected' : ''}>${escapeHtml(titleCase(severity))}</option>`).join('')}
         </select>
     </div>`).join('');
-    return renderSettingCard(model, problems, 'analysis.ruleSeverityOverrides', 'Rule Severity Overrides', `
+    return renderSettingCard(model, problems, key, title, `
         <div class="overrideList" id="overrideList">
             ${rows || '<div class="empty">No severity overrides available</div>'}
         </div>
@@ -814,26 +437,6 @@ function titleCase(value: string): string {
         .filter((part) => part.length > 0)
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(value: string): string {
-    return escapeHtml(value).replace(/"/g, '&quot;');
-}
-
-function nonceString(): string {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 24; i++) {
-        result += alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
-    return result;
 }
 
 export {

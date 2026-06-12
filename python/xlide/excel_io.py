@@ -9,6 +9,8 @@ from typing import Any
 import openpyxl
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
+from xlide.vba_io import get_modules_and_protection_info as _get_modules_and_protection_info
+
 
 def _parse_cell(ref: str) -> tuple[int, int]:
     """Return (row, col) 1-based integers from a cell reference like 'B3'."""
@@ -16,31 +18,50 @@ def _parse_cell(ref: str) -> tuple[int, int]:
     return row, column_index_from_string(col_str)
 
 
-from xlide.vba_io import list_modules as _list_modules
-from xlide.vba_io import get_protection_info as _get_protection_info
+def _ws_dimensions(ws: Any) -> str:
+    """Used range of a worksheet, tolerating openpyxl read-only sheets.
+
+    ReadOnlyWorksheet (openpyxl >= 3.1) exposes no `dimensions` property, only
+    calculate_dimension(), which itself raises when the sheet XML carries no
+    dimension hint and the sheet has not been scanned.
+    """
+    dims = getattr(ws, "dimensions", None)
+    if dims:
+        return dims
+    calculate = getattr(ws, "calculate_dimension", None)
+    if callable(calculate):
+        try:
+            return calculate() or ""
+        except ValueError:
+            return ""
+    return ""
+
+
+def _sheet_summaries(wb: Any) -> list[dict[str, Any]]:
+    """Return [{name, dimensions}] for every worksheet in an open workbook."""
+    return [
+        {"name": ws.title, "dimensions": _ws_dimensions(ws)}
+        for ws in wb.worksheets
+    ]
 
 
 def get_workbook_info(*, path: str) -> dict[str, Any]:
     """Return a combined summary: VBA modules, sheet names/dimensions, named ranges, and protection state."""
-    modules = _list_modules(path=path)
-    protection = _get_protection_info(path=path)
+    vba_info = _get_modules_and_protection_info(path=path)
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
-        sheets = [
-            {"name": ws.title, "dimensions": ws.dimensions or ""}
-            for ws in wb.worksheets
-        ]
-        named_ranges = [
-            {"name": nr.name, "ref": nr.attr_text}
-            for nr in wb.defined_names.definedName
-        ]
+        sheets = _sheet_summaries(wb)
+        defined = wb.defined_names
+        # openpyxl >= 3.1 exposes defined_names as a dict of name -> DefinedName;
+        # older versions exposed a .definedName sequence.
+        names = defined.values() if hasattr(defined, "values") else defined.definedName
+        named_ranges = [{"name": nr.name, "ref": nr.attr_text} for nr in names]
     finally:
         wb.close()
     return {
-        "modules": modules,
         "sheets": sheets,
         "namedRanges": named_ranges,
-        **protection,
+        **vba_info,
     }
 
 
@@ -48,18 +69,14 @@ def list_sheets(*, path: str) -> dict[str, Any]:
     """Return the sheet names and used dimensions for every worksheet."""
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
-        sheets = [
-            {"name": ws.title, "dimensions": ws.dimensions or ""}
-            for ws in wb.worksheets
-        ]
+        sheets = _sheet_summaries(wb)
     finally:
         wb.close()
     return {"sheets": sheets}
 
 
-def read_cells(*, path: str, sheet: str, range: str) -> dict[str, Any]:
-    """Return {data: [[...]]} for a cell range in A1 notation."""
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
+def _read_range(path: str, sheet: str, range: str, *, data_only: bool) -> dict[str, Any]:
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=data_only, keep_vba=True)
     try:
         ws = wb[sheet]
         data: list[list[Any]] = [
@@ -68,19 +85,16 @@ def read_cells(*, path: str, sheet: str, range: str) -> dict[str, Any]:
     finally:
         wb.close()
     return {"data": data}
+
+
+def read_cells(*, path: str, sheet: str, range: str) -> dict[str, Any]:
+    """Return {data: [[...]]} for a cell range in A1 notation."""
+    return _read_range(path, sheet, range, data_only=True)
 
 
 def read_formulas(*, path: str, sheet: str, range: str) -> dict[str, Any]:
     """Return {data: [[...]]} with raw formula strings (not computed values)."""
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=False, keep_vba=True)
-    try:
-        ws = wb[sheet]
-        data: list[list[Any]] = [
-            [cell.value for cell in row] for row in ws[range]
-        ]
-    finally:
-        wb.close()
-    return {"data": data}
+    return _read_range(path, sheet, range, data_only=False)
 
 
 def write_cells(

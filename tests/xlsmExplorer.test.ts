@@ -6,34 +6,12 @@ const vscodeMock = vi.hoisted(() => ({
     treeEvents: [] as unknown[],
 }));
 
-vi.mock('vscode', () => ({
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
     EventEmitter: class {
         event = vi.fn();
         fire = vi.fn((node?: unknown) => {
             vscodeMock.treeEvents.push(node);
         });
-    },
-    MarkdownString: class {
-        supportThemeIcons = false;
-        constructor(readonly value = '') {}
-        appendMarkdown = vi.fn();
-    },
-    ThemeIcon: class {
-        constructor(readonly id: string) {}
-    },
-    TreeItem: class {
-        id?: string;
-        iconPath?: unknown;
-        tooltip?: unknown;
-        description?: string;
-        contextValue?: string;
-        command?: unknown;
-        constructor(readonly label: string, readonly collapsibleState: number) {}
-    },
-    TreeItemCollapsibleState: {
-        None: 0,
-        Collapsed: 1,
-        Expanded: 2,
     },
     window: {
         showErrorMessage: vscodeMock.showErrorMessage,
@@ -247,6 +225,63 @@ describe('XlsmExplorer', () => {
         await explorer.getChildren(module);
 
         expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'listSubs')).toHaveLength(2);
+    });
+
+    it('surfaces procedure-list failures like module-list failures', async () => {
+        const call = vi.fn((method: string) => {
+            if (method === 'listModules') {
+                return Promise.resolve([{ name: 'Module1', type: 'standard' }]);
+            }
+            if (method === 'listSubs') {
+                return Promise.reject(new Error('workbook is locked'));
+            }
+            return Promise.resolve({ isPasswordProtected: false, isSigned: false });
+        });
+        const explorer = new XlsmExplorer({ call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0]);
+        explorer.setSetupComplete(true);
+        const [workbook] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(workbook);
+
+        await expect(explorer.getChildren(module)).resolves.toEqual([]);
+
+        expect(vscodeMock.showErrorMessage).toHaveBeenCalledWith(
+            expect.stringContaining('Failed to list procedures in "Module1"'),
+        );
+        expect(vscodeMock.showErrorMessage).toHaveBeenCalledWith(
+            expect.stringContaining('workbook is locked'),
+        );
+    });
+
+    it('logs swallowed protection probe failures to the output channel', async () => {
+        vi.useFakeTimers();
+        try {
+            const call = vi.fn((method: string) => {
+                if (method === 'listModules') {
+                    return Promise.resolve([{ name: 'Module1', type: 'standard' }]);
+                }
+                if (method === 'getProtectionInfo') {
+                    return Promise.reject(new Error('probe failed'));
+                }
+                return Promise.resolve([]);
+            });
+            const appendLine = vi.fn();
+            const explorer = new XlsmExplorer(
+                { call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0],
+                { appendLine } as unknown as ConstructorParameters<typeof XlsmExplorer>[1],
+            );
+            explorer.setSetupComplete(true);
+            const [workbook] = await explorer.getChildren();
+
+            await explorer.getChildren(workbook);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(appendLine).toHaveBeenCalledWith(
+                expect.stringContaining('Protection probe failed for "Book.xlsm"'),
+            );
+            expect(vscodeMock.showErrorMessage).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('defers protection probes until after tree expansion goes idle', async () => {

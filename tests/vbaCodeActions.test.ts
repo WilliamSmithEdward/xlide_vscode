@@ -7,11 +7,8 @@ import {
 	type VbaDiagnostic,
 	type VbaTextEdit,
 } from '../src/analyzer';
-import { analyzeVbaStructure, type VbaStructuralDiagnostic } from '../src/vbaStructuralAnalysis';
-
-function byCode(diags: readonly VbaDiagnostic[], code: string): VbaDiagnostic[] {
-	return diags.filter((diag) => diag.code === code);
-}
+import { analyzeVbaStructure, type VbaStructuralDiagnostic } from '../src/vbaStructuralDiagnostics';
+import { byCode } from './helpers/diagnostics';
 
 function firstDiagnostic(
 	source: string,

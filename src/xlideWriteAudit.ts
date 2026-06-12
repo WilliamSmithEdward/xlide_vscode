@@ -1,3 +1,5 @@
+import { errorCategoryForSupportLog } from './xlideCommandLog';
+
 export type XlideWriteAuditOutcome = 'succeeded' | 'failed' | 'skipped';
 
 export interface XlideWriteAuditEntry {
@@ -29,6 +31,61 @@ export function recentXlideWriteAudits(limit = 25): XlideWriteAuditEntry[] {
 
 export function clearXlideWriteAudit(): void {
     writeAudit.length = 0;
+}
+
+export type XlideWriteAuditEvent = Omit<XlideWriteAuditEntry, 'timestamp' | 'errorCategory'> & {
+    error?: unknown;
+};
+
+/** Records an audit entry stamped now, deriving errorCategory from `error`. */
+export function recordXlideWriteAuditEvent(event: XlideWriteAuditEvent): void {
+    const { error, ...entry } = event;
+    recordXlideWriteAudit({
+        timestamp: new Date().toISOString(),
+        ...entry,
+        errorCategory: error ? errorCategoryForSupportLog(error) : undefined,
+    });
+}
+
+export interface XlideWriteAuditTarget {
+    command: string;
+    operation: string;
+    workbookPath?: string;
+    moduleName?: string;
+    sourcePath?: string;
+    targetPath?: string;
+}
+
+/**
+ * Runs `fn` and records one succeeded/failed write-audit entry around it.
+ * The success return may override the audited fields (e.g. the resolved
+ * export folder or the post-rename module name).
+ */
+export async function withWriteAudit<T>(
+    target: XlideWriteAuditTarget & { failedSummary: string },
+    fn: () => Promise<{ result: T; summary: string } & Partial<XlideWriteAuditTarget>>,
+): Promise<{ result: T; summary: string }> {
+    const { failedSummary, ...fields } = target;
+    try {
+        const { result, summary, ...overrides } = await fn();
+        recordXlideWriteAudit({
+            timestamp: new Date().toISOString(),
+            ...fields,
+            ...overrides,
+            outcome: 'succeeded',
+            summary,
+        });
+        return { result, summary };
+    } catch (err) {
+        recordXlideWriteAudit({
+            timestamp: new Date().toISOString(),
+            ...fields,
+            outcome: 'failed',
+            summary: failedSummary,
+            errorCategory: errorCategoryForSupportLog(err),
+        });
+        throw err;
+    }
 }
 
 export interface XlideChangeSummary {

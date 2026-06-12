@@ -4,6 +4,7 @@ import {
     XLIDE_ASSERT_MODULE_NAME,
     XLIDE_ASSERT_MODULE_SOURCE,
 } from './vbaTestSupportModule';
+import { errorMessage } from './util/errors';
 
 export interface VbaTestSupportStatus {
     state: 'missing' | 'blocked' | 'installed' | 'outdated' | 'unknown';
@@ -72,7 +73,7 @@ export async function getVbaTestSupportStatus(
             canRun: false,
         };
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = errorMessage(err);
         return {
             state: 'unknown',
             title: 'Test Support Unknown',

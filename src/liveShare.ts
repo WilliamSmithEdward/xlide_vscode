@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type * as vsls from 'vsls/vscode';
 import { PythonBridge } from './pythonBridge';
+import { errorCategoryForSupportLog } from './xlideCommandLog';
+import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 
 const SERVICE_NAME = 'WilliamSmithE.xlide';
 
@@ -126,9 +128,7 @@ export class LiveShareIntegration implements vscode.Disposable {
         // Refresh remote workbook list when the host's xlsm files change.
         const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
         const refresh = () => void this._refreshHostWorkbooks();
-        watcher.onDidCreate(refresh);
-        watcher.onDidDelete(refresh);
-        this._disposables.push(watcher);
+        this._disposables.push(watcher, watcher.onDidCreate(refresh), watcher.onDidDelete(refresh));
     }
 
     private async _onSessionChange(e: vsls.SessionChangeEvent): Promise<void> {
@@ -266,7 +266,38 @@ export class LiveShareIntegration implements vscode.Disposable {
         const module = String(a?.module ?? '');
         const source = String(a?.source ?? '');
         const filePath = this._resolveHostPath(id);
-        await this._bridge.call('writeModule', { path: filePath, module, source });
+        try {
+            const result = await this._bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                'writeModule', { path: filePath, module, source },
+            );
+            const summary = formatChangeSummary({
+                operation: 'Save module',
+                changed: [module],
+            });
+            recordXlideWriteAudit({
+                timestamp: new Date().toISOString(),
+                command: 'xlide.liveShareHostWrite',
+                operation: 'write-module',
+                outcome: 'succeeded',
+                workbookPath: filePath,
+                moduleName: module,
+                summary,
+            });
+            // Refresh the host's own editors and surface signature warnings locally
+            this._onHostModuleWritten(filePath, module, result.signatureDropped);
+        } catch (err) {
+            recordXlideWriteAudit({
+                timestamp: new Date().toISOString(),
+                command: 'xlide.liveShareHostWrite',
+                operation: 'write-module',
+                outcome: 'failed',
+                workbookPath: filePath,
+                moduleName: module,
+                summary: 'Save module: 0 changed, 1 failed',
+                errorCategory: errorCategoryForSupportLog(err),
+            });
+            throw err;
+        }
         // Tell guests so their open editors pick up changes from other peers
         if (this._hostService) {
             try {
@@ -346,6 +377,18 @@ export class LiveShareIntegration implements vscode.Disposable {
             this.onRemoteFileChanged(workbookId, moduleName);
         } catch (err) {
             this._out.appendLine(`onRemoteFileChanged handler error: ${err}`);
+        }
+    }
+
+    /** Set by XlideFileSystemProvider so host-side guest writes refresh the host's own editors. */
+    onHostModuleWritten: (workbookPath: string, moduleName: string, signatureDropped: boolean) => void =
+        () => { /* default no-op */ };
+
+    private _onHostModuleWritten(workbookPath: string, moduleName: string, signatureDropped: boolean): void {
+        try {
+            this.onHostModuleWritten(workbookPath, moduleName, signatureDropped);
+        } catch (err) {
+            this._out.appendLine(`onHostModuleWritten handler error: ${err}`);
         }
     }
 

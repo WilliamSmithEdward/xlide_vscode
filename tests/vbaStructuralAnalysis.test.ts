@@ -1,21 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import {
-    analyzeVbaStructure,
-    stripVba,
-    detectSmartBlockOpener,
     findIdentifierOccurrences,
-    isSmartBlockClosedAhead,
-    lineStartOffsets,
     leadingWhitespace,
+    lineStartOffsets,
+    stripVba,
+    validateVbaModuleName,
+} from '../src/vbaSourceScan';
+import { analyzeVbaStructure } from '../src/vbaStructuralDiagnostics';
+import {
+    detectSmartBlockOpener,
+    isSmartBlockClosedAhead,
+    normalizeSmartBlockLayout,
     openSmartBlockClosersBefore,
+    procedureHeaderParensEdit,
     resolveLoopIteratorSyncEdit,
     smartBlockBodyIndent,
     smartBlockBodyText,
     smartBlockInsertion,
     withMemberContinuationText,
-    normalizeSmartBlockLayout,
-    procedureHeaderParensEdit,
-} from '../src/vbaStructuralAnalysis';
+} from '../src/vbaSmartEnter';
 
 describe('analyzeVbaStructure', () => {
     it('reports no problems for a balanced Sub', () => {
@@ -298,9 +301,21 @@ describe('stripVba', () => {
 });
 
 describe('shared VBA source text helpers', () => {
-    it('computes physical line starts for LF and CRLF sources', () => {
+    it('computes physical line starts for LF, CRLF, and lone-CR sources', () => {
         expect(lineStartOffsets('a\nbb\nccc')).toEqual([0, 2, 5]);
         expect(lineStartOffsets('a\r\nbb\r\nccc')).toEqual([0, 3, 7]);
+        expect(lineStartOffsets('a\rbb\rccc')).toEqual([0, 2, 5]);
+    });
+
+    it('validates VBA module names by identifier shape, length, and reserved words', () => {
+        expect(validateVbaModuleName('Module1')).toBeUndefined();
+        expect(validateVbaModuleName('_Helpers')).toBeUndefined();
+        expect(validateVbaModuleName('123Module')).toBeDefined();
+        expect(validateVbaModuleName('Bad Name')).toBeDefined();
+        expect(validateVbaModuleName('')).toBeDefined();
+        expect(validateVbaModuleName('M'.repeat(32))).toBeDefined();
+        expect(validateVbaModuleName('M'.repeat(31))).toBeUndefined();
+        expect(validateVbaModuleName('Sub')).toBeDefined();
     });
 
     it('extracts leading spaces and tabs through one shared rule', () => {
@@ -496,6 +511,21 @@ describe('openSmartBlockClosersBefore', () => {
 
     it('does not treat one-line statements as open smart blocks', () => {
         const src = 'Sub T()\n    If ready Then value = 1\n    \n';
+        expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub']);
+    });
+
+    // Rem-after-colon improvement from the lexer substrate (audit #74): the
+    // legacy stripVba scanner only blanked whole-line Rem comments, so the
+    // text of a trailing ": Rem ..." comment leaked into the colon-split
+    // logical lines as phantom statements.
+
+    it('ignores closers hidden in a trailing ": Rem ..." comment', () => {
+        const src = 'Sub T()\n    If ready Then\n        Debug.Print 1: Rem hidden: End If\n        \n';
+        expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub', 'End If']);
+    });
+
+    it('ignores openers hidden in a trailing ": Rem ..." comment', () => {
+        const src = 'Sub T()\n    Debug.Print 1: Rem note: With ActiveSheet\n    \n';
         expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub']);
     });
 });
@@ -715,5 +745,21 @@ describe('withMemberContinuationText', () => {
     it('does not seed dots outside active With blocks', () => {
         expect(withMemberContinuationText('Sub T()\n    .Range("A1")\nEnd Sub\n', 1)).toBeUndefined();
         expect(withMemberContinuationText('Sub T()\n    With x\n    End With\n    .Range("A1")\nEnd Sub\n', 3)).toBeUndefined();
+    });
+
+    it('keeps the With block active when a member line hides "End With" in a ": Rem ..." comment', () => {
+        // Rem-after-colon improvement from the lexer substrate (audit #74):
+        // legacy stripVba leaked the comment, so the phantom "End With"
+        // closed the block and suppressed the dot continuation.
+        const src = [
+            'Sub T()',
+            '    With ActiveSheet',
+            '        .Cells.Clear: Rem keep: End With',
+            '',
+            '    End With',
+            'End Sub',
+        ].join('\n');
+
+        expect(withMemberContinuationText(src, 2)).toBe('        .');
     });
 });

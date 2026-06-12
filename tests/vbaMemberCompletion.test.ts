@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
 	ProjectIndex,
 	resolveMemberCompletions,
+	resolveMemberDefinitionsAt,
+	tokenize,
 	resolveHostConstant,
 	resolveHostGlobal,
 	resolveHostAlias,
@@ -1123,6 +1125,52 @@ describe('member completion - workbook classes', () => {
 		expect(got.map((member) => member.name)).toContain('AcceptAllChanges');
 		expect(got.find((member) => member.name === 'Hello')?.surfaceExhaustive).toBe(true);
 		expect(got.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive).toBe(true);
+	});
+});
+
+describe('member definition resolution (references/rename path)', () => {
+	const person = 'Public Sub Save()\nEnd Sub\n';
+
+	function personCtx() {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Person',
+			moduleKind: 'class',
+			source: person,
+		});
+		return { projectClassMembers: index.projectClassMembers() };
+	}
+
+	it('resolves definitions for a dotted occurrence without building completion rows', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    p.Save\nEnd Sub\n';
+		const offset = src.indexOf('p.Save') + 'p.Save'.length;
+		const got = resolveMemberDefinitionsAt(src, offset, 'Save', personCtx());
+		expect(got).toHaveLength(1);
+		expect(got[0].moduleName).toBe('Person');
+		expect(person.slice(got[0].nameSpan.start, got[0].nameSpan.end)).toBe('Save');
+	});
+
+	it('bails on occurrences not preceded by a member-access dot', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    Save\nEnd Sub\n';
+		const offset = src.indexOf('    Save') + '    Save'.length;
+		expect(resolveMemberDefinitionsAt(src, offset, 'Save', personCtx())).toHaveLength(0);
+	});
+
+	it('follows a line continuation between the dot and the member name', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    p. _\n        Save\nEnd Sub\n';
+		const offset = src.indexOf('        Save') + '        Save'.length;
+		const got = resolveMemberDefinitionsAt(src, offset, 'Save', personCtx());
+		expect(got).toHaveLength(1);
+	});
+
+	it('accepts a precomputed prefix-token slice of the module', () => {
+		const src = 'Sub Test()\n    Dim p As Person\n    p.Save\nEnd Sub\n';
+		const offset = src.indexOf('p.Save') + 'p.Save'.length;
+		const moduleTokens = tokenize(src).filter((t) => t.kind !== 'comment');
+		const prefixTokens = moduleTokens.filter((t) => t.end <= offset);
+		const got = resolveMemberDefinitionsAt(src, offset, 'Save', personCtx(), prefixTokens);
+		expect(got).toHaveLength(1);
+		expect(got[0].moduleName).toBe('Person');
 	});
 });
 

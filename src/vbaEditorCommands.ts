@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { XLIDE_VBA_LANGUAGE_ID } from './xlideFileSystem';
+import { isVbaDocument } from './xlideFileSystem';
 
 export function registerVbaEditorCommands(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('xlide.vba.smartBackspace', async () => {
 			const editor = vscode.window.activeTextEditor;
-			if (!editor || !isVbaEditorDocument(editor.document)) {
+			if (!editor || !isVbaDocument(editor.document)) {
 				await vscode.commands.executeCommand('deleteLeft');
 				return;
 			}
@@ -16,7 +16,7 @@ export function registerVbaEditorCommands(context: vscode.ExtensionContext): voi
 		}),
 		vscode.commands.registerCommand('xlide.vba.smartTab', async () => {
 			const editor = vscode.window.activeTextEditor;
-			if (!editor || !isVbaEditorDocument(editor.document)) {
+			if (!editor || !isVbaDocument(editor.document)) {
 				await vscode.commands.executeCommand('editor.action.indentLines');
 				return;
 			}
@@ -39,9 +39,6 @@ export function registerVbaEditorCommands(context: vscode.ExtensionContext): voi
 
 type CursorDirection = 'up' | 'down' | 'left' | 'right';
 
-function isVbaEditorDocument(document: vscode.TextDocument): boolean {
-	return document.languageId === 'vba' || document.languageId === XLIDE_VBA_LANGUAGE_ID;
-}
 
 function cursorMoveFor(direction: CursorDirection): Record<string, unknown> | undefined {
 	switch (direction) {

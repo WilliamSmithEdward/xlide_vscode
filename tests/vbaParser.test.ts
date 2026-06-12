@@ -26,6 +26,14 @@ function memberKinds(source: string): ModuleMember['kind'][] {
 	return parseModule(source).members.map((m) => m.kind);
 }
 
+describe('parseModule - request-scoped memoization', () => {
+	it('returns the same AST for repeated parses of identical source', () => {
+		const src = 'Sub T()\n    x = 1\nEnd Sub\n';
+		expect(parseModule(src)).toBe(parseModule(src));
+		expect(parseModule(src)).not.toBe(parseModule(`${src}\n`));
+	});
+});
+
 describe('parseModule - module header (MS-VBAL 4.2)', () => {
 	it('parses Attribute lines into attribute nodes', () => {
 		const m = parseModule('Attribute VB_Name = "Module1"\n');
@@ -531,5 +539,65 @@ describe('parseModule - spans', () => {
 			'Attribute VB_Name = "M"\nOption Explicit\nDim g As Long\nSub Foo()\nEnd Sub\n',
 		);
 		expect(kinds).toEqual(['Attribute', 'Option', 'VariableGroup', 'Procedure']);
+	});
+});
+
+describe('parseModule - declared name spans', () => {
+	const nameText = (src: string, node: { nameSpan?: { start: number; end: number } }): string =>
+		node.nameSpan ? src.slice(node.nameSpan.start, node.nameSpan.end) : '';
+
+	it('records the name token span on procedures and parameters', () => {
+		const src = 'Public Function Total%(ByVal count As Long, items() As String)\nEnd Function\n';
+		const proc = procedures(src)[0];
+		expect(nameText(src, proc)).toBe('Total');
+		expect(nameText(src, proc.params[0])).toBe('count');
+		expect(nameText(src, proc.params[1])).toBe('items');
+	});
+
+	it('records name token spans on variable declarators', () => {
+		const src = 'Dim first As Long, second$, third(1 To 5) As String\n';
+		const group = parseModule(src).members[0] as VariableGroupNode;
+		expect(group.declarations.map((d) => nameText(src, d))).toEqual([
+			'first',
+			'second',
+			'third',
+		]);
+	});
+
+	it('records name token spans on Type/Enum declarations and their members', () => {
+		const src =
+			'Type Record\n    Value As Long\nEnd Type\n' +
+			'Enum Mode\n    First = 1\n    Second\nEnd Enum\n';
+		const m = parseModule(src);
+		const type = m.members[0] as TypeNode;
+		const en = m.members[1] as EnumNode;
+		expect(nameText(src, type)).toBe('Record');
+		expect(nameText(src, type.fields[0])).toBe('Value');
+		expect(nameText(src, en)).toBe('Mode');
+		expect(en.members.map((member) => nameText(src, member))).toEqual(['First', 'Second']);
+	});
+
+	it('records name token spans on Declare and Event declarations', () => {
+		const src =
+			'Private Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long\n' +
+			'Public Event Progress(ByVal percent As Long)\n';
+		const m = parseModule(src);
+		const declare = m.members[0];
+		const event = m.members[1];
+		expect(declare.kind).toBe('Declare');
+		if (declare.kind === 'Declare') {
+			expect(nameText(src, declare)).toBe('GetTickCount');
+		}
+		expect(event.kind).toBe('Event');
+		if (event.kind === 'Event') {
+			expect(nameText(src, event)).toBe('Progress');
+		}
+	});
+
+	it('keeps bracketed declared names spanning the brackets', () => {
+		const src = 'Sub [Strange Name]()\nEnd Sub\n';
+		const proc = procedures(src)[0];
+		expect(proc.name).toBe('Strange Name');
+		expect(nameText(src, proc)).toBe('[Strange Name]');
 	});
 });

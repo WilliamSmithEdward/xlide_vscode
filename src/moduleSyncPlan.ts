@@ -3,7 +3,8 @@ import * as path from 'path';
 import type { PythonBridge } from './pythonBridge';
 import {
     type ModuleInfo,
-    listRootVbaModuleFiles,
+    computeStaleExportFiles,
+    loadWorkbookModulesWithSources,
     relativeNameForModule,
     sanitizeFileName,
 } from './moduleExport';
@@ -14,6 +15,8 @@ import {
     type WorkbookSettingSource,
 } from './workbookSettings';
 import { measurePerformance } from './performanceTrace';
+import { isVbaAttributeLine, normalizeEol } from './vbaSourceScan';
+import { fileExists } from './util/fs';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
@@ -97,6 +100,8 @@ const DOCUMENT_CLSIDS = new Set([
     '{00020820-0000-0000-C000-000000000046}',
     '{00020821-0000-0000-C000-000000000046}',
 ]);
+const VB_BASE_RE = /^\s*Attribute\s+VB_Base\s*=\s*"([^"]*)"/im;
+const DOCUMENT_MODULE_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 
 export async function buildExportModuleSyncPlan(
     bridge: PythonBridge,
@@ -112,19 +117,19 @@ export async function buildExportModuleSyncPlan(
     return measurePerformance('moduleSync.buildExportPlan', path.basename(params.workbookPath), async () => {
     const exportMode = normalizeExportMode(params.exportMode);
     await fs.promises.mkdir(params.exportFolder, { recursive: true });
-    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.workbookPath });
+    const { modules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
     const liveRelativeNames = new Set(modules.map(relativeNameForModule));
     const items = await Promise.all(modules.map(async (mod): Promise<ModuleSyncPlanItem> => {
         const relativeName = relativeNameForModule(mod);
         const targetPath = path.join(params.exportFolder, relativeName);
         const existsInRepo = await fileExists(targetPath);
-        const liveSource = await readWorkbookModuleSource(bridge, params.workbookPath, mod.name);
+        const liveSource = await sourceFor(mod.name);
         const repoSource = existsInRepo
             ? await fs.promises.readFile(targetPath, 'utf8')
             : '';
         const liveDisplaySource = editorPreviewSource(liveSource);
         const repoDisplaySource = editorPreviewSource(repoSource);
-        const equal = existsInRepo && normalizeText(liveSource) === normalizeText(repoSource);
+        const equal = existsInRepo && normalizeEol(liveSource) === normalizeEol(repoSource);
         const status: ModuleSyncItemStatus = equal
             ? 'unchanged'
             : existsInRepo
@@ -159,16 +164,8 @@ export async function buildExportModuleSyncPlan(
     const staleItems: ModuleSyncPlanItem[] = [];
 
     if (exportMode === 'trueUp') {
-        for (const relPath of await listRootVbaModuleFiles(params.exportFolder)) {
-            if (liveRelativeNames.has(relPath)) {
-                continue;
-            }
-
+        for (const relPath of await computeStaleExportFiles(params.exportFolder, liveRelativeNames)) {
             const stalePath = path.join(params.exportFolder, relPath);
-            if (!isPathInside(params.exportFolder, stalePath) || !(await fileExists(stalePath))) {
-                continue;
-            }
-
             const repoSource = await fs.promises.readFile(stalePath, 'utf8');
             const repoDisplaySource = editorPreviewSource(repoSource);
             const moduleName = path.basename(relPath, path.extname(relPath));
@@ -226,7 +223,7 @@ export async function buildImportModuleSyncPlan(
 ): Promise<ModuleSyncPlan> {
     return measurePerformance('moduleSync.buildImportPlan', path.basename(params.workbookPath), async () => {
     const importMode = normalizeImportMode(params.importMode);
-    const liveModules = await bridge.call<ModuleInfo[]>('listModules', { path: params.workbookPath });
+    const { modules: liveModules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
     const entries = (await fs.promises.readdir(params.importFolder))
         .filter((entry) => /\.(bas|cls)$/i.test(entry))
@@ -243,11 +240,11 @@ export async function buildImportModuleSyncPlan(
         const unsupportedDirectCreation =
             !existsInWorkbook && (repo.subtype === 'document' || repo.subtype === 'userform');
         const workbookSource = existsInWorkbook
-            ? await readWorkbookModuleSource(bridge, params.workbookPath, repo.moduleName)
+            ? await sourceFor(repo.moduleName)
             : '';
         const repoDisplaySource = editorPreviewSource(repo.source);
         const workbookDisplaySource = editorPreviewSource(workbookSource);
-        const equal = existsInWorkbook && normalizeText(repo.source) === normalizeText(workbookSource);
+        const equal = existsInWorkbook && normalizeEol(repo.source) === normalizeEol(workbookSource);
         const status: ModuleSyncItemStatus = unsupportedDirectCreation
             ? 'skipping-import'
             : equal
@@ -294,7 +291,7 @@ export async function buildImportModuleSyncPlan(
                 continue;
             }
             const relativeName = relativeNameForModule(mod);
-            const workbookSource = await readWorkbookModuleSource(bridge, params.workbookPath, mod.name);
+            const workbookSource = await sourceFor(mod.name);
             const workbookDisplaySource = editorPreviewSource(workbookSource);
             workbookOnlyItems.push({
                 id: `import-stale:${mod.name}`,
@@ -348,58 +345,92 @@ export function buildSideBySideDiff(
     const right = splitLines(rightText);
     const leftOnlyKind = options.leftOnlyKind ?? 'removed';
     const rightOnlyKind = options.rightOnlyKind ?? 'added';
-    const table = lcsTable(left, right);
     const out: ModuleSyncDiffLine[] = [];
     let i = 0;
     let j = 0;
-    while (i < left.length && j < right.length) {
-        if (left[i] === right[j]) {
+    // Common prefix/suffix lines need no LCS table, so identical texts (the
+    // "unchanged" plan items) skip the O(n*m) table allocation entirely.
+    let leftEnd = left.length;
+    let rightEnd = right.length;
+    while (i < leftEnd && j < rightEnd && left[i] === right[j]) {
+        out.push({
+            leftNumber: i + 1,
+            rightNumber: j + 1,
+            left: left[i],
+            right: right[j],
+            kind: 'equal',
+        });
+        i++;
+        j++;
+    }
+    let suffixLength = 0;
+    while (leftEnd > i && rightEnd > j && left[leftEnd - 1] === right[rightEnd - 1]) {
+        leftEnd--;
+        rightEnd--;
+        suffixLength++;
+    }
+    const midLeft = left.slice(i, leftEnd);
+    const midRight = right.slice(j, rightEnd);
+    const table = lcsTable(midLeft, midRight);
+    let mi = 0;
+    let mj = 0;
+    while (mi < midLeft.length && mj < midRight.length) {
+        if (midLeft[mi] === midRight[mj]) {
             out.push({
-                leftNumber: i + 1,
-                rightNumber: j + 1,
-                left: left[i],
-                right: right[j],
+                leftNumber: i + mi + 1,
+                rightNumber: j + mj + 1,
+                left: midLeft[mi],
+                right: midRight[mj],
                 kind: 'equal',
             });
-            i++;
-            j++;
-        } else if (table[i + 1][j] >= table[i][j + 1]) {
-            if (j < right.length && table[i + 1][j] === table[i][j + 1]) {
+            mi++;
+            mj++;
+        } else if (table[mi + 1][mj] >= table[mi][mj + 1]) {
+            if (table[mi + 1][mj] === table[mi][mj + 1]) {
                 out.push({
-                    leftNumber: i + 1,
-                    rightNumber: j + 1,
-                    left: left[i],
-                    right: right[j],
+                    leftNumber: i + mi + 1,
+                    rightNumber: j + mj + 1,
+                    left: midLeft[mi],
+                    right: midRight[mj],
                     kind: 'changed',
                 });
-                i++;
-                j++;
+                mi++;
+                mj++;
             } else {
                 out.push({
-                    leftNumber: i + 1,
-                    left: left[i],
+                    leftNumber: i + mi + 1,
+                    left: midLeft[mi],
                     right: '',
                     kind: leftOnlyKind,
                 });
-                i++;
+                mi++;
             }
         } else {
             out.push({
-                rightNumber: j + 1,
+                rightNumber: j + mj + 1,
                 left: '',
-                right: right[j],
+                right: midRight[mj],
                 kind: rightOnlyKind,
             });
-            j++;
+            mj++;
         }
     }
-    while (i < left.length) {
-        out.push({ leftNumber: i + 1, left: left[i], right: '', kind: leftOnlyKind });
-        i++;
+    while (mi < midLeft.length) {
+        out.push({ leftNumber: i + mi + 1, left: midLeft[mi], right: '', kind: leftOnlyKind });
+        mi++;
     }
-    while (j < right.length) {
-        out.push({ rightNumber: j + 1, left: '', right: right[j], kind: rightOnlyKind });
-        j++;
+    while (mj < midRight.length) {
+        out.push({ rightNumber: j + mj + 1, left: '', right: midRight[mj], kind: rightOnlyKind });
+        mj++;
+    }
+    for (let k = 0; k < suffixLength; k++) {
+        out.push({
+            leftNumber: leftEnd + k + 1,
+            rightNumber: rightEnd + k + 1,
+            left: left[leftEnd + k],
+            right: right[rightEnd + k],
+            kind: 'equal',
+        });
     }
     return out.length > 0 ? out : [{ left: '', right: '', kind: 'equal' }];
 }
@@ -437,9 +468,7 @@ function importWorkbookTitle(moduleName: string, status: ModuleSyncItemStatus): 
 }
 
 export function editorPreviewSource(source: string): string {
-    const lines = source
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
+    const lines = normalizeEol(source)
         .split('\n')
         .filter((line) => !isVbaAttributeLine(line));
     while (lines.length > 0 && lines[0].trim() === '') {
@@ -467,25 +496,12 @@ export function statusLabel(status: ModuleSyncItemStatus): string {
     }
 }
 
-async function readWorkbookModuleSource(
-    bridge: PythonBridge,
-    workbookPath: string,
-    moduleName: string,
-): Promise<string> {
-    const result = await bridge.call<{ source: string }>('readModule', {
-        path: workbookPath,
-        module: moduleName,
-        full: true,
-    });
-    return result.source;
-}
-
 async function readRepoModuleFile(folder: string, file: string): Promise<RepoModuleFile> {
     const sourcePath = path.join(folder, file);
     const source = await fs.promises.readFile(sourcePath, 'utf8');
     const ext = path.extname(file).toLowerCase();
     const moduleName = sanitizeFileName(path.basename(file, ext)) || path.basename(file, ext);
-    const subtype = ext === '.bas' ? 'standard' : detectClsSubtype(source);
+    const subtype = ext === '.bas' ? 'standard' : detectClsSubtype(moduleName, source);
     return {
         file,
         moduleName,
@@ -496,53 +512,48 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
     };
 }
 
-function detectClsSubtype(source: string): 'class' | 'document' | 'userform' {
-    const head = source.slice(0, 2000);
-    const vbBaseMatch = head.match(/Attribute\s+VB_Base\s*=\s*"([^"]*)"/i);
-    if (vbBaseMatch) {
-        const guids = vbBaseMatch[1].match(GUID_RE) ?? [];
+/**
+ * Infer module type from source content and name.
+ *
+ * Mirrors _module_type in python/xlide/vba_io.py — the shared classification
+ * table tests on both sides pin the two implementations together.
+ */
+export function classifyModuleType(name: string, source: string): 'standard' | 'document' | 'userform' {
+    const vbBaseMatch = source.match(VB_BASE_RE);
+    const vbBase = vbBaseMatch ? vbBaseMatch[1] : '';
+    if (vbBase) {
+        // UserForms always have TWO GUIDs in VB_Base (type-lib + instance).
+        // Class and document modules each have exactly one.
+        const guids = vbBase.match(GUID_RE) ?? [];
         if (guids.length >= 2) {
             return 'userform';
         }
         if (guids.some((guid) => DOCUMENT_CLSIDS.has(guid.toUpperCase()))) {
             return 'document';
         }
-        return 'class';
     }
-    if (/Attribute\s+VB_PredeclaredId\s*=\s*True/i.test(head)) {
+    // VB_PredeclaredId=True is shared by Excel document modules and predeclared
+    // class modules. Treating it as document-only misclassifies singleton-style
+    // classes such as stdVBA's stdArray/stdLambda modules.
+    // Well-known document-module names across common Excel locales.
+    if (name === 'ThisWorkbook' || DOCUMENT_MODULE_NAME_RE.test(name)) {
         return 'document';
     }
-    return 'class';
+    return 'standard';
+}
+
+function detectClsSubtype(name: string, source: string): 'class' | 'document' | 'userform' {
+    const moduleType = classifyModuleType(name, source);
+    // A .cls file is never a standard module — mirror the VBAModuleKind
+    // upgrade in vba_io._module_entries.
+    return moduleType === 'standard' ? 'class' : moduleType;
 }
 
 function splitLines(text: string): string[] {
     if (text.length === 0) {
         return [];
     }
-    return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-}
-
-function isVbaAttributeLine(line: string): boolean {
-    return /^\s*Attribute\s+(?:VB_[A-Za-z0-9_]+|[A-Za-z_][\w.]*\.VB_[A-Za-z0-9_]+)\s*=/.test(line);
-}
-
-function normalizeText(text: string): string {
-    return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-    try {
-        await fs.promises.access(filePath, fs.constants.F_OK);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-function isPathInside(baseDir: string, targetPath: string): boolean {
-    const base = path.resolve(baseDir);
-    const target = path.resolve(targetPath);
-    return target === base || target.startsWith(base + path.sep);
+    return normalizeEol(text).split('\n');
 }
 
 function lcsTable(left: readonly string[], right: readonly string[]): number[][] {

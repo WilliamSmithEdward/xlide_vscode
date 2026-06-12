@@ -14,7 +14,7 @@
 // source exactly. Reserved/contextual keywords carry canonical capitalization.
 
 import { canonicalKeyword } from './keywordTable';
-import { isLineTerminator, TokenKind, Trivia, VbaToken } from './tokenKinds';
+import { isLineTerminator, isWsc, TokenKind, Trivia, VbaToken } from './tokenKinds';
 import { scanLeadingTrivia } from './trivia';
 
 const SPECIAL_DECISION = {
@@ -53,6 +53,32 @@ function isIdentPart(ch: string): boolean {
 		return true;
 	}
 	return isIdentStart(ch);
+}
+
+// Hot editor paths (hover, canonical casing) re-tokenize the same full module
+// text several times per request; a tiny value-keyed memo collapses those
+// scans to one. Callers must not mutate the returned array or its tokens.
+const TOKENIZE_CACHE_MAX = 2;
+const tokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
+
+/** Cached variant of {@link tokenize} for read-only consumers on hot paths. */
+export function tokenizeCached(src: string): VbaToken[] {
+	for (let i = 0; i < tokenizeCache.length; i += 1) {
+		if (tokenizeCache[i].src === src) {
+			const hit = tokenizeCache[i];
+			if (i > 0) {
+				tokenizeCache.splice(i, 1);
+				tokenizeCache.unshift(hit);
+			}
+			return hit.tokens;
+		}
+	}
+	const tokens = tokenize(src);
+	tokenizeCache.unshift({ src, tokens });
+	if (tokenizeCache.length > TOKENIZE_CACHE_MAX) {
+		tokenizeCache.pop();
+	}
+	return tokens;
 }
 
 /**
@@ -178,12 +204,18 @@ export function tokenize(src: string): VbaToken[] {
 				kind = 'directive';
 				atStatementStart = false;
 			} else {
-				// Try a '#'-delimited date literal on the same physical line.
+				// Candidate '#'-delimited date literal on the same physical line. The
+				// '#' pair only forms a DATE token when the enclosed text is a valid
+				// date-or-time body (MS-VBAL 3.3.3); otherwise this '#' is a
+				// file-number marker (`Write #ff, ...`, MS-VBAL 5.4.5 file statements)
+				// or a stray type-suffix and lexes as an operator. Without the body
+				// check, a file-number '#' would pair with any later '#' on the line
+				// and swallow the intervening tokens as one bogus date literal.
 				let scan = pos + 1;
 				while (scan < len && src[scan] !== '#' && !isLineTerminator(src[scan])) {
 					scan++;
 				}
-				if (scan < len && src[scan] === '#') {
+				if (scan < len && src[scan] === '#' && isDateLiteralBody(src.slice(pos + 1, scan))) {
 					pos = scan + 1;
 					kind = 'dateLiteral';
 				} else {
@@ -309,6 +341,192 @@ function hasExponentTail(src: string, pos: number): boolean {
 		p++;
 	}
 	return p < len && isDigit(src[p]);
+}
+
+// ---------------------------------------------------------------------------
+// Date-literal body validation (MS-VBAL 3.3.3 Date Tokens).
+//
+//   DATE          = "#" *WSC [date-or-time *WSC] "#"
+//   date-or-time  = (date-value 1*WSC time-value) / date-value / time-value
+//   date-value    = left-date-value date-separator middle-date-value
+//                   [date-separator right-date-value]
+//   left/middle/right-date-value = decimal-literal / month-name
+//   date-separator = 1*WSC / (*WSC ("/" / "-" / ",") *WSC)
+//   time-value    = (hour-value ampm) / (hour-value time-separator minute-value
+//                   [time-separator second-value] [ampm])
+//   time-separator = *WSC (":" / ".") *WSC
+//   ampm          = *WSC ("am" / "pm" / "a" / "p")
+//
+// Whitespace alone is a date-separator, so the grammar is ambiguous (in
+// `#1/1 3:30#` the `3` could be a right-date-value or an hour-value); the
+// matchers below return every candidate end position and the caller accepts
+// the body if any reading consumes it exactly.
+
+/** month-name = English-month-name / English-month-abbreviation (3.3.3). */
+const MONTH_NAMES = new Set([
+	'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
+	'september', 'october', 'november', 'december',
+	'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+]);
+
+/**
+ * True when the text between a '#' pair is a valid date-literal body:
+ * `*WSC [date-or-time *WSC]`. A non-matching body means the opening '#' was
+ * never a date literal (e.g. a file-number marker) and must lex on its own.
+ */
+function isDateLiteralBody(body: string): boolean {
+	const start = skipWsc(body, 0);
+	if (start === body.length) {
+		return true; // "#" *WSC "#": the empty date literal
+	}
+	for (const end of dateOrTimeEnds(body, start)) {
+		if (skipWsc(body, end) === body.length) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Candidate end positions of date-or-time at `pos`. */
+function dateOrTimeEnds(s: string, pos: number): number[] {
+	const ends: number[] = [];
+	for (const dateEnd of dateValueEnds(s, pos)) {
+		ends.push(dateEnd); // date-value alone
+		const wsEnd = skipWsc(s, dateEnd);
+		if (wsEnd > dateEnd) {
+			ends.push(...timeValueEnds(s, wsEnd)); // date-value 1*WSC time-value
+		}
+	}
+	ends.push(...timeValueEnds(s, pos)); // time-value alone
+	return ends;
+}
+
+/** Candidate end positions of date-value at `pos` (two- and three-part). */
+function dateValueEnds(s: string, pos: number): number[] {
+	const ends: number[] = [];
+	const left = datePartEnd(s, pos);
+	if (left < 0) {
+		return ends;
+	}
+	const sep1 = dateSeparatorEnd(s, left);
+	if (sep1 < 0) {
+		return ends;
+	}
+	const middle = datePartEnd(s, sep1);
+	if (middle < 0) {
+		return ends;
+	}
+	ends.push(middle);
+	const sep2 = dateSeparatorEnd(s, middle);
+	if (sep2 >= 0) {
+		const right = datePartEnd(s, sep2);
+		if (right >= 0) {
+			ends.push(right);
+		}
+	}
+	return ends;
+}
+
+/** End of a date part (decimal-literal / month-name) at `pos`, or -1. */
+function datePartEnd(s: string, pos: number): number {
+	const digitsEnd = decimalEnd(s, pos);
+	if (digitsEnd >= 0) {
+		return digitsEnd;
+	}
+	let p = pos;
+	while (p < s.length && ((s[p] >= 'A' && s[p] <= 'Z') || (s[p] >= 'a' && s[p] <= 'z'))) {
+		p++;
+	}
+	return p > pos && MONTH_NAMES.has(s.slice(pos, p).toLowerCase()) ? p : -1;
+}
+
+/**
+ * End of a date-separator at `pos`, or -1. Greedily takes the separator-char
+ * form when one follows the whitespace; a date part never starts with one of
+ * those chars, so the whitespace-only reading could not succeed where this
+ * fails.
+ */
+function dateSeparatorEnd(s: string, pos: number): number {
+	const afterWs = skipWsc(s, pos);
+	const ch = afterWs < s.length ? s[afterWs] : '';
+	if (ch === '/' || ch === '-' || ch === ',') {
+		return skipWsc(s, afterWs + 1);
+	}
+	return afterWs > pos ? afterWs : -1;
+}
+
+/** Candidate end positions of time-value at `pos`. */
+function timeValueEnds(s: string, pos: number): number[] {
+	const ends: number[] = [];
+	const hour = decimalEnd(s, pos);
+	if (hour < 0) {
+		return ends;
+	}
+	const hourAmPm = ampmEnd(s, hour);
+	if (hourAmPm >= 0) {
+		ends.push(hourAmPm); // hour-value ampm
+	}
+	const sep1 = timeSeparatorEnd(s, hour);
+	if (sep1 < 0) {
+		return ends;
+	}
+	const minute = decimalEnd(s, sep1);
+	if (minute < 0) {
+		return ends;
+	}
+	ends.push(minute);
+	const minuteAmPm = ampmEnd(s, minute);
+	if (minuteAmPm >= 0) {
+		ends.push(minuteAmPm);
+	}
+	const sep2 = timeSeparatorEnd(s, minute);
+	if (sep2 >= 0) {
+		const second = decimalEnd(s, sep2);
+		if (second >= 0) {
+			ends.push(second);
+			const secondAmPm = ampmEnd(s, second);
+			if (secondAmPm >= 0) {
+				ends.push(secondAmPm);
+			}
+		}
+	}
+	return ends;
+}
+
+/** End of a time-separator (*WSC (":" / ".") *WSC) at `pos`, or -1. */
+function timeSeparatorEnd(s: string, pos: number): number {
+	const afterWs = skipWsc(s, pos);
+	const ch = afterWs < s.length ? s[afterWs] : '';
+	return ch === ':' || ch === '.' ? skipWsc(s, afterWs + 1) : -1;
+}
+
+/** End of an ampm marker (*WSC ("am" / "pm" / "a" / "p")) at `pos`, or -1. */
+function ampmEnd(s: string, pos: number): number {
+	const p = skipWsc(s, pos);
+	const first = p < s.length ? s[p].toLowerCase() : '';
+	if (first !== 'a' && first !== 'p') {
+		return -1;
+	}
+	const second = p + 1 < s.length ? s[p + 1].toLowerCase() : '';
+	return second === 'm' ? p + 2 : p + 1;
+}
+
+/** End of a decimal-literal (1*DIGIT) at `pos`, or -1. */
+function decimalEnd(s: string, pos: number): number {
+	let p = pos;
+	while (p < s.length && isDigit(s[p])) {
+		p++;
+	}
+	return p > pos ? p : -1;
+}
+
+/** First non-WSC position at or after `pos`. */
+function skipWsc(s: string, pos: number): number {
+	let p = pos;
+	while (p < s.length && isWsc(s[p])) {
+		p++;
+	}
+	return p;
 }
 
 /**

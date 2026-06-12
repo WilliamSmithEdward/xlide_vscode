@@ -37,16 +37,11 @@ describe('VBA test support module', () => {
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Public Sub ResetTestState');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Public Function LastFailureMessage() As String');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Public Function OutputJson() As String');
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Public Function RunTest(ByVal macroName As String) As String');
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run macroName');
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('RunTest = "{""outcome"":""failed""');
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('""output"":');
+        expect(XLIDE_ASSERT_MODULE_SOURCE).not.toContain('Public Function RunTest');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Private Function JsonEscape');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Chr$(92) & Chr$(34)');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('If Len(mLastFailureMessage) = 0 Then');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('mLastFailureMessage = message');
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('CStr(XLIDE_ASSERTION_ERROR)');
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('"source"":""XLIDE.Assert""');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Private Function TryString');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('vbBinaryCompare');
         expect(XLIDE_ASSERT_MODULE_SOURCE).not.toContain('Err.Raise XLIDE_ASSERTION_ERROR');

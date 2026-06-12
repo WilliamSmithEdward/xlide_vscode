@@ -52,13 +52,13 @@ describe('globalSettings', () => {
                 severity: 'error',
             },
             {
-                key: 'xlide.analysis.visibleSeverities',
-                message: 'Expected "xlide.analysis.visibleSeverities" entries to be one of: error, warning, information.',
+                key: 'xlide.analysis.untrackedRules',
+                message: 'Expected "xlide.analysis.untrackedRules" entries to be known analysis rule codes.',
                 severity: 'error',
             },
             {
-                key: 'xlide.analysis.untrackedRules',
-                message: 'Expected "xlide.analysis.untrackedRules" entries to be known analysis rule codes.',
+                key: 'xlide.analysis.visibleSeverities',
+                message: 'Expected "xlide.analysis.visibleSeverities" entries to be one of: error, warning, information.',
                 severity: 'error',
             },
         ]);

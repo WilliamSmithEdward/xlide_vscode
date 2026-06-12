@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{head}}
+    <style nonce="{{nonce}}">
+{{css}}
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header>
+            <div>
+                <h1 id="title"></h1>
+                <div class="sub" id="subtitle"></div>
+                <div class="settings">
+                    <div class="field">
+                        <label id="folderLabel"></label>
+                        <div class="folderValue" id="folderValue"></div>
+                        <div class="settingMeta" id="folderSource"></div>
+                    </div>
+                    <button class="secondary" id="chooseFolder">Change</button>
+                    <div class="field" id="modeField">
+                        <label for="syncMode" id="modeLabel">Export mode</label>
+                        <select id="syncMode">
+                            <option value="exportAll">Export All (No Deletes)</option>
+                            <option value="trueUp">Export All + Delete Missing</option>
+                        </select>
+                        <div class="settingMeta" id="modeSource"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="secondary" id="cancel">Cancel</button>
+                <button id="apply">Apply Selected</button>
+            </div>
+        </header>
+        <main id="layout">
+            <aside>
+                <div class="toolbar">
+                    <button class="secondary" id="selectChanged">Select Pending</button>
+                    <button class="secondary" id="clear">Clear</button>
+                </div>
+                <div class="warnings" id="warnings"></div>
+                <div class="list" id="list"></div>
+            </aside>
+            <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Resize module list"></div>
+            <section>
+                <div class="diff-tools">
+                    <button class="secondary" id="toggleHeaders" aria-pressed="false">Show Headers in Diff</button>
+                </div>
+                <div class="diff-head">
+                    <div class="diff-head-gutter"></div>
+                    <div class="diff-title-wrap">
+                        <div class="diff-title" id="leftTitle"></div>
+                        <button class="secondary copyCode" id="copyLeft">Copy</button>
+                    </div>
+                    <div class="diff-head-gutter"></div>
+                    <div class="diff-title-wrap">
+                        <div class="diff-title" id="rightTitle"></div>
+                        <button class="secondary copyCode" id="copyRight">Copy</button>
+                    </div>
+                </div>
+                <div class="diff" id="diff"></div>
+            </section>
+        </main>
+        <footer>
+            <span id="counts"></span>
+            <span class="result" id="result"></span>
+        </footer>
+    </div>
+    <div class="quickTooltip" id="tooltip" role="tooltip" hidden></div>
+    <script nonce="{{nonce}}">
+{{js}}
+    </script>
+</body>
+</html>

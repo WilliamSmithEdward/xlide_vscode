@@ -1,6 +1,8 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
-import { detectSmartBlockOpener, VBA_SMART_BLOCK_SNIPPETS } from '../src/vbaStructuralAnalysis';
+import { detectSmartBlockOpener } from '../src/vbaSmartEnter';
+import { VBA_SMART_BLOCK_SNIPPETS } from '../src/vbaSmartBlockSnippets';
+import { XLIDE_VBA_EDITOR_OVERRIDES } from '../src/xlideVbaEditorOverrides';
 
 interface VbaLanguageConfiguration {
 	indentationRules?: Record<string, string>;
@@ -180,16 +182,9 @@ describe('VBA language configuration', () => {
 		const standaloneLanguage = contributes?.languages?.find((language) => language.id === 'vba');
 
 		expect(contributes?.configurationDefaults?.['[vba]']).toBeUndefined();
-		expect(contributes?.configurationDefaults?.['[xlide-vba]']).toMatchObject({
-			'editor.detectIndentation': false,
-			'editor.tabSize': 4,
-			'editor.minimap.enabled': true,
-			'editor.minimap.renderCharacters': false,
-			'editor.minimap.showMarkSectionHeaders': false,
-			'editor.minimap.showRegionSectionHeaders': false,
-			'editor.overviewRulerBorder': false,
-			'editor.overviewRulerLanes': 3,
-		});
+		expect(contributes?.configurationDefaults?.['[xlide-vba]']).toEqual(Object.fromEntries(
+			XLIDE_VBA_EDITOR_OVERRIDES.map(({ key, value }) => [`editor.${key}`, value]),
+		));
 		expect(standaloneLanguage?.extensions).toEqual(['.bas', '.cls', '.frm']);
 		expect(xlideLanguage).toMatchObject({
 			id: 'xlide-vba',
@@ -311,12 +306,6 @@ describe('VBA language configuration', () => {
 			title: 'Copy Performance Snapshot',
 			category: 'XLIDE',
 		});
-		expect(commands.map((entry) => entry.command)).not.toEqual(expect.arrayContaining([
-			'xlide.runVbaTestsWithFilters',
-			'xlide.runVbaTestsInCurrentModule',
-			'xlide.runVbaTestAtCursor',
-			'xlide.installVbaTestSupport',
-		]));
 	});
 
 	it('keeps workbook tree tests centralized through the Unit Tests GUI', () => {
@@ -329,17 +318,6 @@ describe('VBA language configuration', () => {
 
 		expect(workbookTreeCommands).toContain('xlide.analyzeWorkbook');
 		expect(workbookTreeCommands).toContain('xlide.runVbaTests');
-		expect(workbookTreeCommands).not.toContain('xlide.runVbaTestsWithFilters');
-		expect(workbookTreeCommands).not.toContain('xlide.installVbaTestSupport');
 		expect(workbookTreeCommands).not.toContain('xlide.validateWorkbook');
-
-		const editorContextCommands = loadPackage()
-			.contributes
-			?.menus
-			?.['editor/context']
-			?.filter((entry) => entry.when === 'resourceScheme == xlide-vba')
-			.map((entry) => entry.command) ?? [];
-		expect(editorContextCommands).not.toContain('xlide.runVbaTestsInCurrentModule');
-		expect(editorContextCommands).not.toContain('xlide.runVbaTestAtCursor');
 	});
 });

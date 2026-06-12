@@ -1,15 +1,3 @@
-export const DEFAULT_VBA_TEST_HOST_ORACLE_CONTRACT = {
-    excelInstance: 'single-owned-instance',
-    workbookOpenMode: 'read-only',
-    attachToUserExcelByDefault: false,
-    closeWorkbookWithoutSaving: true,
-    requiresPerTestTimeout: true,
-    cleanupOwnedExcelOnHang: true,
-    detectsExcelModals: true,
-    dismissesSafeModalsWithoutSendKeys: true,
-    blocksUnsafeModals: true,
-} as const;
-
 export type VbaTestHostOracleIssueCode =
     | 'empty-trace'
     | 'single-owned-excel-instance'
@@ -112,6 +100,19 @@ export type VbaTestHostOracleEvent =
     | { kind: 'workbook-closed'; excelId: string; filePath?: string; saveChanges: boolean; durationMs?: number }
     | { kind: 'excel-quit'; excelId: string; durationMs?: number }
     | { kind: 'excel-killed'; excelId: string; reason: 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed' };
+
+/** Prefix marking machine-readable oracle events on the PowerShell host's stdout. */
+export const XLIDE_TEST_HOST_EVENT_PREFIX = 'XLIDE_TEST_HOST_EVENT|';
+
+/** Parses one host stdout line; returns undefined for ordinary (non-event) output. */
+export function parseVbaTestHostEventLine(line: string): VbaTestHostOracleEvent | undefined {
+    if (!line.startsWith(XLIDE_TEST_HOST_EVENT_PREFIX)) {
+        return undefined;
+    }
+    const json = line.slice(XLIDE_TEST_HOST_EVENT_PREFIX.length);
+    const parsed = JSON.parse(json) as VbaTestHostOracleEvent;
+    return parsed;
+}
 
 export function validateVbaTestHostOracleTrace(
     events: readonly VbaTestHostOracleEvent[],

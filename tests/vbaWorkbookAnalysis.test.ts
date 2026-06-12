@@ -1,63 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+﻿import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', () => ({
-	workspace: {
-		getConfiguration: () => ({
-			get: (_key: string, fallback: unknown) => fallback,
-		}),
-	},
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { PythonBridge } from '../src/pythonBridge';
-
-interface TestModule {
-	name: string;
-	type: string;
-	source: string;
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
-	let resolve!: (value: T) => void;
-	let reject!: (error: unknown) => void;
-	const promise = new Promise<T>((promiseResolve, promiseReject) => {
-		resolve = promiseResolve;
-		reject = promiseReject;
-	});
-	return { promise, resolve, reject };
-}
-
-async function flushPromises(): Promise<void> {
-	for (let i = 0; i < 10; i++) {
-		await Promise.resolve();
-	}
-}
-
-function bridgeForModules(modules: TestModule[]): PythonBridge {
-	const byName = new Map(modules.map((mod) => [mod.name, mod]));
-	return {
-		call: vi.fn(async (method: string, payload: { module?: string }) => {
-			if (method === 'readModules') {
-				return modules.map(({ name, type, source }) => ({ name, type, source }));
-			}
-			if (method === 'listModules') {
-				return modules.map(({ name, type }) => ({ name, type }));
-			}
-			if (method === 'readModule' && payload.module) {
-				const mod = byName.get(payload.module);
-				if (!mod) {
-					throw new Error(`Unknown module ${payload.module}`);
-				}
-				return { source: mod.source };
-			}
-			throw new Error(`Unexpected bridge call ${method}`);
-		}),
-	} as unknown as PythonBridge;
-}
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
+import { fakePythonBridge } from './helpers/fakePythonBridge';
+import { deferred, flushPromises } from './helpers/async';
 
 describe('analyzeWorkbook metadata summary', () => {
 	it('loads workbook modules through the batch read endpoint', async () => {
-		const bridge = bridgeForModules([
+		const bridge = fakePythonBridge([
 			{
 				name: 'Module1',
 				type: 'standard',
@@ -72,32 +25,13 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('falls back to legacy list/read calls when the backend lacks batch reads', async () => {
-		const modules: TestModule[] = [
+		const bridge = fakePythonBridge([
 			{
 				name: 'Module1',
 				type: 'standard',
 				source: 'Option Explicit\nSub T()\nEnd Sub\n',
 			},
-		];
-		const byName = new Map(modules.map((mod) => [mod.name, mod]));
-		const bridge = {
-			call: vi.fn(async (method: string, payload: { module?: string }) => {
-				if (method === 'readModules') {
-					throw new Error('Method not found: readModules');
-				}
-				if (method === 'listModules') {
-					return modules.map(({ name, type }) => ({ name, type }));
-				}
-				if (method === 'readModule' && payload.module) {
-					const mod = byName.get(payload.module);
-					if (!mod) {
-						throw new Error(`Unknown module ${payload.module}`);
-					}
-					return { source: mod.source };
-				}
-				throw new Error(`Unexpected bridge call ${method}`);
-			}),
-		} as unknown as PythonBridge;
+		], { supportsBatchRead: false });
 
 		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
 
@@ -115,7 +49,7 @@ describe('analyzeWorkbook metadata summary', () => {
 		const bridge = {
 			call: vi.fn((method: string, payload: { module?: string }) => {
 				if (method === 'readModules') {
-					return Promise.reject(new Error('Method not found: readModules'));
+					return Promise.reject(new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND));
 				}
 				if (method === 'listModules') {
 					return Promise.resolve([
@@ -145,7 +79,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {
-		const bridge = bridgeForModules([
+		const bridge = fakePythonBridge([
 			{
 				name: 'BlockBroken',
 				type: 'standard',
@@ -201,7 +135,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('surfaces replacement quick fixes for mismatched procedure closers', async () => {
-		const bridge = bridgeForModules([
+		const bridge = fakePythonBridge([
 			{
 				name: 'Performance',
 				type: 'class',
@@ -223,7 +157,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('uses project ByRef helper signatures for workbook return-assignment analysis', async () => {
-		const bridge = bridgeForModules([
+		const bridge = fakePythonBridge([
 			{
 				name: 'Runner',
 				type: 'standard',
@@ -250,7 +184,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('uses source bindings before host globals in workbook member diagnostics', async () => {
-		const bridge = bridgeForModules([
+		const bridge = fakePythonBridge([
 			{
 				name: 'Caller',
 				type: 'standard',

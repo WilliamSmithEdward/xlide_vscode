@@ -1,0 +1,600 @@
+        :root {
+            color-scheme: light dark;
+            {{accentPalette}}
+        }
+        * {
+            box-sizing: border-box;
+        }
+        {{bodyCss}}
+        button {
+            font: inherit;
+        }
+        .shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .subtle {
+            color: var(--vscode-descriptionForeground);
+        }
+        .headerActions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .actionButton,
+        .filterButton,
+        .moduleFilter,
+        .secondaryButton {
+            border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+            color: var(--vscode-button-secondaryForeground);
+            background: var(--vscode-button-secondaryBackground);
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .actionButton:hover,
+        .filterButton:hover,
+        .moduleFilter:hover,
+        .secondaryButton:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .secondaryButton {
+            color: var(--vscode-foreground);
+            background: transparent;
+        }
+        .filterButton.active,
+        .moduleFilter.active {
+            color: var(--vscode-button-foreground);
+            border-color: var(--xlide-accent-border);
+            background: var(--xlide-accent-background);
+        }
+        .filterButton.active:hover,
+        .moduleFilter.active:hover {
+            background: var(--xlide-accent-hover-background);
+        }
+        .filterButton.transient {
+            margin-left: 6px;
+        }
+        .stats {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 28px;
+            padding: 9px 18px;
+            background: var(--vscode-editor-background);
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .stat {
+            min-width: 0;
+            display: grid;
+            gap: 1px;
+            min-inline-size: 96px;
+            padding: 0;
+        }
+        .stat strong {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .stat span {
+            display: block;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            letter-spacing: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .body {
+            min-height: 0;
+            display: grid;
+            grid-template-columns: minmax(180px, 260px) 1fr;
+        }
+        aside {
+            min-width: 0;
+            padding: 12px;
+            border-right: 1px solid var(--vscode-panel-border);
+            overflow: auto;
+        }
+        aside h2,
+        main h2 {
+            margin: 0 0 8px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0;
+            color: var(--vscode-descriptionForeground);
+        }
+        .moduleList {
+            display: grid;
+            gap: 6px;
+        }
+        .moduleFilter {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+        .moduleIdentity {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .moduleIcon {
+            width: 18px;
+            height: 18px;
+            display: inline-grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 3px;
+            color: var(--vscode-descriptionForeground);
+            font-size: 11px;
+            line-height: 1;
+        }
+        .moduleName {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        main {
+            min-width: 0;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            overflow: hidden;
+        }
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .visibleCount {
+            color: var(--vscode-descriptionForeground);
+            white-space: nowrap;
+        }
+        .table {
+            min-width: 0;
+            overflow: auto;
+        }
+        .tableHeader,
+        .problemRow {
+            display: grid;
+            grid-template-columns: 124px minmax(184px, 210px) 150px minmax(132px, 190px) 132px minmax(260px, 1fr);
+            align-items: stretch;
+            min-width: 1120px;
+        }
+        .tableHeader {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: var(--vscode-editor-background);
+            color: var(--vscode-descriptionForeground);
+            border-bottom: 1px solid var(--vscode-panel-border);
+            font-weight: 600;
+        }
+        .sortHeader {
+            border: 0;
+            display: grid;
+            grid-template-columns: minmax(0, auto) 12px;
+            align-items: center;
+            gap: 5px;
+            color: inherit;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+            font-weight: inherit;
+        }
+        .sortHeader:hover,
+        .sortHeader:focus {
+            outline: none;
+            background: var(--vscode-list-hoverBackground);
+        }
+        .sortHeader[aria-sort="ascending"],
+        .sortHeader[aria-sort="descending"] {
+            color: var(--vscode-foreground);
+        }
+        .sortHeaderText {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sortIndicator {
+            width: 10px;
+            height: 10px;
+            color: currentColor;
+        }
+        .sortIndicator::before {
+            content: "";
+            display: block;
+            width: 0;
+            height: 0;
+            margin: 2px auto 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            opacity: 0;
+        }
+        .sortHeader[aria-sort="ascending"] .sortIndicator::before {
+            border-bottom: 6px solid currentColor;
+            opacity: 1;
+        }
+        .sortHeader[aria-sort="descending"] .sortIndicator::before {
+            border-top: 6px solid currentColor;
+            opacity: 1;
+        }
+        .problemRow {
+            width: 100%;
+            border: 0;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            color: var(--vscode-foreground);
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+        }
+        .problemRow:hover,
+        .problemRow:focus {
+            outline: none;
+            background: var(--vscode-list-hoverBackground);
+        }
+        .problemRow.hiddenVisible {
+            opacity: 0.52;
+            background-image: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 9px,
+                color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent) 9px,
+                color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent) 10px
+            );
+        }
+        .problemRow.suppressedVisible {
+            opacity: 0.62;
+        }
+        .problemRow[hidden] {
+            display: none !important;
+        }
+        .cell {
+            min-width: 0;
+            padding: 8px 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .message {
+            white-space: normal;
+            line-height: 1.35;
+        }
+        .severity {
+            font-weight: 600;
+            text-transform: capitalize;
+            text-overflow: clip;
+        }
+        .severity-error .severity {
+            color: var(--vscode-errorForeground);
+        }
+        .severity-warning .severity {
+            color: var(--vscode-editorWarning-foreground);
+        }
+        .code,
+        .kind,
+        .location,
+        .status {
+            color: var(--vscode-descriptionForeground);
+        }
+        .empty {
+            padding: 32px 14px;
+            color: var(--vscode-descriptionForeground);
+        }
+        {{toastCss}}
+        .contextMenu {
+            position: fixed;
+            z-index: 10;
+            min-width: 190px;
+            padding: 4px;
+            border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+            border-radius: 4px;
+            color: var(--vscode-menu-foreground, var(--vscode-foreground));
+            background: var(--vscode-menu-background, var(--vscode-editor-background));
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+        }
+        .contextMenu button {
+            width: 100%;
+            display: block;
+            border: 0;
+            border-radius: 3px;
+            padding: 6px 9px;
+            color: inherit;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+        }
+        .contextMenu button:hover,
+        .contextMenu button:focus {
+            outline: none;
+            background: var(--vscode-menu-selectionBackground, var(--vscode-list-hoverBackground));
+            color: var(--vscode-menu-selectionForeground, var(--vscode-foreground));
+        }
+        .contextMenu button:disabled {
+            color: var(--vscode-disabledForeground);
+            background: transparent;
+            cursor: default;
+        }
+        .contextMenu button:disabled:hover,
+        .contextMenu button:disabled:focus {
+            color: var(--vscode-disabledForeground);
+            background: transparent;
+        }
+        .contextMenu button[hidden],
+        .contextDivider[hidden] {
+            display: none;
+        }
+        .contextDivider {
+            height: 1px;
+            margin: 4px;
+            background: var(--vscode-menu-separatorBackground, var(--vscode-panel-border));
+        }
+        .contextItemWithSubmenu {
+            position: relative;
+        }
+        .contextItemWithSubmenu > button {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .submenuChevron {
+            margin-left: auto;
+            color: var(--vscode-descriptionForeground);
+        }
+        .contextSubmenu {
+            position: absolute;
+            display: none;
+            top: 0;
+            left: calc(100% + 4px);
+            min-width: 260px;
+            max-width: min(420px, calc(100vw - 32px));
+            padding: 4px;
+            border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+            border-radius: 4px;
+            color: var(--vscode-menu-foreground, var(--vscode-foreground));
+            background: var(--vscode-menu-background, var(--vscode-editor-background));
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+        }
+        .contextSubmenu button {
+            white-space: normal;
+            line-height: 1.25;
+        }
+        .contextItemWithSubmenu.hasQuickFixes:hover > .contextSubmenu {
+            display: block;
+        }
+        .settingsBackdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.28);
+        }
+        .settingsBackdrop[hidden] {
+            display: none;
+        }
+        .settingsDialog {
+            width: min(760px, 100%);
+            max-height: min(760px, calc(100vh - 48px));
+            display: grid;
+            grid-template-rows: auto 1fr;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            color: var(--vscode-foreground);
+            background: var(--vscode-editor-background);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+            overflow: hidden;
+        }
+        .settingsHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .settingsHeader h2 {
+            margin: 0;
+            font-size: 15px;
+        }
+        .settingsBody {
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 14px;
+        }
+        .settingsSection + .settingsSection {
+            margin-top: 18px;
+        }
+        .settingsSectionHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 8px;
+        }
+        .settingsSection h3 {
+            margin: 0 0 8px;
+            color: var(--vscode-descriptionForeground);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .settingsSectionHeader h3 {
+            margin-bottom: 2px;
+        }
+        .settingsSource {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+        }
+        .settingsHint {
+            margin: -2px 0 8px;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .settingsHeaderActions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .settingsResetButton {
+            white-space: nowrap;
+        }
+        .settingsResetButton:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+        .settingsChoices {
+            display: grid;
+            gap: 8px;
+        }
+        .settingsChoice,
+        .settingsRuleRow {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 32px;
+            padding: 6px 8px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+        }
+        .settingsChoice input,
+        .settingsRuleRow input {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+        }
+        .settingsRuleList {
+            display: grid;
+            gap: 6px;
+        }
+        .settingsRuleTracking {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+        .settingsRuleMain {
+            min-width: 0;
+            flex: 1;
+        }
+        .settingsRuleControls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .settingsRuleControlLabel,
+        .settingsRuleFixed {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .settingsRuleTitle {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .settingsRuleMeta {
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+        }
+        .settingsRuleSelect {
+            min-width: 150px;
+            height: 30px;
+            color: var(--vscode-dropdown-foreground);
+            background: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 4px;
+            padding: 0 8px;
+        }
+        .settingsTable {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border: 1px solid var(--vscode-panel-border);
+        }
+        .settingsTable th,
+        .settingsTable td {
+            padding: 7px 9px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            text-align: left;
+            vertical-align: middle;
+        }
+        .settingsTable th {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .settingsTable td {
+            overflow-wrap: anywhere;
+        }
+        .settingsTableCode {
+            width: 34%;
+            color: var(--vscode-descriptionForeground);
+            font-family: var(--vscode-editor-font-family);
+        }
+        .settingsTableAction {
+            width: 96px;
+            text-align: right;
+        }
+        .settingsEmpty {
+            color: var(--vscode-descriptionForeground);
+        }
+        .settingsFooterActions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid var(--vscode-panel-border);
+        }
+        @media (max-width: 860px) {
+            .stats {
+                gap: 8px 18px;
+            }
+            .body {
+                grid-template-columns: 1fr;
+            }
+            aside {
+                border-right: 0;
+                border-bottom: 1px solid var(--vscode-panel-border);
+                max-height: 180px;
+            }
+        }

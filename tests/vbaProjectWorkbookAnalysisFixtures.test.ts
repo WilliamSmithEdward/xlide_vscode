@@ -2,14 +2,7 @@ import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type * as VscodeType from 'vscode';
 
-vi.mock('vscode', () => ({
-	workspace: {
-		getConfiguration: () => ({
-			get: (_key: string, fallback: unknown) => fallback,
-		}),
-		textDocuments: [],
-	},
-}));
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import * as vscode from 'vscode';
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
@@ -22,37 +15,15 @@ import {
 	type VbaProjectFixtureOpenDocumentAssertion,
 	type VbaProjectFixture,
 } from './helpers/vbaProjectFixtures';
+import { fakePythonBridge } from './helpers/fakePythonBridge';
 
 function bridgeForFixture(fixture: VbaProjectFixture): PythonBridge {
-	const modules = fixtureModules(fixture);
-	const byName = new Map(modules.map((mod) => [mod.moduleName, mod]));
-	return {
-		call: vi.fn(async (method: string, payload: { module?: string }) => {
-			if (method === 'readModules') {
-				return modules.map((mod) => ({
-					name: mod.moduleName,
-					type: mod.type ?? 'standard',
-					documentType: mod.documentType,
-					source: mod.source,
-				}));
-			}
-			if (method === 'listModules') {
-				return modules.map((mod) => ({
-					name: mod.moduleName,
-					type: mod.type ?? 'standard',
-					documentType: mod.documentType,
-				}));
-			}
-			if (method === 'readModule' && payload.module) {
-				const mod = byName.get(payload.module);
-				if (!mod) {
-					throw new Error(`Unknown module ${payload.module}`);
-				}
-				return { source: mod.source };
-			}
-			throw new Error(`Unexpected bridge call ${method}`);
-		}),
-	} as unknown as PythonBridge;
+	return fakePythonBridge(fixtureModules(fixture).map((mod) => ({
+		name: mod.moduleName,
+		type: mod.type ?? 'standard',
+		documentType: mod.documentType,
+		source: mod.source,
+	})));
 }
 
 function fixtureWorkbookPath(fixture: VbaProjectFixture): string {

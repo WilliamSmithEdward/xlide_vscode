@@ -1,8 +1,10 @@
 import { tokenize } from '../lexer/tokenize';
-import type { ModuleMember, Span } from '../parser/nodes';
+import type { VbaToken } from '../lexer/tokenKinds';
+import type { ModuleMember, ModuleNode, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaDiagnostic } from './analyzeModule';
 import { diagnosticMetadataForCode, DIAGNOSTIC_RULES } from './ruleMetadata';
+import { lineStartOffsets } from '../../vbaSourceScan';
 
 export const ANALYSIS_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.analysisSuppressionDirective.code;
 
@@ -17,6 +19,14 @@ export interface AnalysisSuppressionFilterResult<T> {
 	directiveDiagnostics: readonly VbaDiagnostic[];
 	suppressedCount: number;
 	analysis: AnalysisSuppressionAnalysis;
+}
+
+/** Pre-computed lex/parse results the scan can reuse instead of re-scanning. */
+export interface ScanAnalysisSuppressionsContext {
+	/** Pre-lexed tokens for `source`. When omitted, the scan tokenizes itself. */
+	tokens?: readonly VbaToken[];
+	/** Pre-parsed AST for `source`. When omitted, the scan parses itself. */
+	parsedModule?: ModuleNode;
 }
 
 type SuppressionTarget = 'all' | ReadonlySet<string>;
@@ -65,11 +75,14 @@ interface LineTokenSummary {
  * resulting predicate is intentionally shared by live diagnostics, workbook
  * analysis, and tests so suppression semantics cannot drift by surface.
  */
-export function scanAnalysisSuppressions(source: string): AnalysisSuppressionAnalysis {
-	const tokens = tokenize(source);
+export function scanAnalysisSuppressions(
+	source: string,
+	context: ScanAnalysisSuppressionsContext = {},
+): AnalysisSuppressionAnalysis {
+	const tokens = context.tokens ?? tokenize(source);
 	const lineStarts = lineStartOffsets(source);
 	const firstSourceLine = firstNonCommentNonAttributeLine(tokens);
-	const members = suppressibleMembers(source);
+	const members = suppressibleMembers(context.parsedModule ?? parseModule(source));
 	const openBlocks: OpenBlockSuppression[] = [];
 	const state: MutableSuppressions = {
 		linesAll: new Set<number>(),
@@ -412,7 +425,7 @@ function directiveDiagnostic(message: string, span: Span): VbaDiagnostic {
 }
 
 function firstNonCommentNonAttributeLine(
-	tokens: ReturnType<typeof tokenize>,
+	tokens: readonly VbaToken[],
 ): number | undefined {
 	const summaries = new Map<number, LineTokenSummary>();
 	for (const token of tokens) {
@@ -440,8 +453,8 @@ function firstNonCommentNonAttributeLine(
 		?.line;
 }
 
-function suppressibleMembers(source: string): Array<Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>> {
-	return parseModule(source).members
+function suppressibleMembers(module: ModuleNode): Array<Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>> {
+	return module.members
 		.filter((member): member is Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }> =>
 			member.kind === 'Procedure' || member.kind === 'Type' || member.kind === 'Enum',
 		)
@@ -449,7 +462,7 @@ function suppressibleMembers(source: string): Array<Extract<ModuleMember, { kind
 }
 
 function nextDirectSuppressibleMember(
-	tokens: ReturnType<typeof tokenize>,
+	tokens: readonly VbaToken[],
 	members: readonly Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>[],
 	afterOffset: number,
 ): Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }> | undefined {
@@ -464,25 +477,10 @@ function nextDirectSuppressibleMember(
 	return members.find((member) => member.span.start === nextToken.start);
 }
 
-function tokenText(token: ReturnType<typeof tokenize>[number]): string {
+function tokenText(token: VbaToken): string {
 	return (token.canonicalText ?? token.rawText).toLowerCase();
 }
 
-function lineStartOffsets(source: string): number[] {
-	const starts = [0];
-	for (let i = 0; i < source.length; i++) {
-		const ch = source[i];
-		if (ch === '\r') {
-			if (source[i + 1] === '\n') {
-				i++;
-			}
-			starts.push(i + 1);
-		} else if (ch === '\n') {
-			starts.push(i + 1);
-		}
-	}
-	return starts;
-}
 
 function lineForOffset(starts: readonly number[], offset: number): number {
 	let lo = 0;

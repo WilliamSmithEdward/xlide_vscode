@@ -21,6 +21,11 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
+  // Only the extension host code is bundled. Runtime text assets -- the
+  // webview templates under assets/webview/ and the test-host sources under
+  // assets/testhost/ -- are NOT bundled or copied here: they are read from
+  // disk at runtime via src/extensionAssets.ts relative to the extension
+  // root, and they ship in the VSIX because .vscodeignore keeps assets/**.
   const ctx = await esbuild.context({
     entryPoints: ["src/extension.ts"],
     bundle: true,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PythonBridge } from '../src/pythonBridge';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
+import { fakePythonBridge } from './helpers/fakePythonBridge';
 import {
     createVbaTestRunReport,
     describeVbaTestSelection,
@@ -9,7 +11,6 @@ import {
     summarizeVbaTestTags,
     summarizeVbaTestRun,
     validateVbaTestDirectivesFromModule,
-    vbaTestFailureMessage,
 } from '../src/vbaTestRunner';
 
 describe('VBA test runner discovery', () => {
@@ -51,7 +52,7 @@ describe('VBA test runner discovery', () => {
                 owner: 'finance',
                 requirement: 'INV-104',
                 timeoutMs: 2000,
-                expectedError: '13',
+                expectedError: 13,
             },
         })]);
     });
@@ -133,11 +134,35 @@ describe('VBA test runner discovery', () => {
         expect(result.contract).toContain('@xlide-test');
     });
 
-    it('discovers workbook tests through pyopenvba bridge reads only', async () => {
+    it('discovers workbook tests through a single batch bridge read', async () => {
         const calls: string[] = [];
         const bridge = {
             async call<T>(method: string, params: { module?: string }): Promise<T> {
                 calls.push(params.module ? `${method}:${params.module}` : method);
+                if (method === 'readModules') {
+                    return [
+                        { name: 'Tests', type: 'standard', source: "' @xlide-test\nSub Runs()\nEnd Sub\n" },
+                        { name: 'Sheet1', type: 'document', source: '' },
+                    ] as T;
+                }
+                throw new Error(`Unexpected bridge call ${method}`);
+            },
+        } as unknown as PythonBridge;
+
+        const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
+
+        expect(result.tests.map((test) => test.qualifiedName)).toEqual(['Tests.Runs']);
+        expect(calls).toEqual(['readModules']);
+    });
+
+    it('falls back to per-module bridge reads when the backend lacks readModules', async () => {
+        const calls: string[] = [];
+        const bridge = {
+            async call<T>(method: string, params: { module?: string }): Promise<T> {
+                calls.push(params.module ? `${method}:${params.module}` : method);
+                if (method === 'readModules') {
+                    throw new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND);
+                }
                 if (method === 'listModules') {
                     return [
                         { name: 'Tests', type: 'standard' },
@@ -154,7 +179,7 @@ describe('VBA test runner discovery', () => {
         const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
 
         expect(result.tests.map((test) => test.qualifiedName)).toEqual(['Tests.Runs']);
-        expect(calls).toEqual(['listModules', 'readModule:Tests']);
+        expect(calls).toEqual(['readModules', 'listModules', 'readModule:Tests']);
     });
 
     it('filters discovered workbook tests by module, procedure, and tags', async () => {
@@ -360,52 +385,9 @@ describe('VBA test runner reporting', () => {
             timeout: 1,
             hostError: 1,
         });
-        expect(vbaTestFailureMessage(new Error('RUN_FAILED|Assertion failed'))).toBe('Assertion failed');
-        expect(vbaTestFailureMessage(new Error([
-            'RUN_FAILED|Exception calling "Run" with "1" argument(s):',
-            '"Exception from HRESULT: 0x800A9C68"',
-            'HRESULT: 0x80131501',
-            'Inner: Exception from HRESULT: 0x800A9C68',
-            'Inner HRESULT: 0x800A9C68',
-            'At C:\\Users\\William\\AppData\\Local\\Temp\\xlide-vba-test-host-DDT6Nq\\run-vba-tests.ps1:677 char:4587',
-            '+ ... tPrefix, $excelId, $macroName) }; $excel.Run($macroRef);',
-            '+                       ~~~~~~~~~~~~~~~~~~~~',
-        ].join('\n')))).toBe(
-            'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.',
-        );
-        expect(vbaTestFailureMessage('A user message with | punctuation')).toBe('A user message with | punctuation');
-        expect(vbaTestFailureMessage([
-            'RUN_FAILED|HRESULT: 0x80131501',
-            'Exception calling "Run" with "2" argument(s): "The remote procedure call failed. (Exception from HRESULT: 0x800706BE)"',
-            'Inner: The remote procedure call failed. (Exception from HRESULT: 0x800706BE)',
-            'Inner HRESULT: 0x800706BE',
-        ].join('\n'))).toBe(
-            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BE.',
-        );
-        expect(vbaTestFailureMessage([
-            'RUN_FAILED|HRESULT: 0x80131501',
-            'Exception calling "Run" with "2" argument(s): "The RPC server is unavailable. (Exception from HRESULT: 0x800706BA)"',
-            'Inner HRESULT: 0x800706BA',
-        ].join('\n'))).toBe(
-            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BA.',
-        );
     });
 });
 
 function bridgeForModules(modules: Array<{ name: string; type: string; source: string }>): PythonBridge {
-    return {
-        async call<T>(method: string, params: { module?: string }): Promise<T> {
-            if (method === 'listModules') {
-                return modules.map(({ name, type }) => ({ name, type })) as T;
-            }
-            if (method === 'readModule' && params.module) {
-                const module = modules.find((candidate) => candidate.name === params.module);
-                if (!module) {
-                    throw new Error(`Unknown module ${params.module}`);
-                }
-                return { source: module.source } as T;
-            }
-            throw new Error(`Unexpected bridge call ${method}`);
-        },
-    } as unknown as PythonBridge;
+    return fakePythonBridge(modules);
 }

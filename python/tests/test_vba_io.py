@@ -135,6 +135,37 @@ class TestModuleType:
         )
 
 
+# ---------------------------------------------------------------------------
+# Shared TS/Python classification table
+# ---------------------------------------------------------------------------
+# Mirrors sharedClassificationTable in tests/moduleSyncPlan.test.ts, which pins
+# classifyModuleType in src/moduleSyncPlan.ts to the same rows.  Keep the two
+# tables identical so the TS and Python classifiers cannot drift apart.
+
+_SHARED_CLASSIFICATION_TABLE = [
+    ("Module1", "Option Explicit\nSub Hello()\nEnd Sub\n", "standard"),
+    ("Globals", 'Attribute VB_PredeclaredId = True\n', "standard"),
+    ("stdArray", 'Attribute VB_PredeclaredId = True\nOption Explicit\n', "standard"),
+    ("MyClass", 'Attribute VB_Base = "{CC27B1A4-1234-1234-1234-000000000000}"\n', "standard"),
+    ("UserForm1", 'Attribute VB_Base = "0{11111111-0000-0000-0000-000000000000};{22222222-0000-0000-0000-000000000000}"\n', "userform"),
+    ("UserForm2", 'Attribute VB_Base = "0{00020820-0000-0000-C000-000000000046};{22222222-0000-0000-0000-000000000000}"\n', "userform"),
+    ("ThisWorkbook", 'Attribute VB_Base = "{00020819-0000-0000-C000-000000000046}"\n', "document"),
+    ("Sheet1", 'Attribute VB_Base = "{00020820-0000-0000-C000-000000000046}"\n', "document"),
+    ("Chart1", 'Attribute VB_Base = "{00020821-0000-0000-C000-000000000046}"\n', "document"),
+    ("CustomDoc", 'Attribute VB_Base = "{00020820-0000-0000-c000-000000000046}"\n', "document"),
+    ("ThisWorkbook", "Option Explicit\n", "document"),
+    ("Sheet3", "Option Explicit\n", "document"),
+    ("Feuil2", "Option Explicit\n", "document"),
+    ("thisworkbook", "Option Explicit\n", "standard"),
+]
+
+
+class TestSharedClassificationTable:
+    @pytest.mark.parametrize("name, source, expected", _SHARED_CLASSIFICATION_TABLE)
+    def test_module_type_matches_shared_table(self, name, source, expected):
+        assert _module_type(name, source) == expected
+
+
 class TestReadModules:
     def test_reads_module_metadata_and_visible_body_in_one_workbook_open(self):
         from pyopenvba import VBAModuleKind

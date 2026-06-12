@@ -10,6 +10,7 @@ import {
     moduleKindFromType,
     type VbaProjectModuleInput,
 } from './vbaProjectAnalysis';
+import { lineStartOffsets } from './vbaSourceScan';
 
 export { buildVbaProjectIndex, moduleKindFromType };
 
@@ -17,16 +18,27 @@ export type VbaNavigationModule = VbaProjectModuleInput;
 
 /** Converts a 0-based character offset in `source` to a VS Code position. */
 export function offsetToPosition(source: string, offset: number): vscode.Position {
-    let line = 0;
-    let lineStart = 0;
-    const limit = Math.min(offset, source.length);
-    for (let i = 0; i < limit; i++) {
-        if (source[i] === '\n') {
-            line++;
-            lineStart = i + 1;
+    return createOffsetToPositionConverter(source)(offset);
+}
+
+/**
+ * Returns an offset→position converter that precomputes line starts once and
+ * binary-searches per call; build one per module before converting many spans.
+ */
+export function createOffsetToPositionConverter(
+    source: string,
+): (offset: number) => vscode.Position {
+    const starts = lineStartOffsets(source);
+    return (offset) => {
+        const limit = Math.min(offset, source.length);
+        let lo = 0;
+        let hi = starts.length - 1;
+        while (lo < hi) {
+            const mid = (lo + hi + 1) >> 1;
+            if (starts[mid] <= limit) { lo = mid; } else { hi = mid - 1; }
         }
-    }
-    return new vscode.Position(line, offset - lineStart);
+        return new vscode.Position(lo, offset - starts[lo]);
+    };
 }
 
 function typeDefinitionKey(definition: VbaProjectTypeName): string {
@@ -41,12 +53,10 @@ export function projectTypeDefinitionToLocation(
     const mod = byModule.get(definition.moduleName.toLowerCase());
     if (!mod) { return undefined; }
     const span = definition.nameSpan ?? { start: 0, end: 0 };
+    const toPosition = createOffsetToPositionConverter(mod.source);
     return new vscode.Location(
         encodeModuleUri(xlsmPath, mod.moduleName),
-        new vscode.Range(
-            offsetToPosition(mod.source, span.start),
-            offsetToPosition(mod.source, span.end),
-        ),
+        new vscode.Range(toPosition(span.start), toPosition(span.end)),
     );
 }
 
@@ -93,6 +103,7 @@ export function typeReferenceLocations(
 
     for (const mod of byModule.values()) {
         const uri = encodeModuleUri(xlsmPath, mod.moduleName);
+        const toPosition = createOffsetToPositionConverter(mod.source);
         for (const ref of collectTypeNameReferences(mod.source)) {
             if (ref.name.toLowerCase() !== lower) {
                 continue;
@@ -103,10 +114,7 @@ export function typeReferenceLocations(
             }
             push(new vscode.Location(
                 uri,
-                new vscode.Range(
-                    offsetToPosition(mod.source, ref.span.start),
-                    offsetToPosition(mod.source, ref.span.end),
-                ),
+                new vscode.Range(toPosition(ref.span.start), toPosition(ref.span.end)),
             ));
         }
     }

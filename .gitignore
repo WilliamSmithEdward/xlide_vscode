@@ -1,6 +1,9 @@
 # Node
 node_modules/
 out/
+dist/
+coverage/
+*.vsix
 
 # Python
 .venv/
@@ -25,3 +28,4 @@ reference/
 *.xlsb
 *.xlam
 excel_test_workbook/
+.claude/

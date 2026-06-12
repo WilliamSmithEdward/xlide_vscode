@@ -1,0 +1,334 @@
+// Shared incremental per-workbook project index (audit #22/#122/#49).
+//
+// Owns ONE long-lived ProjectIndex per workbook, built once from the symbol
+// index and then kept current by folding in single-module deltas: open-editor
+// text on access (per document version) and saved/index changes via
+// VbaSymbolIndex.onDidChange. This replaces the per-consumer caches that each
+// rebuilt the whole workbook index from scratch (navigation per open-document
+// version, completion per document version, semantic tokens per 5s TTL).
+//
+// View semantics, reconciling the previously divergent consumers:
+//  - 'live' (diagnostics, navigation reads, completion, semantic tokens):
+//    a module whose latest source fails to index keeps its last successfully
+//    indexed version in both the project and the byModule views, exactly like
+//    the previous diagnostics context. Modules that have never indexed
+//    successfully are absent, matching the previous fresh "live" builds.
+//  - 'strict' (rename): the recorded per-module failure is rethrown, matching
+//    buildVbaProjectIndexAsync without ignoreInvalidModules, which threw on
+//    the first invalid module of a fresh build.
+// The byModule views always carry the source text the project index actually
+// parsed, so symbol spans resolved against them are self-consistent.
+
+import * as vscode from 'vscode';
+import * as path from 'path';
+import {
+    XLIDE_SCHEME,
+    decodeModuleUri,
+    moduleIdentityKey,
+    workbookIdentityKey,
+} from './xlideFileSystem';
+import { VbaSymbolIndex, type VbaModuleSymbols } from './vbaSymbolIndex';
+import type {
+    EventHandlerDocumentType,
+    ModuleSymbolKind,
+    ProjectIndex,
+} from './analyzer';
+import {
+    buildLiveVbaProjectIndexAsync,
+    moduleKindFromType,
+    projectProcedureSignatures,
+} from './vbaProjectAnalysis';
+
+// Invalidation is event-driven (the symbol index fires onDidChange for module
+// edits, adds, and removals), so the TTL is only a stale-context backstop.
+const PROJECT_INDEX_CONTEXT_TTL_MS = 10 * 60_000;
+
+export type VbaProjectViewMode = 'live' | 'strict';
+
+export interface VbaProjectModuleMetadata {
+    moduleName: string;
+    moduleType?: string;
+    moduleKind: ModuleSymbolKind;
+    documentType?: EventHandlerDocumentType;
+}
+
+export interface VbaWorkbookProjectContext {
+    readonly xlsmPath: string;
+    readonly project: ProjectIndex;
+    /** Module views whose source is the text the project index last parsed. */
+    readonly modules: VbaModuleSymbols[];
+    readonly byModule: Map<string, VbaModuleSymbols>;
+    /** Metadata for every known module, including currently invalid ones. */
+    readonly moduleMetadata: Map<string, VbaProjectModuleMetadata>;
+    /** Consumer-memoized signatures; the service resets this on any change. */
+    projectProcedures?: ReturnType<typeof projectProcedureSignatures>;
+    readonly loadedAt: number;
+}
+
+class WorkbookProjectRecord implements VbaWorkbookProjectContext {
+    readonly byModule = new Map<string, VbaModuleSymbols>();
+    readonly moduleMetadata = new Map<string, VbaProjectModuleMetadata>();
+    /** moduleKey -> error from the most recent failed module apply. */
+    readonly invalidModules = new Map<string, unknown>();
+    readonly appliedDocumentVersions = new Map<string, number>();
+    projectProcedures?: ReturnType<typeof projectProcedureSignatures>;
+    loadedAt = Date.now();
+
+    constructor(
+        readonly xlsmPath: string,
+        readonly project: ProjectIndex,
+    ) {}
+
+    get modules(): VbaModuleSymbols[] {
+        return [...this.byModule.values()];
+    }
+
+    /** Folds one module source into the project, tracking views and validity. */
+    applyModule(
+        moduleName: string,
+        source: string,
+        metadata: { moduleType?: string; documentType?: EventHandlerDocumentType },
+    ): void {
+        const moduleKey = moduleIdentityKey(moduleName);
+        const previous = this.moduleMetadata.get(moduleKey);
+        const moduleType = metadata.moduleType ?? previous?.moduleType;
+        const meta: VbaProjectModuleMetadata = {
+            moduleName,
+            moduleType,
+            moduleKind: moduleKindFromType(moduleType),
+            documentType: metadata.documentType ?? previous?.documentType,
+        };
+        this.moduleMetadata.set(moduleKey, meta);
+        try {
+            this.project.setModule({
+                moduleName,
+                moduleKind: meta.moduleKind,
+                source,
+            });
+        } catch (err) {
+            // Keep the previous indexed version while the latest source is
+            // parser-recovered/incomplete; remember the failure so strict
+            // consumers (rename) surface it the way a fresh strict build did.
+            this.invalidModules.set(moduleKey, err);
+            this.markChanged();
+            return;
+        }
+        this.invalidModules.delete(moduleKey);
+        this.byModule.set(moduleKey, {
+            moduleName,
+            source,
+            type: meta.moduleType,
+            documentType: meta.documentType,
+        });
+        this.markChanged();
+    }
+
+    markChanged(): void {
+        this.projectProcedures = undefined;
+        this.loadedAt = Date.now();
+    }
+
+    /** Throws the first recorded invalid-module error, in module-list order. */
+    throwIfInvalid(): void {
+        if (this.invalidModules.size === 0) {
+            return;
+        }
+        for (const moduleKey of this.moduleMetadata.keys()) {
+            if (this.invalidModules.has(moduleKey)) {
+                throw this.invalidModules.get(moduleKey);
+            }
+        }
+        throw [...this.invalidModules.values()][0];
+    }
+}
+
+function workbookProjectKey(xlsmPath: string): string {
+    return workbookIdentityKey(path.resolve(xlsmPath));
+}
+
+/**
+ * One long-lived incremental ProjectIndex per workbook, shared by diagnostics,
+ * navigation, completion/hover/signature help, and semantic tokens.
+ */
+export class VbaProjectIndexService implements vscode.Disposable {
+    private readonly _records = new Map<string, WorkbookProjectRecord>();
+    private readonly _loads = new Map<string, Promise<WorkbookProjectRecord>>();
+    private readonly _subscriptions: vscode.Disposable[];
+
+    constructor(private readonly _index: VbaSymbolIndex) {
+        this._subscriptions = [
+            _index.onDidChange(({ xlsmPath, moduleName }) => {
+                if (xlsmPath && moduleName && this._applyIndexModule(xlsmPath, moduleName)) {
+                    return;
+                }
+                this.invalidate(xlsmPath || undefined);
+            }),
+            vscode.workspace.onDidCloseTextDocument((document) => {
+                // A closed editor reverts to the indexed module content, so the
+                // workbook context must be rebuilt from the symbol index.
+                this._invalidateForDocument(document);
+            }),
+        ];
+    }
+
+    /**
+     * Returns the shared workbook context, folding in any open-document edits
+     * first. 'strict' rethrows the latest indexing failure when any module's
+     * current source is invalid; 'live' serves last-good content instead.
+     */
+    async contextForWorkbook(
+        xlsmPath: string,
+        mode: VbaProjectViewMode = 'live',
+    ): Promise<VbaWorkbookProjectContext> {
+        const record = await this._recordForWorkbook(xlsmPath);
+        this._applyOpenDocumentSources(xlsmPath, record);
+        if (mode === 'strict') {
+            record.throwIfInvalid();
+        }
+        return record;
+    }
+
+    invalidate(xlsmPath?: string): void {
+        if (!xlsmPath) {
+            this._records.clear();
+            this._loads.clear();
+            return;
+        }
+        const key = workbookProjectKey(xlsmPath);
+        this._records.delete(key);
+        this._loads.delete(key);
+    }
+
+    dispose(): void {
+        for (const subscription of this._subscriptions) {
+            subscription.dispose();
+        }
+        this._records.clear();
+        this._loads.clear();
+    }
+
+    private async _recordForWorkbook(xlsmPath: string): Promise<WorkbookProjectRecord> {
+        const key = workbookProjectKey(xlsmPath);
+        const cached = this._records.get(key);
+        if (cached && Date.now() - cached.loadedAt < PROJECT_INDEX_CONTEXT_TTL_MS) {
+            return cached;
+        }
+        const existingLoad = this._loads.get(key);
+        if (existingLoad) {
+            return existingLoad;
+        }
+        const load = this._buildRecord(xlsmPath);
+        this._loads.set(key, load);
+        try {
+            const record = await load;
+            if (this._loads.get(key) === load) {
+                this._records.set(key, record);
+            }
+            return record;
+        } finally {
+            if (this._loads.get(key) === load) {
+                this._loads.delete(key);
+            }
+        }
+    }
+
+    private async _buildRecord(xlsmPath: string): Promise<WorkbookProjectRecord> {
+        const modules = await this._index.getAllModules(xlsmPath);
+        const invalid = new Map<string, unknown>();
+        const project = await buildLiveVbaProjectIndexAsync(
+            modules.map((mod) => ({
+                moduleName: mod.moduleName,
+                moduleKind: moduleKindFromType(mod.type),
+                type: mod.type,
+                documentType: mod.documentType,
+                source: mod.source,
+            })),
+            undefined,
+            {
+                onInvalidModule: (moduleName, error) =>
+                    invalid.set(moduleIdentityKey(moduleName), error),
+            },
+        );
+        const record = new WorkbookProjectRecord(xlsmPath, project);
+        for (const mod of modules) {
+            const moduleKey = moduleIdentityKey(mod.moduleName);
+            record.moduleMetadata.set(moduleKey, {
+                moduleName: mod.moduleName,
+                moduleType: mod.type,
+                moduleKind: moduleKindFromType(mod.type),
+                documentType: mod.documentType,
+            });
+            if (invalid.has(moduleKey)) {
+                record.invalidModules.set(moduleKey, invalid.get(moduleKey));
+                continue;
+            }
+            record.byModule.set(moduleKey, {
+                moduleName: mod.moduleName,
+                source: mod.source,
+                type: mod.type,
+                documentType: mod.documentType,
+            });
+        }
+        return record;
+    }
+
+    /** Folds the editor text of every open module of the workbook (by version). */
+    private _applyOpenDocumentSources(xlsmPath: string, record: WorkbookProjectRecord): void {
+        const key = workbookProjectKey(xlsmPath);
+        for (const openDocument of vscode.workspace.textDocuments) {
+            if (openDocument.uri.scheme !== XLIDE_SCHEME) {
+                continue;
+            }
+            let decoded: { xlsmPath: string; moduleName: string };
+            try {
+                decoded = decodeModuleUri(openDocument.uri);
+            } catch {
+                continue;
+            }
+            if (workbookProjectKey(decoded.xlsmPath) !== key) {
+                continue;
+            }
+            const documentKey = openDocument.uri.toString();
+            if (record.appliedDocumentVersions.get(documentKey) === openDocument.version) {
+                continue;
+            }
+            record.applyModule(decoded.moduleName, openDocument.getText(), {});
+            record.appliedDocumentVersions.set(documentKey, openDocument.version);
+        }
+    }
+
+    // Incrementally folds a single changed module into the cached record so a
+    // save does not force a full-workbook rebuild. Returns false when the
+    // update could not be applied and the caller must invalidate instead.
+    private _applyIndexModule(xlsmPath: string, moduleName: string): boolean {
+        const key = workbookProjectKey(xlsmPath);
+        if (this._loads.has(key)) {
+            return false;
+        }
+        const record = this._records.get(key);
+        if (!record) {
+            // Nothing cached, so there is nothing to refresh or invalidate.
+            return true;
+        }
+        const mod = this._index.peekModule(xlsmPath, moduleName);
+        if (!mod) {
+            return false;
+        }
+        record.applyModule(mod.moduleName, mod.source, {
+            moduleType: mod.type,
+            documentType: mod.documentType,
+        });
+        return true;
+    }
+
+    private _invalidateForDocument(document: vscode.TextDocument): void {
+        if (document.uri.scheme !== XLIDE_SCHEME) {
+            return;
+        }
+        try {
+            this.invalidate(decodeModuleUri(document.uri).xlsmPath);
+        } catch {
+            this._records.clear();
+        }
+    }
+}

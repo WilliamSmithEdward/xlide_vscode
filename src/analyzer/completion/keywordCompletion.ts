@@ -5,15 +5,18 @@
 // `Option `, `End `, and `On Error ` are exclusive because arbitrary identifiers
 // are invalid there; broad statement starts are additive.
 
-import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
+import { isIdentLike } from '../lexer/tokenHelpers';
+import { completionCursorContext } from './cursorContext';
 import {
 	openSmartBlockClosersBefore,
 	VBA_BLOCK_INDENT_UNIT,
-	vbaSmartBlockSnippetsFor,
 	type VbaSmartBlockLayout,
+} from '../../vbaSmartEnter';
+import {
+	vbaSmartBlockSnippetsFor,
 	type VbaSmartBlockSnippetSpec,
-} from '../../vbaStructuralAnalysis';
+} from '../../vbaSmartBlockSnippets';
 
 export type KeywordCompletionKind = 'keyword' | 'snippet';
 
@@ -55,7 +58,6 @@ interface KeywordSpec {
 	kind?: KeywordCompletionKind;
 }
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const I = VBA_BLOCK_INDENT_UNIT;
 
 const STATEMENT_SNIPPETS: readonly KeywordSpec[] = [
@@ -416,37 +418,23 @@ export function materializeKeywordSnippet(
 }
 
 function completionContext(source: string, offset: number): CompletionContext | undefined {
-	const safeOffset = Math.max(0, Math.min(offset, source.length));
-	const tokens = tokenize(source.slice(0, safeOffset));
-	const last = tokens[tokens.length - 1];
-	if ((last?.kind === 'comment' || last?.kind === 'stringLiteral') && last.end === safeOffset) {
+	const cursor = completionCursorContext(source, offset);
+	if (cursor.inComment || cursor.inString) {
 		return undefined;
 	}
 
-	const statementStart = currentStatementStart(tokens, safeOffset);
-	const statementTokens = tokens
+	const statementStart = cursor.statementStart;
+	const statementTokens = cursor.tokens
 		.filter((token) => token.start >= statementStart && token.kind !== 'comment' && token.kind !== 'newline' && token.kind !== 'colon');
 	let partial = '';
-	if (statementTokens.length > 0) {
-		const maybePartial = statementTokens[statementTokens.length - 1];
-		if (isIdentLike(maybePartial) && maybePartial.end === safeOffset) {
-			partial = maybePartial.rawText;
-			statementTokens.pop();
-		}
+	if (cursor.partialToken && statementTokens[statementTokens.length - 1] === cursor.partialToken) {
+		partial = cursor.partialToken.rawText;
+		statementTokens.pop();
 	}
 
 	const prefix = statementTokens;
 	const atStatementStart = prefix.length === 0;
 	return { partial, prefix, atStatementStart, statementStart };
-}
-
-function currentStatementStart(tokens: readonly VbaToken[], fallback: number): number {
-	for (let i = tokens.length - 1; i >= 0; i -= 1) {
-		if (tokens[i].kind === 'newline' || tokens[i].kind === 'colon') {
-			return tokens[i].end;
-		}
-	}
-	return 0;
 }
 
 function statementSnippets(layout: VbaSmartBlockLayout | undefined): readonly KeywordSpec[] {
@@ -815,13 +803,6 @@ function isAccessModifier(wordText: string): boolean {
 		wordText === 'friend' ||
 		wordText === 'global' ||
 		wordText === 'static'
-	);
-}
-
-function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
 	);
 }
 

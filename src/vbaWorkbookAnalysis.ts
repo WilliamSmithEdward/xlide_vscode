@@ -19,7 +19,7 @@ import {
     resolveDiagnosticCodeActions,
     type VbaDiagnosticData,
 } from './analyzer';
-import { lineStartOffsets } from './vbaStructuralAnalysis';
+import { lineStartOffsets } from './vbaSourceScan';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
 import {
     buildVbaProjectIndexAsync,
@@ -30,11 +30,13 @@ import {
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { openModuleSourceMapForWorkbook } from './vbaOpenDocuments';
 import {
-    validAnalysisSuppressionScopesForDiagnostic,
+    analysisSuppressionScopeResolver,
     type AnalysisSuppressionScope,
 } from './analysisSuppressionScopes';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { measurePerformance, measurePerformanceSync, startPerformanceTrace } from './performanceTrace';
+import { isReadModulesUnavailable } from './pythonBridgeErrors';
+import { mapWithConcurrency, yieldToExtensionHost } from './util/async';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
 export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -217,11 +219,11 @@ export function workbookProblemsForModule(
     options: { suppressed?: boolean } = {},
 ): WorkbookAnalysisProblem[] {
     const starts = lineStartOffsets(source);
+    const suppressionScopesFor = analysisSuppressionScopeResolver(source);
     return diagnostics.map((diagnostic) => {
         const start = offsetToLineColumn(starts, diagnostic.span.start);
         const end = offsetToLineColumn(starts, diagnostic.span.end);
-        const suppressionScopes = validAnalysisSuppressionScopesForDiagnostic(
-            source,
+        const suppressionScopes = suppressionScopesFor(
             diagnostic.code,
             diagnostic.span.start,
         );
@@ -344,36 +346,10 @@ async function loadWorkbookModules(
     });
 }
 
-function isReadModulesUnavailable(err: unknown): boolean {
-    const message = err instanceof Error ? err.message : String(err);
-    return /Method not found:\s*readModules/i.test(message);
-}
-
 function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): void {
     if (token?.isCancellationRequested) {
         throw new vscode.CancellationError();
     }
-}
-
-async function yieldToExtensionHost(): Promise<void> {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
-}
-
-async function mapWithConcurrency<T, R>(
-    items: readonly T[],
-    concurrency: number,
-    worker: (item: T, index: number) => Promise<R | undefined>,
-): Promise<R[]> {
-    const results: Array<R | undefined> = new Array(items.length);
-    let nextIndex = 0;
-    const workerCount = Math.min(Math.max(1, concurrency), items.length);
-    await Promise.all(Array.from({ length: workerCount }, async () => {
-        while (nextIndex < items.length) {
-            const index = nextIndex++;
-            results[index] = await worker(items[index], index);
-        }
-    }));
-    return results.filter((value): value is R => value !== undefined);
 }
 
 /**

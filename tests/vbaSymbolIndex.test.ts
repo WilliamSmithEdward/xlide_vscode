@@ -1,82 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('vscode', () => {
-	class Disposable {
-		dispose(): void { /* no-op */ }
-	}
-	class EventEmitter<T> {
-		readonly event = () => new Disposable();
-		fire(_value: T): void { /* no-op */ }
-		dispose(): void { /* no-op */ }
-	}
-	return { EventEmitter };
-});
+vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 
 import type { PythonBridge } from '../src/pythonBridge';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
-
-function bridgeForSources(
-	sources: Record<string, string>,
-	moduleLists: Record<string, Array<{ name: string; type: string }>> = {},
-): PythonBridge {
-	return {
-		call: vi.fn(async (method: string, payload: { path: string; module?: string }) => {
-			if (method === 'readModules') {
-				const list = moduleLists[payload.path];
-				if (!list) {
-					throw new Error('Method not found: readModules');
-				}
-				return list.map((entry) => {
-					const key = `${payload.path}::${entry.name.toLowerCase()}`;
-					const source = sources[key];
-					if (source === undefined) {
-						throw new Error(`Unknown module ${key}`);
-					}
-					return { ...entry, source };
-				});
-			}
-			if (method === 'listModules') {
-				const list = moduleLists[payload.path];
-				if (!list) {
-					throw new Error(`Unknown workbook ${payload.path}`);
-				}
-				return list;
-			}
-			if (method === 'readModule' && payload.module) {
-				const key = `${payload.path}::${payload.module.toLowerCase()}`;
-				const source = sources[key];
-				if (source === undefined) {
-					throw new Error(`Unknown module ${key}`);
-				}
-				return { source };
-			}
-			throw new Error(`Unexpected bridge call ${method}`);
-		}),
-	} as unknown as PythonBridge;
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
-	let resolve!: (value: T) => void;
-	let reject!: (error: unknown) => void;
-	const promise = new Promise<T>((promiseResolve, promiseReject) => {
-		resolve = promiseResolve;
-		reject = promiseReject;
-	});
-	return { promise, resolve, reject };
-}
-
-async function flushPromises(): Promise<void> {
-	for (let i = 0; i < 10; i++) {
-		await Promise.resolve();
-	}
-}
+import { fakePythonBridge } from './helpers/fakePythonBridge';
+import { deferred, flushPromises } from './helpers/async';
 
 describe('VbaSymbolIndex workbook identity', () => {
 	it('keeps identical module names siloed by workbook path', async () => {
-		const bridge = bridgeForSources({
-			'C:/One/Book.xlsm::module1': 'Sub FromOne()\nEnd Sub\n',
-			'C:/Two/Book.xlsm::module1': 'Sub FromTwo()\nEnd Sub\n',
+		const bridge = fakePythonBridge({
+			'C:/One/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub FromOne()\nEnd Sub\n' }],
+			'C:/Two/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub FromTwo()\nEnd Sub\n' }],
 		});
 		const index = new VbaSymbolIndex(bridge);
 
@@ -85,13 +22,11 @@ describe('VbaSymbolIndex workbook identity', () => {
 
 		expect(first.source).toContain('FromOne');
 		expect(second.source).toContain('FromTwo');
-		expect(first.symbols[0].name).toBe('FromOne');
-		expect(second.symbols[0].name).toBe('FromTwo');
 	});
 
 	it('uses one case-insensitive module cache key within a workbook', async () => {
-		const bridge = bridgeForSources({
-			'C:/Book.xlsm::module1': 'Sub Cached()\nEnd Sub\n',
+		const bridge = fakePythonBridge({
+			'C:/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub Cached()\nEnd Sub\n' }],
 		});
 		const index = new VbaSymbolIndex(bridge);
 
@@ -102,14 +37,13 @@ describe('VbaSymbolIndex workbook identity', () => {
 	});
 
 	it('updates a cached module directly from saved editor text', async () => {
-		const bridge = bridgeForSources({});
+		const bridge = fakePythonBridge({});
 		const index = new VbaSymbolIndex(bridge);
 
 		index.updateModuleSource('C:/Book.xlsm', 'Module1', 'Sub Saved()\nEnd Sub\n');
 		const mod = await index.getModule('C:/Book.xlsm', 'module1');
 
 		expect(mod.source).toContain('Saved');
-		expect(mod.symbols.map((symbol) => symbol.name)).toEqual(['Saved']);
 		expect(vi.mocked(bridge.call)).not.toHaveBeenCalled();
 	});
 
@@ -128,22 +62,16 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const [firstModule, secondModule] = await Promise.all([first, second]);
 
 		expect(firstModule).toBe(secondModule);
-		expect(firstModule.symbols.map((symbol) => symbol.name)).toEqual(['Shared']);
+		expect(firstModule.source).toContain('Shared');
 	});
 
 	it('shares workbook indexing and reuses the cached module list', async () => {
-		const bridge = bridgeForSources(
-			{
-				'C:/Book.xlsm::module1': 'Sub First()\nEnd Sub\n',
-				'C:/Book.xlsm::module2': 'Sub Second()\nEnd Sub\n',
-			},
-			{
-				'C:/Book.xlsm': [
-					{ name: 'Module1', type: 'standard' },
-					{ name: 'Module2', type: 'standard' },
-				],
-			},
-		);
+		const bridge = fakePythonBridge({
+			'C:/Book.xlsm': [
+				{ name: 'Module1', type: 'standard', source: 'Sub First()\nEnd Sub\n' },
+				{ name: 'Module2', type: 'standard', source: 'Sub Second()\nEnd Sub\n' },
+			],
+		});
 		const index = new VbaSymbolIndex(bridge);
 
 		const [first, second] = await Promise.all([
@@ -161,23 +89,10 @@ describe('VbaSymbolIndex workbook identity', () => {
 	});
 
 	it('falls back to list/read calls when batch workbook reads are unavailable', async () => {
-		const bridge = {
-			call: vi.fn(async (method: string, payload: { path: string; module?: string }) => {
-				if (method === 'readModules') {
-					throw new Error('Method not found: readModules');
-				}
-				if (method === 'listModules') {
-					return [
-						{ name: 'Module1', type: 'standard' },
-						{ name: 'Module2', type: 'standard' },
-					];
-				}
-				if (method === 'readModule' && payload.module) {
-					return { source: `Sub ${payload.module}Proc()\nEnd Sub\n` };
-				}
-				throw new Error(`Unexpected bridge call ${method}`);
-			}),
-		} as unknown as PythonBridge;
+		const bridge = fakePythonBridge([
+			{ name: 'Module1', type: 'standard', source: 'Sub Module1Proc()\nEnd Sub\n' },
+			{ name: 'Module2', type: 'standard', source: 'Sub Module2Proc()\nEnd Sub\n' },
+		], { supportsBatchRead: false });
 		const index = new VbaSymbolIndex(bridge);
 
 		const modules = await index.getAllModules('C:/Book.xlsm');
@@ -197,7 +112,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const bridge = {
 			call: vi.fn((method: string, payload: { module?: string }) => {
 				if (method === 'readModules') {
-					return Promise.reject(new Error('Method not found: readModules'));
+					return Promise.reject(new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND));
 				}
 				if (method === 'listModules') {
 					return Promise.resolve([
@@ -246,6 +161,5 @@ describe('VbaSymbolIndex workbook identity', () => {
 
 		expect(resolved.source).toContain('Saved');
 		expect(cached.source).toContain('Saved');
-		expect(cached.symbols.map((symbol) => symbol.name)).toEqual(['Saved']);
 	});
 });

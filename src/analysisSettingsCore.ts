@@ -41,6 +41,28 @@ export function setAnalysisRuleTrackedInList(
         : normalizeAnalysisRuleCodes([...untrackedRules, normalized]);
 }
 
+/**
+ * Computes the shared rule-tracking mutation step for a backing store:
+ * the next untracked-rule list plus whether persisting it would change
+ * anything. `code` must already be normalized; store-specific bail rules
+ * (unknown-code filtering, effective fallbacks) stay with the caller.
+ */
+export function planAnalysisRuleTrackingUpdate(
+    untrackedRules: readonly string[],
+    code: string,
+    tracked: boolean,
+): AnalysisRuleTrackingUpdate {
+    const next = setAnalysisRuleTrackedInList(untrackedRules, code, tracked);
+    const changed = untrackedRules.length !== next.length
+        || untrackedRules.some((entry, index) => entry !== next[index]);
+    return {
+        code,
+        tracked,
+        changed,
+        untrackedRules: next,
+    };
+}
+
 export function isAnalysisRuleTracked(
     code: string | undefined,
     untrackedRules: readonly string[] | ReadonlySet<string>,
@@ -82,4 +104,31 @@ export function allowedAnalysisRuleSeverityOverrides(
     code: string | undefined,
 ): readonly AnalysisRuleSeverityOverride[] {
     return allowedDiagnosticSeverityOverridesForCode(code);
+}
+
+/**
+ * Validates rule-severity-override entries against the known rule set,
+ * reporting each invalid entry as `Expected "<prefix>.<rawCode>" <requirement>`
+ * via the caller-supplied sink (throwing or collecting). Returns the
+ * normalized valid entries.
+ */
+export function validateAnalysisRuleSeverityOverrideEntries(
+    value: Record<string, unknown>,
+    reportEntry: (rawCode: string, requirement: string) => void,
+): AnalysisRuleSeverityOverrides {
+    const parsed: Record<string, AnalysisRuleSeverityOverride> = {};
+    for (const [rawCode, rawSeverity] of Object.entries(value)) {
+        const code = normalizeAnalysisRuleCode(rawCode);
+        const allowed = allowedAnalysisRuleSeverityOverrides(code);
+        if (!code || allowed.length === 0) {
+            reportEntry(rawCode, 'to target a known analysis rule that permits severity overrides.');
+            continue;
+        }
+        if (typeof rawSeverity !== 'string' || !allowed.includes(rawSeverity as AnalysisRuleSeverityOverride)) {
+            reportEntry(rawCode, `to be one of: ${allowed.join(', ')}.`);
+            continue;
+        }
+        parsed[code] = rawSeverity as AnalysisRuleSeverityOverride;
+    }
+    return normalizeAnalysisRuleSeverityOverrides(parsed);
 }

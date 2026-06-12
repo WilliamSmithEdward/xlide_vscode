@@ -3,10 +3,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { PythonBridge } from '../src/pythonBridge';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
 import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
 	buildSideBySideDiff,
+	classifyModuleType,
 	editorPreviewSource,
 } from '../src/moduleSyncPlan';
 
@@ -53,12 +55,84 @@ function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
 				}
 				return { source: mod.source } as T;
 			}
+			throw new BridgeError(`Method not found: ${method}`, JSONRPC_METHOD_NOT_FOUND);
+		},
+	} as PythonBridge;
+}
+
+function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): PythonBridge {
+	return {
+		async call<T>(method: string): Promise<T> {
+			calls.push(method);
+			if (method === 'readModules') {
+				return modules.map((mod) => ({
+					name: mod.name,
+					type: mod.type,
+					documentType: mod.documentType,
+					source: mod.source,
+				})) as T;
+			}
 			throw new Error(`Unexpected bridge call ${method}`);
 		},
 	} as PythonBridge;
 }
 
+// Mirrors _SHARED_CLASSIFICATION_TABLE in python/tests/test_vba_io.py, which
+// pins vba_io._module_type to the same rows. Keep the two tables identical so
+// the TS and Python classifiers cannot drift apart.
+const sharedClassificationTable: ReadonlyArray<readonly [string, string, string]> = [
+	['Module1', 'Option Explicit\nSub Hello()\nEnd Sub\n', 'standard'],
+	['Globals', 'Attribute VB_PredeclaredId = True\n', 'standard'],
+	['stdArray', 'Attribute VB_PredeclaredId = True\nOption Explicit\n', 'standard'],
+	['MyClass', 'Attribute VB_Base = "{CC27B1A4-1234-1234-1234-000000000000}"\n', 'standard'],
+	['UserForm1', 'Attribute VB_Base = "0{11111111-0000-0000-0000-000000000000};{22222222-0000-0000-0000-000000000000}"\n', 'userform'],
+	['UserForm2', 'Attribute VB_Base = "0{00020820-0000-0000-C000-000000000046};{22222222-0000-0000-0000-000000000000}"\n', 'userform'],
+	['ThisWorkbook', 'Attribute VB_Base = "{00020819-0000-0000-C000-000000000046}"\n', 'document'],
+	['Sheet1', 'Attribute VB_Base = "{00020820-0000-0000-C000-000000000046}"\n', 'document'],
+	['Chart1', 'Attribute VB_Base = "{00020821-0000-0000-C000-000000000046}"\n', 'document'],
+	['CustomDoc', 'Attribute VB_Base = "{00020820-0000-0000-c000-000000000046}"\n', 'document'],
+	['ThisWorkbook', 'Option Explicit\n', 'document'],
+	['Sheet3', 'Option Explicit\n', 'document'],
+	['Feuil2', 'Option Explicit\n', 'document'],
+	['thisworkbook', 'Option Explicit\n', 'standard'],
+];
+
 describe('module sync plan', () => {
+	it('classifies module types per the shared TS/Python classification table', () => {
+		for (const [name, source, expected] of sharedClassificationTable) {
+			expect(classifyModuleType(name, source), `${name}: ${JSON.stringify(source)}`).toBe(expected);
+		}
+	});
+
+	it('imports a predeclared class module as a creatable class, not a skipped document', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'stdArray.cls'), [
+			'VERSION 1.0 CLASS',
+			'BEGIN',
+			'  MultiUse = -1  \'True',
+			'END',
+			'Attribute VB_Name = "stdArray"',
+			'Attribute VB_PredeclaredId = True',
+			'Attribute VB_Exposed = False',
+			'Option Explicit',
+			'',
+		].join('\r\n'), 'utf8');
+
+		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+			workbookPath: workbook,
+			importFolder: repo,
+		});
+
+		expect(plan.items[0]).toMatchObject({
+			moduleName: 'stdArray',
+			moduleType: 'class',
+			status: 'will-create',
+			checked: true,
+			unsupportedDirectCreation: false,
+		});
+		expect(plan.warnings).toEqual([]);
+	});
+
 	it('plans export row statuses from one workbook-vs-repo comparison path', async () => {
 		const { workbook, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Existing.bas'), 'Sub Same()\nEnd Sub\n', 'utf8');
@@ -94,6 +168,26 @@ describe('module sync plan', () => {
 		});
 		expect(byName.get('NewModule')?.warning).toBeUndefined();
 		expect(byName.get('NewModule')?.diff.filter((line) => line.left).every((line) => line.kind === 'added')).toBe(true);
+	});
+
+	it('builds the export plan from a single batch readModules call when available', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'Existing.bas'), 'Sub Same()\nEnd Sub\n', 'utf8');
+		const calls: string[] = [];
+
+		const plan = await buildExportModuleSyncPlan(batchFakeBridge([
+			{ name: 'Existing', type: 'standard', source: 'Sub Same()\nEnd Sub\n' },
+			{ name: 'Changed', type: 'standard', source: 'Sub Newer()\nEnd Sub\n' },
+		], calls), {
+			workbookPath: workbook,
+			exportFolder: repo,
+			exportMode: 'exportAll',
+		});
+
+		expect(calls).toEqual(['readModules']);
+		const byName = new Map(plan.items.map((item) => [item.moduleName, item]));
+		expect(byName.get('Existing')?.status).toBe('unchanged');
+		expect(byName.get('Changed')?.status).toBe('will-create');
 	});
 
 	it('surfaces true-up stale root module files as removable preview rows', async () => {

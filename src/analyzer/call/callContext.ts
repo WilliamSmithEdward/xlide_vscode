@@ -8,8 +8,17 @@
 import { STATEMENT_KEYWORDS as STATEMENT_KEYWORD_LIST } from '../lexer/keywordTable';
 import { VbaToken } from '../lexer/tokenKinds';
 import { tokenize } from '../lexer/tokenize';
+import {
+	isIdentLike,
+	matchParenFrom,
+	statementTokens,
+	tokenName,
+	tokensWithoutLeadingLineNumber,
+	tokenWord,
+} from '../lexer/tokenHelpers';
+import { completionCursorContext } from '../completion/cursorContext';
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export { isIdentLike } from '../lexer/tokenHelpers';
 
 // Statement-like words that are not in MS-VBAL's statement-keyword list but
 // still cannot be treated as bare parenless call targets.
@@ -79,13 +88,6 @@ export interface ExplicitCallStatementBareRuntimeRewrite {
 	emptyParensSpan?: VbaTextSpan;
 }
 
-export function isIdentLike(token: VbaToken): boolean {
-	return (
-		(token.kind === 'identifier' || token.kind === 'keyword') &&
-		IDENT_RE.test(token.rawText)
-	);
-}
-
 /**
  * If `span` covers a statement whose callee is a bare identifier, returns that
  * target. Member calls, assignments, labels, statement keywords, and implicit
@@ -101,7 +103,7 @@ export function bareCallStatementTarget(
 	}
 
 	let idx = 0;
-	const explicitCall = tokenText(toks[0]) === 'call';
+	const explicitCall = tokenWord(toks[0]) === 'call';
 	if (explicitCall) {
 		idx = 1;
 	}
@@ -165,7 +167,7 @@ export function explicitCallStatementTarget(
 	span: VbaTextSpan,
 ): BareCallStatementTarget | undefined {
 	const toks = statementTokensAfterLeadingLineNumber(source, span);
-	if (toks.length < 2 || tokenText(toks[0]) !== 'call') {
+	if (toks.length < 2 || tokenWord(toks[0]) !== 'call') {
 		return undefined;
 	}
 	const name = tokenName(toks[1]);
@@ -187,7 +189,7 @@ export function explicitCallStatementBareRuntimeRewrite(
 	);
 	const toks = rawToks.filter((t) => t.kind !== 'comment');
 	const start = leadingLineNumberTokenCount(toks);
-	if (toks.length < start + 2 || tokenText(toks[start]) !== 'call') {
+	if (toks.length < start + 2 || tokenWord(toks[start]) !== 'call') {
 		return undefined;
 	}
 	const name = tokenName(toks[start + 1]);
@@ -242,7 +244,7 @@ export function explicitCallStatementArgumentListWithoutParens(
 	);
 	const toks = rawToks.filter((t) => t.kind !== 'comment');
 	const start = leadingLineNumberTokenCount(toks);
-	if (toks.length === start || tokenText(toks[start]) !== 'call') {
+	if (toks.length === start || tokenWord(toks[start]) !== 'call') {
 		return undefined;
 	}
 	const consumed = consumeCallableChain(toks, start + 1);
@@ -288,7 +290,7 @@ export function standaloneEmptyParenthesizedCallStatement(
 	const toks = statementTokensAfterLeadingLineNumber(source, span);
 	if (
 		toks.length < 3 ||
-		tokenText(toks[0]) === 'call' ||
+		tokenWord(toks[0]) === 'call' ||
 		topLevelTokenIndex(toks, '=') >= 0
 	) {
 		return undefined;
@@ -329,8 +331,7 @@ export function findActiveCallSite(source: string, offset: number): VbaCallSite 
 	if (offset < 0) {
 		return undefined;
 	}
-	const prefix = source.slice(0, offset);
-	const tokens = tokenize(prefix).filter((t) => t.kind !== 'comment');
+	const tokens = completionCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return undefined;
 	}
@@ -346,8 +347,7 @@ export function callableCompletionShouldInsertParens(
 	source: string,
 	offset: number,
 ): boolean {
-	const prefixText = source.slice(0, Math.max(0, offset));
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	const tokens = completionCursorContext(source, offset).significantTokens;
 	if (tokens.length === 0) {
 		return false;
 	}
@@ -364,13 +364,13 @@ export function callableCompletionShouldInsertParens(
 	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
 		boundary -= 1;
 	}
-	const statement = tokensAfterLeadingLineNumber(tokens.slice(boundary + 1, last + 1));
+	const statement = tokensWithoutLeadingLineNumber(tokens.slice(boundary + 1, last + 1));
 	if (statement.length === 0) {
 		return false;
 	}
 
-	const prev = tokenText(statement[statement.length - 1]);
-	if (prev === 'call' || tokenText(statement[0]) === 'call') {
+	const prev = tokenWord(statement[statement.length - 1]);
+	if (prev === 'call' || tokenWord(statement[0]) === 'call') {
 		return true;
 	}
 	if (statementContainsExpressionIntroducer(statement)) {
@@ -390,8 +390,8 @@ export function isExplicitCallTargetCompletionContext(
 	while (boundary >= 0 && !isStatementBoundary(tokens[boundary])) {
 		boundary -= 1;
 	}
-	const statement = tokensAfterLeadingLineNumber(tokens.slice(boundary + 1, last + 1));
-	return statement.length === 1 && tokenText(statement[0]) === 'call';
+	const statement = tokensWithoutLeadingLineNumber(tokens.slice(boundary + 1, last + 1));
+	return statement.length === 1 && tokenWord(statement[0]) === 'call';
 }
 
 /**
@@ -499,12 +499,12 @@ function findParenlessCall(
 			break;
 		}
 	}
-	const stmt = tokensAfterLeadingLineNumber(tokens.slice(start));
+	const stmt = tokensWithoutLeadingLineNumber(tokens.slice(start));
 	if (stmt.length === 0) {
 		return undefined;
 	}
 	let idx = 0;
-	const isExplicitCall = tokenText(stmt[0]) === 'call';
+	const isExplicitCall = tokenWord(stmt[0]) === 'call';
 	if (isExplicitCall) {
 		idx = 1;
 	}
@@ -594,54 +594,14 @@ function noWhitespaceBetween(source: string, left: VbaToken, right: VbaToken): b
 	return !/\s/.test(source.slice(left.end, right.start));
 }
 
-function matchParenFrom(tokens: readonly VbaToken[], open: number): number {
-	let depth = 0;
-	for (let i = open; i < tokens.length; i += 1) {
-		const raw = tokens[i].rawText;
-		if (raw === '(') {
-			depth += 1;
-		} else if (raw === ')') {
-			depth -= 1;
-			if (depth === 0) {
-				return i;
-			}
-		}
-	}
-	return -1;
-}
-
-function statementTokens(source: string, span: VbaTextSpan): VbaToken[] {
-	return tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
-}
-
 function statementTokensAfterLeadingLineNumber(source: string, span: VbaTextSpan): VbaToken[] {
-	return tokensAfterLeadingLineNumber(statementTokens(source, span));
-}
-
-function tokensAfterLeadingLineNumber(tokens: readonly VbaToken[]): VbaToken[] {
-	const count = leadingLineNumberTokenCount(tokens);
-	return count > 0 ? [...tokens.slice(count)] : [...tokens];
+	return tokensWithoutLeadingLineNumber(statementTokens(source, span));
 }
 
 function leadingLineNumberTokenCount(tokens: readonly VbaToken[]): number {
 	return tokens.length > 1 && tokens[0].kind === 'integerLiteral' && /^\d+$/.test(tokens[0].rawText)
 		? 1
 		: 0;
-}
-
-function tokenName(token: VbaToken | undefined): string | undefined {
-	if (!token) {
-		return undefined;
-	}
-	if (token.kind === 'identifier' || token.kind === 'keyword') {
-		return token.rawText;
-	}
-	if (token.kind === 'bracketedIdentifier') {
-		return token.rawText.slice(1, -1);
-	}
-	return undefined;
 }
 
 function consumeCallableChain(
@@ -750,12 +710,8 @@ function isExplicitCallTarget(tokens: readonly VbaToken[], calleeIndex: number):
 		}
 		start--;
 	}
-	const statement = tokensAfterLeadingLineNumber(tokens.slice(start, calleeIndex + 1));
-	return tokenText(statement[0]) === 'call';
-}
-
-function tokenText(token: VbaToken | undefined): string {
-	return (token?.canonicalText ?? token?.rawText ?? '').toLowerCase();
+	const statement = tokensWithoutLeadingLineNumber(tokens.slice(start, calleeIndex + 1));
+	return tokenWord(statement[0]) === 'call';
 }
 
 function isStatementBoundary(token: VbaToken): boolean {

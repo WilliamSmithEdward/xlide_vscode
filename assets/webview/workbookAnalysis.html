@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{head}}
+    <style nonce="{{nonce}}">
+{{css}}
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header>
+            <div>
+                <h1>XLIDE Analysis Results</h1>
+                <div class="subtle">{{workbookName}}</div>
+            </div>
+            <div class="headerActions">
+                <button class="actionButton" id="analysisSettings" type="button">Analysis Settings</button>
+                <button class="actionButton" id="copyReport" type="button">Copy Report</button>
+                <button class="actionButton" id="copyJson" type="button">Copy JSON</button>
+                <button class="actionButton" id="exportReport" type="button">Export Report</button>
+                <button class="actionButton" id="exportJson" type="button">Export JSON</button>
+            </div>
+        </header>
+        <section class="stats" aria-label="Analysis summary">
+            {{summaryStats}}
+        </section>
+        <div class="body">
+            <aside>
+                <h2>Modules</h2>
+                <div class="moduleList">{{moduleButtons}}</div>
+            </aside>
+            <main>
+                <div class="toolbar">
+                    <div class="filters" aria-label="Filters">
+                        {{filterButtons}}
+                        <button class="filterButton transient" type="button" data-show-hidden aria-pressed="false">Show Non-Tracked / Suppressed</button>
+                    </div>
+                    <div class="visibleCount" id="visibleCount"></div>
+                </div>
+                <div class="table" role="table" aria-label="Analysis findings">
+                    <div class="tableHeader" role="row">
+                        {{sortHeaders}}
+                    </div>
+                    {{rows}}
+                </div>
+            </main>
+        </div>
+    </div>
+    <div class="contextMenu" id="rowContextMenu" hidden>
+        <button type="button" data-context-action="askCopilot">Ask Copilot</button>
+        <div class="contextItemWithSubmenu" id="quickFixMenuItem">
+            <button type="button" data-context-action="quickFix">
+                <span>Quick Fix</span>
+                <span class="submenuChevron" aria-hidden="true">&gt;</span>
+            </button>
+            <div class="contextSubmenu" id="quickFixSubmenu" hidden></div>
+        </div>
+        <div class="contextDivider" id="suppressionDivider"></div>
+        <button type="button" data-context-action="suppressBlock" data-suppress-scope="block">Ignore Block</button>
+        <button type="button" data-context-action="suppressMember" data-suppress-scope="member">Ignore Sub/Function</button>
+        <button type="button" data-context-action="suppressModule" data-suppress-scope="module">Ignore Module</button>
+        <div class="contextDivider" id="trackingDivider"></div>
+        <button type="button" data-context-action="setRuleTrackingWorkbook" id="trackingWorkbookAction">Untrack In Workbook</button>
+        <button type="button" data-context-action="setRuleTrackingGlobal" id="trackingGlobalAction">Untrack Globally</button>
+    </div>
+    <div class="settingsBackdrop" id="analysisSettingsDialog" hidden>
+        <section class="settingsDialog" role="dialog" aria-modal="true" aria-labelledby="analysisSettingsTitle">
+            <div class="settingsHeader">
+                <h2 id="analysisSettingsTitle">Analysis Settings</h2>
+                <button class="secondaryButton" id="closeAnalysisSettings" type="button">Close</button>
+            </div>
+            <div class="settingsBody">
+                <section class="settingsSection">
+                    <div class="settingsSectionHeader">
+                        <div>
+                            <h3>Workbook Untracked Rules</h3>
+                            <div class="settingsSource">Source: {{rulesSourceLabel}}</div>
+                        </div>
+                        <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="rules" {{rulesResetDisabled}}>Track All</button>
+                    </div>
+                    <div id="workbookUntrackedRules">{{workbookUntrackedRules}}</div>
+                </section>
+            </div>
+        </section>
+    </div>
+    {{toastHtml}}
+    <script nonce="{{nonce}}">
+{{js}}
+    </script>
+</body>
+</html>

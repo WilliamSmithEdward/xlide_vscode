@@ -68,10 +68,10 @@ export async function updateWorkbookModuleSyncSettings(
     workbookPath: string,
     patch: WorkbookModuleSyncSettingsPatch,
 ): Promise<EffectiveWorkbookModuleSyncSettings> {
-    await updateWorkbookSettings(workbookPath, (existing) =>
+    const updated = await updateWorkbookSettings(workbookPath, (existing) =>
         workbookSettingsWithModuleSyncPatch(existing, patch),
     );
-    return effectiveWorkbookModuleSyncSettings(workbookPath);
+    return effectiveWorkbookModuleSyncSettingsFromConfig(workbookPath, updated);
 }
 
 export async function setWorkbookModuleSyncExportMode(

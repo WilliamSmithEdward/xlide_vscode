@@ -11,6 +11,7 @@
 // host model. See docs/xlide_vba_language_service_roadmap.md (Phase 6).
 
 import { tokenize } from '../lexer/tokenize';
+import { completionCursorContext } from './cursorContext';
 import { HostObjectModel } from '../host/excelObjectModel';
 import { getHostConstants, getHostGlobals, getHostType } from '../host/hostModel';
 import {
@@ -137,8 +138,7 @@ export function resolveIdentifierCompletions(
 	offset: number,
 	ctx: IdentifierCompletionContext = {},
 ): IdentifierCompletion[] {
-	const prefixText = source.slice(0, Math.max(0, offset));
-	const tokens = tokenize(prefixText).filter((t) => t.kind !== 'comment');
+	const tokens = completionCursorContext(source, offset).significantTokens;
 
 	// Identify the partial identifier being typed (if any) and the token that
 	// immediately precedes it.

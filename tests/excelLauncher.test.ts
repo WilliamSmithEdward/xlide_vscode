@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest';
+import { buildExcelLaunchScript } from '../src/excelLauncher';
+
+describe('Excel launcher script', () => {
+    const openScript = buildExcelLaunchScript({
+        filePath: 'C:\\work\\Book.xlsm',
+        attachToRunning: true,
+        mode: { kind: 'open', readOnly: false },
+    });
+    const macroScript = buildExcelLaunchScript({
+        filePath: 'C:\\work\\Book.xlsm',
+        attachToRunning: true,
+        mode: { kind: 'macroReadOnly', macroName: 'Module1.Main' },
+    });
+
+    it('shares the attach and foreground fragments between open and macro modes', () => {
+        const sharedFragments = [
+            '$excel = [Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application")',
+            '$excel = New-Object -ComObject Excel.Application',
+            'if (($wb.FullName -ieq $targetPath) -or ($wb.Name -ieq $targetName)) { $workbook = $wb; break }',
+            '$workbook.Activate()',
+            '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
+        ];
+        for (const fragment of sharedFragments) {
+            expect(openScript).toContain(fragment);
+            expect(macroScript).toContain(fragment);
+        }
+    });
+
+    it('opens with the requested read-only flag and no macro sentinels', () => {
+        expect(openScript).toContain('$workbook = $excel.Workbooks.Open($targetPath, 0, $false)');
+        expect(openScript).not.toContain('XLIDE_MACRO_ERROR|');
+
+        const readOnlyScript = buildExcelLaunchScript({
+            filePath: 'C:\\work\\Book.xlsm',
+            attachToRunning: false,
+            mode: { kind: 'open', readOnly: true },
+        });
+        expect(readOnlyScript).toContain('$workbook = $excel.Workbooks.Open($targetPath, 0, $true)');
+        expect(readOnlyScript).toContain('$attachToRunning = $false');
+    });
+
+    it('runs the macro behind a read-only reopen with the failure sentinels', () => {
+        expect(macroScript).toContain("$macroName = 'Module1.Main'");
+        expect(macroScript).toContain('REOPEN_BLOCKED|');
+        expect(macroScript).toContain('REOPEN_FAILED|');
+        expect(macroScript).toContain('RUN_FAILED|');
+        expect(macroScript).toContain('$excel.Run($macroRef)');
+        expect(macroScript).toContain('XLIDE_MACRO_ERROR|');
+    });
+
+    it('escapes single quotes in interpolated values', () => {
+        const script = buildExcelLaunchScript({
+            filePath: "C:\\work\\Bob's Book.xlsm",
+            attachToRunning: false,
+            mode: { kind: 'open', readOnly: false },
+        });
+        expect(script).toContain("$targetPath = 'C:\\work\\Bob''s Book.xlsm'");
+        expect(script).toContain("$targetName = 'Bob''s Book.xlsm'");
+    });
+});

@@ -1,13 +1,15 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
+import { errorMessage } from './util/errors';
+import { debounce } from './util/debounce';
 import { XlsmExplorer } from './xlsmExplorer';
 import {
     XlideFileSystemProvider,
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
-    XLIDE_LIVESHARE_AUTHORITY,
     decodeModuleUri,
+    isLocalXlideDocument,
 } from './xlideFileSystem';
 import { PythonBridge } from './pythonBridge';
 import { registerAgentTools } from './agentTools';
@@ -27,8 +29,10 @@ import {
 } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
 import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
+import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
+import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
 
 const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/';
 
@@ -85,12 +89,24 @@ function installDependencies(
 // ---------------------------------------------------------------------------
 
 export function activate(context: vscode.ExtensionContext): void {
+    // Bundled assets (assets/**) resolve against the installed extension root,
+    // not the src/ tree (see extensionAssets.ts).
+    setExtensionAssetRoot(context.extensionUri.fsPath);
     const out = createRecordedOutputChannel(vscode.window.createOutputChannel('XLIDE'));
     setPerformanceTraceLogger(
         (line) => out.appendLine(line),
         () => xlidePerformanceTraceFromConfig(vscode.workspace.getConfiguration('xlide')).value,
     );
     out.appendLine('XLIDE activating...');
+
+    // Dev-only commands stay out of the command palette unless the extension
+    // host is running in Development mode (see menus.commandPalette).
+    void vscode.commands.executeCommand(
+        'setContext',
+        'xlide.devMode',
+        context.extensionMode === vscode.ExtensionMode.Development,
+    );
+
     void cleanupStaleVbaTestHostTempDirsAsync()
         .then((cleanup) => {
             if (cleanup.deleted > 0 || cleanup.failed > 0) {
@@ -100,13 +116,13 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         })
         .catch((err) => {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             out.appendLine(`VBA test temp cleanup skipped: ${message}`);
         });
 
     const bridge = new PythonBridge(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
-    const explorer = new XlsmExplorer(bridge);
+    const explorer = new XlsmExplorer(bridge, out);
     const liveShare = new LiveShareIntegration(bridge, out);
     fsProvider.setLiveShare(liveShare);
     explorer.setLiveShare(liveShare);
@@ -162,32 +178,60 @@ export function activate(context: vscode.ExtensionContext): void {
             tooltip: 'XLIDE is checking required Python libraries.',
         },
     });
-    let setupStatus: XlideSidebarSetupStatus = checkingSetupStatus();
+    // The backend starts lazily on first bridge use (audit #17); until then the
+    // sidebar setup rows carry an explicit not-yet-started state.
+    const notStartedSetupStatus = (): XlideSidebarSetupStatus => ({
+        pythonExecutable: {
+            status: 'unknown',
+            description: 'Starts On First Use',
+            tooltip: 'XLIDE starts its Python backend the first time a workbook feature is used.',
+        },
+        pythonLibraries: {
+            status: 'unknown',
+            description: 'Starts On First Use',
+            tooltip: 'XLIDE checks required Python libraries when the backend starts on first use.',
+        },
+    });
+    let setupStatus: XlideSidebarSetupStatus = notStartedSetupStatus();
+    let backendStartFailed = false;
     const sidebar = registerXlideSidebar({
         setupStatus: () => setupStatus,
         workspaceState: context.workspaceState,
+        // Opening the XLIDE sidebar counts as first use.
+        onDidBecomeVisible: () => {
+            void ensureBackendStarted().catch(() => { /* surfaced via setup status */ });
+        },
     });
     const setSetupStatus = (status: XlideSidebarSetupStatus) => {
         setupStatus = status;
-        const setupComplete = isXlideSetupComplete(status);
-        explorer.setSetupComplete(setupComplete);
-        void vscode.commands.executeCommand('setContext', 'xlide.setupComplete', setupComplete);
+        // The explorer tree stays usable until a backend start actually fails,
+        // so the first workbook expansion can lazy-start the backend.
+        const setupUsable = isXlideSetupComplete(status) || !backendStartFailed;
+        explorer.setSetupComplete(setupUsable);
+        void vscode.commands.executeCommand('setContext', 'xlide.setupComplete', setupUsable);
         sidebar.refresh();
     };
     setSetupStatus(setupStatus);
-    const pythonBackendReady = () => setSetupStatus({
-        pythonExecutable: {
-            status: 'pass',
-            description: bridge.resolvePython(),
-            tooltip: 'XLIDE found a usable Python executable.',
-        },
-        pythonLibraries: {
-            status: 'pass',
-            description: 'Installed',
-            tooltip: 'Required Python libraries are installed.',
-        },
-    });
+    const pythonBackendReady = () => {
+        backendStartFailed = false;
+        // The backend is confirmed up (possibly via setup/recheck rather than
+        // the lazy path); keep the memoized attempt in sync.
+        backendStart = Promise.resolve();
+        setSetupStatus({
+            pythonExecutable: {
+                status: 'pass',
+                description: bridge.resolvePython(),
+                tooltip: 'XLIDE found a usable Python executable.',
+            },
+            pythonLibraries: {
+                status: 'pass',
+                description: 'Installed',
+                tooltip: 'Required Python libraries are installed.',
+            },
+        });
+    };
     const pythonBackendNeedsAttention = async (err: Error): Promise<void> => {
+        backendStartFailed = true;
         if (isPythonNotFound(err.message)) {
             const configured = configuredPythonPath();
             const installedOutsidePath = !configured && await pythonLauncherDetectsPython();
@@ -243,16 +287,78 @@ export function activate(context: vscode.ExtensionContext): void {
     };
     const recheckPythonBackend = () => {
         setSetupStatus(checkingSetupStatus());
-        void bridge.restart()
+        backendStart = bridge.restart()
             .then(() => {
                 out.appendLine('XLIDE ready after Python path change.');
                 pythonBackendReady();
-            })
-            .catch((err: Error) => {
+            }, (err: Error) => {
                 out.appendLine(`ERROR: Python backend failed after path change - ${err.message}`);
                 void pythonBackendNeedsAttention(err);
+                throw err;
             });
+        void backendStart.catch(() => { /* surfaced via setup status */ });
     };
+
+    const handleBackendStartFailure = async (err: Error): Promise<void> => {
+        out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
+        await pythonBackendNeedsAttention(err);
+
+        if (isPythonNotFound(err.message) || isMissingPackage(err.message)) {
+            out.appendLine('XLIDE setup is incomplete; use the XLIDE sidebar Setup section to finish Python setup.');
+            return;
+        }
+
+        const choice = await vscode.window.showErrorMessage(
+            `XLIDE: Failed to start Python backend. ${err.message}`,
+            'Copy Diagnostics',
+            'Set Python Path',
+        );
+        if (choice === 'Copy Diagnostics') {
+            void vscode.commands.executeCommand('xlide.copyDiagnostics');
+        } else if (choice === 'Set Python Path') {
+            void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
+        }
+    };
+
+    const startPythonBackend = (): Promise<void> => {
+        setSetupStatus(checkingSetupStatus());
+        return bridge.start().then(() => {
+            out.appendLine('XLIDE ready.');
+            pythonBackendReady();
+
+            // Item 9: Show a one-time welcome notification on first ever activation.
+            if (!context.globalState.get('xlide.welcomed')) {
+                void context.globalState.update('xlide.welcomed', true);
+                void vscode.window.showInformationMessage(
+                    'XLIDE is ready. Right-click a workbook in the XLIDE Explorer to export modules, ' +
+                    'or press F5 inside a module to run the macro at the cursor.',
+                    'Open Explorer',
+                ).then(choice => {
+                    if (choice === 'Open Explorer') {
+                        void vscode.commands.executeCommand('xlide.explorer.focus');
+                    }
+                });
+            }
+
+            // Recommend disabling AI inline (ghost-text) completions for VBA, which
+            // can hide XLIDE's IntelliSense suggestion menu. One-time, opt-in.
+            recommendDisableInlineSuggest(context, out);
+        }, (err: Error) => {
+            // Detached: the triggering bridge call must not wait on dialogs.
+            void handleBackendStartFailure(err);
+            throw err;
+        });
+    };
+
+    // Lazy backend start (audit #17): the first bridge call, the XLIDE sidebar
+    // becoming visible, or the explorer auto-expand below kicks this off; the
+    // attempt is memoized so a failure fails later calls fast until a restart.
+    let backendStart: Promise<void> | undefined;
+    const ensureBackendStarted = (): Promise<void> => {
+        backendStart ??= startPythonBackend();
+        return backendStart;
+    };
+    bridge.setOnDemandStart(ensureBackendStarted);
 
     // Mirror Live Share guest state into a context key so the explorer welcome view
     // can show a "not supported" message instead of the generic empty-workspace one.
@@ -264,7 +370,6 @@ export function activate(context: vscode.ExtensionContext): void {
         );
     };
     updateGuestContext();
-    liveShare.onDidChange(updateGuestContext);
 
     // Keep reference outside subscriptions for post-start auto-expand and reveal.
     const treeView = vscode.window.createTreeView('xlide.explorer', {
@@ -289,6 +394,9 @@ export function activate(context: vscode.ExtensionContext): void {
         registerXlideDirtyModuleBackups(context, out),
 
         treeView,
+        explorer,
+
+        liveShare.onDidChange(updateGuestContext),
 
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration('xlide.pythonPath')) {
@@ -303,10 +411,8 @@ export function activate(context: vscode.ExtensionContext): void {
         // single setActiveModule + reveal, avoiding overlapping async reveal
         // calls that could leave stale modules expanded.
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
             let pending: { xlsmPath: string; moduleName: string } | undefined;
-            const apply = () => {
-                timer = undefined;
+            const apply = debounce(() => {
                 if (!pending) { return; }
                 const { xlsmPath, moduleName } = pending;
                 pending = undefined;
@@ -315,20 +421,22 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (node && treeView.visible) {
                     void treeView.reveal(node, { select: true, focus: false, expand: true });
                 }
-            };
-            return vscode.window.onDidChangeActiveTextEditor((editor) => {
+            }, 60);
+            const subscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
                 // No active editor (e.g. user closed the last tab) — collapse all modules.
                 if (!editor) {
                     pending = undefined;
-                    if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+                    apply.cancel();
                     explorer.clearActiveModule();
                     return;
                 }
-                const uri = editor.document.uri;
-                if (uri.scheme !== XLIDE_SCHEME || uri.authority === XLIDE_LIVESHARE_AUTHORITY) { return; }
-                pending = decodeModuleUri(uri);
-                if (timer !== undefined) { clearTimeout(timer); }
-                timer = setTimeout(apply, 60);
+                if (!isLocalXlideDocument(editor.document)) { return; }
+                pending = decodeModuleUri(editor.document.uri);
+                apply();
+            });
+            return new vscode.Disposable(() => {
+                apply.dispose();
+                subscription.dispose();
             });
         })(),
 
@@ -343,15 +451,16 @@ export function activate(context: vscode.ExtensionContext): void {
         // Refresh the explorer when .xlsm/.xlsb/.xlam files are added or removed
         // Debounced so rapid file-system events (save storms) coalesce into one refresh.
         (() => {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const debouncedRefresh = () => {
-                if (timer !== undefined) { clearTimeout(timer); }
-                timer = setTimeout(() => { timer = undefined; explorer.refresh(); }, 200);
-            };
+            const debouncedRefresh = debounce(() => explorer.refresh(), 200);
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
-            watcher.onDidCreate(debouncedRefresh);
-            watcher.onDidDelete(debouncedRefresh);
-            return watcher;
+            const createSubscription = watcher.onDidCreate(debouncedRefresh);
+            const deleteSubscription = watcher.onDidDelete(debouncedRefresh);
+            return new vscode.Disposable(() => {
+                debouncedRefresh.dispose();
+                createSubscription.dispose();
+                deleteSubscription.dispose();
+                watcher.dispose();
+            });
         })(),
 
         // DEV ONLY: preview error notification UX
@@ -447,9 +556,9 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
 
         ...sidebar.disposables,
-        registerXlideGlobalSettingsWebview(),
+        registerXlideGlobalSettingsWebview(out),
         ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
-        ...registerAgentTools(context, bridge, explorer, fsProvider),
+        ...registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
 
         statusBar,
         liveShare,
@@ -474,73 +583,24 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
     );
 
-    bridge.start().then(() => {
-        out.appendLine('XLIDE ready.');
-        pythonBackendReady();
-
-        // Item 9: Show a one-time welcome notification on first ever activation.
-        if (!context.globalState.get('xlide.welcomed')) {
-            void context.globalState.update('xlide.welcomed', true);
-            void vscode.window.showInformationMessage(
-                'XLIDE is ready. Right-click a workbook in the XLIDE Explorer to export modules, ' +
-                'or press F5 inside a module to run the macro at the cursor.',
-                'Open Explorer',
-            ).then(choice => {
-                if (choice === 'Open Explorer') {
-                    void vscode.commands.executeCommand('xlide.explorer.focus');
+    // Item 7: Auto-expand the first workbook so modules are visible. Listing
+    // workbooks only globs the workspace; expanding the first one performs the
+    // first bridge call, which lazy-starts the backend. Workspaces without
+    // Excel workbooks (or with the explorer hidden) never spawn Python.
+    if (treeView.visible) {
+        const autoExpandTimer = setTimeout(() => {
+            if (!treeView.visible) { return; }
+            void explorer.warmXlsmCache().then(firstNode => {
+                if (firstNode && treeView.visible) {
+                    void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
                 }
             });
-        }
-
-        // Recommend disabling AI inline (ghost-text) completions for VBA, which
-        // can hide XLIDE's IntelliSense suggestion menu. One-time, opt-in.
-        recommendDisableInlineSuggest(context, out);
-
-        // Item 7: Auto-expand the first workbook on activation so modules are visible.
-        if (treeView.visible) {
-            setTimeout(() => {
-                if (!treeView.visible) { return; }
-                void explorer.warmXlsmCache().then(firstNode => {
-                    if (firstNode && treeView.visible) {
-                        void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
-                    }
-                });
-            }, 250);
-        }
-    }).catch(async (err: Error) => {
-        out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
-        await pythonBackendNeedsAttention(err);
-
-        if (isPythonNotFound(err.message) || isMissingPackage(err.message)) {
-            out.appendLine('XLIDE setup is incomplete; use the XLIDE sidebar Setup section to finish Python setup.');
-            return;
-        }
-
-        const choice = await vscode.window.showErrorMessage(
-            `XLIDE: Failed to start Python backend. ${err.message}`,
-            'Copy Diagnostics',
-            'Set Python Path',
-        );
-        if (choice === 'Copy Diagnostics') {
-            void vscode.commands.executeCommand('xlide.copyDiagnostics');
-        } else if (choice === 'Set Python Path') {
-            void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
-        }
-    });
+        }, 250);
+        context.subscriptions.push(new vscode.Disposable(() => clearTimeout(autoExpandTimer)));
+    }
 }
 
 export function deactivate(): void { /* nothing async needed */ }
-
-const XLIDE_VBA_EDITOR_OVERRIDES: Array<{ key: string; value: boolean | number }> = [
-    { key: 'detectIndentation', value: false },
-    { key: 'tabSize', value: 4 },
-    { key: 'minimap.enabled', value: true },
-    { key: 'minimap.renderCharacters', value: false },
-    { key: 'minimap.showMarkSectionHeaders', value: false },
-    { key: 'minimap.showRegionSectionHeaders', value: false },
-    { key: 'overviewRulerBorder', value: false },
-    { key: 'overviewRulerLanes', value: 3 },
-];
 
 interface ConfigurationLanguageInspect<T> {
     globalLanguageValue?: T;
@@ -580,7 +640,7 @@ async function ensureXlideVbaEditorOverrides(out: vscode.OutputChannel): Promise
             await config.update(override.key, override.value, vscode.ConfigurationTarget.Global, true);
             out.appendLine(`Set editor.${override.key}=${override.value} for [${XLIDE_VBA_LANGUAGE_ID}].`);
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = errorMessage(err);
             out.appendLine(`Could not set editor.${override.key} for [${XLIDE_VBA_LANGUAGE_ID}]: ${message}`);
         }
     }
