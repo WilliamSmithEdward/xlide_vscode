@@ -63,6 +63,11 @@
       "notes": "Recommendations document, not an executable source of truth."
     },
     {
+      "path": "xlide_vba_provable_compile_error_candidates.md",
+      "provenance": "pending-verification",
+      "notes": "Discovery list of deterministic, binder-independent compile-error candidates not yet covered by a rule, oracle case, or other corpus file. Each case names a matching observe-only oracle probe; promote only after a VBE verdict or MS-VBAL citation."
+    },
+    {
       "path": "oracle/vbe_oracle_cases.json",
       "provenance": "vbe-oracle-verified",
       "notes": "Machine-readable oracle fixture file. Case-level provenance controls; observe-only cases remain observed-not-asserted."

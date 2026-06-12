@@ -24,6 +24,7 @@ Do not use a Markdown expectation alone to justify a red diagnostic.
 | `xlide_vba_legacy_visible_corpus_edges.md` | Legacy-visible VBA grammar and recovery cases | `legacy-edges`, `syntax-core`, `realtime-recovery`, `type-analysis` |
 | `xlide_vba_visible_analysis_corpus_recommendations.md` | Recommended user-visible fixture organization and diagnostic range strategy | `diagnostic-ranges`, `realtime-recovery`, `module-context`, `host-behavior`, `roundtrip-io` |
 | `xlide_vba_realtime_analysis_final_corpus_addendum.md` | Latest hardening addendum for Excel syntax traps, legacy control transfer, completion contexts, canaries, UserForm symbols, and casing | `host-behavior`, `legacy-edges`, `completion-context`, `canary-verdicts`, `userform-designer`, `casing` |
+| `xlide_vba_provable_compile_error_candidates.md` | Deterministic, binder-independent compile-error candidates not yet covered by a rule, oracle case, or other corpus file (`PCEC_*`); each names an observe-only oracle probe | `syntax-core`, `type-analysis`, `project-binder`, `canary-verdicts` |
 
 ## Category Index
 
@@ -63,6 +64,11 @@ Near-term candidates:
 - `CANARY_003` and `CANARY_004` type suffix plus `As` clause.
 - `CANARY_005` descending `DefType` range.
 - `TRAP_003` and `TRAP_004` `Call` keyword parentheses behavior.
+- `PCEC_001` duplicate parameter name in a signature.
+- `PCEC_002` `ByVal ParamArray`.
+- `PCEC_003`/`PCEC_004` empty `Enum` / empty `Type` block.
+- `PCEC_006` duplicate / conflicting `Option`.
+- `PCEC_007` duplicate / mis-ordered `Case Else`.
 
 ### `realtime-recovery`
 
@@ -171,6 +177,10 @@ Near-term candidates:
 - `ParamArray` placement and element typing.
 - Return assignment inside `Function` and `Property Get`.
 - Object assignment without `Set` where receiver type is statically known.
+- `PCEC_005` invalid `Const` type (object/array `As` clause); fire only on a
+  known non-simple type, stay quiet on unresolved/ambiguous type names.
+- `PCEC_008` positional argument after a named argument (binder-gated; queue
+  behind the MS-VBAL 5.6 expression binder).
 
 ### `runtime-resolution`
 

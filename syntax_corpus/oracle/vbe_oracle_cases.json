@@ -3299,6 +3299,86 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim pf As PivotField\n    pf.DoesNotExist\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "duplicate_parameter_name_compile",
+      "description": "Observe whether a procedure signature that repeats a parameter name is rejected at compile time (expected: Ambiguous name detected / Duplicate declaration).",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub DupParam(ByVal alpha As Long, ByVal alpha As Long)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "byval_paramarray_compile",
+      "description": "Observe whether a ParamArray parameter declared ByVal is rejected at compile time (ParamArray must be a ByRef Variant array).",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub TakesArgs(ByVal ParamArray items() As Variant)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "empty_enum_block_compile",
+      "description": "Observe whether an Enum block declaring no members is rejected at compile time.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Enum EmptyEnum\nEnd Enum\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "empty_type_block_compile",
+      "description": "Observe whether a Type (UDT) block declaring no members is rejected at compile time.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Type EmptyType\nEnd Type\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "const_object_type_compile",
+      "description": "Observe whether a Const declared with an object As clause is rejected at compile time (constants must be a simple intrinsic type).",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Const Handle As Object = Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "duplicate_option_explicit_compile",
+      "description": "Observe whether a module header that repeats Option Explicit is rejected at compile time (duplicate Option statement).",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Option Explicit\nOption Explicit\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "duplicate_case_else_compile",
+      "description": "Observe whether a Select Case block with two Case Else branches is rejected at compile time.",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Long\n    n = 1\n    Select Case n\n        Case 1\n            Debug.Print 1\n        Case Else\n            Debug.Print 2\n        Case Else\n            Debug.Print 3\n    End Select\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
+    },
+    {
+      "id": "positional_after_named_argument_compile",
+      "description": "Observe whether a call that places a positional argument after a named argument is rejected at compile time. Binder-gated for XLIDE (argument-list parsing).",
+      "provenance": "observed-not-asserted",
+      "expected": "observe",
+      "mode": "compile",
+      "source": "Public Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NamedArgs alpha:=1, 2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "observation"
     }
   ]
 }
