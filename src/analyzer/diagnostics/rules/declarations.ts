@@ -1943,3 +1943,28 @@ export function checkDuplicateOptions(
 		}
 	}
 }
+
+/** VBA allows at most 60 parameters on a procedure. */
+const MAX_PROCEDURE_PARAMETERS = 60;
+
+/**
+ * Rule: a procedure may declare at most 60 parameters. VBE rejects a 61st with
+ * "Too many arguments" (oracle-verified `corpus_arg_limit_001b_compile`; 60 is
+ * the documented VBA maximum).
+ */
+export function checkTooManyParameters(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure' || member.params.length <= MAX_PROCEDURE_PARAMETERS) {
+			continue;
+		}
+		push(
+			'tooManyParameters',
+			`A procedure may have at most ${MAX_PROCEDURE_PARAMETERS} parameters; '${member.name}' declares ${member.params.length}.`,
+			member.nameSpan ?? member.span,
+		);
+	}
+}

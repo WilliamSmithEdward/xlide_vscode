@@ -147,3 +147,51 @@ describe('analyzeModule - duplicate-case-else (PCEC_007)', () => {
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - me-outside-object-module (ME_004)', () => {
+	const CODE = 'me-outside-object-module';
+
+	it('flags Me used in a standard module', () => {
+		const src = 'Public Sub Demo()\n    Debug.Print Me.Name\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Me');
+	});
+
+	it('flags Me as a standalone statement target in a standard module', () => {
+		expect(byCode(analyzeModule('Sub T()\n    Me.Activate\nEnd Sub\n'), CODE)).toHaveLength(1);
+	});
+
+	it('stays quiet for Me in a class/document/userform module', () => {
+		const src = 'Public Sub Demo()\n    Debug.Print Me.Name\nEnd Sub\n';
+		for (const moduleKind of ['class', 'document', 'userform'] as const) {
+			expect(byCode(analyzeModule(src, { moduleName: 'C', moduleKind }), CODE)).toHaveLength(0);
+		}
+	});
+
+	it('stays quiet for a member named Me (after a dot) in a standard module', () => {
+		expect(byCode(analyzeModule('Sub T()\n    Debug.Print obj.Me\nEnd Sub\n'), CODE)).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - too-many-parameters (ARG_LIMIT_001B)', () => {
+	const CODE = 'too-many-parameters';
+	const params = (n: number) => Array.from({ length: n }, (_, i) => `a${i + 1}`).join(', ');
+
+	it('flags a procedure with more than 60 parameters', () => {
+		const src = `Public Sub Demo(${params(61)})\nEnd Sub\n`;
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('stays quiet at exactly 60 parameters (the documented maximum)', () => {
+		const src = `Public Sub Demo(${params(60)})\nEnd Sub\n`;
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for an ordinary procedure', () => {
+		expect(byCode(analyzeModule('Sub T(a As Long, b As Long)\nEnd Sub\n'), CODE)).toHaveLength(0);
+	});
+});

@@ -42,6 +42,7 @@ import {
 	checkPropertyAccessorSignatures,
 	checkPropertySetterValueParameters,
 	checkReservedDeclarationNames,
+	checkTooManyParameters,
 	checkTypeDeclarationCharacterAsClause,
 	checkUnexpectedDeclarationTokens,
 } from './rules/declarations';
@@ -84,6 +85,7 @@ import {
 	checkEventHandlerModuleScope,
 	checkFriendDeclarations,
 	checkImplementsStatementPlacement,
+	checkMeOutsideObjectModule,
 	checkObjectModulePublicMembers,
 	checkRaiseEventTargets,
 	checkWithEventsDeclarations,
@@ -163,6 +165,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'emptyType',
 		run: (ctx, push) => checkEmptyType(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'tooManyParameters',
+		run: (ctx, push) => checkTooManyParameters(ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'ambiguousEnumMemberReferences',
@@ -350,6 +356,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'eventDeclarationModuleKind',
 		run: (ctx, push) => checkEventDeclarationModuleKind(ctx.source, ctx.mod, ctx.moduleKind, ctx.activity, push),
+	},
+	{
+		name: 'meOutsideObjectModule',
+		run: (ctx, push) => checkMeOutsideObjectModule(ctx.source, ctx.mod, ctx.moduleKind, ctx.activity, push),
 	},
 	{
 		name: 'withEventsDeclarations',

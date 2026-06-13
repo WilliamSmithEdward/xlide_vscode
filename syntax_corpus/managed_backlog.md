@@ -32,10 +32,14 @@ Do not use a Markdown expectation alone to justify a red diagnostic.
   `corpus_canary_005_compile`. (Asymmetry: a Private-type *parameter* on a Public
   Sub — `corpus_api_vis_003` — *is* rejected.)
 - **16 gaps** — VBE rejects, analyzer silent. Now oracle-backed rule candidates:
-  - Clean / shippable next: `corpus_me_004` ("Invalid use of Me keyword" in a
-    standard module), `corpus_sep_005` ("End If without block If"),
-    `corpus_ctrl_if_004` ("Else without If"), `corpus_sig_007` ("Invalid optional
-    parameter"), `corpus_arg_limit_001b` ("Too many arguments").
+  - **Shipped:** `corpus_me_004` -> `me-outside-object-module` ("Invalid use of Me
+    keyword" in a standard module); `corpus_arg_limit_001b` -> `too-many-parameters`
+    (">60 parameters").
+  - Remaining clean candidates: `corpus_sep_005` ("End If without block If") and
+    `corpus_ctrl_if_004` ("Else without If") - need If-block context tracking
+    (FP-risk on legit in-block Else, parser-recovery territory); `corpus_sig_007`
+    ("Invalid optional parameter": Optional UDT param) - binder-dependent (needs
+    type resolution).
   - Binder/parser-recovery (lower priority): `corpus_api_vis_003` (private-type
     public param), `corpus_proc_010`, `corpus_id_003`, `corpus_array_limit_001b`,
     `corpus_name_rule_002`, `corpus_name_rule_003`, `corpus_name_limit_001b`,

@@ -119,6 +119,50 @@ export function checkEventDeclarationModuleKind(
 }
 
 /**
+ * Rule: the `Me` keyword refers to the current object instance and is only valid
+ * in class, document, or UserForm modules. In a standard module any use of `Me`
+ * is a compile error ("Invalid use of Me keyword"). Oracle-verified
+ * (`corpus_me_004_compile`). A `Me` that follows `.` is a member name, not the
+ * keyword, and is left alone (no false positive).
+ */
+export function checkMeOutsideObjectModule(
+	source: string,
+	mod: ModuleNode,
+	moduleKind: ModuleSymbolKind,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (isObjectModuleKind(moduleKind)) {
+		return;
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(
+			member.body,
+			(stmt) => {
+				const toks = statementTokens(source, stmt.span);
+				for (let i = 0; i < toks.length; i++) {
+					if (tokenText(toks[i]) !== 'me') {
+						continue;
+					}
+					if (i > 0 && toks[i - 1].rawText === '.') {
+						continue; // a member named Me, not the Me keyword
+					}
+					push(
+						'meOutsideObjectModule',
+						"'Me' is only valid in a class, document, or UserForm module.",
+						absoluteSpan(stmt.span, toks[i]),
+					);
+				}
+			},
+			activity,
+		);
+	}
+}
+
+/**
  * Rule: `WithEvents` is a module-level object-module variable declarator. The
  * parser exposes the relevant settled facts directly: module kind, local vs
  * module declaration context, `As New`, and array declarators.

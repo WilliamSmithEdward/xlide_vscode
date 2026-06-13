@@ -1469,6 +1469,32 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "Flags a second Case Else within one Select Case block (VBE reports the later one as Case without Select Case). Counts only the block direct Case Else clauses; nested Selects are independent and inactive-branch clauses are skipped.",
       "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "me-outside-object-module",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_me_004_compile: compile rejected, 'Invalid use of Me keyword') plus MS-VBAL 5.6.2.2",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_me_004_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags any use of the Me keyword in a standard module (Me is only valid in class/document/UserForm modules). A Me that follows a dot is a member name and is left alone. Scans procedure statements; module-kind gated so object modules stay quiet.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "too-many-parameters",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_arg_limit_001b_compile: 61 parameters compile rejected, 'Too many arguments') plus the documented VBA maximum of 60 parameters",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_arg_limit_001b_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a procedure declaring more than 60 parameters (the documented VBA maximum; VBE rejects the 61st with Too many arguments). Pure parameter count, no binder needed.",
+      "diagnosticKind": "compile-error"
     }
   ]
 }
