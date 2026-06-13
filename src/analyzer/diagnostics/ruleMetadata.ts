@@ -152,6 +152,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.4',
 		confidence: 'high',
 	},
+	duplicateTypeField: {
+		code: 'duplicate-type-field',
+		title: 'Duplicate Type field',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3.3',
+		confidence: 'high',
+	},
 	ambiguousEnumMember: {
 		code: 'ambiguous-enum-member',
 		title: 'Ambiguous Enum member reference',

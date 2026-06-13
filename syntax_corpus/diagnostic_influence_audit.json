@@ -71,7 +71,18 @@
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage reports the second and later case-insensitive duplicate member names within one active top-level Enum block. Whole Enum blocks in inactive conditional-compilation branches stay quiet; conditional directives nested inside an Enum remain deferred until the parser models that source shape explicitly.",
+      "notes": "Active coverage reports the second and later case-insensitive duplicate member names within one active top-level Enum block. Only provably-active members collide: whole Enum blocks in inactive conditional-compilation branches stay quiet, and conditional directives nested inside an Enum body are now modeled by the parser, so members in an inactive or not-provably-active (#If on an unknown constant, including the two arms of an #If/#Else) branch are skipped.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "duplicate-type-field",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.3.3 user-defined Type field declarations plus the VBE 'Duplicate declaration in current scope' compile error",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Reports the second and later case-insensitive duplicate field names within one active top-level Type (UDT) block. Mirrors duplicate-enum-member: only provably-active fields collide, so fields in an inactive or not-provably-active conditional-compilation branch (including the two arms of an #If/#Else, now modeled by the parser inside Type bodies) are skipped - no false positive.",
       "diagnosticKind": "compile-error"
     },
     {

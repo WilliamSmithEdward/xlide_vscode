@@ -259,6 +259,65 @@ describe('analyzeModule - duplicate Enum members', () => {
 	});
 });
 
+describe('analyzeModule - duplicate Type fields', () => {
+	it('flags duplicate field names inside the same Type block', () => {
+		const src = 'Public Type TRec\n    Id As Long\n    Id As String\nEnd Type\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-type-field');
+
+		expectDiagnostic(src, hits, 'duplicate-type-field', {
+			severity: 'error',
+			span: 'Id',
+		});
+	});
+
+	it('treats Type field duplicate checks as case-insensitive', () => {
+		const src = 'Private Type TRec\n    Name As String\n    NAME As String\nEnd Type\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-type-field');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('NAME');
+	});
+
+	it('stays quiet for a Type with all-distinct field names', () => {
+		const src = 'Public Type TPoint\n    X As Long\n    Y As Long\n    Z As Long\nEnd Type\n';
+		expect(byCode(analyzeModule(src), 'duplicate-type-field')).toHaveLength(0);
+	});
+
+	it('detects duplicates by the bare field name for array fields', () => {
+		// The collision key is the field name, not the "(bounds)" suffix.
+		const src = 'Public Type TRec\n    Items(10) As Long\n    Items As Long\nEnd Type\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-type-field');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Items');
+	});
+
+	it('does not report a duplicate across #If/#Else arms inside the Type body', () => {
+		// Mutually exclusive arms guarded by an unknown constant: only one field is
+		// ever compiled, so this is not a duplicate.
+		const src =
+			'Public Type TRec\n' +
+			'#If HOST_BUILD Then\n' +
+			'    Handle As LongPtr\n' +
+			'#Else\n' +
+			'    Handle As Long\n' +
+			'#End If\n' +
+			'End Type\n';
+		expect(byCode(analyzeModule(src), 'duplicate-type-field')).toHaveLength(0);
+	});
+
+	it('still flags two same-named fields that are both provably active', () => {
+		const src =
+			'Public Type TRec\n' +
+			'    Dup As Long\n' +
+			'#If 0 Then\n' +
+			'    Dup As String\n' +
+			'#End If\n' +
+			'    Dup As Double\n' +
+			'End Type\n';
+		expect(byCode(analyzeModule(src), 'duplicate-type-field')).toHaveLength(1);
+	});
+});
+
 describe('analyzeModule - ambiguous Enum member references', () => {
 	it('does not flag same-name members declared in separate Enum blocks by themselves', () => {
 		const src =

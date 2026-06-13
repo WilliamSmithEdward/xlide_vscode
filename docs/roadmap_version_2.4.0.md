@@ -164,14 +164,24 @@ Progress (expression binder, sliced):
     `duplicate-enum-member` is now restricted to provably-active members so the two
     arms of a mutually-exclusive `#If`/`#Else` (the per-platform member-value
     pattern) are no longer falsely reported as duplicates.
+  - [x] Duplicate UDT field names (`duplicate-type-field`). A field name repeated
+    in one `Type ... End Type` is the VBE "Duplicate declaration in current scope"
+    compile error (MS-VBAL 5.2.3.3). Structurally provable from the AST, mirroring
+    `duplicate-enum-member`: case-insensitive, reports the second and later copies,
+    and (reusing the just-landed Type-body directive modeling) only collides
+    provably-active fields, so inactive / mutually-exclusive `#If`/`#Else` arms
+    never produce a false positive. Array fields collide by bare name. Covered by
+    `tests/diagnostics/duplicates.test.ts`; verified empirically across array /
+    fixed-length / suffix / bracketed / conditional-compilation / malformed cases.
   - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
     matrix): comparisons, Date coercion, arrays, default members. These stay
     quiet until oracle/metadata can prove them; do not build them speculatively.
   - [ ] Remaining binder-INDEPENDENT families (lower risk, no oracle for some):
-    enum compatibility, UDT fields, fixed-length-string truncation; numeric
-    overflow for `Long`/`Single`/`Currency`/hex/octal needs the VBE runtime
-    oracle. Plus flow-sensitive binding on the branch-modeled AST (definite
-    assignment; carries FP risk around loops/`GoTo`/error handlers, needs care).
+    fixed-length-string non-constant size and Dim/Static array literal `lower > upper`
+    bounds (no oracle); numeric overflow for `Long`/`Single`/`Currency`/hex/octal
+    needs the VBE runtime oracle. Plus flow-sensitive binding on the branch-modeled
+    AST (definite assignment; carries FP risk around loops/`GoTo`/error handlers,
+    needs care).
 
 ## Priority 1: Static Analysis Completeness
 

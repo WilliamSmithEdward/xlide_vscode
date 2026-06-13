@@ -20,6 +20,7 @@ import {
 	checkDuplicateEnumMembers,
 	checkDuplicateModuleMembers,
 	checkDuplicateProcedures,
+	checkDuplicateTypeFields,
 } from './rules/duplicates';
 import {
 	checkDimInitializer,
@@ -150,6 +151,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'duplicateEnumMembers',
 		run: (ctx, push) => checkDuplicateEnumMembers(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'duplicateTypeFields',
+		run: (ctx, push) => checkDuplicateTypeFields(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'ambiguousEnumMemberReferences',

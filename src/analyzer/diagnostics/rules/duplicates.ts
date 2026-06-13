@@ -173,6 +173,39 @@ export function checkDuplicateEnumMembers(
 	}
 }
 
+/** Rule: field names inside one Type (UDT) block must be unique. */
+export function checkDuplicateTypeFields(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Type') {
+			continue;
+		}
+		const seen = new Set<string>();
+		for (const field of member.fields) {
+			// Only provably-active fields can collide (see checkDuplicateEnumMembers
+			// for the rationale - inactive/unknown #If branches do not collide).
+			if (activity && activity.activityForSpan(field.span) !== 'active') {
+				continue;
+			}
+			const key = field.name.toLowerCase();
+			const hit = declarationNameHit(source, field.span, field.name);
+			if (seen.has(key)) {
+				push(
+					'duplicateTypeField',
+					`Duplicate field '${field.name}' in Type '${member.name}'.`,
+					hit?.span ?? field.span,
+				);
+			} else {
+				seen.add(key);
+			}
+		}
+	}
+}
+
 /**
  * Rule: duplicate member names in different Enum blocks compile, but an
  * unqualified read of that shared member name is rejected as "Ambiguous name
