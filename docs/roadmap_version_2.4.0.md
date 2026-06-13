@@ -126,15 +126,25 @@ Progress (expression binder, sliced):
     only flags the provably-non-numeric literal case (`n = "hello"`), which it
     already does. Net: arbitrary-expression scalar/object assignment typing is
     effectively complete and correctly conservative.
+  - [x] Non-constant `Optional` parameter defaults (`parameter-default-not-constant`).
+    A binder-INDEPENDENT, spec-derived compile-error check: VBA requires an
+    `Optional` default to be a constant expression, so a default containing a
+    function/array call (`name(...)`), `New`, or `AddressOf` is flagged. Bare and
+    qualified identifiers (`Module.CONST`, `MyEnum.Value`) stay quiet (may be
+    constants); object-typed params are skipped (owned by
+    `parameter-default-type-mismatch`), so the two never double-report. Covered by
+    `tests/diagnostics/parameterDefaults.test.ts`; an adversarial FP-hunt across
+    ~60 signatures (grouping parens, unary, literals, concat, operators,
+    qualified/bracketed consts, line continuation, property accessors,
+    multi-param attribution) found zero false positives.
   - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
     matrix): comparisons, Date coercion, arrays, default members. These stay
     quiet until oracle/metadata can prove them; do not build them speculatively.
-  - [ ] Genuine next increments (binder no longer the blocker): the
-    binder-INDEPENDENT Priority 4 families (numeric overflow for
-    `Long`/`Single`/`Currency`/hex/octal, enum compatibility, UDT fields,
-    fixed-length-string truncation) - real coverage, lower risk - and/or
-    flow-sensitive binding on the branch-modeled AST (definite assignment;
-    carries FP risk around loops/`GoTo`/error handlers, so needs care).
+  - [ ] Remaining binder-INDEPENDENT families (lower risk, no oracle for some):
+    enum compatibility, UDT fields, fixed-length-string truncation; numeric
+    overflow for `Long`/`Single`/`Currency`/hex/octal needs the VBE runtime
+    oracle. Plus flow-sensitive binding on the branch-modeled AST (definite
+    assignment; carries FP risk around loops/`GoTo`/error handlers, needs care).
 
 ## Priority 1: Static Analysis Completeness
 

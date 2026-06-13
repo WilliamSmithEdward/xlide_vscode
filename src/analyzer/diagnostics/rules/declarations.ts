@@ -73,6 +73,7 @@ import {
 	forEachBodyStatement,
 	forEachVariableGroup,
 	isInactiveNode,
+	matchParenFrom,
 	pluralizeCount,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
@@ -1573,6 +1574,78 @@ export function checkParameterDefaultValues(
 			);
 		}
 	}
+}
+
+/**
+ * Optional parameter defaults must be constant expressions (MS-VBAL 5.3.1.5 /
+ * VBE "Constant expression required"). Flags a default that is provably
+ * non-constant — a function/array call (`name(...)`), `New`, or `AddressOf`.
+ * Bare identifiers and member references (`Module.CONST`, `MyEnum.Value`) are
+ * left alone because they may be constants, so this stays no-false-positive.
+ * Object-typed parameters are skipped: their defaults are owned by the
+ * `parameter-default-type-mismatch` rule ("must be Nothing"), avoiding a
+ * double diagnostic.
+ */
+export function checkNonConstantParameterDefaults(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	memberCtx: MemberCompletionContext,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		for (const param of member.params) {
+			if (!param.defaultRaw) {
+				continue;
+			}
+			if (resolveKnownObjectAssignmentType(param.asType, memberCtx)) {
+				continue;
+			}
+			const defaultTokens = parameterDefaultTokens(source, param);
+			if (!defaultTokens) {
+				continue;
+			}
+			const nonConstant = nonConstantDefaultElement(defaultTokens.tokens, param.span.start);
+			if (!nonConstant) {
+				continue;
+			}
+			push(
+				'parameterDefaultNotConstant',
+				`Optional parameter '${param.name}' default must be a constant expression; ${nonConstant.label} is not constant.`,
+				nonConstant.span,
+			);
+		}
+	}
+}
+
+function nonConstantDefaultElement(
+	tokens: VbaToken[],
+	baseOffset: number,
+): { label: string; span: Span } | undefined {
+	for (let i = 0; i < tokens.length; i++) {
+		const tok = tokens[i];
+		const word = (tok.canonicalText ?? tok.rawText).toLowerCase();
+		if (tok.kind === 'keyword' && (word === 'new' || word === 'addressof')) {
+			return {
+				label: `'${tok.rawText}'`,
+				span: { start: baseOffset + tok.start, end: baseOffset + tokens[tokens.length - 1].end },
+			};
+		}
+		const isName =
+			tok.kind === 'identifier' || tok.kind === 'keyword' || tok.kind === 'bracketedIdentifier';
+		if (isName && tokens[i + 1]?.rawText === '(') {
+			const closeIndex = matchParenFrom(tokens, i + 1);
+			const endTok = closeIndex >= 0 ? tokens[closeIndex] : tokens[i + 1];
+			return {
+				label: `the call '${tok.rawText}(...)'`,
+				span: { start: baseOffset + tok.start, end: baseOffset + endTok.end },
+			};
+		}
+	}
+	return undefined;
 }
 
 function parameterDefaultTokens(

@@ -421,6 +421,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6 (TypeOf...Is expression)',
 		confidence: 'high',
 	},
+	parameterDefaultNotConstant: {
+		code: 'parameter-default-not-constant',
+		title: 'Optional default must be a constant expression',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1.5 (Optional default-value is a constant-expression)',
+		confidence: 'high',
+	},
 	memberNotFound: {
 		code: 'member-not-found',
 		title: 'Object member not found',
