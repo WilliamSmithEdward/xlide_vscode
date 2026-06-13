@@ -15,9 +15,10 @@ import { completionCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
 import {
 	BodyNode,
+	isLeafStatement,
+	LeafStatementNode,
 	ModuleNode,
 	ProcedureNode,
-	StatementNode,
 	VariableGroupNode,
 } from '../parser/nodes';
 import type {
@@ -1268,7 +1269,7 @@ function latestSetAssignmentInBody(
 ): SetAssignment | undefined {
 	let latest: SetAssignment | undefined;
 	for (const node of body) {
-		if (node.kind === 'Statement') {
+		if (isLeafStatement(node)) {
 			if (node.span.end > offset) {
 				continue;
 			}
@@ -1286,7 +1287,7 @@ function latestSetAssignmentInBody(
 	return latest;
 }
 
-function setAssignment(source: string, stmt: StatementNode): SetAssignment | undefined {
+function setAssignment(source: string, stmt: LeafStatementNode): SetAssignment | undefined {
 	const tokens = tokenize(source.slice(stmt.span.start, stmt.span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);

@@ -108,7 +108,7 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | With ... End With | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.3 | Verified |
 | Block-mismatch diagnostics | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4 | Verified |
 | Error recovery (never throws) | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 3.3.1 (recovery) | Verified |
-| Expression AST (calls/member/ops) | src/analyzer/parser/parseExpression.ts (standalone value-expression parser) + src/analyzer/completion/memberAccess.ts (completion-time member chains) | tests/parseExpression.test.ts + tests/vbaMemberCompletion.test.ts | 5.6 | Partial |
+| Expression AST (calls/member/ops) | src/analyzer/parser/parseExpression.ts (value-expression parser) + src/analyzer/parser/parseModule.ts (assignment/call statement wiring) + src/analyzer/completion/memberAccess.ts (completion-time member chains) | tests/parseExpression.test.ts + tests/parseModuleStatements.test.ts + tests/vbaMemberCompletion.test.ts | 5.6 / 5.4.2 / 5.4.3 | Partial |
 | Module symbol extraction (procs/vars/types/enums/Declares/member attributes) | src/analyzer/symbols/buildModuleSymbols.ts | tests/vbaSymbolGraph.test.ts | 5.2.3 / 5.2.3.5 / 5.2.4 / 5.3 / 4.2 | Verified |
 | Project symbol graph + name resolution, including exported enum-member binding and context-aware bare identifier precedence | src/analyzer/symbols/projectIndex.ts + src/analyzer/symbols/nameResolution.ts | tests/vbaSymbolGraph.test.ts | 5.3 (scope) / 5.2.3.4 (Enum) / 4.2 (visibility/default-member attributes) | Verified |
 | Project visible procedure/Declare callable-name and signature surfaces | src/analyzer/symbols/projectIndex.ts | tests/vbaSymbolGraph.test.ts + tests/vbaDiagnostics.test.ts | 5.2.3.5 / 5.3 / 4.2 (visibility) | Verified |
@@ -121,18 +121,25 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 
 ### Documented deviations / scope
 
-- **Body statements (by design):** non-declaration statements inside a procedure
-  body (assignments, calls, `Set`, `GoTo`, labels, `ElseIf`/`Else`/`Case`
-  intermediates, etc.) are still captured as a generic `Statement` node holding
-  raw text. The standalone value-expression parser (`parseExpression.ts`, full
-  §5.6 precedence ladder + member/index/`New`/`AddressOf`/`TypeOf`, error
-  tolerant) now exists and is unit-tested, but `parseModule` does not yet route
-  body statements through it; wiring assignments/calls into `Assignment`/`Call`
-  nodes is the next slice. Until then this row stays `Partial`.
+- **Body statements (partially structured):** `parseModule` now routes plain
+  body statements through the §5.6 expression parser, emitting structured
+  `Assignment` nodes (`[Let]`/`Set` value/reference assignment, with the LHS/RHS
+  as `ExprNode`s) and `Call` nodes (`Call`-keyword and implicit calls, with
+  callee + positional args). A statement is structured only when the expression
+  parser cleanly and fully consumes its operands (no leftover tokens, no parse
+  diagnostics); everything else falls back to a raw `Statement` node, so this is
+  additive and non-regressing. The structured node's span equals the whole
+  logical-statement span, and the diagnostics walkers were widened
+  (`isLeafStatement`) so every rule still visits the new nodes. Still raw by
+  design in this slice: `GoTo`/labels/`Exit`/`On Error`/file-I/O and other
+  keyword-led statements, the `Mid`/`MidB` replacement statement, named
+  arguments (`name:=expr`), omitted arguments, bang (`!`) access, keyword-object
+  receivers (`Debug.`/`Err.`), and lone-identifier/member statements (label vs.
+  no-arg-call ambiguity). The row stays `Partial` until those deferrals close.
 - **If blocks (by design):** `ElseIf` and `Else` lines are kept as ordinary body
   statements inside a single `IfBlock` rather than modeled as separate branch
-  nodes. This is sufficient for block-balance diagnostics; branch modeling is
-  deferred until expression parsing lands.
+  nodes. This is sufficient for block-balance diagnostics; branch modeling is the
+  next expression-binder slice now that assignment/call wiring has landed.
 - **Single-line `If` detection:** an `If` opens a block only when `Then` is the
   final code token on the logical line (section 5.4.2.1); `If x Then y = 1`
   stays a single statement. Verified by fixture.

@@ -22,6 +22,7 @@ import type {
 	ModuleNode,
 	Span,
 } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
 import {
 	qualifiedProcedureKey,
 	type VbaProjectClassMembers,
@@ -166,7 +167,7 @@ export function forEachUndeclaredReferenceSpan(
 		if (isInactiveNode(activity, node)) {
 			continue;
 		}
-		if (node.kind === 'Statement') {
+		if (isLeafStatement(node)) {
 			visit(node.span);
 		} else if ('body' in node && Array.isArray(node.body)) {
 			visit(blockHeaderLineSpan(source, node.span));

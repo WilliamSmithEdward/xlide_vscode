@@ -37,16 +37,20 @@ import {
 	tokensWithoutLeadingLineNumber,
 } from '../lexer/tokenHelpers';
 import {
+	AssignmentNode,
 	AttributeNode,
 	BodyNode,
+	CallNode,
 	ConditionalDirectiveNode,
 	DeclareNode,
 	DoBlockNode,
 	EventNode,
 	EnumMemberNode,
 	EnumNode,
+	ExprNode,
 	ForBlockNode,
 	IfBlockNode,
+	IndexExpr,
 	ModuleKind,
 	ModuleMember,
 	ModuleNode,
@@ -66,6 +70,7 @@ import {
 	WhileBlockNode,
 	WithBlockNode,
 } from './nodes';
+import { ExprParseResult, parseExpression } from './parseExpression';
 import {
 	codeTokens,
 	LogicalStatement,
@@ -965,8 +970,117 @@ class Parser {
 			const modIndex = head === 'static' ? 1 : 0;
 			return this.parseVariableGroup(stmt, tokens, modIndex, head === 'const');
 		}
+		const structured = this.parseAssignmentOrCall(stmt, tokens);
+		if (structured) {
+			this.cursor.next();
+			return structured;
+		}
 		this.cursor.next();
 		return this.makeStatement(stmt);
+	}
+
+	/**
+	 * Recognises a body statement as a structured assignment or call (MS-VBAL
+	 * §5.4.3 / §5.4.2) using the §5.6 expression parser. Returns undefined to
+	 * fall back to a raw StatementNode whenever the statement is not a clean,
+	 * fully-modeled assignment/call — preserving every existing rule's input.
+	 * `tokens` is the line-number-stripped code-token slice; the returned node's
+	 * span covers the whole logical statement (parity with makeStatement).
+	 */
+	private parseAssignmentOrCall(
+		stmt: LogicalStatement,
+		tokens: VbaToken[],
+	): AssignmentNode | CallNode | undefined {
+		if (tokens.length === 0) {
+			return undefined;
+		}
+		const span: Span = { start: stmt.start, end: stmt.end };
+
+		// Optional leading Set / Let selects the assignment form.
+		let lhsStart = 0;
+		let isSet = false;
+		let isLet = false;
+		const head = tokenWord(tokens[0]);
+		if (head === 'set') {
+			isSet = true;
+			lhsStart = 1;
+		} else if (head === 'let') {
+			isLet = true;
+			lhsStart = 1;
+		}
+
+		// Assignment first: any top-level '=' is the assignment operator (never a
+		// comparison, which only appears at paren depth > 0 or as <= >= <> :=).
+		const eqIndex = topLevelEqualsIndex(tokens, lhsStart);
+		if (eqIndex >= 0) {
+			// Mid(...) = / Mid$(...) = is a dedicated statement form, not [Let] lhs = rhs.
+			if (isMidStatementTarget(tokens, lhsStart)) {
+				return undefined;
+			}
+			const lhs = parseExpression(tokens, lhsStart, eqIndex);
+			if (!fullyConsumed(lhs, eqIndex)) {
+				return undefined;
+			}
+			const rhs = parseExpression(tokens, eqIndex + 1, tokens.length);
+			if (!fullyConsumed(rhs, tokens.length)) {
+				return undefined;
+			}
+			return { kind: 'Assignment', isSet, isLet, lhs: lhs.expr, rhs: rhs.expr, span };
+		}
+
+		// A leading Set/Let with no '=' is a malformed assignment — leave it raw.
+		if (lhsStart !== 0) {
+			return undefined;
+		}
+		return this.parseCallStatement(tokens, span);
+	}
+
+	/** Recognises an explicit `Call` or implicit call statement (MS-VBAL §5.4.2). */
+	private parseCallStatement(tokens: VbaToken[], span: Span): CallNode | undefined {
+		let calleeStart = 0;
+		let hasCallKeyword = false;
+		if (tokenWord(tokens[0]) === 'call') {
+			hasCallKeyword = true;
+			calleeStart = 1;
+		}
+		const parsed = parseExpression(tokens, calleeStart, tokens.length);
+		if (!parsed.expr || parsed.diagnostics.length > 0) {
+			// Null or malformed (the expression parser reported an error) — leave raw.
+			return undefined;
+		}
+
+		if (parsed.endIndex === tokens.length) {
+			// The whole remainder is one expression.
+			if (parsed.expr.exprKind === 'IndexExpr') {
+				const idx = parsed.expr as IndexExpr;
+				return { kind: 'Call', hasCallKeyword, callee: idx.callee, args: idx.args, span };
+			}
+			if (hasCallKeyword) {
+				// `Call Foo` with no argument list.
+				return { kind: 'Call', hasCallKeyword: true, callee: parsed.expr, args: [], span };
+			}
+			// A bare identifier / member chain with no args is ambiguous (a call
+			// with no parens vs. a split-off label) — keep it raw.
+			return undefined;
+		}
+
+		// Trailing tokens after the callee: parenless argument list (implicit only).
+		if (hasCallKeyword) {
+			// `Call Foo 1, 2` is the call-requires-parens error shape — leave raw.
+			return undefined;
+		}
+		const args: ExprNode[] = [];
+		for (const group of splitTopLevelTokenGroups(tokens, parsed.endIndex, ',')) {
+			if (group.length === 0) {
+				return undefined; // omitted argument — not modeled in this slice
+			}
+			const arg = parseExpression(group, 0, group.length);
+			if (!fullyConsumed(arg, group.length)) {
+				return undefined; // named arg, bang access, malformed, or other unmodeled shape
+			}
+			args.push(arg.expr);
+		}
+		return { kind: 'Call', hasCallKeyword: false, callee: parsed.expr, args, span };
 	}
 
 	private parseInvalidNestedModuleBlockStatement(
@@ -1498,4 +1612,59 @@ class Parser {
 
 function codeTokensAfterLineNumber(statement: LogicalStatement): VbaToken[] {
 	return tokensWithoutLeadingLineNumber(codeTokens(statement));
+}
+
+/**
+ * Index of the first `=` assignment operator at paren/bracket depth 0 at or
+ * after `from`, or -1. A depth-0 `=` is the statement's assignment operator
+ * (MS-VBAL 5.4.3); `<=`/`>=`/`<>`/`:=` are distinct tokens, and an `=` inside
+ * parentheses is a comparison, so neither is matched.
+ */
+function topLevelEqualsIndex(tokens: readonly VbaToken[], from: number): number {
+	let depth = 0;
+	for (let i = from; i < tokens.length; i++) {
+		const raw = tokens[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+		} else if (raw === ')' || raw === ']') {
+			depth--;
+		} else if (depth === 0 && tokens[i].kind === 'operator' && raw === '=') {
+			return i;
+		}
+	}
+	return -1;
+}
+
+/**
+ * True when the LHS beginning at `start` is `Mid(`/`Mid$(`/`MidB(`/`MidB$(` —
+ * the dedicated Mid (and byte-variant MidB) replacement statement
+ * (MS-VBAL 5.4.3.x), which is not a generic `[Let] lhs = rhs` assignment even
+ * though it carries a top-level `=`.
+ */
+function isMidStatementTarget(tokens: readonly VbaToken[], start: number): boolean {
+	const word = tokenWord(tokens[start]);
+	if (word !== 'mid' && word !== 'midb') {
+		return false;
+	}
+	const after = tokens[start + 1];
+	if (after?.rawText === '(') {
+		return true;
+	}
+	return after?.rawText === '$' && tokens[start + 2]?.rawText === '(';
+}
+
+/**
+ * True when an expression parse cleanly consumed exactly tokens[..to): it
+ * produced a non-null expression, stopped at the boundary, AND reported no
+ * diagnostics. The diagnostic check matters because the §5.6 parser is
+ * error-tolerant — on a dangling operator or unclosed paren it still consumes
+ * the offending token(s) to the boundary, so endIndex alone would accept a
+ * truncated operand. Requiring zero diagnostics keeps a malformed statement as
+ * a raw StatementNode instead of a structured node hiding a parse error.
+ */
+function fullyConsumed(
+	result: ExprParseResult,
+	to: number,
+): result is ExprParseResult & { expr: ExprNode } {
+	return result.expr !== null && result.endIndex === to && result.diagnostics.length === 0;
 }

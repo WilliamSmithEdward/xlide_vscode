@@ -76,11 +76,17 @@ Progress (expression binder, sliced):
   arguments, `New`/`AddressOf`/`TypeOf...Is`, with span accuracy and recovery,
   covered by `tests/parseExpression.test.ts`. Named arguments, omitted
   arguments, and bang (`!`) access are deferred to the statement-wiring slice.
-- [ ] Slice 2 - statement wiring. Route procedure-body assignments and calls
-  through the parser into `Assignment`/`Call` nodes in `parseModule`, keeping the
-  raw `Statement` fallback so no existing rule loses its input. This is the slice
-  that flips the §5.6 verification-map row from `Partial` toward `Verified` and
-  unblocks the deferred items above.
+- [x] Slice 2 - statement wiring. `parseModule.parseBodyItem` now routes plain
+  body statements through the expression parser into `Assignment`/`Call` nodes
+  (`parseAssignmentOrCall`/`parseCallStatement`), structuring only when the
+  operands parse cleanly and fully; everything else keeps the raw `Statement`
+  fallback. The diagnostics traversal was widened (`LeafStatementNode` /
+  `isLeafStatement`) across ~10 walker/branch sites so no rule skips the new
+  nodes. Covered by `tests/parseModuleStatements.test.ts`; full suite green with
+  zero regressions, and an adversarial review pass fixed two found defects
+  (`MidB`/`MidB$` must stay raw; malformed operands must not leak into structured
+  nodes). Still deferred to later slices: named/omitted arguments, bang access,
+  keyword-object receivers (`Debug.`/`Err.`), and lone-identifier calls.
 - [ ] Slice 3 - branch modeling (`If`/`ElseIf`/`Else` arms), then the
   flow-sensitive binder rules and the Priority 4 binder-dependent type families.
 
@@ -429,5 +435,6 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
 - `tests/vbaDiagnostics.test.ts`
 - `tests/vbaParser.test.ts`
 - `tests/parseExpression.test.ts`
+- `tests/parseModuleStatements.test.ts`
 - `tests/vbaSymbolGraph.test.ts`
 - `tests/vbaRuntime.test.ts`

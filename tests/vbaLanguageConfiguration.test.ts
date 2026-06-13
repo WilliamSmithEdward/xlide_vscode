@@ -199,6 +199,17 @@ describe('VBA language configuration', () => {
 			.toContain('xlide-vba');
 	});
 
+	it('lets the smartTab keybinding yield to a visible inline suggestion', () => {
+		// When AI ghost text (an inline suggestion) is showing, Tab must reach
+		// VS Code's editor.action.inlineSuggest.commit to accept it, not be
+		// hijacked by smartTab's indentation. The guard is `!inlineSuggestionVisible`.
+		const smartTab = loadPackage().contributes?.keybindings?.find(
+			(entry) => entry.command === 'xlide.vba.smartTab',
+		);
+		expect(smartTab?.key).toBe('tab');
+		expect(smartTab?.when).toContain('!inlineSuggestionVisible');
+	});
+
 	it('keeps analysis rule severity overrides guarded by the shared severity vocabulary', () => {
 		const setting = loadPackage()
 			.contributes

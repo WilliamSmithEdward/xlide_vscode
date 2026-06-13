@@ -486,6 +486,21 @@ export type BodyNode =
 	| WithBlockNode
 	| SelectBlockNode;
 
+/**
+ * A "leaf" executable statement: a structured assignment or call, or the raw
+ * `Statement` catch-all. These are the body nodes that carry a single statement
+ * span (no nested `body`); traversals that visit straight-line statements treat
+ * all three uniformly via `isLeafStatement`. Every consumer reads only `.span`
+ * (re-tokenizing the source), so `Assignment`/`Call` are span-compatible with
+ * the raw `Statement` they replace.
+ */
+export type LeafStatementNode = AssignmentNode | CallNode | StatementNode;
+
+/** True for the leaf statement nodes (Assignment / Call / raw Statement). */
+export function isLeafStatement(node: BodyNode): node is LeafStatementNode {
+	return node.kind === 'Assignment' || node.kind === 'Call' || node.kind === 'Statement';
+}
+
 /** Any node that can appear at module level. */
 export type ModuleMember =
 	| AttributeNode

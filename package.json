@@ -440,7 +440,7 @@
       {
         "command": "xlide.vba.smartTab",
         "key": "tab",
-        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus"
+        "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus && !inlineSuggestionVisible"
       },
       {
         "command": "xlide.vba.leaveSnippetAndCursorMove",

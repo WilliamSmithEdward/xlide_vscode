@@ -9,11 +9,12 @@ import {
 import { parseModule } from '../parser/parseModule';
 import type {
 	BodyNode,
+	LeafStatementNode,
 	ModuleNode,
 	ProcedureNode,
 	Span,
-	StatementNode,
 } from '../parser/nodes';
+import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 
 export interface VbaProcedureLabel {
@@ -238,9 +239,9 @@ function isOnErrorGotoDisablePartial(
 		normalizedDecimalLabel(partial.rawText) === '1';
 }
 
-function statementAtOffset(body: BodyNode[], offset: number): StatementNode | undefined {
+function statementAtOffset(body: BodyNode[], offset: number): LeafStatementNode | undefined {
 	for (const node of body) {
-		if (node.kind === 'Statement' && offset >= node.span.start && offset <= node.span.end) {
+		if (isLeafStatement(node) && offset >= node.span.start && offset <= node.span.end) {
 			return node;
 		}
 		if ('body' in node && Array.isArray(node.body)) {
@@ -408,14 +409,14 @@ function hasSourceColonAfterToken(source: string, span: Span, tok: VbaToken): bo
 
 function forEachProcedureStatement(
 	body: BodyNode[],
-	visit: (stmt: StatementNode) => void,
+	visit: (stmt: LeafStatementNode) => void,
 	activity?: ConditionalActivityTracker,
 ): void {
 	for (const node of body) {
 		if (activity?.isInactive(node.span)) {
 			continue;
 		}
-		if (node.kind === 'Statement') {
+		if (isLeafStatement(node)) {
 			visit(node);
 		} else if ('body' in node && Array.isArray(node.body)) {
 			forEachProcedureStatement(node.body, visit, activity);

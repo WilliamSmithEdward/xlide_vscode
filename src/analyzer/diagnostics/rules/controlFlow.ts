@@ -19,7 +19,7 @@ import type {
 	ModuleNode,
 	ProcedureNode,
 	Span,
-	StatementNode,
+	LeafStatementNode,
 } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
@@ -228,6 +228,10 @@ function checkContextBody(
 		}
 		switch (node.kind) {
 			case 'Statement':
+			case 'Assignment':
+			case 'Call':
+				// Leaf statements: leading-dot (outside-With) and Exit checks
+				// re-tokenize the span, so Assignment/Call route here too.
 				checkContextStatement(source, node, ctx, push);
 				break;
 			case 'ForBlock':
@@ -604,7 +608,7 @@ function conditionalDirectiveKeywordSpan(
 
 function checkContextStatement(
 	source: string,
-	stmt: StatementNode,
+	stmt: LeafStatementNode,
 	ctx: StatementContext,
 	push: PushFn,
 ): void {

@@ -11,7 +11,7 @@ import type {
 	BodyNode,
 	ModuleNode,
 	Span,
-	StatementNode,
+	LeafStatementNode,
 	VariableDeclNode,
 	VariableGroupNode,
 } from '../../parser/nodes';
@@ -623,7 +623,7 @@ export function checkUnallocatedDynamicArrayAccess(
 
 function checkUnallocatedDynamicArrayAccessStatement(
 	source: string,
-	stmt: StatementNode,
+	stmt: LeafStatementNode,
 	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
 	state: Map<string, DynamicArrayAllocationState>,
 	push: PushFn,
@@ -766,7 +766,7 @@ function unallocatedDynamicArrayBoundCalls(
 
 function dynamicArrayTouchesInStatement(
 	source: string,
-	stmt: StatementNode,
+	stmt: LeafStatementNode,
 	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
 ): Set<string> {
 	const out = new Set<string>();

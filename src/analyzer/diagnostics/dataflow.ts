@@ -12,16 +12,17 @@
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenName, tokenWord } from '../lexer/tokenHelpers';
-import type { BodyNode, StatementNode } from '../parser/nodes';
+import type { BodyNode, LeafStatementNode } from '../parser/nodes';
+import { isLeafStatement } from '../parser/nodes';
 
 /** Rule-specific hooks driving one straight-line dataflow walk. */
 export interface StraightLineDataflowHooks {
 	/** Applies one straight-line statement's transitions and diagnostics. */
-	onStatement(stmt: StatementNode): void;
+	onStatement(stmt: LeafStatementNode): void;
 	/** Inspects one non-statement node before its body's touch demotion. */
 	onBlock?(node: BodyNode): void;
 	/** Lowercased tracked names one nested-block statement touches. */
-	touchesInStatement(stmt: StatementNode): Iterable<string>;
+	touchesInStatement(stmt: LeafStatementNode): Iterable<string>;
 	/** Demotes one tracked name to the rule's 'unknown' state. */
 	demoteToUnknown(lowerName: string): void;
 }
@@ -41,7 +42,7 @@ export function walkStraightLineBody(
 		if (isInactive(node)) {
 			continue;
 		}
-		if (node.kind === 'Statement') {
+		if (isLeafStatement(node)) {
 			hooks.onStatement(node);
 			continue;
 		}
@@ -65,7 +66,7 @@ function collectNestedTouches(
 		if (isInactive(node)) {
 			continue;
 		}
-		if (node.kind === 'Statement') {
+		if (isLeafStatement(node)) {
 			for (const lower of hooks.touchesInStatement(node)) {
 				out.add(lower);
 			}

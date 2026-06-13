@@ -1,4 +1,11 @@
-"""Excel cell read/write via openpyxl."""
+"""Excel cell read/write via openpyxl.
+
+openpyxl is imported lazily (see ``_openpyxl``). The common VBA module
+read/write path uses pyOpenVBA, which does not depend on openpyxl, so the
+Python bridge cold-start should not pay openpyxl's import cost (~0.25s) until a
+cell / sheet / data operation actually needs it. server.py imports this module
+at startup, so a top-level ``import openpyxl`` here would defeat that.
+"""
 from __future__ import annotations
 
 import contextlib
@@ -6,14 +13,24 @@ import io
 import json as _json
 from typing import Any
 
-import openpyxl
-from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
-
 from xlide.vba_io import get_modules_and_protection_info as _get_modules_and_protection_info
+
+
+def _openpyxl():
+    """Import and return the openpyxl module lazily.
+
+    Python caches the import, so repeated calls are free after the first cell /
+    sheet operation; only that first use pays the import cost.
+    """
+    import openpyxl
+
+    return openpyxl
 
 
 def _parse_cell(ref: str) -> tuple[int, int]:
     """Return (row, col) 1-based integers from a cell reference like 'B3'."""
+    from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
+
     col_str, row = coordinate_from_string(ref)
     return row, column_index_from_string(col_str)
 
@@ -48,7 +65,7 @@ def _sheet_summaries(wb: Any) -> list[dict[str, Any]]:
 def get_workbook_info(*, path: str) -> dict[str, Any]:
     """Return a combined summary: VBA modules, sheet names/dimensions, named ranges, and protection state."""
     vba_info = _get_modules_and_protection_info(path=path)
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
+    wb = _openpyxl().load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
         sheets = _sheet_summaries(wb)
         defined = wb.defined_names
@@ -67,7 +84,7 @@ def get_workbook_info(*, path: str) -> dict[str, Any]:
 
 def list_sheets(*, path: str) -> dict[str, Any]:
     """Return the sheet names and used dimensions for every worksheet."""
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
+    wb = _openpyxl().load_workbook(path, read_only=True, data_only=True, keep_vba=True)
     try:
         sheets = _sheet_summaries(wb)
     finally:
@@ -76,7 +93,7 @@ def list_sheets(*, path: str) -> dict[str, Any]:
 
 
 def _read_range(path: str, sheet: str, range: str, *, data_only: bool) -> dict[str, Any]:
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=data_only, keep_vba=True)
+    wb = _openpyxl().load_workbook(path, read_only=True, data_only=data_only, keep_vba=True)
     try:
         ws = wb[sheet]
         data: list[list[Any]] = [
@@ -103,7 +120,7 @@ def write_cells(
     """Write a 2-D array of values starting at startCell and save."""
     start_row, start_col = _parse_cell(startCell)
 
-    wb = openpyxl.load_workbook(path, keep_vba=True)
+    wb = _openpyxl().load_workbook(path, keep_vba=True)
     try:
         ws = wb[sheet]
         for r_offset, row in enumerate(data):
@@ -135,10 +152,11 @@ def run_openpyxl(
 
     Returns ``{"result": <value of result>, "stdout": "<captured output>"}}``.
     """
-    wb = openpyxl.load_workbook(path, keep_vba=True)
+    op = _openpyxl()
+    wb = op.load_workbook(path, keep_vba=True)
     namespace: dict[str, Any] = {
         "wb": wb,
-        "openpyxl": openpyxl,
+        "openpyxl": op,
         "json": _json,
         "result": None,
     }

@@ -10,7 +10,7 @@ import type {
 	ModuleNode,
 	ProcedureNode,
 	Span,
-	StatementNode,
+	LeafStatementNode,
 } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
@@ -170,7 +170,7 @@ export function checkObjectVariableNotSet(
 
 function checkObjectVariableNotSetStatement(
 	source: string,
-	stmt: StatementNode,
+	stmt: LeafStatementNode,
 	locals: ReadonlyMap<string, LocalObjectVariable>,
 	state: Map<string, ObjectVariableState>,
 	memberCtx: MemberCompletionContext,

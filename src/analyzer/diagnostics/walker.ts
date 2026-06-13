@@ -9,13 +9,14 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type {
 	BodyNode,
+	LeafStatementNode,
 	ModuleMember,
 	ModuleNode,
 	ProcedureNode,
 	Span,
-	StatementNode,
 	VariableGroupNode,
 } from '../parser/nodes';
+import { isLeafStatement } from '../parser/nodes';
 
 // `tokenText` and `matchParenFrom` are byte-identical to the shared lexer
 // helpers (`tokenWord`, `matchParenFrom`); re-export them so the diagnostics
@@ -45,17 +46,17 @@ export function activeModuleMembers(
 	return mod.members.filter((member) => !isInactiveNode(activity, member));
 }
 
-/** Walks every StatementNode in a body, descending into nested blocks. */
+/** Walks every leaf statement (Assignment/Call/Statement) in a body, descending into nested blocks. */
 export function forEachStatement(
 	body: BodyNode[],
-	visit: (stmt: StatementNode) => void,
+	visit: (stmt: LeafStatementNode) => void,
 	activity?: ConditionalActivityTracker,
 ): void {
 	for (const node of body) {
 		if (isInactiveNode(activity, node)) {
 			continue;
 		}
-		if (node.kind === 'Statement') {
+		if (isLeafStatement(node)) {
 			visit(node);
 		} else if ('body' in node && Array.isArray(node.body)) {
 			forEachStatement(node.body, visit, activity);
@@ -70,7 +71,7 @@ export function forEachStatement(
  */
 export type ProcedureStatementVisitor = (
 	proc: ProcedureNode,
-) => ((stmt: StatementNode) => void) | undefined;
+) => ((stmt: LeafStatementNode) => void) | undefined;
 
 /**
  * Runs every registered per-statement rule on ONE walk over the module's
@@ -90,7 +91,7 @@ export function walkProcedureStatements(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const callbacks: Array<(stmt: StatementNode) => void> = [];
+		const callbacks: Array<(stmt: LeafStatementNode) => void> = [];
 		for (const visitor of visitors) {
 			const callback = visitor(member);
 			if (callback) {
@@ -126,17 +127,17 @@ export function forEachVariableGroup(
 	}
 }
 
-/** Walks every generic StatementNode in a procedure body, descending into nested blocks. */
+/** Walks every leaf statement (Assignment/Call/Statement) in a procedure body, descending into nested blocks. */
 export function forEachBodyStatement(
 	body: BodyNode[],
-	visit: (statement: StatementNode) => void,
+	visit: (statement: LeafStatementNode) => void,
 	activity?: ConditionalActivityTracker,
 ): void {
 	for (const node of body) {
 		if (isInactiveNode(activity, node)) {
 			continue;
 		}
-		if (node.kind === 'Statement') {
+		if (isLeafStatement(node)) {
 			visit(node);
 		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
 			forEachBodyStatement((node as { body: BodyNode[] }).body, visit, activity);

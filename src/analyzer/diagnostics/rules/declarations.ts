@@ -26,7 +26,7 @@ import type {
 	ParameterNode,
 	ProcedureNode,
 	Span,
-	StatementNode,
+	LeafStatementNode,
 	TypeFieldNode,
 	VariableDeclNode,
 	VariableGroupNode,
@@ -362,7 +362,7 @@ export function checkModuleDeclarationsInProcedureBodies(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const inspectStatement = (stmt: StatementNode): void => {
+	const inspectStatement = (stmt: LeafStatementNode): void => {
 		const hit = moduleDeclarationStatementInProcedure(source, stmt.span);
 		if (!hit) {
 			return;

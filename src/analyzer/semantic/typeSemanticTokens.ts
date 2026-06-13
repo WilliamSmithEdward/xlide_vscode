@@ -6,6 +6,7 @@
 
 import type {
 	BodyNode,
+	LeafStatementNode,
 	ModuleNode,
 	ParameterNode,
 	ProcedureNode,
@@ -13,8 +14,8 @@ import type {
 	TypeFieldNode,
 	VariableDeclNode,
 	VariableGroupNode,
-	StatementNode,
 } from '../parser/nodes';
+import { isLeafStatement } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { statementTokens as codeTokens, tokenName } from '../lexer/tokenHelpers';
@@ -258,7 +259,7 @@ function collectBody(
 	for (const node of body) {
 		if (node.kind === 'VariableGroup') {
 			collectVariableGroup(source, node, out);
-		} else if (node.kind === 'Statement') {
+		} else if (isLeafStatement(node)) {
 			collectStatement(source, node, out);
 		} else if ('body' in node && Array.isArray(node.body)) {
 			collectBody(source, node.body, out);
@@ -268,7 +269,7 @@ function collectBody(
 
 function collectStatement(
 	source: string,
-	stmt: StatementNode,
+	stmt: LeafStatementNode,
 	out: TypeNameReference[],
 ): void {
 	for (const hit of typeNameSpansAfterNew(source, stmt.span)) {
