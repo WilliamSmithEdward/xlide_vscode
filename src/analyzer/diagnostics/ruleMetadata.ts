@@ -619,6 +619,17 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	arrayDeclarationImpossibleBounds: {
+		code: 'array-declaration-impossible-bounds',
+		title: 'Array declaration lower bound is greater than upper bound',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3.1 (array declaration bounds)',
+		confidence: 'high',
+	},
 	unallocatedDynamicArrayAccess: {
 		code: 'unallocated-dynamic-array-access',
 		title: 'Dynamic array is not allocated',

@@ -713,6 +713,17 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "array-declaration-impossible-bounds",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.3.1 array declaration bounds; a static array declaration's bounds are constant expressions evaluated at compile time, so a lower bound greater than its upper bound is a compile error (sibling of the runtime-phase redim-impossible-bounds)",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Reports a Dim/Static/Private/Public array declaration dimension whose explicit literal lower and upper bounds are both known and the lower bound is greater than the upper bound (e.g. Dim a(10 To 1)). Only literal lower To upper dimensions are reported; equal, increasing, upper-only, variable, Const-reference, and inactive-branch bounds stay quiet (no false positive). ReDim is covered separately by redim-impossible-bounds (a runtime check, since ReDim bounds may be dynamic). Classified compile-error because static declaration bounds are compile-time constants; oracle confirmation of the exact phase is pending but the lower>upper impossibility is deterministic.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "unallocated-dynamic-array-access",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE runtime oracle plus VBA dynamic array allocation semantics",

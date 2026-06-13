@@ -352,6 +352,68 @@ describe('analyzeModule - array ReDim', () => {
 	});
 });
 
+describe('analyzeModule - array declaration impossible bounds', () => {
+	const CODE = 'array-declaration-impossible-bounds';
+
+	it('flags a Dim array declaration whose lower bound exceeds the upper bound', () => {
+		const src = 'Public Sub T()\n    Dim a(10 To 1) As Long\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('10 To 1');
+	});
+
+	it('flags module-level Private/Static arrays and negative reversed bounds', () => {
+		expect(byCode(analyzeModule('Private p(5 To 2) As Long\n'), CODE)).toHaveLength(1);
+		expect(byCode(analyzeModule('Public g(0 To -1) As Long\n'), CODE)).toHaveLength(1);
+		expect(
+			byCode(analyzeModule('Sub T()\n    Static s(-5 To -10) As Long\nEnd Sub\n'), CODE),
+		).toHaveLength(1);
+	});
+
+	it('flags only the offending dimension in a multi-dimensional declaration', () => {
+		const src = 'Dim grid(1 To 3, 10 To 1, 0 To 5) As Long\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('10 To 1');
+		expect(hits[0].message).toContain('dimension 2');
+	});
+
+	it('stays quiet for valid, equal, upper-only, variable, and dynamic bounds', () => {
+		expect(byCode(analyzeModule('Dim a(1 To 10) As Long\n'), CODE)).toHaveLength(0); // increasing
+		expect(byCode(analyzeModule('Dim a(5 To 5) As Long\n'), CODE)).toHaveLength(0); // equal
+		expect(byCode(analyzeModule('Dim a(10) As Long\n'), CODE)).toHaveLength(0); // upper-only
+		expect(byCode(analyzeModule('Dim a() As Long\n'), CODE)).toHaveLength(0); // dynamic
+		expect(
+			byCode(analyzeModule('Sub T(ByVal n As Long, ByVal m As Long)\n    Dim a(n To m) As Long\nEnd Sub\n'), CODE),
+		).toHaveLength(0); // variable
+	});
+
+	it('stays quiet for non-literal constant-reference bounds (cannot prove reversed)', () => {
+		// HI/LO could be any constants; without folding we cannot prove lower > upper.
+		const src = 'Const HI As Long = 10\nConst LO As Long = 1\nDim a(HI To LO) As Long\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('flags only the offending name in a multi-declaration statement', () => {
+		const src = 'Dim a(1 To 3) As Long, b(10 To 1) As Long\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('10 To 1');
+	});
+
+	it('does not double-report on ReDim (owned by redim-impossible-bounds)', () => {
+		const src = 'Sub T()\n    Dim a() As Long\n    ReDim a(10 To 1)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'redim-impossible-bounds')).toHaveLength(1);
+	});
+
+	it('stays quiet for a reversed bound in an inactive #If branch', () => {
+		const src = '#If 0 Then\nDim a(10 To 1) As Long\n#End If\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - unallocated dynamic array access', () => {
 	it('flags straight-line local dynamic array indexed before ReDim', () => {
 		const src =

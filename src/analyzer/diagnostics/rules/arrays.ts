@@ -487,6 +487,71 @@ export function checkRedimImpossibleBounds(
 }
 
 /**
+ * Rule: a `Dim`/`Static`/`Private`/`Public` array *declaration* must not declare
+ * a lower bound greater than its upper bound. Only explicit literal `lower To
+ * upper` dimensions are reported (e.g. `Dim a(10 To 1)`); variable, constant-
+ * reference, or otherwise non-literal bounds stay quiet, so this is
+ * no-false-positive. ReDim is covered separately by checkRedimImpossibleBounds.
+ */
+export function checkArrayDeclarationBounds(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const inspectGroup = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			if (!decl.isArray || decl.arrayBounds === undefined || isInactiveNode(activity, decl)) {
+				continue;
+			}
+			reportImpossibleDeclarationBounds(source, decl, push);
+		}
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspectGroup(member);
+		} else if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, inspectGroup, activity);
+		}
+	}
+}
+
+function reportImpossibleDeclarationBounds(
+	source: string,
+	decl: VariableDeclNode,
+	push: PushFn,
+): void {
+	const toks = statementTokens(source, decl.span);
+	const open = toks.findIndex((tok) => tok.rawText === '(');
+	if (open < 0) {
+		return;
+	}
+	const close = matchParenFrom(toks, open);
+	if (close < 0) {
+		return;
+	}
+	splitTopLevelTokenGroups(toks.slice(open + 1, close), ',').forEach((part, index) => {
+		const dimTokens = part.filter((tok) => tok.kind !== 'comment');
+		if (dimTokens.length === 0) {
+			return;
+		}
+		const bound = comparableArrayBoundKey(dimTokens);
+		if (
+			bound.lowerValue === undefined ||
+			bound.upperValue === undefined ||
+			bound.lowerValue <= bound.upperValue
+		) {
+			return;
+		}
+		push(
+			'arrayDeclarationImpossibleBounds',
+			`Array '${decl.name}' lower bound ${bound.lowerValue} is greater than upper bound ${bound.upperValue} for dimension ${index + 1}; this is not a valid array bound.`,
+			tokenGroupSpan(decl.span, dimTokens),
+		);
+	});
+}
+
+/**
  * Rule: ReDim Preserve may only resize the last dimension of an already
  * allocated dynamic array. This tracks simple, active ReDim shapes in a
  * conservative per-body flow so nested branch updates do not leak outward.

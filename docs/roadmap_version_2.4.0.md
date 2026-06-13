@@ -173,15 +173,25 @@ Progress (expression binder, sliced):
     never produce a false positive. Array fields collide by bare name. Covered by
     `tests/diagnostics/duplicates.test.ts`; verified empirically across array /
     fixed-length / suffix / bracketed / conditional-compilation / malformed cases.
+  - [x] Impossible array declaration bounds (`array-declaration-impossible-bounds`).
+    A `Dim`/`Static`/`Private`/`Public` array whose explicit literal `lower To upper`
+    dimension has `lower > upper` (e.g. `Dim a(10 To 1)`) can never exist; since
+    static declaration bounds are compile-time constants this is a compile error
+    (MS-VBAL 5.2.3.1), the declaration-time sibling of the runtime `redim-impossible-bounds`.
+    Only literal reversed dimensions are flagged; equal/increasing/upper-only/variable/
+    Const-reference/dynamic/inactive-branch bounds stay quiet (no false positive),
+    reusing the array-family `comparableArrayBoundKey` helper. Covered by
+    `tests/diagnostics/arrays.test.ts`; verified empirically (line continuation,
+    bracketed/suffix names, arithmetic/hex/negative bounds, multi-dimension,
+    multi-declaration, malformed - zero FP, no crashes).
   - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
-    matrix): comparisons, Date coercion, arrays, default members. These stay
-    quiet until oracle/metadata can prove them; do not build them speculatively.
-  - [ ] Remaining binder-INDEPENDENT families (lower risk, no oracle for some):
-    fixed-length-string non-constant size and Dim/Static array literal `lower > upper`
-    bounds (no oracle); numeric overflow for `Long`/`Single`/`Currency`/hex/octal
-    needs the VBE runtime oracle. Plus flow-sensitive binding on the branch-modeled
-    AST (definite assignment; carries FP risk around loops/`GoTo`/error handlers,
-    needs care).
+    matrix): comparisons, Date coercion, broad array compatibility, default members.
+    These stay quiet until oracle/metadata can prove them; do not build them speculatively.
+  - [ ] Remaining binder-INDEPENDENT families: fixed-length-string non-constant size
+    (binder-dependent - an unknown name may be a forward/cross-module Const, so FP-risky
+    without the binder); numeric overflow for `Long`/`Single`/`Currency`/hex/octal needs
+    the VBE runtime oracle. Plus flow-sensitive binding on the branch-modeled AST
+    (definite assignment; carries FP risk around loops/`GoTo`/error handlers, needs care).
 
 ## Priority 1: Static Analysis Completeness
 

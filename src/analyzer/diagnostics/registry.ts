@@ -69,6 +69,7 @@ import {
 } from './rules/undeclared';
 import {
 	checkArrayBoundIntrinsicArguments,
+	checkArrayDeclarationBounds,
 	checkEraseTargets,
 	checkInvalidRedimTargets,
 	checkRedimImpossibleBounds,
@@ -297,6 +298,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'redimImpossibleBounds',
 		procedureStatements: (ctx, push) => checkRedimImpossibleBounds(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'arrayDeclarationImpossibleBounds',
+		run: (ctx, push) => checkArrayDeclarationBounds(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'redimPreserveDimensions',
