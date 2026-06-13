@@ -429,8 +429,37 @@ export interface StatementNode extends NodeBase {
 // Block statements (MS-VBAL 5.4). Each owns a body and records whether it was
 // properly closed, which drives block-mismatch diagnostics.
 
+/**
+ * One arm of an `If` block (MS-VBAL 5.4.2.1): the leading `If`, zero or more
+ * `ElseIf`, and an optional `Else`. Branch modeling makes flow-sensitive
+ * analysis possible (each arm's statements and entry condition are explicit)
+ * without disturbing `IfBlockNode.body`, which stays a flat list for the generic
+ * body walkers.
+ */
+export interface IfBranchNode {
+	kind: 'IfBranch';
+	branchKind: 'if' | 'elseif' | 'else';
+	/** Entry condition for `if`/`elseif` arms; null for `else` (or an unparsable condition). */
+	condition: ExprNode | null;
+	/** Raw condition text between the keyword and `Then` (absent for `else`). */
+	conditionRaw?: string;
+	conditionSpan?: Span;
+	/** Statements in this arm only (excludes the arm's own header line). */
+	body: BodyNode[];
+	/** Span of the arm header line (`If ... Then` / `ElseIf ... Then` / `Else`). */
+	headerSpan: Span;
+	span: Span;
+}
+
 export interface IfBlockNode extends NodeBase {
 	kind: 'IfBlock';
+	/** Structured arms: always begins with the `if` arm, then any `elseif`/`else`. */
+	branches: IfBranchNode[];
+	/**
+	 * Flat list of every arm's statements (and the `ElseIf`/`Else` header lines
+	 * as raw `Statement`s), in source order. Retained so generic body walkers and
+	 * block-balance diagnostics are unaffected by branch modeling.
+	 */
 	body: BodyNode[];
 	closed: boolean;
 }

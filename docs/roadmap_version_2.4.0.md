@@ -87,8 +87,20 @@ Progress (expression binder, sliced):
   (`MidB`/`MidB$` must stay raw; malformed operands must not leak into structured
   nodes). Still deferred to later slices: named/omitted arguments, bang access,
   keyword-object receivers (`Debug.`/`Err.`), and lone-identifier calls.
-- [ ] Slice 3 - branch modeling (`If`/`ElseIf`/`Else` arms), then the
-  flow-sensitive binder rules and the Priority 4 binder-dependent type families.
+- [x] Slice 3 - branch modeling. `IfBlockNode` now carries structured
+  `branches` (the `if` arm plus any `elseif`/`else`), each with its parsed entry
+  condition and own statement body, while the flat `body` is retained so the
+  generic walkers and `else-branch-order` diagnostics are unaffected
+  (`startIfBranch`/`ifBranchMarker`/`parseThenCondition`/`finishIfBlock` in
+  `parseModule`). Covered by `tests/vbaParser.test.ts`; full suite green, zero
+  regressions, and an adversarial review (nested Ifs, `#If` interleaving, empty
+  arms, `Else If`, `Case Else`, unclosed Ifs, span/identity integrity) found no
+  defects.
+- [ ] Slice 4 - flow-sensitive binder rules (definite assignment, per-branch
+  object state, full shadowing) on the branch-modeled AST, plus the Priority 4
+  binder-dependent type families (arbitrary-expression assignment/argument
+  typing, comparisons, `TypeOf...Is`, default members) now reachable on the
+  expression AST.
 
 ## Priority 1: Static Analysis Completeness
 

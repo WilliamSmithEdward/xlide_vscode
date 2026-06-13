@@ -10,6 +10,7 @@ import {
 	ConditionalDirectiveNode,
 	EnumNode,
 	ForBlockNode,
+	IfBlockNode,
 	ModuleMember,
 	ProcedureNode,
 	TypeNode,
@@ -466,6 +467,69 @@ describe('parseModule - block statements (MS-VBAL 5.4)', () => {
 				? src.slice(blocks[1].sourceExpressionSpan.start, blocks[1].sourceExpressionSpan.end)
 				: undefined,
 		).toBe('coll');
+	});
+});
+
+describe('parseModule - If branch modeling (MS-VBAL 5.4.2.1)', () => {
+	function ifBlock(source: string): IfBlockNode {
+		const proc = procedures(source)[0];
+		const found = proc.body.find((n): n is IfBlockNode => n.kind === 'IfBlock');
+		if (!found) {
+			throw new Error('no IfBlock parsed');
+		}
+		return found;
+	}
+
+	it('models a plain If as a single if arm with a parsed condition', () => {
+		const block = ifBlock('Sub T()\n    If x > 1 Then\n        a = 1\n    End If\nEnd Sub\n');
+		expect(block.branches).toHaveLength(1);
+		expect(block.branches[0].branchKind).toBe('if');
+		expect(block.branches[0].condition?.exprKind).toBe('BinaryExpr');
+		expect(block.branches[0].conditionRaw).toBe('x > 1');
+		expect(block.branches[0].body.map((n) => n.kind)).toEqual(['Assignment']);
+	});
+
+	it('splits If / ElseIf / Else into arms with their own conditions and bodies', () => {
+		const block = ifBlock([
+			'Sub T()',
+			'    If x > 1 Then',
+			'        a = 1',
+			'    ElseIf y Is Nothing Then',
+			'        b = 2',
+			'        c = 3',
+			'    Else',
+			'        d = 4',
+			'    End If',
+			'End Sub',
+		].join('\n'));
+		expect(block.branches.map((b) => b.branchKind)).toEqual(['if', 'elseif', 'else']);
+		expect(block.branches.map((b) => b.conditionRaw)).toEqual(['x > 1', 'y Is Nothing', undefined]);
+		expect(block.branches[2].condition).toBeNull();
+		expect(block.branches.map((b) => b.body.length)).toEqual([1, 2, 1]);
+	});
+
+	it('keeps a flat body (with ElseIf/Else header lines) for back-compat', () => {
+		const block = ifBlock([
+			'Sub T()',
+			'    If x Then',
+			'        a = 1',
+			'    Else',
+			'        b = 2',
+			'    End If',
+			'End Sub',
+		].join('\n'));
+		// Two assignments plus the `Else` header line, in source order.
+		expect(block.body.map((n) => n.kind)).toEqual(['Assignment', 'Statement', 'Assignment']);
+	});
+
+	it('keeps the condition raw but null when it does not parse cleanly', () => {
+		// `x And Then` — a dangling operator before `Then`. Still a block If, but
+		// the condition does not parse cleanly, so `condition` is null and the raw
+		// text is preserved.
+		const block = ifBlock('Sub T()\n    If x And Then\n        a = 1\n    End If\nEnd Sub\n');
+		expect(block.branches[0].branchKind).toBe('if');
+		expect(block.branches[0].condition).toBeNull();
+		expect(block.branches[0].conditionRaw).toBe('x And');
 	});
 });
 

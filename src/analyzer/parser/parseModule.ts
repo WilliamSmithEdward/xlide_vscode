@@ -50,6 +50,7 @@ import {
 	ExprNode,
 	ForBlockNode,
 	IfBlockNode,
+	IfBranchNode,
 	IndexExpr,
 	ModuleKind,
 	ModuleMember,
@@ -90,6 +91,16 @@ interface DeclaredNameInfo {
 	nextIndex: number;
 	typeSuffix?: string;
 	typeSuffixSpan?: Span;
+}
+
+/** Mutable accumulator for one If-block arm while its body is being parsed. */
+interface IfBranchBuilder {
+	branchKind: 'if' | 'elseif' | 'else';
+	condition: ExprNode | null;
+	conditionRaw?: string;
+	conditionSpan?: Span;
+	headerSpan: Span;
+	body: BodyNode[];
 }
 
 /** Visibility / sharing modifiers that may lead a declaration (MS-VBAL 5.2.3). */
@@ -1126,6 +1137,11 @@ class Parser {
 		const expected = this.blockCloser(opener);
 		this.openStack.push(expected);
 		const body: BodyNode[] = [];
+		// `If` blocks additionally accumulate structured arms (If/ElseIf/Else) so
+		// flow-sensitive analysis can reason per branch; the flat `body` is kept
+		// for the generic body walkers and block-balance diagnostics.
+		const branches: IfBranchBuilder[] | null =
+			opener === 'if' ? [this.startIfBranch('if', head)] : null;
 		let closed = false;
 		let endStmt: LogicalStatement | undefined;
 		while (!this.cursor.atEnd()) {
@@ -1138,17 +1154,29 @@ class Parser {
 			}
 			const nestedModuleBlock = this.nestedTypeOrEnumBlockKind(stmt);
 			if (nestedModuleBlock) {
-				body.push(this.parseInvalidNestedModuleBlockStatement(nestedModuleBlock, [expected]));
+				const node = this.parseInvalidNestedModuleBlockStatement(nestedModuleBlock, [expected]);
+				body.push(node);
+				branches?.[branches.length - 1].body.push(node);
 				continue;
 			}
 			if (this.isModuleLevelStarter(stmt)) {
 				break;
+			}
+			if (branches) {
+				const marker = this.ifBranchMarker(stmt);
+				if (marker) {
+					this.cursor.next();
+					body.push(this.makeStatement(stmt)); // keep the header line in the flat body
+					branches.push(this.startIfBranch(marker, stmt));
+					continue;
+				}
 			}
 			const item = this.parseBodyItem(stmt);
 			if (item === undefined) {
 				break;
 			}
 			body.push(item);
+			branches?.[branches.length - 1].body.push(item);
 		}
 		this.openStack.pop();
 		if (!closed) {
@@ -1160,11 +1188,14 @@ class Parser {
 			);
 		}
 		const span: Span = { start: head.start, end: (endStmt ?? head).end };
+		if (opener === 'if') {
+			return this.finishIfBlock(branches ?? [this.startIfBranch('if', head)], body, closed, span);
+		}
 		return this.makeBlockNode(opener, body, closed, span, head, endStmt);
 	}
 
 	private makeBlockNode(
-		opener: 'if' | 'for' | 'foreach' | 'do' | 'while' | 'with' | 'select',
+		opener: 'for' | 'foreach' | 'do' | 'while' | 'with' | 'select',
 		body: BodyNode[],
 		closed: boolean,
 		span: Span,
@@ -1172,8 +1203,6 @@ class Parser {
 		endStmt: LogicalStatement | undefined,
 	): BodyNode {
 		switch (opener) {
-			case 'if':
-				return { kind: 'IfBlock', body, closed, span } satisfies IfBlockNode;
 			case 'for':
 			case 'foreach': {
 				const control = this.forControlVariable(opener, head);
@@ -1208,6 +1237,91 @@ class Parser {
 			case 'select':
 				return { kind: 'SelectBlock', body, closed, span } satisfies SelectBlockNode;
 		}
+	}
+
+	/**
+	 * Detects an `ElseIf`/`Else` arm header at the start of an `If` block body.
+	 * Returns the arm kind, or undefined for an ordinary statement.
+	 */
+	private ifBranchMarker(stmt: LogicalStatement): 'elseif' | 'else' | undefined {
+		const tokens = codeTokensAfterLineNumber(stmt);
+		const head = tokenWord(tokens[0]);
+		if (head === 'elseif') {
+			return 'elseif';
+		}
+		// `Else If` (two tokens) is the same arm as `ElseIf`; a bare `Else` is the else arm.
+		if (head === 'else') {
+			return tokenWord(tokens[1]) === 'if' ? 'elseif' : 'else';
+		}
+		return undefined;
+	}
+
+	/** Begins an If-block arm, parsing the `If`/`ElseIf` entry condition. */
+	private startIfBranch(
+		branchKind: 'if' | 'elseif' | 'else',
+		stmt: LogicalStatement,
+	): IfBranchBuilder {
+		const headerSpan: Span = { start: stmt.start, end: stmt.end };
+		if (branchKind === 'else') {
+			return { branchKind, condition: null, headerSpan, body: [] };
+		}
+		const cond = this.parseThenCondition(stmt, branchKind);
+		return { branchKind, ...cond, headerSpan, body: [] };
+	}
+
+	/**
+	 * Parses the condition between the `If`/`ElseIf` keyword(s) and the trailing
+	 * `Then`. `condition` is set only when the expression parses cleanly and fully;
+	 * `conditionRaw`/`conditionSpan` always reflect the source when present.
+	 */
+	private parseThenCondition(
+		stmt: LogicalStatement,
+		branchKind: 'if' | 'elseif',
+	): { condition: ExprNode | null; conditionRaw?: string; conditionSpan?: Span } {
+		const tokens = codeTokensAfterLineNumber(stmt);
+		// `If`/`ElseIf` is one token; `Else If` is two. Condition starts after them.
+		const condStart = branchKind === 'elseif' && tokenWord(tokens[0]) === 'else' ? 2 : 1;
+		let thenIndex = -1;
+		for (let i = tokens.length - 1; i >= condStart; i--) {
+			if (tokens[i].kind === 'keyword' && tokenWord(tokens[i]) === 'then') {
+				thenIndex = i;
+				break;
+			}
+		}
+		const condEnd = thenIndex >= 0 ? thenIndex : tokens.length;
+		if (condEnd <= condStart) {
+			return { condition: null };
+		}
+		const result = parseExpression(tokens, condStart, condEnd);
+		const conditionSpan: Span = { start: tokens[condStart].start, end: tokens[condEnd - 1].end };
+		return {
+			condition: fullyConsumed(result, condEnd) ? result.expr : null,
+			conditionRaw: this.source.slice(conditionSpan.start, conditionSpan.end),
+			conditionSpan,
+		};
+	}
+
+	/** Finalizes If-block arms, computing each arm's span up to the next arm/End If. */
+	private finishIfBlock(
+		builders: IfBranchBuilder[],
+		body: BodyNode[],
+		closed: boolean,
+		span: Span,
+	): IfBlockNode {
+		const branches: IfBranchNode[] = builders.map((builder, i) => {
+			const end = builders[i + 1]?.headerSpan.start ?? span.end;
+			return {
+				kind: 'IfBranch',
+				branchKind: builder.branchKind,
+				condition: builder.condition,
+				...(builder.conditionRaw !== undefined ? { conditionRaw: builder.conditionRaw } : {}),
+				...(builder.conditionSpan ? { conditionSpan: builder.conditionSpan } : {}),
+				body: builder.body,
+				headerSpan: builder.headerSpan,
+				span: { start: builder.headerSpan.start, end },
+			} satisfies IfBranchNode;
+		});
+		return { kind: 'IfBlock', branches, body, closed, span };
 	}
 
 	private forControlVariable(

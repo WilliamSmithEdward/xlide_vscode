@@ -136,10 +136,14 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   arguments (`name:=expr`), omitted arguments, bang (`!`) access, keyword-object
   receivers (`Debug.`/`Err.`), and lone-identifier/member statements (label vs.
   no-arg-call ambiguity). The row stays `Partial` until those deferrals close.
-- **If blocks (by design):** `ElseIf` and `Else` lines are kept as ordinary body
-  statements inside a single `IfBlock` rather than modeled as separate branch
-  nodes. This is sufficient for block-balance diagnostics; branch modeling is the
-  next expression-binder slice now that assignment/call wiring has landed.
+- **If blocks (branch-modeled):** `IfBlockNode` now carries structured
+  `branches` (the `if` arm, then any `elseif`/`else` arms), each with its parsed
+  entry condition (`ExprNode`, via the §5.6 parser) and its own statement body,
+  so flow-sensitive analysis can reason per arm. The flat `IfBlockNode.body` is
+  retained unchanged (it still includes the `ElseIf`/`Else` header lines as raw
+  `Statement`s, in source order) so the generic body walkers and block-balance /
+  `else-branch-order` diagnostics are unaffected. A condition is non-null only
+  when it parses cleanly and fully; otherwise `conditionRaw` preserves the text.
 - **Single-line `If` detection:** an `If` opens a block only when `Then` is the
   final code token on the logical line (section 5.4.2.1); `If x Then y = 1`
   stays a single statement. Verified by fixture.
