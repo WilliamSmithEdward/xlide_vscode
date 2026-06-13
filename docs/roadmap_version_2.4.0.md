@@ -96,11 +96,29 @@ Progress (expression binder, sliced):
   regressions, and an adversarial review (nested Ifs, `#If` interleaving, empty
   arms, `Else If`, `Case Else`, unclosed Ifs, span/identity integrity) found no
   defects.
-- [ ] Slice 4 - flow-sensitive binder rules (definite assignment, per-branch
-  object state, full shadowing) on the branch-modeled AST, plus the Priority 4
-  binder-dependent type families (arbitrary-expression assignment/argument
-  typing, comparisons, `TypeOf...Is`, default members) now reachable on the
-  expression AST.
+- Slice 4 (in progress) - cash in the expression AST for the Priority 4
+  binder-dependent type families and flow-sensitive rules. Note from the Slice 4
+  scouting pass: a rich token-based type-inference engine already exists
+  (`typeInference.ts`: `inferExpressionType`, `incompatibilityReason`,
+  object/ByRef compatibility), and the shipped assignment/argument type rules
+  already handle many arbitrary expressions - so Slice 4 is narrower than first
+  framed (AST-precision for shapes the token walker cannot reach, new families,
+  and flow-sensitivity).
+  - [x] `TypeOf ... Is` always-False (`typeof-is-always-false`). The first rule
+    to consume the §5.6 expression AST directly: it reads parsed `TypeOfIsExpr`
+    nodes (notably `If TypeOf x Is Y Then` branch conditions) and flags the test
+    as provably always-False when the operand's declared object type can never be
+    the target type. Reuses the existing object-compatibility tables in both
+    directions plus a concrete-operand gate (interface-typed operands stay
+    quiet), so it is strictly no-false-positive. Covered by
+    `tests/diagnostics/typeOfIs.test.ts`; an adversarial review across interface,
+    diamond, host, and position cases found zero false positives.
+  - [ ] Arbitrary-expression assignment/argument typing via an `ExprNode` walker
+    (reaches deep member chains, indexed access, and complex expressions the
+    token engine cannot).
+  - [ ] Comparisons, Date coercion, arrays, default members, and flow-sensitive
+    binding (definite assignment, per-branch object state, full shadowing) on the
+    branch-modeled AST.
 
 ## Priority 1: Static Analysis Completeness
 

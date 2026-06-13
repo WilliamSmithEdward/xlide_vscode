@@ -410,6 +410,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.3 / Set statement',
 		confidence: 'high',
 	},
+	typeOfIsAlwaysFalse: {
+		code: 'typeof-is-always-false',
+		title: "'TypeOf ... Is' is always False",
+		defaultSeverity: 'warning',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'runtime-risk',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 (TypeOf...Is expression)',
+		confidence: 'high',
+	},
 	memberNotFound: {
 		code: 'member-not-found',
 		title: 'Object member not found',

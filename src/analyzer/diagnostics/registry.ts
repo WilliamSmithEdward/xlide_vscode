@@ -55,6 +55,7 @@ import {
 	checkObjectVariableNotSet,
 	checkScalarMemberAccess,
 } from './rules/objectState';
+import { checkTypeOfIsCompatibility } from './rules/typeOfIs';
 import {
 	checkMemberNotFound,
 	checkNonCallableCallStatement,
@@ -505,6 +506,16 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.mod,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
+			ctx.memberCtx,
+			ctx.activity,
+			push,
+		),
+	},
+	{
+		name: 'typeOfIsAlwaysFalse',
+		run: (ctx, push) => checkTypeOfIsCompatibility(
+			ctx.mod,
+			ctx.symbols,
 			ctx.memberCtx,
 			ctx.activity,
 			push,

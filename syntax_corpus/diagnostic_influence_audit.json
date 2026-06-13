@@ -935,6 +935,17 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "typeof-is-always-false",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.6 TypeOf...Is semantics plus deterministic XLIDE object-type binding and the shared object-assignment compatibility tables (host identity and project Implements)",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Reads the parsed §5.6 TypeOfIsExpr nodes (notably If-branch conditions). Fires only when the operand is a simple identifier whose declared type is a known, concrete object type - a host type, or a project class that no project class Implements - that is mutually assignment-incompatible with a known target object type. Object/Variant/unknown/scalar operands or targets, same-type checks, and interface-typed operands (which could hold a target-compatible subtype) all stay quiet.",
+      "diagnosticKind": "runtime-risk"
+    },
+    {
       "code": "set-requires-object",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable and assignment-target binding",
