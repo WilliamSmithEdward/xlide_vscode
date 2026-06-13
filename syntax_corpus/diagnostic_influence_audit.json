@@ -1495,6 +1495,19 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "Flags a procedure declaring more than 60 parameters (the documented VBA maximum; VBE rejects the 61st with Too many arguments). Pure parameter count, no binder needed.",
       "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "else-without-if",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_ctrl_if_004_compile: compile rejected, 'Else without If') plus MS-VBAL 5.4.2.1",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_ctrl_if_004_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags an Else or ElseIf clause that is not inside an If block (the parser places legit clauses directly under an IfBlock; a stray one sits under the procedure or a non-If block). A stray End If is covered separately by the block-balance pass (unmatched-block-closer).",
+      "diagnosticKind": "compile-error"
     }
   ]
 }

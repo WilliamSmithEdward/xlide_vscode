@@ -35,16 +35,28 @@ Do not use a Markdown expectation alone to justify a red diagnostic.
   - **Shipped:** `corpus_me_004` -> `me-outside-object-module` ("Invalid use of Me
     keyword" in a standard module); `corpus_arg_limit_001b` -> `too-many-parameters`
     (">60 parameters").
-  - Remaining clean candidates: `corpus_sep_005` ("End If without block If") and
-    `corpus_ctrl_if_004` ("Else without If") - need If-block context tracking
-    (FP-risk on legit in-block Else, parser-recovery territory); `corpus_sig_007`
-    ("Invalid optional parameter": Optional UDT param) - binder-dependent (needs
-    type resolution).
-  - Binder/parser-recovery (lower priority): `corpus_api_vis_003` (private-type
-    public param), `corpus_proc_010`, `corpus_id_003`, `corpus_array_limit_001b`,
-    `corpus_name_rule_002`, `corpus_name_rule_003`, `corpus_name_limit_001b`,
-    `corpus_line_limit_001b`, `corpus_bad_005`, `corpus_edges_005_malformed_open`,
-    `corpus_excel_syntax_006` (mostly generic "Syntax error" — parser-level).
+  - **Shipped:** `corpus_ctrl_if_004` -> `else-without-if` (stray `Else`/`ElseIf`
+    outside an `If` block).
+  - **Not a gap:** `corpus_sep_005` ("End If without block If") is already flagged
+    by the structural block-balance pass as `unmatched-block-closer` (verified via
+    the full `analyzeVbaModuleSource` path); no new rule needed.
+  - Still deferred: `corpus_sig_007` ("Invalid optional parameter": Optional UDT
+    parameter) - binder-dependent (needs type resolution).
+  - Already covered by other passes (NOT gaps, verified via full
+    `analyzeVbaModuleSource`): `corpus_proc_010` and `corpus_line_limit_001b`
+    (structural / module-declaration passes already flag them).
+  - Parser-level generic "Syntax error" (best fixed by parser error emission, not
+    a named diagnostic rule; idiosyncratic + rare): `corpus_id_003`,
+    `corpus_array_limit_001b`, `corpus_name_rule_002`, `corpus_name_rule_003`,
+    `corpus_name_limit_001b`, `corpus_bad_005`, `corpus_edges_005_malformed_open`,
+    `corpus_excel_syntax_006`.
+  - Binder-dependent (need type resolution; deferred to avoid false positives):
+    `corpus_sig_007` (Optional UDT parameter), `corpus_api_vis_003` (Private UDT as
+    a Public procedure parameter).
+
+**Net:** the clean, no-false-positive, binder-independent oracle-confirmed
+compile-error vein from this corpus is now mined out. Remaining candidates need
+either parser error-emission work or the expression/type binder.
 
 ## Source Digest
 

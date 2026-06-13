@@ -101,6 +101,7 @@ import {
 	checkDuplicateCaseElse,
 	checkDuplicateLabels,
 	checkElseBranchOrder,
+	checkElseWithoutIf,
 	checkExitStatements,
 	checkForEachLoopTypes,
 	checkStatementContext,
@@ -457,6 +458,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'duplicateCaseElse',
 		run: (ctx, push) => checkDuplicateCaseElse(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'elseWithoutIf',
+		run: (ctx, push) => checkElseWithoutIf(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'forEachLoopTypes',

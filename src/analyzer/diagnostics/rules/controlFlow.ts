@@ -676,6 +676,53 @@ function forEachSelectBlock(
 	}
 }
 
+/**
+ * Rule: an `Else` or `ElseIf` clause may only appear inside an `If` block. A
+ * stray one (an `Else`/`ElseIf` with no opening `If ... Then` block) is a compile
+ * error - VBE reports "Else without If". Oracle-verified
+ * (`corpus_ctrl_if_004_compile`). The block-balance pass already covers a stray
+ * `End If`, but `Else`/`ElseIf` are not block closers, so they need this check.
+ * Legit clauses - which the parser places directly inside an `IfBlock` body - are
+ * never flagged (no false positive).
+ */
+export function checkElseWithoutIf(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const visit = (body: BodyNode[], insideIfBlock: boolean): void => {
+		for (const node of body) {
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (isLeafStatement(node)) {
+				if (insideIfBlock) {
+					continue; // a legit Else/ElseIf header inside its If block
+				}
+				const first = statementTokensAfterLeadingLabel(source, node.span)[0];
+				const word = first ? tokenText(first) : '';
+				if (word === 'else' || word === 'elseif') {
+					push(
+						'elseWithoutIf',
+						`'${first!.rawText}' can only appear inside an 'If' block.`,
+						absoluteSpan(node.span, first!),
+					);
+				}
+				continue;
+			}
+			if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
+				visit((node as { body: BodyNode[] }).body, node.kind === 'IfBlock');
+			}
+		}
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure') {
+			visit(member.body, false);
+		}
+	}
+}
+
 function checkContextStatement(
 	source: string,
 	stmt: LeafStatementNode,

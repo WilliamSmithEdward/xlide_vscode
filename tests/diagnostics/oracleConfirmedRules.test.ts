@@ -195,3 +195,38 @@ describe('analyzeModule - too-many-parameters (ARG_LIMIT_001B)', () => {
 		expect(byCode(analyzeModule('Sub T(a As Long, b As Long)\nEnd Sub\n'), CODE)).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - else-without-if (CTRL_IF_004)', () => {
+	const CODE = 'else-without-if';
+
+	it('flags a stray Else with no enclosing If block', () => {
+		const src = 'Public Sub Demo()\n    Else\n        Debug.Print "bad"\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('Else');
+	});
+
+	it('flags a stray ElseIf', () => {
+		expect(byCode(analyzeModule('Sub T()\n    ElseIf y Then\nEnd Sub\n'), CODE)).toHaveLength(1);
+	});
+
+	it('flags an Else inside a non-If block (e.g. a For loop)', () => {
+		expect(byCode(analyzeModule('Sub T()\n    For i = 1 To 2\n        Else\n    Next\nEnd Sub\n'), CODE)).toHaveLength(1);
+	});
+
+	it('stays quiet for a normal block If with ElseIf and Else', () => {
+		const src = 'Sub T()\n    If x Then\n        a = 1\n    ElseIf y Then\n        c = 1\n    Else\n        b = 2\n    End If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for a single-line If with an inline Else', () => {
+		expect(byCode(analyzeModule('Sub T()\n    If x Then a = 1 Else b = 2\nEnd Sub\n'), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for Else inside a nested If block', () => {
+		const src =
+			'Sub T()\n    If a Then\n        If b Then\n            x = 1\n        Else\n            y = 1\n        End If\n    Else\n        z = 1\n    End If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+});

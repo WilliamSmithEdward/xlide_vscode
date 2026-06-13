@@ -1071,6 +1071,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.10 (Select Case)',
 		confidence: 'high',
 	},
+	elseWithoutIf: {
+		code: 'else-without-if',
+		title: "'Else'/'ElseIf' outside an If block",
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1 (If block) / VBE oracle',
+		confidence: 'high',
+	},
 	emptyType: {
 		code: 'empty-type',
 		title: 'User-defined Type has no members',
