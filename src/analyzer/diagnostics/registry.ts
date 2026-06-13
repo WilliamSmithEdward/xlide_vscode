@@ -29,6 +29,8 @@ import {
 	checkModuleDeclarationsAfterProcedures,
 	checkModuleDeclarationsInProcedureBodies,
 	checkModuleLevelStatementsOutsideProcedures,
+	checkNonConstantConstValues,
+	checkNonConstantEnumMemberValues,
 	checkNonConstantParameterDefaults,
 	checkOptionPlacement,
 	checkParameterDefaultValues,
@@ -238,6 +240,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'parameterDefaultNotConstant',
 		run: (ctx, push) => checkNonConstantParameterDefaults(ctx.source, ctx.mod, ctx.activity, ctx.memberCtx, push),
+	},
+	{
+		name: 'constValueNotConstant',
+		run: (ctx, push) => checkNonConstantConstValues(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'enumMemberNotConstant',
+		run: (ctx, push) => checkNonConstantEnumMemberValues(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'unbalancedParens',

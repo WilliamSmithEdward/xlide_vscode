@@ -957,6 +957,28 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "const-value-not-constant",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.4 (a Const declaration value is a constant-expression) plus the VBE 'Constant expression required' compile error",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a Const value that is provably non-constant: a function/array call (name(...)), New, or AddressOf, at module level and procedure-local (incl. nested blocks). Bare and qualified identifiers (OTHER_CONST, Module.CONST, MyEnum.Value) stay quiet because they may reference constants. Literals, string concatenation, and arithmetic/grouping are constant expressions and never flagged. Shares the nonConstantDefaultElement gate with parameter-default-not-constant.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "enum-member-not-constant",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.2.3.4 (an Enum member value is a constant-expression) plus the VBE 'Constant expression required' compile error",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags an Enum member initializer that is provably non-constant: a function/array call (name(...)), New, or AddressOf. Bare and qualified identifiers stay quiet (they may be constants). Implicit members (no '=') are auto-numbered and never checked. Shares the nonConstantDefaultElement gate with parameter-default-not-constant.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "set-requires-object",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE compile oracle plus deterministic XLIDE scalar variable and assignment-target binding",

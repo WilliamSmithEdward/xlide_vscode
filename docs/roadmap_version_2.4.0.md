@@ -137,6 +137,24 @@ Progress (expression binder, sliced):
     ~60 signatures (grouping parens, unary, literals, concat, operators,
     qualified/bracketed consts, line continuation, property accessors,
     multi-param attribution) found zero false positives.
+  - [x] Non-constant `Const` values (`const-value-not-constant`) and Enum member
+    values (`enum-member-not-constant`). Two more binder-INDEPENDENT, spec-derived
+    compile-error checks (MS-VBAL 5.2.4 / 5.2.3.4) sharing the same proven
+    `nonConstantDefaultElement` gate: a value containing a call (`name(...)`),
+    `New`, or `AddressOf` is flagged; literals, string concatenation, arithmetic,
+    grouping, and bare/qualified identifiers stay quiet. The Const rule walks
+    module-level and procedure-local (incl. nested-block) `Const`s. Covered by
+    `tests/diagnostics/constEnumNotConstant.test.ts`. An adversarial FP/FN hunt
+    (~60 probes, verified empirically against the real analyzer) found and fixed a
+    latent false-positive class that ALSO affected the shipped
+    `parameter-default-not-constant`: operator keywords (`And`/`Or`/`Not`/`Mod`/
+    `Xor`/`Eqv`/`Imp`/`Like`) lex as `keyword` and were misread as calls when
+    followed by `(` (e.g. `6 And (3)` is a legal constant). Fixed by excluding the
+    lexer's `OPERATOR_IDENTIFIERS` from the call heuristic. Also found a
+    pre-existing parser gap - `#If` inside an Enum body is unmodeled, so a
+    dead-branch member looked live; guarded conservatively (skip a `#`-contaminated
+    Enum block) and filed as a follow-up to fix the parser (which also clears a
+    spurious `duplicate-enum-member`).
   - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
     matrix): comparisons, Date coercion, arrays, default members. These stay
     quiet until oracle/metadata can prove them; do not build them speculatively.

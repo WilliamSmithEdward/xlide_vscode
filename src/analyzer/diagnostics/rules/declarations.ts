@@ -15,7 +15,7 @@ import {
 	collectConditionalDirectives,
 	type ConditionalActivityTracker,
 } from '../../conditional/conditionalCompilation';
-import { isReservedIdentifier } from '../../lexer/keywordTable';
+import { isReservedIdentifier, OPERATOR_IDENTIFIERS } from '../../lexer/keywordTable';
 import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { parseFixedLengthStringType } from '../../parser/fixedLengthString';
@@ -1621,6 +1621,114 @@ export function checkNonConstantParameterDefaults(
 	}
 }
 
+/**
+ * The value of a Const declaration must be a constant expression (MS-VBAL 5.2.4
+ * / VBE "Constant expression required"). Flags a Const value that is provably
+ * non-constant - a function/array call (`name(...)`), `New`, or `AddressOf` -
+ * at module level and procedure-local (including nested blocks). Bare and
+ * qualified identifiers (`OTHER_CONST`, `Module.CONST`, `MyEnum.Value`) are
+ * left alone because they may reference constants, so this stays
+ * no-false-positive. Literals, string concatenation, and arithmetic/grouping
+ * are constant expressions and never flagged.
+ */
+export function checkNonConstantConstValues(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const inspectGroup = (group: VariableGroupNode): void => {
+		if (!group.isConst) {
+			return;
+		}
+		for (const decl of group.declarations) {
+			if (decl.defaultRaw === undefined || isInactiveNode(activity, decl)) {
+				continue;
+			}
+			const valueTokens = valueTokensAfterEquals(source, decl.span);
+			if (!valueTokens) {
+				continue;
+			}
+			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, decl.span.start);
+			if (!nonConstant) {
+				continue;
+			}
+			push(
+				'constValueNotConstant',
+				`Const '${decl.name}' value must be a constant expression; ${nonConstant.label} is not constant.`,
+				nonConstant.span,
+			);
+		}
+	};
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspectGroup(member);
+			continue;
+		}
+		if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, inspectGroup, activity);
+		}
+	}
+}
+
+/**
+ * Enum member values must be constant expressions (MS-VBAL 5.2.3.4 / VBE
+ * "Constant expression required"). Flags a member initializer that is provably
+ * non-constant - a function/array call (`name(...)`), `New`, or `AddressOf`.
+ * Bare and qualified identifiers stay quiet (they may be constants). Implicit
+ * members (no `=`) are auto-numbered and never checked. No-false-positive by the
+ * same gating as the Optional-default and Const rules.
+ */
+export function checkNonConstantEnumMemberValues(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Enum') {
+			continue;
+		}
+		// Conditional-compilation directives inside an Enum body are not modeled
+		// by the parser yet: each #If/#End If line is mis-parsed as a pseudo-
+		// member named "#", and members in a dead branch survive as if live. If
+		// the block is contaminated this way, skip it entirely - a value we would
+		// flag might actually sit in an inactive branch (would be a false
+		// positive). Directives wrapping the whole Enum are unaffected.
+		if (member.members.some((em) => em.name.startsWith('#'))) {
+			continue;
+		}
+		for (const enumMember of member.members) {
+			if (enumMember.valueRaw === undefined || isInactiveNode(activity, enumMember)) {
+				continue;
+			}
+			const valueTokens = valueTokensAfterEquals(source, enumMember.span);
+			if (!valueTokens) {
+				continue;
+			}
+			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, enumMember.span.start);
+			if (!nonConstant) {
+				continue;
+			}
+			push(
+				'enumMemberNotConstant',
+				`Enum member '${enumMember.name}' value must be a constant expression; ${nonConstant.label} is not constant.`,
+				nonConstant.span,
+			);
+		}
+	}
+}
+
+/**
+ * Operator keywords (And, Or, Not, Mod, Xor, Eqv, Imp, Is, Like, TypeOf, plus
+ * New/AddressOf) lex as `keyword` but are never callable names. They must be
+ * excluded from the call heuristic below, otherwise a legal constant expression
+ * like `6 And (3)` reads as a bogus call `And(...)`. New/AddressOf are still
+ * flagged by the dedicated branch above this set's use.
+ */
+const OPERATOR_KEYWORD_WORDS = new Set(OPERATOR_IDENTIFIERS.map((word) => word.toLowerCase()));
+
 function nonConstantDefaultElement(
 	tokens: VbaToken[],
 	baseOffset: number,
@@ -1636,7 +1744,8 @@ function nonConstantDefaultElement(
 		}
 		const isName =
 			tok.kind === 'identifier' || tok.kind === 'keyword' || tok.kind === 'bracketedIdentifier';
-		if (isName && tokens[i + 1]?.rawText === '(') {
+		const isOperatorKeyword = tok.kind === 'keyword' && OPERATOR_KEYWORD_WORDS.has(word);
+		if (isName && !isOperatorKeyword && tokens[i + 1]?.rawText === '(') {
 			const closeIndex = matchParenFrom(tokens, i + 1);
 			const endTok = closeIndex >= 0 ? tokens[closeIndex] : tokens[i + 1];
 			return {
@@ -1652,7 +1761,20 @@ function parameterDefaultTokens(
 	source: string,
 	param: ParameterNode,
 ): { tokens: VbaToken[]; span: Span } | undefined {
-	const toks = tokenize(source.slice(param.span.start, param.span.end)).filter(
+	return valueTokensAfterEquals(source, param.span);
+}
+
+/**
+ * Tokenizes the slice for `span`, finds the top-level `=`, and returns the
+ * tokens after it (the value/default expression) plus their absolute span.
+ * Shared by the Optional-default, Const, and Enum-member constant-expression
+ * rules. Returns undefined when there is no top-level `=` or nothing follows it.
+ */
+function valueTokensAfterEquals(
+	source: string,
+	span: Span,
+): { tokens: VbaToken[]; span: Span } | undefined {
+	const toks = tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
 	const eq = topLevelOperatorIndex(toks, '=');
@@ -1662,7 +1784,7 @@ function parameterDefaultTokens(
 	const tokens = toks.slice(eq + 1);
 	return {
 		tokens,
-		span: spanForTokens(tokens, param.span.start),
+		span: spanForTokens(tokens, span.start),
 	};
 }
 

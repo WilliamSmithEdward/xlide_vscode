@@ -49,4 +49,10 @@ describe('analyzeModule - parameter-default-not-constant', () => {
 	it('stays quiet for a parameter with no default', () => {
 		expect(hits('Sub T(ByVal n As Long)\nEnd Sub\n')).toHaveLength(0);
 	});
+
+	it('stays quiet for operator keywords before a grouping paren (not calls)', () => {
+		// And/Or/Not/Mod etc. lex as keywords but are operators, not callable names.
+		expect(hits('Sub T(Optional ByVal n As Long = 6 And (3))\nEnd Sub\n')).toHaveLength(0);
+		expect(hits('Sub T(Optional ByVal n As Long = Not (0))\nEnd Sub\n')).toHaveLength(0);
+	});
 });
