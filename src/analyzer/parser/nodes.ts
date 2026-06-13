@@ -184,6 +184,8 @@ export interface TypeNode extends NodeBase {
 	nameSpan?: Span;
 	visibility?: string;
 	fields: TypeFieldNode[];
+	/** Conditional-compilation directives (`#If` etc.) inside the Type body. */
+	directives?: ConditionalDirectiveNode[];
 	closed: boolean;
 }
 
@@ -208,6 +210,8 @@ export interface EnumNode extends NodeBase {
 	nameSpan?: Span;
 	visibility?: string;
 	members: EnumMemberNode[];
+	/** Conditional-compilation directives (`#If` etc.) inside the Enum body. */
+	directives?: ConditionalDirectiveNode[];
 	closed: boolean;
 }
 

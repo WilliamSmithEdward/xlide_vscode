@@ -121,10 +121,33 @@ describe('analyzeModule - enum-member-not-constant', () => {
 		expect(enumHits('Public Enum F\nA = 10\nB = A Mod (3)\nEnd Enum\n')).toHaveLength(0);
 	});
 
-	it('stays quiet for an Enum body contaminated by inner #If directives (dead branch may hold the value)', () => {
-		// The parser does not yet model #If inside an Enum body; a dead-branch
-		// member must not be flagged. The block is skipped conservatively.
+	it('does not flag a non-constant value in an inactive #If branch inside the Enum body', () => {
 		const src = 'Public Enum E\nA = 1\n#If 0 Then\nB = Foo()\n#End If\nC = 3\nEnd Enum\n';
 		expect(enumHits(src)).toHaveLength(0);
+	});
+
+	it('still flags a non-constant value in an ACTIVE #If branch inside the Enum body', () => {
+		const src = 'Public Enum E\nA = 1\n#If 1 Then\nB = Foo()\n#End If\nC = 3\nEnd Enum\n';
+		const found = enumHits(src);
+		expect(found).toHaveLength(1);
+		expect(spanText(src, found[0])).toBe('Foo()');
+	});
+
+	it('flags the live #Else branch and stays quiet on the dead #If branch', () => {
+		const src = 'Public Enum E\n#If 0 Then\nA = Foo()\n#Else\nB = Bar()\n#End If\nEnd Enum\n';
+		const found = enumHits(src);
+		expect(found).toHaveLength(1);
+		expect(spanText(src, found[0])).toBe('Bar()');
+	});
+
+	it('an unclosed #If inside an Enum body does not suppress diagnostics after End Enum', () => {
+		// The dangling #If is balanced at End Enum, so the later Const and Enum
+		// are still analyzed (no leaked inactivity across the block boundary).
+		const src =
+			'Public Enum E\nA = 1\n#If 0 Then\nB = 2\nEnd Enum\n' +
+			'Public Const Z = Build()\n' +
+			'Public Enum F\nM = New Thing\nEnd Enum\n';
+		expect(constHits(src)).toHaveLength(1); // Const Z = Build()
+		expect(enumHits(src)).toHaveLength(1); // F.M = New Thing
 	});
 });

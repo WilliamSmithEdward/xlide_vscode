@@ -126,6 +126,12 @@ export function moduleHasConditionalDirectives(module: ModuleNode): boolean {
 		if (member.kind === 'Procedure' && bodyHasConditionalDirectives(member.body)) {
 			return true;
 		}
+		if (
+			(member.kind === 'Enum' || member.kind === 'Type') &&
+			(member.directives?.length ?? 0) > 0
+		) {
+			return true;
+		}
 	}
 	return false;
 }
@@ -151,6 +157,10 @@ export function collectConditionalDirectives(
 			out.push({ directive: member, container: { kind: 'module' } });
 		} else if (member.kind === 'Procedure') {
 			collectBodyDirectives(member.body, member, out);
+		} else if (member.kind === 'Enum' || member.kind === 'Type') {
+			for (const directive of member.directives ?? []) {
+				out.push({ directive, container: { kind: 'module' } });
+			}
 		}
 	}
 	return out.sort((a, b) => a.directive.span.start - b.directive.span.start);

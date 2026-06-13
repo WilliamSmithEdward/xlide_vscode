@@ -150,11 +150,20 @@ Progress (expression binder, sliced):
     `parameter-default-not-constant`: operator keywords (`And`/`Or`/`Not`/`Mod`/
     `Xor`/`Eqv`/`Imp`/`Like`) lex as `keyword` and were misread as calls when
     followed by `(` (e.g. `6 And (3)` is a legal constant). Fixed by excluding the
-    lexer's `OPERATOR_IDENTIFIERS` from the call heuristic. Also found a
-    pre-existing parser gap - `#If` inside an Enum body is unmodeled, so a
-    dead-branch member looked live; guarded conservatively (skip a `#`-contaminated
-    Enum block) and filed as a follow-up to fix the parser (which also clears a
-    spurious `duplicate-enum-member`).
+    lexer's `OPERATOR_IDENTIFIERS` from the call heuristic.
+  - [x] Parser: model conditional-compilation directives inside Enum/Type bodies.
+    Previously `#If`/`#End If` inside an `Enum`/`Type` body were mis-parsed as
+    bogus members named `"#"`, and a dead-branch member looked live (also caused a
+    spurious `duplicate-enum-member`). Now `parseEnumBlock`/`parseTypeBlock` store
+    body directives on `EnumNode.directives`/`TypeNode.directives`, the
+    conditional-activity tracker collects them, and the offset-based tracker marks
+    dead-branch members inactive automatically (the temporary `#`-guard was
+    removed). A follow-up adversarial review then fixed two issues it surfaced: an
+    unclosed `#If` inside a body leaked its inactivity past `End Enum`/`End Type`
+    (now balanced with a synthetic close at the block boundary), and
+    `duplicate-enum-member` is now restricted to provably-active members so the two
+    arms of a mutually-exclusive `#If`/`#Else` (the per-platform member-value
+    pattern) are no longer falsely reported as duplicates.
   - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
     matrix): comparisons, Date coercion, arrays, default members. These stay
     quiet until oracle/metadata can prove them; do not build them speculatively.

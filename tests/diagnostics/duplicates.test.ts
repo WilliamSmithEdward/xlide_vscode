@@ -192,6 +192,53 @@ describe('analyzeModule - duplicate Enum members', () => {
 		expect(spanText(src, hits[0])).toBe('READY');
 	});
 
+	it('does not report a duplicate across an #If branch inside the Enum body', () => {
+		// The two SharedMode definitions live in mutually exclusive branches, so
+		// only one is ever compiled - not a duplicate.
+		const src =
+			'Public Enum ConditionalMode\n' +
+			'#If 0 Then\n' +
+			'    SharedMode = 1\n' +
+			'#Else\n' +
+			'    SharedMode = 2\n' +
+			'#End If\n' +
+			'End Enum\n';
+
+		expect(byCode(analyzeModule(src), 'duplicate-enum-member')).toHaveLength(0);
+	});
+
+	it('does not report a duplicate across #If/#Else arms guarded by an unknown constant', () => {
+		// HOST_BUILD is undefined, so both arms are "unknown" rather than provably
+		// inactive - but #If and its #Else are mutually exclusive, so only one
+		// member is ever compiled. Flagging a duplicate here would be a false
+		// positive (the idiomatic per-platform member-value pattern).
+		const src =
+			'Public Enum PtrSize\n' +
+			'#If HOST_BUILD Then\n' +
+			'    Size = 8\n' +
+			'#Else\n' +
+			'    Size = 4\n' +
+			'#End If\n' +
+			'End Enum\n';
+
+		expect(byCode(analyzeModule(src), 'duplicate-enum-member')).toHaveLength(0);
+	});
+
+	it('still flags two same-named members that are both provably active', () => {
+		// One copy in the always-on region, one in a dead #If 0 branch (skipped),
+		// and a third active copy: the two active copies collide.
+		const src =
+			'Public Enum Modes\n' +
+			'    Dup = 1\n' +
+			'#If 0 Then\n' +
+			'    Dup = 2\n' +
+			'#End If\n' +
+			'    Dup = 3\n' +
+			'End Enum\n';
+
+		expect(byCode(analyzeModule(src), 'duplicate-enum-member')).toHaveLength(1);
+	});
+
 	it('does not report duplicates from inactive whole Enum branches', () => {
 		const src =
 			'#If VBA7 Then\n' +

@@ -148,6 +148,16 @@ export function checkDuplicateEnumMembers(
 		}
 		const seen = new Set<string>();
 		for (const enumMember of member.members) {
+			// Only provably-active members can collide. A member in an inactive
+			// branch is never compiled, and a member in a not-provably-active
+			// branch (an `#If` on an unknown constant - including the two arms of
+			// an `#If`/`#Else`) is not guaranteed to be compiled alongside another
+			// same-named member, so reporting it as a duplicate would be a false
+			// positive. When there are no directives, `activity` is undefined and
+			// every member counts as active.
+			if (activity && activity.activityForSpan(enumMember.span) !== 'active') {
+				continue;
+			}
 			const key = enumMember.name.toLowerCase();
 			const hit = declarationNameHit(source, enumMember.span, enumMember.name);
 			if (seen.has(key)) {

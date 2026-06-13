@@ -374,6 +374,21 @@ describe('parseModule - Type and Enum (MS-VBAL 5.2.3.3 / 5.2.3.4)', () => {
 		expect(e.members.map((x) => x.name)).toEqual(['Red', 'Green', 'Blue']);
 		expect(e.members.map((x) => x.valueRaw)).toEqual([undefined, '2', undefined]);
 	});
+
+	it('captures #If directives inside an Enum body as directives, not members', () => {
+		const m = parseModule('Public Enum E\nA = 1\n#If 0 Then\nB = 2\n#End If\nC = 3\nEnd Enum\n');
+		const e = m.members[0] as EnumNode;
+		// Directive lines must not become bogus members named "#".
+		expect(e.members.map((x) => x.name)).toEqual(['A', 'B', 'C']);
+		expect((e.directives ?? []).map((d) => d.directiveKind)).toEqual(['If', 'EndIf']);
+	});
+
+	it('captures #If directives inside a Type body as directives, not fields', () => {
+		const m = parseModule('Public Type T\nA As Long\n#If 0 Then\nB As String\n#End If\nC As Long\nEnd Type\n');
+		const t = m.members[0] as TypeNode;
+		expect(t.fields.map((f) => f.name)).toEqual(['A', 'B', 'C']);
+		expect((t.directives ?? []).map((d) => d.directiveKind)).toEqual(['If', 'EndIf']);
+	});
 });
 
 describe('parseModule - block statements (MS-VBAL 5.4)', () => {

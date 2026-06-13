@@ -453,6 +453,34 @@ class Parser {
 		};
 	}
 
+	/**
+	 * Conditional-compilation activity is tracked by source offset, so a `#If`
+	 * left unclosed inside an Enum/Type body would leak its inactive state past
+	 * the block's closing `End` into the rest of the module. Balance the block by
+	 * appending synthetic `#End If` directives at the boundary offset, scoping the
+	 * body's directives to the body. A well-formed (balanced) body is unchanged.
+	 */
+	private closeDanglingBlockDirectives(
+		directives: ConditionalDirectiveNode[],
+		boundaryOffset: number,
+	): void {
+		let depth = 0;
+		for (const directive of directives) {
+			if (directive.directiveKind === 'If') {
+				depth++;
+			} else if (directive.directiveKind === 'EndIf') {
+				depth = Math.max(0, depth - 1);
+			}
+		}
+		for (let i = 0; i < depth; i++) {
+			directives.push({
+				kind: 'ConditionalDirective',
+				directiveKind: 'EndIf',
+				span: { start: boundaryOffset, end: boundaryOffset },
+			});
+		}
+	}
+
 	private parseVariableGroup(
 		stmt: LogicalStatement,
 		tokens: VbaToken[],
@@ -565,6 +593,7 @@ class Parser {
 		const nameToken = tokens[modIndex + 1];
 		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
 		const fields: TypeFieldNode[] = [];
+		const directives: ConditionalDirectiveNode[] = [];
 		let closed = false;
 		let endStmt: LogicalStatement | undefined;
 		while (!this.cursor.atEnd()) {
@@ -580,11 +609,17 @@ class Parser {
 			this.cursor.next();
 			const ftokens = codeTokens(stmt);
 			if (ftokens.length > 0) {
+				if (this.isConditionalDirective(ftokens)) {
+					directives.push(this.parseConditionalDirective(stmt, ftokens));
+					continue;
+				}
 				fields.push(this.parseTypeField(stmt, ftokens));
 			}
 		}
 		if (!closed) {
 			this.diag(head, 'Type block is missing End Type.', 'error', 'MS-VBAL 5.2.3.3');
+		} else if (endStmt) {
+			this.closeDanglingBlockDirectives(directives, endStmt.start);
 		}
 		return {
 			kind: 'Type',
@@ -592,6 +627,7 @@ class Parser {
 			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			fields,
+			...(directives.length > 0 ? { directives } : {}),
 			closed,
 			span: { start: head.start, end: (endStmt ?? head).end },
 		};
@@ -650,6 +686,7 @@ class Parser {
 		const nameToken = tokens[modIndex + 1];
 		const name = nameToken ? this.stripBrackets(nameToken.rawText) : '';
 		const members: EnumMemberNode[] = [];
+		const directives: ConditionalDirectiveNode[] = [];
 		let closed = false;
 		let endStmt: LogicalStatement | undefined;
 		while (!this.cursor.atEnd()) {
@@ -665,6 +702,10 @@ class Parser {
 			this.cursor.next();
 			const mtokens = codeTokens(stmt);
 			if (mtokens.length > 0) {
+				if (this.isConditionalDirective(mtokens)) {
+					directives.push(this.parseConditionalDirective(stmt, mtokens));
+					continue;
+				}
 				const eqIndex = mtokens.findIndex((t) => t.rawText === '=');
 				const valueRaw =
 					eqIndex >= 0 && eqIndex + 1 < mtokens.length
@@ -681,6 +722,8 @@ class Parser {
 		}
 		if (!closed) {
 			this.diag(head, 'Enum block is missing End Enum.', 'error', 'MS-VBAL 5.2.3.4');
+		} else if (endStmt) {
+			this.closeDanglingBlockDirectives(directives, endStmt.start);
 		}
 		return {
 			kind: 'Enum',
@@ -688,6 +731,7 @@ class Parser {
 			nameSpan: this.tokenSpan(nameToken),
 			visibility,
 			members,
+			...(directives.length > 0 ? { directives } : {}),
 			closed,
 			span: { start: head.start, end: (endStmt ?? head).end },
 		};

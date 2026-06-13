@@ -1690,16 +1690,9 @@ export function checkNonConstantEnumMemberValues(
 		if (member.kind !== 'Enum') {
 			continue;
 		}
-		// Conditional-compilation directives inside an Enum body are not modeled
-		// by the parser yet: each #If/#End If line is mis-parsed as a pseudo-
-		// member named "#", and members in a dead branch survive as if live. If
-		// the block is contaminated this way, skip it entirely - a value we would
-		// flag might actually sit in an inactive branch (would be a false
-		// positive). Directives wrapping the whole Enum are unaffected.
-		if (member.members.some((em) => em.name.startsWith('#'))) {
-			continue;
-		}
 		for (const enumMember of member.members) {
+			// Skip members in an inactive #If branch (the parser models Enum-body
+			// directives, so the activity tracker resolves these by offset).
 			if (enumMember.valueRaw === undefined || isInactiveNode(activity, enumMember)) {
 				continue;
 			}
