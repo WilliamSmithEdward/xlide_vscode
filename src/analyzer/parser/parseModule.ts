@@ -114,10 +114,14 @@ const CLOSER_LABELS: Readonly<Record<string, string>> = {
 };
 
 // Editor surfaces (completion, hover, signature help, references) re-parse
-// the same module text many times within one request, so a tiny value-keyed
-// memo collapses those parses to one. The AST is treated as immutable by all
-// consumers; callers must not mutate the returned nodes.
-const PARSE_CACHE_MAX = 2;
+// the same module text many times within one request, so a value-keyed memo
+// collapses those parses to one. The AST is treated as immutable by all
+// consumers; callers must not mutate the returned nodes. The cache holds a
+// handful of recent modules (not just the active one) so a workbook analysis
+// pass that parses several sibling modules between two requests for the active
+// module does not evict it. ASTs are immutable and small, so the memory cost is
+// negligible.
+const PARSE_CACHE_MAX = 8;
 const parseCache: { source: string; module: ModuleNode }[] = [];
 
 /** Parse VBA source text into a ModuleNode AST. Never throws. */

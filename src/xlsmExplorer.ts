@@ -445,11 +445,13 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                         },
                     );
                 }
-                modules = await load;
+                // Sort once, on a copy, before caching: the cached list is then
+                // already in tree order, so re-renders (cache hits) skip the sort
+                // and never mutate the shared cache.
+                modules = [...await load].sort(compareVbaModulesForTreeOrder);
                 this._modulesListCache.set(cacheKey, modules);
             }
             const nodes = modules
-                .sort(compareVbaModulesForTreeOrder)
                 .map((m) => {
                     const key = moduleNodeKey(filePath, m.name);
                     let node = this._moduleNodes.get(key);
