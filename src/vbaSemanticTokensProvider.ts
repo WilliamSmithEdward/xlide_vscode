@@ -11,6 +11,7 @@ import {
     moduleNameFromDocument,
 } from './vbaDocumentIdentity';
 import {
+    collectHostGlobalTokens,
     resolveTypeSemanticTokens,
     TypeSemanticTokenType,
 } from './analyzer';
@@ -26,8 +27,13 @@ const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
     'enum',
     'struct',
     'type',
+    'variable',
 ];
-export const TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(TYPE_TOKEN_TYPES);
+// `defaultLibrary` marks host-injected globals (Application, ThisWorkbook, ...);
+// most themes give it a subtle tint and themes that don't fall back cleanly to
+// the identifier color.
+const TYPE_TOKEN_MODIFIERS = ['defaultLibrary'];
+export const TYPE_TOKEN_LEGEND = new vscode.SemanticTokensLegend(TYPE_TOKEN_TYPES, TYPE_TOKEN_MODIFIERS);
 const TYPE_SEMANTIC_PROJECT_TYPES_CACHE_TTL_MS = 5000;
 const TYPE_SEMANTIC_PROJECT_TYPES_REFRESH_DELAY_MS = 350;
 const TYPE_SEMANTIC_CACHE_MAX_DOCUMENTS = 64;
@@ -84,7 +90,11 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 return cachedTokens.tokens;
             }
 
-            for (const item of resolveTypeSemanticTokens(source, { projectTypes })) {
+            const items = [
+                ...resolveTypeSemanticTokens(source, { projectTypes }),
+                ...collectHostGlobalTokens(source),
+            ];
+            for (const item of items) {
                 if (token.isCancellationRequested) { break; }
                 builder.push(
                     new vscode.Range(
@@ -92,7 +102,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                         document.positionAt(item.span.end),
                     ),
                     item.tokenType,
-                    [],
+                    item.modifiers ?? [],
                 );
             }
             const tokens = builder.build();

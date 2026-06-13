@@ -18,7 +18,9 @@ import type {
 import { isLeafStatement } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaToken } from '../lexer/tokenKinds';
-import { statementTokens as codeTokens, tokenName } from '../lexer/tokenHelpers';
+import { tokenize } from '../lexer/tokenize';
+import { statementTokens as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
+import { resolveHostGlobal } from '../host/hostModel';
 import {
 	resolveTypeName,
 	type TypeCompletion,
@@ -26,12 +28,14 @@ import {
 	type TypeCompletionKind,
 } from '../completion/typeCompletion';
 
-export type TypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type';
+export type TypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type' | 'variable';
 
 export interface TypeSemanticToken {
 	name: string;
 	tokenType: TypeSemanticTokenType;
 	span: Span;
+	/** Standard semantic-token modifiers (e.g. `defaultLibrary` for host globals). */
+	modifiers?: string[];
 }
 
 export interface ResolvedTypeReference extends TypeCompletion {
@@ -397,6 +401,104 @@ export function typeReferenceLookupName(hit: TypeNameReference): string {
 
 export function collectTypeNameReferences(source: string): TypeNameReference[] {
 	return collectModule(source, parseModule(source));
+}
+
+// Token words that put the following identifier in a TYPE position, where a
+// host name like `Application` is the type (colored by the type collector as
+// `class`) rather than the host-global value. Excluded from value coloring.
+const TYPE_POSITION_LEADS = new Set(['as', 'new']);
+
+/**
+ * Names declared anywhere in the module (procedures, parameters, variables,
+ * constants, types, enum members, Declares). A host-global name that is also
+ * declared here is shadowed, so it must not be colored as the host global.
+ */
+function collectModuleDeclaredNames(module: ModuleNode): Set<string> {
+	const names = new Set<string>();
+	const addBody = (body: BodyNode[]): void => {
+		for (const node of body) {
+			if (node.kind === 'VariableGroup') {
+				for (const decl of node.declarations) {
+					names.add(decl.name.toLowerCase());
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				addBody(node.body);
+			}
+		}
+	};
+	for (const member of module.members) {
+		switch (member.kind) {
+			case 'Procedure':
+				names.add(member.name.toLowerCase());
+				for (const param of member.params) {
+					names.add(param.name.toLowerCase());
+				}
+				addBody(member.body);
+				break;
+			case 'VariableGroup':
+				for (const decl of member.declarations) {
+					names.add(decl.name.toLowerCase());
+				}
+				break;
+			case 'Type':
+			case 'Enum':
+			case 'Declare':
+			case 'Event':
+				names.add(member.name.toLowerCase());
+				if (member.kind === 'Enum') {
+					for (const enumMember of member.members) {
+						names.add(enumMember.name.toLowerCase());
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	}
+	return names;
+}
+
+/**
+ * Host-injected globals (`Application`, `ActiveSheet`, `ThisWorkbook`, ...) used
+ * in VALUE position, for `variable.defaultLibrary` semantic coloring. A name is
+ * colored only when it (1) resolves to a known host global, (2) is not a member
+ * access (`x.Application`), (3) is not in a type position (`As Application` /
+ * `New Application`, already colored as a type), and (4) is not shadowed by an
+ * in-module declaration. The conservative gating keeps a local named the same
+ * as a host global from being mis-colored.
+ */
+export function collectHostGlobalTokens(source: string): TypeSemanticToken[] {
+	const declared = collectModuleDeclaredNames(parseModule(source));
+	const tokens = tokenize(source).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	const out: TypeSemanticToken[] = [];
+	for (let i = 0; i < tokens.length; i++) {
+		const tok = tokens[i];
+		if (tok.kind !== 'identifier') {
+			continue;
+		}
+		const lower = tok.rawText.toLowerCase();
+		if (declared.has(lower) || !resolveHostGlobal(tok.rawText)) {
+			continue;
+		}
+		const prev = tokens[i - 1];
+		if (prev) {
+			if (prev.rawText === '.' || prev.rawText === '!') {
+				continue; // member / bang access on another receiver
+			}
+			if (prev.kind === 'keyword' && TYPE_POSITION_LEADS.has(tokenWord(prev))) {
+				continue; // type position, owned by the type collector
+			}
+		}
+		out.push({
+			name: tok.rawText,
+			tokenType: 'variable',
+			span: { start: tok.start, end: tok.end },
+			modifiers: ['defaultLibrary'],
+		});
+	}
+	return out;
 }
 
 export function resolveTypeSemanticTokens(

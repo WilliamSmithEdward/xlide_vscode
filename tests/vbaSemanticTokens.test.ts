@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	collectHostGlobalTokens,
 	ProjectIndex,
 	resolveTypeSemanticTokens,
 	type TypeCompletionContext,
@@ -189,5 +190,44 @@ describe('type semantic tokens', () => {
 				],
 			}),
 		).toEqual([{ text: 'Status', type: 'type' }]);
+	});
+});
+
+describe('host-global semantic tokens', () => {
+	function hostTokens(source: string): Array<{ text: string; type: string; modifiers: string[] }> {
+		return collectHostGlobalTokens(source).map((t) => ({
+			text: source.slice(t.span.start, t.span.end),
+			type: t.tokenType,
+			modifiers: t.modifiers ?? [],
+		}));
+	}
+
+	it('marks a host global used as a receiver, not its member', () => {
+		const source = 'Public Sub T()\n    Set wb = Application.ActiveWorkbook\nEnd Sub\n';
+		expect(hostTokens(source)).toEqual([
+			{ text: 'Application', type: 'variable', modifiers: ['defaultLibrary'] },
+		]);
+	});
+
+	it('marks ThisWorkbook and a bare host-global value', () => {
+		expect(hostTokens('Sub T()\n    Set s = ThisWorkbook.Sheets\nEnd Sub\n').map((t) => t.text))
+			.toEqual(['ThisWorkbook']);
+		expect(hostTokens('Sub T()\n    MsgBox Application.Name\nEnd Sub\n').map((t) => t.text))
+			.toEqual(['Application']);
+	});
+
+	it('does not mark a host name in a type position (owned by the type collector)', () => {
+		expect(hostTokens('Sub T()\n    Dim app As Application\nEnd Sub\n')).toEqual([]);
+	});
+
+	it('does not mark a member access on another receiver', () => {
+		// `Range` is the host-global receiver; `.Application` is a member.
+		expect(hostTokens('Sub T()\n    x = Range("A1").Application\nEnd Sub\n').map((t) => t.text))
+			.toEqual(['Range']);
+	});
+
+	it('does not mark a name shadowed by a local or parameter', () => {
+		expect(hostTokens('Sub T()\n    Dim Application As Long\n    Application = 1\nEnd Sub\n')).toEqual([]);
+		expect(hostTokens('Sub T(ByVal Application As Long)\n    x = Application\nEnd Sub\n')).toEqual([]);
 	});
 });
