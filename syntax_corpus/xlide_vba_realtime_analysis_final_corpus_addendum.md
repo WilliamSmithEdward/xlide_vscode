@@ -15,7 +15,7 @@ This file focuses on remaining high-value gaps:
 5. UserForm designer-backed implicit symbols.
 6. Keyword and symbol casing behavior.
 
-**Non-negotiable rule:** Verify grammar-sensitive behavior against Microsoft **MS-VBAL**. Verify host/compiler behavior against the live VBE/Excel compiler where practical. Do not infer VBA behavior from VB.NET, VBScript, TypeScript, Python, or generic BASIC.
+**Non-negotiable rule:** Verify grammar-sensitive behavior against Microsoft **MS-VBAL**. Verify host/compiler behavior against the live VBE/Excel compiler, which is operational on this machine. Do not infer VBA behavior from VB.NET, VBScript, TypeScript, Python, or generic BASIC.
 
 MS-VBAL landing page: https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74
 
@@ -242,7 +242,7 @@ optional style warning only
 Canary requirement:
 
 ```text
-Run through Excel VBE compile canary before hardcoding final verdict.
+The Excel VBE compile canary is operational; run this case through it and record the verdict.
 ```
 
 ---
@@ -707,8 +707,8 @@ End Sub
 Expected:
 
 ```text
-needs VBE canary verdict
-record whether accepted, rejected, or ignored
+VBE canary verdict recorded (2026-06-13): rejected, "Duplicate Option statement"
+classify as compile-error
 ```
 
 ---

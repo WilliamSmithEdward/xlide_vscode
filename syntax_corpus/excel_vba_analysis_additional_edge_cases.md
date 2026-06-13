@@ -109,7 +109,7 @@ Public Sub Demo()
 End Sub
 ```
 
-Expected: verify against host compile behavior. At minimum, parser must not crash.
+Expected: invalid. The oracle is operational and confirmed VBE rejects this with "Duplicate Option statement" (PCEC_006 / CANARY_002). At minimum, parser must not crash.
 
 ## ATTR_001 valid exported module: module attributes before body
 

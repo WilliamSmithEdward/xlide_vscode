@@ -26,7 +26,21 @@ not use it to justify a red diagnostic.
 
 ## Metadata Convention
 
-Every corpus-bearing file must be listed in `corpus_provenance.json`.
+Every active corpus-bearing file must be listed in `corpus_provenance.json`.
+
+Each entry also carries a `status`:
+
+- `mining`: a planning corpus still being mined for promotable cases.
+- `reference`: ongoing reference material, not a promotion queue (recommendations,
+  limits, the audit, the backlog, the oracle fixtures).
+- `reconciled`: fully dispositioned — every case has a recorded verdict.
+
+When a file becomes `reconciled` it is moved to `syntax_corpus/Archive/` and its
+record is relocated from `files` to the `archivedFiles` array. This keeps the
+active `files` list (which the provenance test validates against the top-level
+directory) clean while preserving the audit record. The corpus is a living index:
+some veins (e.g. binder-independent compile errors) mine out and get archived;
+others (host behavior, completion, realtime) stay as permanent reference.
 
 Machine-readable fixture files should also add a per-case `provenance` field.
 The per-case value is the source of truth when it exists. File-level provenance

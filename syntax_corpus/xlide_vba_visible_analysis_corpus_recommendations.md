@@ -784,7 +784,7 @@ golden test harness
 diagnostic range markers
 realtime vs strict mode comparisons
 negative parser recovery fuzzing
-optional Excel COM / VBE oracle testing
+Excel COM / VBE oracle testing (the oracle is operational; run cases through it and record verdicts)
 ```
 
 The corpus is no longer the bottleneck once it covers user-visible syntax, realtime incomplete states, diagnostic precision, host-aware Excel patterns, and module-context-sensitive events.

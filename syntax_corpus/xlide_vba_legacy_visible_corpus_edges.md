@@ -923,7 +923,7 @@ range markers
 stable diagnostic codes
 realtime vs strict expected behavior
 VS Code diagnostic integration tests
-optional Excel COM / VBE oracle testing
+Excel COM / VBE oracle testing (oracle is operational; run cases through it and record verdicts)
 negative recovery fuzzing
 ```
 

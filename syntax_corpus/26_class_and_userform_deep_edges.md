@@ -1700,9 +1700,9 @@ completion should not crash
 
 ---
 
-# 16. Suggested VBE Canary Matrix
+# 16. VBE Canary Matrix
 
-Run the following cases through the live Excel VBE canary and record verdicts.
+The Excel VBE oracle is operational on this machine. Run the following cases through the live Excel VBE canary and record verdicts.
 
 ```text
 CLASS_LIFE_003     Class_Initialize with parameters

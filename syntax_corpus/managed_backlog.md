@@ -3,13 +3,44 @@
 This file digests the current Markdown corpus into managed backlog categories.
 It is a planning index, not an authority for hard diagnostics.
 
-Every item below remains `pending-verification` until promoted through one of:
+**Status (2026-06-13):** the Excel/VBE oracle is operational and the `PCEC_*`
+compile-error candidates have been oracle-reconciled (see
+`xlide_vba_provable_compile_error_candidates.md`) — 3 refuted, 3 confirmed and
+now **shipped** as `empty-type` / `duplicate-option` / `duplicate-case-else`, 1
+already covered, 1 binder-gated. Remaining items below are still
+`pending-verification` until promoted through one of:
 
 - MS-VBAL or another Microsoft primary source.
 - A focused Excel/VBE oracle fixture.
 - Deterministic XLIDE-owned metadata with unit or integration tests.
 
 Do not use a Markdown expectation alone to justify a red diagnostic.
+
+## Oracle discovery log — 2026-06-13 batch 2
+
+32 corpus candidates were authored as oracle cases and run through the live VBE
+(all now `vbe-oracle-verified` as `corpus_*_compile` in `oracle/vbe_oracle_cases.json`):
+
+- **14 already covered** — VBE rejects and an existing rule already fires; the
+  oracle cases were added as asserted evidence (6 rules upgraded to
+  `vbe-oracle-verified`): `friend-declaration`, `withevents-declaration`,
+  `implements-statement-placement`, `event-declaration-module-kind`,
+  `property-setter-missing-value`, `invalid-identifier-start` (+ already-verified
+  `module-declaration-in-procedure`, `invalid-expression-syntax`).
+- **2 refuted** — VBE *accepts*, analyzer correctly silent:
+  `corpus_api_vis_001_compile` (Public Function returning a Private Type) and
+  `corpus_canary_005_compile`. (Asymmetry: a Private-type *parameter* on a Public
+  Sub — `corpus_api_vis_003` — *is* rejected.)
+- **16 gaps** — VBE rejects, analyzer silent. Now oracle-backed rule candidates:
+  - Clean / shippable next: `corpus_me_004` ("Invalid use of Me keyword" in a
+    standard module), `corpus_sep_005` ("End If without block If"),
+    `corpus_ctrl_if_004` ("Else without If"), `corpus_sig_007` ("Invalid optional
+    parameter"), `corpus_arg_limit_001b` ("Too many arguments").
+  - Binder/parser-recovery (lower priority): `corpus_api_vis_003` (private-type
+    public param), `corpus_proc_010`, `corpus_id_003`, `corpus_array_limit_001b`,
+    `corpus_name_rule_002`, `corpus_name_rule_003`, `corpus_name_limit_001b`,
+    `corpus_line_limit_001b`, `corpus_bad_005`, `corpus_edges_005_malformed_open`,
+    `corpus_excel_syntax_006` (mostly generic "Syntax error" — parser-level).
 
 ## Source Digest
 
@@ -24,7 +55,7 @@ Do not use a Markdown expectation alone to justify a red diagnostic.
 | `xlide_vba_legacy_visible_corpus_edges.md` | Legacy-visible VBA grammar and recovery cases | `legacy-edges`, `syntax-core`, `realtime-recovery`, `type-analysis` |
 | `xlide_vba_visible_analysis_corpus_recommendations.md` | Recommended user-visible fixture organization and diagnostic range strategy | `diagnostic-ranges`, `realtime-recovery`, `module-context`, `host-behavior`, `roundtrip-io` |
 | `xlide_vba_realtime_analysis_final_corpus_addendum.md` | Latest hardening addendum for Excel syntax traps, legacy control transfer, completion contexts, canaries, UserForm symbols, and casing | `host-behavior`, `legacy-edges`, `completion-context`, `canary-verdicts`, `userform-designer`, `casing` |
-| `xlide_vba_provable_compile_error_candidates.md` | Deterministic, binder-independent compile-error candidates not yet covered by a rule, oracle case, or other corpus file (`PCEC_*`); each names an observe-only oracle probe | `syntax-core`, `type-analysis`, `project-binder`, `canary-verdicts` |
+| `Archive/xlide_vba_provable_compile_error_candidates.md` | **ARCHIVED (reconciled 2026-06-13).** Deterministic, binder-independent compile-error candidates (`PCEC_*`); every case now has a recorded oracle verdict (3 shipped, 3 refuted, 1 covered, 1 binder-gated). Moved to `Archive/`; kept as a resolved reference | `syntax-core`, `type-analysis`, `project-binder`, `canary-verdicts` |
 
 ## Category Index
 
@@ -57,18 +88,29 @@ Promotion path:
   or corpus language says "invalid or warning", "host-specific", or
   "mode-sensitive".
 
-Near-term candidates:
+Near-term candidates (PCEC_* reconciled with the Excel/VBE oracle 2026-06-13 —
+see `xlide_vba_provable_compile_error_candidates.md`):
 
 - `CANARY_001` procedure declaration missing parentheses.
-- `CANARY_002` duplicate `Option Explicit`.
+- `CANARY_002` duplicate `Option Explicit` — **SHIPPED** as `duplicate-option`
+  (oracle-confirmed reject "Duplicate Option statement"; = `PCEC_006`).
 - `CANARY_003` and `CANARY_004` type suffix plus `As` clause.
 - `CANARY_005` descending `DefType` range.
 - `TRAP_003` and `TRAP_004` `Call` keyword parentheses behavior.
-- `PCEC_001` duplicate parameter name in a signature.
-- `PCEC_002` `ByVal ParamArray`.
-- `PCEC_003`/`PCEC_004` empty `Enum` / empty `Type` block.
-- `PCEC_006` duplicate / conflicting `Option`.
-- `PCEC_007` duplicate / mis-ordered `Case Else`.
+- `PCEC_001` duplicate parameter name in a signature — **already covered** by
+  `duplicate-declaration` (oracle-asserted).
+- `PCEC_002` `ByVal ParamArray` — **REFUTED**: VBE *accepts* it; no rule.
+- `PCEC_003` empty `Enum` — **REFUTED**: VBE *accepts* it; no rule.
+- `PCEC_004` empty `Type` — **SHIPPED** as `empty-type` (oracle-confirmed reject
+  "User-defined type without members not allowed").
+- `PCEC_006` duplicate / conflicting `Option` — **SHIPPED** as `duplicate-option`
+  (oracle-confirmed reject "Duplicate Option statement").
+- `PCEC_007` duplicate / mis-ordered `Case Else` — **SHIPPED** as
+  `duplicate-case-else` (oracle-confirmed reject "Case without Select Case").
+- `PCEC_005` invalid `Const` object type — **REFUTED**: `Const x As Object =
+  Nothing` compiles; no rule.
+- `PCEC_008` positional argument after named argument — **oracle-confirmed
+  reject** ("Syntax error"); binder-gated (now feasible — the §5.6 binder exists).
 
 ### `realtime-recovery`
 

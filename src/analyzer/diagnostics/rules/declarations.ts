@@ -1873,3 +1873,73 @@ export function checkOptionPlacement(
 		declarationSeen = true;
 	}
 }
+
+/**
+ * Rule: a user-defined Type must declare at least one member. VBE rejects an
+ * empty Type with "User-defined type without members not allowed" (MS-VBAL
+ * 5.2.3.3; oracle-verified `empty_type_block_compile`). A Type whose only fields
+ * sit in an inactive `#If` branch is also empty at compile time; an unknown
+ * branch keeps the field active, so the block stays quiet (no false positive).
+ * Unclosed Type blocks are left to the missing-`End Type` parse diagnostic.
+ */
+export function checkEmptyType(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Type' || !member.closed) {
+			continue;
+		}
+		if (member.fields.some((field) => !isInactiveNode(activity, field))) {
+			continue;
+		}
+		push(
+			'emptyType',
+			`Type '${member.name}' must declare at least one member.`,
+			member.nameSpan ?? member.span,
+		);
+	}
+}
+
+/**
+ * Rule: a module may declare each Option only once. VBE rejects a repeated
+ * Option statement with "Duplicate Option statement" (MS-VBAL 5.2.1;
+ * oracle-verified `duplicate_option_explicit_compile`). Keyed by Option category
+ * (Explicit / Compare / Base / Private), so two `Option Compare` collide even
+ * with different arguments, while distinct Options never do.
+ */
+export function checkDuplicateOptions(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const seen = new Set<string>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Option') {
+			continue;
+		}
+		// Only provably-active Options can collide; two Options in mutually
+		// exclusive #If/#Else arms (or an unknown branch) are not guaranteed to
+		// compile together, so flagging them would be a false positive.
+		if (activity && activity.activityForSpan(member.span) !== 'active') {
+			continue;
+		}
+		const firstWord = member.optionText.trim().split(/\s+/)[0] ?? '';
+		const category = firstWord.toLowerCase();
+		if (!category) {
+			continue;
+		}
+		if (seen.has(category)) {
+			push(
+				'duplicateOption',
+				`Duplicate Option statement; only one 'Option ${firstWord}' is allowed per module.`,
+				firstTokenSpan(source, member.span),
+			);
+		} else {
+			seen.add(category);
+		}
+	}
+}

@@ -10,67 +10,82 @@
     {
       "path": "26_class_and_userform_deep_edges.md",
       "provenance": "pending-verification",
-      "notes": "Class and UserForm deep-edge addendum; treat module-kind, designer-symbol, and canary cases as raw material until verified."
+      "notes": "Class and UserForm deep-edge addendum; treat module-kind, designer-symbol, and canary cases as raw material until verified.",
+      "status": "mining"
     },
     {
       "path": "27_semantic_runtime_resolution_edges.md",
       "provenance": "pending-verification",
-      "notes": "Semantic/runtime resolution addendum; treat runtime, reachability, coercion, reference, host binding, macro visibility, and predeclared-instance cases as raw material until verified."
+      "notes": "Semantic/runtime resolution addendum; treat runtime, reachability, coercion, reference, host binding, macro visibility, and predeclared-instance cases as raw material until verified.",
+      "status": "mining"
     },
     {
       "path": "excel_vba_realtime_analysis_test_corpus.md",
       "provenance": "pending-verification",
-      "notes": "Markdown scaffold created before the current oracle workflow. Promote individual cases only after MS-VBAL or oracle verification."
+      "notes": "Markdown scaffold created before the current oracle workflow. Promote individual cases only after MS-VBAL or oracle verification.",
+      "status": "mining"
     },
     {
       "path": "excel_vba_analysis_additional_edge_cases.md",
       "provenance": "pending-verification",
-      "notes": "Legacy Markdown edge corpus; useful for discovery, not hard analyzer expectations until verified."
+      "notes": "Legacy Markdown edge corpus; useful for discovery, not hard analyzer expectations until verified.",
+      "status": "mining"
     },
     {
       "path": "excel_vba_analysis_final_hardening_cases.md",
       "provenance": "pending-verification",
-      "notes": "Legacy hardening corpus; individual cases need explicit provenance before driving diagnostics."
+      "notes": "Legacy hardening corpus; individual cases need explicit provenance before driving diagnostics.",
+      "status": "mining"
     },
     {
       "path": "excel_vba_analysis_limits_boundary_cases.md",
       "provenance": "pending-verification",
-      "notes": "Boundary-case corpus with mixed syntax, editor, and host behavior. Verify generated cases before promotion."
+      "notes": "Boundary-case corpus with mixed syntax, editor, and host behavior. Verify generated cases before promotion.",
+      "status": "reference"
     },
     {
       "path": "diagnostic_influence_audit.json",
       "provenance": "pending-verification",
-      "notes": "Machine-readable audit mapping active diagnostics to spec, oracle, or pending corpus evidence. Entries contain mixed case-level provenance."
+      "notes": "Machine-readable audit mapping active diagnostics to spec, oracle, or pending corpus evidence. Entries contain mixed case-level provenance.",
+      "status": "reference"
     },
     {
       "path": "managed_backlog.md",
       "provenance": "pending-verification",
-      "notes": "Managed planning index that digests Markdown corpus sources into backlog categories; not diagnostic-driving evidence."
+      "notes": "Managed planning index that digests Markdown corpus sources into backlog categories; not diagnostic-driving evidence.",
+      "status": "reference"
     },
     {
       "path": "xlide_vba_legacy_visible_corpus_edges.md",
       "provenance": "pending-verification",
-      "notes": "Visible editor edge notes retained for coverage planning; not authoritative without case-level evidence."
+      "notes": "Visible editor edge notes retained for coverage planning; not authoritative without case-level evidence.",
+      "status": "mining"
     },
     {
       "path": "xlide_vba_realtime_analysis_final_corpus_addendum.md",
       "provenance": "pending-verification",
-      "notes": "Final hardening addendum retained as planning material; promote individual cases only after MS-VBAL or oracle verification."
+      "notes": "Final hardening addendum retained as planning material; promote individual cases only after MS-VBAL or oracle verification.",
+      "status": "mining"
     },
     {
       "path": "xlide_vba_visible_analysis_corpus_recommendations.md",
       "provenance": "pending-verification",
-      "notes": "Recommendations document, not an executable source of truth."
-    },
-    {
-      "path": "xlide_vba_provable_compile_error_candidates.md",
-      "provenance": "pending-verification",
-      "notes": "Discovery list of deterministic, binder-independent compile-error candidates not yet covered by a rule, oracle case, or other corpus file. Each case names a matching observe-only oracle probe; promote only after a VBE verdict or MS-VBAL citation."
+      "notes": "Recommendations document, not an executable source of truth.",
+      "status": "reference"
     },
     {
       "path": "oracle/vbe_oracle_cases.json",
       "provenance": "vbe-oracle-verified",
-      "notes": "Machine-readable oracle fixture file. Case-level provenance controls; observe-only cases remain observed-not-asserted."
+      "notes": "Machine-readable oracle fixture file. Case-level provenance controls; observe-only cases remain observed-not-asserted.",
+      "status": "reference"
+    }
+  ],
+  "archivedFiles": [
+    {
+      "path": "Archive/xlide_vba_provable_compile_error_candidates.md",
+      "provenance": "vbe-oracle-verified",
+      "status": "reconciled",
+      "notes": "Fully oracle-reconciled 2026-06-13: 3 shipped (empty-type, duplicate-option, duplicate-case-else), 3 refuted (VBE accepts ByVal ParamArray / empty Enum / Const x As Object = Nothing), 1 already covered (duplicate parameter name -> duplicate-declaration), 1 confirmed binder-gated (positional after named argument). Archived as a resolved candidate list."
     }
   ]
 }

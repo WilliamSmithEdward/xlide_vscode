@@ -34,12 +34,12 @@
     {
       "id": "missing_trailing_optional_argument",
       "description": "A trailing comma omits an Optional argument. This is initially observe-only until the VBE oracle records behavior.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double = 0.08) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    Dim total2 As Double\n    total = 100\n    total2 = InvoiceTotal(total, )\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "bare_variable_statement",
@@ -54,12 +54,12 @@
     {
       "id": "local_string_with_argument_statement",
       "description": "A local String variable followed by an argument-looking string literal.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    Dim testStr As String\n    testStr = \"hello\"\n    testStr \"hello\"\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "number_to_string_assignment",
@@ -225,12 +225,12 @@
     {
       "id": "expression_call_without_parentheses_in_assignment",
       "description": "A function call used in an assignment expression without parentheses around arguments.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Function InvoiceTotal(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\n    InvoiceTotal = Subtotal + (Subtotal * TaxRate)\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim total As Double\n    total = InvoiceTotal 100, 0.08\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "byref_long_variable_compile",
@@ -375,12 +375,12 @@
     {
       "id": "explicit_call_missing_argument_parentheses",
       "description": "A Call statement with arguments but without the required parentheses.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    Call MsgBox \"hello\"\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "explicit_call_doevents_bare_compile",
@@ -435,22 +435,22 @@
     {
       "id": "if_statement_missing_then",
       "description": "A single-line If statement whose condition is not followed by Then.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    If 1 = 1\n        MsgBox \"hello\"\n    End If\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "case_statement_outside_select",
       "description": "A Case statement appears without an enclosing Select Case block.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    Case 1\n        MsgBox \"hello\"\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "leading_member_access_outside_with",
@@ -485,12 +485,12 @@
     {
       "id": "exit_do_outside_loop",
       "description": "Exit Do appears outside a Do loop.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    Exit Do\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "integer_assignment_nonnumeric_string_runtime",
@@ -1284,13 +1284,13 @@
     {
       "id": "instr_named_zero_start_runtime",
       "description": "Discovery probe: InStr named Start zero may be a deterministic invalid procedure call.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile_then_run",
       "entryPoint": "XlideOracleEntry",
       "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = InStr(Start:=0, String1:=\"abcdef\", String2:=\"a\")\nEnd Sub\n",
-      "evidencePhase": "runtime",
-      "diagnosticMeaning": "observation"
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "chr_negative_charcode_runtime",
@@ -3303,82 +3303,402 @@
     {
       "id": "duplicate_parameter_name_compile",
       "description": "Observe whether a procedure signature that repeats a parameter name is rejected at compile time (expected: Ambiguous name detected / Duplicate declaration).",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub DupParam(ByVal alpha As Long, ByVal alpha As Long)\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "byval_paramarray_compile",
       "description": "Observe whether a ParamArray parameter declared ByVal is rejected at compile time (ParamArray must be a ByRef Variant array).",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "source": "Public Sub TakesArgs(ByVal ParamArray items() As Variant)\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "empty_enum_block_compile",
       "description": "Observe whether an Enum block declaring no members is rejected at compile time.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "source": "Public Enum EmptyEnum\nEnd Enum\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "empty_type_block_compile",
       "description": "Observe whether a Type (UDT) block declaring no members is rejected at compile time.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Type EmptyType\nEnd Type\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "const_object_type_compile",
       "description": "Observe whether a Const declared with an object As clause is rejected at compile time (constants must be a simple intrinsic type).",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    Const Handle As Object = Nothing\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-valid"
     },
     {
       "id": "duplicate_option_explicit_compile",
       "description": "Observe whether a module header that repeats Option Explicit is rejected at compile time (duplicate Option statement).",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Option Explicit\nOption Explicit\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "duplicate_case_else_compile",
       "description": "Observe whether a Select Case block with two Case Else branches is rejected at compile time.",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub XlideOracleEntry()\n    Dim n As Long\n    n = 1\n    Select Case n\n        Case 1\n            Debug.Print 1\n        Case Else\n            Debug.Print 2\n        Case Else\n            Debug.Print 3\n    End Select\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "positional_after_named_argument_compile",
       "description": "Observe whether a call that places a positional argument after a named argument is rejected at compile time. Binder-gated for XLIDE (argument-list parsing).",
-      "provenance": "observed-not-asserted",
-      "expected": "observe",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NamedArgs alpha:=1, 2\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "observation"
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_friend_003_compile",
+      "description": "Corpus FRIEND_003 oracle discovery: Friend is only valid in object modules",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nFriend Sub InternalOnly()\n    Debug.Print \"friend\"\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    InternalOnly\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_friend_004_compile",
+      "description": "Corpus FRIEND_004 oracle discovery: Friend modifies procedures, not variables (verify exact text)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nFriend mValue As Long\n\nPublic Sub XlideOracleEntry()\n    mValue = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_event_002_compile",
+      "description": "Corpus EVENT_002 oracle discovery: Event declarations are module-level only (invalid inside procedure)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub Demo()\n    Public Event Saved()\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Demo\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_withevents_003_compile",
+      "description": "Corpus WITHEVENTS_003 oracle discovery: WithEvents not valid in standard module",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPrivate WithEvents App As Application\n\nPublic Sub XlideOracleEntry()\n    Debug.Print 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_withevents_004_compile",
+      "description": "Corpus WITHEVENTS_004 oracle discovery: WithEvents is not valid for local variables (invalid attribute in Sub)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub Demo()\n    Dim WithEvents App As Application\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Demo\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_implements_002_compile",
+      "description": "Corpus IMPLEMENTS_002 oracle discovery: Implements is module-level only (invalid inside procedure)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub Demo()\n    Implements IFoo\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Demo\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_implements_003_compile",
+      "description": "Corpus IMPLEMENTS_003 oracle discovery: Implements only valid in class/object modules",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nImplements IFoo\n\nPublic Sub XlideOracleEntry()\n    Debug.Print 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_me_004_compile",
+      "description": "Corpus ME_004 oracle discovery: Invalid use of Me keyword",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub Demo()\n    Debug.Print Me.Name\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Demo\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_event_004_compile",
+      "description": "Corpus EVENT_004 oracle discovery: unsure",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Event Saved()\n\nPublic Sub XlideOracleEntry()\n    Debug.Print 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_api_vis_001_compile",
+      "description": "Corpus API_VIS_001 oracle discovery: public member exposes private type (canonical VBE: a Public member of a standard module exposing a Private user-defined type is not allowed)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPrivate Type Customer\n    Id As Long\nEnd Type\n\nPublic Function GetCustomer() As Customer\nEnd Function\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "corpus_api_vis_003_compile",
+      "description": "Corpus API_VIS_003 oracle discovery: public member exposes private type (Public Sub parameter typed as a module-local Private user-defined type)",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPrivate Type Customer\n    Id As Long\nEnd Type\n\nPublic Sub SaveCustomer(ByVal value As Customer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_proc_010_compile",
+      "description": "Corpus PROC_010 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Private Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_sep_005_compile",
+      "description": "Corpus SEP_005 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    If True Then Debug.Print \"x\"\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_prop_005_compile",
+      "description": "Corpus PROP_005 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Property Let Name()\nEnd Property\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_cls_010_compile",
+      "description": "Corpus CLS_010 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Private WithEvents Apps(1 To 2) As Application\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_tok_003_compile",
+      "description": "Corpus TOK_003 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print 1 /* bad */\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_id_003_compile",
+      "description": "Corpus ID_003 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim user-name As String\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_sig_007_compile",
+      "description": "Corpus SIG_007 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPrivate Type Customer\n    Id As Long\nEnd Type\n\nPublic Sub Demo(Optional ByVal value As Customer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Demo\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_type_003_compile",
+      "description": "Corpus TYPE_003 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPrivate Type Customer\n10  Id As Long\nEnd Type\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_arg_limit_001b_compile",
+      "description": "Corpus ARG_LIMIT_001B oracle discovery: Too many arguments",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub Demo(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60, a61)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_array_limit_001b_compile",
+      "description": "Corpus ARRAY_LIMIT_001B oracle discovery: Too many dimensions",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub XlideOracleEntry()\n    Dim values(1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1, 1 To 1) As Long\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_name_rule_002_compile",
+      "description": "Corpus NAME_RULE_002 oracle discovery: Expected: identifier",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub XlideOracleEntry()\n    Dim _value As Long\n    _value = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_name_rule_003_compile",
+      "description": "Corpus NAME_RULE_003 oracle discovery: Expected: As",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub XlideOracleEntry()\n    Dim bad.name As Long\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_name_limit_001b_compile",
+      "description": "Corpus NAME_LIMIT_001B oracle discovery: Identifier too long",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\n\nPublic Sub XlideOracleEntry()\n    Dim Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx As Long\n    Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_line_limit_001b_compile",
+      "description": "Corpus LINE_LIMIT_001B oracle discovery: Line too long",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Demo(): Debug.Print \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\": End Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_ctrl_if_004_compile",
+      "description": "Corpus CTRL_IF_004 oracle discovery: Else without If",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Demo()\n    Else\n        Debug.Print \"bad\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_bad_005_compile",
+      "description": "Corpus BAD_005 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Demo()\n    1 = x\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_edges_002_deftype_in_proc_compile",
+      "description": "Corpus EDGES_002_DEFTYPE_IN_PROC oracle discovery: Invalid inside procedure",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    DefLng A-Z\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_edges_005_malformed_open_compile",
+      "description": "Corpus EDGES_005_MALFORMED_OPEN oracle discovery: Expected: For",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Open \"C:\\temp\\out.txt\" Output #1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_canary_005_compile",
+      "description": "Corpus CANARY_005 oracle discovery: unsure",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "DefLng Z-A\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "corpus_canary_006_compile",
+      "description": "Corpus CANARY_006 oracle discovery: unsure",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Attribute VB_Name = \"Module1\"\nOption Explicit\n\nPublic Sub XlideOracleEntry()\n    Attribute Demo.VB_Description = \"Bad here\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_excel_syntax_006_compile",
+      "description": "Corpus EXCEL_SYNTAX_006 oracle discovery: rejected",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry(ByVal obj As Object)\n    If TypeOf Is Worksheet Then\n        Debug.Print \"bad\"\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

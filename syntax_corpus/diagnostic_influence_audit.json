@@ -186,10 +186,12 @@
     },
     {
       "code": "invalid-identifier-start",
-      "status": "spec-derived",
+      "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 3.3.5 lex-identifier names cannot start with a digit",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_type_003_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "xlide_vba_visible_analysis_corpus_recommendations.md",
@@ -206,7 +208,10 @@
       "assertedOracleCases": [
         "indented_attribute_inside_procedure_compile",
         "type_inside_procedure_compile",
-        "enum_inside_procedure_compile"
+        "enum_inside_procedure_compile",
+        "corpus_event_002_compile",
+        "corpus_edges_002_deftype_in_proc_compile",
+        "corpus_canary_006_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -276,9 +281,7 @@
         "duplicate_named_argument_compile",
         "normal_function_call"
       ],
-      "observeOnlyOracleCases": [
-        "missing_trailing_optional_argument"
-      ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
       "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Named-argument checks report unknown parameter names and duplicate named parameters case-insensitively, with duplicate behavior backed by the VBE oracle's Named argument already specified compile error. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name."
@@ -599,9 +602,7 @@
         "runtime_arg_cross_module_const_private_helper_negative_left_length_runtime",
         "runtime_arg_cross_module_const_private_helper_zero_left_length_runtime"
       ],
-      "observeOnlyOracleCases": [
-        "instr_named_zero_start_runtime"
-      ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
       "diagnosticKind": "deterministic-runtime-error"
@@ -636,11 +637,10 @@
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus asserted Excel/VBE oracle case for bare variable statement",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "bare_variable_statement"
-      ],
-      "observeOnlyOracleCases": [
+        "bare_variable_statement",
         "local_string_with_argument_statement"
       ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "The argument-bearing local-variable call shape is observed-only until promoted; the active rule remains justified by call-statement target resolution.",
       "diagnosticKind": "compile-error"
@@ -837,10 +837,12 @@
     },
     {
       "code": "event-declaration-module-kind",
-      "status": "spec-derived",
+      "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.2.5 Event declarations are object-module declarations, paired with XLIDE module-kind metadata",
       "corpusInfluence": "pending-corpus-reviewed",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "corpus_event_004_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "26_class_and_userform_deep_edges.md",
@@ -852,10 +854,14 @@
     },
     {
       "code": "withevents-declaration",
-      "status": "spec-derived",
+      "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.2.3 WithEvents object variable declarations plus XLIDE parser/module-kind metadata",
       "corpusInfluence": "pending-corpus-reviewed",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "corpus_withevents_003_compile",
+        "corpus_withevents_004_compile",
+        "corpus_cls_010_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "26_class_and_userform_deep_edges.md",
@@ -868,10 +874,13 @@
     },
     {
       "code": "friend-declaration",
-      "status": "spec-derived",
+      "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL Friend procedure visibility plus XLIDE parser/module-kind metadata",
       "corpusInfluence": "pending-corpus-reviewed",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "corpus_friend_003_compile",
+        "corpus_friend_004_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "26_class_and_userform_deep_edges.md",
@@ -882,10 +891,13 @@
     },
     {
       "code": "implements-statement-placement",
-      "status": "spec-derived",
+      "status": "vbe-oracle-verified",
       "sourceOfTruth": "VBA Implements statement module-level object-module placement plus XLIDE parser/module-kind metadata",
       "corpusInfluence": "pending-corpus-reviewed",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "corpus_implements_002_compile",
+        "corpus_implements_003_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "26_class_and_userform_deep_edges.md",
@@ -1032,13 +1044,13 @@
     },
     {
       "code": "call-requires-parens",
-      "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.4.2.1",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
-      "observeOnlyOracleCases": [
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1; confirmed by the Excel/VBE oracle (explicit_call_missing_argument_parentheses: compile rejected: Syntax error)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
         "explicit_call_missing_argument_parentheses"
       ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error"
     },
@@ -1081,13 +1093,13 @@
     },
     {
       "code": "expression-call-requires-parens",
-      "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.6.9",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
-      "observeOnlyOracleCases": [
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.6.9; confirmed by the Excel/VBE oracle (expression_call_without_parentheses_in_assignment: compile rejected: Syntax error)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
         "expression_call_without_parentheses_in_assignment"
       ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "The rule binds same-module, unique exported project, module-qualified standard-module, and runtime functions only when the bare expression name is not shadowed by a visible non-callable source declaration.",
       "diagnosticKind": "compile-error"
@@ -1101,7 +1113,8 @@
         "thisworkbook_trailing_dot_compile",
         "bare_leading_member_access_inside_with_compile",
         "c_style_ternary_operator_compile",
-        "iif_expression_compile"
+        "iif_expression_compile",
+        "corpus_tok_003_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1169,10 +1182,12 @@
     },
     {
       "code": "property-setter-missing-value",
-      "status": "spec-derived",
+      "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.3.1.4 Property Let/Set procedures require a final value parameter",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_prop_005_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
@@ -1302,25 +1317,25 @@
     },
     {
       "code": "if-missing-then",
-      "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.4.2.1",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
-      "observeOnlyOracleCases": [
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1; confirmed by the Excel/VBE oracle (if_statement_missing_then: compile rejected: Syntax error)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
         "if_statement_missing_then"
       ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error"
     },
     {
       "code": "case-outside-select",
-      "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.4.2.4",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
-      "observeOnlyOracleCases": [
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.2.4; confirmed by the Excel/VBE oracle (case_statement_outside_select: compile rejected: Case without Select Case)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
         "case_statement_outside_select"
       ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error"
     },
@@ -1338,13 +1353,13 @@
     },
     {
       "code": "exit-outside-block",
-      "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.4.1.3",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
-      "observeOnlyOracleCases": [
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.4.1.3; confirmed by the Excel/VBE oracle (exit_do_outside_loop: compile rejected: Exit Do not within Do...Loop)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
         "exit_do_outside_loop"
       ],
+      "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error"
     },
@@ -1414,6 +1429,45 @@
         "excel_vba_analysis_final_hardening_cases.md"
       ],
       "notes": "Active coverage uses parser-backed ForBlock source-expression metadata and shared expression resolver-backed shape lookup before falling back to procedure declaration-shape environments. The rule reports simple source names declared as known intrinsic scalars, including visible exported standard-module bindings. Arrays, Variant, Object, object-looking or unresolved sources, local shadows, ambiguous exported globals, member chains, and inactive branches stay silent until deeper enumerable inference is proven.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "empty-type",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (empty_type_block_compile: compile rejected, 'User-defined type without members not allowed') plus MS-VBAL 5.2.3.3",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "empty_type_block_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a user-defined Type with no active members. A Type whose only fields are in an inactive #If branch is also empty; unknown branches keep it quiet. Sibling to duplicate-type-field. Oracle asymmetry: an empty Enum is accepted but an empty Type is rejected.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "duplicate-option",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (duplicate_option_explicit_compile: compile rejected, 'Duplicate Option statement') plus MS-VBAL 5.2.1",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "duplicate_option_explicit_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a repeated module Option of the same category (Explicit/Compare/Base/Private), so two Option Compare collide even with different arguments. Option Explicit is oracle-verified; other categories follow from MS-VBAL 5.2.1 (one Option per module).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "duplicate-case-else",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (duplicate_case_else_compile: compile rejected, 'Case without Select Case') plus MS-VBAL 5.4.2.10",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "duplicate_case_else_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a second Case Else within one Select Case block (VBE reports the later one as Case without Select Case). Counts only the block direct Case Else clauses; nested Selects are independent and inactive-branch clauses are skipped.",
       "diagnosticKind": "compile-error"
     }
   ]

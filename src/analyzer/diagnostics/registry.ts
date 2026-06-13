@@ -24,6 +24,8 @@ import {
 } from './rules/duplicates';
 import {
 	checkDimInitializer,
+	checkDuplicateOptions,
+	checkEmptyType,
 	checkFixedLengthStringBounds,
 	checkInvalidAsTypeNames,
 	checkInvalidIdentifierStarts,
@@ -94,6 +96,7 @@ import {
 	checkUnbalancedParens,
 } from './rules/expressions';
 import {
+	checkDuplicateCaseElse,
 	checkDuplicateLabels,
 	checkElseBranchOrder,
 	checkExitStatements,
@@ -158,6 +161,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		run: (ctx, push) => checkDuplicateTypeFields(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
+		name: 'emptyType',
+		run: (ctx, push) => checkEmptyType(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
 		name: 'ambiguousEnumMemberReferences',
 		run: (ctx, push) => checkAmbiguousEnumMemberReferences(
 			ctx.source,
@@ -202,6 +209,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'optionPlacement',
 		run: (ctx, push) => checkOptionPlacement(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'duplicateOption',
+		run: (ctx, push) => checkDuplicateOptions(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'procedureHeader',
@@ -432,6 +443,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'statementContext',
 		run: (ctx, push) => checkStatementContext(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'duplicateCaseElse',
+		run: (ctx, push) => checkDuplicateCaseElse(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'forEachLoopTypes',

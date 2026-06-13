@@ -13,13 +13,15 @@ import {
 } from '../../flow/procedureLabels';
 import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type {
-	BodyNode,
-	ForBlockNode,
-	ModuleNode,
-	ProcedureNode,
-	Span,
-	LeafStatementNode,
+import {
+	type BodyNode,
+	type ForBlockNode,
+	isLeafStatement,
+	type ModuleNode,
+	type ProcedureNode,
+	type SelectBlockNode,
+	type Span,
+	type LeafStatementNode,
 } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
@@ -604,6 +606,74 @@ function conditionalDirectiveKeywordSpan(
 		};
 	}
 	return directive.span;
+}
+
+/**
+ * Rule: a `Select Case` block may contain at most one `Case Else`. VBE rejects a
+ * second `Case Else` (it reports the later one as "Case without Select Case").
+ * MS-VBAL 5.4.2.10; oracle-verified `duplicate_case_else_compile`. Only the
+ * block's own direct `Case Else` clauses are counted (nested Selects are handled
+ * independently), and inactive-branch clauses are skipped (no false positive).
+ */
+export function checkDuplicateCaseElse(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachSelectBlock(member.body, activity, (select) => {
+			let seenCaseElse = false;
+			for (const node of select.body) {
+				// Only provably-active Case Else clauses collide; clauses in an
+				// inactive or unknown #If branch are not guaranteed to compile
+				// together, so flagging them would be a false positive.
+				if (!isLeafStatement(node) || (activity && activity.activityForSpan(node.span) !== 'active')) {
+					continue;
+				}
+				const toks = statementTokensAfterLeadingLabel(source, node.span);
+				const caseTok = toks[0];
+				const elseTok = toks[1];
+				if (!caseTok || !elseTok || tokenText(caseTok) !== 'case' || tokenText(elseTok) !== 'else') {
+					continue;
+				}
+				if (seenCaseElse) {
+					push(
+						'duplicateCaseElse',
+						"A 'Select Case' block can have only one 'Case Else'.",
+						{
+							start: absoluteSpan(node.span, caseTok).start,
+							end: absoluteSpan(node.span, elseTok).end,
+						},
+					);
+				} else {
+					seenCaseElse = true;
+				}
+			}
+		});
+	}
+}
+
+/** Visits every active `SelectBlock` in a body, descending into nested blocks. */
+function forEachSelectBlock(
+	body: BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	visit: (select: SelectBlockNode) => void,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'SelectBlock') {
+			visit(node);
+		}
+		if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
+			forEachSelectBlock((node as { body: BodyNode[] }).body, activity, visit);
+		}
+	}
 }
 
 function checkContextStatement(

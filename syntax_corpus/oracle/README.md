@@ -77,8 +77,8 @@ is reproducible with a single focused case. Resume oracle-backed development
 only after the harness failure has a concrete explanation or fix.
 
 By default the runner is observational and exits successfully even when a
-fixture expectation differs from the observed result. Use `--strict` when the
-local Excel/VBE automation path is stable enough to enforce expectations.
+fixture expectation differs from the observed result. The local Excel/VBE
+automation path is operational; use `--strict` to enforce expectations.
 
 ## Automation Policy
 
