@@ -364,13 +364,17 @@ export function checkOptionExplicit(
 	if (hasExplicit || !hasCode) {
 		return;
 	}
-	// Point at the first physical line so the squiggle sits at the module top.
-	const nl = source.search(/\r|\n/);
-	const end = nl === -1 ? source.length : nl;
+	// Anchor as a zero-width marker at the module top — the insertion point for
+	// `Option Explicit` — rather than spanning the whole first physical line.
+	// A full first-line range collides with any error on that line (e.g. the
+	// missing-block-closer on a not-yet-closed first procedure, a common editing
+	// state), and a warning sharing an error's exact range obscures the red
+	// squiggle. A zero-width range keeps the gutter/Problems entry without
+	// painting over a more severe diagnostic.
 	push(
 		'optionExplicitMissing',
 		'Option Explicit is not specified; variables can be used without being declared. Add "Option Explicit" to the top of the module.',
-		{ start: 0, end },
+		{ start: 0, end: 0 },
 	);
 }
 

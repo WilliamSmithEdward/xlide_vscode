@@ -20,6 +20,15 @@ describe('analyzeModule - Option Explicit', () => {
 		expect(hits[0].severity).toBe('warning');
 	});
 
+	it('anchors as a zero-width marker at the module top, not a full first line', () => {
+		// A full first-line range collides with a line-1 error (e.g. the
+		// missing-block-closer on an unclosed first procedure), letting the
+		// warning obscure the red squiggle. Keep it a zero-width top marker.
+		const src = 'Sub test()\n    Dim x As Long\n'; // unclosed Sub, no Option Explicit
+		const hit = byCode(analyzeModule(src), 'option-explicit-missing')[0];
+		expect(hit.span).toEqual({ start: 0, end: 0 });
+	});
+
 	it('is silent when Option Explicit is present', () => {
 		const src = 'Option Explicit\n\nSub T()\n    Dim x As Long\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'option-explicit-missing')).toHaveLength(0);
