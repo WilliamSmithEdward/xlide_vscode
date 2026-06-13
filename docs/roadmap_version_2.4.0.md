@@ -113,12 +113,28 @@ Progress (expression binder, sliced):
     quiet), so it is strictly no-false-positive. Covered by
     `tests/diagnostics/typeOfIs.test.ts`; an adversarial review across interface,
     diamond, host, and position cases found zero false positives.
-  - [ ] Arbitrary-expression assignment/argument typing via an `ExprNode` walker
-    (reaches deep member chains, indexed access, and complex expressions the
-    token engine cannot).
-  - [ ] Comparisons, Date coercion, arrays, default members, and flow-sensitive
-    binding (definite assignment, per-branch object state, full shadowing) on the
-    branch-modeled AST.
+  - [x] Investigated and rejected: an `ExprNode`-based `inferExprType` walker for
+    arbitrary-expression assignment/argument typing. Findings: the token engine
+    (`inferArgumentType`/`inferExpressionType`/`inferMemberExpressionType`)
+    already resolves operators, calls, and member chains, and the assignment rule
+    already threads `memberCtx` + the resolvers into it. An AST walker that fed
+    each expression's span back to that engine would add nothing; a parallel
+    AST-native engine would risk divergence and false positives. So this is not a
+    gap. The "member-chain mismatch gap" probed here (`n = ws.Name`, and even a
+    bare `n = s` for `String`->`Long`) was a MIRAGE: VBA legally coerces String to
+    numeric at runtime, so the engine MUST stay quiet (no-false-positive) and
+    only flags the provably-non-numeric literal case (`n = "hello"`), which it
+    already does. Net: arbitrary-expression scalar/object assignment typing is
+    effectively complete and correctly conservative.
+  - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
+    matrix): comparisons, Date coercion, arrays, default members. These stay
+    quiet until oracle/metadata can prove them; do not build them speculatively.
+  - [ ] Genuine next increments (binder no longer the blocker): the
+    binder-INDEPENDENT Priority 4 families (numeric overflow for
+    `Long`/`Single`/`Currency`/hex/octal, enum compatibility, UDT fields,
+    fixed-length-string truncation) - real coverage, lower risk - and/or
+    flow-sensitive binding on the branch-modeled AST (definite assignment;
+    carries FP risk around loops/`GoTo`/error handlers, so needs care).
 
 ## Priority 1: Static Analysis Completeness
 
