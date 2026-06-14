@@ -190,7 +190,8 @@
       "sourceOfTruth": "MS-VBAL 3.3.5 lex-identifier names cannot start with a digit",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "corpus_type_003_compile"
+        "corpus_type_003_compile",
+        "corpus_name_rule_002_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -1507,6 +1508,114 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Flags an Else or ElseIf clause that is not inside an If block (the parser places legit clauses directly under an IfBlock; a stray one sits under the procedure or a non-If block). A stray End If is covered separately by the block-balance pass (unmatched-block-closer).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "too-many-array-dimensions",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_array_limit_001b_compile: 61 dimensions compile rejected, 'Too many dimensions') plus the documented VBA maximum of 60 array dimensions",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_array_limit_001b_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a Dim/Static/Private/Public array declaration with more than 60 dimensions (the documented VBA maximum). Pure dimension count over the declaration bounds; binder-independent. Shares the array-declaration inspection with array-declaration-impossible-bounds.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "identifier-too-long",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_name_limit_001b_compile: a >255-char name compile rejected, 'Identifier too long') plus MS-VBAL 3.3.5.1",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_name_limit_001b_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a declared identifier longer than 255 characters (variables, procedures, parameters, Type/Enum names and members). Pure length check; binder-independent.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "optional-udt-parameter",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_sig_007_compile + corpus_bp_optional_pubudt_param: compile rejected, 'Invalid optional parameter') plus MS-VBAL 5.3.1",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_sig_007_compile",
+        "corpus_bp_optional_pubudt_param"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags an Optional parameter whose type is a Type declared in this module (a UDT cannot be Optional). Oracle confirmed this holds for public and private UDTs alike. Cross-module type names are not resolved (stay quiet). No false positives.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "byval-udt-parameter",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_api_vis_003_compile + corpus_bp_nonopt_pubudt_param + corpus_bp_priv_udt_privproc_param rejected; corpus_bp_priv_udt_byref_pubparam accepted) confirms a UDT parameter may not be passed ByVal (must be ByRef); independent of type/procedure visibility",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_api_vis_003_compile",
+        "corpus_bp_nonopt_pubudt_param",
+        "corpus_bp_priv_udt_privproc_param"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a non-optional ByVal parameter whose type is a Type declared in this module (a UDT must be passed ByRef). Oracle probes proved the rule is about ByVal, not type visibility (ByRef UDT params are accepted). An Optional ByVal UDT param reports only optional-udt-parameter. Cross-module type names stay quiet.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "invalid-identifier-character",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_id_003_compile hyphen, corpus_name_rule_003_compile dot: compile rejected) plus MS-VBAL 3.3.5 identifier grammar",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_id_003_compile",
+        "corpus_name_rule_003_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a declared identifier whose name token is directly followed by a hyphen or a dot (e.g. user-name, bad.name). The parser keeps the first token as the name and drops the rest, so the malformation is detected in the token stream. Bracketed [names] are exempt.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "invalid-assignment-target",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_bad_005_compile: 1 = x compile rejected, 'Syntax error') plus MS-VBAL 5.4.3 assignment",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_bad_005_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a statement of the form <literal> = ... (assigning to a literal, e.g. 1 = x). A line number is never directly followed by =, so this does not collide with line-numbered statements (1 x = 5 stays quiet).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "open-missing-for",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_edges_005_malformed_open_compile: Open without For compile rejected, 'Expected: For') plus the Open statement grammar (For mode is mandatory)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_edges_005_malformed_open_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags an Open statement with no For clause (For <mode> is mandatory in the Open grammar). A valid Open always contains For, so a missing For is always invalid.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "typeof-missing-operand",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (corpus_excel_syntax_006_compile: TypeOf Is ... compile rejected, 'Syntax error') plus MS-VBAL 5.6 TypeOf...Is grammar",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "corpus_excel_syntax_006_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags a TypeOf token directly followed by Is (the object operand is missing). Whole-source scan; inactive conditional-compilation regions are skipped. An operand always sits between TypeOf and Is in valid code.",
       "diagnosticKind": "compile-error"
     }
   ]

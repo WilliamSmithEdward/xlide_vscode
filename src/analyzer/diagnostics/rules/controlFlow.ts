@@ -42,6 +42,7 @@ import {
 import {
 	absoluteSpan,
 	activeModuleMembers,
+	forEachStatement,
 	isInactiveNode,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
@@ -720,6 +721,60 @@ export function checkElseWithoutIf(
 		if (member.kind === 'Procedure') {
 			visit(member.body, false);
 		}
+	}
+}
+
+/**
+ * Rule family on malformed leaf statements, both oracle-verified:
+ *  - `invalid-assignment-target`: a statement of the form `<literal> = ...`
+ *    (e.g. `1 = x`) - you cannot assign to a literal ("Syntax error";
+ *    `corpus_bad_005_compile`). A line number is never directly followed by `=`,
+ *    so this does not collide with line-numbered statements.
+ *  - `open-missing-for`: an `Open` statement with no `For <mode>` clause
+ *    ("Expected: For"; `corpus_edges_005_malformed_open_compile`). `For mode` is
+ *    mandatory in the Open grammar, so a missing `For` is always invalid.
+ */
+export function checkMalformedStatements(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(
+			member.body,
+			(stmt) => {
+				const toks = statementTokens(source, stmt.span);
+				const first = toks[0];
+				const second = toks[1];
+				if (!first) {
+					return;
+				}
+				if (
+					second?.rawText === '=' &&
+					(first.kind === 'integerLiteral' ||
+						first.kind === 'floatLiteral' ||
+						first.kind === 'stringLiteral')
+				) {
+					push(
+						'invalidAssignmentTarget',
+						'Cannot assign to a literal value.',
+						absoluteSpan(stmt.span, first),
+					);
+				}
+				if (tokenText(first) === 'open' && !toks.some((tok) => tokenText(tok) === 'for')) {
+					push(
+						'openMissingForMode',
+						"An 'Open' statement requires a 'For <mode>' clause.",
+						absoluteSpan(stmt.span, first),
+					);
+				}
+			},
+			activity,
+		);
 	}
 }
 

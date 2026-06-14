@@ -486,12 +486,17 @@ export function checkRedimImpossibleBounds(
 	};
 }
 
+/** VBA allows at most 60 array dimensions. */
+const MAX_ARRAY_DIMENSIONS = 60;
+
 /**
- * Rule: a `Dim`/`Static`/`Private`/`Public` array *declaration* must not declare
- * a lower bound greater than its upper bound. Only explicit literal `lower To
- * upper` dimensions are reported (e.g. `Dim a(10 To 1)`); variable, constant-
- * reference, or otherwise non-literal bounds stay quiet, so this is
- * no-false-positive. ReDim is covered separately by checkRedimImpossibleBounds.
+ * Rule family on `Dim`/`Static`/`Private`/`Public` array *declarations*:
+ *  - `array-declaration-impossible-bounds`: an explicit literal `lower To upper`
+ *    dimension with `lower > upper` (e.g. `Dim a(10 To 1)`). Only literal bounds
+ *    are reported; variable/constant-reference bounds stay quiet (no-FP).
+ *  - `too-many-array-dimensions`: more than 60 dimensions (the VBA maximum;
+ *    oracle-verified `corpus_array_limit_001b_compile`).
+ * ReDim is covered separately by checkRedimImpossibleBounds.
  */
 export function checkArrayDeclarationBounds(
 	source: string,
@@ -504,7 +509,7 @@ export function checkArrayDeclarationBounds(
 			if (!decl.isArray || decl.arrayBounds === undefined || isInactiveNode(activity, decl)) {
 				continue;
 			}
-			reportImpossibleDeclarationBounds(source, decl, push);
+			inspectArrayDeclaration(source, decl, push);
 		}
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -516,7 +521,7 @@ export function checkArrayDeclarationBounds(
 	}
 }
 
-function reportImpossibleDeclarationBounds(
+function inspectArrayDeclaration(
 	source: string,
 	decl: VariableDeclNode,
 	push: PushFn,
@@ -530,11 +535,19 @@ function reportImpossibleDeclarationBounds(
 	if (close < 0) {
 		return;
 	}
-	splitTopLevelTokenGroups(toks.slice(open + 1, close), ',').forEach((part, index) => {
-		const dimTokens = part.filter((tok) => tok.kind !== 'comment');
-		if (dimTokens.length === 0) {
-			return;
-		}
+	const dims = splitTopLevelTokenGroups(toks.slice(open + 1, close), ',')
+		.map((part) => part.filter((tok) => tok.kind !== 'comment'))
+		.filter((dimTokens) => dimTokens.length > 0);
+
+	if (dims.length > MAX_ARRAY_DIMENSIONS) {
+		push(
+			'tooManyArrayDimensions',
+			`Array '${decl.name}' has ${dims.length} dimensions; VBA allows at most ${MAX_ARRAY_DIMENSIONS}.`,
+			decl.nameSpan ?? decl.span,
+		);
+	}
+
+	dims.forEach((dimTokens, index) => {
 		const bound = comparableArrayBoundKey(dimTokens);
 		if (
 			bound.lowerValue === undefined ||

@@ -27,6 +27,7 @@ import {
 	checkDuplicateOptions,
 	checkEmptyType,
 	checkFixedLengthStringBounds,
+	checkIdentifierTooLong,
 	checkInvalidAsTypeNames,
 	checkInvalidIdentifierStarts,
 	checkModuleDeclarationsAfterProcedures,
@@ -44,6 +45,7 @@ import {
 	checkReservedDeclarationNames,
 	checkTooManyParameters,
 	checkTypeDeclarationCharacterAsClause,
+	checkUdtParameterConstraints,
 	checkUnexpectedDeclarationTokens,
 } from './rules/declarations';
 import { checkArgumentCount } from './rules/callArity';
@@ -62,7 +64,7 @@ import {
 	checkObjectVariableNotSet,
 	checkScalarMemberAccess,
 } from './rules/objectState';
-import { checkTypeOfIsCompatibility } from './rules/typeOfIs';
+import { checkTypeOfIsCompatibility, checkTypeOfMissingOperand } from './rules/typeOfIs';
 import {
 	checkMemberNotFound,
 	checkNonCallableCallStatement,
@@ -104,6 +106,7 @@ import {
 	checkElseWithoutIf,
 	checkExitStatements,
 	checkForEachLoopTypes,
+	checkMalformedStatements,
 	checkStatementContext,
 	checkUndefinedLabels,
 } from './rules/controlFlow';
@@ -170,6 +173,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'tooManyParameters',
 		run: (ctx, push) => checkTooManyParameters(ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'identifierTooLong',
+		run: (ctx, push) => checkIdentifierTooLong(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'udtParameterConstraints',
+		run: (ctx, push) => checkUdtParameterConstraints(ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'ambiguousEnumMemberReferences',
@@ -460,6 +471,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		run: (ctx, push) => checkDuplicateCaseElse(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
+		name: 'malformedStatements',
+		run: (ctx, push) => checkMalformedStatements(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
 		name: 'elseWithoutIf',
 		run: (ctx, push) => checkElseWithoutIf(ctx.source, ctx.mod, ctx.activity, push),
 	},
@@ -575,6 +590,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.activity,
 			push,
 		),
+	},
+	{
+		name: 'typeofMissingOperand',
+		run: (ctx, push) => checkTypeOfMissingOperand(ctx.source, ctx.activity, push),
 	},
 	{
 		name: 'missingReturnAssignments',

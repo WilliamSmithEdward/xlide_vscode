@@ -29,34 +29,37 @@ Do not use a Markdown expectation alone to justify a red diagnostic.
   `module-declaration-in-procedure`, `invalid-expression-syntax`).
 - **2 refuted** — VBE *accepts*, analyzer correctly silent:
   `corpus_api_vis_001_compile` (Public Function returning a Private Type) and
-  `corpus_canary_005_compile`. (Asymmetry: a Private-type *parameter* on a Public
-  Sub — `corpus_api_vis_003` — *is* rejected.)
-- **16 gaps** — VBE rejects, analyzer silent. Now oracle-backed rule candidates:
-  - **Shipped:** `corpus_me_004` -> `me-outside-object-module` ("Invalid use of Me
-    keyword" in a standard module); `corpus_arg_limit_001b` -> `too-many-parameters`
-    (">60 parameters").
-  - **Shipped:** `corpus_ctrl_if_004` -> `else-without-if` (stray `Else`/`ElseIf`
-    outside an `If` block).
-  - **Not a gap:** `corpus_sep_005` ("End If without block If") is already flagged
-    by the structural block-balance pass as `unmatched-block-closer` (verified via
-    the full `analyzeVbaModuleSource` path); no new rule needed.
-  - Still deferred: `corpus_sig_007` ("Invalid optional parameter": Optional UDT
-    parameter) - binder-dependent (needs type resolution).
-  - Already covered by other passes (NOT gaps, verified via full
-    `analyzeVbaModuleSource`): `corpus_proc_010` and `corpus_line_limit_001b`
-    (structural / module-declaration passes already flag them).
-  - Parser-level generic "Syntax error" (best fixed by parser error emission, not
-    a named diagnostic rule; idiosyncratic + rare): `corpus_id_003`,
-    `corpus_array_limit_001b`, `corpus_name_rule_002`, `corpus_name_rule_003`,
-    `corpus_name_limit_001b`, `corpus_bad_005`, `corpus_edges_005_malformed_open`,
-    `corpus_excel_syntax_006`.
-  - Binder-dependent (need type resolution; deferred to avoid false positives):
-    `corpus_sig_007` (Optional UDT parameter), `corpus_api_vis_003` (Private UDT as
-    a Public procedure parameter).
+  `corpus_canary_005_compile`.
+- **16 gaps** — VBE rejects, analyzer silent. Final disposition (all reconciled):
+  - **Shipped — module-kind / control-flow / limits:** `corpus_me_004` ->
+    `me-outside-object-module`; `corpus_arg_limit_001b` -> `too-many-parameters`;
+    `corpus_ctrl_if_004` -> `else-without-if`; `corpus_array_limit_001b` ->
+    `too-many-array-dimensions` (>60 dims); `corpus_name_limit_001b` ->
+    `identifier-too-long` (>255 chars).
+  - **Shipped — binder (UDT params), after boundary-probing the oracle:**
+    `corpus_sig_007` -> `optional-udt-parameter`; `corpus_api_vis_003` ->
+    `byval-udt-parameter`. The probes (`corpus_bp_*`) overturned the original
+    "private-type exposure" reading: the real rule is **a UDT parameter may not be
+    passed `ByVal`** (ByRef UDT params are accepted; type/procedure visibility is
+    irrelevant). Optional UDT params are a separate error.
+  - **Not gaps (already flagged by other passes, verified via full
+    `analyzeVbaModuleSource`):** `corpus_sep_005` and `corpus_proc_010`
+    (`unmatched-block-closer`), `corpus_line_limit_001b` (module-declaration pass).
+  - **Shipped — malformed declarations/statements (the former parser-recovery
+    deferrals, each now detected no-FP):** `corpus_name_rule_002` (`_value`
+    leading underscore) -> `invalid-identifier-start`; `corpus_id_003`
+    (`user-name`) and `corpus_name_rule_003` (`bad.name`) ->
+    `invalid-identifier-character` (name token directly followed by `-`/`.`;
+    bracketed names exempt); `corpus_bad_005` (`1 = x`) ->
+    `invalid-assignment-target` (literal then `=`; a line number is never followed
+    by `=`, so line-numbered statements stay quiet); `corpus_edges_005_malformed_open`
+    -> `open-missing-for` (`Open` lacking the mandatory `For <mode>`);
+    `corpus_excel_syntax_006` -> `typeof-missing-operand` (`TypeOf` directly
+    followed by `Is`, activity-aware whole-source scan).
 
-**Net:** the clean, no-false-positive, binder-independent oracle-confirmed
-compile-error vein from this corpus is now mined out. Remaining candidates need
-either parser error-emission work or the expression/type binder.
+**Net:** every batch-2 oracle gap is now dispositioned — **13 shipped as rules**,
+3 already covered by other passes, 0 outstanding. The oracle-confirmed
+compile-error vein from this corpus is fully mined.
 
 ## Source Digest
 

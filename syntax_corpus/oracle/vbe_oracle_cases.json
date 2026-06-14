@@ -3699,6 +3699,46 @@
       "source": "Public Sub XlideOracleEntry(ByVal obj As Object)\n    If TypeOf Is Worksheet Then\n        Debug.Print \"bad\"\n    End If\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_bp_optional_pubudt_param",
+      "description": "Binder-rule boundary probe: corpus_bp_optional_pubudt_param",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Type Customer\n    Id As Long\nEnd Type\nPublic Sub D(Optional ByVal v As Customer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_bp_nonopt_pubudt_param",
+      "description": "Binder-rule boundary probe: corpus_bp_nonopt_pubudt_param",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Type Customer\n    Id As Long\nEnd Type\nPublic Sub D(ByVal v As Customer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "corpus_bp_priv_udt_byref_pubparam",
+      "description": "Binder-rule boundary probe: corpus_bp_priv_udt_byref_pubparam",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\nPrivate Type Customer\n    Id As Long\nEnd Type\nPublic Sub D(ByRef v As Customer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "corpus_bp_priv_udt_privproc_param",
+      "description": "Binder-rule boundary probe: corpus_bp_priv_udt_privproc_param",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\nPrivate Type Customer\n    Id As Long\nEnd Type\nPrivate Sub D(ByVal v As Customer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

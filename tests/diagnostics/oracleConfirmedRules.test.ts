@@ -196,6 +196,119 @@ describe('analyzeModule - too-many-parameters (ARG_LIMIT_001B)', () => {
 	});
 });
 
+describe('analyzeModule - malformed declarations/statements (parser error-emission)', () => {
+	it('flags a leading-underscore identifier (invalid-identifier-start)', () => {
+		expect(byCode(analyzeModule('Sub T()\n    Dim _value As Long\nEnd Sub\n'), 'invalid-identifier-start')).toHaveLength(1);
+	});
+
+	it('exempts a bracketed name and a mid-word underscore', () => {
+		expect(byCode(analyzeModule('Sub T()\n    Dim [_weird] As Long\nEnd Sub\n'), 'invalid-identifier-start')).toHaveLength(0);
+		expect(byCode(analyzeModule('Sub T()\n    Dim good_name As Long\nEnd Sub\n'), 'invalid-identifier-start')).toHaveLength(0);
+		expect(byCode(analyzeModule('Sub T()\n    Dim good_name As Long\nEnd Sub\n'), 'invalid-identifier-character')).toHaveLength(0);
+	});
+
+	it('flags hyphen and dot in a declared name (invalid-identifier-character)', () => {
+		expect(byCode(analyzeModule('Sub T()\n    Dim user-name As String\nEnd Sub\n'), 'invalid-identifier-character')).toHaveLength(1);
+		expect(byCode(analyzeModule('Sub T()\n    Dim bad.name As Long\nEnd Sub\n'), 'invalid-identifier-character')).toHaveLength(1);
+	});
+
+	it('flags assignment to a literal, but not line-numbered statements', () => {
+		expect(byCode(analyzeModule('Sub T()\n    1 = x\nEnd Sub\n'), 'invalid-assignment-target')).toHaveLength(1);
+		expect(byCode(analyzeModule('Sub T()\n    "s" = x\nEnd Sub\n'), 'invalid-assignment-target')).toHaveLength(1);
+		expect(byCode(analyzeModule('Sub T()\n    x = 1\nEnd Sub\n'), 'invalid-assignment-target')).toHaveLength(0);
+		expect(byCode(analyzeModule('Sub T()\n    1 x = 5\nEnd Sub\n'), 'invalid-assignment-target')).toHaveLength(0);
+	});
+
+	it('flags an Open statement missing For, but not a valid Open', () => {
+		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.txt" Output #1\nEnd Sub\n'), 'open-missing-for')).toHaveLength(1);
+		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.txt" For Output As #1\nEnd Sub\n'), 'open-missing-for')).toHaveLength(0);
+	});
+
+	it('flags TypeOf with no operand, but not a valid TypeOf or an inactive branch', () => {
+		expect(byCode(analyzeModule('Sub T(o As Object)\n    If TypeOf Is Worksheet Then\n    End If\nEnd Sub\n'), 'typeof-missing-operand')).toHaveLength(1);
+		expect(byCode(analyzeModule('Sub T(o As Object)\n    If TypeOf o Is Worksheet Then\n    End If\nEnd Sub\n'), 'typeof-missing-operand')).toHaveLength(0);
+		expect(byCode(analyzeModule('#If 0 Then\nSub T(o As Object)\n    If TypeOf Is Worksheet Then\n    End If\nEnd Sub\n#End If\n'), 'typeof-missing-operand')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - UDT parameter constraints (SIG_007 / API_VIS_003)', () => {
+	const T = 'Private Type Customer\n    Id As Long\nEnd Type\n';
+	const OPT = 'optional-udt-parameter';
+	const BV = 'byval-udt-parameter';
+
+	it('flags an Optional UDT parameter (ByVal or ByRef)', () => {
+		expect(byCode(analyzeModule(T + 'Sub D(Optional ByVal v As Customer)\nEnd Sub\n'), OPT)).toHaveLength(1);
+		expect(byCode(analyzeModule(T + 'Sub D(Optional ByRef v As Customer)\nEnd Sub\n'), OPT)).toHaveLength(1);
+	});
+
+	it('flags a ByVal UDT parameter (must be ByRef)', () => {
+		const hits = byCode(analyzeModule(T + 'Sub D(ByVal v As Customer)\nEnd Sub\n'), BV);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('reports only the Optional diagnostic for an Optional ByVal UDT param (matches VBE)', () => {
+		const src = T + 'Sub D(Optional ByVal v As Customer)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), OPT)).toHaveLength(1);
+		expect(byCode(analyzeModule(src), BV)).toHaveLength(0);
+	});
+
+	it('stays quiet for a ByRef or implicit UDT parameter (those are valid)', () => {
+		expect(byCode(analyzeModule(T + 'Sub D(ByRef v As Customer)\nEnd Sub\n'), BV)).toHaveLength(0);
+		expect(byCode(analyzeModule(T + 'Sub D(v As Customer)\nEnd Sub\n'), BV)).toHaveLength(0);
+	});
+
+	it('stays quiet for scalar parameters and unknown (non-module-UDT) types', () => {
+		expect(byCode(analyzeModule(T + 'Sub D(ByVal n As Long)\nEnd Sub\n'), BV)).toHaveLength(0);
+		expect(byCode(analyzeModule(T + 'Sub D(Optional ByVal n As Long)\nEnd Sub\n'), OPT)).toHaveLength(0);
+		expect(byCode(analyzeModule('Sub D(ByVal v As Widget)\nEnd Sub\n'), BV)).toHaveLength(0);
+		expect(byCode(analyzeModule('Sub D(Optional ByVal v As Widget)\nEnd Sub\n'), OPT)).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - too-many-array-dimensions (ARRAY_LIMIT_001B)', () => {
+	const CODE = 'too-many-array-dimensions';
+	const dims = (n: number) => Array.from({ length: n }, () => '1 To 1').join(', ');
+
+	it('flags an array with more than 60 dimensions', () => {
+		const src = `Sub T()\n    Dim a(${dims(61)}) As Long\nEnd Sub\n`;
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('stays quiet at exactly 60 dimensions', () => {
+		expect(byCode(analyzeModule(`Sub T()\n    Dim a(${dims(60)}) As Long\nEnd Sub\n`), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for an ordinary array', () => {
+		expect(byCode(analyzeModule('Dim a(1 To 3, 0 To 5) As Long\n'), CODE)).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - identifier-too-long (NAME_LIMIT_001B)', () => {
+	const CODE = 'identifier-too-long';
+
+	it('flags a declared name longer than 255 characters', () => {
+		const src = `Sub T()\n    Dim ${'a'.repeat(256)} As Long\nEnd Sub\n`;
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags an over-long procedure name', () => {
+		expect(byCode(analyzeModule(`Sub ${'p'.repeat(256)}()\nEnd Sub\n`), CODE)).toHaveLength(1);
+	});
+
+	it('stays quiet at exactly 255 characters', () => {
+		expect(byCode(analyzeModule(`Sub T()\n    Dim ${'a'.repeat(255)} As Long\nEnd Sub\n`), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for ordinary names', () => {
+		expect(byCode(analyzeModule('Sub T()\n    Dim count As Long\nEnd Sub\n'), CODE)).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - else-without-if (CTRL_IF_004)', () => {
 	const CODE = 'else-without-if';
 

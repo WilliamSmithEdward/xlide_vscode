@@ -178,11 +178,25 @@ export function checkInvalidIdentifierStarts(
 		if (!hit) {
 			return;
 		}
-		push(
-			'invalidIdentifierStart',
-			`Invalid ${kind} name '${hit.name}': identifiers cannot start with a digit.`,
-			hit.span,
-		);
+		if (hit.reason === 'digit') {
+			push(
+				'invalidIdentifierStart',
+				`Invalid ${kind} name '${hit.name}': identifiers cannot start with a digit.`,
+				hit.span,
+			);
+		} else if (hit.reason === 'underscore') {
+			push(
+				'invalidIdentifierStart',
+				`Invalid ${kind} name '${hit.name}': identifiers cannot start with an underscore.`,
+				hit.span,
+			);
+		} else {
+			push(
+				'invalidIdentifierCharacter',
+				`Invalid ${kind} name '${hit.name}': '${hit.reason === 'hyphen' ? '-' : '.'}' is not allowed in an identifier.`,
+				hit.span,
+			);
+		}
 	};
 
 	const inspectVariableGroup = (group: VariableGroupNode): void => {
@@ -232,6 +246,7 @@ export function checkInvalidIdentifierStarts(
 interface InvalidIdentifierStartHit {
 	name: string;
 	span: Span;
+	reason: 'digit' | 'underscore' | 'hyphen' | 'dot';
 }
 
 function invalidDeclarationIdentifierStart(
@@ -239,7 +254,7 @@ function invalidDeclarationIdentifierStart(
 	span: Span,
 ): InvalidIdentifierStartHit | undefined {
 	const toks = statementTokens(source, span);
-	return invalidDigitIdentifierAt(source, span, toks, 0);
+	return invalidIdentifierStartAt(source, span, toks, 0);
 }
 
 function invalidParameterIdentifierStart(
@@ -251,7 +266,7 @@ function invalidParameterIdentifierStart(
 	while (isParameterModifier(toks[i])) {
 		i++;
 	}
-	return invalidDigitIdentifierAt(source, span, toks, i);
+	return invalidIdentifierStartAt(source, span, toks, i);
 }
 
 function invalidProcedureIdentifierStart(
@@ -270,7 +285,7 @@ function invalidProcedureIdentifierStart(
 	} else if (head === 'sub' || head === 'function') {
 		i++;
 	}
-	return invalidDigitIdentifierAt(source, header, toks, i);
+	return invalidIdentifierStartAt(source, header, toks, i);
 }
 
 function invalidTypeOrEnumIdentifierStart(
@@ -287,7 +302,7 @@ function invalidTypeOrEnumIdentifierStart(
 	if (tokenText(toks[i]) === keyword) {
 		i++;
 	}
-	return invalidDigitIdentifierAt(source, header, toks, i);
+	return invalidIdentifierStartAt(source, header, toks, i);
 }
 
 function invalidDeclareIdentifierStart(
@@ -298,7 +313,7 @@ function invalidDeclareIdentifierStart(
 	const kindIndex = toks.findIndex(
 		(tok) => tokenText(tok) === 'sub' || tokenText(tok) === 'function',
 	);
-	return invalidDigitIdentifierAt(source, span, toks, kindIndex + 1);
+	return invalidIdentifierStartAt(source, span, toks, kindIndex + 1);
 }
 
 function invalidConstDirectiveIdentifierStart(
@@ -307,26 +322,47 @@ function invalidConstDirectiveIdentifierStart(
 ): InvalidIdentifierStartHit | undefined {
 	const toks = statementTokens(source, span);
 	return tokenText(toks[1]) === 'const'
-		? invalidDigitIdentifierAt(source, span, toks, 2)
+		? invalidIdentifierStartAt(source, span, toks, 2)
 		: undefined;
 }
 
-function invalidDigitIdentifierAt(
+function invalidIdentifierStartAt(
 	source: string,
 	base: Span,
 	toks: readonly VbaToken[],
 	index: number,
 ): InvalidIdentifierStartHit | undefined {
 	const tok = toks[index];
-	if (!tok || !isDigitStartedToken(tok)) {
+	if (!tok || tok.kind === 'bracketedIdentifier') {
+		return undefined; // [bracketed] names may contain anything
+	}
+	// Embedded invalid character: a name token directly followed by '-' or '.'
+	// (e.g. `user-name`, `bad.name`). The parser keeps the first token as the name
+	// and leaves the rest, so the malformation is only visible in the token stream.
+	const next = toks[index + 1];
+	if (tok.kind === 'identifier' && (next?.rawText === '-' || next?.rawText === '.')) {
+		const start = base.start + tok.start;
+		const after = toks[index + 2];
+		const end = base.start + (after ? after.end : next.end);
+		return {
+			name: source.slice(start, end),
+			span: { start, end },
+			reason: next.rawText === '-' ? 'hyphen' : 'dot',
+		};
+	}
+	// Invalid start character: a digit or a leading underscore.
+	let reason: InvalidIdentifierStartHit['reason'] | undefined;
+	if (isDigitStartedToken(tok)) {
+		reason = 'digit';
+	} else if (tok.rawText.startsWith('_')) {
+		reason = 'underscore';
+	}
+	if (!reason) {
 		return undefined;
 	}
 	const start = base.start + tok.start;
 	const end = invalidIdentifierTextEnd(source, start, base.end);
-	return {
-		name: source.slice(start, end),
-		span: { start, end },
-	};
+	return { name: source.slice(start, end), span: { start, end }, reason };
 }
 
 function isDigitStartedToken(tok: VbaToken): boolean {
@@ -1966,5 +2002,109 @@ export function checkTooManyParameters(
 			`A procedure may have at most ${MAX_PROCEDURE_PARAMETERS} parameters; '${member.name}' declares ${member.params.length}.`,
 			member.nameSpan ?? member.span,
 		);
+	}
+}
+
+/** VBA identifiers may be at most 255 characters. */
+const MAX_IDENTIFIER_LENGTH = 255;
+
+/**
+ * Rule: a declared identifier may be at most 255 characters. VBE rejects a longer
+ * name with "Identifier too long" (oracle-verified `corpus_name_limit_001b_compile`).
+ * Pure length check over declared names; binder-independent, no false positives.
+ */
+export function checkIdentifierTooLong(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const report = (name: string, span: Span): void => {
+		if (name.length <= MAX_IDENTIFIER_LENGTH) {
+			return;
+		}
+		push(
+			'identifierTooLong',
+			`Identifier '${name.slice(0, 24)}...' is ${name.length} characters; VBA allows at most ${MAX_IDENTIFIER_LENGTH}.`,
+			span,
+		);
+	};
+	const inspectGroup = (group: VariableGroupNode): void => {
+		for (const decl of group.declarations) {
+			report(decl.name, decl.nameSpan ?? decl.span);
+		}
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			inspectGroup(member);
+		} else if (member.kind === 'Type') {
+			report(member.name, member.nameSpan ?? member.span);
+			for (const field of member.fields) {
+				report(field.name, field.nameSpan ?? field.span);
+			}
+		} else if (member.kind === 'Enum') {
+			report(member.name, member.nameSpan ?? member.span);
+			for (const enumMember of member.members) {
+				report(enumMember.name, enumMember.nameSpan ?? enumMember.span);
+			}
+		} else if (member.kind === 'Procedure') {
+			report(member.name, member.nameSpan ?? member.span);
+			for (const param of member.params) {
+				report(param.name, param.nameSpan ?? param.span);
+			}
+			forEachVariableGroup(member.body, inspectGroup, activity);
+		}
+	}
+}
+
+/**
+ * Rule family on user-defined-Type parameters, both oracle-verified:
+ *  - `optional-udt-parameter`: an `Optional` parameter cannot be a UDT ("Invalid
+ *    optional parameter"; `corpus_sig_007_compile`).
+ *  - `byval-udt-parameter`: a non-optional `ByVal` parameter cannot be a UDT - a
+ *    UDT must be passed `ByRef` ("User-defined type may not be passed ByVal";
+ *    `corpus_api_vis_003_compile`). The oracle confirmed this is about `ByVal`,
+ *    not type visibility: `ByRef` UDT parameters are accepted.
+ * Both fire only when the parameter's declared type matches a Type declared in
+ * this module (unambiguously a UDT), so they are no-false-positive; cross-module
+ * type names are not resolved here and stay quiet. An `Optional ByVal` UDT param
+ * reports only the Optional diagnostic (matching VBE).
+ */
+export function checkUdtParameterConstraints(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const udtNames = new Set<string>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Type') {
+			udtNames.add(member.name.trim().toLowerCase());
+		}
+	}
+	if (udtNames.size === 0) {
+		return;
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		for (const param of member.params) {
+			if (!param.asType || !udtNames.has(param.asType.trim().toLowerCase())) {
+				continue;
+			}
+			if (param.optional) {
+				push(
+					'optionalUdtParameter',
+					`Optional parameter '${param.name}' cannot be a user-defined type ('${param.asType}').`,
+					param.nameSpan ?? param.span,
+				);
+			} else if (param.byVal) {
+				push(
+					'byvalUdtParameter',
+					`User-defined type parameter '${param.name}' ('${param.asType}') cannot be passed ByVal; pass it ByRef.`,
+					param.nameSpan ?? param.span,
+				);
+			}
+		}
 	}
 }
