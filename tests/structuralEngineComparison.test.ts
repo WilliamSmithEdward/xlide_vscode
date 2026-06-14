@@ -67,11 +67,12 @@
 //       hides the opener and the later closer is falsely reported as
 //       unmatched. The parser strips leading line numbers per MS-VBAL 5.4.1.1.
 //
-//   rem-after-colon            (parser correct) The legacy stripVba blanks
-//       only whole-line Rem comments, so block keywords inside a trailing
-//       ": Rem ..." comment leak into the legacy grammar as fake closers
-//       (live false positives in the VBA Torture Test fixtures). The lexer
-//       recognizes Rem at any statement start (MS-VBAL 3.3.5.2).
+//   rem-after-colon            (RESOLVED) Formerly a legacy false positive:
+//       stripVba blanked only whole-line Rem comments, so block keywords inside
+//       a trailing ": Rem ..." comment leaked into the legacy grammar as fake
+//       closers. stripVba now blanks Rem at any statement start (MS-VBAL
+//       3.3.5.2), so both engines agree; the class was retired and a pinned
+//       convergence repro guards against regression.
 //
 //   declare-inside-procedure   (split) A Declare statement inside a procedure
 //       body: the parser's recovery ends the procedure at the module-level
@@ -191,7 +192,6 @@ type DivergenceClass =
     | 'module-level-stray-closer'
     | 'multi-modifier-procedure-header'
     | 'line-numbered-statement'
-    | 'rem-after-colon'
     | 'declare-inside-procedure'
     | 'UNCLASSIFIED';
 
@@ -203,7 +203,6 @@ const MULTI_MODIFIER_HEADER_RE =
 const DECLARE_RE = /^\s*(?:(?:Public|Private)\s+)?Declare\b/i;
 const LINE_NUMBER_PREFIX_RE = /^\s*\d+\s+/;
 const MULTI_NEXT_RE = /^\s*(?:\d+\s+)?Next\s+\w+\s*,/i;
-const MIDLINE_REM_RE = /:\s*Rem\b/i;
 const PROC_CLOSER_PHRASE_RE = /^End (?:Sub|Function|Property)$/;
 
 interface ClassificationContext {
@@ -261,9 +260,6 @@ function classifyRecord(
             (record.kind === 'unmatched' && trimmed.startsWith('#'))
         ) {
             return 'preprocessor-balance';
-        }
-        if (MIDLINE_REM_RE.test(ctx.rawLines[record.line] ?? '')) {
-            return 'rem-after-colon';
         }
         if (
             record.kind === 'unmatched' &&
@@ -497,14 +493,16 @@ describe('structural engine divergence repros (audit #74)', () => {
         expect(parserRecords(src)).toEqual([]);
     });
 
-    it('rem-after-colon: legacy stripping leaks block keywords inside trailing Rem comments', () => {
+    it('rem-after-colon: RESOLVED — legacy stripping now blanks a trailing ": Rem ..." comment like the parser', () => {
+        // Previously a legacy-only divergence: stripVba blanked only whole-line
+        // Rem comments, so block keywords inside a `: Rem ...` comment leaked as
+        // phantom closers (a live false positive). stripVba now blanks Rem at any
+        // statement start, so both engines agree this is clean code.
         const src =
             'Sub S()\n' +
             '    Debug.Print 1: Rem hidden: End If\n' +
             'End Sub\n';
-        expect(sortedRecords(legacyRecords(src))).toEqual([
-            { kind: 'unmatched', line: 1 },
-        ]);
+        expect(legacyRecords(src)).toEqual([]);
         expect(parserRecords(src)).toEqual([]);
     });
 

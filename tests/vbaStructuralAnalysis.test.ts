@@ -130,6 +130,19 @@ describe('analyzeVbaStructure', () => {
         expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
+    it('ignores block closers hidden in a trailing ": Rem ..." comment (no false positive)', () => {
+        // stripVba only blanked whole-line Rem comments, so a `: Rem ...` comment
+        // leaked its text into the colon-split logical lines: the colon inside the
+        // comment split off "End If" as a phantom stray closer (unmatched-block-closer).
+        const src = 'Sub T()\n    If ready Then\n        Debug.Print 1: Rem hidden: End If\n    End If\nEnd Sub\n';
+        expect(analyzeVbaStructure(src)).toEqual([]);
+    });
+
+    it('ignores block openers hidden in a trailing ": Rem ..." comment (no false positive)', () => {
+        const src = 'Sub T()\n    Debug.Print 1: Rem note: With ActiveSheet\nEnd Sub\n';
+        expect(analyzeVbaStructure(src)).toEqual([]);
+    });
+
     it('handles line continuations in an If', () => {
         const src = 'Sub Foo()\n    If x = 1 _\n        Then\n        y = 1\n    End If\nEnd Sub\n';
         expect(analyzeVbaStructure(src)).toEqual([]);

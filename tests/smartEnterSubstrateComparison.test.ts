@@ -14,15 +14,16 @@
 // The harness now serves as the regression gate for the migrated substrate.
 // It re-diffs the production substrate against legacy stripVba over every VBA
 // sample in the repository, both per source (full lexer context) and per
-// isolated line (the per-line call-site contract), and requires that every
-// difference falls in the single deliberate divergence class:
+// isolated line (the per-line call-site contract), and requires that the two
+// substrates produce IDENTICAL output on every line.
 //
-//   rem-after-colon            (lexer correct; pinned below as EXPECTED
-//       production behavior) stripVba blanks only whole-line Rem comments;
-//       the lexer recognizes Rem at any statement start (MS-VBAL 3.3.5.2), so
-//       a trailing ": Rem ..." comment is blanked by the production substrate
-//       but leaks through stripVba. This divergence is a deliberate
-//       improvement, not drift; any other difference fails as UNCLASSIFIED.
+// Formerly the single deliberate divergence class was rem-after-colon: the
+// lexer recognized Rem at any statement start (MS-VBAL 3.3.5.2) while stripVba
+// blanked only whole-line Rem comments, so a trailing ": Rem ..." comment was
+// blanked by the lexer but leaked through stripVba. That improvement has since
+// been back-ported into stripVba (it now blanks Rem after a ':' separator too),
+// so the substrates fully converge and the gate asserts ZERO divergence. The
+// ": Rem ..." behavior is still pinned directly below as a convergence repro.
 //
 // A second class -- file-number-date-literal, where the lexer's date-literal
 // scan treated the file-number '#' of `Write #ff, "csv", 1, #1/1/2026#` as a
@@ -45,25 +46,11 @@ import { openSmartBlockClosersBefore } from '../src/vbaSmartEnter';
 import { stripVba } from '../src/vbaSourceScan';
 import { allStructuralComparisonSamples } from './helpers/structuralCorpus';
 
-type SubstrateDivergenceClass =
-    | 'rem-after-colon'
-    | 'UNCLASSIFIED';
-
-const MIDLINE_REM_RE = /:\s*Rem\b/i;
-
-function classifyLine(raw: string): SubstrateDivergenceClass {
-    if (MIDLINE_REM_RE.test(raw)) {
-        return 'rem-after-colon';
-    }
-    return 'UNCLASSIFIED';
-}
-
 describe('smart-enter substrate regression gate (audit #74)', () => {
     const samples = allStructuralComparisonSamples();
 
-    it('every divergence from the legacy scanner is the pinned rem-after-colon improvement', () => {
-        const counts = new Map<SubstrateDivergenceClass, number>();
-        const unclassified: string[] = [];
+    it('the production lexer substrate and legacy stripVba agree on every corpus line', () => {
+        const divergent: string[] = [];
 
         for (const sample of samples) {
             const rawLines = sample.source.split(/\r\n|\r|\n/);
@@ -82,52 +69,35 @@ describe('smart-enter substrate regression gate (audit #74)', () => {
                     if (legacy === lexer) {
                         continue;
                     }
-                    const cls = classifyLine(rawLines[i]);
-                    counts.set(cls, (counts.get(cls) ?? 0) + 1);
-                    if (cls === 'UNCLASSIFIED') {
-                        unclassified.push(
-                            `${sample.id}@${i}: raw=${JSON.stringify(rawLines[i])} ` +
-                            `legacy=${JSON.stringify(legacy)} lexer=${JSON.stringify(lexer)}`,
-                        );
-                    }
-                    break; // count each physical line once
+                    divergent.push(
+                        `${sample.id}@${i}: raw=${JSON.stringify(rawLines[i])} ` +
+                        `legacy=${JSON.stringify(legacy)} lexer=${JSON.stringify(lexer)}`,
+                    );
+                    break; // report each physical line once
                 }
             }
         }
 
-        // eslint-disable-next-line no-console
-        console.log(
-            `[audit #74] substrate comparison: samples=${samples.length} ` +
-            `divergentLines=${JSON.stringify(Object.fromEntries(counts))}`,
-        );
-
         expect(
-            unclassified,
-            `Unexplained stripping divergence between stripVba and the production ` +
-            `lexer substrate:\n${unclassified.join('\n')}`,
+            divergent,
+            `stripVba and the production lexer substrate now diverge on a corpus ` +
+            `line; the substrates were expected to fully converge:\n${divergent.join('\n')}`,
         ).toEqual([]);
-
-        // The corpus must keep exercising the deliberate divergence; if this
-        // drops to zero the gate has lost its rem-after-colon coverage.
-        expect(
-            counts.get('rem-after-colon') ?? 0,
-            'corpus no longer contains a divergent ": Rem ..." line',
-        ).toBeGreaterThan(0);
     });
 
     // -- Pinned minimal repros: the deliberate divergence class, plus a
     // regression pin for the fixed file-number/date-literal lexer bug -------
 
-    it('rem-after-colon: the production substrate blanks a trailing ": Rem ..." comment that stripVba leaks', () => {
-        // Deliberate divergence from stripVba (lexer correct, MS-VBAL
-        // 3.3.5.2): Rem is a comment at any statement start, including after
-        // a ':' separator, so the trailing comment -- and the ": End If"
-        // INSIDE it -- must be blanked. stripVba only handles whole-line Rem
-        // comments and leaks the text, which made downstream colon-splitting
-        // see a phantom `End If` statement.
+    it('rem-after-colon: both substrates now blank a trailing ": Rem ..." comment (converged)', () => {
+        // Rem is a comment at any statement start, including after a ':'
+        // separator (MS-VBAL 3.3.5.2), so the trailing comment -- and the
+        // ": End If" INSIDE it -- must be blanked. The lexer always did this;
+        // stripVba was fixed to match, so both now agree and downstream
+        // colon-splitting no longer sees a phantom `End If` statement.
         const line = '    Debug.Print 1: Rem hidden: End If';
-        expect(stripVba(line)).toBe('    Debug.Print 1: Rem hidden: End If');
-        expect(lexerStrippedLine(line)).toBe('    Debug.Print 1:                   ');
+        const blanked = '    Debug.Print 1:                   ';
+        expect(stripVba(line)).toBe(blanked);
+        expect(lexerStrippedLine(line)).toBe(blanked);
     });
 
     it('rem-after-colon: Smart Enter consumes the lexer substrate, so a ": Rem ... End If" tail no longer closes the block', () => {
