@@ -2,6 +2,47 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.4.0] - 2026-06-14
+
+Version 2.4.0 is the static-analysis completeness release. It closes the
+evidence-led completeness sprint: every shipped diagnostic now has positive,
+negative, and no-diagnostic (no-false-positive) controls plus a named evidence
+source — MS-VBAL, the Excel/VBE oracle, or deterministic XLIDE metadata — and
+everything that cannot be proven without the expression binder or further oracle
+mapping is explicitly deferred with a documented reason. The release ships with
+an auditable completeness record (`docs/static_analysis_completeness_2.4.0.md`).
+The TypeScript test suite grew to 1,954 tests; 342 Excel/VBE oracle cases now
+back the diagnostics.
+
+### Added
+
+- **Numeric overflow diagnostics**, oracle-verified against the live Excel VBE:
+  out-of-range `Long` and `Currency` literal assignments/arguments (Run-time
+  error 6), and a new compile-time `suffixed-literal-overflow` for over-range
+  `%` (Integer) type-suffixed literals. The `&` (Long) suffix is deliberately
+  excluded because it is ambiguous with the concatenation operator.
+- **Declaration and identifier diagnostics**: invalid identifier start/character,
+  empty `Type`, duplicate `Type` fields, too-many-parameters, identifier-too-long,
+  `Optional`/`ByVal` UDT-parameter constraints, and non-constant `Const`/`Enum`/
+  parameter-default values.
+- **Control-flow and statement diagnostics**: stray `Else`/`ElseIf` outside an
+  `If`, duplicate `Case Else`, `Me` outside an object module, invalid assignment
+  targets, `Open` missing `For`, `TypeOf` missing its operand, and impossible /
+  too-many array-declaration bounds.
+
+### Fixed
+
+- The structural block-balance pass no longer emits phantom
+  `unmatched-block-closer` / `missing-block-closer` errors when a `: Rem ...`
+  comment trails a statement (`stripVba` now blanks `Rem` at any statement start).
+
+### Changed
+
+- Per-rule evidence audit across all 112 diagnostic codes; the syntax corpus and
+  diagnostic-influence audit are now provenance-tracked and test-enforced.
+- Minor live-diagnostics performance: two whole-source rules now use the shared
+  cached tokenizer, removing redundant per-keystroke lexing.
+
 ## [2.3.0] - 2026-06-11
 
 Version 2.3.0 is the audit-remediation release: roughly 205 commits of
