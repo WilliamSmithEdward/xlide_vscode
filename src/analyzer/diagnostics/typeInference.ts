@@ -2061,6 +2061,19 @@ export function numericLiteralBounds(
 			// positives. LongLong/LongPtr are intentionally omitted: any safe-integer
 			// literal already fits ±2^63, and LongPtr width is platform-dependent.
 			return { min: -2147483648, max: 2147483647, label: 'Long' };
+		case 'currency':
+			// VBE oracle (currency_*_literal_runtime): a bare whole-number decimal
+			// literal outside Currency's range compiles (typed as Double) then
+			// narrows to Currency, raising Run-time error '6': Overflow. The
+			// fractional limits -922337203685477.5808 / +922337203685477.5807 both
+			// round inward to the same whole-number magnitude, so the integer
+			// boundary is symmetric; 922337203685477 is accepted and 922337203685478
+			// overflows on both signs. Every reachable literal is a safe integer and
+			// thus an exact IEEE-754 double, so the range check cannot disagree with
+			// VBE — no boundary false positives. (Fractional/@-suffixed Currency
+			// literals are floatLiteral tokens with no numericValue, so they never
+			// reach this entry; their overflow is intentionally out of scope.)
+			return { min: -922337203685477, max: 922337203685477, label: 'Currency' };
 		default:
 			return undefined;
 	}

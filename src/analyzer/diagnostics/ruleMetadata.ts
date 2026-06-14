@@ -1126,6 +1126,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6 (TypeOf...Is) / VBE oracle',
 		confidence: 'high',
 	},
+	suffixedLiteralOverflow: {
+		code: 'suffixed-literal-overflow',
+		title: 'Type-suffixed literal out of range',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 3.3.2 (number tokens / type suffixes) / VBE oracle',
+		confidence: 'high',
+	},
 	emptyType: {
 		code: 'empty-type',
 		title: 'User-defined Type has no members',

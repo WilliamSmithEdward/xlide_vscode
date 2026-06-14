@@ -219,6 +219,42 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
 	});
 
+	it('errors on whole-number decimal literals outside Currency assignment bounds', () => {
+		// VBE oracle: currency_assignment_overflow_literal_runtime (...478) and
+		// currency_assignment_below_min_literal_runtime compile then raise Run-time
+		// error '6': Overflow; the ±922337203685477 controls run clean. The integer
+		// boundary is symmetric (the .5808/.5807 fraction rounds inward to 477).
+		const src =
+			'Public Sub T()\n' +
+			'    Dim m As Currency\n' +
+			'    m = 922337203685477\n' +
+			'    m = 922337203685478\n' +
+			'    m = -922337203685477\n' +
+			'    m = -922337203685478\n' +
+			'    m = 1000000000000000\n' +
+			'End Sub\n';
+		expectDiagnostics(src, analyzeModule(src), 'assignment-type-mismatch', [
+			{ span: '922337203685478', message: ['Currency', "Run-time error '6'"] },
+			{ span: '-922337203685478', message: ['Currency', "Run-time error '6'"] },
+			{ span: '1000000000000000', message: ['Currency', "Run-time error '6'"] },
+		]);
+	});
+
+	it('does not over-flag Currency bounds (in-range, fractional, and @-suffixed literals stay silent)', () => {
+		// No-FP guards: an in-range whole literal is fine; fractional and
+		// @-suffixed Currency literals are floatLiteral tokens with no numericValue
+		// and intentionally bypass the integer-only range check.
+		const src =
+			'Public Sub T()\n' +
+			'    Dim m As Currency\n' +
+			'    m = 100\n' +
+			'    m = 922337203685477\n' +
+			'    m = 12.34\n' +
+			'    m = 12.34@\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+	});
+
 	it('accepts VBA scalar coercions and unknown assignment values', () => {
 		const src =
 			'Public Sub T()\n' +

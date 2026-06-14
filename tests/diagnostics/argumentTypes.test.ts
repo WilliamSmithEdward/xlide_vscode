@@ -347,6 +347,21 @@ describe('analyzeModule - argument type validation', () => {
 		]);
 	});
 
+	it('errors on a whole-number literal outside Currency parameter bounds', () => {
+		// VBE oracle: currency_argument_overflow_literal_runtime compiles then
+		// raises Run-time error '6': Overflow; the 922337203685477 control runs clean.
+		const src =
+			'Public Sub TakesCurrency(ByVal value As Currency)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    TakesCurrency 922337203685477\n' +
+			'    TakesCurrency 922337203685478\n' +
+			'End Sub\n';
+		expectDiagnostics(src, analyzeModule(src), 'argument-type-mismatch', [
+			{ span: '922337203685478', message: ['Currency', "Run-time error '6'"] },
+		]);
+	});
+
 	it('does not warn on string variables whose runtime value is unknown', () => {
 		const src =
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +

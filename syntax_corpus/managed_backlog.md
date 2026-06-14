@@ -81,9 +81,33 @@ shipped:
   (any safe-integer literal already fits ±2^63, and `LongPtr` width is
   platform-dependent). Verified by a dedicated no-FP test.
 
-Remaining numeric gaps (still oracle-gateable, deferred): `Currency` (subtle
-literal-typing near ±9.22e14, precision-sensitive), `Single`/`Double`,
-`Decimal`, type suffixes (`40000&`), and hex/octal literal bounds.
+**Currency** (batch 3b): 7 `compile_then_run` probes promoted
+`vbe-oracle-verified` (`currency_assignment_*` / `currency_argument_*`). Oracle
+confirmed the same Double-narrowing runtime overflow as Long, and pinned the
+boundary: `922337203685477` accepts, `922337203685478` overflows (Run-time error
+'6') on both signs — the fractional limits -.5808/+.5807 round inward to the same
+whole-number magnitude, so the integer boundary is symmetric. Shipped by adding
+the `currency` case to `numericLiteralBounds` (no new rule). A 4-agent adversarial
+FP-hunt (111 snippets) found **zero** Currency false positives.
+
+**Type-suffix overflow** (batch 3c): new compile-error rule
+`suffixed-literal-overflow` (`src/analyzer/diagnostics/rules/numericLiterals.ts`)
+flags `%` (Integer) type-suffixed literals out of range (`40000%`, `32768%`,
+`-32768%` — all oracle-rejected as "Syntax error"; `32767%` accepted; sign is
+irrelevant because VBE rejects the token before the unary minus). **Scoped to `%`
+only.** The adversarial FP-hunt caught a real false positive in the initial
+`%`+`&` version: `s = 3000000000&"x"` is VBE-**accepted** (oracle
+`suffix_long_amp_glued_concat_accepted`) because `&` is the concatenation
+operator, not a Long suffix, once the digit run overflows Long — but the lexer
+greedily glues `3000000000&` into one token. Per no-FP-over-completeness, the `&`
+suffix was dropped from the rule (a deferred conservative false negative even
+though `&` overflow is a real compile error in isolation).
+
+Remaining numeric gaps (still oracle-gateable, deferred): the `&`/`^`/`!`/`#`/`@`
+suffix overflow (the `&` case needs next-token oracle mapping of the
+suffix-vs-concat boundary), `Single`/`Double`, `Decimal` (not directly
+declarable), fractional/@-suffixed and beyond-safe-integer `Currency`, and
+hex/octal width-overflow bounds.
 
 ## Source Digest
 

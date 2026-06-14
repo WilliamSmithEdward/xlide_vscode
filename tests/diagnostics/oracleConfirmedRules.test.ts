@@ -343,3 +343,56 @@ describe('analyzeModule - else-without-if (CTRL_IF_004)', () => {
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - suffixed-literal-overflow (suffix_*_compile)', () => {
+	const CODE = 'suffixed-literal-overflow';
+
+	it("flags an Integer-suffixed literal above 32767 (40000%)", () => {
+		const src = 'Sub T()\n    Dim x As Long\n    x = 40000%\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('40000%');
+		expect(hits[0].message).toContain('Integer');
+	});
+
+	it("does NOT flag the Long & suffix — & is ambiguous with concatenation (no-FP)", () => {
+		// VBE oracle suffix_long_amp_glued_concat_accepted: `s = 3000000000&"x"` is
+		// ACCEPTED (& read as concat, since 3000000000 overflows Long). The lexer
+		// glues `3000000000&` into one token, so flagging & overflow would
+		// false-positive on that valid concat. & overflow is deliberately deferred.
+		const fp = 'Sub T()\n    Dim s As String\n    s = 3000000000&"x"\nEnd Sub\n';
+		expect(byCode(analyzeModule(fp), CODE)).toHaveLength(0);
+		const standalone = 'Sub T()\n    Dim x As Double\n    x = 3000000000&\nEnd Sub\n';
+		expect(byCode(analyzeModule(standalone), CODE)).toHaveLength(0);
+	});
+
+	it("flags 32768% and a negated -32768% (the token is invalid regardless of sign)", () => {
+		// VBE oracle: both 32768% and -32768% are compile-rejected.
+		const src = 'Sub T()\n    Dim x As Long\n    x = 32768%\n    x = -32768%\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(2);
+	});
+
+	it("stays quiet for in-range suffixed literals (32767%, 2147483647&, 40000&)", () => {
+		const src =
+			'Sub T()\n    Dim x As Long\n    x = 32767%\n    x = 2147483647&\n    x = 40000&\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it("stays quiet for hex/octal literals and the ^ LongLong suffix (out of scope, no-FP)", () => {
+		// &HFFFFFFFF / &O77777777777 are bit-pattern values; ^ is platform-dependent.
+		const src =
+			'Sub T()\n    Dim x As Long\n    x = &HFFFFFFFF\n    x = &O77777777777\n    x = 99999999999^\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it("stays quiet for an over-range suffixed literal in an inactive #If branch", () => {
+		const src = 'Sub T()\n#If 0 Then\n    Dim x As Long\n    x = 40000%\n#End If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it("does not confuse the & concatenation operator with a Long suffix", () => {
+		const src = 'Sub T()\n    Dim s As String\n    s = "a" & "b"\n    s = 5 & 6\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+});
