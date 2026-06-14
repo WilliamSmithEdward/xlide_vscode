@@ -287,6 +287,12 @@ Progress:
 - [x] Added focused non-Latin identifier lexer fixtures for the current
   Unicode-letter approximation; exact legacy-codepage identifier ranges are
   recorded as won't-implement in the MS-VBAL verification map.
+- [x] v2.4.0 closure: verification-map audited — 182 Verified rows; all 112 codes
+  carry a `specReference`; core-language vs host/runtime facts are separated. The
+  named "remaining Partial decisions" are decided — the deterministic
+  `declare-missing-ptrsafe` (Win64-gated) and `else-branch-order` slices ship
+  Verified, and the FP-risky `Long`-where-`LongPtr` and broader malformed-directive
+  heuristics are deferred (Deferred section). Closeable.
 
 Definition of done:
 
@@ -338,6 +344,14 @@ Progress:
   `corpus_provenance.json` as `pending-verification`, and is wired into
   `managed_backlog.md`. Discovery only - none drives a diagnostic until a VBE
   verdict or MS-VBAL citation promotes it.
+- [x] v2.4.0 closure: the corpus is a provenance-tracked, test-enforced system
+  (`corpusProvenance` + `diagnosticRegistryCoverage` green; the audited-code set
+  equals the live registry + structural code set). The PCEC and batch-2/3 oracle
+  veins are fully reconciled and `diagnostic_influence_audit.json` is synced.
+  Range-sensitive span controls and realtime incomplete-expression recovery
+  controls added (Priority 3 closure tests); residual binder-dependent corpus
+  cases (PCEC_008, `&`-suffix, fixed-length-string size) are tracked deferrals.
+  Closeable.
 
 Definition of done:
 
@@ -385,6 +399,13 @@ Progress:
   as verified for the active `paramarray-not-last`,
   `paramarray-with-optional`, and `paramarray-non-variant` diagnostic slice,
   while call element inference remains explicitly partial.
+- [x] v2.4.0 closure: coverage matrix reconciled (stale `Arrays` row promoted to
+  Partial with its ten shipped diagnostics; `UDTs` row updated with
+  `duplicate-type-field`/`empty-type`). Confirmed every shipped type-rule family
+  carries valid + invalid + unknown controls and a named source, and recorded the
+  ready / needs-oracle / awaits-binder / out-of-scope-3.0.0 **Readiness
+  Classification** in `docs/type_analysis_corpus_coverage.md`. The binder-dependent
+  frontier is deferred with reasons. Closeable.
 
 Type-family closure status (live detail in
 `docs/type_analysis_corpus_coverage.md`):
@@ -480,16 +501,25 @@ Developer-experience impact:
 
 Scope:
 
-- [ ] Add or update a short static-analysis completeness summary that links the
+- [x] Add or update a short static-analysis completeness summary that links the
   MS-VBAL map, syntax corpus, type corpus, diagnostic influence audit, workbook
-  fixtures, and remaining intentional deferrals.
-- [ ] Run the TypeScript analyzer tests and any targeted oracle checks needed
-  to verify newly promoted cases.
-- [ ] Ensure README, architecture, roadmap, and corpus docs point to Version
+  fixtures, and remaining intentional deferrals. — `docs/static_analysis_completeness_2.4.0.md`.
+- [x] Run the TypeScript analyzer tests and any targeted oracle checks needed
+  to verify newly promoted cases. — full suite green.
+- [x] Ensure README, architecture, roadmap, and corpus docs point to Version
   2.4.0 as the active completeness sprint and Version 3.0.0 as the deferred
-  product/backlog roadmap.
-- [ ] Close 2.4.0 only with a clear list of what is complete, what is
-  intentionally quiet, and what moved to Version 3.0.0 or later.
+  product/backlog roadmap. — README + architecture updated; `roadmap_version_3.0.0.md` created.
+- [x] Close 2.4.0 only with a clear list of what is complete, what is
+  intentionally quiet, and what moved to Version 3.0.0 or later. — see the
+  completeness report's per-priority status and deferral inventory.
+
+Progress:
+
+- [x] Completeness report published (`docs/static_analysis_completeness_2.4.0.md`):
+  per-priority status, the grounded evidence base (112 codes, 342 verified oracle
+  cases, 182 verified MS-VBAL rows), the no-FP discipline, the full intentional-
+  deferral inventory, and the release-gate checklist. Doc pointers flipped to
+  2.4.0-active / 3.0.0-deferred.
 
 Definition of done:
 
@@ -513,6 +543,24 @@ here so the empty checkboxes above reflect deliberate sequencing, not omissions.
   positives (`Long`/`Currency`/`%`-suffix overflow already shipped).
 - [ ] Flow-sensitive binding on the branch-modeled AST (definite assignment) —
   carries FP risk around loops / `GoTo` / error handlers; needs care.
+- [ ] Pointer-sized API "`Long` used where `LongPtr` likely" heuristic (corpus
+  API_006). The deterministic slice already ships (`declare-missing-ptrsafe`,
+  Win64-gated, Verified); the broader heuristic is FP-prone — a `Declare`
+  returning `As Long` can be legitimately correct, and no oracle/metadata can
+  prove a given `Long` should be `LongPtr`. Deferred as a host/platform warning.
+- [ ] Broader malformed conditional-directive-block diagnostics. The provable,
+  oracle-backed cases already ship (`else-branch-order` is vbe-oracle-verified;
+  stray `#End If`/`#Else` handled by the structural block-balance engine); the
+  remaining "broader" malformations are low-value and FP-risky.
+- [ ] `IIf` eager-branch faults. The oracle confirms `IIf` evaluates both
+  branches, but literal-fatal branches are already caught by the deterministic
+  whole-statement scans (division-by-zero, runtime-argument-value); the remaining
+  cases are value/guard-dependent and FP-prone. No dedicated rule.
+- [ ] `On Error Resume Next` reachability / flow gating. FP-prone by construction;
+  honoring it would only ever quiet existing diagnostics (a refinement, not new
+  coverage). The deterministic `Null`-to-scalar coercion case already ships and is
+  Verified inside `assignment-`/`argument-type-mismatch` (runtime error 94);
+  broader `Null`/`Empty` coercion edges are binder/flow-dependent.
 
 ## Out Of Scope: Deferred To Version 3.0.0
 

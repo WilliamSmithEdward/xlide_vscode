@@ -906,3 +906,96 @@ describe('analyzeModule - control-flow no-diagnostic boundary controls (rule aud
 		expect(byCode(analyzeModule(src), 'exit-outside-block')).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - realtime incomplete-expression recovery (Priority 3 closure)', () => {
+	// Codes that would indicate the incomplete active line cascaded past its own
+	// statement: block balance broke (the closer rules) or a statement-context
+	// error spilled onto the recovered statement. None may fire on recovery.
+	const CASCADE_CODES = [
+		'unmatched-block-closer',
+		'missing-block-closer',
+		'if-missing-then',
+		'case-outside-select',
+		'else-without-if',
+		'member-access-outside-with',
+		'exit-outside-block',
+	] as const;
+
+	const expectNoCascade = (src: string): void => {
+		const diags = analyzeModule(src);
+		for (const code of CASCADE_CODES) {
+			expect(byCode(diags, code), `expected no ${code}`).toHaveLength(0);
+		}
+	};
+
+	it('does not cascade a trailing-operator line into the recovered next statement', () => {
+		const src = 'Sub T()\n' + '    x = 1 +\n' + '    y = 2\n' + 'End Sub\n';
+		expectNoCascade(src);
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('keeps a trailing-operator line soft, with no block-closer cascade into End Sub', () => {
+		const src = 'Sub T()\n' + '    x = 1 +\n' + 'End Sub\n';
+		expect(byCode(analyzeModule(src), 'missing-block-closer')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'unmatched-block-closer')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('recovers a trailing-operator line at the next procedure boundary', () => {
+		const src =
+			'Sub T()\n' + '    x = 1 +\n' + 'End Sub\n' + 'Sub U()\n' + '    y = 2\n' + 'End Sub\n';
+		expectNoCascade(src);
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('recovers a partial call after the next statement without a block cascade', () => {
+		const src = 'Sub T()\n' + '    Foo(1,\n' + '    y = 2\n' + 'End Sub\n';
+		expectNoCascade(src);
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('recovers a partial call at the next procedure boundary', () => {
+		const src =
+			'Sub T()\n' + '    Foo(1,\n' + 'End Sub\n' + 'Sub U()\n' + '    y = 2\n' + 'End Sub\n';
+		expectNoCascade(src);
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('confines a partial member access to its own line and recovers the next statement', () => {
+		const src = 'Sub T()\n' + '    obj.\n' + '    y = 2\n' + 'End Sub\n';
+		expectNoCascade(src);
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('.');
+	});
+
+	it('confines a partial member access and recovers at the next procedure boundary', () => {
+		const src =
+			'Sub T()\n' + '    obj.\n' + 'End Sub\n' + 'Sub U()\n' + '    y = 2\n' + 'End Sub\n';
+		expectNoCascade(src);
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('.');
+	});
+
+	it('recovers a partial member access inside a With block without breaking block balance', () => {
+		const src =
+			'Sub T()\n' +
+			'    With Range("A1")\n' +
+			'        obj.\n' +
+			'        .Value = 1\n' +
+			'    End With\n' +
+			'End Sub\n';
+		expectNoCascade(src);
+		const hits = byCode(analyzeModule(src), 'invalid-expression-syntax');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('.');
+	});
+
+	it('leaves an incomplete string to the lexer without a control-flow cascade', () => {
+		const src = 'Sub T()\n' + '    x = "abc\n' + '    y = 2\n' + 'End Sub\n';
+		expectNoCascade(src);
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'unterminated-string')).toHaveLength(1);
+	});
+});

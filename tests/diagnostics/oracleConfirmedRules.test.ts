@@ -403,3 +403,54 @@ describe('analyzeModule - open-missing-for no-diagnostic boundary control (rule 
 		expect(byCode(analyzeModule(src), 'open-missing-for')).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - range-sensitive diagnostic spans (Priority 3 closure)', () => {
+	it('invalid-identifier-start underlines only the offending name token', () => {
+		const src = 'Sub T()\n    Dim _value As Long\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'invalid-identifier-start');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('_value');
+	});
+
+	it('suffixed-literal-overflow underlines the whole suffixed literal', () => {
+		const src = 'Sub T()\n    Dim x As Long\n    x = 40000%\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'suffixed-literal-overflow');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('40000%');
+	});
+
+	it('array-declaration-impossible-bounds underlines the reversed dimension', () => {
+		const src = 'Sub T()\n    Dim a(10 To 1) As Long\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'array-declaration-impossible-bounds');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('10 To 1');
+	});
+
+	it('else-without-if underlines the stray Else token', () => {
+		const src = 'Public Sub Demo()\n    Else\n        Debug.Print "bad"\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'else-without-if');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Else');
+	});
+
+	it('else-without-if underlines the stray ElseIf token', () => {
+		const src = 'Sub T()\n    ElseIf y Then\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'else-without-if');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('ElseIf');
+	});
+
+	it('open-missing-for underlines the Open keyword', () => {
+		const src = 'Sub T()\n    Open "C:\\f.txt" Output #1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'open-missing-for');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Open');
+	});
+
+	it('typeof-missing-operand underlines the TypeOf..Is span', () => {
+		const src = 'Sub T(o As Object)\n    If TypeOf Is Worksheet Then\n    End If\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'typeof-missing-operand');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('TypeOf Is');
+	});
+});
