@@ -38,7 +38,7 @@ import {
 	typeEnvironmentFor,
 } from '../typeInference';
 import { activeModuleMembers, isInactiveNode } from '../walker';
-import { tokenize } from '../../lexer/tokenize';
+import { tokenizeCached } from '../../lexer/tokenize';
 
 /**
  * Rule: `TypeOf` requires an object expression before `Is` (`TypeOf x Is Y`). A
@@ -52,7 +52,7 @@ export function checkTypeOfMissingOperand(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const toks = tokenize(source).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	const toks = tokenizeCached(source).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
 	for (let i = 0; i + 1 < toks.length; i++) {
 		const word = (toks[i].canonicalText ?? toks[i].rawText).toLowerCase();
 		if (word !== 'typeof') {

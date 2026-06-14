@@ -34,7 +34,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { PushFn } from '../analysisContext';
 import { numericLiteralBounds } from '../typeInference';
-import { tokenize } from '../../lexer/tokenize';
+import { tokenizeCached } from '../../lexer/tokenize';
 
 /** A pure-decimal integer literal with the `%` (Integer) type suffix. */
 const INTEGER_SUFFIXED_LITERAL = /^(\d+)%$/;
@@ -48,7 +48,7 @@ export function checkSuffixedLiteralOverflow(
 	if (!bounds) {
 		return;
 	}
-	for (const tok of tokenize(source)) {
+	for (const tok of tokenizeCached(source)) {
 		if (tok.kind !== 'integerLiteral') {
 			continue;
 		}
