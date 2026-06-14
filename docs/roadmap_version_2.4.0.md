@@ -187,11 +187,19 @@ Progress (expression binder, sliced):
   - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
     matrix): comparisons, Date coercion, broad array compatibility, default members.
     These stay quiet until oracle/metadata can prove them; do not build them speculatively.
+  - [x] Numeric overflow extended via the VBE runtime oracle: `Long` and `Currency`
+    bare-decimal literal overflow now flag through `assignment-`/`argument-type-mismatch`
+    (oracle-confirmed symmetric Currency boundary ±922337203685477), and a new
+    `suffixed-literal-overflow` compile rule covers `%` (Integer) type-suffixed literals.
+    The `&` (Long) suffix is deliberately excluded (an adversarial FP-hunt proved
+    `3000000000&"x"` is VBE-accepted as concatenation); `Single`/hex/octal/other-suffix
+    overflow remain deferred.
   - [ ] Remaining binder-INDEPENDENT families: fixed-length-string non-constant size
     (binder-dependent - an unknown name may be a forward/cross-module Const, so FP-risky
-    without the binder); numeric overflow for `Long`/`Single`/`Currency`/hex/octal needs
-    the VBE runtime oracle. Plus flow-sensitive binding on the branch-modeled AST
-    (definite assignment; carries FP risk around loops/`GoTo`/error handlers, needs care).
+    without the binder); `Single`/hex/octal numeric overflow and the `&`-suffix
+    boundary still need VBE oracle mapping. Plus flow-sensitive binding on the
+    branch-modeled AST (definite assignment; carries FP risk around loops/`GoTo`/error
+    handlers, needs care).
 
 ## Priority 1: Static Analysis Completeness
 
@@ -379,7 +387,7 @@ Type-family closure status (live detail in
 
 | Type family | Status | Remaining for closure |
 | --- | --- | --- |
-| Numeric family / overflow | Partial (Byte/Integer decimal) | Long/LongLong/LongPtr, Single, Decimal, Currency, suffixes, hex/octal bounds |
+| Numeric family / overflow | Partial (Byte/Integer/Long/Currency decimal + `%`-suffix) | LongLong/LongPtr, Single, Decimal, `&`/`^`/`!`/`#`/`@` suffixes, hex/octal width bounds, fractional/beyond-safe-integer Currency |
 | Fixed-length strings | Partial (declaration metadata) | assignment/truncation, nonliteral length expressions |
 | Enums | Partial | enum-to-integer compatibility, unknown and ambiguous enum names |
 | UDTs | Partial | nested fields, arrays in UDTs, object members in UDTs |
