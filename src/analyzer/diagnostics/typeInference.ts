@@ -2052,6 +2052,15 @@ export function numericLiteralBounds(
 			return { min: 0, max: 255, label: 'Byte' };
 		case 'integer':
 			return { min: -32768, max: 32767, label: 'Integer' };
+		case 'long':
+			// VBE oracle: a decimal integer literal outside ±2^31 compiles (typed
+			// as Double) then narrows to Long, raising Run-time error '6': Overflow.
+			// Only bare decimal literals within JS safe-integer range reach here
+			// (hex/octal/suffixed/float literals leave numericValue undefined), so
+			// every value tested is exactly representable — no boundary false
+			// positives. LongLong/LongPtr are intentionally omitted: any safe-integer
+			// literal already fits ±2^63, and LongPtr width is platform-dependent.
+			return { min: -2147483648, max: 2147483647, label: 'Long' };
 		default:
 			return undefined;
 	}

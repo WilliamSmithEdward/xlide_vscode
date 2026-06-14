@@ -61,6 +61,30 @@ Do not use a Markdown expectation alone to justify a red diagnostic.
 3 already covered by other passes, 0 outstanding. The oracle-confirmed
 compile-error vein from this corpus is fully mined.
 
+## Oracle discovery log — 2026-06-13 batch 3 (numeric overflow, oracle-unblocked)
+
+The roadmap deferred Long/Single/Currency numeric overflow as "needs the VBE
+runtime oracle." With the oracle operational, the **Long** slice was probed and
+shipped:
+
+- 6 cases authored as `compile_then_run` observe probes and promoted
+  `vbe-oracle-verified` (`long_assignment_*` / `long_argument_*`). The oracle
+  proved the exact Byte/Integer pattern: a decimal literal outside ±2^31
+  **compiles** (typed as Double) then raises **Run-time error '6': Overflow** at
+  runtime; the 2147483647 / -2147483648 controls run clean.
+- Shipped by extending `numericLiteralBounds` with the `long` case, so the
+  existing `assignment-type-mismatch` / `argument-type-mismatch` rules now flag
+  out-of-range Long literals (no new rule/metadata). Asserted into the audit.
+- **No-FP ceiling held:** only bare decimal literals within JS safe-integer
+  range carry a `numericValue`, so hex/octal/suffixed/float literals never
+  range-check; `LongLong`/`LongPtr` are deliberately left out of the bounds table
+  (any safe-integer literal already fits ±2^63, and `LongPtr` width is
+  platform-dependent). Verified by a dedicated no-FP test.
+
+Remaining numeric gaps (still oracle-gateable, deferred): `Currency` (subtle
+literal-typing near ±9.22e14, precision-sensitive), `Single`/`Double`,
+`Decimal`, type suffixes (`40000&`), and hex/octal literal bounds.
+
 ## Source Digest
 
 | Source | Primary Role | Backlog Categories |

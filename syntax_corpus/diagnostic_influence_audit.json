@@ -306,6 +306,8 @@
         "byte_argument_negative_literal_runtime",
         "integer_argument_min_literal_runtime",
         "integer_argument_below_min_literal_runtime",
+        "long_argument_max_literal_runtime",
+        "long_argument_overflow_literal_runtime",
         "cverr_to_long_argument_runtime",
         "cverr_to_variant_argument_runtime",
         "null_to_long_argument_runtime",
@@ -313,7 +315,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -372,6 +374,10 @@
         "byte_assignment_negative_literal_runtime",
         "integer_assignment_min_literal_runtime",
         "integer_assignment_below_min_literal_runtime",
+        "long_assignment_max_literal_runtime",
+        "long_assignment_overflow_literal_runtime",
+        "long_assignment_min_literal_runtime",
+        "long_assignment_below_min_literal_runtime",
         "class_property_integer_nonnumeric_string_runtime",
         "class_property_integer_numeric_string_runtime",
         "class_public_field_integer_nonnumeric_string_runtime",
@@ -383,7 +389,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

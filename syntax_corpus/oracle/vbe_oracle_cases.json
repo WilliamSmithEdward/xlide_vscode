@@ -691,6 +691,72 @@
       "source": "Public Sub TakesInteger(ByVal value As Integer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesInteger -32769\nEnd Sub\n"
     },
     {
+      "id": "long_assignment_max_literal_runtime",
+      "description": "Probe: assigning the maximum Long literal (2147483647) stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 2147483647\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "long_assignment_overflow_literal_runtime",
+      "description": "Probe: assigning a positive decimal literal above the Long range (2147483648).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = 2147483648\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "long_assignment_min_literal_runtime",
+      "description": "Probe: assigning the minimum Long literal (-2147483648) stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = -2147483648\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "long_assignment_below_min_literal_runtime",
+      "description": "Probe: assigning a negative decimal literal below the Long range (-2147483649).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim value As Long\n    value = -2147483649\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "long_argument_max_literal_runtime",
+      "description": "Probe: passing the maximum Long literal (2147483647) to a Long parameter stays within range.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub TakesLong(ByVal value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesLong 2147483647\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "long_argument_overflow_literal_runtime",
+      "description": "Probe: passing a positive decimal literal above the Long range (2147483648) to a Long parameter.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub TakesLong(ByVal value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesLong 2147483648\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
       "id": "number_to_string_assignment_runtime",
       "description": "Runtime control: assigning a numeric literal to a String variable should exercise successful VBA string coercion.",
       "provenance": "vbe-oracle-verified",

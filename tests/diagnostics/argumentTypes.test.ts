@@ -327,6 +327,26 @@ describe('analyzeModule - argument type validation', () => {
 		]);
 	});
 
+	it('errors on a decimal literal outside Long parameter bounds', () => {
+		// VBE oracle: long_argument_overflow_literal_runtime compiles then raises
+		// Run-time error '6': Overflow; the 2147483647 control runs clean. Hex and
+		// LongLong arguments carry no provable overflow, so they stay silent.
+		const src =
+			'Public Sub TakesLong(ByVal value As Long)\n' +
+			'End Sub\n' +
+			'Public Sub TakesLongLong(ByVal value As LongLong)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    TakesLong 2147483647\n' +
+			'    TakesLong 2147483648\n' +
+			'    TakesLong &HFFFFFFFF\n' +
+			'    TakesLongLong 5000000000\n' +
+			'End Sub\n';
+		expectDiagnostics(src, analyzeModule(src), 'argument-type-mismatch', [
+			{ span: '2147483648', message: ['Long', "Run-time error '6'"] },
+		]);
+	});
+
 	it('does not warn on string variables whose runtime value is unknown', () => {
 		const src =
 			'Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency\n' +

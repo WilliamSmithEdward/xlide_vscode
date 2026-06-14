@@ -184,6 +184,41 @@ describe('analyzeModule - assignment type validation', () => {
 		]);
 	});
 
+	it('errors on decimal literals outside Long assignment bounds', () => {
+		// VBE oracle: long_assignment_overflow_literal_runtime /
+		// long_assignment_below_min_literal_runtime compile then raise Run-time
+		// error '6': Overflow; the 2147483647 / -2147483648 controls run clean.
+		const src =
+			'Public Sub T()\n' +
+			'    Dim n As Long\n' +
+			'    n = 2147483647\n' +
+			'    n = 2147483648\n' +
+			'    n = -2147483648\n' +
+			'    n = -2147483649\n' +
+			'End Sub\n';
+		expectDiagnostics(src, analyzeModule(src), 'assignment-type-mismatch', [
+			{ span: '2147483648', message: ['Long', "Run-time error '6'"] },
+			{ span: '-2147483649', message: ['Long', "Run-time error '6'"] },
+		]);
+	});
+
+	it('does not over-flag Long bounds (hex, LongLong, and unrepresentable literals stay silent)', () => {
+		// No-FP guards: hex literals carry no numericValue (bit-pattern semantics),
+		// LongLong is intentionally outside the bounds table, and literals beyond
+		// JS safe-integer range cannot be proven so XLIDE stays quiet.
+		const src =
+			'Public Sub T()\n' +
+			'    Dim n As Long\n' +
+			'    Dim big As LongLong\n' +
+			'    n = 2000000000\n' +
+			'    n = &H7FFFFFFF\n' +
+			'    n = &HFFFFFFFF\n' +
+			'    big = 5000000000\n' +
+			'    n = 99999999999999999999\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+	});
+
 	it('accepts VBA scalar coercions and unknown assignment values', () => {
 		const src =
 			'Public Sub T()\n' +
