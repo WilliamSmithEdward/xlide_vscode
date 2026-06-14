@@ -184,9 +184,6 @@ Progress (expression binder, sliced):
     `tests/diagnostics/arrays.test.ts`; verified empirically (line continuation,
     bracketed/suffix names, arithmetic/hex/negative bounds, multi-dimension,
     multi-declaration, malformed - zero FP, no crashes).
-  - [ ] Deliberately deferred (high false-positive risk, per the Priority 4
-    matrix): comparisons, Date coercion, broad array compatibility, default members.
-    These stay quiet until oracle/metadata can prove them; do not build them speculatively.
   - [x] Numeric overflow extended via the VBE runtime oracle: `Long` and `Currency`
     bare-decimal literal overflow now flag through `assignment-`/`argument-type-mismatch`
     (oracle-confirmed symmetric Currency boundary ±922337203685477), and a new
@@ -194,12 +191,8 @@ Progress (expression binder, sliced):
     The `&` (Long) suffix is deliberately excluded (an adversarial FP-hunt proved
     `3000000000&"x"` is VBE-accepted as concatenation); `Single`/hex/octal/other-suffix
     overflow remain deferred.
-  - [ ] Remaining binder-INDEPENDENT families: fixed-length-string non-constant size
-    (binder-dependent - an unknown name may be a forward/cross-module Const, so FP-risky
-    without the binder); `Single`/hex/octal numeric overflow and the `&`-suffix
-    boundary still need VBE oracle mapping. Plus flow-sensitive binding on the
-    branch-modeled AST (definite assignment; carries FP risk around loops/`GoTo`/error
-    handlers, needs care).
+  - The remaining and deliberately-deferred Slice-4 families are consolidated in the
+    **Deferred (in 2.4.0 scope)** section near the end of this roadmap.
 
 ## Priority 1: Static Analysis Completeness
 
@@ -218,8 +211,8 @@ Developer-experience impact:
 
 Scope:
 
-- [ ] Audit every active diagnostic rule for evidence source, false-positive
-  policy, test coverage, and current gaps.
+- [x] Audit every active diagnostic rule for evidence source, false-positive
+  policy, test coverage, and current gaps. (See Progress below.)
 - [ ] Close remaining parser and binder gaps that block complete static
   analysis: expression binding, name-resolution edge cases, shadowing, call
   targets, assignment targets, and member receivers.
@@ -235,6 +228,19 @@ Scope:
   and host-incomplete shapes quiet unless a rule has exhaustive provenance.
 - [ ] Record every intentionally deferred false-positive risk in the relevant
   verification map, corpus matrix, or roadmap note.
+
+Progress:
+
+- [x] Per-rule evidence audit complete: a 10-auditor pass over all 112 diagnostic
+  codes scored each for evidence source, the three controls (valid-quiet /
+  invalid-flagged / unknown-quiet), test coverage, and documented suppression.
+  Result: 94/112 already met the full bar with zero codes missing a positive or
+  negative control. The punch-list it produced has been cleared — one real false
+  positive fixed (`unmatched-block-closer` / `missing-block-closer` leaking a
+  `: Rem ...` comment, fixed in `stripVba` and pinned by convergence repros), the
+  two structural codes brought under the provenance system (audit entries +
+  `specReference` + verification-map rows + `corpusProvenance` coverage), and the
+  missing no-diagnostic boundary controls backfilled across the rule families.
 
 Definition of done:
 
@@ -489,6 +495,24 @@ Definition of done:
 
 - The release has an auditable static-analysis completeness record, not just a
   set of passing tests.
+
+## Deferred (in 2.4.0 scope, blocked on the expression binder or VBE oracle)
+
+These remain part of the 2.4.0 surface but are intentionally NOT built yet: each
+carries false-positive risk until the expression binder lands or the VBE oracle
+maps the boundary. They stay quiet (no speculative diagnostics) and are recorded
+here so the empty checkboxes above reflect deliberate sequencing, not omissions.
+
+- [ ] Binder-dependent type families (high false-positive risk): comparisons,
+  Date coercion, broad array compatibility, and default members. Stay quiet until
+  oracle/metadata can prove them; do not build speculatively.
+- [ ] Fixed-length-string non-constant size — binder-dependent: an unknown size
+  name may be a forward/cross-module `Const`, so it is FP-risky without the binder.
+- [ ] `Single` / hex / octal numeric overflow and the `&`-suffix overflow
+  boundary — each still needs VBE-oracle mapping before it can flag without false
+  positives (`Long`/`Currency`/`%`-suffix overflow already shipped).
+- [ ] Flow-sensitive binding on the branch-modeled AST (definite assignment) —
+  carries FP risk around loops / `GoTo` / error handlers; needs care.
 
 ## Out Of Scope: Deferred To Version 3.0.0
 

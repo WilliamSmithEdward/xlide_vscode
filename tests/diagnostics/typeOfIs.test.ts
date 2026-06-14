@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';
 import { byCode, spanText } from '../helpers/diagnostics';
+import { projectClassMembers } from './helpers';
 
 const CODE = 'typeof-is-always-false';
 
@@ -55,5 +56,29 @@ describe('analyzeModule - typeof-is-always-false', () => {
 	it('stays quiet for a non-identifier operand (not yet modeled)', () => {
 		// Member-access operand: the operand type is not resolved in this slice.
 		expect(hits(wrap('    Dim wb As Workbook\n    If TypeOf wb.ActiveSheet Is Workbook Then\n    End If'))).toHaveLength(0);
+	});
+
+	it('stays quiet for a project interface operand or a class assignable to it', () => {
+		// Concrete-operand gate: Person is an interface Class1 Implements, so an
+		// interface-typed operand could hold a Class1 (a), and Class1 is-a Person
+		// (b) — both mutually assignable, so neither TypeOf test is always-False.
+		const project = projectClassMembers([
+			{ moduleName: 'Person', moduleKind: 'class', source: 'Public Sub Save()\nEnd Sub\n' },
+			{ moduleName: 'Class1', moduleKind: 'class', source: 'Implements Person\n' },
+		]);
+		const interfaceOperand =
+			'Public Sub T()\n' +
+			'    Dim p As Person\n' +
+			'    If TypeOf p Is Class1 Then\n' +
+			'    End If\n' +
+			'End Sub\n';
+		const implementorOperand =
+			'Public Sub T()\n' +
+			'    Dim c As Class1\n' +
+			'    If TypeOf c Is Person Then\n' +
+			'    End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(interfaceOperand, { projectClassMembers: project }), CODE)).toHaveLength(0);
+		expect(byCode(analyzeModule(implementorOperand, { projectClassMembers: project }), CODE)).toHaveLength(0);
 	});
 });

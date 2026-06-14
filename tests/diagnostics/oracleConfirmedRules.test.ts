@@ -396,3 +396,10 @@ describe('analyzeModule - suffixed-literal-overflow (suffix_*_compile)', () => {
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - open-missing-for no-diagnostic boundary control (rule audit backfill)', () => {
+	it('stays quiet for an Open missing For in an inactive #If 0 branch', () => {
+		const src = 'Sub T()\n#If 0 Then\n    Open "C:\\f.txt" Output #1\n#End If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'open-missing-for')).toHaveLength(0);
+	});
+});

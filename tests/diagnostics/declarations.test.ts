@@ -1412,3 +1412,32 @@ describe('analyzeModule - Option placement', () => {
 		expect(byCode(analyzeModule(src), 'option-after-declaration')).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - declaration no-diagnostic boundary controls (rule audit backfill)', () => {
+	it('stays quiet for a digit-start procedure name owned by invalid-identifier-start', () => {
+		// invalid-proc-header defers the malformed digit-start header to
+		// invalid-identifier-start (which owns the precise declaration-name range).
+		const src = 'Sub 1Bad()\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-proc-header')).toHaveLength(0);
+	});
+
+	it('stays quiet for Property Set value parameters with unresolved or Variant types', () => {
+		// property-set-scalar-value fires only for a provably-scalar final value
+		// param; an unresolved type name and As Variant are not known scalars.
+		const src =
+			'Public Property Set Gadget(ByVal value As Widget)\n' +
+			'End Property\n' +
+			'Public Property Set Anything(ByVal value As Variant)\n' +
+			'End Property\n';
+		expect(byCode(analyzeModule(src), 'property-set-scalar-value')).toHaveLength(0);
+	});
+
+	it('stays quiet for a Property Let whose value parameter has an unresolved type name', () => {
+		// property-let-object-value fires only when the value param resolves to a
+		// known object type; an unresolved name (no projectClassMembers entry) stays quiet.
+		const src =
+			'Public Property Let Customer(ByVal assigned As Person)\n' +
+			'End Property\n';
+		expect(byCode(analyzeModule(src), 'property-let-object-value')).toHaveLength(0);
+	});
+});

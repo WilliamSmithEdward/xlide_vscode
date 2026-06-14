@@ -88,4 +88,17 @@ describe('analyzeModule - invalid line continuation', () => {
 
 		expect(byCode(analyzeModule(src), 'invalid-line-continuation')).toHaveLength(0);
 	});
+
+	it('stays quiet when surrounding code is unparseable but every string is closed', () => {
+		// No-FP control: token-recovery / malformed surroundings must not trip
+		// unterminated-string when no string literal is actually left open.
+		const src =
+			'Sub T()\n' +
+			'    Dim x As\n' +
+			'    x = ((1 +\n' +
+			'    MsgBox "say ""hi"" now"\n' +
+			'    Debug.Print "ok" & @#$\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'unterminated-string')).toHaveLength(0);
+	});
 });

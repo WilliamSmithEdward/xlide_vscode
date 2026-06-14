@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DIAGNOSTIC_RULES } from '../src/analyzer';
+import { DIAGNOSTIC_RULES, STRUCTURAL_DIAGNOSTIC_RULES } from '../src/analyzer';
 
 type Provenance =
 	| 'spec-derived'
@@ -191,7 +191,12 @@ describe('syntax corpus provenance', () => {
 		const oracleById = new Map(oracle.cases.map((fixture) => [fixture.id, fixture]));
 		const auditedCodes = audit.diagnostics.map((entry) => entry.code);
 		const ruleByCode = new Map(
-			Object.values(DIAGNOSTIC_RULES).map((rule) => [rule.code, rule]),
+			[
+				...Object.values(DIAGNOSTIC_RULES),
+				// Structural block-balance codes are emitted by analyzeVbaStructure
+				// rather than the registry, but are held to the same evidence bar.
+				...Object.values(STRUCTURAL_DIAGNOSTIC_RULES),
+			].map((rule) => [rule.code, rule]),
 		);
 		const ruleCodes = [...ruleByCode.keys()];
 

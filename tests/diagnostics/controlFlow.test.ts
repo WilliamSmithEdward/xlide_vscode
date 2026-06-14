@@ -882,3 +882,27 @@ describe('analyzeModule - statement context', () => {
 		).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - control-flow no-diagnostic boundary controls (rule audit backfill)', () => {
+	it('stays quiet for an If without Then in an inactive #If 0 branch', () => {
+		const src =
+			'Sub T()\n' +
+			'#If 0 Then\n' +
+			'    If x > 0\n' +
+			'        x = 1\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'if-missing-then')).toHaveLength(0);
+	});
+
+	it('stays quiet for Exit For and Exit Do inside an inactive #If 0 branch', () => {
+		const src =
+			'Sub T()\n' +
+			'#If 0 Then\n' +
+			'    Exit For\n' +
+			'    Exit Do\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'exit-outside-block')).toHaveLength(0);
+	});
+});

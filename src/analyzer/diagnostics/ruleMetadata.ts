@@ -1325,6 +1325,7 @@ export const STRUCTURAL_DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4 (block statements) / VBE compile structure',
 		confidence: 'high',
 	},
 	unmatchedBlockCloser: {
@@ -1335,6 +1336,7 @@ export const STRUCTURAL_DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4 (block statements) / VBE compile structure',
 		confidence: 'high',
 	},
 } satisfies Record<string, DiagnosticRuleMetadata>;

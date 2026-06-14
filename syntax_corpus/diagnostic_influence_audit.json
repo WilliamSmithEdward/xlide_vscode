@@ -968,7 +968,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule only fires when the type resolver proves the New target is a known non-creatable type, such as a primitive, document module, Enum, or user-defined Type. Excel host object-model types and unknown external/reference-library class names remain deferred until creatability metadata or oracle evidence proves the target.",
+      "notes": "The active rule only fires when the type resolver proves the New target is a known non-creatable type, such as a primitive, document module, Enum, or user-defined Type. Excel host object-model types and unknown external/reference-library class names remain deferred until creatability metadata or oracle evidence proves the target. This mirrors the deterministic VBE 'Invalid use of New keyword' compile error; the classification is spec/resolver-derived (no asserted oracle case) because the non-creatable target set is proven by XLIDE's type resolver, not probed.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1339,7 +1339,8 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Suppression boundary: an If-headed statement is flagged for a missing Then only in a provably-active region; an If whose Then sits on a continued (`_`) line, a single-line `If ... Then stmt`, and any If inside a proven-inactive conditional-compilation branch are not flagged (activity gate)."
     },
     {
       "code": "case-outside-select",
@@ -1351,7 +1352,8 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Suppression boundary: Case is flagged only when the selectDepth counter proves no enclosing Select Case block is open; a Case inside an open Select Case at any nesting depth, and Case statements inside proven-inactive conditional-compilation branches, stay quiet."
     },
     {
       "code": "member-access-outside-with",
@@ -1363,7 +1365,8 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Suppression boundary: a leading-dot member access is flagged only when the withDepth counter proves no enclosing With block is open; leading-dot access inside an open With (including nested With receiver stacks) and inside proven-inactive conditional-compilation branches stays quiet."
     },
     {
       "code": "exit-outside-block",
@@ -1375,7 +1378,8 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Suppression boundary: Exit For / Exit Do is flagged only when the forDepth / doDepth counter proves no enclosing loop of that kind is open; an exit inside its matching loop and any exit inside a proven-inactive conditional-compilation branch stay quiet."
     },
     {
       "code": "else-branch-order",
@@ -1646,6 +1650,28 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Flags a pure-decimal integer literal carrying the % (Integer) type suffix whose magnitude exceeds 32767. VBE rejects the over-range %-suffixed token at compile time as a Syntax error, independent of context and of any leading sign — the negated-min probe -32768% is also rejected, so the check is magnitude-vs-Integer-max with no sign special-casing. SCOPED TO % ONLY: the & (Long) suffix is deliberately excluded because & is also the concatenation operator — when an over-range digit run is glued to & before an operand VBE re-parses & as concat and ACCEPTS it (oracle suffix_long_amp_glued_concat_accepted: s = 3000000000&\"x\" is accepted). The lexer greedily glues the trailing & into the number token, so flagging &-suffix overflow would false-positive on that valid concat; & overflow is a deferred (conservative) false negative even though it is a real compile error in isolation (oracle suffix_long_amp_overflow_literal_compile). Hex/octal (start with &) and the ^/!/#/@ suffixes are also out of scope; the Integer bound comes from the shared numericLiteralBounds. Whole-source scan; inactive conditional-compilation regions are skipped.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "missing-block-closer",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4 (block statements: Sub/Function/Property, If, For, Do, While, With, Select, Type, Enum require a matching closer) / VBE compile structure",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a block opener (procedure/If/For/Do/While/With/Select/Type/Enum) with no matching closer. Suppression boundary: block keywords inside strings and comments (including a `: Rem ...` trailing comment after the audit-#74 stripVba fix) are blanked before matching; single-line `If ... Then stmt`, `Declare Sub/Function`, line-continued headers, and inactive conditional-compilation headers do not open a block; colon one-liners are split. Verified against the dual-engine comparison harness (tests/structuralEngineComparison.test.ts) and tests/vbaStructuralAnalysis.test.ts.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "unmatched-block-closer",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4 (block statements) / VBE compile structure: a block closer (End If/End Sub/Next/Loop/Wend/End With/End Select/#End If/#Else) requires a matching opener",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a stray block closer with no matching opener. Suppression boundary: closers inside strings and comments are blanked — including a `: Rem ...` trailing comment, whose leak was a fixed false positive (audit #74: stripVba now blanks Rem at any statement start, pinned by tests/vbaStructuralAnalysis.test.ts and the convergence repro in tests/structuralEngineComparison.test.ts). Mismatched procedure closers are folded into a single repairable missing-block-closer instead.",
       "diagnosticKind": "compile-error"
     }
   ]

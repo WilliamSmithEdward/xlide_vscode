@@ -2085,3 +2085,54 @@ describe('analyzeModule - Set assignment validation', () => {
 		expect(byCode(analyzeModule(src), 'set-requires-object')).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - assignment no-diagnostic boundary controls (rule audit backfill)', () => {
+	it('keeps ambiguous exported object globals and untyped local object shadows quiet', () => {
+		// set-required stays quiet when the target name is an ambiguous exported
+		// object global (two modules declaring it) or an untyped local shadow.
+		const ambiguousCaller =
+			'Public Sub T()\n' +
+			'    SharedObject = New Collection\n' +
+			'End Sub\n';
+		expect(byCode(analyzeProjectModule(ambiguousCaller, [
+			{ moduleName: 'GlobalsA', source: 'Public SharedObject As Object\n' },
+			{ moduleName: 'GlobalsB', source: 'Public SharedObject As Object\n' },
+		], 'Caller'), 'set-required')).toHaveLength(0);
+
+		const shadowSrc =
+			'Private ModuleObject As Object\n' +
+			'Public Sub T()\n' +
+			'    Dim ModuleObject\n' +
+			'    ModuleObject = "blah"\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(shadowSrc), 'set-required')).toHaveLength(0);
+	});
+
+	it('stays quiet for ambiguous project receiver types and late-bound Object/Variant receivers', () => {
+		// An ambiguous project receiver and late-bound Object/Variant receivers
+		// cannot prove member writability, so all hit the writable===undefined
+		// suppression path and readonly-member-assignment stays quiet.
+		const readonlyPerson =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n';
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ambiguous As Person\n' +
+			'    Dim lateObj As Object\n' +
+			'    Dim lateVar As Variant\n' +
+			'    Set ambiguous = New Person\n' +
+			'    ambiguous.Age = 2\n' +
+			'    lateObj.Age = 2\n' +
+			'    lateVar.Age = 2\n' +
+			'End Sub\n';
+		const ambiguous = projectClassMembers([
+			{ moduleName: 'Person', moduleKind: 'class', source: readonlyPerson },
+			{ moduleName: 'Other', moduleKind: 'class', source: readonlyPerson.replace(/Age/g, 'Size') },
+		]).map((type) => ({ ...type, name: 'Person' }));
+		expect(
+			byCode(analyzeModule(src, { projectClassMembers: ambiguous }), 'readonly-member-assignment'),
+		).toHaveLength(0);
+	});
+});
