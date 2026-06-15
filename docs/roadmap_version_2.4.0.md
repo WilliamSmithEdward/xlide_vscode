@@ -2,7 +2,7 @@
 
 Version 2.4.0 is the static-analysis completeness sprint. Its job is to close
 the remaining evidence and coverage gaps around the VBA analyzer before the
-broader product/backlog work resumes in Version 3.0.0.
+broader product/backlog work resumes in Version 2.5.0.
 
 This roadmap is deliberately evidence-led. A diagnostic, parser rule, binder
 rule, completion inference, or corpus case is complete only when it has the
@@ -228,7 +228,7 @@ Scope:
 - [x] Unify object/member rule policy across source-backed classes, UDTs, host
   metadata, runtime metadata, and future external metadata. — Done for current
   sources via the shared project-analysis helper; external `.vbref.xml` metadata
-  is out of scope to 3.0.0.
+  is carried forward to 2.5.0.
 - [x] Finish the deterministic runtime-analysis slice for constant folding,
   argument bounds, conversions, array allocation, object initialization, and
   runtime error diagnostics where oracle evidence proves behavior. — Dispositioned:
@@ -444,7 +444,7 @@ Progress:
   Partial with its ten shipped diagnostics; `UDTs` row updated with
   `duplicate-type-field`/`empty-type`). Confirmed every shipped type-rule family
   carries valid + invalid + unknown controls and a named source, and recorded the
-  ready / needs-oracle / awaits-binder / out-of-scope-3.0.0 **Readiness
+  ready / needs-oracle / awaits-binder / carried-forward-2.5.0 **Readiness
   Classification** in `docs/type_analysis_corpus_coverage.md`. The binder-dependent
   frontier is deferred with reasons. Closeable.
 
@@ -548,10 +548,10 @@ Scope:
 - [x] Run the TypeScript analyzer tests and any targeted oracle checks needed
   to verify newly promoted cases. — full suite green.
 - [x] Ensure README, architecture, roadmap, and corpus docs point to Version
-  2.4.0 as the active completeness sprint and Version 3.0.0 as the deferred
-  product/backlog roadmap. — README + architecture updated; `roadmap_version_3.0.0.md` created.
+  2.4.0 as the active completeness sprint and Version 2.5.0 as the deferred
+  product/backlog roadmap. — README + architecture updated; `roadmap_version_2.5.0.md` created.
 - [x] Close 2.4.0 only with a clear list of what is complete, what is
-  intentionally quiet, and what moved to Version 3.0.0 or later. — see the
+  intentionally quiet, and what moved to Version 2.5.0 or later. — see the
   completeness report's per-priority status and deferral inventory.
 
 Progress:
@@ -560,7 +560,7 @@ Progress:
   per-priority status, the grounded evidence base (112 codes, 342 verified oracle
   cases, 182 verified MS-VBAL rows), the no-FP discipline, the full intentional-
   deferral inventory, and the release-gate checklist. Doc pointers flipped to
-  2.4.0-active / 3.0.0-deferred.
+  2.4.0-active / 2.5.0-next.
 
 Definition of done:
 
@@ -572,7 +572,7 @@ Definition of done:
 These are **resolved deferrals**, not open work items — each is a deliberate
 decision to stay quiet (no speculative diagnostics) until the expression binder
 lands or the VBE oracle maps the boundary, recorded with its reason and carried to
-`docs/roadmap_version_3.0.0.md`. They are plain bullets, not checkboxes, because
+`docs/roadmap_version_2.5.0.md`. They are plain bullets, not checkboxes, because
 the disposition (defer-with-reason) is complete for 2.4.0.
 
 - Binder-dependent type families (high false-positive risk): comparisons,
@@ -604,11 +604,11 @@ the disposition (defer-with-reason) is complete for 2.4.0.
   Verified inside `assignment-`/`argument-type-mismatch` (runtime error 94);
   broader `Null`/`Empty` coercion edges are binder/flow-dependent.
 
-## Out Of Scope: Deferred To Version 3.0.0
+## Out Of Scope: Deferred To Version 2.5.0
 
 These are intentionally excluded from static-analysis completeness so the
 analyzer surface can close with clean edges. They are tracked in
-`docs/roadmap_version_3.0.0.md`:
+`docs/roadmap_version_2.5.0.md`:
 
 - Declared `Event` member binding beyond module-kind validation, `WithEvents`
   event-source type compatibility, and `RaiseEvent` signature/arity validation.
@@ -636,7 +636,7 @@ Keeping these out is what lets Priorities 1-4 reach a provable, auditable close.
    pointer-sized API checks - each with a documented reason.
 5. Corpus promotion, per-rule audit, and the completeness report (Priorities 3
    and 6): the release gate that lets this roadmap close and hands the remainder
-   to Version 3.0.0.
+   to Version 2.5.0.
 
 ## Files To Keep In Sync
 

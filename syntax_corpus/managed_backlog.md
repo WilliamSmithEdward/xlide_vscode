@@ -109,6 +109,64 @@ suffix-vs-concat boundary), `Single`/`Double`, `Decimal` (not directly
 declarable), fractional/@-suffixed and beyond-safe-integer `Currency`, and
 hex/octal width-overflow bounds.
 
+## Completeness Checklist (v2.5.0 Goal 2)
+
+Makes syntax-corpus completeness measurable. A box is **checked only when
+oracle/spec-verified per the Stop Rules** (not merely "looked at"): a surface is
+complete when every high-value case is shipped as a rule, refuted, or recorded as
+a deferred-with-reason candidate, and its source file reaches `reference`/archived
+status in `corpus_provenance.json`. Detail for each category lives in the Category
+Index below.
+
+### A. Source-file mining burn-down
+
+- [ ] `26_class_and_userform_deep_edges.md` — class/UserForm lifecycle + host-event signature veins remain
+- [ ] `27_semantic_runtime_resolution_edges.md` — error-flow, branch-into-block, Variant-coercion, RUNTIME_006 veins remain
+- [ ] `excel_vba_realtime_analysis_test_corpus.md` — realtime-recovery tail
+- [ ] `excel_vba_analysis_additional_edge_cases.md` — EXPR_013/014, DECL_003 veins remain
+- [ ] `excel_vba_analysis_final_hardening_cases.md` — residual hardening cases
+- [ ] `xlide_vba_legacy_visible_corpus_edges.md` — GoSub/Return, On-expr-GoTo, Mid-statement target
+- [ ] `xlide_vba_realtime_analysis_final_corpus_addendum.md` — LEGACY_TRANSFER_*, casing
+- [x] `excel_vba_analysis_limits_boundary_cases.md` — `reference` (mined)
+- [x] `xlide_vba_visible_analysis_corpus_recommendations.md` — `reference`
+- [x] `Archive/xlide_vba_provable_compile_error_candidates.md` — archived (PCEC vein reconciled)
+
+### B. Surface disposition
+
+Shipped — carry hard, evidence-backed diagnostic codes:
+- [x] `syntax-core` · `type-analysis` · `object-member` · `runtime-resolution` · `limits-boundaries`
+- [~] `host-behavior` · `module-context` — shipped with named open slices (see C)
+- [~] `project-binder` · `legacy-edges` — partial (binder-gated / no-FP-protection negative space)
+
+No-codes by design — verified outside the diagnostic engine, NOT gaps:
+- [x] `tokenizer` (lexer fixtures) · `casing` (formatter/completion) · `completion-context` (providers) · `realtime-recovery` (cross-cutting suppression policy baked into rules) · `diagnostic-ranges` (span-marker fixtures) · `roundtrip-io` (IO fixtures) · `canary-verdicts` (process: observe-first) · `userform-designer` (designer members won't-implement)
+
+Added surfaces (this checklist — formerly untracked):
+- [~] `error-handling-flow` — **NEW.** `On Error`/`Resume` statement well-formedness, error-label control transfer, handler-relative validity, and straight-line unreachable-code. Material in `ERROR_FLOW_001-005`; today only `undefined-label`/`duplicate-label` touch it. Mine + oracle-probe; keep conservative (yellow/none).
+- [x] `xlide-directives` — `vba-test-directive` + `analysis-suppression-directive` (shipped style-policy codes that previously had no owning category). Now tracked.
+
+### C. Remaining mining veins (construct family → owning surface · gate)
+
+- [ ] `On Error`/`Resume` well-formedness + unreachable-code (ERROR_FLOW_001-005) → error-handling-flow · oracle/spec
+- [ ] constant array subscript outside a fixed declaration bound (RUNTIME_006) → runtime-resolution · oracle (no-FP-safe, high value)
+- [ ] host-event signature binding — wrong-signature `Worksheet_`/`Workbook_`/`App_` handlers → host-behavior + module-context · curated event-signature table + oracle
+- [ ] branch-into-block legality (`GoTo`/`On..GoTo` into `If`/`For`/`With`) (BRANCH_BLOCK_*) → legacy-edges · oracle (canary first)
+- [ ] `GoSub`/`Return` + On-expression-`GoTo`/`GoSub` validity (LEGACY_TRANSFER_*) → legacy-edges · oracle
+- [ ] Variant coercion: `Null`/`Empty` operands of `+`/`&` (COERCE_003/004/006/007/008) → runtime-resolution · oracle
+- [ ] public member exposes Private UDT, general form (UDT_004) → type-analysis · oracle
+- [ ] class/UserForm lifecycle + event-handler signature shape → module-context · module-kind fixtures + oracle
+- [ ] `DECL_003` `New` on an intrinsic type (`Dim x As New Long`) → verify vs `invalid-new-type-name`; cover or add
+- [ ] `Like` pattern `[..]` class vs bracketed-identifier; `Is` on non-objects (EXPR_013/014) → tokenizer/type-analysis · verify/oracle
+- [ ] `Mid`/`Mid$` statement non-variable target → legacy-edges · low
+- [ ] `WithEvents As Object` event-source type restriction → object-member/project-binder · deferred-with-reason (needs reference metadata)
+- [ ] continuation-count + line-length limits → limits-boundaries · deterministic, low
+- Deferred to **v2.5.0 Goal 1 (binder)**: comparisons, Date, broad arrays, default members, Boolean operators, non-scalar ByRef, PCEC_008 positional-after-named.
+- Deferred (oracle-gateable): `Single`/`Double`/`Decimal`, hex/octal width, `&`/`^`/`!`/`#`/`@`-suffix overflow.
+
+### Won't implement (do NOT re-open from corpus material)
+
+Designer-backed `.frm`/`.frx` members; `[A1]` Evaluate shorthand; date-literal inner grammar; legacy-codepage non-Latin identifier ranges; `Option Compare Database`. Recorded in the MS-VBAL verification-map "Won't Implement" section.
+
 ## Source Digest
 
 | Source | Primary Role | Backlog Categories |
@@ -725,6 +783,35 @@ Near-term candidates:
 - Declaration casing propagated to references.
 - Preserve string literal and comment content.
 - Host member casing from metadata.
+
+### `error-handling-flow`
+
+Added 2.5.0. Owns the syntactic/structural error-handling and straight-line
+control-flow surface, which was previously scattered across `runtime-resolution`
+(suppression semantics) and `legacy-edges` (`On Error GoTo -1`).
+
+- `On Error GoTo <label>` / `On Error Resume Next` / `On Error GoTo 0` / `GoTo -1`
+  statement well-formedness; `Resume` / `Resume Next` / `Resume <label>` forms.
+- Error-label control-transfer correctness (shares the shipped `undefined-label`
+  / `duplicate-label` rules).
+- Handler-relative validity (e.g. `Resume` outside an active handler) — oracle
+  first; conservative (yellow/none) per the no-FP rule.
+- Straight-line unreachable code after `Exit Sub`/`Function`/`Property`, `GoTo`,
+  `End`, `Stop` (ERROR_FLOW_005) — deterministic, warning-only, straight-line
+  only; deferred until oracle-confirmed.
+- Cross-references the `runtime-resolution` `On Error Resume Next` suppression
+  cases and the `legacy-edges` `On Error GoTo -1` case rather than duplicating
+  them.
+
+### `xlide-directives`
+
+Added 2.5.0. Owns XLIDE's own comment-directive surface — previously the two
+shipped codes had no category home.
+
+- `vba-test-directive` — validates XLIDE VBA test directives.
+- `analysis-suppression-directive` — validates analysis-suppression comments.
+- Both are `style-policy` (advisory) diagnostics; the surface is product-owned
+  (`docs/xlide_vba_analysis_suppression_comments.md`), not MS-VBAL grammar.
 
 ## Promotion Queue
 

@@ -121,7 +121,7 @@ validation (locale-sensitive → FP-prone); exact legacy-codepage non-Latin
 identifier ranges (old-VBE detail). Recorded in the verification-map Won't
 Implement section.
 
-**Out of scope → Version 3.0.0:** `Event`/`WithEvents`/`RaiseEvent` member
+**Out of scope → Version 2.5.0:** `Event`/`WithEvents`/`RaiseEvent` member
 binding beyond module-kind validation; `Implements` interface-member completeness;
 external `.vbref.xml` metadata as a diagnostic source.
 
@@ -138,4 +138,4 @@ external `.vbref.xml` metadata as a diagnostic source.
 - [x] The full TypeScript test suite passes.
 
 On these grounds, v2.4.0's static-analysis surface can close, handing the
-binder-dependent and out-of-scope work to Version 3.0.0.
+binder-dependent and out-of-scope work to Version 2.5.0.

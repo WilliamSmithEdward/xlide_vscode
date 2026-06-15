@@ -164,7 +164,7 @@ slices can be selected from named gaps rather than guesses:
   string-concatenation operand typing, and positional-after-named arguments
   (PCEC_008 — oracle-confirmed but binder-gated, FP-risky without call-shape
   binding).
-- **Out of scope → Version 3.0.0**: external `.vbref.xml` metadata as a
+- **Carried forward → Version 2.5.0**: external `.vbref.xml` metadata as a
   diagnostic source; `Event`/`WithEvents`/`Implements` member binding.
 
 This classification is the Priority 4 deliverable: type-analysis coverage is now

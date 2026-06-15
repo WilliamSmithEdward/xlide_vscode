@@ -302,7 +302,7 @@ Roadmaps:
 - [Version 2.2.0 static-analysis completeness roadmap (superseded by 2.4.0)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.2.0.md)
 - [Version 2.4.0 static-analysis completeness sprint (active)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.4.0.md)
 - [Version 2.4.0 static-analysis completeness report (release gate)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/static_analysis_completeness_2.4.0.md)
-- [Version 3.0.0 deferred product/backlog roadmap](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_3.0.0.md)
+- [Version 2.5.0 roadmap — expression binder + syntax-corpus completeness](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.5.0.md)
 
 ---
 
