@@ -748,7 +748,25 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is intentionally straight-line: local non-Static dynamic arrays start unallocated, active ReDim statements allocate them, Erase resets them, and simple indexed access or intrinsic LBound/UBound calls while unallocated report runtime error 9. Module-level arrays, parameters, Static locals, fixed-size arrays, helper-call arguments, assignment-touched arrays, nested runtime-block touches, unresolved names, non-intrinsic member calls, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_090 uninitialized dynamic array index case and invalid_semantics_091 LBound uninitialized array case are covered by focused runtime oracle fixtures.",
+      "notes": "Active coverage is intentionally straight-line: local non-Static dynamic arrays start unallocated, active ReDim statements allocate them, Erase resets them, and simple indexed access or intrinsic LBound/UBound calls while unallocated report runtime error 9. Module-level arrays, parameters, Static locals, fixed-size arrays, helper-call arguments, assignment-touched arrays, nested runtime-block touches, unresolved names, non-intrinsic member calls, dot or bang ('!') member access (d!b(N) = d.Item(\"b\"), not the local array b), and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_090 uninitialized dynamic array index case and invalid_semantics_091 LBound uninitialized array case are covered by focused runtime oracle fixtures.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "array-subscript-out-of-bounds",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle (runtime006_* probes: a literal subscript outside a fixed array's declared bounds raises Run-time error 9) plus VBA fixed-array bound semantics",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "runtime006_upper_over_rejected",
+        "runtime006_explicit_lower_under_rejected",
+        "runtime006_default_upper_over_rejected",
+        "runtime006_negative_rejected",
+        "runtime006_upper_max_accepted",
+        "runtime006_default_base_low_accepted"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "RUNTIME_006: a constant subscript proven outside a LOCAL single-dimension fixed-size array's declared bounds raises runtime error 9 (compiles, then faults at runtime). No-FP scope: only local fixed arrays (Dim/Static) with a literal upper bound and a literal/folded-signed-integer subscript are checked. Fires on subscript > upper bound, subscript < an EXPLICIT literal lower bound, or a negative subscript. Stays quiet for: dynamic / ReDim'd arrays (owned by unallocated-dynamic-array-access), variable or Const subscripts, multi-dimension arrays, ByRef array parameters, module-level arrays, and the Option-Base-dependent low region of single-bound `Dim a(n)` declarations (oracle runtime006_default_base_low_accepted proves a(0) on `Dim a(5)` is valid under default Option Base 0, so low subscripts are flagged only when negative or below an explicit literal lower bound). Option Base is unmodeled, which is why only the upper bound and explicit literal lower bounds drive flags. Bounds parsing reuses comparableArrayBoundKey; access detection mirrors checkUnallocatedDynamicArrayAccess. Member access via '.' or the bang '!' operator (d!b(N) = d.Item(\"b\")) is excluded so a dictionary/member key that matches a local array name is not mis-bound (adversarial FP-hunt finding). Like every sibling deterministic-runtime-error rule, On Error Resume Next / handlers are not modeled — the subscript still raises error 9, it is merely suppressed at runtime, so the (downgradeable) diagnostic is consistent with the roadmap's deferred On Error policy.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

@@ -680,3 +680,150 @@ describe('analyzeModule - array Erase', () => {
 		).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - array-subscript-out-of-bounds (RUNTIME_006)', () => {
+	const CODE = 'array-subscript-out-of-bounds';
+
+	it('flags a literal subscript above the declared upper bound', () => {
+		const src = 'Sub T()\n    Dim a(1 To 10) As Long\n    a(11) = 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].severity).toBe('error');
+		expect(spanText(src, hits[0])).toBe('11');
+		expect(hits[0].message).toContain("Run-time error '9'");
+	});
+
+	it('flags a subscript below an explicit literal lower bound', () => {
+		const src = 'Sub T()\n    Dim a(1 To 10) As Long\n    a(0) = 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('0');
+	});
+
+	it('flags a subscript above a single-bound upper (Option-Base-independent)', () => {
+		const src = 'Sub T()\n    Dim a(5) As Long\n    a(6) = 1\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(1);
+	});
+
+	it('flags a negative subscript', () => {
+		const src = 'Sub T()\n    Dim a(5) As Long\n    a(-1) = 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('-1');
+	});
+
+	it('flags an out-of-bounds access inside a loop or If (all active statements)', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim a(1 To 10) As Long\n' +
+			'    Dim i As Long\n' +
+			'    For i = 1 To 3\n' +
+			'        a(11) = i\n' +
+			'    Next i\n' +
+			'    If i > 0 Then a(20) = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(2);
+	});
+
+	it('flags a folded constant-expression subscript (5 + 6 on 1 To 10)', () => {
+		const src = 'Sub T()\n    Dim a(1 To 10) As Long\n    a(5 + 6) = 1\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(1);
+	});
+
+	it('stays quiet at the boundary and within bounds', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim a(1 To 10) As Long\n' +
+			'    a(1) = 1\n' +
+			'    a(10) = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for a low subscript on a single-bound array (Option Base unmodeled)', () => {
+		const src = 'Sub T()\n    Dim a(5) As Long\n    a(0) = 1\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for variable and Const subscripts (not provable)', () => {
+		const src =
+			'Sub T()\n' +
+			'    Const MAX As Long = 99\n' +
+			'    Dim a(1 To 10) As Long\n' +
+			'    Dim i As Long\n' +
+			'    i = 11\n' +
+			'    a(i) = 1\n' +
+			'    a(MAX) = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for a dynamic array sized by ReDim', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim a() As Long\n' +
+			'    ReDim a(1 To 3)\n' +
+			'    a(5) = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for a multi-dimension array', () => {
+		const src = 'Sub T()\n    Dim a(1 To 3, 1 To 4) As Long\n    a(99) = 1\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for a non-constant (Const-sized) upper bound', () => {
+		const src =
+			'Sub T()\n' +
+			'    Const N As Long = 10\n' +
+			'    Dim a(1 To N) As Long\n' +
+			'    a(99) = 1\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for a member access that resembles an index (obj.a(11))', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim a(1 To 10) As Long\n' +
+			'    Dim obj As Object\n' +
+			'    Set obj = Nothing\n' +
+			'    obj.a(11) = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('stays quiet for an out-of-bounds access in an inactive #If branch', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim a(1 To 10) As Long\n' +
+			'#If 0 Then\n' +
+			'    a(11) = 1\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - array index rules ignore the bang (!) member operator', () => {
+	it('does not treat d!b(N) as a local-array subscript (fixed or dynamic)', () => {
+		// d!b is d.Item("b") (bang/dictionary access); the identifier after ! is a
+		// string key, not the local array b, so neither array rule may fire.
+		const fixedSrc =
+			'Sub T()\n' +
+			'    Dim b(5) As Long\n' +
+			'    Dim d As Object\n' +
+			'    Set d = Nothing\n' +
+			'    Debug.Print d!b(11)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(fixedSrc), 'array-subscript-out-of-bounds')).toHaveLength(0);
+		const dynSrc =
+			'Sub T()\n' +
+			'    Dim b() As Long\n' +
+			'    Dim d As Object\n' +
+			'    Set d = Nothing\n' +
+			'    Debug.Print d!b(11)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(dynSrc), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+});

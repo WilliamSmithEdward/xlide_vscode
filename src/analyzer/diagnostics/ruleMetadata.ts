@@ -653,6 +653,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	arraySubscriptOutOfBounds: {
+		code: 'array-subscript-out-of-bounds',
+		title: 'Array subscript out of range',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'VBE runtime error 9: Subscript out of range',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	invalidEraseTarget: {
 		code: 'invalid-erase-target',
 		title: 'Erase target must be a variable or array name',

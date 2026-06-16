@@ -36,6 +36,7 @@ import {
 	absoluteSpan,
 	activeModuleMembers,
 	bareAssignmentTarget,
+	forEachStatement,
 	forEachVariableGroup,
 	isInactiveNode,
 	localsPassedAsCallArguments,
@@ -782,7 +783,11 @@ function unallocatedDynamicArrayIndexAccesses(
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ name: string; span: Span }> = [];
 	for (let i = 0; i < toks.length - 1; i++) {
-		if (toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
+		if (
+			toks[i + 1].rawText !== '(' ||
+			toks[i - 1]?.rawText === '.' ||
+			toks[i - 1]?.rawText === '!'
+		) {
 			continue;
 		}
 		const name = tokenName(toks[i]);
@@ -1050,4 +1055,181 @@ function splitTopLevelTokenGroups(
 	}
 	groups.push(current);
 	return groups;
+}
+
+interface FixedArrayBound {
+	name: string;
+	lowerValue?: number;
+	upperValue: number;
+	hasExplicitLower: boolean;
+}
+
+/**
+ * Parses the single-dimension literal bounds of a fixed-size array declaration.
+ * Returns undefined unless the declaration has exactly one dimension whose upper
+ * bound folds to a literal integer (statically known). The lower bound is
+ * reported only for an explicit literal `lower To upper` form; a single-bound
+ * `Dim a(n)` leaves the lower bound Option-Base-dependent (0 or 1).
+ */
+function parseFixedArrayBoundsForDecl(
+	source: string,
+	decl: VariableDeclNode,
+): { lowerValue?: number; upperValue: number; hasExplicitLower: boolean } | undefined {
+	const toks = statementTokens(source, decl.span);
+	const open = toks.findIndex((tok) => tok.rawText === '(');
+	if (open < 0) {
+		return undefined;
+	}
+	const close = matchParenFrom(toks, open);
+	if (close < 0) {
+		return undefined;
+	}
+	const dims = splitTopLevelTokenGroups(toks.slice(open + 1, close), ',')
+		.map((part) => part.filter((tok) => tok.kind !== 'comment'))
+		.filter((dimTokens) => dimTokens.length > 0);
+	if (dims.length !== 1) {
+		return undefined; // multi-dimension subscript matching is out of scope (v1)
+	}
+	const bound = comparableArrayBoundKey(dims[0]);
+	if (bound.upperValue === undefined) {
+		return undefined; // non-literal upper bound (e.g. a Const) is not statically known
+	}
+	return {
+		lowerValue: bound.lowerValue,
+		upperValue: bound.upperValue,
+		hasExplicitLower: bound.lowerValue !== undefined,
+	};
+}
+
+/** Local, single-dimension, statically-bounded fixed arrays in a procedure body. */
+function localFixedArrayDeclarationsForBody(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, FixedArrayBound> {
+	const out = new Map<string, FixedArrayBound>();
+	forEachVariableGroup(body as BodyNode[], (group) => {
+		if (group.isConst) {
+			return;
+		}
+		for (const decl of group.declarations) {
+			if (!decl.isArray || !decl.arrayBounds) {
+				continue; // dynamic arrays (no static bounds) are out of scope
+			}
+			const lower = decl.name.toLowerCase();
+			if (out.has(lower)) {
+				continue;
+			}
+			const bounds = parseFixedArrayBoundsForDecl(source, decl);
+			if (bounds) {
+				out.set(lower, { name: decl.name, ...bounds });
+			}
+		}
+	}, activity);
+	return out;
+}
+
+/** Names that are ReDim targets anywhere in the body (defensive exclusion). */
+function redimTargetNamesInBody(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): Set<string> {
+	const out = new Set<string>();
+	forEachStatement(body as BodyNode[], (stmt) => {
+		for (const target of redimStatementTargets(source, stmt.span)) {
+			out.add(target.name.toLowerCase());
+		}
+	}, activity);
+	return out;
+}
+
+/** Literal-subscript accesses of a tracked fixed array that fall outside its bounds. */
+function fixedArraySubscriptViolations(
+	source: string,
+	span: Span,
+	fixed: ReadonlyMap<string, FixedArrayBound>,
+	excluded: ReadonlySet<string>,
+): Array<{ span: Span; message: string }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const out: Array<{ span: Span; message: string }> = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		if (
+			toks[i + 1].rawText !== '(' ||
+			toks[i - 1]?.rawText === '.' ||
+			toks[i - 1]?.rawText === '!'
+		) {
+			continue;
+		}
+		const name = tokenName(toks[i]);
+		const lower = name?.toLowerCase();
+		if (!name || !lower || !fixed.has(lower) || excluded.has(lower)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close <= i + 1) {
+			continue;
+		}
+		const argToks = toks.slice(i + 2, close).filter((tok) => tok.kind !== 'comment');
+		const slots = splitTopLevelTokenGroups(argToks, ',');
+		if (slots.length !== 1 || slots[0].length === 0) {
+			continue; // not a single-subscript index access (multi-dim/empty) -> skip
+		}
+		const value = comparableArrayBoundExpressionValue(slots[0]);
+		if (value === undefined) {
+			continue; // non-literal subscript (variable / Const / member chain) -> not provable
+		}
+		const decl = fixed.get(lower)!;
+		const lowGate = decl.hasExplicitLower ? decl.lowerValue! : 0;
+		if (value <= decl.upperValue && value >= lowGate) {
+			continue; // in bounds (lower of single-bound dims is Option-Base-dependent -> only < 0 flagged)
+		}
+		const slot = slots[0];
+		const detail =
+			value > decl.upperValue
+				? `is above the array's declared upper bound ${decl.upperValue}`
+				: decl.hasExplicitLower
+					? `is below the array's declared lower bound ${decl.lowerValue}`
+					: 'is negative and out of range';
+		out.push({
+			span: { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end },
+			message:
+				`Subscript ${value} for array '${decl.name}' ${detail}. ` +
+				`This will raise Run-time error '9': Subscript out of range.`,
+		});
+	}
+	return out;
+}
+
+/**
+ * Rule: a constant subscript proven outside a LOCAL fixed-size array's declared
+ * bounds raises Run-time error '9' (oracle-verified `runtime006_*`). No-FP scope:
+ * only local, single-dimension fixed arrays with a literal upper bound, accessed
+ * with a literal (or folded signed-integer) subscript, are checked. Dynamic /
+ * ReDim'd arrays, variable/Const subscripts, multi-dimension arrays, parameters,
+ * and the Option-Base-dependent lower region of single-bound `Dim a(n)` decls
+ * stay quiet. Flags subscripts above the upper bound, below an explicit literal
+ * lower bound, or negative.
+ */
+export function checkFixedArraySubscriptBounds(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const fixed = localFixedArrayDeclarationsForBody(source, member.body, activity);
+		if (fixed.size === 0) {
+			continue;
+		}
+		const excluded = redimTargetNamesInBody(source, member.body, activity);
+		forEachStatement(member.body, (stmt) => {
+			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded)) {
+				push('arraySubscriptOutOfBounds', hit.message, hit.span);
+			}
+		}, activity);
+	}
 }

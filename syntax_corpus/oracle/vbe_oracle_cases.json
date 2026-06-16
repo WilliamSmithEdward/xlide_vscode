@@ -933,6 +933,72 @@
       "evidencePhase": "runtime"
     },
     {
+      "id": "runtime006_upper_max_accepted",
+      "description": "Probe: subscript equal to the literal upper bound of a fixed array is valid (boundary control).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(1 To 10) As Long\n    a(10) = 1\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "runtime006_upper_over_rejected",
+      "description": "Probe: subscript above the literal upper bound of a fixed array raises Run-time error 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(1 To 10) As Long\n    a(11) = 1\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "runtime006_explicit_lower_under_rejected",
+      "description": "Probe: subscript below the explicit literal lower bound (Option-Base-independent) raises Run-time error 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(1 To 10) As Long\n    a(0) = 1\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "runtime006_default_upper_over_rejected",
+      "description": "Probe: subscript above the upper bound of a single-bound array (upper is Option-Base-independent) raises Run-time error 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(5) As Long\n    a(6) = 1\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "runtime006_default_base_low_accepted",
+      "description": "Probe (no-FP control): under default Option Base 0, a(0) on a single-bound array is valid; the rule must NOT flag low subscripts when the lower bound is Option-Base-dependent.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-valid",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(5) As Long\n    a(0) = 1\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
+      "id": "runtime006_negative_rejected",
+      "description": "Probe: a negative subscript is always out of range raises Run-time error 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "diagnosticMeaning": "runtime-error",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(5) As Long\n    a(-1) = 1\nEnd Sub\n",
+      "evidencePhase": "runtime"
+    },
+    {
       "id": "number_to_string_assignment_runtime",
       "description": "Runtime control: assigning a numeric literal to a String variable should exercise successful VBA string coercion.",
       "provenance": "vbe-oracle-verified",

@@ -81,6 +81,7 @@ import {
 	checkRedimImpossibleBounds,
 	checkRedimPreserveDimensions,
 	checkUnallocatedDynamicArrayAccess,
+	checkFixedArraySubscriptBounds,
 } from './rules/arrays';
 import {
 	checkDeclarePtrSafeForWin64,
@@ -340,6 +341,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'unallocatedDynamicArrayAccess',
 		run: (ctx, push) => checkUnallocatedDynamicArrayAccess(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'arraySubscriptOutOfBounds',
+		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'eraseTargets',

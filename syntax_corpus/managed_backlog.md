@@ -121,9 +121,9 @@ Index below.
 ### A. Source-file mining burn-down
 
 - [ ] `26_class_and_userform_deep_edges.md` — class/UserForm lifecycle + host-event signature veins remain
-- [ ] `27_semantic_runtime_resolution_edges.md` — error-flow, branch-into-block, Variant-coercion, RUNTIME_006 veins remain
+- [ ] `27_semantic_runtime_resolution_edges.md` — error-flow, branch-into-block, Variant-coercion veins remain (RUNTIME_006 mined)
 - [ ] `excel_vba_realtime_analysis_test_corpus.md` — realtime-recovery tail
-- [ ] `excel_vba_analysis_additional_edge_cases.md` — EXPR_013/014, DECL_003 veins remain
+- [ ] `excel_vba_analysis_additional_edge_cases.md` — EXPR_013/014 veins remain (DECL_003 already covered)
 - [ ] `excel_vba_analysis_final_hardening_cases.md` — residual hardening cases
 - [ ] `xlide_vba_legacy_visible_corpus_edges.md` — GoSub/Return, On-expr-GoTo, Mid-statement target
 - [ ] `xlide_vba_realtime_analysis_final_corpus_addendum.md` — LEGACY_TRANSFER_*, casing
@@ -148,14 +148,14 @@ Added surfaces (this checklist — formerly untracked):
 ### C. Remaining mining veins (construct family → owning surface · gate)
 
 - [ ] `On Error`/`Resume` well-formedness + unreachable-code (ERROR_FLOW_001-005) → error-handling-flow · oracle/spec
-- [ ] constant array subscript outside a fixed declaration bound (RUNTIME_006) → runtime-resolution · oracle (no-FP-safe, high value)
+- [x] constant array subscript outside a fixed declaration bound (RUNTIME_006) → shipped as `array-subscript-out-of-bounds` (oracle-verified `runtime006_*`; adversarially FP-hunted — bang-operator `d!b(N)` mis-binding fixed in both array rules)
 - [ ] host-event signature binding — wrong-signature `Worksheet_`/`Workbook_`/`App_` handlers → host-behavior + module-context · curated event-signature table + oracle
 - [ ] branch-into-block legality (`GoTo`/`On..GoTo` into `If`/`For`/`With`) (BRANCH_BLOCK_*) → legacy-edges · oracle (canary first)
 - [ ] `GoSub`/`Return` + On-expression-`GoTo`/`GoSub` validity (LEGACY_TRANSFER_*) → legacy-edges · oracle
 - [ ] Variant coercion: `Null`/`Empty` operands of `+`/`&` (COERCE_003/004/006/007/008) → runtime-resolution · oracle
 - [ ] public member exposes Private UDT, general form (UDT_004) → type-analysis · oracle
 - [ ] class/UserForm lifecycle + event-handler signature shape → module-context · module-kind fixtures + oracle
-- [ ] `DECL_003` `New` on an intrinsic type (`Dim x As New Long`) → verify vs `invalid-new-type-name`; cover or add
+- [x] `DECL_003` `New` on an intrinsic type (`Dim x As New Long`) → already covered by `invalid-new-type-name` (primitives are non-creatable; regression test in `tests/diagnostics/declarations.test.ts`)
 - [ ] `Like` pattern `[..]` class vs bracketed-identifier; `Is` on non-objects (EXPR_013/014) → tokenizer/type-analysis · verify/oracle
 - [ ] `Mid`/`Mid$` statement non-variable target → legacy-edges · low
 - [ ] `WithEvents As Object` event-source type restriction → object-member/project-binder · deferred-with-reason (needs reference metadata)
