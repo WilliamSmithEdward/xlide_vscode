@@ -121,11 +121,11 @@ Index below.
 ### A. Source-file mining burn-down
 
 - [ ] `26_class_and_userform_deep_edges.md` — class/UserForm lifecycle + host-event signature veins remain
-- [ ] `27_semantic_runtime_resolution_edges.md` — error-flow, branch-into-block, Variant-coercion veins remain (RUNTIME_006 mined)
+- [ ] `27_semantic_runtime_resolution_edges.md` — error-flow + Variant-coercion veins remain (RUNTIME_006 shipped; branch-into-block dispositioned as refute)
 - [ ] `excel_vba_realtime_analysis_test_corpus.md` — realtime-recovery tail
-- [ ] `excel_vba_analysis_additional_edge_cases.md` — EXPR_013/014 veins remain (DECL_003 already covered)
+- [x] `excel_vba_analysis_additional_edge_cases.md` — EXPR_014 (`Like` escaped bracket) refuted, EXPR_013 (`Is` on non-objects) deferred-with-evidence, DECL_003 already covered
 - [ ] `excel_vba_analysis_final_hardening_cases.md` — residual hardening cases
-- [ ] `xlide_vba_legacy_visible_corpus_edges.md` — GoSub/Return, On-expr-GoTo, Mid-statement target
+- [x] `xlide_vba_legacy_visible_corpus_edges.md` — Mid-statement target shipped (`mid-statement-literal-target`); GoSub/Return + On-expr-GoTo dispositioned as refutes (compile-valid); `Return`-without-`GoSub` runtime → binder
 - [ ] `xlide_vba_realtime_analysis_final_corpus_addendum.md` — LEGACY_TRANSFER_*, casing
 - [x] `excel_vba_analysis_limits_boundary_cases.md` — `reference` (mined)
 - [x] `xlide_vba_visible_analysis_corpus_recommendations.md` — `reference`
@@ -150,16 +150,17 @@ Added surfaces (this checklist — formerly untracked):
 - [ ] `On Error`/`Resume` well-formedness + unreachable-code (ERROR_FLOW_001-005) → error-handling-flow · oracle/spec
 - [x] constant array subscript outside a fixed declaration bound (RUNTIME_006) → shipped as `array-subscript-out-of-bounds` (oracle-verified `runtime006_*`; adversarially FP-hunted — bang-operator `d!b(N)` mis-binding fixed in both array rules)
 - [ ] host-event signature binding — wrong-signature `Worksheet_`/`Workbook_`/`App_` handlers → host-behavior + module-context · curated event-signature table + oracle
-- [ ] branch-into-block legality (`GoTo`/`On..GoTo` into `If`/`For`/`With`) (BRANCH_BLOCK_*) → legacy-edges · oracle (canary first)
-- [ ] `GoSub`/`Return` + On-expression-`GoTo`/`GoSub` validity (LEGACY_TRANSFER_*) → legacy-edges · oracle
+- [x] branch-into-block legality (`GoTo`/`On..GoTo` into `If`/`For`/`With`) (BRANCH_BLOCK_*) → **REFUTE**: oracle `branch_block_into_if_probe` compiles clean (compile-valid); VBA permits branching into a structured block. No rule (a hard diagnostic would be a false positive); analyzer already emits nothing. Dispositioned.
+- [x] `GoSub`/`Return` + On-expression-`GoTo`/`GoSub` validity (LEGACY_TRANSFER_*) → **REFUTE (compile)**: oracle `legacy_gosub_return_valid_probe` and `legacy_on_n_goto_bare_numeric_labels_probe` both compile-valid. The bare-numeric-label probe also drove a pre-existing **FP fix**: `undefined-label` no longer fires on a bare numeric line label (`100` alone) referenced by `On n GoTo` (`src/analyzer/flow/procedureLabels.ts`). `Return`-without-`GoSub` is a state-dependent runtime fault → binder. Dispositioned.
 - [ ] Variant coercion: `Null`/`Empty` operands of `+`/`&` (COERCE_003/004/006/007/008) → runtime-resolution · oracle
 - [ ] public member exposes Private UDT, general form (UDT_004) → type-analysis · oracle
 - [ ] class/UserForm lifecycle + event-handler signature shape → module-context · module-kind fixtures + oracle
 - [x] `DECL_003` `New` on an intrinsic type (`Dim x As New Long`) → already covered by `invalid-new-type-name` (primitives are non-creatable; regression test in `tests/diagnostics/declarations.test.ts`)
-- [ ] `Like` pattern `[..]` class vs bracketed-identifier; `Is` on non-objects (EXPR_013/014) → tokenizer/type-analysis · verify/oracle
-- [ ] `Mid`/`Mid$` statement non-variable target → legacy-edges · low
+- [x] `Like` pattern `[..]` class with an escaped literal bracket (`"A[[]#]"`) (EXPR_014) → **REFUTE**: oracle `like_escaped_bracket_pattern_probe` compile-valid; the pattern lives entirely inside one `stringLiteral` token, so it is lexer-stable, not a diagnostic. Dispositioned.
+- [ ] `Is` on non-object operands (EXPR_013) → oracle **confirms compile-error** for value-literal operands (`is_literal_integer_operands_probe`, `is_literal_string_operands_probe`; the `obj Is Nothing` control is accepted). Detection **deferred-with-reason**: the literal-`Is`-literal subset (`1 Is 1`) essentially never occurs in real code and needs operand-boundary analysis to stay no-FP, while the valuable non-object-**variable** case (`scalarVar Is x`) needs the binder. Evidence captured in the oracle corpus for the binder cycle.
+- [x] `Mid`/`Mid$`/`MidB`/`MidB$` statement string-literal target → **SHIPPED** as `mid-statement-literal-target` (compile-error; oracle-verified `mid_stmt_literal_target_probe`, `mid_stmt_no_suffix_literal_target_probe`, `midb_stmt_literal_target_probe`; variable-target control accepted; module-wide shadowing guard; adversarially tested — inactive branch / concat-literal / RHS-function / comparison / member-target all quiet).
 - [ ] `WithEvents As Object` event-source type restriction → object-member/project-binder · deferred-with-reason (needs reference metadata)
-- [ ] continuation-count + line-length limits → limits-boundaries · deterministic, low
+- [ ] continuation-count + line-length limits → limits-boundaries · **deferred-with-reason**: both are deterministic pure-counting checks (genuine no-FP ship-candidates) but no rule fires either today and the exact VBE boundary is not pinned (the `corpus_line_limit_*`/`corpus_cont_limit_*` probes need character-exact fill to bracket the limit). Low value; revisit when the boundary is oracle-pinned.
 - Deferred to **v2.5.0 Goal 1 (binder)**: comparisons, Date, broad arrays, default members, Boolean operators, non-scalar ByRef, PCEC_008 positional-after-named.
 - Deferred (oracle-gateable): `Single`/`Double`/`Decimal`, hex/octal width, `&`/`^`/`!`/`#`/`@`-suffix overflow.
 

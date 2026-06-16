@@ -273,7 +273,13 @@ function statementLabelDeclaration(source: string, span: Span): VbaProcedureLabe
 	if (!label) {
 		return undefined;
 	}
-	if (first.kind === 'integerLiteral' && toks.length > 1) {
+	if (first.kind === 'integerLiteral') {
+		// A leading decimal integer is a line-label declaration whether or not a
+		// statement follows it on the same line: a bare `100` on its own line is a
+		// valid line label (e.g. an `On n GoTo 100` / `GoTo 100` target). Requiring
+		// a trailing statement here previously left bare numeric labels uncollected,
+		// so references to them falsely fired `undefined-label`. `labelFromToken`
+		// already gated non-decimal forms (hex/octal) to undefined above.
 		return label;
 	}
 	if (toks.length >= 2 && toks[1].rawText === ':') {

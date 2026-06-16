@@ -999,3 +999,30 @@ describe('analyzeModule - realtime incomplete-expression recovery (Priority 3 cl
 		expect(byCode(analyzeModule(src), 'unterminated-string')).toHaveLength(1);
 	});
 });
+
+describe('analyzeModule - bare numeric line labels (undefined-label FP fix)', () => {
+	it('treats a bare numeric line label as defined (no false undefined-label)', () => {
+		const src =
+			'Sub T()\n' +
+			'    Dim x As Long\n' +
+			'    x = 1\n' +
+			'    On x GoTo 100, 200\n' +
+			'    Exit Sub\n' +
+			'100\n' +
+			'    Debug.Print "a"\n' +
+			'200\n' +
+			'    Debug.Print "b"\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(0);
+	});
+
+	it('still flags a genuinely undefined numeric label (no over-suppression)', () => {
+		const src =
+			'Sub T()\n' +
+			'    GoTo 999\n' +
+			'100\n' +
+			'    Debug.Print "a"\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(1);
+	});
+});

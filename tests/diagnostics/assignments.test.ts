@@ -2136,3 +2136,80 @@ describe('analyzeModule - assignment no-diagnostic boundary controls (rule audit
 		).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - Mid statement literal target', () => {
+	it('flags a Mid$ statement whose target is a string literal', () => {
+		const src = 'Sub T()\n\tMid$("abcdef", 2, 3) = "XYZ"\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'mid-statement-literal-target');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('"abcdef"');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags a bare Mid (no $) statement whose target is a string literal', () => {
+		const src = 'Sub T()\n\tMid("abcdef", 2) = "zz"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(1);
+	});
+
+	it('flags a MidB$ statement whose target is a string literal', () => {
+		const src = 'Sub T()\n\tMidB$("abcdef", 2) = "z"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(1);
+	});
+
+	it('accepts a Mid$ statement with a writable String variable target', () => {
+		const src = 'Sub T()\n\tDim s As String\n\ts = "abcdef"\n\tMid$(s, 2, 3) = "XYZ"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('does not flag Mid used as a function on the right-hand side', () => {
+		const src = 'Sub T()\n\tDim x As String\n\tx = Mid$("abcdef", 2, 3)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('does not flag a Mid comparison expression (not the Mid statement)', () => {
+		const src = 'Sub T()\n\tDebug.Print Mid$("abcdef", 1, 1) = "a"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('does not flag when the target is not a single string literal', () => {
+		const src = 'Sub T(o As Object)\n\tMid$(o.Name, 2) = "z"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('stays silent for the whole module when a user symbol shadows Mid', () => {
+		const src = 'Sub T()\n\tDim Mid(3) As Variant\n\tMid("0") = "x"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('stays silent when Mid is implicitly declared by a ReDim (no prior Dim)', () => {
+		const src = 'Sub T()\n\tReDim Mid(3) As String\n\tMid("0") = "x"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('stays silent when Mid is implicitly declared by a ReDim Preserve', () => {
+		const src = 'Sub T()\n\tReDim Preserve Mid(3)\n\tMid("0") = "x"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+});
+
+describe('analyzeModule - Mid statement literal target (adversarial)', () => {
+	it('does not flag a Mid literal target inside an inactive #If branch', () => {
+		const src =
+			'Sub T()\n' +
+			'#If False Then\n' +
+			'\tMid$("abcdef", 2, 3) = "XYZ"\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('stays conservative when the target is a concatenated-literal expression', () => {
+		const src = 'Sub T()\n\tMid$("ab" & "cd", 1) = "z"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(0);
+	});
+
+	it('flags a Mid literal target after a numeric line label', () => {
+		const src = 'Sub T()\n100 Mid$("abcdef", 2) = "z"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'mid-statement-literal-target')).toHaveLength(1);
+	});
+});

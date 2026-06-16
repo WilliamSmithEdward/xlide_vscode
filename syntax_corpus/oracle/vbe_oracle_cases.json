@@ -4047,6 +4047,160 @@
       "source": "Option Explicit\nPrivate Type Customer\n    Id As Long\nEnd Type\nPrivate Sub D(ByVal v As Customer)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "mid_stmt_literal_target_probe",
+      "description": "Probe: Mid$ replacement statement with a string-literal target on the LHS of '='.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Mid$(\"abcdef\", 2, 3) = \"XYZ\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "mid_stmt_variable_target_probe",
+      "description": "Control: Mid$ replacement statement with a String variable target (valid).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String\n    s = \"abcdef\"\n    Mid$(s, 2, 3) = \"XYZ\"\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "mid_stmt_no_suffix_literal_target_probe",
+      "description": "Probe: Mid (no $) replacement statement with a string-literal target on the LHS of '='.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Mid(\"abcdef\", 2) = \"zz\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "is_literal_integer_operands_probe",
+      "description": "Probe: object-identity 'Is' operator applied to two integer literals (1 Is 1).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print 1 Is 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "is_literal_string_operands_probe",
+      "description": "Probe: object-identity 'Is' operator applied to two string literals (\"a\" Is \"b\").",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print \"a\" Is \"b\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "is_object_var_vs_nothing_probe",
+      "description": "Control: 'Is' with an object variable vs Nothing (valid object-identity test).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim ws As Object\n    Set ws = Nothing\n    Debug.Print ws Is Nothing\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "legacy_on_n_goto_bare_numeric_labels_probe",
+      "description": "Refute/evidence: On n GoTo with bare numeric line labels (100 / 200 on their own lines).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Long\n    n = 1\n    On n GoTo 100, 200\n    Exit Sub\n100\n    Debug.Print \"first\"\n    Exit Sub\n200\n    Debug.Print \"second\"\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "branch_block_into_if_probe",
+      "description": "Refute: GoTo into the body of an If block compiles (VBA permits branch-into-block).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    GoTo Inside\n    If True Then\nInside:\n        Debug.Print \"inside\"\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "legacy_gosub_return_valid_probe",
+      "description": "Refute: classic GoSub ... Return inside one procedure compiles and runs.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    GoSub Work\n    Exit Sub\nWork:\n    Debug.Print \"work\"\n    Return\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "like_escaped_bracket_pattern_probe",
+      "description": "Refute: Like pattern with an escaped literal bracket (\"A[[]#]\") compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Debug.Print \"A[1]\" Like \"A[[]#]\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "midb_stmt_literal_target_probe",
+      "description": "Probe: MidB$ replacement statement with a string-literal target on the LHS of '='.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    MidB$(\"abcdef\", 2) = \"z\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "mid_shadow_dim_array_probe",
+      "description": "Does an explicit Dim array named Mid shadow the intrinsic so Mid(idx)=x is array assignment?",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim Mid(3) As Variant\n    Mid(\"0\") = \"x\"\n    Debug.Print Mid(\"0\")\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "mid_shadow_redim_implicit_probe",
+      "description": "Does a ReDim-only (implicit declaration) array named Mid shadow the intrinsic?",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    ReDim Mid(3) As String\n    Mid(\"0\") = \"x\"\n    Debug.Print Mid(\"0\")\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "mid_shadow_property_let_probe",
+      "description": "Does a user Property Let named Mid make Mid(key)=value a valid property-let call (the FP the shadowing guard protects)?",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Property Let Mid(ByVal Key As String, ByVal v As String)\nEnd Property\nPublic Sub XlideOracleEntry()\n    Mid(\"x\") = \"y\"\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

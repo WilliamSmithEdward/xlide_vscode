@@ -770,6 +770,22 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "mid-statement-literal-target",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle (mid_stmt_*_probe: a Mid/Mid$ replacement statement whose target is a string literal is a compile error in both the $-suffixed and bare forms; the String-variable-target control compiles and runs) plus MS-VBAL 5.4.3.4 Mid/MidB statement semantics",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "mid_stmt_literal_target_probe",
+        "mid_stmt_no_suffix_literal_target_probe",
+        "midb_stmt_literal_target_probe",
+        "mid_stmt_variable_target_probe"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The left-hand target of a Mid/Mid$/MidB/MidB$ replacement statement must be a writable String variable; a string-literal target (Mid$(\"abc\", 2, 3) = \"XY\") is a VBE compile error (oracle mid_stmt_literal_target_probe, mid_stmt_no_suffix_literal_target_probe, and midb_stmt_literal_target_probe all reject at compile; mid_stmt_variable_target_probe with a String variable target is accepted and runs). No-FP scope: fires only when a statement's first executable token is mid/midb (optionally followed by the $ type-character), immediately followed by '(', whose matching ')' is followed by a top-level '=', and whose first argument slot is exactly one string-literal token. The parser already routes this shape to the dedicated Mid-statement form (parseModule.isMidStatementTarget leaves it raw rather than an assignment), so the token check mirrors that disambiguation. Conservative shadowing guard: if the module names mid/midb in ANY declaration form — a symbol-table entry (Dim/Static/Const/parameter/Function/Property, via symbols.all) or an implicit ReDim array declaration (which the symbol builder does not model) — the rule stays silent for the whole module. Adversarial FP-hunt + oracle finding: there is NO shadow form that makes a literal-target Mid valid — mid_shadow_dim_array_probe (explicit Dim array), mid_shadow_redim_implicit_probe (ReDim-only array), and mid_shadow_property_let_probe (user Property Let Mid) are ALL compile errors. So the guard cannot prevent a real false positive; it is belt-and-suspenders that keeps the rule from touching any module that even mentions a user Mid without a binder. Compile-error diagnosticKind: VBE rejects at compile, so this is a hard (non-downgradeable) diagnostic.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "invalid-erase-target",
       "status": "spec-derived",
       "sourceOfTruth": "VBA Erase statement target-list syntax",

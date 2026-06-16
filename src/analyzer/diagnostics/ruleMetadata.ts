@@ -665,6 +665,17 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	midStatementLiteralTarget: {
+		code: 'mid-statement-literal-target',
+		title: 'Mid statement target must be a writable String variable',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.3.4 (Mid/MidB statement)',
+		confidence: 'high',
+	},
 	invalidEraseTarget: {
 		code: 'invalid-erase-target',
 		title: 'Erase target must be a variable or array name',

@@ -57,6 +57,7 @@ import {
 import {
 	checkAssignmentTypes,
 	checkConstAssignment,
+	checkMidStatementLiteralTarget,
 	checkMissingReturnAssignments,
 	checkSetAssignments,
 } from './rules/assignments';
@@ -345,6 +346,11 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'arraySubscriptOutOfBounds',
 		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'midStatementLiteralTarget',
+		run: (ctx, push) =>
+			checkMidStatementLiteralTarget(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'eraseTargets',

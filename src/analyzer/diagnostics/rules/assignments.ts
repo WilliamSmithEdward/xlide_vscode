@@ -6,6 +6,7 @@
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import { matchParenFrom, splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	ModuleNode,
@@ -63,6 +64,7 @@ import {
 	forEachStatement,
 	setAssignmentTarget,
 	statementTokens,
+	statementTokensAfterLeadingLabel,
 	stripHeaderBrackets,
 	tokenName,
 	tokenText,
@@ -648,5 +650,148 @@ export function checkSetAssignments(
 				target.span,
 			);
 		};
+	};
+}
+
+/**
+ * Rule: the target of a `Mid`/`Mid$`/`MidB`/`MidB$` replacement statement
+ * (MS-VBAL §5.4.3.4) must be a writable String variable. A string-literal
+ * target — `Mid$("abc", 2, 3) = "XY"` — is a compile error (oracle-verified
+ * `mid_stmt_literal_target_probe`, `mid_stmt_no_suffix_literal_target_probe`,
+ * `midb_stmt_literal_target_probe`; the variable-target control
+ * `mid_stmt_variable_target_probe` is accepted).
+ *
+ * No-FP scope: fires only when a statement's first executable token is
+ * `mid`/`midb` (optionally followed by the `$` type-character), immediately
+ * followed by `(`, whose matching `)` is followed by a top-level `=`, and whose
+ * first argument slot is exactly one string-literal token.
+ *
+ * Conservative shadowing guard: if the module names `mid`/`midb` in ANY
+ * declaration form — a symbol-table entry (Dim/Static/Const/parameter/Function/
+ * Property) or an implicit `ReDim` array declaration — the rule stays silent for
+ * the whole module. The oracle confirms no shadow form makes a literal-target
+ * Mid valid (`mid_shadow_dim_array_probe`, `mid_shadow_redim_implicit_probe`,
+ * `mid_shadow_property_let_probe` all compile-error), so this guard is belt-and-
+ * suspenders: it cannot prevent a real false positive, but it keeps the rule from
+ * touching any module that even mentions a user `Mid` without a binder.
+ */
+export function checkMidStatementLiteralTarget(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (moduleShadowsMidIntrinsic(symbols) || moduleRedimDeclaresMidIntrinsic(source, mod, activity)) {
+		return;
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			const hit = midStatementLiteralTargetViolation(source, stmt.span);
+			if (hit) {
+				push('midStatementLiteralTarget', hit.message, hit.span);
+			}
+		}, activity);
+	}
+}
+
+/** Suffix-stripped, lower-cased word for a token (keyword or identifier). */
+function midBaseWord(tok: VbaToken | undefined): string {
+	if (!tok) {
+		return '';
+	}
+	return (tokenName(tok) ?? tok.rawText).toLowerCase().replace(/[$%&!#@]$/, '');
+}
+
+/** True when a module declares any symbol that shadows the Mid/MidB intrinsic. */
+function moduleShadowsMidIntrinsic(symbols: ReturnType<typeof buildModuleSymbols>): boolean {
+	return symbols.all.some((sym) => {
+		const base = sym.name.toLowerCase().replace(/[$%&!#@]$/, '');
+		return base === 'mid' || base === 'midb';
+	});
+}
+
+/**
+ * True when a module implicitly declares an array named `mid`/`midb` via a
+ * `ReDim` with no prior `Dim` (the symbol builder models declared variable groups
+ * only, so a ReDim-only name is absent from `symbols.all`).
+ */
+function moduleRedimDeclaresMidIntrinsic(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): boolean {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		let found = false;
+		forEachStatement(member.body, (stmt) => {
+			if (found) {
+				return;
+			}
+			const toks = statementTokensAfterLeadingLabel(source, stmt.span);
+			if (midBaseWord(toks[0]) !== 'redim') {
+				return;
+			}
+			const start = midBaseWord(toks[1]) === 'preserve' ? 2 : 1;
+			for (const group of splitTopLevelTokenGroups(toks, start, ',')) {
+				const base = midBaseWord(group[0]);
+				if (base === 'mid' || base === 'midb') {
+					found = true;
+					return;
+				}
+			}
+		}, activity);
+		if (found) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function midStatementLiteralTargetViolation(
+	source: string,
+	span: Span,
+): { span: Span; message: string } | undefined {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (toks.length === 0) {
+		return undefined;
+	}
+	// Strip a trailing type-character so both lexings of `Mid$` are handled: a
+	// single `Mid$` token, or `Mid` followed by a separate `$` token (below).
+	const head = midBaseWord(toks[0]);
+	if (head !== 'mid' && head !== 'midb') {
+		return undefined;
+	}
+	let parenIndex = 1;
+	if (toks[parenIndex]?.rawText === '$') {
+		parenIndex = 2;
+	}
+	if (toks[parenIndex]?.rawText !== '(') {
+		return undefined;
+	}
+	const close = matchParenFrom(toks, parenIndex);
+	if (close <= parenIndex + 1) {
+		return undefined; // empty or unbalanced argument list
+	}
+	// The Mid replacement-statement form: the matching `)` is followed by `=`.
+	if (toks[close + 1]?.rawText !== '=') {
+		return undefined;
+	}
+	const argToks = toks.slice(parenIndex + 1, close).filter((tok) => tok.kind !== 'comment');
+	const slots = splitTopLevelTokenGroups(argToks, 0, ',');
+	const target = slots[0];
+	if (!target || target.length !== 1 || target[0].kind !== 'stringLiteral') {
+		return undefined; // target is not exactly one string literal
+	}
+	return {
+		span: { start: span.start + target[0].start, end: span.start + target[0].end },
+		message:
+			"The target of a Mid statement must be a writable String variable, not a " +
+			'string literal. Assigning into a literal is a compile error.',
 	};
 }
