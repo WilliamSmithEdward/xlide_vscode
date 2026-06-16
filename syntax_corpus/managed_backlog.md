@@ -161,7 +161,8 @@ Added surfaces (this checklist — formerly untracked):
 - [x] `Mid`/`Mid$`/`MidB`/`MidB$` statement string-literal target → **SHIPPED** as `mid-statement-literal-target` (compile-error; oracle-verified `mid_stmt_literal_target_probe`, `mid_stmt_no_suffix_literal_target_probe`, `midb_stmt_literal_target_probe`; variable-target control accepted; module-wide shadowing guard; adversarially tested — inactive branch / concat-literal / RHS-function / comparison / member-target all quiet).
 - [ ] `WithEvents As Object` event-source type restriction → object-member/project-binder · deferred-with-reason (needs reference metadata)
 - [ ] continuation-count + line-length limits → limits-boundaries · **deferred-with-reason**: both are deterministic pure-counting checks (genuine no-FP ship-candidates) but no rule fires either today and the exact VBE boundary is not pinned (the `corpus_line_limit_*`/`corpus_cont_limit_*` probes need character-exact fill to bracket the limit). Low value; revisit when the boundary is oracle-pinned.
-- Deferred to **v2.5.0 Goal 1 (binder)**: comparisons, Date, broad arrays, default members, Boolean operators, non-scalar ByRef, PCEC_008 positional-after-named.
+- [x] `PCEC_008` positional-after-named argument → **SHIPPED** under the `argument-count` rule (token-level call extractor; oracle-verified `positional_after_named_argument_compile` + paren/ParamArray forms; legal positional-then-named & all-named controls accepted). No AST change.
+- Deferred to **v2.5.0 Goal 1 (binder)**: comparisons, Date, broad arrays, default members, Boolean operators, non-scalar ByRef.
 - Deferred (oracle-gateable): `Single`/`Double`/`Decimal`, hex/octal width, `&`/`^`/`!`/`#`/`@`-suffix overflow.
 
 ### Won't implement (do NOT re-open from corpus material)
@@ -236,7 +237,8 @@ see `xlide_vba_provable_compile_error_candidates.md`):
 - `PCEC_005` invalid `Const` object type — **REFUTED**: `Const x As Object =
   Nothing` compiles; no rule.
 - `PCEC_008` positional argument after named argument — **oracle-confirmed
-  reject** ("Syntax error"); binder-gated (now feasible — the §5.6 binder exists).
+  reject** ("Syntax error"); ✅ **SHIPPED** under `argument-count` (token-level
+  slot-order scan in `validateArity`; no AST change needed).
 
 ### `realtime-recovery`
 
@@ -347,8 +349,17 @@ Near-term candidates:
 - Object assignment without `Set` where receiver type is statically known.
 - `PCEC_005` invalid `Const` type (object/array `As` clause); fire only on a
   known non-simple type, stay quiet on unresolved/ambiguous type names.
-- `PCEC_008` positional argument after a named argument (binder-gated; queue
-  behind the MS-VBAL 5.6 expression binder).
+- ✅ `PCEC_008` positional argument after a named argument — **SHIPPED** under
+  `argument-count` (token-level slot-order scan; oracle-verified, no AST change).
+- [ ] omitted/empty positional slot mixed with named arguments (`Foo(a:=1, )`,
+  `Foo(a:=1, , c:=3)`) — **false-negative found by the PCEC_008 FP-hunt**: VBE
+  rejects these as "Syntax error" (oracle-confirmed for trailing + middle empties),
+  but the analyzer stays silent (PCEC_008's `slot.length > 0` guard skips empty
+  slots by design). Candidate sibling to PCEC_008 under `argument-count`. Gate:
+  needs full empty-slot-position mapping (leading vs middle vs trailing empties)
+  via the corpus oracle before shipping — leading-empty (`Foo(, , c:=3)`) is not
+  yet oracle-confirmed. Low-to-medium value; no-FP (a missed compile error, not a
+  false positive).
 
 ### `runtime-resolution`
 

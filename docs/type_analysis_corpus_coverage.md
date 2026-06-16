@@ -161,9 +161,12 @@ slices can be selected from named gaps rather than guesses:
   matrix), Date parameters, broad array element/parameter compatibility, default
   members (`VB_UserMemId = 0` implicit calls), Boolean operators
   (`And`/`Or`/`Not`), non-scalar ByRef, flow-sensitive binding / full shadowing,
-  string-concatenation operand typing, and positional-after-named arguments
-  (PCEC_008 — oracle-confirmed but binder-gated, FP-risky without call-shape
-  binding).
+  and string-concatenation operand typing.
+- **Shipped (v2.5.0)**: positional-after-named arguments (PCEC_008) — landed
+  under the `argument-count` rule via the token-level call extractor's slot-order
+  scan; no AST/binder change was needed because named-argument slot shape is
+  already recognized at the token level (oracle-verified, with legal
+  positional-then-named and all-named orderings confirmed accepted).
 - **Carried forward → Version 2.5.0**: external `.vbref.xml` metadata as a
   diagnostic source; `Event`/`WithEvents`/`Implements` member binding.
 

@@ -235,6 +235,68 @@ describe('analyzeModule - argument count', () => {
 		expectDiagnostics(src, hits, 'argument-count', [{ span: 'alpha' }, { span: 'ALPHA' }]);
 	});
 
+	it('flags a positional argument after a named argument (PCEC_008)', () => {
+		const src =
+			'Sub Main()\n' +
+			'    NamedArgs alpha:=1, 2\n' +
+			'End Sub\n' +
+			'Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('2');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags a positional after a named argument in a parenthesized function call', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim r As Long\n' +
+			'    r = FNamed(alpha:=1, 2)\n' +
+			'End Sub\n' +
+			'Function FNamed(ByVal alpha As Long, ByVal beta As Long) As Long\nEnd Function\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('2');
+	});
+
+	it('reports positional-after-named only once per call', () => {
+		const src =
+			'Sub Main()\n' +
+			'    NamedArgs alpha:=1, 2, 3\n' +
+			'End Sub\n' +
+			'Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('2');
+	});
+
+	it('accepts positional arguments followed by named arguments (legal ordering)', () => {
+		const src =
+			'Sub Main()\n' +
+			'    NamedArgs 1, beta:=2\n' +
+			'End Sub\n' +
+			'Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('accepts all-named arguments (no positional after a named one)', () => {
+		const src =
+			'Sub Main()\n' +
+			'    NamedArgs alpha:=1, beta:=2\n' +
+			'End Sub\n' +
+			'Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('does not flag a plain positional call with no named arguments', () => {
+		const src =
+			'Sub Main()\n' +
+			'    NamedArgs 1, 2\n' +
+			'End Sub\n' +
+			'Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
 	it('accepts a valid named argument', () => {
 		const src =
 			'Sub Main()\n' +

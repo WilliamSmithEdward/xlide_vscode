@@ -34,8 +34,13 @@ completes the binder and cashes it in for the deferred type families:
     assignment and call sites; quiet when the default member is unknown).
   - Boolean operators (`And`/`Or`/`Not`, numeric→Boolean).
   - Non-scalar ByRef (object refs, arrays, `Variant`, named arguments).
-  - String-concatenation operand typing; positional-after-named arguments
-    (PCEC_008 — oracle-confirmed, binder-gated).
+  - String-concatenation operand typing.
+  - ✅ Positional-after-named arguments (PCEC_008) — **shipped** under the
+    `argument-count` rule via the token-level call extractor (no AST change
+    needed; oracle-verified `positional_after_named_argument_compile` plus the
+    paren-call and ParamArray forms, with the legal positional-then-named and
+    all-named orderings confirmed accepted). Fires only on the first non-empty
+    positional slot after a named slot, scoped to resolved callees.
 
 Definition of done: the binder is complete enough that each family above either
 ships with the three controls + a named source, or is explicitly deferred with a

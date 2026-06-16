@@ -356,6 +356,33 @@ export function validateArity(
 
 	const named = call.slots.filter(isNamedSlot);
 	if (named.length > 0) {
+		// PCEC_008: a positional argument may not follow a named argument. VBE
+		// rejects this at compile as "Syntax error" regardless of the signature
+		// (oracle positional_after_named_argument_compile). Pure slot-order syntax:
+		// once a named slot is seen, the first NON-EMPTY positional slot after it is
+		// the violation — so `f(a:=1, , 3)` fires on the `3`. An empty slot is not a
+		// positional value, so it is skipped here; only a real positional value after
+		// a named one trips this, while the legal `f(1, b:=2)` ordering stays quiet.
+		// (VBE additionally rejects an omitted/empty slot mixed with named args, e.g.
+		// `f(a:=1, )`; that is a separate, not-yet-shipped check — see managed_backlog.)
+		let sawNamed = false;
+		for (const slot of call.slots) {
+			if (isNamedSlot(slot)) {
+				sawNamed = true;
+				continue;
+			}
+			if (sawNamed && slot.length > 0) {
+				push(
+					'argumentCount',
+					`A positional argument may not follow a named argument in the call to '${displayName}'.`,
+					{
+						start: call.sliceStart + slot[0].start,
+						end: call.sliceStart + slot[slot.length - 1].end,
+					},
+				);
+				break; // one syntax error per call, matching VBE
+			}
+		}
 		const paramNames = new Set(
 			params.map((p) => stripHeaderBrackets(p.name).toLowerCase()),
 		);

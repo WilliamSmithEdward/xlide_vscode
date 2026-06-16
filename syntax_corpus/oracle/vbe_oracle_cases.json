@@ -4201,6 +4201,50 @@
       "source": "Public Property Let Mid(ByVal Key As String, ByVal v As String)\nEnd Property\nPublic Sub XlideOracleEntry()\n    Mid(\"x\") = \"y\"\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "positional_then_named_argument_ok_compile",
+      "description": "Control: positional argument BEFORE a named argument is the legal ordering (must compile).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NamedArgs 1, beta:=2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "named_then_named_argument_ok_compile",
+      "description": "Control: all-named arguments compile (no positional after a named one).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub NamedArgs(ByVal alpha As Long, ByVal beta As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    NamedArgs alpha:=1, beta:=2\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "positional_after_named_paren_call_compile",
+      "description": "PCEC_008 paren form: positional after named in a parenthesized function call (compile error).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Function FNamed(ByVal alpha As Long, ByVal beta As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = FNamed(alpha:=1, 2)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "positional_after_named_paramarray_compile",
+      "description": "PCEC_008 with a ParamArray callee: positional after named still a compile error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub PNamed(ByVal alpha As Long, ParamArray rest() As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    PNamed alpha:=1, 2, 3\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

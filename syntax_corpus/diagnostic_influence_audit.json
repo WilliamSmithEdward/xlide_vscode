@@ -280,12 +280,17 @@
         "missing_trailing_required_argument",
         "missing_leading_required_argument",
         "duplicate_named_argument_compile",
+        "positional_after_named_argument_compile",
+        "positional_after_named_paren_call_compile",
+        "positional_after_named_paramarray_compile",
+        "positional_then_named_argument_ok_compile",
+        "named_then_named_argument_ok_compile",
         "normal_function_call"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Named-argument checks report unknown parameter names and duplicate named parameters case-insensitively, with duplicate behavior backed by the VBE oracle's Named argument already specified compile error. Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name."
+      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Named-argument checks report unknown parameter names and duplicate named parameters case-insensitively, with duplicate behavior backed by the VBE oracle's Named argument already specified compile error. PCEC_008: a positional argument after a named argument is a VBE compile 'Syntax error' (oracle positional_after_named_argument_compile, plus the paren-call and ParamArray forms positional_after_named_paren_call_compile / positional_after_named_paramarray_compile - both rejected regardless of signature; the legal positional-then-named and all-named orderings positional_then_named_argument_ok_compile / named_then_named_argument_ok_compile compile). This check is pure slot-order syntax (independent of the resolved signature) and fires only on the first NON-EMPTY positional slot after a named slot, so omitted slots (f(a:=1, , 3)) and the legal positional-then-named ordering stay quiet. It runs inside validateArity, so it is naturally scoped to resolved callees (unknown callees stay silent - an accepted no-FP false negative). Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name."
     },
     {
       "code": "argument-type-mismatch",
