@@ -297,6 +297,58 @@ describe('analyzeModule - argument count', () => {
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
+	it('flags an omitted argument after a named argument (trailing)', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim r As Long\n' +
+			'    r = FOpt(a:=1, )\n' +
+			'End Sub\n' +
+			'Function FOpt(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n';
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain('omitted argument may not follow a named argument');
+	});
+
+	it('flags an omitted argument between named arguments', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim r As Long\n' +
+			'    r = FOpt(a:=1, , c:=3)\n' +
+			'End Sub\n' +
+			'Function FOpt(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(1);
+	});
+
+	it('accepts an omitted argument before a named argument (legal)', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim r As Long\n' +
+			'    r = FOpt(, b:=2)\n' +
+			'End Sub\n' +
+			'Function FOpt(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('accepts a positional, omitted, then named ordering (legal)', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim r As Long\n' +
+			'    r = FOpt(1, , c:=3)\n' +
+			'End Sub\n' +
+			'Function FOpt(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('accepts an omitted positional argument when no named arguments are present', () => {
+		const src =
+			'Sub Main()\n' +
+			'    Dim r As Long\n' +
+			'    r = FOpt(1, , 3)\n' +
+			'End Sub\n' +
+			'Function FOpt(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
 	it('accepts a valid named argument', () => {
 		const src =
 			'Sub Main()\n' +

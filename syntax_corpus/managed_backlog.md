@@ -351,15 +351,16 @@ Near-term candidates:
   known non-simple type, stay quiet on unresolved/ambiguous type names.
 - ✅ `PCEC_008` positional argument after a named argument — **SHIPPED** under
   `argument-count` (token-level slot-order scan; oracle-verified, no AST change).
-- [ ] omitted/empty positional slot mixed with named arguments (`Foo(a:=1, )`,
-  `Foo(a:=1, , c:=3)`) — **false-negative found by the PCEC_008 FP-hunt**: VBE
-  rejects these as "Syntax error" (oracle-confirmed for trailing + middle empties),
-  but the analyzer stays silent (PCEC_008's `slot.length > 0` guard skips empty
-  slots by design). Candidate sibling to PCEC_008 under `argument-count`. Gate:
-  needs full empty-slot-position mapping (leading vs middle vs trailing empties)
-  via the corpus oracle before shipping — leading-empty (`Foo(, , c:=3)`) is not
-  yet oracle-confirmed. Low-to-medium value; no-FP (a missed compile error, not a
-  false positive).
+- [x] omitted/empty positional slot **after** a named argument (`Foo(a:=1, )`,
+  `Foo(a:=1, , c:=3)`) — **SHIPPED** under `argument-count` by unifying with PCEC_008:
+  "nothing positional may follow a named argument" now covers both a positional
+  value and an omitted slot. Empty-slot-position matrix oracle-mapped: an omission
+  AFTER a named arg is rejected (`omit_trailing_after_named_compile`,
+  `omit_middle_between_named_compile`), while omissions BEFORE the first named arg
+  stay legal (`omit_leading_before_named_compile` `Foo(, b:=2)`,
+  `omit_positional_then_omit_then_named_compile` `Foo(1, , c:=3)`, baseline
+  `omit_baseline_no_named_compile` `Foo(1, , 3)`). Distinct message ("An omitted
+  argument may not follow a named argument").
 
 ### `runtime-resolution`
 

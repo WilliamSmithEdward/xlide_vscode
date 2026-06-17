@@ -4300,6 +4300,72 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim arr() As Long\n    Debug.Print arr Is Nothing\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "omit_baseline_no_named_compile",
+      "description": "Baseline: omitted optional positional slot with NO named args is legal.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Function F(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = F(1, , 3)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "omit_trailing_after_named_compile",
+      "description": "Omitted (trailing) slot after a named arg.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Function F(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = F(a:=1, )\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "omit_middle_between_named_compile",
+      "description": "Omitted slot between two named args.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Function F(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = F(a:=1, , c:=3)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "omit_leading_before_named_compile",
+      "description": "Omitted (leading) slot then a named arg.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Function F(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = F(, b:=2)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "omit_positional_then_omit_then_named_compile",
+      "description": "Positional, omitted, then named.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Function F(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = F(1, , c:=3)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "omit_two_leading_then_named_compile",
+      "description": "Two omitted leading slots then a named arg.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Function F(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = F(, , c:=3)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
