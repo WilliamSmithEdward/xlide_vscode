@@ -321,13 +321,38 @@ export interface MemberAccessExpr extends ExprBase {
 	object: ExprNode | null;
 	member: string;
 	memberSpan: Span;
+	/**
+	 * `'bang'` for the `receiver!name` form (sugar for the receiver's default
+	 * member indexed by the string `"name"`, e.g. `rs!Field` ≈ `rs.Fields("Field")`).
+	 * Omitted / `'dot'` for ordinary `.member` access. Bang names are NOT literal
+	 * members of the receiver type, so member-existence rules must treat them
+	 * differently from dot access.
+	 */
+	accessKind?: 'dot' | 'bang';
+}
+
+/**
+ * One entry in a call / index argument list (MS-VBAL §5.6.9 argument-list and
+ * §5.4.2 call-statement argument-list). VBA arguments may be positional, named
+ * (`name:=value`), or omitted (`Foo(a, , c)` — an empty slot that tells the
+ * callee to use the parameter's default).
+ */
+export interface Argument {
+	/** Named-argument name (without the `:=`), or undefined for a positional arg. */
+	name?: string;
+	/** Span of the name token, when `name` is present. */
+	nameSpan?: Span;
+	/** The argument value expression, or null for an omitted slot. */
+	value: ExprNode | null;
+	/** Span of the whole argument entry (name + value, or just the value). */
+	span: Span;
 }
 
 /** `callee(arg, ...)` — covers function calls and array indexing. */
 export interface IndexExpr extends ExprBase {
 	exprKind: 'IndexExpr';
 	callee: ExprNode;
-	args: ExprNode[];
+	args: Argument[];
 }
 
 /**
@@ -419,7 +444,7 @@ export interface CallNode extends NodeBase {
 	kind: 'Call';
 	hasCallKeyword: boolean;
 	callee: ExprNode;
-	args: ExprNode[];
+	args: Argument[];
 }
 
 /** Generic catch-all statement (Exit, GoTo, label, Return, and anything not yet

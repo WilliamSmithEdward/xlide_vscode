@@ -68,6 +68,14 @@ describe('parseModule - assignment statements (MS-VBAL 5.4.3)', () => {
 		expect(assignment('obj.Prop = 5').lhs.exprKind).toBe('MemberAccessExpr');
 	});
 
+	it('parses a bang member-access assignment RHS', () => {
+		expect(assignment('x = rs!Name').rhs.exprKind).toBe('MemberAccessExpr');
+	});
+
+	it('parses a bang member-access assignment target', () => {
+		expect(assignment('rs!Name = 1').lhs.exprKind).toBe('MemberAccessExpr');
+	});
+
 	it('parses a leading-dot (With) assignment target', () => {
 		const a = assignment('.Value = 1');
 		expect(a.lhs.exprKind).toBe('MemberAccessExpr');
@@ -115,6 +123,35 @@ describe('parseModule - call statements (MS-VBAL 5.4.2)', () => {
 		expect(c.hasCallKeyword).toBe(false);
 		expect(c.args).toHaveLength(0);
 	});
+
+	it('parses a parenless call with a named argument', () => {
+		const c = call('Foo a:=1');
+		expect(c.hasCallKeyword).toBe(false);
+		expect(c.args).toHaveLength(1);
+		expect(c.args[0].name).toBe('a');
+		expect(c.args[0].value?.exprKind).toBe('LiteralExpr');
+	});
+
+	it('parses a parenless call mixing positional and named arguments', () => {
+		const c = call('MsgBox "hi", Buttons:=vbOKOnly');
+		expect(c.args).toHaveLength(2);
+		expect(c.args[0].name).toBeUndefined();
+		expect(c.args[1].name).toBe('Buttons');
+	});
+
+	it('parses an explicit Call with named and omitted arguments', () => {
+		const c = call('Call Foo(1, , After:=3)');
+		expect(c.hasCallKeyword).toBe(true);
+		expect(c.args).toHaveLength(3);
+		expect(c.args[1].value).toBeNull();
+		expect(c.args[2].name).toBe('After');
+	});
+
+	it('parses a standalone parenthesised call with an omitted argument', () => {
+		const c = call('Foo(1, , 3)');
+		expect(c.args).toHaveLength(3);
+		expect(c.args.map((a) => a.value === null)).toEqual([false, true, false]);
+	});
 });
 
 describe('parseModule - must stay raw (no-regression boundary)', () => {
@@ -125,8 +162,6 @@ describe('parseModule - must stay raw (no-regression boundary)', () => {
 		['a Mid$ replacement statement', 'Mid$(s, 1, 2) = "x"'],
 		['a MidB byte replacement statement', 'MidB(s, 1, 2) = "x"'],
 		['a MidB$ byte replacement statement', 'MidB$(s, 1, 2) = "x"'],
-		['a named argument (not modeled in this slice)', 'Foo a:=1'],
-		['an omitted argument', 'Foo(1, , 3)'],
 		['a GoTo statement', 'GoTo done'],
 		['an Exit statement', 'Exit Sub'],
 		['an On Error statement', 'On Error GoTo 0'],

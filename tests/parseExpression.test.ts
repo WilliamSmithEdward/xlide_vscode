@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { tokenize } from '../src/analyzer/lexer/tokenize';
 import { parseExpression } from '../src/analyzer/parser/parseExpression';
 import {
+	Argument,
 	BinaryExpr,
 	ExprNode,
 	IdentifierExpr,
@@ -50,11 +51,12 @@ function shape(expr: ExprNode | null): string {
 		}
 		case 'MemberAccessExpr': {
 			const m = expr as MemberAccessExpr;
-			return `${m.object ? shape(m.object) : ''}.${m.member}`;
+			const op = m.accessKind === 'bang' ? '!' : '.';
+			return `${m.object ? shape(m.object) : ''}${op}${m.member}`;
 		}
 		case 'IndexExpr': {
 			const idx = expr as IndexExpr;
-			return `${shape(idx.callee)}(${idx.args.map(shape).join(', ')})`;
+			return `${shape(idx.callee)}(${idx.args.map(showArg).join(', ')})`;
 		}
 		case 'ParenExpr':
 			return `(${shape((expr as ParenExpr).inner)})`;
@@ -77,6 +79,14 @@ function shape(expr: ExprNode | null): string {
 		default:
 			return '?';
 	}
+}
+
+/** Render one argument-list entry: `<omitted>`, `name:=value`, or a bare value. */
+function showArg(arg: Argument): string {
+	if (arg.value === null) {
+		return '<omitted>';
+	}
+	return arg.name ? `${arg.name}:=${shape(arg.value)}` : shape(arg.value);
 }
 
 describe('parseExpression - primaries (MS-VBAL 5.6)', () => {
@@ -187,6 +197,52 @@ describe('parseExpression - member access and calls (MS-VBAL 5.6.9)', () => {
 
 	it('parses nested indexing', () => {
 		expect(shape(parseOk('grid(1)(2)'))).toBe('grid(1)(2)');
+	});
+
+	it('parses named arguments (name:=value)', () => {
+		expect(shape(parseOk('Foo(a, b:=2)'))).toBe('Foo(a, b:=2)');
+		const idx = parseOk('Cells(Row:=1, Column:=2)') as IndexExpr;
+		expect(idx.args.map((a) => a.name)).toEqual(['Row', 'Column']);
+		expect(idx.args[0].nameSpan).toBeDefined();
+	});
+
+	it('parses omitted arguments (empty slots)', () => {
+		expect(shape(parseOk('Foo(1, , 3)'))).toBe('Foo(1, <omitted>, 3)');
+		expect(shape(parseOk('Foo(, 2)'))).toBe('Foo(<omitted>, 2)');
+		const idx = parseOk('Foo(1, , 3)') as IndexExpr;
+		expect(idx.args[1].value).toBeNull();
+	});
+
+	it('parses a named argument whose value is itself an expression', () => {
+		expect(shape(parseOk('Foo(After:=ws.Range("A1"))'))).toBe('Foo(After:=ws.Range("A1"))');
+	});
+
+	it('parses bang member access (receiver!name)', () => {
+		expect(shape(parseOk('rs!Name'))).toBe('rs!Name');
+		const m = parseOk('rs!Name') as MemberAccessExpr;
+		expect(m.accessKind).toBe('bang');
+		expect(m.member).toBe('Name');
+	});
+
+	it('parses bang access with a bracketed name and on a call result', () => {
+		// A bracketed bang name is unwrapped in the AST member field (same as a
+		// bracketed identifier or dotted bracketed member).
+		const bracketed = parseOk('rs![Order Date]') as MemberAccessExpr;
+		expect(bracketed.accessKind).toBe('bang');
+		expect(bracketed.member).toBe('Order Date');
+		expect(shape(parseOk('Cells(1, 1)!Foo'))).toBe('Cells(1, 1)!Foo');
+		expect(shape(parseOk('rs!First.Value'))).toBe('rs!First.Value');
+	});
+
+	it('does NOT treat a Single type-suffix ! as bang', () => {
+		// `!` followed by an operator, a keyword, or whitespace-then-token is the
+		// Single type-declaration suffix, not bang. The parser leaves the trailing
+		// `!` unconsumed (the receiver alone is returned).
+		const single = parse('x! + 1');
+		expect((single.expr as IdentifierExpr).name).toBe('x');
+		expect(single.endIndex).toBe(1); // only `x` consumed; `!` left to the caller
+		const andCase = parse('a! And b');
+		expect((andCase.expr as IdentifierExpr).name).toBe('a');
 	});
 });
 

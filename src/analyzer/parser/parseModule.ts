@@ -71,7 +71,7 @@ import {
 	WhileBlockNode,
 	WithBlockNode,
 } from './nodes';
-import { ExprParseResult, parseExpression } from './parseExpression';
+import { ExprParseResult, parseExpression, parseParenlessArguments } from './parseExpression';
 import {
 	codeTokens,
 	LogicalStatement,
@@ -1128,16 +1128,9 @@ class Parser {
 			// `Call Foo 1, 2` is the call-requires-parens error shape — leave raw.
 			return undefined;
 		}
-		const args: ExprNode[] = [];
-		for (const group of splitTopLevelTokenGroups(tokens, parsed.endIndex, ',')) {
-			if (group.length === 0) {
-				return undefined; // omitted argument — not modeled in this slice
-			}
-			const arg = parseExpression(group, 0, group.length);
-			if (!fullyConsumed(arg, group.length)) {
-				return undefined; // named arg, bang access, malformed, or other unmodeled shape
-			}
-			args.push(arg.expr);
+		const args = parseParenlessArguments(tokens, parsed.endIndex, tokens.length);
+		if (!args) {
+			return undefined; // bang access or other unmodeled / malformed shape — leave raw
 		}
 		return { kind: 'Call', hasCallKeyword: false, callee: parsed.expr, args, span };
 	}

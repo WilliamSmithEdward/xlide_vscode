@@ -17,18 +17,19 @@
 //     position, records a diagnostic, and returns a best-effort node so callers
 //     (and recovery) keep working — the same Phase 3 contract parseModule uses.
 //   * Every node carries an absolute source span built from token offsets.
-//   * Scope (Slice 1): literals, identifiers, parenthesised expressions,
-//     member-access chains (including the leading-dot With form), index/call
-//     expressions with POSITIONAL arguments, unary -/+/Not, and the full binary
-//     operator precedence ladder, plus New / AddressOf / TypeOf...Is.
-//   * Deferred (later slices): named arguments (`name:=expr`), omitted arguments
-//     (`f(1, , 3)`), and bang member access (`obj!name`). A statement containing
-//     those still falls back to a raw StatementNode upstream — no regression.
+//   * Scope: literals, identifiers, parenthesised expressions, member-access
+//     chains (including the leading-dot With form), index/call expressions with
+//     positional, named (`name:=expr`), and omitted (`f(1, , 3)`) arguments,
+//     unary -/+/Not, and the full binary operator precedence ladder, plus
+//     New / AddressOf / TypeOf...Is, and bang member access (`obj!name`).
+//   * The §5.6 expression grammar is now fully modeled; statements no longer fall
+//     back to raw for named/omitted arguments or bang access.
 
 import { VbaToken } from '../lexer/tokenKinds';
 import { isIdentLike, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
 	AddressOfExpr,
+	Argument,
 	BinaryExpr,
 	BinaryOperator,
 	ExprNode,
@@ -132,6 +133,19 @@ export function parseExpression(
 	const parser = new ExpressionParser(tokens, from, to);
 	const expr = parser.parse();
 	return { expr, diagnostics: parser.diagnostics, endIndex: parser.index };
+}
+
+/**
+ * Parse a parenless call-statement argument list from tokens[from, to). Returns
+ * null when any present argument is malformed (the caller falls back to a raw
+ * statement). Supports positional, named (`name:=value`), and omitted arguments.
+ */
+export function parseParenlessArguments(
+	tokens: readonly VbaToken[],
+	from: number,
+	to: number,
+): Argument[] | null {
+	return new ExpressionParser(tokens, from, to).parseParenlessArgumentList();
 }
 
 class ExpressionParser {
@@ -389,15 +403,53 @@ class ExpressionParser {
 				expr = indexed;
 				continue;
 			}
+			// Bang member access: `receiver!name` / `receiver![Bracketed Name]`.
+			// Disambiguated from the `!` Single type-declaration suffix by requiring
+			// the `!` to be glued to both the receiver and a plain (non-keyword)
+			// identifier or bracketed name — canonical bang syntax. A `!` followed by
+			// an operator, a keyword (`a! And b`), whitespace, or end-of-statement is
+			// a type-suffix / stray operator and is left to the caller (stays raw).
+			const bang = this.bangMemberAccess(expr, token);
+			if (bang) {
+				expr = bang;
+				continue;
+			}
 			break;
 		}
 		return expr;
 	}
 
-	/** `callee(args)` — positional arguments only in Slice 1. */
+	/** Build a `receiver!name` bang member-access node, or null when `!` is not a bang. */
+	private bangMemberAccess(receiver: ExprNode, bangToken: VbaToken): MemberAccessExpr | null {
+		if (bangToken.kind !== 'operator' || bangToken.rawText !== '!') {
+			return null;
+		}
+		const nameTok = this.peekAt(1);
+		if (
+			!nameTok ||
+			!(nameTok.kind === 'identifier' || nameTok.kind === 'bracketedIdentifier') ||
+			bangToken.start !== this.spanOf(receiver).end || // `!` glued to receiver
+			nameTok.start !== bangToken.end // name glued to `!`
+		) {
+			return null;
+		}
+		this.next(); // consume !
+		this.next(); // consume name
+		const member = tokenName(nameTok) ?? nameTok.rawText;
+		return {
+			exprKind: 'MemberAccessExpr',
+			object: receiver,
+			member,
+			memberSpan: { start: nameTok.start, end: nameTok.end },
+			accessKind: 'bang',
+			span: { start: this.spanOf(receiver).start, end: nameTok.end },
+		};
+	}
+
+	/** `callee(args)` — positional, named (`name:=expr`), and omitted (`f(1, , 3)`) arguments. */
 	private parseIndex(callee: ExprNode): IndexExpr | null {
 		const open = this.next()!; // consume '('
-		const args: ExprNode[] = [];
+		const args: Argument[] = [];
 		// Empty argument list: `callee()`.
 		if (this.peek()?.kind === 'punctuation' && this.peek()!.rawText === ')') {
 			const close = this.next()!;
@@ -409,7 +461,7 @@ class ExpressionParser {
 			};
 		}
 		for (;;) {
-			const arg = this.parseBinary(0);
+			const arg = this.parseArgument(')');
 			if (!arg) {
 				this.diag(this.peek() ?? open, 'Expected an argument expression.');
 				return null;
@@ -432,6 +484,87 @@ class ExpressionParser {
 			this.diag(sep ?? open, "Expected ',' or ')' in argument list.");
 			return null;
 		}
+	}
+
+	/**
+	 * Parse a parenless (call-statement) argument list from the parser's remaining
+	 * tokens. Returns null when any present argument is malformed so the caller can
+	 * fall back to a raw statement; an empty trailing slot after a `,` (`Foo a,`) is
+	 * treated as malformed rather than an omission, preserving the conservative
+	 * no-regression boundary.
+	 */
+	parseParenlessArgumentList(): Argument[] | null {
+		const args: Argument[] = [];
+		for (;;) {
+			const arg = this.parseArgument(undefined);
+			if (!arg) {
+				return null;
+			}
+			args.push(arg);
+			const sep = this.peek();
+			if (!sep) {
+				return args; // reached the end of the slice
+			}
+			if (sep.kind === 'punctuation' && sep.rawText === ',') {
+				this.next();
+				continue;
+			}
+			return null; // unexpected trailing token — malformed
+		}
+	}
+
+	/**
+	 * Parse a single argument: an optional `name:=` prefix then a value, or an
+	 * omitted slot (an empty position before a `,` or the terminator). Returns null
+	 * only when a value is expected but fails to parse, so the caller falls back to
+	 * raw. `terminator` is `)` for a parenthesised list, or undefined for a parenless
+	 * list (which ends at the slice boundary, never an omission).
+	 */
+	private parseArgument(terminator: ')' | undefined): Argument | null {
+		const head = this.peek();
+		// Omitted slot: the position is empty (the next token is a separator or the
+		// list terminator). Modeled as a zero-width span at that position.
+		if (this.atArgumentBoundary(head, terminator)) {
+			const pos = head!.start;
+			return { value: null, span: { start: pos, end: pos } };
+		}
+		if (!head) {
+			return null;
+		}
+		// Named argument: `name := value`.
+		let name: string | undefined;
+		let nameSpan: Span | undefined;
+		const colonEq = this.peekAt(1);
+		if (
+			this.isMemberName(head) &&
+			colonEq &&
+			colonEq.kind === 'operator' &&
+			colonEq.rawText === ':='
+		) {
+			name = tokenName(head) ?? head.rawText;
+			nameSpan = { start: head.start, end: head.end };
+			this.next(); // consume name
+			this.next(); // consume :=
+		}
+		const value = this.parseBinary(0);
+		if (!value) {
+			return null;
+		}
+		const start = nameSpan ? nameSpan.start : this.spanOf(value).start;
+		return { name, nameSpan, value, span: { start, end: this.spanOf(value).end } };
+	}
+
+	/** True when the current position is an empty argument slot (a `,` or terminator). */
+	private atArgumentBoundary(token: VbaToken | undefined, terminator: ')' | undefined): boolean {
+		if (!token || token.kind !== 'punctuation') {
+			return false;
+		}
+		return token.rawText === ',' || (terminator !== undefined && token.rawText === terminator);
+	}
+
+	private peekAt(offset: number): VbaToken | undefined {
+		const i = this.index + offset;
+		return i < this.to ? this.tokens[i] : undefined;
 	}
 
 	private isMemberName(token: VbaToken): boolean {

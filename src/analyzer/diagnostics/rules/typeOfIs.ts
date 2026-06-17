@@ -109,7 +109,9 @@ function forEachTypeOfIs(
 			case 'Call':
 				forEachTypeOfIsInExpr(node.callee, visit);
 				for (const arg of node.args) {
-					forEachTypeOfIsInExpr(arg, visit);
+					if (arg.value) {
+						forEachTypeOfIsInExpr(arg.value, visit);
+					}
 				}
 				break;
 			case 'IfBlock':
@@ -149,7 +151,9 @@ function forEachTypeOfIsInExpr(expr: ExprNode, visit: (expr: TypeOfIsExpr) => vo
 		case 'IndexExpr':
 			forEachTypeOfIsInExpr(expr.callee, visit);
 			for (const arg of expr.args) {
-				forEachTypeOfIsInExpr(arg, visit);
+				if (arg.value) {
+					forEachTypeOfIsInExpr(arg.value, visit);
+				}
 			}
 			break;
 		case 'MemberAccessExpr':
@@ -319,7 +323,9 @@ function forEachIsBinary(
 			case 'Call':
 				forEachIsBinaryInExpr(node.callee, visit);
 				for (const arg of node.args) {
-					forEachIsBinaryInExpr(arg, visit);
+					if (arg.value) {
+						forEachIsBinaryInExpr(arg.value, visit);
+					}
 				}
 				break;
 			case 'IfBlock':
@@ -360,7 +366,9 @@ function forEachIsBinaryInExpr(expr: ExprNode, visit: (expr: BinaryExpr) => void
 		case 'IndexExpr':
 			forEachIsBinaryInExpr(expr.callee, visit);
 			for (const arg of expr.args) {
-				forEachIsBinaryInExpr(arg, visit);
+				if (arg.value) {
+					forEachIsBinaryInExpr(arg.value, visit);
+				}
 			}
 			break;
 		case 'MemberAccessExpr':
