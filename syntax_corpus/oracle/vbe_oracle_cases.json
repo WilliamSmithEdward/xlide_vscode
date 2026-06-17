@@ -4245,6 +4245,61 @@
       "source": "Public Sub PNamed(ByVal alpha As Long, ParamArray rest() As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    PNamed alpha:=1, 2, 3\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "is_scalar_long_var_compile",
+      "description": "The Is operator with a Long-declared (provably scalar) operand is a compile error (Object required).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Long\n    Debug.Print n Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "is_scalar_string_var_compile",
+      "description": "The Is operator with a String-declared (scalar) operand is a compile error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim s As String\n    Debug.Print s Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "is_two_scalar_vars_compile",
+      "description": "The Is operator with two scalar (Long) operands is a compile error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a As Long, b As Long\n    Debug.Print a Is b\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "is_variant_var_ok_compile",
+      "description": "Control: the Is operator with a Variant operand compiles (a Variant can hold an object reference).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim v As Variant\n    Debug.Print v Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "is_array_var_compile",
+      "description": "Is with a bare array variable operand (arrays are not object references).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "source": "Public Sub XlideOracleEntry()\n    Dim arr() As Long\n    Debug.Print arr Is Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

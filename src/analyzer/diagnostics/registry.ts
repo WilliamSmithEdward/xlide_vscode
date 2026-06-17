@@ -65,7 +65,11 @@ import {
 	checkObjectVariableNotSet,
 	checkScalarMemberAccess,
 } from './rules/objectState';
-import { checkTypeOfIsCompatibility, checkTypeOfMissingOperand } from './rules/typeOfIs';
+import {
+	checkIsOperatorOperands,
+	checkTypeOfIsCompatibility,
+	checkTypeOfMissingOperand,
+} from './rules/typeOfIs';
 import { checkSuffixedLiteralOverflow } from './rules/numericLiterals';
 import {
 	checkMemberNotFound,
@@ -606,6 +610,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'typeofMissingOperand',
 		run: (ctx, push) => checkTypeOfMissingOperand(ctx.source, ctx.activity, push),
+	},
+	{
+		name: 'isOperatorNonObject',
+		run: (ctx, push) => checkIsOperatorOperands(ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'suffixedLiteralOverflow',

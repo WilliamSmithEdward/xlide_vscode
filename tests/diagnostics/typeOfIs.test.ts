@@ -82,3 +82,79 @@ describe('analyzeModule - typeof-is-always-false', () => {
 		expect(byCode(analyzeModule(implementorOperand, { projectClassMembers: project }), CODE)).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - is-operator-non-object', () => {
+	const IS = 'is-operator-non-object';
+
+	it('flags Is with a Long-declared (scalar) operand', () => {
+		const src = 'Sub T()\n\tDim n As Long\n\tIf n Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), IS);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('n');
+		expect(hits[0].severity).toBe('error');
+	});
+
+	it('flags Is with a String-declared operand', () => {
+		const src = 'Sub T()\n\tDim s As String\n\tIf s Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(1);
+	});
+
+	it('flags Is with two scalar operands (fires on the first)', () => {
+		const src = 'Sub T()\n\tDim a As Long, b As Long\n\tIf a Is b Then\n\tEnd If\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), IS);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('a');
+	});
+
+	it('flags Is with scalar value literals', () => {
+		const src = 'Sub T()\n\tIf 1 Is 1 Then\n\tEnd If\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), IS);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('1');
+	});
+
+	it('does not flag Is with an Object-declared operand', () => {
+		const src = 'Sub T()\n\tDim o As Object\n\tIf o Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('does not flag Is with a Variant operand (may hold an object)', () => {
+		const src = 'Sub T()\n\tDim v As Variant\n\tIf v Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('does not flag Is with a class-typed operand', () => {
+		const src = 'Sub T()\n\tDim c As Collection\n\tIf c Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('does not flag Is with an undeclared operand', () => {
+		const src = 'Sub T()\n\tIf x Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('does not flag the valid Nothing Is Nothing idiom', () => {
+		const src = 'Sub T()\n\tIf Nothing Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('does not touch TypeOf ... Is (owned by typeof-is-always-false)', () => {
+		const src = 'Sub T()\n\tDim o As Object\n\tIf TypeOf o Is Collection Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('does not flag a vb-prefixed class type (vbLong is an object, not a scalar)', () => {
+		const src = 'Sub T()\n\tDim x As vbLong\n\tIf x Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('does not flag a vb-prefixed class type with a scalar-word suffix (vbString)', () => {
+		const src = 'Sub T()\n\tDim x As vbString\n\tIf x Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(0);
+	});
+
+	it('flags a bare array variable (arrays are not object references)', () => {
+		const src = 'Sub T()\n\tDim arr() As Long\n\tIf arr Is Nothing Then\n\tEnd If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), IS)).toHaveLength(1);
+	});
+});

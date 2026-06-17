@@ -22,10 +22,12 @@
 //     the other), proven via the existing object tables in both directions.
 
 import type {
+	BinaryExpr,
 	BodyNode,
 	ExprNode,
 	IdentifierExpr,
 	ModuleNode,
+	Span,
 	TypeOfIsExpr,
 } from '../../parser/nodes';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
@@ -33,6 +35,7 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import {
+	isKnownScalarType,
 	objectAssignmentIncompatibilityReason,
 	resolveKnownObjectAssignmentType,
 	typeEnvironmentFor,
@@ -223,4 +226,150 @@ function isImplementedByAnyProjectClass(
 	return (memberCtx.projectClassMembers ?? []).some((projectType) =>
 		(projectType.implements ?? []).some((implemented) => names.has(implemented.toLowerCase())),
 	);
+}
+
+/**
+ * Rule: the binary `Is` object-identity operator requires object-reference
+ * operands on both sides (MS-VBAL 5.6). When an operand is PROVABLY a non-object
+ * — a scalar value literal, or an identifier declared As a known scalar type
+ * (numeric / String / Boolean / Date) — `a Is b` is a VBE compile error
+ * ("Object required"). Oracle-verified rejected at compile:
+ * `is_scalar_long_var_compile`, `is_scalar_string_var_compile`,
+ * `is_two_scalar_vars_compile`, `is_literal_integer_operands_probe`,
+ * `is_literal_string_operands_probe`; with the Variant control
+ * `is_variant_var_ok_compile` and the Object control `is_object_var_vs_nothing_probe`
+ * accepted.
+ *
+ * No-false-positive discipline: fires only when an operand is PROVABLY scalar.
+ * Variant (can hold an object reference), Object/class-typed operands,
+ * `Nothing`/`Null`/`Empty` literals, member access, call results, arrays, and any
+ * unresolved / undeclared identifier all stay quiet. `TypeOf x Is Y` is a
+ * distinct `TypeOfIsExpr`, not a binary `Is`, so it is unaffected.
+ */
+export function checkIsOperatorOperands(
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const env = typeEnvironmentFor(symbols, member);
+		forEachIsBinary(member.body, activity, (expr) => {
+			const offender = nonObjectOperand(expr.left, env) ?? nonObjectOperand(expr.right, env);
+			if (offender) {
+				push(
+					'isOperatorNonObject',
+					`The 'Is' operator requires object operands, but ${offender.detail}, which is not an object.`,
+					offender.span,
+				);
+			}
+		});
+	}
+}
+
+/** Describes a provably non-object (scalar) operand of `Is`, or undefined. */
+function nonObjectOperand(
+	expr: ExprNode,
+	env: Map<string, string>,
+): { span: Span; detail: string } | undefined {
+	if (expr.exprKind === 'LiteralExpr') {
+		const k = expr.literalKind;
+		if (k === 'integer' || k === 'float' || k === 'string' || k === 'date' || k === 'boolean') {
+			return { span: expr.span, detail: `'${expr.raw}' is a ${k} literal` };
+		}
+		return undefined; // Nothing / Null / Empty -> not provably scalar
+	}
+	if (expr.exprKind === 'IdentifierExpr') {
+		const declared = env.get(expr.name.toLowerCase());
+		if (!declared) {
+			return undefined; // undeclared / unknown -> quiet
+		}
+		// Match the declared type name against the built-in scalar set WITHOUT
+		// normalizeType's leading-`vb` strip: a user class named `vbLong`/`vbString`
+		// is a real object type that the strip would collapse to a scalar word and
+		// wrongly flag (adversarial FP-hunt finding; VBE compiles `x As vbLong Is
+		// Nothing`). Strip only a trailing array `()` marker.
+		const raw = declared.replace(/\s*\(\s*\)\s*$/, '').trim().toLowerCase();
+		if (isKnownScalarType(raw)) {
+			return { span: expr.span, detail: `'${expr.name}' is declared As ${declared}` };
+		}
+		return undefined; // Variant / Object / class -> quiet
+	}
+	return undefined; // member / call / paren / array / New / unary -> quiet (v1)
+}
+
+/** Visits every binary `Is` expression reachable in a procedure body. */
+function forEachIsBinary(
+	body: BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	visit: (expr: BinaryExpr) => void,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		switch (node.kind) {
+			case 'Assignment':
+				forEachIsBinaryInExpr(node.lhs, visit);
+				forEachIsBinaryInExpr(node.rhs, visit);
+				break;
+			case 'Call':
+				forEachIsBinaryInExpr(node.callee, visit);
+				for (const arg of node.args) {
+					forEachIsBinaryInExpr(arg, visit);
+				}
+				break;
+			case 'IfBlock':
+				for (const branch of node.branches) {
+					if (branch.condition) {
+						forEachIsBinaryInExpr(branch.condition, visit);
+					}
+				}
+				forEachIsBinary(node.body, activity, visit);
+				break;
+			default:
+				if ('body' in node && Array.isArray(node.body)) {
+					forEachIsBinary(node.body, activity, visit);
+				}
+		}
+	}
+}
+
+/** Recurses an expression tree, visiting every nested binary `Is`. */
+function forEachIsBinaryInExpr(expr: ExprNode, visit: (expr: BinaryExpr) => void): void {
+	switch (expr.exprKind) {
+		case 'BinaryExpr':
+			if (expr.operator === 'Is') {
+				visit(expr);
+			}
+			forEachIsBinaryInExpr(expr.left, visit);
+			forEachIsBinaryInExpr(expr.right, visit);
+			break;
+		case 'TypeOfIsExpr':
+			forEachIsBinaryInExpr(expr.operand, visit);
+			break;
+		case 'UnaryExpr':
+			forEachIsBinaryInExpr(expr.operand, visit);
+			break;
+		case 'ParenExpr':
+			forEachIsBinaryInExpr(expr.inner, visit);
+			break;
+		case 'IndexExpr':
+			forEachIsBinaryInExpr(expr.callee, visit);
+			for (const arg of expr.args) {
+				forEachIsBinaryInExpr(arg, visit);
+			}
+			break;
+		case 'MemberAccessExpr':
+			if (expr.object) {
+				forEachIsBinaryInExpr(expr.object, visit);
+			}
+			break;
+		default:
+			// LiteralExpr / IdentifierExpr / NewExpr / AddressOfExpr: no nested Is.
+			break;
+	}
 }

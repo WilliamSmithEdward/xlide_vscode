@@ -1033,6 +1033,26 @@
       "diagnosticKind": "runtime-risk"
     },
     {
+      "code": "is-operator-non-object",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.6 (the Is object-identity operator requires object-reference operands) plus the Excel/VBE compile oracle (Object required) and the deterministic §5.6 expression AST + declared-type environment",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "is_scalar_long_var_compile",
+        "is_scalar_string_var_compile",
+        "is_two_scalar_vars_compile",
+        "is_array_var_compile",
+        "is_literal_integer_operands_probe",
+        "is_literal_string_operands_probe",
+        "is_variant_var_ok_compile",
+        "is_object_var_vs_nothing_probe"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The binary Is operator requires object-reference operands on both sides; a provably non-object operand makes a Is b a VBE compile error ('Object required'). This is the first rule to consume the §5.6 BinaryExpr AST for the Is operator (distinct from TypeOf x Is Y, which is a TypeOfIsExpr and is owned by typeof-is-always-false). No-FP scope: fires only when an operand is PROVABLY scalar - a value literal of scalar kind (integer/float/string/date/boolean), or a simple identifier whose declared type resolves (via the procedure type environment + isKnownScalarType) to a known scalar (numeric / String / Boolean / Date). Stays quiet for Variant (can hold an object - control is_variant_var_ok_compile compiles), Object/class-typed operands (control is_object_var_vs_nothing_probe compiles), Nothing/Null/Empty literals, member access, call results, arrays, New, parenthesized/unary operands, and any undeclared/unresolved identifier. Oracle-verified rejected at compile: is_scalar_long_var_compile, is_scalar_string_var_compile, is_two_scalar_vars_compile, is_literal_integer_operands_probe, is_literal_string_operands_probe. A bare array variable is also non-object (is_array_var_compile rejected). Scalar matching uses the RAW declared type name (only a trailing array () stripped), NOT normalizeType, whose leading-vb strip would collapse a user class named vbLong/vbString to a scalar word and wrongly fire (adversarial FP-hunt finding; VBE compiles `Dim x As vbLong` + `x Is Nothing`). Resolves the long-deferred EXPR_013 (Is on non-objects): the literal subset was deferred as marginal and the variable subset as binder-gated; both now ship together off the §5.6 binder.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "parameter-default-not-constant",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3.1.5 (an Optional default-value is a constant-expression) plus the VBE 'Constant expression required' compile error",

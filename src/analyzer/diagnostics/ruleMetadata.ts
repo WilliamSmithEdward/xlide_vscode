@@ -443,6 +443,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6 (TypeOf...Is expression)',
 		confidence: 'high',
 	},
+	isOperatorNonObject: {
+		code: 'is-operator-non-object',
+		title: "'Is' operator requires object operands",
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 (Is operator)',
+		confidence: 'high',
+	},
 	parameterDefaultNotConstant: {
 		code: 'parameter-default-not-constant',
 		title: 'Optional default must be a constant expression',
