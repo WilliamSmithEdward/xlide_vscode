@@ -635,7 +635,13 @@ $result = [ordered]@{
 try {
     Set-Stage "start_excel"
     $excel = New-Object -ComObject Excel.Application
-    $excel.Visible = $false
+    # Excel must stay visible: when the host application is hidden, the VBE
+    # Compile-error / Run-time-error modal is not surfaced as a detectable
+    # visible top-level window, so the Win32 dialog watcher never sees it and a
+    # rejection is silently misrecorded as "accepted". Keeping Excel visible
+    # (the documented harness behavior) makes the dialog detectable. The worker
+    # still does not require foreground focus.
+    $excel.Visible = $true
     $excel.DisplayAlerts = $false
     $excel.EnableEvents = $false
     try { $excel.ScreenUpdating = $false } catch { }
@@ -682,8 +688,8 @@ try {
 
     if ($mode -eq "compile") {
         Set-Stage "compile"
-        # Compile probes use VBE command bars, but the Excel application window
-        # itself should stay hidden.
+        # Compile probes drive the VBE command bars; the VBE main window is shown
+        # so the Compile command is available and its error dialog is surfaced.
         $excel.VBE.MainWindow.Visible = $true
 
         [void]$component.Activate()

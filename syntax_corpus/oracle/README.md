@@ -80,6 +80,67 @@ By default the runner is observational and exits successfully even when a
 fixture expectation differs from the observed result. The local Excel/VBE
 automation path is operational; use `--strict` to enforce expectations.
 
+## Timing, reliability, and lessons learned
+
+Hard-won notes from getting the oracle reliable on a fresh machine. The failure
+mode to fear most is a **silent false "accepted"**: the worker compiles a snippet
+that VBE actually rejects, fails to capture the error dialog, and records the case
+as accepted. That poisons the no-false-positive discipline (a rule shipped against
+a bogus "accepted" control). Guard against it with the controls below.
+
+1. **Excel must run visible.** The worker sets `Application.Visible = $true`. When
+   the host is hidden, the VBE `Compile error:` / `Run-time error` modal is not
+   surfaced as a detectable visible top-level window, so the Win32 dialog watcher
+   never sees it and the rejection is misrecorded as `accepted`.
+
+2. **Every case pays a cold-VBE first-compile cost.** Each case spawns its own
+   Excel process, so the error dialog can take well over ten seconds to appear.
+   The dialog-watch window must outlast that latency or rejects are missed — the
+   original fixed 8-second cap was too short and produced systematic false
+   "accepted" results.
+
+3. **`--timeout` is the single knob.** In normal mode the watch window is
+   `min(22, timeout - 22)` seconds; raising `--timeout` adds Excel-startup
+   headroom. For a window longer than the 22s cap (a very slow VBE), use
+   `--dialog-hold-seconds`, whose branch uses `timeout - hold - 5` uncapped.
+
+4. **Accept cases bound the timeout.** A genuinely-accepted case shows no dialog,
+   so the worker waits the *entire* watch window before concluding `accepted`,
+   then quits Excel. `excel_start + watch + cleanup` must fit inside `--timeout`
+   or the coordinator kills the worker as a false `timeout`/`oracle_failure`.
+   Reject cases return as soon as the dialog is caught, so they are fast; it is
+   the accept controls that set the timeout floor.
+
+5. **The first run on a cold machine may time out entirely.** The first-ever COM
+   Excel launch (Office first-run/activation) can exceed the timeout before
+   compilation even starts. Treat a *single* initial timeout as cold-start
+   warmup, re-run, and expect subsequent runs to be faster as the OS/COM caches
+   warm. A *systematic* timeout or `oracle_failure` after warmup is a real harness
+   problem — follow the `ORACLE-FAIL` deep-inspection steps below.
+
+6. **Sanity-check the harness before trusting a batch.** Run a couple of
+   known-reject fixtures and one known-accept fixture under `--strict`; if a
+   known-reject reports `accepted`, the dialog capture is broken (see #1/#2) — do
+   not promote anything until it is fixed:
+
+   ```powershell
+   py syntax_corpus/oracle/run_excel_vbe_oracle.py `
+     --case missing_trailing_required_argument `
+     --case bare_variable_statement `
+     --case number_to_string_assignment --strict --json
+   ```
+
+7. **Tuning for efficiency.** The default `--timeout 45` suits a warm machine.
+   Reject-heavy batches finish quickly (early return). To speed accept-heavy
+   batches once warm, try `--timeout 40` and watch for accept-case timeouts;
+   raise it for slow/cold machines. A future efficiency win is to warm the VBE
+   compiler once per worker so a shorter watch window suffices.
+
+8. **Use the right interpreter.** The coordinator is pure-stdlib Python (the COM
+   automation lives in the PowerShell worker), so no `pywin32` is required, but a
+   *real* Python is — invoke via the `py` launcher or an explicit interpreter
+   path, not a Windows Store `python.exe` alias.
+
 ## Automation Policy
 
 The oracle must not use `SendKeys`, keyboard focus scripting, or

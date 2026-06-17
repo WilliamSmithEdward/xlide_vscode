@@ -255,7 +255,21 @@ def run_case_once(case: dict[str, Any], timeout: int, dialog_hold_seconds: int) 
         if dialog_hold_seconds > 0:
             dialog_watch_seconds = max(1, timeout - dialog_hold_seconds - 5)
         else:
-            dialog_watch_seconds = max(1, min(8, max(1, timeout - 3)))
+            # The watcher must outlast the VBE compile-/runtime-dialog latency.
+            # That latency is dominated by the FIRST compile in a freshly spawned
+            # Excel (each case gets its own process); on a cold VBE it exceeds the
+            # old fixed 8s cap, which silently misrecorded rejects as "accepted".
+            #
+            # Two competing constraints set the window:
+            #   * reject cases need watch >= the cold dialog latency (~20s here);
+            #   * accept cases show NO dialog and wait the FULL window, so
+            #     excel_start + watch + cleanup must fit inside --timeout or the
+            #     coordinator kills the worker as a (false) timeout.
+            # So reserve generous startup/cleanup headroom and cap the window:
+            # ~22s reliably catches the dialog without making accept cases wait
+            # forever. Raise --timeout for slower machines (adds headroom);
+            # for a window longer than the cap, use --dialog-hold-seconds.
+            dialog_watch_seconds = max(12, min(22, timeout - 22))
 
         cmd = [
             "powershell.exe",
@@ -373,7 +387,16 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--case", dest="case_ids", action="append", default=[])
-    parser.add_argument("--timeout", type=int, default=20)
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=45,
+        help=(
+            "Per-case worker timeout in seconds. Must fit cold Excel startup plus "
+            "the dialog-watch window (~min(22, timeout-22)s) plus COM cleanup. "
+            "Raise it for slower/cold machines; the default suits a warm machine."
+        ),
+    )
     parser.add_argument(
         "--timeout-retries",
         type=int,
