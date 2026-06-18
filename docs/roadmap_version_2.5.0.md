@@ -21,11 +21,16 @@ Slices 1–3 landed in v2.4.0 (the `ExprNode` AST, statement wiring into
 completes the binder and cashes it in for the deferred type families:
 
 - [x] Named / omitted arguments and bang (`!`) member access in statement
-  structuring — **shipped** (the `Argument` AST carries `name` / `nameSpan` and
-  omitted slots, and `MemberAccessExpr.accessKind` distinguishes `'dot'` from
-  `'bang'`; both are consumed by the §5.6 expression-AST rules).
-- [ ] Flow-sensitive identifier binding and definite assignment — with care
-  around loops, `GoTo`, and error handlers (the main false-positive risk).
+  structuring — **shipped** in commit `b64b520` (the `Argument` AST carries
+  `name` / `nameSpan` and omitted slots, and `MemberAccessExpr.accessKind`
+  distinguishes `'dot'` from `'bang'`); produced by the §5.6 parser
+  (`parseExpression.ts`) and consumed by the structuring rules `parseModule.ts`
+  (parenless-call args via `parseParenlessArguments`) and `typeOfIs.ts` (walks
+  `Argument.value` with an omitted-slot guard).
+- [x] Flow-sensitive identifier binding and definite assignment — the branch-merge
+  precision shipped (below); the *new* definite-assignment red is **moved to v2.6.0**
+  (`docs/roadmap_version_2.6.0.md`, Goal 1), where the loop / `GoTo` / error-handler
+  flow joins it needs are scoped.
   - ✅ Structural `If`/`ElseIf`/`Else` branch-merge — **shipped.** The shared
     straight-line dataflow now intersects branch arms (`walkBranchMergedBody`
     in `diagnostics/dataflow.ts`, gated by `procedureHasUnstructuredFlow` in
@@ -45,11 +50,10 @@ completes the binder and cashes it in for the deferred type families:
     quiet); evidence is MS-VBAL §5.4.2 structured-`If` semantics plus the
     RTE 91/9 reds these rules already pin. No new diagnostic code; FP-safe by
     construction (fires only on provably-bad state).
-  - **Deferred with reason:** a *new* definite-assignment red
-    (use-before-assignment) is held beyond v2.5.0 — sound coverage needs
-    loop / `GoTo` / error-handler join modeling and oracle-pinned
-    use-before-def cases to stay no-FP. Tracked as "Flow phase 2:
-    definite-assignment (oracle-pinned)".
+  - **Moved to v2.6.0:** the *new* definite-assignment red (use-before-assignment)
+    needs loop / `GoTo` / error-handler join modeling and oracle-pinned
+    use-before-def cases to stay no-FP — scoped as Goal 1 of
+    `docs/roadmap_version_2.6.0.md`.
 - [x] Binder-dependent diagnostics — every family dispositioned, either shipped
   with the three controls + a named source, or deferred with a documented reason:
   - ✅ **Non-scalar operands** (a bare array or same-module user-defined `Type`)
@@ -132,7 +136,8 @@ file is left in an un-dispositioned `mining` state.
 ## Carried forward (beyond the two pillars)
 
 Tracked, but not the v2.5.0 focus — these are product/object-member features that
-the binder may partly enable but that stand on their own:
+the binder may partly enable but that stand on their own. **Now scheduled as Goal 4
+of the v2.6.0 roadmap** (`docs/roadmap_version_2.6.0.md`):
 
 - Object-model member binding: declared `Event` / `WithEvents` / `RaiseEvent`
   binding beyond module-kind validation, and `Implements` interface-member
