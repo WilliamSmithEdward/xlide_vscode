@@ -182,6 +182,93 @@ describe('analyzeModule - object variable not set', () => {
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
 	});
 
+	it('flags Nothing member access inside a balanced If arm (branch-merge coverage)', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    If Ready Then\n' +
+			'        obj.ToString\n' +
+			'    Else\n' +
+			'        Set obj = New Collection\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expectDiagnostic(src, analyzeModule(src), 'object-variable-not-set', { span: 'obj' });
+	});
+
+	it('does not flag a branch-arm access when the object was Set before the If', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Set obj = New Collection\n' +
+			'    If Ready Then\n' +
+			'        obj.ToString\n' +
+			'    Else\n' +
+			'        obj.ToString\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('stays quiet after a balanced If sets the object on every arm', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    If Ready Then\n' +
+			'        Set obj = New Collection\n' +
+			'    Else\n' +
+			'        Set obj = New Collection\n' +
+			'    End If\n' +
+			'    obj.ToString\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('does not enter a one-armed If (no else stays conservative)', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    If Ready Then\n' +
+			'        obj.ToString\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('falls back to conservative flow when On Error is present', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    On Error Resume Next\n' +
+			'    If Ready Then\n' +
+			'        obj.ToString\n' +
+			'    Else\n' +
+			'        Set obj = New Collection\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('falls back to conservative flow when a GoTo/label is present', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    GoTo Skip\n' +
+			'Skip:\n' +
+			'    If Ready Then\n' +
+			'        obj.ToString\n' +
+			'    Else\n' +
+			'        Set obj = New Collection\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
 	it('ignores inactive conditional-compilation member access', () => {
 		const src =
 			'#Const Enabled = False\n' +

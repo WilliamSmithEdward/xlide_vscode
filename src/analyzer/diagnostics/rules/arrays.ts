@@ -22,7 +22,8 @@ import {
 	type PushFn,
 } from '../analysisContext';
 import { splitArgSlots } from '../callExtraction';
-import { walkStraightLineBody } from '../dataflow';
+import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
+import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import {
 	declarationShapeEnvironmentFor,
@@ -689,13 +690,25 @@ export function checkUnallocatedDynamicArrayAccess(
 		for (const lower of arrays.keys()) {
 			state.set(lower, 'unallocated');
 		}
-		walkStraightLineBody(member.body, (node) => isInactiveNode(activity, node), {
+		const walk = procedureHasUnstructuredFlow(source, member, activity)
+			? walkStraightLineBody
+			: walkBranchMergedBody;
+		walk(member.body, (node) => isInactiveNode(activity, node), {
 			onStatement: (stmt) =>
 				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, push),
 			touchesInStatement: (stmt) => dynamicArrayTouchesInStatement(source, stmt, arrays),
 			demoteToUnknown: (lower) => {
 				state.set(lower, 'unknown');
 			},
+			snapshotState: () => new Map(state),
+			restoreState: (snapshot) => {
+				state.clear();
+				for (const [key, value] of snapshot) {
+					state.set(key, value as DynamicArrayAllocationState);
+				}
+			},
+			setState: (key, value) => state.set(key, value as DynamicArrayAllocationState),
+			lattice: { init: 'unallocated', good: 'allocated', unknown: 'unknown' },
 		});
 	}
 }

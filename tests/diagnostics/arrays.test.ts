@@ -507,6 +507,80 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
 	});
 
+	it('flags unallocated access inside a balanced If arm (branch-merge coverage)', () => {
+		const src =
+			'Public Sub T(ByVal flag As Boolean)\n' +
+			'    Dim values() As Long\n' +
+			'    If flag Then\n' +
+			'        Debug.Print values(0)\n' +
+			'    Else\n' +
+			'        ReDim values(0 To 1)\n' +
+			'    End If\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
+
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('values');
+	});
+
+	it('does not flag a branch-arm access when the array was ReDim before the If', () => {
+		const src =
+			'Public Sub T(ByVal flag As Boolean)\n' +
+			'    Dim values() As Long\n' +
+			'    ReDim values(0 To 2)\n' +
+			'    If flag Then\n' +
+			'        Debug.Print values(0)\n' +
+			'    Else\n' +
+			'        Debug.Print values(1)\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('stays quiet after a balanced If allocates the array on every arm', () => {
+		const src =
+			'Public Sub T(ByVal flag As Boolean)\n' +
+			'    Dim values() As Long\n' +
+			'    If flag Then\n' +
+			'        ReDim values(0 To 1)\n' +
+			'    Else\n' +
+			'        ReDim values(0 To 2)\n' +
+			'    End If\n' +
+			'    Debug.Print values(0)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('falls back to conservative flow when On Error is present', () => {
+		const src =
+			'Public Sub T(ByVal flag As Boolean)\n' +
+			'    Dim values() As Long\n' +
+			'    On Error Resume Next\n' +
+			'    If flag Then\n' +
+			'        Debug.Print values(0)\n' +
+			'    Else\n' +
+			'        ReDim values(0 To 1)\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('does not enter loop bodies (For stays conservative)', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Dim i As Long\n' +
+			'    For i = 1 To 3\n' +
+			'        Debug.Print values(i)\n' +
+			'    Next i\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
 	it('ignores inactive conditional-compilation indexed access', () => {
 		const src =
 			'#Const Enabled = False\n' +

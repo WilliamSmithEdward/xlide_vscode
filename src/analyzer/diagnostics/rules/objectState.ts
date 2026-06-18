@@ -18,7 +18,8 @@ import {
 	procedureSymbolFor,
 	type PushFn,
 } from '../analysisContext';
-import { walkStraightLineBody } from '../dataflow';
+import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
+import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { resolveExhaustiveMemberSurface } from '../rules/shared';
 import {
 	declaredTypeForSourceBinding,
@@ -139,7 +140,10 @@ export function checkObjectVariableNotSet(
 		for (const key of locals.keys()) {
 			state.set(key, 'unset');
 		}
-		walkStraightLineBody(member.body, (node) => isInactiveNode(activity, node), {
+		const walk = procedureHasUnstructuredFlow(source, member, activity)
+			? walkStraightLineBody
+			: walkBranchMergedBody;
+		walk(member.body, (node) => isInactiveNode(activity, node), {
 			onStatement: (stmt) =>
 				checkObjectVariableNotSetStatement(source, stmt, locals, state, memberCtx, push),
 			onBlock: (node) => {
@@ -164,6 +168,15 @@ export function checkObjectVariableNotSet(
 					state.set(lower, 'unknown');
 				}
 			},
+			snapshotState: () => new Map(state),
+			restoreState: (snapshot) => {
+				state.clear();
+				for (const [key, value] of snapshot) {
+					state.set(key, value as ObjectVariableState);
+				}
+			},
+			setState: (key, value) => state.set(key, value as ObjectVariableState),
+			lattice: { init: 'unset', good: 'set', unknown: 'unknown' },
 		});
 	}
 }

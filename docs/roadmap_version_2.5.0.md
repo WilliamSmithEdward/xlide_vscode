@@ -24,6 +24,30 @@ completes the binder and cashes it in for the deferred type families:
   structuring (currently kept raw).
 - [ ] Flow-sensitive identifier binding and definite assignment — with care
   around loops, `GoTo`, and error handlers (the main false-positive risk).
+  - ✅ Structural `If`/`ElseIf`/`Else` branch-merge — **shipped.** The shared
+    straight-line dataflow now intersects branch arms (`walkBranchMergedBody`
+    in `diagnostics/dataflow.ts`, gated by `procedureHasUnstructuredFlow` in
+    `flow/procedureUnstructured.ts`), extending the two existing runtime-error
+    flow reds — `object-variable-not-set` (RTE 91) and
+    `unallocated-dynamic-array-access` (RTE 9) — to (a) check accesses *inside*
+    balanced `If` arms from the correct entry state and (b) keep precise
+    post-block state when every arm agrees. A tracked local advances to its
+    good state only when it reaches that state on **every** arm **and** a
+    syntactic `else` is present; otherwise it follows the existing conservative
+    demotion. Any label, `GoTo`/`GoSub`, `On..GoTo/GoSub`, `On Error`, or
+    `Resume` makes the whole procedure fall back to the straight-line walk, and
+    `For`/`Do`/`While`/`With`/`Select` stay conservative (never entered).
+    Controls: positive (Nothing / unallocated access inside a balanced arm
+    flags), negative (set / allocated-before-`If` quiet; `On Error` / `GoTo` /
+    loop → conservative `0`), no-diagnostic (balanced-arm allocation stays
+    quiet); evidence is MS-VBAL §5.4.2 structured-`If` semantics plus the
+    RTE 91/9 reds these rules already pin. No new diagnostic code; FP-safe by
+    construction (fires only on provably-bad state).
+  - **Deferred with reason:** a *new* definite-assignment red
+    (use-before-assignment) is held beyond v2.5.0 — sound coverage needs
+    loop / `GoTo` / error-handler join modeling and oracle-pinned
+    use-before-def cases to stay no-FP. Tracked as "Flow phase 2:
+    definite-assignment (oracle-pinned)".
 - [ ] Binder-dependent diagnostics, each gated on no-FP evidence:
   - Comparisons (`=`/`<>`/`<`/`Like`/`Is`) numeric/string/Date/Object matrix.
   - Date coercion (string/numeric→Date, Date parameters; locale-sensitive cases

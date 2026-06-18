@@ -12,7 +12,7 @@
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenName, tokenWord } from '../lexer/tokenHelpers';
-import type { BodyNode, LeafStatementNode } from '../parser/nodes';
+import type { BodyNode, IfBlockNode, LeafStatementNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 
 /** Rule-specific hooks driving one straight-line dataflow walk. */
@@ -25,6 +25,16 @@ export interface StraightLineDataflowHooks {
 	touchesInStatement(stmt: LeafStatementNode): Iterable<string>;
 	/** Demotes one tracked name to the rule's 'unknown' state. */
 	demoteToUnknown(lowerName: string): void;
+
+	// --- optional, only consumed by walkBranchMergedBody (v2.5.0) ---
+	/** Snapshot every tracked name's current state, for forking If arms. */
+	snapshotState?(): Map<string, string>;
+	/** Overwrite the live state from a snapshot, restoring it before the next arm. */
+	restoreState?(snapshot: ReadonlyMap<string, string>): void;
+	/** Write one tracked name's merged post-block state. */
+	setState?(lowerName: string, value: string): void;
+	/** The rule's good/init labels so the branch merge stays rule-agnostic. */
+	lattice?: { init: string; good: string; unknown: string };
 }
 
 /**
@@ -53,6 +63,107 @@ export function walkStraightLineBody(
 			}
 		}
 	}
+}
+
+/**
+ * Like walkStraightLineBody, but intersects the per-branch state of an
+ * If/ElseIf/Else block instead of blanket-demoting every name it touches. Each
+ * arm is walked from the block's entry state; a tracked name advances to its
+ * 'good' state after the `If` only when it reaches 'good' on EVERY arm AND a
+ * syntactic `else` arm is present, otherwise it follows the conservative
+ * demotion. Names a balanced `If` never touches keep their entry state (the
+ * precision win). For/Do/While/With/Select stay conservative (the current
+ * blanket demotion). Callers must supply snapshotState/restoreState/setState/
+ * lattice; without them an `If` is treated conservatively.
+ *
+ * Only sound for procedures WITHOUT unstructured control flow (labels, GoTo,
+ * On Error, Resume): callers gate on procedureHasUnstructuredFlow and fall back
+ * to walkStraightLineBody when it holds.
+ */
+export function walkBranchMergedBody(
+	body: readonly BodyNode[],
+	isInactive: (node: BodyNode) => boolean,
+	hooks: StraightLineDataflowHooks,
+): void {
+	for (const node of body) {
+		if (isInactive(node)) {
+			continue;
+		}
+		if (isLeafStatement(node)) {
+			hooks.onStatement(node);
+			continue;
+		}
+		hooks.onBlock?.(node);
+		if (
+			node.kind === 'IfBlock' &&
+			hooks.snapshotState &&
+			hooks.restoreState &&
+			hooks.setState &&
+			hooks.lattice
+		) {
+			mergeIfBlock(node, isInactive, hooks);
+			continue;
+		}
+		if ('body' in node && Array.isArray(node.body)) {
+			for (const lower of collectNestedTouches(node.body, isInactive, hooks)) {
+				hooks.demoteToUnknown(lower);
+			}
+		}
+	}
+}
+
+/** Intersects the per-arm state of one If block (see walkBranchMergedBody). */
+function mergeIfBlock(
+	ifBlock: IfBlockNode,
+	isInactive: (node: BodyNode) => boolean,
+	hooks: StraightLineDataflowHooks,
+): void {
+	const touched = collectNestedTouches(ifBlock.body, isInactive, hooks);
+	const hasElse = ifBlock.branches.some((branch) => branch.branchKind === 'else');
+	if (!hasElse) {
+		// No else arm: the empty fall-through path keeps the entry state, so a name
+		// can only remain 'good' after the block if it was already 'good'. Reproduce
+		// the existing conservative behavior by demoting every touched name.
+		for (const lower of touched) {
+			hooks.demoteToUnknown(lower);
+		}
+		return;
+	}
+	const entry = hooks.snapshotState!();
+	const armStates: Map<string, string>[] = [];
+	for (const branch of ifBlock.branches) {
+		hooks.restoreState!(entry);
+		walkBranchMergedBody(branch.body, isInactive, hooks);
+		armStates.push(hooks.snapshotState!());
+	}
+	hooks.restoreState!(entry);
+	const { init, good, unknown } = hooks.lattice!;
+	for (const lower of touched) {
+		const perArm = armStates.map((arm) => arm.get(lower) ?? entry.get(lower) ?? unknown);
+		hooks.setState!(lower, joinBranchStates(perArm, init, good, unknown));
+	}
+}
+
+/**
+ * Meet-toward-unknown join over an If block's arms: 'good' only when every arm
+ * ends 'good'; any unknown arm or any disagreement collapses to 'unknown'.
+ */
+function joinBranchStates(
+	perArm: readonly string[],
+	init: string,
+	good: string,
+	unknown: string,
+): string {
+	if (perArm.some((state) => state === unknown)) {
+		return unknown;
+	}
+	if (perArm.every((state) => state === good)) {
+		return good;
+	}
+	if (perArm.every((state) => state === init)) {
+		return init;
+	}
+	return unknown;
 }
 
 /** Recursively collects tracked names touched anywhere inside nested bodies. */
