@@ -42,6 +42,23 @@ See `docs/static_analysis_completeness_2.5.0.md` for the auditable record.
 - **Syntax corpus fully mined**: every remaining `mining` source file is
   dispositioned and promoted to `reference`; zero files remain in `mining`.
 
+### Performance
+
+- A behavior-preserving pass on the per-edit analysis hot path: the operand rules
+  share **one** expression-tree traversal per procedure body via an
+  expression-visitor registry (rather than one walk each);
+  `procedureHasUnstructuredFlow`, `moduleNonCallableSymbols`, and the same-module
+  `Type`-name set are memoized per parse; `me-outside-object-module` rides the
+  shared statement walk; and the branch-merge join drops a per-name allocation.
+  The full 2,071-test suite stays byte-identical.
+
+### Removed
+
+- The one-time popup recommending users disable AI inline (ghost-text) completions
+  for XLIDE VBA modules. XLIDE now coexists with inline suggestions — the `smartTab`
+  keybinding yields to a visible suggestion so `Tab` accepts the ghost text — so
+  the recommendation was obsolete.
+
 ### Deferred (documented)
 
 - The comparison / Boolean / string-concatenation scalar-coercion matrix, Date
