@@ -70,6 +70,7 @@ import {
 	checkTypeOfIsCompatibility,
 	checkTypeOfMissingOperand,
 } from './rules/typeOfIs';
+import { checkBinaryOperandScalar } from './rules/binaryOperandScalar';
 import { checkSuffixedLiteralOverflow } from './rules/numericLiterals';
 import {
 	checkMemberNotFound,
@@ -614,6 +615,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'isOperatorNonObject',
 		run: (ctx, push) => checkIsOperatorOperands(ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'nonScalarBinaryOperand',
+		run: (ctx, push) => checkBinaryOperandScalar(ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'suffixedLiteralOverflow',

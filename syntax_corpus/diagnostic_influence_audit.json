@@ -1737,6 +1737,26 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "Structural block-balance diagnostic emitted by analyzeVbaStructure (src/vbaStructuralDiagnostics.ts), surfaced through vbaModuleAnalysis; not a registry rule. Reports a stray block closer with no matching opener. Suppression boundary: closers inside strings and comments are blanked — including a `: Rem ...` trailing comment, whose leak was a fixed false positive (audit #74: stripVba now blanks Rem at any statement start, pinned by tests/vbaStructuralAnalysis.test.ts and the convergence repro in tests/structuralEngineComparison.test.ts). Mismatched procedure closers are folded into a single repairable missing-block-closer instead.",
       "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "non-scalar-binary-operand",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.6 (binary operators require scalar operands) plus the Excel/VBE compile oracle (array operand 'Type mismatch') and the deterministic 5.6 expression AST + declared-array shape environment (DeclaredValueShape.isArray)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "nonscalar_array_concat_probe",
+        "nonscalar_array_arith_plus_probe",
+        "nonscalar_array_comparison_lt_probe",
+        "nonscalar_array_bool_and_probe",
+        "nonscalar_scalar_long_concat_control",
+        "nonscalar_variant_concat_control",
+        "nonscalar_array_element_concat_control",
+        "nonscalar_range_concat_control"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error",
+      "notes": "A bare array variable used as an operand of a scalar-requiring binary operator is a VBE compile error ('Type mismatch'). Oracle-verified rejected at compile across all four operator classes - & concatenation, arithmetic +, comparison <, and Boolean/bitwise And (one representative per class; the array-operand mechanism is operator-independent and generalizes to the rest of each class: arithmetic - * / \\ ^ Mod, comparisons = <> > <= >=, and Or Xor Eqv Imp). No-FP scope mirrors is-operator-non-object: fires only on a plain IdentifierExpr operand whose declaration shape isArray is true. Stays quiet for scalars, Variant, Object/host receivers (a default member may coerce - control nonscalar_range_concat_control compiles), an indexed array element a(0) (an IndexExpr scalar element - control nonscalar_array_element_concat_control compiles), member access, calls, parenthesized operands, undeclared names, and statement-level array-copy assignment a = b (an Assignment node, not a comparison BinaryExpr). Is (object operands, owned by is-operator-non-object) and Like (operands coerced to String) are out of scope. User-defined Type (struct) operands are a tracked follow-up."
     }
   ]
 }

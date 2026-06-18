@@ -4366,6 +4366,90 @@
       "source": "Public Function F(Optional a As Long, Optional b As Long, Optional c As Long) As Long\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As Long\n    r = F(, , c:=3)\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "nonscalar_array_concat_probe",
+      "description": "Observe whether a bare array variable as the right operand of & concatenation is rejected, and at which phase.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(3) As Long\n    Dim s As String\n    s = \"x\" & a\nEnd Sub\n",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nonscalar_array_arith_plus_probe",
+      "description": "Observe whether a bare array variable as an arithmetic + operand is rejected, and at which phase.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(3) As Long\n    Dim x As Long\n    x = a + 1\nEnd Sub\n",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nonscalar_array_comparison_lt_probe",
+      "description": "Observe whether a bare array variable as the left operand of a < comparison is rejected, and at which phase.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(3) As Long\n    If a < 1 Then\n    End If\nEnd Sub\n",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nonscalar_array_bool_and_probe",
+      "description": "Observe whether a bare array variable as an And Boolean/bitwise operand is rejected, and at which phase.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(3) As Long\n    If a And True Then\n    End If\nEnd Sub\n",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nonscalar_scalar_long_concat_control",
+      "description": "Control: a scalar Long operand of & concatenation must compile cleanly (no-FP floor).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim n As Long\n    Dim s As String\n    s = \"x\" & n\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "nonscalar_variant_concat_control",
+      "description": "Control: a Variant operand of & concatenation must compile cleanly (Variant may hold a scalar).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim v As Variant\n    Dim s As String\n    s = \"x\" & v\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "nonscalar_array_element_concat_control",
+      "description": "Control: an indexed array element a(0) is a scalar and must compile cleanly as a & operand.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim a(3) As Long\n    Dim s As String\n    s = \"x\" & a(0)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "nonscalar_range_concat_control",
+      "description": "Control: an Excel Range operand of & must compile cleanly (Range has a coercing default member).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim r As Range\n    Dim s As String\n    s = \"x\" & r\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

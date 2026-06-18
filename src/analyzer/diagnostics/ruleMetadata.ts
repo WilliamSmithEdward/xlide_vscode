@@ -454,6 +454,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6 (Is operator)',
 		confidence: 'high',
 	},
+	nonScalarBinaryOperand: {
+		code: 'non-scalar-binary-operand',
+		title: 'Operator requires a scalar operand',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.6 (binary operators) / VBE oracle: array operand Type mismatch',
+		confidence: 'high',
+	},
 	parameterDefaultNotConstant: {
 		code: 'parameter-default-not-constant',
 		title: 'Optional default must be a constant expression',
