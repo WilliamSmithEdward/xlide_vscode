@@ -101,9 +101,11 @@ xlide_vscode/
     roadmap_version_2.x.md    Closed v2 launch-hardening roadmap
     roadmap_version_2.1.0.md  Completed v2.1.0 red-squiggle closeout
     roadmap_version_2.2.0.md  Static-analysis completeness roadmap (superseded by 2.4.0)
-    roadmap_version_2.4.0.md  Active static-analysis completeness sprint
-    roadmap_version_2.4.0.md  v2.4.0 completeness report (release gate)
-    roadmap_version_2.5.0.md  Next: expression binder + syntax-corpus completeness
+    roadmap_version_2.4.0.md  Completed static-analysis completeness sprint
+    static_analysis_completeness_2.4.0.md  v2.4.0 completeness report (release gate)
+    roadmap_version_2.5.0.md  Completed: expression binder + syntax-corpus completeness
+    static_analysis_completeness_2.5.0.md  v2.5.0 completeness report (release gate)
+    roadmap_version_2.6.0.md  Next: deferred binder families + performance backlog
 
   package.json          Extension manifest, contributes, LM tool declarations
   tsconfig.json         Strict TypeScript config (module: Node16)

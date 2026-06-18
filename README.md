@@ -300,9 +300,11 @@ Roadmaps:
 
 - [Version 2.1.0 completed red-squiggle closeout](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.1.0.md)
 - [Version 2.2.0 static-analysis completeness roadmap (superseded by 2.4.0)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.2.0.md)
-- [Version 2.4.0 static-analysis completeness sprint (active)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.4.0.md)
+- [Version 2.4.0 static-analysis completeness sprint (completed)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.4.0.md)
 - [Version 2.4.0 static-analysis completeness report (release gate)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/static_analysis_completeness_2.4.0.md)
-- [Version 2.5.0 roadmap — expression binder + syntax-corpus completeness](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.5.0.md)
+- [Version 2.5.0 roadmap — expression binder + syntax-corpus completeness (completed 2026-06-17)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.5.0.md)
+- [Version 2.5.0 static-analysis completeness report (release gate)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/static_analysis_completeness_2.5.0.md)
+- [Version 2.6.0 roadmap — deferred binder families + performance backlog](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.6.0.md)
 
 ---
 
