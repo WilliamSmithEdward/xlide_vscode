@@ -135,9 +135,12 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   keyword-led statements, the `Mid`/`MidB` replacement statement, keyword-object
   receivers (`Debug.`/`Err.`), and lone-identifier/member statements (label vs.
   no-arg-call ambiguity); named arguments (`name:=expr`), omitted arguments, and
-  bang (`!`) member access are now structured in v2.5.0 (the `Argument` AST plus
-  `MemberAccessExpr.accessKind`). The row stays `Partial` until those remaining
-  deferrals close.
+  bang (`!`) member access are now structured in v2.5.0 (commit `b64b520`: the
+  `Argument` AST plus `MemberAccessExpr.accessKind`, produced by
+  `parseExpression.ts` and consumed by `parseModule.ts` / `typeOfIs.ts`). Those
+  three deferrals are now closed; the row stays `Partial` only for the
+  keyword-led / `Mid` / keyword-receiver / lone-identifier statements still raw
+  by design, listed above.
 - **If blocks (branch-modeled):** `IfBlockNode` now carries structured
   `branches` (the `if` arm, then any `elseif`/`else` arms), each with its parsed
   entry condition (`ExprNode`, via the §5.6 parser) and its own statement body,
