@@ -12,6 +12,7 @@
 import { buildModuleSymbols, type BuildModuleSymbolsOptions } from './buildModuleSymbols';
 import {
 	enumMemberRawExpression,
+	parseVbaIntegerLiteral,
 	resolveRawIntegerConstants,
 } from '../constants/integerConstantExpression';
 import {
@@ -299,8 +300,20 @@ function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMember
 	};
 }
 
+/**
+ * OLE Automation DISPID for a type's default member (the `[default]` member,
+ * DISPID_VALUE). VBE exports it as `Attribute X.VB_UserMemId = 0`; parse the
+ * value numerically rather than by string match so non-canonical forms like
+ * `&H0` resolve deterministically, while `-4` (DISPID_NEWENUM, the `_NewEnum`
+ * enumerator) correctly stays non-default.
+ */
+const DISPID_VALUE = 0;
+
 function isDefaultMemberAttribute(attr: VbaSymbolAttribute): boolean {
-	return attr.name.toLowerCase() === 'vb_usermemid' && attr.valueRaw.trim() === '0';
+	return (
+		attr.name.toLowerCase() === 'vb_usermemid' &&
+		parseVbaIntegerLiteral(attr.valueRaw) === DISPID_VALUE
+	);
 }
 
 function isDefaultProjectObjectMember(symbol: VbaSymbol): boolean {

@@ -1297,6 +1297,19 @@ describe('ProjectIndex project class members', () => {
 		).toEqual(['Value.VB_UserMemId']);
 	});
 
+	it('recognizes a non-canonical hex VB_UserMemId zero as default', () => {
+		const index = new ProjectIndex();
+		const source = [
+			'Attribute VB_Name = "Person"',
+			'Public Property Get Value() As String',
+			'Attribute Value.VB_UserMemId = &H0',
+			'End Property',
+		].join('\n');
+		index.setModule({ moduleName: 'Person', moduleKind: 'class', source });
+		const person = index.projectClassMembers().find((t) => t.name === 'Person');
+		expect(person?.members.find((m) => m.name === 'Value')?.defaultMember).toBe(true);
+	});
+
 	it('marks document and UserForm source member surfaces as non-exhaustive', () => {
 		const index = new ProjectIndex();
 		index.setModule({
