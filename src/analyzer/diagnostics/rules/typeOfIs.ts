@@ -24,7 +24,6 @@
 import type {
 	ExprNode,
 	IdentifierExpr,
-	ModuleNode,
 	Span,
 	TypeOfIsExpr,
 } from '../../parser/nodes';
@@ -38,9 +37,8 @@ import {
 	resolveKnownObjectAssignmentType,
 	typeEnvironmentFor,
 } from '../typeInference';
-import { activeModuleMembers } from '../walker';
 import { tokenizeCached } from '../../lexer/tokenize';
-import { forEachExpressionInBody } from '../exprWalk';
+import type { ProcedureExpressionVisitor } from '../exprWalk';
 
 /**
  * Rule: `TypeOf` requires an object expression before `Is` (`TypeOf x Is Y`). A
@@ -73,23 +71,18 @@ export function checkTypeOfMissingOperand(
 }
 
 export function checkTypeOfIsCompatibility(
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureExpressionVisitor {
+	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
-		forEachExpressionInBody(member.body, activity, (expr) => {
+		return (expr) => {
 			if (expr.exprKind === 'TypeOfIsExpr') {
 				checkTypeOfIs(expr, env, memberCtx, push);
 			}
-		});
-	}
+		};
+	};
 }
 
 function checkTypeOfIs(
@@ -176,17 +169,12 @@ function isImplementedByAnyProjectClass(
  * distinct `TypeOfIsExpr`, not a binary `Is`, so it is unaffected.
  */
 export function checkIsOperatorOperands(
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureExpressionVisitor {
+	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
-		forEachExpressionInBody(member.body, activity, (expr) => {
+		return (expr) => {
 			if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
 				return;
 			}
@@ -198,8 +186,8 @@ export function checkIsOperatorOperands(
 					offender.span,
 				);
 			}
-		});
-	}
+		};
+	};
 }
 
 /** Describes a provably non-object (scalar) operand of `Is`, or undefined. */

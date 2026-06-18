@@ -137,33 +137,41 @@ function mergeIfBlock(
 		armStates.push(hooks.snapshotState!());
 	}
 	hooks.restoreState!(entry);
-	const { init, good, unknown } = hooks.lattice!;
+	const { unknown } = hooks.lattice!;
 	for (const lower of touched) {
-		const perArm = armStates.map((arm) => arm.get(lower) ?? entry.get(lower) ?? unknown);
-		hooks.setState!(lower, joinBranchStates(perArm, init, good, unknown));
+		const fallback = entry.get(lower) ?? unknown;
+		hooks.setState!(lower, joinBranchStates(armStates, lower, fallback, hooks.lattice!));
 	}
 }
 
 /**
- * Meet-toward-unknown join over an If block's arms: 'good' only when every arm
- * ends 'good'; any unknown arm or any disagreement collapses to 'unknown'.
+ * Meet-toward-unknown join over an If block's arms for one tracked name: 'good'
+ * only when every arm ends 'good'; any unknown arm or any disagreement collapses
+ * to 'unknown'. Each arm's state is read inline (falling back to the name's entry
+ * state) so no intermediate per-name array is allocated.
  */
 function joinBranchStates(
-	perArm: readonly string[],
-	init: string,
-	good: string,
-	unknown: string,
+	armStates: readonly ReadonlyMap<string, string>[],
+	lower: string,
+	fallback: string,
+	lattice: { init: string; good: string; unknown: string },
 ): string {
-	if (perArm.some((state) => state === unknown)) {
-		return unknown;
+	const { init, good, unknown } = lattice;
+	let allGood = true;
+	let allInit = true;
+	for (const arm of armStates) {
+		const state = arm.get(lower) ?? fallback;
+		if (state === unknown) {
+			return unknown;
+		}
+		if (state !== good) {
+			allGood = false;
+		}
+		if (state !== init) {
+			allInit = false;
+		}
 	}
-	if (perArm.every((state) => state === good)) {
-		return good;
-	}
-	if (perArm.every((state) => state === init)) {
-		return init;
-	}
-	return unknown;
+	return allGood ? good : allInit ? init : unknown;
 }
 
 /** Recursively collects tracked names touched anywhere inside nested bodies. */

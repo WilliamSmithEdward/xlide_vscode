@@ -29,15 +29,16 @@
 import type {
 	BinaryOperator,
 	ExprNode,
-	ModuleNode,
 	Span,
 } from '../../parser/nodes';
-import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
-import { declarationShapeEnvironmentFor, type DeclaredValueShape } from '../typeInference';
-import { activeModuleMembers } from '../walker';
-import { forEachExpressionInBody } from '../exprWalk';
+import {
+	declarationShapeEnvironmentFor,
+	sameModuleTypeNames,
+	type DeclaredValueShape,
+} from '../typeInference';
+import type { ProcedureExpressionVisitor } from '../exprWalk';
 
 /**
  * Binary operators that require scalar operands (MS-VBAL 5.6). Excludes `Is`
@@ -51,18 +52,13 @@ const SCALAR_OPERAND_OPERATORS: ReadonlySet<BinaryOperator> = new Set<BinaryOper
 ]);
 
 export function checkBinaryOperandScalar(
-	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
-	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
-): void {
-	const udtNames = userDefinedTypeNames(symbols);
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
-		}
+): ProcedureExpressionVisitor {
+	const udtNames = sameModuleTypeNames(symbols);
+	return (member) => {
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
-		forEachExpressionInBody(member.body, activity, (expr) => {
+		return (expr) => {
 			if (expr.exprKind !== 'BinaryExpr' || !SCALAR_OPERAND_OPERATORS.has(expr.operator)) {
 				return;
 			}
@@ -75,21 +71,8 @@ export function checkBinaryOperandScalar(
 					offender.span,
 				);
 			}
-		});
-	}
-}
-
-/** Names of `Type` (struct) declarations in this module, lowercased. */
-function userDefinedTypeNames(
-	symbols: ReturnType<typeof buildModuleSymbols>,
-): ReadonlySet<string> {
-	const names = new Set<string>();
-	for (const child of symbols.root.children ?? []) {
-		if (child.kind === 'type') {
-			names.add(child.name.toLowerCase());
-		}
-	}
-	return names;
+		};
+	};
 }
 
 /** A provably non-scalar identifier operand (a bare array, or a same-module

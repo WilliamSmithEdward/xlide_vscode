@@ -2242,7 +2242,21 @@ export function isBooleanString(value: string): boolean {
 	return /^(true|false|0|-?1)$/i.test(value.trim());
 }
 
-export function moduleNonCallableSymbols(symbols: ReturnType<typeof buildModuleSymbols>): Map<string, VbaSymbol> {
+// Per-pass memo (read-only by the engine's derived-table convention): this is
+// rebuilt per procedure inside sourceNameScopeFor, but is a pure function of the
+// module symbols, so compute it once per parse and share it across members/rules.
+const MODULE_NON_CALLABLE_SYMBOLS = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	Map<string, VbaSymbol>
+>();
+
+export function moduleNonCallableSymbols(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): Map<string, VbaSymbol> {
+	const cached = MODULE_NON_CALLABLE_SYMBOLS.get(symbols);
+	if (cached) {
+		return cached;
+	}
 	const out = new Map<string, VbaSymbol>();
 	const callableNames = new Set(
 		(symbols.root.children ?? [])
@@ -2261,7 +2275,35 @@ export function moduleNonCallableSymbols(symbols: ReturnType<typeof buildModuleS
 			}
 		}
 	}
+	MODULE_NON_CALLABLE_SYMBOLS.set(symbols, out);
 	return out;
+}
+
+const SAME_MODULE_TYPE_NAMES = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	ReadonlySet<string>
+>();
+
+/**
+ * Lowercased names of `Type` (struct) declarations in this module, memoized per
+ * parse. Shared by the operand rules (`non-scalar-binary-operand`,
+ * `argument-shape-mismatch`) so each does not independently rescan `root.children`.
+ */
+export function sameModuleTypeNames(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): ReadonlySet<string> {
+	const cached = SAME_MODULE_TYPE_NAMES.get(symbols);
+	if (cached) {
+		return cached;
+	}
+	const names = new Set<string>();
+	for (const child of symbols.root.children ?? []) {
+		if (child.kind === 'type') {
+			names.add(child.name.toLowerCase());
+		}
+	}
+	SAME_MODULE_TYPE_NAMES.set(symbols, names);
+	return names;
 }
 
 export function isNonCallableSymbol(sym: VbaSymbol): boolean {

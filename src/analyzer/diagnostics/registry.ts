@@ -10,6 +10,7 @@
 
 import type { PushFn, RulePassContext } from './analysisContext';
 import type { ProcedureStatementVisitor } from './walker';
+import type { ProcedureExpressionVisitor } from './exprWalk';
 import {
 	checkInvalidLineContinuations,
 	checkUnterminatedStrings,
@@ -130,15 +131,19 @@ import {
  *   rule's per-pass setup and returns a visitor for the ONE shared
  *   procedure-statement walk (audit #0), instead of each rule walking the
  *   AST itself.
+ * - `procedureExpressions` rules are per-expression: the factory returns a
+ *   per-member visitor for the ONE shared expression-tree walk, so the operand
+ *   rules cost a single traversal per body between them rather than one each.
  *
  * Every rule reports through its own buffered `push`, and runRules flushes
- * the buffers in registry order, so both forms preserve the engine's
+ * the buffers in registry order, so all forms preserve the engine's
  * historical rule-major diagnostic order.
  */
 export interface DiagnosticRuleEntry {
 	name: string;
 	run?(ctx: RulePassContext, push: PushFn): void;
 	procedureStatements?(ctx: RulePassContext, push: PushFn): ProcedureStatementVisitor;
+	procedureExpressions?(ctx: RulePassContext, push: PushFn): ProcedureExpressionVisitor;
 }
 
 /**
@@ -601,11 +606,9 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'typeOfIsAlwaysFalse',
-		run: (ctx, push) => checkTypeOfIsCompatibility(
-			ctx.mod,
+		procedureExpressions: (ctx, push) => checkTypeOfIsCompatibility(
 			ctx.symbols,
 			ctx.memberCtx,
-			ctx.activity,
 			push,
 		),
 	},
@@ -615,11 +618,11 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'isOperatorNonObject',
-		run: (ctx, push) => checkIsOperatorOperands(ctx.mod, ctx.symbols, ctx.activity, push),
+		procedureExpressions: (ctx, push) => checkIsOperatorOperands(ctx.symbols, push),
 	},
 	{
 		name: 'nonScalarBinaryOperand',
-		run: (ctx, push) => checkBinaryOperandScalar(ctx.mod, ctx.symbols, ctx.activity, push),
+		procedureExpressions: (ctx, push) => checkBinaryOperandScalar(ctx.symbols, push),
 	},
 	{
 		name: 'argumentShapeMismatch',

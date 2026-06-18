@@ -11,9 +11,43 @@
 // `ExprNode` kind would otherwise have to be added in every copy or rules would
 // silently miss nodes. This module owns the one walk; rules filter by `exprKind`.
 
-import type { BodyNode, ExprNode } from '../parser/nodes';
+import type { BodyNode, ExprNode, ModuleNode, ProcedureNode } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
-import { isInactiveNode } from './walker';
+import { activeModuleMembers, isInactiveNode } from './walker';
+
+/**
+ * A rule's per-procedure expression visitor: the factory does the rule's
+ * per-member setup (type env, shape env, …) and returns a callback invoked for
+ * every expression node in that member's body.
+ */
+export type ProcedureExpressionVisitor = (member: ProcedureNode) => (expr: ExprNode) => void;
+
+/**
+ * Runs ONE shared expression walk per active procedure, dispatching every
+ * expression node to each registered rule visitor — so N expression-consuming
+ * rules cost one tree traversal per body instead of N. Each visitor reports
+ * through its own buffer, so registry-order output is preserved.
+ */
+export function walkProcedureExpressions(
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	factories: readonly ProcedureExpressionVisitor[],
+): void {
+	if (factories.length === 0) {
+		return;
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const visitors = factories.map((factory) => factory(member));
+		forEachExpressionInBody(member.body, activity, (expr) => {
+			for (const visit of visitors) {
+				visit(expr);
+			}
+		});
+	}
+}
 
 /**
  * Visits every expression node — each root expression and all of its

@@ -29,6 +29,10 @@ import {
 	walkProcedureStatements,
 	type ProcedureStatementVisitor,
 } from './walker';
+import {
+	walkProcedureExpressions,
+	type ProcedureExpressionVisitor,
+} from './exprWalk';
 import type {
 	ModuleNode,
 	Span,
@@ -156,6 +160,7 @@ function runRules(
 	// registry order keeps the historical rule-major diagnostic order.
 	const buffers: VbaDiagnostic[][] = [];
 	const statementVisitors: ProcedureStatementVisitor[] = [];
+	const expressionVisitors: ProcedureExpressionVisitor[] = [];
 	for (const rule of DIAGNOSTIC_RULE_REGISTRY) {
 		const buffer: VbaDiagnostic[] = [];
 		buffers.push(buffer);
@@ -166,8 +171,12 @@ function runRules(
 		if (rule.procedureStatements) {
 			statementVisitors.push(rule.procedureStatements(ctx, push));
 		}
+		if (rule.procedureExpressions) {
+			expressionVisitors.push(rule.procedureExpressions(ctx, push));
+		}
 	}
 	walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors);
+	walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors);
 
 	const out: VbaDiagnostic[] = [];
 	for (const buffer of buffers) {

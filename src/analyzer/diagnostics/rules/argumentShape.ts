@@ -49,6 +49,7 @@ import {
 	isKnownScalarType,
 	namedArgumentSlot,
 	normalizeType,
+	sameModuleTypeNames,
 	sourceNameScopeFor,
 	typeEnvironmentFor,
 	type SourceDeclaredShape,
@@ -188,17 +189,6 @@ function validateArgumentShapes(
 			push('argumentShapeMismatch', scalarToArrayMessage(ident.name, param, sig.name), ident.span);
 		}
 	}
-}
-
-/** Lowercased names of `Type` (struct) declarations in this module. */
-function sameModuleTypeNames(symbols: ReturnType<typeof buildModuleSymbols>): ReadonlySet<string> {
-	const names = new Set<string>();
-	for (const child of symbols.root.children ?? []) {
-		if (child.kind === 'type') {
-			names.add(child.name.toLowerCase());
-		}
-	}
-	return names;
 }
 
 /** A single bare identifier argument (not indexed / member / call / expression). */
