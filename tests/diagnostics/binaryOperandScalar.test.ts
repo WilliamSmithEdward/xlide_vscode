@@ -47,6 +47,36 @@ describe('analyzeModule - non-scalar-binary-operand', () => {
 		expect(hits(wrap('    Dim a(3) As Long\n    If a And True Then\n    End If'))).toHaveLength(1);
 	});
 
+	// --- user-defined Type (struct) operands (oracle-verified rejected) ---
+
+	it('flags a same-module user-defined Type value in concatenation', () => {
+		const src = 'Private Type TPoint\n    x As Long\nEnd Type\n'
+			+ wrap('    Dim p As TPoint\n    Dim s As String\n    s = "x" & p');
+		const found = hits(src);
+		expect(found).toHaveLength(1);
+		expect(spanText(src, found[0])).toBe('p');
+	});
+
+	it('flags a user-defined Type value in comparison and arithmetic', () => {
+		const decl = 'Private Type TPoint\n    x As Long\nEnd Type\n';
+		expect(hits(decl + wrap('    Dim p As TPoint\n    If p < 1 Then\n    End If'))).toHaveLength(1);
+		expect(hits(decl + wrap('    Dim p As TPoint\n    Dim x As Long\n    x = p + 1'))).toHaveLength(1);
+	});
+
+	it('flags a Type named like a scalar (vbLong) without scalar-strip misclassification', () => {
+		// `Type` names are user identifiers; normalizeType would strip vbLong -> long,
+		// so the gate matches the module Type symbol directly, not a stripped scalar.
+		const src = 'Private Type vbLong\n    n As Long\nEnd Type\n'
+			+ wrap('    Dim z As vbLong\n    Dim s As String\n    s = "x" & z');
+		expect(hits(src)).toHaveLength(1);
+	});
+
+	it('stays quiet for a non-Type type name (class / external / unknown)', () => {
+		// CFoo is not a module Type symbol (a class instance is not a struct, and a
+		// default member may coerce), so the operand stays quiet.
+		expect(hits(wrap('    Dim c As CFoo\n    Dim s As String\n    s = "x" & c'))).toHaveLength(0);
+	});
+
 	// --- no-false-positive controls (oracle-confirmed accepted) ---
 
 	it('stays quiet for a scalar operand in every operator class', () => {

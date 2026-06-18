@@ -1751,12 +1751,15 @@
         "nonscalar_scalar_long_concat_control",
         "nonscalar_variant_concat_control",
         "nonscalar_array_element_concat_control",
-        "nonscalar_range_concat_control"
+        "nonscalar_range_concat_control",
+        "nonscalar_udt_concat_probe",
+        "nonscalar_udt_comparison_lt_probe",
+        "nonscalar_udt_arith_plus_probe"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "A bare array variable used as an operand of a scalar-requiring binary operator is a VBE compile error ('Type mismatch'). Oracle-verified rejected at compile across all four operator classes - & concatenation, arithmetic +, comparison <, and Boolean/bitwise And (one representative per class; the array-operand mechanism is operator-independent and generalizes to the rest of each class: arithmetic - * / \\ ^ Mod, comparisons = <> > <= >=, and Or Xor Eqv Imp). No-FP scope mirrors is-operator-non-object: fires only on a plain IdentifierExpr operand whose declaration shape isArray is true. Stays quiet for scalars, Variant, Object/host receivers (a default member may coerce - control nonscalar_range_concat_control compiles), an indexed array element a(0) (an IndexExpr scalar element - control nonscalar_array_element_concat_control compiles), member access, calls, parenthesized operands, undeclared names, and statement-level array-copy assignment a = b (an Assignment node, not a comparison BinaryExpr). Is (object operands, owned by is-operator-non-object) and Like (operands coerced to String) are out of scope. User-defined Type (struct) operands are a tracked follow-up."
+      "notes": "A bare array variable used as an operand of a scalar-requiring binary operator is a VBE compile error ('Type mismatch'). Oracle-verified rejected at compile across all four operator classes - & concatenation, arithmetic +, comparison <, and Boolean/bitwise And (one representative per class; the array-operand mechanism is operator-independent and generalizes to the rest of each class: arithmetic - * / \\ ^ Mod, comparisons = <> > <= >=, and Or Xor Eqv Imp). No-FP scope mirrors is-operator-non-object: fires only on a plain IdentifierExpr operand whose declaration shape isArray is true. Stays quiet for scalars, Variant, Object/host receivers (a default member may coerce - control nonscalar_range_concat_control compiles), a same-module user-defined Type value reuses the same compile rejection (oracle-verified nonscalar_udt_concat_probe / _comparison_lt_probe / _arith_plus_probe). An indexed array element a(0) (an IndexExpr scalar element - control nonscalar_array_element_concat_control compiles), member access, calls, parenthesized operands, undeclared names, and statement-level array-copy assignment a = b (an Assignment node, not a comparison BinaryExpr). Is (object operands, owned by is-operator-non-object) and Like (operands coerced to String) are out of scope. The UDT branch matches the operand's declared type against this module's Type symbol names (Type names are always user identifiers, never scalar keywords, so there is no scalar-strip collision); an Object/class instance is not a module Type symbol and stays quiet, and cross-module UDTs are a tracked follow-up."
     }
   ]
 }

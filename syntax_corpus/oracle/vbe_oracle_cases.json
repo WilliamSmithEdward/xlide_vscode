@@ -4450,6 +4450,39 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim r As Range\n    Dim s As String\n    s = \"x\" & r\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "nonscalar_udt_concat_probe",
+      "description": "Observe whether a user-defined Type (struct) variable as a & concatenation operand is rejected, and at which phase.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "source": "Private Type TPoint\n    x As Long\nEnd Type\n\nPublic Sub XlideOracleEntry()\n    Dim p As TPoint\n    Dim s As String\n    s = \"x\" & p\nEnd Sub\n",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nonscalar_udt_comparison_lt_probe",
+      "description": "Observe whether a user-defined Type variable as a < comparison operand is rejected, and at which phase.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "source": "Private Type TPoint\n    x As Long\nEnd Type\n\nPublic Sub XlideOracleEntry()\n    Dim p As TPoint\n    If p < 1 Then\n    End If\nEnd Sub\n",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "nonscalar_udt_arith_plus_probe",
+      "description": "Observe whether a user-defined Type variable as an arithmetic + operand is rejected, and at which phase.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "source": "Private Type TPoint\n    x As Long\nEnd Type\n\nPublic Sub XlideOracleEntry()\n    Dim p As TPoint\n    Dim x As Long\n    x = p + 1\nEnd Sub\n",
+      "entryPoint": "XlideOracleEntry",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
