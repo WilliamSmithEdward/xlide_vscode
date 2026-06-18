@@ -339,10 +339,6 @@ export function activate(context: vscode.ExtensionContext): void {
                     }
                 });
             }
-
-            // Recommend disabling AI inline (ghost-text) completions for VBA, which
-            // can hide XLIDE's IntelliSense suggestion menu. One-time, opt-in.
-            recommendDisableInlineSuggest(context, out);
         }, (err: Error) => {
             // Detached: the triggering bridge call must not wait on dialogs.
             void handleBackendStartFailure(err);
@@ -672,52 +668,5 @@ function registerXlideVbaLanguageSync(context: vscode.ExtensionContext, out: vsc
             }
         }),
     );
-}
-
-/**
- * One-time recommendation to disable AI inline (ghost-text) completions for XLIDE
- * VBA modules, which can visually obscure XLIDE's IntelliSense suggestion menu. Only
- * shown when inline suggestions are still effectively enabled for XLIDE VBA and the
- * user has not been asked before.
- */
-function recommendDisableInlineSuggest(
-    context: vscode.ExtensionContext,
-    out: vscode.OutputChannel,
-): void {
-    if (context.globalState.get('xlide.inlineSuggestRecommended')) {
-        return;
-    }
-
-    const config = vscode.workspace.getConfiguration('editor', { languageId: XLIDE_VBA_LANGUAGE_ID });
-    const inspected = config.inspect<boolean>('inlineSuggest.enabled');
-    const vbaOverride =
-        inspected?.globalLanguageValue ??
-        inspected?.workspaceLanguageValue ??
-        inspected?.workspaceFolderLanguageValue;
-    if (vbaOverride === false) {
-        return; // Already disabled for XLIDE VBA; nothing to recommend.
-    }
-    if (config.get<boolean>('inlineSuggest.enabled', true) === false) {
-        return; // Inline suggestions are off everywhere; no conflict to resolve.
-    }
-
-    void context.globalState.update('xlide.inlineSuggestRecommended', true);
-    void vscode.window.showInformationMessage(
-        'XLIDE provides VBA IntelliSense. AI inline completions (gray ghost text) can hide its ' +
-        'suggestion menu. Disable inline completions for XLIDE VBA modules?',
-        'Disable for XLIDE',
-        'Keep',
-    ).then(choice => {
-        if (choice !== 'Disable for XLIDE') {
-            return;
-        }
-        vscode.workspace
-            .getConfiguration('editor', { languageId: XLIDE_VBA_LANGUAGE_ID })
-            .update('inlineSuggest.enabled', false, vscode.ConfigurationTarget.Global, true)
-            .then(
-                () => out.appendLine(`Disabled editor.inlineSuggest.enabled for [${XLIDE_VBA_LANGUAGE_ID}].`),
-                (err: Error) => out.appendLine(`Could not update setting: ${err.message}`),
-            );
-    });
 }
 
