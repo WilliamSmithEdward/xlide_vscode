@@ -50,6 +50,7 @@ import {
 } from './rules/declarations';
 import { checkArgumentCount } from './rules/callArity';
 import { checkArgumentTypes } from './rules/argumentTypes';
+import { checkArgumentShape } from './rules/argumentShape';
 import {
 	checkRuntimeArgumentValues,
 	checkRuntimeConversionValues,
@@ -619,6 +620,17 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'nonScalarBinaryOperand',
 		run: (ctx, push) => checkBinaryOperandScalar(ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'argumentShapeMismatch',
+		procedureStatements: (ctx, push) => checkArgumentShape(
+			ctx.source,
+			ctx.symbols,
+			ctx.opts.projectProcedures,
+			ctx.opts.projectVisibleSymbols,
+			ctx.memberCtx,
+			push,
+		),
 	},
 	{
 		name: 'suffixedLiteralOverflow',

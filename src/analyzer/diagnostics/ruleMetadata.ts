@@ -465,6 +465,18 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6 (binary operators) / VBE oracle: array operand Type mismatch',
 		confidence: 'high',
 	},
+	argumentShapeMismatch: {
+		code: 'argument-shape-mismatch',
+		title: 'Argument shape (array/Type vs scalar) mismatch',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference:
+			'MS-VBAL 5.3.1 (argument passing) / VBE oracle: ByRef argument type mismatch; array or user-defined type expected',
+		confidence: 'high',
+	},
 	parameterDefaultNotConstant: {
 		code: 'parameter-default-not-constant',
 		title: 'Optional default must be a constant expression',

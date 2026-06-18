@@ -1760,6 +1760,27 @@
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
       "notes": "A bare array variable used as an operand of a scalar-requiring binary operator is a VBE compile error ('Type mismatch'). Oracle-verified rejected at compile across all four operator classes - & concatenation, arithmetic +, comparison <, and Boolean/bitwise And (one representative per class; the array-operand mechanism is operator-independent and generalizes to the rest of each class: arithmetic - * / \\ ^ Mod, comparisons = <> > <= >=, and Or Xor Eqv Imp). No-FP scope mirrors is-operator-non-object: fires only on a plain IdentifierExpr operand whose declaration shape isArray is true. Stays quiet for scalars, Variant, Object/host receivers (a default member may coerce - control nonscalar_range_concat_control compiles), a same-module user-defined Type value reuses the same compile rejection (oracle-verified nonscalar_udt_concat_probe / _comparison_lt_probe / _arith_plus_probe). An indexed array element a(0) (an IndexExpr scalar element - control nonscalar_array_element_concat_control compiles), member access, calls, parenthesized operands, undeclared names, and statement-level array-copy assignment a = b (an Assignment node, not a comparison BinaryExpr). Is (object operands, owned by is-operator-non-object) and Like (operands coerced to String) are out of scope. The UDT branch matches the operand's declared type against this module's Type symbol names (Type names are always user identifiers, never scalar keywords, so there is no scalar-strip collision); an Object/class instance is not a module Type symbol and stays quiet, and cross-module UDTs are a tracked follow-up."
+    },
+    {
+      "code": "argument-shape-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 5.3.1 (argument passing by reference/value) plus the Excel/VBE compile oracle (array/UDT-into-scalar 'ByRef argument type mismatch' / 'Type mismatch'; scalar-into-array 'Type mismatch: array or user-defined type expected') and the deterministic declared-shape resolver (SourceDeclaredShape.isArray plus same-module Type symbol names)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "argshape_array_to_scalar_byref_compile",
+        "argshape_array_to_scalar_byval_compile",
+        "argshape_udt_to_scalar_byref_compile",
+        "argshape_scalar_to_array_param_compile",
+        "argshape_variant_scalar_to_array_param_compile",
+        "argshape_array_to_variant_param_control",
+        "argshape_udt_to_udt_match_control",
+        "argshape_array_to_array_match_control",
+        "argshape_paramarray_mixed_types_control"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error",
+      "notes": "A bare array variable, or a same-module user-defined Type value, passed where a parameter is a scalar - or a scalar (including a Variant) passed where a parameter is declared an array - is a VBE compile error. Decides on declared SHAPE only (array-ness / Type-ness), never element-type coercion. Oracle-verified rejected at compile: array->scalar ByRef ('ByRef argument type mismatch'), array->scalar ByVal ('Type mismatch'), UDT->scalar ByRef, scalar->array param and Variant-scalar->array param ('Type mismatch: array or user-defined type expected'); with accepted controls array->Variant param (an array boxes into a Variant), UDT->matching UDT, array->matching array, and ParamArray mixed types all staying quiet. No-FP scope: fires only on a single bare identifier argument whose declared shape RESOLVES to a provable array or same-module Type, against a parameter that is the proven-incompatible shape; quiet on Variant/matching/ParamArray parameters, object/class arguments, member access / indexed a(i) / call / parenthesized / multi-token arguments, and unresolved or ambiguous names. Disjoint from byref-argument-type-mismatch (which owns element-type mismatch on ByRef scalars): this rule defers whenever that rule would fire, so the two never double-report. Object-parameter and both-arrays-different-element-type variants are tracked deferrals (untested by the oracle)."
     }
   ]
 }

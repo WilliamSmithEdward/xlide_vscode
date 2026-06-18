@@ -49,6 +49,8 @@ export interface CallableParamType {
 	type?: string;
 	optional: boolean;
 	paramArray: boolean;
+	/** True when the parameter is declared as an array (`value() As T`). */
+	isArray?: boolean;
 	byRef?: boolean;
 }
 

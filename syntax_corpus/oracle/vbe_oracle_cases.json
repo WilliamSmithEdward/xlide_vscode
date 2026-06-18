@@ -4483,6 +4483,96 @@
       "entryPoint": "XlideOracleEntry",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "argshape_array_to_scalar_byref_compile",
+      "description": "A whole fixed-size array passed where the parameter is a ByRef scalar (As Long). Observe whether VBE Compile rejects (expected: ByRef argument type mismatch).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim arr(0 To 2) As Long\n    Mutate arr\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "argshape_array_to_scalar_byval_compile",
+      "description": "A whole fixed-size array passed where the parameter is a ByVal scalar (As Long). Observe whether VBE Compile rejects (expected: Type mismatch).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByVal value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim arr(0 To 2) As Long\n    Mutate arr\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "argshape_udt_to_scalar_byref_compile",
+      "description": "A same-module user-defined Type value passed where the parameter is a ByRef scalar (As Long). Observe whether VBE Compile rejects.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Private Type T\n    a As Long\nEnd Type\n\nPublic Sub Mutate(ByRef value As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim u As T\n    Mutate u\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "argshape_scalar_to_array_param_compile",
+      "description": "A scalar Long passed where the parameter is declared an array (value() As Long). Observe whether VBE Compile rejects (expected: array or user-defined type expected).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value() As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim x As Long\n    Mutate x\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "argshape_variant_scalar_to_array_param_compile",
+      "description": "A Variant scalar passed where the parameter is declared an array (value() As Long). Observe whether even a Variant scalar is rejected by shape at compile.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value() As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim x As Variant\n    Mutate x\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "argshape_array_to_variant_param_control",
+      "description": "Control: a whole fixed-size array passed where the parameter is a ByRef Variant. Observe whether VBE Compile accepts (array boxes into Variant).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim arr(0 To 2) As Long\n    Mutate arr\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "argshape_udt_to_udt_match_control",
+      "description": "Control: a same-module Type value passed where the parameter is the matching Type. Observe whether VBE Compile accepts.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Private Type T\n    a As Long\nEnd Type\n\nPublic Sub Mutate(ByRef value As T)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim u As T\n    Mutate u\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "argshape_array_to_array_match_control",
+      "description": "Control: a dynamic array passed where the parameter is a matching array (value() As Long). Observe whether VBE Compile accepts.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub Mutate(ByRef value() As Long)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    Dim arr() As Long\n    Mutate arr\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "argshape_paramarray_mixed_types_control",
+      "description": "Control: mixed-type positional arguments passed into a ParamArray items() As Variant. Observe whether VBE Compile accepts (documents the ParamArray-element deferral).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub TakesArgs(ParamArray items() As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesArgs \"a\", 1, 2.5\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
