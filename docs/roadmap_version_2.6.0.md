@@ -86,6 +86,25 @@ Recorded as defer-with-reason in v2.5.0; revisit when oracle-gateable:
 - **Continuation-count / line-length limits** — deterministic pure-counting checks,
   but the exact VBE boundary is not oracle-pinned and the value is low.
 
+## Performance backlog
+
+A v2.5.x audit found the analyzer's per-edit hot path already tight after the
+v2.5.0 performance pass (shared expression-walk registry; memoized
+`procedureHasUnstructuredFlow` / `moduleNonCallableSymbols` / `sameModuleTypeNames`).
+The remaining, lower-priority opportunities are all behavior-preserving:
+
+- [ ] Migrate the remaining stateless `run` rules that drive their own
+  procedure/statement loop onto the shared `procedureStatements` walk (the trivial
+  `me-outside-object-module` case is already converted). Each removes one redundant
+  module iteration; do them per-rule after auditing each rule's state model
+  (statement tokens are already cached, so this saves iteration, not lexing).
+- [ ] Memoize `#Const` / `#If` directive expression tokenization
+  (`conditionalCompilation.ts`) — low frequency, small win.
+
+The audit's statement-token cache-key "collision" concern was investigated and
+rejected as numerically impossible (non-overlapping spans make `span.start` a
+unique key), so there is no correctness or performance action there.
+
 ## Won't implement (unchanged)
 
 Recorded in the MS-VBAL verification-map "Won't Implement" section — no oracle path

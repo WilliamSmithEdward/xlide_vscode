@@ -38,6 +38,7 @@ import {
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
+	type ProcedureStatementVisitor,
 } from '../walker';
 
 /**
@@ -126,40 +127,30 @@ export function checkEventDeclarationModuleKind(
  * keyword, and is left alone (no false positive).
  */
 export function checkMeOutsideObjectModule(
-	source: string,
-	mod: ModuleNode,
 	moduleKind: ModuleSymbolKind,
-	activity: ConditionalActivityTracker | undefined,
+	source: string,
 	push: PushFn,
-): void {
+): ProcedureStatementVisitor {
 	if (isObjectModuleKind(moduleKind)) {
-		return;
+		// `Me` is valid in an object module — skip every procedure (no per-statement cost).
+		return () => undefined;
 	}
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
-			continue;
+	return () => (stmt) => {
+		const toks = statementTokens(source, stmt.span);
+		for (let i = 0; i < toks.length; i++) {
+			if (tokenText(toks[i]) !== 'me') {
+				continue;
+			}
+			if (i > 0 && toks[i - 1].rawText === '.') {
+				continue; // a member named Me, not the Me keyword
+			}
+			push(
+				'meOutsideObjectModule',
+				"'Me' is only valid in a class, document, or UserForm module.",
+				absoluteSpan(stmt.span, toks[i]),
+			);
 		}
-		forEachStatement(
-			member.body,
-			(stmt) => {
-				const toks = statementTokens(source, stmt.span);
-				for (let i = 0; i < toks.length; i++) {
-					if (tokenText(toks[i]) !== 'me') {
-						continue;
-					}
-					if (i > 0 && toks[i - 1].rawText === '.') {
-						continue; // a member named Me, not the Me keyword
-					}
-					push(
-						'meOutsideObjectModule',
-						"'Me' is only valid in a class, document, or UserForm module.",
-						absoluteSpan(stmt.span, toks[i]),
-					);
-				}
-			},
-			activity,
-		);
-	}
+	};
 }
 
 /**

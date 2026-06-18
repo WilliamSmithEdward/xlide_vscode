@@ -394,7 +394,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'meOutsideObjectModule',
-		run: (ctx, push) => checkMeOutsideObjectModule(ctx.source, ctx.mod, ctx.moduleKind, ctx.activity, push),
+		procedureStatements: (ctx, push) => checkMeOutsideObjectModule(ctx.moduleKind, ctx.source, push),
 	},
 	{
 		name: 'withEventsDeclarations',
