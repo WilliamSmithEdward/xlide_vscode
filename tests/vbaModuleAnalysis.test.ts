@@ -365,3 +365,45 @@ describe('analyzeVbaModuleSource', () => {
 		expect(hits[0].message).toContain('Invalid operator sequence');
 	});
 });
+
+// Corpus RT_001/002/004 (excel_vba_realtime_analysis_test_corpus.md): stepping
+// through incomplete -> complete code keeps structural diagnostics stable and
+// local (one closer per unclosed block, active-line suppression for incomplete
+// member access) with no cascade, and clears once the code is completed.
+describe('analyzeVbaModuleSource - realtime typing sequences stay stable and local', () => {
+	const STRUCTURAL = new Set([
+		'missing-block-closer',
+		'unmatched-block-closer',
+		'if-missing-then',
+		'invalid-expression-syntax',
+		'unbalanced-parens',
+	]);
+
+	function structuralHits(source: string, activeOffset?: number) {
+		return analyzeVbaModuleSource({ source, activeIncompleteExpressionOffset: activeOffset })
+			.diagnostics
+			.filter((diag) => STRUCTURAL.has(diag.code));
+	}
+
+	it('RT_001: an unclosed Sub yields one local closer diagnostic and clears when closed', () => {
+		const incomplete = structuralHits('Sub Demo()\n    Debug.Print 1\n');
+		expect(incomplete).toHaveLength(1);
+		expect(incomplete[0].code).toBe('missing-block-closer');
+		expect(structuralHits('Sub Demo()\n    Debug.Print 1\nEnd Sub\n')).toHaveLength(0);
+	});
+
+	it('RT_002: a trailing member-access dot suppresses on the active line, no cascade', () => {
+		const typing = 'Option Explicit\nSub T()\n    ThisWorkbook.\nEnd Sub\n';
+		const dotOffset = typing.indexOf('ThisWorkbook.') + 'ThisWorkbook.'.length;
+		expect(structuralHits(typing, dotOffset)).toHaveLength(0);
+		const completed = 'Option Explicit\nSub T()\n    ThisWorkbook.Worksheets(1).Range("A1").Value = 1\nEnd Sub\n';
+		expect(structuralHits(completed)).toHaveLength(0);
+	});
+
+	it('RT_004: an If being typed stays bounded and clears when completed', () => {
+		const typing = structuralHits('Sub T()\n    If x > 0\n    End If\nEnd Sub\n');
+		expect(typing.length).toBeLessThanOrEqual(2);
+		const completed = 'Sub T()\n    If x > 0 Then\n        Debug.Print x\n    End If\nEnd Sub\n';
+		expect(structuralHits(completed)).toHaveLength(0);
+	});
+});

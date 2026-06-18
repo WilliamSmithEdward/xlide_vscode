@@ -175,6 +175,24 @@ describe('canonical casing edits', () => {
 		]);
 	});
 
+	// Corpus CASING_004 (xlide_vba_realtime_analysis_final_corpus_addendum.md): a
+	// bracketed identifier (a distinct token kind) is never re-cased.
+	it('preserves a bracketed identifier and only canonicalizes the keyword', () => {
+		const src = 'Sub T()\n    dim [sub] As String\nEnd Sub\n';
+		const pairs = editsOnLine(src, 1).map((edit) => [src.slice(edit.start, edit.end), edit.text]);
+		expect(pairs).toEqual([['dim', 'Dim']]);
+		expect(pairs.some(([word]) => word.includes('sub'))).toBe(false);
+	});
+
+	// Corpus CASING_005 (xlide_vba_realtime_analysis_final_corpus_addendum.md): a
+	// type-declaration suffix is a token boundary and is left untouched.
+	it('preserves a type-declaration suffix and only canonicalizes the keyword', () => {
+		const src = 'Sub T()\n    dim total&\nEnd Sub\n';
+		const pairs = editsOnLine(src, 1).map((edit) => [src.slice(edit.start, edit.end), edit.text]);
+		expect(pairs).toEqual([['dim', 'Dim']]);
+		expect(pairs.some(([word]) => word.includes('total') || word.includes('&'))).toBe(false);
+	});
+
 	it('line canonicalization keeps strings and comments unchanged', () => {
 		const src =
 			'Sub T()\n' +

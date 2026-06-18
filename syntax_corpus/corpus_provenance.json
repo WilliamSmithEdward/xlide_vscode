@@ -22,8 +22,8 @@
     {
       "path": "excel_vba_realtime_analysis_test_corpus.md",
       "provenance": "pending-verification",
-      "notes": "Markdown scaffold created before the current oracle workflow. Promote individual cases only after MS-VBAL or oracle verification.",
-      "status": "mining"
+      "notes": "Realtime-recovery tail reconciled 2026-06-17: cascade and active-line suppression behavior shipped and covered (controlFlow + vbaModuleAnalysis realtime suites); RT_001-004 typing sequences, RT_003 unterminated-string, and BAD_003 duplicate-closer added as deterministic unit tests; BAD_004 nested procedure covered by module-declaration-in-procedure. Pure-test corpus; cases retain MS-VBAL/oracle provenance where they drive diagnostics.",
+      "status": "reference"
     },
     {
       "path": "excel_vba_analysis_additional_edge_cases.md",
@@ -64,7 +64,7 @@
     {
       "path": "xlide_vba_realtime_analysis_final_corpus_addendum.md",
       "provenance": "pending-verification",
-      "notes": "Final hardening addendum retained as planning material; promote individual cases only after MS-VBAL or oracle verification.",
+      "notes": "Final hardening addendum. Pure-test veins closed 2026-06-17: CASING_001-006 (formatter; 004/005 bracket and type-suffix preservation fixtures added) and COMP_001-010 (completion-context, no-code by design; 007/008 covered by With-receiver tests, 009/010 owned by signature-help). STILL MINING for the non-pure-test veins: EXCEL_SYNTAX_* (host-behavior), CANARY_* (observe-first), FORM_SYMBOL_* (designer). LEGACY_TRANSFER_* dispositioned as compile-valid refutes under legacy-edges. Promote remaining cases only after MS-VBAL or oracle verification.",
       "status": "mining"
     },
     {

@@ -24,6 +24,19 @@ describe('analyzeModule - unterminated string', () => {
 		const src = 'Sub T()\n    x = "ab""\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'unterminated-string')).toHaveLength(1);
 	});
+
+	// Corpus RT_003 (excel_vba_realtime_analysis_test_corpus.md): an unterminated
+	// string while typing stays a single local diagnostic and clears once closed.
+	it('reports an unterminated string while typing, then clears when the quote is closed', () => {
+		const opening = 'Sub T()\n    Debug.Print "\nEnd Sub\n';
+		const partial = 'Sub T()\n    Debug.Print "hello\nEnd Sub\n';
+		const closed = 'Sub T()\n    Debug.Print "hello"\nEnd Sub\n';
+		expect(byCode(analyzeModule(opening), 'unterminated-string')).toHaveLength(1);
+		const partialHits = byCode(analyzeModule(partial), 'unterminated-string');
+		expect(partialHits).toHaveLength(1);
+		expect(spanText(partial, partialHits[0])).toBe('"hello');
+		expect(byCode(analyzeModule(closed), 'unterminated-string')).toHaveLength(0);
+	});
 });
 
 describe('analyzeModule - invalid line continuation', () => {

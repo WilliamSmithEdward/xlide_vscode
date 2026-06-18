@@ -82,6 +82,17 @@ describe('analyzeVbaStructure', () => {
         expect(problems[0].endCol).toBe(10);
     });
 
+    // Corpus BAD_003 (excel_vba_realtime_analysis_test_corpus.md): a duplicate
+    // procedure closer is a stray block closer, not a cascade.
+    it('flags a duplicate End Sub as a stray block closer', () => {
+        const src = 'Sub T()\nEnd Sub\nEnd Sub\n';
+        const problems = analyzeVbaStructure(src);
+        expect(problems).toHaveLength(1);
+        expect(problems[0].line).toBe(2);
+        expect(problems[0].code).toBe('unmatched-block-closer');
+        expect(problems[0].message).toContain("'End Sub' has no matching 'Sub'");
+    });
+
     it('accepts a balanced multiline If', () => {
         const src = 'Sub Foo()\n    If x Then\n        y = 1\n    End If\nEnd Sub\n';
         expect(analyzeVbaStructure(src)).toEqual([]);

@@ -122,11 +122,11 @@ Index below.
 
 - [ ] `26_class_and_userform_deep_edges.md` — class/UserForm lifecycle + host-event signature veins remain
 - [ ] `27_semantic_runtime_resolution_edges.md` — error-flow + Variant-coercion veins remain (RUNTIME_006 shipped; branch-into-block dispositioned as refute)
-- [ ] `excel_vba_realtime_analysis_test_corpus.md` — realtime-recovery tail
+- [x] `excel_vba_realtime_analysis_test_corpus.md` — realtime-recovery tail reconciled 2026-06-17 → `reference` (RT_001-004 typing sequences + RT_003 unterminated-string + BAD_003 duplicate-closer unit tests; cascade/active-line suppression already covered; BAD_004 covered by module-declaration-in-procedure)
 - [x] `excel_vba_analysis_additional_edge_cases.md` — EXPR_014 (`Like` escaped bracket) refuted, EXPR_013 (`Is` on non-objects) SHIPPED as `is-operator-non-object`, DECL_003 already covered
 - [ ] `excel_vba_analysis_final_hardening_cases.md` — residual hardening cases
 - [x] `xlide_vba_legacy_visible_corpus_edges.md` — Mid-statement target shipped (`mid-statement-literal-target`); GoSub/Return + On-expr-GoTo dispositioned as refutes (compile-valid); `Return`-without-`GoSub` runtime → binder
-- [ ] `xlide_vba_realtime_analysis_final_corpus_addendum.md` — LEGACY_TRANSFER_*, casing
+- [ ] `xlide_vba_realtime_analysis_final_corpus_addendum.md` — casing + completion-context veins closed 2026-06-17 (CASING_004/005 preservation tests added; COMP_001-010 already covered / no-code by design); LEGACY_TRANSFER_* refuted under legacy-edges; stays `mining` for EXCEL_SYNTAX_* / CANARY_* / FORM_SYMBOL_*
 - [x] `excel_vba_analysis_limits_boundary_cases.md` — `reference` (mined)
 - [x] `xlide_vba_visible_analysis_corpus_recommendations.md` — `reference`
 - [x] `Archive/xlide_vba_provable_compile_error_candidates.md` — archived (PCEC vein reconciled)
