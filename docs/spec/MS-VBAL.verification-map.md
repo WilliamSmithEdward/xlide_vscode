@@ -132,10 +132,12 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   logical-statement span, and the diagnostics walkers were widened
   (`isLeafStatement`) so every rule still visits the new nodes. Still raw by
   design in this slice: `GoTo`/labels/`Exit`/`On Error`/file-I/O and other
-  keyword-led statements, the `Mid`/`MidB` replacement statement, named
-  arguments (`name:=expr`), omitted arguments, bang (`!`) access, keyword-object
+  keyword-led statements, the `Mid`/`MidB` replacement statement, keyword-object
   receivers (`Debug.`/`Err.`), and lone-identifier/member statements (label vs.
-  no-arg-call ambiguity). The row stays `Partial` until those deferrals close.
+  no-arg-call ambiguity); named arguments (`name:=expr`), omitted arguments, and
+  bang (`!`) member access are now structured in v2.5.0 (the `Argument` AST plus
+  `MemberAccessExpr.accessKind`). The row stays `Partial` until those remaining
+  deferrals close.
 - **If blocks (branch-modeled):** `IfBlockNode` now carries structured
   `branches` (the `if` arm, then any `elseif`/`else` arms), each with its parsed
   entry condition (`ExprNode`, via the §5.6 parser) and its own statement body,

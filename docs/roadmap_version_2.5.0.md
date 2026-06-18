@@ -20,8 +20,10 @@ Slices 1–3 landed in v2.4.0 (the `ExprNode` AST, statement wiring into
 `Assignment`/`Call` nodes, and `If`/`ElseIf`/`Else` branch modeling). v2.5.0
 completes the binder and cashes it in for the deferred type families:
 
-- [ ] Named / omitted arguments and bang (`!`) member access in statement
-  structuring (currently kept raw).
+- [x] Named / omitted arguments and bang (`!`) member access in statement
+  structuring — **shipped** (the `Argument` AST carries `name` / `nameSpan` and
+  omitted slots, and `MemberAccessExpr.accessKind` distinguishes `'dot'` from
+  `'bang'`; both are consumed by the §5.6 expression-AST rules).
 - [ ] Flow-sensitive identifier binding and definite assignment — with care
   around loops, `GoTo`, and error handlers (the main false-positive risk).
   - ✅ Structural `If`/`ElseIf`/`Else` branch-merge — **shipped.** The shared
@@ -48,23 +50,46 @@ completes the binder and cashes it in for the deferred type families:
     loop / `GoTo` / error-handler join modeling and oracle-pinned
     use-before-def cases to stay no-FP. Tracked as "Flow phase 2:
     definite-assignment (oracle-pinned)".
-- [ ] Binder-dependent diagnostics, each gated on no-FP evidence:
-  - Comparisons (`=`/`<>`/`<`/`Like`/`Is`) numeric/string/Date/Object matrix.
-  - Date coercion (string/numeric→Date, Date parameters; locale-sensitive cases
-    stay quiet until the oracle proves them).
-  - Broad array element typing and array-parameter / `ParamArray`-element
-    compatibility.
-  - Default members (`VB_UserMemId = 0` implicit `.Value`/`.Item` resolution at
-    assignment and call sites; quiet when the default member is unknown).
-  - Boolean operators (`And`/`Or`/`Not`, numeric→Boolean).
-  - Non-scalar ByRef (object refs, arrays, `Variant`, named arguments).
-  - String-concatenation operand typing.
+- [x] Binder-dependent diagnostics — every family dispositioned, either shipped
+  with the three controls + a named source, or deferred with a documented reason:
+  - ✅ **Non-scalar operands** (a bare array or same-module user-defined `Type`)
+    of scalar-requiring binary operators — **shipped** as `non-scalar-binary-operand`
+    (oracle-verified across concatenation, arithmetic, comparison, and Boolean
+    operator classes). `Is` on a scalar operand ships as `is-operator-non-object`;
+    a non-numeric string literal in arithmetic (RTE 13) ships as
+    `string-arithmetic-coercion`.
+  - ✅ **Argument shape** (array / `Type` → scalar parameter, or scalar /
+    `Variant` → array parameter — i.e. the provable non-scalar-ByRef cases) —
+    **shipped** as `argument-shape-mismatch` (9 promoted oracle cases: 5 reject
+    shapes, 4 accept controls; disjoint from `byref-argument-type-mismatch`).
   - ✅ Positional-after-named arguments (PCEC_008) — **shipped** under the
-    `argument-count` rule via the token-level call extractor (no AST change
-    needed; oracle-verified `positional_after_named_argument_compile` plus the
-    paren-call and ParamArray forms, with the legal positional-then-named and
-    all-named orderings confirmed accepted). Fires only on the first non-empty
-    positional slot after a named slot, scoped to resolved callees.
+    `argument-count` rule via the token-level call extractor (oracle-verified
+    `positional_after_named_argument_compile` plus paren-call and ParamArray
+    forms, with legal positional-then-named and all-named orderings accepted).
+  - ⊘ **Comparison / Boolean / string-concat scalar-coercion matrix** — *deferred
+    with reason.* Scalar-vs-scalar mismatches in `=`/`<>`/`<`/`>`, `And`/`Or`/`Not`,
+    and `&` coerce at runtime or are valid — never compile errors (oracle controls
+    `string_concat_nonnumeric_string_runtime` and `numeric_plus_numeric_string_runtime`
+    accept); no no-FP compile red is provable. The non-scalar-shape and Is-scalar
+    halves shipped above.
+  - ⊘ **Date coercion (broad family)** — *deferred with reason.* Implicit
+    string→Date / numeric→Date assignment and `Date` parameters are runtime
+    conversions, not compile errors (oracle `date_assignment_statement_compile`
+    accepts `Dim d As Date: d = "1/2/2020"`); convert-vs-RTE-13 is value- and
+    locale-dependent. The deterministic sub-slice (a plainly non-date string into
+    `CDate`) ships as `runtime-conversion-value`.
+  - ⊘ **Default members** (`VB_UserMemId = 0` implicit `.Value`/`.Item`) —
+    *deferred with reason.* Implicit default-member resolution is a runtime member
+    lookup (oracle `nonscalar_range_concat_control` proves `s = "x" & r`, with
+    `Dim r As Range`, compiles because `Range` has a coercing default member);
+    neither "has a coercing default member" nor "has none" is provable without a
+    host default-member resolver carrying the post-coercion scalar type. The
+    `VB_UserMemId` metadata infra is built and test-enforced; the *diagnostic*
+    defers.
+  - ⊘ **Array-element typing / `ParamArray`-element / object-or-`Variant` ByRef**
+    — *deferred with reason.* `ParamArray` is `Variant` and accepts any element
+    (oracle control accepts); broad element typing and both-arrays-different-
+    element-type are tracked narrow follow-ons.
 
 Definition of done: the binder is complete enough that each family above either
 ships with the three controls + a named source, or is explicitly deferred with a
@@ -79,18 +104,26 @@ surfaces added this cycle, `error-handling-flow` and `xlide-directives`), and th
 named remaining veins — lives in the **Completeness Checklist** section of
 `syntax_corpus/managed_backlog.md`; the items below are its roadmap summary:
 
-- [ ] Mine the remaining corpus veins with the Excel/VBE oracle —
+- [x] Mine the remaining corpus veins with the Excel/VBE oracle —
   runtime-resolution, class/UserForm canary matrix, host-behavior — promoting
-  no-FP candidates as `spec-derived` / `vbe-oracle-verified` and refuting/recording
-  the rest.
-- [ ] Oracle-map the deferred numeric/host boundaries: `Single`/`Double` and
-  hex/octal width overflow, and the `&`-suffix overflow boundary (needs next-token
-  concat-vs-suffix mapping).
-- [ ] Close the realtime incomplete-expression corpus tail (UserForm/class
-  partial-state recovery controls beyond the v2.4.0 slice).
-- [ ] Promote or retire every remaining pending Markdown case; move fully-mined
-  source files to `reference`/`Archive` status and keep `corpus_provenance.json`,
-  `diagnostic_influence_audit.json`, and the manifest test-enforced.
+  no-FP candidates and refuting/recording the rest. **Done:** every vein in the
+  six previously-`mining` files is dispositioned (shipped / already-covered /
+  control-or-refute-as-valid / defer-with-reason) per `managed_backlog.md`.
+- [x] Oracle-map the deferred numeric/host boundaries — **dispositioned as
+  deferred-with-reason:** `Single`/`Double` overflow is not a clean compile/RTE-6
+  literal boundary, hex/octal width overflow needs the lexer to expose declared
+  literal width plus an oracle map, and the `&`/`^`/`!`/`#`/`@` suffix boundary
+  has a *proven* false positive (`s = 3000000000&"x"` compiles as concatenation —
+  the lexer glues the token), so `parseVbaIntegerLiteral` is kept out of the
+  literal-typing path.
+- [x] Close the realtime incomplete-expression corpus tail — **done** (the
+  pure-test realtime-recovery and casing veins are covered by deterministic unit
+  tests; the addendum's residual veins are dispositioned).
+- [x] Promote or retire every remaining pending Markdown case; move fully-mined
+  source files to `reference` status and keep `corpus_provenance.json`,
+  `diagnostic_influence_audit.json`, and the manifest test-enforced. **Done:** all
+  six remaining `mining` files flipped to `reference`; zero files left in
+  `mining`; the provenance, audit, and manifest tests stay green.
 
 Definition of done: the corpus is fully mined — every high-value case is promoted
 or recorded as a tracked deferral, the realtime tail is closed, and no source
