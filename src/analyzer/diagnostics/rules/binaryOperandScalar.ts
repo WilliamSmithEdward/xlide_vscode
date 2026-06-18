@@ -23,14 +23,11 @@
 // undeclared names. `Is` (object operands, owned by `is-operator-non-object`) and
 // `Like` (operands coerced to String) are out of scope.
 //
-// NOTE: the body/expression walkers below mirror those in `typeOfIs.ts`; a shared
-// `forEachBinaryExpr` traversal would unify them (tracked follow-up) — kept local
-// here to keep this rule's change focused and low-risk.
+// The body/expression traversal is the shared `forEachExpressionInBody` walk
+// (diagnostics/exprWalk.ts); this rule only filters to scalar-requiring binaries.
 
 import type {
-	BinaryExpr,
 	BinaryOperator,
-	BodyNode,
 	ExprNode,
 	ModuleNode,
 	Span,
@@ -39,7 +36,8 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
 import { declarationShapeEnvironmentFor, type DeclaredValueShape } from '../typeInference';
-import { activeModuleMembers, isInactiveNode } from '../walker';
+import { activeModuleMembers } from '../walker';
+import { forEachExpressionInBody } from '../exprWalk';
 
 /**
  * Binary operators that require scalar operands (MS-VBAL 5.6). Excludes `Is`
@@ -64,7 +62,10 @@ export function checkBinaryOperandScalar(
 			continue;
 		}
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
-		forEachScalarOperandBinary(member.body, activity, (expr) => {
+		forEachExpressionInBody(member.body, activity, (expr) => {
+			if (expr.exprKind !== 'BinaryExpr' || !SCALAR_OPERAND_OPERATORS.has(expr.operator)) {
+				return;
+			}
 			const offender = nonScalarOperand(expr.left, shapes, udtNames)
 				?? nonScalarOperand(expr.right, shapes, udtNames);
 			if (offender) {
@@ -116,83 +117,4 @@ function nonScalarOperand(
 		};
 	}
 	return undefined; // scalar / Variant / Object / class / cross-module UDT / undeclared -> quiet
-}
-
-/** Visits every binary expression with a scalar-requiring operator in a body. */
-function forEachScalarOperandBinary(
-	body: readonly BodyNode[],
-	activity: ConditionalActivityTracker | undefined,
-	visit: (expr: BinaryExpr) => void,
-): void {
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
-		}
-		switch (node.kind) {
-			case 'Assignment':
-				forEachScalarOperandBinaryInExpr(node.lhs, visit);
-				forEachScalarOperandBinaryInExpr(node.rhs, visit);
-				break;
-			case 'Call':
-				forEachScalarOperandBinaryInExpr(node.callee, visit);
-				for (const arg of node.args) {
-					if (arg.value) {
-						forEachScalarOperandBinaryInExpr(arg.value, visit);
-					}
-				}
-				break;
-			case 'IfBlock':
-				for (const branch of node.branches) {
-					if (branch.condition) {
-						forEachScalarOperandBinaryInExpr(branch.condition, visit);
-					}
-				}
-				forEachScalarOperandBinary(node.body, activity, visit);
-				break;
-			default:
-				if ('body' in node && Array.isArray(node.body)) {
-					forEachScalarOperandBinary(node.body, activity, visit);
-				}
-		}
-	}
-}
-
-/** Recurses an expression, visiting every nested scalar-requiring binary expr. */
-function forEachScalarOperandBinaryInExpr(
-	expr: ExprNode,
-	visit: (expr: BinaryExpr) => void,
-): void {
-	switch (expr.exprKind) {
-		case 'BinaryExpr':
-			if (SCALAR_OPERAND_OPERATORS.has(expr.operator)) {
-				visit(expr);
-			}
-			forEachScalarOperandBinaryInExpr(expr.left, visit);
-			forEachScalarOperandBinaryInExpr(expr.right, visit);
-			break;
-		case 'UnaryExpr':
-			forEachScalarOperandBinaryInExpr(expr.operand, visit);
-			break;
-		case 'ParenExpr':
-			forEachScalarOperandBinaryInExpr(expr.inner, visit);
-			break;
-		case 'IndexExpr':
-			forEachScalarOperandBinaryInExpr(expr.callee, visit);
-			for (const arg of expr.args) {
-				if (arg.value) {
-					forEachScalarOperandBinaryInExpr(arg.value, visit);
-				}
-			}
-			break;
-		case 'MemberAccessExpr':
-			if (expr.object) {
-				forEachScalarOperandBinaryInExpr(expr.object, visit);
-			}
-			break;
-		case 'TypeOfIsExpr':
-			forEachScalarOperandBinaryInExpr(expr.operand, visit);
-			break;
-		default:
-			break; // Literal / Identifier / New / AddressOf -> leaves
-	}
 }

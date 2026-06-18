@@ -22,8 +22,6 @@
 //     the other), proven via the existing object tables in both directions.
 
 import type {
-	BinaryExpr,
-	BodyNode,
 	ExprNode,
 	IdentifierExpr,
 	ModuleNode,
@@ -40,8 +38,9 @@ import {
 	resolveKnownObjectAssignmentType,
 	typeEnvironmentFor,
 } from '../typeInference';
-import { activeModuleMembers, isInactiveNode } from '../walker';
+import { activeModuleMembers } from '../walker';
 import { tokenizeCached } from '../../lexer/tokenize';
+import { forEachExpressionInBody } from '../exprWalk';
 
 /**
  * Rule: `TypeOf` requires an object expression before `Is` (`TypeOf x Is Y`). A
@@ -85,85 +84,11 @@ export function checkTypeOfIsCompatibility(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
-		forEachTypeOfIs(member.body, activity, (expr) => {
-			checkTypeOfIs(expr, env, memberCtx, push);
+		forEachExpressionInBody(member.body, activity, (expr) => {
+			if (expr.exprKind === 'TypeOfIsExpr') {
+				checkTypeOfIs(expr, env, memberCtx, push);
+			}
 		});
-	}
-}
-
-/** Visits every `TypeOfIsExpr` reachable in a procedure body's parsed expressions. */
-function forEachTypeOfIs(
-	body: BodyNode[],
-	activity: ConditionalActivityTracker | undefined,
-	visit: (expr: TypeOfIsExpr) => void,
-): void {
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
-		}
-		switch (node.kind) {
-			case 'Assignment':
-				forEachTypeOfIsInExpr(node.lhs, visit);
-				forEachTypeOfIsInExpr(node.rhs, visit);
-				break;
-			case 'Call':
-				forEachTypeOfIsInExpr(node.callee, visit);
-				for (const arg of node.args) {
-					if (arg.value) {
-						forEachTypeOfIsInExpr(arg.value, visit);
-					}
-				}
-				break;
-			case 'IfBlock':
-				for (const branch of node.branches) {
-					if (branch.condition) {
-						forEachTypeOfIsInExpr(branch.condition, visit);
-					}
-				}
-				// Arm statements live in the flat body; recurse it for nested exprs.
-				forEachTypeOfIs(node.body, activity, visit);
-				break;
-			default:
-				if ('body' in node && Array.isArray(node.body)) {
-					forEachTypeOfIs(node.body, activity, visit);
-				}
-		}
-	}
-}
-
-/** Recurses an expression tree, visiting every nested `TypeOfIsExpr`. */
-function forEachTypeOfIsInExpr(expr: ExprNode, visit: (expr: TypeOfIsExpr) => void): void {
-	switch (expr.exprKind) {
-		case 'TypeOfIsExpr':
-			visit(expr);
-			forEachTypeOfIsInExpr(expr.operand, visit);
-			break;
-		case 'BinaryExpr':
-			forEachTypeOfIsInExpr(expr.left, visit);
-			forEachTypeOfIsInExpr(expr.right, visit);
-			break;
-		case 'UnaryExpr':
-			forEachTypeOfIsInExpr(expr.operand, visit);
-			break;
-		case 'ParenExpr':
-			forEachTypeOfIsInExpr(expr.inner, visit);
-			break;
-		case 'IndexExpr':
-			forEachTypeOfIsInExpr(expr.callee, visit);
-			for (const arg of expr.args) {
-				if (arg.value) {
-					forEachTypeOfIsInExpr(arg.value, visit);
-				}
-			}
-			break;
-		case 'MemberAccessExpr':
-			if (expr.object) {
-				forEachTypeOfIsInExpr(expr.object, visit);
-			}
-			break;
-		default:
-			// LiteralExpr / IdentifierExpr / NewExpr / AddressOfExpr: no nested TypeOf.
-			break;
 	}
 }
 
@@ -261,7 +186,10 @@ export function checkIsOperatorOperands(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
-		forEachIsBinary(member.body, activity, (expr) => {
+		forEachExpressionInBody(member.body, activity, (expr) => {
+			if (expr.exprKind !== 'BinaryExpr' || expr.operator !== 'Is') {
+				return;
+			}
 			const offender = nonObjectOperand(expr.left, env) ?? nonObjectOperand(expr.right, env);
 			if (offender) {
 				push(
@@ -303,81 +231,4 @@ function nonObjectOperand(
 		return undefined; // Variant / Object / class -> quiet
 	}
 	return undefined; // member / call / paren / array / New / unary -> quiet (v1)
-}
-
-/** Visits every binary `Is` expression reachable in a procedure body. */
-function forEachIsBinary(
-	body: BodyNode[],
-	activity: ConditionalActivityTracker | undefined,
-	visit: (expr: BinaryExpr) => void,
-): void {
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
-		}
-		switch (node.kind) {
-			case 'Assignment':
-				forEachIsBinaryInExpr(node.lhs, visit);
-				forEachIsBinaryInExpr(node.rhs, visit);
-				break;
-			case 'Call':
-				forEachIsBinaryInExpr(node.callee, visit);
-				for (const arg of node.args) {
-					if (arg.value) {
-						forEachIsBinaryInExpr(arg.value, visit);
-					}
-				}
-				break;
-			case 'IfBlock':
-				for (const branch of node.branches) {
-					if (branch.condition) {
-						forEachIsBinaryInExpr(branch.condition, visit);
-					}
-				}
-				forEachIsBinary(node.body, activity, visit);
-				break;
-			default:
-				if ('body' in node && Array.isArray(node.body)) {
-					forEachIsBinary(node.body, activity, visit);
-				}
-		}
-	}
-}
-
-/** Recurses an expression tree, visiting every nested binary `Is`. */
-function forEachIsBinaryInExpr(expr: ExprNode, visit: (expr: BinaryExpr) => void): void {
-	switch (expr.exprKind) {
-		case 'BinaryExpr':
-			if (expr.operator === 'Is') {
-				visit(expr);
-			}
-			forEachIsBinaryInExpr(expr.left, visit);
-			forEachIsBinaryInExpr(expr.right, visit);
-			break;
-		case 'TypeOfIsExpr':
-			forEachIsBinaryInExpr(expr.operand, visit);
-			break;
-		case 'UnaryExpr':
-			forEachIsBinaryInExpr(expr.operand, visit);
-			break;
-		case 'ParenExpr':
-			forEachIsBinaryInExpr(expr.inner, visit);
-			break;
-		case 'IndexExpr':
-			forEachIsBinaryInExpr(expr.callee, visit);
-			for (const arg of expr.args) {
-				if (arg.value) {
-					forEachIsBinaryInExpr(arg.value, visit);
-				}
-			}
-			break;
-		case 'MemberAccessExpr':
-			if (expr.object) {
-				forEachIsBinaryInExpr(expr.object, visit);
-			}
-			break;
-		default:
-			// LiteralExpr / IdentifierExpr / NewExpr / AddressOfExpr: no nested Is.
-			break;
-	}
 }
