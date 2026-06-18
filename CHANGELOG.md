@@ -2,6 +2,54 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.0] - 2026-06-17
+
+Version 2.5.0 builds on the v2.4.0 static-analysis baseline with two goals, both
+reaching their definition of done: completing the MS-VBAL §5.6 expression binder
+and cashing it in for binder-dependent diagnostics, and finishing the
+syntax-corpus mining so no source file is left un-dispositioned. The same
+no-false-positive discipline applies — every shipped red has positive, negative,
+and no-diagnostic controls plus a named evidence source (MS-VBAL, the Excel/VBE
+oracle, or deterministic XLIDE metadata), and anything not provable stays quiet
+and is deferred with a documented reason. The TypeScript suite grew to 2,071
+tests; the Excel/VBE oracle now backs the diagnostics with 397 verified cases.
+See `docs/static_analysis_completeness_2.5.0.md` for the auditable record.
+
+### Added
+
+- **`argument-shape-mismatch`** (compile-error): a bare array variable or
+  same-module user-defined `Type` value passed where a parameter is a scalar — or
+  a scalar (including `Variant`) passed where a parameter is declared an array —
+  is a VBE compile error. The rule decides on declared shape only, never
+  element-type coercion; it is oracle-verified across 9 cases and is disjoint from
+  `byref-argument-type-mismatch`.
+- **Operator-shape diagnostics**: `non-scalar-binary-operand` (an array or
+  same-module `Type` used as the operand of a scalar-requiring operator),
+  `is-operator-non-object` (`Is` on a provably scalar operand), and
+  `typeof-is-always-false` (a `TypeOf x Is Y` that can never hold), all off the
+  §5.6 expression AST.
+- **Expression-AST structuring** for named arguments (`name:=expr`), omitted
+  arguments, and bang (`!`) member access.
+
+### Changed
+
+- **Flow precision**: the shared dataflow now merges `If`/`ElseIf`/`Else` branch
+  arms, so `object-variable-not-set` (Run-time error 91) and
+  `unallocated-dynamic-array-access` (Run-time error 9) check accesses inside
+  balanced `If` arms — conservatively falling back on any label, `GoTo`,
+  `On Error`, or loop. Default-member (`VB_UserMemId`) matching is now a
+  deterministic numeric parse against a named DISPID constant.
+- **Syntax corpus fully mined**: every remaining `mining` source file is
+  dispositioned and promoted to `reference`; zero files remain in `mining`.
+
+### Deferred (documented)
+
+- The comparison / Boolean / string-concatenation scalar-coercion matrix, Date
+  coercion, and default-member-aware diagnostics — VBA coerces these at runtime,
+  so no no-false-positive compile red is provable. Numeric/host boundary overflow
+  and flow phase 2 (definite assignment) remain oracle- / binder-gated. See the
+  completeness report.
+
 ## [2.4.0] - 2026-06-14
 
 Version 2.4.0 is the static-analysis completeness release. It closes the
