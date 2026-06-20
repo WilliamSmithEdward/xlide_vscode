@@ -320,7 +320,7 @@ function definitionsForDocumentType(
 	}
 }
 
-const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
+export const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
 	...WORKBOOK_EVENTS,
 	...WORKSHEET_EVENTS,
 	...CHART_EVENTS,
