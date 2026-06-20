@@ -1483,6 +1483,12 @@ export function checkParameterOrder(
 		}
 		const params = member.params;
 		const hasOptional = params.some((p) => p.optional);
+		// The final parameter of a Property Let/Set is the assigned value: it is
+		// mandatory by definition and exempt from the "required-after-optional"
+		// constraint, so an Optional index parameter may legally precede it
+		// (MS-VBAL 5.3.1.5). Only the index parameters obey the ordering rule.
+		const lastIsValueParameter =
+			member.procKind === 'PropertyLet' || member.procKind === 'PropertySet';
 		let optionalSeen = false;
 		for (let i = 0; i < params.length; i++) {
 			const p = params[i];
@@ -1526,7 +1532,7 @@ export function checkParameterOrder(
 				optionalSeen = true;
 				continue;
 			}
-			if (optionalSeen) {
+			if (optionalSeen && !(lastIsValueParameter && i === params.length - 1)) {
 				push(
 					'requiredParamAfterOptional',
 					`Parameter '${p.name}' must be Optional because it follows an Optional parameter.`,

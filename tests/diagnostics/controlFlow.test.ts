@@ -28,9 +28,28 @@ describe('analyzeModule - Exit statement matches procedure', () => {
 		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(1);
 	});
 
-	it('flags Exit Sub inside a Property', () => {
-		const src = 'Property Get Name() As String\n    Exit Sub\nEnd Property\n';
+	it('flags Exit Sub inside a Property Let', () => {
+		// Property Let/Set reject Exit Sub and Exit Function (oracle-verified);
+		// only Property Get is lenient.
+		const src = 'Property Let Name(v As String)\n    Exit Sub\nEnd Property\n';
 		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(1);
+	});
+
+	it('flags Exit Function inside a Property Set', () => {
+		const src = 'Property Set Obj(v As Object)\n    Exit Function\nEnd Property\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(1);
+	});
+
+	it('accepts Exit Function inside a Property Get (the stdEnumerator pattern)', () => {
+		// VBE special-cases Property Get: it is value-returning, so Exit Function
+		// compiles there (oracle-verified).
+		const src = 'Property Get Item() As Variant\n    Exit Function\nEnd Property\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(0);
+	});
+
+	it('accepts Exit Sub inside a Property Get', () => {
+		const src = 'Property Get Name() As String\n    Exit Sub\nEnd Property\n';
+		expect(byCode(analyzeModule(src), 'exit-wrong-proc')).toHaveLength(0);
 	});
 
 	it('accepts a matching Exit Sub', () => {

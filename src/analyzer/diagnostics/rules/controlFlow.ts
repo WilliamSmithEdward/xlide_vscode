@@ -64,6 +64,14 @@ export function checkExitStatements(
 	push: PushFn,
 ): ProcedureStatementVisitor {
 	return (member) => {
+		// VBE special-cases Property Get: it accepts `Exit Function` and `Exit Sub`
+		// in addition to `Exit Property` (oracle-verified). A Property Get is
+		// internally value-returning, so `Exit Function` compiles there, and
+		// `Exit Sub` is tolerated too. Property Let/Set and Sub/Function still
+		// require the matching keyword, so only Property Get is exempt.
+		if (member.procKind === 'PropertyGet') {
+			return () => undefined;
+		}
 		const expected = expectedExitWord(member.procKind);
 		const label = enclosingProcLabel(member.procKind);
 		return (stmt) => {

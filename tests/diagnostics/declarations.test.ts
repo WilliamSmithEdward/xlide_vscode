@@ -1143,6 +1143,34 @@ describe('analyzeModule - parameter order', () => {
 		).toHaveLength(0);
 	});
 
+	it('exempts the Property Let value parameter after an Optional index parameter', () => {
+		// VBE-oracle verified: a Property Let/Set value parameter is mandatory and
+		// may legally follow an Optional index parameter (MS-VBAL 5.3.1.5).
+		const src =
+			'Public Property Let X(Optional ByVal i As Long, ByVal v As Long)\nEnd Property\n';
+		expect(
+			byCode(analyzeModule(src), 'required-param-after-optional'),
+		).toHaveLength(0);
+	});
+
+	it('exempts the Property Set value parameter after an Optional index parameter', () => {
+		const src =
+			'Public Property Set X(Optional ByVal i As Long, ByVal v As Object)\nEnd Property\n';
+		expect(
+			byCode(analyzeModule(src), 'required-param-after-optional'),
+		).toHaveLength(0);
+	});
+
+	it('still flags a non-value required parameter that precedes the Property Set value', () => {
+		// Only the final (value) parameter is exempt; an interior required
+		// parameter after an Optional one is still the genuine compile error.
+		const src =
+			'Public Property Set X(Optional ByVal i As Long, ByVal mid As Long, ByVal v As Object)\nEnd Property\n';
+		const hits = byCode(analyzeModule(src), 'required-param-after-optional');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('mid');
+	});
+
 	it('flags array parameter parentheses after the As type and suppresses the generic token error', () => {
 		const src =
 			'Public Sub NegParam06_BadArrayParameterSyntax(ByVal values As Long())\n' +
