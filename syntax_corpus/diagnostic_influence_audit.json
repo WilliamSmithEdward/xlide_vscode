@@ -165,13 +165,16 @@
       "assertedOracleCases": [
         "option_explicit_undeclared_assignment_compile",
         "implicit_variant_assignment_without_option_explicit_compile",
-        "option_explicit_declared_assignment_compile"
+        "option_explicit_declared_assignment_compile",
+        "option_explicit_pointer_functions_compile",
+        "option_explicit_byte_string_functions_compile",
+        "option_explicit_vblonglong_constant_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives.",
+      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives. Hidden built-ins (VarPtr/StrPtr/ObjPtr, the byte-string ...B family, and the vbLongLong constant) resolve via the runtime catalog and must not be reported as undeclared (oracle-verified accept).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -698,13 +701,14 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus VBA ReDim statement semantics: scalar variables cannot be resized",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "redim_scalar_compile"
+        "redim_scalar_compile",
+        "redim_udt_array_member_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage resolves ReDim targets through the shared assignment-target resolver before falling back to local/module maps. It reports non-Variant scalar declarations such as `Dim Value As Long`, including visible exported standard-module scalars, while dynamic arrays, scalar Variant and implicit Variant targets, undeclared ReDim targets, local dynamic shadows of module/project scalars, ambiguous exported globals, and inactive conditional branches stay silent.",
+      "notes": "Active coverage resolves ReDim targets through the shared assignment-target resolver before falling back to local/module maps. It reports non-Variant scalar declarations such as `Dim Value As Long`, including visible exported standard-module scalars, while dynamic arrays, scalar Variant and implicit Variant targets, undeclared ReDim targets, local dynamic shadows of module/project scalars, ambiguous exported globals, and inactive conditional branches stay silent. A qualified ReDim target (`ReDim x.arr(...)`) resizes a member array, not the container, and is not flagged (oracle-verified accept).",
       "diagnosticKind": "compile-error"
     },
     {

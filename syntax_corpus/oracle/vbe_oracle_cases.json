@@ -4679,6 +4679,46 @@
       "provenance": "vbe-oracle-verified",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "option_explicit_pointer_functions_compile",
+      "description": "VarPtr/StrPtr/ObjPtr are hidden built-in functions recognized under Option Explicit.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Sub T()\n    Dim x As Long, s As String, o As Object\n    Debug.Print VarPtr(x)\n    Debug.Print StrPtr(s)\n    Debug.Print ObjPtr(o)\nEnd Sub\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "option_explicit_byte_string_functions_compile",
+      "description": "The byte-string built-in functions (LeftB/RightB/MidB/LenB/AscB/ChrB) are recognized under Option Explicit.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Sub T()\n    Dim s As String\n    Debug.Print LeftB(s, 2), RightB(s, 2), MidB(s, 1, 2), LenB(s), AscB(s), ChrB(65)\nEnd Sub\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "option_explicit_vblonglong_constant_compile",
+      "description": "vbLongLong is a built-in VbVarType constant recognized under Option Explicit.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\nPublic Sub T()\n    Debug.Print vbLongLong\nEnd Sub\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "redim_udt_array_member_compile",
+      "description": "ReDim of a dynamic-array member of a UDT variable is valid (the member is resized, not the container).",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\nPrivate Type TBuf\n    n As Long\n    b() As Byte\nEnd Type\nPublic Sub T()\n    Dim buf As TBuf\n    ReDim buf.b(0 To 3)\nEnd Sub\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
