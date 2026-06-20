@@ -426,10 +426,15 @@ export const DIAGNOSTIC_RULES = {
 		title: 'Object assignment requires Set',
 		defaultSeverity: 'error',
 		category: 'semantic',
-		vbeCompileEquivalent: true,
-		diagnosticKind: 'compile-error',
+		// A bare assignment to an object target compiles cleanly and fails at
+		// runtime with error 91, not at compile time (VBE-oracle verified across
+		// `= Null`, `= New`, and Function-return-name assignment). It shares the
+		// runtime-91 class with `object-variable-not-set`.
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
-		specReference: 'MS-VBAL 5.4.3 / Set statement',
+		specReference: 'VBE runtime error 91: Object variable or With block variable not set (MS-VBAL 5.4.3 / Set statement)',
+		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
 	typeOfIsAlwaysFalse: {

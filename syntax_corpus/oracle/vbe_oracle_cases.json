@@ -4573,6 +4573,112 @@
       "source": "Public Sub TakesArgs(ParamArray items() As Variant)\nEnd Sub\n\nPublic Sub XlideOracleEntry()\n    TakesArgs \"a\", 1, 2.5\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "property_let_optional_index_then_value_param",
+      "description": "Property Let with an Optional index parameter before the mandatory value parameter; the value parameter is exempt from the required-after-optional rule.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Property Let Foo(Optional ByVal i As Long, ByVal v As Long)\nEnd Property\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "property_set_optional_index_then_value_param",
+      "description": "Property Set with an Optional index parameter before the mandatory value (object) parameter.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Property Set Bar(Optional ByVal i As Long, ByVal v As Object)\nEnd Property\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "exit_function_in_property_get",
+      "description": "Exit Function inside a Property Get. A Property Get is value-returning, so VBE accepts Exit Function there.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Property Get Qux() As Long\n    Qux = 1\n    Exit Function\nEnd Property\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "exit_sub_in_property_get",
+      "description": "Exit Sub inside a Property Get. VBE also tolerates Exit Sub inside a Property Get.",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Property Get Qox() As Long\n    Qox = 1\n    Exit Sub\nEnd Property\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "exit_function_in_property_let",
+      "description": "Exit Function inside a Property Let. Property Let/Set are not value-returning, so VBE rejects Exit Function.",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Property Let Qax(ByVal v As Long)\n    Exit Function\nEnd Property\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "exit_sub_in_property_let",
+      "description": "Exit Sub inside a Property Let. VBE rejects Exit Sub inside a Property Let.",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Property Let Qay(ByVal v As Long)\n    Exit Sub\nEnd Property\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "object_var_assignment_without_set_runtime_91",
+      "description": "A local object variable assigned without Set compiles, then raises Run-time error 91 at runtime.",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "type": "class",
+          "name": "stdFoo",
+          "source": "' empty test class\n"
+        },
+        {
+          "type": "standard",
+          "name": "XlideOracleModule",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim a As stdFoo\n    a = Null\nEnd Sub\n"
+        }
+      ],
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "funcret_object_assignment_without_set_runtime_91",
+      "description": "An object-returning Function assigns its return name without Set; compiles, then raises Run-time error 91 when the result is used (the stdWindow protGetNextDescendent pattern).",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "type": "class",
+          "name": "stdFoo",
+          "source": "' empty test class\n"
+        },
+        {
+          "type": "standard",
+          "name": "XlideOracleModule",
+          "entry": true,
+          "source": "Public Function MakeIt() As stdFoo\n    MakeIt = Null\nEnd Function\n\nPublic Sub XlideOracleEntry()\n    Dim r As stdFoo\n    Set r = MakeIt()\nEnd Sub\n"
+        }
+      ],
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
