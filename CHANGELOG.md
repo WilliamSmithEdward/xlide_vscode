@@ -2,6 +2,42 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.2] - 2026-06-20
+
+A diagnostics accuracy patch driven by three false-positive-shaped findings on
+real stdVBA modules, each adjudicated against the Excel/VBE oracle.
+
+### Fixed
+
+- **`required-param-after-optional` no longer flags a Property Let/Set value
+  parameter.** The mandatory value parameter of a `Property Let`/`Property Set`
+  may legally follow an `Optional` index parameter (e.g.
+  `Property Let X(Optional ByVal i As Long, ByVal v As Long)`); only non-value
+  parameters obey the required-after-optional ordering. An interior required
+  parameter after an `Optional` one is still flagged. (VBE-oracle verified.)
+- **`exit-wrong-proc` no longer flags `Exit Function`/`Exit Sub` inside a
+  `Property Get`.** A `Property Get` is value-returning, and VBE accepts every
+  `Exit` kind there; `Property Let`/`Set`, `Sub`, and `Function` still require
+  the matching keyword. (VBE-oracle verified across the full truth table.)
+
+### Changed
+
+- **`set-required` is reclassified from a compile error to a deterministic
+  runtime error (Run-time error 91).** A bare assignment to an object target
+  (`obj = …` without `Set`) compiles cleanly and fails only when it executes —
+  VBE-oracle verified across `= Null`, `= New`, and Function-return-name
+  assignment. The finding itself is unchanged (it is still a real bug, e.g.
+  `protGetNextDescendent = Null` should be `Set … = Nothing`); only its evidence
+  label is corrected, matching `object-variable-not-set`. The rule may now be
+  downgraded to a warning via settings.
+
+### Internal
+
+- Added eight VBE-oracle fixtures covering the property value parameter, the
+  `Exit`-in-Property truth table, and the missing-`Set` runtime-91 cases, and
+  promoted the three rules to `vbe-oracle-verified` in the diagnostic influence
+  audit.
+
 ## [2.5.1] - 2026-06-20
 
 A correctness patch for the diagnostics engine.
