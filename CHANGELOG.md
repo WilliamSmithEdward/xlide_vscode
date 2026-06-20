@@ -2,6 +2,24 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.1] - 2026-06-20
+
+A correctness patch for the diagnostics engine.
+
+### Fixed
+
+- **`module-declaration-in-procedure` no longer suppresses a module's entire
+  diagnostic output.** When a comment-only line was the first statement after a
+  conditional-compilation directive (`#If` / `#Else` / `#End If`) inside a
+  procedure body — a common 32/64-bit pattern — the rule's alternative-header
+  probe tokenized the line to an empty list and threw a `TypeError`. Because
+  `analyzeModule` converts any rule exception into an empty result, that single
+  throw silently discarded **every** diagnostic for the affected module, not just
+  the offending line. `tokenName` is now guarded against an empty token list, and
+  its two near-identical copies are consolidated onto one implementation so the
+  guard cannot drift again. (Behaviorally, the unguarded copy also mis-stripped an
+  unterminated `[name` bracketed identifier; the unified version is correct.)
+
 ## [2.5.0] - 2026-06-17
 
 Version 2.5.0 builds on the v2.4.0 static-analysis baseline with two goals, both
