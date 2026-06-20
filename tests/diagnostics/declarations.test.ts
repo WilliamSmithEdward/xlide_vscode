@@ -201,6 +201,36 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		expect(hits.map((hit) => spanText(src, hit))).toEqual(['DefStr']);
 	});
 
+	it('does not crash on a comment-only line after a conditional directive in a procedure', () => {
+		// Regression: the first statement after a #If/#Else/#End If inside a
+		// procedure body is checked against isAlternativeProcedureHeaderStatement,
+		// which tokenizes the statement. A comment-only line yields zero
+		// significant tokens; the header probe must not throw on the empty token
+		// list (it used to, collapsing analyzeModule's catch-all to []). The
+		// module reports nothing for this construct, but it must report it as an
+		// empty list rather than swallowing every other rule's findings.
+		const src =
+			'Sub Trigger()\n' +
+			'#If Win64 Then\n' +
+			"    '\n" +                 // bare comment, first line after #If ... Then
+			'    x = 1\n' +
+			'#Else\n' +
+			"    'another comment\n" +  // first line after #Else
+			'    x = 2\n' +
+			'#End If\n' +
+			'End Sub\n' +
+			'\n' +
+			'Sub Dup()\n' +
+			'End Sub\n' +
+			'Sub Dup()\n' +            // a real, unrelated diagnostic in the same module
+			'End Sub\n';
+
+		// The crash collapsed the entire module to []; the duplicate-procedure
+		// diagnostic surviving proves the rule pass ran to completion.
+		expect(byCode(analyzeModule(src), 'duplicate-procedure').length).toBeGreaterThan(0);
+		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+	});
+
 	it('flags Type and Enum blocks inside procedure bodies without cascading to End Sub', () => {
 		const src =
 			'Public Sub T()\n' +

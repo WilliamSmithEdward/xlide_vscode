@@ -33,7 +33,12 @@ export function tokenName(token: VbaToken | undefined): string | undefined {
 		return token.rawText;
 	}
 	if (token.kind === 'bracketedIdentifier') {
-		return token.rawText.slice(1, -1);
+		// Strip the surrounding brackets, but only when both are present: the
+		// tokenizer still emits a bracketedIdentifier for an unterminated
+		// `[name` at line end (tokenize.ts), where a blind slice(1, -1) would
+		// drop a real character.
+		const raw = token.rawText;
+		return raw.startsWith('[') && raw.endsWith(']') ? raw.slice(1, -1) : raw;
 	}
 	return undefined;
 }

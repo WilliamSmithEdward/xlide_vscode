@@ -18,14 +18,14 @@ import type {
 } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 
-// `tokenText` and `matchParenFrom` are byte-identical to the shared lexer
-// helpers (`tokenWord`, `matchParenFrom`); re-export them so the diagnostics
-// engine keeps one implementation. `statementTokens` comes from the per-pass
-// cache in analysisContext.ts (audit #5) so every rule shares one
-// tokenization per statement.
-export { matchParenFrom, tokenWord as tokenText } from '../lexer/tokenHelpers';
+// `tokenText`, `tokenName`, and `matchParenFrom` are byte-identical to the
+// shared lexer helpers (`tokenWord`, `tokenName`, `matchParenFrom`); re-export
+// them so the diagnostics engine keeps one implementation. `statementTokens`
+// comes from the per-pass cache in analysisContext.ts (audit #5) so every rule
+// shares one tokenization per statement.
+export { matchParenFrom, tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
 export { statementTokens } from './analysisContext';
-import { tokenWord as tokenText } from '../lexer/tokenHelpers';
+import { tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
 import { trackedLocalsPassedAsCallArguments } from './dataflow';
 
@@ -219,16 +219,6 @@ export function topLevelOperatorIndex(toks: readonly VbaToken[], operator: strin
 		}
 	}
 	return -1;
-}
-
-export function tokenName(tok: VbaToken): string | undefined {
-	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
-		return tok.rawText;
-	}
-	if (tok.kind === 'bracketedIdentifier') {
-		return stripHeaderBrackets(tok.rawText);
-	}
-	return undefined;
 }
 
 export function stripHeaderBrackets(text: string): string {
