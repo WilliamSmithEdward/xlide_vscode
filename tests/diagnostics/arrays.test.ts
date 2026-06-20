@@ -47,6 +47,23 @@ describe('analyzeModule - array ReDim', () => {
 		]);
 	});
 
+	it('does not flag a qualified ReDim target that resizes a member array', () => {
+		// `ReDim b.b(...)` resizes the dynamic-array member `b.b`, not the scalar
+		// container `b`; VBE accepts this (oracle-verified) and the rule must not
+		// mistake the qualifier for the array being resized.
+		const src =
+			'Private Type TBuf\n' +
+			'    n As Long\n' +
+			'    b() As Byte\n' +
+			'End Type\n' +
+			'Sub T()\n' +
+			'    Dim b As TBuf\n' +
+			'    ReDim b.b(0 To 3)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'scalar-redim')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'fixed-array-redim')).toHaveLength(0);
+	});
+
 	it('uses visible exported scalar and fixed-array globals for ReDim target shapes', () => {
 		const caller =
 			'Sub T()\n' +

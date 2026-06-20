@@ -23,6 +23,20 @@ describe('VBA runtime metadata', () => {
 		expect(resolveRuntimeObject('NotARealObject')).toBeUndefined();
 	});
 
+	it('resolves the hidden pointer, byte-string, and vbLongLong built-ins', () => {
+		expect(resolveRuntimeFunction('VarPtr')?.returns).toBe('LongPtr');
+		expect(resolveRuntimeFunction('StrPtr')?.returns).toBe('LongPtr');
+		expect(resolveRuntimeFunction('objptr')?.returns).toBe('LongPtr');
+		expect(resolveRuntimeFunction('LeftB')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('RightB$')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('MidB')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('LenB')?.returns).toBe('Long');
+		expect(resolveRuntimeFunction('AscB')?.returns).toBe('Integer');
+		expect(resolveRuntimeFunction('ChrB')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('InStrB')?.returns).toBe('Long');
+		expect(resolveRuntimeConstant('vbLongLong')?.value).toBe(20);
+	});
+
 	it('every entry has a signature and is marked verified', () => {
 		for (const f of VBA_RUNTIME_FUNCTIONS) {
 			expect(f.name.length).toBeGreaterThan(0);

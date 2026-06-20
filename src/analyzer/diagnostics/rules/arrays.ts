@@ -338,6 +338,14 @@ function redimTargetFromGroup(
 	if (!name || !nameTok) {
 		return undefined;
 	}
+	// A qualified ReDim target (`ReDim x.arr(...)` or `ReDim x!arr(...)`) resizes
+	// a member array, not the base variable. The scalar/fixed-array shape checks
+	// only apply to a simple local/module variable, and the member's declared
+	// shape is not resolvable here, so skip qualified targets rather than mistake
+	// the container for the array being resized.
+	if (content[1]?.rawText === '.' || content[1]?.rawText === '!') {
+		return undefined;
+	}
 	const dimensions: RedimDimension[] = [];
 	if (content[1]?.rawText === '(') {
 		const close = matchParenFrom(content, 1);

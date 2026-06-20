@@ -189,6 +189,24 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Asc', 'Asc(String) As Integer', 'Integer'),
 	fn('AscW', 'AscW(String) As Integer', 'Integer'),
 
+	// -- Byte-string functions (the ...B variants operate on byte positions) --
+	fn('LenB', 'LenB(Expression) As Long', 'Long'),
+	fn('LeftB', 'LeftB(String, Length) As String', 'String'),
+	fn('LeftB$', 'LeftB$(String, Length) As String', 'String'),
+	fn('RightB', 'RightB(String, Length) As String', 'String'),
+	fn('RightB$', 'RightB$(String, Length) As String', 'String'),
+	fn('MidB', 'MidB(String, Start, [Length]) As String', 'String'),
+	fn('MidB$', 'MidB$(String, Start, [Length]) As String', 'String'),
+	fn('InStrB', 'InStrB([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long'),
+	fn('AscB', 'AscB(String) As Integer', 'Integer'),
+	fn('ChrB', 'ChrB(CharCode) As String', 'String'),
+	fn('ChrB$', 'ChrB$(CharCode) As String', 'String'),
+
+	// -- Pointer / memory (hidden but always available in VBA) --------------
+	fn('VarPtr', 'VarPtr(Variable) As LongPtr', 'LongPtr'),
+	fn('StrPtr', 'StrPtr(StringVariable) As LongPtr', 'LongPtr'),
+	fn('ObjPtr', 'ObjPtr(ObjectVariable) As LongPtr', 'LongPtr'),
+
 	// -- Type conversion ----------------------------------------------------
 	fn('CBool', 'CBool(Expression) As Boolean', 'Boolean'),
 	fn('CByte', 'CByte(Expression) As Byte', 'Byte'),
@@ -440,6 +458,7 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbDataObject', 'VbVarType', 13),
 	c('vbDecimal', 'VbVarType', 14),
 	c('vbByte', 'VbVarType', 17),
+	c('vbLongLong', 'VbVarType', 20),
 	c('vbUserDefinedType', 'VbVarType', 36),
 	c('vbArray', 'VbVarType', 8192),
 

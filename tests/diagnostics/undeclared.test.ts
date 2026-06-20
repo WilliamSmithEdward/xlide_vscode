@@ -98,6 +98,20 @@ describe('analyzeModule - Option Explicit', () => {
 		).toHaveLength(0);
 	});
 
+	it('recognizes hidden built-ins (pointer fns, byte-string fns, vbLongLong) under Option Explicit', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Dim x As Long, s As String, o As Object\n' +
+			'    Debug.Print VarPtr(x), StrPtr(s), ObjPtr(o)\n' +
+			'    Debug.Print LeftB(s, 2), RightB(s, 2), MidB(s, 1, 2), LenB(s), AscB(s), ChrB(65)\n' +
+			'    Debug.Print vbLongLong\n' +
+			'End Sub\n';
+		expect(
+			byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable'),
+		).toHaveLength(0);
+	});
+
 	it('flags an undeclared Set assignment target under Option Explicit', () => {
 		const src = 'Option Explicit\nSub T()\n    Set notDeclared = ActiveSheet\nEnd Sub\n';
 		const hits = byCode(
