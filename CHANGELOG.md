@@ -2,6 +2,30 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.3] - 2026-06-20
+
+A diagnostics accuracy patch that clears a large class of false positives on
+pointer/memory-heavy VBA (e.g. fastjson's LibJSON dropped from 61 reported
+errors to 2), all VBE-oracle verified.
+
+### Fixed
+
+- **Hidden VBA built-ins are no longer reported as undeclared.** The runtime
+  catalog gained the pointer functions `VarPtr`/`StrPtr`/`ObjPtr`, the
+  byte-string family `LenB`/`LeftB`/`RightB`/`MidB`/`InStrB`/`AscB`/`ChrB` (and
+  their `$` variants), and the `vbLongLong` `VbVarType` constant — all real,
+  always-available built-ins that VBE compiles under `Option Explicit`.
+- **`scalar-redim` no longer flags a member-array ReDim.** `ReDim x.arr(...)`
+  (or `x!arr(...)`) resizes the dynamic-array *member*, not the container `x`;
+  the rule mistook the qualifier for the array being resized. Qualified ReDim
+  targets are now skipped.
+
+### Internal
+
+- Added four VBE-oracle fixtures (the pointer functions, the byte-string family,
+  the `vbLongLong` constant, and the UDT member-array ReDim) and wired them into
+  the `undeclared-variable` and `scalar-redim` audit entries.
+
 ## [2.5.2] - 2026-06-20
 
 A diagnostics accuracy patch driven by three false-positive-shaped findings on
