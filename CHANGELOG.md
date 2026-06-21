@@ -2,6 +2,19 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.5] - 2026-06-20
+
+### Changed
+
+- **A procedure closed with the wrong `End` keyword is now a warning, not an
+  error.** VBE accepts `End Sub`/`End Function`/`End Property` interchangeably as
+  procedure closers (oracle-verified: `Property Get … End Function` compiles), so
+  this is a style mismatch rather than a missing-closer compile error. The new
+  `mismatched-end-keyword` warning fires on the opening line, the procedure is
+  still treated as closed, and the existing quick-fix swaps the keyword to match
+  (e.g. `End Function` → `End Property`). Genuinely unclosed procedures and stray
+  closers remain errors (`missing-block-closer` / `unmatched-block-closer`).
+
 ## [2.5.4] - 2026-06-20
 
 A conditional-compilation accuracy patch for the modern cross-compiler idiom that
