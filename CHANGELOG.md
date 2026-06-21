@@ -2,6 +2,28 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.4] - 2026-06-20
+
+A conditional-compilation accuracy patch for the modern cross-compiler idiom that
+guards twinBASIC-only intrinsics behind `#If TWINBASIC Then ...`. fastjson's
+LibJSON drops from 2 reported errors to 0.
+
+### Fixed
+
+- **`TWINBASIC` now defaults to `False`.** It is a compiler auto-constant defined
+  only by the twinBASIC compiler; in Excel VBA it is undefined (False), so its
+  `#If TWINBASIC Then` branches are inactive. Those branches use twinBASIC-only
+  intrinsics (e.g. `PutMemPtr`/`GetMemPtr`) that are genuinely undefined in VBA,
+  so analyzing the dead branch produced spurious `unknown-call` errors. Unlike a
+  genuine unprovable host flag (which stays `unknown`), `TWINBASIC`'s value in
+  VBA is known.
+- **A boolean `#Const` now compares equal to its VBA numeric value** (`False = 0`,
+  `True = -1`). Conditions such as `#Const Windows = (Mac = 0)` and
+  `#If Windows And (TWINBASIC = 0)` previously mis-evaluated (a boolean was never
+  equal to `0`), which could deactivate a live branch and hide its declarations —
+  surfacing as a false `unknown-call` for a procedure defined inside it. Both are
+  VBE-oracle verified.
+
 ## [2.5.3] - 2026-06-20
 
 A diagnostics accuracy patch that clears a large class of false positives on
