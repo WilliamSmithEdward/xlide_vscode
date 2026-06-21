@@ -47,6 +47,14 @@ const DEFAULT_COMPILER_CONSTANTS: Readonly<Record<string, ConditionalValue>> = {
 	Win64: true,
 	Win32: false,
 	Mac: false,
+	// `TWINBASIC` is a compiler auto-constant defined only by the twinBASIC
+	// compiler; in Excel VBA it is undefined and therefore False (VBE-oracle
+	// verified). Modern VBA libraries gate twinBASIC-only intrinsics behind
+	// `#If TWINBASIC Then ...`, so without this default those (inactive) branches
+	// were analyzed and produced false positives. Unlike a genuine unprovable
+	// host flag, TWINBASIC's value in VBA is known, so it is a default, not left
+	// `unknown`.
+	TWINBASIC: false,
 };
 
 function effectiveConditionalCompilationEnvironment(
@@ -518,7 +526,10 @@ class ConditionalExpressionParser {
 
 function normalizedComparisonValue(value: ConditionalValue): string {
 	if (typeof value === 'boolean') {
-		return value ? 'true' : 'false';
+		// VBA numeric values: True = -1, False = 0. A boolean #Const therefore
+		// compares equal to its numeric form, so `Mac = 0`, `TWINBASIC = 0`, and
+		// `VBA7 = -1` all behave as VBE evaluates them.
+		return value ? '-1' : '0';
 	}
 	return String(value).toLowerCase();
 }

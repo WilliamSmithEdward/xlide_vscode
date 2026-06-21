@@ -143,4 +143,24 @@ describe('conditional compilation branch activity', () => {
 		const module = parseModule(source);
 		expect(conditionalActivityAtOffset(module, source.indexOf('Debug.Print'))).toBe('unknown');
 	});
+
+	it('compares a boolean #Const equal to its VBA numeric value (False = 0)', () => {
+		// `#Const Windows = (Mac = 0)` must be True on Windows (Mac is False = 0),
+		// and `#If Windows And (TWINBASIC = 0)` must be active.
+		const source =
+			'#Const Windows = (Mac = 0)\n#If Windows And (TWINBASIC = 0) Then\nDim onWindows As Long\n#Else\nDim elsewhere As Long\n#End If\n';
+		const module = parseModule(source);
+		expect(conditionalActivityAtOffset(module, source.indexOf('onWindows'))).toBe('active');
+		expect(conditionalActivityAtOffset(module, source.indexOf('elsewhere'))).toBe('inactive');
+	});
+
+	it('treats a TWINBASIC branch as inactive and its #Else as active (VBA target)', () => {
+		// TWINBASIC is a twinBASIC-only compiler constant, undefined (False) in
+		// Excel VBA; modern libraries gate twinBASIC-only intrinsics behind it.
+		const source =
+			'#If Mac Then\nmemmove a, b, c\n#ElseIf TWINBASIC Then\nPutMemPtr addr, val\n#Else\nDim ok As Long\n#End If\n';
+		const module = parseModule(source);
+		expect(conditionalActivityAtOffset(module, source.indexOf('PutMemPtr'))).toBe('inactive');
+		expect(conditionalActivityAtOffset(module, source.indexOf('Dim ok'))).toBe('active');
+	});
 });
