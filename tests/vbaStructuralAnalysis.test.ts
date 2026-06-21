@@ -50,17 +50,20 @@ describe('analyzeVbaStructure', () => {
         expect(problems[0].endCol).toBe('Function'.length);
     });
 
-    it('records an in-place replacement for mismatched procedure closers', () => {
+    it('warns (not errors) on a mismatched procedure closer with an in-place replacement', () => {
+        // VBE accepts End Sub/Function/Property interchangeably (oracle-verified:
+        // the mismatch compiles), so this is a style warning, not a compile error.
         const src =
             'Public Property Get Measurement() As Double\n' +
             '    Measurement = 1\n' +
             'End Function\n';
         const problems = analyzeVbaStructure(src);
-        const problem = problems.find((p) => p.expectedClose === 'End Property');
 
         expect(problems).toHaveLength(1);
-        expect(problem).toMatchObject({
-            code: 'missing-block-closer',
+        expect(problems[0]).toMatchObject({
+            code: 'mismatched-end-keyword',
+            severity: 'warning',
+            line: 0,
             expectedClose: 'End Property',
             expectedCloseReplacement: {
                 line: 2,
@@ -69,6 +72,13 @@ describe('analyzeVbaStructure', () => {
                 text: 'End Property',
             },
         });
+        expect(problems[0].message).toContain("'End Function'");
+        expect(problems[0].message).toContain('End Property');
+    });
+
+    it('accepts a correctly-closed procedure with no mismatch warning', () => {
+        const src = 'Public Property Get Ok() As Long\n    Ok = 1\nEnd Property\n';
+        expect(analyzeVbaStructure(src)).toEqual([]);
     });
 
     it('flags a stray End If', () => {

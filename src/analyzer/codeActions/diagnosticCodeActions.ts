@@ -80,6 +80,7 @@ function ruleSpecificDiagnosticCodeActions(
 		case 'invalid-explicit-call-target':
 			return invalidExplicitCallTargetActions(source, diagnostic.span);
 		case 'missing-block-closer':
+		case 'mismatched-end-keyword':
 			return missingBlockCloserActions(source, diagnostic);
 		case 'dim-initializer':
 			return dimInitializerActions(source, diagnostic.span);

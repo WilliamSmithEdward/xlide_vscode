@@ -4719,6 +4719,16 @@
       "provenance": "vbe-oracle-verified",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "property_get_closed_with_end_function_compile",
+      "description": "A Property Get closed with End Function instead of End Property compiles in VBE (End keywords are interchangeable procedure closers).",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Property Get Foo() As Long\n    Foo = 1\nEnd Function\n",
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

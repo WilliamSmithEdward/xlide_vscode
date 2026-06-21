@@ -85,18 +85,26 @@
       "problems": [
         {
           "moduleName": "stdPerformance",
-          "code": "missing-block-closer",
+          "code": "mismatched-end-keyword",
           "line": 3,
-          "severity": "error",
-          "messageContains": ["End Property", "Measurement"],
-          "quickFixTitles": ["Replace 'End Function' with 'End Property'"]
+          "severity": "warning",
+          "messageContains": [
+            "End Property",
+            "Measurement"
+          ],
+          "quickFixTitles": [
+            "Replace 'End Function' with 'End Property'"
+          ]
         }
       ],
       "codes": [
         {
-          "code": "missing-block-closer",
+          "code": "mismatched-end-keyword",
           "count": 1,
-          "messagesContain": ["End Property", "Measurement"]
+          "messagesContain": [
+            "End Property",
+            "Measurement"
+          ]
         },
         {
           "code": "missing-return-assignment",

@@ -160,7 +160,8 @@ describe('analyzeVbaModuleSource', () => {
 		const result = analyzeVbaModuleSource({ source, moduleName: 'Person' });
 		const codes = result.diagnostics.map((diag) => diag.code);
 
-		expect(codes.filter((code) => code === 'missing-block-closer')).toHaveLength(1);
+		expect(codes.filter((code) => code === 'mismatched-end-keyword')).toHaveLength(1);
+		expect(codes).not.toContain('missing-block-closer');
 		expect(codes).not.toContain('unmatched-block-closer');
 		expect(codes).not.toContain('module-declaration-in-procedure');
 	});

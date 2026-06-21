@@ -147,9 +147,10 @@ describe('analyzeWorkbook metadata summary', () => {
 		]);
 
 		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
-		const problem = result.problems.find((item) => item.code === 'missing-block-closer');
+		const problem = result.problems.find((item) => item.code === 'mismatched-end-keyword');
 
 		expect(problem).toMatchObject({
+			severity: 'warning',
 			expectedClose: 'End Property',
 			quickFixAvailable: true,
 			quickFixTitles: ["Replace 'End Function' with 'End Property'"],

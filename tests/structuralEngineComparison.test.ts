@@ -105,7 +105,10 @@ interface BlockBalanceRecord {
 function legacyRecords(source: string): BlockBalanceRecord[] {
     const records: BlockBalanceRecord[] = [];
     for (const problem of analyzeVbaStructure(source)) {
-        if (problem.code === 'missing-block-closer') {
+        if (problem.code === 'missing-block-closer' || problem.code === 'mismatched-end-keyword') {
+            // A mismatched-end-keyword warning is the structural engine's
+            // procedure-closer-repair signal (a wrong closer on an open procedure),
+            // anchored at the opener like missing-block-closer.
             records.push({ kind: 'missing', line: problem.line, closer: problem.expectedClose });
         } else if (problem.code === 'unmatched-block-closer') {
             records.push({ kind: 'unmatched', line: problem.line });

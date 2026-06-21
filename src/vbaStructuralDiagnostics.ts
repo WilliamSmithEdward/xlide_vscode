@@ -12,7 +12,7 @@ export interface VbaStructuralDiagnostic {
     /** 0-based end column (exclusive). */
     endCol: number;
     /** Stable diagnostic code for editor integrations. */
-    code?: 'missing-block-closer' | 'unmatched-block-closer' | 'module-declaration-in-procedure';
+    code?: 'missing-block-closer' | 'unmatched-block-closer' | 'mismatched-end-keyword' | 'module-declaration-in-procedure';
     /** Closing phrase that can repair a missing-block diagnostic. */
     expectedClose?: string;
     /** 0-based physical line before which the missing closer should be inserted. */
@@ -344,13 +344,18 @@ export function analyzeVbaStructure(
         if (idx === -1) {
             const top = stack[stack.length - 1];
             if (top && isProcedureBlockKind(top.kind) && isProcedureBlockKind(closerKind)) {
+                // VBE accepts End Sub/Function/Property interchangeably as
+                // procedure closers (oracle-verified: the mismatch compiles), so
+                // this is a style warning, not a missing-closer compile error. The
+                // procedure is still closed (stack.pop below); the quick-fix swaps
+                // the keyword to match the opener.
                 const closerSpan = blockCloserColumnSpan(physical[line] ?? '', closerKind);
                 problems.push(fullLineProblem(
                     physical, top.line,
-                    `Missing '${CLOSE_PHRASE[top.kind]}' for '${top.label}'.`,
-                    'error',
+                    `Procedure '${top.label}' is closed with '${CLOSE_PHRASE[closerKind]}'; use '${CLOSE_PHRASE[top.kind]}' to match the opening keyword.`,
+                    'warning',
                     {
-                        code: 'missing-block-closer',
+                        code: 'mismatched-end-keyword',
                         expectedClose: CLOSE_PHRASE[top.kind],
                         insertLine: line,
                         expectedCloseReplacement: closerSpan

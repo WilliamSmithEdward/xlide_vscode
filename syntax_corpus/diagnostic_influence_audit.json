@@ -1798,6 +1798,19 @@
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
       "notes": "A bare array variable, or a same-module user-defined Type value, passed where a parameter is a scalar - or a scalar (including a Variant) passed where a parameter is declared an array - is a VBE compile error. Decides on declared SHAPE only (array-ness / Type-ness), never element-type coercion. Oracle-verified rejected at compile: array->scalar ByRef ('ByRef argument type mismatch'), array->scalar ByVal ('Type mismatch'), UDT->scalar ByRef, scalar->array param and Variant-scalar->array param ('Type mismatch: array or user-defined type expected'); with accepted controls array->Variant param (an array boxes into a Variant), UDT->matching UDT, array->matching array, and ParamArray mixed types all staying quiet. No-FP scope: fires only on a single bare identifier argument whose declared shape RESOLVES to a provable array or same-module Type, against a parameter that is the proven-incompatible shape; quiet on Variant/matching/ParamArray parameters, object/class arguments, member access / indexed a(i) / call / parenthesized / multi-token arguments, and unresolved or ambiguous names. Disjoint from byref-argument-type-mismatch (which owns element-type mismatch on ByRef scalars): this rule defers whenever that rule would fire, so the two never double-report. Object-parameter and both-arrays-different-element-type variants are tracked deferrals (untested by the oracle)."
+    },
+    {
+      "code": "mismatched-end-keyword",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "VBE accepts End Sub/Function/Property interchangeably as procedure closers (oracle-verified accept): the mismatch compiles, so it is a style warning rather than a missing-closer compile error",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "property_get_closed_with_end_function_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "The procedure is still treated as closed (VBE-lenient); the quick-fix swaps the End keyword to match the opener. Distinct from missing-block-closer (a genuinely unclosed procedure) and unmatched-block-closer (a stray closer).",
+      "diagnosticKind": "style-policy"
     }
   ]
 }

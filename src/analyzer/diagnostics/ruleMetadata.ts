@@ -1401,6 +1401,21 @@ export const STRUCTURAL_DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4 (block statements) / VBE compile structure',
 		confidence: 'high',
 	},
+	mismatchedEndKeyword: {
+		code: 'mismatched-end-keyword',
+		title: 'Mismatched procedure End keyword',
+		defaultSeverity: 'warning',
+		category: 'syntax',
+		// VBE accepts End Sub/Function/Property interchangeably as procedure
+		// closers (oracle-verified: the mismatch compiles), so this is a style
+		// warning rather than a compile error.
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'VBE accepts End Sub/Function/Property interchangeably (oracle-verified); MS-VBAL 5.3.1',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 } satisfies Record<string, DiagnosticRuleMetadata>;
 
 const DIAGNOSTIC_METADATA_BY_CODE = new Map<string, DiagnosticRuleMetadata>(
