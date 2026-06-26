@@ -614,6 +614,126 @@ describe('analyzeModule - Call requires parentheses', () => {
 	});
 });
 
+describe('analyzeModule - standalone multi-argument parenthesized call', () => {
+	it('flags a same-module Sub called with a parenthesized multi-argument list (the reported case)', () => {
+		const src =
+			'Option Explicit\n' +
+			'\n' +
+			'Sub mySub()\n' +
+			'\n' +
+			'    mySub2("a", "b", "C")\n' +
+			'\n' +
+			'End Sub\n' +
+			'\n' +
+			'Sub mySub2(myParam1 As String, _\n' +
+			'    myParam2 As String, _\n' +
+			'    myParam3 As String)\n' +
+			'\n' +
+			'        MsgBox "Hello World!"\n' +
+			'\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-multi-arg-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('mySub2("a", "b", "C")');
+		expect(hits[0].severity).toBe('error');
+		// arity matches the 3-parameter signature, so this is the only finding.
+		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+	});
+
+	it('flags a two-argument bare Sub call', () => {
+		const src = 'Sub T()\n    F("a", "b")\nEnd Sub\nSub F(a As String, b As String)\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-multi-arg-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('F("a", "b")');
+	});
+
+	it('flags a Function used as a multi-argument call statement', () => {
+		const src =
+			'Sub T()\n    G("a", "b")\nEnd Sub\nFunction G(a As String, b As String) As String\nEnd Function\n';
+		const hits = byCode(analyzeModule(src), 'call-statement-multi-arg-parens');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('G("a", "b")');
+	});
+
+	it('flags an exported cross-module Sub call with multiple parenthesized arguments', () => {
+		const src = 'Sub mySub()\n    Helper("a", "b")\nEnd Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(
+				src,
+				[{ moduleName: 'Helpers', source: 'Public Sub Helper(a As String, b As String)\nEnd Sub\n' }],
+				'Caller',
+			),
+			'call-statement-multi-arg-parens',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Helper("a", "b")');
+	});
+
+	it('flags a module-qualified exported standard-module call with multiple parenthesized arguments', () => {
+		const src = 'Sub mySub()\n    Helpers.Helper("a", "b")\nEnd Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(
+				src,
+				[{ moduleName: 'Helpers', source: 'Public Sub Helper(a As String, b As String)\nEnd Sub\n' }],
+				'Caller',
+			),
+			'call-statement-multi-arg-parens',
+		);
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Helpers.Helper("a", "b")');
+	});
+
+	it('does not flag a module-qualified call to an unknown module/procedure', () => {
+		const src = 'Sub mySub()\n    Unknownz.Helper("a", "b")\nEnd Sub\n';
+		const hits = byCode(
+			analyzeProjectModule(
+				src,
+				[{ moduleName: 'Helpers', source: 'Public Sub Helper(a As String, b As String)\nEnd Sub\n' }],
+				'Caller',
+			),
+			'call-statement-multi-arg-parens',
+		);
+		expect(hits).toHaveLength(0);
+	});
+
+	it('does not flag a single-argument call (legal ByVal grouping)', () => {
+		const src = 'Sub T()\n    F("a")\nEnd Sub\nSub F(a As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+	});
+
+	it('leaves the zero-argument empty-parentheses form to call-statement-forbids-parens', () => {
+		const src = 'Sub T()\n    F()\nEnd Sub\nSub F()\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'call-statement-forbids-parens')).toHaveLength(1);
+	});
+
+	it('does not flag the parenless call statement form', () => {
+		const src = 'Sub T()\n    F "a", "b"\nEnd Sub\nSub F(a As String, b As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+	});
+
+	it('does not flag an explicit Call with parentheses', () => {
+		const src = 'Sub T()\n    Call F("a", "b")\nEnd Sub\nSub F(a As String, b As String)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+	});
+
+	it('does not flag a parenthesized call used as an expression value', () => {
+		const src =
+			'Sub T()\n    Dim s As String\n    s = G("a", "b")\nEnd Sub\nFunction G(a As String, b As String) As String\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+	});
+
+	it('does not flag an unknown bare name (array-index / external-reference safety)', () => {
+		const src = 'Sub T()\n    Maybe("a", "b")\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+	});
+
+	it('does not flag an object member/property call (deferred to oracle evidence)', () => {
+		const src = 'Sub T()\n    obj.Method(1, 2)\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+	});
+});
+
 describe('analyzeModule - expression call requires parentheses', () => {
 	it('flags a same-module Function called with parenless arguments in an assignment', () => {
 		const src =

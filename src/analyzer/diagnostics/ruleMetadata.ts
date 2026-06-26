@@ -935,6 +935,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6.9',
 		confidence: 'high',
 	},
+	callStatementMultiArgParens: {
+		code: 'call-statement-multi-arg-parens',
+		title: 'Standalone call cannot parenthesize multiple arguments',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1',
+		confidence: 'high',
+	},
 	invalidExpressionSyntax: {
 		code: 'invalid-expression-syntax',
 		title: 'Invalid expression syntax',

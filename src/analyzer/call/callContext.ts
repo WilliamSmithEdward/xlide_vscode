@@ -81,6 +81,20 @@ export interface ExplicitCallStatementArgumentList {
 	argumentSpan: VbaTextSpan;
 }
 
+export interface MultiArgParenthesizedCallStatementTarget {
+	name: string;
+	span: VbaTextSpan;
+	isMember: boolean;
+	/**
+	 * The module/object qualifier when the statement is a simple two-segment
+	 * `Qualifier.Callee(args)` form (used to recognize module-qualified
+	 * standard-module calls). Undefined for bare calls, leading-dot `With`
+	 * members, and deeper receiver chains.
+	 */
+	qualifier?: string;
+	argumentCount: number;
+}
+
 export interface ExplicitCallStatementBareRuntimeRewrite {
 	name: string;
 	targetSpan: VbaTextSpan;
@@ -321,6 +335,93 @@ export function standaloneEmptyParenthesizedCallStatement(
 		};
 	}
 	return undefined;
+}
+
+/**
+ * If `span` is a standalone (non-`Call`) statement of the form
+ * `callee(arg1, arg2, ...)` whose parentheses wrap the entire statement and
+ * enclose two or more top-level arguments, returns the callee. In statement
+ * context VBA only accepts a parenless argument list (`callee a, b`) or an
+ * explicit `Call callee(a, b)`; wrapping a multi-argument list in parentheses
+ * forms an index-expression that the VBE rejects as the "Expected: =" compile
+ * error. The single-argument form (`callee(a)`, legal ByVal grouping) and the
+ * empty-parentheses form (owned by `standaloneEmptyParenthesizedCallStatement`)
+ * are intentionally excluded.
+ */
+export function standaloneMultiArgParenthesizedCallStatement(
+	source: string,
+	span: VbaTextSpan,
+): MultiArgParenthesizedCallStatementTarget | undefined {
+	const toks = statementTokensAfterLeadingLineNumber(source, span);
+	if (
+		toks.length < 4 ||
+		tokenWord(toks[0]) === 'call' ||
+		topLevelTokenIndex(toks, '=') >= 0
+	) {
+		return undefined;
+	}
+	for (let i = 0; i < toks.length - 2; i += 1) {
+		const name = tokenName(toks[i]);
+		if (!name || toks[i + 1]?.rawText !== '(') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (
+			close !== toks.length - 1 ||
+			!isCompleteStatementChainThroughEmptyCall(toks, i, close)
+		) {
+			continue;
+		}
+		const argumentCount = topLevelArgumentCount(toks, i + 1, close);
+		if (argumentCount < 2) {
+			continue;
+		}
+		const isMember = i > 0 && toks[i - 1]?.rawText === '.';
+		// Only the simple `Qualifier.Callee(args)` form (callee is the second
+		// token) carries a qualifier; leading-dot With members and deeper chains
+		// are object receivers, not module qualifiers.
+		const qualifier =
+			isMember && i === 2 && toks[0]?.rawText !== '.' ? tokenName(toks[0]) : undefined;
+		// Span the whole qualified expression so the squiggle covers
+		// `Qualifier.Callee(args)`, not just the callee.
+		const startTok = qualifier ? toks[0] : toks[i];
+		return {
+			name,
+			isMember,
+			qualifier,
+			argumentCount,
+			span: { start: span.start + startTok.start, end: span.start + toks[close].end },
+		};
+	}
+	return undefined;
+}
+
+/**
+ * Counts top-level (depth-0) comma-separated arguments inside the `(`/`)` pair
+ * at `openIndex`/`closeIndex`. Empty parentheses count as zero arguments.
+ */
+function topLevelArgumentCount(
+	toks: readonly VbaToken[],
+	openIndex: number,
+	closeIndex: number,
+): number {
+	let depth = 0;
+	let commas = 0;
+	let hasContent = false;
+	for (let k = openIndex + 1; k < closeIndex; k += 1) {
+		const raw = toks[k].rawText;
+		if (raw === '(' || raw === '[') {
+			depth += 1;
+		} else if (raw === ')' || raw === ']') {
+			depth -= 1;
+		} else if (depth === 0 && raw === ',') {
+			commas += 1;
+		}
+		if (toks[k].kind !== 'newline') {
+			hasContent = true;
+		}
+	}
+	return hasContent ? commas + 1 : 0;
 }
 
 /**

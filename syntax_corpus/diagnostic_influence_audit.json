@@ -1190,6 +1190,17 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "call-statement-multi-arg-parens",
+      "status": "spec-derived",
+      "sourceOfTruth": "MS-VBAL 5.4.2.1 (call statement): a parenless call statement passes a bare (unparenthesized) argument list, so wrapping two or more arguments in parentheses without Call forms an index expression that the VBE rejects as a compile error (\"Expected: =\"). The single-argument ByVal-grouping form and the empty-parentheses form are owned by separate rules.",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Scoped to a standalone (non-Call) statement whose parentheses wrap the whole statement around two or more top-level arguments and whose callee resolves to a known procedure: a bare same-module or unique-exported project Sub/Function/Declare (mySub2(\"a\", \"b\", \"C\")), or a module-qualified exported standard-module procedure (Helpers.Helper(\"a\", \"b\")) resolved through its deterministic module.procedure key, the same resolution the argument-count rule uses. Single-argument calls (legal ByVal grouping), zero-argument empty-parentheses calls (owned by call-statement-forbids-parens), ambiguous bare exported names, and unknown bare names are excluded to avoid array-index and external-reference false positives. Object member/property calls (obj.Method(a, b)) are deliberately deferred: non-empty single-argument member forms such as ActiveSheet.Range(\"A1\") are oracle-accepted and multi-argument member/default-member forms (e.g. Range(\"A1\", \"B2\")) are unproven, so this rule never fires on an object receiver. A future oracle pass can promote this entry to vbe-oracle-verified and extend it to object member calls.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "invalid-expression-syntax",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.6 expression syntax plus VBE Syntax error behavior for impossible operator sequences and incomplete member access",

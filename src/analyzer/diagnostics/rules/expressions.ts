@@ -8,6 +8,7 @@ import {
 	explicitCallStatementArgumentWithoutParens,
 	explicitCallStatementTarget,
 	standaloneEmptyParenthesizedCallStatement,
+	standaloneMultiArgParenthesizedCallStatement,
 } from '../../call/callContext';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
@@ -179,6 +180,14 @@ export function checkCallParens(
 					'callStatementForbidsParens',
 					bareCallForbidsParensMessage(bare.name, moduleSignatures, sourceNames),
 					bare.span,
+				);
+			}
+			const multiArg = implicitParenthesizedMultiArgCall(source, stmt.span, moduleSignatures, sourceNames);
+			if (multiArg) {
+				push(
+					'callStatementMultiArgParens',
+					`A standalone call cannot enclose multiple arguments in parentheses; use 'Call ${multiArg.name}(...)' or remove the parentheses ('${multiArg.name} arg1, arg2'). VBA rejects this form as a compile error.`,
+					multiArg.span,
 				);
 			}
 			const implicit = implicitParenthesizedMemberCall(source, stmt.span, memberCtx);
@@ -756,6 +765,47 @@ function implicitParenthesizedBareCallableCall(
 	}
 	const signature = callableSignatureFor(call.name, moduleSignatures, sourceNames);
 	if (!signature || !callableAcceptsZeroArguments(signature)) {
+		return undefined;
+	}
+	return {
+		name: call.name,
+		span: call.span,
+	};
+}
+
+// A standalone `mySub2("a", "b", "C")` wraps a multi-argument list in
+// parentheses without `Call`: the VBE "Expected: =" compile error. Scoped to a
+// callee that resolves to a known procedure so unknown names (which could be
+// array indexing or external references) stay silent:
+//   - bare names bind to same-module/unique-exported project Sub/Function/Declare;
+//   - `Module.Proc(...)` binds to an exported standard-module procedure through
+//     its deterministic qualified key (the same resolution the argument-count
+//     rule uses).
+// Object member/property calls (`obj.Method(a, b)`) are deliberately deferred:
+// a non-empty single-argument member form is legal (`ActiveSheet.Range("A1")`)
+// and multi-argument member/default-member forms are unproven. The
+// single-argument ByVal-grouping form is excluded by the >= 2 argument guard in
+// the shared helper.
+function implicitParenthesizedMultiArgCall(
+	source: string,
+	span: Span,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames?: SourceNameScope,
+): { name: string; span: Span } | undefined {
+	const call = standaloneMultiArgParenthesizedCallStatement(source, span);
+	if (!call) {
+		return undefined;
+	}
+	if (call.isMember) {
+		if (!call.qualifier || !moduleSignatures.has(qualifiedProcedureKey(call.qualifier, call.name))) {
+			return undefined;
+		}
+		return {
+			name: `${call.qualifier}.${call.name}`,
+			span: call.span,
+		};
+	}
+	if (!callableSignatureFor(call.name, moduleSignatures, sourceNames)) {
 		return undefined;
 	}
 	return {
