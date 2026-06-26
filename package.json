@@ -130,7 +130,9 @@
         "editor.minimap.showMarkSectionHeaders": false,
         "editor.minimap.showRegionSectionHeaders": false,
         "editor.overviewRulerBorder": false,
-        "editor.overviewRulerLanes": 3
+        "editor.overviewRulerLanes": 3,
+        "editor.inlineSuggest.enabled": false,
+        "editor.suggest.preview": false
       }
     },
     "commands": [

@@ -139,7 +139,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
 		context?: vscode.CompletionContext,
-	): Promise<vscode.CompletionItem[]> {
+	): Promise<vscode.CompletionList> {
 		const trace = startPerformanceTrace('completion', document.uri.scheme);
 		try {
 			return await this._provideCompletionItems(document, position, token, context);
@@ -153,9 +153,9 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		position: vscode.Position,
 		token?: vscode.CancellationToken,
 		context?: vscode.CompletionContext,
-	): Promise<vscode.CompletionItem[]> {
+	): Promise<vscode.CompletionList> {
 		if (token?.isCancellationRequested) {
-			return [];
+			return new vscode.CompletionList([], false);
 		}
 		const requestVersion = document.version;
 		const directiveCompletions = this._testDirectiveCompletions(document, position);
@@ -163,7 +163,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			(completion) => this._toTestDirectiveItem(completion, position.line),
 		);
 		if (directiveCompletions.some((completion) => completion.exclusive)) {
-			return directiveItems;
+			return new vscode.CompletionList(directiveItems, false);
 		}
 
 		// A space is typed far more often than it opens a grammar position
@@ -174,7 +174,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			context.triggerCharacter === ' ' &&
 			!this._spaceTriggerMayComplete(document, position)
 		) {
-			return directiveItems;
+			return new vscode.CompletionList(directiveItems, false);
 		}
 
 		const source = document.getText();
@@ -183,7 +183,7 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		const quickTypes = resolveTypeCompletions(source, offset, {});
 		if (quickTypes.length > 0) {
-			return quickTypes.map((t) => this._toTypeItem(t, range));
+			return new vscode.CompletionList(quickTypes.map((t) => this._toTypeItem(t, range)), false);
 		}
 
 		const cachedProjectCtx = this._projectContext.cachedEditorProjectContext(document);
@@ -192,72 +192,93 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			this._projectContext.warmEditorProjectContext(document, source);
 		}
 
+		// While the cross-module project context is still loading, results are
+		// served from the synchronous intra-module (local) context. They are marked
+		// incomplete so VS Code keeps requesting (and refreshing the list) as the
+		// context warms, instead of caching an early intra-only/empty result and
+		// never asking again. Once the full context is available the list is
+		// complete and VS Code filters it client-side.
+		let contextComplete = Boolean(cachedProjectCtx);
+		const list = (items: vscode.CompletionItem[]): vscode.CompletionList =>
+			new vscode.CompletionList(items, !contextComplete);
+
 		const fastTypes = resolveTypeCompletions(source, offset, toTypeCompletionContext(fastProjectCtx));
 		if (fastTypes.length > 0) {
-			return fastTypes.map((t) => this._toTypeItem(t, range));
+			return list(fastTypes.map((t) => this._toTypeItem(t, range)));
 		}
 
 		const fastMembers = resolveMemberCompletions(source, offset, toMemberCompletionContext(fastProjectCtx));
 		if (fastMembers.length > 0) {
-			return fastMembers.map((mem) => this._toItem(mem, range, source, offset));
+			return list(fastMembers.map((mem) => this._toItem(mem, range, source, offset)));
 		}
 
 		const fastEvents = resolveEventHandlerCompletions(source, offset, toEventHandlerCompletionContext(fastProjectCtx));
 		if (fastEvents.length > 0) {
-			return fastEvents.map((event) => this._toEventHandlerItem(event, range));
+			return list(fastEvents.map((event) => this._toEventHandlerItem(event, range)));
 		}
 
 		let projectCtx = cachedProjectCtx;
 		if (!projectCtx) {
-			projectCtx = await this._projectContext.buildEditorProjectContextWithin(
+			const built = await this._projectContext.buildEditorProjectContextWithin(
 				document,
 				source,
 				COMPLETION_PROJECT_CONTEXT_BUDGET_MS,
-			) ?? fastProjectCtx;
+			);
 			if (token?.isCancellationRequested || document.version !== requestVersion) {
-				return [];
+				// Superseded by newer input; ask again rather than caching this result.
+				return new vscode.CompletionList([], true);
+			}
+			if (built) {
+				projectCtx = built;
+				contextComplete = true;
+			} else {
+				// Cross-module context is still loading. Serve the synchronous
+				// intra-module results now (so same-module procedures appear without
+				// waiting) and let VS Code re-request for the cross-module set.
+				projectCtx = fastProjectCtx;
+				contextComplete = false;
 			}
 		}
 		const typeCtx = toTypeCompletionContext(projectCtx);
 		const types = resolveTypeCompletions(source, offset, typeCtx);
 		if (types.length > 0) {
-			return types.map((t) => this._toTypeItem(t, range));
+			return list(types.map((t) => this._toTypeItem(t, range)));
 		}
 
 		const memberCtx = toMemberCompletionContext(projectCtx);
 		const members = resolveMemberCompletions(source, offset, memberCtx);
 		if (members.length > 0) {
-			return members.map((mem) => this._toItem(mem, range, source, offset));
+			return list(members.map((mem) => this._toItem(mem, range, source, offset)));
 		}
 
 		const eventCtx = toEventHandlerCompletionContext(projectCtx);
 		const events = resolveEventHandlerCompletions(source, offset, eventCtx);
 		if (events.length > 0) {
-			return events.map((event) => this._toEventHandlerItem(event, range));
+			return list(events.map((event) => this._toEventHandlerItem(event, range)));
 		}
 
 		const labels = resolveProcedureLabelCompletions(source, offset);
 		if (labels.length > 0) {
-			return labels.map((label) => this._toProcedureLabelItem(label, range));
+			return list(labels.map((label) => this._toProcedureLabelItem(label, range)));
 		}
 
 		const keywords = resolveKeywordCompletions(source, offset, {
 			blockLayout: xlideEditorBlockLayoutFromConfig(vscode.workspace.getConfiguration('xlide')).value,
 		});
 		if (keywords.exclusive) {
-			return [
+			return list([
 				...directiveItems,
 				...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
-			];
+			]);
 		}
 
 		const identCtx = toIdentifierCompletionContext(projectCtx);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
-		return [
+		return list([
 			...directiveItems,
 			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
-		];
+		]);
 	}
 
 	private _toItem(
