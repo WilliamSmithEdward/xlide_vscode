@@ -13,22 +13,13 @@ import {
 } from './xlideFileSystem';
 import { VbaModuleSymbols } from './vbaSymbolIndex';
 import {
-    findIdentifierOccurrences,
-    lineStartOffsets,
     VBA_IDENTIFIER_NAME_RE,
     VBA_IDENTIFIER_RE,
 } from './vbaSourceScan';
 import {
-    EventHandlerDocumentType,
-    eventHandlerDocumentTypeForContext,
     ProjectIndex,
-    ReferenceScope,
-    resolveMemberDefinitionsAt,
     resolveProcedureLabelDefinitionAt,
-    tokenizeCached,
-    type MemberCompletionContext,
     resolveTypeReferenceAt,
-    type VbaProjectClassMember,
     type VbaProjectClassMemberDefinition,
     type Span,
     VbaSymbol as AstSymbol,
@@ -41,13 +32,18 @@ import {
 } from './vbaDocumentIdentity';
 import {
     createOffsetToPositionConverter,
-    moduleKindFromType,
     offsetToPosition,
     projectTypeDefinitionToLocation,
     typeDefinitionsForReference,
     typeReferenceLocations,
 } from './vbaNavigation';
 import { buildLiveVbaProjectIndexAsync } from './vbaProjectAnalysis';
+import {
+    collectSymbolReferences,
+    projectClassMemberAtDefinition,
+    sourceMemberDefinitionsAt,
+    type ReferenceSpan,
+} from './vbaReferenceResolution';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import {
     documentOutlineSymbolsForSource,
@@ -153,52 +149,6 @@ function detectQualifier(line: string, wordStart: number): string | undefined {
 // AST project index (Phase 4 wiring): scope-aware definition/references/rename
 // ---------------------------------------------------------------------------
 
-function codeNamesForModules(modules: VbaModuleSymbols[]): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const mod of modules) {
-        const hostType = documentHostTypeForModule(mod.moduleName, mod.type, mod.documentType);
-        if (!hostType) { continue; }
-        out[mod.moduleName.toLowerCase()] = hostType;
-    }
-    return out;
-}
-
-function meProjectTypeForModule(moduleName: string, type?: string): string | undefined {
-    const kind = moduleKindFromType(type);
-    return kind === 'class' || kind === 'document' || kind === 'userform'
-        ? moduleName
-        : undefined;
-}
-
-function meHostTypeForModule(
-    moduleName: string,
-    type?: string,
-    documentType?: EventHandlerDocumentType,
-): string | undefined {
-    return documentHostTypeForModule(moduleName, type, documentType);
-}
-
-function documentHostTypeForModule(
-    moduleName: string,
-    type?: string,
-    documentType?: EventHandlerDocumentType,
-): string | undefined {
-    switch (eventHandlerDocumentTypeForContext({
-        moduleName,
-        moduleKind: moduleKindFromType(type),
-        documentType,
-    })) {
-        case 'workbook':
-            return 'Excel.Workbook';
-        case 'chart':
-            return 'Excel.Chart';
-        case 'worksheet':
-            return 'Excel.Worksheet';
-        default:
-            return undefined;
-    }
-}
-
 /** Translates an AST symbol's nameSpan to a Location in its owning module. */
 function astSymbolToLocation(
     xlsmPath: string,
@@ -232,158 +182,21 @@ function projectMemberDefinitionToLocation(
     );
 }
 
-function sourceMemberDefinitionsAt(
-    source: string,
-    memberName: string,
-    memberEndOffset: number,
-    project: ProjectIndex,
-    modules: VbaModuleSymbols[],
-    currentModuleName: string,
-    currentModuleType?: string,
-    currentDocumentType?: EventHandlerDocumentType,
-): readonly VbaProjectClassMemberDefinition[] {
-    return resolveMemberDefinitionsAt(source, memberEndOffset, memberName, {
-        codeNames: codeNamesForModules(modules),
-        meType: meHostTypeForModule(currentModuleName, currentModuleType, currentDocumentType),
-        meProjectType: meProjectTypeForModule(currentModuleName, currentModuleType),
-        projectClassMembers: project.projectMemberSurfaces(currentModuleName),
-    });
-}
-
-function projectClassMemberAtDefinition(
-    project: ProjectIndex,
-    moduleName: string,
-    memberName: string,
-    offset: number,
-): VbaProjectClassMember | undefined {
-    for (const type of project.projectMemberSurfaces(moduleName)) {
-        if (type.moduleName.toLowerCase() !== moduleName.toLowerCase()) {
-            continue;
-        }
-        const member = type.members.find((candidate) =>
-            candidate.name.toLowerCase() === memberName.toLowerCase() &&
-            (candidate.definitions ?? []).some((definition) =>
-                offset >= definition.nameSpan.start && offset <= definition.nameSpan.end,
-            ),
-        );
-        if (member) { return member; }
-    }
-    return undefined;
-}
-
-function memberDefinitionKey(definition: VbaProjectClassMemberDefinition): string {
-    return `${definition.moduleName.toLowerCase()}:${definition.nameSpan.start}`;
-}
-
-function projectMemberReferenceLocations(
+/** Adapts pure offset-based reference spans into VS Code locations. */
+function referenceSpansToLocations(
     xlsmPath: string,
     byModule: Map<string, VbaModuleSymbols>,
-    project: ProjectIndex,
-    modules: VbaModuleSymbols[],
-    memberName: string,
-    definitions: readonly VbaProjectClassMemberDefinition[],
-    includeDeclaration: boolean,
+    spans: readonly ReferenceSpan[],
 ): vscode.Location[] {
-    const targetKeys = new Set(definitions.map(memberDefinitionKey));
-    const seen = new Set<string>();
     const out: vscode.Location[] = [];
-    const push = (location: vscode.Location): void => {
-        const key = `${location.uri.toString()}:${location.range.start.line}:${location.range.start.character}`;
-        if (!seen.has(key)) {
-            seen.add(key);
-            out.push(location);
-        }
-    };
-
-    if (includeDeclaration) {
-        for (const definition of definitions) {
-            const loc = projectMemberDefinitionToLocation(xlsmPath, byModule, definition);
-            if (loc) { push(loc); }
-        }
-    }
-
-    const codeNames = codeNamesForModules(modules);
-    for (const mod of byModule.values()) {
-        const occurrences = findIdentifierOccurrences(mod.source, memberName);
-        if (occurrences.length === 0) { continue; }
-        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
-        const ctx: MemberCompletionContext = {
-            codeNames,
-            meType: meHostTypeForModule(mod.moduleName, mod.type, mod.documentType),
-            meProjectType: meProjectTypeForModule(mod.moduleName, mod.type),
-            projectClassMembers: project.projectMemberSurfaces(mod.moduleName),
-        };
-        // Tokenize the module once and hand each occurrence its prefix slice;
-        // occurrence offsets ascend, so one pass over the tokens suffices.
-        const moduleTokens = tokenizeCached(mod.source).filter((t) => t.kind !== 'comment');
-        let tokenEnd = 0;
-        for (const occ of occurrences) {
-            const occEnd = occ.offset + memberName.length;
-            while (tokenEnd < moduleTokens.length && moduleTokens[tokenEnd].end <= occEnd) {
-                tokenEnd += 1;
-            }
-            const resolved = resolveMemberDefinitionsAt(
-                mod.source,
-                occEnd,
-                memberName,
-                ctx,
-                moduleTokens.slice(0, tokenEnd),
-            );
-            if (!resolved.some((definition) => targetKeys.has(memberDefinitionKey(definition)))) {
-                continue;
-            }
-            push(new vscode.Location(
-                uri,
-                new vscode.Range(occ.line, occ.column, occ.line, occ.column + memberName.length),
-            ));
-        }
-    }
-    return out;
-}
-
-function projectMemberRenameLocations(
-    xlsmPath: string,
-    byModule: Map<string, VbaModuleSymbols>,
-    project: ProjectIndex,
-    modules: VbaModuleSymbols[],
-    memberName: string,
-    definitions: readonly VbaProjectClassMemberDefinition[],
-): vscode.Location[] {
-    const out = projectMemberReferenceLocations(
-        xlsmPath,
-        byModule,
-        project,
-        modules,
-        memberName,
-        definitions,
-        true,
-    );
-    const seen = new Set(out.map((loc) =>
-        `${loc.uri.toString()}:${loc.range.start.line}:${loc.range.start.character}`,
-    ));
-    const push = (location: vscode.Location): void => {
-        const key = `${location.uri.toString()}:${location.range.start.line}:${location.range.start.character}`;
-        if (!seen.has(key)) {
-            seen.add(key);
-            out.push(location);
-        }
-    };
-
-    for (const definition of definitions) {
-        const mod = byModule.get(definition.moduleName.toLowerCase());
+    for (const span of spans) {
+        const mod = byModule.get(span.moduleName.toLowerCase());
         if (!mod) { continue; }
-        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
-        for (const occ of findIdentifierOccurrences(mod.source, memberName)) {
-            if (occ.offset < definition.fullSpan.start || occ.offset > definition.fullSpan.end) {
-                continue;
-            }
-            push(new vscode.Location(
-                uri,
-                new vscode.Range(occ.line, occ.column, occ.line, occ.column + memberName.length),
-            ));
-        }
+        out.push(new vscode.Location(
+            encodeModuleUri(xlsmPath, mod.moduleName),
+            new vscode.Range(span.line, span.column, span.line, span.column + span.length),
+        ));
     }
-
     return out;
 }
 
@@ -397,42 +210,6 @@ function includeTypeDeclaration(
             definition.kind !== 'document' &&
             definition.kind !== 'userform',
     );
-}
-
-/**
- * Collects the in-scope textual occurrences of `word` for a resolved reference
- * scope, honoring local-procedure restriction and shadowing exclusions.
- */
-function occurrencesInScope(
-    xlsmPath: string,
-    byModule: Map<string, VbaModuleSymbols>,
-    scope: ReferenceScope,
-    word: string,
-): vscode.Location[] {
-    const out: vscode.Location[] = [];
-    for (const moduleName of scope.searchModules) {
-        const mod = byModule.get(moduleName.toLowerCase());
-        if (!mod) { continue; }
-        const exclusions = scope.shadowedSpans
-            .filter((s) => s.moduleName.toLowerCase() === moduleName.toLowerCase())
-            .map((s) => s.span);
-        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
-        for (const occ of findIdentifierOccurrences(mod.source, word)) {
-            if (scope.kind === 'local' && scope.procedureSpan) {
-                if (occ.offset < scope.procedureSpan.start || occ.offset > scope.procedureSpan.end) {
-                    continue;
-                }
-            }
-            if (exclusions.some((sp) => occ.offset >= sp.start && occ.offset <= sp.end)) {
-                continue;
-            }
-            out.push(new vscode.Location(
-                uri,
-                new vscode.Range(occ.line, occ.column, occ.line, occ.column + word.length),
-            ));
-        }
-    }
-    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -656,7 +433,10 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
 
         const word = document.getText(wordRange);
 
-        const memberDefinitions = sourceMemberDefinitionsAt(
+        // A type reference (`As X` / `New X`) takes precedence over bare value
+        // resolution, but only when the cursor is not on a member declaration or
+        // member-access reference (which the unified resolver owns).
+        const onMember = sourceMemberDefinitionsAt(
             source,
             word,
             document.offsetAt(wordRange.end),
@@ -665,73 +445,50 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
             moduleName,
             current?.type,
             current?.documentType,
-        );
-        const memberAtDefinition = memberDefinitions.length > 0
-            ? undefined
-            : projectClassMemberAtDefinition(
+        ).length > 0
+            || (projectClassMemberAtDefinition(
                 project,
                 moduleName,
                 word,
                 document.offsetAt(position),
+            )?.definitions?.length ?? 0) > 0;
+        if (!onMember) {
+            const typeReference = resolveTypeReferenceAt(
+                source,
+                document.offsetAt(position),
+                { projectTypes: project.visibleTypeNames(moduleName) },
             );
-        const targetMemberDefinitions = memberDefinitions.length > 0
-            ? memberDefinitions
-            : memberAtDefinition?.definitions ?? [];
-        if (targetMemberDefinitions.length > 0) {
-            return projectMemberReferenceLocations(
-                xlsmPath,
-                byModule,
-                project,
-                modules,
-                word,
-                targetMemberDefinitions,
-                context.includeDeclaration,
-            );
-        }
-
-        const typeReference = resolveTypeReferenceAt(
-            source,
-            document.offsetAt(position),
-            { projectTypes: project.visibleTypeNames(moduleName) },
-        );
-        if (typeReference) {
-            const definitions = typeDefinitionsForReference(project, moduleName, typeReference);
-            if (definitions.length > 0) {
-                return typeReferenceLocations(
-                    xlsmPath,
-                    byModule,
-                    project,
-                    typeReference.name,
-                    definitions,
-                    includeTypeDeclaration(context.includeDeclaration, definitions),
-                );
+            if (typeReference) {
+                const definitions = typeDefinitionsForReference(project, moduleName, typeReference);
+                if (definitions.length > 0) {
+                    return typeReferenceLocations(
+                        xlsmPath,
+                        byModule,
+                        project,
+                        typeReference.name,
+                        definitions,
+                        includeTypeDeclaration(context.includeDeclaration, definitions),
+                    );
+                }
             }
         }
 
-        const scope = project.referenceScope(
-            moduleName,
-            word,
-            document.offsetAt(position),
+        return referenceSpansToLocations(
+            xlsmPath,
+            byModule,
+            collectSymbolReferences(
+                byModule,
+                project,
+                modules,
+                source,
+                moduleName,
+                current,
+                word,
+                document.offsetAt(wordRange.end),
+                document.offsetAt(position),
+                context.includeDeclaration,
+            ).references,
         );
-        const locations = occurrencesInScope(xlsmPath, byModule, scope, word);
-
-        if (context.includeDeclaration) {
-            return locations;
-        }
-        // Drop the declaration identifier(s) themselves from the result set.
-        const declKeys = new Set(
-            scope.definitions.map(
-                (d) => `${d.moduleName.toLowerCase()}:${d.nameSpan.start}`,
-            ),
-        );
-        return locations.filter((loc) => {
-            const mod = decodeModuleUri(loc.uri).moduleName.toLowerCase();
-            const m = byModule.get(mod);
-            if (!m) { return true; }
-            const offset = (lineStartOffsets(m.source)[loc.range.start.line] ?? 0)
-                + loc.range.start.character;
-            return !declKeys.has(`${mod}:${offset}`);
-        });
     }
 }
 
@@ -824,53 +581,24 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         const { modules, project, byModule } = navigation;
         const current = byModule.get(moduleIdentityKey(moduleName));
 
-        const memberDefinitions = sourceMemberDefinitionsAt(
-            source,
-            oldName,
-            document.offsetAt(wordRange.end),
+        const result = collectSymbolReferences(
+            byModule,
             project,
             modules,
+            source,
             moduleName,
-            current?.type,
-            current?.documentType,
-        );
-        const memberAtDefinition = memberDefinitions.length > 0
-            ? undefined
-            : projectClassMemberAtDefinition(
-                project,
-                moduleName,
-                oldName,
-                document.offsetAt(position),
-            );
-        const targetMemberDefinitions = memberDefinitions.length > 0
-            ? memberDefinitions
-            : memberAtDefinition?.definitions ?? [];
-        if (targetMemberDefinitions.length > 0) {
-            const edit = new vscode.WorkspaceEdit();
-            for (const loc of projectMemberRenameLocations(
-                xlsmPath,
-                byModule,
-                project,
-                modules,
-                oldName,
-                targetMemberDefinitions,
-            )) {
-                edit.replace(loc.uri, loc.range, newName);
-            }
-            return edit;
-        }
-
-        const scope = project.referenceScope(
-            moduleName,
+            current,
             oldName,
+            document.offsetAt(wordRange.end),
             document.offsetAt(position),
+            true,
         );
-        if (scope.definitions.length === 0) {
+        if (!result.hasSymbol) {
             throw new Error(`'${oldName}' is not a renameable VBA symbol in this workbook.`);
         }
 
         const edit = new vscode.WorkspaceEdit();
-        for (const loc of occurrencesInScope(xlsmPath, byModule, scope, oldName)) {
+        for (const loc of referenceSpansToLocations(xlsmPath, byModule, result.references)) {
             edit.replace(loc.uri, loc.range, newName);
         }
         return edit;

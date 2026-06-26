@@ -46,6 +46,7 @@ export {
 export {
 	MemberCompletion,
 	MemberCompletionContext,
+	precededByMemberAccessDot,
 	resolveMemberCompletionNamed,
 	resolveMemberCompletions,
 	resolveMemberDefinitionsAt,

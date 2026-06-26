@@ -251,7 +251,7 @@ export function resolveMemberDefinitionsAt(
  * continuations (the only trivia the lexer permits between the dot and the
  * member name).
  */
-function precededByMemberAccessDot(source: string, nameStart: number): boolean {
+export function precededByMemberAccessDot(source: string, nameStart: number): boolean {
 	let i = nameStart - 1;
 	for (;;) {
 		while (i >= 0 && (source[i] === ' ' || source[i] === '\t')) {
