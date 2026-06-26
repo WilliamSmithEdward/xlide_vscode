@@ -166,6 +166,35 @@ export function activate(context: vscode.ExtensionContext): void {
         });
     };
 
+    // Cheap "would the backend resolve a runnable Python now?" probe that mirrors
+    // PythonBridge._resolvePython (configured path -> .venv -> python/python3 on
+    // PATH) by running the resolved interpreter with --version. Used to pulse for
+    // a newly-installed Python without requiring a config change or window reload.
+    const probeResolvedPython = (): Promise<boolean> =>
+        new Promise<boolean>((resolve) => {
+            let pythonPath: string;
+            try {
+                pythonPath = bridge.resolvePython();
+            } catch {
+                resolve(false);
+                return;
+            }
+            const proc = cp.spawn(pythonPath, ['--version'], { windowsHide: true });
+            let settled = false;
+            const finish = (value: boolean) => {
+                if (settled) { return; }
+                settled = true;
+                clearTimeout(timer);
+                resolve(value);
+            };
+            const timer = setTimeout(() => {
+                finish(false);
+                proc.kill();
+            }, 1500);
+            proc.on('error', () => finish(false));
+            proc.on('exit', (code) => finish(code === 0));
+        });
+
     const checkingSetupStatus = (): XlideSidebarSetupStatus => ({
         pythonExecutable: {
             status: 'unknown',
@@ -214,6 +243,7 @@ export function activate(context: vscode.ExtensionContext): void {
     setSetupStatus(setupStatus);
     const pythonBackendReady = () => {
         backendStartFailed = false;
+        stopPythonPulse();
         // The backend is confirmed up (possibly via setup/recheck rather than
         // the lazy path); keep the memoized attempt in sync.
         backendStart = Promise.resolve();
@@ -255,9 +285,11 @@ export function activate(context: vscode.ExtensionContext): void {
                     tooltip: 'Set a valid Python executable before installing required libraries.',
                 },
             });
+            startPythonPulse();
             return;
         }
         if (isMissingPackage(err.message)) {
+            stopPythonPulse();
             setSetupStatus({
                 pythonExecutable: {
                     status: 'pass',
@@ -272,6 +304,7 @@ export function activate(context: vscode.ExtensionContext): void {
             });
             return;
         }
+        stopPythonPulse();
         setSetupStatus({
             pythonExecutable: {
                 status: 'unknown',
@@ -297,6 +330,54 @@ export function activate(context: vscode.ExtensionContext): void {
                 throw err;
             });
         void backendStart.catch(() => { /* surfaced via setup status */ });
+    };
+
+    // Python-availability pulse: after a "Python not found" setup failure, the
+    // user often installs Python out-of-band, which fires no VS Code event. Poll
+    // a cheap interpreter probe while waiting and, the moment a runnable Python
+    // appears where there was none, re-run the backend check. The pulse stops as
+    // soon as the backend is ready; window focus triggers an immediate re-probe
+    // (the common "installed Python, switched back to VS Code" flow).
+    const PYTHON_PULSE_INTERVAL_MS = 5000;
+    let pythonPulseTimer: ReturnType<typeof setInterval> | undefined;
+    let awaitingPython = false;
+    let pythonWasAvailable = false;
+    let pythonPulseInFlight = false;
+
+    const stopPythonPulse = () => {
+        awaitingPython = false;
+        if (pythonPulseTimer) {
+            clearInterval(pythonPulseTimer);
+            pythonPulseTimer = undefined;
+        }
+    };
+
+    const pythonPulseTick = async () => {
+        if (!awaitingPython || pythonPulseInFlight) { return; }
+        pythonPulseInFlight = true;
+        try {
+            const available = await probeResolvedPython();
+            if (!awaitingPython) { return; }
+            if (available && !pythonWasAvailable) {
+                pythonWasAvailable = true;
+                out.appendLine('XLIDE detected a newly available Python; rechecking backend.');
+                recheckPythonBackend();
+            } else if (!available) {
+                pythonWasAvailable = false;
+            }
+        } finally {
+            pythonPulseInFlight = false;
+        }
+    };
+
+    const startPythonPulse = () => {
+        awaitingPython = true;
+        pythonWasAvailable = false;
+        if (!pythonPulseTimer) {
+            pythonPulseTimer = setInterval(() => { void pythonPulseTick(); }, PYTHON_PULSE_INTERVAL_MS);
+            // Don't hold the extension host event loop open solely for the pulse.
+            pythonPulseTimer.unref?.();
+        }
     };
 
     const handleBackendStartFailure = async (err: Error): Promise<void> => {
@@ -400,6 +481,17 @@ export function activate(context: vscode.ExtensionContext): void {
                 recheckPythonBackend();
             }
         }),
+
+        // Re-probe for a newly-installed Python the moment the user returns focus
+        // to VS Code (the usual "went and installed Python, came back" flow); the
+        // periodic pulse is the fallback when focus never changes.
+        vscode.window.onDidChangeWindowState((state) => {
+            if (state.focused && awaitingPython) {
+                pythonWasAvailable = false;
+                void pythonPulseTick();
+            }
+        }),
+        new vscode.Disposable(() => stopPythonPulse()),
 
         // Item 6: Reveal active module in the XLIDE Explorer tree.
         // Also drives accordion collapse: only the active module stays expanded.
