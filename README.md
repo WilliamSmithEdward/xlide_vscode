@@ -1,5 +1,7 @@
 # XLIDE: VBA for VS Code
 
+[![IMAGE ALT TEXT](/assets/images/youtube_video_static_image.png)](https://www.youtube.com/watch?v=l4m3CxAJcJA&list=PLV2sm2CkHezw "XLIDE for VS Code: Getting Started")
+
 XLIDE gives Excel VBA projects a modern VS Code workspace.
 
 Add one or more `.xlsm`, `.xlsb`, or `.xlam` workbooks to your VS Code project
