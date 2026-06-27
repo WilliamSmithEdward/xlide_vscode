@@ -2,6 +2,27 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.7] - 2026-06-27
+
+### Added
+
+- **A setting to turn the explorer's auto expand/collapse on or off**
+  (`xlide.explorer.autoExpandCollapse`, on by default). When on, the XLIDE
+  explorer reveals the active module and collapses the others as you switch
+  editor tabs. Turn it off to keep the tree exactly as you arrange it - switching
+  tabs and expanding nodes never auto-collapses anything.
+
+### Fixed
+
+- **Opening a module could intermittently fail with "command not found"** (most
+  often with several workbooks open) and stay broken until the window was
+  reloaded. Command and virtual-filesystem registration are now resilient to a
+  partial or stale re-activation, so one failed registration no longer strands
+  the rest.
+- **Switching between two workbooks' tabs now reliably collapses the workbook you
+  left** - a strict one-workbook-at-a-time accordion. Previously the workbook you
+  switched away from could stay expanded.
+
 ## [2.5.6] - 2026-06-27
 
 ### Added
