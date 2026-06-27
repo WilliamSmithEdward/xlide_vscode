@@ -4729,6 +4729,26 @@
       "provenance": "vbe-oracle-verified",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "if_keyword_in_if_condition",
+      "description": "A block If whose condition position holds a second If keyword.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    If If True Then\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "if_duplicate_then_in_header",
+      "description": "A block If header carrying a second Then keyword after the block-opening Then.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    If True Then Then\n    End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

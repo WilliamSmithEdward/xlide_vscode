@@ -68,7 +68,7 @@ describe('globalSettingsWebview', () => {
 
         expect(html).toContain('class="infoBubble"');
         // the renamed coordination-mode label and its description tooltip
-        expect(html).toContain('When Workbook is Blocked From Saving in Excel');
+        expect(html).toContain('When a Module is Blocked From Saving by Excel');
         expect(html).toContain('What XLIDE does when Excel holds the workbook open');
         // the reopen-as control offers the spaced "Last State" option
         expect(html).toContain('>Last State<');

@@ -1435,6 +1435,20 @@
       "notes": "Suppression boundary: an If-headed statement is flagged for a missing Then only in a provably-active region; an If whose Then sits on a continued (`_`) line, a single-line `If ... Then stmt`, and any If inside a proven-inactive conditional-compilation branch are not flagged (activity gate)."
     },
     {
+      "code": "if-reserved-keyword-in-condition",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "MS-VBAL 3.3.5.2 ('If'/'Else'/'ElseIf' are statement-keywords and 'Then' a marker-keyword, none valid in an expression) and 5.4.2.1 (an If block condition is a value-expression); confirmed by the Excel/VBE oracle (if_keyword_in_if_condition and if_duplicate_then_in_header: compile rejected: Syntax error).",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "if_keyword_in_if_condition",
+        "if_duplicate_then_in_header"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error",
+      "notes": "Flags a reserved If-control keyword ('If'/'Then'/'Else'/'ElseIf') inside a block-If branch condition (between the leading If/ElseIf and the block-opening Then). Only keyword tokens match, so identifiers containing those substrings and legal operator keywords (And/Or/Not/Is/TypeOf/New) are never flagged, and #If/#ElseIf directives are a separate node that never reaches this rule."
+    },
+    {
       "code": "case-outside-select",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "MS-VBAL 5.4.2.4; confirmed by the Excel/VBE oracle (case_statement_outside_select: compile rejected: Case without Select Case)",

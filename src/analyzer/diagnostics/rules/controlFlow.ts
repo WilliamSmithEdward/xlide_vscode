@@ -16,6 +16,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import {
 	type BodyNode,
 	type ForBlockNode,
+	type IfBlockNode,
 	isLeafStatement,
 	type ModuleNode,
 	type ProcedureNode,
@@ -283,6 +284,9 @@ function checkContextBody(
 				);
 				break;
 			case 'IfBlock':
+				checkMalformedIfHeaders(source, node, push);
+				checkContextBody(source, node.body, ctx, activity, push);
+				break;
 			case 'WhileBlock':
 				checkContextBody(source, node.body, ctx, activity, push);
 				break;
@@ -783,6 +787,74 @@ export function checkMalformedStatements(
 			},
 			activity,
 		);
+	}
+}
+
+// Reserved keywords that can never appear inside a value expression, so finding
+// one in a block-If branch condition is always a malformed header. `If`, `Else`,
+// and `ElseIf` are statement-keywords and `Then` is a marker-keyword
+// (MS-VBAL 3.3.5.2); none has any expression meaning. Operator keywords
+// (`And`, `Or`, `Not`, `Is`, `TypeOf`, `New`, ...) are intentionally excluded.
+const IF_CONDITION_RESERVED_KEYWORDS: ReadonlySet<string> = new Set([
+	'if', 'then', 'else', 'elseif',
+]);
+
+/**
+ * Flags a reserved If-control keyword sitting inside a block-If branch's
+ * condition, which the VBE rejects with a Syntax error. Covers `If If True Then`
+ * (the `If` keyword where the condition expression belongs) and
+ * `If True Then Then` (a second `Then` before the block-opening `Then`).
+ *
+ * No false positives: it only matches `if`/`then`/`else`/`elseif` KEYWORD tokens,
+ * so identifiers that merely contain those substrings (`IfCount`, `ThenValue`)
+ * and legal expression keywords are never flagged. `#If`/`#ElseIf` directives are
+ * a separate ConditionalDirective node, not an IfBlock, so they never reach here.
+ */
+function checkMalformedIfHeaders(source: string, node: IfBlockNode, push: PushFn): void {
+	for (const branch of node.branches) {
+		if (branch.branchKind === 'else') {
+			continue;
+		}
+		const toks = statementTokens(source, branch.headerSpan);
+		// The branch's leading If/ElseIf keyword (skip a leading line number or label).
+		let startKw = -1;
+		for (let i = 0; i < toks.length; i++) {
+			if (toks[i].kind === 'keyword') {
+				const w = tokenText(toks[i]);
+				if (w === 'if' || w === 'elseif') {
+					startKw = i;
+				}
+				break;
+			}
+			if (toks[i].kind !== 'integerLiteral' && toks[i].rawText !== ':') {
+				break;
+			}
+		}
+		if (startKw < 0) {
+			continue;
+		}
+		// The block-opening `Then` is the last `then` keyword on the header line.
+		let closeThen = -1;
+		for (let i = toks.length - 1; i > startKw; i--) {
+			if (toks[i].kind === 'keyword' && tokenText(toks[i]) === 'then') {
+				closeThen = i;
+				break;
+			}
+		}
+		if (closeThen < 0) {
+			continue;
+		}
+		for (let i = startKw + 1; i < closeThen; i++) {
+			const tok = toks[i];
+			if (tok.kind === 'keyword' && IF_CONDITION_RESERVED_KEYWORDS.has(tokenText(tok))) {
+				push(
+					'ifReservedKeywordInCondition',
+					`Unexpected '${tok.rawText}' in the If condition.`,
+					absoluteSpan(branch.headerSpan, tok),
+				);
+				break;
+			}
+		}
 	}
 }
 

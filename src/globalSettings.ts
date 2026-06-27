@@ -143,7 +143,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         manifest: { type: 'string', enum: EXCEL_COORDINATION_MODE_VALUES },
         webviewCard: {
             section: 'excel',
-            label: 'When Workbook is Blocked From Saving in Excel',
+            label: 'When a Module is Blocked From Saving by Excel',
             description: 'What XLIDE does when Excel holds the workbook open for editing, which locks the file so a save, add, rename, delete, or F5 cannot write it. Block (default, safest): refuse and ask you to close it in Excel. Close Tracked: gracefully close a workbook XLIDE opened, then proceed. Close Force: close it in any Excel, force-quitting Excel if needed (unsafe; can lose unsaved work in other workbooks).',
             control: { kind: 'enum', values: EXCEL_COORDINATION_MODE_VALUES },
         },
@@ -191,7 +191,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         manifest: { type: 'boolean' },
         webviewCard: {
             section: 'excel',
-            label: 'Reopen Read-Only Workbook After Save',
+            label: 'Reopen Read-Only Workbook After Module Save',
             description: 'A workbook open read-only in Excel does not lock the file, so XLIDE\'s save succeeds, but Excel keeps showing its older copy. Turn this on to silently close and reopen the read-only workbook after each save so Excel matches the saved file. Only acts when the workbook is actually open read-only; never reopens one you closed or one open for editing.',
             control: { kind: 'boolean' },
         },

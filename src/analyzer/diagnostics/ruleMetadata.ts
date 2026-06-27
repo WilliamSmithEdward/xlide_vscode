@@ -1133,6 +1133,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.2.1',
 		confidence: 'high',
 	},
+	ifReservedKeywordInCondition: {
+		code: 'if-reserved-keyword-in-condition',
+		title: 'Reserved keyword in If condition',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.2.1 (If block) / 3.3.5.2 (reserved identifiers) / VBE oracle: Syntax error',
+		confidence: 'high',
+	},
 	caseOutsideSelect: {
 		code: 'case-outside-select',
 		title: 'Case statement outside Select Case',

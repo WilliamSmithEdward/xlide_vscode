@@ -1045,3 +1045,60 @@ describe('analyzeModule - bare numeric line labels (undefined-label FP fix)', ()
 		expect(byCode(analyzeModule(src), 'undefined-label')).toHaveLength(1);
 	});
 });
+
+describe('analyzeModule - reserved keyword in If condition', () => {
+	const code = 'if-reserved-keyword-in-condition';
+
+	it('flags a duplicate If keyword where the condition belongs', () => {
+		const src = 'Sub T()\n    If If True Then\n    End If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), code)).toHaveLength(1);
+	});
+
+	it('flags a second Then keyword in the block header', () => {
+		const src = 'Sub T()\n    If True Then Then\n    End If\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), code)).toHaveLength(1);
+	});
+
+	it('does not flag a well-formed block If / ElseIf / Else', () => {
+		const src =
+			'Sub T(ByVal a As Boolean, ByVal b As Boolean)\n' +
+			'    If a Then\n' +
+			'    ElseIf b Then\n' +
+			'    Else\n' +
+			'    End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), code)).toHaveLength(0);
+	});
+
+	it('does not flag legal expression keywords (And/Not/TypeOf/Is)', () => {
+		const src =
+			'Sub T(ByVal a As Boolean, ByVal b As Boolean, o As Object)\n' +
+			'    If a And Not b Then\n' +
+			'    End If\n' +
+			'    If TypeOf o Is Collection Then\n' +
+			'    End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), code)).toHaveLength(0);
+	});
+
+	it('does not flag identifiers that merely contain if/then', () => {
+		const src =
+			'Sub T(ByVal ifCount As Long, ByVal thenFlag As Boolean)\n' +
+			'    If ifCount > 0 And thenFlag Then\n' +
+			'    End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), code)).toHaveLength(0);
+	});
+
+	it('does not flag single-line If or conditional-compilation directives', () => {
+		const single = 'Sub T(ByVal x As Boolean)\n    If x Then Exit Sub\nEnd Sub\n';
+		expect(byCode(analyzeModule(single), code)).toHaveLength(0);
+		const directive =
+			'Sub T()\n' +
+			'#If VBA7 Then\n' +
+			'    Dim x As Long\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(directive), code)).toHaveLength(0);
+	});
+});
