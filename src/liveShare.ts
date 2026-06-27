@@ -332,10 +332,18 @@ export class LiveShareIntegration implements vscode.Disposable {
         }
         this._guestProxy = proxy;
         this._out.appendLine(`[LiveShare] guest: proxy acquired, isServiceAvailable=${proxy.isServiceAvailable}`);
-        proxy.onDidChangeIsServiceAvailable((available) => {
-            this._out.appendLine(`[LiveShare] guest: service availability changed -> ${available}`);
-            this._onDidChange.fire();
-        });
+        // Track the availability listener so it is torn down with the rest of the
+        // session state in dispose() (matches how the host side registers its
+        // listeners into _disposables). proxy.onNotify returns void (the handlers
+        // live with the proxy, released when the session ends), so those cannot be
+        // individually disposed; firing the disposed _onDidChange emitter is a
+        // no-op, so there is no use-after-dispose hazard there.
+        this._disposables.push(
+            proxy.onDidChangeIsServiceAvailable((available) => {
+                this._out.appendLine(`[LiveShare] guest: service availability changed -> ${available}`);
+                this._onDidChange.fire();
+            }),
+        );
         proxy.onNotify(NOTIFY_WORKBOOKS_CHANGED, () => {
             this._out.appendLine('[LiveShare] guest: host notified workbooks changed');
             this._onDidChange.fire();

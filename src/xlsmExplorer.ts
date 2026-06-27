@@ -534,8 +534,14 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                         },
                     );
                 }
+                // Only cache when no refresh() raced this load to completion;
+                // otherwise the stale sub list would poison the freshly-cleared
+                // cache (mirrors the generation guard in _getModules).
+                const generation = this._generation;
                 subs = await load;
-                this._subsListCache.set(cacheKey, subs);
+                if (this._generation === generation) {
+                    this._subsListCache.set(cacheKey, subs);
+                }
             }
             const nodes = subs.map((s) => ({
                 kind: 'sub' as const,

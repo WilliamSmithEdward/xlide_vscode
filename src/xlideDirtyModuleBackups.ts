@@ -265,15 +265,11 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         } catch {
             return;
         }
-        // Backups for open documents are owned by the restore/write flow above.
-        const openBackupNames = new Set(
-            vscode.workspace.textDocuments
-                .filter((document) => isLocalXlideDocument(document))
-                .map((document) => backupName(document.uri)),
-        );
         const cutoff = Date.now() - DIRTY_BACKUP_RETENTION_MS;
         for (const entry of entries) {
-            if (!entry.endsWith('.json') || openBackupNames.has(entry)) {
+            // Skip backups owned by the restore/write flow (an open document or an
+            // in-flight restore); re-checked again below after the read await.
+            if (!entry.endsWith('.json') || this._isBackupInUse(entry)) {
                 continue;
             }
             const fullPath = path.join(this._dir, entry);
@@ -288,11 +284,38 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
                 if (typeof updatedAt === 'number' && updatedAt >= cutoff) {
                     continue;
                 }
+                // Re-check after the await: a document may have opened and begun
+                // restoring from this backup while we read it.
+                if (this._isBackupInUse(entry)) {
+                    continue;
+                }
                 await fs.promises.rm(fullPath, { force: true });
             } catch {
                 /* best effort cleanup */
             }
         }
+    }
+
+    /**
+     * True when a backup file is owned by an open XLIDE document or an in-flight
+     * restore, so pruneStaleBackups must not delete it out from under that flow.
+     */
+    private _isBackupInUse(backupFileName: string): boolean {
+        for (const document of vscode.workspace.textDocuments) {
+            if (isLocalXlideDocument(document) && backupName(document.uri) === backupFileName) {
+                return true;
+            }
+        }
+        for (const uriString of this._restoring) {
+            try {
+                if (backupName(vscode.Uri.parse(uriString)) === backupFileName) {
+                    return true;
+                }
+            } catch {
+                /* unparsable restoring key - ignore */
+            }
+        }
+        return false;
     }
 
     private bumpWriteGeneration(key: string): number {

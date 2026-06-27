@@ -12,6 +12,25 @@ import {
 import { measurePerformance } from './performanceTrace';
 import { isReadModulesUnavailable } from './pythonBridgeErrors';
 import { fileExists, isPathInside } from './util/fs';
+import { createKeyedAsyncLock } from './util/keyedAsyncLock';
+
+const exportFolderLock = createKeyedAsyncLock();
+
+function exportFolderKey(folder: string): string {
+    const resolved = path.resolve(folder);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * Serializes mutating operations on a given export folder so a single export, a
+ * whole-workbook export, a sync-plan apply's deletes, and an import apply's reads
+ * cannot interleave their file writes/deletes/reads (which would risk partial
+ * files or deleting freshly-written content). Keyed per folder, so different
+ * folders run concurrently.
+ */
+export function withExportFolderLock<T>(folder: string, action: () => Promise<T>): Promise<T> {
+    return exportFolderLock(exportFolderKey(folder), action);
+}
 
 interface ModuleInfo {
     name: string;
@@ -188,6 +207,7 @@ async function exportWorkbookModule(
     }
 
     const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
+    return withExportFolderLock(exportFolder, async () => {
     await fs.promises.mkdir(exportFolder, { recursive: true });
 
     const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
@@ -217,6 +237,7 @@ async function exportWorkbookModule(
         configPath: updatedSettings.settingsPath,
     };
     });
+    });
 }
 
 async function exportWorkbookModules(
@@ -231,6 +252,7 @@ async function exportWorkbookModules(
     }
 
     const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
+    return withExportFolderLock(exportFolder, async () => {
     await fs.promises.mkdir(exportFolder, { recursive: true });
 
     const { modules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.filePath);
@@ -273,6 +295,7 @@ async function exportWorkbookModules(
         totalModules: modules.length,
         configPath: updatedSettings.settingsPath,
     };
+    });
     });
 }
 

@@ -34,6 +34,41 @@ export function setExcelCoordinationLog(log: (message: string) => void): void {
     sharedLog = log;
 }
 
+// Workbook paths (refcounted) whose XLIDE-driven post-save reopen is suppressed
+// because a caller is about to reopen the workbook itself. F5 (Run Macro at
+// Cursor) saves the dirty module and then reopens the workbook read-only to run
+// the macro; without this the save's background read-only refresh (and a
+// close-mode reopen) would race that reopen on the SAME workbook (transient "open
+// for editing" / run failures). Keyed per workbook so an F5 on one workbook never
+// suppresses a concurrent save's reopen on a different workbook.
+const reopenSuppressedPaths = new Map<string, number>();
+
+export async function withWorkbookReopenSuppressed<T>(
+    filePath: string,
+    fn: () => Promise<T>,
+): Promise<T> {
+    const key = workbookKey(filePath);
+    reopenSuppressedPaths.set(key, (reopenSuppressedPaths.get(key) ?? 0) + 1);
+    try {
+        return await fn();
+    } finally {
+        const next = (reopenSuppressedPaths.get(key) ?? 1) - 1;
+        if (next > 0) {
+            reopenSuppressedPaths.set(key, next);
+        } else {
+            reopenSuppressedPaths.delete(key);
+        }
+    }
+}
+
+function isWorkbookReopenSuppressed(filePath: string): boolean {
+    return reopenSuppressedPaths.has(workbookKey(filePath));
+}
+
+// Workbooks whose read-only refresh PowerShell is currently in flight, so rapid
+// saves cannot stack concurrent close/reopen passes on the same workbook.
+const readOnlyRefreshInFlight = new Set<string>();
+
 // Session-scoped set of workbook paths XLIDE itself opened in Excel, so
 // closeTracked only ever closes workbooks the user opened through XLIDE.
 const xlideOpenedWorkbooks = new Set<string>();
@@ -281,6 +316,11 @@ export async function refreshReadOnlyViewAfterSave(
     if (process.platform !== 'win32') {
         return;
     }
+    const key = workbookKey(filePath);
+    if (readOnlyRefreshInFlight.has(key)) {
+        return;
+    }
+    readOnlyRefreshInFlight.add(key);
     const script = buildRefreshReadOnlyScript(filePath);
     log(`[excelCoord] refresh read-only view: ${filePath}`);
     try {
@@ -297,6 +337,8 @@ export async function refreshReadOnlyViewAfterSave(
         }
     } catch (err) {
         log(`[excelCoord] refresh read-only view failed: ${errorMessage(err)}`);
+    } finally {
+        readOnlyRefreshInFlight.delete(key);
     }
 }
 
@@ -320,10 +362,12 @@ export async function runWriteWithExcelCoordination<T>(
     try {
         const result = await write();
         if (process.platform === 'win32'
+            && !isWorkbookReopenSuppressed(filePath)
             && resolveExcelCoordinationSettings().reopenReadOnlyAfterSave) {
             // Fire-and-forget: refresh Excel's stale read-only view without
             // delaying the save. The script no-ops unless the workbook is
-            // actually open read-only in Excel.
+            // actually open read-only in Excel. Skipped while a caller (F5) is
+            // about to reopen the workbook itself.
             void refreshReadOnlyViewAfterSave(filePath, log);
         }
         return result;
@@ -343,7 +387,9 @@ export async function runWriteWithExcelCoordination<T>(
         // The retry is the source of truth: if it still fails the lock survived,
         // and the caller surfaces the locked-workbook guidance.
         const result = await write();
-        if (settings.reopenAfterClose) {
+        if (isWorkbookReopenSuppressed(filePath)) {
+            // A caller (F5) is about to reopen this workbook itself; do not race it.
+        } else if (settings.reopenAfterClose) {
             // reopenWorkbookAfterClose re-marks the workbook as XLIDE-opened on a
             // successful reopen; on failure the prior tracking is left intact so a
             // later closeTracked save can still free the lock. We must NOT forget

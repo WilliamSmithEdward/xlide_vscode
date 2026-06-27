@@ -50,8 +50,16 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             : openerLine;
         const opener = detectSmartBlockOpener(lexerStrippedLine(normalizedOpenerLine));
         if (!opener) {
-            if (await maybeContinueCommentLine(doc, openerLineIndex)) { return; }
-            await maybeContinueWithMemberLine(doc, openerLineIndex);
+            // Hold the re-entrancy guard across the continuation edits too, so a
+            // second change event (the edit itself, or a fast follow-up keystroke)
+            // cannot start a concurrent continuation on the same line.
+            applying = true;
+            try {
+                if (await maybeContinueCommentLine(doc, openerLineIndex)) { return; }
+                await maybeContinueWithMemberLine(doc, openerLineIndex);
+            } finally {
+                applying = false;
+            }
             return;
         }
 

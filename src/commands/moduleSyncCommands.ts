@@ -7,6 +7,7 @@ import {
 } from '../xlideFileSystem';
 import {
     exportWorkbookModule,
+    withExportFolderLock,
 } from '../moduleExport';
 import {
     buildExportModuleSyncPlan,
@@ -368,8 +369,17 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                     if (!item.targetPath || !isPathInside(plan.folderPath, item.targetPath)) {
                         throw new Error(`Refusing to remove a file outside the export folder: ${item.relativeName}`);
                     }
-                    if (await fileExists(item.targetPath)) {
-                        await fs.promises.unlink(item.targetPath);
+                    const targetPath = item.targetPath;
+                    // Atomic check-then-delete under the export-folder lock, so a
+                    // concurrent export cannot write this folder between the two.
+                    const didRemove = await withExportFolderLock(plan.folderPath, async () => {
+                        if (await fileExists(targetPath)) {
+                            await fs.promises.unlink(targetPath);
+                            return true;
+                        }
+                        return false;
+                    });
+                    if (didRemove) {
                         removed.push(item.relativeName);
                     } else {
                         skipped.push(`${item.relativeName} (already missing)`);
@@ -498,7 +508,11 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                 if (!item.sourcePath) {
                     throw new Error(`Missing source path for ${item.moduleName}.`);
                 }
-                const source = await fs.promises.readFile(item.sourcePath, 'utf8');
+                const sourcePath = item.sourcePath;
+                // Read under the folder lock so a concurrent export cannot have a
+                // half-written file in flight when we read it.
+                const source = await withExportFolderLock(plan.folderPath, () =>
+                    fs.promises.readFile(sourcePath, 'utf8'));
                 log(`[importModules] Importing ${item.moduleName} from ${item.relativeName}`);
                 await writeWorkbookModule(deps, {
                     filePath: plan.workbookPath,

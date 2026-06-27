@@ -28,6 +28,7 @@ import {
     projectProcedureSignatures,
 } from './vbaProjectAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
+import { workbookIdentityKey } from './workbookIdentity';
 import { openModuleSourceMapForWorkbook } from './vbaOpenDocuments';
 import {
     analysisSuppressionScopeResolver,
@@ -352,12 +353,40 @@ function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): 
     }
 }
 
+// Single-flight: concurrent analyses of the SAME workbook share one run, so a
+// double-trigger (the analysis command + the agent tool, or a re-run) neither
+// repeats the expensive read+analyze nor renders out-of-order results. The shared
+// run is driven by the FIRST caller's cancellation token and progress; a later
+// concurrent caller reuses that run (and, in the rare case the first caller
+// cancels, observes that cancellation). Cleared when the run settles.
+const inFlightWorkbookAnalyses = new Map<string, Promise<WorkbookAnalysisResult>>();
+
 /**
  * Analyzes every module in a workbook and returns the flattened, sorted problem
  * list. Never throws on a per-module analysis failure - those modules simply
- * contribute no problems.
+ * contribute no problems. Concurrent calls for the same workbook are coalesced
+ * into a single in-flight run.
  */
-export async function analyzeWorkbook(
+export function analyzeWorkbook(
+    bridge: PythonBridge,
+    filePath: string,
+    options: AnalyzeWorkbookOptions = {},
+): Promise<WorkbookAnalysisResult> {
+    const key = workbookIdentityKey(filePath);
+    const existing = inFlightWorkbookAnalyses.get(key);
+    if (existing) {
+        return existing;
+    }
+    const run = runWorkbookAnalysis(bridge, filePath, options);
+    inFlightWorkbookAnalyses.set(key, run);
+    return run.finally(() => {
+        if (inFlightWorkbookAnalyses.get(key) === run) {
+            inFlightWorkbookAnalyses.delete(key);
+        }
+    });
+}
+
+async function runWorkbookAnalysis(
     bridge: PythonBridge,
     filePath: string,
     options: AnalyzeWorkbookOptions = {},

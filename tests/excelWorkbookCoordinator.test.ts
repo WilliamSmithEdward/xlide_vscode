@@ -11,6 +11,7 @@ import {
     resolveReopenReadOnly,
     shouldAttemptClose,
     wasWorkbookOpenedByXlide,
+    withWorkbookReopenSuppressed,
     type ExcelCoordinationSettings,
 } from '../src/excelWorkbookCoordinator';
 
@@ -130,6 +131,35 @@ describe('excelWorkbookCoordinator', () => {
 
         it('falls back to read-only when the prior state is unknown', () => {
             expect(resolveReopenReadOnly('lastState', undefined)).toBe(true);
+        });
+    });
+
+    describe('withWorkbookReopenSuppressed', () => {
+        it('runs the wrapped function and returns its result', async () => {
+            await expect(
+                withWorkbookReopenSuppressed('C:\\s\\Book.xlsm', async () => 42),
+            ).resolves.toBe(42);
+        });
+
+        it('restores suppression state even when the wrapped function throws', async () => {
+            await expect(
+                withWorkbookReopenSuppressed('C:\\s\\Book.xlsm', async () => { throw new Error('boom'); }),
+            ).rejects.toThrow('boom');
+            // The refcount must not be left stuck, or the reopen would be
+            // permanently suppressed for this workbook.
+            await expect(
+                withWorkbookReopenSuppressed('C:\\s\\Book.xlsm', async () => 'ok'),
+            ).resolves.toBe('ok');
+        });
+
+        it('scopes suppression per workbook (one workbook does not suppress another)', async () => {
+            // While A is suppressed, B must be free to resolve independently; the
+            // per-path keying is what prevents an F5 on A from suppressing B's refresh.
+            let bRan = false;
+            await withWorkbookReopenSuppressed('C:\\s\\A.xlsm', async () => {
+                await withWorkbookReopenSuppressed('C:\\s\\B.xlsm', async () => { bRan = true; });
+            });
+            expect(bRan).toBe(true);
         });
     });
 

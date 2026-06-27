@@ -22,6 +22,7 @@ import {
     markWorkbookOpenedByXlide,
     resolveExcelCoordinationSettings,
     shouldAttemptClose,
+    withWorkbookReopenSuppressed,
 } from '../excelWorkbookCoordinator';
 import {
     procedureNameAtCursor,
@@ -245,64 +246,72 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             }
 
             try {
-                // Persist any in-editor changes first so the macro that runs
-                // reflects the current source rather than the last-saved version.
-                if (editor.document.isDirty) {
-                    await editor.document.save();
-                }
-
                 // Decode the URI to get filePath and moduleName
                 const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
                 log(`[runMacro] Requested from module: ${moduleName} in ${xlsmPath}`);
 
                 // Find which procedure the cursor is in (parser-based, so
-                // Friend/Global/Static modifiers are recognized too).
+                // Friend/Global/Static modifiers are recognized too). Done before
+                // saving so a no-op cursor position bails out without a save.
                 const currentProc = procedureNameAtCursor(editor);
                 if (!currentProc) {
                     vscode.window.showWarningMessage('XLIDE: Cursor is not inside a Sub or Function.');
                     return;
                 }
 
-                // Open the workbook read-only
-                if (process.platform === 'win32') {
-                    const attachToRunning = shouldAttachToRunningExcel();
-                    const macroRef = `${moduleName}.${currentProc}`;
-                    log(`[runMacro] attachToRunningExcel=${attachToRunning}`);
-                    try {
-                        await runWorkbookMacroReadOnly(xlsmPath, macroRef, { attachToRunning }, log);
-                    } catch (err) {
-                        // The workbook is open for editing in Excel (locked). Honor
-                        // the coordination policy: close it and retry (the macro
-                        // script then reopens read-only to run) instead of asking
-                        // the user to close it by hand. block mode still rethrows.
-                        const settings = resolveExcelCoordinationSettings();
-                        if (err instanceof ExcelMacroError && err.code === 'REOPEN_BLOCKED'
-                            && settings.mode !== 'block' && shouldAttemptClose(settings, xlsmPath)) {
-                            log(`[runMacro] reopen blocked; coordinationMode=${settings.mode}, closing workbook`);
-                            await closeWorkbookInExcel(xlsmPath, { force: settings.mode === 'closeForce' }, log);
-                            // The macro host is about to reopen the workbook read-only on
-                            // retry; record it now so it stays tracked even if the macro
-                            // itself then errors (RUN_FAILED) before we mark below.
-                            markWorkbookOpenedByXlide(xlsmPath);
-                            await runWorkbookMacroReadOnly(xlsmPath, macroRef, { attachToRunning }, log);
-                        } else {
-                            throw err;
-                        }
+                // Suppress XLIDE's own post-save reopen for THIS workbook across the
+                // whole run: F5 saves the dirty module and then reopens it read-only
+                // itself to run the macro. Holding suppression over the save AND the
+                // macro run keeps any refresh (this save's, or a concurrent save of
+                // another module in the same workbook) from racing that reopen.
+                await withWorkbookReopenSuppressed(xlsmPath, async () => {
+                    // Persist in-editor changes first so the macro reflects the
+                    // current source rather than the last-saved version.
+                    if (editor.document.isDirty) {
+                        await editor.document.save();
                     }
-                    // The macro host reopened the workbook read-only; record it so
-                    // a later closeTracked save can free the lock automatically.
-                    markWorkbookOpenedByXlide(xlsmPath);
-                } else if (process.platform === 'darwin') {
-                    cp.spawn('open', ['-a', 'Microsoft Excel', xlsmPath]);
-                    vscode.window.showInformationMessage(
-                        `Workbook opened. Run macro: ${moduleName}.${currentProc}`,
-                    );
-                } else {
-                    cp.spawn('libreoffice', ['--calc', '--norestore', '--view', xlsmPath]);
-                    vscode.window.showInformationMessage(
-                        `Workbook opened. Run macro manually: ${moduleName}.${currentProc}`,
-                    );
-                }
+
+                    // Open the workbook read-only
+                    if (process.platform === 'win32') {
+                        const attachToRunning = shouldAttachToRunningExcel();
+                        const macroRef = `${moduleName}.${currentProc}`;
+                        log(`[runMacro] attachToRunningExcel=${attachToRunning}`);
+                        try {
+                            await runWorkbookMacroReadOnly(xlsmPath, macroRef, { attachToRunning }, log);
+                        } catch (err) {
+                            // The workbook is open for editing in Excel (locked). Honor
+                            // the coordination policy: close it and retry (the macro
+                            // script then reopens read-only to run) instead of asking
+                            // the user to close it by hand. block mode still rethrows.
+                            const settings = resolveExcelCoordinationSettings();
+                            if (err instanceof ExcelMacroError && err.code === 'REOPEN_BLOCKED'
+                                && settings.mode !== 'block' && shouldAttemptClose(settings, xlsmPath)) {
+                                log(`[runMacro] reopen blocked; coordinationMode=${settings.mode}, closing workbook`);
+                                await closeWorkbookInExcel(xlsmPath, { force: settings.mode === 'closeForce' }, log);
+                                // The macro host is about to reopen the workbook read-only on
+                                // retry; record it now so it stays tracked even if the macro
+                                // itself then errors (RUN_FAILED) before we mark below.
+                                markWorkbookOpenedByXlide(xlsmPath);
+                                await runWorkbookMacroReadOnly(xlsmPath, macroRef, { attachToRunning }, log);
+                            } else {
+                                throw err;
+                            }
+                        }
+                        // The macro host reopened the workbook read-only; record it so
+                        // a later closeTracked save can free the lock automatically.
+                        markWorkbookOpenedByXlide(xlsmPath);
+                    } else if (process.platform === 'darwin') {
+                        cp.spawn('open', ['-a', 'Microsoft Excel', xlsmPath]);
+                        vscode.window.showInformationMessage(
+                            `Workbook opened. Run macro: ${moduleName}.${currentProc}`,
+                        );
+                    } else {
+                        cp.spawn('libreoffice', ['--calc', '--norestore', '--view', xlsmPath]);
+                        vscode.window.showInformationMessage(
+                            `Workbook opened. Run macro manually: ${moduleName}.${currentProc}`,
+                        );
+                    }
+                });
             } catch (err) {
                 showRunMacroFailure(err);
             }
