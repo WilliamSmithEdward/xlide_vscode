@@ -54,6 +54,7 @@ interface XlideGlobalSettingValues {
     'editor.blockLayout': VbaSmartBlockLayout;
     'editor.continueCommentOnNewline': boolean;
     'editor.mirrorCommentSpacing': boolean;
+    'explorer.autoExpandCollapse': boolean;
     'docs.enabled': boolean;
     'docs.metadataGlob': string;
     'analysis.visibleSeverities': AnalysisSeverityFilter[];
@@ -258,6 +259,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             control: { kind: 'boolean' },
         },
     },
+    'explorer.autoExpandCollapse': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'editor',
+            label: 'Auto Expand And Collapse Explorer Tree',
+            description: "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-workbook, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything.",
+            control: { kind: 'boolean' },
+        },
+    },
     'docs.enabled': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
@@ -424,6 +437,10 @@ function xlideEditorContinueCommentOnNewlineFromConfig(config: vscode.WorkspaceC
 
 function xlideEditorMirrorCommentSpacingFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'editor.mirrorCommentSpacing');
+}
+
+function xlideExplorerAutoExpandCollapseFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'explorer.autoExpandCollapse');
 }
 
 function xlidePythonPathFromConfig(config: vscode.WorkspaceConfiguration) {
@@ -719,6 +736,7 @@ export {
     xlideEditorBlockLayoutFromConfig,
     xlideEditorContinueCommentOnNewlineFromConfig,
     xlideEditorMirrorCommentSpacingFromConfig,
+    xlideExplorerAutoExpandCollapseFromConfig,
     xlideGlobalSettingCards,
     xlideGlobalSettingManifest,
     xlidePerformanceTraceFromConfig,

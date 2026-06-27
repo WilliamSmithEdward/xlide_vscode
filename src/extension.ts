@@ -25,6 +25,7 @@ import { setExcelCoordinationLog } from './excelWorkbookCoordinator';
 import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import {
     setXlideGlobalSettingValue,
+    xlideExplorerAutoExpandCollapseFromConfig,
     xlidePerformanceTraceFromConfig,
     xlidePythonPathFromConfig,
 } from './globalSettings';
@@ -464,14 +465,47 @@ export function activate(context: vscode.ExtensionContext): void {
     registerXlideVbaLanguageSync(context, out);
     void ensureXlideVbaEditorOverrides(out);
 
+    // Register the explorer/palette commands up front in their own subscription
+    // batch, isolated in a try/catch. The tree view above is created
+    // independently, so if any other registration later in activation throws,
+    // the tree would stay clickable while its commands were missing - surfacing
+    // as "command 'xlide.openModule' not found" until the window is reloaded.
+    // Registering commands first (and not letting one failure abort the rest)
+    // keeps that from happening.
+    try {
+        context.subscriptions.push(
+            ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
+        );
+    } catch (err) {
+        out.appendLine(
+            'XLIDE: command registration failed during activation: '
+            + (err instanceof Error ? err.message : String(err)),
+        );
+    }
+
+    // Register the virtual filesystem resiliently too. openModule opens
+    // xlide-vba:// documents through this provider, so if a stale re-activation
+    // has already registered the scheme, letting registerFileSystemProvider throw
+    // would abort the rest of activation and strand the tree with "no provider
+    // for xlide-vba://..." - the same failure class as the command registration
+    // above, just with a different symptom ("cannot open module").
+    try {
+        context.subscriptions.push(
+            vscode.workspace.registerFileSystemProvider(XLIDE_SCHEME, fsProvider, {
+                isCaseSensitive: process.platform !== 'win32',
+                isReadonly: false,
+            }),
+        );
+    } catch (err) {
+        out.appendLine(
+            'XLIDE: filesystem provider registration failed (already registered?): '
+            + (err instanceof Error ? err.message : String(err)),
+        );
+    }
+
     context.subscriptions.push(
         out,
 
-        // Virtual read/write filesystem for xlide-vba:// URIs
-        vscode.workspace.registerFileSystemProvider(XLIDE_SCHEME, fsProvider, {
-            isCaseSensitive: process.platform !== 'win32',
-            isReadonly: false,
-        }),
         registerXlideDirtyModuleBackups(context, out),
 
         treeView,
@@ -508,6 +542,11 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (!pending) { return; }
                 const { xlsmPath, moduleName } = pending;
                 pending = undefined;
+                // Honor the user's auto-expand/collapse preference: when off, the
+                // tree never follows the active tab or accordion-collapses.
+                if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
+                    return;
+                }
                 explorer.setActiveModule(xlsmPath, moduleName);
                 const node = explorer.getModuleNode(xlsmPath, moduleName);
                 if (node && treeView.visible) {
@@ -537,6 +576,7 @@ export function activate(context: vscode.ExtensionContext): void {
         // Accordion: if the user manually clicks the expand arrow on a module node,
         // collapse all sibling modules under the same workbook.
         treeView.onDidExpandElement((e) => {
+            if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) { return; }
             if (e.element.kind === 'module' && e.element.filePath && e.element.moduleName) {
                 explorer.setActiveModule(e.element.filePath, e.element.moduleName);
             }
@@ -651,7 +691,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
         ...sidebar.disposables,
         registerXlideGlobalSettingsWebview(out),
-        ...registerCommands(context, bridge, explorer, fsProvider, out, vbaIndex),
         ...registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
 
         statusBar,

@@ -163,6 +163,20 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         this._refreshModuleExpansion(key);
         if (previousWorkbookKey !== nextWorkbookKey) {
             this._refreshNonActiveWorkbookExpansions(nextWorkbookKey);
+            // Only when actually switching away from a previously-active workbook
+            // (not the first activation, which has nothing to collapse): bump the
+            // now-active workbook's render id so it re-renders Expanded, then
+            // refresh from the root so VS Code rebuilds the workbook list and
+            // actually applies the new collapsed/expanded states. Firing the
+            // individual workbook nodes above only refreshes them in place, which
+            // does not reliably collapse an already-expanded workbook.
+            if (previousWorkbookKey !== undefined) {
+                this._xlsmRenderVersions.set(
+                    nextWorkbookKey,
+                    (this._xlsmRenderVersions.get(nextWorkbookKey) ?? 0) + 1,
+                );
+                this._emitter.fire();
+            }
         }
     }
 

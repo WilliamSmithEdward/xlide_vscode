@@ -21,7 +21,7 @@ export function registerXlideCommand<T extends unknown[]>(
     callback: (...args: T) => unknown,
     errorOptions?: XlideCommandErrorOptions<T>,
 ): vscode.Disposable {
-    return vscode.commands.registerCommand(command, async (...args: T) => {
+    const handler = async (...args: T) => {
         const start = Date.now();
         const trace = startPerformanceTrace('command', command);
         recordXlideCommand({
@@ -61,5 +61,20 @@ export function registerXlideCommand<T extends unknown[]>(
             vscode.window.showErrorMessage(`XLIDE: ${errorOptions.errorPrefix}: ${message}`);
             return undefined;
         }
-    });
+    };
+
+    try {
+        return vscode.commands.registerCommand(command, handler);
+    } catch (err) {
+        // The id is already registered - typically a stale registration left by a
+        // prior partial/failed activation. Returning a no-op disposable instead of
+        // throwing stops one duplicate from aborting registration of the remaining
+        // XLIDE commands (which otherwise surfaces as "command 'X' not found" until
+        // the window is reloaded); the existing registration keeps the command live.
+        console.warn(
+            `XLIDE: command '${command}' was already registered; keeping the existing one. `
+            + (err instanceof Error ? err.message : String(err)),
+        );
+        return new vscode.Disposable(() => { /* existing registration is not ours to dispose */ });
+    }
 }

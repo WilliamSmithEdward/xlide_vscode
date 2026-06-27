@@ -25,6 +25,7 @@ const validSettings = {
     'editor.blockLayout': 'comfy',
     'editor.continueCommentOnNewline': true,
     'editor.mirrorCommentSpacing': true,
+    'explorer.autoExpandCollapse': true,
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
     'performance.trace': false,
@@ -71,6 +72,7 @@ describe('globalSettingsWebview', () => {
         expect(html).toContain('class="infoBubble"');
         // the renamed coordination-mode label and its description tooltip
         expect(html).toContain('When a Module is Blocked From Saving by Excel');
+        expect(html).toContain('Auto Expand And Collapse Explorer Tree');
         expect(html).toContain('What XLIDE does when Excel holds the workbook open');
         // the reopen-as control offers the spaced "Last State" option
         expect(html).toContain('>Last State<');

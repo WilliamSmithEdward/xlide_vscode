@@ -28,6 +28,7 @@ const validSettings = {
     'editor.blockLayout': 'comfy',
     'editor.continueCommentOnNewline': true,
     'editor.mirrorCommentSpacing': true,
+    'explorer.autoExpandCollapse': true,
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
     'performance.trace': false,
@@ -137,6 +138,7 @@ describe('globalSettings', () => {
             'xlide.excelIntegration.reopenMode',
             'xlide.excelIntegration.reopenReadOnlyAfterSave',
             'xlide.excelIntegration.trackOpenedWorkbooks',
+            'xlide.explorer.autoExpandCollapse',
             'xlide.performance.trace',
             'xlide.pythonPath',
         ]);

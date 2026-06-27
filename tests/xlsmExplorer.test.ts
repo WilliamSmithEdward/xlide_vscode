@@ -144,9 +144,76 @@ describe('XlsmExplorer', () => {
         expect(vscodeMock.treeEvents).toContain(book1Module);
         expect(vscodeMock.treeEvents).toContain(book2Module);
         expect(vscodeMock.treeEvents).toContain(book1);
+        // A root refresh (fire(undefined)) is required so VS Code rebuilds the
+        // workbook list and actually applies the new collapse/expand states;
+        // firing the workbook nodes in place does not reliably collapse them.
+        expect(vscodeMock.treeEvents).toContain(undefined);
         expect(book1AfterSwitch.id).not.toBe(book1IdBefore);
+        // The now-active workbook's id changes too, so it re-renders Expanded
+        // instead of keeping VS Code's remembered collapsed state.
+        expect(book2AfterSwitch.id).not.toBe(book2Collapsed.id);
         expect(book1AfterSwitch.collapsibleState).toBe(1);
         expect(book2AfterSwitch.collapsibleState).toBe(2);
+    });
+
+    it('re-expands a workbook when focus returns to it (A -> B -> A)', async () => {
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
+            { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
+        ]);
+        const explorer = new XlsmExplorer(fakeBridge([
+            { name: 'Module1', type: 'standard' },
+        ]));
+        explorer.setSetupComplete(true);
+
+        const [book1, book2] = await explorer.getChildren();
+        await explorer.getChildren(book1);
+        await explorer.getChildren(book2);
+
+        explorer.setActiveModule(book1.filePath, 'Module1'); // A active
+        explorer.setActiveModule(book2.filePath, 'Module1'); // -> B (A collapses)
+        vscodeMock.treeEvents = [];
+        const book1IdBeforeReturn = explorer.getTreeItem(book1).id;
+
+        explorer.setActiveModule(book1.filePath, 'Module1'); // -> back to A
+
+        const book1Back = explorer.getTreeItem(book1);
+        const book2Back = explorer.getTreeItem(book2);
+        // Returning to A is a real cross-workbook switch (previousWorkbookKey is B,
+        // not undefined), so the root refresh fires and A re-expands rather than
+        // keeping VS Code's remembered collapsed state.
+        expect(vscodeMock.treeEvents).toContain(undefined);
+        expect(book1Back.id).not.toBe(book1IdBeforeReturn);
+        expect(book1Back.collapsibleState).toBe(2);
+        expect(book2Back.collapsibleState).toBe(1);
+    });
+
+    it('collapses every other workbook on a cross-workbook switch (strict accordion, 3 workbooks)', async () => {
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
+            { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
+            { scheme: 'file', fsPath: 'C:\\work\\Book3.xlsm' },
+        ]);
+        const explorer = new XlsmExplorer(fakeBridge([
+            { name: 'Module1', type: 'standard' },
+        ]));
+        explorer.setSetupComplete(true);
+
+        const [book1, book2, book3] = await explorer.getChildren();
+        await explorer.getChildren(book1);
+        await explorer.getChildren(book2);
+        await explorer.getChildren(book3);
+
+        explorer.setActiveModule(book1.filePath, 'Module1'); // A active
+        vscodeMock.treeEvents = [];
+        explorer.setActiveModule(book2.filePath, 'Module1'); // -> B
+
+        // Strict accordion: switching to B collapses BOTH the previous workbook A
+        // and the unrelated third workbook C; only the active workbook stays open.
+        expect(vscodeMock.treeEvents).toContain(book3); // C is actively re-rendered to collapse
+        expect(explorer.getTreeItem(book1).collapsibleState).toBe(1);
+        expect(explorer.getTreeItem(book2).collapsibleState).toBe(2);
+        expect(explorer.getTreeItem(book3).collapsibleState).toBe(1);
     });
 
     it('does not re-render other workbook roots when switching modules in the same workbook', async () => {

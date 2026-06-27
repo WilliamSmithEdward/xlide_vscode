@@ -153,6 +153,12 @@
           "default": true,
           "description": "When continuing a comment, copy the run of spaces that follows the apostrophe on the line above so the text lines up. Turn off to insert just the apostrophe with no space. Only applies when 'Continue Comment On New Line' is on."
         },
+        "xlide.explorer.autoExpandCollapse": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-workbook, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything."
+        },
         "xlide.docs.enabled": {
           "type": "boolean",
           "scope": "machine",
