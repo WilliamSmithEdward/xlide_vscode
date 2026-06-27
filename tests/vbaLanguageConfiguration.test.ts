@@ -239,6 +239,11 @@ describe('VBA language configuration', () => {
 			'xlide.docs.enabled',
 			'xlide.docs.metadataGlob',
 			'xlide.editor.blockLayout',
+			'xlide.excelIntegration.coordinationMode',
+			'xlide.excelIntegration.reopenAfterClose',
+			'xlide.excelIntegration.reopenMode',
+			'xlide.excelIntegration.reopenReadOnlyAfterSave',
+			'xlide.excelIntegration.trackOpenedWorkbooks',
 			'xlide.performance.trace',
 			'xlide.pythonPath',
 		]);

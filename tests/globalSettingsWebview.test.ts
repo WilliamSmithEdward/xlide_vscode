@@ -13,6 +13,11 @@ import {
 const validSettings = {
     pythonPath: '',
     attachToRunningExcel: true,
+    'excelIntegration.coordinationMode': 'block',
+    'excelIntegration.trackOpenedWorkbooks': true,
+    'excelIntegration.reopenAfterClose': true,
+    'excelIntegration.reopenMode': 'readOnly',
+    'excelIntegration.reopenReadOnlyAfterSave': false,
     'diagnostics.enabled': true,
     'analysis.ruleSeverityOverrides': {},
     'analysis.visibleSeverities': ['error', 'warning', 'information'],
@@ -56,6 +61,17 @@ describe('globalSettingsWebview', () => {
         expect(html).toContain('id="toast"');
         expect(html).toContain('showToast(event.data.error');
         expect(html).not.toContain('Add Item');
+    });
+
+    it('renders info bubbles carrying each setting description as hover help', () => {
+        const html = renderXlideGlobalSettingsHtml(buildXlideGlobalSettingsModel(fakeConfig(validSettings)));
+
+        expect(html).toContain('class="infoBubble"');
+        // the renamed coordination-mode label and its description tooltip
+        expect(html).toContain('When Workbook is Blocked From Saving in Excel');
+        expect(html).toContain('What XLIDE does when Excel holds the workbook open');
+        // the reopen-as control offers the spaced "Last State" option
+        expect(html).toContain('>Last State<');
     });
 
     it('sorts rule severity overrides by human rule title', () => {

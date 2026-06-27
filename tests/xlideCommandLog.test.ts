@@ -58,6 +58,14 @@ describe('XLIDE command log', () => {
 		expect(errorCategoryForSupportLog(new Error('PermissionError: WinError 32'))).toBe(
 			'workbook-locked',
 		);
+		// Read-only Excel opens surface as WinError 5 / Access is denied rather than
+		// WinError 32; these must still classify (and report) as workbook-locked.
+		expect(
+			errorCategoryForSupportLog(new Error("[WinError 5] Access is denied: 'C:\\\\book.xlsm'")),
+		).toBe('workbook-locked');
+		expect(errorCategoryForSupportLog(new Error('[Errno 13] EACCES: permission'))).toBe(
+			'workbook-locked',
+		);
 		expect(errorCategoryForSupportLog(new Error('python backend exited unexpectedly'))).toBe(
 			'python-backend',
 		);

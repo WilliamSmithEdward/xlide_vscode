@@ -45,6 +45,46 @@
           "default": true,
           "description": "Windows only: when opening a workbook or running a macro, try to attach to a running Excel instance and reuse an already-open workbook before opening it again."
         },
+        "xlide.excelIntegration.coordinationMode": {
+          "type": "string",
+          "scope": "machine",
+          "enum": [
+            "block",
+            "closeTracked",
+            "closeForce"
+          ],
+          "default": "block",
+          "description": "Windows only: what XLIDE does when a workbook is open in Excel (which locks the file) during a module save, F5 Run Macro at Cursor, or Open Workbook. 'block' (default, safest): refuse and ask you to close it in Excel. 'closeTracked': gracefully close the workbook (without saving Excel's stale copy) in Excel instances XLIDE opened, then proceed. 'closeForce': close the workbook in any running Excel, force-quitting Excel if it will not close (unsafe; can lose unsaved work in other open workbooks)."
+        },
+        "xlide.excelIntegration.trackOpenedWorkbooks": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "Windows only: when the coordination mode is 'closeTracked', only close workbooks XLIDE itself opened. Turn off to close a matching workbook in any running Excel instance (including ones you opened manually). Ignored for 'block' and 'closeForce'."
+        },
+        "xlide.excelIntegration.reopenAfterClose": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "Windows only: after XLIDE closes a workbook in Excel to write to it under 'closeTracked'/'closeForce' (a module save, add, rename, or delete), reopen the workbook afterward so your Excel view is restored. Turn off to leave it closed until you reopen it yourself. (F5 Run Macro at Cursor always reopens read-only to run, and Open Workbook opens in the mode you picked; neither is affected by this setting.)"
+        },
+        "xlide.excelIntegration.reopenMode": {
+          "type": "string",
+          "scope": "machine",
+          "enum": [
+            "lastState",
+            "readOnly",
+            "readWrite"
+          ],
+          "default": "lastState",
+          "description": "Windows only: how XLIDE reopens a workbook it closed when 'Reopen After Close' is on. 'lastState' (default) puts it back the way it was, so read-only stays read-only and editable stays editable. 'readOnly' always reopens read-only, keeping the file unlocked so the next XLIDE save works. 'readWrite' reopens for editing in Excel, which re-locks the file (the next XLIDE save must close it again). F5 always reopens read-only regardless of this setting."
+        },
+        "xlide.excelIntegration.reopenReadOnlyAfterSave": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": false,
+          "description": "Windows only: when a workbook is open READ-ONLY in Excel, a module save still writes the file (a read-only open does not lock it), but Excel keeps showing its older copy. Turn this on to have XLIDE silently close and reopen the read-only workbook in Excel after each save so its view matches the saved file. Only acts when the workbook is actually open read-only in Excel; never reopens a workbook you closed, and never affects a workbook open for editing."
+        },
         "xlide.diagnostics.enabled": {
           "type": "boolean",
           "scope": "machine",

@@ -132,7 +132,7 @@ export function checkMeOutsideObjectModule(
 	push: PushFn,
 ): ProcedureStatementVisitor {
 	if (isObjectModuleKind(moduleKind)) {
-		// `Me` is valid in an object module — skip every procedure (no per-statement cost).
+		// `Me` is valid in an object module - skip every procedure (no per-statement cost).
 		return () => undefined;
 	}
 	return () => (stmt) => {

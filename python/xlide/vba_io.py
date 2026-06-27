@@ -2,10 +2,55 @@
 from __future__ import annotations
 
 import re
+import time
 import warnings
 from typing import Any
 
 from pyopenvba import ExcelFile
+
+# ---------------------------------------------------------------------------
+# Transient-lock-tolerant reads
+# ---------------------------------------------------------------------------
+# A workbook open in Excel is normally readable (Excel shares the file for
+# reading), but Excel takes a brief exclusive lock while it saves and while it
+# swaps temp files. A read that lands in that window fails with a sharing
+# violation. Reads are idempotent, so we retry a few times to ride out the
+# window instead of surfacing a spurious "open in Excel" error. Writes do not
+# retry: Excel holds the write lock for as long as the workbook is open, so a
+# blocked write is a real, persistent condition the caller must resolve.
+_READ_LOCK_RETRIES = 5
+_READ_LOCK_DELAY_S = 0.15
+
+
+def _is_transient_lock(err: BaseException) -> bool:
+    """True for OS sharing-violation errors worth retrying on a read."""
+    if getattr(err, "winerror", None) in (5, 32, 33):
+        return True
+    if getattr(err, "errno", None) in (13, 16):  # EACCES, EBUSY
+        return True
+    text = str(err).lower()
+    return (
+        "being used by another process" in text
+        or "sharing violation" in text
+        or "permission denied" in text
+    )
+
+
+def _open_for_read(
+    path: str,
+    *,
+    retries: int = _READ_LOCK_RETRIES,
+    delay: float = _READ_LOCK_DELAY_S,
+) -> ExcelFile:
+    """Open a workbook for reading, retrying brief sharing-violation locks."""
+    for attempt in range(retries + 1):
+        try:
+            return ExcelFile(path)
+        except (PermissionError, OSError) as err:
+            if attempt == retries or not _is_transient_lock(err):
+                raise
+            time.sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
 
 # ---------------------------------------------------------------------------
 # Attribute-header handling
@@ -22,8 +67,8 @@ _ATTR_LINE = re.compile(r"^Attribute\s+VB_", re.IGNORECASE)
 def _split_vba_source(source: str) -> tuple[str, str]:
     """Return (hidden_header, visible_body).
 
-    hidden_header — the VERSION/BEGIN/END block + Attribute VB_* lines.
-    visible_body  — everything after, with leading blank lines stripped,
+    hidden_header - the VERSION/BEGIN/END block + Attribute VB_* lines.
+    visible_body  - everything after, with leading blank lines stripped,
                     matching what the VBE shows.
     """
     lines = source.splitlines(keepends=True)
@@ -66,7 +111,7 @@ _PROC_RE = re.compile(
 
 
 # Known document module CLSIDs (Excel Workbook, Worksheet, Chart).
-# UserForms always carry TWO GUIDs in VB_Base — that pattern is the reliable
+# UserForms always carry TWO GUIDs in VB_Base - that pattern is the reliable
 # discriminator and does not depend on any specific CLSID value.
 _WORKBOOK_CLSID = "{00020819-0000-0000-C000-000000000046}"
 _WORKSHEET_CLSID = "{00020820-0000-0000-C000-000000000046}"
@@ -106,7 +151,7 @@ def _module_type(name: str, source: str) -> str:
 
     Returns one of: 'standard', 'class', 'document', 'userform'.
 
-    Mirrored by classifyModuleType in src/moduleSyncPlan.ts — the shared
+    Mirrored by classifyModuleType in src/moduleSyncPlan.ts - the shared
     classification table tests on both sides pin the two implementations
     together.
     """
@@ -149,7 +194,7 @@ def _module_entries(project: Any) -> list[dict[str, Any]]:
             # Use source heuristics to distinguish them.
             mod_type = _module_type(m.name, m.source)
             if mod_type == "standard":
-                # .kind says it's not a standard module — treat as class.
+                # .kind says it's not a standard module - treat as class.
                 mod_type = "class"
         entry = {"name": m.name, "type": mod_type}
         if mod_type == "document":
@@ -162,7 +207,7 @@ def _module_entries(project: Any) -> list[dict[str, Any]]:
 
 def list_modules(*, path: str) -> list[dict[str, Any]]:
     """Return [{name, type}] for every VBA module in the workbook."""
-    with ExcelFile(path) as wb:
+    with _open_for_read(path) as wb:
         return _module_entries(wb.vba_project())
 
 
@@ -174,7 +219,7 @@ def read_modules(*, path: str, full: bool = False) -> list[dict[str, Any]]:
     """
     from pyopenvba import VBAModuleKind
 
-    with ExcelFile(path) as wb:
+    with _open_for_read(path) as wb:
         result = []
         for m in wb.vba_project().modules:
             try:
@@ -208,7 +253,7 @@ def list_subs(*, path: str, module: str) -> list[dict[str, Any]]:
     Line numbers are 1-based and relative to the visible body (no header),
     matching what the editor shows.
     """
-    with ExcelFile(path) as wb:
+    with _open_for_read(path) as wb:
         source = wb.get_module(module)
 
     _, body = _split_vba_source(source)
@@ -228,11 +273,11 @@ def list_subs(*, path: str, module: str) -> list[dict[str, Any]]:
 def read_module(*, path: str, module: str, full: bool = False) -> dict[str, Any]:
     """Return {source} containing the module source.
 
-    full=False (default) — returns only the user-visible body (no Attribute header).
-    full=True            — returns the complete source including VERSION/Attribute headers,
+    full=False (default) - returns only the user-visible body (no Attribute header).
+    full=True            - returns the complete source including VERSION/Attribute headers,
                            suitable for exporting to files that need to round-trip accurately.
     """
-    with ExcelFile(path) as wb:
+    with _open_for_read(path) as wb:
         source = wb.get_module(module)
     if full:
         return {"source": source}

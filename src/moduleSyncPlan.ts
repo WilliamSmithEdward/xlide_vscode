@@ -515,7 +515,7 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
 /**
  * Infer module type from source content and name.
  *
- * Mirrors _module_type in python/xlide/vba_io.py — the shared classification
+ * Mirrors _module_type in python/xlide/vba_io.py - the shared classification
  * table tests on both sides pin the two implementations together.
  */
 export function classifyModuleType(name: string, source: string): 'standard' | 'document' | 'userform' {
@@ -544,7 +544,7 @@ export function classifyModuleType(name: string, source: string): 'standard' | '
 
 function detectClsSubtype(name: string, source: string): 'class' | 'document' | 'userform' {
     const moduleType = classifyModuleType(name, source);
-    // A .cls file is never a standard module — mirror the VBAModuleKind
+    // A .cls file is never a standard module - mirror the VBAModuleKind
     // upgrade in vba_io._module_entries.
     return moduleType === 'standard' ? 'class' : moduleType;
 }

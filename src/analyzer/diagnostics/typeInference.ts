@@ -2059,7 +2059,7 @@ export function numericLiteralBounds(
 			// as Double) then narrows to Long, raising Run-time error '6': Overflow.
 			// Only bare decimal literals within JS safe-integer range reach here
 			// (hex/octal/suffixed/float literals leave numericValue undefined), so
-			// every value tested is exactly representable — no boundary false
+			// every value tested is exactly representable - no boundary false
 			// positives. LongLong/LongPtr are intentionally omitted: any safe-integer
 			// literal already fits ±2^63, and LongPtr width is platform-dependent.
 			return { min: -2147483648, max: 2147483647, label: 'Long' };
@@ -2072,7 +2072,7 @@ export function numericLiteralBounds(
 			// boundary is symmetric; 922337203685477 is accepted and 922337203685478
 			// overflows on both signs. Every reachable literal is a safe integer and
 			// thus an exact IEEE-754 double, so the range check cannot disagree with
-			// VBE — no boundary false positives. (Fractional/@-suffixed Currency
+			// VBE - no boundary false positives. (Fractional/@-suffixed Currency
 			// literals are floatLiteral tokens with no numericValue, so they never
 			// reach this entry; their overflow is intentionally out of scope.)
 			return { min: -922337203685477, max: 922337203685477, label: 'Currency' };

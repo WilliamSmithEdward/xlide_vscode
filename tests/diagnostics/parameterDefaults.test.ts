@@ -1,8 +1,8 @@
 // Diagnostics tests: parameter-default-not-constant rule.
 //
 // Optional parameter defaults must be constant expressions (MS-VBAL 5.3.1.5;
-// VBE "Constant expression required"). Only provably non-constant defaults —
-// calls, New, AddressOf — are flagged; anything that may be a constant stays quiet.
+// VBE "Constant expression required"). Only provably non-constant defaults -
+// calls, New, AddressOf - are flagged; anything that may be a constant stays quiet.
 
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';

@@ -1621,7 +1621,7 @@ export function checkParameterDefaultValues(
 /**
  * Optional parameter defaults must be constant expressions (MS-VBAL 5.3.1.5 /
  * VBE "Constant expression required"). Flags a default that is provably
- * non-constant — a function/array call (`name(...)`), `New`, or `AddressOf`.
+ * non-constant - a function/array call (`name(...)`), `New`, or `AddressOf`.
  * Bare identifiers and member references (`Module.CONST`, `MyEnum.Value`) are
  * left alone because they may be constants, so this stays no-false-positive.
  * Object-typed parameters are skipped: their defaults are owned by the

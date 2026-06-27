@@ -1,8 +1,8 @@
 // Rule: argument-shape-mismatch (XLIDE v2.5.0).
 //
 // A bare array variable, or a same-module user-defined `Type` (struct) value,
-// passed where a parameter is a scalar — or, conversely, a scalar (including a
-// Variant) passed where a parameter is declared an array — is a VBE compile
+// passed where a parameter is a scalar - or, conversely, a scalar (including a
+// Variant) passed where a parameter is declared an array - is a VBE compile
 // error. This decides purely on declared SHAPE (array-ness / UDT-ness), never on
 // element-type coercion.
 //

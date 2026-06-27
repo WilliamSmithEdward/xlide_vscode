@@ -76,7 +76,7 @@ export function stripVba(line: string): string {
     // Blank out a `Rem` comment to end of line, keeping column alignment. A `Rem`
     // comment begins at a statement start: the line start OR after a `:` statement
     // separator (e.g. `x = 1: Rem note`). Blanking only the whole-line form let a
-    // `: Rem ...` comment's text — including any `:` inside it — leak into the
+    // `: Rem ...` comment's text - including any `:` inside it - leak into the
     // colon-split logical lines as phantom block openers/closers.
     const rem = /(^|:)([ \t]*)Rem\b/i.exec(out);
     if (rem) {

@@ -2,8 +2,8 @@
 //
 // Const declaration values (MS-VBAL 5.2.4) and Enum member initializers
 // (MS-VBAL 5.2.3.4) must be constant expressions; VBE rejects a non-constant
-// with "Constant expression required". Only provably non-constant elements —
-// a call (name(...)), New, or AddressOf — are flagged. Anything that may be a
+// with "Constant expression required". Only provably non-constant elements -
+// a call (name(...)), New, or AddressOf - are flagged. Anything that may be a
 // constant (bare/qualified identifiers, literals, string concat, arithmetic,
 // grouping) stays quiet, keeping both rules no-false-positive.
 

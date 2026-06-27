@@ -1,9 +1,9 @@
 // Non-scalar operand of a scalar-requiring binary operator (XLIDE v2.5.0).
 //
 // A bare array variable, or a same-module user-defined `Type` (struct) value,
-// used as an operand of a binary operator that requires a scalar — `&`
+// used as an operand of a binary operator that requires a scalar - `&`
 // concatenation, arithmetic (`+ - * / \ ^ Mod`), comparison (`= <> < > <= >=`),
-// or Boolean/bitwise (`And Or Xor Eqv Imp`) — is a VBE compile error ("Type
+// or Boolean/bitwise (`And Or Xor Eqv Imp`) - is a VBE compile error ("Type
 // mismatch"). Oracle-verified rejected at COMPILE across all four operator
 // classes for both an array operand (`nonscalar_array_concat_probe`,
 // `_arith_plus_probe`, `_comparison_lt_probe`, `_bool_and_probe`) and a UDT
@@ -12,12 +12,12 @@
 // Range operands accepted as controls.
 //
 // No-false-positive discipline (mirrors `is-operator-non-object`): fires only on a
-// plain `IdentifierExpr` operand that is PROVABLY non-scalar — its declaration
+// plain `IdentifierExpr` operand that is PROVABLY non-scalar - its declaration
 // shape is an array (`DeclaredValueShape.isArray`), or its declared type names a
 // `Type` declared in this module (`Type` names are always user identifiers, never
 // scalar keywords, so this never collides with a scalar; an Object/class instance
 // is not a module `Type` symbol and stays quiet, since a default member may
-// coerce). Everything else stays quiet — scalars, Variant, Object/host receivers,
+// coerce). Everything else stays quiet - scalars, Variant, Object/host receivers,
 // an indexed element `a(i)` (an `IndexExpr`, not the bare aggregate), member
 // access, calls, parenthesised expressions, cross-module UDTs (deferred), and
 // undeclared names. `Is` (object operands, owned by `is-operator-non-object`) and

@@ -61,7 +61,7 @@ describe('analyzeModule - typeof-is-always-false', () => {
 	it('stays quiet for a project interface operand or a class assignable to it', () => {
 		// Concrete-operand gate: Person is an interface Class1 Implements, so an
 		// interface-typed operand could hold a Class1 (a), and Class1 is-a Person
-		// (b) — both mutually assignable, so neither TypeOf test is always-False.
+		// (b) - both mutually assignable, so neither TypeOf test is always-False.
 		const project = projectClassMembers([
 			{ moduleName: 'Person', moduleKind: 'class', source: 'Public Sub Save()\nEnd Sub\n' },
 			{ moduleName: 'Class1', moduleKind: 'class', source: 'Implements Person\n' },

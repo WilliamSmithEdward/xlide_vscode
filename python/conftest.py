@@ -1,4 +1,4 @@
-"""Pytest path fix — ensures the xlide package under python/ is importable."""
+"""Pytest path fix - ensures the xlide package under python/ is importable."""
 import sys
 import os
 

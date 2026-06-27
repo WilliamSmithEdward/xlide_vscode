@@ -1,7 +1,7 @@
 // Shared expression-tree traversal for diagnostics that consume the §5.6
 // expression AST (MS-VBAL 5.6).
 //
-// Several rules walk a procedure body to visit specific expression nodes —
+// Several rules walk a procedure body to visit specific expression nodes -
 // `TypeOf ... Is`, binary `Is`, scalar-requiring binary operators, and (as the
 // binder cashes in more families) others. They all need the SAME two-level walk:
 // find every root expression in the body (assignment sides, call callee and
@@ -17,14 +17,14 @@ import { activeModuleMembers, isInactiveNode } from './walker';
 
 /**
  * A rule's per-procedure expression visitor: the factory does the rule's
- * per-member setup (type env, shape env, …) and returns a callback invoked for
+ * per-member setup (type env, shape env, and so on) and returns a callback invoked for
  * every expression node in that member's body.
  */
 export type ProcedureExpressionVisitor = (member: ProcedureNode) => (expr: ExprNode) => void;
 
 /**
  * Runs ONE shared expression walk per active procedure, dispatching every
- * expression node to each registered rule visitor — so N expression-consuming
+ * expression node to each registered rule visitor - so N expression-consuming
  * rules cost one tree traversal per body instead of N. Each visitor reports
  * through its own buffer, so registry-order output is preserved.
  */
@@ -50,8 +50,8 @@ export function walkProcedureExpressions(
 }
 
 /**
- * Visits every expression node — each root expression and all of its
- * sub-expressions — reachable in a procedure body, skipping inactive
+ * Visits every expression node - each root expression and all of its
+ * sub-expressions - reachable in a procedure body, skipping inactive
  * conditional-compilation regions. Rules narrow to the nodes they care about by
  * testing `expr.exprKind` inside `visit`.
  */

@@ -538,7 +538,7 @@ describe('parseModule - If branch modeling (MS-VBAL 5.4.2.1)', () => {
 	});
 
 	it('keeps the condition raw but null when it does not parse cleanly', () => {
-		// `x And Then` — a dangling operator before `Then`. Still a block If, but
+		// `x And Then` - a dangling operator before `Then`. Still a block If, but
 		// the condition does not parse cleanly, so `condition` is null and the raw
 		// text is preserved.
 		const block = ifBlock('Sub T()\n    If x And Then\n        a = 1\n    End If\nEnd Sub\n');

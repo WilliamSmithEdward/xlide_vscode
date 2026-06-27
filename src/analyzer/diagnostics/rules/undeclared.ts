@@ -364,8 +364,8 @@ export function checkOptionExplicit(
 	if (hasExplicit || !hasCode) {
 		return;
 	}
-	// Anchor as a zero-width marker at the module top — the insertion point for
-	// `Option Explicit` — rather than spanning the whole first physical line.
+	// Anchor as a zero-width marker at the module top - the insertion point for
+	// `Option Explicit` - rather than spanning the whole first physical line.
 	// A full first-line range collides with any error on that line (e.g. the
 	// missing-block-closer on a not-yet-closed first procedure, a common editing
 	// state), and a warning sharing an error's exact range obscures the red

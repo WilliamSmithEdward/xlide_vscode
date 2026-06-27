@@ -656,7 +656,7 @@ export function checkSetAssignments(
 /**
  * Rule: the target of a `Mid`/`Mid$`/`MidB`/`MidB$` replacement statement
  * (MS-VBAL §5.4.3.4) must be a writable String variable. A string-literal
- * target — `Mid$("abc", 2, 3) = "XY"` — is a compile error (oracle-verified
+ * target - `Mid$("abc", 2, 3) = "XY"` - is a compile error (oracle-verified
  * `mid_stmt_literal_target_probe`, `mid_stmt_no_suffix_literal_target_probe`,
  * `midb_stmt_literal_target_probe`; the variable-target control
  * `mid_stmt_variable_target_probe` is accepted).
@@ -667,8 +667,8 @@ export function checkSetAssignments(
  * first argument slot is exactly one string-literal token.
  *
  * Conservative shadowing guard: if the module names `mid`/`midb` in ANY
- * declaration form — a symbol-table entry (Dim/Static/Const/parameter/Function/
- * Property) or an implicit `ReDim` array declaration — the rule stays silent for
+ * declaration form - a symbol-table entry (Dim/Static/Const/parameter/Function/
+ * Property) or an implicit `ReDim` array declaration - the rule stays silent for
  * the whole module. The oracle confirms no shadow form makes a literal-target
  * Mid valid (`mid_shadow_dim_array_probe`, `mid_shadow_redim_implicit_probe`,
  * `mid_shadow_property_let_probe` all compile-error), so this guard is belt-and-

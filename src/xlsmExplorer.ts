@@ -51,6 +51,10 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     // expanded.  Cleared on refresh() so edits always re-fetch.
     private _modulesListCache = new Map<string, Array<{ name: string; type: string }>>();
     private _modulesListLoads = new Map<string, Promise<Array<{ name: string; type: string }>>>();
+    // Bumped on every refresh(). An in-flight load captured before a refresh must
+    // not write its now-stale result into the freshly-cleared cache (which would
+    // leave a just-added module invisible until the next refresh).
+    private _generation = 0;
     private _subsListCache = new Map<string, Array<{ name: string; kind: string; line: number }>>();
     private _subsListLoads = new Map<string, Promise<Array<{ name: string; kind: string; line: number }>>>();
     // Protection-state cache: {isPasswordProtected, isSigned} per workbook path.
@@ -90,6 +94,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     }
 
     refresh(): void {
+        this._generation++;
         this._xlsmNodes.clear();
         this._moduleNodes.clear();
         this._xlsmRenderVersions.clear();
@@ -121,7 +126,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         }
     }
 
-    /** Required by treeView.reveal() — walks xlsm -> module -> sub. */
+    /** Required by treeView.reveal() - walks xlsm -> module -> sub. */
     getParent(node: XlideNode): XlideNode | undefined {
         if (node.kind === 'module') {
             return this._xlsmNodes.get(node.filePath);
@@ -301,7 +306,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             // before the shared service proxy has connected.
             if (this._liveShare?.isInGuestSession) {
                 if (!this._liveShare.isGuest) {
-                    // Proxy not ready yet — render nothing; onDidChange will refresh.
+                    // Proxy not ready yet - render nothing; onDidChange will refresh.
                     return [];
                 }
                 return this._getRemoteWorkbooks();
@@ -448,8 +453,13 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 // Sort once, on a copy, before caching: the cached list is then
                 // already in tree order, so re-renders (cache hits) skip the sort
                 // and never mutate the shared cache.
+                const generation = this._generation;
                 modules = [...await load].sort(compareVbaModulesForTreeOrder);
-                this._modulesListCache.set(cacheKey, modules);
+                // Only cache when no refresh() raced this load to completion;
+                // otherwise the post-refresh render will re-fetch the fresh list.
+                if (this._generation === generation) {
+                    this._modulesListCache.set(cacheKey, modules);
+                }
             }
             const nodes = modules
                 .map((m) => {

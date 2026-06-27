@@ -21,6 +21,7 @@ import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { createRecordedOutputChannel } from './xlideOutputLog';
+import { setExcelCoordinationLog } from './excelWorkbookCoordinator';
 import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import {
     setXlideGlobalSettingValue,
@@ -97,6 +98,9 @@ export function activate(context: vscode.ExtensionContext): void {
         (line) => out.appendLine(line),
         () => xlidePerformanceTraceFromConfig(vscode.workspace.getConfiguration('xlide')).value,
     );
+    // Route Excel-coordination traces (file-system save path, shared module
+    // operations) to the XLIDE output channel.
+    setExcelCoordinationLog((line) => out.appendLine(line));
     out.appendLine('XLIDE activating...');
 
     // Dev-only commands stay out of the command palette unless the extension
@@ -511,7 +515,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 }
             }, 60);
             const subscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
-                // No active editor (e.g. user closed the last tab) — collapse all modules.
+                // No active editor (e.g. user closed the last tab) - collapse all modules.
                 if (!editor) {
                     pending = undefined;
                     apply.cancel();

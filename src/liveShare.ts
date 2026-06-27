@@ -89,7 +89,7 @@ export class LiveShareIntegration implements vscode.Disposable {
     private _hostPathToId = new Map<string, string>();
 
     private readonly _onDidChange = new vscode.EventEmitter<void>();
-    /** Fires when role or workbook list changes — UI should refresh. */
+    /** Fires when role or workbook list changes - UI should refresh. */
     readonly onDidChange = this._onDidChange.event;
 
     private _disposables: vscode.Disposable[] = [];

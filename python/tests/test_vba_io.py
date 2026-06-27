@@ -5,7 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from xlide.vba_io import _split_vba_source, _document_type, _module_type
+from xlide.vba_io import (
+    _split_vba_source,
+    _document_type,
+    _module_type,
+    _is_transient_lock,
+    _open_for_read,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +101,7 @@ class TestModuleType:
         assert _module_type("Chart1", src) == "document"
 
     def test_thisworkbook_by_name(self):
-        # No attributes — detected by name heuristic
+        # No attributes - detected by name heuristic
         assert _module_type("ThisWorkbook", "Option Explicit\n") == "document"
 
     def test_sheet_by_name_pattern(self):
@@ -376,4 +382,58 @@ class TestCreateWorkbook:
         mock_excel.create_new.assert_called_once_with("new.xlsm")
         mock_wb.close.assert_called_once_with()
         assert result == {"ok": True, "path": "new.xlsm"}
+
+
+# ---------------------------------------------------------------------------
+# Transient-lock-tolerant reads
+# ---------------------------------------------------------------------------
+
+class TestTransientLockRetry:
+    def test_detects_sharing_violation_by_message(self):
+        err = PermissionError(
+            "The process cannot access the file because it is being used by another process"
+        )
+        assert _is_transient_lock(err) is True
+
+    def test_detects_lock_by_errno(self):
+        assert _is_transient_lock(OSError(13, "denied")) is True  # EACCES
+        assert _is_transient_lock(OSError(16, "busy")) is True  # EBUSY
+
+    def test_unrelated_errors_are_not_transient(self):
+        assert _is_transient_lock(ValueError("nope")) is False
+        assert _is_transient_lock(OSError(2, "no such file")) is False  # ENOENT
+
+    def test_retries_then_succeeds(self):
+        wb = MagicMock()
+        lock = PermissionError("the file is being used by another process")
+        attempts = {"n": 0}
+
+        def side_effect(_path):
+            attempts["n"] += 1
+            if attempts["n"] < 3:
+                raise lock
+            return wb
+
+        with patch("xlide.vba_io.ExcelFile", side_effect=side_effect), \
+                patch("xlide.vba_io.time.sleep") as sleep_mock:
+            result = _open_for_read("book.xlsm", retries=5, delay=0.01)
+
+        assert result is wb
+        assert attempts["n"] == 3
+        assert sleep_mock.call_count == 2
+
+    def test_gives_up_after_exhausting_retries(self):
+        lock = PermissionError("the file is being used by another process")
+        with patch("xlide.vba_io.ExcelFile", side_effect=lock), \
+                patch("xlide.vba_io.time.sleep"):
+            with pytest.raises(PermissionError):
+                _open_for_read("book.xlsm", retries=2, delay=0.01)
+
+    def test_does_not_retry_a_non_lock_error(self):
+        with patch("xlide.vba_io.ExcelFile", side_effect=FileNotFoundError(2, "missing")) as ef, \
+                patch("xlide.vba_io.time.sleep") as sleep_mock:
+            with pytest.raises(FileNotFoundError):
+                _open_for_read("book.xlsm", retries=5, delay=0.01)
+        assert ef.call_count == 1
+        assert sleep_mock.call_count == 0
 

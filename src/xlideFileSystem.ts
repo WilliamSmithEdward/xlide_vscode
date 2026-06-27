@@ -8,6 +8,7 @@ import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCom
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
 import { errorMessage } from './util/errors';
+import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { workbookIdentityKey } from './workbookIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
@@ -43,7 +44,7 @@ const _sigWarnedPaths = new Set<string>();
 
 /**
  * Show a one-time warning when a VBA digital signature was invalidated by a
- * save.  Safe to call on every write — suppressed after the first occurrence
+ * save.  Safe to call on every write - suppressed after the first occurrence
  * per workbook path per session.
  */
 export function notifySignatureDropped(filePath: string, signatureDropped: boolean): void {
@@ -60,11 +61,23 @@ export function notifySignatureDropped(filePath: string, signatureDropped: boole
  * Heuristic: does this error string look like a Windows file-sharing violation
  * caused by Excel having the workbook open?
  */
-function isWorkbookLockedError(message: string): boolean {
+export function isWorkbookLockedError(message: string): boolean {
     return WORKBOOK_LOCKED_ERROR_RE.test(message);
 }
 
-function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): void {
+// Collapse rapid repeat lock notices for the same workbook into a single popup
+// (e.g. a burst of operations, or a writeFile failure followed by a re-read).
+const LOCKED_NOTICE_THROTTLE_MS = 2000;
+const recentLockedNotices = new Map<string, number>();
+
+export function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): void {
+    const noticeKey = workbookIdentityKey(xlsmPath);
+    const now = Date.now();
+    const last = recentLockedNotices.get(noticeKey);
+    if (last !== undefined && now - last < LOCKED_NOTICE_THROTTLE_MS) {
+        return;
+    }
+    recentLockedNotices.set(noticeKey, now);
     const name = path.basename(xlsmPath);
     const verb = op === 'read' ? 'open' : 'save';
     void vscode.window.showWarningMessage(
@@ -222,7 +235,10 @@ export class XlideFileSystemProvider
             trace.end('failed', moduleName);
             const message = errorMessage(err);
             if (isWorkbookLockedError(message)) {
-                reportWorkbookLocked(xlsmPath, 'read');
+                // VS Code shows its own "Unable to open" notification (with a Retry)
+                // when this FileSystemError is thrown, so we do NOT also raise our
+                // own warning here, which would double the popup. The thrown message
+                // carries the friendly, XLIDE-prefixed guidance.
                 throw vscode.FileSystemError.Unavailable(
                     `XLIDE: "${path.basename(xlsmPath)}" is open in Excel. Close it and click Retry.`,
                 );
@@ -271,13 +287,15 @@ export class XlideFileSystemProvider
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
         const trace = startPerformanceTrace('filesystem.writeFile', moduleName);
         try {
-            const result = await this._bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-                'writeModule',
-                {
-                    path: xlsmPath,
-                    module: moduleName,
-                    source,
-                },
+            const result = await runWriteWithExcelCoordination(xlsmPath, () =>
+                this._bridge.call<{ ok: boolean; signatureDropped: boolean }>(
+                    'writeModule',
+                    {
+                        path: xlsmPath,
+                        module: moduleName,
+                        source,
+                    },
+                ),
             );
             notifySignatureDropped(xlsmPath, result.signatureDropped);
             const summary = formatChangeSummary({
@@ -307,7 +325,10 @@ export class XlideFileSystemProvider
                 errorCategory: errorCategoryForSupportLog(err),
             });
             if (isWorkbookLockedError(message)) {
-                reportWorkbookLocked(xlsmPath, 'write');
+                // VS Code shows its own "Failed to save" notification (with a Retry)
+                // when this FileSystemError is thrown, so we do NOT also raise our
+                // own warning here, which would double the popup. The thrown message
+                // carries the friendly, XLIDE-prefixed guidance.
                 throw vscode.FileSystemError.Unavailable(
                     `XLIDE: "${path.basename(xlsmPath)}" is open in Excel. Close it and save again.`,
                 );

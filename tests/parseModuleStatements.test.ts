@@ -178,7 +178,7 @@ describe('parseModule - must stay raw (no-regression boundary)', () => {
 
 describe('parseModule - malformed operands fall back to raw (clean-parse guard)', () => {
 	// The §5.6 parser is error-tolerant and consumes the bad token to the
-	// boundary, so endIndex alone is not enough — a structured node must never
+	// boundary, so endIndex alone is not enough - a structured node must never
 	// be built from an operand that reported a parse diagnostic.
 	const malformed = [
 		'x = 1 +', // dangling operator in RHS

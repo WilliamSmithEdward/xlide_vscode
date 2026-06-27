@@ -54,7 +54,7 @@ function computeProcedureHasUnstructuredFlow(
 		return true;
 	}
 	// `On Error Resume Next` / `On Error GoTo 0` / bare `Resume` / `Resume Next`
-	// carry no label, so the collectors above miss them — scan for them directly.
+	// carry no label, so the collectors above miss them - scan for them directly.
 	return hasOnErrorOrResumeStatement(procedure.body, source, activity);
 }
 

@@ -2,8 +2,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import {
     encodeModuleUri,
+    isWorkbookLockedError,
+    reportWorkbookLocked,
     XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
+import type { PythonBridge } from '../pythonBridge';
+import { errorMessage } from '../util/errors';
 import { applyOpenDocumentSources } from '../vbaOpenDocuments';
 import { validateVbaModuleName } from '../vbaSourceScan';
 import { projectClassModuleDefinition } from '../vbaNavigation';
@@ -28,6 +32,52 @@ import {
     logChangeSummary,
     type CommandDeps,
 } from './shared';
+
+/** Best-effort lowercased set of the workbook's existing module names. */
+async function existingModuleNamesLower(bridge: PythonBridge, filePath: string): Promise<Set<string>> {
+    try {
+        const modules = await bridge.call<Array<{ name: string }>>('listModules', { path: filePath });
+        return new Set(modules.map((m) => m.name.toLowerCase()));
+    } catch {
+        // The workbook may be locked/unavailable; the write itself will surface
+        // that. Skip the duplicate check rather than blocking the prompt.
+        return new Set();
+    }
+}
+
+/**
+ * Prompts for a new module name, rejecting both invalid syntax and names that
+ * already exist in the workbook (an existing name would silently overwrite that
+ * module's code). Returns undefined if the user cancels.
+ */
+async function promptForNewModuleName(
+    bridge: PythonBridge,
+    filePath: string,
+    options: { prompt: string; placeHolder: string },
+): Promise<string | undefined> {
+    const existing = await existingModuleNamesLower(bridge, filePath);
+    return vscode.window.showInputBox({
+        prompt: options.prompt,
+        placeHolder: options.placeHolder,
+        validateInput: (value) => {
+            const syntax = validateVbaModuleName(value);
+            if (syntax) { return syntax; }
+            if (existing.has(value.trim().toLowerCase())) {
+                return `A module named "${value.trim()}" already exists in this workbook.`;
+            }
+            return undefined;
+        },
+    });
+}
+
+/** Surfaces a workbook write failure, preferring the friendly "open in Excel" notice. */
+function surfaceWorkbookWriteError(filePath: string, err: unknown, fallbackPrefix: string): void {
+    if (isWorkbookLockedError(errorMessage(err))) {
+        reportWorkbookLocked(filePath, 'write');
+    } else {
+        void vscode.window.showErrorMessage(`${fallbackPrefix}: ${err}`);
+    }
+}
 
 export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposable[] {
     const { bridge, explorer, fsProvider, out, vbaIndex } = deps;
@@ -61,10 +111,9 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
 
         registerXlideCommand('xlide.newModule', async (node: XlideNode) => {
             if (node?.kind !== 'xlsm') { return; }
-            const name = await vscode.window.showInputBox({
+            const name = await promptForNewModuleName(bridge, node.filePath, {
                 prompt: 'New module name',
                 placeHolder: 'Module1',
-                validateInput: validateVbaModuleName,
             });
             if (!name) { return; }
 
@@ -102,17 +151,16 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
                     summary: 'Create module: 0 changed, 1 failed',
                     error: err,
                 });
-                vscode.window.showErrorMessage(`XLIDE: Failed to create module: ${err}`);
+                surfaceWorkbookWriteError(node.filePath, err, 'XLIDE: Failed to create module');
             }
         }),
 
         // Add a new class module
         registerXlideCommand('xlide.newClassModule', async (node: XlideNode) => {
             if (node?.kind !== 'xlsm') { return; }
-            const name = await vscode.window.showInputBox({
+            const name = await promptForNewModuleName(bridge, node.filePath, {
                 prompt: 'New class module name',
                 placeHolder: 'MyClass',
-                validateInput: validateVbaModuleName,
             });
             if (!name) { return; }
 
@@ -150,7 +198,7 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
                     summary: 'Create class module: 0 changed, 1 failed',
                     error: err,
                 });
-                vscode.window.showErrorMessage(`XLIDE: Failed to create class module: ${err}`);
+                surfaceWorkbookWriteError(node.filePath, err, 'XLIDE: Failed to create class module');
             }
         }),
 
@@ -259,7 +307,7 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
                         : 'Rename module: 0 changed, 1 failed',
                     error: err,
                 });
-                vscode.window.showErrorMessage(`${prefix}: ${err}`);
+                surfaceWorkbookWriteError(node.filePath, err, prefix);
             } finally {
                 if (moduleRenamed) {
                     refreshWorkbookProjectState(deps, node.filePath);
@@ -274,7 +322,7 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
             // Prevent deletion of document-type modules
             if (node.moduleType === 'document') {
                 vscode.window.showWarningMessage(
-                    `Cannot delete "${node.moduleName}" — document modules are protected.`,
+                    `Cannot delete "${node.moduleName}": document modules are protected.`,
                 );
                 return;
             }
@@ -313,7 +361,7 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
                     summary: 'Delete module: 0 changed, 1 failed',
                     error: err,
                 });
-                vscode.window.showErrorMessage(`XLIDE: Delete failed: ${err}`);
+                surfaceWorkbookWriteError(node.filePath, err, 'XLIDE: Delete failed');
             }
         }),
     ];

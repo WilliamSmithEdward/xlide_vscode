@@ -18,6 +18,12 @@ import {
     runWorkbookMacroReadOnly,
 } from '../excelLauncher';
 import {
+    closeWorkbookInExcel,
+    markWorkbookOpenedByXlide,
+    resolveExcelCoordinationSettings,
+    shouldAttemptClose,
+} from '../excelWorkbookCoordinator';
+import {
     procedureNameAtCursor,
     resolveWorkbookPath,
     type CommandDeps,
@@ -45,6 +51,9 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
 
     // Windows COM-based Excel launch; the script lives in excelLauncher.ts.
     function runWindowsExcel(filePath: string, attachToRunning: boolean, readOnly: boolean): void {
+        // Remember XLIDE opened this workbook so closeTracked coordination can
+        // later close it without touching workbooks the user opened manually.
+        markWorkbookOpenedByXlide(filePath);
         void openWorkbookInExcel(filePath, { attachToRunning, readOnly }, log).catch((err: Error) => {
             void vscode.window.showErrorMessage(`XLIDE: Open Workbook failed: ${err.message}`);
         });
@@ -127,7 +136,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             await vscode.commands.executeCommand('references-view.findReferences', uri, pos);
         }),
 
-        // DEV: smoke test — verifies listModules + readModule against a workspace workbook
+        // DEV: smoke test - verifies listModules + readModule against a workspace workbook
         registerXlideCommand('xlide.dev.smoke', async () => {
             log('[smoke] Starting smoke test...');
 
@@ -162,7 +171,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                         const modules = await bridge.call<Array<{ name: string; type: string }>>(
                             'listModules', { path: workbookPath },
                         );
-                        log(`[smoke] listModules OK — ${modules.length} module(s): ${modules.map(m => m.name).join(', ')}`);
+                        log(`[smoke] listModules OK - ${modules.length} module(s): ${modules.map(m => m.name).join(', ')}`);
 
                         if (modules.length === 0) {
                             vscode.window.showWarningMessage('XLIDE Smoke: workbook has no VBA modules.');
@@ -174,11 +183,11 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                         const source = await bridge.call<string>(
                             'readModule', { path: workbookPath, module: target.name, full: false },
                         );
-                        log(`[smoke] readModule "${target.name}" OK — ${source.length} chars`);
+                        log(`[smoke] readModule "${target.name}" OK - ${source.length} chars`);
 
                         log('[smoke] All checks passed.');
                         void vscode.window.showInformationMessage(
-                            `XLIDE Smoke: OK — ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
+                            `XLIDE Smoke: OK - ${modules.length} modules, read "${target.name}" (${source.length} chars). See XLIDE Output for details.`,
                         );
                     } catch (err) {
                         const msg = errorMessage(err);
@@ -257,8 +266,32 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 // Open the workbook read-only
                 if (process.platform === 'win32') {
                     const attachToRunning = shouldAttachToRunningExcel();
+                    const macroRef = `${moduleName}.${currentProc}`;
                     log(`[runMacro] attachToRunningExcel=${attachToRunning}`);
-                    await runWorkbookMacroReadOnly(xlsmPath, `${moduleName}.${currentProc}`, { attachToRunning }, log);
+                    try {
+                        await runWorkbookMacroReadOnly(xlsmPath, macroRef, { attachToRunning }, log);
+                    } catch (err) {
+                        // The workbook is open for editing in Excel (locked). Honor
+                        // the coordination policy: close it and retry (the macro
+                        // script then reopens read-only to run) instead of asking
+                        // the user to close it by hand. block mode still rethrows.
+                        const settings = resolveExcelCoordinationSettings();
+                        if (err instanceof ExcelMacroError && err.code === 'REOPEN_BLOCKED'
+                            && settings.mode !== 'block' && shouldAttemptClose(settings, xlsmPath)) {
+                            log(`[runMacro] reopen blocked; coordinationMode=${settings.mode}, closing workbook`);
+                            await closeWorkbookInExcel(xlsmPath, { force: settings.mode === 'closeForce' }, log);
+                            // The macro host is about to reopen the workbook read-only on
+                            // retry; record it now so it stays tracked even if the macro
+                            // itself then errors (RUN_FAILED) before we mark below.
+                            markWorkbookOpenedByXlide(xlsmPath);
+                            await runWorkbookMacroReadOnly(xlsmPath, macroRef, { attachToRunning }, log);
+                        } else {
+                            throw err;
+                        }
+                    }
+                    // The macro host reopened the workbook read-only; record it so
+                    // a later closeTracked save can free the lock automatically.
+                    markWorkbookOpenedByXlide(xlsmPath);
                 } else if (process.platform === 'darwin') {
                     cp.spawn('open', ['-a', 'Microsoft Excel', xlsmPath]);
                     vscode.window.showInformationMessage(

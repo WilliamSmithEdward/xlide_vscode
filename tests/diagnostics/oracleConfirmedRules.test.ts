@@ -1,5 +1,5 @@
 // Diagnostics tests: rules promoted from the syntax corpus after Excel/VBE oracle
-// verification (2026-06-13) — empty-type, duplicate-option, duplicate-case-else.
+// verification (2026-06-13) - empty-type, duplicate-option, duplicate-case-else.
 // Each is vbe-oracle-verified; the matching oracle case is asserted in
 // syntax_corpus/oracle/vbe_oracle_cases.json.
 
@@ -26,7 +26,7 @@ describe('analyzeModule - empty-type (PCEC_004)', () => {
 		expect(byCode(analyzeModule('Public Type T\n    X As Long\nEnd Type\n'), CODE)).toHaveLength(0);
 	});
 
-	it('stays quiet for an empty Enum (VBE accepts it — PCEC_003 refuted)', () => {
+	it('stays quiet for an empty Enum (VBE accepts it - PCEC_003 refuted)', () => {
 		expect(byCode(analyzeModule('Public Enum E\nEnd Enum\n'), CODE)).toHaveLength(0);
 	});
 
@@ -356,7 +356,7 @@ describe('analyzeModule - suffixed-literal-overflow (suffix_*_compile)', () => {
 		expect(hits[0].message).toContain('Integer');
 	});
 
-	it("does NOT flag the Long & suffix — & is ambiguous with concatenation (no-FP)", () => {
+	it("does NOT flag the Long & suffix - & is ambiguous with concatenation (no-FP)", () => {
 		// VBE oracle suffix_long_amp_glued_concat_accepted: `s = 3000000000&"x"` is
 		// ACCEPTED (& read as concat, since 3000000000 overflows Long). The lexer
 		// glues `3000000000&` into one token, so flagging & overflow would

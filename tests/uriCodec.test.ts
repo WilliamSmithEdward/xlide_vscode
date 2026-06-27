@@ -21,7 +21,7 @@ import {
     XlideFileSystemProvider,
 } from '../src/xlideFileSystem';
 
-/** Minimal stand-in — decodeModuleUri only reads uri.path */
+/** Minimal stand-in - decodeModuleUri only reads uri.path */
 function fakeUri(uriPath: string): VscodeType.Uri {
     return { path: uriPath, toString: () => uriPath } as VscodeType.Uri;
 }

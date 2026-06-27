@@ -361,7 +361,7 @@ export function validateArity(
 		// PCEC_008 + omitted-after-named: nothing positional may follow a named
 		// argument. VBE rejects at compile (regardless of the signature) both a
 		// positional VALUE after a named arg (oracle positional_after_named_argument_compile
-		// — `f(a:=1, 2)` fires on the `2`) and an OMITTED/empty slot after a named arg
+		// - `f(a:=1, 2)` fires on the `2`) and an OMITTED/empty slot after a named arg
 		// (oracle omit_trailing_after_named_compile `f(a:=1, )` and
 		// omit_middle_between_named_compile `f(a:=1, , c:=3)`). Pure slot-order syntax:
 		// once a named slot is seen, the first subsequent NON-named slot is the

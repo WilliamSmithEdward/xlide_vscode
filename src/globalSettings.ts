@@ -45,6 +45,11 @@ type XlideGlobalSettingsSnapshot = Record<string, unknown>;
 interface XlideGlobalSettingValues {
     'pythonPath': string;
     'attachToRunningExcel': boolean;
+    'excelIntegration.coordinationMode': ExcelCoordinationMode;
+    'excelIntegration.trackOpenedWorkbooks': boolean;
+    'excelIntegration.reopenAfterClose': boolean;
+    'excelIntegration.reopenMode': ExcelReopenMode;
+    'excelIntegration.reopenReadOnlyAfterSave': boolean;
     'diagnostics.enabled': boolean;
     'editor.blockLayout': VbaSmartBlockLayout;
     'docs.enabled': boolean;
@@ -56,7 +61,7 @@ interface XlideGlobalSettingValues {
 }
 
 type XlideGlobalSettingKey = keyof XlideGlobalSettingValues;
-type XlideGlobalSettingSection = 'runtime' | 'editor' | 'docs' | 'analysis';
+type XlideGlobalSettingSection = 'runtime' | 'excel' | 'editor' | 'docs' | 'analysis';
 
 type XlideGlobalSettingControl =
     | { kind: 'text' }
@@ -70,6 +75,8 @@ interface XlideGlobalSettingWebviewCard {
     section: XlideGlobalSettingSection;
     label: string;
     control: XlideGlobalSettingControl;
+    /** Plain-language hover help shown in the settings panel info bubble. */
+    description?: string;
 }
 
 interface XlideGlobalSettingCard extends XlideGlobalSettingWebviewCard {
@@ -89,6 +96,23 @@ interface XlideGlobalSettingSchema<T> {
     webviewCard?: XlideGlobalSettingWebviewCard;
 }
 
+const EXCEL_COORDINATION_MODE_VALUES = ['block', 'closeTracked', 'closeForce'] as const;
+const EXCEL_REOPEN_MODE_VALUES = ['lastState', 'readOnly', 'readWrite'] as const;
+export type ExcelCoordinationMode = (typeof EXCEL_COORDINATION_MODE_VALUES)[number];
+export type ExcelReopenMode = (typeof EXCEL_REOPEN_MODE_VALUES)[number];
+
+function normalizeExcelCoordinationMode(value: unknown): ExcelCoordinationMode {
+    return (EXCEL_COORDINATION_MODE_VALUES as readonly string[]).includes(value as string)
+        ? (value as ExcelCoordinationMode)
+        : 'block';
+}
+
+function normalizeExcelReopenMode(value: unknown): ExcelReopenMode {
+    return (EXCEL_REOPEN_MODE_VALUES as readonly string[]).includes(value as string)
+        ? (value as ExcelReopenMode)
+        : 'lastState';
+}
+
 const BLOCK_LAYOUT_VALUES = ['comfy', 'compact'] as const;
 const RULE_SEVERITY_OVERRIDE_VALUES = ['off', 'warning'] as const;
 const DEFAULT_DOC_METADATA_GLOB = '**/*.vbref.xml';
@@ -105,21 +129,96 @@ const XLIDE_GLOBAL_SETTINGS: {
         normalize: (value) => typeof value === 'string' ? value.trim() : '',
         validate: expectString,
         manifest: { type: 'string' },
-        webviewCard: { section: 'runtime', label: 'Python Path', control: { kind: 'text' } },
+        webviewCard: {
+            section: 'runtime',
+            label: 'Python Path',
+            description: 'Full path to the Python interpreter XLIDE runs its backend with. Leave blank to auto-detect Python on your PATH.',
+            control: { kind: 'text' },
+        },
+    },
+    'excelIntegration.coordinationMode': {
+        defaultValue: (): ExcelCoordinationMode => 'block',
+        normalize: normalizeExcelCoordinationMode,
+        validate: (values, problems, key) => expectEnum(values, problems, key, EXCEL_COORDINATION_MODE_VALUES),
+        manifest: { type: 'string', enum: EXCEL_COORDINATION_MODE_VALUES },
+        webviewCard: {
+            section: 'excel',
+            label: 'When Workbook is Blocked From Saving in Excel',
+            description: 'What XLIDE does when Excel holds the workbook open for editing, which locks the file so a save, add, rename, delete, or F5 cannot write it. Block (default, safest): refuse and ask you to close it in Excel. Close Tracked: gracefully close a workbook XLIDE opened, then proceed. Close Force: close it in any Excel, force-quitting Excel if needed (unsafe; can lose unsaved work in other workbooks).',
+            control: { kind: 'enum', values: EXCEL_COORDINATION_MODE_VALUES },
+        },
+    },
+    'excelIntegration.trackOpenedWorkbooks': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'excel',
+            label: 'Close Only Workbooks XLIDE Opened',
+            description: 'When the mode is "Close Tracked", only close workbooks XLIDE itself opened in Excel. Turn off to close a matching workbook in any running Excel, including ones you opened by hand. Ignored for Block and Close Force.',
+            control: { kind: 'boolean' },
+        },
+    },
+    'excelIntegration.reopenAfterClose': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'excel',
+            label: 'Reopen After Close',
+            description: 'After XLIDE closes a workbook in Excel to write to it (a save, add, rename, or delete under a close mode), reopen it afterward so your Excel view is restored. Turn off to leave it closed until you reopen it yourself.',
+            control: { kind: 'boolean' },
+        },
+    },
+    'excelIntegration.reopenMode': {
+        defaultValue: (): ExcelReopenMode => 'lastState',
+        normalize: normalizeExcelReopenMode,
+        validate: (values, problems, key) => expectEnum(values, problems, key, EXCEL_REOPEN_MODE_VALUES),
+        manifest: { type: 'string', enum: EXCEL_REOPEN_MODE_VALUES },
+        webviewCard: {
+            section: 'excel',
+            label: 'Reopen As',
+            description: 'How XLIDE reopens a workbook it closed (when "Reopen After Close" is on). Last State (default): put it back the way it was, so read-only stays read-only and editable stays editable. Read-Only: always reopen read-only (keeps the file unlocked for your next save). Read-Write: reopen for editing in Excel (re-locks the file, so the next save closes it again).',
+            control: { kind: 'enum', values: EXCEL_REOPEN_MODE_VALUES },
+        },
+    },
+    'excelIntegration.reopenReadOnlyAfterSave': {
+        defaultValue: () => false,
+        normalize: normalizeBoolean(false),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'excel',
+            label: 'Reopen Read-Only Workbook After Save',
+            description: 'A workbook open read-only in Excel does not lock the file, so XLIDE\'s save succeeds, but Excel keeps showing its older copy. Turn this on to silently close and reopen the read-only workbook after each save so Excel matches the saved file. Only acts when the workbook is actually open read-only; never reopens one you closed or one open for editing.',
+            control: { kind: 'boolean' },
+        },
     },
     'attachToRunningExcel': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
-        webviewCard: { section: 'runtime', label: 'Attach To Running Excel', control: { kind: 'boolean' } },
+        webviewCard: {
+            section: 'excel',
+            label: 'Attach To Running Excel',
+            description: 'When opening a workbook or running a macro, reuse a running Excel instance and an already-open copy of the workbook before launching a fresh one. Most users keep this on.',
+            control: { kind: 'boolean' },
+        },
     },
     'diagnostics.enabled': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
-        webviewCard: { section: 'editor', label: 'Diagnostics Enabled', control: { kind: 'boolean' } },
+        webviewCard: {
+            section: 'editor',
+            label: 'Diagnostics Enabled',
+            description: 'Show XLIDE\'s VBA diagnostics (red/yellow squiggles) in the editor. Turn off to silence all analysis warnings and errors.',
+            control: { kind: 'boolean' },
+        },
     },
     'editor.blockLayout': {
         defaultValue: () => DEFAULT_VBA_SMART_BLOCK_LAYOUT,
@@ -129,6 +228,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         webviewCard: {
             section: 'editor',
             label: 'Editor Block Layout',
+            description: 'Spacing of smart code blocks in the editor. Comfy adds breathing room; Compact is denser.',
             control: { kind: 'enum', values: BLOCK_LAYOUT_VALUES },
         },
     },
@@ -137,28 +237,48 @@ const XLIDE_GLOBAL_SETTINGS: {
         normalize: normalizeBoolean(true),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
-        webviewCard: { section: 'docs', label: 'Docs Enabled', control: { kind: 'boolean' } },
+        webviewCard: {
+            section: 'docs',
+            label: 'Docs Enabled',
+            description: 'Show hover documentation pulled from your .vbref.xml reference files alongside VBA symbols.',
+            control: { kind: 'boolean' },
+        },
     },
     'docs.metadataGlob': {
         defaultValue: () => DEFAULT_DOC_METADATA_GLOB,
         normalize: (value) => normalizeNonEmptyString(value, DEFAULT_DOC_METADATA_GLOB),
         validate: expectString,
         manifest: { type: 'string' },
-        webviewCard: { section: 'docs', label: 'Docs Metadata Glob', control: { kind: 'text' } },
+        webviewCard: {
+            section: 'docs',
+            label: 'Docs Metadata Glob',
+            description: 'Glob that locates your VBA documentation files (default **/*.vbref.xml). Used to attach hover docs to symbols.',
+            control: { kind: 'text' },
+        },
     },
     'analysis.visibleSeverities': {
         defaultValue: () => [...ANALYSIS_SEVERITIES],
         normalize: normalizeAnalysisVisibleSeverities,
         validate: (values, problems, key) => expectStringArrayEnum(values, problems, key, ANALYSIS_SEVERITIES),
         manifest: { type: 'array', items: { type: 'string', enum: ANALYSIS_SEVERITIES } },
-        webviewCard: { section: 'analysis', label: 'Visible Severities', control: { kind: 'severityFilter' } },
+        webviewCard: {
+            section: 'analysis',
+            label: 'Visible Severities',
+            description: 'Which diagnostic severities XLIDE shows. Unchecked severities are hidden from the editor and Problems panel.',
+            control: { kind: 'severityFilter' },
+        },
     },
     'analysis.untrackedRules': {
         defaultValue: () => [],
         normalize: normalizeKnownAnalysisRuleCodes,
         validate: expectKnownAnalysisRuleCodeArray,
         manifest: { type: 'array', items: { type: 'string' } },
-        webviewCard: { section: 'analysis', label: 'Globally Untracked Rules', control: { kind: 'rulePicker' } },
+        webviewCard: {
+            section: 'analysis',
+            label: 'Globally Untracked Rules',
+            description: 'Analysis rules to disable everywhere, across all workbooks. Use this to permanently silence a rule you never want.',
+            control: { kind: 'rulePicker' },
+        },
     },
     'analysis.ruleSeverityOverrides': {
         defaultValue: () => ({}),
@@ -168,6 +288,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         webviewCard: {
             section: 'analysis',
             label: 'Rule Severity Overrides',
+            description: 'Force specific rules to a chosen severity (e.g. downgrade a rule to a warning) globally, regardless of their defaults.',
             control: { kind: 'ruleSeverityOverrides' },
         },
     },
@@ -233,6 +354,26 @@ function xlideAnalysisRuleSeveritiesFromConfig(config: vscode.WorkspaceConfigura
 
 function xlideAttachToRunningExcelFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'attachToRunningExcel');
+}
+
+function xlideExcelCoordinationModeFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'excelIntegration.coordinationMode');
+}
+
+function xlideExcelTrackOpenedWorkbooksFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'excelIntegration.trackOpenedWorkbooks');
+}
+
+function xlideExcelReopenAfterCloseFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'excelIntegration.reopenAfterClose');
+}
+
+function xlideExcelReopenModeFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'excelIntegration.reopenMode');
+}
+
+function xlideExcelReopenReadOnlyAfterSaveFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'excelIntegration.reopenReadOnlyAfterSave');
 }
 
 function xlideDiagnosticsEnabledFromConfig(config: vscode.WorkspaceConfiguration) {
@@ -533,6 +674,11 @@ export {
     xlideAnalysisUntrackedRulesFromConfig,
     xlideAnalysisVisibleSeveritiesFromConfig,
     xlideAttachToRunningExcelFromConfig,
+    xlideExcelCoordinationModeFromConfig,
+    xlideExcelTrackOpenedWorkbooksFromConfig,
+    xlideExcelReopenAfterCloseFromConfig,
+    xlideExcelReopenModeFromConfig,
+    xlideExcelReopenReadOnlyAfterSaveFromConfig,
     xlideDiagnosticsEnabledFromConfig,
     xlideDocsEnabledFromConfig,
     xlideDocsMetadataGlobFromConfig,

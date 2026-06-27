@@ -234,7 +234,7 @@ export class PythonBridge implements vscode.Disposable {
     }
 
     private _onLine(line: string): void {
-        // Ready handshake from server.py — flush queued calls.
+        // Ready handshake from server.py - flush queued calls.
         if (line.trim() === '{"ready":true}') {
             this._out.appendLine('Python backend ready.');
             this._ready = true;

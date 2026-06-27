@@ -12,7 +12,7 @@
 //   - 5.2.3.4 Enum Declarations (Enum ... End Enum)
 //   - 5.4   Statements (block statements: If/For/Do/While/With/Select)
 //   - 5.4.2 Call statements / 5.4.3 Assignment statements
-//   - 5.6   Value expressions (ExprNode hierarchy — partial)
+//   - 5.6   Value expressions (ExprNode hierarchy - partial)
 //
 // The parser is error-tolerant: every node carries an absolute source span so a
 // VS Code provider can map it to a Position with TextDocument.positionAt, and
@@ -264,7 +264,7 @@ export interface ParameterNode extends NodeBase {
 }
 
 // ---------------------------------------------------------------------------
-// Expressions (MS-VBAL §5.6 — partial; see MS-VBAL.verification-map.md)
+// Expressions (MS-VBAL §5.6 - partial; see MS-VBAL.verification-map.md)
 // ---------------------------------------------------------------------------
 
 /** Discriminated-union tag for expression nodes. */
@@ -303,7 +303,7 @@ export interface LiteralExpr extends ExprBase {
 	raw: string;
 }
 
-/** A simple identifier reference — local, module-level, or project-visible name. */
+/** A simple identifier reference - local, module-level, or project-visible name. */
 export interface IdentifierExpr extends ExprBase {
 	exprKind: 'IdentifierExpr';
 	name: string;
@@ -334,7 +334,7 @@ export interface MemberAccessExpr extends ExprBase {
 /**
  * One entry in a call / index argument list (MS-VBAL §5.6.9 argument-list and
  * §5.4.2 call-statement argument-list). VBA arguments may be positional, named
- * (`name:=value`), or omitted (`Foo(a, , c)` — an empty slot that tells the
+ * (`name:=value`), or omitted (`Foo(a, , c)` - an empty slot that tells the
  * callee to use the parameter's default).
  */
 export interface Argument {
@@ -348,7 +348,7 @@ export interface Argument {
 	span: Span;
 }
 
-/** `callee(arg, ...)` — covers function calls and array indexing. */
+/** `callee(arg, ...)` - covers function calls and array indexing. */
 export interface IndexExpr extends ExprBase {
 	exprKind: 'IndexExpr';
 	callee: ExprNode;
@@ -425,7 +425,7 @@ export type ExprNode =
 // ---------------------------------------------------------------------------
 
 /**
- * `[Let] lhs = rhs` or `Set lhs = rhs` — MS-VBAL §5.4.3.
+ * `[Let] lhs = rhs` or `Set lhs = rhs` - MS-VBAL §5.4.3.
  * `isSet` distinguishes object-reference assignment from value assignment.
  */
 export interface AssignmentNode extends NodeBase {
@@ -437,7 +437,7 @@ export interface AssignmentNode extends NodeBase {
 }
 
 /**
- * `[Call] callee [(args)]` or implicit call `callee arg, ...` — MS-VBAL §5.4.2.
+ * `[Call] callee [(args)]` or implicit call `callee arg, ...` - MS-VBAL §5.4.2.
  * When `hasCallKeyword` is true the argument list must be parenthesised.
  */
 export interface CallNode extends NodeBase {

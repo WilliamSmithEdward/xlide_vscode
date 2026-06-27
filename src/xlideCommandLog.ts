@@ -31,7 +31,7 @@ export function clearXlideCommandLog(): void {
  * user-facing workbook-locked warning in xlideFileSystem.
  */
 export const WORKBOOK_LOCKED_ERROR_RE =
-    /WinError\s*32|being used by another process|sharing violation|Permission denied|PermissionError/i;
+    /WinError\s*3[23]\b|WinError\s*5\b|being used by another process|sharing violation|access is denied|permission denied|permissionerror|\bEACCES\b|\bEBUSY\b/i;
 
 export function errorCategoryForSupportLog(error: unknown): string {
     const message = errorMessage(error);

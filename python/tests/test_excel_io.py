@@ -2,7 +2,7 @@
 
 These exercise get_workbook_info/list_sheets against the checked-in test
 workbook because openpyxl's ReadOnlyWorksheet API differs from the writable
-worksheet API (no `dimensions` property since openpyxl 3.1) — a difference
+worksheet API (no `dimensions` property since openpyxl 3.1) - a difference
 mocks cannot catch.
 """
 import os

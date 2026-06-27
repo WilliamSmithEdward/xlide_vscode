@@ -56,6 +56,7 @@ const SETTING_KEY_SET = new Set<string>(XLIDE_GLOBAL_SETTING_KEYS);
 
 const SETTING_SECTIONS: ReadonlyArray<{ id: XlideGlobalSettingSection; title: string }> = [
     { id: 'runtime', title: 'Runtime' },
+    { id: 'excel', title: 'Excel Integration' },
     { id: 'editor', title: 'Editor And Diagnostics' },
     { id: 'docs', title: 'Documentation' },
     { id: 'analysis', title: 'Analysis' },
@@ -361,10 +362,14 @@ function renderSettingCard(
 ): string {
     const fullKey = `xlide.${key}`;
     const cardProblems = problems.get(fullKey) ?? [];
+    const description = xlideGlobalSettingCards().find((c) => c.key === key)?.description;
+    const infoBubble = description
+        ? `<span class="infoBubble" tabindex="0" role="img" aria-label="${escapeAttr(description)}" title="${escapeAttr(description)}">i</span>`
+        : '';
     return `<section class="card ${escapeAttr(extraClass)}" data-setting-card="${escapeAttr(fullKey)}">
         <div class="cardHeader">
             <div class="titleBlock">
-                <h3>${escapeHtml(title)}</h3>
+                <h3>${escapeHtml(title)}${infoBubble}</h3>
                 <div class="source">Source: ${escapeHtml(sourceLabel(settingSource(model, key)))}</div>
             </div>
             <button type="button" data-reset-setting="${escapeAttr(key)}">Reset</button>
@@ -433,7 +438,9 @@ function isXlideGlobalSettingKey(value: unknown): value is XlideGlobalSettingKey
 
 function titleCase(value: string): string {
     return value
-        .split(/[\s.-]+/)
+        // Split camelCase (lastState -> last State) before splitting on separators.
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .split(/[\s._-]+/)
         .filter((part) => part.length > 0)
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');

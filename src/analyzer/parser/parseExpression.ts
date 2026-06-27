@@ -15,7 +15,7 @@
 // Design notes:
 //   * Never throws. On an unexpected token the parser stops at the last good
 //     position, records a diagnostic, and returns a best-effort node so callers
-//     (and recovery) keep working — the same Phase 3 contract parseModule uses.
+//     (and recovery) keep working - the same Phase 3 contract parseModule uses.
 //   * Every node carries an absolute source span built from token offsets.
 //   * Scope: literals, identifiers, parenthesised expressions, member-access
 //     chains (including the leading-dot With form), index/call expressions with
@@ -344,7 +344,7 @@ class ExpressionParser {
 		return base;
 	}
 
-	/** A postfix primary optionally preceded by sign(s) — the operand of `^`. */
+	/** A postfix primary optionally preceded by sign(s) - the operand of `^`. */
 	private parseSignedPrimary(): ExprNode | null {
 		const token = this.peek();
 		if (token && token.kind === 'operator' && (token.rawText === '-' || token.rawText === '+')) {
@@ -406,7 +406,7 @@ class ExpressionParser {
 			// Bang member access: `receiver!name` / `receiver![Bracketed Name]`.
 			// Disambiguated from the `!` Single type-declaration suffix by requiring
 			// the `!` to be glued to both the receiver and a plain (non-keyword)
-			// identifier or bracketed name — canonical bang syntax. A `!` followed by
+			// identifier or bracketed name - canonical bang syntax. A `!` followed by
 			// an operator, a keyword (`a! And b`), whitespace, or end-of-statement is
 			// a type-suffix / stray operator and is left to the caller (stays raw).
 			const bang = this.bangMemberAccess(expr, token);
@@ -446,7 +446,7 @@ class ExpressionParser {
 		};
 	}
 
-	/** `callee(args)` — positional, named (`name:=expr`), and omitted (`f(1, , 3)`) arguments. */
+	/** `callee(args)` - positional, named (`name:=expr`), and omitted (`f(1, , 3)`) arguments. */
 	private parseIndex(callee: ExprNode): IndexExpr | null {
 		const open = this.next()!; // consume '('
 		const args: Argument[] = [];
@@ -509,7 +509,7 @@ class ExpressionParser {
 				this.next();
 				continue;
 			}
-			return null; // unexpected trailing token — malformed
+			return null; // unexpected trailing token - malformed
 		}
 	}
 

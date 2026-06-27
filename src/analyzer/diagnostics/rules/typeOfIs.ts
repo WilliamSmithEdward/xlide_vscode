@@ -2,7 +2,7 @@
 //
 // `TypeOf x Is Y` tests whether x's runtime object is-a Y. When x is declared as
 // a known, concrete object type A that can never hold a Y, the test is provably
-// always False — a dead branch and almost always a bug.
+// always False - a dead branch and almost always a bug.
 //
 // This is the first type rule to consume the §5.6 expression AST directly: it
 // reads the parsed `TypeOfIsExpr` nodes that Slices 1-3 produce (notably in
@@ -153,8 +153,8 @@ function isImplementedByAnyProjectClass(
 /**
  * Rule: the binary `Is` object-identity operator requires object-reference
  * operands on both sides (MS-VBAL 5.6). When an operand is PROVABLY a non-object
- * — a scalar value literal, or an identifier declared As a known scalar type
- * (numeric / String / Boolean / Date) — `a Is b` is a VBE compile error
+ * - a scalar value literal, or an identifier declared As a known scalar type
+ * (numeric / String / Boolean / Date) - `a Is b` is a VBE compile error
  * ("Object required"). Oracle-verified rejected at compile:
  * `is_scalar_long_var_compile`, `is_scalar_string_var_compile`,
  * `is_two_scalar_vars_compile`, `is_literal_integer_operands_probe`,

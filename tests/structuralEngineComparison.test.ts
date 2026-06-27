@@ -496,7 +496,7 @@ describe('structural engine divergence repros (audit #74)', () => {
         expect(parserRecords(src)).toEqual([]);
     });
 
-    it('rem-after-colon: RESOLVED — legacy stripping now blanks a trailing ": Rem ..." comment like the parser', () => {
+    it('rem-after-colon: RESOLVED - legacy stripping now blanks a trailing ": Rem ..." comment like the parser', () => {
         // Previously a legacy-only divergence: stripVba blanked only whole-line
         // Rem comments, so block keywords inside a `: Rem ...` comment leaked as
         // phantom closers (a live false positive). stripVba now blanks Rem at any

@@ -120,7 +120,7 @@
     "procedures": {
       "patterns": [
         {
-          "comment": "Sub / Function declaration — captures visibility, Static, keyword, and name",
+          "comment": "Sub / Function declaration - captures visibility, Static, keyword, and name",
           "match": "(?i)^\\s*((?:Public|Private|Friend|Global)\\s+)?(?:(Static)\\s+)?(Sub|Function)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": { "name": "storage.modifier.vba" },
@@ -158,7 +158,7 @@
     "declarations": {
       "patterns": [
         {
-          "comment": "Declare [PtrSafe] Sub/Function — Windows API declaration",
+          "comment": "Declare [PtrSafe] Sub/Function - Windows API declaration",
           "match": "(?i)^\\s*((?:Public|Private)\\s+)?(Declare)(?:\\s+(PtrSafe))?\\s+(Sub|Function)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": { "name": "storage.modifier.vba" },
@@ -208,7 +208,7 @@
     "keywords": {
       "patterns": [
         {
-          "comment": "Control flow — statement-keywords and marker-keywords (section 3.3.5.2 MS-VBAL)",
+          "comment": "Control flow - statement-keywords and marker-keywords (section 3.3.5.2 MS-VBAL)",
           "name": "keyword.control.vba",
           "match": "(?i)\\b(If|Then|Else|ElseIf|Select|Case|For|Each|In|To|Step|Next|Do|Loop|While|Wend|Until|Exit|Return|GoTo|GoSub|On|Error|Resume|Stop|End|With|Close|Open|Lock|Unlock|Get|Put|Seek|Print|Input|LSet|RSet|Erase|Write)\\b"
         },

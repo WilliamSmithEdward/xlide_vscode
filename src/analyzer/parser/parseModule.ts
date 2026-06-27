@@ -1042,7 +1042,7 @@ class Parser {
 	 * Recognises a body statement as a structured assignment or call (MS-VBAL
 	 * §5.4.3 / §5.4.2) using the §5.6 expression parser. Returns undefined to
 	 * fall back to a raw StatementNode whenever the statement is not a clean,
-	 * fully-modeled assignment/call — preserving every existing rule's input.
+	 * fully-modeled assignment/call - preserving every existing rule's input.
 	 * `tokens` is the line-number-stripped code-token slice; the returned node's
 	 * span covers the whole logical statement (parity with makeStatement).
 	 */
@@ -1087,7 +1087,7 @@ class Parser {
 			return { kind: 'Assignment', isSet, isLet, lhs: lhs.expr, rhs: rhs.expr, span };
 		}
 
-		// A leading Set/Let with no '=' is a malformed assignment — leave it raw.
+		// A leading Set/Let with no '=' is a malformed assignment - leave it raw.
 		if (lhsStart !== 0) {
 			return undefined;
 		}
@@ -1104,7 +1104,7 @@ class Parser {
 		}
 		const parsed = parseExpression(tokens, calleeStart, tokens.length);
 		if (!parsed.expr || parsed.diagnostics.length > 0) {
-			// Null or malformed (the expression parser reported an error) — leave raw.
+			// Null or malformed (the expression parser reported an error) - leave raw.
 			return undefined;
 		}
 
@@ -1119,18 +1119,18 @@ class Parser {
 				return { kind: 'Call', hasCallKeyword: true, callee: parsed.expr, args: [], span };
 			}
 			// A bare identifier / member chain with no args is ambiguous (a call
-			// with no parens vs. a split-off label) — keep it raw.
+			// with no parens vs. a split-off label) - keep it raw.
 			return undefined;
 		}
 
 		// Trailing tokens after the callee: parenless argument list (implicit only).
 		if (hasCallKeyword) {
-			// `Call Foo 1, 2` is the call-requires-parens error shape — leave raw.
+			// `Call Foo 1, 2` is the call-requires-parens error shape - leave raw.
 			return undefined;
 		}
 		const args = parseParenlessArguments(tokens, parsed.endIndex, tokens.length);
 		if (!args) {
-			return undefined; // bang access or other unmodeled / malformed shape — leave raw
+			return undefined; // bang access or other unmodeled / malformed shape - leave raw
 		}
 		return { kind: 'Call', hasCallKeyword: false, callee: parsed.expr, args, span };
 	}
@@ -1791,7 +1791,7 @@ function topLevelEqualsIndex(tokens: readonly VbaToken[], from: number): number 
 }
 
 /**
- * True when the LHS beginning at `start` is `Mid(`/`Mid$(`/`MidB(`/`MidB$(` —
+ * True when the LHS beginning at `start` is `Mid(`/`Mid$(`/`MidB(`/`MidB$(` -
  * the dedicated Mid (and byte-variant MidB) replacement statement
  * (MS-VBAL 5.4.3.x), which is not a generic `[Let] lhs = rhs` assignment even
  * though it carries a top-level `=`.
@@ -1812,7 +1812,7 @@ function isMidStatementTarget(tokens: readonly VbaToken[], start: number): boole
  * True when an expression parse cleanly consumed exactly tokens[..to): it
  * produced a non-null expression, stopped at the boundary, AND reported no
  * diagnostics. The diagnostic check matters because the §5.6 parser is
- * error-tolerant — on a dangling operator or unclosed paren it still consumes
+ * error-tolerant - on a dangling operator or unclosed paren it still consumes
  * the offending token(s) to the boundary, so endIndex alone would accept a
  * truncated operand. Requiring zero diagnostics keeps a malformed statement as
  * a raw StatementNode instead of a structured node hiding a parse error.

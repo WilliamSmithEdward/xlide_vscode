@@ -16,6 +16,11 @@ import {
 const validSettings = {
     pythonPath: '',
     attachToRunningExcel: true,
+    'excelIntegration.coordinationMode': 'block',
+    'excelIntegration.trackOpenedWorkbooks': true,
+    'excelIntegration.reopenAfterClose': true,
+    'excelIntegration.reopenMode': 'readOnly',
+    'excelIntegration.reopenReadOnlyAfterSave': false,
     'diagnostics.enabled': true,
     'analysis.ruleSeverityOverrides': {},
     'analysis.visibleSeverities': ['error', 'warning', 'information'],
@@ -123,6 +128,11 @@ describe('globalSettings', () => {
             'xlide.docs.enabled',
             'xlide.docs.metadataGlob',
             'xlide.editor.blockLayout',
+            'xlide.excelIntegration.coordinationMode',
+            'xlide.excelIntegration.reopenAfterClose',
+            'xlide.excelIntegration.reopenMode',
+            'xlide.excelIntegration.reopenReadOnlyAfterSave',
+            'xlide.excelIntegration.trackOpenedWorkbooks',
             'xlide.performance.trace',
             'xlide.pythonPath',
         ]);

@@ -39,6 +39,31 @@
             font-size: 15px;
             font-weight: 700;
         }
+        .infoBubble {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            margin-left: 6px;
+            border-radius: 50%;
+            border: 1px solid var(--vscode-descriptionForeground);
+            color: var(--vscode-descriptionForeground);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 10px;
+            font-weight: 700;
+            font-style: italic;
+            line-height: 1;
+            vertical-align: middle;
+            cursor: help;
+            user-select: none;
+        }
+        .infoBubble:hover,
+        .infoBubble:focus {
+            border-color: var(--vscode-focusBorder);
+            color: var(--vscode-foreground);
+            outline: none;
+        }
         .subtitle,
         .source,
         .description,
