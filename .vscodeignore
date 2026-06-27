@@ -4,6 +4,8 @@
 dist/**
 coverage/**
 assets/images/extension_logo_full.png
+assets/images/banner.png
+assets/images/youtube_video_static_image.png
 .venv/**
 .pytest_cache/**
 node_modules/**
