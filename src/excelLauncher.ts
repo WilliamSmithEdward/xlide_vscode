@@ -47,9 +47,18 @@ function attachLines(filePath: string, attachToRunning: boolean): string[] {
     ];
 }
 
-// Activate the workbook and bring the Excel window to the foreground.
+// PowerShell helper that retries a COM call while Excel is busy. Excel reports a
+// busy state (a modal dialog such as a MsgBox left open from a previous run, or a
+// transient busy moment) as RPC_E_CALL_REJECTED (HResult -2147418111 / 0x80010001)
+// or RPC_E_SERVERCALL_RETRYLATER (-2147417846 / 0x8001010A). ~3s of retries rides
+// out a transient busy and gives the user a moment to dismiss a dialog.
+const COM_RETRY_HELPER =
+    'function Invoke-XlideCom($Action) { for ($__i = 0; $__i -le 12; $__i++) { try { return (& $Action) } catch { if (($_.Exception.HResult -eq -2147418111 -or $_.Exception.HResult -eq -2147417846 -or $_.Exception.Message -match "rejected by callee|RETRYLATER|0x80010001|0x8001010A") -and $__i -lt 12) { Start-Sleep -Milliseconds 250; continue } else { throw } } } }';
+
+// Activate the workbook and bring the Excel window to the foreground. Activate is
+// a COM call, so it is best-effort: a busy Excel must not fail the launch/run.
 const FOREGROUND_LINES: readonly string[] = [
-    '$workbook.Activate()',
+    'try { $workbook.Activate() } catch { }',
     'try { Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);\' -Name XlideWin32 -Namespace XlideHelper } catch { }',
     '[XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
     '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
@@ -66,15 +75,17 @@ export function buildExcelLaunchScript(options: ExcelLaunchScriptOptions): strin
     if (mode.kind === 'open') {
         return [
             '$ErrorActionPreference = "Stop"',
+            COM_RETRY_HELPER,
             ...attachLines(filePath, attachToRunning),
             'if (-not $workbook) {',
-            `  $workbook = $excel.Workbooks.Open($targetPath, 0, ${mode.readOnly ? '$true' : '$false'})`,
+            `  $workbook = Invoke-XlideCom { $excel.Workbooks.Open($targetPath, 0, ${mode.readOnly ? '$true' : '$false'}) }`,
             '}',
             ...FOREGROUND_LINES,
         ].join('; ');
     }
     return [
         '$ErrorActionPreference = "Stop"',
+        COM_RETRY_HELPER,
         'try {',
         `  $macroName = ${psSingleQuoted(mode.macroName)}`,
         ...attachLines(filePath, attachToRunning),
@@ -83,21 +94,21 @@ export function buildExcelLaunchScript(options: ExcelLaunchScriptOptions): strin
         '    throw "REOPEN_BLOCKED|Workbook is already open for editing in Excel. Close it in Excel, then press F5 again so XLIDE can reopen the saved workbook before running the macro."',
         '  }',
         '  try {',
-        '    $workbook.Close($false)',
+        '    Invoke-XlideCom { $workbook.Close($false) }',
         '    $workbook = $null',
         '  } catch {',
         '    throw ("REOPEN_FAILED|XLIDE could not close the existing read-only workbook before running the macro: " + $_.Exception.Message)',
         '  }',
         '}',
         'try {',
-        '  $workbook = $excel.Workbooks.Open($targetPath, 0, $true)',
+        '  $workbook = Invoke-XlideCom { $excel.Workbooks.Open($targetPath, 0, $true) }',
         '} catch {',
         '  throw ("REOPEN_FAILED|XLIDE could not reopen the workbook. If it is open outside XLIDE, close it in Excel and try again: " + $_.Exception.Message)',
         '}',
         ...FOREGROUND_LINES,
         '$macroRef = "\'" + $workbook.Name + "\'!" + $macroName',
         'try {',
-        '  $excel.Run($macroRef)',
+        '  Invoke-XlideCom { $excel.Run($macroRef) }',
         '} catch {',
         '  throw ("RUN_FAILED|XLIDE could not run the macro: " + $_.Exception.Message)',
         '}',

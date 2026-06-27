@@ -28,7 +28,7 @@ describe('Excel launcher script', () => {
     });
 
     it('opens with the requested read-only flag and no macro sentinels', () => {
-        expect(openScript).toContain('$workbook = $excel.Workbooks.Open($targetPath, 0, $false)');
+        expect(openScript).toContain('$excel.Workbooks.Open($targetPath, 0, $false)');
         expect(openScript).not.toContain('XLIDE_MACRO_ERROR|');
 
         const readOnlyScript = buildExcelLaunchScript({
@@ -36,7 +36,7 @@ describe('Excel launcher script', () => {
             attachToRunning: false,
             mode: { kind: 'open', readOnly: true },
         });
-        expect(readOnlyScript).toContain('$workbook = $excel.Workbooks.Open($targetPath, 0, $true)');
+        expect(readOnlyScript).toContain('$excel.Workbooks.Open($targetPath, 0, $true)');
         expect(readOnlyScript).toContain('$attachToRunning = $false');
     });
 
@@ -47,6 +47,21 @@ describe('Excel launcher script', () => {
         expect(macroScript).toContain('RUN_FAILED|');
         expect(macroScript).toContain('$excel.Run($macroRef)');
         expect(macroScript).toContain('XLIDE_MACRO_ERROR|');
+    });
+
+    it('retries Excel-busy COM rejections (RPC_E_CALL_REJECTED) around the macro run and open', () => {
+        // The retry helper is present and gates on the busy HResults / messages.
+        expect(macroScript).toContain('function Invoke-XlideCom');
+        expect(macroScript).toContain('-2147418111');
+        expect(macroScript).toContain('rejected by callee');
+        // The Run, reopen, and close go through the retry wrapper.
+        expect(macroScript).toContain('Invoke-XlideCom { $excel.Run($macroRef) }');
+        expect(macroScript).toContain('Invoke-XlideCom { $excel.Workbooks.Open($targetPath, 0, $true) }');
+        expect(macroScript).toContain('Invoke-XlideCom { $workbook.Close($false) }');
+        // Foreground Activate is best-effort, never failing the run on a busy Excel.
+        expect(macroScript).toContain('try { $workbook.Activate() } catch { }');
+        // Plain open also retries its Open call.
+        expect(openScript).toContain('Invoke-XlideCom { $excel.Workbooks.Open($targetPath, 0, $false) }');
     });
 
     it('escapes single quotes in interpolated values', () => {

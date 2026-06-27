@@ -102,14 +102,28 @@ function delay(milliseconds: number): Promise<void> {
 
 type ProcedureMember = Extract<ModuleMember, { kind: 'Procedure' }>;
 
-/** Name of the innermost procedure containing the cursor, if any. */
-export function procedureNameAtCursor(editor: vscode.TextEditor): string | undefined {
+/** Innermost procedure containing the cursor, if any. */
+export function procedureAtCursor(editor: vscode.TextEditor): ProcedureMember | undefined {
     const source = editor.document.getText();
     const offset = editor.document.offsetAt(editor.selection.active);
     const parsed = parseModule(source);
-    const procedure = parsed.members
+    return parsed.members
         .filter((member): member is ProcedureMember => member.kind === 'Procedure')
         .filter((member) => spanContainsOffset(member.span, offset))
         .sort((left, right) => spanLength(left.span) - spanLength(right.span))[0];
-    return procedure?.name;
+}
+
+/** Name of the innermost procedure containing the cursor, if any. */
+export function procedureNameAtCursor(editor: vscode.TextEditor): string | undefined {
+    return procedureAtCursor(editor)?.name;
+}
+
+/**
+ * Names of the parameters a caller MUST supply (not Optional, not ParamArray).
+ * A procedure with any of these cannot be run by F5, which passes no arguments.
+ */
+export function requiredParameterNames(procedure: ProcedureMember): string[] {
+    return procedure.params
+        .filter((param) => !param.optional && !param.paramArray)
+        .map((param) => param.name);
 }

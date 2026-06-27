@@ -25,7 +25,8 @@ import {
     withWorkbookReopenSuppressed,
 } from '../excelWorkbookCoordinator';
 import {
-    procedureNameAtCursor,
+    procedureAtCursor,
+    requiredParameterNames,
     resolveWorkbookPath,
     type CommandDeps,
 } from './shared';
@@ -47,7 +48,18 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             void vscode.window.showWarningMessage(`XLIDE: ${err.message}`);
             return;
         }
-        void vscode.window.showErrorMessage(`XLIDE: Failed to run macro: ${errorMessage(err)}`);
+        const message = errorMessage(err);
+        // Excel was busy and kept rejecting the COM call even after XLIDE's retries
+        // (RPC_E_CALL_REJECTED / RETRYLATER) - almost always a modal dialog left
+        // open in Excel, such as a MsgBox from a previous run.
+        if (/rejected by callee|RPC_E_CALL_REJECTED|0x80010001|RETRYLATER|0x8001010A/i.test(message)) {
+            void vscode.window.showWarningMessage(
+                'XLIDE: Excel is busy, so the macro could not run. A dialog may be open in Excel '
+                + '(for example a MsgBox from a previous run); close it, then press F5 again.',
+            );
+            return;
+        }
+        void vscode.window.showErrorMessage(`XLIDE: Failed to run macro: ${message}`);
     }
 
     // Windows COM-based Excel launch; the script lives in excelLauncher.ts.
@@ -253,11 +265,25 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 // Find which procedure the cursor is in (parser-based, so
                 // Friend/Global/Static modifiers are recognized too). Done before
                 // saving so a no-op cursor position bails out without a save.
-                const currentProc = procedureNameAtCursor(editor);
-                if (!currentProc) {
+                const procedure = procedureAtCursor(editor);
+                if (!procedure) {
                     vscode.window.showWarningMessage('XLIDE: Cursor is not inside a Sub or Function.');
                     return;
                 }
+                // F5 runs the macro with no arguments (Application.Run with no
+                // args), so a procedure with required parameters cannot run - VBA
+                // rejects the call. Refuse up front with a clear message instead of
+                // surfacing the opaque COM failure.
+                const required = requiredParameterNames(procedure);
+                if (required.length > 0) {
+                    vscode.window.showWarningMessage(
+                        `XLIDE: "${procedure.name}" has required parameter${required.length > 1 ? 's' : ''} `
+                        + `(${required.join(', ')}) and cannot be run with F5, which passes no arguments. `
+                        + `Make ${required.length > 1 ? 'them' : 'it'} Optional, or call it from a parameterless Sub.`,
+                    );
+                    return;
+                }
+                const currentProc = procedure.name;
 
                 // Suppress XLIDE's own post-save reopen for THIS workbook across the
                 // whole run: F5 saves the dirty module and then reopens it read-only
