@@ -52,6 +52,8 @@ interface XlideGlobalSettingValues {
     'excelIntegration.reopenReadOnlyAfterSave': boolean;
     'diagnostics.enabled': boolean;
     'editor.blockLayout': VbaSmartBlockLayout;
+    'editor.continueCommentOnNewline': boolean;
+    'editor.mirrorCommentSpacing': boolean;
     'docs.enabled': boolean;
     'docs.metadataGlob': string;
     'analysis.visibleSeverities': AnalysisSeverityFilter[];
@@ -232,6 +234,30 @@ const XLIDE_GLOBAL_SETTINGS: {
             control: { kind: 'enum', values: BLOCK_LAYOUT_VALUES },
         },
     },
+    'editor.continueCommentOnNewline': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'editor',
+            label: 'Continue Comment On New Line',
+            description: "When the line above is a VBA comment (starts with an apostrophe), pressing Enter begins the new line with an apostrophe to continue the comment. Turn off for a plain new line with no apostrophe.",
+            control: { kind: 'boolean' },
+        },
+    },
+    'editor.mirrorCommentSpacing': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'editor',
+            label: 'Mirror Comment Spacing',
+            description: "When continuing a comment, copy the run of spaces that follows the apostrophe on the line above so the text lines up. Turn off to insert just the apostrophe with no space. Only applies when 'Continue Comment On New Line' is on.",
+            control: { kind: 'boolean' },
+        },
+    },
     'docs.enabled': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
@@ -390,6 +416,14 @@ function xlideDocsMetadataGlobFromConfig(config: vscode.WorkspaceConfiguration) 
 
 function xlideEditorBlockLayoutFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'editor.blockLayout');
+}
+
+function xlideEditorContinueCommentOnNewlineFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'editor.continueCommentOnNewline');
+}
+
+function xlideEditorMirrorCommentSpacingFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'editor.mirrorCommentSpacing');
 }
 
 function xlidePythonPathFromConfig(config: vscode.WorkspaceConfiguration) {
@@ -683,6 +717,8 @@ export {
     xlideDocsEnabledFromConfig,
     xlideDocsMetadataGlobFromConfig,
     xlideEditorBlockLayoutFromConfig,
+    xlideEditorContinueCommentOnNewlineFromConfig,
+    xlideEditorMirrorCommentSpacingFromConfig,
     xlideGlobalSettingCards,
     xlideGlobalSettingManifest,
     xlidePerformanceTraceFromConfig,

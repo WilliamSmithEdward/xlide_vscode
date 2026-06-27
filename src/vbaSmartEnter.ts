@@ -333,6 +333,32 @@ export function withMemberContinuationText(
 }
 
 /**
+ * When Enter is pressed at the end of a whole-line VBA comment, the new line
+ * continues the comment: the same indentation, the same apostrophe run, and
+ * (when mirrorSpacing is on) the same run of spaces that followed the apostrophe
+ * so the comment text lines up. Returns undefined when the line above is not a
+ * whole-line comment (a trailing comment after code never continues).
+ */
+export function commentContinuationText(
+    source: string,
+    previousLineIndex: number,
+    mirrorSpacing: boolean,
+): string | undefined {
+    const lines = source.split(/\r\n|\r|\n/);
+    const previousLine = lines[previousLineIndex];
+    if (previousLine === undefined) {
+        return undefined;
+    }
+    // Leading indentation, the apostrophe run, then the spaces that follow it.
+    const match = /^([ \t]*)('+)([ \t]*)/.exec(previousLine);
+    if (!match) {
+        return undefined;
+    }
+    const [, indent, apostrophes, spacesAfter] = match;
+    return `${indent}${apostrophes}${mirrorSpacing ? spacesAfter : ''}`;
+}
+
+/**
  * Returns true if the smart-enter block opener already has a compatible closer
  * before the next procedure opener or end of file.
  * `strippedLines` must already have strings/comments removed.

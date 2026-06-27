@@ -167,19 +167,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     }
 
     /**
-     * Clear the active module (e.g. when the last XLIDE editor closes) so that
-     * every module under every workbook collapses.
-     */
-    clearActiveModule(): void {
-        if (this._activeModuleKey === undefined) { return; }
-        const previousKey = this._activeModuleKey;
-        this._activeModuleKey = undefined;
-        this._activeWorkbookKey = undefined;
-        this._refreshModuleExpansion(previousKey);
-        this._refreshNonActiveWorkbookExpansions(undefined);
-    }
-
-    /**
      * Eagerly loads and caches the root xlsm nodes without waiting for the tree
      * to expand them. Returns the first node (if any) so callers can auto-reveal.
      */

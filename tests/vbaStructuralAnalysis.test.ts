@@ -8,6 +8,7 @@ import {
 } from '../src/vbaSourceScan';
 import { analyzeVbaStructure } from '../src/vbaStructuralDiagnostics';
 import {
+    commentContinuationText,
     detectSmartBlockOpener,
     isSmartBlockClosedAhead,
     normalizeSmartBlockLayout,
@@ -795,5 +796,27 @@ describe('withMemberContinuationText', () => {
         ].join('\n');
 
         expect(withMemberContinuationText(src, 2)).toBe('        .');
+    });
+});
+
+describe('commentContinuationText', () => {
+    it('mirrors the indentation, apostrophe, and post-apostrophe spaces', () => {
+        expect(commentContinuationText("    '   hello\n\n", 0, true)).toBe("    '   ");
+        expect(commentContinuationText("' hi\n\n", 0, true)).toBe("' ");
+        expect(commentContinuationText("'no space\n\n", 0, true)).toBe("'");
+    });
+
+    it('mirrors a triple-apostrophe doc comment run', () => {
+        expect(commentContinuationText("''' doc\n\n", 0, true)).toBe("''' ");
+    });
+
+    it('drops the trailing spaces when mirroring is off', () => {
+        expect(commentContinuationText("    '   hello\n\n", 0, false)).toBe("    '");
+        expect(commentContinuationText("''' doc\n\n", 0, false)).toBe("'''");
+    });
+
+    it('does not continue a trailing comment after code or a non-comment line', () => {
+        expect(commentContinuationText("    x = 5 ' note\n\n", 0, true)).toBeUndefined();
+        expect(commentContinuationText("    Dim y As Long\n\n", 0, true)).toBeUndefined();
     });
 });

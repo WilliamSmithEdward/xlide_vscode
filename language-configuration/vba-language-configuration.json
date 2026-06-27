@@ -65,14 +65,6 @@
       "action": { "indent": "indent" }
     },
     {
-      "beforeText": "^[ \t]*'''.*$",
-      "action": { "indent": "none", "appendText": "''' " }
-    },
-    {
-      "beforeText": "^[ \t]*'.*$",
-      "action": { "indent": "none", "appendText": "' " }
-    },
-    {
       "beforeText": ".*[ \t]_$",
       "action": { "indent": "indent" }
     }

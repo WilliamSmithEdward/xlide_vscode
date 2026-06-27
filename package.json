@@ -141,6 +141,18 @@
           "default": "comfy",
           "description": "Controls VBA Smart Enter and block-snippet layout. 'comfy' inserts spacer lines around the editable body; 'compact' places the editable body directly above the closer."
         },
+        "xlide.editor.continueCommentOnNewline": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "When the line above is a VBA comment (starts with an apostrophe), pressing Enter begins the new line with an apostrophe to continue the comment. Turn off for a plain new line with no apostrophe."
+        },
+        "xlide.editor.mirrorCommentSpacing": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "When continuing a comment, copy the run of spaces that follows the apostrophe on the line above so the text lines up. Turn off to insert just the apostrophe with no space. Only applies when 'Continue Comment On New Line' is on."
+        },
         "xlide.docs.enabled": {
           "type": "boolean",
           "scope": "machine",

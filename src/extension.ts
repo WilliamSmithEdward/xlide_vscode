@@ -515,11 +515,13 @@ export function activate(context: vscode.ExtensionContext): void {
                 }
             }, 60);
             const subscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
-                // No active editor (e.g. user closed the last tab) - collapse all modules.
+                // Focus moved off any text editor (the Output panel, terminal, the
+                // tree, a webview, or the last tab closed). Leave the tree as-is: a
+                // workbook only collapses when focus moves to a module in a DIFFERENT
+                // workbook, never on transient focus loss.
                 if (!editor) {
                     pending = undefined;
                     apply.cancel();
-                    explorer.clearActiveModule();
                     return;
                 }
                 if (!isLocalXlideDocument(editor.document)) { return; }

@@ -23,6 +23,8 @@ const validSettings = {
     'analysis.visibleSeverities': ['error', 'warning', 'information'],
     'analysis.untrackedRules': [],
     'editor.blockLayout': 'comfy',
+    'editor.continueCommentOnNewline': true,
+    'editor.mirrorCommentSpacing': true,
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
     'performance.trace': false,

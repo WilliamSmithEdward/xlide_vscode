@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { isVbaDocument } from './xlideFileSystem';
 import { lexerStrippedLine, lexerStrippedLines } from './analyzer/lexer/strippedLines';
 import {
+    commentContinuationText,
     detectSmartBlockOpener,
     isSmartBlockClosedAhead,
     procedureHeaderParensEdit,
@@ -15,7 +16,11 @@ import {
     smartBlockInsertion,
     withMemberContinuationText,
 } from './vbaSmartEnter';
-import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
+import {
+    xlideEditorBlockLayoutFromConfig,
+    xlideEditorContinueCommentOnNewlineFromConfig,
+    xlideEditorMirrorCommentSpacingFromConfig,
+} from './globalSettings';
 
 /**
  * VBA-IDE-style smart Enter: typing a block opener and pressing Enter
@@ -45,6 +50,7 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
             : openerLine;
         const opener = detectSmartBlockOpener(lexerStrippedLine(normalizedOpenerLine));
         if (!opener) {
+            if (await maybeContinueCommentLine(doc, openerLineIndex)) { return; }
             await maybeContinueWithMemberLine(doc, openerLineIndex);
             return;
         }
@@ -114,6 +120,58 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(sub);
+}
+
+/**
+ * Continues a whole-line VBA comment on Enter: the new line starts with the same
+ * apostrophe run and (per the mirror-spacing setting) the same trailing spaces.
+ * Gated by the editor.continueCommentOnNewline setting; returns true when it
+ * applied so the caller skips other continuations.
+ */
+async function maybeContinueCommentLine(
+    doc: vscode.TextDocument,
+    previousLineIndex: number,
+): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('xlide');
+    if (!xlideEditorContinueCommentOnNewlineFromConfig(config).value) {
+        return false;
+    }
+    const bodyLineIndex = previousLineIndex + 1;
+    if (bodyLineIndex >= doc.lineCount) { return false; }
+
+    const bodyLine = doc.lineAt(bodyLineIndex).text;
+    if (!/^[ \t]*$/.test(bodyLine)) { return false; }
+
+    const mirrorSpacing = xlideEditorMirrorCommentSpacingFromConfig(config).value;
+    const lineText = commentContinuationText(doc.getText(), previousLineIndex, mirrorSpacing);
+    if (lineText === undefined) { return false; }
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document !== doc) { return false; }
+
+    const bodyRange = new vscode.Range(
+        new vscode.Position(bodyLineIndex, 0),
+        new vscode.Position(bodyLineIndex, bodyLine.length),
+    );
+    const applied = await editor.edit(
+        (eb) => eb.replace(bodyRange, lineText),
+        { undoStopBefore: false, undoStopAfter: true },
+    );
+    if (!applied) { return false; }
+
+    const placeCaret = (): void => {
+        if (vscode.window.activeTextEditor !== editor || editor.document !== doc) {
+            return;
+        }
+        if (bodyLineIndex >= doc.lineCount || doc.lineAt(bodyLineIndex).text !== lineText) {
+            return;
+        }
+        const caret = new vscode.Position(bodyLineIndex, lineText.length);
+        editor.selection = new vscode.Selection(caret, caret);
+    };
+    placeCaret();
+    setTimeout(placeCaret, 0);
+    return true;
 }
 
 async function maybeContinueWithMemberLine(
