@@ -2,6 +2,59 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.6] - 2026-06-27
+
+### Added
+
+- **Excel Integration settings (`xlide.excelIntegration.*`).** A new settings
+  group controls what XLIDE does when a module save, add/rename/delete, F5, or
+  Open Workbook needs to write a workbook that Excel holds open: a coordination
+  mode (`block`, the default and safest; `closeTracked`; `closeForce`),
+  `trackOpenedWorkbooks`, `reopenAfterClose`, `reopenMode`
+  (`lastState`/`readOnly`/`readWrite`), and `reopenReadOnlyAfterSave`. XLIDE can
+  now gracefully close and reopen a workbook in Excel to complete a write, and
+  refresh Excel's stale read-only view after a save.
+- **Comment continuation on Enter.** Pressing Enter on a VBA comment line starts
+  the new line with an apostrophe to continue the comment. Controlled by
+  `xlide.editor.continueCommentOnNewline` (default on) and
+  `xlide.editor.mirrorCommentSpacing` (default on), which lines the continuation
+  up with the previous comment's text.
+- **New compile-error diagnostic `if-reserved-keyword-in-condition`**
+  (VBE-oracle-verified): flags a reserved keyword in a block-If condition, such
+  as `If If True Then` or `If True Then Then`.
+- **New compile-error diagnostic for a standalone multi-argument parenthesized
+  call** used as a statement (for example `mySub("a", "b")`).
+- **Python availability pulse:** after you install Python, XLIDE detects it
+  without a manual reload.
+
+### Changed
+
+- **F2 Rename now updates call sites across modules**, not only within the
+  current module.
+- **Inline (ghost-text) suggestions are turned off for VBA modules** so they no
+  longer take priority over XLIDE's completion list.
+- **The explorer tree only auto-collapses a workbook when focus moves to a tab in
+  a different workbook**, not on transient focus loss.
+- **A single, clear notification on a locked save or open**, instead of stacking
+  XLIDE's own warning on top of VS Code's native one.
+
+### Fixed
+
+- **F5 on a procedure with required parameters now explains the problem** (it
+  names the required parameters and how to run it) instead of failing with an
+  opaque COM error.
+- **F5 rides out a busy Excel** (`RPC_E_CALL_REJECTED`), such as a `MsgBox` left
+  open from a previous run, and reports a clear "Excel is busy" message if it
+  persists.
+- **Saving a module while the workbook is open read-only in Excel** no longer
+  surfaces a raw error, and F5 on a read-only workbook no longer races its own
+  background refresh.
+- **Transient file-lock failures while reading now retry** (Excel briefly locks
+  the file while it saves) instead of a spurious "cannot read" error.
+- **Race-condition hardening** across the Excel coordination paths, the explorer
+  cache, dirty-module backups, and module export/import (per-folder
+  serialization).
+
 ## [2.5.5] - 2026-06-20
 
 ### Changed
