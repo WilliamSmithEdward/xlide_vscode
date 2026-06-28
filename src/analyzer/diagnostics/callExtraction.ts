@@ -7,7 +7,6 @@
 // extraction and validation define the call contract; the signature *tables*
 // are built by the type-inference module.
 
-import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { Span } from '../parser/nodes';
 import { bareCallStatementTarget as callStatementTarget } from '../call/callContext';
@@ -15,6 +14,7 @@ import { qualifiedProcedureKey } from '../symbols/symbolModel';
 import type { PushFn, VbaDiagnosticData } from './analysisContext';
 import {
 	firstExecutableTokenIndex,
+	statementTokens,
 	stripHeaderBrackets,
 	tokenName,
 	tokenText,
@@ -88,9 +88,10 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 		return undefined;
 	}
 	const sliceStart = span.start;
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	// Reuse the per-pass statement-token cache (slice-relative offsets, byte-
+	// identical to a raw tokenize of the slice) so a call statement is not
+	// re-lexed once per call-validation rule on every keystroke.
+	const toks = statementTokens(source, span);
 	const startIndex = firstExecutableTokenIndex(toks);
 	const relCalleeStart = hit.span.start - sliceStart;
 	const calleeIdx = toks.findIndex((t) => t.start === relCalleeStart);
@@ -159,9 +160,10 @@ export function extractQualifiedCall(
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 ): CallArguments | undefined {
 	const sliceStart = span.start;
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	// Reuse the per-pass statement-token cache (slice-relative offsets, byte-
+	// identical to a raw tokenize of the slice) so a call statement is not
+	// re-lexed once per call-validation rule on every keystroke.
+	const toks = statementTokens(source, span);
 	if (toks.length === 0) {
 		return undefined;
 	}

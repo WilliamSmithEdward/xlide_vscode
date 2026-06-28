@@ -38,6 +38,7 @@ interface HostTypeIndex {
 interface HostModelIndex {
 	membersByType: Map<string, HostTypeIndex>;
 	typeKeysByLower: Map<string, string>;
+	globalsByLower: Map<string, string>;
 }
 
 const HOST_MODEL_INDEX = new WeakMap<HostObjectModel, HostModelIndex>();
@@ -72,7 +73,14 @@ function hostModelIndex(model: HostObjectModel): HostModelIndex {
 		}
 		membersByType.set(key, { members, byLowerName, rawByLowerName });
 	}
-	const index = { membersByType, typeKeysByLower };
+	const globalsByLower = new Map<string, string>();
+	for (const [key, type] of Object.entries(model.globals)) {
+		const keyLower = key.toLowerCase();
+		if (!globalsByLower.has(keyLower)) {
+			globalsByLower.set(keyLower, type);
+		}
+	}
+	const index = { membersByType, typeKeysByLower, globalsByLower };
 	HOST_MODEL_INDEX.set(model, index);
 	return index;
 }
@@ -101,13 +109,9 @@ export function resolveHostGlobal(
 	name: string,
 	model: HostObjectModel = getExcelObjectModel(),
 ): string | undefined {
-	const lower = name.toLowerCase();
-	for (const [key, type] of Object.entries(model.globals)) {
-		if (key.toLowerCase() === lower) {
-			return type;
-		}
-	}
-	return undefined;
+	// O(1) via the WeakMap-cached, lowercase-keyed index (first-wins), instead of
+	// an Object.entries allocation + linear scan on every identifier-token lookup.
+	return hostModelIndex(model).globalsByLower.get(name.toLowerCase());
 }
 
 /** Resolves a host enum constant such as `xlUp` or `xlCalculationAutomatic`. */

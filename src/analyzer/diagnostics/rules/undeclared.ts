@@ -16,7 +16,6 @@ import {
 	resolveHostGlobal,
 } from '../../host/hostModel';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
-import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	ModuleNode,
@@ -301,9 +300,7 @@ export function checkNonCallableCallStatement(
 }
 
 function callTargetFeedsMemberAccess(source: string, span: Span, call: CallArguments): boolean {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	const toks = statementTokens(source, span);
 	const relCalleeStart = call.nameSpan.start - span.start;
 	const calleeIdx = toks.findIndex((t) => t.start === relCalleeStart);
 	if (calleeIdx < 0 || toks[calleeIdx + 1]?.rawText !== '(') {

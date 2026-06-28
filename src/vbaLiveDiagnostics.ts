@@ -563,7 +563,15 @@ export function registerVbaDiagnostics(
             // we left should reveal its held diagnostics, and the doc we entered
             // should hide them on its cursor line.
             for (const entry of lastDiagnostics.values()) {
-                lastSuppressedLine.set(entry.uri.toString(), activeSuppressedLine(entry.uri));
+                const key = entry.uri.toString();
+                const line = activeSuppressedLine(entry.uri);
+                // Skip docs whose suppressed line did not change - i.e. every doc
+                // that is neither the editor we left nor the one we entered - so we
+                // avoid a needless Array.filter + collection.set re-ingest per doc.
+                if (lastSuppressedLine.get(key) === line) {
+                    continue;
+                }
+                lastSuppressedLine.set(key, line);
                 collection.set(entry.uri, filterForActiveLine(entry.uri, entry.diagnostics));
             }
             if (editor) {
