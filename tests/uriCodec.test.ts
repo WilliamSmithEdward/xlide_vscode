@@ -15,6 +15,7 @@ vi.mock('../src/liveShare', () => ({
 
 import {
     decodeModuleUri,
+    encodeModuleUri,
     moduleIdentityKey,
     sameWorkbookPath,
     workbookIdentityKey,
@@ -66,6 +67,21 @@ describe('decodeModuleUri', () => {
 
     it('throws on a path with missing module segment', () => {
         expect(() => decodeModuleUri(fakeUri('/home/user/workbook.xlsm/'))).toThrow();
+    });
+
+    it('round-trips workbook paths containing reserved characters (# and %)', () => {
+        // Built from a structured path (Uri.from), these must survive encode ->
+        // decode rather than being split on '#' or having '%xx' decoded.
+        for (const workbookPath of [
+            '/home/user/My #1 Book.xlsm',
+            '/home/user/50%done.xlsm',
+            '/home/user/report%20v2.xlsm',
+        ]) {
+            const uri = encodeModuleUri(workbookPath, 'Module1');
+            const decoded = decodeModuleUri(uri);
+            expect(decoded.moduleName).toBe('Module1');
+            expect(decoded.xlsmPath.replace(/\\/g, '/')).toBe(workbookPath);
+        }
     });
 });
 

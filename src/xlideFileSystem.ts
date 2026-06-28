@@ -100,10 +100,16 @@ export function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): vo
 export function encodeModuleUri(xlsmPath: string, moduleName: string): vscode.Uri {
     const forward = xlsmPath.replace(/\\/g, '/');
     const base = forward.startsWith('/') ? forward : `/${forward}`;
-    return vscode.Uri.parse(
-        `${XLIDE_SCHEME}:${base}/${encodeURIComponent(moduleName)}.bas`,
-        true,
-    );
+    // Build from a structured path rather than interpolating into a URI string.
+    // vscode.Uri.from percent-encodes the path on serialization while keeping
+    // uri.path literal, so workbook paths containing reserved characters like
+    // '#' or '%' round-trip correctly. (String interpolation + Uri.parse would
+    // split the path on '#'/'?' into the fragment/query and silently decode a
+    // stray '%xx', breaking decode or pointing the bridge at the wrong file.)
+    return vscode.Uri.from({
+        scheme: XLIDE_SCHEME,
+        path: `${base}/${moduleName}.bas`,
+    });
 }
 
 /**

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import sys
 import time
 import warnings
 from typing import Any
@@ -99,6 +100,19 @@ def _join_vba_source(header: str, body: str) -> str:
         return body
     # Ensure a single CRLF between the last header line and the body
     return header.rstrip("\r\n") + "\r\n" + body
+
+
+def _signature_dropped(caught: list[Any]) -> bool:
+    """True only when a save emitted a digital-signature-drop warning.
+
+    pyOpenVBA can emit unrelated UserWarnings during a save; matching ANY
+    UserWarning would misreport those as 'your signature was dropped'. Match the
+    signature-specific warning by message instead.
+    """
+    return any(
+        issubclass(w.category, UserWarning) and "signature" in str(w.message).lower()
+        for w in caught
+    )
 
 
 # Matches Sub, Function, and Property procedures at any access level.
@@ -241,8 +255,17 @@ def read_modules(*, path: str, full: bool = False) -> list[dict[str, Any]]:
                     _, source = _split_vba_source(source)
                 entry["source"] = source
                 result.append(entry)
-            except Exception:  # noqa: BLE001
-                # Keep workbook analysis best-effort at the module boundary.
+            except Exception as exc:  # noqa: BLE001
+                # Keep workbook analysis best-effort at the module boundary, but
+                # surface the skip on stderr (the bridge mirrors it) so a module
+                # silently dropped from analysis/indexing/test-discovery stays
+                # diagnosable instead of vanishing.
+                print(
+                    f"xlide: skipped unreadable module "
+                    f"{getattr(m, 'name', '<unknown>')!r}: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 continue
         return result
 
@@ -315,9 +338,9 @@ def write_module(*, path: str, module: str, source: str, kind: str = "standard")
             project = wb.vba_project()
             project.add_module(module, body, kind=vba_kind)
         with warnings.catch_warnings(record=True) as _caught:
-            warnings.simplefilter("always")
+            warnings.simplefilter("always", UserWarning)
             wb.save(allow_protected=True)
-    signature_dropped = any(issubclass(w.category, UserWarning) for w in _caught)
+    signature_dropped = _signature_dropped(_caught)
     return {"ok": True, "signatureDropped": signature_dropped}
 
 
@@ -327,9 +350,9 @@ def rename_module(*, path: str, module: str, newName: str) -> dict[str, Any]:
         project = wb.vba_project()
         project.rename_module(module, newName)
         with warnings.catch_warnings(record=True) as _caught:
-            warnings.simplefilter("always")
+            warnings.simplefilter("always", UserWarning)
             wb.save(allow_protected=True)
-    signature_dropped = any(issubclass(w.category, UserWarning) for w in _caught)
+    signature_dropped = _signature_dropped(_caught)
     return {"ok": True, "signatureDropped": signature_dropped}
 
 
@@ -339,9 +362,9 @@ def delete_module(*, path: str, module: str) -> dict[str, Any]:
         project = wb.vba_project()
         project.delete_module(module)
         with warnings.catch_warnings(record=True) as _caught:
-            warnings.simplefilter("always")
+            warnings.simplefilter("always", UserWarning)
             wb.save(allow_protected=True)
-    signature_dropped = any(issubclass(w.category, UserWarning) for w in _caught)
+    signature_dropped = _signature_dropped(_caught)
     return {"ok": True, "signatureDropped": signature_dropped}
 
 

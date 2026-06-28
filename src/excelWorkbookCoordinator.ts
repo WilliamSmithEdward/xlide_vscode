@@ -294,7 +294,10 @@ export function buildRefreshReadOnlyScript(filePath: string): string {
         '  foreach ($wb in @($excel.Workbooks)) {',
         '    if (($wb.FullName -ieq $targetPath) -or ($wb.Name -ieq $targetName)) {',
         '      if ($wb.ReadOnly) {',
-        '        try { $wb.Close($false); $excel.Workbooks.Open($targetPath, 0, $true) | Out-Null; $refreshed = $true } catch { }',
+        '        try { $wb.Close($false) } catch { }',
+        '        for ($__i = 0; $__i -lt 5; $__i++) {',
+        '          try { $excel.Workbooks.Open($targetPath, 0, $true) | Out-Null; $refreshed = $true; break } catch { Start-Sleep -Milliseconds 200 }',
+        '        }',
         '      }',
         '      break',
         '    }',
@@ -386,7 +389,19 @@ export async function runWriteWithExcelCoordination<T>(
         }
         // The retry is the source of truth: if it still fails the lock survived,
         // and the caller surfaces the locked-workbook guidance.
-        const result = await write();
+        let result: T;
+        try {
+            result = await write();
+        } catch (retryErr) {
+            // The retried write failed too. If the close actually freed the lock
+            // the workbook is no longer open in Excel, so drop the now-stale
+            // "opened by XLIDE" tracking before rethrowing - otherwise a later
+            // closeTracked save would act on a workbook that is not there.
+            if (freed) {
+                forgetWorkbookOpenedByXlide(filePath);
+            }
+            throw retryErr;
+        }
         if (isWorkbookReopenSuppressed(filePath)) {
             // A caller (F5) is about to reopen this workbook itself; do not race it.
         } else if (settings.reopenAfterClose) {

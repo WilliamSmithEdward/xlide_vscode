@@ -293,9 +293,12 @@ class OwnedExcelTestHostSession {
         } else if (event.kind === 'excel-quit') {
             this.sawExcelQuit = true;
             this.log(`[runVbaTests host] excel-quit durationMs=${event.durationMs ?? 'unknown'}`);
-            if (this.sawWorkbookClosed) {
-                this.armCleanupWatchdog('excel-quit');
-            }
+            // Arm unconditionally. If $workbook.Close($false) threw, the host
+            // emits no workbook-closed event but still proceeds to $excel.Quit(),
+            // leaving the COM-release phase (WaitForPendingFinalizers, which can
+            // hang on a stuck COM object) with NO active watchdog and the whole
+            // run hanging forever. Always guarding cleanup prevents that.
+            this.armCleanupWatchdog('excel-quit');
         }
     }
 
@@ -377,7 +380,13 @@ class OwnedExcelTestHostSession {
         }
         this.ownedExcelKilled = true;
         this.log(`[runVbaTests] Killing owned Excel process ${this.ownedExcelPid} after ${reason}.`);
-        cp.spawn('taskkill.exe', ['/PID', String(this.ownedExcelPid), '/T', '/F']);
+        // taskkill runs on the abort/cleanup recovery paths; a spawn failure
+        // (EMFILE/ENOMEM under load, or a locked-down PATH) must be logged, not
+        // left to surface as an uncaught child 'error' that crashes the host.
+        const killer = cp.spawn('taskkill.exe', ['/PID', String(this.ownedExcelPid), '/T', '/F'], { windowsHide: true });
+        killer.on('error', (err) => {
+            this.log(`[runVbaTests] taskkill failed for pid ${this.ownedExcelPid}: ${errorMessage(err)}`);
+        });
         const excelId = this.currentMacro?.excelId ?? this.events.find((event) => event.kind === 'excel-created')?.excelId;
         if (excelId) {
             this.events.push({ kind: 'excel-killed', excelId, reason });

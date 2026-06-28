@@ -106,7 +106,7 @@ export function buildExcelLaunchScript(options: ExcelLaunchScriptOptions): strin
         '  throw ("REOPEN_FAILED|XLIDE could not reopen the workbook. If it is open outside XLIDE, close it in Excel and try again: " + $_.Exception.Message)',
         '}',
         ...FOREGROUND_LINES,
-        '$macroRef = "\'" + $workbook.Name + "\'!" + $macroName',
+        '$macroRef = "\'" + ($workbook.Name -replace "\'", "\'\'") + "\'!" + $macroName',
         'try {',
         '  Invoke-XlideCom { $excel.Run($macroRef) }',
         '} catch {',
@@ -120,20 +120,27 @@ export function buildExcelLaunchScript(options: ExcelLaunchScriptOptions): strin
     ].join('; ');
 }
 
+// Backstop so an open/macro-run COM call cannot hang (and leak its powershell +
+// Excel COM reference) forever - the common cause is a modal dialog (e.g. a
+// MsgBox in the macro) waiting for the user. Generous so a legitimately
+// long-running macro is not cut short.
+const EXCEL_SCRIPT_TIMEOUT_MS = 300_000;
+
 async function runExcelScript(
     script: string,
     tag: string,
     log: (message: string) => void,
-): Promise<{ code: number | null; stderrLines: string[]; spawnError?: Error }> {
+): Promise<{ code: number | null; stderrLines: string[]; spawnError?: Error; timedOut: boolean }> {
     const run = runPowerShell({
         args: ['-Command', script],
+        timeoutMs: EXCEL_SCRIPT_TIMEOUT_MS,
         onSpawn: (pid) => log(`[${tag}] Spawned powershell.exe (pid=${pid ?? 'unknown'})`),
         onStdoutLine: (line) => log(`[${tag} stdout] ${line}`),
         onStderrLine: (line) => log(`[${tag} stderr] ${line}`),
     });
     const result = await run.result;
     if (!result.spawnError) {
-        log(`[${tag}] powershell exited with code=${result.code} signal=${result.signal ?? 'none'}`);
+        log(`[${tag}] powershell exited with code=${result.code} signal=${result.signal ?? 'none'}${result.timedOut ? ' (timed out)' : ''}`);
     }
     return result;
 }
@@ -155,6 +162,9 @@ export async function openWorkbookInExcel(
         log(`[openWorkbook] Error: ${result.spawnError.message}`);
         throw result.spawnError;
     }
+    if (result.timedOut) {
+        log('[openWorkbook] Timed out and the launch process was killed; Excel may be showing a dialog.');
+    }
 }
 
 /** Reopens the workbook read-only and runs the macro; rejects with ExcelMacroError. */
@@ -175,6 +185,13 @@ export async function runWorkbookMacroReadOnly(
     if (result.spawnError) {
         log(`[runMacro] Error: ${result.spawnError.message}`);
         throw new ExcelMacroError(result.spawnError.message, 'RUN_FAILED');
+    }
+    if (result.timedOut) {
+        throw new ExcelMacroError(
+            'Excel did not respond within the time limit. A dialog may be open in Excel '
+            + '(for example a MsgBox from the macro); close it and try again, or the macro may be running too long.',
+            'RUN_FAILED',
+        );
     }
     if (result.code === 0) {
         return;

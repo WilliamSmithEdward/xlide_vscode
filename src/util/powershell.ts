@@ -92,6 +92,11 @@ export function runPowerShell(options: RunPowerShellOptions): PowerShellRun {
             timer = setTimeout(() => {
                 timedOut = true;
                 child.kill();
+                // Flush buffered partial lines before settling, the same way the
+                // error/close handlers do, so a sentinel/diagnostic emitted just
+                // before the timeout is not lost from the resolved result.
+                stdout.flush();
+                stderr.flush();
                 finish({ code: null, signal: null });
             }, options.timeoutMs);
         }

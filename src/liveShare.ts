@@ -94,6 +94,11 @@ export class LiveShareIntegration implements vscode.Disposable {
 
     private _disposables: vscode.Disposable[] = [];
 
+    // Bumped on every session change so a setup (_initHost/_initGuest) suspended
+    // awaiting a Live Share API can detect that a newer change superseded it and
+    // avoid binding a shared service to an already-ended session.
+    private _sessionGeneration = 0;
+
     constructor(
         private readonly _bridge: PythonBridge,
         private readonly _out: vscode.OutputChannel,
@@ -132,6 +137,7 @@ export class LiveShareIntegration implements vscode.Disposable {
     }
 
     private async _onSessionChange(e: vsls.SessionChangeEvent): Promise<void> {
+        const generation = ++this._sessionGeneration;
         const role = e.session.role;
         const roleName = role === 1 ? 'Host' : role === 2 ? 'Guest' : `None(${role})`;
         this._out.appendLine(`[LiveShare] session change -> role=${roleName}`);
@@ -145,18 +151,22 @@ export class LiveShareIntegration implements vscode.Disposable {
         if (!this._api) { return; }
 
         if (role === 1 /* Host */) {
-            await this._initHost();
+            await this._initHost(generation);
         } else if (role === 2 /* Guest */) {
-            await this._initGuest();
+            await this._initGuest(generation);
         }
-        this._onDidChange.fire();
+        // Only the latest session change signals; a superseded one must not fire
+        // stale state.
+        if (generation === this._sessionGeneration) {
+            this._onDidChange.fire();
+        }
     }
 
     // ------------------------------------------------------------------
     // Host side
     // ------------------------------------------------------------------
 
-    private async _initHost(): Promise<void> {
+    private async _initHost(generation: number): Promise<void> {
         if (!this._api) { return; }
         this._out.appendLine(`[LiveShare] host: sharing service '${SERVICE_NAME}'...`);
         let svc: vsls.SharedService | null;
@@ -171,6 +181,12 @@ export class LiveShareIntegration implements vscode.Disposable {
             this._out.appendLine('[LiveShare] host: This is a Live Share restriction on third-party extensions.');
             this._out.appendLine('[LiveShare] host: Fix: set "liveshare.featureSet": "insiders" in VS Code settings on host AND guest, then reload both windows.');
             void this._promptFeatureSetFix();
+            return;
+        }
+        if (generation !== this._sessionGeneration) {
+            // A newer session change superseded this one while awaiting
+            // shareService; undo and bail rather than bind to an ended session.
+            try { await this._api?.unshareService(SERVICE_NAME); } catch { /* ignore */ }
             return;
         }
         this._hostService = svc;
@@ -310,7 +326,7 @@ export class LiveShareIntegration implements vscode.Disposable {
     // Guest side
     // ------------------------------------------------------------------
 
-    private async _initGuest(): Promise<void> {
+    private async _initGuest(generation: number): Promise<void> {
         if (!this._api) { return; }
         this._out.appendLine(`[LiveShare] guest: connecting to service '${SERVICE_NAME}'...`);
         // Guests also need the "insiders" feature set for the shared service proxy to work.
@@ -329,6 +345,9 @@ export class LiveShareIntegration implements vscode.Disposable {
         if (!proxy) {
             this._out.appendLine('[LiveShare] guest: XLIDE service unavailable (host extension not installed/activated?).');
             return;
+        }
+        if (generation !== this._sessionGeneration) {
+            return;  // a newer session change superseded this one while awaiting getSharedService
         }
         this._guestProxy = proxy;
         this._out.appendLine(`[LiveShare] guest: proxy acquired, isServiceAvailable=${proxy.isServiceAvailable}`);

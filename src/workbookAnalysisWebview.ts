@@ -230,6 +230,23 @@ export function openWorkbookAnalysisResults(
         return rowProblem ?? indexedProblem;
     };
 
+    // For MUTATING row actions (suppress / quick-fix / ask-Copilot / rule
+    // tracking) the client also sends the finding's stable identity. If a
+    // background refresh shifted the problem array underneath the panel, the
+    // problem now at the sent index will not match that identity - refuse to act
+    // so we never suppress or rewrite the WRONG finding.
+    const verifiedMutationProblem = (message: WorkbookAnalysisMessage): WorkbookAnalysisProblem | undefined => {
+        const indexed = problemAt(message.index, message.suppressed);
+        if (!indexed) {
+            return undefined;
+        }
+        const identity = problemFromOpenMessage(message);
+        if (identity && !sameProblemLocation(indexed, identity)) {
+            return undefined;
+        }
+        return indexed;
+    };
+
     const reportText = (json: boolean): string => json
         ? JSON.stringify(currentModel, null, 2)
         : buildWorkbookAnalysisPlainText(currentModel);
@@ -248,7 +265,7 @@ export function openWorkbookAnalysisResults(
                 return;
             }
             if (message.type === 'suppressProblem') {
-                const problem = problemAt(message.index, message.suppressed);
+                const problem = verifiedMutationProblem(message);
                 const scope = message.scope;
                 if (problem && message.suppressed === true) {
                     await panel.webview.postMessage({ type: 'error', error: 'This analysis finding is already suppressed.' });
@@ -266,14 +283,14 @@ export function openWorkbookAnalysisResults(
                 return;
             }
             if (message.type === 'askCopilot') {
-                const problem = problemAt(message.index, message.suppressed);
+                const problem = verifiedMutationProblem(message);
                 if (problem && entry.options.onAskCopilot) {
                     await entry.options.onAskCopilot(problem, panel.viewColumn);
                 }
                 return;
             }
             if (message.type === 'quickFixProblem') {
-                const problem = problemAt(message.index, message.suppressed);
+                const problem = verifiedMutationProblem(message);
                 const applied = problem && entry.options.onQuickFixProblem
                     ? await entry.options.onQuickFixProblem(problem, panel.viewColumn, message.fixIndex)
                     : false;
@@ -286,7 +303,7 @@ export function openWorkbookAnalysisResults(
                 return;
             }
             if (message.type === 'setRuleTracking') {
-                const problem = problemAt(message.index, message.suppressed);
+                const problem = verifiedMutationProblem(message);
                 const code = typeof message.code === 'string' ? message.code : problem?.code;
                 if (code) {
                     const scope = message.trackingScope === 'global' ? 'global' : 'workbook';

@@ -111,6 +111,14 @@ export class PythonBridge implements vscode.Disposable {
     }
 
     async start(): Promise<void> {
+        // Idempotent: if a start is already in flight or a live process exists,
+        // return that start rather than spawning a second interpreter (which
+        // would orphan the first - e.g. xlide.setup's installDependencies calling
+        // start() directly while a lazy start already ran). restart() stops first
+        // (clearing _proc), so it still re-spawns.
+        if (this._proc && this._startPromise) {
+            return this._startPromise;
+        }
         // Reset state so start() can be called again after a failed attempt.
         this._ready = false;
         this._stderrLines = [];

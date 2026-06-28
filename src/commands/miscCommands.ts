@@ -221,9 +221,11 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 if (process.platform === 'win32') {
                     runWindowsExcel(filePath, attachToRunning, false);
                 } else if (process.platform === 'darwin') {
-                    cp.spawn('open', ['-a', 'Microsoft Excel', filePath]);
+                    cp.spawn('open', ['-a', 'Microsoft Excel', filePath])
+                        .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the workbook: ${errorMessage(err)}`));
                 } else {
-                    cp.spawn('libreoffice', ['--calc', '--norestore', filePath]);
+                    cp.spawn('libreoffice', ['--calc', '--norestore', filePath])
+                        .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the workbook: ${errorMessage(err)}`));
                 }
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to open workbook: ${err}`);
@@ -240,9 +242,11 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 if (process.platform === 'win32') {
                     runWindowsExcel(filePath, attachToRunning, true);
                 } else if (process.platform === 'darwin') {
-                    cp.spawn('open', ['-a', 'Microsoft Excel', filePath]);
+                    cp.spawn('open', ['-a', 'Microsoft Excel', filePath])
+                        .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the workbook: ${errorMessage(err)}`));
                 } else {
-                    cp.spawn('libreoffice', ['--calc', '--norestore', '--view', filePath]);
+                    cp.spawn('libreoffice', ['--calc', '--norestore', '--view', filePath])
+                        .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the workbook: ${errorMessage(err)}`));
                 }
             } catch (err) {
                 vscode.window.showErrorMessage(`Failed to open workbook: ${err}`);
@@ -327,12 +331,14 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                         // a later closeTracked save can free the lock automatically.
                         markWorkbookOpenedByXlide(xlsmPath);
                     } else if (process.platform === 'darwin') {
-                        cp.spawn('open', ['-a', 'Microsoft Excel', xlsmPath]);
+                        cp.spawn('open', ['-a', 'Microsoft Excel', xlsmPath])
+                            .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the workbook: ${errorMessage(err)}`));
                         vscode.window.showInformationMessage(
                             `Workbook opened. Run macro: ${moduleName}.${currentProc}`,
                         );
                     } else {
-                        cp.spawn('libreoffice', ['--calc', '--norestore', '--view', xlsmPath]);
+                        cp.spawn('libreoffice', ['--calc', '--norestore', '--view', xlsmPath])
+                            .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the workbook: ${errorMessage(err)}`));
                         vscode.window.showInformationMessage(
                             `Workbook opened. Run macro manually: ${moduleName}.${currentProc}`,
                         );

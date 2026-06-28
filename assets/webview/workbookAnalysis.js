@@ -410,6 +410,18 @@
             return contextRow?.dataset.suppressed === 'yes';
         }
 
+        function contextProblemIdentity() {
+            if (!contextRow) { return {}; }
+            const d = contextRow.dataset;
+            return {
+                moduleName: d.module,
+                line: Number(d.line),
+                column: Number(d.column),
+                endColumn: Number(d.endColumn),
+                code: d.ruleCode,
+            };
+        }
+
         function contextProblemTracked() {
             return contextRow?.dataset.tracked !== 'no';
         }
@@ -500,6 +512,9 @@
                 const index = contextProblemIndex();
                 const suppressed = contextProblemSuppressed();
                 const currentlyTracked = contextProblemTracked();
+                // Stable identity of the right-clicked finding, so the host can
+                // reject the action if a background refresh shifted the indices.
+                const identity = contextProblemIdentity();
                 hideContextMenu();
                 if (typeof index !== 'number' || Number.isNaN(index)) {
                     return;
@@ -509,24 +524,26 @@
                         type: 'quickFixProblem',
                         index,
                         suppressed,
+                        ...identity,
                         fixIndex: Number(contextButton.dataset.fixIndex ?? 0),
                     });
                 } else if (action === 'askCopilot') {
-                    vscode.postMessage({ type: 'askCopilot', index, suppressed });
+                    vscode.postMessage({ type: 'askCopilot', index, suppressed, ...identity });
                 } else if (action === 'setRuleTrackingWorkbook' || action === 'setRuleTrackingGlobal') {
                     vscode.postMessage({
                         type: 'setRuleTracking',
                         index,
                         suppressed,
+                        ...identity,
                         tracked: !currentlyTracked,
                         trackingScope: action === 'setRuleTrackingGlobal' ? 'global' : 'workbook',
                     });
                 } else if (action === 'suppressBlock') {
-                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, scope: 'block' });
+                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, ...identity, scope: 'block' });
                 } else if (action === 'suppressMember') {
-                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, scope: 'member' });
+                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, ...identity, scope: 'member' });
                 } else if (action === 'suppressModule') {
-                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, scope: 'module' });
+                    vscode.postMessage({ type: 'suppressProblem', index, suppressed, ...identity, scope: 'module' });
                 }
                 return;
             }

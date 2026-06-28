@@ -11,6 +11,8 @@ from __future__ import annotations
 import contextlib
 import io
 import json as _json
+import os
+import tempfile
 from typing import Any
 
 from xlide.vba_io import get_modules_and_protection_info as _get_modules_and_protection_info
@@ -31,8 +33,35 @@ def _parse_cell(ref: str) -> tuple[int, int]:
     """Return (row, col) 1-based integers from a cell reference like 'B3'."""
     from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
-    col_str, row = coordinate_from_string(ref)
-    return row, column_index_from_string(col_str)
+    try:
+        col_str, row = coordinate_from_string(ref)
+        return row, column_index_from_string(col_str)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(
+            f"Invalid cell reference {ref!r}: expected A1 notation such as 'B3'."
+        ) from exc
+
+
+def _atomic_save(wb: Any, path: str) -> None:
+    """Save an openpyxl workbook atomically.
+
+    openpyxl's wb.save(path) truncates the target up front and writes in place,
+    so a failure partway (disk full, the file locked mid-write, a kill) would
+    leave the user's original workbook corrupt. Write to a temp file in the same
+    directory and os.replace() it over the target, so a failed save leaves the
+    original intact. keep_vba state is carried by the loaded workbook, so VBA is
+    preserved regardless of the temp filename.
+    """
+    directory = os.path.dirname(os.path.abspath(path))
+    fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=directory)
+    os.close(fd)
+    try:
+        wb.save(tmp)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.remove(tmp)
+        raise
 
 
 def _ws_dimensions(ws: Any) -> str:
@@ -73,6 +102,23 @@ def get_workbook_info(*, path: str) -> dict[str, Any]:
         # older versions exposed a .definedName sequence.
         names = defined.values() if hasattr(defined, "values") else defined.definedName
         named_ranges = [{"name": nr.name, "ref": nr.attr_text} for nr in names]
+        # Sheet-scoped names live on each worksheet, not the workbook; include
+        # them too (best-effort, tolerant of openpyxl read-only API differences).
+        for ws in wb.worksheets:
+            sheet_defined = getattr(ws, "defined_names", None)
+            if not sheet_defined:
+                continue
+            try:
+                sheet_names = (
+                    sheet_defined.values()
+                    if hasattr(sheet_defined, "values")
+                    else sheet_defined
+                )
+                named_ranges.extend(
+                    {"name": nr.name, "ref": nr.attr_text} for nr in sheet_names
+                )
+            except Exception:  # noqa: BLE001
+                continue
     finally:
         wb.close()
     return {
@@ -130,7 +176,7 @@ def write_cells(
                     column=start_col + c_offset,
                     value=value,
                 )
-        wb.save(path)
+        _atomic_save(wb, path)
     finally:
         wb.close()
     return {"ok": True}
@@ -165,7 +211,7 @@ def run_openpyxl(
         with contextlib.redirect_stdout(buf):
             exec(compile(code, "<xlide_openpyxl>", "exec"), namespace)  # noqa: S102
         if save:
-            wb.save(path)
+            _atomic_save(wb, path)
     finally:
         wb.close()
     return {"result": namespace.get("result"), "stdout": buf.getvalue()}

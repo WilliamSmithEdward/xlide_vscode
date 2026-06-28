@@ -93,24 +93,35 @@ function registerXlideGlobalSettingsWebview(out: vscode.OutputChannel): vscode.D
             },
         );
         const panelDisposables: vscode.Disposable[] = [];
-        panel.webview.onDidReceiveMessage(async (message: XlideGlobalSettingsMessage) => {
-            try {
-                // The xlide configuration watcher below is the single render
-                // trigger for applied updates; rendering here too would rebuild
-                // the document twice per change.
-                await applyXlideGlobalSettingsMessage(
-                    vscode.workspace.getConfiguration('xlide'),
-                    message,
-                );
-            } catch (err) {
-                const error = errorMessage(err);
-                out.appendLine(`[globalSettings] Settings update failed: ${error}`);
-                await panel?.webview.postMessage({
-                    type: 'error',
-                    error: `XLIDE: Settings update failed: ${error}`,
-                });
-                render();
-            }
+        // Serialize message handling so a read-modify-write update (e.g. a
+        // rule-severity override) sees the previous message's committed config
+        // instead of racing its async config.update and silently losing the
+        // earlier change. VS Code does not await async message handlers.
+        let messageQueue: Promise<void> = Promise.resolve();
+        panel.webview.onDidReceiveMessage((message: XlideGlobalSettingsMessage) => {
+            const run = messageQueue.then(async () => {
+                try {
+                    // The xlide configuration watcher below is the single render
+                    // trigger for applied updates; rendering here too would rebuild
+                    // the document twice per change.
+                    await applyXlideGlobalSettingsMessage(
+                        vscode.workspace.getConfiguration('xlide'),
+                        message,
+                    );
+                } catch (err) {
+                    const error = errorMessage(err);
+                    out.appendLine(`[globalSettings] Settings update failed: ${error}`);
+                    await panel?.webview.postMessage({
+                        type: 'error',
+                        error: `XLIDE: Settings update failed: ${error}`,
+                    });
+                    render();
+                }
+            });
+            // Keep the queue chained even if a handler rejects, and return the
+            // per-message promise so callers (and tests) can await completion.
+            messageQueue = run.catch(() => undefined);
+            return run;
         }, undefined, panelDisposables);
         panel.onDidDispose(() => {
             for (const disposable of panelDisposables) {

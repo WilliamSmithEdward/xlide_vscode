@@ -177,6 +177,13 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 				path: value.includes(':') ? value.slice(value.indexOf(':') + 1) : value,
 				toString: () => value,
 			}),
+			from: (components: { scheme?: string; authority?: string; path?: string }) => ({
+				scheme: components.scheme ?? '',
+				authority: components.authority ?? '',
+				path: components.path ?? '',
+				fsPath: components.path ?? '',
+				toString: () => `${components.scheme ?? ''}:${components.path ?? ''}`,
+			}),
 		},
 		...base,
 		...overrides,
