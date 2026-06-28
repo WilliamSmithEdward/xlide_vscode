@@ -17,6 +17,7 @@ import {
 } from './xlideFileSystem';
 import { moduleNameFromDocument } from './vbaDocumentIdentity';
 import {
+    diagnosticMetadataForCode,
     diagnosticSourceForCode,
     DiagnosticSeverity as RuleSeverity,
     EventHandlerDocumentType,
@@ -44,6 +45,7 @@ import {
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
 import { errorMessage } from './util/errors';
+import { visibleDiagnosticsForActiveLine } from './vbaActiveLineDiagnostics';
 import {
     XLIDE_DIAGNOSTIC_DATA,
     type XlideDiagnosticWithData,
@@ -258,6 +260,42 @@ export function registerVbaDiagnostics(
         }
     };
 
+    // Hold "still-typing" syntax errors (e.g. an `If` with no `Then` yet) on the
+    // line the cursor is on, matching the VBE which only validates a line once you
+    // leave it. Diagnostics are cached unfiltered so the suppression can be
+    // re-applied on cursor moves / editor switches without re-running analysis.
+    const heldWhileTyping = new WeakSet<vscode.Diagnostic>();
+    const lastDiagnostics = new Map<string, {
+        uri: vscode.Uri;
+        version: number;
+        diagnostics: vscode.Diagnostic[];
+    }>();
+    const lastSuppressedLine = new Map<string, number | undefined>();
+
+    const activeSuppressedLine = (uri: vscode.Uri): number | undefined => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.uri.toString() !== uri.toString()) {
+            return undefined;
+        }
+        return editor.selection.active.line;
+    };
+
+    const filterForActiveLine = (
+        uri: vscode.Uri,
+        diagnostics: vscode.Diagnostic[],
+    ): vscode.Diagnostic[] =>
+        visibleDiagnosticsForActiveLine(
+            diagnostics,
+            activeSuppressedLine(uri),
+            (d) => heldWhileTyping.has(d),
+        );
+
+    const publish = (uri: vscode.Uri, version: number, diagnostics: vscode.Diagnostic[]): void => {
+        lastDiagnostics.set(uri.toString(), { uri, version, diagnostics });
+        lastSuppressedLine.set(uri.toString(), activeSuppressedLine(uri));
+        collection.set(uri, filterForActiveLine(uri, diagnostics));
+    };
+
     const run = (
         document: vscode.TextDocument,
         delays: DiagnosticScheduleDelays = { localDelayMs: 0, fullDelayMs: 0 },
@@ -287,7 +325,7 @@ export function registerVbaDiagnostics(
             if (!scheduler.shouldPublish(key, generation, pass)) {
                 return;
             }
-            collection.set(document.uri, [diagnosticForAnalysisRunError(document, err)]);
+            publish(document.uri, document.version, [diagnosticForAnalysisRunError(document, err)]);
         });
     };
 
@@ -375,10 +413,15 @@ export function registerVbaDiagnostics(
             if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) {
                 return;
             }
+            // Route through publish()/cache cleanup so the held-diagnostics cache
+            // stays in lockstep with the collection; otherwise a later cursor move
+            // or editor switch would re-publish the now-disabled diagnostics.
             if (settingsDiagnostics.length > 0) {
-                collection.set(document.uri, settingsDiagnostics);
+                publish(document.uri, documentVersion, settingsDiagnostics);
             } else {
                 collection.delete(document.uri);
+                lastDiagnostics.delete(key);
+                lastSuppressedLine.delete(key);
             }
             return;
         }
@@ -464,6 +507,11 @@ export function registerVbaDiagnostics(
             if (d.data) {
                 (diag as XlideDiagnosticWithData)[XLIDE_DIAGNOSTIC_DATA] = d.data;
             }
+            // Tag syntax-category findings so they can be held on the active line
+            // (e.g. an `If` with no `Then` yet) until the cursor leaves the line.
+            if (d.code && diagnosticMetadataForCode(d.code)?.category === 'syntax') {
+                heldWhileTyping.add(diag);
+            }
             diagnostics.push(diag);
         }
         return diagnostics;
@@ -483,7 +531,7 @@ export function registerVbaDiagnostics(
         if (!scheduler.shouldPublish(key, generation, pass)) {
             return;
         }
-        collection.set(document.uri, diagnostics);
+        publish(document.uri, documentVersion, diagnostics);
     };
 
     const rerunWorkbookDocuments = (workbookPath: string): void => {
@@ -511,6 +559,13 @@ export function registerVbaDiagnostics(
         vscode.workspace.onDidChangeTextDocument((e) => scheduler.schedule(e.document)),
         vscode.window.onDidChangeActiveTextEditor(() => {
             const editor = vscode.window.activeTextEditor;
+            // Re-apply current-line suppression for every cached document: the doc
+            // we left should reveal its held diagnostics, and the doc we entered
+            // should hide them on its cursor line.
+            for (const entry of lastDiagnostics.values()) {
+                lastSuppressedLine.set(entry.uri.toString(), activeSuppressedLine(entry.uri));
+                collection.set(entry.uri, filterForActiveLine(entry.uri, entry.diagnostics));
+            }
             if (editor) {
                 scheduler.schedule(editor.document, {
                     localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
@@ -518,9 +573,27 @@ export function registerVbaDiagnostics(
                 });
             }
         }),
+        vscode.window.onDidChangeTextEditorSelection((e) => {
+            const doc = e.textEditor.document;
+            const entry = lastDiagnostics.get(doc.uri.toString());
+            // Re-apply suppression when the cursor line changes. Skip when an edit is
+            // pending (version drift) - the debounced re-run will republish with
+            // correct positions - or when the active line is unchanged.
+            if (!entry || entry.version !== doc.version) {
+                return;
+            }
+            const line = activeSuppressedLine(doc.uri);
+            if (lastSuppressedLine.get(doc.uri.toString()) === line) {
+                return;
+            }
+            lastSuppressedLine.set(doc.uri.toString(), line);
+            collection.set(doc.uri, filterForActiveLine(doc.uri, entry.diagnostics));
+        }),
         vscode.workspace.onDidCloseTextDocument((doc) => {
             scheduler.cancel(doc.uri.toString());
             collection.delete(doc.uri);
+            lastDiagnostics.delete(doc.uri.toString());
+            lastSuppressedLine.delete(doc.uri.toString());
             settingsWatchers.prune();
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {
