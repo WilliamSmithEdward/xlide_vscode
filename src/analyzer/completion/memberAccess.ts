@@ -672,11 +672,38 @@ function collectReceiverChainWithStart(
 	return { segments, startIndex };
 }
 
+// `Me` is the only VBA keyword that can terminate a receiver expression (`Me.`);
+// every other keyword before a dot (In, To, Then, ...) introduces a fresh
+// expression, so the dot is a leading implicit-With member access.
+const RECEIVER_TAIL_KEYWORDS = new Set(['me']);
+
+/**
+ * True when `token` (the token immediately before a `.`) means the dot is a
+ * LEADING implicit-With member-access dot rather than `receiver.member`. A dot is
+ * explicit only when preceded by something that terminates a receiver expression:
+ * a plain identifier, `Me`, or a closing `)`/`]`. Anything else - a statement
+ * boundary, an operator (`=`, `&`, `+`, ...), `(`/`,`, or an expression-introducing
+ * keyword (`In`, `To`, `Then`, ...) - starts a new expression where `.member`
+ * binds to the active `With` block (e.g. `For Each wb In .Workbooks`, `Set x = .Foo`).
+ */
+function precedesLeadingMemberDot(token: VbaToken): boolean {
+	if (token.kind === 'identifier') {
+		return false;
+	}
+	if (token.rawText === ')' || token.rawText === ']') {
+		return false;
+	}
+	if (token.kind === 'keyword' && RECEIVER_TAIL_KEYWORDS.has(token.rawText.toLowerCase())) {
+		return false;
+	}
+	return true;
+}
+
 function collectImplicitWithChain(
 	tokens: VbaToken[],
 	endIndex: number,
 ): ReceiverChainSegment[] | undefined {
-	if (endIndex < 0 || isBoundary(tokens[endIndex])) {
+	if (endIndex < 0 || precedesLeadingMemberDot(tokens[endIndex])) {
 		return [];
 	}
 	const segments: ReceiverChainSegment[] = [];
@@ -706,7 +733,7 @@ function collectImplicitWithChain(
 		i -= 1;
 		if (i >= 0 && tokens[i].rawText === '.') {
 			const prior = i - 1;
-			if (prior < 0 || isBoundary(tokens[prior])) {
+			if (prior < 0 || precedesLeadingMemberDot(tokens[prior])) {
 				return segments;
 			}
 			i = prior;
