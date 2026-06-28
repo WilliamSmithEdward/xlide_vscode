@@ -94,7 +94,7 @@ export function registerVbaMemberCompletion(
 				// Ignore URIs we cannot decode.
 			}
 		}),
-		vscode.workspace.onDidCloseTextDocument((doc) => canonicalCase.handleDocumentClose(doc)),
+		vscode.workspace.onDidCloseTextDocument((doc) => { keywordSnippets.handleDocumentClose(doc); canonicalCase.handleDocumentClose(doc); }),
 	);
 }
 

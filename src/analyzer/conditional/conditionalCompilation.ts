@@ -458,7 +458,10 @@ class ConditionalExpressionParser {
 	private parseComparison(): ConditionalValue | undefined {
 		const left = this.parseUnary();
 		const op = this.peek()?.rawText;
-		if (op !== '=' && op !== '<>') {
+		// Relational operators (<, >, <=, >=) join the existing equality (=, <>)
+		// handling so `#If Win64 >= 1 Then` and friends evaluate. Anything else
+		// (Like, etc.) is left to the caller as an unmodeled remainder.
+		if (op !== '=' && op !== '<>' && op !== '<' && op !== '>' && op !== '<=' && op !== '>=') {
 			return left;
 		}
 		this.index++;
@@ -466,8 +469,27 @@ class ConditionalExpressionParser {
 		if (left === undefined || right === undefined) {
 			return undefined;
 		}
-		const same = normalizedComparisonValue(left) === normalizedComparisonValue(right);
-		return op === '=' ? same : !same;
+		if (op === '=' || op === '<>') {
+			const same = normalizedComparisonValue(left) === normalizedComparisonValue(right);
+			return op === '=' ? same : !same;
+		}
+		// Relational comparisons operate on the operands' numeric values (VBA
+		// coerces booleans to -1/0); a non-numeric operand stays unmodeled.
+		const leftNumber = relationalNumber(left);
+		const rightNumber = relationalNumber(right);
+		if (leftNumber === undefined || rightNumber === undefined) {
+			return undefined;
+		}
+		switch (op) {
+			case '<':
+				return leftNumber < rightNumber;
+			case '>':
+				return leftNumber > rightNumber;
+			case '<=':
+				return leftNumber <= rightNumber;
+			default:
+				return leftNumber >= rightNumber;
+		}
 	}
 
 	private parseUnary(): ConditionalValue | undefined {
@@ -494,7 +516,21 @@ class ConditionalExpressionParser {
 		}
 		this.index++;
 		if (token.kind === 'integerLiteral' || token.kind === 'floatLiteral') {
-			const number = Number(token.rawText.replace(/[!#@%&^]$/, ''));
+			// VBA hex (&H10) / octal (&O17) literals are not parseable by Number();
+			// strip any trailing type-suffix char and parse with the correct radix
+			// before falling back to a decimal/float Number() parse.
+			const raw = token.rawText.replace(/[!#@%&^]$/, '');
+			const hex = /^&[hH]([0-9A-Fa-f]+)$/.exec(raw);
+			if (hex) {
+				const value = Number.parseInt(hex[1], 16);
+				return Number.isFinite(value) ? value : undefined;
+			}
+			const octal = /^&[oO]([0-7]+)$/.exec(raw);
+			if (octal) {
+				const value = Number.parseInt(octal[1], 8);
+				return Number.isFinite(value) ? value : undefined;
+			}
+			const number = Number(raw);
 			return Number.isFinite(number) ? number : undefined;
 		}
 		if (token.kind === 'stringLiteral') {
@@ -522,6 +558,19 @@ class ConditionalExpressionParser {
 		return this.tokens[this.index];
 	}
 
+}
+
+/** Numeric value used for relational comparisons; undefined for non-numeric strings. */
+function relationalNumber(value: ConditionalValue): number | undefined {
+	if (typeof value === 'boolean') {
+		// VBA coerces True -> -1, False -> 0 for numeric comparison.
+		return value ? -1 : 0;
+	}
+	if (typeof value === 'number') {
+		return value;
+	}
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function normalizedComparisonValue(value: ConditionalValue): string {

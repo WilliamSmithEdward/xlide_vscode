@@ -166,14 +166,24 @@ function typeNameSpansAfterTypeOfIs(source: string, span: Span): TypeNameReferen
 			sawTypeOf = true;
 			continue;
 		}
-		if (!sawTypeOf || lower !== 'is') {
+		if (!sawTypeOf) {
 			continue;
 		}
-		const ref = typeNameReferenceFromTokens(toks, i + 1, span.start, 'typeOfIs');
-		if (ref) {
-			out.push(ref);
+		if (lower === 'is') {
+			const ref = typeNameReferenceFromTokens(toks, i + 1, span.start, 'typeOfIs');
+			if (ref) {
+				out.push(ref);
+			}
+			sawTypeOf = false;
+			continue;
 		}
-		sawTypeOf = false;
+		// `TypeOf expr Is Type` only allows the operand's qualified chain
+		// (name, '.', name, ...) between TypeOf and Is. Any other significant
+		// token means this is a malformed/non-TypeOf use; clear the flag so a
+		// later unrelated `Is` in the same statement is not misclassified.
+		if (lower !== '.' && !tokenName(toks[i])) {
+			sawTypeOf = false;
+		}
 	}
 	return out;
 }

@@ -29,7 +29,7 @@ describe('VBA test Excel host script', () => {
         expect(script).not.toContain('$excel.Visible = $true');
         expect(script).toContain('$excel.Workbooks.Open($targetPath, 0, $true');
         expect(script).toContain(`$runnerModuleName = '${XLIDE_TEST_RUNNER_MODULE_NAME}'`);
-        expect(script).toContain('$testRunnerRef = "\'" + $workbook.Name + "\'!" + $runnerModuleName + ".RunTest"');
+        expect(script).toContain('$testRunnerRef = "\'" + ($workbook.Name -replace "\'", "\'\'") + "\'!" + $runnerModuleName + ".RunTest"');
         expect(script).toContain('$excel.Run($testRunnerRef, $macroName)');
         expect(script).not.toContain('$excel.Run($macroRef)');
         expect(script).not.toContain('VBProject');
@@ -84,7 +84,9 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('$payload["output"] = @($testOutput)');
         expect(script).toContain('$message = "RUN_FAILED|" + (Format-XlideRunException $_)');
         expect(script).toContain('outcome = "runner-error"');
-        expect(script).toContain('      break');
+        // A per-test runner-error only aborts the whole run under fail-fast;
+        // otherwise the loop continues so each remaining test still emits a result.
+        expect(script).toContain('if ($failFast) { break }');
         expect(script).toContain('[XlideTestModalWatcher]::Start');
         expect(script).toContain('[XlideTestModalWatcher]::Stop');
         expect(script).toContain('Emit-XlideTestHostEvent "host-phase"');

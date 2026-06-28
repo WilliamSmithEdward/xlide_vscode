@@ -58,9 +58,11 @@ export function registerVbaLanguageProviders(
     void docMetadata.start(context);
     registerVbaMemberCompletion(context, projectIndexService, VBA_SELECTOR, docMetadata.registry);
 
+    const typeSemanticTokensProvider = new VbaTypeSemanticTokensProvider(projectIndexService);
     context.subscriptions.push(
         index,
         projectIndexService,
+        typeSemanticTokensProvider,
         vscode.languages.registerDocumentSymbolProvider(
             VBA_SELECTOR,
             new VbaDocumentSymbolProvider(),
@@ -94,7 +96,7 @@ export function registerVbaLanguageProviders(
         ),
         vscode.languages.registerDocumentSemanticTokensProvider(
             VBA_SELECTOR,
-            new VbaTypeSemanticTokensProvider(projectIndexService),
+            typeSemanticTokensProvider,
             TYPE_TOKEN_LEGEND,
         ),
         // Keep the index consistent with saves to virtual VBA documents.

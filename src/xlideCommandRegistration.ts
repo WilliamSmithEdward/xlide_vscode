@@ -57,7 +57,13 @@ export function registerXlideCommand<T extends unknown[]>(
             }
             const message = errorMessage(err);
             errorOptions.log(`[${errorOptions.logTag}] Error: ${message}`);
-            await errorOptions.onError?.(err, ...args);
+            // A failing onError hook (e.g. an audit sink) must not suppress the
+            // user-facing error notification for the original failure.
+            try {
+                await errorOptions.onError?.(err, ...args);
+            } catch (hookErr) {
+                errorOptions.log(`[${errorOptions.logTag}] onError hook failed: ${errorMessage(hookErr)}`);
+            }
             vscode.window.showErrorMessage(`XLIDE: ${errorOptions.errorPrefix}: ${message}`);
             return undefined;
         }

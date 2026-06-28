@@ -181,6 +181,16 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     }
 
     /**
+     * Clears the forced-expand state for a workbook the user manually collapsed,
+     * so a later refresh does not re-stamp it Expanded and spring it back open.
+     */
+    notifyWorkbookCollapsed(filePath: string): void {
+        if (this._activeWorkbookKey === workbookNodeKey(filePath)) {
+            this._activeWorkbookKey = undefined;
+        }
+    }
+
+    /**
      * Eagerly loads and caches the root xlsm nodes without waiting for the tree
      * to expand them. Returns the first node (if any) so callers can auto-reveal.
      */

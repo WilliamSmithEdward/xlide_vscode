@@ -916,7 +916,7 @@ export class ProjectIndex {
 				reason: `Module '${moduleName}' is not indexed.`,
 			};
 		}
-		return resolveBareIdentifierBinding({
+		const resolution = resolveBareIdentifierBinding({
 			currentModule: home,
 			name,
 			context,
@@ -924,6 +924,38 @@ export class ProjectIndex {
 			offset,
 			projectVisibleSymbols: this.visibleIdentifierSymbols(moduleName),
 		});
+		// Document/UserForm code names (Sheet1, UserForm1) are object-module
+		// globals that visibleIdentifierNames reports as declared but
+		// visibleIdentifierSymbols omits, so a bare reference would otherwise
+		// resolve to nothing. Additively fall back to the module root symbol when
+		// the source ladder found no match, keeping go-to-definition consistent
+		// with the diagnostics that treat the name as bound.
+		if (resolution.scope === 'unresolved') {
+			const objectModule = this.documentOrUserFormModuleNamed(name);
+			if (objectModule) {
+				return {
+					...resolution,
+					scope: 'project',
+					tier: 'project',
+					definitions: [objectModule.root],
+					reason: `object-module global ${context} binding for '${name}' in ${objectModule.moduleName}.`,
+				};
+			}
+		}
+		return resolution;
+	}
+
+	/**
+	 * Finds the Document/UserForm module whose code name matches `name`
+	 * (case-insensitive). These code names act as global object variables.
+	 */
+	private documentOrUserFormModuleNamed(name: string): ModuleSymbols | undefined {
+		const lower = name.toLowerCase();
+		const mod = this.modules.get(lower);
+		if (mod && (mod.moduleKind === 'document' || mod.moduleKind === 'userform')) {
+			return mod;
+		}
+		return undefined;
 	}
 
 	/**
@@ -961,7 +993,9 @@ export class ProjectIndex {
 
 		if (home && resolved) {
 			if (resolved.scope === 'local') {
-				const enclosing = this.enclosingProcedure(home, offset);
+				// Reuse the enclosing procedure resolveBareIdentifier already
+				// computed instead of re-running the O(n) scan on this hot path.
+				const enclosing = resolved.enclosingProcedure;
 				return {
 					kind: 'local',
 					definitions: resolved.definitions.slice(),

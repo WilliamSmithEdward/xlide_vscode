@@ -440,7 +440,16 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
             vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run module tests.');
             return undefined;
         }
-        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        let xlsmPath: string;
+        let moduleName: string;
+        try {
+            ({ xlsmPath, moduleName } = decodeModuleUri(editor.document.uri));
+        } catch {
+            // isLocalXlideDocument verifies the scheme but not the *.bas module
+            // shape decodeModuleUri requires, so guard against a non-module URI.
+            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run module tests.');
+            return undefined;
+        }
         if (expectedWorkbookPath && !sameWorkbookPath(xlsmPath, expectedWorkbookPath)) {
             vscode.window.showWarningMessage(
                 `XLIDE: Open a VBA module from "${path.basename(expectedWorkbookPath)}" before running current-scope tests from this panel.`,

@@ -69,10 +69,7 @@ export function openVbaTestResults(
         report,
     };
     openVbaTestResultsPanels.set(report.filePath, entry);
-    panel.onDidDispose(() => {
-        openVbaTestResultsPanels.delete(report.filePath);
-    });
-    bridgeWebviewMessages(panel.webview, async (message: VbaTestResultsWebviewMessage) => {
+    const messageSub = bridgeWebviewMessages(panel.webview, async (message: VbaTestResultsWebviewMessage) => {
         if (message.type === 'openTest') {
             const test = typeof message.index === 'number'
                 ? entry.report.results[message.index]?.test
@@ -93,6 +90,10 @@ export function openVbaTestResults(
         }
         await entry.options.onRerunFailed();
         await panel.webview.postMessage({ type: 'rerunComplete' });
+    });
+    panel.onDidDispose(() => {
+        messageSub.dispose();
+        openVbaTestResultsPanels.delete(report.filePath);
     });
     panel.webview.html = renderVbaTestResultsHtml(report, {
         canRerunFailed: Boolean(options.onRerunFailed),
@@ -218,11 +219,16 @@ function runTimingSummary(report: VbaTestRunReport): {
         };
     }
     const stoppedAt = new Date(startedAt.getTime() + Math.max(0, report.durationMs));
+    const startedLabel = formatRunTimestamp(startedAt);
+    // durationMs is normally finite, but a single non-finite value upstream would
+    // make stoppedAt an Invalid Date and toISOString() throw, taking down the whole
+    // panel render. Degrade the stopped fields to the started value instead.
+    const stoppedFinite = Number.isFinite(stoppedAt.getTime());
     return {
-        startedLabel: formatRunTimestamp(startedAt),
+        startedLabel,
         startedIso: startedAt.toISOString(),
-        stoppedLabel: formatRunTimestamp(stoppedAt),
-        stoppedIso: stoppedAt.toISOString(),
+        stoppedLabel: stoppedFinite ? formatRunTimestamp(stoppedAt) : startedLabel,
+        stoppedIso: stoppedFinite ? stoppedAt.toISOString() : '',
     };
 }
 

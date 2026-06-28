@@ -126,7 +126,7 @@ try {
     Emit-XlideTestHostEvent "macro-started" @{ excelId = $excelId; qualifiedName = $macroName; timeoutMs = $timeoutMs }
     $sw = [Diagnostics.Stopwatch]::StartNew()
     try {
-      $testRunnerRef = "'" + $workbook.Name + "'!" + $runnerModuleName + ".RunTest"
+      $testRunnerRef = "'" + ($workbook.Name -replace "'", "''") + "'!" + $runnerModuleName + ".RunTest"
       if ($modalWatcherAvailable -and $excelPid) { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, $macroName) }
       $vbaRunResult = Convert-XlideVbaRunResult ([string]$excel.Run($testRunnerRef, $macroName))
       $testOutput = Convert-XlideOutputLines $vbaRunResult.output
@@ -151,7 +151,10 @@ try {
       $sw.Stop()
       $message = "RUN_FAILED|" + (Format-XlideRunException $_)
       Emit-XlideTestHostEvent "macro-finished" @{ excelId = $excelId; qualifiedName = $macroName; outcome = "runner-error"; durationMs = [int]$sw.ElapsedMilliseconds; message = $message }
-      break
+      # Only abort the whole run on a per-test error when fail-fast is on. Otherwise
+      # continue so each remaining test gets its own macro-finished event instead of
+      # being reported as a spurious host-error for "no result emitted".
+      if ($failFast) { break }
     } finally {
       if ($modalWatcherAvailable) { try { [XlideTestModalWatcher]::Stop() } catch { } }
     }

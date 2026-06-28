@@ -49,7 +49,7 @@ interface CachedTypeSemanticTokens {
     tokens: vscode.SemanticTokens;
 }
 
-export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
+export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider, vscode.Disposable {
     private readonly _onDidChangeSemanticTokens = new vscode.EventEmitter<void>();
     private readonly _projectTypesCache = new Map<string, CachedTypeSemanticProjectTypes>();
     private readonly _semanticTokensCache = new Map<string, CachedTypeSemanticTokens>();
@@ -59,6 +59,17 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
     readonly onDidChangeSemanticTokens = this._onDidChangeSemanticTokens.event;
 
     constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
+
+    dispose(): void {
+        this._onDidChangeSemanticTokens.dispose();
+        for (const timer of this._projectTypeRefreshTimers.values()) {
+            clearTimeout(timer);
+        }
+        this._projectTypeRefreshTimers.clear();
+        this._projectTypeRefreshes.clear();
+        this._projectTypesCache.clear();
+        this._semanticTokensCache.clear();
+    }
 
     async provideDocumentSemanticTokens(
         document: vscode.TextDocument,

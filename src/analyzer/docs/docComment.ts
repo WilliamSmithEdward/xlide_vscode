@@ -42,13 +42,16 @@ function firstTag(body: string, tag: string): string | undefined {
 }
 
 function firstTagMatch(body: string, tag: string): { attrs: string; body: string } | undefined {
-	const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i');
+	// Accept both the paired form `<tag ...>...</tag>` and the self-closing form
+	// `<tag .../>` (empty body) so e.g. `<returns type="Long"/>` is not dropped.
+	const re = new RegExp(`<${tag}\\b([^>]*?)(?:/>|>([\\s\\S]*?)<\\/${tag}>)`, 'i');
 	const m = re.exec(body);
 	if (!m) {
 		return undefined;
 	}
-	const open = new RegExp(`<${tag}([^>]*)>`, 'i').exec(m[0]);
-	return { attrs: open?.[1] ?? '', body: m[1] };
+	// Strip a trailing slash left on the attribute text by a self-closing tag.
+	const attrs = (m[1] ?? '').replace(/\/\s*$/, '');
+	return { attrs, body: m[2] ?? '' };
 }
 
 function attrsOf(raw: string): Map<string, string> {
@@ -64,13 +67,15 @@ function attrsOf(raw: string): Map<string, string> {
 /** Extracts every `<param name="...">...</param>` entry, in document order. */
 function extractParams(body: string): VbaDocParam[] {
 	const out: VbaDocParam[] = [];
-	const re = /<param\b([^>]*)>([\s\S]*?)<\/param>/gi;
+	// Accept both `<param ...>text</param>` and self-closing `<param .../>`
+	// (treated as empty text) so self-closing params are not silently dropped.
+	const re = /<param\b([^>]*?)(?:\/>|>([\s\S]*?)<\/param>)/gi;
 	let m: RegExpExecArray | null;
 	while ((m = re.exec(body)) !== null) {
 		const attrs = attrsOf(m[1]);
 		const name = attrs.get('name') ?? '';
 		if (name) {
-			const param: VbaDocParam = { name, text: collapse(m[2]) };
+			const param: VbaDocParam = { name, text: collapse(m[2] ?? '') };
 			const type = attrs.get('type');
 			const unit = attrs.get('unit');
 			const value = attrs.get('value');

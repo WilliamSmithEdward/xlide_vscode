@@ -77,8 +77,17 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         for (const disposable of this._disposables.splice(0)) {
             disposable.dispose();
         }
+        // Synchronously flush any debounced-but-unwritten snapshot so the most
+        // recent unsaved edits remain recoverable after an abrupt shutdown.
+        // dispose() cannot await async I/O during deactivation, so write sync.
         for (const pending of this._pendingWrites.values()) {
             clearTimeout(pending.timer);
+            try {
+                const record = this.backupRecordFor(pending.document);
+                fs.writeFileSync(this.backupPath(pending.document.uri), `${JSON.stringify(record)}\n`, 'utf8');
+            } catch (err) {
+                this._out.appendLine(`XLIDE: Failed to flush dirty backup on shutdown: ${errorMessage(err)}`);
+            }
         }
         this._pendingWrites.clear();
     }
@@ -248,6 +257,10 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
     private async deleteBackup(uri: vscode.Uri): Promise<void> {
         const key = uri.toString();
         this.bumpWriteGeneration(key);
+        // Reset the once-per-session restore announcement so a later genuine
+        // restore of this same module re-shows the "restored unsaved edits"
+        // notice instead of silently re-applying edits with no warning.
+        this._announced.delete(key);
         await this.enqueueFileOperation(key, async () => {
             try {
                 await fs.promises.rm(this.backupPath(uri), { force: true });
@@ -285,7 +298,11 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
                     continue;
                 }
                 // Re-check after the await: a document may have opened and begun
-                // restoring from this backup while we read it.
+                // restoring from this backup while we read it. This rm is
+                // best-effort and not serialized with restore-triggered writes,
+                // but restore (readBackup) loads a private in-memory copy before
+                // applying, and any file lost to a prune race here is by
+                // definition already >30 days stale.
                 if (this._isBackupInUse(entry)) {
                     continue;
                 }

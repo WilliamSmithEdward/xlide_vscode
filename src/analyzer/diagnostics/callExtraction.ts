@@ -67,6 +67,12 @@ export interface InferredArgumentType {
 	stringValue?: string;
 	numericValue?: number;
 	numericText?: string;
+	/**
+	 * Set when `numericValue` comes from a resolved named constant (e.g. xlChart)
+	 * rather than a literal, so overflow messages can name the constant instead
+	 * of calling its display name a "numeric literal".
+	 */
+	numericConstantName?: string;
 }
 
 /**
@@ -430,21 +436,27 @@ export function validateArity(
 		return; // positional count is not validated alongside named arguments
 	}
 
-	for (let i = 0; i < Math.min(call.slots.length, params.length); i++) {
-		const param = params[i];
-		if (call.slots[i].length === 0 && !param.optional && !param.paramArray) {
-			const name = stripHeaderBrackets(param.name);
-			const placeholder = omittedArgumentPlaceholderData(source, call, param, i);
-			push(
-				'argumentCount',
-				`Argument not optional: '${name}' is required by '${displayName}'.`,
-				call.slotSpans?.[i] ?? call.nameSpan,
-				placeholder,
-			);
+	const n = call.slots.length;
+	// Per-slot 'Argument not optional' is only reported when the slot count is
+	// in range: when it already violates min/max, the count check below emits the
+	// single arity diagnostic instead, matching the named-arg path's one-error
+	// policy (e.g. `Foo(, 2, 3)` against `Sub Foo(a, b)` yields one diagnostic).
+	if (n >= required && n <= max) {
+		for (let i = 0; i < Math.min(call.slots.length, params.length); i++) {
+			const param = params[i];
+			if (call.slots[i].length === 0 && !param.optional && !param.paramArray) {
+				const name = stripHeaderBrackets(param.name);
+				const placeholder = omittedArgumentPlaceholderData(source, call, param, i);
+				push(
+					'argumentCount',
+					`Argument not optional: '${name}' is required by '${displayName}'.`,
+					call.slotSpans?.[i] ?? call.nameSpan,
+					placeholder,
+				);
+			}
 		}
 	}
 
-	const n = call.slots.length;
 	if (n < required || n > max) {
 		const missingParam = n < required ? params[n] : undefined;
 		const placeholder = missingParam

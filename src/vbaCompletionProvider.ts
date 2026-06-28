@@ -89,6 +89,15 @@ export class VbaKeywordSnippetTracker {
 		}
 	}
 
+	/** Drop per-document state on close so _lastTextChange stays bounded. */
+	handleDocumentClose(document: vscode.TextDocument): void {
+		const key = document.uri.toString();
+		this._lastTextChange.delete(key);
+		if (this._activeKeywordSnippet?.documentKey === key) {
+			this._activeKeywordSnippet = undefined;
+		}
+	}
+
 	handleSelectionChange(event: vscode.TextEditorSelectionChangeEvent): void {
 		if (!this._activeKeywordSnippet || event.textEditor !== this._activeKeywordSnippet.editor) {
 			return;

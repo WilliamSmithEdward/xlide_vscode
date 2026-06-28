@@ -291,7 +291,6 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- Additional string functions ---------------------------------------
 	fn('StrReverse', 'StrReverse(Expression) As String', 'String'),
-	fn('LenB', 'LenB(Expression) As Long', 'Long'),
 	fn('Str', 'Str(Number) As String', 'String'),
 	fn('Filter', 'Filter(SourceArray, Match, [Include As Boolean = True], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()'),
 	fn('FormatCurrency', 'FormatCurrency(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),

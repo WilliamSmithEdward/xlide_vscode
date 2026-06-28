@@ -371,6 +371,9 @@ function sanitizeWriteAuditEntry(entry: XlideWriteAuditEntry): XlideWriteAuditEn
         workbookPath: entry.workbookPath ? redactPath(entry.workbookPath) : undefined,
         sourcePath: entry.sourcePath ? redactPath(entry.sourcePath) : undefined,
         targetPath: entry.targetPath ? redactPath(entry.targetPath) : undefined,
+        // Defense-in-depth: the free-form summary is not constrained to be
+        // path-free, so scrub any path-like text rather than passing it verbatim.
+        summary: entry.summary ? redactSupportLogLine(entry.summary) : entry.summary,
     };
 }
 

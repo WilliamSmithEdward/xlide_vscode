@@ -647,6 +647,9 @@ export function inferredExternalConstant(
 			span: { start: 0, end: 0 },
 			numericValue,
 			numericText: displayName,
+			// Mark this as a named-constant origin so overflow diagnostics phrase
+			// it as a constant value rather than a "numeric literal".
+			numericConstantName: displayName,
 		};
 	}
 	if (normalizedDeclared === 'string') {
@@ -1948,7 +1951,16 @@ export function splitTopLevelOperands(toks: VbaToken[], ...operators: string[]):
 			}
 			continue;
 		}
-		if (i === start || i === toks.length - 1) {
+		// A +/- at the start of an operand is a unary sign (e.g. `2 * -3`,
+		// `x + -1`); fold it into the following operand rather than treating it
+		// as a separator. Any other operator at the operand start is malformed.
+		if (i === start) {
+			if (toks[i].rawText === '+' || toks[i].rawText === '-') {
+				continue;
+			}
+			return [];
+		}
+		if (i === toks.length - 1) {
 			return [];
 		}
 		parts.push(toks.slice(start, i));
@@ -2041,6 +2053,11 @@ export function numericLiteralOverflowReason(
 	}
 	if (actual.numericValue >= bounds.min && actual.numericValue <= bounds.max) {
 		return undefined;
+	}
+	// A resolved named constant must not be described as a "numeric literal"; name
+	// the constant and show its value instead.
+	if (actual.numericConstantName !== undefined) {
+		return `The value of constant '${actual.numericConstantName}' (${actual.numericValue}) is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
 	}
 	const literal = actual.numericText ?? String(actual.numericValue);
 	return `The numeric literal ${literal} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;

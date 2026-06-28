@@ -279,7 +279,10 @@ async function pruneOldVbaTestRunArtifacts(
         .map((entry) => entry.name));
     keep.add(paths.runId);
 
-    await Promise.all(entries
+    // Retention pruning is best-effort: a locked old run directory (AV scan,
+    // lingering handle) must not fail the current run's already-written
+    // artifacts. Swallow individual rm failures rather than rejecting.
+    await Promise.allSettled(entries
         .filter((entry) => !keep.has(entry.name))
         .map((entry) => fs.promises.rm(entry.fullPath, { recursive: true, force: true })));
 }

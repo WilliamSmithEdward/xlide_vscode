@@ -333,7 +333,13 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
         const line = document.lineAt(position.line).text;
         const qualifier = detectQualifier(line, wordRange.start.character);
 
-        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+        let xlsmPath: string;
+        let moduleName: string;
+        try {
+            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+        } catch {
+            return undefined;
+        }
         const context = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = context;
@@ -402,7 +408,13 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
         const documentVersion = document.version;
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         const source = document.getText();
-        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+        let xlsmPath: string;
+        let moduleName: string;
+        try {
+            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+        } catch {
+            return undefined;
+        }
         const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = navigation;
@@ -512,7 +524,13 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         const word = document.getText(wordRange);
 
         const source = document.getText();
-        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+        let xlsmPath: string;
+        let moduleName: string;
+        try {
+            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+        } catch {
+            throw new Error('XLIDE cannot rename here: this is not a workbook VBA module.');
+        }
         const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'strict');
         if (token?.isCancellationRequested || document.version !== documentVersion) {
             throw new vscode.CancellationError();
@@ -570,10 +588,18 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { return undefined; }
         const oldName = document.getText(wordRange);
-        if (oldName.toLowerCase() === newName.toLowerCase()) { return undefined; }
+        // Only short-circuit a byte-identical rename. A case-only change (myVar ->
+        // MyVar) is a legitimate operation for a canonical-case tool, not a no-op.
+        if (oldName === newName) { return undefined; }
 
         const source = document.getText();
-        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+        let xlsmPath: string;
+        let moduleName: string;
+        try {
+            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+        } catch {
+            throw new Error('XLIDE cannot rename here: this is not a workbook VBA module.');
+        }
         const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'strict');
         if (token?.isCancellationRequested || document.version !== documentVersion) {
             return undefined;

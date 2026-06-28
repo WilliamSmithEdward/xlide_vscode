@@ -90,9 +90,11 @@ export class PythonBridge implements vscode.Disposable {
         }
         await new Promise<void>((resolve) => {
             let settled = false;
+            let killTimer: NodeJS.Timeout | undefined;
             const done = () => {
                 if (!settled) {
                     settled = true;
+                    if (killTimer) { clearTimeout(killTimer); }
                     resolve();
                 }
             };
@@ -103,6 +105,13 @@ export class PythonBridge implements vscode.Disposable {
                 return;
             }
             proc.kill();
+            // If the child ignores SIGTERM, escalate to SIGKILL and resolve
+            // regardless so stop()/restart()/dispose() can never hang teardown.
+            killTimer = setTimeout(() => {
+                try { proc.kill('SIGKILL'); } catch { /* already exited */ }
+                done();
+            }, 3000);
+            killTimer.unref?.();
         });
         if (this._proc === proc) {
             this._proc = undefined;

@@ -70,9 +70,18 @@ export function evaluateIntegerConstantExpression(
 	return new IntegerConstantExpressionParser(raw, constants).parse();
 }
 
+/**
+ * Recursion-depth ceiling for the descent parser. User-authored Const text is
+ * untrusted, so a pathologically deep expression (e.g. thousands of nested
+ * parens) must not overflow the JS stack. Past this depth we bail to undefined,
+ * honoring the file's "return undefined so callers never guess" contract.
+ */
+const MAX_RECURSION_DEPTH = 300;
+
 class IntegerConstantExpressionParser {
 	private readonly tokens: VbaToken[];
 	private index = 0;
+	private depth = 0;
 
 	constructor(
 		raw: string,
@@ -90,6 +99,18 @@ class IntegerConstantExpressionParser {
 	}
 
 	private expression(): number | undefined {
+		// Depth guard: untrusted Const text can nest arbitrarily deep; bail to
+		// undefined rather than overflowing the stack.
+		if (++this.depth > MAX_RECURSION_DEPTH) {
+			this.depth--;
+			return undefined;
+		}
+		const result = this.expressionInner();
+		this.depth--;
+		return result;
+	}
+
+	private expressionInner(): number | undefined {
 		let value = this.term();
 		while (value !== undefined) {
 			if (this.accept('+')) {
@@ -120,6 +141,18 @@ class IntegerConstantExpressionParser {
 	}
 
 	private factor(): number | undefined {
+		// Depth guard: unary +/- chains and nested parens recurse through factor;
+		// bail to undefined once the ceiling is hit (see expression()).
+		if (++this.depth > MAX_RECURSION_DEPTH) {
+			this.depth--;
+			return undefined;
+		}
+		const result = this.factorInner();
+		this.depth--;
+		return result;
+	}
+
+	private factorInner(): number | undefined {
 		if (this.accept('+')) {
 			return this.factor();
 		}

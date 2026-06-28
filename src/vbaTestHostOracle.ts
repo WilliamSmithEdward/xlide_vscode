@@ -110,8 +110,14 @@ export function parseVbaTestHostEventLine(line: string): VbaTestHostOracleEvent 
         return undefined;
     }
     const json = line.slice(XLIDE_TEST_HOST_EVENT_PREFIX.length);
-    const parsed = JSON.parse(json) as VbaTestHostOracleEvent;
-    return parsed;
+    const parsed: unknown = JSON.parse(json);
+    // Validate the minimum shape: a structurally-wrong-but-valid-JSON object
+    // must not be ingested into the session state machine / oracle as an event.
+    if (typeof parsed !== 'object' || parsed === null
+        || typeof (parsed as { kind?: unknown }).kind !== 'string') {
+        return undefined;
+    }
+    return parsed as VbaTestHostOracleEvent;
 }
 
 export function validateVbaTestHostOracleTrace(

@@ -9,7 +9,7 @@ export interface XlideOutputLogEntry {
 const MAX_OUTPUT_LOG_ENTRIES = 250;
 const WINDOWS_PATH_RE = /[A-Za-z]:\\[^\s'")]+/g;
 const FILE_URI_RE = /\b(?:file|xlide-vba):\/\/[^\s'")]+/g;
-const POSIX_PATH_RE = /(?:^|[\s'"])(\/(?:Users|home|var|tmp|mnt)\/[^\s'")]+)/g;
+const POSIX_PATH_RE = /\/(?:Users|home|root|var|tmp|mnt|opt|srv)\/[^\s'")]+/g;
 
 const outputLog: XlideOutputLogEntry[] = [];
 
@@ -37,9 +37,7 @@ export function redactSupportLogLine(line: string): string {
     return line
         .replace(FILE_URI_RE, '<redacted-uri>')
         .replace(WINDOWS_PATH_RE, redactPathMatch)
-        .replace(POSIX_PATH_RE, (full, captured: string) =>
-            full.replace(captured, redactPathMatch(captured)),
-        );
+        .replace(POSIX_PATH_RE, redactPathMatch);
 }
 
 export function createRecordedOutputChannel(channel: vscode.OutputChannel): vscode.OutputChannel {

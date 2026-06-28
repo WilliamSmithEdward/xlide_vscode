@@ -133,7 +133,11 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             let pos = new vscode.Position(Math.max(0, (node.line ?? 1) - 1), 0);
             if (procName && node.line !== undefined && node.line > 0) {
                 const lineText = doc.lineAt(node.line - 1).text;
-                const col = lineText.indexOf(procName);
+                // Whole-word match so a short proc name that is a substring of a
+                // preceding token (e.g. "i" inside "Public") does not mis-anchor.
+                const escaped = procName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const match = new RegExp(`\\b${escaped}\\b`).exec(lineText);
+                const col = match ? match.index : lineText.indexOf(procName);
                 if (col >= 0) {
                     pos = new vscode.Position(node.line - 1, col);
                 }
@@ -324,6 +328,13 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                                 markWorkbookOpenedByXlide(xlsmPath);
                                 await runWorkbookMacroReadOnly(xlsmPath, macroRef, { attachToRunning }, log);
                             } else {
+                                // RUN_FAILED means the macro host already reopened the
+                                // workbook read-only before the macro raised, so record it
+                                // (mirroring the post-success mark below) so a later
+                                // closeTracked save still frees the lock. Then rethrow.
+                                if (err instanceof ExcelMacroError && err.code === 'RUN_FAILED') {
+                                    markWorkbookOpenedByXlide(xlsmPath);
+                                }
                                 throw err;
                             }
                         }

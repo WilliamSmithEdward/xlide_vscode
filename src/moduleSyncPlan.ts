@@ -166,7 +166,15 @@ export async function buildExportModuleSyncPlan(
     if (exportMode === 'trueUp') {
         for (const relPath of await computeStaleExportFiles(params.exportFolder, liveRelativeNames)) {
             const stalePath = path.join(params.exportFolder, relPath);
-            const repoSource = await fs.promises.readFile(stalePath, 'utf8');
+            let repoSource: string;
+            try {
+                repoSource = await fs.promises.readFile(stalePath, 'utf8');
+            } catch {
+                // A concurrent delete between computeStaleExportFiles' existence
+                // check and this read just means there is nothing left to remove;
+                // drop it from the preview rather than failing the whole build.
+                continue;
+            }
             const repoDisplaySource = editorPreviewSource(repoSource);
             const moduleName = path.basename(relPath, path.extname(relPath));
             staleItems.push({
@@ -225,8 +233,9 @@ export async function buildImportModuleSyncPlan(
     const importMode = normalizeImportMode(params.importMode);
     const { modules: liveModules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
-    const entries = (await fs.promises.readdir(params.importFolder))
-        .filter((entry) => /\.(bas|cls)$/i.test(entry))
+    const entries = (await fs.promises.readdir(params.importFolder, { withFileTypes: true }))
+        .filter((entry) => entry.isFile() && /\.(bas|cls)$/i.test(entry.name))
+        .map((entry) => entry.name)
         .sort((a, b) => a.localeCompare(b));
     const repoFiles = await Promise.all(entries.map((entry) =>
         readRepoModuleFile(params.importFolder, entry),

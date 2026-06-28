@@ -149,6 +149,7 @@ export function activate(context: vscode.ExtensionContext): void {
             const proc = cp.spawn('py', ['-0p'], {
                 windowsHide: true,
             });
+            proc.unref?.();
             let stdout = '';
             let stderr = '';
             let settled = false;
@@ -185,6 +186,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
             const proc = cp.spawn(pythonPath, ['--version'], { windowsHide: true });
+            proc.unref?.();
             let settled = false;
             const finish = (value: boolean) => {
                 if (settled) { return; }
@@ -582,6 +584,15 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }),
 
+        // When the user manually collapses the active workbook, stop forcing it
+        // Expanded so it stays collapsed - otherwise the next refresh re-stamps it
+        // Expanded against the still-set active-workbook key and springs it open.
+        treeView.onDidCollapseElement((e) => {
+            if (e.element.kind === 'xlsm' && e.element.filePath) {
+                explorer.notifyWorkbookCollapsed(e.element.filePath);
+            }
+        }),
+
         // Refresh the explorer when .xlsm/.xlsb/.xlam files are added or removed
         // Debounced so rapid file-system events (save storms) coalesce into one refresh.
         (() => {
@@ -710,7 +721,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vbaIndex.onDidChange(({ xlsmPath, moduleName }) => {
             if (!xlsmPath || !moduleName) {
                 explorer.refresh();
-            } else if (moduleName) {
+            } else {
                 explorer.refreshModuleSubs(xlsmPath, moduleName);
             }
         }),
@@ -727,7 +738,9 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (firstNode && treeView.visible) {
                     void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
                 }
-            });
+            }).catch((err: unknown) => out.appendLine(
+                `XLIDE auto-expand failed: ${err instanceof Error ? err.message : String(err)}`,
+            ));
         }, 250);
         context.subscriptions.push(new vscode.Disposable(() => clearTimeout(autoExpandTimer)));
     }

@@ -6,7 +6,7 @@
 // by exact module/object prefix and signature.
 
 import { parseModule } from '../parser/parseModule';
-import type { ProcedureNode } from '../parser/nodes';
+import type { ModuleMember, ProcedureNode } from '../parser/nodes';
 import type { ModuleSymbolKind } from '../symbols/symbolModel';
 
 export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart';
@@ -257,7 +257,11 @@ export function resolveEventHandlerCompletions(
 
 	const parsed = parseModule(source);
 	const procedures = parsed.members.filter((m): m is ProcedureNode => m.kind === 'Procedure');
-	if (insideClosedProcedure(procedures, offset)) {
+	// Event handlers can only be declared at module level, so bail whenever the
+	// cursor sits inside a procedure body — including an OPEN procedure whose
+	// span may only cover the header (its body runs to the next member / module
+	// end), which would otherwise let us offer an invalid nested procedure stub.
+	if (insideProcedureBody(parsed.members, procedures, offset, source.length)) {
 		return [];
 	}
 
@@ -350,10 +354,40 @@ function inferDocumentType(moduleName: string | undefined): EventHandlerDocument
 	return 'worksheet';
 }
 
-function insideClosedProcedure(procedures: readonly ProcedureNode[], offset: number): boolean {
-	return procedures.some(
-		(proc) => proc.closed && offset >= proc.span.start && offset <= proc.span.end,
-	);
+/**
+ * True when `offset` falls inside any procedure body. A closed procedure is
+ * bounded by its own span; an open one (no End Sub yet) has its body run from
+ * its header start to the start of the next module member, or the module end,
+ * since its parsed span may only cover the header line.
+ */
+function insideProcedureBody(
+	members: readonly ModuleMember[],
+	procedures: readonly ProcedureNode[],
+	offset: number,
+	moduleEnd: number,
+): boolean {
+	return procedures.some((proc) => {
+		if (proc.closed) {
+			return offset >= proc.span.start && offset <= proc.span.end;
+		}
+		const bodyEnd = nextMemberStartAfter(members, proc.span.start, moduleEnd);
+		return offset >= proc.span.start && offset < bodyEnd;
+	});
+}
+
+/** Start offset of the first module member that begins after `start`, else `moduleEnd`. */
+function nextMemberStartAfter(
+	members: readonly ModuleMember[],
+	start: number,
+	moduleEnd: number,
+): number {
+	let next = moduleEnd;
+	for (const member of members) {
+		if (member.span.start > start && member.span.start < next) {
+			next = member.span.start;
+		}
+	}
+	return next;
 }
 
 function lineCompletionContext(source: string, offset: number): LineCompletionContext | undefined {

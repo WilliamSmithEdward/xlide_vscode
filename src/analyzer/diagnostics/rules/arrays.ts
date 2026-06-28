@@ -417,6 +417,13 @@ function comparableArrayBoundExpressionKey(toks: readonly VbaToken[]): string | 
 	return parts.length > 0 ? parts.join('') : undefined;
 }
 
+/**
+ * Folds a `lower To upper` array bound that is built only from signed integer
+ * literals (`-3`, `1 + 2`). This is intentionally a literal-only subset of
+ * {@link evaluateIntegerConstantExpression} — variable/Const bounds are
+ * deliberately left unevaluated so the rule stays quiet on them (see rule docs)
+ * rather than reusing the full constant evaluator.
+ */
 function comparableArrayBoundExpressionValue(toks: readonly VbaToken[]): number | undefined {
 	let value = 0;
 	let sign = 1;

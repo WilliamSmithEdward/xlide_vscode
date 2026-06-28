@@ -167,15 +167,17 @@ function runtimeArgumentValueCallAt(
 	if (!name) {
 		return undefined;
 	}
+	// Only a bare `Left(...)` or a genuine `VBA.Left(...)` is the intrinsic. The
+	// shared helper also rejects `obj.vba.Left(...)` via the third-token ('.')
+	// check that this ad-hoc logic previously omitted.
+	if (!isBareOrVbaQualifiedIntrinsicCall(toks, index)) {
+		return undefined;
+	}
+	// A bare call can be shadowed by a source symbol; a `VBA.`-qualified one
+	// cannot, so only the bare form participates in the shadow gate below.
 	const qualifier = index >= 2 && toks[index - 1].rawText === '.'
 		? tokenName(toks[index - 2])
 		: undefined;
-	if (index > 0 && toks[index - 1].rawText === '.' && !qualifier) {
-		return undefined;
-	}
-	if (qualifier && qualifier.toLowerCase() !== 'vba') {
-		return undefined;
-	}
 
 	let parenIndex = index + 1;
 	let suffix = '';

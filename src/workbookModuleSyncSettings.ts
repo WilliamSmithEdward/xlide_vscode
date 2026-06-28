@@ -53,9 +53,12 @@ export function effectiveWorkbookModuleSyncSettingsFromConfig(
         value: DEFAULT_WORKBOOK_IMPORT_MODE,
         source: 'default',
     });
+    const exportFolder = config.exportFolder && config.exportFolder.trim() !== ''
+        ? config.exportFolder
+        : undefined;
     return {
-        folderPath: config.exportFolder,
-        folderPathSource: config.exportFolder ? 'workbook' : 'missing',
+        folderPath: exportFolder,
+        folderPathSource: exportFolder ? 'workbook' : 'missing',
         exportMode: exportMode.value,
         exportModeSource: exportMode.source,
         importMode: importMode.value,

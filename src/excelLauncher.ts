@@ -53,7 +53,7 @@ function attachLines(filePath: string, attachToRunning: boolean): string[] {
 // or RPC_E_SERVERCALL_RETRYLATER (-2147417846 / 0x8001010A). ~3s of retries rides
 // out a transient busy and gives the user a moment to dismiss a dialog.
 const COM_RETRY_HELPER =
-    'function Invoke-XlideCom($Action) { for ($__i = 0; $__i -le 12; $__i++) { try { return (& $Action) } catch { if (($_.Exception.HResult -eq -2147418111 -or $_.Exception.HResult -eq -2147417846 -or $_.Exception.Message -match "rejected by callee|RETRYLATER|0x80010001|0x8001010A") -and $__i -lt 12) { Start-Sleep -Milliseconds 250; continue } else { throw } } } }';
+    'function Invoke-XlideCom($Action) { for ($__i = 0; $__i -le 12; $__i++) { try { return (& $Action) } catch { if (($_.Exception.HResult -eq -2147418111 -or $_.Exception.HResult -eq -2147417846 -or $_.Exception.InnerException.HResult -eq -2147418111 -or $_.Exception.InnerException.HResult -eq -2147417846 -or $_.Exception.Message -match "rejected by callee|RETRYLATER|0x80010001|0x8001010A") -and $__i -lt 12) { Start-Sleep -Milliseconds 250; continue } else { throw } } } }';
 
 // Activate the workbook and bring the Excel window to the foreground. Activate is
 // a COM call, so it is best-effort: a busy Excel must not fail the launch/run.

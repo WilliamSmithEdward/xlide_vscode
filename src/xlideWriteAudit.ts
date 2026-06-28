@@ -26,7 +26,8 @@ export function recordXlideWriteAudit(entry: XlideWriteAuditEntry): void {
 }
 
 export function recentXlideWriteAudits(limit = 25): XlideWriteAuditEntry[] {
-    return writeAudit.slice(-Math.max(0, limit));
+    if (limit <= 0) { return []; }
+    return writeAudit.slice(-limit);
 }
 
 export function clearXlideWriteAudit(): void {

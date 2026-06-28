@@ -165,18 +165,30 @@ function runRules(
 		const buffer: VbaDiagnostic[] = [];
 		buffers.push(buffer);
 		const push = pushInto(buffer);
-		if (rule.run) {
-			rule.run(ctx, push);
-		}
-		if (rule.procedureStatements) {
-			statementVisitors.push(rule.procedureStatements(ctx, push));
-		}
-		if (rule.procedureExpressions) {
-			expressionVisitors.push(rule.procedureExpressions(ctx, push));
+		// Isolate each rule: one rule throwing during construction or its eager
+		// run() must not discard every other rule's diagnostics for the module.
+		try {
+			if (rule.run) {
+				rule.run(ctx, push);
+			}
+			if (rule.procedureStatements) {
+				statementVisitors.push(rule.procedureStatements(ctx, push));
+			}
+			if (rule.procedureExpressions) {
+				expressionVisitors.push(rule.procedureExpressions(ctx, push));
+			}
+		} catch {
+			// Degrade only this rule; keep the rest of the pass intact.
 		}
 	}
-	walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors);
-	walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors);
+	// A visitor throwing during a shared walk must not blank the run()-based
+	// diagnostics already collected, nor the other walk.
+	try {
+		walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors);
+	} catch { /* degrade gracefully */ }
+	try {
+		walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors);
+	} catch { /* degrade gracefully */ }
 
 	const out: VbaDiagnostic[] = [];
 	for (const buffer of buffers) {

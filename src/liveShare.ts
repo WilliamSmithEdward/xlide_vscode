@@ -98,6 +98,8 @@ export class LiveShareIntegration implements vscode.Disposable {
     // awaiting a Live Share API can detect that a newer change superseded it and
     // avoid binding a shared service to an already-ended session.
     private _sessionGeneration = 0;
+    private _isHost = false;
+    private _featureSetPromptActive = false;
 
     constructor(
         private readonly _bridge: PythonBridge,
@@ -139,6 +141,7 @@ export class LiveShareIntegration implements vscode.Disposable {
     private async _onSessionChange(e: vsls.SessionChangeEvent): Promise<void> {
         const generation = ++this._sessionGeneration;
         const role = e.session.role;
+        this._isHost = role === 1;
         const roleName = role === 1 ? 'Host' : role === 2 ? 'Guest' : `None(${role})`;
         this._out.appendLine(`[LiveShare] session change -> role=${roleName}`);
         // Tear down any previous state
@@ -200,6 +203,9 @@ export class LiveShareIntegration implements vscode.Disposable {
     }
 
     private async _refreshHostWorkbooks(): Promise<void> {
+        // The file watcher in start() fires for guests too (on a virtual vsls:
+        // workspace), so skip host workbook discovery unless we are the host.
+        if (!this._isHost) { return; }
         const uris = await vscode.workspace.findFiles(
             '**/*.{xlsm,xlsb,xlam}',
             '{**/node_modules/**,**/.venv/**,**/venv/**}',
@@ -459,6 +465,10 @@ export class LiveShareIntegration implements vscode.Disposable {
         const cfg = vscode.workspace.getConfiguration('liveshare');
         const current = cfg.get<string>('featureSet');
         if (current === 'insiders') { return; }
+        // Live Share can fire onDidChangeSession repeatedly; guard so a user who
+        // dismissed the prompt is not re-prompted (and stacked) on every event.
+        if (this._featureSetPromptActive) { return; }
+        this._featureSetPromptActive = true;
         const ENABLE = 'Enable and Reload';
         const choice = await vscode.window.showWarningMessage(
             'XLIDE Live Share integration requires Live Share\'s "insiders" feature set on the host (a Live Share gating for third-party extensions). Enable it now?',

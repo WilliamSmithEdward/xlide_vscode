@@ -353,11 +353,16 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
             return;
         }
 
-        const { moduleName } = decodeModuleUri(editor.document.uri);
+        const documentUri = editor.document.uri;
+        const { moduleName } = decodeModuleUri(documentUri);
         const analysisResult = await currentModuleAnalysisResult(editor.document);
         const { problems, errorCount, warningCount } = analysisResult;
 
-        showWorkbookAnalysisResults(analysisResult, () => currentModuleAnalysisResult(editor.document));
+        // Re-resolve the document fresh on each refresh (rather than capturing the
+        // possibly-disposed editor) so the long-lived analysis panel re-analyzes the
+        // current content and survives the original editor being closed.
+        showWorkbookAnalysisResults(analysisResult, async () =>
+            currentModuleAnalysisResult(await vscode.workspace.openTextDocument(documentUri)));
         if (problems.length === 0) {
             vscode.window.showInformationMessage(
                 `XLIDE: "${moduleName}" passed analysis (no unsuppressed problems).`,

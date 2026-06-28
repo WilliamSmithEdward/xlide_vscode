@@ -80,7 +80,8 @@ function recordPerformanceTrace(entry: PerformanceTraceEntry): void {
 }
 
 function recentPerformanceTraceEntries(limit = MAX_PERFORMANCE_TRACE_ENTRIES): PerformanceTraceEntry[] {
-    return performanceTraceEntries.slice(-Math.max(0, limit));
+    if (limit <= 0) { return []; }
+    return performanceTraceEntries.slice(-limit);
 }
 
 function clearPerformanceTrace(): void {

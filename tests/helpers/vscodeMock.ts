@@ -134,6 +134,8 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 			onDidChangeConfiguration: vi.fn(() => new Disposable()),
 			onDidChangeTextDocument: vi.fn(() => new Disposable()),
 			onDidSaveTextDocument: vi.fn(() => new Disposable()),
+			onDidCloseTextDocument: vi.fn(() => new Disposable()),
+			onDidOpenTextDocument: vi.fn(() => new Disposable()),
 			createFileSystemWatcher: vi.fn(() => ({
 				dispose: vi.fn(),
 				onDidCreate: vi.fn(() => new Disposable()),

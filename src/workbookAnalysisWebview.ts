@@ -313,6 +313,12 @@ export function openWorkbookAnalysisResults(
                     const update = scope === 'global'
                         ? await setGlobalAnalysisRuleTracked(code, message.tracked === true)
                         : await setWorkbookAnalysisRuleTracked(currentResult.filePath, code, message.tracked === true);
+                    // Re-arm the suppression window now that the sidecar write has
+                    // resolved, so a slow filesystem-watcher notification after the
+                    // initial window still does not trigger a redundant self-refresh.
+                    if (scope === 'workbook') {
+                        ignoreOwnSidecarRefreshBriefly();
+                    }
                     await refreshAfterAnalysisMutation();
                     await panel.webview.postMessage({
                         type: 'ruleTrackingChanged',
@@ -327,6 +333,7 @@ export function openWorkbookAnalysisResults(
             if (message.type === 'resetAnalysisRuleTracking') {
                 ignoreOwnSidecarRefreshBriefly();
                 await resetWorkbookAnalysisRuleTracking(currentResult.filePath);
+                ignoreOwnSidecarRefreshBriefly();
                 await refreshAfterAnalysisMutation();
                 return;
             }
@@ -502,8 +509,10 @@ function buildWorkbookAnalysisClientModel(
     return {
         workbookName: model.workbookName,
         totalProblems: model.totalProblems,
-        errorCount: model.errorCount,
-        warningCount: model.warningCount,
+        // Derive all three counts uniformly from the same row set so the
+        // Information stat cannot silently desync from Errors/Warnings.
+        errorCount: model.rows.filter((row) => row.severity === 'error').length,
+        warningCount: model.rows.filter((row) => row.severity === 'warning').length,
         informationCount: model.rows.filter((row) => row.severity === 'information').length,
         suppressedCount: rows.filter((row) => row.suppressed && row.tracked).length,
         untrackedCount: rows.filter((row) => !row.tracked).length,

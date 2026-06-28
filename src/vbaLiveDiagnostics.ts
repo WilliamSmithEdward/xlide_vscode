@@ -282,6 +282,11 @@ export function registerVbaDiagnostics(
             if (!scheduler.isCurrentRun(document, key, generation, document.version)) {
                 return;
             }
+            // Gate with shouldPublish too: a failed local pass must not overwrite a
+            // successful full pass of the same generation that already published.
+            if (!scheduler.shouldPublish(key, generation, pass)) {
+                return;
+            }
             collection.set(document.uri, [diagnosticForAnalysisRunError(document, err)]);
         });
     };

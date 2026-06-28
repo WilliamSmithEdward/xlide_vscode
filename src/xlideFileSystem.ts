@@ -151,8 +151,19 @@ export class XlideFileSystemProvider
     private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number; workbookKey?: string }>();
     /** Last known real workbook file mtime per workbook identity key. */
     private readonly _workbookMtimes = new Map<string, number>();
+    private readonly _disposables: vscode.Disposable[] = [];
 
-    constructor(private readonly _bridge: PythonBridge) {}
+    constructor(private readonly _bridge: PythonBridge) {
+        // Evict per-module stat entries when their document closes so _stats does
+        // not grow unbounded over a long-lived window.
+        this._disposables.push(
+            vscode.workspace.onDidCloseTextDocument((doc) => {
+                if (doc.uri.scheme === XLIDE_SCHEME) {
+                    this._stats.delete(this.statKey(doc.uri));
+                }
+            }),
+        );
+    }
 
     /** Attach the Live Share integration so remote xlide-vba://liveshare/... URIs are routed via RPC. */
     setLiveShare(liveShare: LiveShareIntegration): void {
@@ -354,6 +365,9 @@ export class XlideFileSystemProvider
     }
 
     dispose(): void {
+        for (const d of this._disposables.splice(0)) {
+            d.dispose();
+        }
         this._emitter.dispose();
     }
 

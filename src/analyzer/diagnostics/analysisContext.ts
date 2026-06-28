@@ -186,11 +186,11 @@ export function applicationMemberNames(): ReadonlySet<string> {
 // returned arrays or their tokens; the diagnostics engine treats token
 // streams as read-only throughout.
 const STATEMENT_TOKEN_CACHE_MAX = 2;
-const statementTokenCache: { src: string; bySpan: Map<number, VbaToken[]> }[] = [];
+const statementTokenCache: { src: string; bySpan: Map<string, VbaToken[]> }[] = [];
 
 /** Significant tokens of a statement span, excluding comments and newlines (memoized per pass). */
 export function statementTokens(source: string, span: Span): VbaToken[] {
-	let entry: { src: string; bySpan: Map<number, VbaToken[]> } | undefined;
+	let entry: { src: string; bySpan: Map<string, VbaToken[]> } | undefined;
 	for (let i = 0; i < statementTokenCache.length; i += 1) {
 		if (statementTokenCache[i].src === source) {
 			entry = statementTokenCache[i];
@@ -208,8 +208,9 @@ export function statementTokens(source: string, span: Span): VbaToken[] {
 			statementTokenCache.pop();
 		}
 	}
-	// Statement spans never overlap, so the start offset identifies the span.
-	const key = span.start * 0x100000000 + span.end;
+	// A string key avoids the float-precision loss / collisions the prior
+	// `start * 2^32 + end` scheme had once start >= 2^21 (modules over ~2MB).
+	const key = `${span.start}:${span.end}`;
 	let toks = entry.bySpan.get(key);
 	if (!toks) {
 		toks = computeStatementTokens(source, span);

@@ -233,6 +233,11 @@ export function checkAmbiguousEnumMemberReferences(
 				sym.moduleName.toLowerCase() !== moduleName.toLowerCase(),
 		),
 	];
+	// Presence test only: if no enum-member name is defined by more than one
+	// visible Enum, no reference can be ambiguous, so skip the per-reference
+	// binding work below. The groups map itself is not reused — each reference
+	// re-derives ambiguity from its own resolved binding (which carries the
+	// definitions), so caching the map here would not save that work.
 	if (ambiguousEnumMemberGroups(visibleEnumMembers).size === 0) {
 		return;
 	}

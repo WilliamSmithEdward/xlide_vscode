@@ -1,6 +1,7 @@
 import {
     normalizeAnalysisRuleCode,
     normalizeAnalysisRuleCodes,
+    normalizeKnownAnalysisRuleCodes,
     planAnalysisRuleTrackingUpdate,
     type AnalysisRuleTrackingUpdate,
     type AnalysisRuleSeverityOverrides,
@@ -66,7 +67,7 @@ export function effectiveWorkbookAnalysisSettingsFromConfig(
     const { analysis } = config;
     const visibleSeverities = resolveWorkbookSetting(analysis?.visibleSeverities, globalVisibleSeverities);
     const workbookUntrackedRules = normalizeAnalysisRuleCodes(analysis?.untrackedRules ?? []);
-    const untrackedRules = analysis?.untrackedRules === undefined
+    const untrackedRules = analysis?.untrackedRules === undefined || workbookUntrackedRules.length === 0
         ? {
             value: globalUntrackedRules.value,
             source: globalUntrackedRules.source,
@@ -96,7 +97,9 @@ export async function setWorkbookAnalysisRuleTracked(
     tracked: boolean,
 ): Promise<AnalysisRuleTrackingUpdate> {
     const normalized = normalizeAnalysisRuleCode(code);
-    if (!normalized) {
+    // Mirror the global guard: refuse to persist codes that are not known
+    // diagnostic rules, so a stale/renamed code cannot linger in the sidecar.
+    if (!normalized || normalizeKnownAnalysisRuleCodes([normalized]).length === 0) {
         const settings = await effectiveWorkbookAnalysisSettings(workbookPath);
         return {
             tracked,
@@ -139,8 +142,10 @@ function withAnalysisSettings(
     config: WorkbookSettingsConfig,
     analysis: WorkbookAnalysisSettingsConfig,
 ): WorkbookSettingsConfig {
-    // Spread so future top-level sidecar keys survive analysis-settings writes,
-    // matching workbookSettingsWithModuleSyncPatch/workbookSettingsWithTestPatch.
+    // Spread the existing config so other known top-level keys (exportFolder,
+    // tests, etc.) survive analysis-settings writes. Unknown top-level keys are
+    // intentionally dropped on write by normalizeWorkbookSettingsConfig, so this
+    // is not forward-compatible persistence for unrecognized keys.
     const normalizedAnalysis = compactAnalysisSettings(analysis);
     const next = { ...config };
     if (normalizedAnalysis) {

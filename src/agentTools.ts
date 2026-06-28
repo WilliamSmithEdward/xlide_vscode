@@ -406,6 +406,17 @@ export function registerAgentTools(
                 });
                 return textResult(JSON.stringify(result, null, 2));
             },
+            async prepareInvocation(options, _token) {
+                return {
+                    invocationMessage: `Creating workbook "${options.input.filePath}"`,
+                    confirmationMessages: {
+                        title: 'Create New Workbook',
+                        message: new vscode.MarkdownString(
+                            `Create a new Excel workbook at \`${options.input.filePath}\`?`,
+                        ),
+                    },
+                };
+            },
         }),
 
         // ----------------------------------------------------------------

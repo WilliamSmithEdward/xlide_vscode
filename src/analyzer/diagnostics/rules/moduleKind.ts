@@ -371,57 +371,84 @@ export function checkRaiseEventTargets(
 			if (activity?.isInactive(lineSpan)) {
 				return;
 			}
-			const hit = raiseEventTargetHit(source, lineSpan);
-			if (!hit || events.has(hit.name.toLowerCase())) {
-				return;
+			// A single physical line can carry several `:`-separated statements
+			// (e.g. `RaiseEvent A: RaiseEvent B`), so check every RaiseEvent on it.
+			for (const hit of raiseEventTargetHits(source, lineSpan)) {
+				if (events.has(hit.name.toLowerCase())) {
+					continue;
+				}
+				push(
+					'raiseEventUndeclaredEvent',
+					`Event '${hit.name}' is not declared in this module, so it cannot be raised with RaiseEvent.`,
+					hit.span,
+				);
 			}
-			push(
-				'raiseEventUndeclaredEvent',
-				`Event '${hit.name}' is not declared in this module, so it cannot be raised with RaiseEvent.`,
-				hit.span,
-			);
 		});
 	}
 }
 
-function raiseEventTargetHit(
+function raiseEventTargetHits(
 	source: string,
 	span: Span,
-): { name: string; span: Span } | undefined {
+): Array<{ name: string; span: Span }> {
 	const toks = statementTokens(source, span);
-	const start = raiseEventStatementStartIndex(toks);
-	if (start < 0) {
-		return undefined;
+	const hits: Array<{ name: string; span: Span }> = [];
+	// Each `:`-separated statement segment on the line may be its own RaiseEvent.
+	for (const segmentStart of statementSegmentStarts(toks)) {
+		if (tokenText(toks[segmentStart]) !== 'raiseevent') {
+			continue;
+		}
+		const nameTok = toks[segmentStart + 1];
+		const name = nameTok ? tokenName(nameTok) : undefined;
+		if (!name) {
+			continue;
+		}
+		hits.push({
+			name,
+			span: {
+				start: span.start + nameTok.start,
+				end: span.start + nameTok.end,
+			},
+		});
 	}
-	const nameTok = toks[start + 1];
-	if (!nameTok) {
-		return undefined;
-	}
-	const name = tokenName(nameTok);
-	if (!name) {
-		return undefined;
-	}
-	return {
-		name,
-		span: {
-			start: span.start + nameTok.start,
-			end: span.start + nameTok.end,
-		},
-	};
+	return hits;
 }
 
-function raiseEventStatementStartIndex(toks: readonly VbaToken[]): number {
-	let start = 0;
+/**
+ * Indices where each `:`-separated statement segment begins on a logical line.
+ * The first segment skips a leading line-number or `Label:` prefix; subsequent
+ * segments begin right after each top-level statement-separator colon. A colon
+ * inside parentheses/brackets is not a separator.
+ */
+function statementSegmentStarts(toks: readonly VbaToken[]): number[] {
+	if (toks.length === 0) {
+		return [];
+	}
+	const starts: number[] = [];
+	let depth = 0;
+	let segmentStart = 0;
+	// Skip a leading line-number or `Label:` on the first segment.
 	if (toks.length > 1 && /^\d+$/.test(toks[0].rawText)) {
-		start = 1;
+		segmentStart = 1;
 	} else if (
 		toks.length > 2 &&
 		(toks[0].kind === 'identifier' || toks[0].kind === 'keyword') &&
 		toks[1].rawText === ':'
 	) {
-		start = 2;
+		segmentStart = 2;
 	}
-	return tokenText(toks[start]) === 'raiseevent' ? start : -1;
+	starts.push(segmentStart);
+	for (let i = segmentStart; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+		} else if (raw === ')' || raw === ']') {
+			depth--;
+		} else if (raw === ':' && depth === 0 && i + 1 < toks.length) {
+			starts.push(i + 1);
+		}
+	}
+	return starts;
 }
 
 export function checkDeclarePtrSafeForWin64(

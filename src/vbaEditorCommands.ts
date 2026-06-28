@@ -69,7 +69,9 @@ async function clearEmptyContinuedComment(editor: vscode.TextEditor): Promise<bo
 	if (after.trim().length > 0) {
 		return false;
 	}
-	const match = /^(\s*)('''|') ?$/.exec(before);
+	// Match any apostrophe run, mirroring commentContinuationText's ('+) capture,
+	// so Smart Backspace clears 2- and 4+-apostrophe continued comments too.
+	const match = /^(\s*)('+) ?$/.exec(before);
 	if (!match) {
 		return false;
 	}

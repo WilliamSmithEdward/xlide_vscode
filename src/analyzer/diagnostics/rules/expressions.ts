@@ -392,7 +392,13 @@ export function incompleteMemberAccess(
 }
 
 export function isNonUnaryBinaryOperator(tok: VbaToken | undefined): boolean {
-	if (!tok || tok.kind !== 'operator') {
+	if (!tok) {
+		return false;
+	}
+	// VBA word operators (And/Or/Xor/Eqv/Imp/Mod/Like/Is) lex as 'keyword'
+	// tokens, so accept those alongside symbolic 'operator' tokens (e.g. ':=')
+	// by matching on the lowercased text rather than the token kind.
+	if (tok.kind !== 'operator' && tok.kind !== 'keyword') {
 		return false;
 	}
 	return NON_UNARY_BINARY_OPERATORS.has(tokenText(tok));
@@ -532,11 +538,35 @@ function zeroDivisorAtomTokenGroup(
 	const member = toks[start + 2];
 	const memberName = member ? tokenName(member) : undefined;
 	if (firstName && toks[start + 1]?.rawText === '.' && memberName) {
+		// Only treat `first.member` as the complete divisor when nothing extends
+		// the member-access chain past it; otherwise `a.Zero.Foo` / `a.Zero(i)`
+		// would mis-match on the inner `a.Zero == 0` lookup.
+		if (!isDivisorAtomBoundary(toks[start + 3])) {
+			return undefined;
+		}
 		return constants.get(`${firstName}.${memberName}`.toLowerCase()) === 0
 			? [first, toks[start + 1], member]
 			: undefined;
 	}
-	return isZeroDivisorAtom(first, constants) ? [first] : undefined;
+	// A bare atom only stands alone when it is not itself a member-access head or
+	// a call target (a following '.' or '(' means more of the expression follows).
+	if (isZeroDivisorAtom(first, constants) && isDivisorAtomBoundary(toks[start + 1])) {
+		return [first];
+	}
+	return undefined;
+}
+
+/**
+ * True when `tok` terminates a divisor atom: end-of-tokens, a closing paren, a
+ * comma, or any operator that is NOT a member-access dot or call-opening paren.
+ * Matching another '.' or '(' means the atom continues, so the group is not the
+ * whole divisor.
+ */
+function isDivisorAtomBoundary(tok: VbaToken | undefined): boolean {
+	if (!tok) {
+		return true;
+	}
+	return tok.rawText !== '.' && tok.rawText !== '(';
 }
 
 function isZeroDivisorAtom(

@@ -27,6 +27,12 @@ export interface BareIdentifierResolution {
 	tier?: Exclude<BareIdentifierResolutionScope, 'ambiguous' | 'unresolved'>;
 	definitions: readonly VbaSymbol[];
 	reason: string;
+	/**
+	 * The procedure enclosing the resolved offset, echoed back from the input so
+	 * hot-path callers (referenceScope) can reuse it instead of re-running the
+	 * O(n) enclosing-procedure scan.
+	 */
+	enclosingProcedure?: VbaSymbol;
 }
 
 export interface BareIdentifierResolutionInput {
@@ -247,6 +253,7 @@ function resolution(
 		...(tier ? { tier } : {}),
 		definitions,
 		reason: `${label} ${input.context} binding for '${input.name}' in ${owner}.`,
+		...(input.enclosingProcedure ? { enclosingProcedure: input.enclosingProcedure } : {}),
 	};
 }
 

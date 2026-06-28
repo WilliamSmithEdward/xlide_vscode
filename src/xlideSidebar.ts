@@ -133,6 +133,13 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         if (payload.type !== 'runCommand' || typeof payload.command !== 'string') {
             return;
         }
+        // Trust-boundary hardening: the webview is a distinct security context, so
+        // never forward an arbitrary command id from a postMessage payload. Only
+        // XLIDE's own commands plus the settings command the sidebar model emits
+        // (xlideSidebarModel.ts) are allowed.
+        if (!payload.command.startsWith('xlide.') && payload.command !== 'workbench.action.openSettings') {
+            return;
+        }
         const args = Array.isArray(payload.arguments) ? payload.arguments : [];
         await vscode.commands.executeCommand(payload.command, ...args);
     }
