@@ -160,6 +160,8 @@ class OwnedExcelTestHostSession {
     private armMacroWatchdog(event: MacroStartedEvent): void {
         this.clearStartupWatchdog();
         this.clearMacroWatchdog();
+        // A new macro means we are no longer in the post-run cleanup window.
+        this.clearCleanupWatchdog();
         const timeoutMs = event.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS;
         this.currentMacro = {
             excelId: event.excelId,
@@ -204,7 +206,7 @@ class OwnedExcelTestHostSession {
 
     // ----- phase: cleanup ---------------------------------------------------
 
-    private armCleanupWatchdog(stage: 'workbook-closed' | 'excel-quit'): void {
+    private armCleanupWatchdog(stage: 'workbook-closed' | 'excel-quit' | 'post-macro'): void {
         this.clearCleanupWatchdog();
         this.cleanupWatchdog = setTimeout(() => {
             if (this.settled) {
@@ -212,7 +214,7 @@ class OwnedExcelTestHostSession {
             }
             const elapsedDescription = `${DEFAULT_VBA_TEST_CLEANUP_GRACE_MS} ms`;
             if (!this.sawExcelQuit) {
-                this.log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} after workbook close; killing owned Excel.`);
+                this.log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} (${stage}); owned Excel did not finish cleanup, killing it.`);
                 this.killOwnedExcel('cleanup-failed');
             } else {
                 this.log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} after Excel quit; stopping host script.`);
@@ -286,6 +288,13 @@ class OwnedExcelTestHostSession {
             this.clearMacroWatchdog();
             this.currentMacro = undefined;
             this.currentModalBlocker = undefined;
+            // Bound the window between the last macro and workbook-closed/excel-quit:
+            // if the host wedges during COM cleanup before emitting either (a modal on
+            // $workbook.Close, a stuck COM release), there would otherwise be no armed
+            // timer and no process timeout, hanging the run forever. The next
+            // macro-started (armMacroWatchdog) or a close/quit event clears/supersedes
+            // this watchdog; only a genuine cleanup hang lets it fire.
+            this.armCleanupWatchdog('post-macro');
         } else if (event.kind === 'workbook-closed') {
             this.sawWorkbookClosed = true;
             this.log(`[runVbaTests host] workbook-closed durationMs=${event.durationMs ?? 'unknown'}`);

@@ -52,6 +52,10 @@ export class PythonBridge implements vscode.Disposable {
     private _stderrLines: string[] = [];
     private _stopping = false;
     private _onDemandStart: (() => Promise<void>) | undefined;
+    // Serializes start/stop/restart so a concurrent restart (config change,
+    // python-pulse, crash recovery) cannot interleave with an in-flight stop and
+    // leave proc/_stopping state inconsistent or mis-fire the crash-recovery popup.
+    private _lifecycle: Promise<unknown> = Promise.resolve();
 
     constructor(
         private readonly _context: vscode.ExtensionContext,
@@ -71,11 +75,33 @@ export class PythonBridge implements vscode.Disposable {
     }
 
     async restart(): Promise<void> {
-        await this.stop();
-        return this.start();
+        return this._enqueueLifecycle(async () => {
+            await this._doStop();
+            await this._doStart();
+        });
     }
 
     async stop(): Promise<void> {
+        return this._enqueueLifecycle(() => this._doStop());
+    }
+
+    async start(): Promise<void> {
+        return this._enqueueLifecycle(() => this._doStart());
+    }
+
+    /**
+     * Chains start/stop/restart on a single in-flight promise so they cannot
+     * interleave. restart() and the crash-recovery popup invoke the _doStop/
+     * _doStart internals directly (never the public methods), so an enqueued op
+     * never waits on its own queue and cannot deadlock.
+     */
+    private _enqueueLifecycle<T>(op: () => Promise<T>): Promise<T> {
+        const run = this._lifecycle.then(op, op);
+        this._lifecycle = run.then(() => undefined, () => undefined);
+        return run;
+    }
+
+    private async _doStop(): Promise<void> {
         const proc = this._proc;
         this._stopping = true;
         this._ready = false;
@@ -119,7 +145,7 @@ export class PythonBridge implements vscode.Disposable {
         this._stopping = false;
     }
 
-    async start(): Promise<void> {
+    private async _doStart(): Promise<void> {
         // Idempotent: if a start is already in flight or a live process exists,
         // return that start rather than spawning a second interpreter (which
         // would orphan the first - e.g. xlide.setup's installDependencies calling

@@ -440,6 +440,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         try {
             const cacheKey = workbookNodeKey(filePath);
             let modules = this._modulesListCache.get(cacheKey);
+            let loadGeneration: number | undefined;
             if (!modules) {
                 let load = this._modulesListLoads.get(cacheKey);
                 if (!load) {
@@ -465,6 +466,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 // already in tree order, so re-renders (cache hits) skip the sort
                 // and never mutate the shared cache.
                 const generation = this._generation;
+                loadGeneration = generation;
                 modules = [...await load].sort(compareVbaModulesForTreeOrder);
                 // Only cache when no refresh() raced this load to completion;
                 // otherwise the post-refresh render will re-fetch the fresh list.
@@ -472,6 +474,10 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                     this._modulesListCache.set(cacheKey, modules);
                 }
             }
+            // Only populate the shared node-identity map when this render is not a
+            // stale fresh-load that a refresh() raced to completion; otherwise it
+            // would re-insert old-generation node identities into the cleared map.
+            const populateNodeMap = loadGeneration === undefined || this._generation === loadGeneration;
             const nodes = modules
                 .map((m) => {
                     const key = moduleNodeKey(filePath, m.name);
@@ -484,7 +490,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                             moduleName: m.name,
                             moduleType: m.type,
                         };
-                        this._moduleNodes.set(key, node);
+                        if (populateNodeMap) {
+                            this._moduleNodes.set(key, node);
+                        }
                     }
                     return node;
                 });

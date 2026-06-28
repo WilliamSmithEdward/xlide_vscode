@@ -423,26 +423,31 @@ async function withWorkbookSettingsWriteLock<T>(
 }
 
 function recoverWorkbookSettingsJson(raw: string): unknown | undefined {
+    // Recovery is only safe when the ENTIRE input parses as a sequence of complete
+    // top-level objects (the intended "trailing duplicate, last wins" case). If any
+    // trailing content is truncated or garbage, we must NOT silently fall back to an
+    // earlier object and overwrite the newer (intended) one - return undefined so the
+    // caller surfaces a WorkbookSettingsError instead of destroying newer settings.
     let offset = skipJsonWhitespace(raw, 0);
     let recovered: unknown;
     let recoveredAny = false;
     while (offset < raw.length) {
         if (raw[offset] !== '{') {
-            return recoveredAny ? recovered : undefined;
+            return undefined;
         }
         const end = findJsonRootEnd(raw, offset);
         if (end === undefined) {
-            return recoveredAny ? recovered : undefined;
+            return undefined;
         }
         try {
             const parsed = JSON.parse(raw.slice(offset, end));
             if (!isPlainObject(parsed)) {
-                return recoveredAny ? recovered : undefined;
+                return undefined;
             }
             recovered = parsed;
             recoveredAny = true;
         } catch {
-            return recoveredAny ? recovered : undefined;
+            return undefined;
         }
         offset = skipJsonWhitespace(raw, end);
     }

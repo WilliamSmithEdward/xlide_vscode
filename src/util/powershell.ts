@@ -5,6 +5,29 @@ export function psSingleQuoted(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
 }
 
+/**
+ * Kill the spawned powershell.exe and, on Windows, its whole process tree.
+ * Node's ChildProcess.kill() TerminateProcess-es only powershell.exe itself, not
+ * processes it spawned, so use `taskkill /PID <pid> /T /F` to tear down the tree
+ * (mirrors killOwnedExcel in vbaTestHostSession). Falls back to a bare kill().
+ */
+function killProcessTree(child: cp.ChildProcess): void {
+    if (process.platform === 'win32' && child.pid !== undefined) {
+        try {
+            const killer = cp.spawn(
+                'taskkill.exe',
+                ['/PID', String(child.pid), '/T', '/F'],
+                { windowsHide: true },
+            );
+            killer.on('error', () => child.kill());
+            return;
+        } catch {
+            /* fall through to bare kill */
+        }
+    }
+    child.kill();
+}
+
 export interface RunPowerShellOptions {
     /** Arguments appended after the standard -NoProfile -ExecutionPolicy Bypass prefix. */
     args: string[];
@@ -91,7 +114,7 @@ export function runPowerShell(options: RunPowerShellOptions): PowerShellRun {
         if (options.timeoutMs !== undefined && options.timeoutMs > 0) {
             timer = setTimeout(() => {
                 timedOut = true;
-                child.kill();
+                killProcessTree(child);
                 // Flush buffered partial lines before settling, the same way the
                 // error/close handlers do, so a sentinel/diagnostic emitted just
                 // before the timeout is not lost from the resolved result.
@@ -119,6 +142,6 @@ export function runPowerShell(options: RunPowerShellOptions): PowerShellRun {
 
     return {
         result,
-        kill: () => { child.kill(); },
+        kill: () => { killProcessTree(child); },
     };
 }

@@ -63,6 +63,19 @@ export function registerVbaMemberCompletion(
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			keywordSnippets.handleTextDocumentChange(event);
 			canonicalCase.handleTextDocumentChange(event);
+			// Drop the workbook's derived editor-context cache when ANY of its
+			// modules is edited (even unsaved), so completion/hover for one module
+			// does not serve stale cross-module symbols from a sibling module's
+			// snapshot within the cache TTL. Editing the active module already
+			// cache-misses via its own version bump, so the extra cost falls only
+			// on the sibling-edit case this fixes.
+			if (event.document.uri.scheme === XLIDE_SCHEME) {
+				try {
+					provider.invalidate(decodeModuleUri(event.document.uri).xlsmPath);
+				} catch {
+					// Ignore URIs we cannot decode.
+				}
+			}
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
 			keywordSnippets.handleSelectionChange(event);

@@ -197,8 +197,11 @@ export function openVbaTestsPanel(
         panel.webview,
         async (message: VbaTestsWebviewMessage) => {
             if (message.type === 'installSupport') {
+                // installVbaTestSupportModule already shows a native success toast,
+                // and a postMessage here races the full webview.html reload (the new
+                // document may not have re-attached its message listener yet), so a
+                // 'refreshed' toast could be silently dropped. Rely on the native one.
                 await runAndRefresh(entry.options.onInstallSupport, 'XLIDE test support installation is not available.');
-                await panel.webview.postMessage({ type: 'refreshed' });
                 return;
             }
             if (message.type === 'runAll') {

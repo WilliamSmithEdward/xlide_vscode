@@ -79,6 +79,12 @@ export interface WorkbookAnalysisProblem {
     /** True when the finding is hidden by an XLIDE analysis suppression directive. */
     suppressed?: boolean;
     message: string;
+    /**
+     * VS Code document version the finding's coordinates were computed against, so
+     * mutating actions (quick-fix / ignore) can detect a drifted source and refuse
+     * to apply a mislocated edit. Undefined for producers that do not set it.
+     */
+    documentVersion?: number;
 }
 
 /** Aggregate metadata summary for a workbook analysis run. */

@@ -155,6 +155,16 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     }
 
+    function analysisSourceDrifted(doc: vscode.TextDocument, problem: WorkbookAnalysisProblem): boolean {
+        if (problem.documentVersion !== undefined && doc.version !== problem.documentVersion) {
+            vscode.window.showWarningMessage(
+                'XLIDE: The module changed since it was analyzed, so this action could land on the wrong location. Re-run analysis, then try again.',
+            );
+            return true;
+        }
+        return false;
+    }
+
     async function suppressWorkbookAnalysisProblem(
         filePath: string,
         problem: WorkbookAnalysisProblem,
@@ -164,6 +174,9 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        if (analysisSourceDrifted(doc, problem)) {
+            return;
+        }
         const source = doc.getText();
         const starts = lineStartOffsets(source);
         const problemOffset = Math.max(
@@ -231,6 +244,9 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        if (analysisSourceDrifted(doc, problem)) {
+            return false;
+        }
         const source = doc.getText();
         const starts = lineStartOffsets(source);
         const lineStart = starts[Math.max(0, problem.line - 1)] ?? 0;
@@ -314,24 +330,28 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
     async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<WorkbookAnalysisResult> {
         const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
         const source = document.getText();
+        // Capture the version alongside the source snapshot the problems are
+        // computed from, so mutating actions can detect later edits (drift).
+        const documentVersion = document.version;
         const { moduleType, result } = await analyzeOpenModule(vbaIndex, xlsmPath, moduleName, source);
         const byPosition = (a: WorkbookAnalysisProblem, b: WorkbookAnalysisProblem) => {
             if (a.line !== b.line) { return a.line - b.line; }
             return a.column - b.column;
         };
+        const stampVersion = (p: WorkbookAnalysisProblem): WorkbookAnalysisProblem => ({ ...p, documentVersion });
         const problems = workbookProblemsForModule(
             moduleName,
             moduleType,
             source,
             result.diagnostics,
-        ).sort(byPosition);
+        ).sort(byPosition).map(stampVersion);
         const suppressedProblems = workbookProblemsForModule(
             moduleName,
             moduleType,
             source,
             result.suppressedDiagnostics,
             { suppressed: true },
-        ).sort(byPosition);
+        ).sort(byPosition).map(stampVersion);
         const errorCount = problems.filter((p) => p.severity === 'error').length;
         const warningCount = problems.filter((p) => p.severity === 'warning').length;
         const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
