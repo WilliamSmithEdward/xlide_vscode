@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { isVbaDocument } from './xlideFileSystem';
+import { smartTabShouldIndentLine } from './vbaSmartTab';
 
 export function registerVbaEditorCommands(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
@@ -17,11 +18,20 @@ export function registerVbaEditorCommands(context: vscode.ExtensionContext): voi
 		vscode.commands.registerCommand('xlide.vba.smartTab', async () => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !isVbaDocument(editor.document)) {
-				await vscode.commands.executeCommand('editor.action.indentLines');
+				await vscode.commands.executeCommand('tab');
 				return;
 			}
 			await clearEmptyContinuedComment(editor);
-			await vscode.commands.executeCommand('editor.action.indentLines');
+			const selection = editor.selection;
+			const lineText = editor.document.lineAt(selection.active.line).text;
+			const spansLines = editor.selections.some((s) => s.start.line !== s.end.line);
+			if (smartTabShouldIndentLine(lineText, selection.active.character, selection.isEmpty, spansLines)) {
+				await vscode.commands.executeCommand('editor.action.indentLines');
+			} else {
+				// Caret inside line content (e.g. end of a line): insert a tab at the
+				// cursor like a normal editor instead of shifting the whole line.
+				await vscode.commands.executeCommand('tab');
+			}
 		}),
 		vscode.commands.registerCommand(
 			'xlide.vba.leaveSnippetAndCursorMove',
