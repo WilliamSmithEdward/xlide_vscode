@@ -9,16 +9,17 @@ export interface XlideOutputLogEntry {
 const MAX_OUTPUT_LOG_ENTRIES = 250;
 // Paths frequently contain spaces (Windows account names like "First Last",
 // "Program Files", "OneDrive - Company", workbook filenames). Match a path with a
-// file extension lazily up to that extension (so interior spaces are captured but
-// trailing log prose is not swallowed), and fall back to the no-space class for
-// extension-less paths. redactPathMatch then reduces the match to <redacted><ext>.
-const PATH_BODY = String.raw`(?:[^"'\r\n]*?\.[A-Za-z0-9]{1,12}(?=[\s"'):,;]|$)|[^\s'")]+)`;
+// file extension lazily up to that extension (so interior spaces are captured),
+// but DO NOT let the interior-space run cross whitespace that introduces another
+// path - otherwise two paths plus the prose between them collapse into one token.
+// Fall back to the no-space class for extension-less paths. redactPathMatch then
+// reduces the match to <redacted><ext>.
+const PATH_PREFIXES = 'Users|home|root|var|tmp|mnt|opt|srv|Volumes|private|etc|Library|data';
+const NEW_PATH_START = String.raw`(?:[A-Za-z]:\\|\/(?:${PATH_PREFIXES})\/)`;
+const PATH_BODY = String.raw`(?:(?:[^\s"'\r\n]|[ \t](?!${NEW_PATH_START}))*?\.[A-Za-z0-9]{1,12}(?=[\s"'):,;]|$)|[^\s'")]+)`;
 const WINDOWS_PATH_RE = new RegExp(String.raw`[A-Za-z]:\\${PATH_BODY}`, 'g');
 const FILE_URI_RE = /\b(?:file|xlide-vba):\/\/[^\s'")]+/g;
-const POSIX_PATH_RE = new RegExp(
-    String.raw`\/(?:Users|home|root|var|tmp|mnt|opt|srv|Volumes|private|etc|Library|data)\/${PATH_BODY}`,
-    'g',
-);
+const POSIX_PATH_RE = new RegExp(String.raw`\/(?:${PATH_PREFIXES})\/${PATH_BODY}`, 'g');
 
 const outputLog: XlideOutputLogEntry[] = [];
 

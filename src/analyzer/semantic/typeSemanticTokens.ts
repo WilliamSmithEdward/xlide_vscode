@@ -308,11 +308,16 @@ function collectBlockHeader(
 		}
 		return;
 	}
-	const span = (node as { span?: Span }).span;
-	if (span) {
-		const newline = source.indexOf('\n', span.start);
-		const end = newline >= 0 && newline < span.end ? newline : span.end;
-		collectHeaderSpan(source, { start: span.start, end }, out);
+	const block = node as { span?: Span; body?: { span: Span }[] };
+	if (block.span) {
+		// Bound the header by the first body statement rather than the first physical
+		// newline, so a line-continued header (`For Each x In _` / `New T`) is fully
+		// covered and the scan never overlaps the body (which collectBody walks),
+		// avoiding duplicate tokens.
+		const end = block.body && block.body.length > 0
+			? block.body[0].span.start
+			: block.span.end;
+		collectHeaderSpan(source, { start: block.span.start, end }, out);
 	}
 }
 

@@ -35,6 +35,13 @@ describe('XLIDE output log', () => {
 		).toBe('Volume <redacted>.xlsm');
 	});
 
+	it('does not collapse two paths plus the prose between them into one redaction', () => {
+		const out = redactSupportLogLine('Copy C:\\Users\\Alice\\AppData then open C:\\Temp\\log.txt');
+		expect(out).toContain('then open');          // prose between the paths preserved
+		expect(out).toContain('<redacted>.txt');     // the second path is still redacted
+		expect(out).not.toBe('Copy <redacted>.txt'); // not collapsed into a single token
+	});
+
 	it('records appendLine calls through the wrapped output channel', () => {
 		const raw = {
 			name: 'XLIDE',
