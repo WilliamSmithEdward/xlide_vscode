@@ -2,6 +2,62 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.9] - 2026-06-28
+
+### Added
+
+- **Juxtaposed expressions in an assignment are now flagged as syntax errors.**
+  A statement like `n = 1 n 1` (two value expressions with nothing between them)
+  no longer slips through silently - it is reported as "expected end of
+  statement", matching what the VBA compiler rejects. The check is narrowly
+  scoped to an assignment right-hand side, so it never fires on valid code such
+  as a call written with a space (`Foo (x)`), jagged-array access (`arr(1)(2)`),
+  or a type-declaration suffix (`Count&`).
+
+### Changed
+
+- **AI-assistant tool descriptions now keep agents on the live XLIDE module
+  tree.** The VBA read/write/rename/delete language-model tools spell out that
+  the workbook is a binary container, so VBA changes must go through XLIDE rather
+  than editing the `.xlsm`/`.xlsb` file or its exported `.bas`/`.cls` artifacts
+  directly.
+
+### Fixed
+
+- **Smart Tab no longer indents the whole line when you press Tab at the end of
+  a line.** Tab now inserts a tab character when the cursor is at or past the
+  line's content; it still indents the line when the cursor is in the leading
+  whitespace, on a blank line, or when a multi-line selection is active.
+- **The XLIDE Tests panel refreshes when you save a module.** Editing and saving
+  a VBA module of the workbook now updates the discovered-tests view instead of
+  waiting for a manual refresh.
+- **A range of robustness fixes from two full-codebase adversarial review
+  passes** - covering module export/sync edge cases, the Python bridge restart
+  path, output-log path redaction, atomic-save file permissions, and several
+  smaller correctness issues.
+
+## [2.5.8] - 2026-06-28
+
+### Changed
+
+- **Live diagnostics hold "still-typing" syntax errors on the current line.** A
+  syntax error on the line your cursor is on is suppressed until you leave the
+  line, matching the VBE which validates a line only once you move off it - so a
+  half-typed `If` no longer flashes a red squiggle while you are still writing
+  it.
+
+### Fixed
+
+- **Member completion after a leading dot in expression position.** Inside a
+  `With` block, typing a leading `.` where an expression is expected (e.g.
+  `For Each wb In .`) now offers the With-target's members.
+- **Resolved deferred findings from the adversarial code review.**
+
+### Performance
+
+- **Less redundant work on the per-keystroke analyzer and diagnostics hot
+  paths**, reducing latency while typing in large modules.
+
 ## [2.5.7] - 2026-06-27
 
 ### Added
