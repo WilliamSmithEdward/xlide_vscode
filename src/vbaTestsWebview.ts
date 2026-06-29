@@ -14,6 +14,7 @@ import { DebouncedRefresher } from './webview/refresh';
 import { WEBVIEW_BODY_CSS, WEBVIEW_PRIMARY_BUTTON_CSS, xlideAccentPaletteCss } from './webview/styles';
 import { renderWebviewTemplate } from './webview/templates';
 import { errorMessage } from './util/errors';
+import { XLIDE_SCHEME, decodeModuleUri, workbookIdentityKey } from './xlideFileSystem';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
 
@@ -256,9 +257,28 @@ export function openVbaTestsPanel(
     );
 
     const treeSub = entry.options.onDidChangeWorkbookTree?.(() => refresher.schedule());
+    // Re-discover tests when a module of THIS workbook is saved. The explorer tree
+    // event only fires when the changed module's node is already rendered, so on its
+    // own it misses content changes (a new/edited test sub) to modules that are not
+    // currently expanded in the explorer; a save reliably reflects the on-disk
+    // workbook the discovery reads.
+    const workbookKey = workbookIdentityKey(filePath);
+    const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
+        if (doc.uri.scheme !== XLIDE_SCHEME) {
+            return;
+        }
+        try {
+            if (workbookIdentityKey(decodeModuleUri(doc.uri).xlsmPath) === workbookKey) {
+                refresher.schedule();
+            }
+        } catch {
+            // Not a decodable module URI; ignore.
+        }
+    });
     const panelDisposables = [
         messageSub,
         refresher,
+        saveSub,
         ...(treeSub ? [treeSub] : []),
     ];
     panel.onDidDispose(() => {
