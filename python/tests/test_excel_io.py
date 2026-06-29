@@ -11,7 +11,7 @@ import shutil
 
 import pytest
 
-from xlide.excel_io import get_workbook_info, list_sheets
+from xlide.excel_io import get_workbook_info, list_sheets, read_cells
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _TEST_WORKBOOK = os.path.join(_REPO_ROOT, "excel_test_workbook", "fullBuild.xlsm")
@@ -44,3 +44,13 @@ def test_get_workbook_info_combines_sheets_modules_and_names(workbook_copy):
         assert _DIMENSIONS_RE.match(sheet["dimensions"]), sheet
     assert isinstance(info["namedRanges"], list)
     assert "modules" in info
+
+
+def test_read_cells_accepts_a_single_cell_range(workbook_copy):
+    # A single-cell A1 reference is valid notation; it must return [[value]] rather
+    # than raising "object is not iterable".
+    sheet = list_sheets(path=workbook_copy)["sheets"][0]["name"]
+    result = read_cells(path=workbook_copy, sheet=sheet, range="A1")
+    assert isinstance(result["data"], list)
+    assert len(result["data"]) == 1
+    assert len(result["data"][0]) == 1

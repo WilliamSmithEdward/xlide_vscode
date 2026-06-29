@@ -21,6 +21,16 @@ function exportFolderKey(folder: string): string {
     return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
+// Windows and (default) macOS filesystems are case-insensitive, so a live module
+// and its on-disk export file can legitimately differ only by case. Compare
+// export filenames case-insensitively on those platforms; otherwise trueUp would
+// classify the just-written export as "stale" and delete it (data loss).
+function caseNormalizedRelName(name: string): string {
+    return process.platform === 'win32' || process.platform === 'darwin'
+        ? name.toLowerCase()
+        : name;
+}
+
 /**
  * Serializes mutating operations on a given export folder so a single export, a
  * whole-workbook export, a sync-plan apply's deletes, and an import apply's reads
@@ -108,8 +118,9 @@ async function computeStaleExportFiles(
     liveRelativeNames: ReadonlySet<string>,
 ): Promise<string[]> {
     const stale: string[] = [];
+    const liveNormalized = new Set([...liveRelativeNames].map(caseNormalizedRelName));
     for (const relPath of await listRootVbaModuleFiles(exportFolder)) {
-        if (liveRelativeNames.has(relPath)) {
+        if (liveNormalized.has(caseNormalizedRelName(relPath))) {
             continue;
         }
         const stalePath = path.join(exportFolder, relPath);

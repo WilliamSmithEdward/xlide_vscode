@@ -688,7 +688,11 @@ function problemFromOpenMessage(message: WorkbookAnalysisMessage): WorkbookAnaly
 function sameProblemLocation(left: WorkbookAnalysisProblem, right: WorkbookAnalysisProblem): boolean {
     return left.moduleName.toLowerCase() === right.moduleName.toLowerCase() &&
         left.line === right.line &&
-        left.column === right.column;
+        left.column === right.column &&
+        // Include the rule code: distinct findings can share an exact line:column,
+        // so a mutating action (suppress/quick-fix) must not act on a co-located
+        // finding with a different code after a background refresh shifts indices.
+        (left.code ?? '').trim().toLowerCase() === (right.code ?? '').trim().toLowerCase();
 }
 
 function positiveIntegerFromUnknown(value: unknown): number | undefined {

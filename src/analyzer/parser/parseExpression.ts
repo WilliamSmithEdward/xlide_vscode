@@ -148,9 +148,15 @@ export function parseParenlessArguments(
 	return new ExpressionParser(tokens, from, to).parseParenlessArgumentList();
 }
 
+// Recursive-descent depth cap so pathological input (thousands of nested parens,
+// a long unary chain) cannot overflow the JS stack and break the documented
+// "Never throws" contract. Mirrors integerConstantExpression's MAX_RECURSION_DEPTH.
+const MAX_EXPRESSION_DEPTH = 256;
+
 class ExpressionParser {
 	readonly diagnostics: ParseDiagnostic[] = [];
 	index: number;
+	private _depth = 0;
 
 	constructor(
 		private readonly tokens: readonly VbaToken[],
@@ -166,6 +172,21 @@ class ExpressionParser {
 		}
 		const expr = this.parseBinary(0);
 		return expr;
+	}
+
+	/**
+	 * Increments the recursion-depth counter; returns false (and emits a
+	 * diagnostic, halting the parse) once MAX_EXPRESSION_DEPTH is reached, so the
+	 * recursive descent below cannot overflow the JS stack on adversarial input.
+	 */
+	private enterExpressionDepth(): boolean {
+		if (this._depth >= MAX_EXPRESSION_DEPTH) {
+			this.diag(this.peek(), 'Expression nesting is too deep.');
+			this.index = this.to;
+			return false;
+		}
+		this._depth++;
+		return true;
 	}
 
 	// --- token cursor -------------------------------------------------------
@@ -204,6 +225,15 @@ class ExpressionParser {
 	// --- precedence-climbing binary layer -----------------------------------
 
 	private parseBinary(minPrec: number): ExprNode | null {
+		if (!this.enterExpressionDepth()) { return null; }
+		try {
+			return this.parseBinaryInner(minPrec);
+		} finally {
+			this._depth--;
+		}
+	}
+
+	private parseBinaryInner(minPrec: number): ExprNode | null {
 		let left: ExprNode | null;
 		// `Not` is a low-precedence prefix: recognise it only where a Not-expression
 		// is allowed (at or below its binding power), so comparisons inside it bind
@@ -283,6 +313,15 @@ class ExpressionParser {
 	// --- unary / exponent ---------------------------------------------------
 
 	private parseUnary(): ExprNode | null {
+		if (!this.enterExpressionDepth()) { return null; }
+		try {
+			return this.parseUnaryInner();
+		} finally {
+			this._depth--;
+		}
+	}
+
+	private parseUnaryInner(): ExprNode | null {
 		const token = this.peek();
 		if (!token) {
 			this.diag(undefined, 'Expected an expression.');
@@ -346,6 +385,15 @@ class ExpressionParser {
 
 	/** A postfix primary optionally preceded by sign(s) - the operand of `^`. */
 	private parseSignedPrimary(): ExprNode | null {
+		if (!this.enterExpressionDepth()) { return null; }
+		try {
+			return this.parseSignedPrimaryInner();
+		} finally {
+			this._depth--;
+		}
+	}
+
+	private parseSignedPrimaryInner(): ExprNode | null {
 		const token = this.peek();
 		if (token && token.kind === 'operator' && (token.rawText === '-' || token.rawText === '+')) {
 			this.next();

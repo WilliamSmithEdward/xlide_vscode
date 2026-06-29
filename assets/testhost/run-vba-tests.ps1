@@ -3,6 +3,8 @@
 # dynamic preamble before this body: $ErrorActionPreference,
 # $ProgressPreference, $targetPath, $testsJson, $runnerModuleName, $failFast,
 # $eventPrefix, and $modalWatcherSource (assets/testhost/XlideTestModalWatcher.cs).
+# Emit UTF-8 so non-ASCII host/COM error text is decoded correctly by the Node side.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $excelId = "xlide-" + [Guid]::NewGuid().ToString("N")
 $excel = $null
 $workbook = $null

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 import { PythonBridge } from './pythonBridge';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
@@ -385,6 +386,14 @@ export function registerAgentTools(
                     workbookPath: filePath,
                     failedSummary: 'Create workbook: 0 changed, 1 failed',
                 }, async () => {
+                    if (!path.isAbsolute(filePath)) {
+                        // The backend resolves a relative path against its own cwd
+                        // (<extension>/python), not this process's, so the existsSync
+                        // overwrite guard below would check a different directory.
+                        throw new Error(
+                            `xlide_createWorkbook requires an absolute filePath (got "${filePath}").`,
+                        );
+                    }
                     if (fs.existsSync(filePath)) {
                         throw new Error(
                             `Workbook already exists: "${filePath}". ` +
@@ -510,7 +519,22 @@ export function registerAgentTools(
                     return parts;
                 };
                 if (!shouldSave) {
-                    return textResult((await run()).join('\n'));
+                    // Even with save=false the model-supplied code runs via exec() and
+                    // can still persist changes (wb.save(other), open(), ...), so audit
+                    // the invocation rather than leaving an unrecorded on-disk write.
+                    const { result: noSaveParts } = await withWriteAudit({
+                        command: 'xlide_runOpenpyxl',
+                        operation: 'run-openpyxl',
+                        workbookPath: filePath,
+                        failedSummary: 'Run openpyxl (save=false): 0 changed, 1 failed',
+                    }, async () => ({
+                        result: await run(),
+                        summary: formatChangeSummary({
+                            operation: 'Run openpyxl (save=false)',
+                            changed: [],
+                        }),
+                    }));
+                    return textResult(noSaveParts.join('\n'));
                 }
                 const { result: parts, summary } = await withWriteAudit({
                     command: 'xlide_runOpenpyxl',

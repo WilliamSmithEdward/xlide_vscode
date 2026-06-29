@@ -20,6 +20,21 @@ describe('XLIDE output log', () => {
 		).toBe('Open <redacted-uri>');
 	});
 
+	it('redacts paths that contain spaces (username / workbook filename)', () => {
+		expect(
+			redactSupportLogLine('Reading C:\\Users\\John Smith\\Documents\\Q4 Acquisition Model.xlsm'),
+		).toBe('Reading <redacted>.xlsm');
+		expect(
+			redactSupportLogLine('Starting Python bridge: python.exe C:\\Users\\John Smith\\.vscode\\ext\\server.py'),
+		).toBe('Starting Python bridge: python.exe <redacted>.py');
+		expect(
+			redactSupportLogLine('Opened /Users/John Smith/Documents/budget.xlsm'),
+		).toBe('Opened <redacted>.xlsm');
+		expect(
+			redactSupportLogLine('Volume /Volumes/My Backup/Finances/budget.xlsm'),
+		).toBe('Volume <redacted>.xlsm');
+	});
+
 	it('records appendLine calls through the wrapped output channel', () => {
 		const raw = {
 			name: 'XLIDE',

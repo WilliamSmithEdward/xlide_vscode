@@ -62,12 +62,26 @@ export interface PowerShellRun {
  * buffer stdout/stderr into trimmed non-empty lines split on \r?\n (flushed
  * on close), and optionally kill on timeout.
  */
+// Windows PowerShell 5.1 writes redirected stdout/stderr using the OEM/ANSI code
+// page, so non-ASCII text (localized Excel COM error messages) would mojibake when
+// Node decodes the bytes as UTF-8. Force UTF-8 output for -Command scripts so the
+// two ends agree; the -File host (run-vba-tests.ps1) sets it itself.
+function withUtf8OutputEncoding(args: readonly string[]): string[] {
+    const i = args.indexOf('-Command');
+    if (i >= 0 && typeof args[i + 1] === 'string') {
+        const next = [...args];
+        next[i + 1] = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ' + next[i + 1];
+        return next;
+    }
+    return [...args];
+}
+
 export function runPowerShell(options: RunPowerShellOptions): PowerShellRun {
     const child = cp.spawn('powershell.exe', [
         '-NoProfile',
         '-ExecutionPolicy',
         'Bypass',
-        ...options.args,
+        ...withUtf8OutputEncoding(options.args),
     ], { windowsHide: options.windowsHide ?? true });
 
     const stdoutLines: string[] = [];

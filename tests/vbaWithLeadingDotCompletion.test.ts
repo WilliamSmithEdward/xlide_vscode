@@ -44,4 +44,9 @@ describe('implicit-With leading-dot member completion in expression positions', 
 		const src = withApplication('        Dim q As Long\n        q = bogusVar.');
 		expect(memberNames(src, 'bogusVar.')).toEqual([]);
 	});
+
+	it('does not treat a bracketed identifier [Foo] before a dot as implicit-With', () => {
+		const src = withApplication('        Dim q As Long\n        q = [Foo].');
+		expect(memberNames(src, '[Foo].')).toEqual([]);
+	});
 });

@@ -687,7 +687,10 @@ const RECEIVER_TAIL_KEYWORDS = new Set(['me']);
  * binds to the active `With` block (e.g. `For Each wb In .Workbooks`, `Set x = .Foo`).
  */
 function precedesLeadingMemberDot(token: VbaToken): boolean {
-	if (token.kind === 'identifier') {
+	// A plain identifier or a foreign-name escape `[Foo]` (lexed as one
+	// bracketedIdentifier token) terminates a receiver, so the following dot is an
+	// explicit `receiver.member`, not an implicit-With leading dot.
+	if (token.kind === 'identifier' || token.kind === 'bracketedIdentifier') {
 		return false;
 	}
 	if (token.rawText === ')' || token.rawText === ']') {

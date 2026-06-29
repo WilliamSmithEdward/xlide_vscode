@@ -276,6 +276,10 @@ function collectBody(
 		} else if (isLeafStatement(node)) {
 			collectStatement(source, node, out);
 		} else if ('body' in node && Array.isArray(node.body)) {
+			// A block holds its opening header (an If/Do While/While/For/Select
+			// condition) outside `body`, so scan the header span for TypeOf...Is /
+			// New type references before recursing into the body statements.
+			collectBlockHeader(source, node, out);
 			collectBody(source, node.body, out);
 		}
 	}
@@ -286,10 +290,37 @@ function collectStatement(
 	stmt: LeafStatementNode,
 	out: TypeNameReference[],
 ): void {
-	for (const hit of typeNameSpansAfterNew(source, stmt.span)) {
+	collectHeaderSpan(source, stmt.span, out);
+}
+
+function collectBlockHeader(
+	source: string,
+	node: BodyNode,
+	out: TypeNameReference[],
+): void {
+	// The leading `If` condition lives in branches[0].headerSpan; ElseIf/Else
+	// headers are already walked as raw body statements, so only the opener is
+	// missed. Other blocks keep their opener as the block's first physical line.
+	if (node.kind === 'IfBlock') {
+		const header = node.branches[0]?.headerSpan;
+		if (header) {
+			collectHeaderSpan(source, header, out);
+		}
+		return;
+	}
+	const span = (node as { span?: Span }).span;
+	if (span) {
+		const newline = source.indexOf('\n', span.start);
+		const end = newline >= 0 && newline < span.end ? newline : span.end;
+		collectHeaderSpan(source, { start: span.start, end }, out);
+	}
+}
+
+function collectHeaderSpan(source: string, span: Span, out: TypeNameReference[]): void {
+	for (const hit of typeNameSpansAfterNew(source, span)) {
 		out.push(hit);
 	}
-	for (const hit of typeNameSpansAfterTypeOfIs(source, stmt.span)) {
+	for (const hit of typeNameSpansAfterTypeOfIs(source, span)) {
 		out.push(hit);
 	}
 }

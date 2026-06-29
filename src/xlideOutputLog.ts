@@ -7,9 +7,18 @@ export interface XlideOutputLogEntry {
 }
 
 const MAX_OUTPUT_LOG_ENTRIES = 250;
-const WINDOWS_PATH_RE = /[A-Za-z]:\\[^\s'")]+/g;
+// Paths frequently contain spaces (Windows account names like "First Last",
+// "Program Files", "OneDrive - Company", workbook filenames). Match a path with a
+// file extension lazily up to that extension (so interior spaces are captured but
+// trailing log prose is not swallowed), and fall back to the no-space class for
+// extension-less paths. redactPathMatch then reduces the match to <redacted><ext>.
+const PATH_BODY = String.raw`(?:[^"'\r\n]*?\.[A-Za-z0-9]{1,12}(?=[\s"'):,;]|$)|[^\s'")]+)`;
+const WINDOWS_PATH_RE = new RegExp(String.raw`[A-Za-z]:\\${PATH_BODY}`, 'g');
 const FILE_URI_RE = /\b(?:file|xlide-vba):\/\/[^\s'")]+/g;
-const POSIX_PATH_RE = /\/(?:Users|home|root|var|tmp|mnt|opt|srv)\/[^\s'")]+/g;
+const POSIX_PATH_RE = new RegExp(
+    String.raw`\/(?:Users|home|root|var|tmp|mnt|opt|srv|Volumes|private|etc|Library|data)\/${PATH_BODY}`,
+    'g',
+);
 
 const outputLog: XlideOutputLogEntry[] = [];
 

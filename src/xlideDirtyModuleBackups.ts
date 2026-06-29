@@ -80,6 +80,11 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         // Synchronously flush any debounced-but-unwritten snapshot so the most
         // recent unsaved edits remain recoverable after an abrupt shutdown.
         // dispose() cannot await async I/O during deactivation, so write sync.
+        // The async path is dir-guarded by _dirReady; mirror that here or the
+        // writeFileSync below would throw ENOENT on a fresh (not-yet-created) dir.
+        if (this._pendingWrites.size > 0) {
+            try { fs.mkdirSync(this._dir, { recursive: true }); } catch { /* best effort */ }
+        }
         for (const pending of this._pendingWrites.values()) {
             clearTimeout(pending.timer);
             try {

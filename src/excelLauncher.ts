@@ -60,8 +60,7 @@ const COM_RETRY_HELPER =
 const FOREGROUND_LINES: readonly string[] = [
     'try { $workbook.Activate() } catch { }',
     'try { Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);\' -Name XlideWin32 -Namespace XlideHelper } catch { }',
-    '[XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9)',
-    '[XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd)',
+    'try { [XlideHelper.XlideWin32]::ShowWindow([IntPtr]$excel.Hwnd, 9); [XlideHelper.XlideWin32]::SetForegroundWindow([IntPtr]$excel.Hwnd) } catch { }',
 ];
 
 /**
@@ -114,7 +113,7 @@ export function buildExcelLaunchScript(options: ExcelLaunchScriptOptions): strin
         '}',
         '[Console]::Out.WriteLine("XLIDE_MACRO_OK")',
         '} catch {',
-        '  [Console]::Error.WriteLine("XLIDE_MACRO_ERROR|" + $_.Exception.Message)',
+        '  [Console]::Error.WriteLine("XLIDE_MACRO_ERROR|" + ($_.Exception.Message -replace "[\\r\\n]+", " "))',
         '  exit 1',
         '}',
     ].join('; ');
@@ -184,7 +183,11 @@ export async function runWorkbookMacroReadOnly(
     const result = await runExcelScript(script, 'runMacro', log);
     if (result.spawnError) {
         log(`[runMacro] Error: ${result.spawnError.message}`);
-        throw new ExcelMacroError(result.spawnError.message, 'RUN_FAILED');
+        // A spawn failure means PowerShell never ran, so XLIDE never reopened the
+        // workbook - use UNKNOWN (not RUN_FAILED) so the F5 handler does not falsely
+        // mark the workbook as XLIDE-opened (which a later closeTracked save could
+        // then close out from under the user).
+        throw new ExcelMacroError(result.spawnError.message, 'UNKNOWN');
     }
     if (result.timedOut) {
         throw new ExcelMacroError(

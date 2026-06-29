@@ -12,6 +12,7 @@ import contextlib
 import io
 import json as _json
 import os
+import shutil
 import tempfile
 from typing import Any
 
@@ -57,6 +58,12 @@ def _atomic_save(wb: Any, path: str) -> None:
     os.close(fd)
     try:
         wb.save(tmp)
+        # mkstemp creates the temp file mode 0600 on POSIX, and os.replace keeps
+        # the source mode - which would silently narrow an existing workbook's
+        # permissions (drop group/other read). Carry the original mode across.
+        if os.path.exists(path):
+            with contextlib.suppress(OSError):
+                shutil.copymode(path, tmp)
         os.replace(tmp, path)
     except BaseException:
         with contextlib.suppress(OSError):
@@ -142,8 +149,13 @@ def _read_range(path: str, sheet: str, range: str, *, data_only: bool) -> dict[s
     wb = _openpyxl().load_workbook(path, read_only=True, data_only=data_only, keep_vba=True)
     try:
         ws = wb[sheet]
+        selection = ws[range]
+        # A single-cell selection (e.g. "A1") yields one cell, not rows of cells;
+        # wrap it so iteration does not raise "object is not iterable".
+        if not isinstance(selection, tuple):
+            selection = ((selection,),)
         data: list[list[Any]] = [
-            [cell.value for cell in row] for row in ws[range]
+            [cell.value for cell in row] for row in selection
         ]
     finally:
         wb.close()

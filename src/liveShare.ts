@@ -187,9 +187,14 @@ export class LiveShareIntegration implements vscode.Disposable {
             return;
         }
         if (generation !== this._sessionGeneration) {
-            // A newer session change superseded this one while awaiting
-            // shareService; undo and bail rather than bind to an ended session.
-            try { await this._api?.unshareService(SERVICE_NAME); } catch { /* ignore */ }
+            // A newer session change superseded this one while awaiting shareService.
+            // unshareService is keyed by the global SERVICE_NAME, so only undo when no
+            // newer host init has already claimed it - otherwise we would tear down the
+            // service that the newer init just shared, leaving _hostService non-null but
+            // the service unshared (guests silently cannot connect).
+            if (!this._hostService) {
+                try { await this._api?.unshareService(SERVICE_NAME); } catch { /* ignore */ }
+            }
             return;
         }
         this._hostService = svc;
@@ -481,6 +486,11 @@ export class LiveShareIntegration implements vscode.Disposable {
             await vscode.commands.executeCommand('workbench.action.reloadWindow');
         } catch (err) {
             this._out.appendLine(`[LiveShare] failed to update liveshare.featureSet: ${err}`);
+            // The enable attempt failed (e.g. unwritable settings.json) so the fix
+            // never took effect and the window did not reload - clear the dedup
+            // latch so a later session change can re-offer it rather than silently
+            // suppressing it for the rest of the session.
+            this._featureSetPromptActive = false;
         }
     }
 

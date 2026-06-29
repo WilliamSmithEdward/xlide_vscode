@@ -189,15 +189,20 @@ export class PythonBridge implements vscode.Disposable {
 
             proc.on('exit', (code) => {
                 this._out.appendLine(`Python backend exited with code ${code}`);
+                // A superseded process - e.g. one abandoned by a SIGKILL-timed-out
+                // stop() while a newer start() already spawned its replacement -
+                // must NOT touch the live bridge's _ready/_startPromise/_readyReject/
+                // pending state; stop() already cleaned up that old process.
+                if (this._proc !== proc) {
+                    return;
+                }
                 const wasStopping = this._stopping;
                 const wasReady = this._ready;
                 // Reset state so the next call() doesn't hang on a dead bridge.
                 this._ready = false;
                 this._startPromise = undefined;
                 this._readyResolve = undefined;
-                if (this._proc === proc) {
-                    this._proc = undefined;
-                }
+                this._proc = undefined;
                 if (!wasReady && !wasStopping) {
                     const stderr = this._stderrLines.join('\n');
                     this._readyReject?.(
