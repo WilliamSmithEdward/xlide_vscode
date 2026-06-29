@@ -751,7 +751,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source code of a module from the Excel workbook and returns raw VBA text including Attribute declarations. Prefer this over reading exported .bas/.cls repo files; exported files are sync artifacts unless the user explicitly asks to edit repo exports.",
+        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source code of a module from the Excel workbook and returns raw VBA text including Attribute declarations. The .xlsm/.xlsb is a binary container, not text - always read VBA through this tool, never by opening the workbook file directly. Prefer this over reading exported .bas/.cls repo files; exported files are sync artifacts unless the user explicitly asks to edit repo exports.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -775,7 +775,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Canonical way to edit workbook VBA. Writes the VBA source code of a module directly into the Excel workbook and saves automatically. Prefer this over editing exported repo files. If the module does not exist it is created (use moduleName to set the name, and optionally pass kind='class' in the source for class modules; default is standard). Use this to apply AI-generated or edited VBA code, or to create new modules from scratch. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "modelDescription": "Canonical way to edit workbook VBA. Writes the VBA source code of a module directly into the Excel workbook and saves automatically. The .xlsm/.xlsb is a binary OOXML container, so VBA changes persist only through XLIDE's module tools - never edit the workbook file or its exported .bas/.cls artifacts with generic file/text tools; operate on the live XLIDE module, not the file on disk. Prefer this over editing exported repo files. If the module does not exist it is created (use moduleName to set the name, and optionally pass kind='class' in the source for class modules; default is standard). Use this to apply AI-generated or edited VBA code, or to create new modules from scratch. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -804,7 +804,7 @@
       {
         "name": "xlide_renameModule",
         "displayName": "Rename VBA Module",
-        "modelDescription": "Renames a VBA module in an Excel workbook and saves the file. Use this to change a module's name. After renaming, any references to the old name in other modules must be updated manually with xlide_writeModule.",
+        "modelDescription": "Renames a VBA module in an Excel workbook and saves the file. Operates on the live XLIDE module - do not rename the .xlsm/.xlsb or its exported .bas/.cls files to rename a module. Use this to change a module's name. After renaming, any references to the old name in other modules must be updated manually with xlide_writeModule.",
         "toolReferenceName": "xlideRenameModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -833,7 +833,7 @@
       {
         "name": "xlide_deleteModule",
         "displayName": "Delete VBA Module",
-        "modelDescription": "Permanently deletes a VBA module from an Excel workbook and saves the file. This cannot be undone. Only delete standard or class modules; avoid deleting document modules (Sheet/ThisWorkbook).",
+        "modelDescription": "Permanently deletes a VBA module from an Excel workbook and saves the file. Operates on the live XLIDE module - do not delete the .xlsm/.xlsb or its exported .bas/.cls files to remove a module. This cannot be undone. Only delete standard or class modules; avoid deleting document modules (Sheet/ThisWorkbook).",
         "toolReferenceName": "xlideDeleteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
