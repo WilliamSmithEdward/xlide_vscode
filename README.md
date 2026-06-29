@@ -1,6 +1,11 @@
 # XLIDE: VBA for VS Code
 
-[![XLIDE for VS Code: Getting Started (watch on YouTube)](https://img.youtube.com/vi/l4m3CxAJcJA/hqdefault.jpg)](https://www.youtube.com/watch?v=l4m3CxAJcJA&list=PLV2sm2CkHezw "XLIDE for VS Code: Getting Started")
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=l4m3CxAJcJA&amp;list=PLV2sm2CkHezw" title="XLIDE for VS Code: Getting Started">
+    <img src="https://img.youtube.com/vi/l4m3CxAJcJA/hqdefault.jpg" alt="XLIDE for VS Code: Getting Started (watch on YouTube)">
+  </a>
+</p>
+<p align="center"><em>▶ Click the video above for the install tutorial</em></p>
 
 XLIDE gives Excel VBA projects a modern VS Code workspace.
 
