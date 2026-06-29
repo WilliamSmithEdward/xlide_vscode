@@ -284,6 +284,15 @@ export function checkInvalidExpressionSyntax(
 					`Invalid operator sequence '${hit.text}'; this will fail to compile as a syntax error.`,
 					hit.span,
 				);
+				return;
+			}
+			const juxtaposed = juxtaposedRhsValues(source, stmt.span);
+			if (juxtaposed) {
+				push(
+					'invalidExpressionSyntax',
+					`Unexpected '${juxtaposed.text}' after a complete expression; expected end of statement. This will fail to compile as a syntax error.`,
+					juxtaposed.span,
+				);
 			}
 		};
 	};
@@ -338,6 +347,73 @@ function invalidOperatorSequence(
 				text: toks[i].rawText,
 				span: absoluteSpan(span, toks[i]),
 			};
+		}
+	}
+	return undefined;
+}
+
+const JUXTAPOSABLE_VALUE_KINDS = new Set([
+	'integerLiteral',
+	'floatLiteral',
+	'dateLiteral',
+	'stringLiteral',
+	'identifier',
+	'bracketedIdentifier',
+]);
+
+function isJuxtaposableValueStart(tok: VbaToken | undefined): boolean {
+	return tok !== undefined && JUXTAPOSABLE_VALUE_KINDS.has(tok.kind);
+}
+
+function endsJuxtaposableValue(tok: VbaToken | undefined): boolean {
+	if (!tok) {
+		return false;
+	}
+	return JUXTAPOSABLE_VALUE_KINDS.has(tok.kind) || tok.rawText === ')' || tok.rawText === ']';
+}
+
+/**
+ * Detects two juxtaposed value expressions in an assignment RHS - a complete value
+ * (literal / identifier / call / index) immediately followed by another value
+ * starter with no operator between, e.g. `n = 1 n 1` or `n = 1 MsgBox("hello") 1`.
+ * That is a VBE "Expected: end of statement" syntax error which the lenient parser
+ * otherwise silently drops to a raw statement.
+ *
+ * Scoped to the TOP LEVEL of an assignment RHS (a top-level standalone `=` on a
+ * statement that is not a non-assignment leader) so it cannot misfire on: implicit
+ * call statements (`MsgBox x` - no `=`), a call written with a space (`Foo (x)` -
+ * the next token is `(`, not a value start), jagged-array access (`arr(1)(2)` - `(`
+ * again), a trailing type-suffix/operator (`Count&` - `&` is not a value start), or
+ * anything inside parentheses (depth > 0 is skipped).
+ */
+function juxtaposedRhsValues(
+	source: string,
+	span: Span,
+): { text: string; span: Span } | undefined {
+	const toks = statementTokens(source, span);
+	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[0]))) {
+		return undefined;
+	}
+	const eq = topLevelOperatorIndex(toks, '=');
+	if (eq < 0) {
+		return undefined;
+	}
+	let depth = 0;
+	for (let i = eq + 1; i + 1 < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+			continue;
+		}
+		if (raw === ')' || raw === ']') {
+			depth = depth > 0 ? depth - 1 : 0;
+		}
+		if (depth !== 0) {
+			continue;
+		}
+		const next = toks[i + 1];
+		if (endsJuxtaposableValue(toks[i]) && isJuxtaposableValueStart(next)) {
+			return { text: next.rawText, span: absoluteSpan(span, next) };
 		}
 	}
 	return undefined;
