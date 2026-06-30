@@ -1689,13 +1689,16 @@ export function memberExpressionReturnType(
 	argumentTokens: readonly VbaToken[] | undefined,
 	memberCtx: MemberCompletionContext,
 ): string {
-	if (
-		member.kind !== 'method' &&
-		member.returns &&
-		argumentTokens &&
-		argumentTokens.length > 0 &&
-		(!member.signature || parseRuntimeDisplaySignature(member.name, member.signature).params.length === 0)
-	) {
+	// Calling a member with arguments indexes into it. When the member returns a
+	// host collection (one whose Item resolves to an element type), the call
+	// yields that element - e.g. ws.ChartObjects(1) is a ChartObject, pt.PivotFields(1)
+	// is a PivotField - not the collection itself. This holds regardless of how the
+	// accessor is modelled (method- or property-kind, signed or not), so it covers
+	// the whole `Collection([Index])` family. defaultHostItemReturnType returns
+	// undefined for any non-collection return, so a concrete-typed call keeps its
+	// declared type: Application.Intersect(a, b) stays Range, Workbooks.Add(t) stays
+	// Workbook, ws.Range("A1") stays Range.
+	if (member.returns && argumentTokens && argumentTokens.length > 0) {
 		return defaultHostItemReturnType(member.returns, memberCtx) ?? member.returns;
 	}
 	return member.returns ?? 'Variant';

@@ -527,9 +527,13 @@ function receiverTypeFromImplicitWithChain(
 		if (!resolved) {
 			return undefined;
 		}
+		// A member called with arguments indexes into its return type; when that
+		// type is a host collection, applyDefaultMemberReturnType resolves the
+		// element (and no-ops otherwise). This holds for method-kind accessors too
+		// (e.g. ws.ChartObjects(1).Chart), so it must not be gated on kind.
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments && resolved.kind !== 'method',
+			segment.hasArguments,
 			ctx,
 		);
 	}
@@ -607,9 +611,13 @@ function receiverTypeFromChain(
 		if (!resolved) {
 			return undefined;
 		}
+		// A member called with arguments indexes into its return type; when that
+		// type is a host collection, applyDefaultMemberReturnType resolves the
+		// element (and no-ops otherwise). This holds for method-kind accessors too
+		// (e.g. ws.ChartObjects(1).Chart), so it must not be gated on kind.
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments && resolved.kind !== 'method',
+			segment.hasArguments,
 			ctx,
 		);
 	}
