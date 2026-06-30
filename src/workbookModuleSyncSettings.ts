@@ -37,7 +37,7 @@ export async function effectiveWorkbookModuleSyncSettings(
 ): Promise<EffectiveWorkbookModuleSyncSettings> {
     return effectiveWorkbookModuleSyncSettingsFromConfig(
         workbookPath,
-        await readWorkbookSettings(workbookPath),
+        await readWorkbookSettings(workbookPath, { lenient: true }),
     );
 }
 

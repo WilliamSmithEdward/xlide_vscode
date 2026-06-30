@@ -41,7 +41,7 @@ export async function effectiveWorkbookAnalysisSettings(
     }
     return effectiveWorkbookAnalysisSettingsFromConfig(
         workbookPath,
-        await readWorkbookSettings(workbookPath),
+        await readWorkbookSettings(workbookPath, { lenient: true }),
     );
 }
 

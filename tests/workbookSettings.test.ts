@@ -206,6 +206,29 @@ describe('workbookSettings', () => {
 		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Unknown setting "typoMode"');
 	});
 
+	it('lenient read keeps the valid subset of a stale sidecar instead of throwing', async () => {
+		const { workbook } = tempWorkbook();
+		fs.writeFileSync(
+			settingsPathForWorkbook(workbook),
+			`${JSON.stringify({
+				exportFolder: 'C:/repo',
+				legacyOption: true,
+				analysis: { ruleSeverityOverrides: { 'since-removed-rule': 'off' } },
+			}, null, 2)}\n`,
+			'utf8',
+		);
+
+		// Strict read (the settings editor) still surfaces a stale key as a typo.
+		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Unknown setting "legacyOption"');
+
+		// Lenient read (the diagnostics/apply path) never throws on version skew:
+		// it drops the unknown key and stale rule code and keeps the valid subset,
+		// so a stale sidecar cannot blast an error across every module.
+		const lenient = await readWorkbookSettings(workbook, { lenient: true });
+		expect(lenient.exportFolder).toBe('C:/repo');
+		expect(lenient.analysis?.ruleSeverityOverrides ?? {}).toEqual({});
+	});
+
 	it('rejects invalid workbook sync modes from disk', async () => {
 		const { workbook } = tempWorkbook();
 		fs.writeFileSync(

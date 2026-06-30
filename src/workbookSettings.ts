@@ -330,13 +330,22 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsConfig> {
+async function readWorkbookSettings(
+    filePath: string,
+    opts: { lenient?: boolean } = {},
+): Promise<WorkbookSettingsConfig> {
     const configPath = settingsPathForWorkbook(filePath);
     let raw: string;
     try {
         raw = await fs.promises.readFile(configPath, 'utf8');
     } catch (err) {
         if (isNodeError(err) && err.code === 'ENOENT') {
+            return {};
+        }
+        // The lenient (apply) read powers per-keystroke diagnostics, so it must
+        // never throw on a stale/unreadable sidecar - otherwise a single bad file
+        // blasts an error across every module. Fall back to no workbook settings.
+        if (opts.lenient) {
             return {};
         }
         throw new WorkbookSettingsError(
@@ -351,11 +360,21 @@ async function readWorkbookSettings(filePath: string): Promise<WorkbookSettingsC
     } catch (err) {
         parsed = recoverWorkbookSettingsJson(raw);
         if (parsed === undefined) {
+            if (opts.lenient) {
+                return {};
+            }
             throw new WorkbookSettingsError(
                 configPath,
                 `Expected valid JSON: ${errorMessage(err)}`,
             );
         }
+    }
+    // Lenient: drop unknown/renamed keys and codes (forward/back-compat across
+    // versions) and keep the still-valid subset, so version skew never surfaces
+    // as a diagnostic. Strict: reject unknown keys so the settings editor can
+    // surface a genuine user typo.
+    if (opts.lenient) {
+        return normalizeWorkbookSettingsConfig(isPlainObject(parsed) ? parsed : {});
     }
     return parseWorkbookSettingsConfig(parsed, configPath);
 }

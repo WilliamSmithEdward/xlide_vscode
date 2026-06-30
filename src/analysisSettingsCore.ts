@@ -121,7 +121,9 @@ export function validateAnalysisRuleSeverityOverrideEntries(
         const code = normalizeAnalysisRuleCode(rawCode);
         const allowed = allowedAnalysisRuleSeverityOverrides(code);
         if (!code || allowed.length === 0) {
-            reportEntry(rawCode, 'to target a known analysis rule that permits severity overrides.');
+            // Tolerate a well-formed but unknown/renamed rule code: every apply
+            // path already drops it silently, so reporting it here only nags the
+            // user after a version that renamed or removed the code. Skip it.
             continue;
         }
         if (typeof rawSeverity !== 'string' || !allowed.includes(rawSeverity as AnalysisRuleSeverityOverride)) {

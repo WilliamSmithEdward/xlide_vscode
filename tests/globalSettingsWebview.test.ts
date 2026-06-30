@@ -93,16 +93,16 @@ describe('globalSettingsWebview', () => {
     it('surfaces validation problems for malformed global analysis settings', () => {
         const model = buildXlideGlobalSettingsModel(fakeConfig({
             ...validSettings,
-            'analysis.untrackedRules': ['not-a-rule'],
+            'analysis.untrackedRules': [''],
         }, new Set(['analysis.untrackedRules'])));
         const html = renderXlideGlobalSettingsHtml(model);
 
         expect(model.problems).toEqual([{
             key: 'xlide.analysis.untrackedRules',
-            message: 'Expected "xlide.analysis.untrackedRules" entries to be known analysis rule codes.',
+            message: 'Expected "xlide.analysis.untrackedRules" entries to be non-empty strings.',
             severity: 'warning',
         }]);
-        expect(html).toContain('known analysis rule codes');
+        expect(html).toContain('non-empty strings');
         expect(html).toContain('data-setting-card="xlide.analysis.untrackedRules"');
     });
 

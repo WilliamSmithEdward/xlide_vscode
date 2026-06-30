@@ -50,14 +50,15 @@ describe('globalSettings', () => {
         expect(validateXlideGlobalSettingsValues({})).toEqual([]);
     });
 
-    it('reports malformed global analysis settings explicitly', () => {
+    it('reports structurally malformed analysis settings but tolerates unknown rule codes', () => {
         expect(validateXlideGlobalSettingsValues({
             ...validSettings,
             'analysis.visibleSeverities': ['error', 'hint'],
+            // 'not-a-rule' is a well-formed but unknown/renamed code - tolerated, not reported.
             'analysis.untrackedRules': ['option-explicit-missing', 'not-a-rule'],
             'analysis.ruleSeverityOverrides': {
-                'option-explicit-missing': 'error',
-                'not-a-rule': 'warning',
+                'option-explicit-missing': 'error', // known code, disallowed severity -> reported
+                'not-a-rule': 'warning',            // unknown code -> tolerated, not reported
             },
         })).toEqual([
             {
@@ -66,21 +67,21 @@ describe('globalSettings', () => {
                 severity: 'warning',
             },
             {
-                key: 'xlide.analysis.ruleSeverityOverrides',
-                message: 'Expected "xlide.analysis.ruleSeverityOverrides.not-a-rule" to target a known analysis rule that permits severity overrides.',
-                severity: 'warning',
-            },
-            {
-                key: 'xlide.analysis.untrackedRules',
-                message: 'Expected "xlide.analysis.untrackedRules" entries to be known analysis rule codes.',
-                severity: 'warning',
-            },
-            {
                 key: 'xlide.analysis.visibleSeverities',
                 message: 'Expected "xlide.analysis.visibleSeverities" entries to be one of: error, warning, information.',
                 severity: 'warning',
             },
         ]);
+    });
+
+    it('never warns on stale/unknown rule codes (the post-upgrade case)', () => {
+        // A code the user set in an older version that has since been renamed or
+        // removed must not warn - every apply path drops it silently.
+        expect(validateXlideGlobalSettingsValues({
+            ...validSettings,
+            'analysis.untrackedRules': ['since-removed-rule'],
+            'analysis.ruleSeverityOverrides': { 'since-renamed-rule': 'off' },
+        })).toEqual([]);
     });
 
     it('reports malformed non-analysis settings through the same contract', () => {

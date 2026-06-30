@@ -18,7 +18,7 @@ import {
     type VbaSmartBlockLayout,
 } from './vbaSmartEnter';
 
-type XlideGlobalSettingSeverity = 'error' | 'warning';
+type XlideGlobalSettingSeverity = 'warning';
 
 interface XlideGlobalSettingsProblem {
     key: string;
@@ -310,7 +310,7 @@ const XLIDE_GLOBAL_SETTINGS: {
     'analysis.untrackedRules': {
         defaultValue: () => [],
         normalize: normalizeKnownAnalysisRuleCodes,
-        validate: expectKnownAnalysisRuleCodeArray,
+        validate: expectAnalysisRuleCodeArray,
         manifest: { type: 'array', items: { type: 'string' } },
         webviewCard: {
             section: 'analysis',
@@ -675,7 +675,7 @@ function expectStringArrayEnum<T extends readonly string[]>(
     }
 }
 
-function expectKnownAnalysisRuleCodeArray(
+function expectAnalysisRuleCodeArray(
     values: XlideGlobalSettingsSnapshot,
     problems: XlideGlobalSettingsProblem[],
     key: string,
@@ -687,12 +687,10 @@ function expectKnownAnalysisRuleCodeArray(
     }
     if (value.some((entry) => typeof entry !== 'string' || entry.trim().length === 0)) {
         problems.push(problem(key, `Expected "xlide.${key}" entries to be non-empty strings.`));
-        return;
     }
-    const invalid = value.find((entry) => normalizeKnownAnalysisRuleCodes([entry]).length === 0);
-    if (invalid !== undefined) {
-        problems.push(problem(key, `Expected "xlide.${key}" entries to be known analysis rule codes.`));
-    }
+    // A well-formed but unknown/renamed rule code is tolerated, not flagged: every
+    // apply path drops unknown codes silently, so warning here would only nag the
+    // user after a version renamed a code, with no way to tell which entry is stale.
 }
 
 function expectRuleSeverityOverrides(

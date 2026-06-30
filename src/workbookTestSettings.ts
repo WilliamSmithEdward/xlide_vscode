@@ -25,7 +25,7 @@ export async function effectiveWorkbookTestSettings(
 ): Promise<EffectiveWorkbookTestSettings> {
     return effectiveWorkbookTestSettingsFromConfig(
         workbookPath,
-        await readWorkbookSettings(workbookPath),
+        await readWorkbookSettings(workbookPath, { lenient: true }),
     );
 }
 
