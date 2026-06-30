@@ -1708,7 +1708,19 @@ export function defaultHostItemReturnType(
 	const item = getHostMembers(typeName, memberCtx.model).find(
 		(member) => member.name.toLowerCase() === 'item',
 	);
-	return item?.returns;
+	if (item?.returns) {
+		return item.returns;
+	}
+	// A mixed-element collection - e.g. Sheets, whose Item is a Worksheet OR a
+	// Chart - carries `returnsAnyOf` instead of a single `returns`. Its indexed
+	// element is a late-bound Object in VBA, so resolve to Object: a generic
+	// object is assignable to any specific object target, which avoids a false
+	// assignment-object-type-mismatch on `Set ws = ThisWorkbook.Sheets("x")`,
+	// while single-typed collections (Worksheets -> Worksheet) stay strict.
+	if (item?.returnsAnyOf?.length) {
+		return 'Object';
+	}
+	return undefined;
 }
 
 export function finalMemberTokenInExpression(
