@@ -513,6 +513,15 @@ function receiverTypeFromTokens(
 	);
 }
 
+// Members whose declared return IS the already-resolved element/result: the
+// default member (Item/_Default) and the creation method Add. A call to one of
+// these must not be element-indexed again, or a collection whose element is
+// itself a collection (e.g. SparklineGroups.Item(1)) over-resolves one level.
+function isExplicitElementAccessor(name: string): boolean {
+	const lower = name.toLowerCase();
+	return lower === 'item' || lower === '_default' || lower === 'add';
+}
+
 function receiverTypeFromImplicitWithChain(
 	withType: string | undefined,
 	chain: ReceiverChainSegment[],
@@ -530,10 +539,12 @@ function receiverTypeFromImplicitWithChain(
 		// A member called with arguments indexes into its return type; when that
 		// type is a host collection, applyDefaultMemberReturnType resolves the
 		// element (and no-ops otherwise). This holds for method-kind accessors too
-		// (e.g. ws.ChartObjects(1).Chart), so it must not be gated on kind.
+		// (e.g. ws.ChartObjects(1).Chart), so it must not be gated on kind. But
+		// Item/_Default/Add already return the resolved element/result, so they are
+		// not re-indexed (avoids over-resolving SparklineGroups.Item(1) one level).
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments,
+			segment.hasArguments && !isExplicitElementAccessor(segment.name),
 			ctx,
 		);
 	}
@@ -614,10 +625,12 @@ function receiverTypeFromChain(
 		// A member called with arguments indexes into its return type; when that
 		// type is a host collection, applyDefaultMemberReturnType resolves the
 		// element (and no-ops otherwise). This holds for method-kind accessors too
-		// (e.g. ws.ChartObjects(1).Chart), so it must not be gated on kind.
+		// (e.g. ws.ChartObjects(1).Chart), so it must not be gated on kind. But
+		// Item/_Default/Add already return the resolved element/result, so they are
+		// not re-indexed (avoids over-resolving SparklineGroups.Item(1) one level).
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments,
+			segment.hasArguments && !isExplicitElementAccessor(segment.name),
 			ctx,
 		);
 	}
@@ -657,7 +670,12 @@ function collectReceiverChainWithStart(
 			if (open < 0) {
 				return undefined;
 			}
-			pendingHasArguments = true;
+			// Empty parens foo() are a call with no index, not collection indexing;
+			// only a non-empty argument list resolves to an element (matches the
+			// assignment-inference path's argumentTokens.length > 0 check).
+			if (open < i - 1) {
+				pendingHasArguments = true;
+			}
 			i = open - 1;
 			continue;
 		}
@@ -729,7 +747,12 @@ function collectImplicitWithChain(
 			if (open < 0) {
 				return undefined;
 			}
-			pendingHasArguments = true;
+			// Empty parens foo() are a call with no index, not collection indexing;
+			// only a non-empty argument list resolves to an element (matches the
+			// assignment-inference path's argumentTokens.length > 0 check).
+			if (open < i - 1) {
+				pendingHasArguments = true;
+			}
 			i = open - 1;
 			continue;
 		}

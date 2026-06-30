@@ -62,3 +62,30 @@ describe('indexed collection accessors resolve to the element type, not the coll
 		expect(codes(inter)).not.toContain(MISMATCH);
 	});
 });
+
+describe('collection-of-collections accessors are not over-resolved', () => {
+	// SparklineGroup is itself a collection (its Item is a Sparkline). Item/_Default/
+	// Add already return the resolved element/result, so re-indexing them would
+	// over-resolve one level too far (SparklineGroup -> Sparkline).
+	it('does not flag SparklineGroups.Add(...) assigned to a SparklineGroup', () => {
+		const src = 'Sub S()\n    Dim rng As Range\n    Dim sg As SparklineGroup\n    Set sg = rng.SparklineGroups.Add(1, "A1:A5")\nEnd Sub\n';
+		expect(codes(src)).not.toContain(MISMATCH);
+	});
+
+	it('does not flag SparklineGroups.Item(1) assigned to a SparklineGroup', () => {
+		const src = 'Sub S()\n    Dim rng As Range\n    Dim sg As SparklineGroup\n    Set sg = rng.SparklineGroups.Item(1)\nEnd Sub\n';
+		expect(codes(src)).not.toContain(MISMATCH);
+	});
+
+	it('still indexes exactly one level (SparklineGroups(1) is a SparklineGroup; SparklineGroup.Item(1) is a Sparkline)', () => {
+		const grp = 'Sub S()\n    Dim rng As Range\n    Dim sg As SparklineGroup\n    Set sg = rng.SparklineGroups(1)\nEnd Sub\n';
+		const elem = 'Sub S()\n    Dim sg As SparklineGroup\n    Dim sp As Sparkline\n    Set sp = sg.Item(1)\nEnd Sub\n';
+		expect(codes(grp)).not.toContain(MISMATCH);
+		expect(codes(elem)).not.toContain(MISMATCH);
+	});
+
+	it('does not flag member-not-found chaining off an empty-paren call (shp.Duplicate().Group)', () => {
+		const src = 'Sub S()\n    Dim shp As Shape\n    shp.Duplicate().Group\nEnd Sub\n';
+		expect(codes(src)).not.toContain('member-not-found');
+	});
+});

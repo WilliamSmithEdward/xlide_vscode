@@ -1684,6 +1684,18 @@ export function inferMemberExpressionType(
 	};
 }
 
+/**
+ * Members whose declared return IS the already-resolved element/result: the
+ * default member (`Item`/`_Default`) and the creation method `Add`. A call to one
+ * of these must NOT be element-indexed again - otherwise a collection whose
+ * element is itself a collection (e.g. SparklineGroups -> SparklineGroup ->
+ * Sparkline) over-resolves one level too far.
+ */
+export function isExplicitElementAccessor(memberName: string): boolean {
+	const lower = memberName.toLowerCase();
+	return lower === 'item' || lower === '_default' || lower === 'add';
+}
+
 export function memberExpressionReturnType(
 	member: MemberCompletion,
 	argumentTokens: readonly VbaToken[] | undefined,
@@ -1697,8 +1709,14 @@ export function memberExpressionReturnType(
 	// the whole `Collection([Index])` family. defaultHostItemReturnType returns
 	// undefined for any non-collection return, so a concrete-typed call keeps its
 	// declared type: Application.Intersect(a, b) stays Range, Workbooks.Add(t) stays
-	// Workbook, ws.Range("A1") stays Range.
-	if (member.returns && argumentTokens && argumentTokens.length > 0) {
+	// Workbook, ws.Range("A1") stays Range. Item/_Default/Add are excluded because
+	// they already return the resolved element/result (see isExplicitElementAccessor).
+	if (
+		member.returns &&
+		argumentTokens &&
+		argumentTokens.length > 0 &&
+		!isExplicitElementAccessor(member.name)
+	) {
 		return defaultHostItemReturnType(member.returns, memberCtx) ?? member.returns;
 	}
 	return member.returns ?? 'Variant';
