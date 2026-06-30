@@ -39,6 +39,17 @@ describe('globalSettings', () => {
         expect(validateXlideGlobalSettingsValues(validSettings)).toEqual([]);
     });
 
+    it('never reports settings that are unset (the version-upgrade case)', () => {
+        // A newly-added setting the user has not configured must produce no
+        // problem - validation only sees values that are actually present, so an
+        // upgrade that adds settings never blasts "values not set correctly".
+        const withoutOne = { ...validSettings };
+        delete (withoutOne as Record<string, unknown>)['analysis.visibleSeverities'];
+        expect(validateXlideGlobalSettingsValues(withoutOne)).toEqual([]);
+        // A brand-new install with nothing configured reports nothing.
+        expect(validateXlideGlobalSettingsValues({})).toEqual([]);
+    });
+
     it('reports malformed global analysis settings explicitly', () => {
         expect(validateXlideGlobalSettingsValues({
             ...validSettings,
@@ -52,22 +63,22 @@ describe('globalSettings', () => {
             {
                 key: 'xlide.analysis.ruleSeverityOverrides',
                 message: 'Expected "xlide.analysis.ruleSeverityOverrides.option-explicit-missing" to be one of: off.',
-                severity: 'error',
+                severity: 'warning',
             },
             {
                 key: 'xlide.analysis.ruleSeverityOverrides',
                 message: 'Expected "xlide.analysis.ruleSeverityOverrides.not-a-rule" to target a known analysis rule that permits severity overrides.',
-                severity: 'error',
+                severity: 'warning',
             },
             {
                 key: 'xlide.analysis.untrackedRules',
                 message: 'Expected "xlide.analysis.untrackedRules" entries to be known analysis rule codes.',
-                severity: 'error',
+                severity: 'warning',
             },
             {
                 key: 'xlide.analysis.visibleSeverities',
                 message: 'Expected "xlide.analysis.visibleSeverities" entries to be one of: error, warning, information.',
-                severity: 'error',
+                severity: 'warning',
             },
         ]);
     });

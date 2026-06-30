@@ -358,8 +358,10 @@ export function registerVbaDiagnostics(
         return problems.map((problem) => {
             const diagnostic = new vscode.Diagnostic(
                 range,
-                `${problem.message} Fix the value in VS Code settings.`,
-                vscode.DiagnosticSeverity.Error,
+                `${problem.message} XLIDE is using a safe default; update it in VS Code settings.`,
+                problem.severity === 'error'
+                    ? vscode.DiagnosticSeverity.Error
+                    : vscode.DiagnosticSeverity.Warning,
             );
             diagnostic.source = 'XLIDE/settings';
             diagnostic.code = 'global-setting-invalid';

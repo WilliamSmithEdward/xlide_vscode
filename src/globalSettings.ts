@@ -18,7 +18,7 @@ import {
     type VbaSmartBlockLayout,
 } from './vbaSmartEnter';
 
-type XlideGlobalSettingSeverity = 'error';
+type XlideGlobalSettingSeverity = 'error' | 'warning';
 
 interface XlideGlobalSettingsProblem {
     key: string;
@@ -460,6 +460,12 @@ function resolvedXlideGlobalSettingsFromConfig(
 function validateXlideGlobalSettingsValues(values: XlideGlobalSettingsSnapshot): XlideGlobalSettingsProblem[] {
     const problems: XlideGlobalSettingsProblem[] = [];
     for (const key of XLIDE_GLOBAL_SETTING_KEYS) {
+        // An absent/unset value is always valid - the read path applies the
+        // declared default. Only an explicitly-provided value is validated, so a
+        // freshly-added setting never reports a problem before it is configured.
+        if (values[key] === undefined) {
+            continue;
+        }
         XLIDE_GLOBAL_SETTINGS[key].validate(values, problems, key);
     }
     return problems;
@@ -470,7 +476,17 @@ function validateXlideGlobalSettingsFromConfig(
 ): XlideGlobalSettingsProblem[] {
     const snapshot: XlideGlobalSettingsSnapshot = {};
     for (const key of XLIDE_GLOBAL_SETTING_KEYS) {
-        snapshot[key] = config.get<unknown>(key);
+        // Only validate a value the user explicitly set. A key that is unset (or
+        // only carries its package.json default) must never be reported: on a
+        // version upgrade, a newly-contributed key can briefly be absent from
+        // the configuration registry, so config.get(key) returns undefined and
+        // the read path applies the default silently. Validating those was the
+        // upgrade "settings not set correctly" warning blast.
+        const inspected = typeof config.inspect === 'function' ? config.inspect<unknown>(key) : undefined;
+        const explicit = inspected?.globalValue ?? inspected?.workspaceValue ?? inspected?.workspaceFolderValue;
+        if (explicit !== undefined) {
+            snapshot[key] = explicit;
+        }
     }
     return validateXlideGlobalSettingsValues(snapshot);
 }
@@ -698,7 +714,9 @@ function problem(key: string, message: string): XlideGlobalSettingsProblem {
     return {
         key: `xlide.${key}`,
         message,
-        severity: 'error',
+        // A malformed value is non-fatal - XLIDE falls back to a safe default -
+        // so surface it as a gentle warning, never a hard error.
+        severity: 'warning',
     };
 }
 

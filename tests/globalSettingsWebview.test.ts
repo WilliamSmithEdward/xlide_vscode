@@ -100,7 +100,7 @@ describe('globalSettingsWebview', () => {
         expect(model.problems).toEqual([{
             key: 'xlide.analysis.untrackedRules',
             message: 'Expected "xlide.analysis.untrackedRules" entries to be known analysis rule codes.',
-            severity: 'error',
+            severity: 'warning',
         }]);
         expect(html).toContain('known analysis rule codes');
         expect(html).toContain('data-setting-card="xlide.analysis.untrackedRules"');
