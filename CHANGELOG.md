@@ -2,6 +2,26 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.10] - 2026-06-30
+
+### Fixed
+
+- **Indexed collection access no longer reports a false type mismatch.** Assigning
+  a single element pulled from a collection - `Set ws = ThisWorkbook.Sheets("x")`,
+  `Set c = ws.ChartObjects(1)`, `Set pf = pt.PivotFields(1)`, `Set s = ch.SeriesCollection(1)`,
+  and the rest of the `Collection(Index)` family - resolved to the *collection*
+  type instead of the element and was wrongly flagged `assignment-object-type-mismatch`.
+  These now resolve to the element type (and member completion / chaining works
+  through them, e.g. `ws.ChartObjects(1).Chart`), while a genuine mismatch such as
+  assigning a `Range` to a `Worksheet` still fires.
+- **Upgrading the extension no longer floods the Problems panel with settings
+  errors.** New settings added in a release, an older workbook `.xlide_settings.json`,
+  or an analysis rule code you set under a previous version that has since been
+  renamed no longer blast a wall of "setting not set correctly" errors. Unset or
+  defaulted values are never validated, stale workbook settings and rule codes are
+  tolerated silently, and a value you genuinely set to something invalid is now a
+  single gentle warning instead of a hard error on every open module.
+
 ## [2.5.9] - 2026-06-28
 
 ### Added
