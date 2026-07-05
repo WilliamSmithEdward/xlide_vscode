@@ -383,8 +383,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const startPythonPulse = () => {
         awaitingPython = true;
-        pythonWasAvailable = false;
         if (!pythonPulseTimer) {
+            // Only re-arm the appeared-transition tracker on a fresh pulse. When a
+            // recheck fails and lands back here with the timer still running,
+            // keeping pythonWasAvailable=true prevents an every-tick recheck loop
+            // for a Python that is runnable but keeps failing the backend start;
+            // a genuine disappear/reappear still re-arms via the !available tick.
+            pythonWasAvailable = false;
             pythonPulseTimer = setInterval(() => { void pythonPulseTick(); }, PYTHON_PULSE_INTERVAL_MS);
             // Don't hold the extension host event loop open solely for the pulse.
             pythonPulseTimer.unref?.();
