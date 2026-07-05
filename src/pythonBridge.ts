@@ -5,6 +5,7 @@ import * as readline from 'readline';
 import { xlidePythonPathFromConfig } from './globalSettings';
 import { isCancellationLike, startPerformanceTrace } from './performanceTrace';
 import { BridgeError } from './pythonBridgeErrors';
+import { posixPythonCandidatePaths } from './pythonEnvironment';
 
 interface JsonRpcRequest {
     jsonrpc: '2.0';
@@ -277,6 +278,21 @@ export class PythonBridge implements vscode.Disposable {
                 }
             } catch { /* ignore */ }
         }
+
+        // macOS: the bare `python3` can resolve to Apple's Command Line Tools
+        // stub (present on every macOS, useless without the developer tools),
+        // and Homebrew's directory is often not on the extension host's PATH.
+        // Prefer a real interpreter at a well-known install location so a
+        // freshly installed Python is picked up by the availability pulse
+        // without a window reload.
+        try {
+            const fs = require('fs') as typeof import('fs');
+            for (const candidate of posixPythonCandidatePaths(process.platform)) {
+                if (fs.existsSync(candidate)) {
+                    return candidate;
+                }
+            }
+        } catch { /* ignore */ }
 
         return process.platform === 'win32' ? 'python' : 'python3';
     }

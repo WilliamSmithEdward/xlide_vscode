@@ -31,6 +31,11 @@ import {
 } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
 import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
+import {
+    isMacCltStubMessage,
+    isMissingPackageMessage,
+    isPythonNotFoundMessage,
+} from './pythonEnvironment';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
@@ -132,11 +137,8 @@ export function activate(context: vscode.ExtensionContext): void {
     fsProvider.setLiveShare(liveShare);
     explorer.setLiveShare(liveShare);
     const statusBar = new XlideStatusBar(liveShare);
-    const isMissingPackage = (msg: string) =>
-        /No module named|ModuleNotFoundError|ImportError/i.test(msg);
-
-    const isPythonNotFound = (msg: string) =>
-        /python.*not found|not recognized|cannot find|no such file|ENOENT|spawn.*python/i.test(msg);
+    const isMissingPackage = isMissingPackageMessage;
+    const isPythonNotFound = isPythonNotFoundMessage;
 
     const configuredPythonPath = () =>
         xlidePythonPathFromConfig(vscode.workspace.getConfiguration('xlide')).value;
@@ -283,7 +285,9 @@ export function activate(context: vscode.ExtensionContext): void {
                             : 'Not Found',
                     tooltip: shouldSetPath
                         ? 'Python appears to be installed, but XLIDE cannot start it from the current path. Set xlide.pythonPath to the Python executable.'
-                        : err.message,
+                        : isMacCltStubMessage(err.message)
+                            ? "macOS's built-in python3 is a Command Line Tools stub, not a full Python. Click Download to install Python from python.org, then return here - XLIDE re-checks automatically."
+                            : err.message,
                     action: shouldSetPath ? 'setPythonPath' : 'downloadPython',
                 },
                 pythonLibraries: {
