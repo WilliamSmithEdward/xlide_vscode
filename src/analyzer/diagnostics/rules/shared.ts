@@ -267,6 +267,7 @@ function undeclaredReferenceSkipIndexes(
 		skip.add(assignment);
 	}
 
+	const statementHead = tokenText(toks[firstExecutable]);
 	for (let i = 0; i < toks.length; i++) {
 		const word = tokenText(toks[i]);
 		if (
@@ -288,6 +289,28 @@ function undeclaredReferenceSkipIndexes(
 			skip.add(i + 1);
 		}
 		if (word === 'addressof' && isPotentialVariableReferenceToken(toks[i + 1])) {
+			skip.add(i + 1);
+		}
+		// Open-statement access-clause (MS-VBAL 5.4.5.1.1): in `Open path For
+		// mode [Access access] [lock] As #f`, `Access` is a grammar word, not a
+		// variable reference. It lexes as an identifier because it is not a
+		// reserved identifier (`Dim Access As Long` is legal), so skip it only
+		// in its grammar position: inside an Open statement and immediately
+		// followed by the access mode `Read` or `Write`. Every other Open
+		// grammar word (For/Binary/Input/Output/Append/Random/Read/Write/Lock/
+		// Shared/As/Len) already lexes as a keyword and is never scanned.
+		if (
+			statementHead === 'open' &&
+			word === 'access' &&
+			(tokenText(toks[i + 1]) === 'read' || tokenText(toks[i + 1]) === 'write')
+		) {
+			skip.add(i);
+		}
+		// `ReDim [Preserve] name(bounds) As TypeName`: the token after `As` is a
+		// type reference, not a variable read. Bounds identifiers remain uses.
+		// Scoped to ReDim because in other leaf statements the token after `As`
+		// IS a genuine value read (`Open path For Output As fnum`, `Name a As b`).
+		if (statementHead === 'redim' && word === 'as' && isPotentialVariableReferenceToken(toks[i + 1])) {
 			skip.add(i + 1);
 		}
 		if (isNamedArgumentLabel(toks, i)) {

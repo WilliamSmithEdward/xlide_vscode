@@ -311,7 +311,10 @@ function redimTargets(source: string, span: Span): Array<{ name: string; span: S
 }
 
 function redimStatementTargets(source: string, span: Span): RedimTarget[] {
-	const toks = statementTokensAfterLeadingLabel(source, span);
+	return redimTargetsFromTokens(span, statementTokensAfterLeadingLabel(source, span));
+}
+
+function redimTargetsFromTokens(span: Span, toks: readonly VbaToken[]): RedimTarget[] {
 	if (tokenText(toks[0]) !== 'redim') {
 		return [];
 	}
@@ -323,6 +326,36 @@ function redimStatementTargets(source: string, span: Span): RedimTarget[] {
 		if (target) {
 			out.push(target);
 		}
+	}
+	return out;
+}
+
+/**
+ * ReDim allocations embedded in a single-line `If cond Then ReDim a(...)` (and
+ * its `Else ReDim b(...)` arm). The parser keeps single-line If statements as
+ * one leaf, so redimStatementTargets - which requires `redim` as the first
+ * token - never sees them, and the generic index-access scan would otherwise
+ * flag the ReDim's own target as an unallocated access.
+ */
+function singleLineIfRedimTargets(source: string, span: Span): RedimTarget[] {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	if (tokenText(toks[0]) !== 'if') {
+		return [];
+	}
+	const out: RedimTarget[] = [];
+	for (let i = 1; i < toks.length - 1; i++) {
+		const word = tokenText(toks[i]);
+		if ((word !== 'then' && word !== 'else') || tokenText(toks[i + 1]) !== 'redim') {
+			continue;
+		}
+		let end = toks.length;
+		for (let j = i + 2; j < toks.length; j++) {
+			if (tokenText(toks[j]) === 'else') {
+				end = j;
+				break;
+			}
+		}
+		out.push(...redimTargetsFromTokens(span, toks.slice(i + 1, end)));
 	}
 	return out;
 }
@@ -754,7 +787,14 @@ function checkUnallocatedDynamicArrayAccessStatement(
 		}
 		return;
 	}
+	const conditionalRedims = singleLineIfRedimTargets(source, stmt.span);
 	for (const hit of unallocatedDynamicArrayIndexAccesses(source, stmt.span, arrays, state)) {
+		// The "access" may be the target of a ReDim embedded in a single-line
+		// If...Then - the allocation itself, not a read. Suppress exactly that
+		// target's name-token span; bounds expressions still report.
+		if (conditionalRedims.some((t) => t.span.start === hit.span.start && t.span.end === hit.span.end)) {
+			continue;
+		}
 		push(
 			'unallocatedDynamicArrayAccess',
 			`Dynamic array '${hit.name}' is not allocated before indexed access. This will raise Run-time error '9': Subscript out of range.`,
@@ -775,6 +815,15 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	}
 	for (const lower of localsPassedAsCallArguments(source, stmt.span, arrays)) {
 		if (state.get(lower) === 'unallocated') {
+			state.set(lower, 'unknown');
+		}
+	}
+	// A conditional (single-line If) ReDim allocates only on one path, so move
+	// the array to 'unknown' - mirroring how block-If allocations degrade - not
+	// 'allocated'. The 'unallocated' guard keeps an already-allocated array precise.
+	for (const target of conditionalRedims) {
+		const lower = target.name.toLowerCase();
+		if (arrays.has(lower) && target.dimensions.length > 0 && state.get(lower) === 'unallocated') {
 			state.set(lower, 'unknown');
 		}
 	}
@@ -881,7 +930,10 @@ function dynamicArrayTouchesInStatement(
 	arrays: ReadonlyMap<string, DynamicArrayDeclaration>,
 ): Set<string> {
 	const out = new Set<string>();
-	for (const target of redimStatementTargets(source, stmt.span)) {
+	for (const target of [
+		...redimStatementTargets(source, stmt.span),
+		...singleLineIfRedimTargets(source, stmt.span),
+	]) {
 		const lower = target.name.toLowerCase();
 		if (arrays.has(lower)) {
 			out.add(lower);

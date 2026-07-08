@@ -154,9 +154,17 @@ export function bareCallStatementTarget(
 		return undefined;
 	}
 	if (!explicitCall && r === '(') {
-		return undefined;
-	}
-	if (!explicitCall) {
+		// `Name (expr), arg2, ...` is a parenless call statement whose first
+		// argument is a parenthesized (ByVal-forcing) group. Treat the group as
+		// an argument only when the statement continues past the matching `)`
+		// with something other than a callee-chain continuation (`.member` or
+		// `(index)`). `Name (expr)` alone stays on the expression-call path.
+		const close = matchParenFrom(toks, idx + 1);
+		const afterClose = close >= 0 ? toks[close + 1] : undefined;
+		if (!afterClose || afterClose.rawText === '.' || afterClose.rawText === '(') {
+			return undefined;
+		}
+	} else if (!explicitCall) {
 		const gap = source.slice(span.start + callee.end, span.start + next.start);
 		if (!/\s/.test(gap)) {
 			return undefined;

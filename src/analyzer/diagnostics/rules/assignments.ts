@@ -302,7 +302,13 @@ function arrayAssignmentToScalarSource(
 	resolveTargetShape?: (name: string) => SourceDeclaredShape,
 	resolveSourceShape?: (name: string) => SourceDeclaredShape,
 ): { name: string; span: Span } | undefined {
-	if (!isKnownScalarAssignmentTarget(assignment.name, expectedType, shapes, resolveTargetShape)) {
+	const targetScalarType = knownScalarAssignmentTargetType(
+		assignment.name,
+		expectedType,
+		shapes,
+		resolveTargetShape,
+	);
+	if (!targetScalarType) {
 		return undefined;
 	}
 	if (assignment.valueTokens.length !== 1) {
@@ -320,27 +326,34 @@ function arrayAssignmentToScalarSource(
 	if (!sourceShape?.isArray) {
 		return undefined;
 	}
+	// VBA special case (MS-VBAL Let-statement rules): a Byte array is directly
+	// assignable to a String scalar - the idiomatic encoding-conversion pattern
+	// (`s = bytes`). Only Byte element types are exempt; every other element
+	// type remains a compile error.
+	if (targetScalarType === 'string' && normalizeType(sourceShape.asType) === 'byte') {
+		return undefined;
+	}
 	return {
 		name: sourceName,
 		span: { start: baseOffset + tok.start, end: baseOffset + tok.end },
 	};
 }
 
-function isKnownScalarAssignmentTarget(
+function knownScalarAssignmentTargetType(
 	name: string,
 	expectedType: string,
 	shapes: ReadonlyMap<string, DeclaredValueShape>,
 	resolveShape?: (name: string) => SourceDeclaredShape,
-): boolean {
+): string | undefined {
 	const resolvedTargetShape = resolveShape?.(name);
 	const targetShape = resolvedTargetShape?.resolved
 		? resolvedTargetShape.shape
 		: shapes.get(name.toLowerCase());
 	if (targetShape?.isArray) {
-		return false;
+		return undefined;
 	}
 	const normalized = normalizeType(targetShape?.asType ?? expectedType);
-	return !!normalized && isKnownScalarType(normalized);
+	return normalized && isKnownScalarType(normalized) ? normalized : undefined;
 }
 
 /**
