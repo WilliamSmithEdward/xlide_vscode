@@ -2,6 +2,40 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.11] - 2026-07-08
+
+### Fixed
+
+- **Five analyzer false positives found by analyzing a real-world JSON library.**
+  Valid VBA that the VBE compiles is no longer flagged as an error:
+  - `Open path For Binary Access Read As #f` no longer reports the `Access`
+    keyword as an undefined variable.
+  - Assigning a Byte array to a String (`s = bytes`, or a `Function ... As
+    String` returning its Byte-array buffer) - VBA's documented encoding
+    conversion - is no longer reported as an array-to-scalar error.
+  - `If n > 0 Then ReDim a(1 To n)` no longer reports the ReDim's own target as
+    an unallocated-array access (single-line `If` Then/Else arms are now
+    recognized as allocation sites).
+  - `ReDim rows(1 To n) As Collection` no longer reports the type name in the
+    `As` clause as an undefined variable.
+  - A parenless call whose first argument is parenthesized - `AssertTrue
+    (cond), "message"` - now counts all its arguments instead of reporting a
+    wrong argument count.
+  In every family the neighboring genuine errors still flag (e.g. `x = Access`,
+  a Long array assigned to a String, real unallocated accesses, undeclared
+  ReDim bounds, and truly missing arguments).
+
+- **macOS Python setup now offers Download and detects an install
+  automatically.** On a Mac without Python, macOS's built-in `python3` stub made
+  the setup failure unrecognizable, so the sidebar offered only "Set Path" and
+  never noticed a subsequent install. The stub is now classified correctly: the
+  sidebar shows a Download button (python.org) with a plain-English explanation,
+  re-checks every few seconds so a new install is picked up without a window
+  reload, and well-known install locations (Homebrew, python.org) are probed
+  directly - Homebrew's directory is often not on VS Code's PATH. An explicit
+  `xlide.pythonPath` and a workspace `.venv` still take precedence; Windows and
+  Linux behavior is unchanged.
+
 ## [2.5.10] - 2026-06-30
 
 ### Fixed
