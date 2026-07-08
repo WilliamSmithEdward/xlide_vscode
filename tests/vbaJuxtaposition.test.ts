@@ -33,7 +33,16 @@ describe('juxtaposed-values diagnostic', () => {
 		'MsgBox "hello"',     // implicit call statement (no '=')
 		'Debug.Print n',      // call statement
 		'Foo n, 1',           // call statement with args
+		'n = 3000000000&"x"', // glued & read by the VBE as concatenation
 	])('does not flag valid: %s', (body) => {
 		expect(flagsJuxtaposition(body)).toBe(false);
+	});
+
+	it('stays clean on the oracle-accepted glued-& concat control (suffix_long_amp_glued_concat_accepted)', () => {
+		// The VBE reads the glued & as concatenation because 3000000000 overflows
+		// Long, so this compiles and runs; it must never report a juxtaposition.
+		const src = 'Public Sub XlideOracleEntry()\n    Dim s As String\n    s = 3000000000&"x"\nEnd Sub\n';
+		const r = analyzeVbaModuleSource({ source: src, moduleName: 'Module1' });
+		expect(r.diagnostics.filter((d) => d.code === 'invalid-expression-syntax')).toHaveLength(0);
 	});
 });

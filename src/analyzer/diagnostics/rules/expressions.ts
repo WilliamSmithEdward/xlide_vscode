@@ -378,6 +378,15 @@ function endsJuxtaposableValue(tok: VbaToken | undefined): boolean {
 	if (!tok) {
 		return false;
 	}
+	// A digit run glued to `&` lexes as a &-suffixed integer literal, but the
+	// VBE can read that `&` as CONCATENATION - it does when the digits overflow
+	// Long (VBE oracle suffix_long_amp_glued_concat_accepted: `s = 3000000000&"x"`
+	// is accepted) - so a &-suffixed integer literal never provably ends a
+	// value. The in-range form (`n = 5& 1`) is under-reported by design: a
+	// missed diagnostic beats a false positive on the oracle-verified concat.
+	if (tok.kind === 'integerLiteral' && tok.rawText.endsWith('&')) {
+		return false;
+	}
 	return JUXTAPOSABLE_VALUE_KINDS.has(tok.kind) || tok.rawText === ')' || tok.rawText === ']';
 }
 
