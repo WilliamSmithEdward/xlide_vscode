@@ -62,6 +62,7 @@ import {
 } from '../typeInference';
 import {
 	absoluteSpan,
+	firstExecutableTokenIndex,
 	matchParenFrom,
 	statementTokens,
 	tokenName,
@@ -326,6 +327,14 @@ function invalidOperatorSequence(
 	span: Span,
 ): { text: string; span: Span } | undefined {
 	const toks = statementTokens(source, span);
+	// A Case statement's Is-comparison clause (MS-VBAL 5.4.2.10, `Case Is > 5`)
+	// uses `Is` as grammar, not as the object-identity operator, so the
+	// word-operator scan would mis-read `Is >` as an impossible operator run.
+	// Case clauses are grammar, not value expressions; skip the whole statement
+	// (the Select/Case rules own its structure).
+	if (tokenText(toks[firstExecutableTokenIndex(toks)]) === 'case') {
+		return undefined;
+	}
 	for (let i = 0; i < toks.length; i++) {
 		if (!isNonUnaryBinaryOperator(toks[i])) {
 			continue;

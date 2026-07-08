@@ -970,4 +970,28 @@ describe('analyzeModule - invalid expression syntax', () => {
 		const src = 'Sub T()\n    value = IIf(flag, 1, 2)\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
 	});
+
+	it('does not flag the Case Is comparison clause (MS-VBAL 5.4.2.10)', () => {
+		const src =
+			'Sub S(x As Long)\n' +
+			'    Select Case x\n' +
+			'        Case Is > 5\n' +
+			'            y = 1\n' +
+			'        Case 1, 3 To 4, Is >= 9\n' +
+			'            y = 2\n' +
+			'    End Select\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
+	it('still flags an operator run inside a Select Case body statement', () => {
+		const src =
+			'Sub S(x As Long)\n' +
+			'    Select Case x\n' +
+			'        Case 1\n' +
+			'            y = 1 * / 2\n' +
+			'    End Select\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toHaveLength(1);
+	});
 });
