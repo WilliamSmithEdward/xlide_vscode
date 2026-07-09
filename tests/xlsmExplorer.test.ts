@@ -309,7 +309,12 @@ describe('XlsmExplorer', () => {
         const [workbook] = await explorer.getChildren();
         const [module] = await explorer.getChildren(workbook);
 
-        await expect(explorer.getChildren(module)).resolves.toEqual([]);
+        // Failures yield a retry placeholder (never []): VS Code caches resolved
+        // children, so [] would leave the node permanently empty after a
+        // transient lock.
+        await expect(explorer.getChildren(module)).resolves.toMatchObject([
+            { kind: 'loadError', moduleName: 'Module1' },
+        ]);
 
         expect(vscodeMock.showErrorMessage).toHaveBeenCalledWith(
             expect.stringContaining('Failed to list procedures in "Module1"'),
@@ -374,6 +379,84 @@ describe('XlsmExplorer', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+});
+
+describe('XlsmExplorer transient load failures', () => {
+    beforeEach(() => {
+        vscodeMock.findFiles.mockReset();
+        vscodeMock.showErrorMessage.mockReset();
+        vscodeMock.treeEvents = [];
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book.xlsm' },
+        ]);
+    });
+
+    it('returns a retry placeholder (never empty) when listing modules fails, and recovers via retryLoad', async () => {
+        // A workbook briefly locked by Excel: the first listModules rejects,
+        // the next succeeds once the lock is gone.
+        let failNext = true;
+        const bridge = {
+            call: vi.fn((method: string) => {
+                if (method === 'listModules') {
+                    if (failNext) {
+                        return Promise.reject(new Error('Permission denied: being used by another process'));
+                    }
+                    return Promise.resolve([{ name: 'Module1', type: 'standard' }]);
+                }
+                return Promise.resolve({ isPasswordProtected: false, isSigned: false });
+            }),
+        } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
+
+        const explorer = new XlsmExplorer(bridge);
+        explorer.setSetupComplete(true);
+        const [workbook] = await explorer.getChildren();
+
+        // Failure: the node must yield a clickable placeholder, not [] (VS Code
+        // caches resolved children, so [] would brick the node until restart).
+        const failed = await explorer.getChildren(workbook);
+        expect(failed).toMatchObject([{ kind: 'loadError', filePath: 'C:\\work\\Book.xlsm' }]);
+        expect(failed[0].moduleName).toBeUndefined();
+
+        // Excel closed: retryLoad clears the caches and re-fires the workbook
+        // node so VS Code re-queries children, which now succeed.
+        failNext = false;
+        vscodeMock.treeEvents = [];
+        explorer.retryLoad(failed[0]);
+        expect(vscodeMock.treeEvents).toContainEqual(expect.objectContaining({ kind: 'xlsm' }));
+        const recovered = await explorer.getChildren(workbook);
+        expect(recovered).toMatchObject([{ kind: 'module', moduleName: 'Module1' }]);
+    });
+
+    it('returns a retry placeholder for a failed sub listing and recovers', async () => {
+        let failNext = true;
+        const bridge = {
+            call: vi.fn((method: string) => {
+                if (method === 'listModules') {
+                    return Promise.resolve([{ name: 'Module1', type: 'standard' }]);
+                }
+                if (method === 'listSubs') {
+                    if (failNext) {
+                        return Promise.reject(new Error('sharing violation'));
+                    }
+                    return Promise.resolve([{ name: 'DoIt', kind: 'Sub', line: 1 }]);
+                }
+                return Promise.resolve({ isPasswordProtected: false, isSigned: false });
+            }),
+        } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
+
+        const explorer = new XlsmExplorer(bridge);
+        explorer.setSetupComplete(true);
+        const [workbook] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(workbook);
+
+        const failed = await explorer.getChildren(module);
+        expect(failed).toMatchObject([{ kind: 'loadError', moduleName: 'Module1' }]);
+
+        failNext = false;
+        explorer.retryLoad(failed[0]);
+        const recovered = await explorer.getChildren(module);
+        expect(recovered).toMatchObject([{ kind: 'sub', label: 'Sub DoIt' }]);
     });
 });
 

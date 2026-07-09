@@ -88,6 +88,13 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             explorer.refresh();
         }),
 
+        // In-tree "Load failed - click to retry" placeholder (e.g. after Excel
+        // briefly held the workbook file). Retries just the failed listing
+        // instead of collapsing the whole tree with a full refresh.
+        registerXlideCommand('xlide.retryExplorerLoad', (node: XlideNode) => {
+            explorer.retryLoad(node);
+        }),
+
         // Open a module (or navigate to a sub's line inside one)
         registerXlideCommand('xlide.openModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }

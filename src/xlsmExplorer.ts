@@ -6,7 +6,7 @@ import type { LiveShareIntegration } from './liveShare';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 import { startPerformanceTrace } from './performanceTrace';
 
-export type XlideNodeKind = 'xlsm' | 'module' | 'sub';
+export type XlideNodeKind = 'xlsm' | 'module' | 'sub' | 'loadError';
 
 const PROTECTION_PROBE_IDLE_DELAY_MS = 2000;
 
@@ -29,6 +29,8 @@ export interface XlideNode {
     remoteRelativeFolder?: string;
     /** Workbook only: VBA project carries a password lock. */
     isPasswordProtected?: boolean;
+    /** loadError only: the failure message shown in the tooltip. */
+    errorMessage?: string;
     /** Workbook only: VBA project carries a digital signature. */
     isSigned?: boolean;
 }
@@ -134,7 +136,48 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         if (node.kind === 'sub') {
             return this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName ?? ''));
         }
+        if (node.kind === 'loadError') {
+            return node.moduleName
+                ? this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName))
+                : this._xlsmNodes.get(node.filePath);
+        }
         return undefined;
+    }
+
+    /**
+     * Retry a failed workbook/module listing from its in-tree "click to retry"
+     * placeholder. A transient failure (e.g. Excel briefly holding an exclusive
+     * lock on the file during open/save) must never permanently brick the node:
+     * VS Code caches resolved children until the node is re-fired, so without
+     * this the tree would stay broken until a full refresh or window reload.
+     */
+    retryLoad(node: XlideNode): void {
+        if (node.kind !== 'loadError') {
+            return;
+        }
+        if (node.moduleName) {
+            this.refreshModuleSubs(node.filePath, node.moduleName);
+            return;
+        }
+        const key = workbookNodeKey(node.filePath);
+        this._modulesListCache.delete(key);
+        this._modulesListLoads.delete(key);
+        const workbook = this._xlsmNodes.get(node.filePath);
+        if (workbook) {
+            this._emitter.fire(workbook);
+        } else {
+            this._emitter.fire();
+        }
+    }
+
+    private _loadErrorNode(filePath: string, moduleName: string | undefined, err: unknown): XlideNode {
+        return {
+            kind: 'loadError',
+            label: 'Load failed - click to retry',
+            filePath,
+            moduleName,
+            errorMessage: String(err),
+        };
     }
 
     /** Returns the cached module node, if the tree has loaded it. */
@@ -209,7 +252,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             workbookNodeKey(node.filePath) === this._activeWorkbookKey;
         const item = new vscode.TreeItem(
             node.label,
-            node.kind === 'sub'
+            node.kind === 'sub' || node.kind === 'loadError'
                 ? vscode.TreeItemCollapsibleState.None
                 : isActiveModule
                     ? vscode.TreeItemCollapsibleState.Expanded
@@ -286,6 +329,17 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 item.command = {
                     command: 'xlide.openModule',
                     title: 'Go to Procedure',
+                    arguments: [node],
+                };
+                break;
+
+            case 'loadError':
+                item.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('problemsWarningIcon.foreground'));
+                item.contextValue = 'loadError';
+                item.tooltip = `${node.errorMessage ?? 'The workbook could not be read.'}\n\nIf the workbook is open in Excel, close it (or wait for the save to finish) and click to retry.`;
+                item.command = {
+                    command: 'xlide.retryExplorerLoad',
+                    title: 'Retry',
                     arguments: [node],
                 };
                 break;
@@ -500,7 +554,10 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             return nodes;
         } catch (err) {
             vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${fileNameForDisplay(filePath)}": ${err}`);
-            return [];
+            // Return a retry placeholder, never [] - VS Code caches resolved
+            // children, so an empty result would leave the workbook permanently
+            // empty after a transient failure (e.g. Excel holding the file).
+            return [this._loadErrorNode(filePath, undefined, err)];
         }
     }
 
@@ -586,7 +643,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             return nodes;
         } catch (err) {
             vscode.window.showErrorMessage(`XLIDE: Failed to list procedures in "${moduleName}" (${fileNameForDisplay(filePath)}): ${err}`);
-            return [];
+            return [this._loadErrorNode(filePath, moduleName, err)];
         }
     }
 
