@@ -2,6 +2,29 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.12] - 2026-07-08
+
+### Fixed
+
+- **Two analyzer false positives on legal VBA.**
+  - A `Case Is > 5` comparison clause (MS-VBAL 5.4.2.10) is no longer reported
+    as an invalid operator sequence: `Is` in a Case clause is grammar, not the
+    object-identity operator. Operator runs inside a Case body still flag.
+  - `s = 3000000000&"x"` is no longer reported as juxtaposed values: the VBE
+    reads the glued `&` as concatenation because the digits overflow Long
+    (oracle-verified accepted), so a `&`-suffixed integer literal never
+    provably ends a value. The in-range form (`n = 5& 1`) is deliberately
+    under-reported rather than risking the false positive; other suffixes
+    (`n = 5% 1`) still flag.
+
+### Added
+
+- **A corpus-wide no-false-positive sweep over the accepted oracle cases.**
+  Every VBE-verified accepted case in the corpus is analyzed with its full
+  cross-module project context; any compile-error diagnostic (or runtime-error
+  diagnostic on a runtime-verified case) firing on one now fails the test
+  suite. This is the gate the juxtaposition false positive slipped past.
+
 ## [2.5.11] - 2026-07-08
 
 ### Fixed
