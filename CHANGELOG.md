@@ -2,6 +2,21 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.5.13] - 2026-07-09
+
+### Fixed
+
+- **The workbook tree recovers after a transient read failure instead of
+  staying broken until a window reload.** If a tree expansion failed - most
+  commonly because Excel briefly holds an exclusive lock on the workbook while
+  opening or saving it - the workbook node was left permanently empty, and even
+  closing Excel did not bring it back. A failed module or procedure listing now
+  shows an in-tree "Load failed - click to retry" item whose tooltip carries the
+  actual error (plus a hint about Excel locks); clicking it retries just that
+  listing without collapsing the rest of the tree.
+
+_Note: v2.5.12 was tagged but never published; its fixes ship with this release._
+
 ## [2.5.12] - 2026-07-08
 
 ### Fixed
