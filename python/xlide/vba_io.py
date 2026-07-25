@@ -382,7 +382,10 @@ def get_protection_info(*, path: str) -> dict[str, Any]:
 
 def _protection_info(wb: Any) -> dict[str, Any]:
     from pyopenvba.cfb import CFB
-    from pyopenvba.excel import detect_signature
+    # Canonical home of detect_signature. pyOpenVBA <= 3.0.x also re-exported
+    # it from pyopenvba.excel, but 3.1.0 dropped that alias; pyopenvba.vba
+    # works across every version the requirements floor allows.
+    from pyopenvba.vba import detect_signature
 
     project = wb.vba_project()
     is_protected = (

@@ -320,7 +320,7 @@ class TestGetProtectionInfo:
         sig = MagicMock(present=signed)
         with patch("xlide.vba_io.ExcelFile", return_value=mock_wb), \
                 patch("pyopenvba.cfb.CFB", return_value=MagicMock()), \
-                patch("pyopenvba.excel.detect_signature", return_value=sig):
+                patch("pyopenvba.vba.detect_signature", return_value=sig):
             from xlide.vba_io import get_protection_info
             return get_protection_info(path="fake.xlsm")
 
