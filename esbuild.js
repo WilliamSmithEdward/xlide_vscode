@@ -27,14 +27,16 @@ async function main() {
   // disk at runtime via src/extensionAssets.ts relative to the extension
   // root, and they ship in the VSIX because .vscodeignore keeps assets/**.
   const ctx = await esbuild.context({
-    entryPoints: ["src/extension.ts"],
+    // Two bundles: the extension host, and the analysis worker thread the host
+    // spawns (out/analysisWorker.js) so full analysis passes run off-thread.
+    entryPoints: ["src/extension.ts", "src/analysisWorker.ts"],
     bundle: true,
     format: "cjs",
     minify: production,
     sourcemap: !production,
     sourcesContent: false,
     platform: "node",
-    outfile: "out/extension.js",
+    outdir: "out",
     external: ["vscode"],
     logLevel: "silent",
     plugins: [esbuildProblemMatcherPlugin],

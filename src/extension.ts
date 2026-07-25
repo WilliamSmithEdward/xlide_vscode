@@ -43,6 +43,7 @@ import {
     outdatedPythonLibraries,
     type OutdatedPythonLibrary,
 } from './pythonEnvironment';
+import { AnalysisWorkerClient } from './analysisWorkerClient';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
@@ -571,8 +572,15 @@ export function activate(context: vscode.ExtensionContext): void {
         showCollapseAll: true,
     });
 
-    // VBA language services: syntax-aware symbol index + providers.
-    const vbaIndex = registerVbaLanguageProviders(context, bridge);
+    // VBA language services: syntax-aware symbol index + providers. The
+    // analysis worker keeps full diagnostic passes off the extension-host
+    // thread; if it cannot start, diagnostics fall back to in-host analysis.
+    const analysisWorkerClient = new AnalysisWorkerClient(
+        path.join(context.extensionPath, 'out', 'analysisWorker.js'),
+        (line: string) => out.appendLine(line),
+    );
+    context.subscriptions.push(new vscode.Disposable(() => analysisWorkerClient.dispose()));
+    const vbaIndex = registerVbaLanguageProviders(context, bridge, analysisWorkerClient);
     registerVbaEditorCommands(context);
     registerXlideVbaLanguageSync(context, out);
     void ensureXlideVbaEditorOverrides(out);

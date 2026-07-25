@@ -30,6 +30,7 @@ import {
     type VbaProjectAnalysisOptions,
 } from './vbaProjectAnalysis';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
+import type { AnalysisWorkerClient } from './analysisWorkerClient';
 import {
     isAnalysisRuleTracked,
 } from './analysisSettingsCore';
@@ -256,6 +257,7 @@ class WorkbookSettingsWatcherRegistry implements vscode.Disposable {
 export function registerVbaDiagnostics(
     context: vscode.ExtensionContext,
     projectIndexService: VbaProjectIndexService,
+    workerClient?: AnalysisWorkerClient,
 ): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
     const scheduler = new DiagnosticScheduler(
@@ -453,6 +455,7 @@ export function registerVbaDiagnostics(
         let moduleKind: ModuleSymbolKind | undefined;
         let documentType: EventHandlerDocumentType | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
+        let workbookRecord: Awaited<ReturnType<VbaProjectIndexService['contextForWorkbook']>> | undefined;
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
@@ -460,6 +463,7 @@ export function registerVbaDiagnostics(
                 settingsWatchers.ensure(xlsmPath);
                 if (pass === 'full') {
                     const diagnosticProject = await projectIndexService.contextForWorkbook(xlsmPath);
+                    workbookRecord = diagnosticProject;
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
                     moduleType = current?.moduleType;
                     moduleKind = current?.moduleKind;
@@ -482,6 +486,49 @@ export function registerVbaDiagnostics(
         const activeIncompleteExpressionOffset = activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
             : undefined;
+
+        // Full passes run on the analysis worker thread when it is healthy, so
+        // a large module's ~1s pass never blocks the extension host. The worker
+        // reproduces the exact in-host inputs (same module sources, generation-
+        // gated) and keeps per-document incremental state; any failure falls
+        // through to the identical in-host pass below.
+        if (pass === 'full' && workerClient?.available && workbookPath && workbookRecord) {
+            try {
+                const record = workbookRecord;
+                const wbKey = workbookKey(workbookPath);
+                const crossGeneration = record.crossModuleGeneration(moduleName);
+                workerClient.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
+                    moduleName: m.moduleName,
+                    source: m.source,
+                    type: m.type,
+                    documentType: m.documentType,
+                })));
+                const workerResult = await workerClient.analyze({
+                    docKey: key,
+                    workbookKey: wbKey,
+                    generation: crossGeneration,
+                    source: text,
+                    moduleName,
+                    moduleType,
+                    moduleKind,
+                    documentType,
+                    severityOverrides: analysisSettings.ruleSeverityOverrides,
+                    activeIncompleteExpressionOffset,
+                });
+                const diagnostics = diagnosticsFromModuleAnalysis(
+                    document,
+                    workerResult,
+                    analysisSettings.untrackedRules,
+                    settingsDiagnostics,
+                );
+                publishDiagnosticsIfCurrent(document, key, generation, documentVersion, pass, diagnostics);
+                return;
+            } catch {
+                // Worker unavailable or died mid-request: fall through to the
+                // in-host pass, which produces identical results.
+            }
+        }
+
         const moduleAnalysis = analyzeVbaModuleSource({
             source: text,
             moduleName,
@@ -503,7 +550,7 @@ export function registerVbaDiagnostics(
 
     const diagnosticsFromModuleAnalysis = (
         document: vscode.TextDocument,
-        moduleAnalysis: ReturnType<typeof analyzeVbaModuleSource>,
+        moduleAnalysis: Pick<ReturnType<typeof analyzeVbaModuleSource>, 'diagnostics'>,
         untrackedRules: readonly string[],
         settingsDiagnostics: readonly vscode.Diagnostic[],
     ): vscode.Diagnostic[] => {
@@ -622,6 +669,7 @@ export function registerVbaDiagnostics(
             collection.delete(doc.uri);
             lastDiagnostics.delete(doc.uri.toString());
             lastSuppressedLine.delete(doc.uri.toString());
+            workerClient?.forget(doc.uri.toString());
             settingsWatchers.prune();
         }),
         vscode.workspace.onDidChangeConfiguration((e) => {

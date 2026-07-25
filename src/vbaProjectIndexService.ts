@@ -63,6 +63,14 @@ export interface VbaWorkbookProjectContext {
     /** Consumer-memoized signatures; the service resets this on any change. */
     projectProcedures?: ReturnType<typeof projectProcedureSignatures>;
     readonly loadedAt: number;
+    /**
+     * Monotonic counter of module-source changes applied to this record,
+     * excluding changes to `moduleName` itself. Consumers analyzing one module
+     * use it to detect when any OTHER module's content moved (cross-module
+     * context changed) - e.g. to invalidate incremental analysis state or
+     * reseed an analysis worker.
+     */
+    crossModuleGeneration(moduleName: string): number;
 }
 
 class WorkbookProjectRecord implements VbaWorkbookProjectContext {
@@ -73,6 +81,8 @@ class WorkbookProjectRecord implements VbaWorkbookProjectContext {
     readonly appliedDocumentVersions = new Map<string, number>();
     projectProcedures?: ReturnType<typeof projectProcedureSignatures>;
     loadedAt = Date.now();
+    private _changeCounter = 0;
+    private readonly _changesByModule = new Map<string, number>();
 
     constructor(
         readonly xlsmPath: string,
@@ -99,6 +109,7 @@ class WorkbookProjectRecord implements VbaWorkbookProjectContext {
             documentType: metadata.documentType ?? previous?.documentType,
         };
         this.moduleMetadata.set(moduleKey, meta);
+        this._recordChange(moduleName);
         try {
             this.project.setModule({
                 moduleName,
@@ -126,6 +137,16 @@ class WorkbookProjectRecord implements VbaWorkbookProjectContext {
     markChanged(): void {
         this.projectProcedures = undefined;
         this.loadedAt = Date.now();
+    }
+
+    crossModuleGeneration(moduleName: string): number {
+        return this._changeCounter - (this._changesByModule.get(moduleIdentityKey(moduleName)) ?? 0);
+    }
+
+    private _recordChange(moduleName: string): void {
+        this._changeCounter += 1;
+        const key = moduleIdentityKey(moduleName);
+        this._changesByModule.set(key, (this._changesByModule.get(key) ?? 0) + 1);
     }
 
     /** Throws the first recorded invalid-module error, in module-list order. */

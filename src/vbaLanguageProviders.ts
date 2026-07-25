@@ -22,6 +22,7 @@ import {
     VbaTypeSemanticTokensProvider,
 } from './vbaSemanticTokensProvider';
 import { registerVbaDiagnostics } from './vbaLiveDiagnostics';
+import type { AnalysisWorkerClient } from './analysisWorkerClient';
 import {
     VbaCodeActionProvider,
     XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND,
@@ -47,11 +48,12 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
 export function registerVbaLanguageProviders(
     context: vscode.ExtensionContext,
     bridge: PythonBridge,
+    workerClient?: AnalysisWorkerClient,
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
     const projectIndexService = new VbaProjectIndexService(index);
 
-    registerVbaDiagnostics(context, projectIndexService);
+    registerVbaDiagnostics(context, projectIndexService, workerClient);
     registerVbaAutoBlock(context);
     registerVbaLoopIteratorSync(context);
     const docMetadata = new DocMetadataLoader();
