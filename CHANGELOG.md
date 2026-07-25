@@ -2,6 +2,51 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.6.0] - 2026-07-25
+
+### Performance
+
+- **Very large modules are now fast - roughly 100x less editor-thread work.**
+  A real-world 24,000-line class module used to cost ~10 seconds of analysis on
+  the editor thread per pass, re-running after every change; typing, completion,
+  and hover all contended with it. Three layers of work landed:
+  - The analyzer itself is ~9x faster: several quadratic hot paths (conditional-
+    compilation activity, doc-comment extraction, per-statement re-lexing,
+    symbol and type-name lookups) were replaced with one-pass indexes and
+    shared-token derivation - verified byte-identical diagnostics across three
+    real-world codebases at every step.
+  - Editing only a procedure body now re-analyzes just that procedure and
+    splices the cached results for the rest of the module, with automatic
+    full-pass fallback on any declaration/signature/directive change.
+  - Full analysis passes run on a background worker thread, so even the first
+    full pass of a huge module never blocks typing. If the worker cannot start,
+    analysis transparently falls back in-process.
+
+### Added
+
+- **The sidebar offers a one-click Update when the required Python libraries
+  are outdated.** Once per session (opt-out: `xlide.checkPythonLibraryUpdates`)
+  XLIDE compares the installed pyOpenVBA/openpyxl versions against PyPI; when
+  one is behind, the Required Python Libraries row shows a yellow Update
+  Available state whose button upgrades both and restarts the backend.
+  Outdated-but-installed libraries never block any feature.
+
+### Fixed
+
+- **Opening a large class module no longer flashes hundreds of bogus "'Me' is
+  only valid in a class..." errors.** Passes that ran before the workbook
+  reported the module's kind analyzed it as a standard module; they now wait
+  and retry instead of publishing wrong-kind errors, and the fast per-keystroke
+  pass reuses the last known module kind.
+
+### Changed
+
+- **Fewer popup notifications.** Success summaries whose outcome is already
+  visible elsewhere (analysis results, validation passed, export/import
+  success, "copied to clipboard") now show as a transient status-bar message
+  instead of a bottom-right toast. Failures and actionable prompts are
+  unchanged.
+
 ## [2.5.13] - 2026-07-09
 
 ### Fixed
