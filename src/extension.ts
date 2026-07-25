@@ -365,6 +365,12 @@ export function activate(context: vscode.ExtensionContext): void {
                 out.appendLine('Python library updates available: '
                     + outdatedLibraries.map((u) => `${u.name} ${u.installed} -> ${u.latest}`).join(', '));
                 pythonBackendReady();
+            } else {
+                // Make the clean result verifiable in the output channel, so a
+                // green "Installed" row can be distinguished from a check that
+                // never ran (offline, disabled, backend down).
+                out.appendLine('Python libraries up to date: '
+                    + names.map((n) => `${n} ${installed[n]}`).join(', '));
             }
         } catch {
             // Best-effort: an old backend without getPackageVersions, a dead
