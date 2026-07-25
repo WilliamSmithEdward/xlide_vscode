@@ -33,6 +33,7 @@ import { registerXlideCommand } from '../xlideCommandRegistration';
 import { analyzeOpenModule } from './analysisCommands';
 import {
     activeLocalWorkbookPath,
+    statusMessage,
     type CommandDeps,
 } from './shared';
 
@@ -220,7 +221,7 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
 
     async function copyDiagnosticsFromBundle(bundle: SupportBundle): Promise<void> {
         await vscode.env.clipboard.writeText(supportDiagnosticsText(bundle));
-        vscode.window.showInformationMessage('XLIDE: Redacted diagnostics copied to clipboard.');
+        statusMessage('XLIDE: Redacted diagnostics copied to clipboard.');
     }
 
     async function copyDiagnostics(): Promise<void> {
@@ -251,7 +252,8 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
         }
 
         await fs.promises.writeFile(target.fsPath, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
-        vscode.window.showInformationMessage(`XLIDE: Support bundle exported to ${target.fsPath}`);
+        // The user chose the destination in the save dialog moments ago.
+        statusMessage(`XLIDE: Support bundle exported to ${target.fsPath}`);
     }
 
     return [

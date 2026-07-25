@@ -36,6 +36,7 @@ import { errorMessage } from '../util/errors';
 import {
     resolveWorkbookPath,
     showAnalysisSourceDocument,
+    statusMessage,
     type CommandDeps,
 } from './shared';
 
@@ -208,7 +209,8 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         const position = new vscode.Position(target.startLine, 0);
         editor.selection = new vscode.Selection(position, position);
         editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-        vscode.window.showInformationMessage(`XLIDE: Added ${scope} analysis ignore directive for '${code}'.`);
+        // The directive is visible in the editor at the revealed cursor position.
+        statusMessage(`XLIDE: Added ${scope} analysis ignore directive for '${code}'.`);
     }
 
     async function askCopilotAboutWorkbookAnalysisProblem(
@@ -383,15 +385,11 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         // current content and survives the original editor being closed.
         showWorkbookAnalysisResults(analysisResult, async () =>
             currentModuleAnalysisResult(await vscode.workspace.openTextDocument(documentUri)));
-        if (problems.length === 0) {
-            vscode.window.showInformationMessage(
-                `XLIDE: "${moduleName}" passed analysis (no unsuppressed problems).`,
-            );
-        } else {
-            vscode.window.showWarningMessage(
-                `XLIDE: "${moduleName}" has ${errorCount} error(s) and ${warningCount} warning(s).`,
-            );
-        }
+        // The results panel just opened with these exact counts; a popup toast
+        // on top of it is pure noise. A transient status-bar line suffices.
+        statusMessage(problems.length === 0
+            ? `XLIDE: "${moduleName}" passed analysis (no unsuppressed problems).`
+            : `XLIDE: "${moduleName}" has ${errorCount} error(s) and ${warningCount} warning(s).`);
     }
 
     return [
@@ -410,7 +408,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
                     const issues = res.issues ?? [];
                     if (issues.length === 0) {
                         log(`[validate] "${name}": no issues`);
-                        void vscode.window.showInformationMessage(`XLIDE: "${name}" passed validation (no issues).`);
+                        statusMessage(`XLIDE: "${name}" passed validation (no issues).`);
                         return;
                     }
                     log(`[validate] "${name}": ${issues.length} issue(s):`);
@@ -450,15 +448,11 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
                         showWorkbookAnalysisResults(result, () => analyzeWorkbook(bridge, filePath, {
                             progress: (message) => progress.report({ message }),
                         }));
-                        if (result.problems.length === 0) {
-                            vscode.window.showInformationMessage(
-                                `XLIDE: "${name}" passed analysis (no problems across ${result.moduleCount} module(s)).`,
-                            );
-                        } else {
-                            vscode.window.showWarningMessage(
-                                `XLIDE: "${name}" has ${result.errorCount} error(s) and ${result.warningCount} warning(s).`,
-                            );
-                        }
+                        // The results panel just opened with these exact counts;
+                        // no popup toast on top of it.
+                        statusMessage(result.problems.length === 0
+                            ? `XLIDE: "${name}" passed analysis (no problems across ${result.moduleCount} module(s)).`
+                            : `XLIDE: "${name}" has ${result.errorCount} error(s) and ${result.warningCount} warning(s).`);
                     } catch (err) {
                         const msg = errorMessage(err);
                         if (err instanceof vscode.CancellationError) {

@@ -43,6 +43,7 @@ import {
     activeLocalWorkbookPath,
     logChangeSummary,
     resolveWorkbookPath,
+    statusMessage,
     type CommandDeps,
 } from './shared';
 
@@ -255,9 +256,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         });
 
         log(`[exportCurrentModule] Config updated: ${result.configPath}`);
-        vscode.window.showInformationMessage(
-            `XLIDE: ${summaryText} [mode=${result.exportMode}]`,
-        );
+        statusMessage(`XLIDE: ${summaryText} [mode=${result.exportMode}]`);
     }
 
     async function showExportModulesDiffGui(filePath: string): Promise<void> {
@@ -301,7 +300,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         if (result.failed > 0) {
             vscode.window.showWarningMessage(message);
         } else {
-            vscode.window.showInformationMessage(message);
+            statusMessage(message);
         }
     }
 
@@ -345,7 +344,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         if (result.failed > 0) {
             vscode.window.showWarningMessage(`XLIDE: ${result.summary}. Copy redacted diagnostics if you need to troubleshoot.`);
         } else {
-            vscode.window.showInformationMessage(`XLIDE: ${result.summary} into ${path.basename(filePath)}`);
+            statusMessage(`XLIDE: ${result.summary} into ${path.basename(filePath)}`);
         }
     }
 

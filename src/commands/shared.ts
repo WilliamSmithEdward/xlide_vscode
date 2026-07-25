@@ -30,6 +30,16 @@ export interface CommandDeps {
     vbaIndex: VbaSymbolIndex;
 }
 
+/**
+ * Transient status-bar confirmation for successful command results whose
+ * outcome is already visible elsewhere (an opened results panel, an editor
+ * edit, files on disk). Replaces popup toasts, which interrupt without adding
+ * information; failures and actionable prompts stay as notifications.
+ */
+export function statusMessage(text: string): void {
+    vscode.window.setStatusBarMessage(text, 6000);
+}
+
 /** Logs every detail line of a change summary and returns the headline line. */
 export function logChangeSummary(
     log: (msg: string) => void,
