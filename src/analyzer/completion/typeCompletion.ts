@@ -207,7 +207,15 @@ function detectTypePosition(tokens: readonly VbaToken[]): TypePosition | undefin
 }
 
 /** Short host type names (e.g. "Workbook") derived from the host model types. */
+const HOST_TYPE_NAMES_CACHE = new WeakMap<HostObjectModel, string[]>();
+
 export function hostTypeNames(model: HostObjectModel): string[] {
+	// The host model is immutable; recomputing the short-name list on every
+	// call shows up hot when per-declaration rules resolve As-clause types.
+	const cached = HOST_TYPE_NAMES_CACHE.get(model);
+	if (cached) {
+		return cached;
+	}
 	const out: string[] = [];
 	for (const qualified of Object.keys(model.types)) {
 		const short = qualified.split('.').pop();
@@ -215,6 +223,7 @@ export function hostTypeNames(model: HostObjectModel): string[] {
 			out.push(short);
 		}
 	}
+	HOST_TYPE_NAMES_CACHE.set(model, out);
 	return out;
 }
 
@@ -410,9 +419,34 @@ export function resolveTypeName(
 		);
 	}
 	const lower = name.toLowerCase();
-	return typeCompletionCandidates(ctx).find((candidate) => (
-		candidate.name.toLowerCase() === lower
-	));
+	return exactTypeNameIndex(ctx).get(lower);
+}
+
+// Per-(model, projectTypes) index of unqualified type-name candidates. Rules
+// resolve an As-clause type per declaration; rebuilding the full candidate list
+// and scanning it linearly each time is O(declarations x candidates). Both key
+// parts are stable object identities for the duration of an analysis pass.
+const EXACT_TYPE_NAME_INDEXES = new WeakMap<
+	HostObjectModel,
+	{ projectTypes: readonly ProjectTypeName[] | undefined; byLower: Map<string, TypeCompletion> }
+>();
+
+function exactTypeNameIndex(ctx: TypeCompletionContext): Map<string, TypeCompletion> {
+	const model = ctx.model ?? getExcelObjectModel();
+	const cached = EXACT_TYPE_NAME_INDEXES.get(model);
+	if (cached && cached.projectTypes === ctx.projectTypes) {
+		return cached.byLower;
+	}
+	const byLower = new Map<string, TypeCompletion>();
+	for (const candidate of typeCompletionCandidates(ctx)) {
+		const key = candidate.name.toLowerCase();
+		// Preserve .find() semantics: the FIRST candidate for a name wins.
+		if (!byLower.has(key)) {
+			byLower.set(key, candidate);
+		}
+	}
+	EXACT_TYPE_NAME_INDEXES.set(model, { projectTypes: ctx.projectTypes, byLower });
+	return byLower;
 }
 
 /**

@@ -278,18 +278,22 @@ export function extractLeadingDoc(
 	source: string,
 	declStart: number,
 ): VbaDoc | undefined {
-	const before = source.slice(0, Math.max(0, declStart));
-	const physical = before.split('\n');
-	// Drop the partial current line (indentation before the declaration keyword).
-	physical.pop();
+	// Walk physical lines backward from the declaration's own line. This runs
+	// once per declaration while building module symbols, so slicing and
+	// splitting the whole module prefix here (the obvious implementation) makes
+	// symbol building quadratic in module size.
+	let lineStart = source.lastIndexOf('\n', Math.max(0, declStart) - 1) + 1;
 	const docLines: string[] = [];
-	for (let i = physical.length - 1; i >= 0; i -= 1) {
-		const line = physical[i].replace(/\r$/, '');
+	while (lineStart > 0) {
+		const prevEnd = lineStart - 1; // the '\n' terminating the previous line
+		const prevStart = source.lastIndexOf('\n', prevEnd - 1) + 1;
+		const line = source.slice(prevStart, prevEnd).replace(/\r$/, '');
 		const trimmed = line.trimStart();
 		if (!trimmed.startsWith("'''")) {
 			break;
 		}
 		docLines.push(stripDocPrefix(trimmed));
+		lineStart = prevStart;
 	}
 	docLines.reverse();
 	return docFromLines(docLines);

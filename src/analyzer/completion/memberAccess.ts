@@ -309,7 +309,16 @@ function prefixSignificantTokens(
 			}
 		}
 		if (found >= 0 && shared[found].end === offset) {
-			return shared.slice(0, found + 1);
+			// Receiver chains never cross a logical-statement boundary and every
+			// consumer walks backward stopping at one, so the prefix only needs
+			// to reach back to the previous newline token (kept as the boundary
+			// marker). Slicing from module start instead copies O(module) tokens
+			// per query, which turns a large-module analysis pass quadratic.
+			let start = found;
+			while (start > 0 && shared[start].kind !== 'newline') {
+				start--;
+			}
+			return shared.slice(start, found + 1);
 		}
 	}
 	return completionCursorContext(source, offset).significantTokens;

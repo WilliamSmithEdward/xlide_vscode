@@ -98,30 +98,89 @@ export function localIdentifierMatches(
 	return out;
 }
 
+// Per-module index of module-level symbols (and enum members) by lowercased
+// name. Identifier resolution runs per reference, so a linear scan over the
+// module's declarations makes large modules quadratic. The module root symbol
+// is stable for the duration of an analysis pass; the index preserves the
+// original scan order (declaration order, enum members inline after their enum)
+// so context filtering returns the same symbols in the same order.
+const MODULE_MATCH_INDEXES = new WeakMap<VbaSymbol, Map<string, VbaSymbol[]>>();
+
+function moduleMatchIndex(root: VbaSymbol): Map<string, VbaSymbol[]> {
+	const cached = MODULE_MATCH_INDEXES.get(root);
+	if (cached) {
+		return cached;
+	}
+	const index = new Map<string, VbaSymbol[]>();
+	const add = (symbol: VbaSymbol): void => {
+		const key = symbol.name.toLowerCase();
+		const bucket = index.get(key);
+		if (bucket) {
+			bucket.push(symbol);
+		} else {
+			index.set(key, [symbol]);
+		}
+	};
+	for (const symbol of root.children ?? []) {
+		add(symbol);
+		if (symbol.kind === 'enum') {
+			for (const member of symbol.children ?? []) {
+				add(member);
+			}
+		}
+	}
+	MODULE_MATCH_INDEXES.set(root, index);
+	return index;
+}
+
 export function moduleLevelIdentifierMatches(
 	mod: ModuleSymbols,
 	lowerName: string,
 	context: BareIdentifierContext,
 ): VbaSymbol[] {
-	const out: VbaSymbol[] = [];
-	for (const symbol of mod.root.children ?? []) {
-		if (
-			symbol.name.toLowerCase() === lowerName &&
-			symbolAllowedInContext(symbol, context)
-		) {
-			out.push(symbol);
-		}
+	const bucket = moduleMatchIndex(mod.root).get(lowerName);
+	if (!bucket) {
+		return [];
+	}
+	return bucket.filter((symbol) => symbolAllowedInContext(symbol, context));
+}
+
+// Lowercased module-level names (declarations + enum members), cached per
+// module root: sourceIdentifierNames runs once per procedure, so re-lowercasing
+// every module-level declaration each time is O(procedures x declarations).
+const MODULE_LOWER_NAMES = new WeakMap<VbaSymbol, readonly string[]>();
+
+function moduleLowerNames(root: VbaSymbol): readonly string[] {
+	const cached = MODULE_LOWER_NAMES.get(root);
+	if (cached) {
+		return cached;
+	}
+	const out: string[] = [];
+	for (const symbol of root.children ?? []) {
+		out.push(symbol.name.toLowerCase());
 		if (symbol.kind === 'enum') {
 			for (const member of symbol.children ?? []) {
-				if (
-					member.name.toLowerCase() === lowerName &&
-					symbolAllowedInContext(member, context)
-				) {
-					out.push(member);
-				}
+				out.push(member.name.toLowerCase());
 			}
 		}
 	}
+	MODULE_LOWER_NAMES.set(root, out);
+	return out;
+}
+
+// Same caching for the project-visible symbol list (stable array identity per pass).
+const PROJECT_LOWER_NAMES = new WeakMap<readonly VbaSymbol[], readonly string[]>();
+
+function projectLowerNames(symbols: readonly VbaSymbol[] | undefined): readonly string[] {
+	if (!symbols || symbols.length === 0) {
+		return [];
+	}
+	const cached = PROJECT_LOWER_NAMES.get(symbols);
+	if (cached) {
+		return cached;
+	}
+	const out = symbols.map((symbol) => symbol.name.toLowerCase());
+	PROJECT_LOWER_NAMES.set(symbols, out);
 	return out;
 }
 
@@ -141,16 +200,11 @@ export function sourceIdentifierNames(
 			out.add(symbol.name.toLowerCase());
 		}
 	}
-	for (const symbol of input.currentModule.root.children ?? []) {
-		out.add(symbol.name.toLowerCase());
-		if (symbol.kind === 'enum') {
-			for (const member of symbol.children ?? []) {
-				out.add(member.name.toLowerCase());
-			}
-		}
+	for (const lower of moduleLowerNames(input.currentModule.root)) {
+		out.add(lower);
 	}
-	for (const symbol of input.projectVisibleSymbols ?? []) {
-		out.add(symbol.name.toLowerCase());
+	for (const lower of projectLowerNames(input.projectVisibleSymbols)) {
+		out.add(lower);
 	}
 	return out;
 }
