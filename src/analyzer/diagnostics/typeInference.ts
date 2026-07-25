@@ -257,6 +257,28 @@ function perProcedureCache<V>(
 	return byProc;
 }
 
+// Module-level portion of the type environment, cached per symbols instance:
+// environments are built per procedure, so re-walking (and re-lowercasing)
+// every module-level declaration for each procedure is O(procedures x
+// declarations) on large modules. Procedure entries overwrite module entries in
+// the clone exactly as they did in the single-pass build.
+const TYPE_ENV_MODULE_BASE = new WeakMap<ReturnType<typeof buildModuleSymbols>, Map<string, string>>();
+
+function typeEnvModuleBase(symbols: ReturnType<typeof buildModuleSymbols>): Map<string, string> {
+	const cached = TYPE_ENV_MODULE_BASE.get(symbols);
+	if (cached) {
+		return cached;
+	}
+	const base = new Map<string, string>();
+	for (const sym of symbols.root.children ?? []) {
+		if (sym.asType && !isProcedureKind(sym.kind)) {
+			base.set(sym.name.toLowerCase(), sym.asType);
+		}
+	}
+	TYPE_ENV_MODULE_BASE.set(symbols, base);
+	return base;
+}
+
 export function typeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
@@ -266,12 +288,7 @@ export function typeEnvironmentFor(
 	if (cached) {
 		return cached;
 	}
-	const out = new Map<string, string>();
-	for (const sym of symbols.root.children ?? []) {
-		if (sym.asType && !isProcedureKind(sym.kind)) {
-			out.set(sym.name.toLowerCase(), sym.asType);
-		}
-	}
+	const out = new Map(typeEnvModuleBase(symbols));
 	const procSym = procedureSymbolFor(symbols, proc);
 	const returnType = returnAssignmentTypeFor(proc);
 	if (returnType) {
@@ -292,6 +309,34 @@ export interface DeclaredValueShape {
 	isFixedArray: boolean;
 }
 
+// Mirror of typeEnvModuleBase for declaration shapes. The shape objects are
+// treated as read-only by every consumer, so clones share them safely.
+const DECLARATION_SHAPE_MODULE_BASE = new WeakMap<
+	ReturnType<typeof buildModuleSymbols>,
+	Map<string, DeclaredValueShape>
+>();
+
+function declarationShapeModuleBase(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): Map<string, DeclaredValueShape> {
+	const cached = DECLARATION_SHAPE_MODULE_BASE.get(symbols);
+	if (cached) {
+		return cached;
+	}
+	const base = new Map<string, DeclaredValueShape>();
+	for (const sym of symbols.root.children ?? []) {
+		if (isValueDeclarationSymbol(sym)) {
+			base.set(sym.name.toLowerCase(), {
+				asType: sym.asType,
+				isArray: sym.isArray === true,
+				isFixedArray: sym.arrayBounds !== undefined,
+			});
+		}
+	}
+	DECLARATION_SHAPE_MODULE_BASE.set(symbols, base);
+	return base;
+}
+
 export function declarationShapeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
@@ -301,16 +346,7 @@ export function declarationShapeEnvironmentFor(
 	if (cached) {
 		return cached;
 	}
-	const out = new Map<string, DeclaredValueShape>();
-	for (const sym of symbols.root.children ?? []) {
-		if (isValueDeclarationSymbol(sym)) {
-			out.set(sym.name.toLowerCase(), {
-				asType: sym.asType,
-				isArray: sym.isArray === true,
-				isFixedArray: sym.arrayBounds !== undefined,
-			});
-		}
-	}
+	const out = new Map(declarationShapeModuleBase(symbols));
 	const procSym = procedureSymbolFor(symbols, proc);
 	const returnType = returnAssignmentTypeFor(proc);
 	if (returnType) {

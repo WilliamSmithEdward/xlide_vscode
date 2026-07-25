@@ -59,6 +59,10 @@ const DIAGNOSTIC_OPEN_LOCAL_DELAY_MS = 25;
 const DIAGNOSTIC_OPEN_FULL_DELAY_MS = 150;
 const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
+// Above this size the edit-time full pass backs off proportionally (see
+// editScheduleDelaysFor), capped so diagnostics never lag more than 2s.
+const DIAGNOSTIC_LARGE_MODULE_LINES = 8000;
+const DIAGNOSTIC_EDIT_FULL_DELAY_MAX_MS = 2000;
 const DIAGNOSTIC_ANALYSIS_SETTINGS_CACHE_TTL_MS = 2_000;
 
 type DiagnosticPassKind = 'local' | 'full';
@@ -74,6 +78,25 @@ interface DiagnosticScheduleDelays {
  * (invalidating in-flight runs) and re-arms both pass timers; a completed
  * full pass suppresses publishing a stale local pass of the same generation.
  */
+/**
+ * Edit-time pass delays, scaled to document size. The full analysis pass costs
+ * roughly linear time in module size (about 1s at ~24k lines even after the
+ * analyzer optimizations), so on very large modules it is paced further behind
+ * the typing burst instead of contending with it on every 450ms pause. The
+ * cheap local pass keeps its fast cadence regardless, so structural squiggles
+ * stay responsive. document.lineCount is O(1).
+ */
+function editScheduleDelaysFor(document: vscode.TextDocument): DiagnosticScheduleDelays {
+    const lines = document.lineCount;
+    const fullDelayMs = lines > DIAGNOSTIC_LARGE_MODULE_LINES
+        ? Math.min(
+            DIAGNOSTIC_EDIT_FULL_DELAY_MAX_MS,
+            DIAGNOSTIC_EDIT_FULL_DELAY_MS + Math.floor((lines - DIAGNOSTIC_LARGE_MODULE_LINES) / 8),
+        )
+        : DIAGNOSTIC_EDIT_FULL_DELAY_MS;
+    return { localDelayMs: DIAGNOSTIC_EDIT_LOCAL_DELAY_MS, fullDelayMs };
+}
+
 class DiagnosticScheduler {
     private readonly _localTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private readonly _fullTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -90,10 +113,7 @@ class DiagnosticScheduler {
 
     schedule(
         document: vscode.TextDocument,
-        delays: DiagnosticScheduleDelays = {
-            localDelayMs: DIAGNOSTIC_EDIT_LOCAL_DELAY_MS,
-            fullDelayMs: DIAGNOSTIC_EDIT_FULL_DELAY_MS,
-        },
+        delays: DiagnosticScheduleDelays = editScheduleDelaysFor(document),
     ): void {
         if (!isVbaDocument(document)) { return; }
         const key = document.uri.toString();
