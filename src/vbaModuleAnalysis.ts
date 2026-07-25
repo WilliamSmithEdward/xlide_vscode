@@ -4,7 +4,7 @@ import {
     diagnosticMetadataForCode,
     incompleteExpressionEditSpan,
     normalizeDiagnosticSeverityOverride,
-    conditionalActivityAtOffset,
+    createConditionalActivityTracker,
     parseModule,
     scanAnalysisSuppressions,
     tokenizeCached,
@@ -225,13 +225,18 @@ function inactiveConditionalLinePredicate(
     if (!source.includes('#')) {
         return undefined;
     }
+    // One tracker for the whole pass: constructing it replays the directive
+    // stack once, and each per-line query is a binary search. Calling
+    // conditionalActivityAtOffset per line instead re-walks the entire module
+    // AST per query, which turns the structural pass quadratic (~10s on a
+    // 24k-line module; a few hundred ms with the tracker).
+    const tracker = createConditionalActivityTracker(module, analyzeOptions.conditionalCompilation);
+    if (!tracker) {
+        return undefined;
+    }
     return (line: number): boolean => {
         const offset = starts[line] ?? source.length;
-        return conditionalActivityAtOffset(
-            module,
-            offset,
-            analyzeOptions.conditionalCompilation,
-        ) === 'inactive';
+        return tracker.isInactive({ start: offset, end: offset });
     };
 }
 
