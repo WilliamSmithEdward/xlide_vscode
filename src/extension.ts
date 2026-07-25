@@ -25,16 +25,23 @@ import { setExcelCoordinationLog } from './excelWorkbookCoordinator';
 import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import {
     setXlideGlobalSettingValue,
+    xlideCheckPythonLibraryUpdatesFromConfig,
     xlideExplorerAutoExpandCollapseFromConfig,
     xlidePerformanceTraceFromConfig,
     xlidePythonPathFromConfig,
 } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
-import { isXlideSetupComplete, type XlideSidebarSetupStatus } from './xlideSidebarModel';
+import {
+    isXlideSetupComplete,
+    type XlideSidebarDependencyStatus,
+    type XlideSidebarSetupStatus,
+} from './xlideSidebarModel';
 import {
     isMacCltStubMessage,
     isMissingPackageMessage,
     isPythonNotFoundMessage,
+    outdatedPythonLibraries,
+    type OutdatedPythonLibrary,
 } from './pythonEnvironment';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
@@ -53,15 +60,27 @@ function installDependencies(
     out: vscode.OutputChannel,
     onBridgeReady?: () => void,
     onBridgeFailed?: (err: Error) => void,
+    opts?: { upgrade?: boolean },
 ): Promise<void> {
     const pythonPath = bridge.resolvePython();
     const requirementsPath = path.join(context.extensionPath, 'python', 'requirements.txt');
+    const pipArgs = ['-m', 'pip', 'install'];
+    if (opts?.upgrade) {
+        pipArgs.push('--upgrade');
+    }
+    pipArgs.push('-r', requirementsPath);
 
     return Promise.resolve(vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'XLIDE: Installing Python dependencies...', cancellable: false },
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: opts?.upgrade
+                ? 'XLIDE: Updating Python dependencies...'
+                : 'XLIDE: Installing Python dependencies...',
+            cancellable: false,
+        },
         () => new Promise<void>((resolve, reject) => {
-            out.appendLine(`Running: ${pythonPath} -m pip install -r ${requirementsPath}`);
-            const proc = cp.spawn(pythonPath, ['-m', 'pip', 'install', '-r', requirementsPath], {
+            out.appendLine(`Running: ${pythonPath} ${pipArgs.join(' ')}`);
+            const proc = cp.spawn(pythonPath, pipArgs, {
                 stdio: ['ignore', 'pipe', 'pipe'],
             });
             proc.stdout!.on('data', (d: Buffer) => out.appendLine(d.toString().trimEnd()));
@@ -262,12 +281,94 @@ export function activate(context: vscode.ExtensionContext): void {
                 description: bridge.resolvePython(),
                 tooltip: 'XLIDE found a usable Python executable.',
             },
-            pythonLibraries: {
+            pythonLibraries: librariesSetupStatus(),
+        });
+        void checkForLibraryUpdates();
+    };
+
+    // ------------------------------------------------------------------
+    // Library-update nudge: once per session (opt-out via the
+    // checkPythonLibraryUpdates setting), compare the installed pyOpenVBA /
+    // openpyxl versions (asked from the running backend) against the latest
+    // releases on PyPI. When something is behind, the sidebar's libraries row
+    // turns into a warn-with-Update affordance; it never gates setup.
+    // ------------------------------------------------------------------
+    let outdatedLibraries: OutdatedPythonLibrary[] = [];
+    let libraryUpdateCheckDone = false;
+    let libraryUpdateInProgress = false;
+
+    const librariesSetupStatus = (): XlideSidebarDependencyStatus =>
+        outdatedLibraries.length > 0
+            ? {
+                status: 'warn',
+                description: 'Update Available',
+                tooltip: 'Newer releases are available:\n'
+                    + outdatedLibraries.map((u) => `${u.name} ${u.installed} -> ${u.latest}`).join('\n')
+                    + '\n\nClick Update to upgrade and restart the backend.',
+                action: 'updateLibraries',
+            }
+            : {
                 status: 'pass',
                 description: 'Installed',
                 tooltip: 'Required Python libraries are installed.',
-            },
-        });
+            };
+
+    const PYPI_TIMEOUT_MS = 5000;
+    const fetchLatestPypiVersion = async (name: string): Promise<[string, string] | undefined> => {
+        type FetchResponseLike = { ok: boolean; json(): Promise<unknown> };
+        const fetchFn = (globalThis as unknown as {
+            fetch?: (url: string, init?: { signal?: AbortSignal }) => Promise<FetchResponseLike>;
+        }).fetch;
+        if (!fetchFn) {
+            return undefined;
+        }
+        const abort = new AbortController();
+        const timer = setTimeout(() => abort.abort(), PYPI_TIMEOUT_MS);
+        try {
+            const res = await fetchFn(`https://pypi.org/pypi/${encodeURIComponent(name)}/json`, { signal: abort.signal });
+            if (!res.ok) {
+                return undefined;
+            }
+            const data = await res.json() as { info?: { version?: unknown } };
+            const version = data?.info?.version;
+            return typeof version === 'string' && version.length > 0 ? [name, version] : undefined;
+        } catch {
+            return undefined;
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+
+    const checkForLibraryUpdates = async (): Promise<void> => {
+        if (libraryUpdateCheckDone || libraryUpdateInProgress) {
+            return;
+        }
+        if (!xlideCheckPythonLibraryUpdatesFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
+            return;
+        }
+        libraryUpdateCheckDone = true;
+        try {
+            const info = await bridge.call<{ packages?: Record<string, string> }>('getPackageVersions', {});
+            const installed = info?.packages ?? {};
+            const names = Object.keys(installed);
+            if (names.length === 0) {
+                return;
+            }
+            const latestEntries = (await Promise.all(names.map(fetchLatestPypiVersion)))
+                .filter((entry): entry is [string, string] => entry !== undefined);
+            if (latestEntries.length === 0) {
+                return; // offline or PyPI unreachable: no data, no nudge
+            }
+            outdatedLibraries = outdatedPythonLibraries(installed, Object.fromEntries(latestEntries));
+            if (outdatedLibraries.length > 0 && !backendStartFailed) {
+                out.appendLine('Python library updates available: '
+                    + outdatedLibraries.map((u) => `${u.name} ${u.installed} -> ${u.latest}`).join(', '));
+                pythonBackendReady();
+            }
+        } catch {
+            // Best-effort: an old backend without getPackageVersions, a dead
+            // bridge, or a network failure must never surface an error.
+        }
     };
     const pythonBackendNeedsAttention = async (err: Error): Promise<void> => {
         backendStartFailed = true;
@@ -675,6 +776,33 @@ export function activate(context: vscode.ExtensionContext): void {
                 });
             }),
         ),
+
+        // Sidebar "Update" button on the libraries row when a newer pyOpenVBA /
+        // openpyxl release is available: pip install --upgrade, restart the
+        // backend, then re-verify so the row returns to green.
+        registerXlideCommand('xlide.updatePythonLibraries', () => {
+            if (libraryUpdateInProgress) {
+                return;
+            }
+            libraryUpdateInProgress = true;
+            outdatedLibraries = [];
+            libraryUpdateCheckDone = false;
+            installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention, { upgrade: true })
+                .catch((err: Error) => {
+                    out.appendLine(`Library update error: ${err.message}`);
+                    void vscode.window.showErrorMessage(
+                        `XLIDE: Updating Python libraries failed: ${err.message}`,
+                        'Copy Diagnostics',
+                    ).then((choice) => {
+                        if (choice === 'Copy Diagnostics') {
+                            void vscode.commands.executeCommand('xlide.copyDiagnostics');
+                        }
+                    });
+                })
+                .finally(() => {
+                    libraryUpdateInProgress = false;
+                });
+        }),
 
         registerXlideCommand('xlide.downloadPython', () => {
             void vscode.env.openExternal(vscode.Uri.parse(PYTHON_DOWNLOAD_URL));

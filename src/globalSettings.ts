@@ -44,6 +44,7 @@ type XlideGlobalSettingsSnapshot = Record<string, unknown>;
 
 interface XlideGlobalSettingValues {
     'pythonPath': string;
+    'checkPythonLibraryUpdates': boolean;
     'attachToRunningExcel': boolean;
     'excelIntegration.coordinationMode': ExcelCoordinationMode;
     'excelIntegration.trackOpenedWorkbooks': boolean;
@@ -137,6 +138,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             label: 'Python Path',
             description: 'Full path to the Python interpreter XLIDE runs its backend with. Leave blank to auto-detect Python on your PATH.',
             control: { kind: 'text' },
+        },
+    },
+    'checkPythonLibraryUpdates': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'runtime',
+            label: 'Check Python Library Updates',
+            description: 'Once per session, check PyPI for newer releases of the required Python libraries (pyOpenVBA, openpyxl) and offer a one-click Update in the sidebar when one is available. Turn off to never contact PyPI.',
+            control: { kind: 'boolean' },
         },
     },
     'excelIntegration.coordinationMode': {
@@ -443,6 +456,10 @@ function xlideExplorerAutoExpandCollapseFromConfig(config: vscode.WorkspaceConfi
     return xlideGlobalSettingFromConfig(config, 'explorer.autoExpandCollapse');
 }
 
+function xlideCheckPythonLibraryUpdatesFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'checkPythonLibraryUpdates');
+}
+
 function xlidePythonPathFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'pythonPath');
 }
@@ -746,6 +763,7 @@ export {
     xlideExcelReopenAfterCloseFromConfig,
     xlideExcelReopenModeFromConfig,
     xlideExcelReopenReadOnlyAfterSaveFromConfig,
+    xlideCheckPythonLibraryUpdatesFromConfig,
     xlideDiagnosticsEnabledFromConfig,
     xlideDocsEnabledFromConfig,
     xlideDocsMetadataGlobFromConfig,

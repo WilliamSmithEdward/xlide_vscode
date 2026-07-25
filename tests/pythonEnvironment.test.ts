@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+	compareVersionStrings,
 	isMacCltStubMessage,
 	isMissingPackageMessage,
 	isPythonNotFoundMessage,
+	outdatedPythonLibraries,
 	posixPythonCandidatePaths,
 } from '../src/pythonEnvironment';
 
@@ -47,6 +49,40 @@ describe('isMissingPackageMessage', () => {
 	it('matches missing-module errors only', () => {
 		expect(isMissingPackageMessage("ModuleNotFoundError: No module named 'openpyxl'")).toBe(true);
 		expect(isMissingPackageMessage(MAC_CLT_STUB)).toBe(false);
+	});
+});
+
+describe('compareVersionStrings', () => {
+	it.each([
+		['3.0.1', '3.2.0', -1],
+		['3.2.0', '3.0.1', 1],
+		['3.1.5', '3.1.5', 0],
+		['3.1', '3.1.0', 0],
+		['3.9.2', '3.10.0', -1],
+		['2.9', '3.0', -1],
+	])('compares %s vs %s -> %i', (a, b, expected) => {
+		expect(compareVersionStrings(a, b)).toBe(expected);
+	});
+
+	it('is conservative on pre-release/non-numeric segments (never nudges)', () => {
+		expect(compareVersionStrings('3.1.0', '3.2.0rc1')).toBe(0);
+		expect(compareVersionStrings('3.2.0rc1', '3.1.0')).toBe(0);
+	});
+});
+
+describe('outdatedPythonLibraries', () => {
+	it('reports only libraries strictly behind the latest release', () => {
+		expect(outdatedPythonLibraries(
+			{ pyOpenVBA: '3.0.1', openpyxl: '3.1.5' },
+			{ pyOpenVBA: '3.2.0', openpyxl: '3.1.5' },
+		)).toEqual([{ name: 'pyOpenVBA', installed: '3.0.1', latest: '3.2.0' }]);
+	});
+
+	it('skips libraries with no latest data and never reports an ahead-of-PyPI install', () => {
+		expect(outdatedPythonLibraries(
+			{ pyOpenVBA: '9.9.9', openpyxl: '3.1.5' },
+			{ pyOpenVBA: '3.2.0' },
+		)).toEqual([]);
 	});
 });
 

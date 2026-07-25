@@ -204,6 +204,52 @@ describe('xlideSidebarModel', () => {
     });
 });
 
+describe('library update availability', () => {
+    function updateAvailableStatus() {
+        return {
+            pythonExecutable: {
+                status: 'pass' as const,
+                description: 'C:\\Python\\python.exe',
+                tooltip: 'Python is ready.',
+            },
+            pythonLibraries: {
+                status: 'warn' as const,
+                description: 'Update Available',
+                tooltip: 'pyOpenVBA 3.0.1 -> 3.2.0',
+                action: 'updateLibraries' as const,
+            },
+        };
+    }
+
+    it('shows a warn dot with an enabled Update button wired to the update command', () => {
+        const model = buildXlideSidebarModel({ setupStatus: updateAvailableStatus() });
+        const setup = model.find((section) => section.id === 'setup');
+        const libraries = setup?.children?.find((node) => node.id === 'setup.pythonLibraries');
+        expect(libraries).toMatchObject({
+            status: 'warn',
+            description: 'Update Available',
+            disabled: false,
+            command: { command: 'xlide.updatePythonLibraries', title: 'Update' },
+        });
+    });
+
+    it('does not gate the sidebar: outdated-but-installed libraries keep setup complete', () => {
+        expect(isXlideSetupComplete(updateAvailableStatus())).toBe(true);
+        const model = buildXlideSidebarModel({ setupStatus: updateAvailableStatus() });
+        expect(model.map((section) => section.label)).toContain('Workbook Actions');
+    });
+
+    it('still gates setup when libraries are genuinely missing (warn without the action)', () => {
+        const status = updateAvailableStatus();
+        status.pythonLibraries = {
+            status: 'warn' as const,
+            description: 'Missing',
+            tooltip: 'Required libraries are missing.',
+        } as typeof status.pythonLibraries;
+        expect(isXlideSetupComplete(status)).toBe(false);
+    });
+});
+
 function completeSetupStatus() {
     return {
         pythonExecutable: {

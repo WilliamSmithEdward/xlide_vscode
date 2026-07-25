@@ -39,6 +39,61 @@ export function isMissingPackageMessage(msg: string): boolean {
  * Ordered: Homebrew (Apple Silicon), Homebrew (Intel) / python.org symlink,
  * python.org framework install.
  */
+/** One tracked runtime library that has a newer release than the installed one. */
+export interface OutdatedPythonLibrary {
+    name: string;
+    installed: string;
+    latest: string;
+}
+
+/**
+ * PEP-440-ish version comparison over dot-separated segments. Numeric segments
+ * compare numerically; a shorter version is padded with zeros (3.1 == 3.1.0).
+ * Any non-numeric segment (a pre-release like "3.2.0rc1") makes the comparison
+ * conservative: the versions are treated as equal so an rc/dev build never
+ * produces an "update available" nudge in either direction.
+ */
+export function compareVersionStrings(a: string, b: string): number {
+    const segsA = a.trim().split('.');
+    const segsB = b.trim().split('.');
+    // Any non-numeric segment on either side (a pre-release/dev build) makes
+    // the whole comparison indeterminate - checked up front, so a numeric
+    // difference in an earlier segment cannot decide against a "3.2.0rc1".
+    if ([...segsA, ...segsB].some((seg) => !/^\d+$/.test(seg))) {
+        return 0;
+    }
+    const len = Math.max(segsA.length, segsB.length);
+    for (let i = 0; i < len; i++) {
+        const numA = Number(segsA[i] ?? '0');
+        const numB = Number(segsB[i] ?? '0');
+        if (numA !== numB) {
+            return numA < numB ? -1 : 1;
+        }
+    }
+    return 0;
+}
+
+/**
+ * The tracked libraries whose installed version is strictly behind the latest
+ * released one. Unknown entries on either side are skipped: no data, no nudge.
+ */
+export function outdatedPythonLibraries(
+    installed: Readonly<Record<string, string>>,
+    latest: Readonly<Record<string, string>>,
+): OutdatedPythonLibrary[] {
+    const out: OutdatedPythonLibrary[] = [];
+    for (const [name, installedVersion] of Object.entries(installed)) {
+        const latestVersion = latest[name];
+        if (!installedVersion || !latestVersion) {
+            continue;
+        }
+        if (compareVersionStrings(installedVersion, latestVersion) < 0) {
+            out.push({ name, installed: installedVersion, latest: latestVersion });
+        }
+    }
+    return out;
+}
+
 export function posixPythonCandidatePaths(platform: NodeJS.Platform): string[] {
     if (platform !== 'darwin') {
         // Linux: a real /usr/bin/python3 resolves via PATH, and a missing one

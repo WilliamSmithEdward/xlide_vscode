@@ -39,6 +39,12 @@
           "default": "",
           "description": "Path to the Python executable used to run the XLIDE backend. Leave empty to auto-detect: a workspace .venv, then (on macOS) well-known install locations such as Homebrew and python.org, then 'python' (Windows) or 'python3' (Mac/Linux) from PATH."
         },
+        "xlide.checkPythonLibraryUpdates": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "Once per session, check PyPI for newer releases of the required Python libraries (pyOpenVBA, openpyxl) and offer a one-click Update in the sidebar when one is available. Turn off to never contact PyPI."
+        },
         "xlide.attachToRunningExcel": {
           "type": "boolean",
           "scope": "machine",

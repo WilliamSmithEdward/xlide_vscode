@@ -235,6 +235,7 @@ describe('VBA language configuration', () => {
 			'xlide.analysis.untrackedRules',
 			'xlide.analysis.visibleSeverities',
 			'xlide.attachToRunningExcel',
+			'xlide.checkPythonLibraryUpdates',
 			'xlide.diagnostics.enabled',
 			'xlide.docs.enabled',
 			'xlide.docs.metadataGlob',

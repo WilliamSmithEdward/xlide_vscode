@@ -29,9 +29,11 @@ from xlide.vba_io import (
     create_workbook,
 )
 from xlide.excel_io import get_workbook_info, list_sheets, read_cells, read_formulas, write_cells, run_openpyxl
+from xlide.env_info import get_package_versions
 
 _HANDLERS: dict[str, Any] = {
     "listModules": list_modules,
+    "getPackageVersions": get_package_versions,
     "listSubs": list_subs,
     "readModule": read_module,
     "readModules": read_modules,

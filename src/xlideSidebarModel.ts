@@ -2,7 +2,7 @@ import { workbookIdentityKey } from './workbookIdentity';
 
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
-type XlideSidebarSetupAction = 'downloadPython' | 'setPythonPath';
+type XlideSidebarSetupAction = 'downloadPython' | 'setPythonPath' | 'updateLibraries';
 
 interface XlideSidebarActiveWorkbook {
     label: string;
@@ -203,7 +203,13 @@ function welcomeSection(setupComplete: boolean): XlideSidebarNode {
 }
 
 function isXlideSetupComplete(setupStatus: XlideSidebarSetupStatus): boolean {
-    return setupStatus.pythonExecutable.status === 'pass' && setupStatus.pythonLibraries.status === 'pass';
+    // Libraries that are installed but have a newer release available ('warn'
+    // with the updateLibraries action) are fully functional: they must not gate
+    // the workbook tree or hide the rest of the sidebar.
+    const librariesUsable =
+        setupStatus.pythonLibraries.status === 'pass' ||
+        setupStatus.pythonLibraries.action === 'updateLibraries';
+    return setupStatus.pythonExecutable.status === 'pass' && librariesUsable;
 }
 
 function pythonExecutableSetupCommand(status: XlideSidebarDependencyStatus): XlideSidebarCommand {
@@ -228,6 +234,13 @@ function pythonExecutableSetupCommand(status: XlideSidebarDependencyStatus): Xli
 }
 
 function pythonLibrariesSetupCommand(status: XlideSidebarDependencyStatus): XlideSidebarCommand {
+    if (status.action === 'updateLibraries') {
+        return {
+            command: 'xlide.updatePythonLibraries',
+            title: 'Update',
+            tooltip: 'Upgrade the required Python libraries (pyOpenVBA, openpyxl) to their latest releases and restart the backend.',
+        };
+    }
     return {
         command: 'xlide.setup',
         title: status.status === 'pass' ? 'Installed' : 'Install',
