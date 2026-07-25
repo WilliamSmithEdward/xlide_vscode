@@ -32,6 +32,10 @@ export function walkProcedureExpressions(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	factories: readonly ProcedureExpressionVisitor[],
+	hooks?: {
+		beforeMember?: (member: ProcedureNode) => void;
+		skipBody?: (member: ProcedureNode) => boolean;
+	},
 ): void {
 	if (factories.length === 0) {
 		return;
@@ -40,7 +44,11 @@ export function walkProcedureExpressions(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		hooks?.beforeMember?.(member);
 		const visitors = factories.map((factory) => factory(member));
+		if (hooks?.skipBody?.(member)) {
+			continue;
+		}
 		forEachExpressionInBody(member.body, activity, (expr) => {
 			for (const visit of visitors) {
 				visit(expr);

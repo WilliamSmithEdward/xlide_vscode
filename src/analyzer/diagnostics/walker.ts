@@ -79,10 +79,21 @@ export type ProcedureStatementVisitor = (
  * and statements in exactly the order the rules' former private walks used:
  * active members in source order, `forEachStatement` within each body.
  */
+export interface ProcedureWalkHooks {
+	/** Called before a procedure's factories run (incremental attribution). */
+	beforeMember?: (member: ProcedureNode) => void;
+	/**
+	 * When it returns true, the member's body iteration is skipped. Factories
+	 * are still invoked so factory-level bookkeeping matches a full pass.
+	 */
+	skipBody?: (member: ProcedureNode) => boolean;
+}
+
 export function walkProcedureStatements(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	visitors: readonly ProcedureStatementVisitor[],
+	hooks?: ProcedureWalkHooks,
 ): void {
 	if (visitors.length === 0) {
 		return;
@@ -91,6 +102,7 @@ export function walkProcedureStatements(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		hooks?.beforeMember?.(member);
 		const callbacks: Array<(stmt: LeafStatementNode) => void> = [];
 		for (const visitor of visitors) {
 			const callback = visitor(member);
@@ -98,7 +110,7 @@ export function walkProcedureStatements(
 				callbacks.push(callback);
 			}
 		}
-		if (callbacks.length === 0) {
+		if (callbacks.length === 0 || hooks?.skipBody?.(member)) {
 			continue;
 		}
 		forEachStatement(member.body, (stmt) => {

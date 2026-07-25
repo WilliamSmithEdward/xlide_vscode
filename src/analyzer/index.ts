@@ -186,6 +186,10 @@ export {
 	VbaDiagnosticData,
 } from './diagnostics/analyzeModule';
 export {
+	analyzeModuleRulesIncremental,
+	type ModuleRulesIncrementalState,
+} from './diagnostics/incrementalRules';
+export {
 	normalizeDiagnosticCode,
 	resolveDiagnosticCodeActions,
 	VbaTextEdit,

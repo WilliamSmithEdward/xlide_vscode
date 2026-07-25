@@ -51,6 +51,14 @@ export interface VbaDiagnostic {
 	specReference?: string;
 	/** Optional structured data for deterministic editor actions. */
 	data?: VbaDiagnosticData;
+	/**
+	 * Provenance for incremental re-analysis: 'run' = a module-wide rule pass,
+	 * 'walk' = the shared per-procedure statement/expression walk. Plain data so
+	 * results stay structured-cloneable across worker boundaries.
+	 */
+	origin?: 'run' | 'walk';
+	/** For 'walk' diagnostics: span.start of the procedure being walked. */
+	walkMemberStart?: number;
 }
 
 export interface VbaMissingRequiredArgumentPlaceholderData {
@@ -136,6 +144,15 @@ export interface AnalyzeModuleOptions {
 	 * the source itself.
 	 */
 	parsedModule?: ModuleNode;
+	/**
+	 * Incremental re-analysis support: when set, the shared statement/expression
+	 * walks skip the bodies of procedures for which this returns false, and any
+	 * walk-phase diagnostics for those procedures are dropped (the incremental
+	 * layer splices the cached ones back in). Module-wide rule passes are never
+	 * filtered. Rule factories are still invoked for every procedure so factory-
+	 * level bookkeeping stays identical to a full pass.
+	 */
+	walkProcedureFilter?: (member: ProcedureNode) => boolean;
 }
 
 /** The diagnostics sink every rule reports through. */

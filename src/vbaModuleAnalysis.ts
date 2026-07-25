@@ -1,5 +1,7 @@
 import {
     analyzeModule,
+    analyzeModuleRulesIncremental,
+    type ModuleRulesIncrementalState,
     DIAGNOSTIC_RULES,
     diagnosticMetadataForCode,
     incompleteExpressionEditSpan,
@@ -36,12 +38,26 @@ export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
     source: string;
     moduleType?: string;
     activeIncompleteExpressionOffset?: number;
+    /**
+     * Opt-in incremental rule re-analysis: pass the state returned by the
+     * previous call (plus a fingerprint of every cross-module input) and the
+     * expensive per-procedure rule walks re-run only for procedures whose body
+     * changed. Any envelope change (declarations, signatures, directives) or
+     * fingerprint mismatch falls back to a full pass automatically.
+     */
+    rulesIncremental?: {
+        state?: ModuleRulesIncrementalState;
+        fingerprint: readonly unknown[];
+    };
 }
 
 export interface VbaModuleAnalysisResult {
     diagnostics: VbaModuleAnalysisDiagnostic[];
     suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
     suppressedCount: number;
+    /** Present when rulesIncremental was requested: feed into the next call. */
+    rulesIncrementalState?: ModuleRulesIncrementalState;
+    rulesIncrementalMode?: 'full' | 'incremental';
 }
 
 /**
@@ -54,6 +70,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         source,
         moduleType,
         activeIncompleteExpressionOffset,
+        rulesIncremental,
         ...analyzeOptions
     } = input;
     const starts = lineStartOffsets(source);
@@ -166,8 +183,24 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         // The structural pass is defensive; a failure should not break editing.
     }
 
+    let rulesIncrementalState: ModuleRulesIncrementalState | undefined;
+    let rulesIncrementalMode: 'full' | 'incremental' | undefined;
     try {
-        for (const diagnostic of analyzeModule(source, analyzeOptions)) {
+        let ruleDiagnostics: ReturnType<typeof analyzeModule>;
+        if (rulesIncremental) {
+            const inc = analyzeModuleRulesIncremental(
+                source,
+                analyzeOptions,
+                rulesIncremental.state,
+                rulesIncremental.fingerprint,
+            );
+            ruleDiagnostics = inc.diagnostics;
+            rulesIncrementalState = inc.state;
+            rulesIncrementalMode = inc.mode;
+        } else {
+            ruleDiagnostics = analyzeModule(source, analyzeOptions);
+        }
+        for (const diagnostic of ruleDiagnostics) {
             if (isTransientIncompleteExpressionDiagnostic(diagnostic.code, diagnostic.span)) {
                 continue;
             }
@@ -190,6 +223,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         diagnostics: deduplicateDiagnostics(diagnostics),
         suppressedDiagnostics: deduplicatedSuppressedDiagnostics,
         suppressedCount: deduplicatedSuppressedDiagnostics.length,
+        ...(rulesIncrementalState ? { rulesIncrementalState, rulesIncrementalMode } : {}),
     };
 }
 

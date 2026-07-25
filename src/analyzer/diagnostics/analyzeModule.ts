@@ -35,6 +35,7 @@ import {
 } from './exprWalk';
 import type {
 	ModuleNode,
+	ProcedureNode,
 	Span,
 } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
@@ -119,12 +120,25 @@ function runRules(
 	const moduleKind = opts.moduleKind ?? 'standard';
 	const overrides = opts.severityOverrides;
 
+	// Provenance tracking for incremental re-analysis: pushes during the shared
+	// procedure walks are stamped with the walked procedure so the incremental
+	// layer can cache and splice them per procedure; pushes from module-wide
+	// rule passes are recomputed every time. When a walkProcedureFilter is
+	// active, walk-phase pushes for filtered-out (clean) procedures are dropped
+	// entirely - their cached diagnostics get spliced back by the caller.
+	let phase: 'run' | 'walk' = 'run';
+	let walkMemberStart: number | undefined;
+	let walkMemberIncluded = true;
+
 	const pushInto = (sink: VbaDiagnostic[]): PushFn => (
 		rule: DiagnosticRuleName,
 		message: string,
 		span: Span,
 		data?: VbaDiagnosticData,
 	): void => {
+		if (phase === 'walk' && !walkMemberIncluded) {
+			return;
+		}
 		const severity = severityOf(rule, overrides);
 		if (!severity) {
 			return;
@@ -136,6 +150,8 @@ function runRules(
 			severity,
 			span,
 			specReference: meta.specReference,
+			origin: phase,
+			...(phase === 'walk' && walkMemberStart !== undefined ? { walkMemberStart } : {}),
 			...(data ? { data } : {}),
 		});
 	};
@@ -183,12 +199,24 @@ function runRules(
 	}
 	// A visitor throwing during a shared walk must not blank the run()-based
 	// diagnostics already collected, nor the other walk.
+	const filter = opts.walkProcedureFilter;
+	const walkHooks = {
+		beforeMember: (member: ProcedureNode): void => {
+			walkMemberStart = member.span.start;
+			walkMemberIncluded = filter ? filter(member) : true;
+		},
+		skipBody: (member: ProcedureNode): boolean => (filter ? !filter(member) : false),
+	};
+	phase = 'walk';
 	try {
-		walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors);
+		walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors, walkHooks);
 	} catch { /* degrade gracefully */ }
 	try {
-		walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors);
+		walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors, walkHooks);
 	} catch { /* degrade gracefully */ }
+	phase = 'run';
+	walkMemberStart = undefined;
+	walkMemberIncluded = true;
 
 	const out: VbaDiagnostic[] = [];
 	for (const buffer of buffers) {
