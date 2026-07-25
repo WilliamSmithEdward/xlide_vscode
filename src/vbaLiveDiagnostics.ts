@@ -61,9 +61,16 @@ const DIAGNOSTIC_OPEN_FULL_DELAY_MS = 150;
 const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
 // Above this size the edit-time full pass backs off proportionally (see
-// editScheduleDelaysFor), capped so diagnostics never lag more than 2s.
+// editScheduleDelaysFor), capped so diagnostics never lag more than 2s. Only
+// applies when analysis runs in-host: the worker path has no thread contention
+// to pace around, so it keeps the flat fast cadence.
 const DIAGNOSTIC_LARGE_MODULE_LINES = 8000;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MAX_MS = 2000;
+// While the workbook has not yet reported a module's kind (backend starting on
+// first open), kind-sensitive analysis is deferred and retried instead of
+// guessing 'standard' - which floods class modules with bogus Me/Friend errors.
+const FULL_PASS_METADATA_RETRY_MS = 750;
+const FULL_PASS_METADATA_RETRY_MAX = 40;
 const DIAGNOSTIC_ANALYSIS_SETTINGS_CACHE_TTL_MS = 2_000;
 
 type DiagnosticPassKind = 'local' | 'full';
@@ -87,7 +94,15 @@ interface DiagnosticScheduleDelays {
  * cheap local pass keeps its fast cadence regardless, so structural squiggles
  * stay responsive. document.lineCount is O(1).
  */
-function editScheduleDelaysFor(document: vscode.TextDocument): DiagnosticScheduleDelays {
+function editScheduleDelaysFor(
+    document: vscode.TextDocument,
+    offThreadHealthy: boolean,
+): DiagnosticScheduleDelays {
+    if (offThreadHealthy) {
+        // Passes run on the worker thread: no extension-host contention, so
+        // even huge modules keep the flat fast cadence.
+        return { localDelayMs: DIAGNOSTIC_EDIT_LOCAL_DELAY_MS, fullDelayMs: DIAGNOSTIC_EDIT_FULL_DELAY_MS };
+    }
     const lines = document.lineCount;
     const fullDelayMs = lines > DIAGNOSTIC_LARGE_MODULE_LINES
         ? Math.min(
@@ -110,13 +125,15 @@ class DiagnosticScheduler {
             generation: number,
             pass: DiagnosticPassKind,
         ) => void,
+        private readonly _offThreadHealthy: () => boolean = () => false,
     ) {}
 
     schedule(
         document: vscode.TextDocument,
-        delays: DiagnosticScheduleDelays = editScheduleDelaysFor(document),
+        delays?: DiagnosticScheduleDelays,
     ): void {
         if (!isVbaDocument(document)) { return; }
+        delays ??= editScheduleDelaysFor(document, this._offThreadHealthy());
         const key = document.uri.toString();
         const generation = this._nextGeneration(key);
         this._clearTimer(this._localTimers, key);
@@ -262,7 +279,18 @@ export function registerVbaDiagnostics(
     const collection = vscode.languages.createDiagnosticCollection('vba');
     const scheduler = new DiagnosticScheduler(
         (document, generation, pass) => runPass(document, generation, pass),
+        () => workerClient?.available === true,
     );
+    // Last-known workbook metadata per document, learned from successful full
+    // passes. Local passes reuse it so they never analyze a class module under
+    // a guessed 'standard' kind (the Me/Friend false-error flood); until the
+    // kind is known, passes publish nothing and the deferred full pass leads.
+    const moduleMetaByDoc = new Map<string, {
+        moduleType?: string;
+        moduleKind?: ModuleSymbolKind;
+        documentType?: EventHandlerDocumentType;
+    }>();
+    const fullPassMetadataRetries = new Map<string, number>();
     const settingsWatchers = new WorkbookSettingsWatcherRegistry((workbookPath) => {
         invalidateAnalysisSettingsForWorkbook(workbookPath);
         rerunWorkbookDocuments(workbookPath);
@@ -456,6 +484,9 @@ export function registerVbaDiagnostics(
         let documentType: EventHandlerDocumentType | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
         let workbookRecord: Awaited<ReturnType<VbaProjectIndexService['contextForWorkbook']>> | undefined;
+        // Non-workbook documents (a .bas on disk) have no metadata source and
+        // keep the historical standard-kind analysis.
+        let moduleMetadataKnown = document.uri.scheme !== XLIDE_SCHEME;
         if (document.uri.scheme === XLIDE_SCHEME) {
             try {
                 const { xlsmPath } = decodeModuleUri(document.uri);
@@ -465,9 +496,13 @@ export function registerVbaDiagnostics(
                     const diagnosticProject = await projectIndexService.contextForWorkbook(xlsmPath);
                     workbookRecord = diagnosticProject;
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
-                    moduleType = current?.moduleType;
-                    moduleKind = current?.moduleKind;
-                    documentType = current?.documentType;
+                    if (current) {
+                        moduleMetadataKnown = true;
+                        moduleType = current.moduleType;
+                        moduleKind = current.moduleKind;
+                        documentType = current.documentType;
+                        moduleMetaByDoc.set(key, { moduleType, moduleKind, documentType });
+                    }
                     const project = diagnosticProject.project;
                     diagnosticProject.projectProcedures ??= projectProcedureSignatures(project);
                     projectOptions = projectAnalysisOptionsForModule(
@@ -475,11 +510,36 @@ export function registerVbaDiagnostics(
                         moduleName,
                         diagnosticProject.projectProcedures,
                     );
+                } else {
+                    const cached = moduleMetaByDoc.get(key);
+                    if (cached) {
+                        moduleMetadataKnown = true;
+                        moduleType = cached.moduleType;
+                        moduleKind = cached.moduleKind;
+                        documentType = cached.documentType;
+                    }
                 }
             } catch {
                 projectOptions = {};
             }
         }
+        if (!moduleMetadataKnown) {
+            // The workbook has not reported this module's kind yet (typically
+            // the Python backend is still starting on first open). Analyzing
+            // with a guessed 'standard' kind floods class modules with bogus
+            // "'Me' is only valid in a class..." errors until a later pass
+            // corrects them - publish nothing and retry the full pass instead.
+            if (pass === 'full' && scheduler.isCurrentRun(document, key, generation, documentVersion)) {
+                const retries = fullPassMetadataRetries.get(key) ?? 0;
+                if (retries < FULL_PASS_METADATA_RETRY_MAX) {
+                    fullPassMetadataRetries.set(key, retries + 1);
+                    const timer = setTimeout(() => { run(document); }, FULL_PASS_METADATA_RETRY_MS);
+                    (timer as unknown as { unref?: () => void }).unref?.();
+                }
+            }
+            return;
+        }
+        fullPassMetadataRetries.delete(key);
 
         const analysisSettings = await analysisSettingsForDiagnostics(workbookPath);
         const activeEditor = vscode.window.activeTextEditor;
@@ -669,6 +729,8 @@ export function registerVbaDiagnostics(
             collection.delete(doc.uri);
             lastDiagnostics.delete(doc.uri.toString());
             lastSuppressedLine.delete(doc.uri.toString());
+            moduleMetaByDoc.delete(doc.uri.toString());
+            fullPassMetadataRetries.delete(doc.uri.toString());
             workerClient?.forget(doc.uri.toString());
             settingsWatchers.prune();
         }),
