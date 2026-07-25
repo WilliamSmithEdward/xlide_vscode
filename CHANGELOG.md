@@ -2,6 +2,17 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [2.6.1] - 2026-07-25
+
+### Fixed
+
+- **Workbook protection/signature detection works with pyOpenVBA 3.1.0.**
+  pyOpenVBA 3.1.0 removed an import alias XLIDE relied on, so the signed/locked
+  workbook badges and the `getProtectionInfo` agent tool failed for fresh
+  installs (and for anyone using the new sidebar Update button). XLIDE now
+  imports from the API's canonical home, verified against both pyOpenVBA 3.0.1
+  and 3.1.0.
+
 ## [2.6.0] - 2026-07-25
 
 ### Performance
