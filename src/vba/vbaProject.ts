@@ -135,15 +135,87 @@ export interface VbaModule {
 	cookie: number;
 	isReadOnly: boolean;
 	isPrivate: boolean;
-	/** Full module source, including the hidden attribute header. */
+	/**
+	 * Full module source, including the hidden attribute header. Decompressed
+	 * on first read (see `defineLazySource`), so callers that never look at a
+	 * module's body never pay to inflate it.
+	 */
 	source: string;
+	/**
+	 * Just enough of `source` to carry the `Attribute VB_*` header, for callers
+	 * classifying the module rather than reading it. Cheaper than `source` on a
+	 * large module and identical to its prefix.
+	 */
+	readonly sourceHeader: string;
 	/** Performance-cache bytes preceding the compressed source. */
 	prefixBytes: Buffer;
 }
 
+/**
+ * Decompressed bytes to inflate for `sourceHeader`. The attribute header sits
+ * at the very start of a module, so one [MS-OVBA] chunk always covers it.
+ */
+const HEADER_BYTES = 4096;
+
 export interface SignatureInfo {
 	present: boolean;
 	kinds: string[];
+}
+
+/**
+ * Back `module.source` / `module.sourceHeader` with on-demand decompression of
+ * `body` (the module stream from MODULEOFFSET onward).
+ *
+ * Parsing a project used to inflate every module up front, which cost more than
+ * everything else in the parse combined and was wasted for the many calls that
+ * only want names, types, protection state, or one module out of forty. The
+ * accessors keep the eager shape - `source` still reads and assigns like a
+ * plain string - so nothing downstream changes.
+ */
+function defineLazySource(
+	module: VbaModule,
+	body: Buffer,
+	streamName: string,
+	codePage: number,
+): void {
+	defineSourceAccessors(module, (maxBytes) =>
+		decodeAnsi(decompress(body, `VBA/${streamName}`, maxBytes), codePage));
+}
+
+/**
+ * Give a module the same source/sourceHeader pair as a parsed one, with its
+ * body already in hand. Added modules take this path so `sourceHeader` tracks
+ * later `source` assignments instead of freezing at the value it was born with.
+ */
+function defineEagerSource(module: VbaModule, initial: string): void {
+	defineSourceAccessors(module, () => initial);
+}
+
+function defineSourceAccessors(module: VbaModule, inflate: (maxBytes: number) => string): void {
+	let source: string | undefined;
+	let header: string | undefined;
+
+	Object.defineProperty(module, 'source', {
+		configurable: true,
+		enumerable: true,
+		get(): string {
+			if (source === undefined) { source = inflate(Infinity); }
+			return source;
+		},
+		set(value: string): void {
+			source = value;
+			header = value;
+		},
+	});
+	Object.defineProperty(module, 'sourceHeader', {
+		configurable: true,
+		enumerable: true,
+		get(): string {
+			if (source !== undefined) { return source; }
+			if (header === undefined) { header = inflate(HEADER_BYTES); }
+			return header;
+		},
+	});
 }
 
 export class VbaProject {
@@ -222,6 +294,7 @@ export class VbaProject {
 						isReadOnly: false,
 						isPrivate: false,
 						source: '',
+						sourceHeader: '',
 						prefixBytes: Buffer.alloc(0),
 					};
 					break;
@@ -255,7 +328,9 @@ export class VbaProject {
 		}
 		flush();
 
-		// Load each module's source from its own stream.
+		// Locate each module's stream now - the read is cheap and the offset
+		// check must still fail at parse time - but defer decompression, which
+		// dominates the cost of parsing a project, until someone reads a body.
 		for (const module of project.modules) {
 			const streamName = module.streamName || module.name;
 			let stream: Buffer;
@@ -274,8 +349,7 @@ export class VbaProject {
 				);
 			}
 			module.prefixBytes = Buffer.from(stream.subarray(0, module.textOffset));
-			const sourceBytes = decompress(stream.subarray(module.textOffset), `VBA/${streamName}`);
-			module.source = decodeAnsi(sourceBytes, project.codePage);
+			defineLazySource(module, stream.subarray(module.textOffset), streamName, project.codePage);
 		}
 
 		try {
@@ -319,8 +393,10 @@ export class VbaProject {
 			isReadOnly: false,
 			isPrivate: false,
 			source,
+			sourceHeader: source,
 			prefixBytes: Buffer.alloc(0),
 		};
+		defineEagerSource(module, source);
 		this.modules.push(module);
 		this.added.push({ name, kind });
 		this.dirtySources.add(name.toLowerCase());

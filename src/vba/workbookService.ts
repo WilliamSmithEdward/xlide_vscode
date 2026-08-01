@@ -122,12 +122,14 @@ function moduleEntry(module: VbaModule): ModuleEntry {
 		type = 'standard';
 	} else {
 		// MODULETYPE 'other' covers class, document and designer modules.
-		type = classifyModuleType(module.name, module.source);
+		// Both classifiers read only `Attribute VB_*` lines, which live at the
+		// very top of the module, so the header prefix is all they need.
+		type = classifyModuleType(module.name, module.sourceHeader);
 		if (type === 'standard') { type = 'class'; }
 	}
 	const entry: ModuleEntry = { name: module.name, type };
 	if (type === 'document') {
-		const documentType = classifyDocumentType(module.name, module.source);
+		const documentType = classifyDocumentType(module.name, module.sourceHeader);
 		if (documentType) { entry.documentType = documentType; }
 	}
 	return entry;
@@ -290,7 +292,7 @@ export function validateWorkbook(filePath: string): { issues: string[] } {
 		if (!wb.cfb.hasStreamInStorage('VBA', streamName)) {
 			issues.push(`Module ${module.name} references missing stream '${streamName}'.`);
 		}
-		if (module.source === '' && module.prefixBytes.length === 0) {
+		if (module.sourceHeader === '' && module.prefixBytes.length === 0) {
 			issues.push(`Module ${module.name} has no readable source stream.`);
 		}
 	}

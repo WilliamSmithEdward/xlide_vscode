@@ -42,6 +42,32 @@ describe('MS-OVBA compression', () => {
 	it('rejects a stream without the 0x01 signature byte', () => {
 		expect(() => decompress(Buffer.from([0x02, 0x00]))).toThrow();
 	});
+
+	it('returns an exact prefix of the full output when capped with maxBytes', () => {
+		// Lazy module loading inflates only a module's header, so a capped
+		// decompression must agree byte for byte with the full one - never a
+		// chunk resynchronized against a different starting point.
+		const samples = [
+			Buffer.from('Attribute VB_Name = "M"\r\n' + 'Public Sub A()\r\nEnd Sub\r\n'.repeat(600), 'latin1'),
+			Buffer.from('ab'.repeat(30000), 'latin1'),
+			(() => {
+				const buf = Buffer.alloc(4096 * 5 + 123);
+				for (let i = 0; i < buf.length; i++) { buf[i] = (i * 17 + (i >> 7)) & 0xff; }
+				return buf;
+			})(),
+		];
+		for (const raw of samples) {
+			const packed = compress(raw);
+			const full = decompress(packed);
+			expect(full.equals(raw)).toBe(true);
+			for (const cap of [1, 10, 4096, 4097, 8192, 20000]) {
+				const part = decompress(packed, '<test>', cap);
+				expect(full.subarray(0, part.length).equals(part), `cap ${cap}`).toBe(true);
+				// A cap must never stop short of what it asked for while output remains.
+				expect(part.length, `cap ${cap}`).toBeGreaterThanOrEqual(Math.min(cap, full.length));
+			}
+		}
+	});
 });
 
 describe('CFB container', () => {
@@ -201,5 +227,72 @@ describe('native workbook service', () => {
 			'Class1',
 			'Attribute VB_Base = "0{FCFB3D2A-A0FA-1068-A738-08002B3371B5}"',
 		)).toBe('standard');
+	});
+});
+
+describe('lazy module sources', () => {
+	it('exposes sourceHeader as an exact prefix of source, including past a chunk', () => {
+		const file = tempCopy();
+		// Well over one 4096-byte decompression chunk, so the header genuinely
+		// stops short of the body rather than covering it by accident.
+		const long = Array.from(
+			{ length: 500 },
+			(_, i) => `Public Sub Generated${i}()\r\n    Debug.Print ${i}\r\nEnd Sub\r\n`,
+		).join('');
+		svc.writeModule(file, 'BigModule', long, 'standard');
+
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(file)).readVbaProject());
+		const headerFirst = VbaProject.parse(cfb).getModule('BigModule');
+		const sourceFirst = VbaProject.parse(cfb).getModule('BigModule');
+		expect(headerFirst && sourceFirst).toBeTruthy();
+
+		const header = headerFirst!.sourceHeader;
+		const source = sourceFirst!.source;
+		expect(source.length).toBeGreaterThan(header.length);
+		expect(source.startsWith(header)).toBe(true);
+		// The attribute header is what callers classify from, so it has to be
+		// inside the prefix we bother to inflate.
+		expect(header).toContain('Attribute VB_Name');
+
+		// Reading source first must not change what sourceHeader reports.
+		expect(sourceFirst!.sourceHeader).toBe(source);
+	});
+
+	it('keeps sourceHeader in step with an assigned source', () => {
+		const file = tempCopy();
+		svc.writeModule(file, 'Mod1', 'Public Sub A()\r\nEnd Sub\r\n', 'standard');
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(file)).readVbaProject());
+		const project = VbaProject.parse(cfb);
+
+		project.setModuleSource('Mod1', 'Attribute VB_Name = "Mod1"\r\nPublic Sub B()\r\nEnd Sub\r\n');
+		expect(project.getModule('Mod1')!.sourceHeader).toContain('Public Sub B');
+
+		// Added modules take the same path rather than freezing at birth.
+		const added = project.addModule('Mod2', 'Attribute VB_Name = "Mod2"\r\n', 'standard');
+		expect(added.sourceHeader).toBe(added.source);
+		project.setModuleSource('Mod2', 'Attribute VB_Name = "Mod2"\r\nPublic Sub C()\r\nEnd Sub\r\n');
+		expect(project.getModule('Mod2')!.sourceHeader).toContain('Public Sub C');
+	});
+
+	it('classifies module types from the header alone', () => {
+		// listModules must report the same types whether or not any body was
+		// inflated, since classification now reads only the header prefix.
+		const file = tempCopy();
+		svc.writeModule(file, 'Helper', 'Public Sub H()\r\nEnd Sub\r\n', 'standard');
+		svc.writeModule(file, 'Widget', 'Public Sub W()\r\nEnd Sub\r\n', 'class');
+
+		const listed = svc.listModules(file);
+		const byName = new Map(listed.map((m) => [m.name, m]));
+		expect(byName.get('Helper')?.type).toBe('standard');
+		expect(byName.get('Widget')?.type).toBe('class');
+		expect(byName.get('ThisWorkbook')?.type).toBe('document');
+		expect(byName.get('ThisWorkbook')?.documentType).toBe('workbook');
+
+		// Same answers from a full read, which materializes every source.
+		const full = svc.readModules(file, true);
+		for (const entry of full) {
+			expect(byName.get(entry.name)?.type, entry.name).toBe(entry.type);
+			expect(byName.get(entry.name)?.documentType, entry.name).toBe(entry.documentType);
+		}
 	});
 });

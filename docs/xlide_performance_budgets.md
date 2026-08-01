@@ -18,9 +18,37 @@ cancelable, cached, or visibly reported with progress.
 | Workbook-wide analysis command | 5 s p95 for ordinary workbooks | 10 s |
 | Project index rebuild after one module save | 500 ms p95 | 2 s |
 | Workbook tree refresh for ordinary workspace folders | 1 s p95 | 5 s |
-| Sidebar setup-health refresh without side effects | 500 ms p95 | 2 s |
 | Import/export diff preview generation | 2 s p95 | 10 s |
 | Test GUI discovery before Excel execution | 1 s p95 | 5 s |
+
+## Workbook Engine Budgets
+
+Every workbook operation runs in-process against the file on disk, so these are
+whole-call costs with no IPC or process startup in them. Measured on a 2.4 MB
+workbook with 42 modules (621 KB of VBA source), which is past the "medium"
+fixture below:
+
+| Operation | Target | Measured p50 |
+|---|---:|---:|
+| `listModules`, `listSubs`, `getProtectionInfo`, `validateWorkbook` | 25 ms | ~4 ms |
+| `readModule` (one module) | 25 ms | ~4 ms |
+| `readModules` (every module, the analysis path) | 100 ms | ~12 ms |
+| `listSheets`, `readCells`, `readFormulas` | 25 ms | 1-3 ms |
+| `writeModule` on an existing module (the Ctrl+S path) | 150 ms | ~17 ms |
+| `writeModule` creating a module | 150 ms | ~37 ms |
+| `writeCells` | 100 ms | ~4 ms |
+| `createWorkbook` | 100 ms | <1 ms |
+
+Two properties keep those numbers where they are, and both are easy to undo by
+accident:
+
+- **Module sources decompress lazily.** Parsing a project inflates only the
+  module bodies a caller actually reads; classification reads a header prefix
+  (`VbaModule.sourceHeader`). Touching `module.source` in a path that only needs
+  names or types silently doubles every read in the extension.
+- **Rewritten ZIP entries deflate at level 4, not 6.** Re-deflating
+  `vbaProject.bin` dominates a save. Level 6 costs roughly 80% more time for an
+  entry ~2.5% smaller.
 
 ## Scale Assumptions
 
@@ -44,7 +72,7 @@ UI thread and should report long-running work clearly.
 - Use `XLIDE: Copy Performance Snapshot` after reproducing latency in the
   editor. The snapshot includes recent timings for completion, hover, signature
   help, semantic tokens, live diagnostics, workbook context indexing, tree
-  expansion, commands, backend RPCs, virtual file reads/writes, workbook
+  expansion, commands, workbook engine calls, virtual file reads/writes, workbook
   analysis, module sync/export, documentation metadata, and VBA test stages.
 - Set `xlide.performance.trace` to `true` only while debugging latency. It writes
   slow trace events to the XLIDE output channel; the snapshot command remains

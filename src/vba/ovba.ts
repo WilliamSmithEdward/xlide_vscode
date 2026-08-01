@@ -29,7 +29,18 @@ function copyTokenHelp(decompressedCurrent: number, decompressedChunkStart: numb
 	return { lengthMask, offsetMask, bitCount };
 }
 
-export function decompress(data: Buffer, streamName = '<unknown>'): Buffer {
+/**
+ * Decompress an [MS-OVBA] 2.4.1 stream.
+ *
+ * `maxBytes` stops after the first chunk that reaches that many decompressed
+ * bytes and returns the prefix. Copy tokens are chunk-local by construction
+ * (`copyTokenHelp` measures from the chunk's decompressed start), so no later
+ * chunk can change a byte an earlier one produced: a chunk-aligned prefix is
+ * always exactly what a full decompression would have produced there. Callers
+ * that only need a module's attribute header use this to skip inflating
+ * megabytes of body they will not read.
+ */
+export function decompress(data: Buffer, streamName = '<unknown>', maxBytes = Infinity): Buffer {
 	const err = (msg: string, offset: number): OvbaError =>
 		new OvbaError(`${msg} [stream=${streamName}, offset=${offset}]`);
 
@@ -51,6 +62,7 @@ export function decompress(data: Buffer, streamName = '<unknown>'): Buffer {
 	};
 
 	while (pos < data.length) {
+		if (len >= maxBytes) { break; }
 		if (pos + 2 > data.length) {
 			throw err('Truncated compressed stream: missing chunk header.', pos);
 		}
@@ -110,9 +122,18 @@ export function decompress(data: Buffer, streamName = '<unknown>'): Buffer {
 						throw err('Copy token references before the start of the current chunk.', pos - 2);
 					}
 					ensure(length);
-					// Byte-by-byte: overlapping copies are required by the spec.
-					for (let k = 0; k < length; k++) {
-						out[len++] = out[copySrc++];
+					if (offset >= length) {
+						// Source and destination do not overlap, so the whole
+						// run can move at once.
+						out.copy(out, len, copySrc, copySrc + length);
+						len += length;
+					} else {
+						// Overlapping copy: the spec's byte-at-a-time semantics
+						// are load-bearing here, since later bytes read back
+						// what this same loop just wrote.
+						for (let k = 0; k < length; k++) {
+							out[len++] = out[copySrc++];
+						}
 					}
 				} else {
 					ensure(1);
