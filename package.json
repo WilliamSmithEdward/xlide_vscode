@@ -676,7 +676,7 @@
       {
         "name": "xlide_listModules",
         "displayName": "List VBA Modules",
-        "modelDescription": "Lists all VBA modules from the live Excel workbook/XLIDE structure. Returns module names and types (standard, class, document). Use this before reading or editing workbook VBA; do not infer module state from exported .bas/.cls repo files unless the user explicitly asks to work on those export artifacts.",
+        "modelDescription": "Lists all VBA modules from the live Excel workbook/XLIDE structure. Returns module names and types (standard, class, document). Use this before reading or editing workbook VBA; do not infer module state from exported .bas/.cls repo files, which can be stale, unless the user explicitly asks to work on those export artifacts.",
         "toolReferenceName": "xlideListModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -719,7 +719,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source code of a module from the Excel workbook and returns raw VBA text including Attribute declarations. The .xlsm/.xlsb is a binary container, not text - always read VBA through this tool, never by opening the workbook file directly. Prefer this over reading exported .bas/.cls repo files; exported files are sync artifacts unless the user explicitly asks to edit repo exports.",
+        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source of a module from the Excel workbook and returns raw VBA text including Attribute declarations. The .xlsm/.xlsb is a binary container, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs), never by opening the workbook file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -743,7 +743,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Canonical way to edit workbook VBA. Writes the VBA source code of a module directly into the Excel workbook and saves automatically. The .xlsm/.xlsb is a binary OOXML container, so VBA changes persist only through XLIDE's module tools - never edit the workbook file or its exported .bas/.cls artifacts with generic file/text tools; operate on the live XLIDE module, not the file on disk. Prefer this over editing exported repo files. If the module does not exist it is created (use moduleName to set the name, and optionally pass kind='class' in the source for class modules; default is standard). Use this to apply AI-generated or edited VBA code, or to create new modules from scratch. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "modelDescription": "Canonical way to edit workbook VBA. Writes VBA source directly into the Excel workbook and saves automatically. The .xlsm/.xlsb is a binary OOXML container, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
