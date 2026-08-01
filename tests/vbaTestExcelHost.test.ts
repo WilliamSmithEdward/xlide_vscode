@@ -102,6 +102,55 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('if ($failFast -and -not $expectedFailure) { break }');
     });
 
+    it('proves it owns its Excel instead of assuming it', () => {
+        // The host quits its Excel on the way out, so attaching to a user's
+        // instance would put their unsaved work in the blast radius. Snapshot
+        // the running PIDs, and refuse if the new Application resolves to one.
+        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+
+        expect(script).toContain('$preExistingExcelPids');
+        expect(script).toContain("Get-Process -Name EXCEL -ErrorAction SilentlyContinue");
+        expect(script).toContain('$preExistingExcelPids -contains $excelPid');
+        expect(script).toContain('XLIDE refused to run tests');
+        expect(script).toContain('Emit-XlideHostPhase "excel-create" "failed"');
+    });
+
+    it('suppresses the prompts an owned instance cannot answer', () => {
+        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+
+        // msoAutomationSecurityLow: the macro-security prompt is Excel-owned and
+        // carries no Win32 buttons, so no watcher could dismiss it.
+        expect(script).toContain('$excel.AutomationSecurity = 1');
+        // Test VBA can leave DisplayAlerts = True behind, so teardown re-asserts
+        // it before both Close and Quit rather than trusting the initial set.
+        const suppressions = script.split('$excel.DisplayAlerts = $false').length - 1;
+        expect(suppressions).toBeGreaterThanOrEqual(3);
+    });
+
+    it('ties the owned Excel lifetime to the host process', () => {
+        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+
+        // A kill-on-close job means a crashed or force-killed host cannot orphan
+        // a hidden EXCEL.EXE still holding the workbook open.
+        expect(script).toContain('CreateKillOnCloseJob');
+        expect(script).toContain('AssignProcessToJobObject');
+        expect(script).toContain('killOnClose = $jobActive');
+    });
+
+    it('watches for modals across open and teardown, not only macro execution', () => {
+        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', [
+            { qualifiedName: 'Tests.Pass', timeoutMs: 5000, expectedFailure: false },
+        ]);
+
+        // Opening a workbook and closing it can both prompt. An unwatched dialog
+        // wedges the host until its timeout instead of being reported.
+        expect(script).toContain('$excelId, "workbook-open"');
+        expect(script).toContain('$excelId, "host-teardown"');
+        // The watcher stops after COM teardown, not between tests.
+        const stopIndex = script.lastIndexOf('[XlideTestModalWatcher]::Stop()');
+        expect(stopIndex).toBeGreaterThan(script.indexOf('$excel.Quit()'));
+    });
+
     it('builds a direct-call VBA dispatcher so runtime errors are caught inside VBA', () => {
         const source = buildVbaTestDirectRunnerModule([
             testCase('Tests.Pass', {}),

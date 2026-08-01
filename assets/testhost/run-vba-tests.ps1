@@ -9,7 +9,51 @@ $excelId = "xlide-" + [Guid]::NewGuid().ToString("N")
 $excel = $null
 $workbook = $null
 $modalWatcherAvailable = $false
-$pidHelperSource = 'using System; using System.Runtime.InteropServices; public static class XlideWin32 { [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId); }'
+$xlideJob = $null
+# GetWindowThreadProcessId resolves the owned Excel's PID. The job object ties
+# that Excel's lifetime to this PowerShell process: JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+# means the kernel kills Excel when the last handle closes, so a crashed or
+# force-killed host can never orphan a hidden EXCEL.EXE holding the workbook open.
+$pidHelperSource = @'
+using System;
+using System.Runtime.InteropServices;
+public static class XlideWin32 {
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] static extern IntPtr CreateJobObjectW(IntPtr a, string name);
+  [DllImport("kernel32.dll")] static extern bool SetInformationJobObject(IntPtr job, int infoClass, IntPtr info, uint len);
+  [DllImport("kernel32.dll")] static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+  [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
+  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+  const int JobObjectExtendedLimitInformation = 9;
+  const int LimitKillOnJobClose = 0x2000;
+  const uint ProcessSetQuota = 0x0100;
+  const uint ProcessTerminate = 0x0001;
+  // JOBOBJECT_EXTENDED_LIMIT_INFORMATION: LimitFlags sits at offset 16 of the
+  // basic limits, which lead the struct. 144/112 bytes on x64/x86.
+  public static IntPtr CreateKillOnCloseJob() {
+    IntPtr job = CreateJobObjectW(IntPtr.Zero, null);
+    if (job == IntPtr.Zero) { return IntPtr.Zero; }
+    int size = IntPtr.Size == 8 ? 144 : 112;
+    IntPtr info = Marshal.AllocHGlobal(size);
+    try {
+      for (int i = 0; i < size; i++) { Marshal.WriteByte(info, i, 0); }
+      Marshal.WriteInt32(info, 16, LimitKillOnJobClose);
+      if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, info, (uint)size)) {
+        CloseHandle(job);
+        return IntPtr.Zero;
+      }
+    } finally { Marshal.FreeHGlobal(info); }
+    return job;
+  }
+  public static bool AssignToJob(IntPtr job, uint pid) {
+    if (job == IntPtr.Zero || pid == 0) { return false; }
+    IntPtr process = OpenProcess(ProcessSetQuota | ProcessTerminate, false, pid);
+    if (process == IntPtr.Zero) { return false; }
+    try { return AssignProcessToJobObject(job, process); }
+    finally { CloseHandle(process); }
+  }
+}
+'@
 try { Add-Type -TypeDefinition $pidHelperSource -ErrorAction SilentlyContinue } catch { }
 try { Add-Type -TypeDefinition $modalWatcherSource -ErrorAction Stop; $modalWatcherAvailable = $true } catch { $modalWatcherAvailable = $false }
 function Emit-XlideTestHostEvent([string]$kind, [hashtable]$payload) {
@@ -94,21 +138,50 @@ function Format-XlideRunException([object]$errorRecord) {
 try {
   $tests = ConvertFrom-Json -InputObject $testsJson
   $phaseSw = [Diagnostics.Stopwatch]::StartNew()
+  # Snapshot the Excels already running so ownership can be PROVEN, not assumed.
+  # This host quits its instance on the way out and kills it on a hang, so
+  # attaching to a user's Excel would put their unsaved work in the blast radius.
+  $preExistingExcelPids = @()
+  try { $preExistingExcelPids = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.Id }) } catch { }
   $excel = New-Object -ComObject Excel.Application
   $excel.Visible = $false
   $excel.DisplayAlerts = $false
   try { $excel.AskToUpdateLinks = $false } catch { }
   try { $excel.EnableEvents = $false } catch { }
   try { $excel.ScreenUpdating = $false } catch { }
+  # msoAutomationSecurityLow (1): open workbooks without the macro-security
+  # prompt, which is an Excel-owned modal that no watcher can dismiss.
+  try { $excel.AutomationSecurity = 1 } catch { }
   $excelPid = $null
   try {
     $processId = [uint32]0
     [void][XlideWin32]::GetWindowThreadProcessId([IntPtr]$excel.Hwnd, [ref]$processId)
     if ($processId -gt 0) { $excelPid = [int]$processId }
   } catch { }
+  if ($excelPid -and ($preExistingExcelPids -contains $excelPid)) {
+    # Refuse rather than proceed: this Excel is someone else's.
+    $excel = $null
+    $phaseSw.Stop()
+    $ownershipMessage = "XLIDE refused to run tests: the new Excel Application resolved to already-running process " + $excelPid + ". The test host must own its Excel instance because it quits that process when the run ends. Close the running Excel and try again."
+    Emit-XlideHostPhase "excel-create" "failed" ([int]$phaseSw.ElapsedMilliseconds) $ownershipMessage
+    throw $ownershipMessage
+  }
+  $jobActive = $false
+  if ($excelPid) {
+    try {
+      $xlideJob = [XlideWin32]::CreateKillOnCloseJob()
+      $jobActive = [XlideWin32]::AssignToJob($xlideJob, [uint32]$excelPid)
+    } catch { $jobActive = $false }
+  }
   $phaseSw.Stop()
   Emit-XlideHostPhase "excel-create" "passed" ([int]$phaseSw.ElapsedMilliseconds)
-  Emit-XlideTestHostEvent "excel-created" @{ excelId = $excelId; owned = $true; pid = $excelPid; visible = $false }
+  Emit-XlideTestHostEvent "excel-created" @{ excelId = $excelId; owned = $true; pid = $excelPid; visible = $false; killOnClose = $jobActive }
+  # Watch for modals from here on, not just around macro execution: opening a
+  # workbook and closing it can both raise dialogs, and an unwatched dialog
+  # wedges the host until its timeout instead of being reported and dismissed.
+  if ($modalWatcherAvailable -and $excelPid) {
+    try { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, "workbook-open") } catch { }
+  }
   $phaseSw = [Diagnostics.Stopwatch]::StartNew()
   try {
     $workbook = $excel.Workbooks.Open($targetPath, 0, $true, [Type]::Missing, [Type]::Missing, [Type]::Missing, $true)
@@ -158,14 +231,22 @@ try {
       # being reported as a spurious host-error for "no result emitted".
       if ($failFast) { break }
     } finally {
-      if ($modalWatcherAvailable) { try { [XlideTestModalWatcher]::Stop() } catch { } }
+      # Hand the watcher back to teardown rather than switching it off: Close
+      # and Quit can prompt too, and between tests a stray dialog would go
+      # unseen. Re-Start rebinds attribution and clears the dedup set.
+      if ($modalWatcherAvailable -and $excelPid) {
+        try { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, "host-teardown") } catch { }
+      }
     }
   }
 } catch {
   [Console]::Error.WriteLine("XLIDE_TEST_HOST_ERROR|" + $_.Exception.Message)
   exit 1
 } finally {
-  if ($modalWatcherAvailable) { try { [XlideTestModalWatcher]::Stop() } catch { } }
+  # Test VBA can set Application.DisplayAlerts = True and leave it that way,
+  # which would let Close or Quit raise a prompt. Re-assert suppression before
+  # each, while the watcher is still running to catch anything that slips past.
+  if ($excel) { try { $excel.DisplayAlerts = $false } catch { } }
   if ($workbook) {
     $phaseSw = [Diagnostics.Stopwatch]::StartNew()
     try {
@@ -179,6 +260,7 @@ try {
     }
   }
   if ($excel) {
+    try { $excel.DisplayAlerts = $false } catch { }
     $phaseSw = [Diagnostics.Stopwatch]::StartNew()
     try {
       $excel.Quit()
@@ -190,6 +272,7 @@ try {
       Emit-XlideHostPhase "excel-quit" "failed" ([int]$phaseSw.ElapsedMilliseconds) $_.Exception.Message
     }
   }
+  if ($modalWatcherAvailable) { try { [XlideTestModalWatcher]::Stop() } catch { } }
   $releaseSw = [Diagnostics.Stopwatch]::StartNew()
   try { if ($workbook) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($workbook) } } catch { }
   try { if ($excel) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($excel) } } catch { }
