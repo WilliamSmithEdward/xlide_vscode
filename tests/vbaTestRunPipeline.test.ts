@@ -11,7 +11,7 @@ vi.mock('../src/vbaTestArtifacts', async (importOriginal) => {
     return { ...actual, writeVbaTestRunArtifacts: vi.fn(actual.writeVbaTestRunArtifacts) };
 });
 
-import type { PythonBridge } from '../src/pythonBridge';
+import type { WorkbookEngine } from '../src/workbookEngine';
 import { checkExcelComAvailability, type ExcelComAvailabilityStatus } from '../src/excelComAvailability';
 import { getVbaTestSupportStatus, type VbaTestSupportStatus } from '../src/vbaTestSupportStatus';
 import { runWorkbookVbaTests, type VbaTestRunExecution } from '../src/vbaTestExecution';
@@ -32,8 +32,8 @@ afterEach(() => {
     }
 });
 
-function bridge(): PythonBridge {
-    return {} as PythonBridge;
+function bridge(): WorkbookEngine {
+    return {} as WorkbookEngine;
 }
 
 function tempWorkbook(): string {

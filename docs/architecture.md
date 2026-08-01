@@ -2,18 +2,21 @@
 
 ## Overview
 
-XLIDE is a VS Code extension that turns Excel macro files (`.xlsm`, `.xlsb`, `.xlam`) into first-class editable documents. VBA modules open in the editor like normal source files, Ctrl+S writes them back into the workbook, and 19 VS Code language model tools expose workbook-aware operations to Copilot and compatible agents.
+XLIDE is a VS Code extension that turns Excel macro files (`.xlsm`, `.xlsb`, `.xlam`) into first-class editable documents. VBA modules open in the editor like normal source files, Ctrl+S writes them back into the workbook, and 18 VS Code language model tools expose workbook-aware operations to Copilot and compatible agents.
 
-The extension is split into two layers connected by a long-lived child process:
+Everything runs in the extension host. There is no backend process, no interpreter, and no third-party library between XLIDE and the workbook file:
 
 ```
 VS Code Extension (TypeScript)
         |
-        |  child_process.spawn — JSON-RPC 2.0, newline-delimited over stdio
+        |  in-process function calls
         |
-Python Backend  (pure Python, no COM, no Office install required)
-        |-- pyOpenVBA   VBA module read / write
-        +-- openpyxl    Excel cell data read / write
+Workbook engine  (src/vba/**, no COM, no Office install required)
+        |-- cfb.ts            [MS-CFB] compound file reader / writer
+        |-- ovba.ts           [MS-OVBA] compression + decompression
+        |-- vbaProject.ts     dir stream, module streams, PROJECT stream
+        |-- zip.ts / xlsx.ts  OOXML package + worksheet cell data
+        +-- workbookService.ts  the operations the extension calls
 ```
 
 ---
@@ -24,7 +27,7 @@ Python Backend  (pure Python, no COM, no Office install required)
 xlide_vscode/
   src/
     extension.ts        Activation entry point — registers all providers and commands
-    pythonBridge.ts     PythonBridge class — spawns server.py, JSON-RPC 2.0 client
+    workbookEngine.ts   WorkbookEngine class — in-process dispatcher for every workbook operation
     xlsmExplorer.ts     XlsmExplorer — TreeDataProvider for the XLIDE workbook tree in VS Code Explorer
     xlideSidebar.ts     Polished XLIDE Activity Bar/sidebar WebviewView
     xlideSidebarModel.ts Pure model for sidebar status/action/configuration sections
@@ -84,13 +87,13 @@ xlide_vscode/
 
     webview/            Shared webview scaffold: templates.ts (assets/webview loader), html.ts, page.ts, refresh.ts, panelRegistry.ts, styles.ts
 
-  python/
-    server.py           JSON-RPC 2.0 dispatcher (stdin -> stdout, newline-delimited)
-    xlide/
-      __init__.py
-      vba_io.py         list/read/write/rename/delete modules via pyOpenVBA
-      excel_io.py       read/write cell ranges via openpyxl
-    tests/              pytest suite: pure vba_io helper coverage plus real-workbook excel_io coverage against excel_test_workbook/fullBuild.xlsm
+    vba/
+      cfb.ts            [MS-CFB] compound file binary reader/writer (canonical rebuild on save)
+      ovba.ts           [MS-OVBA] run-length compression/decompression, byte-identical to the spec's reference decoder
+      vbaProject.ts     vbaProject.bin: dir stream parse/serialize, module add/rename/delete, PROJECT stream, signature detection
+      zip.ts            ZIP reader/writer preserving untouched entries' original compressed bytes
+      xlsx.ts           OOXML package: sheet enumeration, cell/formula read, cell write, shared strings
+      workbookService.ts  The operation layer the extension calls: module CRUD, protection info, sheets, cells, atomic workbook writes
 
   assets/
     webview/            Externalized webview template assets (HTML/CSS/JS) for workbookAnalysis, moduleSync, vbaTests, vbaTestResults, and globalSettings panels
@@ -113,8 +116,7 @@ xlide_vscode/
   .vscode/
     launch.json         F5 Extension Development Host config
     tasks.json          Default build task (npm run watch)
-    settings.json       Workspace Python interpreter path
-  python/requirements.txt   pyOpenVBA, openpyxl
+    settings.json       Workspace editor settings
 ```
 
 ---
@@ -132,7 +134,7 @@ xlide-vba:///C:/path/to/workbook.xlsm/Module1.bas
 
 | Method | Action |
 |---|---|
-| `readFile(uri)` | Calls `readModule` on the Python bridge; returns UTF-8 bytes |
+| `readFile(uri)` | Calls `readModule` on the workbook engine; returns UTF-8 bytes |
 | `writeFile(uri, content)` | Calls `writeModule`; saves the .xlsm in place |
 | `stat()` | Returns a `FileStat` whose `mtime` derives from the real workbook file mtime; when the workbook file changes out-of-band (for example a concurrent Excel VBE edit), module mtimes move forward so VS Code's save-conflict detection triggers instead of silently overwriting the newer workbook copy |
 | All others | Throw `FileSystemError.NoPermissions` |
@@ -204,15 +206,15 @@ scenarios do not need bespoke one-off test wiring.
 
 Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `sub` node opens the module and moves the cursor to that line.
 
-Module type is inferred from the VBA source and name (`_module_type` in
-`python/xlide/vba_io.py`, mirrored by `classifyModuleType` in
+Module type is inferred from the VBA source and name (`classifyModuleType` in
+`src/vba/workbookService.ts`, mirrored for sync planning in
 `src/moduleSyncPlan.ts`):
 - `Attribute VB_Base` carries two GUIDs → `userform`
 - `Attribute VB_Base` carries a Workbook/Worksheet/Chart CLSID → `document`
 - Name is `ThisWorkbook` or matches a localized sheet pattern (`Sheet\d*`,
   `Feuil\d*`, `Hoja\d*`, `Tabelle\d*`, `Foglio\d*`, `Planilha\d*`) → `document`
-- Anything else → `standard`; pyOpenVBA's module kind upgrades non-standard
-  modules to `class`
+- Anything else → `standard`; the dir stream's MODULETYPE record upgrades
+  non-standard modules to `class`
 
 `Attribute VB_PredeclaredId = True` alone is deliberately NOT treated as a
 document marker — predeclared singleton-style classes (e.g. stdVBA's
@@ -226,16 +228,13 @@ the subtype when they need workbook-vs-worksheet-vs-chart semantics.
 
 ---
 
-## Python bridge — `PythonBridge`
+## Workbook engine — `WorkbookEngine`
 
-Started lazily on the first bridge use (expanding a workbook, an XLIDE command, a restored `xlide-vba` editor, or the sidebar becoming visible) rather than at activation; workspaces without Excel workbooks never spawn Python. The process is spawned once with `cwd` set to `python/` so the `xlide` package is importable without installation, then kept alive for subsequent requests. Communicates via newline-delimited JSON-RPC 2.0 over stdin/stdout.
+`WorkbookEngine.call(method, params)` dispatches straight into `src/vba/workbookService.ts` on the extension host thread. There is no process to start, probe, recover, or configure: the first call after activation is as cheap as the hundredth, and a workspace with no Excel workbooks never opens one.
 
-**Python resolution order:**
-1. `xlide.pythonPath` VS Code setting (if set)
-2. `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python3` (Mac/Linux) inside the first workspace folder, if it exists
-3. `python` (Windows) / `python3` (Mac/Linux) from `PATH`
+The call shape is deliberately the same request/response surface the extension used when the work lived behind a JSON-RPC child process, so every caller — explorer, virtual filesystem, analysis, commands, agent tools, Live Share — is unchanged. Failures reject with `BridgeError` carrying a JSON-RPC-style code (`-32601` unknown method, `-32602` bad params, `-32000` operation failed).
 
-All calls are queued if the process has not yet started; in-flight calls are rejected if the process exits. If the backend crashes after becoming ready, XLIDE offers an in-place Restart Backend action instead of requiring a window reload.
+**Write safety.** Mutating operations rebuild the whole container and land through `atomicWrite`: the new bytes go to a temp file beside the target and are then renamed over it, so a crash mid-write cannot leave a half-written workbook. Per [MS-OVBA], a mutating save also drops every `__SRP_*` performance-cache stream and clears the `_VBA_PROJECT` cache body — stale compiled p-code for a module set that no longer matches is what crashes Excel on open. A non-mutating save leaves both untouched, because the caches still describe the project exactly.
 
 ---
 
@@ -251,7 +250,7 @@ Setting:
 
 ---
 
-## JSON-RPC methods
+## Engine methods
 
 | Method | Required params | Optional params | Returns |
 |---|---|---|---|
@@ -270,21 +269,20 @@ Setting:
 | `readCells` | `path`, `sheet`, `range` | — | `{data: [[…]]}` |
 | `readFormulas` | `path`, `sheet`, `range` | — | `{data: [[…]]}` (raw formula strings) |
 | `writeCells` | `path`, `sheet`, `startCell`, `data` | — | `{ok}` |
-| `runOpenpyxl` | `path`, `code` | `save` (bool, default `true`) | `{result, stdout}` |
 
-Errors are returned as `{"error": {"code": -32000, "message": "…"}}`.
+Failures reject with a `BridgeError` whose `code` follows the JSON-RPC convention (`-32601`, `-32602`, `-32000`).
 
 ---
 
 ## Protected & signed workbooks
 
-All mutating saves in `vba_io.py` (`writeModule`, `renameModule`, `deleteModule`) call `ExcelFile.save(allow_protected=True)`, so password-locked VBA projects can be edited in place. The save is wrapped in `warnings.catch_warnings(record=True)`: pyOpenVBA emits a `UserWarning` when it drops a now-stale digital-signature stream, and that is surfaced to the caller as `signatureDropped: true` rather than being silenced.
+A VBA project password protects the project from being *opened in the VBE*, not the bytes on disk, so `writeModule`, `renameModule`, and `deleteModule` edit password-locked projects in place. Each reports `signatureDropped: true` when the workbook carried a digital signature, because rewriting module streams invalidates the signature the workbook was signed with.
 
 On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in `xlideFileSystem.ts` shows a one-time-per-workbook warning when a signature is invalidated. `writeFile` and the three write agent tools/commands all forward the flag.
 
-`getProtectionInfo` reports `{isPasswordProtected, isSigned}` using public pyOpenVBA APIs (`vba_project().protection` + `detect_signature(CFB(vba_project_bytes()))`). `XlsmExplorer` lazily probes this when a workbook is expanded and renders `[locked]`/`[signed]` badges on the workbook node. `getWorkbookInfo` folds the same two flags into its summary.
+`getProtectionInfo` reports `{isPasswordProtected, isSigned}` from the parsed project: the dir stream's protection state, plus `detectSignature`, which looks for the `_VBA_PROJECT_CUR` / `_VBA_PROJECT_SIGNATURE` streams in the compound file. `XlsmExplorer` lazily probes this when a workbook is expanded and renders `[locked]`/`[signed]` badges on the workbook node. `getWorkbookInfo` folds the same two flags into its summary.
 
-`validateWorkbook` wraps `ExcelFile.validate()` (cross-structure consistency check); `createWorkbook` wraps `ExcelFile.create_new(path)` to scaffold a fresh macro-enabled workbook from pyOpenVBA's baked-in template.
+`validateWorkbook` runs structural checks over the parsed project: every dir-declared module must resolve to a readable stream, names must be unique and non-empty, and the PROJECT stream must agree with the dir stream. `createWorkbook` copies `assets/templates/blank.xlsm` (ThisWorkbook, Sheet1, an empty Module1) to the target path.
 
 ---
 
@@ -379,7 +377,6 @@ to operate on export files.
 | `xlide_readCells` | `#xlideReadCells` | none | No |
 | `xlide_readFormulas` | `#xlideReadFormulas` | none | No |
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |
-| `xlide_runOpenpyxl` | `#xlideRunOpenpyxl` | may save .xlsm (controlled by `save` param) | Yes |
 | `xlide_exportModules` | `#xlideExportModules` | writes export files + updates workbook JSON config | Yes |
 | `xlide_configureExportMode` | `#xlideConfigureExportMode` | updates workbook JSON config | Yes |
 
@@ -393,7 +390,7 @@ to operate on export files.
 
 **What does not work:** Independent guest browsing. The code uses the Live Share shared service API (`shareService` / `getSharedService`) under the service name `WilliamSmithE.xlide` to let guests list and open their own workbooks. Microsoft does not allow non-approved extensions to expose guest-accessible shared services — `shareService()` always returns `null`. As a result, the XLIDE sidebar shows nothing on the guest side and guests cannot independently discover or open modules; they can only collaborate on documents the host has already opened.
 
-The host-side RPC handlers (`listWorkbooks`, `listModules`, `listSubs`, `readModule`, `writeModule`) and the guest-side `guestList*` / `guestReadModule` / `guestWriteModule` methods are implemented and would address this gap if Microsoft approval were obtained. Remote modules use `xlide-vba://liveshare/<workbookId>/<moduleName>.bas` URIs so `XlideFileSystemProvider` can route them through the proxy rather than the local Python bridge. `LiveShareIntegration.onDidChange` fires on session role changes so that `XlsmExplorer` and `XlideStatusBar` can refresh.
+The host-side RPC handlers (`listWorkbooks`, `listModules`, `listSubs`, `readModule`, `writeModule`) and the guest-side `guestList*` / `guestReadModule` / `guestWriteModule` methods are implemented and would address this gap if Microsoft approval were obtained. Remote modules use `xlide-vba://liveshare/<workbookId>/<moduleName>.bas` URIs so `XlideFileSystemProvider` can route them through the proxy rather than the local workbook engine. `LiveShareIntegration.onDidChange` fires on session role changes so that `XlsmExplorer` and `XlideStatusBar` can refresh.
 
 ---
 
@@ -428,16 +425,8 @@ workspace-folder changes, active-editor changes, workbook file create/delete
 events, and `.xlide_settings.json` sidecar changes, and does not require Excel
 COM to render.
 
-The Setup section exposes only two dependency rows today: Python Executable and
-Required Python Libraries. Python Executable offers Download when Python is not
-detected, Set Path when Python appears installed but is not available to XLIDE,
-and a disabled Installed button when ready. Required Python Libraries offers
-Install until dependencies are ready, then a disabled Installed button. Changes
-to `xlide.pythonPath` trigger a Python bridge restart/recheck so the sidebar
-health rows reflect the newly configured executable without requiring a window
-reload. In the Python Executable Download state only, Ctrl+click routes to a
-Browse action that writes the same machine-scoped `xlide.pythonPath` setting as
-the XLIDE Global Settings GUI. The
+There is no Setup section: the workbook engine runs in-process, so nothing has
+to be installed, detected, or repaired before the tree and the actions work. The
 Workbook Actions section lets the user pick the
 target workbook and keeps workbook-scoped actions directly under that picker. If
 no explicit sidebar target is selected, the context can fall back to the active
@@ -499,7 +488,7 @@ carrying local regex copies.
 
 **Symbol intelligence** — `src/vbaSymbolIndex.ts` keeps a workbook-scoped cache
 of module sources and metadata. The cache loads modules lazily through the
-Python bridge (`readModules`, falling back to `listModules` + `readModule`) and
+workbook engine (`readModules`, falling back to `listModules` + `readModule`) and
 can refresh a single module after a save. Symbol extraction itself lives in the
 analyzer (`src/analyzer/symbols/projectIndex.ts`), which consumers feed with the
 cached sources.
@@ -612,7 +601,7 @@ The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 
 **Workbook-wide analysis (command + agent tool)** — `src/vbaWorkbookAnalysis.ts`
-(`analyzeWorkbook`) loads every module from the workbook via the Python bridge,
+(`analyzeWorkbook`) loads every module from the workbook via the workbook engine,
 builds shared project-analysis options so cross-module rules have the current
 module's visibility-filtered procedure/Declare names, bare identifier names,
 visible type/non-type names, exported signatures, and source-backed member
@@ -745,7 +734,7 @@ into a pure analyzer layer and a thin VS Code provider:
   inference is not enabled until that behavior has separate oracle coverage.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
   characters `.` and space). For member access it loads the workbook's module
-  list via the Python bridge, then uses `src/vbaProjectAnalysis.ts` for
+  list via the workbook engine, then uses `src/vbaProjectAnalysis.ts` for
   module-kind normalization, live-current-module overlay, project type/member
   derivation, and invalid-module tolerance while the user is mid-edit. The
   resulting context includes document code names with workbook, worksheet, or
@@ -1333,9 +1322,9 @@ Unresolved names and non-type positions are ignored.
 | Decision | Rationale |
 |---|---|
 | `FileSystemProvider` over `TextDocumentContentProvider` | Read/write virtual FS — Ctrl+S writes back with no custom save command |
-| Long-lived Python process over per-call subprocess | Amortises ~200 ms Python startup across all requests |
-| `cwd=python/` on spawn | Makes the `xlide` package importable without pip-installing it into the extension |
-| pyOpenVBA for VBA, openpyxl for cells | pyOpenVBA owns the OVBA binary format; openpyxl reads/writes sheet data with `keep_vba=True` so macros are preserved |
+| In-process engine over an external backend | No runtime to install, detect, or recover; no per-call IPC or process-startup cost, and no setup gate between install and first use |
+| Own the container formats ([MS-CFB], [MS-OVBA], OOXML) | The binary formats are specified and stable; owning them removes the last third-party dependency and lets writes preserve untouched bytes exactly |
+| Rebuild-and-rename on every mutating save | A canonical rebuild keeps the compound file self-consistent, and the atomic rename means a crash mid-write cannot corrupt the workbook |
 | No COM, no Office | Works on Windows, macOS, Linux, WSL, and remote containers |
 | Confirmation on write tools | Prevents AI agents from silently mutating production workbooks |
 
@@ -1343,12 +1332,11 @@ Unresolved names and non-type positions are ignored.
 
 ## Dependencies
 
-| Package | Version | Role |
-|---|---|---|
-| `pyOpenVBA` | `>=3.0.1` | VBA module read/write (pure Python) |
-| `openpyxl` | `>=3.1.0` | Excel cell data read/write |
+XLIDE ships with no runtime dependencies. VBA and worksheet access are
+implemented in `src/vba/**` against the published container formats; the only
+Node built-ins used are `fs`, `path`, and `zlib`.
 
-TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
+TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node`.
 
 ---
 
@@ -1356,12 +1344,11 @@ TypeScript dev: `typescript`, `esbuild`, `@types/vscode`, `@types/node`.
 
 | Change | Files to touch |
 |---|---|
-| New JSON-RPC method | `python/server.py`, `python/xlide/vba_io.py` or `excel_io.py`, `src/agentTools.ts` + `package.json` if exposed as LM tool, `docs/architecture.md` |
+| New engine method | `src/vba/workbookService.ts` (implementation), `src/workbookEngine.ts` (dispatch), `tests/vbaNativeWorkbook.test.ts`, `src/agentTools.ts` + `package.json` if exposed as LM tool, `docs/architecture.md` |
 | New VS Code command | the matching per-domain module under `src/commands/` (wired through `src/commands.ts`), `package.json` (`contributes.commands`, `menus`), `docs/architecture.md` |
 | New AI agent (LM) tool | `package.json` (`contributes.languageModelTools`), `src/agentTools.ts` (registration), `.github/copilot-instructions.md` (tool reference + workflow), `docs/architecture.md` |
 | New workbook-wide analysis behavior | `src/vbaModuleAnalysis.ts` (shared module analysis core), `src/vbaWorkbookAnalysis.ts` (workbook analysis core), `src/workbookAnalysisResultsModel.ts` (results view model/copy report), `src/workbookAnalysisWebview.ts` (analysis results GUI), `src/commands/analysisCommands.ts` (command wiring + location navigation), `src/agentTools.ts` (`xlide_analyzeWorkbook`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
-| New Python source file | `python/xlide/__init__.py` (if re-exported), `docs/architecture.md` |
-| Dependency added/removed | `python/requirements.txt`, `README.md` |
+| Dependency added/removed | `package.json`, `README.md`, `docs/architecture.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaStructuralDiagnostics.ts` (structural analysis), the matching provider subsystem module registered in `src/vbaLanguageProviders.ts`, `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` or generated `src/analyzer/host/excelReferenceMembers.ts` (metadata transcribed or generated with provenance), `tests/vbaMemberCompletion.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |

@@ -97,7 +97,6 @@ export interface SupportBundle {
     setup: {
         diagnosticsEnabled: boolean | undefined;
         docsEnabled: boolean | undefined;
-        pythonPathConfigured: boolean;
         excelComStatus: 'available-on-windows-not-checked' | 'not-supported-on-platform';
     };
     workbook: SupportBundleWorkbookSummary;
@@ -122,7 +121,7 @@ export interface SupportBundle {
     };
 }
 
-const PATH_SETTING_RE = /(path|folder|directory|file)$/i;
+const PATH_SETTING_RE = /(path|folder|directory|file|glob)$/i;
 const UNAVAILABLE = 'unavailable';
 
 export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
@@ -144,7 +143,6 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
         setup: {
             diagnosticsEnabled: booleanSetting(settings, 'xlide.diagnostics.enabled'),
             docsEnabled: booleanSetting(settings, 'xlide.docs.enabled'),
-            pythonPathConfigured: stringSettingConfigured(input.settings, 'xlide.pythonPath'),
             excelComStatus: input.runtime.platform === 'win32'
                 ? 'available-on-windows-not-checked'
                 : 'not-supported-on-platform',
@@ -305,7 +303,6 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         'Setup',
         `Diagnostics enabled: ${formatDiagnosticValue(bundle.setup.diagnosticsEnabled)}`,
         `Docs enabled: ${formatDiagnosticValue(bundle.setup.docsEnabled)}`,
-        `Python path configured: ${bundle.setup.pythonPathConfigured}`,
         `Excel COM status: ${bundle.setup.excelComStatus}`,
         '',
         'Active Workbook',
@@ -385,13 +382,6 @@ function booleanSetting(
     return typeof value === 'boolean' ? value : undefined;
 }
 
-function stringSettingConfigured(
-    settings: readonly SupportBundleSetting[],
-    key: string,
-): boolean {
-    const value = settings.find((setting) => setting.key === key)?.value;
-    return typeof value === 'string' && value.trim().length > 0;
-}
 
 function sortedRecord(
     counts: Record<string, number> | Partial<Record<string, number>>,

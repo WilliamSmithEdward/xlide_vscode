@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { PythonBridge } from '../src/pythonBridge';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
+import type { WorkbookEngine } from '../src/workbookEngine';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import {
 	exportWorkbookModule,
 	exportWorkbookModules,
@@ -37,7 +37,7 @@ function tempWorkbook(): { root: string; workbook: string; exportFolder: string 
 	return { root, workbook, exportFolder };
 }
 
-function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
+function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
 	return {
 		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
 			if (method === 'listModules') {
@@ -53,7 +53,7 @@ function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
 			}
 			throw new BridgeError(`Method not found: ${method}`, JSONRPC_METHOD_NOT_FOUND);
 		},
-	} as PythonBridge;
+	} as WorkbookEngine;
 }
 
 describe('moduleExport', () => {

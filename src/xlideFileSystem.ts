@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import type { LiveShareIntegration } from './liveShare';
 import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
 import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCommandLog';
@@ -136,8 +136,8 @@ export function decodeModuleUri(uri: vscode.Uri): { xlsmPath: string; moduleName
 /**
  * Virtual FileSystemProvider for the xlide-vba:// scheme.
  *
- * - readFile  -> calls Python bridge readModule
- * - writeFile -> calls Python bridge writeModule (saves the .xlsm in place)
+ * - readFile  -> calls the workbook engine's readModule
+ * - writeFile -> calls the workbook engine's writeModule (saves the .xlsm in place)
  * - All other mutation operations are rejected.
  */
 export class XlideFileSystemProvider
@@ -153,7 +153,7 @@ export class XlideFileSystemProvider
     private readonly _workbookMtimes = new Map<string, number>();
     private readonly _disposables: vscode.Disposable[] = [];
 
-    constructor(private readonly _bridge: PythonBridge) {
+    constructor(private readonly _bridge: WorkbookEngine) {
         // Evict per-module stat entries when their document closes so _stats does
         // not grow unbounded over a long-lived window.
         this._disposables.push(

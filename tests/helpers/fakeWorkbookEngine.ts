@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
-import type { PythonBridge } from '../../src/pythonBridge';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../../src/pythonBridgeErrors';
+import type { WorkbookEngine } from '../../src/workbookEngine';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../../src/workbookEngineErrors';
 
 export interface FakeBridgeModule {
 	name: string;
@@ -18,14 +18,14 @@ export interface FakeBridgeOptions {
 type FakeBridgeWorkbooks = FakeBridgeModule[] | Record<string, FakeBridgeModule[]>;
 
 /**
- * Builds a fake PythonBridge covering the module-read RPC surface
+ * Builds a fake WorkbookEngine covering the module-read RPC surface
  * (readModules/listModules/readModule). Calls are recorded via vi.fn so tests
  * can assert on the call sequence.
  */
-export function fakePythonBridge(
+export function fakeWorkbookEngine(
 	workbooks: FakeBridgeWorkbooks,
 	options: FakeBridgeOptions = {},
-): PythonBridge {
+): WorkbookEngine {
 	const modulesFor = (workbookPath: string): FakeBridgeModule[] | undefined =>
 		Array.isArray(workbooks) ? workbooks : workbooks[workbookPath];
 	return {
@@ -56,5 +56,5 @@ export function fakePythonBridge(
 			}
 			throw new Error(`Unexpected bridge call ${method}`);
 		}),
-	} as unknown as PythonBridge;
+	} as unknown as WorkbookEngine;
 }

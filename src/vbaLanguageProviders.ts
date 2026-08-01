@@ -4,7 +4,7 @@
 // navigation, code actions, and semantic tokens).
 
 import * as vscode from 'vscode';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import {
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
@@ -47,7 +47,7 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
 
 export function registerVbaLanguageProviders(
     context: vscode.ExtensionContext,
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     workerClient?: AnalysisWorkerClient,
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);

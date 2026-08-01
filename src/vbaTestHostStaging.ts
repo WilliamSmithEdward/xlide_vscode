@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { PythonBridge } from './pythonBridge';
+import type { WorkbookEngine } from './workbookEngine';
 import type { VbaTestCase } from './vbaTestRunner';
 import {
     buildOwnedReadOnlyExcelTestHostScript,
@@ -29,12 +29,12 @@ export interface VbaTestHostStaging {
 /**
  * Stages the owned read-only Excel test host run in a private temp dir: copies
  * the workbook, injects the XlideAssert support module and a uniquely named
- * direct-call dispatcher module via the Python bridge, and writes the
+ * direct-call dispatcher module via the workbook engine, and writes the
  * generated run-vba-tests.ps1 host script. On staging failure the temp dir is
  * removed before the error propagates.
  */
 export async function stageOwnedReadOnlyExcelTestHost(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     tests: readonly VbaTestCase[],
     options: VbaTestHostStagingOptions,

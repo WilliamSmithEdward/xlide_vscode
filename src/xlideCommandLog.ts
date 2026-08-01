@@ -38,8 +38,8 @@ export function errorCategoryForSupportLog(error: unknown): string {
     if (WORKBOOK_LOCKED_ERROR_RE.test(message)) {
         return 'workbook-locked';
     }
-    if (/python|backend|spawn|ENOENT/i.test(message)) {
-        return 'python-backend';
+    if (/\bENOENT\b|no such file|cannot find|not found/i.test(message)) {
+        return 'workbook-missing';
     }
     if (/cancel|canceled|cancelled/i.test(message)) {
         return 'cancelled';

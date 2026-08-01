@@ -8,7 +8,7 @@
 
 export class OvbaError extends Error {}
 
-/** Bit width of n (Python's int.bit_length). */
+/** Number of bits needed to represent n. */
 function bitLength(n: number): number {
 	return n === 0 ? 0 : 32 - Math.clz32(n);
 }

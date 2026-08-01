@@ -3,14 +3,14 @@
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
-import type { PythonBridge } from '../src/pythonBridge';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
-import { fakePythonBridge } from './helpers/fakePythonBridge';
+import type { WorkbookEngine } from '../src/workbookEngine';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
+import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import { deferred, flushPromises } from './helpers/async';
 
 describe('analyzeWorkbook metadata summary', () => {
 	it('loads workbook modules through the batch read endpoint', async () => {
-		const bridge = fakePythonBridge([
+		const bridge = fakeWorkbookEngine([
 			{
 				name: 'Module1',
 				type: 'standard',
@@ -25,7 +25,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('falls back to legacy list/read calls when the backend lacks batch reads', async () => {
-		const bridge = fakePythonBridge([
+		const bridge = fakeWorkbookEngine([
 			{
 				name: 'Module1',
 				type: 'standard',
@@ -65,7 +65,7 @@ describe('analyzeWorkbook metadata summary', () => {
 				}
 				return Promise.reject(new Error(`Unexpected bridge call ${method}`));
 			}),
-		} as unknown as PythonBridge;
+		} as unknown as WorkbookEngine;
 
 		const pending = analyzeWorkbook(bridge, 'Book.xlsm');
 		await flushPromises();
@@ -79,7 +79,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {
-		const bridge = fakePythonBridge([
+		const bridge = fakeWorkbookEngine([
 			{
 				name: 'BlockBroken',
 				type: 'standard',
@@ -135,7 +135,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('surfaces replacement quick fixes for mismatched procedure closers', async () => {
-		const bridge = fakePythonBridge([
+		const bridge = fakeWorkbookEngine([
 			{
 				name: 'Performance',
 				type: 'class',
@@ -158,7 +158,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('uses project ByRef helper signatures for workbook return-assignment analysis', async () => {
-		const bridge = fakePythonBridge([
+		const bridge = fakeWorkbookEngine([
 			{
 				name: 'Runner',
 				type: 'standard',
@@ -185,7 +185,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('uses source bindings before host globals in workbook member diagnostics', async () => {
-		const bridge = fakePythonBridge([
+		const bridge = fakeWorkbookEngine([
 			{
 				name: 'Caller',
 				type: 'standard',

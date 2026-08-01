@@ -1,5 +1,5 @@
 import * as path from 'path';
-import type { PythonBridge } from './pythonBridge';
+import type { WorkbookEngine } from './workbookEngine';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
 import {
     runOwnedExcelTestHostSession,
@@ -41,7 +41,7 @@ export interface VbaTestRunExecution {
 }
 
 export async function runWorkbookVbaTests(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     options: RunWorkbookVbaTestsOptions = {},
 ): Promise<VbaTestRunExecution> {
@@ -165,7 +165,7 @@ export async function runWorkbookVbaTests(
 }
 
 async function runOwnedReadOnlyExcelTestHost(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     tests: readonly VbaTestCase[],
     options: VbaTestRunOptions,

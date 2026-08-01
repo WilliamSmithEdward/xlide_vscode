@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as cp from 'child_process';
 import * as path from 'path';
 import { errorMessage } from './util/errors';
 import { debounce } from './util/debounce';
@@ -11,7 +10,7 @@ import {
     decodeModuleUri,
     isLocalXlideDocument,
 } from './xlideFileSystem';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
@@ -24,92 +23,15 @@ import { createRecordedOutputChannel } from './xlideOutputLog';
 import { setExcelCoordinationLog } from './excelWorkbookCoordinator';
 import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import {
-    setXlideGlobalSettingValue,
-    xlideCheckPythonLibraryUpdatesFromConfig,
     xlideExplorerAutoExpandCollapseFromConfig,
     xlidePerformanceTraceFromConfig,
-    xlidePythonPathFromConfig,
 } from './globalSettings';
 import { registerXlideSidebar } from './xlideSidebar';
-import {
-    isXlideSetupComplete,
-    type XlideSidebarDependencyStatus,
-    type XlideSidebarSetupStatus,
-} from './xlideSidebarModel';
-import {
-    isMacCltStubMessage,
-    isMissingPackageMessage,
-    isPythonNotFoundMessage,
-    outdatedPythonLibraries,
-    type OutdatedPythonLibrary,
-} from './pythonEnvironment';
 import { AnalysisWorkerClient } from './analysisWorkerClient';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
-
-const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/';
-
-// ---------------------------------------------------------------------------
-// Dependency installer
-// ---------------------------------------------------------------------------
-
-function installDependencies(
-    bridge: PythonBridge,
-    context: vscode.ExtensionContext,
-    out: vscode.OutputChannel,
-    onBridgeReady?: () => void,
-    onBridgeFailed?: (err: Error) => void,
-    opts?: { upgrade?: boolean },
-): Promise<void> {
-    const pythonPath = bridge.resolvePython();
-    const requirementsPath = path.join(context.extensionPath, 'python', 'requirements.txt');
-    const pipArgs = ['-m', 'pip', 'install'];
-    if (opts?.upgrade) {
-        pipArgs.push('--upgrade');
-    }
-    pipArgs.push('-r', requirementsPath);
-
-    return Promise.resolve(vscode.window.withProgress(
-        {
-            location: vscode.ProgressLocation.Notification,
-            title: opts?.upgrade
-                ? 'XLIDE: Updating Python dependencies...'
-                : 'XLIDE: Installing Python dependencies...',
-            cancellable: false,
-        },
-        () => new Promise<void>((resolve, reject) => {
-            out.appendLine(`Running: ${pythonPath} ${pipArgs.join(' ')}`);
-            const proc = cp.spawn(pythonPath, pipArgs, {
-                stdio: ['ignore', 'pipe', 'pipe'],
-            });
-            proc.stdout!.on('data', (d: Buffer) => out.appendLine(d.toString().trimEnd()));
-            proc.stderr!.on('data', (d: Buffer) => out.appendLine(d.toString().trimEnd()));
-            proc.on('error', (err) => reject(new Error(`pip failed: ${err.message}`)));
-            proc.on('exit', (code) => {
-                if (code === 0) {
-                    bridge.start()
-                        .then(() => {
-                            out.appendLine('XLIDE ready.');
-                            onBridgeReady?.();
-                            void vscode.window.showInformationMessage(
-                                'XLIDE: Dependencies installed and bridge started. If any files failed to open, click Try Again in the editor tab.',
-                            );
-                        })
-                        .catch((err: Error) => {
-                            out.appendLine(`ERROR after install: ${err.message}`);
-                            onBridgeFailed?.(err);
-                            vscode.window.showErrorMessage(`XLIDE: ${err.message}`);
-                        });
-                    resolve();
-                } else {
-                    reject(new Error(`pip install exited with code ${code}. See XLIDE output for details.`));
-                }
-            });
-        }),
-    ));
-}
 
 // ---------------------------------------------------------------------------
 // Activation
@@ -150,416 +72,19 @@ export function activate(context: vscode.ExtensionContext): void {
             out.appendLine(`VBA test temp cleanup skipped: ${message}`);
         });
 
-    const bridge = new PythonBridge(context, out);
+    const bridge = new WorkbookEngine(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
     const explorer = new XlsmExplorer(bridge, out);
     const liveShare = new LiveShareIntegration(bridge, out);
     fsProvider.setLiveShare(liveShare);
     explorer.setLiveShare(liveShare);
     const statusBar = new XlideStatusBar(liveShare);
-    const isMissingPackage = isMissingPackageMessage;
-    const isPythonNotFound = isPythonNotFoundMessage;
-
-    const configuredPythonPath = () =>
-        xlidePythonPathFromConfig(vscode.workspace.getConfiguration('xlide')).value;
-
-    const pythonLauncherDetectsPython = (): Promise<boolean> => {
-        if (process.platform !== 'win32') {
-            return Promise.resolve(false);
-        }
-        return new Promise<boolean>((resolve) => {
-            const proc = cp.spawn('py', ['-0p'], {
-                windowsHide: true,
-            });
-            proc.unref?.();
-            let stdout = '';
-            let stderr = '';
-            let settled = false;
-            const finish = (value: boolean) => {
-                if (settled) { return; }
-                settled = true;
-                clearTimeout(timer);
-                resolve(value);
-            };
-            const timer = setTimeout(() => {
-                finish(false);
-                proc.kill();
-            }, 1500);
-            proc.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
-            proc.stderr?.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
-            proc.on('error', () => finish(false));
-            proc.on('exit', (code) => {
-                finish(code === 0 && /python(?:\.exe)?/i.test(`${stdout}\n${stderr}`));
-            });
-        });
-    };
-
-    // Cheap "would the backend resolve a runnable Python now?" probe that mirrors
-    // PythonBridge._resolvePython (configured path -> .venv -> python/python3 on
-    // PATH) by running the resolved interpreter with --version. Used to pulse for
-    // a newly-installed Python without requiring a config change or window reload.
-    const probeResolvedPython = (): Promise<boolean> =>
-        new Promise<boolean>((resolve) => {
-            let pythonPath: string;
-            try {
-                pythonPath = bridge.resolvePython();
-            } catch {
-                resolve(false);
-                return;
-            }
-            const proc = cp.spawn(pythonPath, ['--version'], { windowsHide: true });
-            proc.unref?.();
-            let settled = false;
-            const finish = (value: boolean) => {
-                if (settled) { return; }
-                settled = true;
-                clearTimeout(timer);
-                resolve(value);
-            };
-            const timer = setTimeout(() => {
-                finish(false);
-                proc.kill();
-            }, 1500);
-            proc.on('error', () => finish(false));
-            proc.on('exit', (code) => finish(code === 0));
-        });
-
-    const checkingSetupStatus = (): XlideSidebarSetupStatus => ({
-        pythonExecutable: {
-            status: 'unknown',
-            description: 'Checking',
-            tooltip: 'XLIDE is checking the configured Python executable.',
-        },
-        pythonLibraries: {
-            status: 'unknown',
-            description: 'Checking',
-            tooltip: 'XLIDE is checking required Python libraries.',
-        },
-    });
-    // The backend starts lazily on first bridge use (audit #17); until then the
-    // sidebar setup rows carry an explicit not-yet-started state.
-    const notStartedSetupStatus = (): XlideSidebarSetupStatus => ({
-        pythonExecutable: {
-            status: 'unknown',
-            description: 'Starts On First Use',
-            tooltip: 'XLIDE starts its Python backend the first time a workbook feature is used.',
-        },
-        pythonLibraries: {
-            status: 'unknown',
-            description: 'Starts On First Use',
-            tooltip: 'XLIDE checks required Python libraries when the backend starts on first use.',
-        },
-    });
-    let setupStatus: XlideSidebarSetupStatus = notStartedSetupStatus();
-    let backendStartFailed = false;
+    // The workbook engine runs in-process: there is no backend to install,
+    // start, probe, or recover, so nothing gates the tree or the sidebar.
     const sidebar = registerXlideSidebar({
-        setupStatus: () => setupStatus,
         workspaceState: context.workspaceState,
-        // Opening the XLIDE sidebar counts as first use.
-        onDidBecomeVisible: () => {
-            void ensureBackendStarted().catch(() => { /* surfaced via setup status */ });
-        },
     });
-    const setSetupStatus = (status: XlideSidebarSetupStatus) => {
-        setupStatus = status;
-        // The explorer tree stays usable until a backend start actually fails,
-        // so the first workbook expansion can lazy-start the backend.
-        const setupUsable = isXlideSetupComplete(status) || !backendStartFailed;
-        explorer.setSetupComplete(setupUsable);
-        void vscode.commands.executeCommand('setContext', 'xlide.setupComplete', setupUsable);
-        sidebar.refresh();
-    };
-    setSetupStatus(setupStatus);
-    const pythonBackendReady = () => {
-        backendStartFailed = false;
-        stopPythonPulse();
-        // The backend is confirmed up (possibly via setup/recheck rather than
-        // the lazy path); keep the memoized attempt in sync.
-        backendStart = Promise.resolve();
-        setSetupStatus({
-            pythonExecutable: {
-                status: 'pass',
-                description: bridge.resolvePython(),
-                tooltip: 'XLIDE found a usable Python executable.',
-            },
-            pythonLibraries: librariesSetupStatus(),
-        });
-        void checkForLibraryUpdates();
-    };
-
-    // ------------------------------------------------------------------
-    // Library-update nudge: once per session (opt-out via the
-    // checkPythonLibraryUpdates setting), compare the installed pyOpenVBA /
-    // openpyxl versions (asked from the running backend) against the latest
-    // releases on PyPI. When something is behind, the sidebar's libraries row
-    // turns into a warn-with-Update affordance; it never gates setup.
-    // ------------------------------------------------------------------
-    let outdatedLibraries: OutdatedPythonLibrary[] = [];
-    let libraryUpdateCheckDone = false;
-    let libraryUpdateInProgress = false;
-
-    const librariesSetupStatus = (): XlideSidebarDependencyStatus =>
-        outdatedLibraries.length > 0
-            ? {
-                status: 'warn',
-                description: 'Update Available',
-                tooltip: 'Newer releases are available:\n'
-                    + outdatedLibraries.map((u) => `${u.name} ${u.installed} -> ${u.latest}`).join('\n')
-                    + '\n\nClick Update to upgrade and restart the backend.',
-                action: 'updateLibraries',
-            }
-            : {
-                status: 'pass',
-                description: 'Installed',
-                tooltip: 'Required Python libraries are installed.',
-            };
-
-    const PYPI_TIMEOUT_MS = 5000;
-    const fetchLatestPypiVersion = async (name: string): Promise<[string, string] | undefined> => {
-        type FetchResponseLike = { ok: boolean; json(): Promise<unknown> };
-        const fetchFn = (globalThis as unknown as {
-            fetch?: (url: string, init?: { signal?: AbortSignal }) => Promise<FetchResponseLike>;
-        }).fetch;
-        if (!fetchFn) {
-            return undefined;
-        }
-        const abort = new AbortController();
-        const timer = setTimeout(() => abort.abort(), PYPI_TIMEOUT_MS);
-        try {
-            const res = await fetchFn(`https://pypi.org/pypi/${encodeURIComponent(name)}/json`, { signal: abort.signal });
-            if (!res.ok) {
-                return undefined;
-            }
-            const data = await res.json() as { info?: { version?: unknown } };
-            const version = data?.info?.version;
-            return typeof version === 'string' && version.length > 0 ? [name, version] : undefined;
-        } catch {
-            return undefined;
-        } finally {
-            clearTimeout(timer);
-        }
-    };
-
-    const checkForLibraryUpdates = async (): Promise<void> => {
-        if (libraryUpdateCheckDone || libraryUpdateInProgress) {
-            return;
-        }
-        if (!xlideCheckPythonLibraryUpdatesFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
-            return;
-        }
-        libraryUpdateCheckDone = true;
-        try {
-            const info = await bridge.call<{ packages?: Record<string, string> }>('getPackageVersions', {});
-            const installed = info?.packages ?? {};
-            const names = Object.keys(installed);
-            if (names.length === 0) {
-                return;
-            }
-            const latestEntries = (await Promise.all(names.map(fetchLatestPypiVersion)))
-                .filter((entry): entry is [string, string] => entry !== undefined);
-            if (latestEntries.length === 0) {
-                return; // offline or PyPI unreachable: no data, no nudge
-            }
-            outdatedLibraries = outdatedPythonLibraries(installed, Object.fromEntries(latestEntries));
-            if (outdatedLibraries.length > 0 && !backendStartFailed) {
-                out.appendLine('Python library updates available: '
-                    + outdatedLibraries.map((u) => `${u.name} ${u.installed} -> ${u.latest}`).join(', '));
-                pythonBackendReady();
-            } else {
-                // Make the clean result verifiable in the output channel, so a
-                // green "Installed" row can be distinguished from a check that
-                // never ran (offline, disabled, backend down).
-                out.appendLine('Python libraries up to date: '
-                    + names.map((n) => `${n} ${installed[n]}`).join(', '));
-            }
-        } catch {
-            // Best-effort: an old backend without getPackageVersions, a dead
-            // bridge, or a network failure must never surface an error.
-        }
-    };
-    const pythonBackendNeedsAttention = async (err: Error): Promise<void> => {
-        backendStartFailed = true;
-        if (isPythonNotFound(err.message)) {
-            const configured = configuredPythonPath();
-            const installedOutsidePath = !configured && await pythonLauncherDetectsPython();
-            const shouldSetPath = Boolean(configured) || installedOutsidePath;
-            setSetupStatus({
-                pythonExecutable: {
-                    status: 'warn',
-                    description: configured
-                        ? 'Path Not Found'
-                        : installedOutsidePath
-                            ? 'Not On PATH'
-                            : 'Not Found',
-                    tooltip: shouldSetPath
-                        ? 'Python appears to be installed, but XLIDE cannot start it from the current path. Set xlide.pythonPath to the Python executable.'
-                        : isMacCltStubMessage(err.message)
-                            ? "macOS's built-in python3 is a Command Line Tools stub, not a full Python. Click Download to install Python from python.org, then return here - XLIDE re-checks automatically."
-                            : err.message,
-                    action: shouldSetPath ? 'setPythonPath' : 'downloadPython',
-                },
-                pythonLibraries: {
-                    status: 'unknown',
-                    description: 'Waiting For Python',
-                    tooltip: 'Set a valid Python executable before installing required libraries.',
-                },
-            });
-            startPythonPulse();
-            return;
-        }
-        if (isMissingPackage(err.message)) {
-            stopPythonPulse();
-            setSetupStatus({
-                pythonExecutable: {
-                    status: 'pass',
-                    description: bridge.resolvePython(),
-                    tooltip: 'XLIDE found a usable Python executable.',
-                },
-                pythonLibraries: {
-                    status: 'warn',
-                    description: 'Missing',
-                    tooltip: err.message,
-                },
-            });
-            return;
-        }
-        stopPythonPulse();
-        setSetupStatus({
-            pythonExecutable: {
-                status: 'unknown',
-                description: 'Check Settings',
-                tooltip: err.message,
-            },
-            pythonLibraries: {
-                status: 'warn',
-                description: 'Needs Attention',
-                tooltip: err.message,
-            },
-        });
-    };
-    const recheckPythonBackend = () => {
-        setSetupStatus(checkingSetupStatus());
-        backendStart = bridge.restart()
-            .then(() => {
-                out.appendLine('XLIDE ready after Python path change.');
-                pythonBackendReady();
-            }, (err: Error) => {
-                out.appendLine(`ERROR: Python backend failed after path change - ${err.message}`);
-                void pythonBackendNeedsAttention(err);
-                throw err;
-            });
-        void backendStart.catch(() => { /* surfaced via setup status */ });
-    };
-
-    // Python-availability pulse: after a "Python not found" setup failure, the
-    // user often installs Python out-of-band, which fires no VS Code event. Poll
-    // a cheap interpreter probe while waiting and, the moment a runnable Python
-    // appears where there was none, re-run the backend check. The pulse stops as
-    // soon as the backend is ready; window focus triggers an immediate re-probe
-    // (the common "installed Python, switched back to VS Code" flow).
-    const PYTHON_PULSE_INTERVAL_MS = 5000;
-    let pythonPulseTimer: ReturnType<typeof setInterval> | undefined;
-    let awaitingPython = false;
-    let pythonWasAvailable = false;
-    let pythonPulseInFlight = false;
-
-    const stopPythonPulse = () => {
-        awaitingPython = false;
-        if (pythonPulseTimer) {
-            clearInterval(pythonPulseTimer);
-            pythonPulseTimer = undefined;
-        }
-    };
-
-    const pythonPulseTick = async () => {
-        if (!awaitingPython || pythonPulseInFlight) { return; }
-        pythonPulseInFlight = true;
-        try {
-            const available = await probeResolvedPython();
-            if (!awaitingPython) { return; }
-            if (available && !pythonWasAvailable) {
-                pythonWasAvailable = true;
-                out.appendLine('XLIDE detected a newly available Python; rechecking backend.');
-                recheckPythonBackend();
-            } else if (!available) {
-                pythonWasAvailable = false;
-            }
-        } finally {
-            pythonPulseInFlight = false;
-        }
-    };
-
-    const startPythonPulse = () => {
-        awaitingPython = true;
-        if (!pythonPulseTimer) {
-            // Only re-arm the appeared-transition tracker on a fresh pulse. When a
-            // recheck fails and lands back here with the timer still running,
-            // keeping pythonWasAvailable=true prevents an every-tick recheck loop
-            // for a Python that is runnable but keeps failing the backend start;
-            // a genuine disappear/reappear still re-arms via the !available tick.
-            pythonWasAvailable = false;
-            pythonPulseTimer = setInterval(() => { void pythonPulseTick(); }, PYTHON_PULSE_INTERVAL_MS);
-            // Don't hold the extension host event loop open solely for the pulse.
-            pythonPulseTimer.unref?.();
-        }
-    };
-
-    const handleBackendStartFailure = async (err: Error): Promise<void> => {
-        out.appendLine(`ERROR: Python backend failed to start - ${err.message}`);
-        await pythonBackendNeedsAttention(err);
-
-        if (isPythonNotFound(err.message) || isMissingPackage(err.message)) {
-            out.appendLine('XLIDE setup is incomplete; use the XLIDE sidebar Setup section to finish Python setup.');
-            return;
-        }
-
-        const choice = await vscode.window.showErrorMessage(
-            `XLIDE: Failed to start Python backend. ${err.message}`,
-            'Copy Diagnostics',
-            'Set Python Path',
-        );
-        if (choice === 'Copy Diagnostics') {
-            void vscode.commands.executeCommand('xlide.copyDiagnostics');
-        } else if (choice === 'Set Python Path') {
-            void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
-        }
-    };
-
-    const startPythonBackend = (): Promise<void> => {
-        setSetupStatus(checkingSetupStatus());
-        return bridge.start().then(() => {
-            out.appendLine('XLIDE ready.');
-            pythonBackendReady();
-
-            // Item 9: Show a one-time welcome notification on first ever activation.
-            if (!context.globalState.get('xlide.welcomed')) {
-                void context.globalState.update('xlide.welcomed', true);
-                void vscode.window.showInformationMessage(
-                    'XLIDE is ready. Right-click a workbook in the XLIDE Explorer to export modules, ' +
-                    'or press F5 inside a module to run the macro at the cursor.',
-                    'Open Explorer',
-                ).then(choice => {
-                    if (choice === 'Open Explorer') {
-                        void vscode.commands.executeCommand('xlide.explorer.focus');
-                    }
-                });
-            }
-        }, (err: Error) => {
-            // Detached: the triggering bridge call must not wait on dialogs.
-            void handleBackendStartFailure(err);
-            throw err;
-        });
-    };
-
-    // Lazy backend start (audit #17): the first bridge call, the XLIDE sidebar
-    // becoming visible, or the explorer auto-expand below kicks this off; the
-    // attempt is memoized so a failure fails later calls fast until a restart.
-    let backendStart: Promise<void> | undefined;
-    const ensureBackendStarted = (): Promise<void> => {
-        backendStart ??= startPythonBackend();
-        return backendStart;
-    };
-    bridge.setOnDemandStart(ensureBackendStarted);
+    sidebar.refresh();
 
     // Mirror Live Share guest state into a context key so the explorer welcome view
     // can show a "not supported" message instead of the generic empty-workspace one.
@@ -639,24 +164,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
         liveShare.onDidChange(updateGuestContext),
 
-        vscode.workspace.onDidChangeConfiguration((event) => {
-            if (event.affectsConfiguration('xlide.pythonPath')) {
-                out.appendLine('XLIDE Python path changed; rechecking Python backend.');
-                recheckPythonBackend();
-            }
-        }),
-
-        // Re-probe for a newly-installed Python the moment the user returns focus
-        // to VS Code (the usual "went and installed Python, came back" flow); the
-        // periodic pulse is the fallback when focus never changes.
-        vscode.window.onDidChangeWindowState((state) => {
-            if (state.focused && awaitingPython) {
-                pythonWasAvailable = false;
-                void pythonPulseTick();
-            }
-        }),
-        new vscode.Disposable(() => stopPythonPulse()),
-
         // Item 6: Reveal active module in the XLIDE Explorer tree.
         // Also drives accordion collapse: only the active module stays expanded.
         // Debounced so rapid tab switches (e.g. Ctrl+W spam) coalesce into a
@@ -732,120 +239,6 @@ export function activate(context: vscode.ExtensionContext): void {
             });
         })(),
 
-        // DEV ONLY: preview error notification UX
-        registerXlideCommand('xlide.previewErrors', async () => {
-            const pick = await vscode.window.showQuickPick([
-                { label: 'Scenario A: Python not found', id: 'a' },
-                { label: 'Scenario B: Packages missing', id: 'b' },
-                { label: 'After install success', id: 'c' },
-            ], { title: 'XLIDE: Preview error notification' });
-            if (!pick) { return; }
-            if (pick.id === 'a') {
-                const choice = await vscode.window.showErrorMessage(
-                    'XLIDE: Python 3.10+ was not found. Install Python and tick "Add Python to PATH", then reload the window. Or set xlide.pythonPath to your Python executable and reload.',
-                    'Get Python', 'Set Python Path', 'Reload Window',
-                );
-                if (choice === 'Reload Window') {
-                    void vscode.commands.executeCommand('workbench.action.reloadWindow');
-                } else if (choice === 'Get Python') {
-                    void vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
-                    void vscode.window.showInformationMessage(
-                        'After installing Python, reload the window to start XLIDE.',
-                        'Reload Window',
-                    ).then(a => { if (a === 'Reload Window') { void vscode.commands.executeCommand('workbench.action.reloadWindow'); } });
-                } else if (choice === 'Set Python Path') {
-                    void vscode.commands.executeCommand('workbench.action.openSettings', 'xlide.pythonPath');
-                    void vscode.window.showInformationMessage(
-                        'After setting the path, reload the window to start XLIDE.',
-                        'Reload Window',
-                    ).then(a => { if (a === 'Reload Window') { void vscode.commands.executeCommand('workbench.action.reloadWindow'); } });
-                }
-            } else if (pick.id === 'b') {
-                const choice = await vscode.window.showErrorMessage(
-                    'XLIDE: Required Python packages are missing (pyOpenVBA, openpyxl). Click "Install Now" to install them automatically.',
-                    'Install Now', 'Copy Diagnostics', 'Dismiss',
-                );
-                if (choice === 'Copy Diagnostics') {
-                    void vscode.commands.executeCommand('xlide.copyDiagnostics');
-                }
-            } else if (pick.id === 'c') {
-                void vscode.window.showInformationMessage(
-                    'XLIDE: Dependencies installed and bridge started. If any files failed to open, click Try Again in the editor tab.',
-                );
-            }
-        }),
-
-        // Manual setup command surfaced by the sidebar setup row.
-        registerXlideCommand('xlide.setup', () =>
-            installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention).catch((err: Error) => {
-                void pythonBackendNeedsAttention(err);
-                out.appendLine(`Setup error: ${err.message}`);
-                void vscode.window.showErrorMessage(
-                    `XLIDE setup failed: ${err.message}`,
-                    'Copy Diagnostics',
-                ).then((choice) => {
-                    if (choice === 'Copy Diagnostics') {
-                        void vscode.commands.executeCommand('xlide.copyDiagnostics');
-                    }
-                });
-            }),
-        ),
-
-        // Sidebar "Update" button on the libraries row when a newer pyOpenVBA /
-        // openpyxl release is available: pip install --upgrade, restart the
-        // backend, then re-verify so the row returns to green.
-        registerXlideCommand('xlide.updatePythonLibraries', () => {
-            if (libraryUpdateInProgress) {
-                return;
-            }
-            libraryUpdateInProgress = true;
-            outdatedLibraries = [];
-            libraryUpdateCheckDone = false;
-            installDependencies(bridge, context, out, pythonBackendReady, pythonBackendNeedsAttention, { upgrade: true })
-                .catch((err: Error) => {
-                    out.appendLine(`Library update error: ${err.message}`);
-                    void vscode.window.showErrorMessage(
-                        `XLIDE: Updating Python libraries failed: ${err.message}`,
-                        'Copy Diagnostics',
-                    ).then((choice) => {
-                        if (choice === 'Copy Diagnostics') {
-                            void vscode.commands.executeCommand('xlide.copyDiagnostics');
-                        }
-                    });
-                })
-                .finally(() => {
-                    libraryUpdateInProgress = false;
-                });
-        }),
-
-        registerXlideCommand('xlide.downloadPython', () => {
-            void vscode.env.openExternal(vscode.Uri.parse(PYTHON_DOWNLOAD_URL));
-        }),
-
-        registerXlideCommand('xlide.browsePythonPath', async () => {
-            const configured = configuredPythonPath();
-            const selected = await vscode.window.showOpenDialog({
-                title: 'XLIDE: Select Python Executable',
-                openLabel: 'Use Python',
-                canSelectFiles: true,
-                canSelectFolders: false,
-                canSelectMany: false,
-                defaultUri: configured ? vscode.Uri.file(configured) : undefined,
-                filters: process.platform === 'win32'
-                    ? { 'Python Executable': ['exe'], 'All Files': ['*'] }
-                    : undefined,
-            });
-            const pythonPath = selected?.[0]?.fsPath;
-            if (!pythonPath) {
-                return;
-            }
-            await setXlideGlobalSettingValue(
-                vscode.workspace.getConfiguration('xlide'),
-                'pythonPath',
-                pythonPath,
-            );
-        }),
-
         // Show the XLIDE output channel (used by the explorer welcome view).
         registerXlideCommand('xlide.showOutput', () => {
             out.show(true);
@@ -881,7 +274,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Item 7: Auto-expand the first workbook so modules are visible. Listing
     // workbooks only globs the workspace; expanding the first one performs the
     // first bridge call, which lazy-starts the backend. Workspaces without
-    // Excel workbooks (or with the explorer hidden) never spawn Python.
+    // Excel workbooks (or with the explorer hidden) never open a workbook.
     if (treeView.visible) {
         const autoExpandTimer = setTimeout(() => {
             if (!treeView.visible) { return; }

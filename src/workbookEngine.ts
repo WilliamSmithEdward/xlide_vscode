@@ -1,0 +1,130 @@
+// Native workbook engine.
+//
+// Exposes the request/response surface the extension already speaks
+// (`call(method, params)`) but answers every method in-process from
+// src/vba/**, with no external runtime. Keeping the call shape means every
+// existing caller - explorer, file system, analysis, tests, agent tools - works
+// unchanged.
+
+import * as vscode from 'vscode';
+import { BridgeError } from './workbookEngineErrors';
+import * as svc from './vba/workbookService';
+import type { CellValue } from './vba/xlsx';
+
+export interface WorkbookCallOptions {
+	/** Accepted for call-site compatibility; in-process calls need no watchdog. */
+	timeoutMs?: number;
+}
+
+type Params = Record<string, unknown>;
+
+function str(params: Params, key: string): string {
+	const value = params[key];
+	if (typeof value !== 'string' || value.length === 0) {
+		throw new BridgeError(`Missing required '${key}' parameter.`, -32602);
+	}
+	return value;
+}
+
+function optionalBool(params: Params, key: string, fallback = false): boolean {
+	const value = params[key];
+	return typeof value === 'boolean' ? value : fallback;
+}
+
+function grid(params: Params, key: string): CellValue[][] {
+	const value = params[key];
+	if (!Array.isArray(value)) {
+		throw new BridgeError(`Missing required '${key}' parameter.`, -32602);
+	}
+	return value.map((row) => (Array.isArray(row) ? row : [row]) as CellValue[]);
+}
+
+export class WorkbookEngine implements vscode.Disposable {
+	constructor(
+		private readonly _context: vscode.ExtensionContext,
+		private readonly _out?: vscode.OutputChannel,
+	) {}
+
+	/** Path of the bundled blank workbook used to seed a new one. */
+	private get templatePath(): string {
+		return vscode.Uri.joinPath(
+			this._context.extensionUri, 'assets', 'templates', 'blank.xlsm',
+		).fsPath;
+	}
+
+	async call<T = unknown>(
+		method: string,
+		params: unknown = {},
+		token?: vscode.CancellationToken,
+		_options?: WorkbookCallOptions,
+	): Promise<T> {
+		if (token?.isCancellationRequested) {
+			throw new vscode.CancellationError();
+		}
+		const p = (params ?? {}) as Params;
+		try {
+			return this.dispatch(method, p) as T;
+		} catch (err) {
+			if (err instanceof BridgeError || err instanceof vscode.CancellationError) {
+				throw err;
+			}
+			const message = err instanceof Error ? err.message : String(err);
+			this._out?.appendLine(`[workbook] ${method} failed: ${message}`);
+			throw new BridgeError(message, -32000);
+		}
+	}
+
+	private dispatch(method: string, p: Params): unknown {
+		switch (method) {
+			// --- VBA modules ---
+			case 'listModules':
+				return svc.listModules(str(p, 'path'));
+			case 'readModules':
+				return svc.readModules(str(p, 'path'), optionalBool(p, 'full'));
+			case 'readModule':
+				return svc.readModule(str(p, 'path'), str(p, 'module'), optionalBool(p, 'full'));
+			case 'listSubs':
+				return svc.listSubs(str(p, 'path'), str(p, 'module'));
+			case 'writeModule':
+				return svc.writeModule(
+					str(p, 'path'),
+					str(p, 'module'),
+					typeof p.source === 'string' ? p.source : '',
+					p.kind === 'class' ? 'class' : 'standard',
+				);
+			case 'renameModule':
+				return svc.renameModule(str(p, 'path'), str(p, 'module'), str(p, 'newName'));
+			case 'deleteModule':
+				return svc.deleteModule(str(p, 'path'), str(p, 'module'));
+
+			// --- workbook structure ---
+			case 'getProtectionInfo':
+				return svc.getProtectionInfo(str(p, 'path'));
+			case 'getModulesAndProtectionInfo':
+				return svc.getModulesAndProtectionInfo(str(p, 'path'));
+			case 'getWorkbookInfo':
+				return svc.getWorkbookInfo(str(p, 'path'));
+			case 'validateWorkbook':
+				return svc.validateWorkbook(str(p, 'path'));
+			case 'createWorkbook':
+				return svc.createWorkbook(str(p, 'path'), this.templatePath);
+
+			// --- sheets and cells ---
+			case 'listSheets':
+				return svc.listSheets(str(p, 'path'));
+			case 'readCells':
+				return svc.readCells(str(p, 'path'), str(p, 'sheet'), str(p, 'range'));
+			case 'readFormulas':
+				return svc.readFormulas(str(p, 'path'), str(p, 'sheet'), str(p, 'range'));
+			case 'writeCells':
+				return svc.writeCells(str(p, 'path'), str(p, 'sheet'), str(p, 'startCell'), grid(p, 'data'));
+
+			default:
+				throw new BridgeError(`Method not found: ${method}`, -32601);
+		}
+	}
+
+	dispose(): void {
+		// Nothing to tear down: every call runs in-process.
+	}
+}

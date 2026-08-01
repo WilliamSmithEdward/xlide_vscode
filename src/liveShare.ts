@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type * as vsls from 'vsls/vscode';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import { errorCategoryForSupportLog } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 
@@ -40,7 +40,7 @@ export interface RemoteSubInfo {
 /**
  * Encodes a remote (Live Share) module reference as an xlide-vba:// URI with
  * the special authority "liveshare". The local provider routes these to the
- * Live Share proxy instead of the local Python bridge.
+ * Live Share proxy instead of the local workbook engine.
  *
  *   xlide-vba://liveshare/<workbookId>/<moduleName>.bas
  */
@@ -102,7 +102,7 @@ export class LiveShareIntegration implements vscode.Disposable {
     private _featureSetPromptActive = false;
 
     constructor(
-        private readonly _bridge: PythonBridge,
+        private readonly _bridge: WorkbookEngine,
         private readonly _out: vscode.OutputChannel,
     ) {}
 

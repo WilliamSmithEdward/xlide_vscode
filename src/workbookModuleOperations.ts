@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { PythonBridge } from './pythonBridge';
+import type { WorkbookEngine } from './workbookEngine';
 import type { XlsmExplorer } from './xlsmExplorer';
 import type { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
@@ -20,7 +20,7 @@ import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
  * callers - commands and agent tools present outcomes differently.
  */
 export interface WorkbookModuleOperationDeps {
-    bridge: PythonBridge;
+    bridge: WorkbookEngine;
     explorer: XlsmExplorer;
     fsProvider: XlideFileSystemProvider;
     vbaIndex: VbaSymbolIndex;

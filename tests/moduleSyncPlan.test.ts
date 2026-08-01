@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { PythonBridge } from '../src/pythonBridge';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
+import type { WorkbookEngine } from '../src/workbookEngine';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
@@ -37,7 +37,7 @@ function tempWorkbook(): { root: string; workbook: string; repo: string } {
 	return { root, workbook, repo };
 }
 
-function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
+function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
 	return {
 		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
 			if (method === 'listModules') {
@@ -57,10 +57,10 @@ function fakeBridge(modules: readonly FakeModule[]): PythonBridge {
 			}
 			throw new BridgeError(`Method not found: ${method}`, JSONRPC_METHOD_NOT_FOUND);
 		},
-	} as PythonBridge;
+	} as WorkbookEngine;
 }
 
-function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): PythonBridge {
+function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): WorkbookEngine {
 	return {
 		async call<T>(method: string): Promise<T> {
 			calls.push(method);
@@ -74,7 +74,7 @@ function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): Pytho
 			}
 			throw new Error(`Unexpected bridge call ${method}`);
 		},
-	} as PythonBridge;
+	} as WorkbookEngine;
 }
 
 // Mirrors _SHARED_CLASSIFICATION_TABLE in python/tests/test_vba_io.py, which

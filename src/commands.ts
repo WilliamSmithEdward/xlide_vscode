@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
@@ -18,7 +18,7 @@ import { registerWorkbookCrudCommands } from './commands/workbookCrudCommands';
  */
 export function registerCommands(
     context: vscode.ExtensionContext,
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     explorer: XlsmExplorer,
     fsProvider: XlideFileSystemProvider,
     out: vscode.OutputChannel,

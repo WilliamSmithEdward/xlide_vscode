@@ -1,4 +1,4 @@
-import type { PythonBridge } from './pythonBridge';
+import type { WorkbookEngine } from './workbookEngine';
 import { checkExcelComAvailability, type ExcelComAvailabilityStatus } from './excelComAvailability';
 import { getVbaTestSupportStatus, type VbaTestSupportStatus } from './vbaTestSupportStatus';
 import {
@@ -39,7 +39,7 @@ export interface ExecuteVbaTestRunOptions extends VbaTestRunOptions {
 // gate, host run, artifact write) shared by the command-palette and agent
 // tool entry points. Callers adapt the result to their own presentation.
 export async function executeVbaTestRun(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     options: ExecuteVbaTestRunOptions = {},
 ): Promise<VbaTestRunPipelineResult> {

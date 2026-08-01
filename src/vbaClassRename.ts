@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import { notifySignatureDropped } from './xlideFileSystem';
 import {
     projectClassReferenceLocations,
@@ -11,7 +11,7 @@ import {
 } from './analyzer';
 
 export async function renameProjectClassModule(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     xlsmPath: string,
     oldName: string,
     newName: string,

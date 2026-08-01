@@ -1,9 +1,9 @@
-/** JSON-RPC 2.0 error code python/server.py returns for unknown methods. */
+/** JSON-RPC 2.0 error code the engine returns for unknown methods. */
 export const JSONRPC_METHOD_NOT_FOUND = -32601;
 
 /**
- * Rejection raised by PythonBridge when the backend returns a JSON-RPC error,
- * preserving the error code alongside the message so callers can branch on
+ * Rejection raised by WorkbookEngine when a call fails, preserving a
+ * JSON-RPC-style error code alongside the message so callers can branch on
  * the code instead of regex-matching the message text.
  */
 export class BridgeError extends Error {
@@ -14,7 +14,7 @@ export class BridgeError extends Error {
 }
 
 /**
- * Recognizes the bridge rejection for backends (and test fakes) that do not
+ * Recognizes the rejection from engines (and test fakes) that do not
  * implement the batch readModules RPC, so callers can fall back to
  * listModules plus per-module readModule calls. Callers only use this inside
  * catch blocks that wrap a single readModules call, so the method-not-found

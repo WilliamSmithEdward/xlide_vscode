@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { PythonBridge } from '../src/pythonBridge';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
-import { fakePythonBridge } from './helpers/fakePythonBridge';
+import type { WorkbookEngine } from '../src/workbookEngine';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
+import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import {
     createVbaTestRunReport,
     describeVbaTestSelection,
@@ -147,7 +147,7 @@ describe('VBA test runner discovery', () => {
                 }
                 throw new Error(`Unexpected bridge call ${method}`);
             },
-        } as unknown as PythonBridge;
+        } as unknown as WorkbookEngine;
 
         const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
 
@@ -174,7 +174,7 @@ describe('VBA test runner discovery', () => {
                 }
                 throw new Error(`Unexpected bridge call ${method}`);
             },
-        } as unknown as PythonBridge;
+        } as unknown as WorkbookEngine;
 
         const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
 
@@ -388,6 +388,6 @@ describe('VBA test runner reporting', () => {
     });
 });
 
-function bridgeForModules(modules: Array<{ name: string; type: string; source: string }>): PythonBridge {
-    return fakePythonBridge(modules);
+function bridgeForModules(modules: Array<{ name: string; type: string; source: string }>): WorkbookEngine {
+    return fakeWorkbookEngine(modules);
 }

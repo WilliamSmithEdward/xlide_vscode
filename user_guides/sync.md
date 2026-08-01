@@ -24,7 +24,7 @@ Import/export is useful for:
 - applying a reviewed batch of `.bas` or `.cls` file edits back into a workbook
 - letting external tools inspect module text without opening the workbook
 
-Import/export uses the Python workbook backend and does not require Excel COM.
+Import/export uses XLIDE's built-in workbook engine and does not require Excel COM.
 Excel COM is only required for workflows that execute VBA, such as running
 macros or workbook tests.
 

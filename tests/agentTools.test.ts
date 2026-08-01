@@ -20,7 +20,6 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
     },
 }));
 
-vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 vi.mock('../src/xlsmExplorer', () => ({ XlsmExplorer: class XlsmExplorer {} }));
 vi.mock('../src/xlideFileSystem', () => ({
     XlideFileSystemProvider: class XlideFileSystemProvider {},
@@ -109,13 +108,13 @@ describe('xlide_createWorkbook agent tool', () => {
     it('audits bridge failures during workbook creation', async () => {
         const target = path.join(tempDir, 'New.xlsm');
         const bridgeCall = vi.fn(async () => {
-            throw new Error('python bridge unavailable');
+            throw new Error('workbook engine unavailable');
         });
         registerTools(bridgeCall);
         const tool = vscodeMock.registeredTools.get('xlide_createWorkbook');
 
         await expect(tool?.invoke({ input: { filePath: target } }, undefined))
-            .rejects.toThrow('python bridge unavailable');
+            .rejects.toThrow('workbook engine unavailable');
 
         expect(recentXlideWriteAudits(1)).toMatchObject([{
             command: 'xlide_createWorkbook',

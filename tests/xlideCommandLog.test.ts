@@ -66,8 +66,8 @@ describe('XLIDE command log', () => {
 		expect(errorCategoryForSupportLog(new Error('[Errno 13] EACCES: permission'))).toBe(
 			'workbook-locked',
 		);
-		expect(errorCategoryForSupportLog(new Error('python backend exited unexpectedly'))).toBe(
-			'python-backend',
+		expect(errorCategoryForSupportLog(new Error('ENOENT: no such file or directory'))).toBe(
+			'workbook-missing',
 		);
 		expect(errorCategoryForSupportLog(new Error('User cancelled operation'))).toBe('cancelled');
 		expect(errorCategoryForSupportLog(new Error('something else'))).toBe('unknown');

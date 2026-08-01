@@ -5,12 +5,6 @@ dist/
 coverage/
 *.vsix
 
-# Python
-.venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.eggs/
 
 # VS Code
 .vscode/settings.json

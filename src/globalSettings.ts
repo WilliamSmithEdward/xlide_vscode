@@ -43,8 +43,6 @@ interface XlideGlobalSettingUpdateResult<T = unknown> {
 type XlideGlobalSettingsSnapshot = Record<string, unknown>;
 
 interface XlideGlobalSettingValues {
-    'pythonPath': string;
-    'checkPythonLibraryUpdates': boolean;
     'attachToRunningExcel': boolean;
     'excelIntegration.coordinationMode': ExcelCoordinationMode;
     'excelIntegration.trackOpenedWorkbooks': boolean;
@@ -65,7 +63,7 @@ interface XlideGlobalSettingValues {
 }
 
 type XlideGlobalSettingKey = keyof XlideGlobalSettingValues;
-type XlideGlobalSettingSection = 'runtime' | 'excel' | 'editor' | 'docs' | 'analysis';
+type XlideGlobalSettingSection = 'excel' | 'editor' | 'docs' | 'analysis';
 
 type XlideGlobalSettingControl =
     | { kind: 'text' }
@@ -128,30 +126,6 @@ const DEFAULT_DOC_METADATA_GLOB = '**/*.vbref.xml';
 const XLIDE_GLOBAL_SETTINGS: {
     [K in XlideGlobalSettingKey]: XlideGlobalSettingSchema<XlideGlobalSettingValues[K]>;
 } = {
-    'pythonPath': {
-        defaultValue: () => '',
-        normalize: (value) => typeof value === 'string' ? value.trim() : '',
-        validate: expectString,
-        manifest: { type: 'string' },
-        webviewCard: {
-            section: 'runtime',
-            label: 'Python Path',
-            description: 'Full path to the Python interpreter XLIDE runs its backend with. Leave blank to auto-detect Python on your PATH.',
-            control: { kind: 'text' },
-        },
-    },
-    'checkPythonLibraryUpdates': {
-        defaultValue: () => true,
-        normalize: normalizeBoolean(true),
-        validate: expectBoolean,
-        manifest: { type: 'boolean' },
-        webviewCard: {
-            section: 'runtime',
-            label: 'Check Python Library Updates',
-            description: 'Once per session, check PyPI for newer releases of the required Python libraries (pyOpenVBA, openpyxl) and offer a one-click Update in the sidebar when one is available. Turn off to never contact PyPI.',
-            control: { kind: 'boolean' },
-        },
-    },
     'excelIntegration.coordinationMode': {
         defaultValue: (): ExcelCoordinationMode => 'block',
         normalize: normalizeExcelCoordinationMode,
@@ -456,13 +430,7 @@ function xlideExplorerAutoExpandCollapseFromConfig(config: vscode.WorkspaceConfi
     return xlideGlobalSettingFromConfig(config, 'explorer.autoExpandCollapse');
 }
 
-function xlideCheckPythonLibraryUpdatesFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'checkPythonLibraryUpdates');
-}
 
-function xlidePythonPathFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'pythonPath');
-}
 
 function xlidePerformanceTraceFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'performance.trace');
@@ -763,7 +731,6 @@ export {
     xlideExcelReopenAfterCloseFromConfig,
     xlideExcelReopenModeFromConfig,
     xlideExcelReopenReadOnlyAfterSaveFromConfig,
-    xlideCheckPythonLibraryUpdatesFromConfig,
     xlideDiagnosticsEnabledFromConfig,
     xlideDocsEnabledFromConfig,
     xlideDocsMetadataGlobFromConfig,
@@ -774,5 +741,4 @@ export {
     xlideGlobalSettingCards,
     xlideGlobalSettingManifest,
     xlidePerformanceTraceFromConfig,
-    xlidePythonPathFromConfig,
 };

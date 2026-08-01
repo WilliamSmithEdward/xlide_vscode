@@ -14,7 +14,6 @@ import {
 } from '../src/globalSettings';
 
 const validSettings = {
-    pythonPath: '',
     attachToRunningExcel: true,
     'excelIntegration.coordinationMode': 'block',
     'excelIntegration.trackOpenedWorkbooks': true,
@@ -131,15 +130,14 @@ describe('globalSettings', () => {
 
     it('returns support-bundle-ready settings in the contributed key order', () => {
         const settings = resolvedXlideGlobalSettingsFromConfig(fakeConfig({
-            pythonPath: 'C:\\Python\\python.exe',
-        }, new Set(['pythonPath'])));
+            'docs.metadataGlob': 'refs/**/*.vbref.xml',
+        }, new Set(['docs.metadataGlob'])));
 
         expect(settings.map((setting) => setting.key)).toEqual([
             'xlide.analysis.ruleSeverityOverrides',
             'xlide.analysis.untrackedRules',
             'xlide.analysis.visibleSeverities',
             'xlide.attachToRunningExcel',
-            'xlide.checkPythonLibraryUpdates',
             'xlide.diagnostics.enabled',
             'xlide.docs.enabled',
             'xlide.docs.metadataGlob',
@@ -153,10 +151,9 @@ describe('globalSettings', () => {
             'xlide.excelIntegration.trackOpenedWorkbooks',
             'xlide.explorer.autoExpandCollapse',
             'xlide.performance.trace',
-            'xlide.pythonPath',
         ]);
-        expect(settings.find((setting) => setting.key === 'xlide.pythonPath')).toMatchObject({
-            value: 'C:\\Python\\python.exe',
+        expect(settings.find((setting) => setting.key === 'xlide.docs.metadataGlob')).toMatchObject({
+            value: 'refs/**/*.vbref.xml',
             source: 'machine',
         });
     });
@@ -260,16 +257,16 @@ describe('globalSettings', () => {
     it('resets global settings through the machine settings target', async () => {
         const updates: Array<{ key: string; value: unknown; target: unknown }> = [];
         const config = fakeConfig({
-            pythonPath: 'C:\\Python\\python.exe',
-        }, new Set(['pythonPath']), updates);
+            'docs.metadataGlob': 'refs/**/*.vbref.xml',
+        }, new Set(['docs.metadataGlob']), updates);
 
-        await expect(resetXlideGlobalSettingValue(config, 'pythonPath')).resolves.toEqual({
-            key: 'xlide.pythonPath',
-            value: '',
+        await expect(resetXlideGlobalSettingValue(config, 'docs.metadataGlob')).resolves.toEqual({
+            key: 'xlide.docs.metadataGlob',
+            value: '**/*.vbref.xml',
             changed: true,
         });
         expect(updates).toEqual([{
-            key: 'pythonPath',
+            key: 'docs.metadataGlob',
             value: undefined,
             target: true,
         }]);

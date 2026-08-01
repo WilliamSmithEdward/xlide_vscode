@@ -235,7 +235,6 @@ describe('VBA language configuration', () => {
 			'xlide.analysis.untrackedRules',
 			'xlide.analysis.visibleSeverities',
 			'xlide.attachToRunningExcel',
-			'xlide.checkPythonLibraryUpdates',
 			'xlide.diagnostics.enabled',
 			'xlide.docs.enabled',
 			'xlide.docs.metadataGlob',
@@ -249,7 +248,6 @@ describe('VBA language configuration', () => {
 			'xlide.excelIntegration.trackOpenedWorkbooks',
 			'xlide.explorer.autoExpandCollapse',
 			'xlide.performance.trace',
-			'xlide.pythonPath',
 		]);
 
 		for (const [key, setting] of xlideSettings) {
@@ -279,15 +277,14 @@ describe('VBA language configuration', () => {
 			'onView:xlide.explorer',
 		]));
 		expect(contributes?.viewsWelcome?.map((entry) => entry.view)).not.toContain('xlide.sidebar');
+		// The workbook engine runs in-process, so no setup gate stands between
+		// the user and the tree: the only welcome view is the empty-workspace one,
+		// and it is unconditional.
 		expect(contributes?.viewsWelcome?.filter((entry) => entry.view === 'xlide.explorer')).toEqual([
-			expect.objectContaining({
-				when: '!xlide.setupComplete',
-				contents: expect.stringContaining('XLIDE setup is not complete.'),
-			}),
-			expect.objectContaining({
-				when: 'xlide.setupComplete',
+			{
+				view: 'xlide.explorer',
 				contents: expect.stringContaining('No Excel workbooks'),
-			}),
+			},
 		]);
 	});
 
@@ -297,7 +294,6 @@ describe('VBA language configuration', () => {
 			?.commands ?? [];
 		const command = commands.find((entry) => entry.command === 'xlide.openWorkbookSettings');
 		const globalCommand = commands.find((entry) => entry.command === 'xlide.openGlobalSettings');
-		const downloadPythonCommand = commands.find((entry) => entry.command === 'xlide.downloadPython');
 		const runVbaTestsCommand = commands.find((entry) => entry.command === 'xlide.runVbaTests');
 		const performanceCommand = commands.find((entry) => entry.command === 'xlide.copyPerformanceSnapshot');
 
@@ -309,11 +305,6 @@ describe('VBA language configuration', () => {
 		expect(globalCommand).toMatchObject({
 			command: 'xlide.openGlobalSettings',
 			title: 'Open Global Settings',
-			category: 'XLIDE',
-		});
-		expect(downloadPythonCommand).toMatchObject({
-			command: 'xlide.downloadPython',
-			title: 'Download Python',
 			category: 'XLIDE',
 		});
 		expect(runVbaTestsCommand).toMatchObject({

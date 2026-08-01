@@ -1,4 +1,4 @@
-// OOXML workbook access (replaces openpyxl for XLIDE's sheet/cell surface).
+// OOXML workbook access: XLIDE's sheet/cell surface.
 //
 // Reads sheet names, used ranges, cell values and formulas, defined names, and
 // the embedded vbaProject.bin; writes cell values back. Writes splice into the
@@ -647,7 +647,7 @@ function isDateFormatCode(code: string): boolean {
 }
 
 /**
- * Excel serial date to an ISO-8601 string, matching what the Python bridge
+ * Excel serial date to an ISO-8601 string, matching what the previous backend
  * emitted (datetime objects were JSON-encoded via isoformat()).
  */
 function excelSerialToIso(serial: number): string {

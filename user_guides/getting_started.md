@@ -9,12 +9,10 @@ first-hour workflow for a developer opening a real Excel macro workbook.
 XLIDE requires:
 
 - VS Code 1.95 or newer.
-- Python 3.10 or newer.
-- Python packages used by the XLIDE backend.
 
-Open the XLIDE Activity Bar view and use the setup actions shown there. If
-Python is not detected, set `xlide.pythonPath` in XLIDE Global Settings or use
-the setup action to install the required Python packages.
+That is the whole list. XLIDE reads and writes workbooks itself, so there is no
+runtime to install and no setup step to complete: open the XLIDE Activity Bar
+view and it is ready.
 
 Excel is not required for reading, editing, exporting, importing, or analyzing
 VBA modules. Microsoft Excel COM is required only for workflows that execute

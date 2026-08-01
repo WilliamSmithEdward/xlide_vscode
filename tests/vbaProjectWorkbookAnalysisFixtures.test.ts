@@ -6,7 +6,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 
 import * as vscode from 'vscode';
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
-import type { PythonBridge } from '../src/pythonBridge';
+import type { WorkbookEngine } from '../src/workbookEngine';
 import type { WorkbookAnalysisProblem } from '../src/vbaWorkbookAnalysis';
 import {
 	fixtureModules,
@@ -15,10 +15,10 @@ import {
 	type VbaProjectFixtureOpenDocumentAssertion,
 	type VbaProjectFixture,
 } from './helpers/vbaProjectFixtures';
-import { fakePythonBridge } from './helpers/fakePythonBridge';
+import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 
-function bridgeForFixture(fixture: VbaProjectFixture): PythonBridge {
-	return fakePythonBridge(fixtureModules(fixture).map((mod) => ({
+function bridgeForFixture(fixture: VbaProjectFixture): WorkbookEngine {
+	return fakeWorkbookEngine(fixtureModules(fixture).map((mod) => ({
 		name: mod.moduleName,
 		type: mod.type ?? 'standard',
 		documentType: mod.documentType,

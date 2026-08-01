@@ -745,7 +745,7 @@ Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or
 > Status: IN PROGRESS (core shipped). A pure, vscode-free analyzer engine
 > `src/analyzer/diagnostics/{ruleMetadata,analyzeModule}.ts` (barrel-exported
 > as `analyzeModule`, `DIAGNOSTIC_RULES`) computes high-confidence semantic
-> diagnostics directly from editor text - no save, no Python round-trip. It is
+> diagnostics directly from editor text - no save, no workbook round-trip. It is
 > merged with the existing structural block-balance analyzer (`analyzeVbaStructure`,
 > which already covers every "Missing End .../Unexpected block terminator"
 > case) inside `registerVbaDiagnostics` in `src/vbaLanguageProviders.ts`, runs
@@ -1535,7 +1535,7 @@ Use this split across analysis, import/export, diff, test, and future workbook
 workflow panels:
 
 - **Global extension settings** are for environment and default behavior:
-  Python/backend setup, editor typing behavior, default block layout, default
+  editor typing behavior, default block layout, default
   analysis profile, default import/export modes, documentation metadata glob,
   and sidebar/editor preferences.
 - **Workbook-scoped settings** are for decisions tied to one workbook:

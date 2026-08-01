@@ -269,7 +269,7 @@ class WorkbookSettingsWatcherRegistry implements vscode.Disposable {
  * duplicate procedures/declarations, assignment to a constant, and a
  * configurable Option Explicit reminder. Runs on open and (debounced) on every
  * edit so problems surface while typing, the way a real IDE does. No save and
- * no Python round-trip required - everything is computed from the editor text.
+ * no workbook round-trip required - everything is computed from the editor text.
  */
 export function registerVbaDiagnostics(
     context: vscode.ExtensionContext,
@@ -525,7 +525,7 @@ export function registerVbaDiagnostics(
         }
         if (!moduleMetadataKnown) {
             // The workbook has not reported this module's kind yet (typically
-            // the Python backend is still starting on first open). Analyzing
+            // the workbook has not been indexed yet on first open). Analyzing
             // with a guessed 'standard' kind floods class modules with bogus
             // "'Me' is only valid in a class..." errors until a later pass
             // corrects them - publish nothing and retry the full pass instead.

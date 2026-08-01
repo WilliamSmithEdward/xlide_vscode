@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { PythonBridge } from './pythonBridge';
+import type { WorkbookEngine } from './workbookEngine';
 import {
     type ModuleInfo,
     computeStaleExportFiles,
@@ -104,7 +104,7 @@ const VB_BASE_RE = /^\s*Attribute\s+VB_Base\s*=\s*"([^"]*)"/im;
 const DOCUMENT_MODULE_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 
 export async function buildExportModuleSyncPlan(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     params: {
         workbookPath: string;
         exportFolder: string;
@@ -219,7 +219,7 @@ export async function buildExportModuleSyncPlan(
 }
 
 export async function buildImportModuleSyncPlan(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     params: {
         workbookPath: string;
         importFolder: string;
@@ -524,7 +524,7 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
 /**
  * Infer module type from source content and name.
  *
- * Mirrors _module_type in python/xlide/vba_io.py - the shared classification
+ * Mirrors classifyModuleType in src/vba/workbookService.ts - the shared classification
  * table tests on both sides pin the two implementations together.
  */
 export function classifyModuleType(name: string, source: string): 'standard' | 'document' | 'userform' {

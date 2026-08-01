@@ -55,7 +55,6 @@ interface XlideGlobalSettingsMessage {
 const SETTING_KEY_SET = new Set<string>(XLIDE_GLOBAL_SETTING_KEYS);
 
 const SETTING_SECTIONS: ReadonlyArray<{ id: XlideGlobalSettingSection; title: string }> = [
-    { id: 'runtime', title: 'Runtime' },
     { id: 'excel', title: 'Excel Integration' },
     { id: 'editor', title: 'Editor And Diagnostics' },
     { id: 'docs', title: 'Documentation' },

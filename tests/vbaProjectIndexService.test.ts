@@ -5,12 +5,11 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 		onDidCloseTextDocument: vi.fn(() => ({ dispose: () => undefined })),
 	},
 }));
-vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 
 import * as vscode from 'vscode';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
 import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
-import { fakePythonBridge, type FakeBridgeModule } from './helpers/fakePythonBridge';
+import { fakeWorkbookEngine, type FakeBridgeModule } from './helpers/fakeWorkbookEngine';
 
 // Platform-appropriate absolute path: decodeModuleUri and path.resolve are
 // deliberately platform-sensitive, so a hardcoded Windows path never matches
@@ -23,7 +22,7 @@ function service(modules: FakeBridgeModule[]): {
 	projectIndexService: VbaProjectIndexService;
 	callCount: () => number;
 } {
-	const bridge = fakePythonBridge({ [BOOK]: modules });
+	const bridge = fakeWorkbookEngine({ [BOOK]: modules });
 	const index = new VbaSymbolIndex(bridge);
 	return {
 		index,

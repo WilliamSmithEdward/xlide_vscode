@@ -13,7 +13,6 @@ import {
     type XlideSidebarActiveWorkbook,
     type XlideSidebarCommand,
     type XlideSidebarNode,
-    type XlideSidebarSetupStatus,
     type XlideSidebarWorkbookChoice,
 } from './xlideSidebarModel';
 import { measurePerformance, startPerformanceTrace } from './performanceTrace';
@@ -25,7 +24,6 @@ import { fileExists } from './util/fs';
 import { debounce } from './util/debounce';
 
 interface XlideSidebarOptions {
-    setupStatus?: () => XlideSidebarSetupStatus;
     workspaceState?: vscode.Memento;
     /** Fired whenever the sidebar view is (re)shown, e.g. to lazy-start the backend. */
     onDidBecomeVisible?: () => void;
@@ -90,7 +88,6 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         return buildXlideSidebarModel({
             workbookChoices: workbookChoices(workbooks),
             activeWorkbook,
-            setupStatus: this._options.setupStatus?.(),
         });
     }
 
@@ -762,7 +759,7 @@ function renderButtonOnlyRow(node: XlideSidebarNode): string {
 
 function renderRowNode(node: XlideSidebarNode, sectionId: string): string {
     const status = node.status ?? 'unknown';
-    const showDot = sectionId === 'setup' && node.kind === 'status';
+    const showDot = false;
     const rowClass = showDot ? 'row' : 'row noDotRow';
     const commandTitle = node.command?.tooltip ?? node.command?.title ?? node.label;
     const command = node.command
@@ -790,7 +787,7 @@ function commandButtonStateAttrs(command: XlideSidebarCommand, title: string): s
 function renderSelectNode(node: XlideSidebarNode, sectionId: string): string {
     const status = node.status ?? 'unknown';
     const options = node.options ?? [];
-    const showDot = sectionId === 'setup';
+    const showDot = false;
     const rowClass = showDot ? 'row selectRow' : 'row selectRow noDotRow';
     const selectedValue = node.value ?? '';
     const selectedOption = options.find((option) => option.value === selectedValue);

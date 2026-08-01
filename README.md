@@ -120,17 +120,14 @@ VBA project.
 1. Install the extension:
    [XLIDE on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
 
-2. Install Python 3.10 or newer if you do not already have it:
-   [Download Python](https://www.python.org/downloads/)
-
-3. Open a folder in VS Code that contains an `.xlsm`, `.xlsb`, or `.xlam`
+2. Open a folder in VS Code that contains an `.xlsm`, `.xlsb`, or `.xlam`
    workbook.
 
-4. Open the XLIDE view in the Activity Bar. If setup is incomplete, use the
-   sidebar buttons to choose Python and install the required Python libraries.
+3. Expand your workbook in the XLIDE view, open a module, and start editing.
+   Press `Ctrl+S` to save code back to the workbook.
 
-5. Expand your workbook, open a module, and start editing. Press `Ctrl+S` to
-   save code back to the workbook.
+There is nothing else to install: XLIDE reads and writes workbooks itself, with
+no external runtime and no setup step.
 
 Start here for a guided first-hour walkthrough:
 [Getting started with XLIDE](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md)
@@ -205,8 +202,10 @@ Guide:
 Required for normal browsing, editing, analysis, import, and export:
 
 - Visual Studio Code 1.95 or newer.
-- Python 3.10 or newer.
-- Python packages installed by XLIDE setup: `pyOpenVBA` and `openpyxl`.
+
+That is the whole list. XLIDE parses and rewrites the workbook container
+(OLE compound file, VBA project, and OOXML package) natively in the extension,
+so there is no runtime, interpreter, or library to install.
 
 Required only for running VBA code from XLIDE:
 
@@ -281,10 +280,6 @@ cd xlide_vscode
 
 npm install
 npm run compile
-
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r python/requirements.txt
 ```
 
 Press `F5` in VS Code to launch an Extension Development Host.

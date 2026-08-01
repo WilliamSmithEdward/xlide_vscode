@@ -34,13 +34,9 @@ describe('XlsmExplorer', () => {
         ]);
     });
 
-    it('keeps the workbook tree empty until setup is complete', async () => {
+    it('lists workspace workbooks at the tree root', async () => {
         const explorer = new XlsmExplorer(fakeBridge());
 
-        await expect(explorer.getChildren()).resolves.toEqual([]);
-        expect(vscodeMock.findFiles).not.toHaveBeenCalled();
-
-        explorer.setSetupComplete(true);
         await expect(explorer.getChildren()).resolves.toMatchObject([{
             kind: 'xlsm',
             label: 'Book.xlsm',
@@ -58,7 +54,6 @@ describe('XlsmExplorer', () => {
             resolveFind = resolve;
         }));
         const explorer = new XlsmExplorer(fakeBridge());
-        explorer.setSetupComplete(true);
 
         const first = explorer.getChildren();
         const second = explorer.getChildren();
@@ -73,7 +68,6 @@ describe('XlsmExplorer', () => {
             { name: 'Module1', type: 'standard' },
             { name: 'Module2', type: 'standard' },
         ]));
-        explorer.setSetupComplete(true);
         vscodeMock.treeEvents = [];
 
         const [workbook] = await explorer.getChildren();
@@ -95,7 +89,6 @@ describe('XlsmExplorer', () => {
             { name: 'Module1', type: 'standard' },
             { name: 'Module2', type: 'standard' },
         ]));
-        explorer.setSetupComplete(true);
         vscodeMock.treeEvents = [];
 
         const [workbook] = await explorer.getChildren();
@@ -123,7 +116,6 @@ describe('XlsmExplorer', () => {
         const explorer = new XlsmExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
         ]));
-        explorer.setSetupComplete(true);
 
         const [book1, book2] = await explorer.getChildren();
         const [book1Module] = await explorer.getChildren(book1);
@@ -164,7 +156,6 @@ describe('XlsmExplorer', () => {
         const explorer = new XlsmExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
         ]));
-        explorer.setSetupComplete(true);
 
         const [book1, book2] = await explorer.getChildren();
         await explorer.getChildren(book1);
@@ -197,7 +188,6 @@ describe('XlsmExplorer', () => {
         const explorer = new XlsmExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
         ]));
-        explorer.setSetupComplete(true);
 
         const [book1, book2, book3] = await explorer.getChildren();
         await explorer.getChildren(book1);
@@ -225,7 +215,6 @@ describe('XlsmExplorer', () => {
             { name: 'Module1', type: 'standard' },
             { name: 'Module2', type: 'standard' },
         ]));
-        explorer.setSetupComplete(true);
 
         const [book1, book2] = await explorer.getChildren();
         const [book1Module1, book1Module2] = await explorer.getChildren(book1);
@@ -243,7 +232,6 @@ describe('XlsmExplorer', () => {
         const call = vi.fn(() => Promise.resolve({ isPasswordProtected: false, isSigned: false }));
         const bridge = { call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
         const explorer = new XlsmExplorer(bridge);
-        explorer.setSetupComplete(true);
 
         await explorer.getChildren();
         await explorer.getChildren();
@@ -262,7 +250,6 @@ describe('XlsmExplorer', () => {
             return Promise.resolve({ isPasswordProtected: false, isSigned: false });
         });
         const explorer = new XlsmExplorer({ call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0]);
-        explorer.setSetupComplete(true);
         const [workbook] = await explorer.getChildren();
 
         const first = explorer.getChildren(workbook);
@@ -279,7 +266,6 @@ describe('XlsmExplorer', () => {
             [{ name: 'Run', kind: 'Sub', line: 1 }],
         );
         const explorer = new XlsmExplorer(bridge);
-        explorer.setSetupComplete(true);
         const [workbook] = await explorer.getChildren();
         const [module] = await explorer.getChildren(workbook);
 
@@ -305,7 +291,6 @@ describe('XlsmExplorer', () => {
             return Promise.resolve({ isPasswordProtected: false, isSigned: false });
         });
         const explorer = new XlsmExplorer({ call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0]);
-        explorer.setSetupComplete(true);
         const [workbook] = await explorer.getChildren();
         const [module] = await explorer.getChildren(workbook);
 
@@ -341,7 +326,6 @@ describe('XlsmExplorer', () => {
                 { call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0],
                 { appendLine } as unknown as ConstructorParameters<typeof XlsmExplorer>[1],
             );
-            explorer.setSetupComplete(true);
             const [workbook] = await explorer.getChildren();
 
             await explorer.getChildren(workbook);
@@ -361,7 +345,6 @@ describe('XlsmExplorer', () => {
         try {
             const bridge = fakeBridge([{ name: 'Module1', type: 'standard' }]);
             const explorer = new XlsmExplorer(bridge);
-            explorer.setSetupComplete(true);
             const [workbook] = await explorer.getChildren();
 
             await explorer.getChildren(workbook);
@@ -409,7 +392,6 @@ describe('XlsmExplorer transient load failures', () => {
         } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
 
         const explorer = new XlsmExplorer(bridge);
-        explorer.setSetupComplete(true);
         const [workbook] = await explorer.getChildren();
 
         // Failure: the node must yield a clickable placeholder, not [] (VS Code
@@ -446,7 +428,6 @@ describe('XlsmExplorer transient load failures', () => {
         } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
 
         const explorer = new XlsmExplorer(bridge);
-        explorer.setSetupComplete(true);
         const [workbook] = await explorer.getChildren();
         const [module] = await explorer.getChildren(workbook);
 

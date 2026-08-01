@@ -5,7 +5,7 @@ import {
     type ProjectIndex,
     type Span,
 } from './analyzer';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import { encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
 import {
     offsetToPosition,
@@ -21,7 +21,7 @@ type StandardModuleReferenceEdit = {
 };
 
 export async function renameProjectStandardModule(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     xlsmPath: string,
     oldName: string,
     newName: string,

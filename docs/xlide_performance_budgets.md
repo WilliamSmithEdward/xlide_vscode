@@ -85,7 +85,6 @@ Important trace names:
 - `analyzeWorkbook.buildProjectContext`, `analyzeWorkbook.settings`,
   `analyzeWorkbook.analyzeModule`, `analyzeWorkbook.total`
 - `command`
-- `pythonBridge.start`, `pythonBridge.call`
 - `filesystem.readFile`, `filesystem.writeFile`
 - `docs.reload`
 - `sidebar.render`, `sidebar.workbookFiles`

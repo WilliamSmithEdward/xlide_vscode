@@ -13,7 +13,7 @@ npm run test:oracle:vbe
 ```
 
 Run oracle commands sequentially. Do not run multiple `test:oracle:vbe` or
-`run_excel_vbe_oracle.py` invocations in parallel, even for different cases.
+`run_excel_vbe_oracle.mjs` invocations in parallel, even for different cases.
 The harness drives Excel/VBE through a single-user COM/UI automation surface;
 parallel runs can contend for VBE focus, command bars, modal dialogs, and Excel
 process cleanup, producing timeouts or misleading contradictory results. When
@@ -23,17 +23,17 @@ up, then run the next.
 Useful filters:
 
 ```powershell
-python syntax_corpus/oracle/run_excel_vbe_oracle.py --case missing_trailing_required_argument
-python syntax_corpus/oracle/run_excel_vbe_oracle.py --timeout 30 --json
-python syntax_corpus/oracle/run_excel_vbe_oracle.py --timeout-retries 2
-python syntax_corpus/oracle/run_excel_vbe_oracle.py --case string_scalar_member_access_compile --dialog-hold-seconds 20
-python syntax_corpus/oracle/run_excel_vbe_oracle.py --strict
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --case missing_trailing_required_argument
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --timeout 30 --json
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --timeout-retries 2
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --case string_scalar_member_access_compile --dialog-hold-seconds 20
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --strict
 ```
 
 Promotion workflow for an observe-only case:
 
 ```powershell
-python syntax_corpus/oracle/run_excel_vbe_oracle.py --case local_string_with_argument_statement --promote-observed
+node syntax_corpus/oracle/run_excel_vbe_oracle.mjs --case local_string_with_argument_statement --promote-observed
 ```
 
 Promotion is deliberately narrow. It requires at least one `--case`, refuses
@@ -51,7 +51,7 @@ fixtures whose `expected` value is already asserted, and writes only
 
 The runner starts an unsaved disposable Excel workbook per case. Keeping the
 workbook in memory avoids local macro-security policy blocking generated test
-macros. If a case hangs, the Python coordinator times out the worker and attempts
+macros. If a case hangs, the coordinator times out the worker and attempts
 to kill only the Excel process that the worker recorded. Timeout is not VBA
 evidence: it is treated as oracle infrastructure health. The coordinator retries
 the same case up to `--timeout-retries`; if every attempt times out, it aborts
@@ -124,7 +124,7 @@ a bogus "accepted" control). Guard against it with the controls below.
    not promote anything until it is fixed:
 
    ```powershell
-   py syntax_corpus/oracle/run_excel_vbe_oracle.py `
+   py syntax_corpus/oracle/run_excel_vbe_oracle.mjs `
      --case missing_trailing_required_argument `
      --case bare_variable_statement `
      --case number_to_string_assignment --strict --json
@@ -135,11 +135,6 @@ a bogus "accepted" control). Guard against it with the controls below.
    batches once warm, try `--timeout 40` and watch for accept-case timeouts;
    raise it for slow/cold machines. A future efficiency win is to warm the VBE
    compiler once per worker so a shorter watch window suffices.
-
-8. **Use the right interpreter.** The coordinator is pure-stdlib Python (the COM
-   automation lives in the PowerShell worker), so no `pywin32` is required, but a
-   *real* Python is — invoke via the `py` launcher or an explicit interpreter
-   path, not a Windows Store `python.exe` alias.
 
 ## Automation Policy
 

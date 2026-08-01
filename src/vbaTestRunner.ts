@@ -1,11 +1,11 @@
 import * as path from 'path';
-import type { PythonBridge } from './pythonBridge';
+import type { WorkbookEngine } from './workbookEngine';
 import { parseModule } from './analyzer/parser/parseModule';
 import type { ModuleMember, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaSourceScan';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
-import { isReadModulesUnavailable } from './pythonBridgeErrors';
+import { isReadModulesUnavailable } from './workbookEngineErrors';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
 export const VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE = 'vba-test-directive';
@@ -209,7 +209,7 @@ export function validateVbaTestDirectivesFromModule(
 // Batch read of every module in one workbook open; falls back to listModules
 // plus one readModule per standard module for backends without readModules.
 async function listWorkbookModulesForDiscovery(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
 ): Promise<VbaTestModuleEntry[]> {
     try {
@@ -227,7 +227,7 @@ async function listWorkbookModulesForDiscovery(
 }
 
 export async function discoverWorkbookVbaTests(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     selection?: VbaTestSelectionOptions,
 ): Promise<VbaTestDiscoveryResult> {

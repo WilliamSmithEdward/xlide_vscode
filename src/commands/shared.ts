@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { PythonBridge } from '../pythonBridge';
+import type { WorkbookEngine } from '../workbookEngine';
 import type { XlsmExplorer, XlideNode } from '../xlsmExplorer';
 import type { XlideFileSystemProvider } from '../xlideFileSystem';
 import type { VbaSymbolIndex } from '../vbaSymbolIndex';
@@ -23,7 +23,7 @@ import { spanContainsOffset, spanLength } from '../vbaAnalysisSuppression';
  */
 export interface CommandDeps {
     context: vscode.ExtensionContext;
-    bridge: PythonBridge;
+    bridge: WorkbookEngine;
     explorer: XlsmExplorer;
     fsProvider: XlideFileSystemProvider;
     out: vscode.OutputChannel;

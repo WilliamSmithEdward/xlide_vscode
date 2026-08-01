@@ -1,6 +1,6 @@
 // Native workbook service: every VBA/cell operation XLIDE needs, implemented
 // directly against the OOXML package and the MS-OVBA VBA project. This replaces
-// the Python bridge (pyOpenVBA + openpyxl) entirely.
+// the external backend entirely.
 //
 // Writes are atomic: the updated package is written to a sibling temp file and
 // renamed over the original, so a failure part-way through never leaves a

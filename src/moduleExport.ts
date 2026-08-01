@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import {
     normalizeExportMode,
     type ExportMode,
@@ -10,7 +10,7 @@ import {
     updateWorkbookModuleSyncSettings,
 } from './workbookModuleSyncSettings';
 import { measurePerformance } from './performanceTrace';
-import { isReadModulesUnavailable } from './pythonBridgeErrors';
+import { isReadModulesUnavailable } from './workbookEngineErrors';
 import { fileExists, isPathInside } from './util/fs';
 import { createKeyedAsyncLock } from './util/keyedAsyncLock';
 
@@ -139,7 +139,7 @@ function relativeNameForModule(mod: ModuleInfo): string {
 }
 
 async function exportModuleFile(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     mod: ModuleInfo,
     exportFolder: string,
@@ -154,7 +154,7 @@ async function exportModuleFile(
 }
 
 async function readFullModuleSource(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     moduleName: string,
 ): Promise<string> {
@@ -174,7 +174,7 @@ interface WorkbookModulesWithSources {
 // Full-source batch read in a single workbook open; falls back to listModules
 // plus one readModule per module for backends without readModules.
 async function loadWorkbookModulesWithSources(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
 ): Promise<WorkbookModulesWithSources> {
     try {
@@ -207,7 +207,7 @@ async function loadWorkbookModulesWithSources(
 }
 
 async function exportWorkbookModule(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     params: ExportModuleParams,
 ): Promise<ExportModuleResult> {
     return measurePerformance('moduleExport.single', params.moduleName, async () => {
@@ -252,7 +252,7 @@ async function exportWorkbookModule(
 }
 
 async function exportWorkbookModules(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
     return measurePerformance('moduleExport.workbook', path.basename(params.filePath), async () => {

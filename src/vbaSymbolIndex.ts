@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import type { EventHandlerDocumentType } from './analyzer/completion/eventHandlers';
 import { moduleIdentityKey, workbookIdentityKey } from './xlideFileSystem';
 import { startPerformanceTrace } from './performanceTrace';
-import { isReadModulesUnavailable } from './pythonBridgeErrors';
+import { isReadModulesUnavailable } from './workbookEngineErrors';
 import { mapWithConcurrency, yieldToExtensionHost } from './util/async';
 
 export interface VbaModuleSymbols {
@@ -51,7 +51,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
     private _emitter = new vscode.EventEmitter<{ xlsmPath: string; moduleName?: string }>();
     readonly onDidChange = this._emitter.event;
 
-    constructor(private readonly _bridge: PythonBridge) {}
+    constructor(private readonly _bridge: WorkbookEngine) {}
 
     /** Invalidate one module (or the whole workbook when moduleName is omitted). */
     invalidate(xlsmPath: string, moduleName?: string): void {

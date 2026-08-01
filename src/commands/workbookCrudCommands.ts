@@ -6,7 +6,7 @@ import {
     reportWorkbookLocked,
     XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
-import type { PythonBridge } from '../pythonBridge';
+import type { WorkbookEngine } from '../workbookEngine';
 import { errorMessage } from '../util/errors';
 import { applyOpenDocumentSources } from '../vbaOpenDocuments';
 import { validateVbaModuleName } from '../vbaSourceScan';
@@ -34,7 +34,7 @@ import {
 } from './shared';
 
 /** Best-effort lowercased set of the workbook's existing module names. */
-async function existingModuleNamesLower(bridge: PythonBridge, filePath: string): Promise<Set<string>> {
+async function existingModuleNamesLower(bridge: WorkbookEngine, filePath: string): Promise<Set<string>> {
     try {
         const modules = await bridge.call<Array<{ name: string }>>('listModules', { path: filePath });
         return new Set(modules.map((m) => m.name.toLowerCase()));
@@ -51,7 +51,7 @@ async function existingModuleNamesLower(bridge: PythonBridge, filePath: string):
  * module's code). Returns undefined if the user cancels.
  */
 async function promptForNewModuleName(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     options: { prompt: string; placeHolder: string },
 ): Promise<string | undefined> {

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
@@ -54,7 +54,6 @@ interface CreateWorkbookInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
-interface RunOpenpyxlInput { filePath: string; code: string; save?: boolean; }
 interface ExportModulesInput { filePath: string; exportFolder?: string; exportMode?: ExportMode; }
 interface ConfigureExportModeInput { filePath: string; exportMode: ExportMode; }
 
@@ -86,7 +85,7 @@ function vbaTestSelectionFromInput(input: RunVbaTestsInput): VbaTestSelectionOpt
 
 export function registerAgentTools(
     _context: vscode.ExtensionContext,
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     explorer: XlsmExplorer,
     fsProvider: XlideFileSystemProvider,
     vbaIndex: VbaSymbolIndex,
@@ -387,9 +386,9 @@ export function registerAgentTools(
                     failedSummary: 'Create workbook: 0 changed, 1 failed',
                 }, async () => {
                     if (!path.isAbsolute(filePath)) {
-                        // The backend resolves a relative path against its own cwd
-                        // (<extension>/python), not this process's, so the existsSync
-                        // overwrite guard below would check a different directory.
+                        // A relative path resolves against this process's cwd, which
+                        // is not the user's workspace, so the existsSync overwrite guard
+                        // below could check a different directory than the write.
                         throw new Error(
                             `xlide_createWorkbook requires an absolute filePath (got "${filePath}").`,
                         );
@@ -499,73 +498,6 @@ export function registerAgentTools(
                 };
             },
         }),
-
-        // ----------------------------------------------------------------
-        // xlide_runOpenpyxl  (requires user confirmation)
-        // ----------------------------------------------------------------
-        vscode.lm.registerTool<RunOpenpyxlInput>('xlide_runOpenpyxl', {
-            async invoke(options, token) {
-                const { filePath, code, save } = options.input;
-                const shouldSave = save !== false;
-                const run = async () => {
-                    const result = await bridge.call<{ result: unknown; stdout: string }>(
-                        'runOpenpyxl',
-                        { path: filePath, code, save: shouldSave },
-                        token,
-                    );
-                    const parts: string[] = [];
-                    if (result.stdout) { parts.push(`stdout:\n${result.stdout}`); }
-                    parts.push(`result: ${JSON.stringify(result.result, null, 2)}`);
-                    return parts;
-                };
-                if (!shouldSave) {
-                    // Even with save=false the model-supplied code runs via exec() and
-                    // can still persist changes (wb.save(other), open(), ...), so audit
-                    // the invocation rather than leaving an unrecorded on-disk write.
-                    const { result: noSaveParts } = await withWriteAudit({
-                        command: 'xlide_runOpenpyxl',
-                        operation: 'run-openpyxl',
-                        workbookPath: filePath,
-                        failedSummary: 'Run openpyxl (save=false): 0 changed, 1 failed',
-                    }, async () => ({
-                        result: await run(),
-                        summary: formatChangeSummary({
-                            operation: 'Run openpyxl (save=false)',
-                            changed: [],
-                        }),
-                    }));
-                    return textResult(noSaveParts.join('\n'));
-                }
-                const { result: parts, summary } = await withWriteAudit({
-                    command: 'xlide_runOpenpyxl',
-                    operation: 'run-openpyxl',
-                    workbookPath: filePath,
-                    failedSummary: 'Run openpyxl: 0 changed, 1 failed',
-                }, async () => ({
-                    result: await run(),
-                    summary: formatChangeSummary({
-                        operation: 'Run openpyxl',
-                        changed: ['workbook'],
-                    }),
-                }));
-                return textResult([summary, ...parts].join('\n'));
-            },
-            async prepareInvocation(options, _token) {
-                const { filePath, save } = options.input;
-                const saveLabel = save === false ? 'without saving' : 'and save';
-                return {
-                    invocationMessage: `Running openpyxl code against "${filePath}"`,
-                    confirmationMessages: {
-                        title: 'Run openpyxl Code',
-                        message: new vscode.MarkdownString(
-                            `Execute Python/openpyxl code against \`${filePath}\` ${saveLabel}?\n\n` +
-                            `The code runs with full openpyxl access to the workbook.`,
-                        ),
-                    },
-                };
-            },
-        }),
-
         // ----------------------------------------------------------------
         // xlide_exportModules  (requires user confirmation)
         // ----------------------------------------------------------------

@@ -30,7 +30,7 @@ function baseInput(overrides: Partial<SupportBundleInput> = {}): SupportBundleIn
 			folderCount: 1,
 		},
 		settings: [
-			{ key: 'xlide.pythonPath', value: 'C:\\Tools\\Python\\python.exe', source: 'machine' },
+			{ key: 'xlide.docs.metadataGlob', value: 'C:\\Users\\William\\refs\\**\\*.vbref.xml', source: 'machine' },
 			{ key: 'xlide.diagnostics.enabled', value: true, source: 'default' },
 			{ key: 'xlide.docs.enabled', value: false, source: 'machine' },
 			{ key: 'xlide.editor.blockLayout', value: 'comfy', source: 'default' },
@@ -69,17 +69,16 @@ describe('support bundle', () => {
 		expect(bundle.setup).toMatchObject({
 			diagnosticsEnabled: true,
 			docsEnabled: false,
-			pythonPathConfigured: true,
 			excelComStatus: 'available-on-windows-not-checked',
 		});
 		expect(bundle.settings.map((setting) => setting.key)).toEqual([
 			'xlide.diagnostics.enabled',
 			'xlide.docs.enabled',
+			'xlide.docs.metadataGlob',
 			'xlide.editor.blockLayout',
-			'xlide.pythonPath',
 		]);
-		expect(bundle.settings.find((setting) => setting.key === 'xlide.pythonPath')?.value).toBe(
-			'<redacted>.exe',
+		expect(bundle.settings.find((setting) => setting.key === 'xlide.docs.metadataGlob')?.value).toBe(
+			'<redacted>.xml',
 		);
 		expect(bundle.workbook.workbookPath).toBe('<redacted>.xlsm');
 		expect(bundle.workbook.moduleTypes).toEqual({ standard: 2, class: 1 });
@@ -140,19 +139,19 @@ describe('support bundle', () => {
 			commands: [
 				{
 					timestamp: '2026-06-01T12:00:00.000Z',
-					command: 'xlide.setup',
+					command: 'xlide.openModule',
 					outcome: 'failed',
 					durationMs: 50,
-					errorCategory: 'python-backend',
+					errorCategory: 'workbook-missing',
 				},
 			],
 		}));
 		const text = supportDiagnosticsText(bundle);
 
 		expect(text).toContain('XLIDE Diagnostics');
-		expect(text).toContain('xlide.setup | failed');
-		expect(text).toContain('errorCategory=python-backend');
-		expect(text).toContain('xlide.pythonPath (machine): <redacted>.exe');
+		expect(text).toContain('xlide.openModule | failed');
+		expect(text).toContain('errorCategory=workbook-missing');
+		expect(text).toContain('xlide.docs.metadataGlob (machine): <redacted>.xml');
 		expect(text).toContain('Workbook source included: false');
 		expect(text).not.toContain('C:\\Users\\William');
 	});

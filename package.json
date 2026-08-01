@@ -33,18 +33,6 @@
     "configuration": {
       "title": "XLIDE",
       "properties": {
-        "xlide.pythonPath": {
-          "type": "string",
-          "scope": "machine",
-          "default": "",
-          "description": "Path to the Python executable used to run the XLIDE backend. Leave empty to auto-detect: a workspace .venv, then (on macOS) well-known install locations such as Homebrew and python.org, then 'python' (Windows) or 'python3' (Mac/Linux) from PATH."
-        },
-        "xlide.checkPythonLibraryUpdates": {
-          "type": "boolean",
-          "scope": "machine",
-          "default": true,
-          "description": "Once per session, check PyPI for newer releases of the required Python libraries (pyOpenVBA, openpyxl) and offer a one-click Update in the sidebar when one is available. Turn off to never contact PyPI."
-        },
         "xlide.attachToRunningExcel": {
           "type": "boolean",
           "scope": "machine",
@@ -203,22 +191,6 @@
       {
         "command": "xlide.showOutput",
         "title": "Show Output Channel",
-        "category": "XLIDE"
-      },
-      {
-        "command": "xlide.setup",
-        "title": "Install Python Dependencies",
-        "category": "XLIDE"
-      },
-      {
-        "command": "xlide.downloadPython",
-        "title": "Download Python",
-        "category": "XLIDE",
-        "icon": "$(cloud-download)"
-      },
-      {
-        "command": "xlide.previewErrors",
-        "title": "Preview Error Notifications (dev)",
         "category": "XLIDE"
       },
       {
@@ -385,13 +357,7 @@
     "viewsWelcome": [
       {
         "view": "xlide.explorer",
-        "contents": "XLIDE setup is not complete.\n[Open Sidebar](command:xlide.sidebar.focus)\n\nComplete Python Executable and Required Python Libraries setup before workbook navigation appears.",
-        "when": "!xlide.setupComplete"
-      },
-      {
-        "view": "xlide.explorer",
-        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)\n\nLive Share notes:\n- Guests can view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- Guests do not need XLIDE installed to participate.",
-        "when": "xlide.setupComplete"
+        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)\n\nLive Share notes:\n- Guests can view and edit any VBA module the host has open in the editor.\n- Only the host can browse the XLIDE Explorer and open new modules.\n- Guests do not need XLIDE installed to participate."
       }
     ],
     "menus": {
@@ -482,10 +448,6 @@
         }
       ],
       "commandPalette": [
-        {
-          "command": "xlide.previewErrors",
-          "when": "xlide.devMode"
-        },
         {
           "command": "xlide.dev.smoke",
           "when": "xlide.devMode"
@@ -863,7 +825,7 @@
       {
         "name": "xlide_listSheets",
         "displayName": "List Excel Sheets",
-        "modelDescription": "Lists all worksheet names and their used cell ranges (dimensions) in an Excel file. Call this first whenever the sheet name is unknown before using xlide_readCells, xlide_writeCells, or xlide_runOpenpyxl. Returns an array of {name, dimensions} objects where dimensions is in A1 notation (e.g. 'A1:D20') or empty for a blank sheet.",
+        "modelDescription": "Lists all worksheet names and their used cell ranges (dimensions) in an Excel file. Call this first whenever the sheet name is unknown before using xlide_readCells, xlide_readFormulas, or xlide_writeCells. Returns an array of {name, dimensions} objects where dimensions is in A1 notation (e.g. 'A1:D20') or empty for a blank sheet.",
         "toolReferenceName": "xlideListSheets",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1033,34 +995,6 @@
             "exportMode"
           ]
         }
-      },
-      {
-        "name": "xlide_runOpenpyxl",
-        "displayName": "Run openpyxl Code",
-        "modelDescription": "Executes arbitrary Python code with full openpyxl access to an Excel workbook. The code runs in a namespace with: `wb` (open openpyxl Workbook), `openpyxl` (the module), `json` (stdlib json), and `result` (assign your return value here). If `save` is true (default), the workbook is saved after execution. Use this to style cells, add/remove sheets, set column widths, number formats, conditional formatting, charts, named ranges, or any other openpyxl operation. IMPORTANT: Use only ASCII characters in cell values and strings to avoid character mangling. Assign the return value to `result`; captured stdout is also returned.",
-        "toolReferenceName": "xlideRunOpenpyxl",
-        "canBeReferencedInPrompt": true,
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "filePath": {
-              "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
-            },
-            "code": {
-              "type": "string",
-              "description": "Python code to execute. `wb` is the open Workbook, `openpyxl` is the module, `json` is available. Assign your return value to `result`."
-            },
-            "save": {
-              "type": "boolean",
-              "description": "Whether to save the workbook after execution (default: true). Set false for read-only queries."
-            }
-          },
-          "required": [
-            "filePath",
-            "code"
-          ]
-        }
       }
     ]
   },
@@ -1077,7 +1011,7 @@
     "test:coverage": "vitest run --coverage",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
-    "test:oracle:vbe": "python syntax_corpus/oracle/run_excel_vbe_oracle.py"
+    "test:oracle:vbe": "node syntax_corpus/oracle/run_excel_vbe_oracle.mjs"
   },
   "devDependencies": {
     "@types/node": "20.x",

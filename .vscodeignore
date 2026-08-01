@@ -17,8 +17,6 @@ syntax_corpus/**
 tests/**
 user_guides/**
 excel_test_workbook/**
-python/tests/**
-python/conftest.py
 esbuild.js
 vitest.config.ts
 tsconfig.json

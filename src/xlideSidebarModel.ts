@@ -2,7 +2,6 @@ import { workbookIdentityKey } from './workbookIdentity';
 
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
-type XlideSidebarSetupAction = 'downloadPython' | 'setPythonPath' | 'updateLibraries';
 
 interface XlideSidebarActiveWorkbook {
     label: string;
@@ -36,18 +35,6 @@ interface XlideSidebarSelectOption {
     description?: string;
 }
 
-interface XlideSidebarDependencyStatus {
-    status: XlideSidebarStatus;
-    description: string;
-    tooltip: string;
-    action?: XlideSidebarSetupAction;
-}
-
-interface XlideSidebarSetupStatus {
-    pythonExecutable: XlideSidebarDependencyStatus;
-    pythonLibraries: XlideSidebarDependencyStatus;
-}
-
 interface XlideSidebarNode {
     id: string;
     kind: XlideSidebarNodeKind;
@@ -65,41 +52,12 @@ interface XlideSidebarNode {
 interface XlideSidebarModelInput {
     workbookChoices?: readonly XlideSidebarWorkbookChoice[];
     activeWorkbook?: XlideSidebarActiveWorkbook;
-    setupStatus?: XlideSidebarSetupStatus;
 }
 
 function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode[] {
     const workbookArg = input.activeWorkbook ? workbookCommandArg(input.activeWorkbook) : undefined;
-    const setupStatus = input.setupStatus ?? defaultSetupStatus();
-    const setupComplete = isXlideSetupComplete(setupStatus);
-    const setupSections = [
-        welcomeSection(setupComplete),
-        section('setup', 'Setup', [
-            statusNode(
-                'setup.pythonExecutable',
-                'Python Executable',
-                setupStatus.pythonExecutable.description,
-                setupStatus.pythonExecutable.status,
-                setupStatus.pythonExecutable.tooltip,
-                pythonExecutableSetupCommand(setupStatus.pythonExecutable),
-                setupStatus.pythonExecutable.status === 'pass',
-            ),
-            statusNode(
-                'setup.pythonLibraries',
-                'Required Python Libraries',
-                setupStatus.pythonLibraries.description,
-                setupStatus.pythonLibraries.status,
-                setupStatus.pythonLibraries.tooltip,
-                pythonLibrariesSetupCommand(setupStatus.pythonLibraries),
-                setupStatus.pythonLibraries.status === 'pass',
-            ),
-        ]),
-    ];
-    if (!setupComplete) {
-        return setupSections;
-    }
     return [
-        ...setupSections,
+        welcomeSection(),
         section('workbookActions', 'Workbook Actions', [
             targetWorkbookNode(input.workbookChoices ?? [], input.activeWorkbook),
             workbookActionNode(
@@ -179,18 +137,7 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
     ];
 }
 
-function welcomeSection(setupComplete: boolean): XlideSidebarNode {
-    if (!setupComplete) {
-        return section('welcome', 'Welcome', [
-            statusNode(
-                'welcome.setupRequired',
-                'Setup Required',
-                'Please see Setup below to proceed.',
-                'warn',
-                'Complete Python executable and required library setup before XLIDE shows workbook navigation and actions.',
-            ),
-        ]);
-    }
+function welcomeSection(): XlideSidebarNode {
     return section('welcome', 'Welcome', [
         statusNode(
             'welcome.tree',
@@ -200,66 +147,6 @@ function welcomeSection(setupComplete: boolean): XlideSidebarNode {
             'The XLIDE workbook tree stays in the VS Code Explorer so workbook navigation and sidebar actions remain separate.',
         ),
     ]);
-}
-
-function isXlideSetupComplete(setupStatus: XlideSidebarSetupStatus): boolean {
-    // Libraries that are installed but have a newer release available ('warn'
-    // with the updateLibraries action) are fully functional: they must not gate
-    // the workbook tree or hide the rest of the sidebar.
-    const librariesUsable =
-        setupStatus.pythonLibraries.status === 'pass' ||
-        setupStatus.pythonLibraries.action === 'updateLibraries';
-    return setupStatus.pythonExecutable.status === 'pass' && librariesUsable;
-}
-
-function pythonExecutableSetupCommand(status: XlideSidebarDependencyStatus): XlideSidebarCommand {
-    if (status.status === 'pass') {
-        return { command: 'xlide.downloadPython', title: 'Installed' };
-    }
-    if (status.action === 'downloadPython') {
-        return {
-            command: 'xlide.downloadPython',
-            title: 'Download',
-            tooltip: 'Setup has two gates: Python Executable and Required Python Libraries. Click to download Python from python.org. Ctrl+click to browse for an installed Python executable.',
-            ctrlCommand: 'xlide.browsePythonPath',
-            ctrlTitle: 'Browse',
-            ctrlTooltip: 'Browse for an installed Python executable on this machine.',
-        };
-    }
-    return {
-        command: 'workbench.action.openSettings',
-        title: 'Set Path',
-        arguments: ['xlide.pythonPath'],
-    };
-}
-
-function pythonLibrariesSetupCommand(status: XlideSidebarDependencyStatus): XlideSidebarCommand {
-    if (status.action === 'updateLibraries') {
-        return {
-            command: 'xlide.updatePythonLibraries',
-            title: 'Update',
-            tooltip: 'Upgrade the required Python libraries (pyOpenVBA, openpyxl) to their latest releases and restart the backend.',
-        };
-    }
-    return {
-        command: 'xlide.setup',
-        title: status.status === 'pass' ? 'Installed' : 'Install',
-    };
-}
-
-function defaultSetupStatus(): XlideSidebarSetupStatus {
-    return {
-        pythonExecutable: {
-            status: 'unknown',
-            description: 'Checking',
-            tooltip: 'XLIDE is checking the configured Python executable.',
-        },
-        pythonLibraries: {
-            status: 'unknown',
-            description: 'Checking',
-            tooltip: 'XLIDE is checking required Python libraries.',
-        },
-    };
 }
 
 function section(id: string, label: string, children: XlideSidebarNode[]): XlideSidebarNode {
@@ -330,7 +217,6 @@ function targetWorkbookNode(
     );
 }
 
-
 function actionNode(
     id: string,
     label: string,
@@ -393,15 +279,11 @@ function selectionSourceLabel(source: XlideSidebarActiveWorkbook['selectionSourc
 
 export {
     buildXlideSidebarModel,
-    isXlideSetupComplete,
     type XlideSidebarActiveWorkbook,
     type XlideSidebarCommand,
-    type XlideSidebarDependencyStatus,
     type XlideSidebarModelInput,
     type XlideSidebarNode,
     type XlideSidebarNodeKind,
-    type XlideSidebarSetupAction,
-    type XlideSidebarSetupStatus,
     type XlideSidebarWorkbookChoice,
     type XlideSidebarStatus,
 };

@@ -1,17 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 
-import type { PythonBridge } from '../src/pythonBridge';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/pythonBridgeErrors';
+import type { WorkbookEngine } from '../src/workbookEngine';
+import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
-import { fakePythonBridge } from './helpers/fakePythonBridge';
+import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import { deferred, flushPromises } from './helpers/async';
 
 describe('VbaSymbolIndex workbook identity', () => {
 	it('keeps identical module names siloed by workbook path', async () => {
-		const bridge = fakePythonBridge({
+		const bridge = fakeWorkbookEngine({
 			'C:/One/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub FromOne()\nEnd Sub\n' }],
 			'C:/Two/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub FromTwo()\nEnd Sub\n' }],
 		});
@@ -25,7 +24,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 	});
 
 	it('uses one case-insensitive module cache key within a workbook', async () => {
-		const bridge = fakePythonBridge({
+		const bridge = fakeWorkbookEngine({
 			'C:/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub Cached()\nEnd Sub\n' }],
 		});
 		const index = new VbaSymbolIndex(bridge);
@@ -37,7 +36,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 	});
 
 	it('updates a cached module directly from saved editor text', async () => {
-		const bridge = fakePythonBridge({});
+		const bridge = fakeWorkbookEngine({});
 		const index = new VbaSymbolIndex(bridge);
 
 		index.updateModuleSource('C:/Book.xlsm', 'Module1', 'Sub Saved()\nEnd Sub\n');
@@ -51,7 +50,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const read = deferred<{ source: string }>();
 		const bridge = {
 			call: vi.fn((_method: string, _payload: { path: string; module?: string }) => read.promise),
-		} as unknown as PythonBridge;
+		} as unknown as WorkbookEngine;
 		const index = new VbaSymbolIndex(bridge);
 
 		const first = index.getModule('C:/Book.xlsm', 'Module1');
@@ -66,7 +65,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 	});
 
 	it('shares workbook indexing and reuses the cached module list', async () => {
-		const bridge = fakePythonBridge({
+		const bridge = fakeWorkbookEngine({
 			'C:/Book.xlsm': [
 				{ name: 'Module1', type: 'standard', source: 'Sub First()\nEnd Sub\n' },
 				{ name: 'Module2', type: 'standard', source: 'Sub Second()\nEnd Sub\n' },
@@ -89,7 +88,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 	});
 
 	it('falls back to list/read calls when batch workbook reads are unavailable', async () => {
-		const bridge = fakePythonBridge([
+		const bridge = fakeWorkbookEngine([
 			{ name: 'Module1', type: 'standard', source: 'Sub Module1Proc()\nEnd Sub\n' },
 			{ name: 'Module2', type: 'standard', source: 'Sub Module2Proc()\nEnd Sub\n' },
 		], { supportsBatchRead: false });
@@ -128,7 +127,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 				}
 				return Promise.reject(new Error(`Unexpected bridge call ${method}`));
 			}),
-		} as unknown as PythonBridge;
+		} as unknown as WorkbookEngine;
 		const index = new VbaSymbolIndex(bridge);
 
 		const pending = index.getAllModules('C:/Book.xlsm');
@@ -149,7 +148,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const read = deferred<{ source: string }>();
 		const bridge = {
 			call: vi.fn((_method: string, _payload: { path: string; module?: string }) => read.promise),
-		} as unknown as PythonBridge;
+		} as unknown as WorkbookEngine;
 		const index = new VbaSymbolIndex(bridge);
 
 		const pending = index.getModule('C:/Book.xlsm', 'Module1');

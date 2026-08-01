@@ -18,7 +18,7 @@ import type { VbaDoc } from '../docs/docModel';
 
 /**
  * The workbook-project role of a module, as reported by the host
- * (pyOpenVBA `listModules`). Maps to MS-VBAL 4.2 module kinds plus the two
+ * (the workbook engine's `listModules`). Maps to MS-VBAL 4.2 module kinds plus the two
  * host-specific document kinds (worksheet/ThisWorkbook documents and UserForms).
  */
 export type ModuleSymbolKind = 'standard' | 'class' | 'document' | 'userform';

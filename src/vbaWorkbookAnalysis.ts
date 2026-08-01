@@ -9,7 +9,7 @@
 // pure analysis stays reusable and testable.
 
 import * as vscode from 'vscode';
-import type { PythonBridge } from './pythonBridge';
+import type { WorkbookEngine } from './workbookEngine';
 import {
     diagnosticMetadataForCode,
     DiagnosticCategory,
@@ -36,7 +36,7 @@ import {
 } from './analysisSuppressionScopes';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { measurePerformance, measurePerformanceSync, startPerformanceTrace } from './performanceTrace';
-import { isReadModulesUnavailable } from './pythonBridgeErrors';
+import { isReadModulesUnavailable } from './workbookEngineErrors';
 import { mapWithConcurrency, yieldToExtensionHost } from './util/async';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
@@ -281,7 +281,7 @@ function sortWorkbookProblems(problems: WorkbookAnalysisProblem[]): void {
 
 /** Loads every module's source from the workbook (best-effort per module). */
 async function loadWorkbookModules(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     progress: WorkbookAnalysisProgress,
     options: AnalyzeWorkbookOptions = {},
@@ -374,7 +374,7 @@ const inFlightWorkbookAnalyses = new Map<string, Promise<WorkbookAnalysisResult>
  * into a single in-flight run.
  */
 export function analyzeWorkbook(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     options: AnalyzeWorkbookOptions = {},
 ): Promise<WorkbookAnalysisResult> {
@@ -393,7 +393,7 @@ export function analyzeWorkbook(
 }
 
 async function runWorkbookAnalysis(
-    bridge: PythonBridge,
+    bridge: WorkbookEngine,
     filePath: string,
     options: AnalyzeWorkbookOptions = {},
 ): Promise<WorkbookAnalysisResult> {

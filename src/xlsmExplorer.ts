@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PythonBridge } from './pythonBridge';
+import { WorkbookEngine } from './workbookEngine';
 import { workbookIdentityKey } from './xlideFileSystem';
 import type { LiveShareIntegration } from './liveShare';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
@@ -67,10 +67,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     // Accordion: only one module node is expanded at a time.
     private _activeModuleKey: string | undefined;
     private _activeWorkbookKey: string | undefined;
-    private _setupComplete = false;
 
     constructor(
-        private readonly _bridge: PythonBridge,
+        private readonly _bridge: WorkbookEngine,
         private readonly _out?: vscode.OutputChannel,
     ) {}
 
@@ -85,14 +84,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         this._liveShareSubscription?.dispose();
         this._liveShareSubscription = undefined;
         this._emitter.dispose();
-    }
-
-    setSetupComplete(setupComplete: boolean): void {
-        if (this._setupComplete === setupComplete) {
-            return;
-        }
-        this._setupComplete = setupComplete;
-        this.refresh();
     }
 
     refresh(): void {
@@ -362,9 +353,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
     private async _getChildren(node?: XlideNode): Promise<XlideNode[]> {
         if (!node) {
-            if (!this._setupComplete) {
-                return [];
-            }
             // Live Share guest sees the host's workbooks; local files are not visible.
             // Use isInGuestSession (session role) rather than isGuest (proxy ready)
             // so we don't briefly render the host's vsls:// URIs as broken local nodes

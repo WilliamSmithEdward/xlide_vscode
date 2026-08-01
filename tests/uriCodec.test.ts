@@ -5,7 +5,6 @@ import * as nodePath from 'path';
 import type * as VscodeType from 'vscode';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
-vi.mock('../src/pythonBridge', () => ({ PythonBridge: class PythonBridge {} }));
 vi.mock('../src/liveShare', () => ({
     decodeRemoteModuleUri: vi.fn(),
     encodeRemoteModuleUri: vi.fn(),
