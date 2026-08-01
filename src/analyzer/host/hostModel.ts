@@ -101,6 +101,32 @@ export function getHostMembers(
 	return hostModelIndex(model).membersByType.get(qualified)?.members ?? [];
 }
 
+const HOST_MEMBER_NAMES = new WeakMap<HostObjectModel, Set<string>>();
+
+/**
+ * True when `name` is a member of ANY type in the host object model.
+ *
+ * Callers reasoning about a late-bound receiver cannot know its runtime type,
+ * so they need the weaker question "could this name legally dispatch somewhere
+ * in the host model at all?". Answering yes keeps them quiet; the set is
+ * deliberately broad for that reason. Case-insensitive.
+ */
+export function isHostMemberName(
+	name: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): boolean {
+	let names = HOST_MEMBER_NAMES.get(model);
+	if (!names) {
+		names = new Set<string>();
+		for (const type of hostModelIndex(model).membersByType.values()) {
+			for (const lower of type.byLowerName.keys()) { names.add(lower); }
+			for (const lower of type.rawByLowerName.keys()) { names.add(lower); }
+		}
+		HOST_MEMBER_NAMES.set(model, names);
+	}
+	return names.has(name.toLowerCase());
+}
+
 /**
  * Resolves a host-injected global identifier (ThisWorkbook, Application, ...)
  * to its qualified host type. Case-insensitive.

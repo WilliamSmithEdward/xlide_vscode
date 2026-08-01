@@ -91,6 +91,7 @@ import {
 	checkUnallocatedDynamicArrayAccess,
 	checkFixedArraySubscriptBounds,
 } from './rules/arrays';
+import { checkLateBoundFriendMember } from './rules/lateBinding';
 import {
 	checkDeclarePtrSafeForWin64,
 	checkEventDeclarationModuleKind,
@@ -664,6 +665,24 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				ctx.symbols,
 				knownProcedures,
 				ctx.opts.projectVisibleSymbols,
+				push,
+			);
+		},
+	},
+	{
+		// Cross-module rule: needs the project's class-member surfaces to know
+		// which member names are Friend-only (see AnalyzeModuleOptions).
+		name: 'lateBoundFriendMember',
+		procedureStatements: (ctx, push) => {
+			const projectClassMembers = ctx.opts.projectClassMembers;
+			if (!projectClassMembers) {
+				return () => undefined;
+			}
+			return checkLateBoundFriendMember(
+				ctx.source,
+				ctx.symbols,
+				ctx.opts.projectVisibleSymbols,
+				projectClassMembers,
 				push,
 			);
 		},

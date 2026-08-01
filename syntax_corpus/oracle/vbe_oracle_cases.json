@@ -4749,6 +4749,75 @@
       "source": "Public Sub XlideOracleEntry()\n    If True Then Then\n    End If\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "late_bound_friend_member_runtime",
+      "description": "Reading a Friend property of a project class through a Collection element (Collection.Item returns Variant, so the call is late bound) raises runtime error 438: Friend members are not on the IDispatch interface. Compiles clean.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "XlideOracleFriendClass",
+          "type": "class",
+          "source": "Private mSlot As Long\nFriend Property Get FriendOnlySlot() As Long\n    FriendOnlySlot = mSlot\nEnd Property\nPublic Sub Touch()\n    mSlot = 7\nEnd Sub\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim live As Collection\n    Set live = New Collection\n    Dim item As XlideOracleFriendClass\n    Set item = New XlideOracleFriendClass\n    live.Add item\n    Dim slot As Long\n    slot = live.Item(1).FriendOnlySlot\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "early_bound_friend_member_runtime",
+      "description": "Control for late_bound_friend_member_runtime: the same Friend property read through a typed local of the class type is early bound and runs clean, isolating late binding as the cause rather than Friend visibility itself.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "XlideOracleFriendClass",
+          "type": "class",
+          "source": "Private mSlot As Long\nFriend Property Get FriendOnlySlot() As Long\n    FriendOnlySlot = mSlot\nEnd Property\nPublic Sub Touch()\n    mSlot = 7\nEnd Sub\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim live As Collection\n    Set live = New Collection\n    Dim item As XlideOracleFriendClass\n    Set item = New XlideOracleFriendClass\n    live.Add item\n    Dim candidate As XlideOracleFriendClass\n    Set candidate = live.Item(1)\n    Dim slot As Long\n    slot = candidate.FriendOnlySlot\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "late_bound_friend_member_same_class_runtime",
+      "description": "A class module reading its OWN Friend property through an Object-typed local still raises runtime error 438: IDispatch exposes the automation interface, so the caller being inside the same class (and the same project) does not put Friend members back on it.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile_then_run",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "XlideOracleSelfClass",
+          "type": "class",
+          "source": "Private mSlot As Long\nFriend Property Get FriendOnlySlot() As Long\n    FriendOnlySlot = mSlot\nEnd Property\nPublic Function ProbeSelf() As Long\n    Dim candidate As Object\n    Set candidate = Me\n    ProbeSelf = candidate.FriendOnlySlot\nEnd Function\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    Dim probe As XlideOracleSelfClass\n    Set probe = New XlideOracleSelfClass\n    Dim slot As Long\n    slot = probe.ProbeSelf()\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

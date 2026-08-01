@@ -334,6 +334,7 @@ const RUNTIME_ERROR_NUMBER_BY_DIAGNOSTIC_CODE = new Map<string, number>([
     ['argument-type-mismatch', 13],
     ['assignment-type-mismatch', 13],
     ['object-variable-not-set', 91],
+    ['late-bound-friend-member', 438],
     ['unallocated-dynamic-array-access', 9],
     ['redim-impossible-bounds', 9],
     ['runtime-conversion-value', 13],
