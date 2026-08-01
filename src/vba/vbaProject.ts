@@ -1,0 +1,640 @@
+// VBA project inside a vbaProject.bin CFB - [MS-OVBA].
+//
+// Layout: the VBA storage holds a compressed `dir` stream (project metadata +
+// one record block per module) and one compressed stream per module. A module
+// stream is [performance-cache prefix][compressed source]; MODULEOFFSET in the
+// dir stream says where the source starts.
+//
+// Mutations preserve everything they do not touch: the dir stream's
+// project-information/references prefix is reused verbatim and only the
+// PROJECTMODULES section is regenerated, and each module stream keeps its
+// original cache prefix byte-for-byte.
+
+import { Cfb } from './cfb';
+import { compress, decompress } from './ovba';
+
+export class VbaProjectError extends Error {}
+
+export type VbaModuleKind = 'standard' | 'other';
+
+/** [MS-OVBA] dir record ids used by the modules section. */
+const REC_MODULENAME = 0x0019;
+const REC_MODULENAME_UNICODE = 0x0047;
+const REC_MODULESTREAMNAME = 0x001a;
+const REC_MODULESTREAMNAME_UNICODE = 0x0032;
+const REC_MODULEDOCSTRING = 0x001c;
+const REC_MODULEDOCSTRING_UNICODE = 0x0048;
+const REC_MODULEOFFSET = 0x0031;
+const REC_MODULEHELPCONTEXT = 0x001e;
+const REC_MODULECOOKIE = 0x002c;
+const REC_MODULETYPE_STANDARD = 0x0021;
+const REC_MODULETYPE_OTHER = 0x0022;
+const REC_MODULEREADONLY = 0x0025;
+const REC_MODULEPRIVATE = 0x0028;
+const REC_MODULE_TERMINATOR = 0x002b;
+const REC_PROJECTMODULES = 0x000f;
+const REC_PROJECTCOOKIE = 0x0013;
+const REC_DIR_TERMINATOR = 0x0010;
+const REC_PROJECTCODEPAGE = 0x0003;
+const REC_PROJECTVERSION = 0x0009;
+
+const SIGNATURE_STREAMS: Record<string, string> = {
+	_VBA_PROJECT_SIGNATURE: 'legacy',
+	_VBA_PROJECT_SIGNATURE_AGILE: 'agile',
+	_VBA_PROJECT_SIGNATURE_V3: 'v3',
+};
+
+// cp1252 differs from latin-1 only in 0x80-0x9F.
+const CP1252_HIGH = [
+	0x20ac, 0x0081, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021,
+	0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008d, 0x017d, 0x008f,
+	0x0090, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
+	0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x009d, 0x017e, 0x0178,
+];
+
+function decodeAnsi(buf: Buffer, codePage: number): string {
+	if (codePage !== 1252) {
+		return buf.toString('latin1');
+	}
+	let out = '';
+	for (const byte of buf) {
+		out += byte >= 0x80 && byte <= 0x9f
+			? String.fromCharCode(CP1252_HIGH[byte - 0x80])
+			: String.fromCharCode(byte);
+	}
+	return out;
+}
+
+function encodeAnsi(text: string, codePage: number): Buffer {
+	if (codePage !== 1252) {
+		return Buffer.from(text, 'latin1');
+	}
+	const out = Buffer.alloc(text.length);
+	for (let i = 0; i < text.length; i++) {
+		const code = text.charCodeAt(i);
+		if (code < 0x80 || (code >= 0xa0 && code <= 0xff)) {
+			out[i] = code;
+			continue;
+		}
+		const high = CP1252_HIGH.indexOf(code);
+		out[i] = high >= 0 ? 0x80 + high : 0x3f; // '?'
+	}
+	return out;
+}
+
+interface DirRecord {
+	id: number;
+	start: number;
+	dataStart: number;
+	dataEnd: number;
+	end: number;
+}
+
+/** Tokenize a decompressed dir stream into flat records. */
+function readDirRecords(raw: Buffer): DirRecord[] {
+	const out: DirRecord[] = [];
+	let pos = 0;
+	while (pos + 2 <= raw.length) {
+		const start = pos;
+		const id = raw.readUInt16LE(pos);
+		pos += 2;
+		if (id === REC_PROJECTVERSION) {
+			// No real Size field: Reserved u32 + u32 + u16.
+			if (pos + 10 > raw.length) { break; }
+			pos += 10;
+			out.push({ id, start, dataStart: start + 2, dataEnd: pos, end: pos });
+			continue;
+		}
+		if (pos + 4 > raw.length) { break; }
+		const size = raw.readUInt32LE(pos);
+		pos += 4;
+		const dataStart = pos;
+		const dataEnd = Math.min(raw.length, pos + size);
+		pos = dataEnd;
+		out.push({ id, start, dataStart, dataEnd, end: pos });
+		if (id === REC_DIR_TERMINATOR) {
+			pos += 4; // trailing reserved u32
+			break;
+		}
+	}
+	return out;
+}
+
+export interface VbaModule {
+	/** Logical module name (MODULENAME). */
+	name: string;
+	/** CFB stream name (MODULESTREAMNAME) - not always equal to `name`. */
+	streamName: string;
+	nameUnicode: string;
+	streamNameUnicode: string;
+	kind: VbaModuleKind;
+	textOffset: number;
+	docString: string;
+	docStringUnicode: string;
+	helpContext: number;
+	cookie: number;
+	isReadOnly: boolean;
+	isPrivate: boolean;
+	/** Full module source, including the hidden attribute header. */
+	source: string;
+	/** Performance-cache bytes preceding the compressed source. */
+	prefixBytes: Buffer;
+}
+
+export interface SignatureInfo {
+	present: boolean;
+	kinds: string[];
+}
+
+export class VbaProject {
+	codePage = 1252;
+	projectCookie = 0;
+	modules: VbaModule[] = [];
+	hasPassword = false;
+
+	private dirRaw: Buffer = Buffer.alloc(0);
+	private dirModulesOffset = -1;
+	private projectStreamRaw: Buffer | undefined;
+	private readonly dirtySources = new Set<string>();
+	private readonly renames = new Map<string, string>();
+	private readonly added: Array<{ name: string; kind: VbaModuleKind }> = [];
+	private readonly deleted = new Set<string>();
+	private readonly removedStreams: string[] = [];
+	private readonly renamedStreams: Array<[string, string]> = [];
+
+	static parse(cfb: Cfb): VbaProject {
+		const project = new VbaProject();
+		let dirCompressed: Buffer;
+		try {
+			dirCompressed = cfb.getStreamInStorage('VBA', 'dir');
+		} catch {
+			try {
+				dirCompressed = cfb.getStream('dir');
+			} catch {
+				throw new VbaProjectError("No 'dir' stream found; not a valid VBA project.");
+			}
+		}
+		const dirRaw = decompress(dirCompressed, 'VBA/dir');
+		project.dirRaw = dirRaw;
+
+		const records = readDirRecords(dirRaw);
+		// Project code page must be known before decoding any ANSI record.
+		for (const rec of records) {
+			if (rec.id === REC_PROJECTCODEPAGE && rec.dataEnd - rec.dataStart >= 2) {
+				project.codePage = dirRaw.readUInt16LE(rec.dataStart);
+				break;
+			}
+		}
+		for (const rec of records) {
+			if (rec.id === REC_PROJECTMODULES) {
+				project.dirModulesOffset = rec.start;
+			} else if (rec.id === REC_PROJECTCOOKIE && rec.dataEnd - rec.dataStart >= 2) {
+				project.projectCookie = dirRaw.readUInt16LE(rec.dataStart);
+			}
+		}
+
+		const cp = project.codePage;
+		const ansi = (r: DirRecord): string => decodeAnsi(dirRaw.subarray(r.dataStart, r.dataEnd), cp);
+		const uni = (r: DirRecord): string => dirRaw.subarray(r.dataStart, r.dataEnd).toString('utf16le');
+
+		let current: VbaModule | undefined;
+		const flush = (): void => {
+			if (current && current.name) {
+				project.modules.push(current);
+			}
+			current = undefined;
+		};
+		for (const rec of records) {
+			switch (rec.id) {
+				case REC_MODULENAME:
+					flush();
+					current = {
+						name: ansi(rec),
+						streamName: '',
+						nameUnicode: '',
+						streamNameUnicode: '',
+						kind: 'standard',
+						textOffset: 0,
+						docString: '',
+						docStringUnicode: '',
+						helpContext: 0,
+						cookie: 0,
+						isReadOnly: false,
+						isPrivate: false,
+						source: '',
+						prefixBytes: Buffer.alloc(0),
+					};
+					break;
+				case REC_MODULENAME_UNICODE: if (current) { current.nameUnicode = uni(rec); } break;
+				case REC_MODULESTREAMNAME: if (current) { current.streamName = ansi(rec); } break;
+				case REC_MODULESTREAMNAME_UNICODE: if (current) { current.streamNameUnicode = uni(rec); } break;
+				case REC_MODULEDOCSTRING: if (current) { current.docString = ansi(rec); } break;
+				case REC_MODULEDOCSTRING_UNICODE: if (current) { current.docStringUnicode = uni(rec); } break;
+				case REC_MODULEOFFSET:
+					if (current && rec.dataEnd - rec.dataStart >= 4) {
+						current.textOffset = dirRaw.readUInt32LE(rec.dataStart);
+					}
+					break;
+				case REC_MODULEHELPCONTEXT:
+					if (current && rec.dataEnd - rec.dataStart >= 4) {
+						current.helpContext = dirRaw.readUInt32LE(rec.dataStart);
+					}
+					break;
+				case REC_MODULECOOKIE:
+					if (current && rec.dataEnd - rec.dataStart >= 2) {
+						current.cookie = dirRaw.readUInt16LE(rec.dataStart);
+					}
+					break;
+				case REC_MODULETYPE_STANDARD: if (current) { current.kind = 'standard'; } break;
+				case REC_MODULETYPE_OTHER: if (current) { current.kind = 'other'; } break;
+				case REC_MODULEREADONLY: if (current) { current.isReadOnly = true; } break;
+				case REC_MODULEPRIVATE: if (current) { current.isPrivate = true; } break;
+				case REC_MODULE_TERMINATOR: flush(); break;
+				default: break;
+			}
+		}
+		flush();
+
+		// Load each module's source from its own stream.
+		for (const module of project.modules) {
+			const streamName = module.streamName || module.name;
+			let stream: Buffer;
+			try {
+				stream = cfb.getStreamInStorage('VBA', streamName);
+			} catch {
+				try {
+					stream = cfb.getStream(streamName);
+				} catch {
+					continue;
+				}
+			}
+			if (module.textOffset > stream.length) {
+				throw new VbaProjectError(
+					`MODULEOFFSET ${module.textOffset} exceeds stream length ${stream.length} for module ${module.name}.`,
+				);
+			}
+			module.prefixBytes = Buffer.from(stream.subarray(0, module.textOffset));
+			const sourceBytes = decompress(stream.subarray(module.textOffset), `VBA/${streamName}`);
+			module.source = decodeAnsi(sourceBytes, project.codePage);
+		}
+
+		try {
+			project.projectStreamRaw = cfb.getStream('PROJECT');
+			project.hasPassword = projectStreamHasPassword(project.projectStreamRaw);
+		} catch {
+			project.projectStreamRaw = undefined;
+		}
+		return project;
+	}
+
+	getModule(name: string): VbaModule | undefined {
+		const needle = name.toLowerCase();
+		return this.modules.find((m) => m.name.toLowerCase() === needle);
+	}
+
+	setModuleSource(name: string, source: string): void {
+		const module = this.getModule(name);
+		if (!module) {
+			throw new VbaProjectError(`Module not found: ${name}`);
+		}
+		module.source = source;
+		this.dirtySources.add(module.name.toLowerCase());
+	}
+
+	addModule(name: string, source: string, kind: VbaModuleKind): VbaModule {
+		if (this.getModule(name)) {
+			throw new VbaProjectError(`Module already exists: ${name}`);
+		}
+		const module: VbaModule = {
+			name,
+			streamName: name,
+			nameUnicode: name,
+			streamNameUnicode: name,
+			kind,
+			textOffset: 0,
+			docString: '',
+			docStringUnicode: '',
+			helpContext: 0,
+			cookie: 0xffff,
+			isReadOnly: false,
+			isPrivate: false,
+			source,
+			prefixBytes: Buffer.alloc(0),
+		};
+		this.modules.push(module);
+		this.added.push({ name, kind });
+		this.dirtySources.add(name.toLowerCase());
+		return module;
+	}
+
+	renameModule(oldName: string, newName: string): void {
+		const module = this.getModule(oldName);
+		if (!module) {
+			throw new VbaProjectError(`Module not found: ${oldName}`);
+		}
+		if (this.getModule(newName)) {
+			throw new VbaProjectError(`Module already exists: ${newName}`);
+		}
+		const oldStream = module.streamName || module.name;
+		this.renames.set(module.name, newName);
+		// The hidden VB_Name attribute must follow the rename.
+		module.source = module.source.replace(
+			/^(\s*Attribute\s+VB_Name\s*=\s*")([^"]*)(")/im,
+			`$1${newName}$3`,
+		);
+		module.name = newName;
+		module.nameUnicode = newName;
+		module.streamName = newName;
+		module.streamNameUnicode = newName;
+		this.renamedStreams.push([oldStream, newName]);
+		this.dirtySources.add(newName.toLowerCase());
+	}
+
+	deleteModule(name: string): void {
+		const idx = this.modules.findIndex((m) => m.name.toLowerCase() === name.toLowerCase());
+		if (idx < 0) {
+			throw new VbaProjectError(`Module not found: ${name}`);
+		}
+		const [module] = this.modules.splice(idx, 1);
+		this.deleted.add(module.name);
+		this.removedStreams.push(module.streamName || module.name);
+		this.dirtySources.delete(module.name.toLowerCase());
+	}
+
+	/** Apply every pending change to the CFB (call cfb.toBytes() afterwards). */
+	save(cfb: Cfb): void {
+		for (const [oldStream, newStream] of this.renamedStreams) {
+			if (oldStream !== newStream) {
+				cfb.renameStreamInStorage('VBA', oldStream, newStream);
+			}
+		}
+		for (const streamName of this.removedStreams) {
+			try { cfb.removeStreamInStorage('VBA', streamName); } catch { /* already gone */ }
+		}
+		const addedNames = new Set(this.added.map((a) => a.name.toLowerCase()));
+		for (const module of this.modules) {
+			if (!this.dirtySources.has(module.name.toLowerCase())) {
+				continue;
+			}
+			const body = compress(encodeAnsi(module.source, this.codePage));
+			const stream = Buffer.concat([module.prefixBytes, body]);
+			const streamName = module.streamName || module.name;
+			if (addedNames.has(module.name.toLowerCase()) && !cfb.hasStreamInStorage('VBA', streamName)) {
+				cfb.addStreamToStorage('VBA', streamName, stream);
+			} else {
+				cfb.writeStreamInStorage('VBA', streamName, stream);
+			}
+		}
+
+		// dir: reuse the project-information/references prefix verbatim.
+		if (this.dirModulesOffset < 0) {
+			throw new VbaProjectError('dir stream has no PROJECTMODULES section; refusing to rewrite.');
+		}
+		const dir = Buffer.concat([
+			this.dirRaw.subarray(0, this.dirModulesOffset),
+			this.serializeModulesSection(),
+		]);
+		cfb.writeStreamInStorage('VBA', 'dir', compress(dir));
+
+		if (this.projectStreamRaw && (this.renames.size > 0 || this.added.length > 0 || this.deleted.size > 0)) {
+			const updated = serializeProjectStream(this.projectStreamRaw, this.renames, {
+				addModules: this.added.map((a) => [a.name, a.kind === 'standard' ? 'Module' : 'Class'] as [string, string]),
+				deleteNames: this.deleted,
+			});
+			cfb.writeStream('PROJECT', updated);
+		}
+
+		// The _VBA_PROJECT performance cache may reference module offsets that a
+		// mutating save invalidates, so clear its body then - but never on a
+		// non-mutating save, where the cache still matches the project exactly.
+		const mutating = this.dirtySources.size > 0
+			|| this.added.length > 0
+			|| this.deleted.size > 0
+			|| this.renames.size > 0;
+		if (mutating) {
+			invalidateVbaProjectCache(cfb);
+		}
+		// [MS-OVBA] writers MUST NOT emit performance-cache (__SRP_*) streams.
+		// Leaving them behind hands Excel stale compiled p-code for a module set
+		// that no longer matches, which it follows into a hard crash on open.
+		cfb.dropStreamsInStorage('VBA', (name) => name.startsWith('__SRP_'));
+	}
+
+	private serializeModulesSection(): Buffer {
+		const cp = this.codePage;
+		const parts: Buffer[] = [];
+		const rec = (id: number, data: Buffer): Buffer => {
+			const head = Buffer.alloc(6);
+			head.writeUInt16LE(id, 0);
+			head.writeUInt32LE(data.length, 2);
+			return Buffer.concat([head, data]);
+		};
+		const u16 = (v: number): Buffer => { const b = Buffer.alloc(2); b.writeUInt16LE(v & 0xffff, 0); return b; };
+		const u32 = (v: number): Buffer => { const b = Buffer.alloc(4); b.writeUInt32LE(v >>> 0, 0); return b; };
+
+		parts.push(rec(REC_PROJECTMODULES, u16(this.modules.length)));
+		parts.push(rec(REC_PROJECTCOOKIE, u16(this.projectCookie)));
+		for (const m of this.modules) {
+			const streamName = m.streamName || m.name;
+			parts.push(rec(REC_MODULENAME, encodeAnsi(m.name, cp)));
+			parts.push(rec(REC_MODULENAME_UNICODE, Buffer.from(m.nameUnicode || m.name, 'utf16le')));
+			parts.push(rec(REC_MODULESTREAMNAME, encodeAnsi(streamName, cp)));
+			parts.push(rec(REC_MODULESTREAMNAME_UNICODE, Buffer.from(m.streamNameUnicode || streamName, 'utf16le')));
+			parts.push(rec(REC_MODULEDOCSTRING, encodeAnsi(m.docString, cp)));
+			parts.push(rec(REC_MODULEDOCSTRING_UNICODE, Buffer.from(m.docStringUnicode, 'utf16le')));
+			parts.push(rec(REC_MODULEOFFSET, u32(m.textOffset)));
+			parts.push(rec(REC_MODULEHELPCONTEXT, u32(m.helpContext)));
+			parts.push(rec(REC_MODULECOOKIE, u16(m.cookie)));
+			parts.push(rec(m.kind === 'standard' ? REC_MODULETYPE_STANDARD : REC_MODULETYPE_OTHER, Buffer.alloc(0)));
+			if (m.isReadOnly) { parts.push(rec(REC_MODULEREADONLY, Buffer.alloc(0))); }
+			if (m.isPrivate) { parts.push(rec(REC_MODULEPRIVATE, Buffer.alloc(0))); }
+			parts.push(rec(REC_MODULE_TERMINATOR, Buffer.alloc(0)));
+		}
+		parts.push(rec(REC_DIR_TERMINATOR, Buffer.alloc(0)), Buffer.alloc(4));
+		return Buffer.concat(parts);
+	}
+}
+
+function projectStreamHasPassword(raw: Buffer): boolean {
+	const text = decodeAnsi(raw, 1252);
+	for (const line of text.split(/\r?\n/)) {
+		const trimmed = line.trim();
+		const eq = trimmed.indexOf('=');
+		if (eq <= 0) { continue; }
+		if (trimmed.slice(0, eq).trim() === 'DPB') {
+			// A placeholder DPB decodes to ~30 hex chars; a real password pushes it past ~60.
+			return trimmed.slice(eq + 1).trim().replace(/^"|"$/g, '').length >= 60;
+		}
+	}
+	return false;
+}
+
+/**
+ * Rewrite a PROJECT stream to apply renames/additions/deletions, preserving
+ * every other line (ID, Name, CMG, DPB, GC, [Host Extender Info]) verbatim and
+ * de-duplicating declarations (Excel treats duplicates as corruption).
+ */
+export function serializeProjectStream(
+	raw: Buffer,
+	renameMap: Map<string, string>,
+	opts: { addModules?: Array<[string, string]>; deleteNames?: Set<string> } = {},
+): Buffer {
+	const addModules = opts.addModules ?? [];
+	const deleteNames = opts.deleteNames ?? new Set<string>();
+	const text = decodeAnsi(raw, 1252);
+	const renameCi = new Map<string, string>();
+	for (const [k, v] of renameMap) { renameCi.set(k.toLowerCase(), v); }
+	const deleteCi = new Set([...deleteNames].map((n) => n.toLowerCase()));
+
+	const seenDecls = new Set<string>();
+	const seenWorkspace = new Set<string>();
+	const outLines: string[] = [];
+	let inWorkspace = false;
+	let lastDeclIdx = -1;
+	let workspaceIdx = -1;
+	let workspaceEndIdx = -1;
+
+	for (const line of text.split(/\r?\n/)) {
+		const stripped = line.trim();
+		if (stripped.toLowerCase() === '[workspace]') {
+			inWorkspace = true;
+			workspaceIdx = outLines.length;
+			outLines.push(line);
+			continue;
+		}
+		if (stripped.startsWith('[') && stripped.endsWith(']')) {
+			if (inWorkspace) { workspaceEndIdx = outLines.length; }
+			inWorkspace = false;
+			outLines.push(line);
+			continue;
+		}
+		const eq = stripped.indexOf('=');
+		if (eq < 0) {
+			// Preserve blank/゙structural lines, but not the trailing empty split artifact.
+			if (stripped.length > 0 || line.length > 0) { outLines.push(line); }
+			continue;
+		}
+		const key = stripped.slice(0, eq).trim();
+		const value = stripped.slice(eq + 1);
+		if (inWorkspace) {
+			if (deleteCi.has(key.toLowerCase())) { continue; }
+			const newKey = renameCi.get(key.toLowerCase()) ?? key;
+			if (seenWorkspace.has(newKey.toLowerCase())) { continue; }
+			seenWorkspace.add(newKey.toLowerCase());
+			outLines.push(`${newKey}=${value.trim()}`);
+			continue;
+		}
+		if (key === 'Module' || key === 'Class' || key === 'BaseClass') {
+			const v = value.trim();
+			if (deleteCi.has(v.toLowerCase())) { continue; }
+			const newVal = renameCi.get(v.toLowerCase()) ?? v;
+			if (seenDecls.has(newVal.toLowerCase())) { continue; }
+			seenDecls.add(newVal.toLowerCase());
+			outLines.push(`${key}=${newVal}`);
+			lastDeclIdx = outLines.length - 1;
+			continue;
+		}
+		if (key === 'Document') {
+			const v = value.trim();
+			const slash = v.indexOf('/');
+			const namePart = slash >= 0 ? v.slice(0, slash) : v;
+			const idPart = slash >= 0 ? v.slice(slash) : '';
+			if (deleteCi.has(namePart.toLowerCase())) { continue; }
+			const newName = renameCi.get(namePart.toLowerCase()) ?? namePart;
+			if (seenDecls.has(newName.toLowerCase())) { continue; }
+			seenDecls.add(newName.toLowerCase());
+			outLines.push(`Document=${newName}${idPart}`);
+			lastDeclIdx = outLines.length - 1;
+			continue;
+		}
+		outLines.push(line);
+	}
+
+	const freshAdds = addModules.filter(([name]) => !seenDecls.has(name.toLowerCase()));
+	if (freshAdds.length > 0) {
+		let insertAt = lastDeclIdx >= 0 ? lastDeclIdx + 1 : outLines.length;
+		if (lastDeclIdx < 0) {
+			const headerIdx = outLines.findIndex((l) => l.trim().startsWith('[') && l.trim().endsWith(']'));
+			insertAt = headerIdx >= 0 ? headerIdx : outLines.length;
+		}
+		const newDecls = freshAdds.map(([name, declKey]) => `${declKey}=${name}`);
+		outLines.splice(insertAt, 0, ...newDecls);
+		for (const [name] of freshAdds) { seenDecls.add(name.toLowerCase()); }
+		if (workspaceIdx >= insertAt) { workspaceIdx += newDecls.length; }
+		if (workspaceEndIdx >= insertAt) { workspaceEndIdx += newDecls.length; }
+		if (workspaceIdx >= 0) {
+			const wsNew = freshAdds
+				.filter(([name]) => !seenWorkspace.has(name.toLowerCase()))
+				.map(([name]) => `${name}=0, 0, 0, 0, C`);
+			if (wsNew.length > 0) {
+				const wsInsert = workspaceEndIdx > workspaceIdx ? workspaceEndIdx : outLines.length;
+				outLines.splice(wsInsert, 0, ...wsNew);
+			}
+		}
+	}
+
+	while (outLines.length > 0 && outLines[outLines.length - 1].trim() === '') {
+		outLines.pop();
+	}
+	return encodeAnsi(outLines.join('\r\n') + '\r\n', 1252);
+}
+
+/**
+ * Zero the _VBA_PROJECT performance cache body while keeping its 5-byte header,
+ * so Office regenerates p-code rather than trusting a stale cache after a
+ * mutating save ([MS-OVBA] 2.3.4.1).
+ */
+export function invalidateVbaProjectCache(cfb: Cfb): boolean {
+	let stream: Buffer;
+	try {
+		stream = cfb.getStreamInStorage('VBA', '_VBA_PROJECT');
+	} catch {
+		return false;
+	}
+	if (stream.length < 5 || stream[0] !== 0xcc || stream[1] !== 0x61 || stream[4] !== 0x00) {
+		return false;
+	}
+	if (stream.length === 5) {
+		return false;
+	}
+	cfb.writeStreamInStorage('VBA', '_VBA_PROJECT', Buffer.concat([
+		stream.subarray(0, 5),
+		Buffer.alloc(stream.length - 5),
+	]));
+	return true;
+}
+
+export function detectSignature(cfb: Cfb): SignatureInfo {
+	const info: SignatureInfo = { present: false, kinds: [] };
+	const candidates: string[] = [];
+	try { candidates.push(...cfb.listStreamsInStorage('VBA')); } catch { /* no VBA storage */ }
+	candidates.push(...cfb.listStreams());
+	for (const name of candidates) {
+		const kind = SIGNATURE_STREAMS[name];
+		if (kind && !info.kinds.includes(kind)) {
+			info.kinds.push(kind);
+			info.present = true;
+		}
+	}
+	return info;
+}
+
+/** Minimum attribute header VBE emits for a new standard module. */
+export function synthesizeStandardHeader(name: string): string {
+	return `Attribute VB_Name = "${name}"\r\n`;
+}
+
+/** Attribute header VBE emits for a new plain class module. */
+export function synthesizeClassHeader(name: string): string {
+	return (
+		'VERSION 1.0 CLASS\r\n'
+		+ 'BEGIN\r\n'
+		+ '  MultiUse = -1  \'True\r\n'
+		+ 'END\r\n'
+		+ `Attribute VB_Name = "${name}"\r\n`
+		+ 'Attribute VB_GlobalNameSpace = False\r\n'
+		+ 'Attribute VB_Creatable = False\r\n'
+		+ 'Attribute VB_PredeclaredId = False\r\n'
+		+ 'Attribute VB_Exposed = False\r\n'
+	);
+}
