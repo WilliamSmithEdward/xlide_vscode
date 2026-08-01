@@ -6,9 +6,8 @@ coverage/**
 assets/images/extension_logo_full.png
 assets/images/banner.png
 assets/images/youtube_video_static_image.png
-.venv/**
-.pytest_cache/**
 node_modules/**
+.venv/**
 src/**
 docs/**
 reference/**
@@ -21,12 +20,13 @@ esbuild.js
 vitest.config.ts
 tsconfig.json
 .gitignore
-**/.pytest_cache/**
-**/__pycache__/**
-**/*.pyc
 **/*.map
 out/**/*.map
 **/*.xlsx
 **/*.xlsm
+# ...except the blank workbook createWorkbook copies to make a new one.
+# The broad *.xlsm rule above exists to keep test workbooks out of the
+# package; this one has to ship or New Workbook fails at runtime.
+!assets/templates/blank.xlsm
 **/*.xlsb
 **/*.xlam

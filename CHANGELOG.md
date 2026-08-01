@@ -2,6 +2,94 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.0.0] - 2026-08-01
+
+### Changed
+
+- **XLIDE no longer needs Python. It reads and writes workbooks itself.**
+  Every workbook operation used to run through a long-lived Python child
+  process, which meant every install began with a setup gate: find an
+  interpreter, install two libraries, and recover when either went missing.
+  That whole layer is gone. XLIDE now implements the container formats
+  directly - the [MS-CFB] compound file, [MS-OVBA] compression, the VBA
+  project's dir/PROJECT/module streams, and the OOXML package and worksheet
+  surface - in the extension itself.
+
+  For you that means: nothing to install beyond the extension, no Setup
+  section, no interpreter to configure, no backend to restart, and the
+  workbook tree available the moment XLIDE loads.
+
+  The engine was validated against the previous implementation before the
+  swap: 77 modules across 4 real workbooks parse identically, compression is
+  byte-identical for every module source, container round-trips are lossless
+  and idempotent, and workbooks mutated through every write path open cleanly
+  in real Excel with their VBA readable through the VBE.
+
+### Performance
+
+- **Reads are about twice as fast, and saves nearly twice as fast.** Opening a
+  VBA project used to decompress every module even when the caller only wanted
+  names, types, or one module out of forty - about three quarters of the cost
+  of every read. Module source is now decompressed on first use, and module
+  classification reads only the header. Saving re-deflates the rebuilt VBA
+  project at a compression level tuned for the write path, which costs about
+  half the time for a workbook well under a percent larger.
+
+  On a 2.4 MB workbook with 42 modules: listing modules 8.1 ms -> 4.0 ms,
+  reading a module 8.5 ms -> 4.0 ms, saving an edited module 34.5 ms -> 17.0 ms,
+  creating one 61.5 ms -> 37.2 ms.
+
+### Added
+
+- **New analysis rule: Friend members reached through a late-bound receiver.**
+  Friend members are not on a class's dispatch interface, so reaching one
+  through a `Variant` or `Object` receiver - including a `Collection` element,
+  since `Collection.Item` returns Variant - raises run-time error 438. VBA
+  compiles it without complaint, so the failure only appears on the first
+  execution that reaches the call, which is how this survives in shipped code.
+
+  The rule reports only names that resolve exclusively to Friend members of
+  project classes, and stays silent when the same name is Public anywhere, is
+  part of the Excel object model, or belongs to a VBA runtime object - the
+  runtime type inside a Variant is unknowable, so anything less certain would
+  be a guess. Backed by three Excel/VBE oracle cases, including the control
+  proving that the same read through a typed local runs clean.
+
+  Scanning five real workbooks with it turned up three genuine instances of
+  the bug in one function.
+
+### Fixed
+
+- **The VBA test host now proves it owns its Excel instance.** It quits that
+  instance when a run ends and kills it on a hang, so attaching to an Excel you
+  already had open would put your unsaved work at risk. It now snapshots the
+  running Excel processes before creating its own and refuses the run rather
+  than touching one of yours. The owned instance is also tied to the host
+  process, so a crashed run cannot leave a hidden Excel holding your workbook
+  open.
+
+- **Fewer ways for a test run to wedge on a dialog.** Macro security is
+  suppressed for the host's own instance (that prompt is Excel-owned and cannot
+  be dismissed by anything), alert suppression is re-asserted before closing and
+  quitting in case test code turned it back on, and the modal watcher now covers
+  opening and teardown instead of only macro execution.
+
+### Removed
+
+- The `xlide.pythonPath` and `xlide.checkPythonLibraryUpdates` settings, the
+  Setup section of the sidebar, the Python setup commands, and the
+  `xlide_runOpenpyxl` agent tool. Sheet and cell operations are covered by
+  `xlide_readCells`, `xlide_readFormulas`, and `xlide_writeCells`.
+
+### Notes for AI agent users
+
+- Tool descriptions now state plainly that VBA lives in the workbook, reachable
+  either through the XLIDE tools or the `xlide-vba://` virtual file system where
+  saving a module writes straight into the workbook - and that exported
+  `.bas`/`.cls`/`.frm` files in a project are one-way artifacts that no workbook
+  reads back, so editing one changes nothing. Agents should leave them alone
+  unless you explicitly ask about the export artifacts.
+
 ## [2.6.1] - 2026-07-25
 
 ### Fixed

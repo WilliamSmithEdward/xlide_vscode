@@ -296,3 +296,24 @@ describe('lazy module sources', () => {
 		}
 	});
 });
+
+describe('packaged assets', () => {
+	// createWorkbook copies this file out of the installed extension, so it has
+	// to be inside the .vsix. The broad `**/*.xlsm` rule in .vscodeignore keeps
+	// test workbooks out of the package and silently took this with it once;
+	// the failure only shows up as New Workbook throwing ENOENT on a real
+	// install, which no unit test would otherwise catch.
+	it('does not let .vscodeignore exclude the blank workbook template', () => {
+		expect(fs.existsSync(TEMPLATE)).toBe(true);
+
+		const ignore = fs.readFileSync(
+			path.join(__dirname, '..', '.vscodeignore'), 'utf8',
+		).split(/\r?\n/).map((line) => line.trim());
+
+		const excluded = ignore.indexOf('**/*.xlsm');
+		const reincluded = ignore.indexOf('!assets/templates/blank.xlsm');
+		expect(excluded, '.vscodeignore no longer excludes *.xlsm; re-check this guard').toBeGreaterThan(-1);
+		expect(reincluded, 'assets/templates/blank.xlsm must be re-included after the *.xlsm exclusion')
+			.toBeGreaterThan(excluded);
+	});
+});
