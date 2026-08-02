@@ -2,6 +2,24 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.1.3] - 2026-08-02
+
+### Fixed
+
+- **Re-running Analyze Workbook on an unchanged workbook is now instant, and
+  runs no longer intermittently stall part-way.** Each completed analysis
+  caused the explorer to fire tree updates a couple of seconds later
+  (protection probes), the results panel treated those as a reason to
+  re-analyze in the background, and the next explicit run then queued on the
+  analysis worker behind that redundant work - stalling at the largest module,
+  sometimes for several seconds. Two changes: analysis results are now cached
+  per workbook against a content fingerprint (open-editor edits included) plus
+  the severity settings, so an unchanged workbook answers in milliseconds with
+  "Analysis up to date" instead of re-analyzing; and the results panel no
+  longer re-analyzes on tree events at all, since protection badges do not
+  change analysis inputs. Editing any module or changing severity settings
+  still re-analyzes, incrementally.
+
 ## [3.1.2] - 2026-08-01
 
 ### Fixed
