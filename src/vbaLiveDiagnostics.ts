@@ -76,7 +76,8 @@ const DIAGNOSTIC_ANALYSIS_SETTINGS_CACHE_TTL_MS = 2_000;
 type DiagnosticPassKind = 'local' | 'full';
 
 interface DiagnosticScheduleDelays {
-    localDelayMs: number;
+    /** Undefined skips the local pass entirely (a scheduled full pass covers it). */
+    localDelayMs?: number;
     fullDelayMs?: number;
 }
 
@@ -94,7 +95,7 @@ interface DiagnosticScheduleDelays {
  * cheap local pass keeps its fast cadence regardless, so structural squiggles
  * stay responsive. document.lineCount is O(1).
  */
-function editScheduleDelaysFor(
+export function editScheduleDelaysFor(
     document: vscode.TextDocument,
     offThreadHealthy: boolean,
 ): DiagnosticScheduleDelays {
@@ -110,7 +111,18 @@ function editScheduleDelaysFor(
             DIAGNOSTIC_EDIT_FULL_DELAY_MS + Math.floor((lines - DIAGNOSTIC_LARGE_MODULE_LINES) / 8),
         )
         : DIAGNOSTIC_EDIT_FULL_DELAY_MS;
-    return { localDelayMs: DIAGNOSTIC_EDIT_LOCAL_DELAY_MS, fullDelayMs };
+    // The in-host local pass is a full module analysis, not just structure, so
+    // on a large module it blocks the extension host for hundreds of ms. With
+    // no worker to absorb that: workbook documents drop the local pass (the
+    // paced full pass above covers them - running both would block the host
+    // twice for one result), and loose .bas documents - which never get a full
+    // pass - keep a local pass paced to the same backoff.
+    const localDelayMs = lines <= DIAGNOSTIC_LARGE_MODULE_LINES
+        ? DIAGNOSTIC_EDIT_LOCAL_DELAY_MS
+        : document.uri.scheme === XLIDE_SCHEME
+            ? undefined
+            : fullDelayMs;
+    return { localDelayMs, fullDelayMs };
 }
 
 class DiagnosticScheduler {
@@ -138,10 +150,12 @@ class DiagnosticScheduler {
         const generation = this._nextGeneration(key);
         this._clearTimer(this._localTimers, key);
         this._clearTimer(this._fullTimers, key);
-        this._localTimers.set(key, setTimeout(() => {
-            this._localTimers.delete(key);
-            this._runPass(document, generation, 'local');
-        }, delays.localDelayMs));
+        if (delays.localDelayMs !== undefined) {
+            this._localTimers.set(key, setTimeout(() => {
+                this._localTimers.delete(key);
+                this._runPass(document, generation, 'local');
+            }, delays.localDelayMs));
+        }
         if (document.uri.scheme === XLIDE_SCHEME && delays.fullDelayMs !== undefined) {
             this._fullTimers.set(key, setTimeout(() => {
                 this._fullTimers.delete(key);
@@ -492,7 +506,7 @@ export function registerVbaDiagnostics(
                 const { xlsmPath } = decodeModuleUri(document.uri);
                 workbookPath = xlsmPath;
                 settingsWatchers.ensure(xlsmPath);
-                if (pass === 'full') {
+                if (pass === 'full' || workerClient?.available === true) {
                     const diagnosticProject = await projectIndexService.contextForWorkbook(xlsmPath);
                     workbookRecord = diagnosticProject;
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
@@ -547,12 +561,14 @@ export function registerVbaDiagnostics(
             ? document.offsetAt(activeEditor.selection.active)
             : undefined;
 
-        // Full passes run on the analysis worker thread when it is healthy, so
-        // a large module's ~1s pass never blocks the extension host. The worker
-        // reproduces the exact in-host inputs (same module sources, generation-
-        // gated) and keeps per-document incremental state; any failure falls
-        // through to the identical in-host pass below.
-        if (pass === 'full' && workerClient?.available && workbookPath && workbookRecord) {
+        // Both passes run on the analysis worker thread when it is healthy, so
+        // a large module's pass never blocks the extension host. In-host, the
+        // local pass on a ~24k-line class costs ~700ms on the extension-host
+        // thread 90ms after every typing pause - the worker path is off-thread
+        // and keeps per-document incremental state, so the follow-up full pass
+        // of the same generation re-analyzes only what changed. Any failure
+        // falls through to the identical in-host pass below.
+        if (workerClient?.available && workbookPath && workbookRecord) {
             try {
                 const record = workbookRecord;
                 const wbKey = workbookKey(workbookPath);

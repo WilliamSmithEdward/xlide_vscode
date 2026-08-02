@@ -21,6 +21,30 @@ cancelable, cached, or visibly reported with progress.
 | Import/export diff preview generation | 2 s p95 | 10 s |
 | Test GUI discovery before Excel execution | 1 s p95 | 5 s |
 
+## Keystroke-Path Rules
+
+Measured on a real 24,283-line class module (867 KB of source):
+
+| In-host cost per event | Path |
+|---:|---|
+| ~0.01 ms | loop-iterator sync early-out (per keystroke) |
+| 4.4 ms | project-index fold (`buildModuleSymbols`, per provider request) |
+| 29 ms | structural analysis alone |
+| **~700-945 ms** | `analyzeVbaModuleSource` - a full module analysis |
+
+That last number is why BOTH diagnostic passes ride the analysis worker when it
+is healthy: an in-host "local" pass is a full module analysis, and firing it
+90 ms into every typing pause froze typing on large modules. Rules that keep
+this fixed:
+
+- Never run `analyzeVbaModuleSource` on the extension host on a keystroke-paced
+  timer. When the worker is up, both the local and full passes go to it; the
+  worker keeps per-document incremental state so the follow-up pass re-analyzes
+  only what changed.
+- When the worker is down, large workbook modules drop the local pass entirely
+  (the paced full pass covers them) and loose `.bas` files pace their only pass
+  to the same backoff. `tests/vbaDiagnosticScheduling.test.ts` pins all of this.
+
 ## Workbook Engine Budgets
 
 Every workbook operation runs in-process against the file on disk, so these are
