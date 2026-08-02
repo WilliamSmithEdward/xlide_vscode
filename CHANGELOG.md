@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.1.1] - 2026-08-01
+
+### Performance
+
+- **Analyze Workbook no longer hitches the editor while it runs.** The command
+  analyzed each module on the extension host - on a workbook containing a very
+  large module, that meant sub-second UI stalls mid-command. Per-module
+  analysis now runs on the analysis worker thread (the same path live
+  diagnostics took in 3.1.0), with an identical in-host fallback if the worker
+  is unavailable. Re-running the command on a workbook you have been editing is
+  also faster now: the worker keeps per-module incremental state, so an
+  unchanged module is not re-analyzed from scratch, and an unchanged workbook
+  skips the module-source transfer entirely.
+
 ## [3.1.0] - 2026-08-01
 
 ### Performance
