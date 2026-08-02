@@ -277,3 +277,32 @@ describe('analyzeWorkbook worker routing', () => {
 		expect(seeded[2].generation).not.toBe(seeded[0].generation);
 	});
 });
+
+describe('analyzeWorkbook progress', () => {
+	afterEach(() => {
+		setWorkbookAnalysisWorker(undefined);
+	});
+
+	it('reports each module completion, forced past the start-report throttle', async () => {
+		// All start reports fire within milliseconds now that analysis is
+		// async, so the throttle drops them and only completion reports keep
+		// the notification moving.
+		const worker: WorkbookAnalysisWorker = {
+			available: true,
+			ensureSeeded() { /* accepted */ },
+			analyze() { return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] }); },
+		};
+		setWorkbookAnalysisWorker(worker);
+		const messages: string[] = [];
+
+		await analyzeWorkbook(fakeWorkbookEngine([
+			{ name: 'ModA', type: 'standard', source: 'Option Explicit\nSub A()\nEnd Sub\n' },
+			{ name: 'ModB', type: 'standard', source: 'Option Explicit\nSub B()\nEnd Sub\n' },
+		]), 'Book.xlsm', { progress: (message) => messages.push(message) });
+
+		const done = messages.filter((m) => m.startsWith('Analyzed '));
+		expect(done).toHaveLength(2);
+		expect(done.some((m) => m.includes('(1/2)'))).toBe(true);
+		expect(done.some((m) => m.includes('(2/2)'))).toBe(true);
+	});
+});

@@ -472,6 +472,20 @@ async function runWorkbookAnalysis(
             })));
         }
 
+        // Progress must advance on COMPLETION, forced past the throttle. The
+        // per-module start reports all fire within the first few milliseconds
+        // now that analysis is async on the worker, so the 100ms throttle
+        // drops every one of them and the toast sits on "Reading VBA
+        // modules..." for the whole run - which reads as a hang, however fast
+        // the run actually is.
+        let completedModules = 0;
+        const reportModuleDone = (name: string): void => {
+            completedModules++;
+            progress.report(
+                `Analyzed ${name} (${completedModules}/${modules.length})`,
+                { force: true },
+            );
+        };
         const analysisResults = await mapWithConcurrency(
             modules,
             WORKBOOK_MODULE_ANALYSIS_CONCURRENCY,
@@ -501,6 +515,7 @@ async function runWorkbookAnalysis(
                             }),
                         );
                         throwIfAnalysisCancelled(options.token);
+                        reportModuleDone(mod.name);
                         return {
                             problems: workbookProblemsForModule(
                                 mod.name,
@@ -539,6 +554,7 @@ async function runWorkbookAnalysis(
                         ...projectOptions,
                     }),
                 );
+                reportModuleDone(mod.name);
                 return {
                     problems: workbookProblemsForModule(
                         mod.name,
