@@ -235,6 +235,41 @@ describe('hover - standard module-qualified symbols', () => {
 		expect(enumMemberHover?.signature).toBe('Finance.SharedOnly As SharedMode');
 		expect(enumMemberHover?.details).toContain('Finance property');
 	});
+
+	it('describes a class used as a bare receiver, and its UserForm sibling', () => {
+		// A class with a predeclared instance is addressed by its own name, the way a
+		// factory-style module is: `Inventory.DataView(rows)`. Hovering the class name in that
+		// expression-root position describes the class, exactly as hovering it in a type
+		// position would.
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: 'Inventory',
+			moduleKind: 'class',
+			source: [
+				"''' <summary>Sheet-backed inventory window.</summary>",
+				'',
+				'Public Function DataView(ByVal rows As Long) As Inventory',
+				'End Function',
+			].join('\n'),
+		});
+		index.setModule({ moduleName: 'EntryForm', moduleKind: 'userform', source: '' });
+		index.setModule({ moduleName: 'Caller', moduleKind: 'standard', source: '' });
+		const ctx = { projectClassMembers: index.projectMemberSurfaces('Caller') };
+		const src =
+			'Sub T()\n' +
+			'    Set view = Inventory.DataView(10)\n' +
+			'    EntryForm.Show\n' +
+			'End Sub\n';
+
+		const classHover = resolveHover(src, src.indexOf('Inventory.DataView') + 2, ctx);
+		expect(classHover?.signature).toBe('Class Inventory');
+		expect(classHover?.details).toContain('Class module');
+		expect(classHover?.documentation).toContain('Sheet-backed inventory window.');
+
+		const formHover = resolveHover(src, src.indexOf('EntryForm.Show') + 2, ctx);
+		expect(formHover?.signature).toBe('UserForm EntryForm');
+		expect(formHover?.details).toContain('UserForm');
+	});
 });
 
 describe('hover - host symbols', () => {

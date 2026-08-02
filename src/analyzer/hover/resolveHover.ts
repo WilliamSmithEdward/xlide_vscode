@@ -392,24 +392,37 @@ function resolveProjectProcedureHover(
 	return info;
 }
 
+/** Signature and detail for each module surface a bare name can resolve to. */
+const MODULE_SURFACE_HOVER: Record<string, { signature: (name: string) => string; detail: string }> = {
+	standardModule: { signature: (name) => `Module ${name}`, detail: 'Standard module' },
+	class: { signature: (name) => `Class ${name}`, detail: 'Class module' },
+	document: { signature: (name) => `Document module ${name}`, detail: 'Document module' },
+	userform: { signature: (name) => `UserForm ${name}`, detail: 'UserForm' },
+};
+
 function resolveProjectModuleHover(
 	name: string,
 	ctx: HoverContext,
 	span: Span,
 ): HoverInfo | undefined {
+	// Any object-module surface answers, not only standard modules: a class with a predeclared
+	// instance (or a UserForm, or a document module) is a bare receiver too, and hovering
+	// `ROneCOne` in `ROneCOne.DataView(...)` should describe it the way completion resolves it.
+	// `userType` surfaces are excluded: a UDT name is not a value an expression starts from.
 	const surface = (ctx.projectClassMembers ?? []).find(
-		(item) => item.kind === 'standardModule' &&
+		(item) => item.kind in MODULE_SURFACE_HOVER &&
 			item.name.toLowerCase() === name.toLowerCase(),
 	);
 	if (!surface) {
 		return undefined;
 	}
+	const hover = MODULE_SURFACE_HOVER[surface.kind];
 	const doc = hasDocContent(surface.doc)
 		? renderDocMarkdown(surface.doc)
 		: externalDocMarkdown(ctx, surface.name);
 	return {
-		signature: `Module ${surface.name}`,
-		details: ['Standard module'],
+		signature: hover.signature(surface.name),
+		details: [hover.detail],
 		span,
 		documentation: doc,
 	};
