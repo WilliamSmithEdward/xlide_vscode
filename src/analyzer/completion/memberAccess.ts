@@ -849,7 +849,16 @@ function resolveRoot(
 	if (asCode) {
 		return projectKey ? combinedTypeKey(projectKey, asCode) : asCode;
 	}
-	if (projectSurface?.kind === 'standardModule') {
+	if (
+		projectSurface?.kind === 'standardModule'
+		|| projectSurface?.kind === 'class'
+		|| projectSurface?.kind === 'userform'
+	) {
+		// A standard module's name reaches its members. A class or UserForm name does too:
+		// UserForms always carry their predeclared default instance, and factory-style classes
+		// (VB_PredeclaredId) are addressed by name as a matter of course. The attribute itself
+		// is invisible to a host that reads module text without its header, so the offer is
+		// not gated on it; misusing a class that is not predeclared is the diagnostics' concern.
 		return projectTypeKey(lower);
 	}
 	return ctx.allowSetAssignmentRefinement === false
