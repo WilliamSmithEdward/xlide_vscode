@@ -7,7 +7,6 @@
 // truncated workbook.
 
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { Cfb } from './cfb';
 import {
@@ -448,12 +447,4 @@ export function createWorkbook(filePath: string, templatePath: string): { ok: tr
 	const template = fs.readFileSync(templatePath);
 	atomicWrite(filePath, template);
 	return { ok: true, path: filePath };
-}
-
-/** Temp-directory copy helper used by the test host staging path. */
-export function copyWorkbookToTemp(filePath: string, prefix = 'xlide-'): string {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-	const target = path.join(dir, path.basename(filePath));
-	fs.copyFileSync(filePath, target);
-	return target;
 }

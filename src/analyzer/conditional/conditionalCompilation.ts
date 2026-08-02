@@ -293,14 +293,6 @@ function applyConditionalDirective(
 	}
 }
 
-export function conditionalActivityForSpan(
-	module: ModuleNode,
-	span: Span,
-	env: ConditionalCompilationEnvironment = {},
-): ConditionalActivity {
-	return conditionalActivityAtOffset(module, span.start, env);
-}
-
 function collectBodyDirectives(
 	body: BodyNode[],
 	procedure: ProcedureNode,
