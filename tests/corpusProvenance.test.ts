@@ -107,6 +107,19 @@ describe('syntax corpus provenance', () => {
 		}
 	});
 
+	it('keeps the audit and oracle evidence plain ASCII', () => {
+		// The evidence files are the export contract downstream ports vendor
+		// verbatim and checksum, and the house style is plain ASCII prose (no
+		// em dashes, no section signs). Guard it so smart punctuation cannot
+		// creep back in through an edited notes field.
+		for (const relative of ['diagnostic_influence_audit.json', 'oracle/vbe_oracle_cases.json']) {
+			const raw = readFileSync(join(corpusRoot, relative), 'utf8');
+			// \t\r\n tolerated: \r appears on autocrlf checkouts, never in the blob.
+			const offenders = [...new Set(raw.match(/[^\t\r\n -~]/g) ?? [])];
+			expect(offenders, relative).toEqual([]);
+		}
+	});
+
 	it('requires every oracle case to declare case-level provenance', () => {
 		const oracle = readJson<OracleCasesFile>(
 			join(corpusRoot, 'oracle', 'vbe_oracle_cases.json'),
