@@ -1,8 +1,8 @@
-﻿import { describe, expect, it, vi } from 'vitest';
+﻿import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
-import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
+import { analyzeWorkbook, setWorkbookAnalysisWorker, type WorkbookAnalysisWorker } from '../src/vbaWorkbookAnalysis';
 import type { WorkbookEngine } from '../src/workbookEngine';
 import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import { deferred, flushPromises } from './helpers/async';
@@ -164,5 +164,116 @@ describe('analyzeWorkbook metadata summary', () => {
 		});
 		expect(memberHits[0].message).toContain('Person.Range');
 		expect(result.problems.map((item) => item.message).join('\n')).not.toContain('Excel.Worksheet.DoesNotExist');
+	});
+});
+
+describe('analyzeWorkbook worker routing', () => {
+	afterEach(() => {
+		setWorkbookAnalysisWorker(undefined);
+	});
+
+	const MODULES = [
+		{ name: 'ModA', type: 'standard', source: 'Option Explicit\nSub A()\n\tmissingA = 1\nEnd Sub\n' },
+		{ name: 'ModB', type: 'standard', source: 'Option Explicit\nSub B()\n\tmissingB = 1\nEnd Sub\n' },
+	];
+
+	function cannedWorker() {
+		const analyzed: string[] = [];
+		const seeded: Array<{ key: string; generation: number; count: number }> = [];
+		const worker: WorkbookAnalysisWorker = {
+			available: true,
+			ensureSeeded(key, generation, modules) {
+				seeded.push({ key, generation, count: modules().length });
+			},
+			analyze(request) {
+				analyzed.push(request.moduleName);
+				return Promise.resolve({
+					diagnostics: [{
+						code: 'undeclared-variable',
+						message: `worker saw ${request.moduleName}`,
+						severity: 'error' as const,
+						span: { start: 0, end: 1 },
+					}],
+					suppressedDiagnostics: [{
+						code: 'undeclared-variable',
+						message: `worker suppressed ${request.moduleName}`,
+						severity: 'error' as const,
+						span: { start: 0, end: 1 },
+					}],
+				});
+			},
+		};
+		return { worker, analyzed, seeded };
+	}
+
+	it('routes every module through the worker and keeps suppressed findings', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
+		setWorkbookAnalysisWorker(worker);
+
+		const result = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+
+		expect(analyzed.sort()).toEqual(['ModA', 'ModB']);
+		expect(seeded).toHaveLength(1);
+		expect(seeded[0].count).toBe(2);
+		expect(seeded[0].key).toContain('workbook-analysis:');
+		// The worker's findings are what the result reports - the in-host
+		// analyzer (which would say "missingA") never ran.
+		expect(result.problems.map((p) => p.message).sort()).toEqual([
+			'worker saw ModA',
+			'worker saw ModB',
+		]);
+		expect(result.suppressedProblems.map((p) => p.message).sort()).toEqual([
+			'worker suppressed ModA',
+			'worker suppressed ModB',
+		]);
+	});
+
+	it('falls back to the identical in-host pass when the worker rejects', async () => {
+		const worker: WorkbookAnalysisWorker = {
+			available: true,
+			ensureSeeded() { /* accepted */ },
+			analyze() { return Promise.reject(new Error('worker crashed')); },
+		};
+		setWorkbookAnalysisWorker(worker);
+
+		const result = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+
+		// Real analysis findings, produced in-host.
+		expect(result.problems.some((p) => p.message.includes('missingA'))).toBe(true);
+		expect(result.problems.some((p) => p.message.includes('missingB'))).toBe(true);
+	});
+
+	it('never touches an unavailable worker', async () => {
+		const analyzed: string[] = [];
+		const worker: WorkbookAnalysisWorker = {
+			available: false,
+			ensureSeeded() { analyzed.push('seed'); },
+			analyze(request) {
+				analyzed.push(request.moduleName);
+				return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+			},
+		};
+		setWorkbookAnalysisWorker(worker);
+
+		const result = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+
+		expect(analyzed).toEqual([]);
+		expect(result.problems.some((p) => p.message.includes('missingA'))).toBe(true);
+	});
+
+	it('seeds with the same fingerprint for unchanged sources across runs', async () => {
+		const { worker, seeded } = cannedWorker();
+		setWorkbookAnalysisWorker(worker);
+
+		await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+		await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+		expect(seeded).toHaveLength(2);
+		expect(seeded[0].generation).toBe(seeded[1].generation);
+
+		const edited = MODULES.map((m) => m.name === 'ModA'
+			? { ...m, source: m.source.replace('missingA', 'missingEdited') }
+			: m);
+		await analyzeWorkbook(fakeWorkbookEngine(edited), 'Book.xlsm');
+		expect(seeded[2].generation).not.toBe(seeded[0].generation);
 	});
 });

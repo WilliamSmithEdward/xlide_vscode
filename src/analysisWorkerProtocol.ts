@@ -41,6 +41,8 @@ export type AnalysisWorkerResponse =
 		requestId: number;
 		docKey: string;
 		diagnostics: VbaModuleAnalysisDiagnostic[];
+		/** Findings silenced by suppression directives; workbook analysis reports them separately. */
+		suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
 		incrementalMode?: 'full' | 'incremental';
 	}
 	| {

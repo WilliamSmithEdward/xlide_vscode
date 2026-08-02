@@ -30,6 +30,7 @@ import { AnalysisWorkerClient } from './analysisWorkerClient';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
+import { setWorkbookAnalysisWorker } from './vbaWorkbookAnalysis';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
 
 // ---------------------------------------------------------------------------
@@ -96,6 +97,10 @@ export function activate(context: vscode.ExtensionContext): void {
         (line: string) => out.appendLine(line),
     );
     context.subscriptions.push(new vscode.Disposable(() => analysisWorkerClient.dispose()));
+    // Analyze Workbook (the command, the agent tool, and the support bundle's
+    // anonymized report) rides the same worker so a large module's analysis
+    // never blocks the host mid-command.
+    setWorkbookAnalysisWorker(analysisWorkerClient);
     const vbaIndex = registerVbaLanguageProviders(context, bridge, analysisWorkerClient);
     registerVbaEditorCommands(context);
     registerXlideVbaLanguageSync(context, out);

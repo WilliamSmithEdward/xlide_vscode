@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import {
+	buildVbaProjectIndex,
+	projectAnalysisOptionsForModule,
+	projectProcedureSignatures,
+} from '../src/vbaProjectAnalysis';
 
 const MOD_A = [
 	'Option Explicit',
@@ -86,5 +91,44 @@ describe('AnalysisWorkerState', () => {
 		expect(after?.kind).toBe('result');
 		if (after?.kind !== 'result') { return; }
 		expect(after.incrementalMode).toBe('full');
+	});
+});
+
+describe('AnalysisWorkerState suppressed diagnostics', () => {
+	it('returns suppressed findings alongside active ones', () => {
+		// Analyze Workbook reports suppressed problems in their own panel
+		// section, so the worker result must carry them across the boundary
+		// rather than dropping them like the live-diagnostics path can.
+		const source = [
+			'Option Explicit',
+			'Sub Alpha()',
+			"    ' @xlide-analysis-disable-next-line undeclared-variable",
+			'    silenced = 1',
+			'    loudAndClear = 2',
+			'End Sub',
+		].join('\n');
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed', workbookKey: 'wb-supp', generation: 1,
+			modules: [{ moduleName: 'ModS', source, type: 'standard' }],
+		});
+		const response = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'doc-supp', workbookKey: 'wb-supp', generation: 1,
+			source, moduleName: 'ModS', moduleType: 'standard',
+		});
+		expect(response?.kind).toBe('result');
+		if (response?.kind !== 'result') { return; }
+		expect(response.diagnostics.some((d) => d.message.includes('loudAndClear'))).toBe(true);
+		expect(response.diagnostics.some((d) => d.message.includes('silenced'))).toBe(false);
+		expect(response.suppressedDiagnostics.some((d) => d.message.includes('silenced'))).toBe(true);
+
+		// Byte-for-byte the same partition the in-host pass produces.
+		const project = buildVbaProjectIndex([{ moduleName: 'ModS', source, type: 'standard' }]);
+		const inHost = analyzeVbaModuleSource({
+			source, moduleName: 'ModS', moduleType: 'standard',
+			...projectAnalysisOptionsForModule(project, 'ModS', projectProcedureSignatures(project)),
+		});
+		expect(response.diagnostics).toEqual(inHost.diagnostics);
+		expect(response.suppressedDiagnostics).toEqual(inHost.suppressedDiagnostics);
 	});
 });

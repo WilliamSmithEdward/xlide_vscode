@@ -590,7 +590,7 @@ The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 
 **Workbook-wide analysis (command + agent tool)** — `src/vbaWorkbookAnalysis.ts`
-(`analyzeWorkbook`) loads every module from the workbook via the workbook engine,
+(`analyzeWorkbook`) loads every module from the workbook via the workbook engine, routes each module's analysis through the analysis worker when it is healthy (seeded under its own key namespace so it never disturbs live diagnostics' seed; identical in-host fallback on any worker failure),
 builds shared project-analysis options so cross-module rules have the current
 module's visibility-filtered procedure/Declare names, bare identifier names,
 visible type/non-type names, exported signatures, and source-backed member

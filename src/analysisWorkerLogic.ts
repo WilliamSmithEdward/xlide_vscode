@@ -127,6 +127,7 @@ export class AnalysisWorkerState {
 			requestId: request.requestId,
 			docKey: request.docKey,
 			diagnostics: result.diagnostics,
+			suppressedDiagnostics: result.suppressedDiagnostics,
 			incrementalMode: result.rulesIncrementalMode,
 		};
 	}

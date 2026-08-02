@@ -44,6 +44,10 @@ this fixed:
 - When the worker is down, large workbook modules drop the local pass entirely
   (the paced full pass covers them) and loose `.bas` files pace their only pass
   to the same backoff. `tests/vbaDiagnosticScheduling.test.ts` pins all of this.
+- Analyze Workbook rides the same worker: each module's analysis runs
+  off-thread (own seed namespace, content-fingerprint generation so an
+  unchanged re-run skips the seed transfer and reuses per-module incremental
+  state), with the identical in-host pass as fallback.
 
 ## Workbook Engine Budgets
 

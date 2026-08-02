@@ -118,6 +118,72 @@ export interface AnalyzeWorkbookOptions {
     token?: vscode.CancellationToken;
 }
 
+/**
+ * The slice of AnalysisWorkerClient workbook analysis needs. Structural, so
+ * tests can hand in a fake without touching worker_threads.
+ */
+export interface WorkbookAnalysisWorker {
+    readonly available: boolean;
+    ensureSeeded(
+        workbookKey: string,
+        generation: number,
+        modules: () => Array<{ moduleName: string; source: string; type?: string; documentType?: string }>,
+    ): void;
+    analyze(request: {
+        docKey: string;
+        workbookKey: string;
+        generation: number;
+        source: string;
+        moduleName: string;
+        moduleType?: string;
+        moduleKind?: string;
+        documentType?: string;
+        severityOverrides?: Record<string, string>;
+    }): Promise<{
+        diagnostics: VbaModuleAnalysisDiagnostic[];
+        suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
+    }>;
+}
+
+let workbookAnalysisWorker: WorkbookAnalysisWorker | undefined;
+
+/**
+ * Route per-module analysis through the analysis worker thread when it is
+ * healthy, exactly as live diagnostics do - a ~700ms module otherwise blocks
+ * the extension host mid-command. Wired once at activation; analysis never
+ * depends on it (every worker failure falls back to the identical in-host
+ * pass).
+ */
+export function setWorkbookAnalysisWorker(worker: WorkbookAnalysisWorker | undefined): void {
+    workbookAnalysisWorker = worker;
+}
+
+/**
+ * Content fingerprint standing in for a seed generation. The command seeds
+ * under its own key namespace (never fighting live diagnostics over a
+ * workbook's seed), so the only requirement is that unchanged sources map to
+ * the same number - a re-run then skips the seed transfer entirely - and any
+ * change maps elsewhere. FNV-1a over every module's name and full source.
+ */
+function workbookSeedFingerprint(
+    modules: ReadonlyArray<{ name: string; source: string }>,
+): number {
+    let hash = 0x811c9dc5;
+    const mix = (text: string): void => {
+        for (let i = 0; i < text.length; i++) {
+            hash ^= text.charCodeAt(i);
+            hash = Math.imul(hash, 0x01000193);
+        }
+    };
+    for (const mod of modules) {
+        mix(mod.name);
+        mix('\u0000');
+        mix(mod.source);
+        mix('\u0000');
+    }
+    return hash >>> 0;
+}
+
 const WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
 const WORKBOOK_MODULE_ANALYSIS_CONCURRENCY = 4;
 
@@ -359,18 +425,29 @@ async function runWorkbookAnalysis(
         }
 
         throwIfAnalysisCancelled(options.token);
-        progress.report('Building project context...', { force: true });
-        const project = await measurePerformance('analyzeWorkbook.buildProjectContext', undefined, () =>
-            buildVbaProjectIndexAsync(modules.map((mod) => ({
-                moduleName: mod.name,
-                source: mod.source,
-                type: mod.type,
-                documentType: mod.documentType,
-            })), undefined, {
-                cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
-            }),
-        );
-        const projectProcedures = projectProcedureSignatures(project);
+
+        // Host-side project context is only needed by the in-host fallback, so
+        // build it lazily (and once) instead of paying for it on the worker
+        // path. mapWithConcurrency callbacks may race to it; the shared promise
+        // makes the build single-flight.
+        let hostContext: Promise<{
+            project: Awaited<ReturnType<typeof buildVbaProjectIndexAsync>>;
+            procedures: ReturnType<typeof projectProcedureSignatures>;
+        }> | undefined;
+        const ensureHostContext = () => hostContext ??= (async () => {
+            progress.report('Building project context...', { force: true });
+            const project = await measurePerformance('analyzeWorkbook.buildProjectContext', undefined, () =>
+                buildVbaProjectIndexAsync(modules.map((mod) => ({
+                    moduleName: mod.name,
+                    source: mod.source,
+                    type: mod.type,
+                    documentType: mod.documentType,
+                })), undefined, {
+                    cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
+                }),
+            );
+            return { project, procedures: projectProcedureSignatures(project) };
+        })();
 
         const analysisSettings = await measurePerformance(
             'analyzeWorkbook.settings',
@@ -378,6 +455,22 @@ async function runWorkbookAnalysis(
             () => effectiveWorkbookAnalysisSettings(filePath),
         );
         throwIfAnalysisCancelled(options.token);
+
+        // Seed the worker under the command's own key namespace so it never
+        // fights live diagnostics over a workbook's editor-driven seed, keyed
+        // by content so an unchanged re-run skips the transfer.
+        const worker = workbookAnalysisWorker;
+        const workerAvailable = worker?.available === true;
+        const seedKey = `workbook-analysis:${workbookIdentityKey(filePath)}`;
+        const seedGeneration = workerAvailable ? workbookSeedFingerprint(modules) : 0;
+        if (workerAvailable && worker) {
+            worker.ensureSeeded(seedKey, seedGeneration, () => modules.map((mod) => ({
+                moduleName: mod.name,
+                source: mod.source,
+                type: mod.type,
+                documentType: mod.documentType,
+            })));
+        }
 
         const analysisResults = await mapWithConcurrency(
             modules,
@@ -387,7 +480,52 @@ async function runWorkbookAnalysis(
                 progress.report(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
                 await yieldToExtensionHost();
                 throwIfAnalysisCancelled(options.token);
-                const projectOptions = projectAnalysisOptionsForModule(project, mod.name, projectProcedures);
+                if (workerAvailable && worker) {
+                    try {
+                        const workerResult = await measurePerformance(
+                            'analyzeWorkbook.analyzeModule',
+                            mod.name,
+                            () => worker.analyze({
+                                // Stable per (workbook, module): a re-run reuses
+                                // the worker's incremental state and re-analyzes
+                                // only what changed since the last run.
+                                docKey: `${seedKey}:${mod.name.toLowerCase()}`,
+                                workbookKey: seedKey,
+                                generation: seedGeneration,
+                                source: mod.source,
+                                moduleName: mod.name,
+                                moduleType: mod.type,
+                                moduleKind: moduleKindFromType(mod.type),
+                                documentType: mod.documentType,
+                                severityOverrides: analysisSettings.ruleSeverityOverrides,
+                            }),
+                        );
+                        throwIfAnalysisCancelled(options.token);
+                        return {
+                            problems: workbookProblemsForModule(
+                                mod.name,
+                                mod.type,
+                                mod.source,
+                                workerResult.diagnostics,
+                            ),
+                            suppressedProblems: workbookProblemsForModule(
+                                mod.name,
+                                mod.type,
+                                mod.source,
+                                workerResult.suppressedDiagnostics,
+                                { suppressed: true },
+                            ),
+                        };
+                    } catch (err) {
+                        if (err instanceof vscode.CancellationError) {
+                            throw err;
+                        }
+                        // Worker died or rejected: identical in-host pass below.
+                    }
+                }
+                throwIfAnalysisCancelled(options.token);
+                const { project, procedures } = await ensureHostContext();
+                const projectOptions = projectAnalysisOptionsForModule(project, mod.name, procedures);
                 const moduleAnalysis = measurePerformanceSync(
                     'analyzeWorkbook.analyzeModule',
                     mod.name,

@@ -27,6 +27,7 @@ export interface WorkerAnalyzeRequest {
 
 export interface WorkerAnalyzeResult {
 	diagnostics: VbaModuleAnalysisDiagnostic[];
+	suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
 	incrementalMode?: 'full' | 'incremental';
 }
 
@@ -164,7 +165,11 @@ export class AnalysisWorkerClient {
 			pending.reject(new Error(response.message));
 			return;
 		}
-		pending.resolve({ diagnostics: response.diagnostics, incrementalMode: response.incrementalMode });
+		pending.resolve({
+			diagnostics: response.diagnostics,
+			suppressedDiagnostics: response.suppressedDiagnostics,
+			incrementalMode: response.incrementalMode,
+		});
 	}
 
 	private _fail(reason: string): void {
