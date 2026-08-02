@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.1.4] - 2026-08-01
+
+### Changed
+
+- **The evidence corpus is plain ASCII again, and guarded.** Seven em dashes
+  and four section signs had crept into the diagnostic influence audit's notes
+  fields; they are replaced with plain hyphens and spelled-out MS-VBAL section
+  references. A new corpus test keeps smart punctuation out of the audit and
+  oracle files, which downstream ports vendor verbatim and checksum.
+
 ## [3.1.3] - 2026-08-02
 
 ### Fixed
