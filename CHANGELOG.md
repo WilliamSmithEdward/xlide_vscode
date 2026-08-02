@@ -2,6 +2,45 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.1.0] - 2026-08-01
+
+### Performance
+
+- **Typing in very large modules no longer lags.** The "local" diagnostics
+  pass ran a full module analysis on the extension host - about 700-945 ms on
+  a real 24,000-line class - 90 ms after every pause in typing, so keystrokes
+  could jam behind it. Both diagnostic passes now run on the analysis worker
+  thread when it is healthy: the host runs no analysis at all while you type,
+  and the worker's incremental state means the follow-up pass re-analyzes only
+  what changed. This also removes a similar freeze on first open of a large
+  module. If the worker is unavailable, the in-host pass is paced well behind
+  the typing burst instead of fired into every pause.
+
+- **Repeated workbook reads are now nearly free.** XLIDE keeps one parsed
+  workbook per file (validated against the file's timestamp and size on every
+  call, so Excel, git, or another window writing the file is always seen).
+  Expanding a 42-module workbook in the explorer went from paying a full parse
+  on every one of its 44 internal reads to paying exactly one; warm reads
+  dropped from ~4 ms to ~0.02 ms. Saves invalidate the cache atomically, and
+  mutating operations never share the cached parse.
+
+### Removed
+
+- **Live Share integration.** Guest browsing was never functional: it required
+  a shared-service API that Microsoft restricts to approved extensions, so the
+  guest side always came up empty. The integration, its remote tree nodes and
+  URI routing, the guest status bar item, and the `vsls` dependency are gone,
+  along with the engine fallback path that existed only to serve it.
+
+### Internal
+
+- Retired the last bridge-era names and dead code: `BridgeError` is now
+  `WorkbookEngineError`, the unused child-process watchdog option is gone, a
+  full unused-export audit removed the final two dead functions, and the
+  remaining Python-era test fixtures were updated. The import graph is fully
+  connected and the engine's only Node dependencies are `fs`, `path`, and
+  `zlib`.
+
 ## [3.0.0] - 2026-08-01
 
 ### Changed
