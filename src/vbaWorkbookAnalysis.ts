@@ -158,6 +158,11 @@ export function setWorkbookAnalysisWorker(worker: WorkbookAnalysisWorker | undef
     workbookAnalysisWorker = worker;
 }
 
+/** Test hook: clears the per-workbook result cache between test cases. */
+export function resetWorkbookAnalysisResultCacheForTests(): void {
+    lastWorkbookAnalysisResults.clear();
+}
+
 /**
  * Content fingerprint standing in for a seed generation. The command seeds
  * under its own key namespace (never fighting live diagnostics over a
@@ -377,6 +382,22 @@ function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): 
     }
 }
 
+/**
+ * Last completed result per workbook, keyed by the same content fingerprint
+ * the worker seed uses (plus the analysis settings that shape diagnostics).
+ * An unchanged workbook returns its previous result in milliseconds instead
+ * of re-analyzing - which also empties the worker queue of the background
+ * re-runs (results-panel refreshes) that used to stack up behind a user's
+ * explicit run and make it appear hung.
+ */
+interface CachedWorkbookAnalysis {
+    fingerprint: number;
+    settingsKey: string;
+    result: WorkbookAnalysisResult;
+}
+const WORKBOOK_ANALYSIS_RESULT_CACHE_MAX = 8;
+const lastWorkbookAnalysisResults = new Map<string, CachedWorkbookAnalysis>();
+
 // Single-flight: concurrent analyses of the SAME workbook share one run, so a
 // double-trigger (the analysis command + the agent tool, or a re-run) neither
 // repeats the expensive read+analyze nor renders out-of-order results. The shared
@@ -456,13 +477,27 @@ async function runWorkbookAnalysis(
         );
         throwIfAnalysisCancelled(options.token);
 
+        // Content fingerprint over every module's effective source (open-editor
+        // overlays included). It keys both the worker seed and the result
+        // cache; the settings that shape diagnostics join the cache key so a
+        // severity-override change re-analyzes.
+        const contentFingerprint = workbookSeedFingerprint(modules);
+        const settingsKey = JSON.stringify(analysisSettings.ruleSeverityOverrides ?? {});
+        const resultCacheKey = workbookIdentityKey(filePath);
+        const cached = lastWorkbookAnalysisResults.get(resultCacheKey);
+        if (cached && cached.fingerprint === contentFingerprint && cached.settingsKey === settingsKey) {
+            progress.report('Analysis up to date (no changes since the last run).', { force: true });
+            totalTrace.end('ok');
+            return cached.result;
+        }
+
         // Seed the worker under the command's own key namespace so it never
         // fights live diagnostics over a workbook's editor-driven seed, keyed
         // by content so an unchanged re-run skips the transfer.
         const worker = workbookAnalysisWorker;
         const workerAvailable = worker?.available === true;
         const seedKey = `workbook-analysis:${workbookIdentityKey(filePath)}`;
-        const seedGeneration = workerAvailable ? workbookSeedFingerprint(modules) : 0;
+        const seedGeneration = contentFingerprint;
         if (workerAvailable && worker) {
             worker.ensureSeeded(seedKey, seedGeneration, () => modules.map((mod) => ({
                 moduleName: mod.name,
@@ -584,7 +619,7 @@ async function runWorkbookAnalysis(
         const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
 
         totalTrace.end('ok');
-        return {
+        const analysisResult: WorkbookAnalysisResult = {
             filePath,
             moduleCount: modules.length,
             problems,
@@ -593,6 +628,18 @@ async function runWorkbookAnalysis(
             warningCount,
             summary,
         };
+        lastWorkbookAnalysisResults.delete(resultCacheKey);
+        lastWorkbookAnalysisResults.set(resultCacheKey, {
+            fingerprint: contentFingerprint,
+            settingsKey,
+            result: analysisResult,
+        });
+        while (lastWorkbookAnalysisResults.size > WORKBOOK_ANALYSIS_RESULT_CACHE_MAX) {
+            const oldest = lastWorkbookAnalysisResults.keys().next().value;
+            if (oldest === undefined) { break; }
+            lastWorkbookAnalysisResults.delete(oldest);
+        }
+        return analysisResult;
     } catch (err) {
         totalTrace.end(err instanceof vscode.CancellationError ? 'canceled' : 'failed');
         throw err;

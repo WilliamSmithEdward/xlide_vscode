@@ -2,7 +2,7 @@
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
-import { analyzeWorkbook, setWorkbookAnalysisWorker, type WorkbookAnalysisWorker } from '../src/vbaWorkbookAnalysis';
+import { analyzeWorkbook, resetWorkbookAnalysisResultCacheForTests, setWorkbookAnalysisWorker, type WorkbookAnalysisWorker } from '../src/vbaWorkbookAnalysis';
 import type { WorkbookEngine } from '../src/workbookEngine';
 import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import { deferred, flushPromises } from './helpers/async';
@@ -170,6 +170,7 @@ describe('analyzeWorkbook metadata summary', () => {
 describe('analyzeWorkbook worker routing', () => {
 	afterEach(() => {
 		setWorkbookAnalysisWorker(undefined);
+		resetWorkbookAnalysisResultCacheForTests();
 	});
 
 	const MODULES = [
@@ -261,26 +262,40 @@ describe('analyzeWorkbook worker routing', () => {
 		expect(result.problems.some((p) => p.message.includes('missingA'))).toBe(true);
 	});
 
-	it('seeds with the same fingerprint for unchanged sources across runs', async () => {
-		const { worker, seeded } = cannedWorker();
+	it('returns the cached result for an unchanged workbook without re-analyzing', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
 		setWorkbookAnalysisWorker(worker);
 
-		await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
-		await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
-		expect(seeded).toHaveLength(2);
-		expect(seeded[0].generation).toBe(seeded[1].generation);
+		const first = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'CacheHit.xlsm');
+		const second = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'CacheHit.xlsm');
 
+		// Identical content: one seed, one analysis per module, same result -
+		// the re-run must not occupy the worker at all.
+		expect(second).toBe(first);
+		expect(seeded).toHaveLength(1);
+		expect(analyzed).toHaveLength(MODULES.length);
+	});
+
+	it('re-analyzes when a module source changes, with a new seed generation', async () => {
+		const { worker, analyzed, seeded } = cannedWorker();
+		setWorkbookAnalysisWorker(worker);
+
+		await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'CacheMiss.xlsm');
 		const edited = MODULES.map((m) => m.name === 'ModA'
 			? { ...m, source: m.source.replace('missingA', 'missingEdited') }
 			: m);
-		await analyzeWorkbook(fakeWorkbookEngine(edited), 'Book.xlsm');
-		expect(seeded[2].generation).not.toBe(seeded[0].generation);
+		await analyzeWorkbook(fakeWorkbookEngine(edited), 'CacheMiss.xlsm');
+
+		expect(seeded).toHaveLength(2);
+		expect(seeded[0].generation).not.toBe(seeded[1].generation);
+		expect(analyzed).toHaveLength(MODULES.length * 2);
 	});
 });
 
 describe('analyzeWorkbook progress', () => {
 	afterEach(() => {
 		setWorkbookAnalysisWorker(undefined);
+		resetWorkbookAnalysisResultCacheForTests();
 	});
 
 	it('reports each module completion, forced past the start-report throttle', async () => {

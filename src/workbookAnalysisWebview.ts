@@ -55,7 +55,6 @@ export interface WorkbookAnalysisResultsOptions {
     ) => Promise<void>;
     onAskCopilot?: (problem: WorkbookAnalysisProblem, analysisPanelColumn?: vscode.ViewColumn) => Promise<void>;
     onRefreshResult?: () => Promise<WorkbookAnalysisResult>;
-    onDidChangeWorkbookTree?: vscode.Event<unknown>;
 }
 
 interface WorkbookAnalysisMessage {
@@ -379,7 +378,6 @@ export function openWorkbookAnalysisResults(
             scheduleRefresh();
         }
     });
-    const treeSub = entry.options.onDidChangeWorkbookTree?.(() => scheduleRefresh());
     const sidecarPath = settingsPathForWorkbook(currentResult.filePath);
     const sidecarWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
         path.dirname(sidecarPath),
@@ -394,7 +392,6 @@ export function openWorkbookAnalysisResults(
         sidecarWatcher.onDidCreate(scheduleSidecarRefresh),
         sidecarWatcher.onDidChange(scheduleSidecarRefresh),
         sidecarWatcher.onDidDelete(scheduleSidecarRefresh),
-        ...(treeSub ? [treeSub] : []),
     ];
     panel.onDidDispose(() => {
         disposed = true;

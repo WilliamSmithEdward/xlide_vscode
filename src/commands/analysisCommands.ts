@@ -311,7 +311,6 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
             onAskCopilot: (problem, analysisPanelColumn) =>
                 askCopilotAboutWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn),
             onRefreshResult,
-            onDidChangeWorkbookTree: explorer.onDidChangeTreeData,
         });
     }
 
