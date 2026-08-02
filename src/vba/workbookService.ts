@@ -141,10 +141,92 @@ interface OpenWorkbook {
 	project: VbaProject;
 }
 
+// -------------------------------------------------------------- parse cache
+//
+// Re-reading and re-parsing the file IS the cost of a read now that the engine
+// is in-process, and callers arrive in bursts that hit the same workbook: an
+// explorer expansion is listModules + a protection probe + one listSubs per
+// module, and every one of those re-opened the file. Reads share one parse per
+// workbook, validated against (mtimeMs, size) on every call so out-of-band
+// writers (Excel, git, another window) are always seen.
+//
+// Writes never touch the cache: they parse fresh, because a mutating save that
+// fails halfway must not leave a poisoned parse behind for readers - and every
+// mutation lands through atomicWrite, which drops the entry. The mtime check
+// is the backstop for writers that bypass this process entirely.
+
+interface WorkbookCacheEntry {
+	mtimeMs: number;
+	size: number;
+	xlsx: XlsxWorkbook;
+	/** Built on first VBA access; sheet/cell reads never pay for the project. */
+	cfb?: Cfb;
+	project?: VbaProject;
+}
+
+/**
+ * Small on purpose: an entry retains the package plus decompressed module
+ * sources (a few MB for a large workbook), and a session's hot set is the
+ * handful of workbooks whose trees or editors are open.
+ */
+const WORKBOOK_CACHE_MAX = 4;
+const workbookCache = new Map<string, WorkbookCacheEntry>();
+let cacheHits = 0;
+let cacheMisses = 0;
+
+function cachedPackage(filePath: string): WorkbookCacheEntry {
+	// Stat BEFORE reading: if a writer swaps the file between the stat and the
+	// read, this entry holds the new bytes under the old mtime, so the next
+	// call mismatches and rebuilds - a stale parse can never survive.
+	const stat = fs.statSync(filePath);
+	const hit = workbookCache.get(filePath);
+	if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) {
+		cacheHits++;
+		// Refresh recency: Map iteration order is insertion order.
+		workbookCache.delete(filePath);
+		workbookCache.set(filePath, hit);
+		return hit;
+	}
+	cacheMisses++;
+	const entry: WorkbookCacheEntry = {
+		mtimeMs: stat.mtimeMs,
+		size: stat.size,
+		xlsx: XlsxWorkbook.fromBuffer(fs.readFileSync(filePath)),
+	};
+	workbookCache.delete(filePath);
+	workbookCache.set(filePath, entry);
+	while (workbookCache.size > WORKBOOK_CACHE_MAX) {
+		const oldest = workbookCache.keys().next().value;
+		if (oldest === undefined) { break; }
+		workbookCache.delete(oldest);
+	}
+	return entry;
+}
+
+/** Shared read-only parse. Callers must not mutate the returned project. */
 function openWorkbook(filePath: string): OpenWorkbook {
+	const entry = cachedPackage(filePath);
+	entry.cfb ??= Cfb.fromBytes(entry.xlsx.readVbaProject());
+	entry.project ??= VbaProject.parse(entry.cfb);
+	return { xlsx: entry.xlsx, cfb: entry.cfb, project: entry.project };
+}
+
+/** Fresh parse for mutating operations; never aliases the shared cache. */
+function openWorkbookForWrite(filePath: string): OpenWorkbook {
 	const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(filePath));
 	const cfb = Cfb.fromBytes(xlsx.readVbaProject());
 	return { xlsx, cfb, project: VbaProject.parse(cfb) };
+}
+
+/** Test hooks; product code never reads these. */
+export function workbookCacheStatsForTests(): { hits: number; misses: number; size: number } {
+	return { hits: cacheHits, misses: cacheMisses, size: workbookCache.size };
+}
+
+export function resetWorkbookCacheForTests(): void {
+	workbookCache.clear();
+	cacheHits = 0;
+	cacheMisses = 0;
 }
 
 /** Write the mutated VBA project back into the package, atomically. */
@@ -170,6 +252,11 @@ export function atomicWrite(filePath: string, data: Buffer): void {
 		try { fs.unlinkSync(tmp); } catch { /* nothing to clean up */ }
 		throw err;
 	}
+	// Every in-process mutation funnels through here, so this is the one place
+	// cache invalidation cannot be forgotten. (A caller-supplied path with
+	// different casing would miss this delete; the per-call mtime check still
+	// catches that, so a stale entry can cost a re-parse but never stale data.)
+	workbookCache.delete(filePath);
 }
 
 // ------------------------------------------------------------------ read API
@@ -234,7 +321,7 @@ export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & 
 }
 
 export function listSheets(filePath: string): { sheets: SheetSummary[] } {
-	return { sheets: XlsxWorkbook.fromBuffer(fs.readFileSync(filePath)).sheetSummaries() };
+	return { sheets: cachedPackage(filePath).xlsx.sheetSummaries() };
 }
 
 export function getWorkbookInfo(filePath: string): {
@@ -244,10 +331,7 @@ export function getWorkbookInfo(filePath: string): {
 	isPasswordProtected: boolean;
 	isSigned: boolean;
 } {
-	const buffer = fs.readFileSync(filePath);
-	const xlsx = XlsxWorkbook.fromBuffer(buffer);
-	const cfb = Cfb.fromBytes(xlsx.readVbaProject());
-	const project = VbaProject.parse(cfb);
+	const { xlsx, cfb, project } = openWorkbook(filePath);
 	return {
 		sheets: xlsx.sheetSummaries(),
 		namedRanges: xlsx.definedNames(),
@@ -258,11 +342,11 @@ export function getWorkbookInfo(filePath: string): {
 }
 
 export function readCells(filePath: string, sheet: string, range: string): { data: CellValue[][] } {
-	return { data: XlsxWorkbook.fromBuffer(fs.readFileSync(filePath)).readCells(sheet, range, true) };
+	return { data: cachedPackage(filePath).xlsx.readCells(sheet, range, true) };
 }
 
 export function readFormulas(filePath: string, sheet: string, range: string): { data: CellValue[][] } {
-	return { data: XlsxWorkbook.fromBuffer(fs.readFileSync(filePath)).readCells(sheet, range, false) };
+	return { data: cachedPackage(filePath).xlsx.readCells(sheet, range, false) };
 }
 
 /**
@@ -310,7 +394,7 @@ export function writeModule(
 	// Callers may pass a bare body or a full export; strip any incoming header
 	// so the workbook's own header is always the one that persists.
 	const { body } = splitVbaSource(source);
-	const wb = openWorkbook(filePath);
+	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const existing = wb.project.getModule(moduleName);
 	if (existing) {
@@ -327,7 +411,7 @@ export function writeModule(
 }
 
 export function renameModule(filePath: string, moduleName: string, newName: string): WriteResult {
-	const wb = openWorkbook(filePath);
+	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	wb.project.renameModule(moduleName, newName);
 	saveWorkbook(filePath, wb);
@@ -335,7 +419,7 @@ export function renameModule(filePath: string, moduleName: string, newName: stri
 }
 
 export function deleteModule(filePath: string, moduleName: string): WriteResult {
-	const wb = openWorkbook(filePath);
+	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	wb.project.deleteModule(moduleName);
 	saveWorkbook(filePath, wb);
@@ -348,6 +432,7 @@ export function writeCells(
 	startCell: string,
 	data: CellValue[][],
 ): { ok: true } {
+	// Mutates the package, so never the cached instance readers share.
 	const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(filePath));
 	xlsx.writeCells(sheet, startCell, data);
 	atomicWrite(filePath, xlsx.toBytes());

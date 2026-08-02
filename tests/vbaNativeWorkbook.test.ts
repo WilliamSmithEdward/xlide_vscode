@@ -317,3 +317,65 @@ describe('packaged assets', () => {
 			.toBeGreaterThan(excluded);
 	});
 });
+
+describe('workbook parse cache', () => {
+	it('serves repeated reads from one parse, with identical results', () => {
+		const file = tempCopy();
+		svc.resetWorkbookCacheForTests();
+
+		const first = svc.listModules(file);
+		const afterFirst = svc.workbookCacheStatsForTests();
+		const again = svc.listModules(file);
+		const subs = svc.listSubs(file, first[0].name);
+		const protection = svc.getProtectionInfo(file);
+		const sheets = svc.listSheets(file);
+		const after = svc.workbookCacheStatsForTests();
+
+		expect(again).toEqual(first);
+		expect(subs).toEqual(svc.listSubs(file, first[0].name));
+		expect(protection.isSigned).toBe(false);
+		expect(sheets.sheets.length).toBeGreaterThan(0);
+		// One miss to build the entry; every later call in the burst hits.
+		expect(afterFirst.misses).toBe(1);
+		expect(after.misses).toBe(1);
+		expect(after.hits).toBeGreaterThanOrEqual(4);
+	});
+
+	it('a write through the engine invalidates the cached parse', () => {
+		const file = tempCopy();
+		svc.resetWorkbookCacheForTests();
+
+		expect(svc.listModules(file).map((m) => m.name)).not.toContain('CacheProbe');
+		svc.writeModule(file, 'CacheProbe', 'Public Sub P()\r\nEnd Sub\r\n', 'standard');
+		// Served fresh, not from the pre-write parse.
+		expect(svc.listModules(file).map((m) => m.name)).toContain('CacheProbe');
+		expect(svc.readModule(file, 'CacheProbe', false).source).toContain('Public Sub P()');
+	});
+
+	it('an out-of-band rewrite is seen via the mtime/size check', () => {
+		const file = tempCopy();
+		const other = tempCopy();
+		svc.writeModule(other, 'External', 'Public Sub E()\r\nEnd Sub\r\n', 'standard');
+		svc.resetWorkbookCacheForTests();
+
+		expect(svc.listModules(file).map((m) => m.name)).not.toContain('External');
+		// Simulate Excel/git/another window replacing the file behind XLIDE's
+		// back: no engine write ever touches `file`, so only the stat check can
+		// notice. Bump mtime explicitly so filesystems with coarse timestamps
+		// cannot make this test flaky.
+		fs.copyFileSync(other, file);
+		const bumped = new Date(Date.now() + 5000);
+		fs.utimesSync(file, bumped, bumped);
+
+		expect(svc.listModules(file).map((m) => m.name)).toContain('External');
+	});
+
+	it('caps the cache and evicts the least recently used entry', () => {
+		svc.resetWorkbookCacheForTests();
+		const files = Array.from({ length: 6 }, () => tempCopy());
+		for (const file of files) { svc.listModules(file); }
+		expect(svc.workbookCacheStatsForTests().size).toBeLessThanOrEqual(4);
+		// The evicted workbook still reads correctly - just via a fresh parse.
+		expect(svc.listModules(files[0]).length).toBeGreaterThan(0);
+	});
+});

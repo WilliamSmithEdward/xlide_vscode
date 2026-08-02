@@ -7,21 +7,16 @@
 // unchanged.
 
 import * as vscode from 'vscode';
-import { BridgeError } from './workbookEngineErrors';
+import { WorkbookEngineError } from './workbookEngineErrors';
 import * as svc from './vba/workbookService';
 import type { CellValue } from './vba/xlsx';
-
-export interface WorkbookCallOptions {
-	/** Accepted for call-site compatibility; in-process calls need no watchdog. */
-	timeoutMs?: number;
-}
 
 type Params = Record<string, unknown>;
 
 function str(params: Params, key: string): string {
 	const value = params[key];
 	if (typeof value !== 'string' || value.length === 0) {
-		throw new BridgeError(`Missing required '${key}' parameter.`, -32602);
+		throw new WorkbookEngineError(`Missing required '${key}' parameter.`, -32602);
 	}
 	return value;
 }
@@ -34,7 +29,7 @@ function optionalBool(params: Params, key: string, fallback = false): boolean {
 function grid(params: Params, key: string): CellValue[][] {
 	const value = params[key];
 	if (!Array.isArray(value)) {
-		throw new BridgeError(`Missing required '${key}' parameter.`, -32602);
+		throw new WorkbookEngineError(`Missing required '${key}' parameter.`, -32602);
 	}
 	return value.map((row) => (Array.isArray(row) ? row : [row]) as CellValue[]);
 }
@@ -56,7 +51,6 @@ export class WorkbookEngine implements vscode.Disposable {
 		method: string,
 		params: unknown = {},
 		token?: vscode.CancellationToken,
-		_options?: WorkbookCallOptions,
 	): Promise<T> {
 		if (token?.isCancellationRequested) {
 			throw new vscode.CancellationError();
@@ -65,12 +59,12 @@ export class WorkbookEngine implements vscode.Disposable {
 		try {
 			return this.dispatch(method, p) as T;
 		} catch (err) {
-			if (err instanceof BridgeError || err instanceof vscode.CancellationError) {
+			if (err instanceof WorkbookEngineError || err instanceof vscode.CancellationError) {
 				throw err;
 			}
 			const message = err instanceof Error ? err.message : String(err);
 			this._out?.appendLine(`[workbook] ${method} failed: ${message}`);
-			throw new BridgeError(message, -32000);
+			throw new WorkbookEngineError(message, -32000);
 		}
 	}
 
@@ -120,7 +114,7 @@ export class WorkbookEngine implements vscode.Disposable {
 				return svc.writeCells(str(p, 'path'), str(p, 'sheet'), str(p, 'startCell'), grid(p, 'data'));
 
 			default:
-				throw new BridgeError(`Method not found: ${method}`, -32601);
+				throw new WorkbookEngineError(`Method not found: ${method}`, -32601);
 		}
 	}
 

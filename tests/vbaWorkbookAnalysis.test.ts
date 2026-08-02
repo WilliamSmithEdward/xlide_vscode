@@ -4,7 +4,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { WorkbookEngine } from '../src/workbookEngine';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
+import { WorkbookEngineError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import { deferred, flushPromises } from './helpers/async';
 
@@ -49,7 +49,7 @@ describe('analyzeWorkbook metadata summary', () => {
 		const bridge = {
 			call: vi.fn((method: string, payload: { module?: string }) => {
 				if (method === 'readModules') {
-					return Promise.reject(new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND));
+					return Promise.reject(new WorkbookEngineError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND));
 				}
 				if (method === 'listModules') {
 					return Promise.resolve([

@@ -6,10 +6,10 @@ export const JSONRPC_METHOD_NOT_FOUND = -32601;
  * JSON-RPC-style error code alongside the message so callers can branch on
  * the code instead of regex-matching the message text.
  */
-export class BridgeError extends Error {
+export class WorkbookEngineError extends Error {
     constructor(message: string, readonly code: number) {
         super(message);
-        this.name = 'BridgeError';
+        this.name = 'WorkbookEngineError';
     }
 }
 
@@ -21,5 +21,5 @@ export class BridgeError extends Error {
  * code alone identifies the missing capability.
  */
 export function isReadModulesUnavailable(err: unknown): boolean {
-    return err instanceof BridgeError && err.code === JSONRPC_METHOD_NOT_FOUND;
+    return err instanceof WorkbookEngineError && err.code === JSONRPC_METHOD_NOT_FOUND;
 }

@@ -149,7 +149,7 @@ describe('VBA tests webview', () => {
         const html = renderVbaTestsHtml(model({
             state: 'missing',
             title: 'XlideAssert.bas Not Installed',
-            description: 'The bundled test support module is installed with pyopenvba before XLIDE runs workbook tests.',
+            description: 'The bundled test support module must be installed before XLIDE can run workbook tests.',
             actionLabel: 'Install',
             canInstall: true,
             canRun: false,

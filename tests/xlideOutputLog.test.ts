@@ -13,8 +13,8 @@ describe('XLIDE output log', () => {
 
 	it('redacts path-like values before support export', () => {
 		expect(
-			redactSupportLogLine('Starting Python bridge: C:\\Users\\William\\repo\\python.exe'),
-		).toBe('Starting Python bridge: <redacted>.exe');
+			redactSupportLogLine('Launching Excel host: C:\\Users\\William\\repo\\excel.exe'),
+		).toBe('Launching Excel host: <redacted>.exe');
 		expect(
 			redactSupportLogLine('Open xlide-vba:///C%3A/Users/William/Book.xlsm?module=Module1'),
 		).toBe('Open <redacted-uri>');
@@ -25,8 +25,8 @@ describe('XLIDE output log', () => {
 			redactSupportLogLine('Reading C:\\Users\\John Smith\\Documents\\Q4 Acquisition Model.xlsm'),
 		).toBe('Reading <redacted>.xlsm');
 		expect(
-			redactSupportLogLine('Starting Python bridge: python.exe C:\\Users\\John Smith\\.vscode\\ext\\server.py'),
-		).toBe('Starting Python bridge: python.exe <redacted>.py');
+			redactSupportLogLine('Starting test host: powershell.exe C:\\Users\\John Smith\\.vscode\\ext\\run-vba-tests.ps1'),
+		).toBe('Starting test host: powershell.exe <redacted>.ps1');
 		expect(
 			redactSupportLogLine('Opened /Users/John Smith/Documents/budget.xlsm'),
 		).toBe('Opened <redacted>.xlsm');

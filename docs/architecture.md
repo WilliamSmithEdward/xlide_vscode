@@ -234,6 +234,8 @@ the subtype when they need workbook-vs-worksheet-vs-chart semantics.
 
 The call shape is deliberately the same request/response surface the extension used when the work lived behind a JSON-RPC child process, so every caller — explorer, virtual filesystem, analysis, commands, agent tools, Live Share — is unchanged. Failures reject with `BridgeError` carrying a JSON-RPC-style code (`-32601` unknown method, `-32602` bad params, `-32000` operation failed).
 
+**Read caching.** Reads share one parsed workbook per path, validated against the file's (mtimeMs, size) on every call - so a burst of calls against the same workbook (tree expansion, analysis, agent tools) pays for one parse, while out-of-band writers (Excel, git, another window) are always seen. Every mutating save invalidates through `atomicWrite`; mutating operations parse fresh and never alias the shared cache.
+
 **Write safety.** Mutating operations rebuild the whole container and land through `atomicWrite`: the new bytes go to a temp file beside the target and are then renamed over it, so a crash mid-write cannot leave a half-written workbook. Per [MS-OVBA], a mutating save also drops every `__SRP_*` performance-cache stream and clears the `_VBA_PROJECT` cache body — stale compiled p-code for a module set that no longer matches is what crashes Excel on open. A non-mutating save leaves both untouched, because the caches still describe the project exactly.
 
 ---

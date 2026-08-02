@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { WorkbookEngine } from '../src/workbookEngine';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
+import { WorkbookEngineError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
@@ -55,7 +55,7 @@ function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
 				}
 				return { source: mod.source } as T;
 			}
-			throw new BridgeError(`Method not found: ${method}`, JSONRPC_METHOD_NOT_FOUND);
+			throw new WorkbookEngineError(`Method not found: ${method}`, JSONRPC_METHOD_NOT_FOUND);
 		},
 	} as WorkbookEngine;
 }
@@ -77,9 +77,10 @@ function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): Workb
 	} as WorkbookEngine;
 }
 
-// Mirrors _SHARED_CLASSIFICATION_TABLE in python/tests/test_vba_io.py, which
-// pins vba_io._module_type to the same rows. Keep the two tables identical so
-// the TS and Python classifiers cannot drift apart.
+// Pins classifyModuleType (src/vba/workbookService.ts) row by row. This table
+// began life shared with the retired Python backend's classifier; it survives
+// because the rows encode VBE behavior worth keeping pinned, not because a
+// second implementation still mirrors it.
 const sharedClassificationTable: ReadonlyArray<readonly [string, string, string]> = [
 	['Module1', 'Option Explicit\nSub Hello()\nEnd Sub\n', 'standard'],
 	['Globals', 'Attribute VB_PredeclaredId = True\n', 'standard'],
@@ -98,7 +99,7 @@ const sharedClassificationTable: ReadonlyArray<readonly [string, string, string]
 ];
 
 describe('module sync plan', () => {
-	it('classifies module types per the shared TS/Python classification table', () => {
+	it('classifies module types per the pinned classification table', () => {
 		for (const [name, source, expected] of sharedClassificationTable) {
 			expect(classifyModuleType(name, source), `${name}: ${JSON.stringify(source)}`).toBe(expected);
 		}

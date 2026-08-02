@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkbookEngine } from '../src/workbookEngine';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
+import { WorkbookEngineError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import {
     createVbaTestRunReport,
@@ -161,7 +161,7 @@ describe('VBA test runner discovery', () => {
             async call<T>(method: string, params: { module?: string }): Promise<T> {
                 calls.push(params.module ? `${method}:${params.module}` : method);
                 if (method === 'readModules') {
-                    throw new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND);
+                    throw new WorkbookEngineError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND);
                 }
                 if (method === 'listModules') {
                     return [

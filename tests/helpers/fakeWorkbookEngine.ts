@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import type { WorkbookEngine } from '../../src/workbookEngine';
-import { BridgeError, JSONRPC_METHOD_NOT_FOUND } from '../../src/workbookEngineErrors';
+import { WorkbookEngineError, JSONRPC_METHOD_NOT_FOUND } from '../../src/workbookEngineErrors';
 
 export interface FakeBridgeModule {
 	name: string;
@@ -33,7 +33,7 @@ export function fakeWorkbookEngine(
 			const modules = modulesFor(payload.path);
 			if (method === 'readModules') {
 				if (options.supportsBatchRead === false) {
-					throw new BridgeError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND);
+					throw new WorkbookEngineError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND);
 				}
 				if (!modules) {
 					throw new Error(`Unknown workbook ${payload.path}`);

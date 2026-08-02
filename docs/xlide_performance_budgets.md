@@ -39,13 +39,23 @@ fixture below:
 | `writeCells` | 100 ms | ~4 ms |
 | `createWorkbook` | 100 ms | <1 ms |
 
-Two properties keep those numbers where they are, and both are easy to undo by
+Warm calls are two orders of magnitude cheaper again: reads against a workbook
+whose parse is already cached cost ~0.02 ms, so a burst like an explorer
+expansion (listModules + a protection probe + one listSubs per module) pays for
+exactly one parse. On a 42-module workbook that is 44 calls for ~22 ms total.
+
+Three properties keep those numbers where they are, and all are easy to undo by
 accident:
 
 - **Module sources decompress lazily.** Parsing a project inflates only the
   module bodies a caller actually reads; classification reads a header prefix
   (`VbaModule.sourceHeader`). Touching `module.source` in a path that only needs
   names or types silently doubles every read in the extension.
+- **Reads share one parse per workbook.** `workbookService` caches the parsed
+  package/project per path, validated against (mtimeMs, size) on every call and
+  dropped by `atomicWrite`. Mutating operations must keep using the fresh-parse
+  path (`openWorkbookForWrite`) - handing a writer the shared parse poisons it
+  for every reader if the save fails halfway.
 - **Rewritten ZIP entries deflate at level 4, not 6.** Re-deflating
   `vbaProject.bin` dominates a save. Level 6 costs roughly 80% more time for an
   entry ~2.5% smaller.

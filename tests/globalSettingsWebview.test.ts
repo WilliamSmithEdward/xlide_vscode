@@ -11,7 +11,6 @@ import {
 } from '../src/globalSettingsWebview';
 
 const validSettings = {
-    pythonPath: '',
     attachToRunningExcel: true,
     'excelIntegration.coordinationMode': 'block',
     'excelIntegration.trackOpenedWorkbooks': true,
