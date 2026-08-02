@@ -2,6 +2,19 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.1.2] - 2026-08-01
+
+### Fixed
+
+- **Analyze Workbook's progress notification counts up instead of appearing
+  stuck.** Since 3.1.1 moved per-module analysis onto the worker thread, every
+  per-module progress report fired within the first few milliseconds and the
+  100ms display throttle dropped them all - so the toast sat on "Reading VBA
+  modules..." for the whole run, which read as a hang even though the analysis
+  itself is as fast as before (and roughly twice as fast on unchanged re-runs).
+  Progress now reports each module's completion - "Analyzed <name> (n/N)" - so
+  the counter climbs while a large module is still being analyzed.
+
 ## [3.1.1] - 2026-08-01
 
 ### Performance
