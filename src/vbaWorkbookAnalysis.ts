@@ -36,7 +36,6 @@ import {
 } from './analysisSuppressionScopes';
 import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
 import { measurePerformance, measurePerformanceSync, startPerformanceTrace } from './performanceTrace';
-import { isReadModulesUnavailable } from './workbookEngineErrors';
 import { mapWithConcurrency, yieldToExtensionHost } from './util/async';
 
 export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
@@ -120,7 +119,6 @@ export interface AnalyzeWorkbookOptions {
 }
 
 const WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
-const WORKBOOK_MODULE_READ_CONCURRENCY = 6;
 const WORKBOOK_MODULE_ANALYSIS_CONCURRENCY = 4;
 
 interface WorkbookAnalysisProgress {
@@ -287,70 +285,24 @@ async function loadWorkbookModules(
     options: AnalyzeWorkbookOptions = {},
 ): Promise<RawModule[]> {
     progress.report('Reading VBA modules...', { force: true });
-    try {
-        const modules = await measurePerformance(
-            'analyzeWorkbook.readModules',
-            undefined,
-            () => bridge.call<RawModule[]>(
-                'readModules',
-                { path: filePath },
-                options.token,
-            ),
-        );
-        throwIfAnalysisCancelled(options.token);
-        return modules
-            .filter((mod) => typeof mod.source === 'string')
-            .map((mod) => ({
-                name: mod.name,
-                type: mod.type,
-                documentType: mod.documentType,
-                source: mod.source,
-            }));
-    } catch (err) {
-        if (!isReadModulesUnavailable(err)) {
-            throw err;
-        }
-    }
-
-    const list = await measurePerformance(
-        'analyzeWorkbook.listModules',
+    const modules = await measurePerformance(
+        'analyzeWorkbook.readModules',
         undefined,
-        () => bridge.call<Array<{
-            name: string;
-            type: string;
-            documentType?: EventHandlerDocumentType;
-        }>>(
-            'listModules',
+        () => bridge.call<RawModule[]>(
+            'readModules',
             { path: filePath },
             options.token,
         ),
     );
-    return mapWithConcurrency(list, WORKBOOK_MODULE_READ_CONCURRENCY, async (entry, index) => {
-        throwIfAnalysisCancelled(options.token);
-        progress.report(`Reading ${entry.name} (${index + 1}/${list.length})...`);
-        try {
-            const result = await measurePerformance(
-                'analyzeWorkbook.readModule',
-                entry.name,
-                () => bridge.call<{ source: string }>(
-                    'readModule',
-                    { path: filePath, module: entry.name },
-                    options.token,
-                ),
-            );
-            throwIfAnalysisCancelled(options.token);
-            return {
-                name: entry.name,
-                type: entry.type,
-                documentType: entry.documentType,
-                source: result.source,
-            };
-        } catch {
-            throwIfAnalysisCancelled(options.token);
-            // Skip modules that fail to read; analysis is best-effort.
-            return undefined;
-        }
-    });
+    throwIfAnalysisCancelled(options.token);
+    return modules
+        .filter((mod) => typeof mod.source === 'string')
+        .map((mod) => ({
+            name: mod.name,
+            type: mod.type,
+            documentType: mod.documentType,
+            source: mod.source,
+        }));
 }
 
 function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): void {

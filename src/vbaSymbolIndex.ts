@@ -3,8 +3,7 @@ import { WorkbookEngine } from './workbookEngine';
 import type { EventHandlerDocumentType } from './analyzer/completion/eventHandlers';
 import { moduleIdentityKey, workbookIdentityKey } from './xlideFileSystem';
 import { startPerformanceTrace } from './performanceTrace';
-import { isReadModulesUnavailable } from './workbookEngineErrors';
-import { mapWithConcurrency, yieldToExtensionHost } from './util/async';
+import { yieldToExtensionHost } from './util/async';
 
 export interface VbaModuleSymbols {
     moduleName: string;
@@ -36,7 +35,6 @@ interface VbaModuleSourceEntry extends VbaModuleEntry {
 
 const MODULE_LIST_CACHE_TTL_MS = 5_000;
 const WORKBOOK_INDEX_YIELD_EVERY_MODULES = 8;
-const WORKBOOK_INDEX_MODULE_READ_CONCURRENCY = 6;
 
 /**
  * Workbook-scoped VBA module source cache. Lazily loads modules on first
@@ -139,28 +137,8 @@ export class VbaSymbolIndex implements vscode.Disposable {
                     return cached;
                 }
                 const batch = await this.getAllModulesFromBatchRead(xlsmPath, key);
-                if (batch) {
-                    trace.end('ok', 'batch');
-                    return batch;
-                }
-                const moduleList = await this.getModuleList(xlsmPath, key);
-                const modules = await mapWithConcurrency(
-                    moduleList,
-                    WORKBOOK_INDEX_MODULE_READ_CONCURRENCY,
-                    async (entry) => {
-                        try {
-                            const mod = await this.getModule(xlsmPath, entry.name);
-                            mod.type = entry.type;
-                            mod.documentType = entry.documentType;
-                            return mod;
-                        } catch {
-                            // Skip modules that fail to read; index is best-effort.
-                            return undefined;
-                        }
-                    },
-                );
-                trace.end('ok', 'fallback');
-                return modules;
+                trace.end('ok', 'batch');
+                return batch;
             } catch (err) {
                 trace.end('failed');
                 throw err;
@@ -237,41 +215,6 @@ export class VbaSymbolIndex implements vscode.Disposable {
         this._emitter.dispose();
     }
 
-    private async getModuleList(xlsmPath: string, workbookKey: string): Promise<VbaModuleEntry[]> {
-        const wb = this.workbook(workbookKey);
-        const loadedAt = wb.moduleListLoadedAt ?? 0;
-        if (wb.moduleList && Date.now() - loadedAt < MODULE_LIST_CACHE_TTL_MS) {
-            return wb.moduleList;
-        }
-
-        const existingRead = this._moduleListReads.get(workbookKey);
-        if (existingRead) { return existingRead; }
-
-        const promise = (async () => {
-            const moduleList = await this._bridge.call<VbaModuleEntry[]>(
-                'listModules',
-                { path: xlsmPath },
-            );
-            wb.moduleList = moduleList;
-            wb.moduleListLoadedAt = Date.now();
-            return moduleList;
-        })();
-        this._moduleListReads.set(workbookKey, promise);
-        promise.then(
-            () => {
-                if (this._moduleListReads.get(workbookKey) === promise) {
-                    this._moduleListReads.delete(workbookKey);
-                }
-            },
-            () => {
-                if (this._moduleListReads.get(workbookKey) === promise) {
-                    this._moduleListReads.delete(workbookKey);
-                }
-            },
-        );
-        return promise;
-    }
-
     private cachedAllModules(workbookKey: string): VbaModuleSymbols[] | undefined {
         const wb = this._cache.get(workbookKey);
         const loadedAt = wb?.moduleListLoadedAt ?? 0;
@@ -294,48 +237,41 @@ export class VbaSymbolIndex implements vscode.Disposable {
     private async getAllModulesFromBatchRead(
         xlsmPath: string,
         workbookKey: string,
-    ): Promise<VbaModuleSymbols[] | undefined> {
-        try {
-            const entries = await this._bridge.call<VbaModuleSourceEntry[]>(
-                'readModules',
-                { path: xlsmPath },
-            );
-            const wb = this.workbook(workbookKey);
-            wb.moduleList = entries.map(({ name, type, documentType }) => ({ name, type, documentType }));
-            wb.moduleListLoadedAt = Date.now();
-            const out: VbaModuleSymbols[] = [];
-            for (const [index, entry] of entries.entries()) {
-                const moduleKey = moduleIdentityKey(entry.name);
-                const requestKey = this.moduleRequestKey(workbookKey, moduleKey);
-                const existing = wb.modules.get(moduleKey);
-                if (existing && this.moduleGeneration(requestKey) > 0) {
-                    existing.type = entry.type;
-                    existing.documentType = entry.documentType;
-                    out.push(existing);
-                    if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
-                        await yieldToExtensionHost();
-                    }
-                    continue;
-                }
-                const mod: VbaModuleSymbols = {
-                    moduleName: entry.name,
-                    source: entry.source,
-                    type: entry.type,
-                    documentType: entry.documentType,
-                };
-                wb.modules.set(moduleKey, mod);
-                out.push(mod);
+    ): Promise<VbaModuleSymbols[]> {
+        const entries = await this._bridge.call<VbaModuleSourceEntry[]>(
+            'readModules',
+            { path: xlsmPath },
+        );
+        const wb = this.workbook(workbookKey);
+        wb.moduleList = entries.map(({ name, type, documentType }) => ({ name, type, documentType }));
+        wb.moduleListLoadedAt = Date.now();
+        const out: VbaModuleSymbols[] = [];
+        for (const [index, entry] of entries.entries()) {
+            const moduleKey = moduleIdentityKey(entry.name);
+            const requestKey = this.moduleRequestKey(workbookKey, moduleKey);
+            const existing = wb.modules.get(moduleKey);
+            if (existing && this.moduleGeneration(requestKey) > 0) {
+                existing.type = entry.type;
+                existing.documentType = entry.documentType;
+                out.push(existing);
                 if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
                     await yieldToExtensionHost();
                 }
+                continue;
             }
-            return out;
-        } catch (err) {
-            if (isReadModulesUnavailable(err)) {
-                return undefined;
+            const mod: VbaModuleSymbols = {
+                moduleName: entry.name,
+                source: entry.source,
+                type: entry.type,
+                documentType: entry.documentType,
+            };
+            wb.modules.set(moduleKey, mod);
+            out.push(mod);
+            if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
+                await yieldToExtensionHost();
             }
-            throw err;
         }
+        return out;
     }
 
     private workbook(workbookKey: string): CachedWorkbook {

@@ -10,7 +10,6 @@ import {
     updateWorkbookModuleSyncSettings,
 } from './workbookModuleSyncSettings';
 import { measurePerformance } from './performanceTrace';
-import { isReadModulesUnavailable } from './workbookEngineErrors';
 import { fileExists, isPathInside } from './util/fs';
 import { createKeyedAsyncLock } from './util/keyedAsyncLock';
 
@@ -171,38 +170,26 @@ interface WorkbookModulesWithSources {
     sourceFor: (moduleName: string) => Promise<string>;
 }
 
-// Full-source batch read in a single workbook open; falls back to listModules
-// plus one readModule per module for backends without readModules.
+// Full-source batch read in a single workbook open.
 async function loadWorkbookModulesWithSources(
     bridge: WorkbookEngine,
     filePath: string,
 ): Promise<WorkbookModulesWithSources> {
-    try {
-        const modules = await bridge.call<Array<ModuleInfo & { source?: string }>>(
-            'readModules',
-            { path: filePath, full: true },
-        );
-        const sources = new Map<string, string>();
-        for (const mod of modules) {
-            if (typeof mod.source === 'string') {
-                sources.set(mod.name.toLowerCase(), mod.source);
-            }
-        }
-        return {
-            modules: modules.map(({ name, type, documentType }) => ({ name, type, documentType })),
-            sourceFor: async (moduleName) =>
-                sources.get(moduleName.toLowerCase()) ??
-                    readFullModuleSource(bridge, filePath, moduleName),
-        };
-    } catch (err) {
-        if (!isReadModulesUnavailable(err)) {
-            throw err;
+    const modules = await bridge.call<Array<ModuleInfo & { source?: string }>>(
+        'readModules',
+        { path: filePath, full: true },
+    );
+    const sources = new Map<string, string>();
+    for (const mod of modules) {
+        if (typeof mod.source === 'string') {
+            sources.set(mod.name.toLowerCase(), mod.source);
         }
     }
-    const modules = await bridge.call<ModuleInfo[]>('listModules', { path: filePath });
     return {
-        modules,
-        sourceFor: (moduleName) => readFullModuleSource(bridge, filePath, moduleName),
+        modules: modules.map(({ name, type, documentType }) => ({ name, type, documentType })),
+        sourceFor: async (moduleName) =>
+            sources.get(moduleName.toLowerCase()) ??
+                readFullModuleSource(bridge, filePath, moduleName),
     };
 }
 

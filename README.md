@@ -261,8 +261,6 @@ Open the Command Palette and type `XLIDE` to find these commands:
 - Running macros or tests uses Excel automation and is Windows-only.
 - UserForm designer files are not edited directly. XLIDE can work with the VBA
   code-behind where supported.
-- Live Share guests can view and edit modules the host has already opened, but
-  only the host can browse the XLIDE workbook tree.
 - Exported `.bas` and `.cls` files are useful for review and source control, but
   the workbook remains the source of truth unless you explicitly import files
   back into it.

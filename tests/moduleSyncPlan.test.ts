@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { WorkbookEngine } from '../src/workbookEngine';
-import { WorkbookEngineError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
@@ -55,7 +54,10 @@ function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
 				}
 				return { source: mod.source } as T;
 			}
-			throw new WorkbookEngineError(`Method not found: ${method}`, JSONRPC_METHOD_NOT_FOUND);
+			if (method === 'readModules') {
+				return modules.map((mod) => ({ ...mod })) as T;
+			}
+			throw new Error(`Unexpected bridge call ${method}`);
 		},
 	} as WorkbookEngine;
 }

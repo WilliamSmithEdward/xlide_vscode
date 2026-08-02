@@ -4,7 +4,6 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 
 import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
 import type { WorkbookEngine } from '../src/workbookEngine';
-import { WorkbookEngineError, JSONRPC_METHOD_NOT_FOUND } from '../src/workbookEngineErrors';
 import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
 import { deferred, flushPromises } from './helpers/async';
 
@@ -22,60 +21,6 @@ describe('analyzeWorkbook metadata summary', () => {
 
 		expect(result.moduleCount).toBe(1);
 		expect(vi.mocked(bridge.call).mock.calls.map(([method]) => method)).toEqual(['readModules']);
-	});
-
-	it('falls back to legacy list/read calls when the backend lacks batch reads', async () => {
-		const bridge = fakeWorkbookEngine([
-			{
-				name: 'Module1',
-				type: 'standard',
-				source: 'Option Explicit\nSub T()\nEnd Sub\n',
-			},
-		], { supportsBatchRead: false });
-
-		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
-
-		expect(result.moduleCount).toBe(1);
-		expect(vi.mocked(bridge.call).mock.calls.map(([method]) => method)).toEqual([
-			'readModules',
-			'listModules',
-			'readModule',
-		]);
-	});
-
-	it('reads legacy fallback modules concurrently when batch reads are unavailable', async () => {
-		const module1 = deferred<{ source: string }>();
-		const module2 = deferred<{ source: string }>();
-		const bridge = {
-			call: vi.fn((method: string, payload: { module?: string }) => {
-				if (method === 'readModules') {
-					return Promise.reject(new WorkbookEngineError('Method not found: readModules', JSONRPC_METHOD_NOT_FOUND));
-				}
-				if (method === 'listModules') {
-					return Promise.resolve([
-						{ name: 'Module1', type: 'standard' },
-						{ name: 'Module2', type: 'standard' },
-					]);
-				}
-				if (method === 'readModule' && payload.module === 'Module1') {
-					return module1.promise;
-				}
-				if (method === 'readModule' && payload.module === 'Module2') {
-					return module2.promise;
-				}
-				return Promise.reject(new Error(`Unexpected bridge call ${method}`));
-			}),
-		} as unknown as WorkbookEngine;
-
-		const pending = analyzeWorkbook(bridge, 'Book.xlsm');
-		await flushPromises();
-
-		expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'readModule')).toHaveLength(2);
-
-		module1.resolve({ source: 'Option Explicit\nSub First()\nEnd Sub\n' });
-		module2.resolve({ source: 'Option Explicit\nSub Second()\nEnd Sub\n' });
-
-		await expect(pending).resolves.toMatchObject({ moduleCount: 2 });
 	});
 
 	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {

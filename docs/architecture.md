@@ -40,9 +40,7 @@ xlide_vscode/
     workbookSettings.ts Strict workbook settings sidecar path, schema validation, and persistence
     workbookModuleSyncSettings.ts Effective workbook import/export sync settings and provenance
     globalSettings.ts  Machine-scoped VS Code XLIDE setting validation, normalization, and provenance
-    liveShare.ts        LiveShareIntegration — host/guest Live Share bridge over the VSLS service API
-    statusBar.ts        XlideStatusBar — two status bar items (active module, Live Share guest indicator)
-    vsls.d.ts           Ambient type declarations for the VS Code Live Share extension API
+    statusBar.ts        XlideStatusBar — status bar item showing the active workbook/module
     vbaSymbolIndex.ts   VbaSymbolIndex — workbook-scoped cache of VBA module sources
     vbaLanguageProviders.ts  Composition root that registers the vba language subsystems; implementations live in vbaLiveDiagnostics.ts, vbaCompletionProvider.ts, vbaHoverSignatureProvider.ts, vbaNavigationProviders.ts, vbaSemanticTokensProvider.ts, vbaCodeActions.ts, and vbaTypingAutomation.ts
     vbaSourceScan.ts    Pure shared VBA source-scan utilities — stripVba, line start offsets, logical lines, identifier search/validation (no vscode dependency)
@@ -232,7 +230,7 @@ the subtype when they need workbook-vs-worksheet-vs-chart semantics.
 
 `WorkbookEngine.call(method, params)` dispatches straight into `src/vba/workbookService.ts` on the extension host thread. There is no process to start, probe, recover, or configure: the first call after activation is as cheap as the hundredth, and a workspace with no Excel workbooks never opens one.
 
-The call shape is deliberately the same request/response surface the extension used when the work lived behind a JSON-RPC child process, so every caller — explorer, virtual filesystem, analysis, commands, agent tools, Live Share — is unchanged. Failures reject with `BridgeError` carrying a JSON-RPC-style code (`-32601` unknown method, `-32602` bad params, `-32000` operation failed).
+The call shape is deliberately the same request/response surface the extension used when the work lived behind a JSON-RPC child process, so every caller — explorer, virtual filesystem, analysis, commands, agent tools — is unchanged. Failures reject with `BridgeError` carrying a JSON-RPC-style code (`-32601` unknown method, `-32602` bad params, `-32000` operation failed).
 
 **Read caching.** Reads share one parsed workbook per path, validated against the file's (mtimeMs, size) on every call - so a burst of calls against the same workbook (tree expansion, analysis, agent tools) pays for one parse, while out-of-band writers (Excel, git, another window) are always seen. Every mutating save invalidates through `atomicWrite`; mutating operations parse fresh and never alias the shared cache.
 
@@ -384,16 +382,6 @@ to operate on export files.
 
 ---
 
-## Live Share integration — `liveShare.ts`
-
-`LiveShareIntegration` contains infrastructure for XLIDE across VS Code Live Share sessions.
-
-**What works:** The host opens modules through XLIDE normally (creating `xlide-vba://` documents). Live Share mirrors those open documents to the guest. The guest can co-edit and save (Ctrl+S) — the save travels through Live Share's standard editor sync back to the host's `XlideFileSystemProvider.writeFile`, which writes the workbook.
-
-**What does not work:** Independent guest browsing. The code uses the Live Share shared service API (`shareService` / `getSharedService`) under the service name `WilliamSmithE.xlide` to let guests list and open their own workbooks. Microsoft does not allow non-approved extensions to expose guest-accessible shared services — `shareService()` always returns `null`. As a result, the XLIDE sidebar shows nothing on the guest side and guests cannot independently discover or open modules; they can only collaborate on documents the host has already opened.
-
-The host-side RPC handlers (`listWorkbooks`, `listModules`, `listSubs`, `readModule`, `writeModule`) and the guest-side `guestList*` / `guestReadModule` / `guestWriteModule` methods are implemented and would address this gap if Microsoft approval were obtained. Remote modules use `xlide-vba://liveshare/<workbookId>/<moduleName>.bas` URIs so `XlideFileSystemProvider` can route them through the proxy rather than the local workbook engine. `LiveShareIntegration.onDidChange` fires on session role changes so that `XlsmExplorer` and `XlideStatusBar` can refresh.
-
 ---
 
 ## Status bar — `statusBar.ts`
@@ -402,8 +390,7 @@ The host-side RPC handlers (`listWorkbooks`, `listModules`, `listSubs`, `readMod
 
 | Item | Shown when | Text | Click action |
 |---|---|---|---|
-| Active module | Active editor is an `xlide-vba://` document | `<workbook> | <module>` (or `XLIDE (Live Share)` for remote) | `xlide.refreshExplorer` |
-| Live Share | Connected as a Live Share guest | `XLIDE (Live Share): <N workbooks>` | `xlide.refreshExplorer` |
+| Active module | Active editor is an `xlide-vba://` document | `<workbook> | <module>` | `xlide.refreshExplorer` |
 
 ---
 
@@ -1366,4 +1353,3 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
 | New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/vbaDocComments.test.ts`, `user_guides/vba-doc-comments.md`, `docs/architecture.md` |
-| Live Share RPC surface change | `src/liveShare.ts`, `docs/architecture.md` |

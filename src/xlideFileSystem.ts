@@ -2,8 +2,6 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { WorkbookEngine } from './workbookEngine';
-import type { LiveShareIntegration } from './liveShare';
-import { decodeRemoteModuleUri, encodeRemoteModuleUri } from './liveShare';
 import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
@@ -13,7 +11,6 @@ import { workbookIdentityKey } from './workbookIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
 export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
-export const XLIDE_LIVESHARE_AUTHORITY = 'liveshare';
 
 export { moduleIdentityKey, sameWorkbookPath, workbookIdentityKey } from './workbookIdentity';
 
@@ -24,10 +21,9 @@ export function isVbaDocument(document: vscode.TextDocument): boolean {
         || document.uri.scheme === XLIDE_SCHEME;
 }
 
-/** True for xlide-scheme documents backed by a local workbook (not Live Share). */
+/** True for xlide-scheme documents backed by a workbook on disk. */
 export function isLocalXlideDocument(document: vscode.TextDocument): boolean {
-    return document.uri.scheme === XLIDE_SCHEME
-        && document.uri.authority !== XLIDE_LIVESHARE_AUTHORITY;
+    return document.uri.scheme === XLIDE_SCHEME;
 }
 
 /** The active editor when it shows a local workbook VBA module, else undefined. */
@@ -146,7 +142,6 @@ export class XlideFileSystemProvider
     private _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     readonly onDidChangeFile = this._emitter.event;
 
-    private _liveShare: LiveShareIntegration | undefined;
     private _clock = Date.now();
     private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number; workbookKey?: string }>();
     /** Last known real workbook file mtime per workbook identity key. */
@@ -163,20 +158,6 @@ export class XlideFileSystemProvider
                 }
             }),
         );
-    }
-
-    /** Attach the Live Share integration so remote xlide-vba://liveshare/... URIs are routed via RPC. */
-    setLiveShare(liveShare: LiveShareIntegration): void {
-        this._liveShare = liveShare;
-        liveShare.onRemoteFileChanged = (workbookId, moduleName) => {
-            const uri = encodeRemoteModuleUri(workbookId, moduleName);
-            this.bumpStat(uri);
-            this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
-        };
-        liveShare.onHostModuleWritten = (workbookPath, moduleName, signatureDropped) => {
-            notifySignatureDropped(workbookPath, signatureDropped);
-            this.notifyFileChanged(encodeModuleUri(workbookPath, moduleName));
-        };
     }
 
     // ------------------------------------------------------------------
@@ -219,24 +200,6 @@ export class XlideFileSystemProvider
     // ------------------------------------------------------------------
 
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
-        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
-            const trace = startPerformanceTrace('filesystem.readFile', 'liveshare');
-            if (!this._liveShare) {
-                trace.end('failed', 'liveshare');
-                throw vscode.FileSystemError.Unavailable('XLIDE: Live Share integration not initialized.');
-            }
-            const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
-            try {
-                const source = await this._liveShare.guestReadModule(workbookId, moduleName);
-                const bytes = Buffer.from(source, 'utf-8');
-                this.updateSize(uri, bytes.byteLength);
-                trace.end('ok', moduleName);
-                return bytes;
-            } catch (err) {
-                trace.end('failed', moduleName);
-                throw err;
-            }
-        }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
         const trace = startPerformanceTrace('filesystem.readFile', moduleName);
         try {
@@ -270,37 +233,6 @@ export class XlideFileSystemProvider
         _options: { create: boolean; overwrite: boolean },
     ): Promise<void> {
         const source = Buffer.from(content).toString('utf-8');
-        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
-            const trace = startPerformanceTrace('filesystem.writeFile', 'liveshare');
-            if (!this._liveShare) {
-                trace.end('failed', 'liveshare');
-                throw vscode.FileSystemError.Unavailable('XLIDE: Live Share integration not initialized.');
-            }
-            const { workbookId, moduleName } = decodeRemoteModuleUri(uri);
-            try {
-                await this._liveShare.guestWriteModule(workbookId, moduleName, source);
-                const summary = formatChangeSummary({
-                    operation: 'Save module',
-                    changed: [moduleName],
-                });
-                recordXlideWriteAudit({
-                    timestamp: new Date().toISOString(),
-                    command: 'xlide.editorSave',
-                    operation: 'write-module',
-                    outcome: 'succeeded',
-                    moduleName,
-                    targetPath: workbookId,
-                    summary,
-                });
-                this.markChanged(uri, Buffer.byteLength(source, 'utf-8'));
-                this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
-                trace.end('ok', moduleName);
-                return;
-            } catch (err) {
-                trace.end('failed', moduleName);
-                throw err;
-            }
-        }
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
         const trace = startPerformanceTrace('filesystem.writeFile', moduleName);
         try {
@@ -357,7 +289,7 @@ export class XlideFileSystemProvider
         trace.end('ok', moduleName);
     }
 
-    // Public method for out-of-band mutators (agent tools, commands, Live Share)
+    // Public method for out-of-band mutators (agent tools, commands)
     // to notify that a module changed so open editors reload and stats refresh
     notifyFileChanged(uri: vscode.Uri): void {
         this.markChanged(uri);
@@ -391,12 +323,9 @@ export class XlideFileSystemProvider
      * Real mtime of the backing workbook file, keyed by workbook identity.
      * Module mtimes are derived from it so VS Code's save-conflict detection
      * sees out-of-band changes (Excel VBE edits, module sync, agent writes).
-     * Undefined for Live Share URIs and paths that cannot be statted.
+     * Undefined for paths that cannot be statted.
      */
     private workbookFileMtime(uri: vscode.Uri): { workbookKey: string; mtime: number } | undefined {
-        if (uri.authority === XLIDE_LIVESHARE_AUTHORITY) {
-            return undefined;
-        }
         try {
             const { xlsmPath } = decodeModuleUri(uri);
             return {

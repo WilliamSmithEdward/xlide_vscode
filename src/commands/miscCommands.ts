@@ -7,7 +7,6 @@ import {
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
-import { encodeRemoteModuleUri } from '../liveShare';
 import { xlideAttachToRunningExcelFromConfig } from '../globalSettings';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import type { XlideNode } from '../xlsmExplorer';
@@ -73,7 +72,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
     }
 
     async function showClassModuleReferences(node: XlideNode): Promise<void> {
-        if (!node.moduleName || !node.filePath || node.isRemote) { return; }
+        if (!node.moduleName || !node.filePath) { return; }
         const originUri = encodeModuleUri(node.filePath, node.moduleName);
         const originDoc = await vscode.workspace.openTextDocument(originUri);
         await vscode.languages.setTextDocumentLanguage(originDoc, XLIDE_VBA_LANGUAGE_ID);
@@ -98,9 +97,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
         // Open a module (or navigate to a sub's line inside one)
         registerXlideCommand('xlide.openModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
-            const uri = node.isRemote && node.remoteId
-                ? encodeRemoteModuleUri(node.remoteId, node.moduleName)
-                : encodeModuleUri(node.filePath, node.moduleName);
+            const uri = encodeModuleUri(node.filePath, node.moduleName);
 
             const doc = await vscode.workspace.openTextDocument(uri);
             await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
@@ -125,9 +122,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 return;
             }
             if (node.kind !== 'sub') { return; }
-            const uri = node.isRemote && node.remoteId
-                ? encodeRemoteModuleUri(node.remoteId, node.moduleName)
-                : encodeModuleUri(node.filePath, node.moduleName);
+            const uri = encodeModuleUri(node.filePath, node.moduleName);
 
             const doc = await vscode.workspace.openTextDocument(uri);
             await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);

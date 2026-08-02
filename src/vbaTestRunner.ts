@@ -5,7 +5,6 @@ import type { ModuleMember, ModuleNode, ProcedureNode, Span } from './analyzer/p
 import { lineStartOffsets } from './vbaSourceScan';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
-import { isReadModulesUnavailable } from './workbookEngineErrors';
 
 export const XLIDE_VBA_TEST_DIRECTIVE = '@xlide-test';
 export const VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE = 'vba-test-directive';
@@ -206,24 +205,16 @@ export function validateVbaTestDirectivesFromModule(
     );
 }
 
-// Batch read of every module in one workbook open; falls back to listModules
-// plus one readModule per standard module for backends without readModules.
+// Batch read of every module in one workbook open.
 async function listWorkbookModulesForDiscovery(
     bridge: WorkbookEngine,
     filePath: string,
 ): Promise<VbaTestModuleEntry[]> {
-    try {
-        const modules = await bridge.call<VbaTestModuleEntry[]>(
-            'readModules',
-            { path: filePath },
-        );
-        return modules.filter((module) => typeof module.source === 'string');
-    } catch (err) {
-        if (!isReadModulesUnavailable(err)) {
-            throw err;
-        }
-    }
-    return bridge.call<VbaTestModuleEntry[]>('listModules', { path: filePath });
+    const modules = await bridge.call<VbaTestModuleEntry[]>(
+        'readModules',
+        { path: filePath },
+    );
+    return modules.filter((module) => typeof module.source === 'string');
 }
 
 export async function discoverWorkbookVbaTests(

@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { WorkbookEngine } from './workbookEngine';
 import { workbookIdentityKey } from './xlideFileSystem';
-import type { LiveShareIntegration } from './liveShare';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 import { startPerformanceTrace } from './performanceTrace';
 
@@ -13,7 +12,7 @@ const PROTECTION_PROBE_IDLE_DELAY_MS = 2000;
 export interface XlideNode {
     kind: XlideNodeKind;
     label: string;
-    /** Absolute path to the .xlsm file (local) or '' for remote (Live Share guest) nodes. */
+    /** Absolute path to the .xlsm file. */
     filePath: string;
     /** Module name (for 'module' and 'sub' nodes). */
     moduleName?: string;
@@ -21,12 +20,6 @@ export interface XlideNode {
     moduleType?: string;
     /** 1-based line number of the procedure (for 'sub' nodes). */
     line?: number;
-    /** True when this node refers to a workbook hosted on a Live Share peer. */
-    isRemote?: boolean;
-    /** Stable id of the remote workbook (only when isRemote). */
-    remoteId?: string;
-    /** Relative folder for display (remote only). */
-    remoteRelativeFolder?: string;
     /** Workbook only: VBA project carries a password lock. */
     isPasswordProtected?: boolean;
     /** loadError only: the failure message shown in the tooltip. */
@@ -39,8 +32,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     private _emitter = new vscode.EventEmitter<XlideNode | undefined | null | void>();
     readonly onDidChangeTreeData = this._emitter.event;
 
-    private _liveShare: LiveShareIntegration | undefined;
-    private _liveShareSubscription: vscode.Disposable | undefined;
 
     // Stable node references required by treeView.reveal()
     private _xlsmNodes = new Map<string, XlideNode>(); // key: filePath
@@ -73,16 +64,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         private readonly _out?: vscode.OutputChannel,
     ) {}
 
-    setLiveShare(liveShare: LiveShareIntegration): void {
-        this._liveShare = liveShare;
-        this._liveShareSubscription?.dispose();
-        this._liveShareSubscription = liveShare.onDidChange(() => this.refresh());
-    }
-
     dispose(): void {
         this._clearProtectionTimers();
-        this._liveShareSubscription?.dispose();
-        this._liveShareSubscription = undefined;
         this._emitter.dispose();
     }
 
@@ -239,7 +222,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             moduleNodeKey(node.filePath, node.moduleName ?? '') === this._activeModuleKey;
         const isActiveWorkbook =
             node.kind === 'xlsm' &&
-            !node.isRemote &&
             workbookNodeKey(node.filePath) === this._activeWorkbookKey;
         const item = new vscode.TreeItem(
             node.label,
@@ -259,54 +241,43 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         } else if (node.kind === 'sub') {
             item.id = `s::${node.filePath}::${node.moduleName}::${node.label}::${node.line ?? 0}`;
         } else if (node.kind === 'xlsm') {
-            const key = node.isRemote ? node.remoteId ?? '' : workbookNodeKey(node.filePath);
+            const key = workbookNodeKey(node.filePath);
             const version = this._xlsmRenderVersions.get(key) ?? 0;
             item.id = `w::${key}::${version}`;
         }
 
         switch (node.kind) {
             case 'xlsm':
-                item.iconPath = new vscode.ThemeIcon(node.isRemote ? 'remote' : 'file-code');
-                if (node.isRemote) {
-                    item.tooltip = `(Live Share) ${node.label}`;
-                    item.description = node.remoteRelativeFolder ? `${node.remoteRelativeFolder} (Live Share)` : '(Live Share)';
-                    item.contextValue = 'xlsm-remote';
-                } else {
-                    item.tooltip = node.filePath;
-                    item.description = path.relative(
-                        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
-                        path.dirname(node.filePath),
-                    ) || '';
-                    item.contextValue = 'xlsm';
-                    // Append protection/signature badges once known.
-                    const badges: string[] = [];
-                    if (node.isPasswordProtected) { badges.push('locked'); }
-                    if (node.isSigned) { badges.push('signed'); }
-                    if (badges.length > 0) {
-                        const tag = `[${badges.join(', ')}]`;
-                        item.description = item.description ? `${item.description}  ${tag}` : tag;
-                        const tip = new vscode.MarkdownString(node.filePath);
-                        if (node.isPasswordProtected) {
-                            tip.appendMarkdown('\n\n$(lock) VBA project is password-protected');
-                        }
-                        if (node.isSigned) {
-                            tip.appendMarkdown('\n\n$(shield) VBA project is digitally signed (edits will invalidate the signature)');
-                        }
-                        tip.supportThemeIcons = true;
-                        item.tooltip = tip;
+                item.iconPath = new vscode.ThemeIcon('file-code');
+                item.tooltip = node.filePath;
+                item.description = path.relative(
+                    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
+                    path.dirname(node.filePath),
+                ) || '';
+                item.contextValue = 'xlsm';
+                // Append protection/signature badges once known.
+                const badges: string[] = [];
+                if (node.isPasswordProtected) { badges.push('locked'); }
+                if (node.isSigned) { badges.push('signed'); }
+                if (badges.length > 0) {
+                    const tag = `[${badges.join(', ')}]`;
+                    item.description = item.description ? `${item.description}  ${tag}` : tag;
+                    const tip = new vscode.MarkdownString(node.filePath);
+                    if (node.isPasswordProtected) {
+                        tip.appendMarkdown('\n\n$(lock) VBA project is password-protected');
                     }
+                    if (node.isSigned) {
+                        tip.appendMarkdown('\n\n$(shield) VBA project is digitally signed (edits will invalidate the signature)');
+                    }
+                    tip.supportThemeIcons = true;
+                    item.tooltip = tip;
                 }
                 break;
 
             case 'module':
                 item.iconPath = new vscode.ThemeIcon(moduleThemeIconName(node.moduleType));
                 item.description = node.moduleType;
-                // Remote modules get a distinct contextValue so host-only menu items don't appear.
-                if (node.isRemote) {
-                    item.contextValue = `module-remote-${node.moduleType ?? 'standard'}`;
-                } else {
-                    item.contextValue = `module-${node.moduleType ?? 'standard'}`;
-                }
+                item.contextValue = `module-${node.moduleType ?? 'standard'}`;
                 item.command = {
                     command: 'xlide.openModule',
                     title: 'Open Module',
@@ -316,7 +287,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
             case 'sub':
                 item.iconPath = new vscode.ThemeIcon('symbol-method');
-                item.contextValue = node.isRemote ? 'sub-remote' : 'sub';
+                item.contextValue = 'sub';
                 item.command = {
                     command: 'xlide.openModule',
                     title: 'Go to Procedure',
@@ -353,90 +324,15 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
     private async _getChildren(node?: XlideNode): Promise<XlideNode[]> {
         if (!node) {
-            // Live Share guest sees the host's workbooks; local files are not visible.
-            // Use isInGuestSession (session role) rather than isGuest (proxy ready)
-            // so we don't briefly render the host's vsls:// URIs as broken local nodes
-            // before the shared service proxy has connected.
-            if (this._liveShare?.isInGuestSession) {
-                if (!this._liveShare.isGuest) {
-                    // Proxy not ready yet - render nothing; onDidChange will refresh.
-                    return [];
-                }
-                return this._getRemoteWorkbooks();
-            }
             return this._getXlsmFiles();
         }
         if (node.kind === 'xlsm') {
-            if (node.isRemote && node.remoteId) {
-                return this._getRemoteModules(node.remoteId);
-            }
             return this._getModules(node.filePath);
         }
         if (node.kind === 'module') {
-            if (node.isRemote && node.remoteId) {
-                return this._getRemoteSubs(node.remoteId, node.moduleName!);
-            }
             return this._getSubs(node.filePath, node.moduleName!);
         }
         return [];
-    }
-
-    private async _getRemoteWorkbooks(): Promise<XlideNode[]> {
-        if (!this._liveShare) { return []; }
-        try {
-            const list = await this._liveShare.guestListWorkbooks();
-            return list.map((w) => ({
-                kind: 'xlsm' as const,
-                label: w.name,
-                filePath: '',
-                isRemote: true,
-                remoteId: w.id,
-                remoteRelativeFolder: w.relativeFolder,
-            }));
-        } catch (err) {
-            vscode.window.showErrorMessage(`XLIDE: Failed to list remote workbooks: ${err}`);
-            return [];
-        }
-    }
-
-    private async _getRemoteModules(workbookId: string): Promise<XlideNode[]> {
-        if (!this._liveShare) { return []; }
-        try {
-            const modules = await this._liveShare.guestListModules(workbookId);
-            return modules
-                .sort(compareVbaModulesForTreeOrder)
-                .map((m) => ({
-                    kind: 'module' as const,
-                    label: m.name,
-                    filePath: '',
-                    moduleName: m.name,
-                    moduleType: m.type,
-                    isRemote: true,
-                    remoteId: workbookId,
-                }));
-        } catch (err) {
-            vscode.window.showErrorMessage(`XLIDE: Failed to list remote modules: ${err}`);
-            return [];
-        }
-    }
-
-    private async _getRemoteSubs(workbookId: string, moduleName: string): Promise<XlideNode[]> {
-        if (!this._liveShare) { return []; }
-        try {
-            const subs = await this._liveShare.guestListSubs(workbookId, moduleName);
-            return subs.map((s) => ({
-                kind: 'sub' as const,
-                label: `${s.kind} ${s.name}`,
-                filePath: '',
-                moduleName,
-                line: s.line,
-                isRemote: true,
-                remoteId: workbookId,
-            }));
-        } catch (err) {
-            vscode.window.showErrorMessage(`XLIDE: Failed to list procedures in remote module "${moduleName}": ${err}`);
-            return [];
-        }
     }
 
     private async _getXlsmFiles(): Promise<XlideNode[]> {
@@ -677,9 +573,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
     private _refreshNonActiveWorkbookExpansions(activeWorkbookKey: string | undefined): void {
         for (const node of this._xlsmNodes.values()) {
-            if (node.isRemote) {
-                continue;
-            }
             const key = workbookNodeKey(node.filePath);
             if (key === activeWorkbookKey) {
                 continue;

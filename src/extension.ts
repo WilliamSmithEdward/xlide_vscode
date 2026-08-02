@@ -14,7 +14,6 @@ import { WorkbookEngine } from './workbookEngine';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
-import { LiveShareIntegration } from './liveShare';
 import { XlideStatusBar } from './statusBar';
 import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 import { registerVbaEditorCommands } from './vbaEditorCommands';
@@ -75,27 +74,13 @@ export function activate(context: vscode.ExtensionContext): void {
     const bridge = new WorkbookEngine(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
     const explorer = new XlsmExplorer(bridge, out);
-    const liveShare = new LiveShareIntegration(bridge, out);
-    fsProvider.setLiveShare(liveShare);
-    explorer.setLiveShare(liveShare);
-    const statusBar = new XlideStatusBar(liveShare);
+    const statusBar = new XlideStatusBar();
     // The workbook engine runs in-process: there is no backend to install,
     // start, probe, or recover, so nothing gates the tree or the sidebar.
     const sidebar = registerXlideSidebar({
         workspaceState: context.workspaceState,
     });
     sidebar.refresh();
-
-    // Mirror Live Share guest state into a context key so the explorer welcome view
-    // can show a "not supported" message instead of the generic empty-workspace one.
-    const updateGuestContext = () => {
-        void vscode.commands.executeCommand(
-            'setContext',
-            'xlide.isLiveShareGuest',
-            liveShare.isInGuestSession,
-        );
-    };
-    updateGuestContext();
 
     // Keep reference outside subscriptions for post-start auto-expand and reveal.
     const treeView = vscode.window.createTreeView('xlide.explorer', {
@@ -161,8 +146,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
         treeView,
         explorer,
-
-        liveShare.onDidChange(updateGuestContext),
 
         // Item 6: Reveal active module in the XLIDE Explorer tree.
         // Also drives accordion collapse: only the active module stays expanded.
@@ -249,14 +232,8 @@ export function activate(context: vscode.ExtensionContext): void {
         ...registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
 
         statusBar,
-        liveShare,
         bridge,
     );
-
-    // Initialize Live Share integration (no-op if extension isn't installed)
-    void liveShare.start().catch((err: Error) => {
-        out.appendLine(`Live Share init failed: ${err.message}`);
-    });
 
     // When the symbol index updates (e.g. after a rename or save), refresh
     // the matching module's sub list in the explorer so renamed procedures
