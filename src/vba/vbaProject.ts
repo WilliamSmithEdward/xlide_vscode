@@ -11,6 +11,7 @@
 // original cache prefix byte-for-byte.
 
 import { Cfb } from './cfb';
+import { decodeCodePage, encodeCodePage } from './codePages';
 import { compress, decompress } from './ovba';
 
 export class VbaProjectError extends Error {}
@@ -44,43 +45,12 @@ const SIGNATURE_STREAMS: Record<string, string> = {
 	_VBA_PROJECT_SIGNATURE_V3: 'v3',
 };
 
-// cp1252 differs from latin-1 only in 0x80-0x9F.
-const CP1252_HIGH = [
-	0x20ac, 0x0081, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021,
-	0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008d, 0x017d, 0x008f,
-	0x0090, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
-	0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x009d, 0x017e, 0x0178,
-];
-
-function decodeAnsi(buf: Buffer, codePage: number): string {
-	if (codePage !== 1252) {
-		return buf.toString('latin1');
-	}
-	let out = '';
-	for (const byte of buf) {
-		out += byte >= 0x80 && byte <= 0x9f
-			? String.fromCharCode(CP1252_HIGH[byte - 0x80])
-			: String.fromCharCode(byte);
-	}
-	return out;
-}
-
-function encodeAnsi(text: string, codePage: number): Buffer {
-	if (codePage !== 1252) {
-		return Buffer.from(text, 'latin1');
-	}
-	const out = Buffer.alloc(text.length);
-	for (let i = 0; i < text.length; i++) {
-		const code = text.charCodeAt(i);
-		if (code < 0x80 || (code >= 0xa0 && code <= 0xff)) {
-			out[i] = code;
-			continue;
-		}
-		const high = CP1252_HIGH.indexOf(code);
-		out[i] = high >= 0 ? 0x80 + high : 0x3f; // '?'
-	}
-	return out;
-}
+// Every ANSI string in the project - module sources, dir-stream names, the
+// PROJECT stream - is encoded in PROJECTCODEPAGE, and a Russian or Japanese
+// Excel writes cp1251/cp932, not cp1252. See codePages.ts; issue #6 is the
+// mojibake that shipping cp1252-only produced.
+const decodeAnsi = decodeCodePage;
+const encodeAnsi = encodeCodePage;
 
 interface DirRecord {
 	id: number;
@@ -354,7 +324,7 @@ export class VbaProject {
 
 		try {
 			project.projectStreamRaw = cfb.getStream('PROJECT');
-			project.hasPassword = projectStreamHasPassword(project.projectStreamRaw);
+			project.hasPassword = projectStreamHasPassword(project.projectStreamRaw, project.codePage);
 		} catch {
 			project.projectStreamRaw = undefined;
 		}
@@ -476,6 +446,7 @@ export class VbaProject {
 			const updated = serializeProjectStream(this.projectStreamRaw, this.renames, {
 				addModules: this.added.map((a) => [a.name, a.kind === 'standard' ? 'Module' : 'Class'] as [string, string]),
 				deleteNames: this.deleted,
+				codePage: this.codePage,
 			});
 			cfb.writeStream('PROJECT', updated);
 		}
@@ -531,8 +502,8 @@ export class VbaProject {
 	}
 }
 
-function projectStreamHasPassword(raw: Buffer): boolean {
-	const text = decodeAnsi(raw, 1252);
+function projectStreamHasPassword(raw: Buffer, codePage: number): boolean {
+	const text = decodeAnsi(raw, codePage);
 	for (const line of text.split(/\r?\n/)) {
 		const trimmed = line.trim();
 		const eq = trimmed.indexOf('=');
@@ -553,11 +524,12 @@ function projectStreamHasPassword(raw: Buffer): boolean {
 export function serializeProjectStream(
 	raw: Buffer,
 	renameMap: Map<string, string>,
-	opts: { addModules?: Array<[string, string]>; deleteNames?: Set<string> } = {},
+	opts: { addModules?: Array<[string, string]>; deleteNames?: Set<string>; codePage?: number } = {},
 ): Buffer {
 	const addModules = opts.addModules ?? [];
 	const deleteNames = opts.deleteNames ?? new Set<string>();
-	const text = decodeAnsi(raw, 1252);
+	const codePage = opts.codePage ?? 1252;
+	const text = decodeAnsi(raw, codePage);
 	const renameCi = new Map<string, string>();
 	for (const [k, v] of renameMap) { renameCi.set(k.toLowerCase(), v); }
 	const deleteCi = new Set([...deleteNames].map((n) => n.toLowerCase()));
@@ -652,7 +624,7 @@ export function serializeProjectStream(
 	while (outLines.length > 0 && outLines[outLines.length - 1].trim() === '') {
 		outLines.pop();
 	}
-	return encodeAnsi(outLines.join('\r\n') + '\r\n', 1252);
+	return encodeAnsi(outLines.join('\r\n') + '\r\n', codePage);
 }
 
 /**
