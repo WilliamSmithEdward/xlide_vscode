@@ -168,3 +168,32 @@ describe('moduleExport', () => {
 	});
 
 });
+
+describe('non-ASCII export bytes (issue #6, the "exporting" half)', () => {
+	it('writes exported Cyrillic source as correct UTF-8 bytes', async () => {
+		// The reported symptom covered opening AND exporting. The engine-read
+		// half is pinned in vbaCodePages.test.ts; this pins the disk half: the
+		// exported .bas contains the real text as UTF-8 - the same on-disk
+		// format 2.6.1's backend wrote - not mojibake, not '?' substitutions.
+		const { workbook, exportFolder } = tempWorkbook();
+		await writeWorkbookSettings(workbook, {
+			exportFolder,
+			exportMode: 'exportAll',
+		});
+		const source = "' Модуль: mdTest\nSub Проверка()\nEnd Sub\n";
+		const bridge = fakeBridge([
+			{ name: 'mdTest', type: 'standard', source },
+		]);
+
+		const result = await exportWorkbookModule(bridge, {
+			filePath: workbook,
+			moduleName: 'mdTest',
+		});
+		expect(result.written).toBe(true);
+
+		const bytes = fs.readFileSync(path.join(exportFolder, 'mdTest.bas'));
+		expect(bytes.equals(Buffer.from(source, 'utf8'))).toBe(true);
+		expect(bytes.toString('utf8')).toContain('Модуль: mdTest');
+		expect(bytes.toString('utf8')).not.toContain('Ìîäóëü');
+	});
+});
