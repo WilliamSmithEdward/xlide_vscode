@@ -230,6 +230,14 @@
             font-size: 11px;
         }
         .diff { overflow: auto; font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size); }
+        /*
+         * The diff is virtualized: the canvas is sized to the full diff height
+         * and only the visible rows exist in the DOM, absolutely positioned at
+         * their computed offset. A 26,000-line module would otherwise build
+         * 130,000 nodes on every click.
+         */
+        .diffCanvas { position: relative; }
+        .diffCanvas > .line { position: absolute; left: 0; right: 0; }
         .line {
             display: grid;
             grid-template-columns: var(--diff-grid);

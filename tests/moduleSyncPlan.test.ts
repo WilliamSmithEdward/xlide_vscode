@@ -427,3 +427,41 @@ describe('module sync plan', () => {
 		expect(item.diffWithHeaders.map((line) => line.left).join('\n')).toContain('Attribute VB_Name');
 	});
 });
+
+describe('module sync preview stays responsive on huge modules', () => {
+	// A 26,000-line class shipped 130,000 DOM nodes into the preview on every
+	// click - activating a row, and even ticking a checkbox on the row already
+	// shown, cost well over a second each. The preview keeps only the visible
+	// rows in the DOM and skips rebuilds that cannot change what is displayed;
+	// these are the load-bearing pieces of that contract.
+	const script = fs.readFileSync(
+		path.join(__dirname, '..', 'assets', 'webview', 'moduleSync.js'), 'utf8',
+	);
+	const styles = fs.readFileSync(
+		path.join(__dirname, '..', 'assets', 'webview', 'moduleSync.css'), 'utf8',
+	);
+
+	it('renders only the visible diff rows', () => {
+		expect(script).toContain('function paintDiffWindow');
+		// Repainting has to be driven by scrolling, or rows below the fold
+		// would never appear.
+		expect(script).toMatch(/el\('diff'\)\.addEventListener\('scroll', paintDiffWindow/);
+		// Absolute placement on a full-height canvas is what keeps the
+		// scrollbar honest while most rows are absent.
+		expect(styles).toContain('.diffCanvas { position: relative; }');
+		expect(styles).toContain('.diffCanvas > .line { position: absolute;');
+	});
+
+	it('skips diff rebuilds that cannot change what is shown', () => {
+		expect(script).toContain('if (!force && key === diffRenderedKey) return;');
+		// A refreshed plan can reuse an item id with new content, so that path
+		// must force past the guard.
+		expect(script).toMatch(/renderDiff\(true\);/);
+	});
+
+	it('updates list rows in place instead of rebuilding them', () => {
+		expect(script).toContain('function syncListState');
+		const rowClick = script.slice(script.indexOf("row.addEventListener('click'"));
+		expect(rowClick.slice(0, 200)).toContain('syncListState();');
+	});
+});

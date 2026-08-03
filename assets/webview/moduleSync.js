@@ -10,6 +10,22 @@
         let tooltipTimer;
         let tooltipTarget;
         const tooltipDelayMs = 140;
+        const listNodes = new Map();
+
+        // Virtualized diff state. Only the rows inside the viewport (plus a
+        // small overscan) exist in the DOM; heights start as estimates and are
+        // replaced with real measurements as rows scroll into view.
+        const DIFF_OVERSCAN = 12;
+        let diffLines = [];
+        let diffHeights = [];
+        let diffOffsets = [];
+        let diffCanvas = null;
+        let diffNodes = new Map();
+        let diffCharsPerCol = 100;
+        let diffLineHeight = 18;
+        let diffRowPadding = 5;
+        let diffRenderedKey = null;
+        let diffResizeFrame = 0;
 
         const el = id => document.getElementById(id);
 
@@ -289,7 +305,9 @@
             el('result').textContent = message || '';
             renderChrome();
             renderList();
-            renderDiff();
+            // A refreshed plan can reuse the same item id with new content, so
+            // the cached key must not suppress the rebuild.
+            renderDiff(true);
             if (autoSaveSettings) {
                 scheduleSettingsAutosave();
             }
@@ -298,17 +316,16 @@
         function renderList() {
             const list = el('list');
             list.innerHTML = '';
+            listNodes.clear();
             for (const item of plan.items) {
                 const tone = statusTone(item);
                 const row = document.createElement('div');
-                row.className = `item status-${tone}${item.id === activeId ? ' active' : ''}`;
+                row.className = `item status-${tone}`;
                 row.dataset.id = item.id;
-                row.setAttribute('aria-selected', item.id === activeId ? 'true' : 'false');
                 const checkHit = document.createElement('div');
                 checkHit.className = 'checkHit' + (!item.selectable ? ' disabled' : '');
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
-                checkbox.checked = selected.has(item.id);
                 checkbox.disabled = !item.selectable;
                 checkHit.addEventListener('click', event => {
                     event.stopPropagation();
@@ -316,7 +333,7 @@
                     activeId = item.id;
                     if (selected.has(item.id)) selected.delete(item.id);
                     else selected.add(item.id);
-                    renderList();
+                    syncListState();
                     renderDiff();
                 });
                 checkHit.append(checkbox);
@@ -336,26 +353,196 @@
                 row.append(checkHit, text, badge);
                 row.addEventListener('click', () => {
                     activeId = item.id;
-                    renderList();
+                    syncListState();
                     renderDiff();
                 });
                 list.append(row);
+                listNodes.set(item.id, { row, checkbox });
+            }
+            syncListState();
+        }
+
+        /*
+         * Selection and active-row changes only touch attributes on rows that
+         * already exist - rebuilding the list on every click also rebuilt every
+         * listener, and paired with a full diff rebuild made each click O(whole
+         * workbook).
+         */
+        function syncListState() {
+            for (const item of plan.items) {
+                const node = listNodes.get(item.id);
+                if (!node) continue;
+                const isActive = item.id === activeId;
+                node.row.classList.toggle('active', isActive);
+                node.row.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                node.checkbox.checked = selected.has(item.id);
             }
             renderCounts();
         }
 
-        function renderDiff() {
-            const item = plan.items.find(candidate => candidate.id === activeId) || plan.items[0];
+        function buildDiffRow(line) {
+            const row = document.createElement('div');
+            row.className = 'line ' + line.kind;
+            const leftNo = document.createElement('div');
+            leftNo.className = 'ln';
+            leftNo.textContent = line.leftNumber || '';
+            const left = document.createElement('pre');
+            left.className = 'left';
+            left.textContent = line.left;
+            const rightNo = document.createElement('div');
+            rightNo.className = 'ln';
+            rightNo.textContent = line.rightNumber || '';
+            const right = document.createElement('pre');
+            right.className = 'right';
+            right.textContent = line.right;
+            row.append(leftNo, left, rightNo, right);
+            return row;
+        }
+
+        /*
+         * Column width and line height drive the height estimate for rows that
+         * have not been rendered (and therefore never measured) yet. The probe
+         * must lay out in flow: an absolutely positioned grid row shrink-to-fits
+         * and reports a useless column width.
+         */
+        function measureDiffMetrics() {
+            const probe = buildDiffRow({ kind: '', leftNumber: '1', left: 'M', rightNumber: '', right: '' });
+            probe.style.position = 'static';
+            probe.style.visibility = 'hidden';
+            diffCanvas.append(probe);
+            const pre = probe.querySelector('pre.left');
+            const style = getComputedStyle(pre);
+            const measurer = document.createElement('canvas').getContext('2d');
+            measurer.font = style.fontSize + ' ' + style.fontFamily;
+            const charWidth = measurer.measureText('M').width || 8;
+            const usable = pre.clientWidth - 16;
+            diffCharsPerCol = Math.max(8, Math.floor(usable / charWidth));
+            diffLineHeight = Math.max(12, parseFloat(style.lineHeight) || 16);
+            diffRowPadding = Math.max(0, probe.offsetHeight - diffLineHeight);
+            probe.remove();
+        }
+
+        function estimateDiffHeight(line) {
+            const wraps = Math.max(
+                Math.ceil((line.left || '').length / diffCharsPerCol),
+                Math.ceil((line.right || '').length / diffCharsPerCol),
+                1);
+            return wraps * diffLineHeight + diffRowPadding;
+        }
+
+        function recomputeDiffOffsets() {
+            let top = 0;
+            for (let i = 0; i < diffHeights.length; i++) {
+                diffOffsets[i] = top;
+                top += diffHeights[i];
+            }
+            diffOffsets.length = diffHeights.length;
+            diffCanvas.style.height = top + 'px';
+        }
+
+        function firstDiffRowAt(scrollTop) {
+            let lo = 0;
+            let hi = diffHeights.length - 1;
+            let best = 0;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                if (diffOffsets[mid] <= scrollTop) { best = mid; lo = mid + 1; }
+                else { hi = mid - 1; }
+            }
+            return best;
+        }
+
+        function paintDiffWindow() {
+            if (!diffCanvas || !diffLines.length) return;
+            const diff = el('diff');
+            const viewTop = diff.scrollTop;
+            const viewBottom = viewTop + diff.clientHeight;
+            const first = Math.max(0, firstDiffRowAt(viewTop) - DIFF_OVERSCAN);
+            let last = first;
+            while (last < diffLines.length && diffOffsets[last] < viewBottom) last++;
+            last = Math.min(diffLines.length - 1, last + DIFF_OVERSCAN);
+
+            for (const [index, node] of diffNodes) {
+                if (index < first || index > last) {
+                    node.remove();
+                    diffNodes.delete(index);
+                }
+            }
+            const fragment = document.createDocumentFragment();
+            const fresh = [];
+            for (let i = first; i <= last; i++) {
+                if (diffNodes.has(i)) continue;
+                const node = buildDiffRow(diffLines[i]);
+                diffNodes.set(i, node);
+                fragment.append(node);
+                fresh.push(i);
+            }
+            diffCanvas.append(fragment);
+            // Replace estimates with the real heights now that these rows exist.
+            let corrected = false;
+            for (const i of fresh) {
+                const actual = diffNodes.get(i).offsetHeight;
+                if (actual && Math.abs(actual - diffHeights[i]) > 0.5) {
+                    diffHeights[i] = actual;
+                    corrected = true;
+                }
+            }
+            if (corrected) recomputeDiffOffsets();
+            for (const [index, node] of diffNodes) {
+                node.style.top = diffOffsets[index] + 'px';
+            }
+        }
+
+        function mountDiffLines(lines) {
             const diff = el('diff');
             diff.innerHTML = '';
+            diffNodes.clear();
+            diffLines = lines || [];
+            diffCanvas = document.createElement('div');
+            diffCanvas.className = 'diffCanvas';
+            diff.append(diffCanvas);
+            diff.scrollTop = 0;
+            measureDiffMetrics();
+            diffHeights = diffLines.map(estimateDiffHeight);
+            recomputeDiffOffsets();
+            paintDiffWindow();
+        }
+
+        // A narrower diff pane rewraps every line, so estimates for rows that
+        // are not currently rendered have to be rebuilt from the new width.
+        function remeasureDiffLayout() {
+            if (!diffCanvas || !diffLines.length) return;
+            measureDiffMetrics();
+            for (let i = 0; i < diffLines.length; i++) {
+                diffHeights[i] = estimateDiffHeight(diffLines[i]);
+            }
+            for (const [, node] of diffNodes) node.remove();
+            diffNodes.clear();
+            recomputeDiffOffsets();
+            paintDiffWindow();
+        }
+
+        function renderDiff(force) {
+            const item = plan.items.find(candidate => candidate.id === activeId) || plan.items[0];
+            const key = item ? `${item.id}|${showHeaders ? 1 : 0}` : '';
+            // Toggling a checkbox on the row already being shown leaves the diff
+            // identical; rebuilding it is the single most expensive thing this
+            // view can do, so only rebuild when the shown content changes.
+            if (!force && key === diffRenderedKey) return;
+            diffRenderedKey = key;
+            el('toggleHeaders').textContent = showHeaders ? 'Hide Headers in Diff' : 'Show Headers in Diff';
+            el('toggleHeaders').setAttribute('aria-pressed', String(showHeaders));
             if (!item) {
+                const diff = el('diff');
+                diff.innerHTML = '';
+                diffCanvas = null;
+                diffLines = [];
+                diffNodes.clear();
                 el('leftTitle').textContent = '';
                 el('rightTitle').textContent = '';
                 el('copyLeft').disabled = true;
                 el('copyRight').disabled = true;
                 el('toggleHeaders').disabled = true;
-                el('toggleHeaders').textContent = showHeaders ? 'Hide Headers in Diff' : 'Show Headers in Diff';
-                el('toggleHeaders').setAttribute('aria-pressed', String(showHeaders));
                 const empty = document.createElement('pre');
                 empty.textContent = 'No module differences found for the current settings.';
                 diff.append(empty);
@@ -363,7 +550,6 @@
             }
             const leftCode = showHeaders ? item.leftRawCode : item.leftCode;
             const rightCode = showHeaders ? item.rightRawCode : item.rightCode;
-            const diffLines = showHeaders ? item.diffWithHeaders : item.diff;
             el('leftTitle').textContent = item.leftTitle;
             el('rightTitle').textContent = item.rightTitle;
             el('copyLeft').disabled = !leftCode;
@@ -371,26 +557,7 @@
             setTooltip('copyLeft', copyTooltip(item, 'left', Boolean(leftCode)));
             setTooltip('copyRight', copyTooltip(item, 'right', Boolean(rightCode)));
             el('toggleHeaders').disabled = false;
-            el('toggleHeaders').textContent = showHeaders ? 'Hide Headers in Diff' : 'Show Headers in Diff';
-            el('toggleHeaders').setAttribute('aria-pressed', String(showHeaders));
-            for (const line of diffLines) {
-                const row = document.createElement('div');
-                row.className = 'line ' + line.kind;
-                const leftNo = document.createElement('div');
-                leftNo.className = 'ln';
-                leftNo.textContent = line.leftNumber || '';
-                const left = document.createElement('pre');
-                left.className = 'left';
-                left.textContent = line.left;
-                const rightNo = document.createElement('div');
-                rightNo.className = 'ln';
-                rightNo.textContent = line.rightNumber || '';
-                const right = document.createElement('pre');
-                right.className = 'right';
-                right.textContent = line.right;
-                row.append(leftNo, left, rightNo, right);
-                diff.append(row);
-            }
+            mountDiffLines(showHeaders ? item.diffWithHeaders : item.diff);
         }
 
         function renderCounts() {
@@ -434,12 +601,20 @@
             for (const item of plan.items) {
                 if (isRelevantItem(item)) selected.add(item.id);
             }
-            renderList();
+            syncListState();
         });
         el('clear').addEventListener('click', () => {
             selected.clear();
-            renderList();
+            syncListState();
         });
+        el('diff').addEventListener('scroll', paintDiffWindow, { passive: true });
+        new ResizeObserver(() => {
+            if (diffResizeFrame) return;
+            diffResizeFrame = requestAnimationFrame(() => {
+                diffResizeFrame = 0;
+                remeasureDiffLayout();
+            });
+        }).observe(el('diff'));
         el('copyLeft').addEventListener('click', event => {
             event.stopPropagation();
             vscode.postMessage({ type: 'copy-code', itemId: activeId, side: 'left', showHeaders });
