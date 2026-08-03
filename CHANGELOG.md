@@ -12,6 +12,34 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   references. A new corpus test keeps smart punctuation out of the audit and
   oracle files, which downstream ports vendor verbatim and checksum.
 
+## [3.1.4] - 2026-08-02
+
+### Fixed
+
+- **Non-English text is no longer corrupted (issue #6).** The 3.x native
+  engine decoded and encoded every VBA project as Windows-1252, so a Russian
+  (cp1251) project read 'Модуль' back as 'Ìîäóëü' - and text saved while
+  displayed that way was written to the workbook corrupted. Text now converts
+  in the project's actual code page in both directions, covering Cyrillic,
+  Central European, Greek, Turkish, Hebrew, Arabic, Baltic, Vietnamese, Thai,
+  KOI8, and the double-byte Japanese, Chinese, and Korean pages - each pinned
+  by round-trip tests, plus an end-to-end cp1251 workbook fixture verified
+  down to the stored bytes and opened in real Excel.
+
+  If you saved a module through 3.0.0-3.1.3 while its text displayed
+  corrupted, the corruption was written into the workbook and cannot be
+  reconstructed - restore those modules from a pre-3.x copy. Modules that
+  were only opened and read were never modified.
+
+- **Procedures with non-ASCII names appear in the explorer tree.** `Sub
+  Проверка()` was invisible to the procedure list, which matched identifiers
+  with an ASCII-only pattern.
+
+- **No more false errors on non-ASCII procedure names.** The structural
+  analyzer could not see a Cyrillic-named Sub as a block opener, so its `End
+  Sub` reported "no matching 'Sub'" on perfectly valid code. Clean Cyrillic
+  and Greek modules now analyze with zero diagnostics.
+
 ## [3.1.3] - 2026-08-02
 
 ### Fixed
