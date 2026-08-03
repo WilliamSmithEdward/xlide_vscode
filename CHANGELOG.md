@@ -2,6 +2,31 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.1.6] - 2026-08-02
+
+### Fixed
+
+- **Vietnamese (cp1258) text encodes correctly.** The code page stores
+  accented vowels as a precomposed base plus a combining tone byte, which is
+  not the character's canonical decomposition, so saving `Tiếng Việt` wrote
+  `Ti?ng Vi?t`. The encoder now folds each combining mark back into the base
+  until a mapped combination appears.
+- **UTF-8 (cp65001) projects encode correctly.** The reverse-table encoder
+  cannot express multibyte sequences, so non-ASCII text in a UTF-8 project
+  was replaced with `?` on save. UTF-8 projects now encode directly.
+
+### Added
+
+- **A CI language matrix guards every supported code page.** One
+  native-language sample per page - Thai, Japanese, Simplified and
+  Traditional Chinese, Korean, Cyrillic, Greek, Turkish, Hebrew, Arabic,
+  Vietnamese, Baltic, KOI8-R/U, Mac Roman, ISO-8859, and UTF-8 - each run
+  through the real engine end to end (write, read, list, validate) on both
+  Linux and Windows, with native-language module names exercised for
+  Cyrillic, Japanese, and Chinese, and a full-ICU guard so degraded text
+  decoding can never silently pass CI. Writing this matrix is what caught
+  the two fixes above.
+
 ## [3.1.5] - 2026-08-02
 
 ### Fixed
