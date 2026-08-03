@@ -40,10 +40,23 @@ export class WorkbookEngine implements vscode.Disposable {
 		private readonly _out?: vscode.OutputChannel,
 	) {}
 
-	/** Path of the bundled blank workbook used to seed a new one. */
-	private get templatePath(): string {
+	/**
+	 * Path of the bundled blank file used to seed a new one, chosen by the
+	 * target's extension. Each template is a freshly Excel-authored file, so the
+	 * result opens without a repair prompt - and an add-in must come from the
+	 * .xlam template specifically: what makes Excel treat a file as an add-in
+	 * (ThisWorkbook.IsAddin) is the workbook part's content type, which renaming
+	 * an .xlsm cannot change. Anything unrecognized seeds .xlsm, the default.
+	 */
+	private templatePathFor(targetPath: string): string {
+		const lower = targetPath.toLowerCase();
+		const template = lower.endsWith('.xlsb')
+			? 'blank.xlsb'
+			: lower.endsWith('.xlam')
+				? 'blank.xlam'
+				: 'blank.xlsm';
 		return vscode.Uri.joinPath(
-			this._context.extensionUri, 'assets', 'templates', 'blank.xlsm',
+			this._context.extensionUri, 'assets', 'templates', template,
 		).fsPath;
 	}
 
@@ -100,8 +113,10 @@ export class WorkbookEngine implements vscode.Disposable {
 				return svc.getWorkbookInfo(str(p, 'path'));
 			case 'validateWorkbook':
 				return svc.validateWorkbook(str(p, 'path'));
-			case 'createWorkbook':
-				return svc.createWorkbook(str(p, 'path'), this.templatePath);
+			case 'createWorkbook': {
+				const target = str(p, 'path');
+				return svc.createWorkbook(target, this.templatePathFor(target));
+			}
 
 			// --- sheets and cells ---
 			case 'listSheets':

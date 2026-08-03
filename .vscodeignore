@@ -24,9 +24,11 @@ tsconfig.json
 out/**/*.map
 **/*.xlsx
 **/*.xlsm
-# ...except the blank workbook createWorkbook copies to make a new one.
-# The broad *.xlsm rule above exists to keep test workbooks out of the
-# package; this one has to ship or New Workbook fails at runtime.
+# ...except the blank files createWorkbook copies to make a new one. The broad
+# rules here exist to keep test workbooks out of the package; each template has
+# to ship or New Macro-Enabled File fails at runtime for that extension.
 !assets/templates/blank.xlsm
 **/*.xlsb
+!assets/templates/blank.xlsb
 **/*.xlam
+!assets/templates/blank.xlam

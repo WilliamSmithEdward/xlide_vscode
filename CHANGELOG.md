@@ -2,6 +2,26 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.2.0] - 2026-08-03
+
+### Added
+
+- **Create Excel add-ins and true .xlsb workbooks (issue #5).** The New
+  Macro-Enabled File command (formerly New Macro-Enabled Workbook) now offers
+  Excel Add-In (.xlam) alongside .xlsm and .xlsb, and the format follows the
+  extension you choose. An .xlam is a genuine add-in that Excel loads as one
+  (ThisWorkbook.IsAddin is True), not a renamed workbook: what decides that is
+  the workbook part's content type, which only an add-in template carries. The
+  same applies to the agent tool xlide_createWorkbook, whose filePath extension
+  now selects the format.
+
+### Fixed
+
+- **Choosing .xlsb in the new-file dialog produced an .xlsm.** The dialog has
+  always offered .xlsb, but creation copied the .xlsm template whatever the
+  extension, so the result was an .xlsm-format file under an .xlsb name, which
+  Excel rejects or repairs on open. Each extension now has its own template.
+
 ## [3.1.6] - 2026-08-02
 
 ### Fixed

@@ -5,13 +5,15 @@ import * as path from 'path';
 import { Cfb } from '../src/vba/cfb';
 import { compress, decompress } from '../src/vba/ovba';
 import { VbaProject, detectSignature } from '../src/vba/vbaProject';
+import { ZipArchive } from '../src/vba/zip';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import * as svc from '../src/vba/workbookService';
 
 // The bundled blank workbook is a real macro-enabled package (OOXML ZIP + a
 // vbaProject.bin CFB), so these run the whole native stack without needing any
 // workbook from outside the repo.
-const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+const TEMPLATE_DIR = path.join(__dirname, '..', 'assets', 'templates');
+const TEMPLATE = path.join(TEMPLATE_DIR, 'blank.xlsm');
 
 function tempCopy(): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-native-'));
@@ -298,23 +300,96 @@ describe('lazy module sources', () => {
 });
 
 describe('packaged assets', () => {
-	// createWorkbook copies this file out of the installed extension, so it has
-	// to be inside the .vsix. The broad `**/*.xlsm` rule in .vscodeignore keeps
-	// test workbooks out of the package and silently took this with it once;
-	// the failure only shows up as New Workbook throwing ENOENT on a real
-	// install, which no unit test would otherwise catch.
-	it('does not let .vscodeignore exclude the blank workbook template', () => {
-		expect(fs.existsSync(TEMPLATE)).toBe(true);
+	// createWorkbook copies these files out of the installed extension, so each
+	// has to be inside the .vsix. The broad `**/*.xls?` rules in .vscodeignore
+	// keep test workbooks out of the package and silently took the .xlsm one
+	// with it once; the failure only shows up as New Macro-Enabled File
+	// throwing ENOENT on a real install, which no unit test would otherwise
+	// catch. `.xlsb` and `.xlam` shipped excluded with no re-include at all
+	// until the templates existed to need them.
+	// Both ignore files exclude workbook extensions broadly. .vscodeignore
+	// decides what reaches the .vsix; .gitignore decides what reaches the repo
+	// at all, so a missed re-include there means the template is absent from a
+	// fresh clone and CI - the same failure one layer earlier.
+	it.each([
+		['.vscodeignore', '**/*.', 'xlsm', 'blank.xlsm'],
+		['.vscodeignore', '**/*.', 'xlsb', 'blank.xlsb'],
+		['.vscodeignore', '**/*.', 'xlam', 'blank.xlam'],
+		['.gitignore', '*.', 'xlsm', 'blank.xlsm'],
+		['.gitignore', '*.', 'xlsb', 'blank.xlsb'],
+		['.gitignore', '*.', 'xlam', 'blank.xlam'],
+	])('%s re-includes the blank .%s%s template', (ignoreFile, prefix, ext, file) => {
+		expect(fs.existsSync(path.join(TEMPLATE_DIR, file))).toBe(true);
 
 		const ignore = fs.readFileSync(
-			path.join(__dirname, '..', '.vscodeignore'), 'utf8',
+			path.join(__dirname, '..', ignoreFile), 'utf8',
 		).split(/\r?\n/).map((line) => line.trim());
 
-		const excluded = ignore.indexOf('**/*.xlsm');
-		const reincluded = ignore.indexOf('!assets/templates/blank.xlsm');
-		expect(excluded, '.vscodeignore no longer excludes *.xlsm; re-check this guard').toBeGreaterThan(-1);
-		expect(reincluded, 'assets/templates/blank.xlsm must be re-included after the *.xlsm exclusion')
+		const excluded = ignore.indexOf(`${prefix}${ext}`);
+		const reincluded = ignore.indexOf(`!assets/templates/${file}`);
+		expect(excluded, `${ignoreFile} no longer excludes ${prefix}${ext}; re-check this guard`).toBeGreaterThan(-1);
+		expect(reincluded, `assets/templates/${file} must be re-included after the ${prefix}${ext} exclusion`)
 			.toBeGreaterThan(excluded);
+	});
+});
+
+/** The declared content type of a package's main workbook part. */
+function mainContentType(file: string): string {
+	const xml = ZipArchive.read(fs.readFileSync(file)).read('[Content_Types].xml').toString('utf8');
+	return /ContentType="([^"]*main\+xml)"/.exec(xml)?.[1] ?? '';
+}
+
+describe('blank file templates', () => {
+	// What makes Excel treat a file as an add-in (ThisWorkbook.IsAddin = True)
+	// is the workbook part's content type, so an .xlam cannot be produced by
+	// renaming an .xlsm - it has to come from an add-in template. Asserting the
+	// marker is the part of the upstream live-Excel check (open the add-in, run
+	// a macro, read IsAddin) that can be pinned offline.
+	it.each([
+		['blank.xlsm', 'application/vnd.ms-excel.sheet.macroEnabled.main+xml'],
+		['blank.xlam', 'application/vnd.ms-excel.addin.macroEnabled.main+xml'],
+	])('%s declares its format content type', (file, contentType) => {
+		expect(mainContentType(path.join(TEMPLATE_DIR, file))).toBe(contentType);
+	});
+
+	it.each(['blank.xlsm', 'blank.xlsb', 'blank.xlam'])('%s carries a readable VBA project', (file) => {
+		const vba = XlsxWorkbook.fromBuffer(fs.readFileSync(path.join(TEMPLATE_DIR, file))).readVbaProject();
+		const project = VbaProject.parse(Cfb.fromBytes(vba));
+		const names = project.modules.map((m) => m.name);
+		expect(names).toContain('ThisWorkbook');
+		expect(names).toContain('Module1');
+	});
+});
+
+describe('createWorkbook template dispatch', () => {
+	// The template is chosen by the target's extension. Before this existed the
+	// command's own save dialog offered .xlsb while createWorkbook always copied
+	// blank.xlsm, so choosing .xlsb produced an .xlsm-format file under an .xlsb
+	// name - a file Excel rejects or repairs.
+	it.each([
+		['Book.xlsm', 'blank.xlsm'],
+		['Book.xlsb', 'blank.xlsb'],
+		['AddIn.xlam', 'blank.xlam'],
+	])('seeds %s from %s', (targetName, templateFile) => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-create-'));
+		const target = path.join(dir, targetName);
+		svc.createWorkbook(target, path.join(TEMPLATE_DIR, templateFile));
+
+		expect(fs.readFileSync(target).equals(fs.readFileSync(path.join(TEMPLATE_DIR, templateFile)))).toBe(true);
+	});
+
+	it('produces an add-in whose VBA project accepts a module and reads it back', () => {
+		// The end-to-end shape the issue cares about: create the add-in, write a
+		// macro into it, read it back through the same engine an editor uses.
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-create-'));
+		const target = path.join(dir, 'SentinelAddIn.xlam');
+		svc.createWorkbook(target, path.join(TEMPLATE_DIR, 'blank.xlam'));
+
+		svc.writeModule(target, 'Sentinel', 'Public Sub Ping()\r\n    Debug.Print "ok"\r\nEnd Sub\r\n');
+
+		expect(svc.readModule(target, 'Sentinel', false).source).toContain('Public Sub Ping()');
+		// Writing modules must not disturb the add-in marker.
+		expect(mainContentType(target)).toBe('application/vnd.ms-excel.addin.macroEnabled.main+xml');
 	});
 });
 

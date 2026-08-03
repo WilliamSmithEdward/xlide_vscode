@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
-  "version": "3.1.6",
+  "version": "3.2.0",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
   "repository": {
@@ -318,7 +318,7 @@
       },
       {
         "command": "xlide.newWorkbook",
-        "title": "New Macro-Enabled Workbook",
+        "title": "New Macro-Enabled File",
         "category": "XLIDE",
         "icon": "$(new-file)"
       },
@@ -656,8 +656,8 @@
       },
       {
         "name": "xlide_createWorkbook",
-        "displayName": "Create New Workbook",
-        "modelDescription": "Creates a new macro-enabled workbook (.xlsm or .xlsb) with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. Fails if the file already exists; it never overwrites an existing workbook. Use this to start a fresh workbook before adding modules or cell data.",
+        "displayName": "Create New Workbook or Add-In",
+        "modelDescription": "Creates a new macro-enabled file - a workbook (.xlsm or .xlsb) or an Excel add-in (.xlam) - with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. The extension of filePath selects the format; an .xlam is a genuine add-in (ThisWorkbook.IsAddin is True), not a renamed workbook. Fails if the file already exists; it never overwrites an existing file. Use this to start a fresh workbook or add-in before adding modules or cell data.",
         "toolReferenceName": "xlideCreateWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -665,7 +665,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path for the new .xlsm (or .xlsb) file"
+              "description": "Absolute path for the new file; the extension selects the format (.xlsm, .xlsb, or .xlam)"
             }
           },
           "required": [

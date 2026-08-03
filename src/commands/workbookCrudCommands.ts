@@ -87,13 +87,16 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
     }
 
     return [
-        // Create a new, empty macro-enabled workbook
+        // Create a new, empty macro-enabled workbook or add-in
         registerXlideCommand('xlide.newWorkbook', async () => {
             const defaultDir = vscode.workspace.workspaceFolders?.[0]?.uri;
             const target = await vscode.window.showSaveDialog({
-                title: 'XLIDE: New Macro-Enabled Workbook',
+                title: 'XLIDE: New Macro-Enabled File',
                 defaultUri: defaultDir ? vscode.Uri.joinPath(defaultDir, 'NewWorkbook.xlsm') : undefined,
-                filters: { 'Macro-Enabled Workbook': ['xlsm', 'xlsb'] },
+                filters: {
+                    'Macro-Enabled Workbook': ['xlsm', 'xlsb'],
+                    'Excel Add-In': ['xlam'],
+                },
             });
             if (!target) { return; }
             const filePath = target.fsPath;
