@@ -19,3 +19,25 @@ jobs:
       - run: npm ci
       - run: npm run compile
       - run: npm test
+
+  # Non-ASCII text through the real engine for every supported code page
+  # (the issue-#6 bug class): Thai, Japanese, Chinese (both), Korean,
+  # Cyrillic, Greek, Turkish, Hebrew, Arabic, Vietnamese, and friends, plus
+  # a full-ICU guard that fails loudly if TextDecoder would silently
+  # degrade to cp1252. Runs on Windows too because that is where XLIDE
+  # actually runs in production.
+  languages:
+    name: Language matrix (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/vbaLanguageMatrix.test.ts tests/vbaCodePages.test.ts tests/moduleExport.test.ts

@@ -38,6 +38,16 @@ const CODE_PAGE_LABELS: Record<number, string> = {
 
 const DOUBLE_BYTE_PAGES = new Set([932, 936, 949, 950]);
 
+/** Every code page with first-class conversion support, for the CI language matrix. */
+export function supportedCodePages(): number[] {
+	return Object.keys(CODE_PAGE_LABELS).map(Number);
+}
+
+/** WHATWG label for a supported page, so tests can probe ICU directly. */
+export function codePageLabel(codePage: number): string | undefined {
+	return CODE_PAGE_LABELS[codePage];
+}
+
 // cp1252 differs from latin-1 only in 0x80-0x9F. Kept as a table (not via
 // TextDecoder) so the hot default path stays allocation-free and byte-exact
 // with the engine's original behavior.
@@ -142,23 +152,54 @@ const ASCII_ONLY = /^[\x00-\x7f]*$/;
  */
 export function encodeCodePage(text: string, codePage: number): Buffer {
 	if (codePage === 1252) { return encodeCp1252(text); }
+	// UTF-8 is its own encoder; the reverse-table approach below cannot
+	// express multibyte sequences.
+	if (codePage === 65001) { return Buffer.from(text, 'utf8'); }
 	// ASCII is byte-identical in every supported page.
 	if (ASCII_ONLY.test(text)) { return Buffer.from(text, 'latin1'); }
 	const decoder = decoderFor(codePage);
 	if (!decoder) { return encodeCp1252(text); }
 	const { single, double } = reverseTableFor(codePage, decoder);
 	const out: number[] = [];
-	for (const ch of text) {
+	const pushChar = (ch: string): boolean => {
 		const one = single.get(ch);
 		if (one !== undefined) {
 			out.push(one);
-			continue;
+			return true;
 		}
 		const two = double?.get(ch);
 		if (two) {
 			out.push(two[0], two[1]);
-			continue;
+			return true;
 		}
+		return false;
+	};
+	// cp1258 (Vietnamese) stores accented vowels as a precomposed base plus a
+	// combining tone byte (ệ = ê 0xEA + dot-below 0xF2), which is NOT the
+	// char's canonical decomposition, so fold each mark back into the base in
+	// turn until one combination maps.
+	const pushDecomposed = (ch: string): boolean => {
+		const parts = [...ch.normalize('NFD')];
+		if (parts.length < 2) { return false; }
+		const marks = parts.slice(1);
+		if (single.has(parts[0]) && marks.every((m) => single.has(m))) {
+			for (const part of parts) { pushChar(part); }
+			return true;
+		}
+		for (let i = 0; i < marks.length; i++) {
+			const composed = (parts[0] + marks[i]).normalize('NFC');
+			const rest = marks.filter((_, j) => j !== i);
+			if (composed.length === 1 && single.has(composed) && rest.every((m) => single.has(m))) {
+				pushChar(composed);
+				for (const m of rest) { pushChar(m); }
+				return true;
+			}
+		}
+		return false;
+	};
+	for (const ch of text) {
+		if (pushChar(ch)) { continue; }
+		if (pushDecomposed(ch)) { continue; }
 		out.push(0x3f); // '?'
 	}
 	return Buffer.from(out);
