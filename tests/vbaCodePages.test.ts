@@ -5,6 +5,7 @@ import * as path from 'path';
 import { decodeCodePage, encodeCodePage } from '../src/vba/codePages';
 import { Cfb } from '../src/vba/cfb';
 import { compress, decompress } from '../src/vba/ovba';
+import { VbaProject } from '../src/vba/vbaProject';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import * as svc from '../src/vba/workbookService';
 
@@ -129,5 +130,88 @@ describe('cp1251 workbook end to end', () => {
 		// And a fresh listModules still classifies + validates cleanly.
 		expect(svc.listModules(file).map((m) => m.name)).toContain('mdTest');
 		expect(svc.validateWorkbook(file).issues).toEqual([]);
+	});
+});
+
+describe('non-ASCII module and procedure names (the wider bug class)', () => {
+	const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
+	const REC_PROJECTCODEPAGE = 0x0003;
+
+	function makeCp1251Workbook(): string {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-cp1251n-'));
+		const target = path.join(dir, 'Russian.xlsm');
+		const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(TEMPLATE));
+		const cfb = Cfb.fromBytes(xlsx.readVbaProject());
+		const dirRaw = Buffer.from(decompress(cfb.getStreamInStorage('VBA', 'dir'), 'VBA/dir'));
+		let pos = 0;
+		while (pos + 6 <= dirRaw.length) {
+			const id = dirRaw.readUInt16LE(pos);
+			const size = dirRaw.readUInt32LE(pos + 2);
+			if (id === REC_PROJECTCODEPAGE && size >= 2) {
+				dirRaw.writeUInt16LE(1251, pos + 6);
+				break;
+			}
+			pos += 6 + size;
+		}
+		cfb.writeStreamInStorage('VBA', 'dir', compress(dirRaw));
+		xlsx.writeVbaProject(cfb.toBytes());
+		fs.writeFileSync(target, xlsx.toBytes());
+		return target;
+	}
+
+	it('supports the full lifecycle of a Cyrillic-named module', () => {
+		const file = makeCp1251Workbook();
+		const source = [
+			'Public Sub Проверка()',
+			'    Dim счетчик As Long',
+			'    счетчик = 1',
+			'End Sub',
+			'',
+		].join('\r\n');
+
+		// Create under a Cyrillic name, then rename to another Cyrillic name.
+		svc.writeModule(file, 'МодульТест', source, 'standard');
+		expect(svc.listModules(file).map((m) => m.name)).toContain('МодульТест');
+		svc.renameModule(file, 'МодульТест', 'НовыйМодуль');
+
+		const names = svc.listModules(file).map((m) => m.name);
+		expect(names).toContain('НовыйМодуль');
+		expect(names).not.toContain('МодульТест');
+		expect(svc.readModule(file, 'НовыйМодуль', true).source)
+			.toContain('Attribute VB_Name = "НовыйМодуль"');
+
+		// The dir stream's Unicode name records agree with the ANSI ones.
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(file)).readVbaProject());
+		const project = VbaProject.parse(cfb);
+		const module = project.getModule('НовыйМодуль');
+		expect(module?.nameUnicode).toBe('НовыйМодуль');
+		expect(module?.streamNameUnicode).toBe('НовыйМодуль');
+
+		// Cyrillic procedure names appear in the tree's procedure list.
+		const subs = svc.listSubs(file, 'НовыйМодуль');
+		expect(subs.map((s) => s.name)).toContain('Проверка');
+
+		expect(svc.validateWorkbook(file).issues).toEqual([]);
+	});
+});
+
+describe('analyzer on non-ASCII identifiers', () => {
+	it('reports nothing on clean Cyrillic and Greek code', async () => {
+		// The structural engine used [A-Za-z_]\w* for procedure names, so
+		// `Sub Проверка()` was invisible to it and its End Sub reported as
+		// unmatched - a false error on every Russian user's code.
+		const { analyzeVbaModuleSource } = await import('../src/vbaModuleAnalysis');
+		const samples = [
+			['Option Explicit', 'Public Sub Проверка()', '    Dim счетчик As Long',
+				'    счетчик = 42', 'End Sub', ''].join('\r\n'),
+			['Option Explicit', 'Public Function Δοκιμή() As Long',
+				'    Δοκιμή = 1', 'End Function', ''].join('\r\n'),
+		];
+		for (const source of samples) {
+			const result = analyzeVbaModuleSource({
+				source, moduleName: 'M', moduleType: 'standard', moduleKind: 'standard',
+			});
+			expect(result.diagnostics, source.slice(0, 40)).toEqual([]);
+		}
 	});
 });

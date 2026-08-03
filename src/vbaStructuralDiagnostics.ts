@@ -116,16 +116,19 @@ export function matchCloser(t: string): BlockKind | undefined {
 export function matchOpener(t: string): OpenBlock | undefined {
     let m: RegExpExecArray | null;
     if (/^#\s*If\b/i.test(t)) { return { kind: 'PreprocessorIf', line: 0, label: '#If' }; }
-    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\s+([A-Za-z_]\w*)/i.exec(t);
+    // \p{L}: VBA procedure/type names may use any locale letter; the old
+    // ASCII class made `Sub Proverka()` written in Cyrillic invisible here,
+    // so its End Sub reported as unmatched - a false error on Russian code.
+    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\s+([\p{L}_][\p{L}\p{N}_]*)/iu.exec(t);
     if (m) {
         const kind = (/^sub$/i.test(m[1]) ? 'Sub' : 'Function') as BlockKind;
         return { kind, line: 0, label: `${kind} ${m[2]}` };
     }
-    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Property\s+(Get|Let|Set)\s+([A-Za-z_]\w*)/i.exec(t);
+    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Property\s+(Get|Let|Set)\s+([\p{L}_][\p{L}\p{N}_]*)/iu.exec(t);
     if (m) { return { kind: 'Property', line: 0, label: `Property ${m[2]}` }; }
-    m = /^(?:(?:Public|Private|Global)\s+)?Type\s+([A-Za-z_]\w*)/i.exec(t);
+    m = /^(?:(?:Public|Private|Global)\s+)?Type\s+([\p{L}_][\p{L}\p{N}_]*)/iu.exec(t);
     if (m) { return { kind: 'Type', line: 0, label: `Type ${m[1]}` }; }
-    m = /^(?:(?:Public|Private|Global)\s+)?Enum\s+([A-Za-z_]\w*)/i.exec(t);
+    m = /^(?:(?:Public|Private|Global)\s+)?Enum\s+([\p{L}_][\p{L}\p{N}_]*)/iu.exec(t);
     if (m) { return { kind: 'Enum', line: 0, label: `Enum ${m[1]}` }; }
     if (/^Select\s+Case\b/i.test(t)) { return { kind: 'Select', line: 0, label: 'Select Case' }; }
     if (/^If\b/i.test(t) && /\bThen\s*$/i.test(t)) { return { kind: 'If', line: 0, label: 'If' }; }
