@@ -2,17 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [3.1.4] - 2026-08-01
-
-### Changed
-
-- **The evidence corpus is plain ASCII again, and guarded.** Seven em dashes
-  and four section signs had crept into the diagnostic influence audit's notes
-  fields; they are replaced with plain hyphens and spelled-out MS-VBAL section
-  references. A new corpus test keeps smart punctuation out of the audit and
-  oracle files, which downstream ports vendor verbatim and checksum.
-
-## [3.1.4] - 2026-08-02
+## [3.1.5] - 2026-08-02
 
 ### Fixed
 
@@ -39,6 +29,15 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   analyzer could not see a Cyrillic-named Sub as a block opener, so its `End
   Sub` reported "no matching 'Sub'" on perfectly valid code. Clean Cyrillic
   and Greek modules now analyze with zero diagnostics.
+
+### Also in this release
+
+- A class or UserForm named directly as a receiver (factory-style
+  `VB_PredeclaredId` classes) offers its members in completion, and hover
+  works on any object-module surface used as a bare receiver.
+- The evidence corpus is plain ASCII again, with a test keeping smart
+  punctuation out of the audit and oracle files that downstream ports vendor
+  verbatim and checksum.
 
 ## [3.1.3] - 2026-08-02
 
