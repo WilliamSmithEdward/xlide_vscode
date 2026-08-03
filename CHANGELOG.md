@@ -22,6 +22,18 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   extension, so the result was an .xlsm-format file under an .xlsb name, which
   Excel rejects or repairs on open. Each extension now has its own template.
 
+### Performance
+
+- **The Export and Import Preview no longer lag on huge modules.** Clicking a
+  module in the preview rebuilt the whole diff pane; for a 26,000-line class
+  that meant building 132,000 DOM elements on every click, and the rebuild ran
+  even for clicks that could not change what was shown - so ticking the
+  checkbox on the row already displayed cost as much as switching modules. The
+  pane now keeps only the rows in view in the DOM, and skips rebuilds that
+  cannot change the display. Activating that module went from about 1.6
+  seconds to 4 ms, and ticking its checkbox from about 2.2 seconds to nothing
+  measurable.
+
 ## [3.1.6] - 2026-08-02
 
 ### Fixed
