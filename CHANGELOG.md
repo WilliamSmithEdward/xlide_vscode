@@ -2,6 +2,26 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.2.1] - 2026-08-03
+
+### Fixed
+
+- **Identifiers written with combining marks are no longer split in half
+  (issue #8).** Thai writes a letter as a base plus a tone mark, and
+  Devanagari as a base plus a matra. Those marks are not letters, and every
+  identifier pattern stopped at the first one - so a variable you had
+  declared was read as two names and reported as undefined ("Variable not
+  defined: 'า'"), and a procedure with such a name never appeared in the
+  explorer tree. The VBE compiles and runs these identifiers, so each of
+  these was a false error on valid code. Marks now continue a name wherever
+  identifiers are recognised, while still being rejected at the start of one.
+
+  This is the same family as the 3.1.5 encoding fix, one step further along:
+  that release taught these patterns about non-Latin letters, which covered
+  Cyrillic and Greek but not scripts that build a letter from more than one
+  character. The language test matrix now carries Thai and Devanagari
+  procedure names end to end, which is what would have caught this.
+
 ## [3.2.0] - 2026-08-03
 
 ### Added
