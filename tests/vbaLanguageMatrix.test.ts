@@ -107,6 +107,29 @@ describe('CI language matrix', () => {
 		});
 	}
 
+	// Every native-identifier case above uses a mark-free script, which is
+	// exactly why combining-mark identifiers (issue #8) stayed green here:
+	// Thai builds a letter from base + tone mark and Devanagari from base +
+	// matra, categories Mn/Mc rather than L.
+	it.each([
+		[874, 'Thai (Mn tone mark)', 'คำนวณค่า'],
+		[65001, 'Devanagari (Mc matra)', 'नामजांच'],
+	])('lists and analyzes a %s procedure name through a real workbook', (codePage, _label, procName) => {
+		const file = makeWorkbookWithCodePage(codePage as number);
+		const source = [
+			`Public Sub ${procName}()`,
+			`    Dim ${procName}ผล As String`,
+			`    ${procName}ผล = "ok"`,
+			'End Sub',
+			'',
+		].join('\r\n');
+		svc.writeModule(file, 'MarkModule', source, 'standard');
+		expect(nfc(svc.readModule(file, 'MarkModule', false).source)).toBe(nfc(source));
+		// The explorer tree must see the whole name, not the part before the mark.
+		expect(svc.listSubs(file, 'MarkModule').map((s) => s.name)).toContain(procName);
+		expect(svc.validateWorkbook(file).issues).toEqual([]);
+	});
+
 	it('supports native-language MODULE NAMES end to end for major scripts', () => {
 		const cases: Array<[number, string, string]> = [
 			[1251, 'МодульТест', 'НовыйМодуль'],

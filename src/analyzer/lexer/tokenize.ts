@@ -52,7 +52,15 @@ function isIdentPart(ch: string): boolean {
 	if (ch === '_' || isDigit(ch)) {
 		return true;
 	}
-	return isIdentStart(ch);
+	if (isIdentStart(ch)) {
+		return true;
+	}
+	// Combining marks continue a name but can never begin one. Thai writes a
+	// letter as base + tone mark and Devanagari as base + matra - categories
+	// Mn/Mc, not L - and the VBE compiles both, so stopping at the mark split
+	// valid identifiers in half. At position 0 a mark has nothing to combine
+	// with, so isIdentStart deliberately still rejects it.
+	return ch.charCodeAt(0) >= 0x80 && /\p{M}/u.test(ch);
 }
 
 // Hot editor paths (hover, canonical casing) re-tokenize the same full module

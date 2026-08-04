@@ -52,9 +52,12 @@ const DOCUMENT_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 const ATTR_LINE_RE = /^Attribute\s+VB_/i;
 // \p{L}, not \w: VBA identifiers may use any locale letter (a Russian
 // project legitimately declares `Sub Proverka()` in Cyrillic), and the
-// ASCII-only \w made such procedures vanish from the explorer tree.
+// ASCII-only \w made such procedures vanish from the explorer tree. \p{M}
+// after the first character because Thai and Devanagari build a letter from
+// a base plus a combining mark, and stopping at the mark made those
+// procedures vanish the same way.
 const PROC_RE =
-	/^[ \t]*(?:(?:Public|Private|Friend|Static)\s+)*(Sub|Function|Property\s+(?:Get|Let|Set))\s+([\p{L}_][\p{L}\p{N}_]*)\s*[(\r\n]/gimu;
+	/^[ \t]*(?:(?:Public|Private|Friend|Static)\s+)*(Sub|Function|Property\s+(?:Get|Let|Set))\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)\s*[(\r\n]/gimu;
 
 /**
  * Split module source into (hidden header, visible body) exactly as the editor
