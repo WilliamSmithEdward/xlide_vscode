@@ -108,6 +108,53 @@ describe('XlsmExplorer', () => {
         expect(module2Unchanged.collapsibleState).toBe(1);
     });
 
+    // Closing the last tab clears the active workbook, which collapsed the only
+    // thing in the tree and left the panel looking empty. With one workbook
+    // there is nothing to disambiguate, so folding it away gains nothing.
+    it('keeps a sole workbook expanded when no module is active', async () => {
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\work\Only.xlsm' },
+        ]);
+        const explorer = new XlsmExplorer(fakeBridge([{ name: 'Module1', type: 'standard' }]));
+
+        const [only] = await explorer.getChildren();
+        expect(explorer.getTreeItem(only).collapsibleState).toBe(2);
+
+        // Opening a module and then having no active workbook (the state the
+        // tree is in with nothing open) must not fold it away.
+        explorer.setActiveModule(only.filePath, 'Module1');
+        explorer.notifyWorkbookCollapsed(only.filePath);
+        explorer.notifyWorkbookExpanded(only.filePath);
+        expect(explorer.getTreeItem(only).collapsibleState).toBe(2);
+    });
+
+    it('still lets the user collapse a sole workbook by hand', async () => {
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\work\Only.xlsm' },
+        ]);
+        const explorer = new XlsmExplorer(fakeBridge([{ name: 'Module1', type: 'standard' }]));
+
+        const [only] = await explorer.getChildren();
+        explorer.notifyWorkbookCollapsed(only.filePath);
+        expect(explorer.getTreeItem(only).collapsibleState).toBe(1);
+
+        // ...and re-expanding restores the sticky-open behavior.
+        explorer.notifyWorkbookExpanded(only.filePath);
+        expect(explorer.getTreeItem(only).collapsibleState).toBe(2);
+    });
+
+    it('does not force expansion when more than one workbook is present', async () => {
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\work\Book1.xlsm' },
+            { scheme: 'file', fsPath: 'C:\work\Book2.xlsm' },
+        ]);
+        const explorer = new XlsmExplorer(fakeBridge([{ name: 'Module1', type: 'standard' }]));
+
+        const [book1, book2] = await explorer.getChildren();
+        expect(explorer.getTreeItem(book1).collapsibleState).toBe(1);
+        expect(explorer.getTreeItem(book2).collapsibleState).toBe(1);
+    });
+
     it('collapses loaded non-active workbook roots when the active module changes', async () => {
         vscodeMock.findFiles.mockResolvedValue([
             { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },

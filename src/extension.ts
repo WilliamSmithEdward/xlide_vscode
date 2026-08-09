@@ -197,6 +197,11 @@ export function activate(context: vscode.ExtensionContext): void {
         // Accordion: if the user manually clicks the expand arrow on a module node,
         // collapse all sibling modules under the same workbook.
         treeView.onDidExpandElement((e) => {
+            // Re-opening a workbook by hand always clears the collapsed flag,
+            // accordion setting or not: it records intent, not a behavior.
+            if (e.element.kind === 'xlsm' && e.element.filePath) {
+                explorer.notifyWorkbookExpanded(e.element.filePath);
+            }
             if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) { return; }
             if (e.element.kind === 'module' && e.element.filePath && e.element.moduleName) {
                 explorer.setActiveModule(e.element.filePath, e.element.moduleName);
