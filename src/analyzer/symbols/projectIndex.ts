@@ -841,6 +841,7 @@ export class ProjectIndex {
 			...this.projectClassMembers(),
 			...this.projectStandardModuleMembers(moduleName),
 			...this.projectUserTypeMembers(moduleName),
+			...this.projectEnumMembers(moduleName),
 		]).slice();
 	}
 
@@ -1283,6 +1284,51 @@ export class ProjectIndex {
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * Enum names are member surfaces too: `Corner.TopLeft` is ordinary VBA and is
+	 * how a reader tells one enum's TopLeft from another's. Enums were never
+	 * emitted, so qualifying by the enum name offered nothing at all.
+	 */
+	private projectEnumMembers(moduleName: string): VbaProjectClassMembers[] {
+		const currentLower = moduleName.toLowerCase();
+		const out: VbaProjectClassMembers[] = [];
+		for (const mod of this.modules.values()) {
+			const sameModule = mod.moduleName.toLowerCase() === currentLower;
+			for (const symbol of mod.root.children ?? []) {
+				if (symbol.kind !== 'enum') {
+					continue;
+				}
+				if (!sameModule && !isTypeExported(symbol)) {
+					continue;
+				}
+				out.push({
+					name: symbol.name,
+					kind: 'enum',
+					moduleName: mod.moduleName,
+					doc: symbol.doc,
+					exhaustive: true,
+					members: this.enumConstantMembers(symbol),
+				});
+			}
+		}
+		return out;
+	}
+
+	private enumConstantMembers(symbol: VbaSymbol): VbaProjectClassMember[] {
+		return (symbol.children ?? [])
+			.filter((member) => member.kind === 'enumMember')
+			.map((member) => ({
+				name: member.name,
+				kind: 'property' as const,
+				returns: symbol.name,
+				signature: `${symbol.name}.${member.name} As ${symbol.name}`,
+				writable: false,
+				moduleName: member.moduleName,
+				doc: member.doc,
+				definitions: [projectObjectMemberDefinition(member)],
+			}));
 	}
 
 	private userTypeFieldMembers(symbol: VbaSymbol): VbaProjectClassMember[] {

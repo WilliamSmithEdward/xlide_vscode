@@ -853,6 +853,9 @@ function resolveRoot(
 		projectSurface?.kind === 'standardModule'
 		|| projectSurface?.kind === 'class'
 		|| projectSurface?.kind === 'userform'
+		// An Enum name reaches its constants: `Corner.TopLeft` is ordinary VBA,
+		// and is how a reader tells one enum's TopLeft from another's.
+		|| projectSurface?.kind === 'enum'
 	) {
 		// A standard module's name reaches its members. A class or UserForm name does too:
 		// UserForms always carry their predeclared default instance, and factory-style classes
@@ -1148,16 +1151,17 @@ function resolveDeclaredObjectType(
 	ctx: MemberCompletionContext,
 	model: HostObjectModel | undefined,
 ): string | undefined {
-	const host = resolveHostAlias(declaredType, model);
-	if (host) {
-		return host;
-	}
+	// The project's own declarations are consulted BEFORE the referenced type
+	// libraries, which is what VBA does. The Excel object model owns a lot of
+	// ordinary nouns - Point, Border, Font, Shape, Style, Name - so a developer
+	// who declares one of those got the library type's members instead of their
+	// own, with nothing to indicate the name was ambiguous.
 	const key = projectKeyForTypeName(declaredType, ctx);
 	if (key) {
 		const codeNameHost = ctx.codeNames?.[key];
 		return codeNameHost ? combinedTypeKey(key, codeNameHost) : projectTypeKey(key);
 	}
-	return undefined;
+	return resolveHostAlias(declaredType, model);
 }
 
 function projectKeyForTypeName(
@@ -1172,7 +1176,15 @@ function projectKeyForTypeName(
 		return undefined;
 	}
 	const projectType = projectClassMembersByName(ctx).get(key);
-	return projectType && projectType.kind !== 'standardModule' ? key : undefined;
+	// A standard module is not a type you can declare against, and an Enum is a
+	// VALUE type: `Dim c As Corner` is a Long, not an object. Both are member
+	// surfaces so `Module.Member` and `Corner.TopLeft` resolve, but neither may
+	// answer here or a plain enum variable would look like an object.
+	return projectType
+		&& projectType.kind !== 'standardModule'
+		&& projectType.kind !== 'enum'
+		? key
+		: undefined;
 }
 
 function simpleTypeName(typeText: string): string | undefined {

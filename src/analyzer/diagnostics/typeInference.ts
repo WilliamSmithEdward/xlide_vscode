@@ -2236,7 +2236,10 @@ export function resolveKnownObjectAssignmentType(
 	const lower = simple.toLowerCase();
 	const matches = (memberCtx.projectClassMembers ?? []).filter(
 		(projectType) =>
+			// userType and enum are VALUE types - `Dim c As Corner` is a Long,
+			// not an object - so neither can make an assignment require Set.
 			projectType.kind !== 'userType' &&
+			projectType.kind !== 'enum' &&
 			projectType.kind !== 'standardModule' &&
 			projectType.name.toLowerCase() === lower,
 	);

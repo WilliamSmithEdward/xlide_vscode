@@ -339,19 +339,20 @@ describe('collectSymbolReferences - user-defined Type field', () => {
 });
 
 describe('collectSymbolReferences - Enum member', () => {
-    // Bare enum-member uses and the declaration rename precisely. Enum-TYPE-
-    // qualified access (Color.Red) is a known limitation: the analyzer exposes no
-    // EnumType.Member resolver (go-to-definition does not resolve it either), so it
-    // is left untouched rather than matched textually (which would over-match an
-    // unrelated OtherEnum.Red).
-    it('renames an Enum member declaration plus its bare uses', () => {
+    // Enum-TYPE-qualified access used to be left untouched: the analyzer had no
+    // EnumType.Member resolver, so `Color.Red` could only have been matched
+    // textually, which would over-match an unrelated OtherEnum.Red. Enums are
+    // member surfaces now (issue #11), so the qualified use resolves properly
+    // and renames with the declaration - leaving it behind pointed the module
+    // at a member that no longer exists.
+    it('renames an Enum member declaration plus its bare and qualified uses', () => {
         const M1 =
             'Public Enum Color\n    Red\n    Green\nEnd Enum\n' +
             'Sub T()\n    Dim c As Long\n    c = Red\n    c = Color.Red\nEnd Sub\n';
         const out = applyRename([{ moduleName: 'Module1', source: M1 }], 'Module1', 'Red', M1.indexOf('Red'), 'Crimson');
         expect(out.Module1).toBe(
             'Public Enum Color\n    Crimson\n    Green\nEnd Enum\n' +
-            'Sub T()\n    Dim c As Long\n    c = Crimson\n    c = Color.Red\nEnd Sub\n',
+            'Sub T()\n    Dim c As Long\n    c = Crimson\n    c = Color.Crimson\nEnd Sub\n',
         );
     });
 });
