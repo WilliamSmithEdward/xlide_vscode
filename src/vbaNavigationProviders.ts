@@ -12,10 +12,12 @@ import {
     moduleIdentityKey,
 } from './xlideFileSystem';
 import { VbaModuleSymbols } from './vbaSymbolIndex';
+import { VBA_IDENTIFIER_RE } from './vbaSourceScan';
 import {
-    VBA_IDENTIFIER_NAME_RE,
-    VBA_IDENTIFIER_RE,
-} from './vbaSourceScan';
+    checkRenameName,
+    describeRenameCollision,
+    findRenameCollision,
+} from './vbaRenameValidation';
 import {
     ProjectIndex,
     resolveProcedureLabelDefinitionAt,
@@ -582,8 +584,9 @@ export class VbaRenameProvider implements vscode.RenameProvider {
             return undefined;
         }
         const documentVersion = document.version;
-        if (!VBA_IDENTIFIER_NAME_RE.test(newName)) {
-            throw new Error(`'${newName}' is not a valid VBA identifier.`);
+        const nameProblem = checkRenameName(newName);
+        if (nameProblem) {
+            throw new Error(nameProblem.message);
         }
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { return undefined; }
@@ -623,10 +626,37 @@ export class VbaRenameProvider implements vscode.RenameProvider {
             throw new Error(`'${oldName}' is not a renameable VBA symbol in this workbook.`);
         }
 
+        // Nothing is written until the new name is known to be free where the
+        // old one is declared. Renaming Alpha to Beta beside an existing Beta
+        // produced two `Public Sub Beta()` in one module: a project that no
+        // longer compiles, reported as a rename that worked.
+        for (const editedModule of renamedModuleNames(result.references)) {
+            const collision = findRenameCollision(
+                project.documentSymbols(editedModule),
+                editedModule,
+                oldName,
+                newName,
+            );
+            if (collision) {
+                throw new Error(describeRenameCollision(collision, newName));
+            }
+        }
+
         const edit = new vscode.WorkspaceEdit();
         for (const loc of referenceSpansToLocations(xlsmPath, byModule, result.references)) {
             edit.replace(loc.uri, loc.range, newName);
         }
         return edit;
     }
+}
+
+function renamedModuleNames(references: readonly { moduleName: string }[]): string[] {
+    const seen = new Map<string, string>();
+    for (const reference of references) {
+        const key = reference.moduleName.toLowerCase();
+        if (!seen.has(key)) {
+            seen.set(key, reference.moduleName);
+        }
+    }
+    return [...seen.values()];
 }
