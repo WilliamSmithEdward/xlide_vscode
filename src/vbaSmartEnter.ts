@@ -90,15 +90,15 @@ export function procedureHeaderParensEdit(line: string): VbaProcedureHeaderParen
     const patterns = [
         new RegExp(
             `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Sub\\s+${VBA_IDENTIFIER_PATTERN})(\\s*)$`,
-            'i',
+            'iu',
         ),
         new RegExp(
             `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Function\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
-            'i',
+            'iu',
         ),
         new RegExp(
             `^(\\s*(?:(?:Public|Private|Friend|Global)\\s+)?(?:Static\\s+)?Property\\s+Get\\s+${VBA_IDENTIFIER_PATTERN})(\\s*(?:As\\s+.+)?\\s*)$`,
-            'i',
+            'iu',
         ),
     ];
     for (const pattern of patterns) {

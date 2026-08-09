@@ -5,9 +5,18 @@
 
 import { isReservedIdentifier } from './analyzer/lexer/keywordTable';
 
-export const VBA_IDENTIFIER_PATTERN = '[A-Za-z_][A-Za-z0-9_]*';
-export const VBA_IDENTIFIER_RE = /[A-Za-z_][A-Za-z0-9_]*/;
-export const VBA_IDENTIFIER_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// VBA identifiers may use any locale letter, and a combining mark continues a
+// name (Thai and Devanagari build a letter from a base plus a mark). The
+// ASCII-only forms made go-to-definition, find-references, rename and
+// smart-enter block completion do nothing at all on a Cyrillic, Greek, Thai or
+// Japanese name: VS Code selects the word with VBA_IDENTIFIER_RE, and it
+// matched none of it.
+//
+// Any regex built from VBA_IDENTIFIER_PATTERN needs the `u` flag, or \p{L} is
+// read as a literal 'p{L}' and silently matches nothing.
+export const VBA_IDENTIFIER_PATTERN = '[\\p{L}_][\\p{L}\\p{M}\\p{N}_]*';
+export const VBA_IDENTIFIER_RE = /[\p{L}_][\p{L}\p{M}\p{N}_]*/u;
+export const VBA_IDENTIFIER_NAME_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u;
 export const VBA_MODULE_NAME_MAX_LENGTH = 31;
 
 /** Input-box validator for VBA module names: undefined when valid, message otherwise. */
@@ -24,7 +33,7 @@ export function validateVbaModuleName(name: string): string | undefined {
     return undefined;
 }
 
-const VBA_IDENTIFIER_WORD_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
+const VBA_IDENTIFIER_WORD_RE = /[\p{L}_][\p{L}\p{M}\p{N}_]*/gu;
 
 export interface VbaIdentifierOccurrence {
     line: number;
