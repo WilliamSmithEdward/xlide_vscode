@@ -119,19 +119,25 @@ export function matchOpener(t: string): OpenBlock | undefined {
     // \p{L}: VBA procedure/type names may use any locale letter; the old
     // ASCII class made `Sub Proverka()` written in Cyrillic invisible here,
     // so its End Sub reported as unmatched - a false error on Russian code.
-    // \p{M} from the second character on: Thai and Devanagari names are a
-    // base letter plus a combining mark, and truncating at the mark captured
-    // only half the name.
-    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)/iu.exec(t);
+    // \p{M} because Thai and Devanagari names are a base letter plus a
+    // combining mark, and truncating at the mark captured only half the name.
+    //
+    // The class deliberately does NOT require a valid identifier START here.
+    // Block matching asks whether a block opened, and `Public Sub 1Bad()`
+    // opens one: the name is wrong, which invalid-identifier-start already
+    // reports on that very line. Refusing to see the header made its `End
+    // Sub` report as an orphan too - two findings for one mistake, the second
+    // naming a line where nothing is wrong.
+    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?(Sub|Function)\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) {
         const kind = (/^sub$/i.test(m[1]) ? 'Sub' : 'Function') as BlockKind;
         return { kind, line: 0, label: `${kind} ${m[2]}` };
     }
-    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Property\s+(Get|Let|Set)\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)/iu.exec(t);
+    m = /^(?:(?:Public|Private|Friend|Global)\s+)?(?:Static\s+)?Property\s+(Get|Let|Set)\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) { return { kind: 'Property', line: 0, label: `Property ${m[2]}` }; }
-    m = /^(?:(?:Public|Private|Global)\s+)?Type\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)/iu.exec(t);
+    m = /^(?:(?:Public|Private|Global)\s+)?Type\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) { return { kind: 'Type', line: 0, label: `Type ${m[1]}` }; }
-    m = /^(?:(?:Public|Private|Global)\s+)?Enum\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)/iu.exec(t);
+    m = /^(?:(?:Public|Private|Global)\s+)?Enum\s+([\p{L}\p{M}\p{N}_]+)/iu.exec(t);
     if (m) { return { kind: 'Enum', line: 0, label: `Enum ${m[1]}` }; }
     if (/^Select\s+Case\b/i.test(t)) { return { kind: 'Select', line: 0, label: 'Select Case' }; }
     if (/^If\b/i.test(t) && /\bThen\s*$/i.test(t)) { return { kind: 'If', line: 0, label: 'If' }; }

@@ -102,6 +102,20 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "ambiguous-project-procedure",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "VBE compile oracle: two standard modules may export the same public procedure name; an unqualified call from a module declaring neither is rejected as Ambiguous name detected",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "ambiguous_project_procedure_declarations_only_compile",
+        "ambiguous_project_procedure_unqualified_call_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Reports the CALL SITE, not the declarations: the accepted control shows a project exporting a name twice compiles until something calls it unqualified, so flagging declarations would fire on every project that qualifies its calls. Quiet when the call is qualified, when the calling module declares the name itself (module-local scope binds first), when a local or parameter shadows it, and when only one module exports it. Private declarations are not exported and do not collide.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "const-assignment",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.3.1",

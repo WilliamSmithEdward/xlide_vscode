@@ -90,40 +90,71 @@
           ]
         }
       ],
-      "problemCount": 3,
+      "problemCount": 4,
       "problems": [
+        {
+          "moduleName": "Caller",
+          "code": "ambiguous-project-procedure",
+          "line": 6,
+          "severity": "error",
+          "messageContains": [
+            "AmbiguousProc",
+            "ModuleA",
+            "ModuleB"
+          ]
+        },
         {
           "moduleName": "Caller",
           "code": "argument-count",
           "line": 7,
           "severity": "error",
-          "messageContains": ["ModuleA.AmbiguousProc", "expected 2 arguments"]
+          "messageContains": [
+            "ModuleA.AmbiguousProc",
+            "expected 2 arguments"
+          ]
         },
         {
           "moduleName": "Caller",
           "code": "member-not-found",
           "line": 9,
           "severity": "error",
-          "messageContains": ["ModuleA.MissingConst"]
+          "messageContains": [
+            "ModuleA.MissingConst"
+          ]
         },
         {
           "moduleName": "Caller",
           "code": "member-not-found",
           "line": 10,
           "severity": "error",
-          "messageContains": ["PrivateOnly.Hidden"]
+          "messageContains": [
+            "PrivateOnly.Hidden"
+          ]
         }
       ],
       "codes": [
         {
+          "code": "ambiguous-project-procedure",
+          "count": 1,
+          "messagesContain": [
+            "AmbiguousProc"
+          ]
+        },
+        {
           "code": "argument-count",
           "count": 1,
-          "messagesContain": ["ModuleA.AmbiguousProc", "expected 2 arguments"]
+          "messagesContain": [
+            "ModuleA.AmbiguousProc",
+            "expected 2 arguments"
+          ]
         },
         {
           "code": "member-not-found",
           "count": 2,
-          "messagesContain": ["ModuleA.MissingConst", "PrivateOnly.Hidden"]
+          "messagesContain": [
+            "ModuleA.MissingConst",
+            "PrivateOnly.Hidden"
+          ]
         },
         {
           "code": "missing-return-assignment",

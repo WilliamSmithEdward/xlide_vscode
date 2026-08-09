@@ -20,6 +20,7 @@ import {
 	checkDuplicateDeclarations,
 	checkDuplicateEnumMembers,
 	checkDuplicateModuleMembers,
+	checkAmbiguousBareProcedureCalls,
 	checkDuplicateProcedures,
 	checkDuplicateTypeFields,
 } from './rules/duplicates';
@@ -196,6 +197,17 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'udtParameterConstraints',
 		run: (ctx, push) => checkUdtParameterConstraints(ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'ambiguousBareProcedureCalls',
+		procedureStatements: (ctx, push) => checkAmbiguousBareProcedureCalls(
+			ctx.source,
+			ctx.symbols,
+			ctx.moduleName,
+			ctx.opts.projectProcedures,
+			ctx.opts.projectVisibleSymbols,
+			push,
+		),
 	},
 	{
 		name: 'ambiguousEnumMemberReferences',

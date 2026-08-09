@@ -163,6 +163,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.3',
 		confidence: 'high',
 	},
+	ambiguousProjectProcedure: {
+		code: 'ambiguous-project-procedure',
+		title: 'Ambiguous unqualified call to a name two modules export',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE oracle: Ambiguous name detected',
+		confidence: 'high',
+	},
 	ambiguousEnumMember: {
 		code: 'ambiguous-enum-member',
 		title: 'Ambiguous Enum member reference',

@@ -29,12 +29,16 @@ import {
 	forEachUndeclaredReferenceSpan,
 	valueReadReferences,
 } from '../rules/shared';
+import { extractCall } from '../callExtraction';
 import {
+	bareCallableSourceShadowed,
 	callableTypeSignaturesFor,
+	sameModuleCallableSignatures,
 	sourceIdentifierBinding,
 	sourceIdentifierBound,
+	sourceNameScopeFor,
 } from '../typeInference';
-import { activeModuleMembers } from '../walker';
+import { activeModuleMembers, type ProcedureStatementVisitor } from '../walker';
 
 /**
  * Rule: a procedure name may name at most one Sub/Function, OR a set of distinct
@@ -350,4 +354,98 @@ function ambiguousEnumMemberDefinitions(
 		),
 	);
 	return ownerKeys.size > 1 ? binding.definitions : undefined;
+}
+
+/**
+ * Rule: VBA is content for two modules to export the same public procedure
+ * name, but it refuses to compile an UNQUALIFIED call to that name from a
+ * module declaring neither - "Ambiguous name detected". Nothing reported it,
+ * so a project the VBE will not compile read as clean.
+ *
+ * The finding belongs at the CALL SITE, not the declarations: a project that
+ * exports a name twice and always qualifies its calls is legal VBA and common,
+ * so flagging the declarations would cry wolf on every one of them.
+ *
+ * Silent, matching VBA, when any of these settle the name:
+ *  - the call is qualified (`Helpers.Recalculate`)
+ *  - the calling module declares the name itself (module-local scope wins)
+ *  - a local, parameter or module-level symbol shadows it
+ *  - only one module in the project exports it
+ *
+ * Per-statement rule: rides the shared procedure-statement walk (audit #0).
+ */
+export function checkAmbiguousBareProcedureCalls(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	moduleName: string,
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	push: PushFn,
+): ProcedureStatementVisitor {
+	const ambiguousNames = ambiguousProjectProcedureOwners(projectProcedures, moduleName);
+	const sameModuleSignatures = sameModuleCallableSignatures(symbols);
+	return (member) => {
+		// No name in this project is exported twice: nothing here can be
+		// ambiguous, so skip the per-statement work entirely.
+		if (ambiguousNames.size === 0) {
+			return () => { };
+		}
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		return (stmt) => {
+			const call = extractCall(source, stmt.span);
+			if (!call || call.qualifier) {
+				return;
+			}
+			const lower = call.name.toLowerCase();
+			const owners = ambiguousNames.get(lower);
+			if (!owners) {
+				return;
+			}
+			// This module declares it, so VBA binds locally and never asks.
+			if (sameModuleSignatures.has(lower)) {
+				return;
+			}
+			if (bareCallableSourceShadowed(call.name, sourceNames)) {
+				return;
+			}
+			push(
+				'ambiguousProjectProcedure',
+				`Ambiguous name detected: '${call.name}' is exported by ${owners.join(' and ')}. ` +
+				'VBA refuses to compile the project until this call is qualified with a module name.',
+				call.nameSpan,
+			);
+		};
+	};
+}
+
+/**
+ * Names exported by more than one OTHER module, mapped to those module names.
+ * The calling module is excluded because its own declaration would settle the
+ * name before the project is consulted.
+ */
+function ambiguousProjectProcedureOwners(
+	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
+	moduleName: string,
+): Map<string, string[]> {
+	const out = new Map<string, string[]>();
+	if (!projectProcedures) {
+		return out;
+	}
+	const self = moduleName.toLowerCase();
+	for (const [name, signatures] of projectProcedures) {
+		const owners: string[] = [];
+		for (const signature of signatures) {
+			// A Private procedure is not exported, so it cannot collide.
+			if (signature.visibility === 'Private') {
+				continue;
+			}
+			if (!owners.some((owner) => owner.toLowerCase() === signature.moduleName.toLowerCase())) {
+				owners.push(signature.moduleName);
+			}
+		}
+		if (owners.length > 1 && !owners.some((owner) => owner.toLowerCase() === self)) {
+			out.set(name.toLowerCase(), owners);
+		}
+	}
+	return out;
 }

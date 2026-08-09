@@ -4818,6 +4818,60 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "ambiguous_project_procedure_declarations_only_compile",
+      "description": "Compile control: two standard modules can export the same public procedure name when no module calls it unqualified.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "XlideAmbiguousOne",
+          "type": "standard",
+          "source": "Public Sub XlideAmbiguousProbe(ByVal label As String)\n    Debug.Print label\nEnd Sub\n"
+        },
+        {
+          "name": "XlideAmbiguousTwo",
+          "type": "standard",
+          "source": "Public Sub XlideAmbiguousProbe(ByVal label As String)\n    Debug.Print label\nEnd Sub\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    XlideAmbiguousOne.XlideAmbiguousProbe \"qualified\"\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "ambiguous_project_procedure_unqualified_call_compile",
+      "description": "Two standard modules export the same public procedure name and a third calls it unqualified; VBA refuses to compile with Ambiguous name detected.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "XlideAmbiguousOne",
+          "type": "standard",
+          "source": "Public Sub XlideAmbiguousProbe(ByVal label As String)\n    Debug.Print label\nEnd Sub\n"
+        },
+        {
+          "name": "XlideAmbiguousTwo",
+          "type": "standard",
+          "source": "Public Sub XlideAmbiguousProbe(ByVal label As String)\n    Debug.Print label\nEnd Sub\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\n    XlideAmbiguousProbe \"ambiguous\"\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
