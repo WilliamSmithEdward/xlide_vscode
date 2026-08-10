@@ -582,7 +582,7 @@
       {
         "name": "xlide_analyzeWorkbook",
         "displayName": "Analyze VBA Workbook",
-        "modelDescription": "Analyzes every VBA module in a workbook using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT ANALYSIS PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the workbook's VBA passes analysis. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire workbook. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this analyzer checks.",
+        "modelDescription": "Analyzes every VBA module in a workbook using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT ANALYSIS PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the workbook's VBA passes analysis. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire workbook. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this analyzer checks. Pass moduleName to analyze just one module after editing it.",
         "toolReferenceName": "xlideAnalyzeWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -591,6 +591,10 @@
             "filePath": {
               "type": "string",
               "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file to analyze"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Optional single module to analyze. Use this to check one module you just edited instead of re-analyzing the whole workbook."
             }
           },
           "required": [
@@ -719,7 +723,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source of a module from the Excel workbook and returns raw VBA text including Attribute declarations. The .xlsm/.xlsb is a binary container, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs), never by opening the workbook file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves.",
+        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source of a module from the Excel workbook and returns raw VBA text including Attribute declarations. The .xlsm/.xlsb is a binary container, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs), never by opening the workbook file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves. Returns a contentToken on the first line: pass it back as expectedContentToken when writing so the write is refused if the module changed in the meantime. Use startLine/endLine to read part of a very large module.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -732,6 +736,14 @@
             "moduleName": {
               "type": "string",
               "description": "Name of the VBA module to read"
+            },
+            "startLine": {
+              "type": "number",
+              "description": "Optional 1-based first line to return. Use with endLine to read part of a large module instead of the whole thing; the reported contentToken still describes the WHOLE module."
+            },
+            "endLine": {
+              "type": "number",
+              "description": "Optional 1-based last line to return, inclusive."
             }
           },
           "required": [
@@ -743,7 +755,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Canonical way to edit workbook VBA. Writes VBA source directly into the Excel workbook and saves automatically. The .xlsm/.xlsb is a binary OOXML container, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters.",
+        "modelDescription": "Canonical way to edit workbook VBA. Writes VBA source directly into the Excel workbook and saves automatically. The .xlsm/.xlsb is a binary OOXML container, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by Excel or a user after your read is overwritten silently.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -760,6 +772,10 @@
             "source": {
               "type": "string",
               "description": "The full VBA source code to write into the module"
+            },
+            "expectedContentToken": {
+              "type": "string",
+              "description": "Optional contentToken from the xlide_readModule that this edit is based on. When supplied, the write is refused if the module changed since that read, instead of silently discarding the change."
             }
           },
           "required": [

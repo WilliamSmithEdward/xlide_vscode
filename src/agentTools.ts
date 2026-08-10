@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { checkModuleContentToken, moduleContentToken } from './moduleContentToken';
+import type { WorkbookAnalysisResult } from './vbaWorkbookAnalysis';
 import * as fs from 'fs';
 import * as path from 'path';
 import { WorkbookEngine } from './workbookEngine';
@@ -32,14 +34,14 @@ import { formatChangeSummary, withWriteAudit } from './xlideWriteAudit';
 
 interface ListModulesInput { filePath: string; }
 interface ListSubsInput    { filePath: string; moduleName: string; }
-interface ReadModuleInput  { filePath: string; moduleName: string; }
-interface WriteModuleInput { filePath: string; moduleName: string; source: string; }
+interface ReadModuleInput  { filePath: string; moduleName: string; startLine?: number; endLine?: number; }
+interface WriteModuleInput { filePath: string; moduleName: string; source: string; expectedContentToken?: string; }
 interface RenameModuleInput { filePath: string; moduleName: string; newName: string; }
 interface DeleteModuleInput { filePath: string; moduleName: string; }
 interface ListSheetsInput  { filePath: string; }
 interface GetWorkbookInfoInput { filePath: string; }
 interface ValidateWorkbookInput { filePath: string; }
-interface AnalyzeWorkbookInput { filePath: string; }
+interface AnalyzeWorkbookInput { filePath: string; moduleName?: string; }
 interface RunVbaTestsInput {
     filePath: string;
     moduleName?: string;
@@ -136,12 +138,24 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadModuleInput>('xlide_readModule', {
             async invoke(options, token) {
+                const { filePath, moduleName, startLine, endLine } = options.input;
                 const result = await bridge.call<{ source: string }>(
                     'readModule',
-                    { path: options.input.filePath, module: options.input.moduleName },
+                    { path: filePath, module: moduleName },
                     token,
                 );
-                return textResult(result.source);
+                const contentToken = moduleContentToken(result.source);
+                const lines = result.source.split(/\r?\n/);
+                // A window is over the WHOLE module, so the token still
+                // describes what a later conditional write is checked against.
+                const from = Math.max(1, startLine ?? 1);
+                const to = Math.min(lines.length, endLine ?? lines.length);
+                const windowed = startLine === undefined && endLine === undefined;
+                const body = windowed ? result.source : lines.slice(from - 1, to).join('\n');
+                const header = windowed
+                    ? `contentToken: ${contentToken} (${lines.length} lines)`
+                    : `contentToken: ${contentToken} (lines ${from}-${to} of ${lines.length})`;
+                return textResult(`${header}\n${body}`);
             },
         }),
 
@@ -150,7 +164,16 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<WriteModuleInput>('xlide_writeModule', {
             async invoke(options, _token) {
-                const { filePath, moduleName, source } = options.input;
+                const { filePath, moduleName, source, expectedContentToken } = options.input;
+                if (expectedContentToken) {
+                    const current = await bridge.call<{ source: string }>(
+                        'readModule', { path: filePath, module: moduleName },
+                    );
+                    const stale = checkModuleContentToken(current.source, expectedContentToken, moduleName);
+                    if (stale) {
+                        return textResult(stale.message);
+                    }
+                }
                 const { summary } = await withWriteAudit({
                     command: 'xlide_writeModule',
                     operation: 'write-module',
@@ -309,8 +332,25 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<AnalyzeWorkbookInput>('xlide_analyzeWorkbook', {
             async invoke(options, token) {
-                const result = await analyzeWorkbook(bridge, options.input.filePath, { token });
-                return textResult(JSON.stringify(result, null, 2));
+                const { filePath, moduleName } = options.input;
+                const result = await analyzeWorkbook(bridge, filePath, { token });
+                if (!moduleName) {
+                    return textResult(JSON.stringify(result, null, 2));
+                }
+                // Checking one module you just edited should not mean reading
+                // back every finding in the workbook.
+                const wanted = moduleName.toLowerCase();
+                const forModule = (p: { moduleName: string }) => p.moduleName.toLowerCase() === wanted;
+                const problems = result.problems.filter(forModule);
+                const scoped: WorkbookAnalysisResult = {
+                    ...result,
+                    moduleCount: 1,
+                    problems,
+                    suppressedProblems: result.suppressedProblems.filter(forModule),
+                    errorCount: problems.filter((p) => p.severity === 'error').length,
+                    warningCount: problems.filter((p) => p.severity === 'warning').length,
+                };
+                return textResult(JSON.stringify(scoped, null, 2));
             },
         }),
 
