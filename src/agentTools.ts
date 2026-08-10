@@ -34,6 +34,7 @@ import { formatChangeSummary, withWriteAudit } from './xlideWriteAudit';
 
 interface ListModulesInput { filePath: string; }
 interface ListSubsInput    { filePath: string; moduleName: string; }
+interface SearchModulesInput { filePath: string; query: string; isRegex?: boolean; matchCase?: boolean; maxResults?: number; }
 interface ReadModuleInput  { filePath: string; moduleName: string; startLine?: number; endLine?: number; }
 interface WriteModuleInput { filePath: string; moduleName: string; source: string; expectedContentToken?: string; }
 interface RenameModuleInput { filePath: string; moduleName: string; newName: string; }
@@ -130,6 +131,51 @@ export function registerAgentTools(
                     token,
                 );
                 return textResult(JSON.stringify(subs, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_searchModules
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<SearchModulesInput>('xlide_searchModules', {
+            async invoke(options, token) {
+                const { filePath, query, isRegex, matchCase, maxResults } = options.input;
+                const cap = Math.max(1, maxResults ?? 200);
+                let matcher: (line: string) => boolean;
+                if (isRegex) {
+                    let re: RegExp;
+                    try {
+                        re = new RegExp(query, matchCase ? 'u' : 'iu');
+                    } catch (err) {
+                        return textResult(`Invalid regular expression: ${(err as Error).message}`);
+                    }
+                    matcher = (line) => re.test(line);
+                } else {
+                    const needle = matchCase ? query : query.toLowerCase();
+                    matcher = (line) => (matchCase ? line : line.toLowerCase()).includes(needle);
+                }
+
+                const modules = await bridge.call<Array<{ name: string }>>(
+                    'listModules', { path: filePath }, token,
+                );
+                const hits: Array<{ moduleName: string; line: number; text: string }> = [];
+                let capped = false;
+                for (const module of modules) {
+                    if (capped) { break; }
+                    const read = await bridge.call<{ source: string }>(
+                        'readModule', { path: filePath, module: module.name }, token,
+                    );
+                    const lines = read.source.split(/\r?\n/);
+                    for (let i = 0; i < lines.length; i += 1) {
+                        if (!matcher(lines[i])) { continue; }
+                        if (hits.length >= cap) { capped = true; break; }
+                        hits.push({ moduleName: module.name, line: i + 1, text: lines[i].trim() });
+                    }
+                }
+                // Say so when results were dropped: a truncated list that looks
+                // complete is worse than no list.
+                const note = capped ? `\n(stopped at ${cap} matches; narrow the query or raise maxResults)` : '';
+                return textResult(`${JSON.stringify(hits, null, 2)}${note}`);
             },
         }),
 

@@ -1011,6 +1011,43 @@
             "exportMode"
           ]
         }
+      },
+      {
+        "name": "xlide_searchModules",
+        "displayName": "Search VBA Modules",
+        "modelDescription": "Searches the VBA source of every module in a workbook and returns the matching lines with their module name and 1-based line number. Use this instead of reading every module to find where a name is declared or used. Case-insensitive by default.",
+        "toolReferenceName": "xlideSearchModules",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+            },
+            "query": {
+              "type": "string",
+              "description": "Text to find in module source."
+            },
+            "isRegex": {
+              "type": "boolean",
+              "description": "Treat query as a regular expression. Default false."
+            },
+            "matchCase": {
+              "type": "boolean",
+              "description": "Match case exactly. Default false."
+            },
+            "maxResults": {
+              "type": "number",
+              "description": "Cap on returned matches. Default 200; the reply says when results were capped."
+            }
+          },
+          "required": [
+            "filePath",
+            "query"
+          ]
+        },
+        "userDescription": "Search across all VBA modules in a workbook"
       }
     ]
   },
