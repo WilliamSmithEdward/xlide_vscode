@@ -39,7 +39,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     private _xlsmRenderVersions = new Map<string, number>();
     private _moduleRenderVersions = new Map<string, number>();
     private _xlsmFilesCache: XlideNode[] | undefined;
-    private _userCollapsedWorkbooks = new Set<string>();
     private _xlsmFilesLoad: Promise<XlideNode[]> | undefined;
     // listModules cache: avoids repeated bridge round-trips while the tree is
     // expanded.  Cleared on refresh() so edits always re-fetch.
@@ -206,24 +205,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         if (this._activeWorkbookKey === workbookNodeKey(filePath)) {
             this._activeWorkbookKey = undefined;
         }
-        this._userCollapsedWorkbooks.add(workbookNodeKey(filePath));
-    }
-
-    /** The user re-opened a workbook they had collapsed by hand. */
-    notifyWorkbookExpanded(filePath: string): void {
-        this._userCollapsedWorkbooks.delete(workbookNodeKey(filePath));
-    }
-
-    /**
-     * A single workbook stays expanded even with no module open. Closing the
-     * last tab clears the active workbook, which collapsed the only thing in
-     * the tree and left the panel looking empty - with one workbook there is
-     * nothing to disambiguate, so nothing is gained by folding it away. A
-     * workbook the user collapsed by hand stays collapsed.
-     */
-    private _keepsSoleWorkbookOpen(node: XlideNode): boolean {
-        return (this._xlsmFilesCache?.length ?? 0) === 1
-            && !this._userCollapsedWorkbooks.has(workbookNodeKey(node.filePath));
     }
 
     /**
@@ -249,8 +230,6 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 : isActiveModule
                     ? vscode.TreeItemCollapsibleState.Expanded
                     : isActiveWorkbook
-                        ? vscode.TreeItemCollapsibleState.Expanded
-                    : node.kind === 'xlsm' && this._keepsSoleWorkbookOpen(node)
                         ? vscode.TreeItemCollapsibleState.Expanded
                     : vscode.TreeItemCollapsibleState.Collapsed,
         );
