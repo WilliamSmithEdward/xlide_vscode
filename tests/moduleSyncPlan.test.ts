@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { WorkbookEngine } from '../src/workbookEngine';
+import { synthesizeClassHeader } from '../src/vba/vbaProject';
 import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
@@ -463,5 +464,64 @@ describe('module sync preview stays responsive on huge modules', () => {
 		expect(script).toContain('function syncListState');
 		const rowClick = script.slice(script.indexOf("row.addEventListener('click'"));
 		expect(rowClick.slice(0, 200)).toContain('syncListState();');
+	});
+});
+
+describe('hiding headers hides the whole header, not just the attribute lines', () => {
+	// Built from synthesizeClassHeader rather than a hand-written header: the
+	// existing preview test used a fixture named for a class that carried no
+	// class preamble, so the one case that failed was the one it did not cover.
+	const BODY = 'Option Explicit\r\n\r\nPublic Sub Go()\r\nEnd Sub\r\n';
+
+	it('drops the VERSION/BEGIN/END block a class header opens with', () => {
+		const preview = editorPreviewSource(synthesizeClassHeader('Widget') + BODY);
+		expect(preview.split('\n')[0]).toBe('Option Explicit');
+		for (const leaked of ['VERSION 1.0 CLASS', 'BEGIN', 'MultiUse', 'END']) {
+			expect(preview, leaked).not.toContain(leaked);
+		}
+		// The body is untouched.
+		expect(preview).toContain('Public Sub Go()');
+		expect(preview).toContain('End Sub');
+	});
+
+	it('drops a UserForm designer block including its nested controls', () => {
+		const header = [
+			'VERSION 5.00',
+			'Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} UserForm1 ',
+			'   Caption         =   "UserForm1"',
+			'   Begin Forms.CommandButton CommandButton1 ',
+			'      Caption         =   "OK"',
+			'   End',
+			'End',
+			'Attribute VB_Name = "UserForm1"',
+			'',
+		].join('\r\n');
+		const preview = editorPreviewSource(header + BODY);
+		expect(preview.split('\n')[0]).toBe('Option Explicit');
+		for (const leaked of ['VERSION 5.00', 'Begin ', 'CommandButton', 'Caption']) {
+			expect(preview, leaked).not.toContain(leaked);
+		}
+	});
+
+	it('leaves a standard module unchanged', () => {
+		const preview = editorPreviewSource('Attribute VB_Name = "Module1"\r\n' + BODY);
+		expect(preview.split('\n')[0]).toBe('Option Explicit');
+		expect(preview).toContain('Public Sub Go()');
+	});
+
+	it('leaves source alone when a header block never closes', () => {
+		// Showing too much beats hiding code.
+		const truncated = 'VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1\r\n' + BODY;
+		expect(editorPreviewSource(truncated)).toContain('Public Sub Go()');
+	});
+
+	it('does not mistake a body End for the header block end', () => {
+		const preview = editorPreviewSource(
+			synthesizeClassHeader('Widget')
+			+ 'Option Explicit\r\n\r\nPublic Sub Go()\r\n    With Me\r\n    End With\r\nEnd Sub\r\n',
+		);
+		expect(preview).toContain('End With');
+		expect(preview).toContain('End Sub');
+		expect(preview).not.toContain('VERSION');
 	});
 });

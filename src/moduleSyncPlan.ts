@@ -15,7 +15,7 @@ import {
     type WorkbookSettingSource,
 } from './workbookSettings';
 import { measurePerformance } from './performanceTrace';
-import { isVbaAttributeLine, normalizeEol } from './vbaSourceScan';
+import { isVbaAttributeLine, normalizeEol, vbaHeaderBlockEnd } from './vbaSourceScan';
 import { fileExists } from './util/fs';
 
 export type ModuleSyncDirection = 'export' | 'import';
@@ -477,8 +477,12 @@ function importWorkbookTitle(moduleName: string, status: ModuleSyncItemStatus): 
 }
 
 export function editorPreviewSource(source: string): string {
-    const lines = normalizeEol(source)
-        .split('\n')
+    // Hiding the header has to hide the WHOLE header: a class opens with a
+    // VERSION/BEGIN/END block and a UserForm with a nested designer block,
+    // neither of which is an attribute line.
+    const all = normalizeEol(source).split('\n');
+    const lines = all
+        .slice(vbaHeaderBlockEnd(all))
         .filter((line) => !isVbaAttributeLine(line));
     while (lines.length > 0 && lines[0].trim() === '') {
         lines.shift();
