@@ -370,3 +370,52 @@ describe('collectSymbolReferences - non-symbol', () => {
         expect(result.references).toEqual([]);
     });
 });
+
+describe('collectSymbolReferences - what it declines to touch (issue #9 rule 9)', () => {
+    // A rename that leaves a genuinely ambiguous bare call alone must SAY so:
+    // the developer is the only one who can decide about a call they were
+    // never told about.
+    function resolveIn(mods: Mod[], currentModule: string, word: string, atOffset: number) {
+        const { project, modules, byModule } = setup(mods);
+        const current = byModule.get(currentModule.toLowerCase())!;
+        return collectSymbolReferences(
+            byModule, project, modules, current.source, currentModule, current,
+            word, atOffset + word.length, atOffset, true,
+        );
+    }
+
+    it('reports an unqualified call two modules could satisfy', () => {
+        const A = 'Public Sub Shared()\nEnd Sub\n';
+        const B = 'Public Sub Shared()\nEnd Sub\n';
+        const C = 'Public Sub Drive()\n    Shared\nEnd Sub\n';
+        const result = resolveIn(
+            [{ moduleName: 'A', source: A }, { moduleName: 'B', source: B }, { moduleName: 'C', source: C }],
+            'A', 'Shared', A.indexOf('Shared'),
+        );
+        // Still left alone - rule 2 - but now visible.
+        expect(result.references.some((r) => r.moduleName === 'C')).toBe(false);
+        expect(result.ambiguous.map((r) => r.moduleName)).toContain('C');
+    });
+
+    it('says nothing when only one module declares the name', () => {
+        const A = 'Public Sub Solo()\nEnd Sub\n';
+        const C = 'Public Sub Drive()\n    Solo\nEnd Sub\n';
+        const result = resolveIn(
+            [{ moduleName: 'A', source: A }, { moduleName: 'C', source: C }],
+            'A', 'Solo', A.indexOf('Solo'),
+        );
+        expect(result.references.some((r) => r.moduleName === 'C')).toBe(true);
+        expect(result.ambiguous).toEqual([]);
+    });
+
+    it('does not report a local that merely shares the name', () => {
+        // That is a different symbol, not a decision anyone needs to make.
+        const A = 'Public Sub Shared()\nEnd Sub\n';
+        const C = 'Public Sub Drive()\n    Dim Shared_ As Long\n    Dim Shared2 As Long\nEnd Sub\n';
+        const result = resolveIn(
+            [{ moduleName: 'A', source: A }, { moduleName: 'C', source: C }],
+            'A', 'Shared', A.indexOf('Shared'),
+        );
+        expect(result.ambiguous).toEqual([]);
+    });
+});

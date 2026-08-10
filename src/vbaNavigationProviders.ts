@@ -13,6 +13,7 @@ import {
 } from './xlideFileSystem';
 import { VbaModuleSymbols } from './vbaSymbolIndex';
 import { VBA_IDENTIFIER_RE } from './vbaSourceScan';
+import { moduleNamePositionKind } from './vbaModuleNamePosition';
 import {
     checkRenameName,
     describeRenameCollision,
@@ -623,6 +624,24 @@ export class VbaRenameProvider implements vscode.RenameProvider {
             true,
         );
         if (!result.hasSymbol) {
+            // Rule 3: nothing else resolved here, so if the word stands where
+            // only a module can, it IS the module's name - which lives on the
+            // component rather than in any module's text, so this provider
+            // cannot rename it. Say which operation does, instead of implying
+            // the name means nothing.
+            const asModule = moduleNamePositionKind(
+                source,
+                document.offsetAt(wordRange.start),
+                document.offsetAt(wordRange.end),
+            );
+            if (asModule) {
+                throw new Error(
+                    `'${oldName}' is a module name here, and a module's name belongs to the `
+                    + 'component rather than to the text of any module. Use Rename Module in the '
+                    + 'XLIDE Explorer: it renames the component and updates every reference, '
+                    + 'including Implements and Interface_Member prefixes.',
+                );
+            }
             throw new Error(`'${oldName}' is not a renameable VBA symbol in this workbook.`);
         }
 
@@ -640,6 +659,20 @@ export class VbaRenameProvider implements vscode.RenameProvider {
             if (collision) {
                 throw new Error(describeRenameCollision(collision, newName));
             }
+        }
+
+        if (result.ambiguous.length > 0) {
+            const where = result.ambiguous
+                .slice(0, 5)
+                .map((span) => `${span.moduleName}:${span.line + 1}`)
+                .join(', ');
+            const more = result.ambiguous.length > 5 ? `, and ${result.ambiguous.length - 5} more` : '';
+            void vscode.window.showWarningMessage(
+                `Renamed '${oldName}' to '${newName}', but left ${result.ambiguous.length} `
+                + `unqualified reference${result.ambiguous.length === 1 ? '' : 's'} alone because `
+                + `another module exports the same name and nothing proves which was meant: `
+                + `${where}${more}. Qualify those calls, or check them by hand.`,
+            );
         }
 
         const edit = new vscode.WorkspaceEdit();

@@ -46,6 +46,17 @@ export interface SymbolReferenceResult {
     references: ReferenceSpan[];
     /** True when a renameable/findable member or scope symbol resolved. */
     hasSymbol: boolean;
+    /**
+     * Bare occurrences left untouched because they resolve to the target AND to
+     * an unrelated same-named export, so nothing can prove which was meant. A
+     * rename must SAY it skipped these - the developer is the only one who can
+     * decide about a call they were never told about.
+     *
+     * Occurrences that resolve cleanly to a DIFFERENT symbol (a local shadow, a
+     * same-named member elsewhere) are not listed: those are simply not this
+     * symbol, and reporting them would be noise.
+     */
+    ambiguous: ReferenceSpan[];
 }
 
 function documentHostTypeForModule(
@@ -294,6 +305,7 @@ function bareReferences(
     scope: ReferenceScope,
     word: string,
     targetDefinitions: readonly AstSymbol[],
+    ambiguousOut?: ReferenceSpan[],
 ): ReferenceSpan[] {
     const targetKeys = new Set(targetDefinitions.map(symbolKey));
     if (targetKeys.size === 0) { return []; }
@@ -310,6 +322,20 @@ function bareReferences(
                 resolved.definitions.length === 0 ||
                 !resolved.definitions.every((d) => targetKeys.has(symbolKey(d)))
             ) {
+                // Ambiguous means it binds to the target AS WELL AS something
+                // else. Binding only to something else is a different symbol,
+                // not a decision the developer needs to make.
+                if (
+                    ambiguousOut &&
+                    resolved.definitions.some((d) => targetKeys.has(symbolKey(d)))
+                ) {
+                    ambiguousOut.push({
+                        moduleName: mod.moduleName,
+                        line: occ.line,
+                        column: occ.column,
+                        length: word.length,
+                    });
+                }
                 continue;
             }
             out.push({ moduleName: mod.moduleName, line: occ.line, column: occ.column, length: word.length });
@@ -371,14 +397,15 @@ export function collectSymbolReferences(
     );
 
     if (targetMemberDefinitions.length === 0 && scope.definitions.length === 0) {
-        return { references: [], hasSymbol: false };
+        return { references: [], hasSymbol: false, ambiguous: [] };
     }
 
     const memberSpans = targetMemberDefinitions.length > 0
         ? memberAccessReferences(byModule, project, modules, word, targetMemberDefinitions, includeDeclaration)
         : [];
 
-    const bareSpans = bareReferences(byModule, project, scope, word, scope.definitions);
+    const ambiguous: ReferenceSpan[] = [];
+    const bareSpans = bareReferences(byModule, project, scope, word, scope.definitions, ambiguous);
 
     let references = dedupeReferences([...memberSpans, ...bareSpans]);
 
@@ -395,5 +422,5 @@ export function collectSymbolReferences(
         });
     }
 
-    return { references, hasSymbol: true };
+    return { references, hasSymbol: true, ambiguous: dedupeReferences(ambiguous) };
 }
