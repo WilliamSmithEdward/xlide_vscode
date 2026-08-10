@@ -8,6 +8,7 @@ import { compress, decompress } from '../src/vba/ovba';
 import { VbaProject } from '../src/vba/vbaProject';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import * as svc from '../src/vba/workbookService';
+import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 
 // The regression from issue #6: cp1251 bytes for 'Модуль' read back as
 // 'Ìîäóëü' because every non-1252 page fell back to latin1.
@@ -196,11 +197,10 @@ describe('non-ASCII module and procedure names (the wider bug class)', () => {
 });
 
 describe('analyzer on non-ASCII identifiers', () => {
-	it('reports nothing on clean Cyrillic and Greek code', async () => {
+	it('reports nothing on clean Cyrillic and Greek code', () => {
 		// The structural engine used [A-Za-z_]\w* for procedure names, so
 		// `Sub Проверка()` was invisible to it and its End Sub reported as
 		// unmatched - a false error on every Russian user's code.
-		const { analyzeVbaModuleSource } = await import('../src/vbaModuleAnalysis');
 		const samples = [
 			['Option Explicit', 'Public Sub Проверка()', '    Dim счетчик As Long',
 				'    счетчик = 42', 'End Sub', ''].join('\r\n'),
