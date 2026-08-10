@@ -301,11 +301,23 @@ export function listSubs(filePath: string, moduleName: string): ProcedureEntry[]
 	const out: ProcedureEntry[] = [];
 	PROC_RE.lastIndex = 0;
 	let m: RegExpExecArray | null;
+	// Line numbers come from one forward pass. Counting them per match with
+	// `body.slice(0, m.index).split('\n')` re-walked the module from the start
+	// every time - quadratic, and on a 26,000-line class it made expanding the
+	// module in the explorer cost about 370 ms of which 1.5 ms was the search.
+	// Matches arrive in increasing order, so each character is counted once.
+	let scanned = 0;
+	let line = 1;
 	while ((m = PROC_RE.exec(body)) !== null) {
+		for (; scanned < m.index; scanned += 1) {
+			if (body.charCodeAt(scanned) === 10) {
+				line += 1;
+			}
+		}
 		out.push({
 			name: m[2],
 			kind: m[1].replace(/\s+/g, ' ').trim(),
-			line: body.slice(0, m.index).split('\n').length,
+			line,
 		});
 	}
 	return out;
