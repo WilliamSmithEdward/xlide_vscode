@@ -344,7 +344,9 @@ function moduleImplements(source: string): string[] {
 	const out: string[] = [];
 	const seen = new Set<string>();
 	for (const line of source.split(/\r?\n/)) {
-		const match = /^\s*Implements\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\b/i.exec(
+		// \p{L}: a Cyrillic or Thai interface name was invisible here, so the
+		// class hierarchy came back empty and Interface_Member never resolved.
+		const match = /^\s*Implements\s+([\p{L}_][\p{L}\p{M}\p{N}_]*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_]*)?)/iu.exec(
 			line,
 		);
 		if (!match) {

@@ -88,7 +88,9 @@ export interface IdentifierCompletionContext {
 	model?: HostObjectModel;
 }
 
-const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*[$%&!#@^]?$/;
+// Trailing type-suffix characters are ASCII, but the name before them is not:
+// an identifier completion named in Cyrillic or Thai was dropped from the list.
+const IDENT_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*[$%&!#@^]?$/u;
 
 /**
  * Keywords after which the user is naming a NEW declaration rather than

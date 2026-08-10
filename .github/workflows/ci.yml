@@ -40,4 +40,13 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci
-      - run: npx vitest run tests/vbaLanguageMatrix.test.ts tests/vbaCodePages.test.ts tests/moduleExport.test.ts
+      # Storage and text conversion, then the editor-facing surfaces one layer
+      # out: word selection, navigation, completion and structure on names that
+      # are not Latin. Each of those has been a separate user-visible bug.
+      - run: >
+          npx vitest run
+          tests/vbaLanguageMatrix.test.ts
+          tests/vbaCodePages.test.ts
+          tests/moduleExport.test.ts
+          tests/vbaCombiningMarks.test.ts
+          tests/vbaNonAsciiNavigation.test.ts

@@ -1292,8 +1292,8 @@ export function parseRuntimeParamType(raw: string): CallableParamType | undefine
 	text = text.replace(/^ParamArray\b\s*/i, '');
 	text = text.replace(/^(?:ByVal|ByRef)\b\s*/i, '');
 	text = text.replace(/\s*=\s*.*$/, '').trim();
-	const as = /\bAs\s+([A-Za-z_][A-Za-z0-9_]*(?:\(\))?)/i.exec(text);
-	const first = /[A-Za-z_][A-Za-z0-9_]*/.exec(text)?.[0];
+	const as = /\bAs\s+([\p{L}_][\p{L}\p{M}\p{N}_]*(?:\(\))?)/iu.exec(text);
+	const first = /[\p{L}_][\p{L}\p{M}\p{N}_]*/u.exec(text)?.[0];
 	if (!first) {
 		return undefined;
 	}
@@ -2256,7 +2256,7 @@ export function resolveKnownObjectAssignmentType(
 
 export function simpleTypeNameForAssignment(type: string): string | undefined {
 	const trimmed = type.replace(/\s*\(\s*\)\s*$/, '').trim();
-	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed) ? trimmed : undefined;
+	return /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.test(trimmed) ? trimmed : undefined;
 }
 
 export function objectAssignmentIncompatibilityReason(

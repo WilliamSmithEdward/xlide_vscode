@@ -342,7 +342,7 @@ function collectImplements(source: string, out: TypeNameReference[]): void {
 			line = line.slice(0, -1);
 		}
 		const code = line.replace(/'.*$/, '');
-		const match = /^\s*Implements\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\b/i.exec(code);
+		const match = /^\s*Implements\s+([\p{L}_][\p{L}\p{M}\p{N}_]*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_]*)?)/iu.exec(code);
 		if (match) {
 			const rawName = match[1];
 			const column = line.indexOf(rawName, match.index);

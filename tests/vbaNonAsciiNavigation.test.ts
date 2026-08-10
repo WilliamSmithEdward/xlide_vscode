@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { VBA_IDENTIFIER_RE, VBA_IDENTIFIER_NAME_RE, VBA_IDENTIFIER_PATTERN } from '../src/vbaSourceScan';
 import { detectSmartBlockOpener } from '../src/vbaSmartEnter';
+import { ProjectIndex, resolveMemberCompletions } from '../src/analyzer';
 
 // The same bug class as issues #6 and #8, one layer out from the analyzer.
 // VS Code picks the word under the cursor with VBA_IDENTIFIER_RE, and it
@@ -58,5 +59,51 @@ describe('the identifier pattern is only safe with the u flag', () => {
 		const withoutU = new RegExp(`^${VBA_IDENTIFIER_PATTERN}$`);
 		expect(withoutU.test('Проверка')).toBe(false);
 		expect(withoutU.test('Recalculate')).toBe(false);
+	});
+});
+
+describe('project structure resolves through non-ASCII type names', () => {
+	function classPair(interfaceName: string, className: string, memberName: string): ProjectIndex {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: interfaceName, moduleKind: 'class',
+			source: `Option Explicit\n\nPublic Sub ${memberName}()\nEnd Sub\n`,
+		});
+		index.setModule({
+			moduleName: className, moduleKind: 'class',
+			source: `Option Explicit\n\nImplements ${interfaceName}\n\n`
+				+ `Private Sub ${interfaceName}_${memberName}()\nEnd Sub\n`,
+		});
+		index.setModule({ moduleName: 'Uses', moduleKind: 'standard', source: '' });
+		return index;
+	}
+
+	it.each([
+		['Cyrillic', 'Фигура', 'Круг', 'Рисовать'],
+		['Greek', 'Σχήμα', 'Κύκλος', 'Σχεδίαση'],
+		['Latin control', 'IShape', 'RoundShape', 'Draw'],
+	])('sees Implements with a %s interface name', (_label, iface, cls, member) => {
+		const surfaces = classPair(iface, cls, member).projectMemberSurfaces('Uses');
+		expect(surfaces.find((s) => s.name === cls)?.implements).toContain(iface);
+	});
+
+	it.each([
+		['Cyrillic', 'Прибор', 'Проверить'],
+		['Thai', 'อุปกรณ์', 'ตรวจสอบ'],
+		['Latin control', 'Gadget', 'Describe'],
+	])('offers members of a %s-named class receiver', (_label, className, memberName) => {
+		const index = new ProjectIndex();
+		index.setModule({
+			moduleName: className, moduleKind: 'class',
+			source: `Option Explicit\n\nPublic Sub ${memberName}()\nEnd Sub\n\nPublic Sub Describe()\nEnd Sub\n`,
+		});
+		index.setModule({ moduleName: 'Uses', moduleKind: 'standard', source: '' });
+		const source = `Public Sub T()\n    Dim g As ${className}\n    g.\nEnd Sub\n`;
+		const got = resolveMemberCompletions(source, source.indexOf('g.') + 2, {
+			projectClassMembers: index.projectMemberSurfaces('Uses'),
+		}).map((m) => m.name);
+		// The whole receiver failed to resolve before, so even Describe vanished.
+		expect(got).toContain(memberName);
+		expect(got).toContain('Describe');
 	});
 });

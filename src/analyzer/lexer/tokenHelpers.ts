@@ -5,7 +5,10 @@
 import type { VbaToken } from './tokenKinds';
 import { tokenize } from './tokenize';
 
-export const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// \p{L}/\p{M}: VBA identifiers may use any locale letter, and a combining mark
+// continues a name. The ASCII-only form made `Dim g As Прибор` resolve to no
+// type at all, so that receiver offered no members - not even its ASCII ones.
+export const IDENT_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u;
 
 export function isIdentLike(token: VbaToken): boolean {
 	return (
