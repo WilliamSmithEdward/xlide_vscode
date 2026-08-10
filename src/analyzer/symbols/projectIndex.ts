@@ -474,6 +474,15 @@ export class ProjectIndex {
 		return resolved;
 	}
 
+	/**
+	 * Interfaces a module declares with `Implements`, by module name. Renaming
+	 * an interface needs this to know which classes carry its member prefix.
+	 */
+	moduleImplementsList(moduleName: string): string[] {
+		const mod = this.modules.get(moduleName.toLowerCase());
+		return mod ? this.moduleImplementsFor(mod) : [];
+	}
+
 	/** Implements declarations of one module, scanned at most once. */
 	private moduleImplementsFor(mod: ModuleSymbols): string[] {
 		const key = mod.moduleName.toLowerCase();

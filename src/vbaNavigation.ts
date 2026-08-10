@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { encodeModuleUri } from './xlideFileSystem';
+import { interfacePrefixHits } from './vbaInterfacePrefix';
 import {
     collectTypeNameReferences,
     type ProjectIndex,
@@ -177,7 +178,44 @@ export function projectClassReferenceLocations(
         [definition],
         false,
     );
+    locations.push(...interfacePrefixLocations(xlsmPath, byModule, project, oldName));
     return newName
         ? locations.map((loc) => retargetClassModuleLocation(loc, xlsmPath, oldName, newName))
         : locations;
+}
+
+/**
+ * `Private Sub IShape_Draw()` in a class that declares `Implements IShape`.
+ *
+ * The prefix binds the implementation to the interface, so renaming the
+ * interface has to carry it: left behind, the class silently stops
+ * implementing anything. Only modules that actually implement the interface
+ * are scanned - a name elsewhere that merely starts with the same word is not
+ * part of the contract.
+ */
+function interfacePrefixLocations(
+    xlsmPath: string,
+    byModule: Map<string, VbaNavigationModule>,
+    project: ProjectIndex,
+    interfaceName: string,
+): vscode.Location[] {
+    const wanted = interfaceName.toLowerCase();
+    const out: vscode.Location[] = [];
+    for (const mod of byModule.values()) {
+        const implemented = project.moduleImplementsList?.(mod.moduleName) ?? [];
+        if (!implemented.some((name) => name.toLowerCase() === wanted)) {
+            continue;
+        }
+        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
+        for (const hit of interfacePrefixHits(mod.source, interfaceName)) {
+            out.push(new vscode.Location(
+                uri,
+                new vscode.Range(
+                    new vscode.Position(hit.line, hit.column),
+                    new vscode.Position(hit.line, hit.column + hit.length),
+                ),
+            ));
+        }
+    }
+    return out;
 }
