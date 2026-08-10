@@ -2,6 +2,54 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.3.0] - 2026-08-09
+
+### Fixed
+
+- **Go to definition, find references and rename now work on names that are
+  not Latin.** VS Code picks the word under your cursor with a pattern that
+  accepted only A-Z, so on a Cyrillic, Greek, Thai, Japanese or Chinese
+  identifier it selected nothing and those commands silently did nothing at
+  all. The same check rejected an `@xlide-test` procedure in a module named in
+  one of those scripts before it could run.
+
+- **Non-Latin type and interface names resolve.** `Implements` written with a
+  Cyrillic interface name left the class hierarchy empty, and a variable
+  declared as a class whose name is not Latin offered no members at all - not
+  even the ASCII ones declared beside them. Identifier completion also dropped
+  any candidate whose name was not Latin.
+
+  This is the same family as the 3.1.5 encoding fix and the 3.2.1
+  combining-mark fix, which both stopped at the analyzer. These are the
+  editor-facing surfaces one layer out, and the language test matrix now
+  covers them on Linux and Windows so they stay covered.
+
+- **A rename is checked before anything is written (issue #9).** Renaming to a
+  reserved word like `Sub` or `End`, or to a name already declared where the
+  old one is, produced a project that no longer compiles and reported success.
+  Both are refused now, with a message naming the clash. A local may still
+  take a name the module declares, because VBA allows that.
+
+- **A malformed procedure header no longer reports a second, invented problem
+  (issue #10).** `Public Sub 1Bad()` reported both the bad name and an
+  "'End Sub' has no matching 'Sub'" on a line where nothing is wrong. Only the
+  real problem is reported; a genuinely orphaned `End Sub` still is.
+
+- **A user-defined Type is no longer shadowed by a same-named class from a
+  referenced library (issue #11).** Declaring your own `Point` offered 37
+  members of Excel's chart Point instead of your fields. Your project's
+  declarations are resolved first, as VBA does. Enum names also reach their
+  constants now, so `Corner.TopLeft` completes.
+
+### Added
+
+- **Unqualified calls VBA refuses to compile are now reported (issue #12).**
+  When two modules export the same public procedure name, a call to it from a
+  module declaring neither is an "Ambiguous name detected" compile error - and
+  read as clean. It is reported at the call site, since exporting a name twice
+  and qualifying the calls is ordinary VBA. Verified against the VBE in both
+  directions.
+
 ## [3.2.1] - 2026-08-03
 
 ### Fixed
