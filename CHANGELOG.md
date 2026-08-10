@@ -2,6 +2,32 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.5.0] - 2026-08-09
+
+### Added
+
+- **Undo Rename.** Renaming a symbol edits every module that refers to it, but
+  an editor's undo is per file: undoing in the file you are looking at puts
+  that file back and leaves the rest renamed. A rename that spans modules now
+  offers **Undo Rename**, which restores all of them together, and it is
+  available from the command palette. Only the most recent rename can be put
+  back, and only until something else writes to the workbook - after that the
+  saved text no longer describes the file and restoring it would discard that
+  change.
+
+### Fixed
+
+- **Expanding a large module in the explorer is much faster.** Listing a
+  module's procedures worked out each one's line number by re-reading the
+  module from the top, so the work grew with the square of the module size.
+  Expanding a workbook containing a 26,000-line class took about 400 ms and
+  now takes about 5 ms. Every workbook benefits; the large ones benefit most.
+
+- **Pressing Enter after a `For` loop closes it when the loop variable is not
+  written in Latin script.** `For Each товар In Items` closed nothing at all,
+  because the check for a finished loop header only recognised A-Z names, so a
+  complete header looked unfinished.
+
 ## [3.4.0] - 2026-08-09
 
 ### Fixed
