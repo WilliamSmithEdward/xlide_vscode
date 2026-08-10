@@ -14,6 +14,7 @@ import {
 import { VbaModuleSymbols } from './vbaSymbolIndex';
 import { VBA_IDENTIFIER_RE } from './vbaSourceScan';
 import { moduleNamePositionKind } from './vbaModuleNamePosition';
+import { recordRename } from './vbaRenameHistory';
 import {
     checkRenameName,
     describeRenameCollision,
@@ -675,9 +676,39 @@ export class VbaRenameProvider implements vscode.RenameProvider {
             );
         }
 
+        // Rule 10: an editor's undo stack is per document, so undoing in the
+        // file you are looking at would reverse that file's share and leave
+        // the rest renamed. Keep what each module said immediately before the
+        // write, and offer to put all of them back together.
+        recordRename({
+            workbookPath: xlsmPath,
+            oldName,
+            newName,
+            modules: renamedModuleNames(result.references)
+                .map((moduleName) => ({
+                    moduleName,
+                    before: byModule.get(moduleIdentityKey(moduleName))?.source ?? '',
+                }))
+                .filter((image) => image.before !== ''),
+        });
+
         const edit = new vscode.WorkspaceEdit();
         for (const loc of referenceSpansToLocations(xlsmPath, byModule, result.references)) {
             edit.replace(loc.uri, loc.range, newName);
+        }
+        const touched = renamedModuleNames(result.references).length;
+        if (touched > 1) {
+            // Only worth offering when the rename spanned modules: that is
+            // exactly when per-document undo would leave the project half
+            // renamed.
+            void vscode.window.showInformationMessage(
+                `Renamed '${oldName}' to '${newName}' across ${touched} modules.`,
+                'Undo Rename',
+            ).then((choice) => {
+                if (choice === 'Undo Rename') {
+                    void vscode.commands.executeCommand('xlide.undoRename');
+                }
+            });
         }
         return edit;
     }

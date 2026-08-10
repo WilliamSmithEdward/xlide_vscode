@@ -9,6 +9,7 @@ import {
 } from './xlideFileSystem';
 import { invalidateVbaMemberCompletionCache } from './vbaMemberCompletion';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
+import { noteModuleWrite } from './vbaRenameHistory';
 
 /**
  * Shared workbook module mutations used by both the command handlers and the
@@ -62,6 +63,11 @@ export async function writeWorkbookModule(
     options: WorkbookModuleOperationOptions = {},
 ): Promise<WorkbookModuleMutationResult> {
     const { filePath, moduleName, source, kind } = request;
+    // Any other write makes the recorded rename's before-images stale: putting
+    // them back would discard whatever this write is about to do. The undo path
+    // takes the snapshot before it writes, so it is not tripped by its own
+    // restores.
+    noteModuleWrite(filePath, moduleName);
     const result = await runWriteWithExcelCoordination(filePath, () =>
         deps.bridge.call<WorkbookModuleMutationResult>('writeModule', {
             path: filePath,

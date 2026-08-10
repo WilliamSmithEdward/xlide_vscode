@@ -333,6 +333,11 @@
         "title": "Open Global Settings",
         "category": "XLIDE",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "xlide.undoRename",
+        "title": "Undo Rename",
+        "category": "XLIDE"
       }
     ],
     "views": {

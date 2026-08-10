@@ -7,6 +7,7 @@ import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
 import { errorMessage } from './util/errors';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
+import { noteModuleWrite } from './vbaRenameHistory';
 import { workbookIdentityKey } from './workbookIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
@@ -234,6 +235,11 @@ export class XlideFileSystemProvider
     ): Promise<void> {
         const source = Buffer.from(content).toString('utf-8');
         const { xlsmPath, moduleName } = decodeModuleUri(uri);
+        // A rename's own edits and a developer pressing Save arrive here alike.
+        // The rename registers the writes it is about to cause; anything else
+        // means its before-images are stale and must not be restored over the
+        // change that just happened.
+        noteModuleWrite(xlsmPath, moduleName);
         const trace = startPerformanceTrace('filesystem.writeFile', moduleName);
         try {
             const result = await runWriteWithExcelCoordination(xlsmPath, () =>

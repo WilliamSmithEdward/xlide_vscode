@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { takeRenameForUndo } from '../vbaRenameHistory';
 import * as path from 'path';
 import {
     encodeModuleUri,
@@ -87,6 +88,38 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
     }
 
     return [
+        // Put the last rename back as one operation (issue #9 rule 10).
+        // A rename edits several modules; an editor's undo stack is per
+        // document, so undoing in one file would leave the rest renamed.
+        registerXlideCommand('xlide.undoRename', async () => {
+            const snapshot = takeRenameForUndo();
+            if (!snapshot) {
+                void vscode.window.showInformationMessage(
+                    'XLIDE: there is no rename to undo. Only the most recent rename can be put '
+                    + 'back, and only until something else writes to the workbook.',
+                );
+                return;
+            }
+            try {
+                for (const image of snapshot.modules) {
+                    await writeWorkbookModule(
+                        { bridge, explorer, fsProvider, vbaIndex },
+                        { filePath: snapshot.workbookPath, moduleName: image.moduleName, source: image.before },
+                    );
+                }
+                vbaIndex.invalidate(snapshot.workbookPath);
+                const summaryText = logChangeSummary(log, 'undoRename', {
+                    operation: 'Undo rename',
+                    changed: snapshot.modules.map((image) => image.moduleName),
+                });
+                void vscode.window.showInformationMessage(`XLIDE: ${summaryText}`);
+            } catch (err) {
+                void vscode.window.showErrorMessage(
+                    `XLIDE: could not undo the rename - ${err instanceof Error ? err.message : String(err)}`,
+                );
+            }
+        }),
+
         // Create a new, empty macro-enabled workbook or add-in
         registerXlideCommand('xlide.newWorkbook', async () => {
             const defaultDir = vscode.workspace.workspaceFolders?.[0]?.uri;
