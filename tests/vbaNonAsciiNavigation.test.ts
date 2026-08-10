@@ -107,3 +107,32 @@ describe('project structure resolves through non-ASCII type names', () => {
 		expect(got).toContain('Describe');
 	});
 });
+
+describe('For loops whose iterator is not ASCII', () => {
+	// detectSmartBlockOpener returned undefined for these, so pressing Enter
+	// after the header closed nothing at all - the loop-completeness test was
+	// ASCII-only, so a Cyrillic or Thai iterator made a valid header look
+	// unfinished.
+	it.each([
+		['Cyrillic', 'товар'],
+		['Thai', 'ค่า'],
+		['Latin control', 'item'],
+	])('closes For Each with a %s iterator', (_label, name) => {
+		expect(detectSmartBlockOpener(`For Each ${name} In Items`)?.endKeyword)
+			.toBe(`Next ${name}`);
+	});
+
+	it.each([
+		['Cyrillic', 'товар'],
+		['Thai', 'ค่า'],
+		['Latin control', 'item'],
+	])('closes a counted For with a %s iterator', (_label, name) => {
+		expect(detectSmartBlockOpener(`For ${name} = 1 To 10`)?.endKeyword)
+			.toBe(`Next ${name}`);
+	});
+
+	it('still treats an unfinished For header as unfinished', () => {
+		expect(detectSmartBlockOpener('For Each')).toBeUndefined();
+		expect(detectSmartBlockOpener('For x =')).toBeUndefined();
+	});
+});

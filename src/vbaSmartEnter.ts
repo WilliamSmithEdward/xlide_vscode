@@ -377,7 +377,7 @@ export function isSmartBlockClosedAhead(
 }
 
 function forIteratorName(t: string): string | undefined {
-    return /^For\s+(?:Each\s+)?([A-Za-z_]\w*)\b/i.exec(t)?.[1];
+    return /^For\s+(?:Each\s+)?([\p{L}_][\p{L}\p{M}\p{N}_]*)/iu.exec(t)?.[1];
 }
 
 function physicalLines(source: string): PhysicalLine[] {
@@ -421,12 +421,12 @@ function physicalLineAt(source: string, offset: number): PhysicalLine {
 function parseLoopLine(line: PhysicalLine): LoopLineInfo | undefined {
     const stripped = lexerStrippedLine(line.text);
 
-    let m = /^(\s*)For\s+Each\s+([A-Za-z_]\w*)\s+In\b/i.exec(stripped);
+    let m = /^(\s*)For\s+Each\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)\s+In\b/iu.exec(stripped);
     if (m) {
         return { kind: 'opener', iterator: tokenFromMatch(line.start, m, 2) };
     }
 
-    m = /^(\s*)For\s+([A-Za-z_]\w*)\s*=/i.exec(stripped);
+    m = /^(\s*)For\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)\s*=/iu.exec(stripped);
     if (m) {
         return { kind: 'opener', iterator: tokenFromMatch(line.start, m, 2) };
     }
@@ -437,7 +437,7 @@ function parseLoopLine(line: PhysicalLine): LoopLineInfo | undefined {
     }
 
     const closeCount = nextCloseCount(next[2].trim());
-    m = /^(\s*)Next\s+([A-Za-z_]\w*)\s*$/i.exec(stripped);
+    m = /^(\s*)Next\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)\s*$/iu.exec(stripped);
     return {
         kind: 'next',
         closeCount,
@@ -511,8 +511,8 @@ function isCompleteSmartBlockOpener(t: string, kind: BlockKind): boolean {
             return /^If\s+\S.+\bThen\s*$/i.test(t);
         case 'For':
             return (
-                /^For\s+Each\s+[A-Za-z_]\w*\s+In\s+\S/i.test(t) ||
-                /^For\s+[A-Za-z_]\w*\s*=.+\bTo\b.+/i.test(t)
+                /^For\s+Each\s+[\p{L}_][\p{L}\p{M}\p{N}_]*\s+In\s+\S/iu.test(t) ||
+                /^For\s+[\p{L}_][\p{L}\p{M}\p{N}_]*\s*=.+\bTo\b.+/iu.test(t)
             );
         case 'Do':
             return /^Do\s*$/i.test(t) || /^Do\s+(?:While|Until)\s+\S/i.test(t);
