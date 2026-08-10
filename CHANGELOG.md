@@ -2,6 +2,53 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.4.0] - 2026-08-09
+
+### Fixed
+
+- **Hiding headers now hides the whole header (issue #14).** The toggle removed
+  `Attribute VB_*` lines, which is the entire header of a standard module but
+  only the tail of a class or UserForm header. A class opens with a
+  `VERSION 1.0 CLASS / BEGIN / ... / END` block and a UserForm with a designer
+  block that nests once per control, so on a `.cls` the toggle appeared to do
+  nothing and on a `.frm` it left the whole control list on screen.
+
+- **Renaming an interface carries its member prefix (issue #9).** Renaming
+  `IShape` rewrote `Implements IShape` and `Dim s As IShape` but left
+  `Private Sub IShape_Draw()` behind, and a class whose prefix no longer matches
+  silently stops implementing anything. Only classes that actually declare
+  `Implements` for that interface are touched, and only their declarations - a
+  variable elsewhere that merely starts with the same word is left alone.
+
+- **Renaming a module name from code explains what to do.** A module's name
+  lives on the component rather than in any module's text, so renaming from a
+  position where only a module can stand - before a dot, or after `As`, `New`
+  or `Implements` - now names the operation that does the job instead of
+  reporting that the name is not renameable.
+
+- **A rename says what it left alone.** When an unqualified call could refer to
+  the symbol being renamed or to a same-named export in another module, nothing
+  can prove which was meant, so it is left untouched - and now reported, with
+  the module and line, because that is a decision only the developer can make.
+
+### Added
+
+- **Agent tools can read part of a module, search across modules, analyze one
+  module, and write safely (issue #13).**
+
+  - `xlide_readModule` accepts `startLine` / `endLine`, so an assistant working
+    on a 26,000-line class no longer has to read all of it to change one line.
+  - `xlide_searchModules` finds a name across every module in a workbook,
+    instead of reading each one in turn. Results are capped, and the reply says
+    when it stopped.
+  - `xlide_analyzeWorkbook` accepts a `moduleName`, so checking the module just
+    edited does not mean reading back every finding in the workbook.
+  - `xlide_readModule` reports a `contentToken`, and `xlide_writeModule`
+    accepts `expectedContentToken`. Because a write replaces the whole module,
+    a change made by Excel or a user after the assistant's read was previously
+    overwritten with no sign anything had happened. With the token, that write
+    is refused instead.
+
 ## [3.3.0] - 2026-08-09
 
 ### Fixed
