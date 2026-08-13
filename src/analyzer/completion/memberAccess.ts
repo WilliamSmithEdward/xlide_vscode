@@ -12,6 +12,7 @@ import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { IDENT_RE, isIdentLike } from '../lexer/tokenHelpers';
 import { MSFORMS_REFERENCE_MEMBERS } from '../host/msformsReferenceMembers';
+import { VBA_USERFORM_EXTENDER_MEMBERS, VBA_USERFORM_TYPE } from '../host/userFormExtenderMembers';
 import { completionCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
 import {
@@ -1091,10 +1092,17 @@ function memberSurfaceForType(
 	};
 }
 
-/** Members of `MSForms.ComboBox` and friends, for a form's controls. */
+/**
+ * Members of `MSForms.ComboBox` and friends, for a form's controls - and of
+ * `MSForms.UserForm` for the form itself, where VBA's own additions (Show,
+ * Hide, Name, Left, ...) join the type library's list.
+ */
 function msFormsControlMembers(typeName: string): HostMember[] | undefined {
 	const match = /^MSForms\.([A-Za-z][\w]*)$/.exec(typeName);
-	const members = match ? MSFORMS_REFERENCE_MEMBERS[match[1]] : undefined;
+	const reference = match ? MSFORMS_REFERENCE_MEMBERS[match[1]] : undefined;
+	const members = typeName === VBA_USERFORM_TYPE
+		? [...VBA_USERFORM_EXTENDER_MEMBERS, ...(reference ?? [])]
+		: reference;
 	if (!members) {
 		return undefined;
 	}

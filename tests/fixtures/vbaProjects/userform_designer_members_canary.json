@@ -92,7 +92,9 @@
           "NameBox",
           "Cancelled",
           "Caption",
-          "Controls"
+          "Controls",
+          "Show",
+          "Hide"
         ]
       },
       {

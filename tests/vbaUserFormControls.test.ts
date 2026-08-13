@@ -258,6 +258,27 @@ describe('Me in a form', () => {
 		expect(members).toContain('Repaint');
 	});
 
+	it('offers what VBA adds to a form that MSForms does not carry', () => {
+		// Show and Hide are the two members form code uses most and neither is
+		// in the Microsoft Forms type library; nor are Name, Tag or the
+		// position properties. Verified on a live form instance in Excel.
+		const members = membersAfter('Me.');
+		for (const name of ['Show', 'Hide', 'Move', 'Name', 'Tag', 'Left', 'Top', 'Visible']) {
+			expect(members, name).toContain(name);
+		}
+	});
+
+	it('keeps the form s additions off a control', () => {
+		// A ComboBox is not a form: offering Show on one would mean the two
+		// surfaces had been merged rather than kept apart.
+		const source = 'Private Sub T()\r\n    RegionPick.\r\nEnd Sub\r\n';
+		const names = resolveMemberCompletions(source, source.indexOf('RegionPick.') + 11, {
+			implicitMembers: IMPLICIT,
+		} as never).map((m) => m.name);
+		expect(names).toContain('AddItem');
+		expect(names).not.toContain('Show');
+	});
+
 	it('chains through a control to that control s own members', () => {
 		expect(membersAfter('Me.RegionPick.')).toContain('AddItem');
 		expect(membersAfter('Me.NameBox.')).not.toContain('AddItem');
