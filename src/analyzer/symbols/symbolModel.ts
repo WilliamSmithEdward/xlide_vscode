@@ -80,6 +80,12 @@ export interface VbaSymbol {
 	byRef?: boolean;
 	/** True when the declaration is an array. */
 	isArray?: boolean;
+	/**
+	 * Declared `As New`. VBA instantiates such a variable on ANY access - even
+	 * after `Set x = Nothing` - so it can never be Nothing when a member is
+	 * touched.
+	 */
+	isAutoInstantiated?: boolean;
 	/** Raw array bounds text when an array declaration is fixed-size. */
 	arrayBounds?: string;
 	/** External Declare statements are Function or Sub callables. */

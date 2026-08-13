@@ -196,6 +196,7 @@ function collectLocals(
 					fixedLength: decl.fixedLength,
 					defaultRaw: decl.defaultRaw,
 					isArray: decl.isArray,
+					isAutoInstantiated: decl.isNew,
 					arrayBounds: decl.arrayBounds,
 				});
 			}
@@ -424,6 +425,7 @@ function buildModuleVariables(
 			fixedLength: decl.fixedLength,
 			defaultRaw: decl.defaultRaw,
 			isArray: decl.isArray,
+			isAutoInstantiated: decl.isNew,
 			arrayBounds: decl.arrayBounds,
 			doc,
 		};

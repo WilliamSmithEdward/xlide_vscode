@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "id": "workbook-analysis-auto-instantiated-canary",
+  "description": "Workbook-analysis canary for `Dim x As New <class>`: VBA instantiates such a variable on any access, so member access on it can never raise error 91 - while a plain Dim with no Set still can.",
+  "modules": [
+    {
+      "name": "Invoice",
+      "type": "class",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Private mNumber As String",
+        "",
+        "Public Property Let Number(ByVal value As String)",
+        "    mNumber = value",
+        "End Property"
+      ]
+    },
+    {
+      "name": "Builder",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Function MakeInvoice(ByVal number As String) As Invoice",
+        "    Dim made As New Invoice",
+        "    made.Number = number",
+        "    Set MakeInvoice = made",
+        "End Function",
+        "",
+        "Public Sub StillInstantiatedAfterNothing()",
+        "    Dim revived As New Invoice",
+        "    Set revived = Nothing",
+        "    revived.Number = \"back again\"",
+        "End Sub",
+        "",
+        "Public Sub SetBeforeUse()",
+        "    Dim made As Invoice",
+        "    Set made = New Invoice",
+        "    made.Number = \"fine\"",
+        "End Sub",
+        "",
+        "Public Sub NeverSet()",
+        "    Dim made As Invoice",
+        "    made.Number = \"raises 91\"",
+        "End Sub"
+      ]
+    }
+  ],
+  "assertions": {
+    "workbookAnalysis": {
+      "problemCount": 1,
+      "problems": [
+        {
+          "moduleName": "Builder",
+          "code": "object-variable-not-set",
+          "line": 23,
+          "severity": "error",
+          "messageContains": [
+            "made"
+          ]
+        }
+      ],
+      "codes": [
+        {
+          "code": "object-variable-not-set",
+          "count": 1,
+          "messagesContain": [
+            "made"
+          ]
+        },
+        {
+          "code": "undeclared-variable",
+          "count": 0
+        }
+      ]
+    }
+  }
+}

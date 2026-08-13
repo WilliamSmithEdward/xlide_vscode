@@ -223,6 +223,11 @@ function localObjectVariablesFor(
 			child.kind !== 'localVariable' ||
 			child.visibility === 'Static' ||
 			child.isArray === true ||
+			// `Dim x As New Invoice` is instantiated on ANY access, including
+			// the first one and including after `Set x = Nothing`, so it can
+			// never be Nothing when a member is touched. Tracking it produced
+			// error 91 warnings on code that runs.
+			child.isAutoInstantiated === true ||
 			!isKnownObjectAssignmentType(child.asType, memberCtx) ||
 			!child.asType
 		) {
