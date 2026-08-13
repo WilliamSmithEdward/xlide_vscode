@@ -28,6 +28,7 @@ import {
 	type TypeCompletionKind,
 } from '../completion/typeCompletion';
 import { msFormsControlMembers } from '../completion/memberAccess';
+import { VBA_USERFORM_TYPE as MSFORMS_USERFORM_TYPE } from '../host/userFormExtenderMembers';
 
 export type TypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type' | 'variable' | 'function';
 
@@ -552,7 +553,12 @@ export function collectHostGlobalTokens(source: string): TypeSemanticToken[] {
 export interface ImplicitMemberTokenContext {
 	/** The form's designer-declared controls: name plus MSForms type. */
 	implicitMembers?: readonly { name: string; type: string }[];
-	/** What `Me` denotes; only an `MSForms.*` type engages the collector for `Me`. */
+	/**
+	 * What `Me` denotes. Optional: a module with designer-declared controls is
+	 * a form, so `Me` is taken as `MSForms.UserForm` when this is omitted and
+	 * controls are present. Pass it to say otherwise - any non-MSForms type
+	 * (a document module's `Excel.Workbook`) leaves `Me.` alone entirely.
+	 */
 	meType?: string;
 }
 
@@ -573,14 +579,21 @@ export function collectImplicitMemberMethodTokens(
 	const controls = new Map(
 		(ctx.implicitMembers ?? []).map((member) => [member.name.toLowerCase(), member.type]),
 	);
-	const meType = ctx.meType && /^MSForms\./.test(ctx.meType) ? ctx.meType : undefined;
+	// Controls exist only on a form, so their presence answers what `Me` is
+	// without the caller having to say.
+	const declaredMeType = ctx.meType ?? (controls.size > 0 ? MSFORMS_USERFORM_TYPE : undefined);
+	const meType = declaredMeType && declaredMeType.startsWith('MSForms.')
+		? declaredMeType
+		: undefined;
 	if (controls.size === 0 && !meType) {
 		return [];
 	}
 	const declared = collectModuleDeclaredNames(parseModule(source));
-	const tokens = tokenize(source).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	// Newlines are KEPT. A dot that opens a line is a `With` block's member
+	// access, not a member of whatever the line above happened to end with, so
+	// dropping newlines here would paint `.Clear` after a line ending in a
+	// control name - a guess, and the one thing this must never do.
+	const tokens = tokenize(source).filter((t) => t.kind !== 'comment');
 	const out: TypeSemanticToken[] = [];
 	for (let i = 2; i < tokens.length; i++) {
 		const tok = tokens[i];

@@ -330,8 +330,52 @@ describe('semantic tokens for method calls on a form s controls', () => {
 	});
 
 	it('Me outside a form paints nothing', () => {
-		expect(tokensIn('Me.Hide', { implicitMembers: IMPLICIT })).toEqual([]);
+		// Nothing says this module is a form: no controls, no form type.
+		expect(tokensIn('Me.Hide', {})).toEqual([]);
+		// A document module says what its Me is, and it is not a form.
 		expect(tokensIn('Me.Hide', { meType: 'Excel.Workbook' })).toEqual([]);
+		// An explicit Me type outranks the inference drawn from controls.
+		expect(tokensIn('Me.Hide', { implicitMembers: IMPLICIT, meType: 'Excel.Workbook' }))
+			.toEqual([]);
+	});
+
+	it('answers the whole table from the controls alone', () => {
+		// The contract as the report wrote it takes { implicitMembers } and
+		// nothing else, and `Me.Hide` is one of its rows. Controls exist only on
+		// a form, so their presence is what says `Me` is a form.
+		const only = { implicitMembers: IMPLICIT };
+		expect(tokensIn('RegionPick.AddItem "North"', only)).toEqual([{ text: 'AddItem', type: 'function' }]);
+		expect(tokensIn('NameBox.SetFocus', only)).toEqual([{ text: 'SetFocus', type: 'function' }]);
+		expect(tokensIn('Me.Hide', only)).toEqual([{ text: 'Hide', type: 'function' }]);
+	});
+
+	it('leaves a With block s leading dot alone', () => {
+		// `.Clear` opening a line is a member of the With receiver, not of
+		// whatever the line above ended with - and Clear IS a ComboBox method,
+		// so nothing but the statement boundary keeps this quiet.
+		const source = [
+			'Private Sub T()',
+			'    With SomeCollection',
+			'        Debug.Print RegionPick',
+			'        .Clear',
+			'    End With',
+			'End Sub',
+			'',
+		].join('\r\n');
+		expect(collectImplicitMemberMethodTokens(source, CTX as never)).toEqual([]);
+	});
+
+	it('still paints across a line continuation', () => {
+		// A continued line is one statement, so the dot is not a leading dot.
+		const source = [
+			'Private Sub T()',
+			'    RegionPick _',
+			'        .AddItem "North"',
+			'End Sub',
+			'',
+		].join('\r\n');
+		expect(collectImplicitMemberMethodTokens(source, CTX as never)
+			.map((t) => source.slice(t.span.start, t.span.end))).toEqual(['AddItem']);
 	});
 
 	it('spans cover the member identifier only', () => {
