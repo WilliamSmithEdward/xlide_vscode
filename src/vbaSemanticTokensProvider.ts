@@ -5,13 +5,15 @@
 // Extracted verbatim from vbaLanguageProviders.ts (audit #21).
 
 import * as vscode from 'vscode';
-import { XLIDE_SCHEME, isVbaDocument } from './xlideFileSystem';
+import { XLIDE_SCHEME, decodeModuleUri, isVbaDocument } from './xlideFileSystem';
 import {
     liveProjectIndexForDocument,
+    moduleKindFromDocument,
     moduleNameFromDocument,
 } from './vbaDocumentIdentity';
 import {
     collectHostGlobalTokens,
+    collectImplicitMemberMethodTokens,
     resolveTypeSemanticTokens,
     TypeSemanticTokenType,
 } from './analyzer';
@@ -20,6 +22,7 @@ import {
     type VbaProjectAnalysisOptions,
 } from './vbaProjectAnalysis';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
+import { moduleIdentityKey } from './workbookIdentity';
 import { startPerformanceTrace } from './performanceTrace';
 
 const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
@@ -28,6 +31,7 @@ const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
     'struct',
     'type',
     'variable',
+    'function',
 ];
 // `defaultLibrary` marks host-injected globals (Application, ThisWorkbook, ...);
 // most themes give it a subtle tint and themes that don't fall back cleanly to
@@ -41,6 +45,10 @@ const TYPE_SEMANTIC_CACHE_MAX_DOCUMENTS = 64;
 interface CachedTypeSemanticProjectTypes {
     at: number;
     projectTypes: VbaProjectAnalysisOptions['projectTypes'];
+    /** A form's designer-declared controls, when anything knows them. */
+    implicitMembers?: VbaProjectAnalysisOptions['implicitMembers'];
+    /** `MSForms.UserForm` when the module is a form, so `Me.Hide` paints. */
+    meType?: string;
 }
 
 interface CachedTypeSemanticTokens {
@@ -82,9 +90,10 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
 
             const source = document.getText();
             const moduleName = moduleNameFromDocument(document);
-            const projectTypes = document.uri.scheme === XLIDE_SCHEME
-                ? this._cachedProjectTypesForDocument(document, { requireFresh: false }) ?? []
+            const projectContext = document.uri.scheme === XLIDE_SCHEME
+                ? this._cachedProjectTypesForDocument(document, { requireFresh: false })
                 : await this._projectTypesForDocument(document, source, moduleName, token);
+            const projectTypes = projectContext?.projectTypes ?? [];
             if (
                 document.uri.scheme === XLIDE_SCHEME &&
                 !this._cachedProjectTypesForDocument(document, { requireFresh: true })
@@ -104,6 +113,10 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             const items = [
                 ...resolveTypeSemanticTokens(source, { projectTypes }),
                 ...collectHostGlobalTokens(source),
+                ...collectImplicitMemberMethodTokens(source, {
+                    implicitMembers: projectContext?.implicitMembers,
+                    meType: projectContext?.meType,
+                }),
             ];
             for (const item of items) {
                 if (token.isCancellationRequested) { break; }
@@ -134,7 +147,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
     private _cachedProjectTypesForDocument(
         document: vscode.TextDocument,
         options: { requireFresh?: boolean } = {},
-    ): VbaProjectAnalysisOptions['projectTypes'] | undefined {
+    ): CachedTypeSemanticProjectTypes | undefined {
         const cached = this._projectTypesCache.get(document.uri.toString());
         if (!cached) {
             return undefined;
@@ -145,7 +158,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         ) {
             return undefined;
         }
-        return cached.projectTypes;
+        return cached;
     }
 
     private _scheduleProjectTypesRefresh(document: vscode.TextDocument): void {
@@ -212,7 +225,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         source: string,
         moduleName: string,
         token?: vscode.CancellationToken,
-    ): Promise<VbaProjectAnalysisOptions['projectTypes']> {
+    ): Promise<CachedTypeSemanticProjectTypes | undefined> {
         const key = document.uri.toString();
         const cached = this._cachedProjectTypesForDocument(document, { requireFresh: true });
         if (cached) {
@@ -229,11 +242,39 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 moduleName,
                 token,
             );
-            const projectTypes = projectAnalysisOptionsForModule(project, moduleName).projectTypes ?? [];
-            this._projectTypesCache.set(key, { at: Date.now(), projectTypes });
-            return projectTypes;
+            const options = projectAnalysisOptionsForModule(project, moduleName);
+            const entry: CachedTypeSemanticProjectTypes = {
+                at: Date.now(),
+                projectTypes: options.projectTypes ?? [],
+                implicitMembers: options.implicitMembers,
+                meType: await this._userFormMeType(document, moduleName),
+            };
+            this._projectTypesCache.set(key, entry);
+            return entry;
         } catch {
-            return previous?.projectTypes ?? [];
+            return previous;
+        }
+    }
+
+    /** `MSForms.UserForm` when the document is a form's code-behind. */
+    private async _userFormMeType(
+        document: vscode.TextDocument,
+        moduleName: string,
+    ): Promise<string | undefined> {
+        if (document.uri.scheme !== XLIDE_SCHEME) {
+            return moduleKindFromDocument(document) === 'userform' ? 'MSForms.UserForm' : undefined;
+        }
+        try {
+            // The same cached workbook context the project build above used.
+            const context = await this._projectIndexService.contextForWorkbook(
+                decodeModuleUri(document.uri).xlsmPath,
+                'live',
+            );
+            return context.moduleMetadata.get(moduleIdentityKey(moduleName))?.moduleKind === 'userform'
+                ? 'MSForms.UserForm'
+                : undefined;
+        } catch {
+            return undefined;
         }
     }
 }

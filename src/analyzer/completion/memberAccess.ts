@@ -11,7 +11,11 @@
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { IDENT_RE, isIdentLike } from '../lexer/tokenHelpers';
-import { MSFORMS_REFERENCE_MEMBERS } from '../host/msformsReferenceMembers';
+import {
+	MSFORMS_CONTROL_CLASS_NAMES,
+	MSFORMS_REFERENCE_MEMBERS,
+	type MsFormsMember,
+} from '../host/msformsReferenceMembers';
 import { VBA_USERFORM_EXTENDER_MEMBERS, VBA_USERFORM_TYPE } from '../host/userFormExtenderMembers';
 import { completionCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
@@ -1092,18 +1096,34 @@ function memberSurfaceForType(
 	};
 }
 
+const MSFORMS_CONTROL_CLASS_SET: ReadonlySet<string> = new Set(MSFORMS_CONTROL_CLASS_NAMES);
+
 /**
  * Members of `MSForms.ComboBox` and friends, for a form's controls - and of
  * `MSForms.UserForm` for the form itself, where VBA's own additions (Show,
  * Hide, Name, Left, ...) join the type library's list.
+ *
+ * A placed control also carries the `Control` base surface - Left, Top,
+ * Visible, Name, SetFocus, Move, ZOrder - which the library declares once on
+ * `MSForms.Control` rather than repeating per type, so it is merged here. The
+ * per-type list wins where a name appears in both.
  */
-function msFormsControlMembers(typeName: string): HostMember[] | undefined {
+export function msFormsControlMembers(typeName: string): HostMember[] | undefined {
 	const match = /^MSForms\.([A-Za-z][\w]*)$/.exec(typeName);
 	const reference = match ? MSFORMS_REFERENCE_MEMBERS[match[1]] : undefined;
-	const members = typeName === VBA_USERFORM_TYPE
-		? [...VBA_USERFORM_EXTENDER_MEMBERS, ...(reference ?? [])]
-		: reference;
-	if (!members) {
+	let members: readonly MsFormsMember[] | undefined = reference;
+	if (typeName === VBA_USERFORM_TYPE) {
+		members = [...VBA_USERFORM_EXTENDER_MEMBERS, ...(reference ?? [])];
+	} else if (match && MSFORMS_CONTROL_CLASS_SET.has(match[1])) {
+		const own = new Set((reference ?? []).map((member) => member.name.toLowerCase()));
+		members = [
+			...(reference ?? []),
+			...(MSFORMS_REFERENCE_MEMBERS['Control'] ?? []).filter(
+				(member) => !own.has(member.name.toLowerCase()),
+			),
+		];
+	}
+	if (!members || members.length === 0) {
 		return undefined;
 	}
 	return members.map((member) => ({

@@ -27,8 +27,9 @@ import {
 	type TypeCompletionContext,
 	type TypeCompletionKind,
 } from '../completion/typeCompletion';
+import { msFormsControlMembers } from '../completion/memberAccess';
 
-export type TypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type' | 'variable';
+export type TypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type' | 'variable' | 'function';
 
 export interface TypeSemanticToken {
 	name: string;
@@ -545,6 +546,104 @@ export function collectHostGlobalTokens(source: string): TypeSemanticToken[] {
 		});
 	}
 	return out;
+}
+
+/** What the implicit-member method collector needs from outside the source. */
+export interface ImplicitMemberTokenContext {
+	/** The form's designer-declared controls: name plus MSForms type. */
+	implicitMembers?: readonly { name: string; type: string }[];
+	/** What `Me` denotes; only an `MSForms.*` type engages the collector for `Me`. */
+	meType?: string;
+}
+
+/**
+ * Method calls on a form's implicit members, for `function` semantic coloring:
+ * `RegionPick.AddItem` paints the way `Len` does, while `Taxable.Value` (a
+ * property) and `RegionPick.NotAMember` (unresolved) stay untouched (issue
+ * #20). Resolved only, never guessed: the receiver must be a designer-declared
+ * control (or `Me` in a form), not shadowed by any in-module declaration, and
+ * the member must be a method the MSForms surface actually carries.
+ *
+ * Receivers themselves are deliberately not colored here.
+ */
+export function collectImplicitMemberMethodTokens(
+	source: string,
+	ctx: ImplicitMemberTokenContext = {},
+): TypeSemanticToken[] {
+	const controls = new Map(
+		(ctx.implicitMembers ?? []).map((member) => [member.name.toLowerCase(), member.type]),
+	);
+	const meType = ctx.meType && /^MSForms\./.test(ctx.meType) ? ctx.meType : undefined;
+	if (controls.size === 0 && !meType) {
+		return [];
+	}
+	const declared = collectModuleDeclaredNames(parseModule(source));
+	const tokens = tokenize(source).filter(
+		(t) => t.kind !== 'comment' && t.kind !== 'newline',
+	);
+	const out: TypeSemanticToken[] = [];
+	for (let i = 2; i < tokens.length; i++) {
+		const tok = tokens[i];
+		if (tok.kind !== 'identifier' || tokens[i - 1].rawText !== '.') {
+			continue;
+		}
+		const ownerType = implicitReceiverType(tokens, i - 2, controls, declared, meType);
+		if (!ownerType) {
+			continue;
+		}
+		const member = msFormsControlMembers(ownerType)?.find(
+			(candidate) => candidate.name.toLowerCase() === tok.rawText.toLowerCase(),
+		);
+		if (member?.kind !== 'method') {
+			continue;
+		}
+		out.push({
+			name: tok.rawText,
+			tokenType: 'function',
+			span: { start: tok.start, end: tok.end },
+		});
+	}
+	return out;
+}
+
+/**
+ * The MSForms type of the receiver ending at `recvIndex`, when that receiver
+ * is a form's implicit member (`RegionPick.`, `Me.RegionPick.`) or `Me` in a
+ * form - undefined for every other shape, including a receiver shadowed by an
+ * in-module declaration and any longer chain.
+ */
+function implicitReceiverType(
+	tokens: readonly VbaToken[],
+	recvIndex: number,
+	controls: ReadonlyMap<string, string>,
+	declared: ReadonlySet<string>,
+	meType: string | undefined,
+): string | undefined {
+	const recv = tokens[recvIndex];
+	if (!recv) {
+		return undefined;
+	}
+	if (tokenWord(recv) === 'me') {
+		return meType;
+	}
+	if (recv.kind !== 'identifier') {
+		return undefined;
+	}
+	const name = recv.rawText.toLowerCase();
+	const before = tokens[recvIndex - 1];
+	if (!before || (before.rawText !== '.' && before.rawText !== '!')) {
+		// Chain root: the bare control name, unless a declaration shadows it.
+		return declared.has(name) ? undefined : controls.get(name);
+	}
+	// `Me.RegionPick.Member` is the same control; any other qualifier is not.
+	if (
+		before.rawText === '.' &&
+		tokenWord(tokens[recvIndex - 2]) === 'me' &&
+		meType !== undefined
+	) {
+		return controls.get(name);
+	}
+	return undefined;
 }
 
 export function resolveTypeSemanticTokens(

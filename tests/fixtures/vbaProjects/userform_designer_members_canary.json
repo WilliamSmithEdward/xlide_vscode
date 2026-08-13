@@ -21,6 +21,7 @@
         "    RegionPick.AddItem \"West\"",
         "    Taxable.Value = True",
         "    NameBox.Text = \"\"",
+        "    NameBox.SetFocus",
         "End Sub",
         "",
         "Private Sub OkButton_Click()",
@@ -120,6 +121,17 @@
         "signature": "ComboBox.AddItem([pvargItem As Variant], [pvargIndex As Variant])",
         "detailsContain": [
           "ComboBox method"
+        ]
+      }
+    ],
+    "semanticTokens": [
+      {
+        "moduleName": "FrmPicker",
+        "tokens": [
+          { "text": "Boolean", "type": "type" },
+          { "text": "AddItem", "type": "function" },
+          { "text": "SetFocus", "type": "function" },
+          { "text": "Hide", "type": "function" }
         ]
       }
     ],

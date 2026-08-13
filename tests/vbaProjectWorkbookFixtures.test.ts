@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	analyzeModule,
+	collectImplicitMemberMethodTokens,
 	resolveHover,
 	resolveIdentifierCompletions,
 	resolveMemberCompletions,
@@ -194,12 +195,23 @@ describe('machine-readable VBA workbook project fixtures', () => {
 				it(`matches semantic type tokens for ${assertion.moduleName}`, () => {
 					const mod = fixtureModule(fixture, assertion.moduleName);
 					const { options } = fixtureContext(fixture, assertion.moduleName);
-					const tokens = resolveTypeSemanticTokens(mod.source, {
-						projectTypes: options.projectTypes,
-					}).map((token) => ({
-						text: mod.source.slice(token.span.start, token.span.end),
-						type: token.tokenType,
-					}));
+					const fixtureType = fixture.modules.find(
+						(candidate) => candidate.name.toLowerCase() === assertion.moduleName.toLowerCase(),
+					)?.type;
+					const tokens = [
+						...resolveTypeSemanticTokens(mod.source, {
+							projectTypes: options.projectTypes,
+						}),
+						...collectImplicitMemberMethodTokens(mod.source, {
+							implicitMembers: options.implicitMembers,
+							meType: fixtureType === 'userform' ? 'MSForms.UserForm' : undefined,
+						}),
+					]
+						.sort((a, b) => a.span.start - b.span.start)
+						.map((token) => ({
+							text: mod.source.slice(token.span.start, token.span.end),
+							type: token.tokenType,
+						}));
 
 					expect(tokens).toEqual(assertion.tokens);
 				});

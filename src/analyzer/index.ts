@@ -110,7 +110,9 @@ export {
 } from './completion/eventHandlers';
 export {
 	collectHostGlobalTokens,
+	collectImplicitMemberMethodTokens,
 	collectTypeNameReferences,
+	ImplicitMemberTokenContext,
 	ResolvedTypeReference,
 	resolveTypeReferenceAt,
 	resolveTypeSemanticTokens,

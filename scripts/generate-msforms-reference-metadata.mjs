@@ -20,10 +20,15 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const jsonDir = path.join(root, 'reference', 'msforms', 'json');
 const outputPath = path.join(root, 'src', 'analyzer', 'host', 'msformsReferenceMembers.ts');
 
-/** Members worth offering: properties and methods, not events. */
+/**
+ * Members worth offering: properties and methods, not events - and not the
+ * `_`-prefixed dispatch internals (`_GetGridX`, `_SetLeft`), which the VBE's
+ * own completion hides.
+ */
 function membersOf(dump) {
     const out = [];
     for (const property of dump.properties ?? []) {
+        if (property.name.startsWith('_')) { continue; }
         out.push({
             name: property.name,
             kind: 'property',
@@ -32,6 +37,7 @@ function membersOf(dump) {
         });
     }
     for (const method of dump.methods ?? []) {
+        if (method.name.startsWith('_')) { continue; }
         out.push({
             name: method.name,
             kind: 'method',
@@ -60,6 +66,12 @@ for (const fileName of fs.readdirSync(jsonDir).sort()) {
         library: dump.library,
         fileName,
         members,
+        // The type library's own line between a placeable control and a helper
+        // type (DataObject, Page, Return*): controls source events, helpers do
+        // not. Control and UserForm are the base surfaces themselves.
+        isControl: (dump.events ?? []).length > 0
+            && dump.name !== 'Control'
+            && !dump.name.startsWith('UserForm'),
     });
 }
 
@@ -87,6 +99,17 @@ for (const type of types) {
     lines.push(`\t${JSON.stringify(type.name)}: ${JSON.stringify(type.members)},`);
 }
 lines.push('};');
+lines.push('');
+lines.push('/**');
+lines.push(' * Classes that are placeable controls, as the type library itself draws the');
+lines.push(' * line: a control sources events, a helper type (DataObject, Page, Return*)');
+lines.push(' * does not. Every control also carries the `Control` base surface - Left,');
+lines.push(' * Top, Visible, Name, SetFocus, Move, ZOrder - which lives in Control.json');
+lines.push(' * rather than being repeated in each per-type dump.');
+lines.push(' */');
+lines.push('export const MSFORMS_CONTROL_CLASS_NAMES: readonly string[] = [');
+lines.push(`\t${types.filter((type) => type.isControl).map((type) => JSON.stringify(type.name)).join(', ')},`);
+lines.push('];');
 lines.push('');
 lines.push('/** Where each type came from, so a member list can be traced to its dump. */');
 lines.push('export const MSFORMS_REFERENCE_PROVENANCE: Readonly<Record<string, string>> = {');

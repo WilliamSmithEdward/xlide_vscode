@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseUserFormControls } from '../src/vbaUserFormControls';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { resolveMemberCompletions, resolveHover, resolveSignatureHelp } from '../src/analyzer';
+import { collectImplicitMemberMethodTokens, resolveMemberCompletions, resolveHover, resolveSignatureHelp } from '../src/analyzer';
 import { resolveMemberSurfaceAt } from '../src/analyzer/completion/memberAccess';
 
 // Issue #17. A form's controls are members of the form's class, declared by the
@@ -274,6 +274,96 @@ describe('hover and signature help on a form s controls', () => {
 	it('says nothing about a name that is not a control', () => {
 		const source = 'Private Sub T()\r\n    Mystery.Thing\r\nEnd Sub\r\n';
 		expect(resolveHover(source, source.indexOf('Mystery') + 3, CTX as never)).toBeUndefined();
+	});
+});
+
+describe('semantic tokens for method calls on a form s controls', () => {
+	// Issue #20. A resolved method call paints `function` (the color Len gets);
+	// a property, an unresolved member, and anything in a module without the
+	// control stay exactly as they are.
+	const IMPLICIT = [
+		{ name: 'RegionPick', type: 'MSForms.ComboBox' },
+		{ name: 'Taxable', type: 'MSForms.CheckBox' },
+		{ name: 'NameBox', type: 'MSForms.TextBox' },
+	];
+	const CTX = { implicitMembers: IMPLICIT, meType: 'MSForms.UserForm' };
+
+	function tokensIn(line: string, ctx: unknown = CTX): { text: string; type: string }[] {
+		const source = `Private Sub T()\r\n    ${line}\r\nEnd Sub\r\n`;
+		return collectImplicitMemberMethodTokens(source, ctx as never)
+			.map((t) => ({ text: source.slice(t.span.start, t.span.end), type: t.tokenType }));
+	}
+
+	it.each([
+		['RegionPick.AddItem "North"', 'AddItem'],
+		['NameBox.SetFocus', 'SetFocus'],
+		['Me.Hide', 'Hide'],
+		['Me.RegionPick.AddItem "North"', 'AddItem'],
+	])('paints the method call in %s', (line, expected) => {
+		expect(tokensIn(line)).toEqual([{ text: expected, type: 'function' }]);
+	});
+
+	it.each([
+		['a property stays as it is', 'Taxable.Value = True'],
+		['an unresolved member is never painted', 'RegionPick.NotAMember'],
+		['a bare identifier is not a member access', 'AddItem = 1'],
+		['another receiver s member is not this control s', 'other.RegionPick.AddItem "North"'],
+	])('%s', (_label, line) => {
+		expect(tokensIn(line)).toEqual([]);
+	});
+
+	it('paints nothing in a module without the control', () => {
+		expect(tokensIn('AddItem = 1', {})).toEqual([]);
+		expect(tokensIn('RegionPick.AddItem "North"', {})).toEqual([]);
+	});
+
+	it('a declaration shadowing the control name wins', () => {
+		// Clear IS a ComboBox method, so only the shadow check keeps this quiet.
+		const source = [
+			'Private Sub T()',
+			'    Dim RegionPick As Collection',
+			'    RegionPick.Clear',
+			'End Sub',
+			'',
+		].join('\r\n');
+		expect(collectImplicitMemberMethodTokens(source, CTX as never)).toEqual([]);
+	});
+
+	it('Me outside a form paints nothing', () => {
+		expect(tokensIn('Me.Hide', { implicitMembers: IMPLICIT })).toEqual([]);
+		expect(tokensIn('Me.Hide', { meType: 'Excel.Workbook' })).toEqual([]);
+	});
+
+	it('spans cover the member identifier only', () => {
+		const source = 'Private Sub T()\r\n    RegionPick.AddItem "North"\r\nEnd Sub\r\n';
+		const [token] = collectImplicitMemberMethodTokens(source, CTX as never);
+		expect(source.slice(token.span.start, token.span.end)).toBe('AddItem');
+		expect(source[token.span.start - 1]).toBe('.');
+	});
+});
+
+describe('a control carries the Control base surface', () => {
+	// SetFocus, Move and ZOrder live on MSForms.Control - the base every placed
+	// control extends - not in the per-type dumps, so without the merge the
+	// members form code uses most on a control would not resolve.
+	const IMPLICIT = [{ name: 'NameBox', type: 'MSForms.TextBox' }];
+
+	function membersOf(expression: string): string[] {
+		const source = `Private Sub T()\r\n    ${expression}\r\nEnd Sub\r\n`;
+		const at = source.indexOf(expression) + expression.length;
+		return resolveMemberCompletions(source, at, { implicitMembers: IMPLICIT } as never)
+			.map((m) => m.name);
+	}
+
+	it('offers SetFocus and the geometry properties on a control', () => {
+		const members = membersOf('NameBox.');
+		for (const name of ['SetFocus', 'Move', 'ZOrder', 'Left', 'Top', 'Visible', 'Name']) {
+			expect(members, name).toContain(name);
+		}
+	});
+
+	it('keeps the per-type surface first', () => {
+		expect(membersOf('NameBox.')).toContain('Text');
 	});
 });
 
