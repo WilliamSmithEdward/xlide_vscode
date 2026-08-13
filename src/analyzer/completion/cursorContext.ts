@@ -160,10 +160,13 @@ export function identifierSpanEndingAt(
 ): { start: number; end: number } | undefined {
 	const end = Math.max(0, Math.min(offset, source.length));
 	let start = end;
-	while (start > 0 && /[A-Za-z0-9_]/.test(source[start - 1])) {
+	// Marks are walked over as well as letters, or a Thai name would be cut at
+	// its tone mark; the first character must still be a letter, since a mark
+	// cannot begin a name.
+	while (start > 0 && /[\p{L}\p{M}\p{N}_]/u.test(source[start - 1])) {
 		start -= 1;
 	}
-	if (start === end || !/[A-Za-z_]/.test(source[start])) {
+	if (start === end || !/[\p{L}_]/u.test(source[start])) {
 		return undefined;
 	}
 	return { start, end };

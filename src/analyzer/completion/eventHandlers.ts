@@ -394,7 +394,7 @@ function lineCompletionContext(source: string, offset: number): LineCompletionCo
 	const safeOffset = Math.max(0, Math.min(offset, source.length));
 	const lineStart = currentLineStart(source, safeOffset);
 	const prefix = source.slice(lineStart, safeOffset);
-	const wordMatch = /[A-Za-z_][A-Za-z0-9_]*$/.exec(prefix);
+	const wordMatch = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(prefix);
 	const currentWord = wordMatch?.[0] ?? '';
 	const beforeWord = wordMatch ? prefix.slice(0, wordMatch.index) : prefix;
 

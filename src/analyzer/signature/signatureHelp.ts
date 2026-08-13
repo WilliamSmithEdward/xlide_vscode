@@ -469,7 +469,9 @@ function paramDocFor(doc: VbaDoc | undefined, paramLabel: string): string | unde
 /** Extracts the parameter name from a signature parameter slot text. */
 function leadingIdentifier(paramLabel: string): string | undefined {
 	const modifiers = new Set(['optional', 'byval', 'byref', 'paramarray']);
-	const re = /[A-Za-z_][A-Za-z0-9_]*/g;
+	// A parameter can be named in any script, so this cannot be ASCII-only:
+	// `ByVal значение As String` would otherwise yield no name at all.
+	const re = /[\p{L}_][\p{L}\p{M}\p{N}_]*/gu;
 	let m: RegExpExecArray | null;
 	while ((m = re.exec(paramLabel)) !== null) {
 		if (!modifiers.has(m[0].toLowerCase())) {

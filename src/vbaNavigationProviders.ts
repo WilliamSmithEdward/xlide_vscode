@@ -145,7 +145,7 @@ function detectQualifier(line: string, wordStart: number): string | undefined {
 
     // Plain identifier qualifier.
     const slice = line.slice(0, i);
-    const m = /([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(slice);
+    const m = /([\p{L}_][\p{L}\p{M}\p{N}_]*)\s*$/u.exec(slice);
     return m?.[1];
 }
 

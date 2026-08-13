@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { VBA_IDENTIFIER_RE, VBA_IDENTIFIER_NAME_RE, VBA_IDENTIFIER_PATTERN } from '../src/vbaSourceScan';
 import { detectSmartBlockOpener } from '../src/vbaSmartEnter';
 import { ProjectIndex, resolveMemberCompletions } from '../src/analyzer';
+import { identifierSpanEndingAt } from '../src/analyzer/completion/cursorContext';
 
 // The same bug class as issues #6 and #8, one layer out from the analyzer.
 // VS Code picks the word under the cursor with VBA_IDENTIFIER_RE, and it
@@ -134,5 +135,31 @@ describe('For loops whose iterator is not ASCII', () => {
 	it('still treats an unfinished For header as unfinished', () => {
 		expect(detectSmartBlockOpener('For Each')).toBeUndefined();
 		expect(detectSmartBlockOpener('For x =')).toBeUndefined();
+	});
+});
+
+describe('the identifier span under the cursor', () => {
+	// Feeds completion's word range. It walked back over [A-Za-z0-9_] only, so
+	// a partially typed non-Latin name had no span and completion had nothing
+	// to filter on.
+	it.each([
+		['Cyrillic', 'Проверка'],
+		['Thai (combining mark)', 'ค่า'],
+		['Devanagari (matra)', 'नाम'],
+		['Japanese', 'モジュール'],
+		['Latin control', 'Recalculate'],
+	])('covers the whole %s name', (_label, name) => {
+		const source = `Public Sub T()\r\n    ${name}`;
+		const span = identifierSpanEndingAt(source, source.length);
+		expect(span).toBeDefined();
+		expect(source.slice(span!.start, span!.end)).toBe(name);
+	});
+
+	it('does not start a span on a combining mark', () => {
+		expect(identifierSpanEndingAt('    ่', 5)).toBeUndefined();
+	});
+
+	it('is undefined where there is no identifier', () => {
+		expect(identifierSpanEndingAt('    = ', 6)).toBeUndefined();
 	});
 });
