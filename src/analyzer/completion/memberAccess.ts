@@ -1030,31 +1030,40 @@ function memberSurfaceForType(
 	if (combined) {
 		const projectType = projectClassMembersByName(ctx).get(combined.projectKey);
 		const hostType = getHostType(combined.hostType, ctx.model);
-		if (!projectType && !hostType) {
+		const controls = implicitMembersOf(combined.projectKey, ctx);
+		// A form's `Me` is combined:<form>|MSForms.UserForm, and MSForms is not
+		// part of the Excel host model, so the base surface comes from the
+		// forms metadata when the host type names a forms class.
+		const formsMembers = msFormsControlMembers(combined.hostType);
+		const baseMembers = formsMembers ?? getHostMembers(combined.hostType, ctx.model);
+		if (!projectType && !hostType && !formsMembers && controls.length === 0) {
 			return undefined;
 		}
 		return {
 			owner: projectType?.name ?? combined.hostType,
-			members: mergeCompletionMembers(
-				projectType?.members ?? [],
-				getHostMembers(combined.hostType, ctx.model),
-			),
+			members: mergeCompletionMembers(projectType?.members ?? [], controls, baseMembers),
 			exhaustive:
+				controls.length === 0 &&
 				projectSourceSurfaceCompleteWhenMergedWithHost(projectType) &&
 				hostType?.exhaustive === true,
 		};
 	}
 	if (typeName.startsWith(PROJECT_TYPE_PREFIX)) {
-		const projectType = projectClassMembersByName(ctx).get(
-			typeName.slice(PROJECT_TYPE_PREFIX.length),
-		);
-		return projectType
-			? {
-				owner: projectType.name,
-				members: projectType.members,
-				exhaustive: projectType.exhaustive ?? projectType.kind === 'class',
-			}
-			: undefined;
+		const projectKey = typeName.slice(PROJECT_TYPE_PREFIX.length);
+		const projectType = projectClassMembersByName(ctx).get(projectKey);
+		const controls = implicitMembersOf(projectKey, ctx);
+		if (!projectType) {
+			return controls.length > 0
+				? { owner: ctx.meProjectType ?? projectKey, members: controls, exhaustive: false }
+				: undefined;
+		}
+		return {
+			owner: projectType.name,
+			members: mergeCompletionMembers(projectType.members, controls),
+			exhaustive: controls.length > 0
+				? false
+				: projectType.exhaustive ?? projectType.kind === 'class',
+		};
 	}
 	const runtimeObject = resolveRuntimeObjectType(typeName);
 	if (runtimeObject) {
@@ -1086,15 +1095,35 @@ function memberSurfaceForType(
 function msFormsControlMembers(typeName: string): HostMember[] | undefined {
 	const match = /^MSForms\.([A-Za-z][\w]*)$/.exec(typeName);
 	const members = match ? MSFORMS_REFERENCE_MEMBERS[match[1]] : undefined;
-    if (!members) {
-        return undefined;
-    }
+	if (!members) {
+		return undefined;
+	}
 	return members.map((member) => ({
 		name: member.name,
 		kind: member.kind,
 		returns: member.returns,
 		readOnly: member.readOnly,
 	})) as HostMember[];
+}
+
+/**
+ * A form's controls are members of the form itself, so `Me.` - and the form's
+ * own name, which reaches its predeclared instance - offers them alongside the
+ * code it declares. Only the module being edited has a control list to offer:
+ * the context carries one, and it is that module's.
+ */
+function implicitMembersOf(
+	projectKey: string,
+	ctx: MemberCompletionContext,
+): CompletionMemberSource[] {
+	if (!ctx.implicitMembers?.length || ctx.meProjectType?.toLowerCase() !== projectKey) {
+		return [];
+	}
+	return ctx.implicitMembers.map((member) => ({
+		name: member.name,
+		kind: 'property' as HostMemberKind,
+		returns: member.type,
+	}));
 }
 
 function resolveAnyMemberReturnType(
@@ -1125,7 +1154,8 @@ function resolveAnyMemberReturnType(
 			const type = resolveDeclaredObjectType(projectMember.returns, ctx, ctx.model);
 			return type ? { type, kind: projectMember.kind } : undefined;
 		}
-		return hostMemberReturn(combined.hostType, memberName, ctx.model);
+		return implicitMemberReturn(combined.projectKey, memberName, ctx)
+			?? hostMemberReturn(combined.hostType, memberName, ctx.model);
 	}
 	if (!ownerType.startsWith(PROJECT_TYPE_PREFIX)) {
 		const runtimeObject = resolveRuntimeObjectType(ownerType);
@@ -1137,17 +1167,28 @@ function resolveAnyMemberReturnType(
 		}
 		return hostMemberReturn(ownerType, memberName, ctx.model);
 	}
-	const projectType = projectClassMembersByName(ctx).get(
-		ownerType.slice(PROJECT_TYPE_PREFIX.length),
-	);
+	const projectKey = ownerType.slice(PROJECT_TYPE_PREFIX.length);
+	const projectType = projectClassMembersByName(ctx).get(projectKey);
 	const member = projectType?.members.find(
 		(m) => m.name.toLowerCase() === memberName.toLowerCase(),
 	);
 	if (!member?.returns) {
-		return undefined;
+		return implicitMemberReturn(projectKey, memberName, ctx);
 	}
 	const type = resolveDeclaredObjectType(member.returns, ctx, ctx.model);
 	return type ? { type, kind: member.kind } : undefined;
+}
+
+/** `Me.RegionPick.` chains through the control's own type. */
+function implicitMemberReturn(
+	projectKey: string,
+	memberName: string,
+	ctx: MemberCompletionContext,
+): ResolvedMemberReturn | undefined {
+	const control = implicitMembersOf(projectKey, ctx).find(
+		(member) => member.name.toLowerCase() === memberName.toLowerCase(),
+	);
+	return control?.returns ? { type: control.returns, kind: 'property' } : undefined;
 }
 
 function applyDefaultMemberReturnType(

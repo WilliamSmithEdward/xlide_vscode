@@ -33,12 +33,21 @@ function offsetInsideMarker(source: string, marker: string): number {
 
 function editorContext(fixture: VbaProjectFixture, moduleName: string) {
 	const { options, projectProcedures, projectSymbols } = fixtureContext(fixture, moduleName);
+	const mod = fixture.modules.find(
+		(candidate) => candidate.name.toLowerCase() === moduleName.toLowerCase(),
+	);
 	return {
 		moduleName,
 		projectClassMembers: options.projectClassMembers,
 		projectTypes: options.projectTypes,
 		projectProcedures,
 		projectSymbols,
+		implicitMembers: options.implicitMembers,
+		// What `Me` denotes, as the editor's own context service derives it.
+		meProjectType: mod && ['class', 'document', 'userform'].includes(mod.type ?? '')
+			? mod.name
+			: undefined,
+		meType: mod?.type === 'userform' ? 'MSForms.UserForm' : undefined,
 	};
 }
 

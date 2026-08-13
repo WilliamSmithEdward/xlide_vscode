@@ -13,6 +13,7 @@ import {
 import type {
 	AnalysisWorkerRequest,
 	AnalysisWorkerResponse,
+	WorkerImplicitMember,
 	WorkerSeedModule,
 } from './analysisWorkerProtocol';
 import type { ModuleSymbolKind } from './analyzer/symbols/symbolModel';
@@ -26,6 +27,8 @@ interface WorkbookState {
 	procedures: ReturnType<typeof projectProcedureSignatures>;
 	/** Memoized per analyzed module name (lowercased). */
 	optionsByModule: Map<string, VbaProjectAnalysisOptions>;
+	/** Host-supplied designer members, per seeded module name (lowercased). */
+	implicitMembersByModule: Map<string, WorkerImplicitMember[]>;
 }
 
 export class AnalysisWorkerState {
@@ -47,6 +50,11 @@ export class AnalysisWorkerState {
 					project,
 					procedures: projectProcedureSignatures(project),
 					optionsByModule: new Map(),
+					implicitMembersByModule: new Map(
+						request.modules
+							.filter((m) => m.implicitMembers !== undefined)
+							.map((m) => [m.moduleName.toLowerCase(), m.implicitMembers as WorkerImplicitMember[]]),
+					),
 				});
 				return undefined;
 			}
@@ -73,6 +81,7 @@ export class AnalysisWorkerState {
 		request: Extract<AnalysisWorkerRequest, { kind: 'analyze' }>,
 	): AnalysisWorkerResponse {
 		let projectOptions: VbaProjectAnalysisOptions = {};
+		let seededImplicitMembers: WorkerImplicitMember[] | undefined;
 		if (request.workbookKey !== undefined) {
 			const workbook = this._workbooks.get(request.workbookKey);
 			if (!workbook || (request.generation !== undefined && workbook.generation !== request.generation)) {
@@ -94,6 +103,18 @@ export class AnalysisWorkerState {
 				workbook.optionsByModule.set(moduleKey, options);
 			}
 			projectOptions = options;
+			seededImplicitMembers = workbook.implicitMembersByModule.get(moduleKey);
+		}
+
+		// A form's controls reach the analysis from whoever actually knows them:
+		// the request (a host reading the live designer), else the seed, else
+		// the worker's own parse of a `.frm` header. The first two are the only
+		// route for a host that seeds CodeModule text, which carries no header.
+		const implicitMembers = request.implicitMembers
+			?? seededImplicitMembers
+			?? projectOptions.implicitMembers;
+		if (implicitMembers !== projectOptions.implicitMembers) {
+			projectOptions = { ...projectOptions, implicitMembers };
 		}
 
 		const fingerprint = [
@@ -103,6 +124,9 @@ export class AnalysisWorkerState {
 			request.moduleType ?? '',
 			request.moduleKind ?? '',
 			request.documentType ?? '',
+			// Editing the designer changes diagnostics without changing a line
+			// of code, so incremental reuse has to see the control list.
+			JSON.stringify(implicitMembers ?? null),
 		] as const;
 
 		const result = analyzeVbaModuleSource({

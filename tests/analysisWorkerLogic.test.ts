@@ -94,6 +94,137 @@ describe('AnalysisWorkerState', () => {
 	});
 });
 
+describe('AnalysisWorkerState host-supplied implicit members', () => {
+	// A form's controls are declared by the designer, and a host that seeds
+	// CodeModule text (xlide_vbide reads the VBE, not a .frm file) sends source
+	// with no designer header for the worker to read them out of. Without a way
+	// across the boundary every control reference reads as undeclared.
+	const FORM_SOURCE = [
+		'Option Explicit',
+		'Private Sub UserForm_Initialize()',
+		'    RegionPick.AddItem "West"',
+		'End Sub',
+	].join('\n');
+	const CONTROLS = [{ name: 'RegionPick', type: 'MSForms.ComboBox' }];
+	const undeclaredNames = (diagnostics: readonly { code: string; message: string }[]): string[] =>
+		diagnostics.filter((d) => d.code === 'undeclared-variable').map((d) => d.message);
+
+	it('reports a control as undeclared when nothing supplies it', () => {
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			modules: [{ moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform' }],
+		});
+		const response = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+		});
+		expect(response?.kind).toBe('result');
+		if (response?.kind !== 'result') { return; }
+		expect(undeclaredNames(response.diagnostics).some((m) => m.includes('RegionPick'))).toBe(true);
+	});
+
+	it('takes implicit members from the seed and matches the in-host pass', () => {
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			modules: [{
+				moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform',
+				implicitMembers: CONTROLS,
+			}],
+		});
+		const response = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+		});
+		expect(response?.kind).toBe('result');
+		if (response?.kind !== 'result') { return; }
+		expect(undeclaredNames(response.diagnostics)).toEqual([]);
+
+		const project = buildVbaProjectIndex([{ moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform' }]);
+		const inHost = analyzeVbaModuleSource({
+			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+			...projectAnalysisOptionsForModule(project, 'FrmPicker', projectProcedureSignatures(project)),
+			implicitMembers: CONTROLS,
+		});
+		expect(response.diagnostics).toEqual(inHost.diagnostics);
+	});
+
+	it('lets the analyze request override what the seed said', () => {
+		// The designer is edited far more often than a module is re-seeded, so
+		// the request is what a host with live designer state sends.
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			modules: [{
+				moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform',
+				implicitMembers: [{ name: 'StaleName', type: 'MSForms.ComboBox' }],
+			}],
+		});
+		const response = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+			implicitMembers: CONTROLS,
+		});
+		expect(response?.kind).toBe('result');
+		if (response?.kind !== 'result') { return; }
+		expect(undeclaredNames(response.diagnostics)).toEqual([]);
+	});
+
+	it('re-analyzes when the request changes the controls', () => {
+		// A renamed control changes diagnostics without changing a line of
+		// code, so the control list has to reach the incremental fingerprint -
+		// otherwise the first answer sticks for the rest of the session.
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			modules: [{ moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform' }],
+		});
+		const first = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+			implicitMembers: CONTROLS,
+		});
+		expect(first?.kind === 'result' ? undeclaredNames(first.diagnostics) : undefined).toEqual([]);
+		const renamed = state.handle({
+			kind: 'analyze', requestId: 2, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+			implicitMembers: [{ name: 'RegionPicker', type: 'MSForms.ComboBox' }],
+		});
+		expect(renamed?.kind).toBe('result');
+		if (renamed?.kind !== 'result') { return; }
+		expect(undeclaredNames(renamed.diagnostics).some((m) => m.includes('RegionPick'))).toBe(true);
+	});
+
+	it('keeps the designer-header parse when the host supplies nothing', () => {
+		// A standalone .frm still carries its control tree in its own text, and
+		// the new field must not displace that.
+		const withHeader = [
+			'VERSION 5.00',
+			'Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} FrmPicker ',
+			'   Caption         =   "Pick"',
+			'   Begin Forms.ComboBox.1 RegionPick ',
+			'      Height          =   24',
+			'   End',
+			'End',
+			"Attribute VB_Name = \"FrmPicker\"",
+			...FORM_SOURCE.split('\n'),
+		].join('\n');
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed', workbookKey: 'wb-frm', generation: 1,
+			modules: [{ moduleName: 'FrmPicker', source: withHeader, type: 'userform' }],
+		});
+		const response = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'doc-frm', workbookKey: 'wb-frm', generation: 1,
+			source: withHeader, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+		});
+		expect(response?.kind).toBe('result');
+		if (response?.kind !== 'result') { return; }
+		expect(undeclaredNames(response.diagnostics)).toEqual([]);
+	});
+});
+
 describe('AnalysisWorkerState suppressed diagnostics', () => {
 	it('returns suppressed findings alongside active ones', () => {
 		// Analyze Workbook reports suppressed problems in their own panel

@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "id": "userform-designer-members-canary",
+  "description": "Issue #18. A form's controls are declared by the designer, and Excel keeps that control tree in a binary blob the analyzer never sees - the module text a host reads from the VBE (or from the workbook) carries only code. So the members arrive from the host, and every surface has to use them: the code-behind must not report a control as undeclared, a control must offer its own type's members, and `Me.` must offer the controls, the form's own code and the MSForms.UserForm surface it inherits.",
+  "modules": [
+    {
+      "name": "FrmPicker",
+      "type": "userform",
+      "moduleKind": "userform",
+      "implicitMembers": [
+        { "name": "RegionPick", "type": "MSForms.ComboBox" },
+        { "name": "Taxable", "type": "MSForms.CheckBox" },
+        { "name": "NameBox", "type": "MSForms.TextBox" }
+      ],
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Cancelled As Boolean",
+        "",
+        "Private Sub UserForm_Initialize()",
+        "    RegionPick.AddItem \"West\"",
+        "    Taxable.Value = True",
+        "    NameBox.Text = \"\"",
+        "End Sub",
+        "",
+        "Private Sub OkButton_Click()",
+        "    Me.Hide",
+        "End Sub",
+        "",
+        "Private Sub Untyped()",
+        "    Debug.Print Mystery",
+        "End Sub",
+        "",
+        "Private Sub ControlMembers()",
+        "    RegionPick.",
+        "End Sub",
+        "",
+        "Private Sub FormMembers()",
+        "    Me.",
+        "End Sub",
+        "",
+        "Private Sub ChainedControl()",
+        "    Me.RegionPick.",
+        "End Sub"
+      ]
+    },
+    {
+      "name": "Launcher",
+      "type": "standard",
+      "sourceLines": [
+        "Option Explicit",
+        "",
+        "Public Sub Launch()",
+        "    FrmPicker.Show",
+        "End Sub"
+      ]
+    }
+  ],
+  "assertions": {
+    "diagnostics": [
+      {
+        "moduleName": "FrmPicker",
+        "codes": [
+          {
+            "code": "undeclared-variable",
+            "count": 1,
+            "messagesContain": [
+              "Mystery"
+            ]
+          }
+        ]
+      }
+    ],
+    "memberCompletions": [
+      {
+        "moduleName": "FrmPicker",
+        "marker": "    RegionPick.",
+        "include": [
+          "AddItem",
+          "ListIndex"
+        ],
+        "exclude": [
+          "Caption"
+        ]
+      },
+      {
+        "moduleName": "FrmPicker",
+        "marker": "Private Sub FormMembers()\n    Me.",
+        "include": [
+          "RegionPick",
+          "Taxable",
+          "NameBox",
+          "Cancelled",
+          "Caption",
+          "Controls"
+        ]
+      },
+      {
+        "moduleName": "FrmPicker",
+        "marker": "    Me.RegionPick.",
+        "include": [
+          "AddItem"
+        ]
+      }
+    ]
+  }
+}

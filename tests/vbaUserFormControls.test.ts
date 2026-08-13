@@ -3,6 +3,7 @@ import { parseUserFormControls } from '../src/vbaUserFormControls';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import { resolveMemberCompletions } from '../src/analyzer';
+import { resolveMemberSurfaceAt } from '../src/analyzer/completion/memberAccess';
 
 // Issue #17. A form's controls are members of the form's class, declared by the
 // designer rather than by any line of code, so code-behind referring to them is
@@ -213,5 +214,77 @@ describe('a control offers its own type members', () => {
 		expect(resolveMemberCompletions(source, source.indexOf('Mystery.') + 8, {
 			implicitMembers: IMPLICIT,
 		} as never)).toEqual([]);
+	});
+});
+
+describe('Me in a form', () => {
+	// Issue #18, second half: control RECEIVERS were typed, but the form's own
+	// member surface behind `Me.` was not enumerated at all.
+	const IMPLICIT = [
+		{ name: 'RegionPick', type: 'MSForms.ComboBox' },
+		{ name: 'NameBox', type: 'MSForms.TextBox' },
+	];
+	const FORM_CTX = {
+		meProjectType: 'EntryForm',
+		meType: 'MSForms.UserForm',
+		implicitMembers: IMPLICIT,
+		projectClassMembers: [{
+			name: 'EntryForm',
+			kind: 'userform',
+			members: [{ name: 'Cancelled', kind: 'property', returns: 'Boolean' }],
+		}],
+	};
+
+	function membersAfter(expression: string, ctx: unknown = FORM_CTX): string[] {
+		const source = `Private Sub UserForm_Initialize()\r\n    ${expression}\r\nEnd Sub\r\n`;
+		const at = source.indexOf(expression) + expression.length;
+		return resolveMemberCompletions(source, at, ctx as never).map((m) => m.name);
+	}
+
+	it('offers the controls the designer declared', () => {
+		const members = membersAfter('Me.');
+		expect(members).toContain('RegionPick');
+		expect(members).toContain('NameBox');
+	});
+
+	it('offers the form module s own code', () => {
+		expect(membersAfter('Me.')).toContain('Cancelled');
+	});
+
+	it('offers the MSForms.UserForm surface it inherits', () => {
+		const members = membersAfter('Me.');
+		expect(members).toContain('Caption');
+		expect(members).toContain('Controls');
+		expect(members).toContain('Repaint');
+	});
+
+	it('chains through a control to that control s own members', () => {
+		expect(membersAfter('Me.RegionPick.')).toContain('AddItem');
+		expect(membersAfter('Me.NameBox.')).not.toContain('AddItem');
+	});
+
+	it('offers the same surface through the form s predeclared instance', () => {
+		// `EntryForm.RegionPick` is how the same form is addressed by name.
+		expect(membersAfter('EntryForm.')).toContain('RegionPick');
+	});
+
+	it('never claims the surface is complete', () => {
+		// A form carries designer and extender members this does not enumerate,
+		// so absence must not become a diagnostic about form code.
+		const source = 'Private Sub T()\r\n    Me.\r\nEnd Sub\r\n';
+		const surface = resolveMemberSurfaceAt(source, source.indexOf('Me.') + 3, FORM_CTX as never);
+		expect(surface?.exhaustive).toBe(false);
+	});
+
+	it('offers another module s controls to nobody', () => {
+		// The context carries one control list - the edited module's. Reaching a
+		// different form by name must not hand out this form's controls.
+		expect(membersAfter('OtherForm.', {
+			...FORM_CTX,
+			projectClassMembers: [
+				...FORM_CTX.projectClassMembers,
+				{ name: 'OtherForm', kind: 'userform', members: [] },
+			],
+		})).not.toContain('RegionPick');
 	});
 });

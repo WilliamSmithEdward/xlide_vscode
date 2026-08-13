@@ -33,6 +33,7 @@ import { VbaProjectIndexService } from './vbaProjectIndexService';
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
 const CHART = 'Excel.Chart';
+const USERFORM = 'MSForms.UserForm';
 const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
 const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
 
@@ -52,6 +53,8 @@ export interface EditorProjectContext {
 	meProjectType?: string;
 	projectTypes?: TypeCompletionContext['projectTypes'];
 	projectClassMembers?: MemberCompletionContext['projectClassMembers'];
+	/** A form's designer-declared controls, when the module text carries them. */
+	implicitMembers?: MemberCompletionContext['implicitMembers'];
 	projectProcedures?: readonly VbaProcedureSignature[];
 	projectSymbols?: IdentifierCompletionContext['projectSymbols'];
 }
@@ -69,6 +72,11 @@ interface EditorProjectContextBuild {
 
 /** Maps a document module to the host type that `Me` denotes inside it. */
 function meTypeFor(entry: ModuleEntry | undefined): string | undefined {
+	if (entry?.type === 'userform') {
+		// A form IS an MSForms.UserForm, so `Me.` reaches Caption, Controls and
+		// the rest of that surface as well as the form's own code.
+		return USERFORM;
+	}
 	if (!entry || entry.type !== 'document') {
 		return undefined;
 	}
@@ -138,6 +146,7 @@ export function toMemberCompletionContext(ctx: EditorProjectContext): MemberComp
 		meType: ctx.meType,
 		meProjectType: ctx.meProjectType,
 		projectClassMembers: ctx.projectClassMembers,
+		implicitMembers: ctx.implicitMembers,
 	};
 }
 
@@ -301,6 +310,7 @@ export class VbaEditorProjectContextService {
 					moduleKind: 'standard',
 					projectTypes: context.analysisOptions.projectTypes,
 					projectClassMembers: context.analysisOptions.projectClassMembers,
+					implicitMembers: context.analysisOptions.implicitMembers,
 					projectProcedures: context.externalProjectProcedures,
 					projectSymbols: context.externalProjectSymbols,
 				}, documentVersion);
@@ -345,6 +355,7 @@ export class VbaEditorProjectContextService {
 				meProjectType: meProjectTypeFor(current),
 				projectTypes: context.analysisOptions.projectTypes,
 				projectClassMembers: context.analysisOptions.projectClassMembers,
+				implicitMembers: context.analysisOptions.implicitMembers,
 				projectProcedures: context.externalProjectProcedures,
 				projectSymbols: context.externalProjectSymbols,
 			}, documentVersion);
@@ -416,6 +427,7 @@ export class VbaEditorProjectContextService {
 				meProjectType: identity.meProjectType,
 				projectTypes: context.analysisOptions.projectTypes,
 				projectClassMembers: context.analysisOptions.projectClassMembers,
+				implicitMembers: context.analysisOptions.implicitMembers,
 				projectProcedures: context.externalProjectProcedures,
 				projectSymbols: context.externalProjectSymbols,
 			};

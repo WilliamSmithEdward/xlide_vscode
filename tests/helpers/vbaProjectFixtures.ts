@@ -18,6 +18,13 @@ export interface VbaProjectFixtureModule {
 	moduleKind?: VbaProjectModuleInput['moduleKind'];
 	documentType?: VbaProjectModuleInput['documentType'];
 	sourceLines: string[];
+	/**
+	 * Members the module has that its own text never declares - a form's
+	 * controls, as a host that reads the designer supplies them. Module text
+	 * cannot express them: Excel stores a form's control tree in a binary
+	 * designer blob, not in the code the analyzer sees.
+	 */
+	implicitMembers?: { name: string; type: string }[];
 }
 
 export interface VbaProjectFixtureTypeAssertion {
@@ -193,9 +200,14 @@ export function fixtureContext(
 ): VbaProjectFixtureContext {
 	const project = buildFixtureProject(fixture);
 	const context = projectEditorSymbolContextForModule(project, moduleName);
+	const implicitMembers = fixture.modules.find(
+		(mod) => mod.name.toLowerCase() === moduleName.toLowerCase(),
+	)?.implicitMembers;
 	return {
 		project,
-		options: context.analysisOptions,
+		options: implicitMembers
+			? { ...context.analysisOptions, implicitMembers }
+			: context.analysisOptions,
 		projectProcedures: context.externalProjectProcedures,
 		projectSymbols: context.externalProjectSymbols,
 	};

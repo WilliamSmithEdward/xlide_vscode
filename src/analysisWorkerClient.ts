@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import type {
 	AnalysisWorkerRequest,
 	AnalysisWorkerResponse,
+	WorkerImplicitMember,
 	WorkerSeedModule,
 } from './analysisWorkerProtocol';
 import type { VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
@@ -23,6 +24,8 @@ export interface WorkerAnalyzeRequest {
 	documentType?: string;
 	severityOverrides?: Record<string, string>;
 	activeIncompleteExpressionOffset?: number;
+	/** Designer-declared members of this module, when the caller knows them. */
+	implicitMembers?: WorkerImplicitMember[];
 }
 
 export interface WorkerAnalyzeResult {
