@@ -2,6 +2,32 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.8.0] - 2026-08-13
+
+### Added
+
+- **A method call on a form's control is colored like a method.**
+  `RegionPick.AddItem` now paints the way `Len` does, instead of reading as
+  a plain identifier. Only a call that actually resolves is colored: a
+  property such as `Taxable.Value` is left alone, so is a member the control
+  does not have, and so is a name in a module that has no such control. A
+  `With` block's leading dot is a member of the block's own receiver and is
+  never colored as the control on the line above.
+
+- **A control offers the members every control has.** `SetFocus`, `Move`,
+  `ZOrder`, `Left`, `Top`, `Width`, `Height`, `Visible`, `Name` and `Tag` are
+  declared once on the Microsoft Forms base class rather than repeated on each
+  control type, so completion, hover and the call tip had none of them:
+  `NameBox.` offered `Text` but not `SetFocus`. They are all offered now.
+
+### Fixed
+
+- **Completion on a control no longer offers Microsoft Forms' internal
+  plumbing.** Fourteen `_`-prefixed dispatch entries (`_GetGridX`,
+  `_SetLeft`) were being offered on a form and its controls. VBA's own editor
+  hides them, and so does XLIDE now: the member table drops from 1,014 entries
+  to 904.
+
 ## [3.7.0] - 2026-08-13
 
 ### Added
