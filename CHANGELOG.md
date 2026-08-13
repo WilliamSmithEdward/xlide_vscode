@@ -2,6 +2,46 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.7.0] - 2026-08-13
+
+### Added
+
+- **`Me.` in a form offers what a form actually has.** It offered nothing at
+  all. It now lists the controls the designer declared, the form's own
+  procedures and fields, and the surface every form carries: `Caption`,
+  `Controls`, `Repaint`, and the members VBA adds on top of Microsoft Forms -
+  `Show`, `Hide`, `Move`, `Name`, `Tag`, `Left`, `Top`, `Width`, `Height`,
+  `Visible`. Those last ones are in no type library, so they were verified by
+  asking a real form in Excel which members it answers to. `Me.RegionPick.`
+  chains into that control's own members, and the form's name reaches the same
+  surface as `Me` does, since that is how a form's predeclared instance is
+  addressed.
+
+- **Hover and the call tip answer on a form's controls.** Hovering a control
+  gives `RegionPick As MSForms.ComboBox` and says which form it belongs to.
+  Hovering one of its members gives the member's real call signature -
+  `ComboBox.AddItem([pvargItem As Variant], [pvargIndex As Variant])` - and
+  typing that call now shows a parameter tip, where before there was no
+  signature to show at all.
+
+- **The analysis worker accepts a form's controls from its host.** XLIDE's
+  analyzer also runs inside other editors, and one that reads the VBA
+  designer directly knows a form's controls when nothing in the module text
+  does. Both the project seed and each analysis request now carry them, and a
+  changed control list re-analyzes rather than reusing the previous answer.
+
+### Fixed
+
+- **Correction to what 3.6.0 said about reading a form's controls.** It
+  claimed XLIDE reads the control list out of the form's own header. Checked
+  against a real Excel workbook, that does not hold: a UserForm exported from
+  Excel stores its control tree in a binary `.frx` blob rather than in the
+  text of the `.frm`, and the copy inside a workbook carries no designer
+  header at all. The header format 3.6.0 reads is Visual Basic 6's. Reading
+  the binary designer is separate work; until then a form's controls are known
+  when a host supplies them, and code-behind in a workbook-backed form can
+  still report a control as an undeclared variable.
+
 ## [3.6.0] - 2026-08-13
 
 ### Added
