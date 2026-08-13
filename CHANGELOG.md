@@ -2,6 +2,38 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [3.6.0] - 2026-08-13
+
+### Added
+
+- **A UserForm's controls are understood as members of the form.** A form's
+  controls are declared by the designer, not by any line of code, so
+  code-behind saying `RegionPick.AddItem "North"` is correct VBA - but every
+  such reference was reported as an undeclared variable, five findings on a
+  small real form. XLIDE now reads the control list out of the form's own
+  header, so those references resolve, and `RegionPick.` offers that control's
+  members: a ComboBox offers `AddItem` and `ListIndex`, a TextBox offers
+  `Text`. A name in a form that is not a control is still reported.
+
+### Fixed
+
+- **No more false "object variable is Nothing" on a `Dim x As New` variable.**
+  VBA creates such a variable the moment anything touches it - including after
+  `Set x = Nothing` - so the error it was warning about cannot happen. The
+  warning it exists for still appears on a variable that was never `Set`.
+
+- **Completion, go to definition and signature help work on names that are not
+  written in Latin script.** Four more places measured the cursor's word with
+  an A-Z-only pattern: completion had no word to filter on, go to definition
+  did not see a module qualifier like `Модуль.Метод`, event-handler completion
+  missed the name, and signature help could not read a parameter named in
+  another script.
+
+  This closes a family of problems that also produced fixes in 3.1.5, 3.2.1,
+  3.3.0 and 3.5.0. Each earlier fix stopped at the layer where the problem was
+  found; the language test matrix now covers storage, analysis and the editor
+  together, on Linux and Windows.
+
 ## [3.5.0] - 2026-08-09
 
 ### Added
