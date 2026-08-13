@@ -475,6 +475,15 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * A module's source as the index holds it, by module name. A UserForm's
+	 * controls are declared in its `.frm` header rather than its code, so
+	 * reading them needs the text the index already has.
+	 */
+	moduleSource(moduleName: string): string | undefined {
+		return this.moduleSources.get(moduleName.toLowerCase());
+	}
+
+	/**
 	 * Interfaces a module declares with `Implements`, by module name. Renaming
 	 * an interface needs this to know which classes carry its member prefix.
 	 */

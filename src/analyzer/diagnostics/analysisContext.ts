@@ -110,6 +110,15 @@ export interface AnalyzeModuleOptions {
 	 */
 	knownIdentifiers?: ReadonlySet<string>;
 	/**
+	 * Members the module has that no line of its own text declares - a UserForm's
+	 * controls, declared by the designer. Referring to one is correct VBA, so
+	 * without this every reference reads as an undeclared variable.
+	 *
+	 * Carries the type as well as the name so a member lookup can resolve it,
+	 * rather than only silencing the finding.
+	 */
+	implicitMembers?: readonly { name: string; type: string }[];
+	/**
 	 * Exported Sub/Function/Declare signatures across the workbook project, grouped by
 	 * lowercased procedure name. When omitted, type and arity validation remain
 	 * single-module only.

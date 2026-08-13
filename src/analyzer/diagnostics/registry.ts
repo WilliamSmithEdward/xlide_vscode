@@ -248,6 +248,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectProcedures,
 			ctx.opts.projectClassMembers,
 			ctx.opts.projectVisibleSymbols,
+			ctx.opts.implicitMembers,
 			push,
 		),
 	},

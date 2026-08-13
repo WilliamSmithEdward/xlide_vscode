@@ -390,11 +390,15 @@ export function checkUndeclaredVariables(
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	implicitMembers: readonly { name: string; type: string }[] | undefined,
 	push: PushFn,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
 	}
+	const implicitMemberNames = new Set(
+		(implicitMembers ?? []).map((member) => member.name.toLowerCase()),
+	);
 
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const appMembers = applicationMemberNames();
@@ -406,6 +410,9 @@ export function checkUndeclaredVariables(
 		const lower = name.toLowerCase();
 		return (
 			lower === 'vba' ||
+			// A UserForm's controls are members the designer declared, not the
+			// module's text; referring to one is correct VBA.
+			implicitMemberNames.has(lower) ||
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, context) ||
 			knownIdentifiers.has(lower) ||
 			appMembers.has(lower) ||

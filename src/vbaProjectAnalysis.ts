@@ -1,3 +1,4 @@
+import { parseUserFormControls } from './vbaUserFormControls';
 import {
     ProjectIndex,
     type AnalyzeModuleOptions,
@@ -44,6 +45,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectTypes'
     | 'projectVisibleSymbols'
     | 'projectIntegerConstants'
+    | 'implicitMembers'
 >;
 
 export interface VbaProjectEditorSymbolContext {
@@ -186,6 +188,14 @@ export function projectAnalysisOptionsForModule(
         options.projectVisibleSymbols = project.visibleIdentifierSymbols(moduleName);
         options.projectClassMembers = project.projectMemberSurfaces(moduleName);
         options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
+        // A UserForm's controls are members its own text never declares, so
+        // without them every reference in the code-behind reads as undeclared.
+        // The .frm header carries the control tree, which is enough to know
+        // them without a host being able to ask the designer.
+        const controls = parseUserFormControls(project.moduleSource?.(moduleName) ?? '');
+        if (controls.length > 0) {
+            options.implicitMembers = controls;
+        }
     } catch {
         // Leave every project-sensitive option absent when the index cannot
         // answer the module-specific question. Single-module analysis remains
