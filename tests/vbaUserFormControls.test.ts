@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseUserFormControls } from '../src/vbaUserFormControls';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { resolveMemberCompletions } from '../src/analyzer';
 
 // Issue #17. A form's controls are members of the form's class, declared by the
 // designer rather than by any line of code, so code-behind referring to them is
@@ -167,5 +168,50 @@ describe('a form code-behind referring to its controls', () => {
 			{ moduleName: 'Module1', source: 'Attribute VB_Name = "Module1"\r\nOption Explicit\r\n' },
 		]);
 		expect(projectAnalysisOptionsForModule(project, 'Module1').implicitMembers).toBeUndefined();
+	});
+});
+
+describe('a control offers its own type members', () => {
+	// The second half of #17: knowing the NAME stops the false finding, knowing
+	// the TYPE is what makes `RegionPick.` useful.
+	const IMPLICIT = [
+		{ name: 'RegionPick', type: 'MSForms.ComboBox' },
+		{ name: 'Taxable', type: 'MSForms.CheckBox' },
+		{ name: 'NameBox', type: 'MSForms.TextBox' },
+	];
+
+	function membersAfterDot(controlName: string): string[] {
+		const source = `Private Sub UserForm_Initialize()\r\n    ${controlName}.\r\nEnd Sub\r\n`;
+		const at = source.indexOf(`${controlName}.`) + controlName.length + 1;
+		return resolveMemberCompletions(source, at, { implicitMembers: IMPLICIT } as never)
+			.map((m) => m.name);
+	}
+
+	it('offers ComboBox members, including the one from the report', () => {
+		const members = membersAfterDot('RegionPick');
+		expect(members).toContain('AddItem');
+		expect(members).toContain('ListIndex');
+		expect(members.length).toBeGreaterThan(20);
+	});
+
+	it('offers CheckBox members', () => {
+		expect(membersAfterDot('Taxable')).toContain('Value');
+	});
+
+	it('offers TextBox members', () => {
+		expect(membersAfterDot('NameBox')).toContain('Text');
+	});
+
+	it('gives each control its own members, not a shared set', () => {
+		// AddItem belongs to a ComboBox and not to a TextBox; a fix that typed
+		// every control the same would pass the tests above and fail this one.
+		expect(membersAfterDot('NameBox')).not.toContain('AddItem');
+	});
+
+	it('offers nothing for a name that is not a control', () => {
+		const source = 'Private Sub T()\r\n    Mystery.\r\nEnd Sub\r\n';
+		expect(resolveMemberCompletions(source, source.indexOf('Mystery.') + 8, {
+			implicitMembers: IMPLICIT,
+		} as never)).toEqual([]);
 	});
 });

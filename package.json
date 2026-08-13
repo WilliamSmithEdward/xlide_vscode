@@ -1069,6 +1069,7 @@
     "test:coverage": "vitest run --coverage",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
+    "generate:reference:msforms": "node scripts/generate-msforms-reference-metadata.mjs",
     "test:oracle:vbe": "node syntax_corpus/oracle/run_excel_vbe_oracle.mjs",
     "verify:excel:formats": "node scripts/verify-excel-formats.mjs"
   },

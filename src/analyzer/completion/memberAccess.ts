@@ -11,6 +11,7 @@
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
 import { IDENT_RE, isIdentLike } from '../lexer/tokenHelpers';
+import { MSFORMS_REFERENCE_MEMBERS } from '../host/msformsReferenceMembers';
 import { completionCursorContext } from './cursorContext';
 import { parseModule } from '../parser/parseModule';
 import {
@@ -59,6 +60,12 @@ export interface MemberCompletionContext {
 	meProjectType?: string;
 	/** Source-declared workbook object members and visible UDT fields, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
+	/**
+	 * Members the module has that its own text never declares - a UserForm's
+	 * controls. Carries the type, so `RegionPick.` can offer ComboBox members
+	 * rather than only escaping the undeclared-variable finding.
+	 */
+	implicitMembers?: readonly { name: string; type: string }[];
 	/**
 	 * True/default lets generic Object/Variant receivers narrow from preceding
 	 * simple Set assignments. Hard diagnostics disable this because VBA still
@@ -835,6 +842,12 @@ function resolveRoot(
 			? undefined
 			: findSetAssignedObjectType(source, offset, root, ctx);
 	}
+	const implicitMember = (ctx.implicitMembers ?? []).find(
+		(member) => member.name.toLowerCase() === lower,
+	);
+	if (implicitMember) {
+		return implicitMember.type;
+	}
 	const projectSurface = projectClassMembersByName(ctx).get(lower);
 	const projectKey = projectSurface ? lower : undefined;
 	const runtimeObject = resolveRuntimeObject(root);
@@ -1051,12 +1064,37 @@ function memberSurfaceForType(
 			exhaustive: runtimeObject.exhaustive,
 		};
 	}
+	const controlMembers = msFormsControlMembers(typeName);
+	if (controlMembers) {
+		return {
+			owner: typeName,
+			members: controlMembers,
+			// Not exhaustive: this list is for offering members, and treating it
+			// as complete would let absence become a diagnostic about form code.
+			exhaustive: false,
+		};
+	}
 	const hostType = getHostType(typeName, ctx.model);
 	return {
 		owner: typeName,
 		members: getHostMembers(typeName, ctx.model),
 		exhaustive: hostType?.exhaustive === true,
 	};
+}
+
+/** Members of `MSForms.ComboBox` and friends, for a form's controls. */
+function msFormsControlMembers(typeName: string): HostMember[] | undefined {
+	const match = /^MSForms\.([A-Za-z][\w]*)$/.exec(typeName);
+	const members = match ? MSFORMS_REFERENCE_MEMBERS[match[1]] : undefined;
+    if (!members) {
+        return undefined;
+    }
+	return members.map((member) => ({
+		name: member.name,
+		kind: member.kind,
+		returns: member.returns,
+		readOnly: member.readOnly,
+	})) as HostMember[];
 }
 
 function resolveAnyMemberReturnType(
