@@ -32,7 +32,16 @@ function membersOf(dump) {
         });
     }
     for (const method of dump.methods ?? []) {
-        out.push({ name: method.name, kind: 'method', returns: method.returns || undefined });
+        out.push({
+            name: method.name,
+            kind: 'method',
+            returns: method.returns || undefined,
+            // The call signature the dump carries verbatim, e.g.
+            // `AddItem([pvargItem As Variant], [pvargIndex As Variant])`. Hover
+            // and the call tip show it; without it a control method could only
+            // be described as taking nothing (issue #19).
+            signature: method.signature || undefined,
+        });
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
@@ -68,6 +77,8 @@ lines.push('\tname: string;');
 lines.push("\tkind: 'property' | 'method';");
 lines.push('\treturns?: string;');
 lines.push('\treadOnly?: boolean;');
+lines.push('\t/** Call signature as the dump wrote it, for methods that have one. */');
+lines.push('\tsignature?: string;');
 lines.push('}');
 lines.push('');
 lines.push('/** Control type name (without the MSForms prefix) -> its members. */');

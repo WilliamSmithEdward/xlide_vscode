@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseUserFormControls } from '../src/vbaUserFormControls';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
-import { resolveMemberCompletions } from '../src/analyzer';
+import { resolveMemberCompletions, resolveHover, resolveSignatureHelp } from '../src/analyzer';
 import { resolveMemberSurfaceAt } from '../src/analyzer/completion/memberAccess';
 
 // Issue #17. A form's controls are members of the form's class, declared by the
@@ -214,6 +214,66 @@ describe('a control offers its own type members', () => {
 		expect(resolveMemberCompletions(source, source.indexOf('Mystery.') + 8, {
 			implicitMembers: IMPLICIT,
 		} as never)).toEqual([]);
+	});
+});
+
+describe('hover and signature help on a form s controls', () => {
+	// Issue #19. Completion answered on both the control and its members while
+	// hover answered nothing on either, and the call tip had no signature to
+	// show for a control method.
+	const IMPLICIT = [
+		{ name: 'RegionPick', type: 'MSForms.ComboBox' },
+		{ name: 'NameBox', type: 'MSForms.TextBox' },
+	];
+	const CTX = {
+		moduleName: 'EntryForm',
+		moduleKind: 'userform',
+		meProjectType: 'EntryForm',
+		meType: 'MSForms.UserForm',
+		implicitMembers: IMPLICIT,
+	};
+	const SOURCE = [
+		'Option Explicit',
+		'',
+		'Private Sub UserForm_Initialize()',
+		'    RegionPick.AddItem "North"',
+		'End Sub',
+		'',
+	].join('\r\n');
+
+	it('describes the control itself, with the type the designer gave it', () => {
+		const at = SOURCE.indexOf('RegionPick') + 3;
+		const info = resolveHover(SOURCE, at, CTX as never);
+		expect(info?.signature).toBe('RegionPick As MSForms.ComboBox');
+		expect(info?.details.join(' ')).toContain('EntryForm');
+	});
+
+	it('describes a member of the control', () => {
+		const at = SOURCE.indexOf('.AddItem') + 4;
+		const info = resolveHover(SOURCE, at, CTX as never);
+		expect(info?.signature).toContain('AddItem');
+		expect(info?.details.join(' ')).toContain('ComboBox');
+	});
+
+	it('carries the call signature the forms metadata holds', () => {
+		// Qualified by its owner, the way every other member hover reads.
+		const at = SOURCE.indexOf('.AddItem') + 4;
+		expect(resolveHover(SOURCE, at, CTX as never)?.signature)
+			.toBe('ComboBox.AddItem([pvargItem As Variant], [pvargIndex As Variant])');
+	});
+
+	it('offers a call tip inside a control method call', () => {
+		const source = 'Private Sub T()\r\n    RegionPick.AddItem "North"\r\nEnd Sub\r\n';
+		const info = resolveSignatureHelp(source, source.indexOf('"North"'), CTX as never);
+		expect(info?.label).toContain('AddItem');
+		expect(info?.parameters.map((p) => p.label)).toEqual([
+			'[pvargItem As Variant]', '[pvargIndex As Variant]',
+		]);
+	});
+
+	it('says nothing about a name that is not a control', () => {
+		const source = 'Private Sub T()\r\n    Mystery.Thing\r\nEnd Sub\r\n';
+		expect(resolveHover(source, source.indexOf('Mystery') + 3, CTX as never)).toBeUndefined();
 	});
 });
 

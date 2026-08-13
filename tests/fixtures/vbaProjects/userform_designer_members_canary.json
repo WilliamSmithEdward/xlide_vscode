@@ -104,6 +104,35 @@
           "AddItem"
         ]
       }
+    ],
+    "hovers": [
+      {
+        "moduleName": "FrmPicker",
+        "marker": "RegionPick",
+        "signature": "RegionPick As MSForms.ComboBox",
+        "detailsContain": [
+          "Control on the FrmPicker form"
+        ]
+      },
+      {
+        "moduleName": "FrmPicker",
+        "marker": "AddItem",
+        "signature": "ComboBox.AddItem([pvargItem As Variant], [pvargIndex As Variant])",
+        "detailsContain": [
+          "ComboBox method"
+        ]
+      }
+    ],
+    "signatureHelp": [
+      {
+        "moduleName": "FrmPicker",
+        "marker": "RegionPick.AddItem ",
+        "label": "AddItem([pvargItem As Variant], [pvargIndex As Variant])",
+        "parameters": [
+          "[pvargItem As Variant]",
+          "[pvargIndex As Variant]"
+        ]
+      }
     ]
   }
 }

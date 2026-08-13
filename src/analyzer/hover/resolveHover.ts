@@ -65,6 +65,12 @@ export interface HoverContext {
 	model?: HostObjectModel;
 	/** Source-declared workbook object members and visible UDT fields, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
+	/**
+	 * Members the module has that its own text never declares - a form's
+	 * controls. Needed twice over: to describe the control itself, and to type
+	 * the receiver so a member after the dot resolves at all.
+	 */
+	implicitMembers?: readonly { name: string; type: string }[];
 	/** Project type names visible in declaration type positions. */
 	projectTypes?: readonly ProjectTypeName[];
 	/** Exported project procedures/Declares visible as bare calls from this module. */
@@ -127,6 +133,13 @@ export function resolveHover(
 	const userHover = resolveUserSymbol(source, offset, name, ctx, span);
 	if (userHover) {
 		return userHover;
+	}
+
+	// A control the designer declared. It comes before the host globals and
+	// code names below because inside a form its own members bind first.
+	const controlHover = resolveImplicitMemberHover(name, ctx, span);
+	if (controlHover) {
+		return controlHover;
 	}
 
 	const projectModuleHover = resolveProjectModuleHover(name, ctx, span);
@@ -208,6 +221,31 @@ export function resolveHover(
 	}
 
 	return undefined;
+}
+
+/**
+ * Describes a member the module has that its own text never declares: a form
+ * control. No line of code declares it, so the type the designer gave it is
+ * the whole of what there is to say.
+ */
+function resolveImplicitMemberHover(
+	name: string,
+	ctx: HoverContext,
+	span: Span,
+): HoverInfo | undefined {
+	const member = (ctx.implicitMembers ?? []).find(
+		(candidate) => candidate.name.toLowerCase() === name.toLowerCase(),
+	);
+	if (!member) {
+		return undefined;
+	}
+	const owner = ctx.meProjectType ?? ctx.moduleName;
+	return {
+		signature: `${member.name} As ${member.type}`,
+		details: [owner ? `Control on the ${owner} form` : 'Control on the form'],
+		span,
+		documentation: externalDocMarkdown(ctx, name),
+	};
 }
 
 function constantSignature(constant: { name: string; type?: string; value?: string | number }): string {

@@ -1111,6 +1111,7 @@ function msFormsControlMembers(typeName: string): HostMember[] | undefined {
 		kind: member.kind,
 		returns: member.returns,
 		readOnly: member.readOnly,
+		signature: member.signature,
 	})) as HostMember[];
 }
 
