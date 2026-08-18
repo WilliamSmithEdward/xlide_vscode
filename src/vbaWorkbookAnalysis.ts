@@ -111,6 +111,8 @@ interface RawModule {
     type: string;
     documentType?: EventHandlerDocumentType;
     source: string;
+    /** A form's designer-declared controls, from the engine's designer read. */
+    implicitMembers?: { name: string; type: string }[];
 }
 
 export interface AnalyzeWorkbookOptions {
@@ -373,6 +375,7 @@ async function loadWorkbookModules(
             type: mod.type,
             documentType: mod.documentType,
             source: mod.source,
+            implicitMembers: mod.implicitMembers,
         }));
 }
 
@@ -463,6 +466,7 @@ async function runWorkbookAnalysis(
                     source: mod.source,
                     type: mod.type,
                     documentType: mod.documentType,
+                    implicitMembers: mod.implicitMembers,
                 })), undefined, {
                     cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
                 }),
@@ -504,6 +508,7 @@ async function runWorkbookAnalysis(
                 source: mod.source,
                 type: mod.type,
                 documentType: mod.documentType,
+                implicitMembers: mod.implicitMembers,
             })));
         }
 

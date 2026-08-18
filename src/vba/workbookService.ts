@@ -9,6 +9,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Cfb } from './cfb';
+import { decodeCodePage } from './codePages';
+import { parseFormDesignerStreams } from './formDesigner';
 import {
 	detectSignature,
 	synthesizeClassHeader,
@@ -26,6 +28,12 @@ export interface ModuleEntry {
 	type: ModuleType;
 	documentType?: DocumentType;
 	source?: string;
+	/**
+	 * A form's designer-declared controls, read natively from the designer
+	 * storage inside vbaProject.bin. Present only for userform modules whose
+	 * designer parsed cleanly; absent means "not known", never "none".
+	 */
+	implicitMembers?: { name: string; type: string }[];
 }
 
 export interface ProcedureEntry {
@@ -267,15 +275,16 @@ export function atomicWrite(filePath: string, data: Buffer): void {
 // ------------------------------------------------------------------ read API
 
 export function listModules(filePath: string): ModuleEntry[] {
-	return openWorkbook(filePath).project.modules.map(moduleEntry);
+	const { cfb, project } = openWorkbook(filePath);
+	return project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
 }
 
 export function readModules(filePath: string, full = false): ModuleEntry[] {
-	const { project } = openWorkbook(filePath);
+	const { cfb, project } = openWorkbook(filePath);
 	const out: ModuleEntry[] = [];
 	for (const module of project.modules) {
 		try {
-			const entry = moduleEntry(module);
+			const entry = moduleEntryWithDesigner(cfb, project, module);
 			entry.source = full ? module.source : splitVbaSource(module.source).body;
 			out.push(entry);
 		} catch {
@@ -284,6 +293,33 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 		}
 	}
 	return out;
+}
+
+/**
+ * A module entry, with a userform's controls read from its designer storage.
+ * The storage is named after the module and its `f` stream is the MS-OFORMS
+ * FormControl; the module's own text never mentions the controls at all.
+ */
+function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModule): ModuleEntry {
+	const entry = moduleEntry(module);
+	if (entry.type !== 'userform') {
+		return entry;
+	}
+	try {
+		const f = cfb.getStreamInStorage(module.name, 'f');
+		const o = cfb.hasStreamInStorage(module.name, 'o')
+			? cfb.getStreamInStorage(module.name, 'o')
+			: undefined;
+		const controls = parseFormDesignerStreams(f, o, (bytes, compressed) =>
+			compressed ? decodeCodePage(bytes, project.codePage) : bytes.toString('utf16le'));
+		if (controls) {
+			entry.implicitMembers = controls;
+		}
+	} catch {
+		// No designer storage, or a shape this reader does not understand:
+		// the entry simply carries no members, same as before.
+	}
+	return entry;
 }
 
 export function readModule(filePath: string, moduleName: string, full = false): { source: string } {

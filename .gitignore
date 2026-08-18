@@ -27,5 +27,8 @@ reference/
 !assets/templates/blank.xlsm
 !assets/templates/blank.xlsb
 !assets/templates/blank.xlam
+# A real Excel-authored workbook with a four-control UserForm: the ground
+# truth the native designer reader is tested against.
+!tests/fixtures/binaries/FormFixture.xlsm
 excel_test_workbook/
 .claude/

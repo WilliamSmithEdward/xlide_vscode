@@ -13,6 +13,8 @@ export interface VbaModuleSymbols {
     type?: string;
     /** Excel document subtype from listModules when the bridge can prove it. */
     documentType?: EventHandlerDocumentType;
+    /** A form's designer-declared controls, read from the designer storage. */
+    implicitMembers?: { name: string; type: string }[];
 }
 
 interface CachedWorkbook {
@@ -27,6 +29,8 @@ interface VbaModuleEntry {
     name: string;
     type: string;
     documentType?: EventHandlerDocumentType;
+    /** A form's designer-declared controls, from the engine's designer read. */
+    implicitMembers?: { name: string; type: string }[];
 }
 
 interface VbaModuleSourceEntry extends VbaModuleEntry {
@@ -253,6 +257,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             if (existing && this.moduleGeneration(requestKey) > 0) {
                 existing.type = entry.type;
                 existing.documentType = entry.documentType;
+                existing.implicitMembers = entry.implicitMembers;
                 out.push(existing);
                 if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
                     await yieldToExtensionHost();
@@ -264,6 +269,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 source: entry.source,
                 type: entry.type,
                 documentType: entry.documentType,
+                implicitMembers: entry.implicitMembers,
             };
             wb.modules.set(moduleKey, mod);
             out.push(mod);
