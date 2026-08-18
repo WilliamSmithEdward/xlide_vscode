@@ -151,9 +151,30 @@ async function exportModuleFile(
     mod: ModuleInfo,
     exportFolder: string,
     source?: string,
-): Promise<{ relativeName: string; written: boolean }> {
+): Promise<{ relativeName: string; sidecarRelativeName?: string; written: boolean }> {
     const relativeName = relativeNameForModule(mod);
     const outPath = path.join(exportFolder, relativeName);
+
+    // A form exports as a pair: the composed .frm and the .frx sidecar the
+    // designer travels in. When the designer cannot be read, the .frm is the
+    // module text alone and no sidecar is written - never a guessed one.
+    if (mod.type === 'userform') {
+        try {
+            const pair = await bridge.call<{ frm: string; frx: { data?: number[]; type?: string } | Buffer }>(
+                'readFormExport',
+                { path: filePath, module: mod.name },
+            );
+            const frxBytes = Buffer.isBuffer(pair.frx)
+                ? pair.frx
+                : Buffer.from((pair.frx as { data?: number[] }).data ?? []);
+            const sidecarRelativeName = relativeName.replace(/\.frm$/i, '.frx');
+            await fs.promises.writeFile(outPath, pair.frm, 'utf8');
+            await fs.promises.writeFile(path.join(exportFolder, sidecarRelativeName), frxBytes);
+            return { relativeName, sidecarRelativeName, written: true };
+        } catch {
+            // Fall through to the plain module text.
+        }
+    }
 
     const moduleSource = source ?? await readFullModuleSource(bridge, filePath, mod.name);
     await fs.promises.writeFile(outPath, moduleSource, 'utf8');
@@ -191,6 +212,23 @@ async function loadWorkbookModulesWithSources(
     for (const mod of modules) {
         if (typeof mod.source === 'string') {
             sources.set(mod.name.toLowerCase(), mod.source);
+        }
+    }
+    // A form's file is the composed .frm - designer block plus code - so the
+    // sync plan compares, and the exporter writes, the same text. A form whose
+    // designer cannot be read keeps its raw module text, as before.
+    for (const mod of modules) {
+        if (mod.type !== 'userform') {
+            continue;
+        }
+        try {
+            const pair = await bridge.call<{ frm: string }>(
+                'readFormExport',
+                { path: filePath, module: mod.name },
+            );
+            sources.set(mod.name.toLowerCase(), pair.frm);
+        } catch {
+            // No designer storage: the raw source already in the map stands.
         }
     }
     return {
@@ -276,6 +314,9 @@ async function exportWorkbookModules(
         );
         liveRelativeNames.add(exported.relativeName);
         writtenFiles.push(exported.relativeName);
+        if (exported.sidecarRelativeName) {
+            writtenFiles.push(exported.sidecarRelativeName);
+        }
     }
 
     if (exportMode === 'trueUp') {

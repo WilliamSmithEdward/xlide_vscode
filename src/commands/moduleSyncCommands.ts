@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { splitFrmSource } from '../vba/formDesigner';
 import {
     activeLocalVbaEditor,
     decodeModuleUri,
@@ -33,6 +34,7 @@ import {
 import {
     deleteWorkbookModule,
     refreshWorkbookProjectState,
+    writeWorkbookFormDesigner,
     writeWorkbookModule,
 } from '../workbookModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
@@ -519,6 +521,23 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                     source,
                     kind: item.moduleType,
                 }, { refreshProjectState: false });
+                // A .frm carries the form's designer in a sibling .frx; when the
+                // pair is present and the form exists, the designer travels too.
+                if (/\.frm$/i.test(item.relativeName) && item.existsInWorkbook) {
+                    const frxPath = sourcePath.replace(/\.frm$/i, '.frx');
+                    const frx = await withExportFolderLock(plan.folderPath, () =>
+                        fs.promises.readFile(frxPath).catch(() => undefined));
+                    const designerBlock = splitFrmSource(source)?.designerBlock;
+                    if (frx) {
+                        log(`[importModules] Importing designer for ${item.moduleName} from ${path.basename(frxPath)}`);
+                        await writeWorkbookFormDesigner(deps, {
+                            filePath: plan.workbookPath,
+                            moduleName: item.moduleName,
+                            frx,
+                            frmDesignerBlock: designerBlock,
+                        }, { refreshProjectState: false });
+                    }
+                }
                 changed.push(item.relativeName);
                 recordWriteAudit({
                     command: 'xlide.importModulesFromFolder',

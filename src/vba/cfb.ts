@@ -66,6 +66,45 @@ export class Cfb {
 		return cfb;
 	}
 
+	/**
+	 * An empty compound file: a root entry and nothing else. The seed for a
+	 * container built from scratch, such as a form's `.frx` sidecar - streams
+	 * are then added with {@link addStream} and serialized by {@link toBytes}.
+	 */
+	static createEmpty(): Cfb {
+		const bytes = Buffer.alloc(3 * 512);
+		bytes.set(MAGIC, 0);
+		bytes.writeUInt16LE(0x003e, 24); // minor version
+		bytes.writeUInt16LE(3, 26);      // major version
+		bytes.writeUInt16LE(0xfffe, 28); // little-endian BOM
+		bytes.writeUInt16LE(9, 30);      // sector shift (512)
+		bytes.writeUInt16LE(6, 32);      // mini-sector shift (64)
+		bytes.writeUInt32LE(1, 44);      // one FAT sector
+		bytes.writeUInt32LE(1, 48);      // directory starts at sector 1
+		bytes.writeUInt32LE(4096, 56);   // mini-stream cutoff
+		bytes.writeUInt32LE(ENDOFCHAIN, 60); // no minifat
+		bytes.writeUInt32LE(ENDOFCHAIN, 68); // no difat chain
+		bytes.fill(0xff, 76, 512);       // DIFAT: all FREESECT...
+		bytes.writeUInt32LE(0, 76);      // ...except the one FAT sector
+		// Sector 0, the FAT: itself, then the directory sector, then free.
+		bytes.fill(0xff, 512, 1024);
+		bytes.writeUInt32LE(FATSECT, 512);
+		bytes.writeUInt32LE(ENDOFCHAIN, 516);
+		// Sector 1, the directory: a lone root entry, three empties.
+		const root = 'Root Entry';
+		for (let i = 0; i < root.length; i++) {
+			bytes.writeUInt16LE(root.charCodeAt(i), 1024 + i * 2);
+		}
+		bytes.writeUInt16LE((root.length + 1) * 2, 1024 + 64); // name length
+		bytes.writeUInt8(OBJTYPE_ROOT, 1024 + 66);
+		bytes.writeUInt8(1, 1024 + 67); // black
+		bytes.writeUInt32LE(NOSTREAM, 1024 + 68); // left sibling
+		bytes.writeUInt32LE(NOSTREAM, 1024 + 72); // right sibling
+		bytes.writeUInt32LE(NOSTREAM, 1024 + 76); // child
+		bytes.writeUInt32LE(ENDOFCHAIN, 1024 + 116); // ministream start
+		return Cfb.fromBytes(bytes);
+	}
+
 	// ---------------------------------------------------------------- read
 
 	listStreams(): string[] {
@@ -128,6 +167,25 @@ export class Cfb {
 			throw new CfbError(`Stream ${name} not found in storage ${storage}`);
 		}
 		this.overrides.set(idx, Buffer.from(data));
+	}
+
+	/** Adds a stream as a direct child of the root. */
+	addStream(name: string, data: Buffer): void {
+		if (!name) {
+			throw new CfbError('stream name must be non-empty');
+		}
+		const root = this.directory.findIndex((e) => e.objType === OBJTYPE_ROOT);
+		if (root < 0) {
+			throw new CfbError('compound file has no root entry');
+		}
+		if (this.findChildStreamIndex(root, name) !== undefined) {
+			throw new CfbError(`Stream ${name} already exists`);
+		}
+		const target = this.claimSlot(name, OBJTYPE_STREAM);
+		this.overrides.set(target, Buffer.from(data));
+		const siblings = this.collectSubtree(this.directory[root].childId);
+		siblings.push(target);
+		this.directory[root].childId = this.rebuildBalancedSubtree(siblings);
 	}
 
 	addStreamToStorage(storage: string, name: string, data: Buffer): void {

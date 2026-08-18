@@ -9,8 +9,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Cfb } from './cfb';
-import { decodeCodePage } from './codePages';
-import { parseFormDesignerStreams } from './formDesigner';
+import { decodeCodePage, encodeCodePage } from './codePages';
+import {
+	composeFormFrx,
+	composeFrmDesignerBlock,
+	mergeVbFrameFromFrm,
+	parseFormDesignerStreams,
+	parseFormFrx,
+} from './formDesigner';
 import {
 	detectSignature,
 	synthesizeClassHeader,
@@ -77,12 +83,23 @@ export function splitVbaSource(source: string): { header: string; body: string }
 	let i = 0;
 	if (lines.length > 0 && /^VERSION\s+\d/i.test(lines[0])) {
 		i++;
-		if (i < lines.length && lines[i].replace(/[\r\n]+$/, '').trim().toUpperCase() === 'BEGIN') {
+		// A class preamble opens with a bare BEGIN; a form's designer block
+		// opens with `Begin {GUID} Name` and can NEST further Begin blocks for
+		// its controls. Both are one balanced block, walked by depth - without
+		// this, importing a .frm spliced the designer text into the code module.
+		const opener = i < lines.length ? lines[i].replace(/[\r\n]+$/, '').trim() : '';
+		if (/^BEGIN\b/i.test(opener)) {
+			let depth = 1;
 			i++;
-			while (i < lines.length && lines[i].replace(/[\r\n]+$/, '').trim().toUpperCase() !== 'END') {
+			while (i < lines.length && depth > 0) {
+				const line = lines[i].replace(/[\r\n]+$/, '').trim();
+				if (/^Begin\b/i.test(line)) {
+					depth++;
+				} else if (/^End$/i.test(line)) {
+					depth--;
+				}
 				i++;
 			}
-			if (i < lines.length) { i++; }
 		}
 	}
 	while (i < lines.length && ATTR_LINE_RE.test(lines[i])) {
@@ -329,6 +346,84 @@ export function readModule(filePath: string, moduleName: string, full = false): 
 		throw new Error(`Module not found: ${moduleName}`);
 	}
 	return { source: full ? module.source : splitVbaSource(module.source).body };
+}
+
+/**
+ * A form's export pair, composed natively from the workbook: the `.frm` text
+ * (designer block from the VBFrame stream, `OleObjectBlob` naming the sidecar,
+ * then the module's own attributes and code) and the `.frx` sidecar packaging
+ * the designer storage's binary streams.
+ */
+export function readFormExport(filePath: string, moduleName: string): { frm: string; frx: Buffer } {
+	const { cfb, project } = openWorkbook(filePath);
+	const module = project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	const designer = readDesignerStorage(cfb, module.name);
+	if (!designer) {
+		throw new Error(`Module has no designer storage: ${moduleName}`);
+	}
+	const safeName = module.name.replace(/[<>:"/\|?* -]/g, '_');
+	const frm = composeFrmDesignerBlock(designer.vbFrame, `${safeName}.frx`) + module.source;
+	return { frm, frx: composeFormFrx(designer) };
+}
+
+/**
+ * Writes a form's designer back into the workbook from a `.frx` sidecar (the
+ * binary control tree) and, when provided, the `.frm`'s designer block (the
+ * form's own textual properties). The module's code is untouched: that is
+ * writeModule's job, and the two writes compose.
+ */
+export function writeFormDesigner(
+	filePath: string,
+	moduleName: string,
+	frx: Buffer,
+	frmDesignerBlock?: string,
+): WriteResult {
+	const streams = parseFormFrx(frx);
+	if (!streams) {
+		throw new Error('Not a .frx sidecar this importer understands.');
+	}
+	const wb = openWorkbookForWrite(filePath);
+	const signatureDropped = detectSignature(wb.cfb).present;
+	const module = wb.project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	const existing = readDesignerStorage(wb.cfb, module.name);
+	if (!existing) {
+		throw new Error(`Module has no designer storage: ${moduleName}`);
+	}
+	wb.cfb.writeStreamInStorage(module.name, 'f', streams.f);
+	wb.cfb.writeStreamInStorage(module.name, 'o', streams.o);
+	if (frmDesignerBlock) {
+		const merged = mergeVbFrameFromFrm(frmDesignerBlock, existing.vbFrame);
+		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(merged, wb.project.codePage));
+	}
+	saveWorkbook(filePath, wb);
+	return { ok: true, signatureDropped };
+}
+
+const VBFRAME_STREAM = 'VBFrame';
+
+/** The designer storage's streams for a module, or undefined when it has none. */
+function readDesignerStorage(
+	cfb: Cfb,
+	moduleName: string,
+): { f: Buffer; o: Buffer; compObj?: Buffer; vbFrame: string } | undefined {
+	try {
+		const f = cfb.getStreamInStorage(moduleName, 'f');
+		const o = cfb.getStreamInStorage(moduleName, 'o');
+		const compObjName = 'CompObj';
+		const compObj = cfb.hasStreamInStorage(moduleName, compObjName)
+			? cfb.getStreamInStorage(moduleName, compObjName)
+			: undefined;
+		const vbFrameBytes = cfb.getStreamInStorage(moduleName, VBFRAME_STREAM);
+		return { f, o, compObj, vbFrame: vbFrameBytes.toString('latin1') };
+	} catch {
+		return undefined;
+	}
 }
 
 export function listSubs(filePath: string, moduleName: string): ProcedureEntry[] {

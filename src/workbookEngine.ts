@@ -103,6 +103,15 @@ export class WorkbookEngine implements vscode.Disposable {
 				return svc.renameModule(str(p, 'path'), str(p, 'module'), str(p, 'newName'));
 			case 'deleteModule':
 				return svc.deleteModule(str(p, 'path'), str(p, 'module'));
+			case 'readFormExport':
+				return svc.readFormExport(str(p, 'path'), str(p, 'module'));
+			case 'writeFormDesigner':
+				return svc.writeFormDesigner(
+					str(p, 'path'),
+					str(p, 'module'),
+					Buffer.from(String(p.frxBase64 ?? ''), 'base64'),
+					typeof p.frmDesignerBlock === 'string' ? p.frmDesignerBlock : undefined,
+				);
 
 			// --- workbook structure ---
 			case 'getProtectionInfo':

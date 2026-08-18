@@ -15,6 +15,8 @@
 // rather than a guessed control list. Absence of knowledge is recoverable;
 // wrong knowledge paints wrong diagnostics.
 
+import { Cfb } from './cfb';
+
 /** A control the designer declares, as the analyzer wants it. */
 export interface DesignerControl {
 	name: string;
@@ -313,4 +315,148 @@ export function parseFormDesignerStreams(
 		const size = r.u32();
 		r.skip(size);
 	}
+}
+
+
+// ------------------------------------------------------------------ sidecar
+//
+// The VBE's .frx sidecar, decoded from a real export before being written:
+// a 24-byte header - "LB" magic, a version word, the embedded size - followed
+// by a compound file holding the designer storage's `f` and `o` streams (and
+// a CompObj). Diffed against the same form inside the workbook, `f` and `o`
+// matched byte-for-byte except spec-declared undefined padding, so the
+// sidecar IS the designer storage in travel dress.
+
+const FRX_MAGIC_0 = 0x4c; // 'L'
+const FRX_MAGIC_1 = 0x42; // 'B'
+const FRX_HEADER_SIZE = 24;
+const FRX_COMPOBJ_STREAM = 'CompObj';
+
+/** The designer streams a `.frx` sidecar carries. */
+export interface FormDesignerStreams {
+	f: Buffer;
+	o: Buffer;
+	compObj?: Buffer;
+}
+
+/**
+ * Unpacks a `.frx` sidecar into the designer streams it carries, or undefined
+ * when the bytes are not a sidecar this reader understands.
+ */
+export function parseFormFrx(frx: Buffer): FormDesignerStreams | undefined {
+	try {
+		if (frx.length < FRX_HEADER_SIZE + 512) { return undefined; }
+		if (frx[0] !== FRX_MAGIC_0 || frx[1] !== FRX_MAGIC_1) { return undefined; }
+		const cbEmbedded = frx.readUInt32LE(4);
+		if (FRX_HEADER_SIZE + cbEmbedded > frx.length) { return undefined; }
+		const cfb = Cfb.fromBytes(frx.subarray(FRX_HEADER_SIZE, FRX_HEADER_SIZE + cbEmbedded));
+		return {
+			f: cfb.getStream('f'),
+			o: cfb.getStream('o'),
+			compObj: cfb.hasStream(FRX_COMPOBJ_STREAM) ? cfb.getStream(FRX_COMPOBJ_STREAM) : undefined,
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Packs designer streams into a `.frx` sidecar. The layout mirrors the one
+ * observed export byte-for-byte where its meaning is known; the two trailing
+ * header words are opaque and reproduced as observed. XLIDE's own importer
+ * round-trips this exactly; the VBE's acceptance of it awaits an Excel
+ * round-trip and is not claimed.
+ */
+export function composeFormFrx(streams: FormDesignerStreams): Buffer {
+	const cfb = Cfb.createEmpty();
+	cfb.addStream('f', streams.f);
+	cfb.addStream('o', streams.o);
+	if (streams.compObj) {
+		cfb.addStream(FRX_COMPOBJ_STREAM, streams.compObj);
+	}
+	const embedded = cfb.toBytes();
+	const header = Buffer.alloc(FRX_HEADER_SIZE);
+	header[0] = FRX_MAGIC_0;
+	header[1] = FRX_MAGIC_1;
+	header.writeUInt16LE(0x0008, 2);
+	header.writeUInt32LE(embedded.length, 4);
+	// Bytes 8..15 are zero in the observed export; 16..23 held 0x12C0/0x0E10
+	// there, purpose unknown. Reproduced verbatim rather than invented.
+	header.writeUInt32LE(0x12c0, 16);
+	header.writeUInt32LE(0x0e10, 20);
+	return Buffer.concat([header, embedded]);
+}
+
+// ------------------------------------------------------------------ .frm text
+//
+// The VBFrame stream (its storage name carries a  prefix) is the textual
+// designer block, and the VBE's .frm is that block with `TypeInfoVer` dropped
+// and an `OleObjectBlob` line added (alphabetically among the properties)
+// naming the sidecar. Verified against the same form exported by the VBE.
+
+const EOL_RE = /\r\n/g;
+const TRAILING_EOL_RE = /\n+$/;
+const TYPE_INFO_VER_RE = /^\s*TypeInfoVer\s*=/;
+const OLE_OBJECT_BLOB_RE = /^\s*OleObjectBlob\s*=/;
+const BLOCK_END_RE = /^End\s*$/;
+
+/** Composes the `.frm` designer block from the VBFrame stream text. */
+export function composeFrmDesignerBlock(vbFrame: string, frxFileName: string): string {
+	const lines = vbFrame.replace(EOL_RE, '\n').replace(TRAILING_EOL_RE, '').split('\n')
+		.filter((line) => !TYPE_INFO_VER_RE.test(line));
+	const blobLine = `   OleObjectBlob   =   ${JSON.stringify(frxFileName)}:0000`;
+	let insertAt = lines.findIndex((line) => {
+		const match = /^\s{3}(\w+)\s*=/.exec(line);
+		return match !== null && match[1].toLowerCase() > 'oleobjectblob';
+	});
+	if (insertAt < 0) {
+		insertAt = lines.findIndex((line) => BLOCK_END_RE.test(line));
+	}
+	if (insertAt < 0) {
+		insertAt = lines.length;
+	}
+	lines.splice(insertAt, 0, blobLine);
+	return lines.join('\r\n') + '\r\n';
+}
+
+/**
+ * Rebuilds the VBFrame stream from an imported `.frm`'s designer block:
+ * `OleObjectBlob` names a file that does not exist inside a workbook and is
+ * dropped; `TypeInfoVer` is the workbook's own bookkeeping and is carried
+ * over from the existing stream.
+ */
+export function mergeVbFrameFromFrm(frmDesignerBlock: string, existingVbFrame: string): string {
+	const lines = frmDesignerBlock.replace(EOL_RE, '\n').replace(TRAILING_EOL_RE, '').split('\n')
+		.filter((line) => !OLE_OBJECT_BLOB_RE.test(line));
+	const typeInfoVer = existingVbFrame.replace(EOL_RE, '\n').split('\n')
+		.find((line) => TYPE_INFO_VER_RE.test(line));
+	if (typeInfoVer && !lines.some((line) => TYPE_INFO_VER_RE.test(line))) {
+		const end = lines.findIndex((line) => BLOCK_END_RE.test(line));
+		lines.splice(end < 0 ? lines.length : end, 0, typeInfoVer);
+	}
+	return lines.join('\r\n') + '\r\n';
+}
+
+/** The designer block at the top of a `.frm`, and the module text after it. */
+export function splitFrmSource(frmSource: string): { designerBlock: string; moduleText: string } | undefined {
+	const normalized = frmSource.replace(EOL_RE, '\n');
+	if (!/^\s*VERSION\s+5\.00/i.test(normalized)) {
+		return undefined;
+	}
+	const lines = normalized.split('\n');
+	let depth = 0;
+	for (let i = 0; i < lines.length; i++) {
+		if (/^\s*Begin[\s{]/i.test(lines[i])) {
+			depth += 1;
+		} else if (/^\s*End\s*$/i.test(lines[i]) && depth > 0) {
+			depth -= 1;
+			if (depth === 0) {
+				return {
+					designerBlock: lines.slice(0, i + 1).join('\r\n') + '\r\n',
+					moduleText: lines.slice(i + 1).join('\r\n'),
+				};
+			}
+		}
+	}
+	return undefined;
 }

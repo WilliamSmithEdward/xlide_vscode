@@ -90,6 +90,42 @@ export async function writeWorkbookModule(
     return result;
 }
 
+/**
+ * Writes a form's designer (control tree and textual properties) back into
+ * the workbook from an imported `.frm`/`.frx` pair. Composes with
+ * {@link writeWorkbookModule}, which owns the module's code.
+ */
+export async function writeWorkbookFormDesigner(
+    deps: WorkbookModuleOperationDeps,
+    request: {
+        filePath: string;
+        moduleName: string;
+        frx: Buffer;
+        frmDesignerBlock?: string;
+    },
+    options: WorkbookModuleOperationOptions = {},
+): Promise<WorkbookModuleMutationResult> {
+    const { filePath, moduleName, frx, frmDesignerBlock } = request;
+    noteModuleWrite(filePath, moduleName);
+    const result = await runWriteWithExcelCoordination(filePath, () =>
+        deps.bridge.call<WorkbookModuleMutationResult>('writeFormDesigner', {
+            path: filePath,
+            module: moduleName,
+            frxBase64: frx.toString('base64'),
+            ...(frmDesignerBlock !== undefined ? { frmDesignerBlock } : {}),
+        }),
+    );
+    if (result.ok === false) {
+        throw new Error(`XLIDE: Writing the designer of "${moduleName}" did not complete.`);
+    }
+    notifySignatureDropped(filePath, Boolean(result.signatureDropped));
+    deps.fsProvider.notifyFileChanged(encodeModuleUri(filePath, moduleName));
+    if (options.refreshProjectState !== false) {
+        refreshWorkbookProjectState(deps, filePath);
+    }
+    return result;
+}
+
 export async function renameWorkbookModule(
     deps: WorkbookModuleOperationDeps,
     request: { filePath: string; moduleName: string; newName: string },
