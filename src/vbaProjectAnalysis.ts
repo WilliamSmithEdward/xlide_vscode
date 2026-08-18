@@ -1,4 +1,3 @@
-import { parseUserFormControls } from './vbaUserFormControls';
 import {
     ProjectIndex,
     type AnalyzeModuleOptions,
@@ -15,6 +14,12 @@ export interface VbaProjectModuleInput {
     type?: string;
     moduleKind?: ModuleSymbolKind;
     documentType?: EventHandlerDocumentType;
+    /**
+     * A form's designer-declared controls, from a host that can read the
+     * designer. The index folds them into the form's member surface so a
+     * qualified reference from another module resolves them.
+     */
+    implicitMembers?: readonly { name: string; type: string }[];
 }
 
 export interface VbaProjectLiveOverride {
@@ -101,6 +106,7 @@ function applyProjectModule(
         moduleName: mod.moduleName,
         moduleKind: isOverride ? liveOverride.moduleKind : effectiveModuleKind(mod),
         source: isOverride ? liveOverride.source : mod.source,
+        implicitMembers: mod.implicitMembers,
     });
     return !!isOverride && applied;
 }
@@ -190,9 +196,9 @@ export function projectAnalysisOptionsForModule(
         options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
         // A UserForm's controls are members its own text never declares, so
         // without them every reference in the code-behind reads as undeclared.
-        // The .frm header carries the control tree, which is enough to know
-        // them without a host being able to ask the designer.
-        const controls = parseUserFormControls(project.moduleSource?.(moduleName) ?? '');
+        // The index knows them: host-supplied with the module, or parsed from
+        // a `.frm` header when the source carries one.
+        const controls = project.moduleImplicitMembers?.(moduleName) ?? [];
         if (controls.length > 0) {
             options.implicitMembers = controls;
         }

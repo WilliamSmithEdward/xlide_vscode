@@ -1062,6 +1062,21 @@ function memberSurfaceForType(
 				? { owner: ctx.meProjectType ?? projectKey, members: controls, exhaustive: false }
 				: undefined;
 		}
+		if (projectType.kind === 'userform') {
+			// A form IS an MSForms.UserForm wherever it is reached from, so a
+			// qualified reference from another module gets Show, Hide and the
+			// rest of the form surface alongside the form's code and controls
+			// (#22). Never exhaustive: the designer knows more than we do.
+			return {
+				owner: projectType.name,
+				members: mergeCompletionMembers(
+					projectType.members,
+					controls,
+					msFormsControlMembers(VBA_USERFORM_TYPE) ?? [],
+				),
+				exhaustive: false,
+			};
+		}
 		return {
 			owner: projectType.name,
 			members: mergeCompletionMembers(projectType.members, controls),
@@ -1269,7 +1284,28 @@ function resolveDeclaredObjectType(
 		const codeNameHost = ctx.codeNames?.[key];
 		return codeNameHost ? combinedTypeKey(key, codeNameHost) : projectTypeKey(key);
 	}
-	return resolveHostAlias(declaredType, model);
+	return resolveHostAlias(declaredType, model) ?? resolveMsFormsTypeName(declaredType);
+}
+
+/**
+ * Canonical `MSForms.<Type>` for a declared type the forms metadata knows,
+ * case-insensitively - `Dim t As MSForms.TextBox` and a control member typed
+ * `MSForms.ComboBox` both chain through it. Qualified names only: a bare
+ * `TextBox` stays unresolved rather than guessed, since without the reference
+ * line we cannot know MSForms is what it means.
+ */
+function resolveMsFormsTypeName(declaredType: string): string | undefined {
+	const match = /^MSForms\s*\.\s*([A-Za-z][\w]*)$/i.exec(declaredType.trim());
+	if (!match) {
+		return undefined;
+	}
+	const lower = match[1].toLowerCase();
+	for (const key of Object.keys(MSFORMS_REFERENCE_MEMBERS)) {
+		if (key.toLowerCase() === lower) {
+			return `MSForms.${key}`;
+		}
+	}
+	return undefined;
 }
 
 function projectKeyForTypeName(

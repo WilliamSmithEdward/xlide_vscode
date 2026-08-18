@@ -174,6 +174,9 @@ export function fixtureModules(fixture: VbaProjectFixture): VbaProjectModuleInpu
 		moduleKind: mod.moduleKind,
 		documentType: mod.documentType,
 		source: mod.sourceLines.join('\n'),
+		// Into the index, so the form's member surface carries its controls
+		// and a CALLER module's qualified reference resolves them (#22).
+		implicitMembers: mod.implicitMembers,
 	}));
 }
 

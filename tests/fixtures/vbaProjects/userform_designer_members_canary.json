@@ -1,16 +1,25 @@
 {
   "version": 1,
   "id": "userform-designer-members-canary",
-  "description": "Issue #18. A form's controls are declared by the designer, and Excel keeps that control tree in a binary blob the analyzer never sees - the module text a host reads from the VBE (or from the workbook) carries only code. So the members arrive from the host, and every surface has to use them: the code-behind must not report a control as undeclared, a control must offer its own type's members, and `Me.` must offer the controls, the form's own code and the MSForms.UserForm surface it inherits.",
+  "description": "Issue #18. A form's controls are declared by the designer, and Excel keeps that control tree in a binary blob the analyzer never sees - the module text a host reads from the VBE (or from the workbook) carries only code. So the members arrive from the host, and every surface has to use them: the code-behind must not report a control as undeclared, a control must offer its own type's members, and `Me.` must offer the controls, the form's own code and the MSForms.UserForm surface it inherits. And #22: the same members answer from OUTSIDE the form - the default instance, a declared variable, and a chain through a control - because the controls live on the form's member surface in the project index, not only in its own code-behind.",
   "modules": [
     {
       "name": "FrmPicker",
       "type": "userform",
       "moduleKind": "userform",
       "implicitMembers": [
-        { "name": "RegionPick", "type": "MSForms.ComboBox" },
-        { "name": "Taxable", "type": "MSForms.CheckBox" },
-        { "name": "NameBox", "type": "MSForms.TextBox" }
+        {
+          "name": "RegionPick",
+          "type": "MSForms.ComboBox"
+        },
+        {
+          "name": "Taxable",
+          "type": "MSForms.CheckBox"
+        },
+        {
+          "name": "NameBox",
+          "type": "MSForms.TextBox"
+        }
       ],
       "sourceLines": [
         "Option Explicit",
@@ -53,6 +62,19 @@
         "",
         "Public Sub Launch()",
         "    FrmPicker.Show",
+        "End Sub",
+        "",
+        "Private Sub FormSurface()",
+        "    FrmPicker.",
+        "End Sub",
+        "",
+        "Private Sub ChainedFromOutside()",
+        "    FrmPicker.RegionPick.",
+        "End Sub",
+        "",
+        "Private Sub DeclaredVariable()",
+        "    Dim f As FrmPicker",
+        "    f.",
         "End Sub"
       ]
     }
@@ -104,6 +126,35 @@
         "include": [
           "AddItem"
         ]
+      },
+      {
+        "moduleName": "Launcher",
+        "marker": "Private Sub FormSurface()\n    FrmPicker.",
+        "include": [
+          "RegionPick",
+          "Taxable",
+          "NameBox",
+          "Cancelled",
+          "Show",
+          "Hide",
+          "Caption"
+        ]
+      },
+      {
+        "moduleName": "Launcher",
+        "marker": "    FrmPicker.RegionPick.",
+        "include": [
+          "AddItem"
+        ]
+      },
+      {
+        "moduleName": "Launcher",
+        "marker": "    f.",
+        "include": [
+          "RegionPick",
+          "Show",
+          "Cancelled"
+        ]
       }
     ],
     "hovers": [
@@ -128,10 +179,22 @@
       {
         "moduleName": "FrmPicker",
         "tokens": [
-          { "text": "Boolean", "type": "type" },
-          { "text": "AddItem", "type": "function" },
-          { "text": "SetFocus", "type": "function" },
-          { "text": "Hide", "type": "function" }
+          {
+            "text": "Boolean",
+            "type": "type"
+          },
+          {
+            "text": "AddItem",
+            "type": "function"
+          },
+          {
+            "text": "SetFocus",
+            "type": "function"
+          },
+          {
+            "text": "Hide",
+            "type": "function"
+          }
         ]
       }
     ],

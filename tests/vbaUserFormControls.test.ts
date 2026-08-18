@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseUserFormControls } from '../src/vbaUserFormControls';
-import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
+import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectEditorSymbolContextForModule } from '../src/vbaProjectAnalysis';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import { collectImplicitMemberMethodTokens, resolveMemberCompletions, resolveHover, resolveSignatureHelp } from '../src/analyzer';
 import { resolveMemberSurfaceAt } from '../src/analyzer/completion/memberAccess';
@@ -501,5 +501,104 @@ describe('Me in a form', () => {
 				{ name: 'OtherForm', kind: 'userform', members: [] },
 			],
 		})).not.toContain('RegionPick');
+	});
+});
+
+describe('a form reached from another module (#22)', () => {
+	// #17 gave a form's controls to its own code-behind; from OUTSIDE the form
+	// its type carried no members at all - not even Show. The controls belong
+	// on the form's member surface in the project index, so every caller kind
+	// resolves them the same way.
+	const FORM_BODY = [
+		'Option Explicit',
+		'',
+		'Public Cancelled As Boolean',
+		'',
+		'Private Sub UserForm_Initialize()',
+		'End Sub',
+		'',
+	].join('\r\n');
+	const CONTROLS = [
+		{ name: 'RegionPick', type: 'MSForms.ComboBox' },
+		{ name: 'NameBox', type: 'MSForms.TextBox' },
+	];
+
+	function callerCompletions(expression: string, formInput: object): string[] {
+		const project = buildVbaProjectIndex([
+			{ moduleName: 'EntryForm', moduleKind: 'userform', source: FORM_BODY, ...formInput },
+			{ moduleName: 'Launcher', source: 'Attribute VB_Name = "Launcher"\r\nOption Explicit\r\n' },
+		]);
+		const context = projectEditorSymbolContextForModule(project, 'Launcher');
+		const source = `Private Sub Drive()\r\n    Dim f As EntryForm\r\n    ${expression}\r\nEnd Sub\r\n`;
+		const at = source.indexOf(expression) + expression.length;
+		return resolveMemberCompletions(source, at, {
+			projectClassMembers: context.analysisOptions.projectClassMembers,
+		} as never).map((m) => m.name);
+	}
+
+	it('offers the controls through the default instance', () => {
+		const members = callerCompletions('EntryForm.', { implicitMembers: CONTROLS });
+		expect(members).toContain('RegionPick');
+		expect(members).toContain('NameBox');
+	});
+
+	it('offers the form s own code and the form surface it inherits', () => {
+		const members = callerCompletions('EntryForm.', { implicitMembers: CONTROLS });
+		expect(members).toContain('Cancelled');
+		expect(members).toContain('Show');
+		expect(members).toContain('Hide');
+		expect(members).toContain('Caption');
+	});
+
+	it('offers the same surface on a declared variable', () => {
+		const members = callerCompletions('f.', { implicitMembers: CONTROLS });
+		expect(members).toContain('RegionPick');
+		expect(members).toContain('Show');
+	});
+
+	it('chains through a control to that control s own members', () => {
+		expect(callerCompletions('EntryForm.RegionPick.', { implicitMembers: CONTROLS }))
+			.toContain('AddItem');
+		expect(callerCompletions('EntryForm.NameBox.', { implicitMembers: CONTROLS }))
+			.not.toContain('AddItem');
+	});
+
+	it('reads the controls from a .frm header when no host supplies them', () => {
+		const headerForm = [
+			'VERSION 5.00',
+			'Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} EntryForm ',
+			'   Begin Forms.ComboBox.1 RegionPick ',
+			'   End',
+			'End',
+			'Attribute VB_Name = "EntryForm"',
+			FORM_BODY,
+		].join('\r\n');
+		const members = callerCompletions('EntryForm.', { source: headerForm });
+		expect(members).toContain('RegionPick');
+		expect(members).toContain('Show');
+	});
+
+	it('a class is untouched: still exhaustive, no form members', () => {
+		const project = buildVbaProjectIndex([
+			{ moduleName: 'Probe1', moduleKind: 'class', source: 'Attribute VB_Name = "Probe1"\r\nPublic Sub Greet()\r\nEnd Sub\r\n' },
+			{ moduleName: 'Launcher', source: 'Attribute VB_Name = "Launcher"\r\nOption Explicit\r\n' },
+		]);
+		const context = projectEditorSymbolContextForModule(project, 'Launcher');
+		const source = 'Private Sub T()\r\n    Dim c As Probe1\r\n    c.\r\nEnd Sub\r\n';
+		const members = resolveMemberCompletions(source, source.indexOf('c.') + 2, {
+			projectClassMembers: context.analysisOptions.projectClassMembers,
+		} as never).map((m) => m.name);
+		expect(members).toContain('Greet');
+		expect(members).not.toContain('Show');
+	});
+
+	it('a declared MSForms type chains on its own', () => {
+		// The corollary the control returns rely on: MSForms.<Type> resolves as
+		// a declared object type, qualified spelling only.
+		const source = 'Private Sub T()\r\n    Dim t As MSForms.TextBox\r\n    t.\r\nEnd Sub\r\n';
+		const members = resolveMemberCompletions(source, source.indexOf('t.') + 2, {} as never)
+			.map((m) => m.name);
+		expect(members).toContain('Text');
+		expect(members).toContain('SetFocus');
 	});
 });

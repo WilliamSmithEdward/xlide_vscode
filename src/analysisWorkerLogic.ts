@@ -43,6 +43,10 @@ export class AnalysisWorkerState {
 					source: m.source,
 					type: m.type,
 					documentType: m.documentType as EventHandlerDocumentType | undefined,
+					// Folded into the form's member surface, so a CALLER module's
+					// qualified `EntryForm.NameBox` resolves - not only the form's
+					// own code-behind (#22).
+					implicitMembers: m.implicitMembers,
 				})));
 				this._workbooks.set(request.workbookKey, {
 					generation: request.generation,

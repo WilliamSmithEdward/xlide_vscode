@@ -40,6 +40,7 @@ import {
 	type BareIdentifierResolution,
 } from './nameResolution';
 import type { Span } from '../parser/nodes';
+import { parseUserFormControls } from '../../vbaUserFormControls';
 
 /** Source text + workbook role for one module fed into the index. */
 export interface ModuleInput {
@@ -48,6 +49,13 @@ export interface ModuleInput {
 	source: string;
 	/** Optional per-module conditional-compilation environment. */
 	conditionalCompilation?: BuildModuleSymbolsOptions['conditionalCompilation'];
+	/**
+	 * Members the module has that its own text never declares - a UserForm's
+	 * designer-declared controls, supplied by a host that can read the
+	 * designer. When absent, a form's controls come from parsing its own
+	 * `.frm` header, which only standalone VB6-style exports carry.
+	 */
+	implicitMembers?: readonly { name: string; type: string }[];
 }
 
 /** Project-wide symbol graph options shared by every indexed module. */
@@ -412,6 +420,8 @@ function userTypeFieldSignature(symbol: VbaSymbol): string {
 export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
 	private readonly moduleSources = new Map<string, string>();
+	/** Host-supplied designer members (a form's controls), per module name. */
+	private readonly moduleImplicitMembersByName = new Map<string, readonly { name: string; type: string }[]>();
 	/** Lazily resolved per-module integer constants, dropped on module change. */
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
@@ -435,6 +445,11 @@ export class ProjectIndex {
 		const key = input.moduleName.toLowerCase();
 		this.modules.set(key, symbols);
 		this.moduleSources.set(key, input.source);
+		if (input.implicitMembers !== undefined) {
+			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
+		} else {
+			this.moduleImplicitMembersByName.delete(key);
+		}
 		this.invalidate(key);
 	}
 
@@ -443,6 +458,7 @@ export class ProjectIndex {
 		const key = moduleName.toLowerCase();
 		this.modules.delete(key);
 		this.moduleSources.delete(key);
+		this.moduleImplicitMembersByName.delete(key);
 		this.invalidate(key);
 	}
 
@@ -481,6 +497,26 @@ export class ProjectIndex {
 	 */
 	moduleSource(moduleName: string): string | undefined {
 		return this.moduleSources.get(moduleName.toLowerCase());
+	}
+
+	/**
+	 * A form's designer-declared controls: what the host supplied with the
+	 * module, or what the module's own `.frm` header carries. Excel stores a
+	 * workbook form's control tree in a binary designer blob, so for a
+	 * workbook-backed form with no host this answers nothing.
+	 */
+	moduleImplicitMembers(moduleName: string): readonly { name: string; type: string }[] {
+		const key = moduleName.toLowerCase();
+		const supplied = this.moduleImplicitMembersByName.get(key);
+		if (supplied !== undefined) {
+			return supplied;
+		}
+		// No kind gate: the header itself is the evidence. Only a form's source
+		// opens with VERSION 5.00 and designer Begin blocks, so every other
+		// module parses to nothing - and a form whose kind arrived mislabeled
+		// still answers its controls.
+		return this.cached(`implicitMembers:${key}`, () =>
+			parseUserFormControls(this.moduleSources.get(key) ?? ''));
 	}
 
 	/**
@@ -811,6 +847,24 @@ export class ProjectIndex {
 					continue;
 				}
 				const members = this.visibleObjectMembers(mod);
+				if (kind === 'userform') {
+					// A form's controls are members of the form, declared by the
+					// designer rather than by code, so a qualified reference from
+					// another module (`EntryForm.NameBox`) must find them on the
+					// form's type - not only inside its own code-behind (#22).
+					const own = new Set(members.map((member) => member.name.toLowerCase()));
+					for (const control of this.moduleImplicitMembers(mod.moduleName)) {
+						if (own.has(control.name.toLowerCase())) {
+							continue;
+						}
+						members.push({
+							name: control.name,
+							kind: 'property',
+							returns: control.type,
+							moduleName: mod.moduleName,
+						});
+					}
+				}
 				out.push({
 					name: mod.moduleName,
 					kind,
