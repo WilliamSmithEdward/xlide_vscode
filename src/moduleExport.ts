@@ -85,6 +85,11 @@ interface ExportModuleResult {
 }
 
 function extensionForModuleType(moduleType: string): string {
+    // A form is a .frm: that is what the VBE's own exporter writes, and the
+    // only name under which its designer sidecar (.frx) can travel with it.
+    if (moduleType === 'userform') {
+        return 'frm';
+    }
     return moduleType === 'standard' ? 'bas' : 'cls';
 }
 
@@ -93,7 +98,10 @@ function sanitizeFileName(name: string): string {
 }
 
 function isRootVbaModuleFileName(value: string): boolean {
-    return !/[\\/]/.test(value) && /\.(bas|cls)$/i.test(value);
+    // A .frx is NOT a module file: it is the binary designer sidecar the VBE's
+    // importer reads beside a .frm, so it is neither listed nor ever removed
+    // as a stale module.
+    return !/[\\/]/.test(value) && /\.(bas|cls|frm)$/i.test(value);
 }
 
 async function listRootVbaModuleFiles(folder: string): Promise<string[]> {
@@ -109,7 +117,7 @@ async function listRootVbaModuleFiles(folder: string): Promise<string[]> {
         .sort((left, right) => left.localeCompare(right));
 }
 
-// Stale repo files for trueUp export: root .bas/.cls files with no live
+// Stale repo files for trueUp export: root .bas/.cls/.frm files with no live
 // workbook module, guarded against escaping the export folder. Shared by the
 // sync-plan preview and the export action so both agree on what gets removed.
 async function computeStaleExportFiles(

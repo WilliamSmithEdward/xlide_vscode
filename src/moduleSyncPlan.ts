@@ -186,7 +186,7 @@ export async function buildExportModuleSyncPlan(
                 status: 'will-remove',
                 checked: true,
                 selectable: true,
-                warning: 'This stale .bas/.cls repo module file no longer exists as a workbook module and will be removed during mirror export.',
+                warning: 'This stale .bas/.cls/.frm repo module file no longer exists as a workbook module and will be removed during mirror export.',
                 detail: statusLabel('will-remove'),
                 existsInWorkbook: false,
                 existsInRepo: true,
@@ -234,7 +234,7 @@ export async function buildImportModuleSyncPlan(
     const { modules: liveModules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
     const entries = (await fs.promises.readdir(params.importFolder, { withFileTypes: true }))
-        .filter((entry) => entry.isFile() && /\.(bas|cls)$/i.test(entry.name))
+        .filter((entry) => entry.isFile() && /\.(bas|cls|frm)$/i.test(entry.name))
         .map((entry) => entry.name)
         .sort((a, b) => a.localeCompare(b));
     const repoFiles = await Promise.all(entries.map((entry) =>
@@ -514,7 +514,13 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
     const source = await fs.promises.readFile(sourcePath, 'utf8');
     const ext = path.extname(file).toLowerCase();
     const moduleName = sanitizeFileName(path.basename(file, ext)) || path.basename(file, ext);
-    const subtype = ext === '.bas' ? 'standard' : detectClsSubtype(moduleName, source);
+    // A .frm is a form by its name alone, the way a .bas is standard; only a
+    // .cls needs its header read, since old exports named forms .cls too.
+    const subtype = ext === '.bas'
+        ? 'standard'
+        : ext === '.frm'
+            ? 'userform'
+            : detectClsSubtype(moduleName, source);
     return {
         file,
         moduleName,
@@ -617,7 +623,7 @@ function moduleKindLabel(kind: string): string {
         case 'document':
             return 'Worksheet/ThisWorkbook';
         case 'userform':
-            return 'UserForm .cls code-behind';
+            return 'UserForm';
         default:
             return kind;
     }

@@ -119,13 +119,16 @@ describe('moduleExport', () => {
 		expect(settingsPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.xlide_settings.json'));
 	});
 
-	it('only deletes root bas/cls module files during true-up', async () => {
+	it('only deletes root bas/cls/frm module files during true-up', async () => {
 		const { workbook, exportFolder } = tempWorkbook();
 		fs.mkdirSync(exportFolder, { recursive: true });
 		fs.writeFileSync(path.join(exportFolder, 'Stale.bas'), 'old', 'utf8');
 		fs.writeFileSync(path.join(exportFolder, 'StaleClass.cls'), 'old', 'utf8');
 		fs.writeFileSync(path.join(exportFolder, 'Notes.txt'), 'keep', 'utf8');
-		fs.writeFileSync(path.join(exportFolder, 'UserForm1.frm'), 'keep', 'utf8');
+		// A stale .frm is a module file and goes; its binary .frx sidecar is
+		// not a module and must never be touched by true-up (#21).
+		fs.writeFileSync(path.join(exportFolder, 'UserForm1.frm'), 'old', 'utf8');
+		fs.writeFileSync(path.join(exportFolder, 'UserForm1.frx'), 'keep', 'utf8');
 		fs.mkdirSync(path.join(exportFolder, 'nested'));
 		fs.writeFileSync(path.join(exportFolder, 'nested', 'StaleClass.cls'), 'keep', 'utf8');
 		await writeWorkbookSettings(workbook, { exportFolder, exportMode: 'trueUp' });
@@ -134,11 +137,12 @@ describe('moduleExport', () => {
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 		]), { filePath: workbook });
 
-		expect(result.removedFiles).toEqual(['Stale.bas', 'StaleClass.cls']);
+		expect(result.removedFiles).toEqual(['Stale.bas', 'StaleClass.cls', 'UserForm1.frm']);
 		expect(fs.existsSync(path.join(exportFolder, 'Stale.bas'))).toBe(false);
 		expect(fs.existsSync(path.join(exportFolder, 'StaleClass.cls'))).toBe(false);
 		expect(fs.existsSync(path.join(exportFolder, 'Notes.txt'))).toBe(true);
-		expect(fs.existsSync(path.join(exportFolder, 'UserForm1.frm'))).toBe(true);
+		expect(fs.existsSync(path.join(exportFolder, 'UserForm1.frm'))).toBe(false);
+		expect(fs.existsSync(path.join(exportFolder, 'UserForm1.frx'))).toBe(true);
 		expect(fs.existsSync(path.join(exportFolder, 'nested', 'StaleClass.cls'))).toBe(true);
 	});
 

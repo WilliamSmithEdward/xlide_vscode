@@ -217,7 +217,7 @@ describe('module sync plan', () => {
 			leftTitle: 'Repo: Stale.bas (will remove)',
 			rightTitle: 'Workbook: missing module',
 		});
-		expect(stale?.warning).toContain('stale .bas/.cls repo module file');
+		expect(stale?.warning).toContain('stale .bas/.cls/.frm repo module file');
 	});
 
 	it('does not preview non-module or nested files as export deletions', async () => {
@@ -225,7 +225,8 @@ describe('module sync plan', () => {
 		fs.writeFileSync(path.join(repo, 'Stale.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'StaleClass.cls'), 'VERSION 1.0 CLASS\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'Notes.txt'), 'keep', 'utf8');
-		fs.writeFileSync(path.join(repo, 'UserForm1.frm'), 'keep', 'utf8');
+		// A .frx is the form's binary designer sidecar, not a module (#21).
+		fs.writeFileSync(path.join(repo, 'UserForm1.frx'), 'keep', 'utf8');
 		fs.mkdirSync(path.join(repo, 'nested'));
 		fs.writeFileSync(path.join(repo, 'nested', 'Stale.cls'), 'keep', 'utf8');
 
@@ -363,9 +364,10 @@ describe('module sync plan', () => {
 		expect(item.diff.filter((line) => line.left).every((line) => line.kind === 'added')).toBe(true);
 	});
 
-	it('ignores frm files in import planning', async () => {
+	it('plans .frm files as forms and ignores their .frx sidecars (#21)', async () => {
 		const { workbook, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'UserForm1.frm'), 'VERSION 5.00\nBegin VB.UserForm UserForm1\nEnd\n', 'utf8');
+		fs.writeFileSync(path.join(repo, 'UserForm1.frx'), 'binary', 'utf8');
 		fs.writeFileSync(path.join(repo, 'Module1.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
 
 		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
@@ -373,7 +375,11 @@ describe('module sync plan', () => {
 			importFolder: repo,
 		});
 
-		expect(plan.items.map((item) => item.relativeName)).toEqual(['Module1.bas']);
+		expect(plan.items.map((item) => item.relativeName)).toEqual(['Module1.bas', 'UserForm1.frm']);
+		const form = plan.items.find((item) => item.relativeName === 'UserForm1.frm');
+		// A form still cannot be created from its file alone.
+		expect(form?.moduleType).toBe('userform');
+		expect(form?.status).toBe('skipping-import');
 	});
 
 	it('builds a side-by-side diff with changed line metadata', () => {
@@ -523,5 +529,84 @@ describe('hiding headers hides the whole header, not just the attribute lines', 
 		expect(preview).toContain('End With');
 		expect(preview).toContain('End Sub');
 		expect(preview).not.toContain('VERSION');
+	});
+});
+
+describe('a UserForm syncs as a .frm (#21)', () => {
+	const FORM_SOURCE = [
+		'Attribute VB_Name = "EntryForm"',
+		'Attribute VB_Base = "0{11111111-0000-0000-0000-000000000000};{22222222-0000-0000-0000-000000000000}"',
+		'Option Explicit',
+		'',
+		'Private Sub UserForm_Initialize()',
+		'End Sub',
+		'',
+	].join('\r\n');
+
+	it('exports a form under Name.frm, the name the VBE itself writes', async () => {
+		const { workbook, repo } = tempWorkbook();
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const plan = await buildExportModuleSyncPlan(bridge, { workbookPath: workbook, exportFolder: repo });
+		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
+		expect(item?.relativeName).toBe('EntryForm.frm');
+	});
+
+	it('classifies a .frm as a userform by its name alone', async () => {
+		const { workbook, repo } = tempWorkbook();
+		// Deliberately headerless: a real Excel form's module text carries no
+		// designer block, so the extension must be enough.
+		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), 'Option Explicit\r\n', 'utf8');
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
+		expect(item?.moduleType).toBe('userform');
+		expect(item?.status).toBe('will-update');
+	});
+
+	it('still cannot create a form from a repo file alone', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'NewForm.frm'), 'Option Explicit\r\n', 'utf8');
+		const bridge = fakeBridge([]);
+		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const item = plan.items.find((candidate) => candidate.moduleName === 'NewForm');
+		expect(item?.status).toBe('skipping-import');
+	});
+
+	it('never treats a .frx sidecar as a module, in either direction', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), 'Option Explicit\r\n', 'utf8');
+		fs.writeFileSync(path.join(repo, 'EntryForm.frx'), Buffer.from([0x01, 0x02, 0x03]));
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const importPlan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		expect(importPlan.items.some((item) => /\.frx$/i.test(item.relativeName))).toBe(false);
+		// A trueUp export must not list the sidecar as a stale module either -
+		// the .frx belongs to the .frm and is the VBE importer's to read.
+		const exportPlan = await buildExportModuleSyncPlan(bridge, {
+			workbookPath: workbook, exportFolder: repo, exportMode: 'trueUp',
+		});
+		expect(exportPlan.items.some((item) => /\.frx$/i.test(item.relativeName))).toBe(false);
+	});
+
+	it('retires an old .cls export of the same form on trueUp', async () => {
+		const { workbook, repo } = tempWorkbook();
+		// What 3.8.0 and earlier wrote: the form under a .cls name.
+		fs.writeFileSync(path.join(repo, 'EntryForm.cls'), FORM_SOURCE, 'utf8');
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const plan = await buildExportModuleSyncPlan(bridge, {
+			workbookPath: workbook, exportFolder: repo, exportMode: 'trueUp',
+		});
+		const create = plan.items.find((item) => item.relativeName === 'EntryForm.frm');
+		const stale = plan.items.find((item) => item.relativeName === 'EntryForm.cls');
+		expect(create?.status).toBe('will-create');
+		expect(stale?.status).toBe('will-remove');
+	});
+
+	it('a legacy .cls carrying a form header still classifies as a form', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'OldForm.cls'), FORM_SOURCE, 'utf8');
+		const bridge = fakeBridge([{ name: 'OldForm', type: 'userform', source: FORM_SOURCE }]);
+		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const item = plan.items.find((candidate) => candidate.moduleName === 'OldForm');
+		expect(item?.moduleType).toBe('userform');
 	});
 });
