@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.3] - Unreleased
+
+- **Member access follows a control member into the object it returns**
+  (#32). `Views.SelectedItem` always hovered `As Tab`, but completion and
+  hover refused the second hop into the returned object - the one receiver
+  shape that dead-ended while host chains resolved. The chain now steps
+  through a control member's returned MSForms type exactly when the forms
+  metadata carries that surface, and the metadata now includes the
+  returned-object types the library defines as interfaces - Tab, Tabs,
+  Pages, Controls, Font - pulled in by reachability from the control
+  members that return them. `Views.SelectedItem.Caption` completes and
+  hovers as `Tab.Caption As String`, `ViewNote.Font.Bold` chains the same
+  way, and a primitive return still ends the chain instead of guessing.
+
 ## [4.0.2] - 2026-08-19
 
 - **The paint's shadow rule reaches the receiver too** (#30). A form control

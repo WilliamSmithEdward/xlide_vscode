@@ -1207,6 +1207,7 @@ function resolveAnyMemberReturnType(
 			return type ? { type, kind: projectMember.kind } : undefined;
 		}
 		return implicitMemberReturn(combined.projectKey, memberName, ctx)
+			?? msFormsMemberReturn(combined.hostType, memberName)
 			?? hostMemberReturn(combined.hostType, memberName, ctx.model);
 	}
 	if (!ownerType.startsWith(PROJECT_TYPE_PREFIX)) {
@@ -1217,7 +1218,8 @@ function resolveAnyMemberReturnType(
 			);
 			return member?.returns ? { type: member.returns, kind: member.kind } : undefined;
 		}
-		return hostMemberReturn(ownerType, memberName, ctx.model);
+		return msFormsMemberReturn(ownerType, memberName)
+			?? hostMemberReturn(ownerType, memberName, ctx.model);
 	}
 	const projectKey = ownerType.slice(PROJECT_TYPE_PREFIX.length);
 	const projectType = projectClassMembersByName(ctx).get(projectKey);
@@ -1228,6 +1230,26 @@ function resolveAnyMemberReturnType(
 		return implicitMemberReturn(projectKey, memberName, ctx);
 	}
 	const type = resolveDeclaredObjectType(member.returns, ctx, ctx.model);
+	return type ? { type, kind: member.kind } : undefined;
+}
+
+/**
+ * `Views.SelectedItem.` chains into the returned object's own MSForms surface
+ * (issue #32): the member's bare return name ("Tab", "Font") resolves to its
+ * qualified type exactly when the forms metadata carries that surface, so a
+ * primitive or unmodelled return ends the chain instead of guessing.
+ */
+function msFormsMemberReturn(
+	ownerType: string,
+	memberName: string,
+): ResolvedMemberReturn | undefined {
+	const member = msFormsControlMembers(ownerType)?.find(
+		(candidate) => candidate.name.toLowerCase() === memberName.toLowerCase(),
+	);
+	if (!member?.returns) {
+		return undefined;
+	}
+	const type = resolveMsFormsTypeName(`MSForms.${member.returns}`);
 	return type ? { type, kind: member.kind } : undefined;
 }
 

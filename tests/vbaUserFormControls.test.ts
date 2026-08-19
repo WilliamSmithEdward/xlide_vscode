@@ -602,3 +602,54 @@ describe('a form reached from another module (#22)', () => {
 		expect(members).toContain('SetFocus');
 	});
 });
+
+describe('member access through a control member returned object (issue #32)', () => {
+	// Views.SelectedItem hovers `As Tab` - the metadata knows the return - but
+	// the chain refused the second hop into the returned object's surface, the
+	// one receiver shape that dead-ended while host chains resolved.
+	const IMPLICIT = [
+		{ name: 'Views', type: 'MSForms.TabStrip' },
+		{ name: 'ViewNote', type: 'MSForms.Label' },
+	];
+	const CTX = { implicitMembers: IMPLICIT };
+
+	function membersAt(source: string, marker: string): string[] {
+		return resolveMemberCompletions(source, source.indexOf(marker) + marker.length, CTX as never)
+			.map((m) => m.name);
+	}
+
+	it('completes into the returned Tab surface', () => {
+		const source = 'Private Sub T()\r\n    Views.SelectedItem.\r\nEnd Sub\r\n';
+		const members = membersAt(source, 'Views.SelectedItem.');
+		expect(members).toContain('Caption');
+		expect(members).toContain('Index');
+		expect(members.length).toBeGreaterThan(5);
+	});
+
+	it('hovers the member of the returned object, owner-qualified', () => {
+		const source =
+			'Private Sub T()\r\n    ViewNote.Caption = Views.SelectedItem.Caption & " view"\r\nEnd Sub\r\n';
+		const at = source.indexOf('SelectedItem.Caption') + 'SelectedItem.'.length + 2;
+		const info = resolveHover(source, at, CTX as never);
+		expect(info?.signature).toBe('Tab.Caption As String');
+		expect(info?.details).toContain('Tab property');
+	});
+
+	it('chains into a control Font the same way', () => {
+		const source = 'Private Sub T()\r\n    ViewNote.Font.\r\nEnd Sub\r\n';
+		const members = membersAt(source, 'ViewNote.Font.');
+		expect(members).toContain('Bold');
+		expect(members).toContain('Size');
+
+		const hoverSource = 'Private Sub T()\r\n    ViewNote.Font.Bold = True\r\nEnd Sub\r\n';
+		const info = resolveHover(hoverSource, hoverSource.indexOf('.Bold') + 2, CTX as never);
+		expect(info?.signature).toBe('Font.Bold As Boolean');
+	});
+
+	it('does not invent a surface past a primitive member', () => {
+		// Caption is a String; the library gives it no object surface, and the
+		// VBE offers none - the chain must stay silent rather than guess.
+		const source = 'Private Sub T()\r\n    ViewNote.Caption.\r\nEnd Sub\r\n';
+		expect(membersAt(source, 'ViewNote.Caption.')).toEqual([]);
+	});
+});

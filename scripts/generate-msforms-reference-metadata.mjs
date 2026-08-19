@@ -53,13 +53,24 @@ function membersOf(dump) {
     return out;
 }
 
-const types = [];
+const classDumps = [];
+const interfaceDumps = new Map();
 for (const fileName of fs.readdirSync(jsonDir).sort()) {
     if (!fileName.endsWith('.json')) { continue; }
     const dump = JSON.parse(fs.readFileSync(path.join(jsonDir, fileName), 'utf8'));
-    if (dump.kind !== 'Class') { continue; }
+    if (dump.kind === 'Class') {
+        classDumps.push({ dump, fileName });
+    } else if (dump.kind === 'Dispatch Interface') {
+        interfaceDumps.set(dump.name, { dump, fileName });
+    }
+}
+
+const types = [];
+const emitted = new Set();
+function emit(dump, fileName) {
     const members = membersOf(dump);
-    if (members.length === 0) { continue; }
+    if (members.length === 0 || emitted.has(dump.name)) { return; }
+    emitted.add(dump.name);
     types.push({
         name: dump.name,
         guid: dump.guid,
@@ -73,7 +84,21 @@ for (const fileName of fs.readdirSync(jsonDir).sort()) {
             && dump.name !== 'Control'
             && !dump.name.startsWith('UserForm'),
     });
+    // A member's return can name a Dispatch Interface (TabStrip.SelectedItem
+    // As Tab, everything's Font) - the surfaces chains land on (issue #32).
+    // Pull exactly those in, closing over their own returns; the library's
+    // unreferenced I*-twin and event-sink interfaces stay out.
+    for (const member of members) {
+        const target = member.returns && interfaceDumps.get(member.returns);
+        if (target) {
+            emit(target.dump, target.fileName);
+        }
+    }
 }
+for (const { dump, fileName } of classDumps) {
+    emit(dump, fileName);
+}
+types.sort((a, b) => a.name.localeCompare(b.name));
 
 const lines = [];
 lines.push('// Generated from reference/msforms/json. Do not hand-edit member names here.');
