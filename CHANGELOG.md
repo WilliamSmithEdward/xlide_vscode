@@ -64,11 +64,13 @@ its own Office application.
 
 - **Agent writes are reviewable.** Copilot's own keep/reject cannot see a
   change made through a tool, so XLIDE supplies the contract itself: every
-  `xlide_writeModule` write opens a native before/after diff, offers
-  Keep/Revert (Revert restores the before-image through the audited write
-  path and refuses if the module changed again in the meantime), and the
-  XLIDE tree badges the module until the decision is made. Controlled by
-  `xlide.agent.showWriteDiffs`.
+  chat-driven `xlide_writeModule` write opens a native before/after diff
+  beside the chat, and the XLIDE tree badges the module with inline Keep
+  and Revert actions until the decision is made - no notification popups.
+  Revert restores the before-image through the audited write path, removes
+  a module the write created, and refuses if the module changed again in
+  the meantime; a rename carries the pending review to the new name.
+  Controlled by `xlide.agent.showWriteDiffs`.
 
 - **New file creation** for Word documents/templates and PowerPoint
   presentations/templates, seeded from blanks authored by their own

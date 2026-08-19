@@ -4,11 +4,12 @@ import * as os from 'os';
 import * as path from 'path';
 
 interface RegisteredTool {
-    invoke(options: { input: Record<string, unknown> }, token: unknown): Promise<unknown>;
+    invoke(options: { input: Record<string, unknown>; toolInvocationToken?: unknown }, token: unknown): Promise<unknown>;
 }
 
 const vscodeMock = vi.hoisted(() => ({
     registeredTools: new Map<string, RegisteredTool>(),
+    registeredCommands: new Map<string, (...args: unknown[]) => unknown>(),
     // Assigned by the vscode mock factory below, which runs with vi live.
     executeCommand: undefined as unknown as ReturnType<typeof vi.fn>,
     showInformationMessage: undefined as unknown as ReturnType<typeof vi.fn>,
@@ -22,7 +23,10 @@ vi.mock('vscode', async () => {
     return (await import('./helpers/vscodeMock')).vscodeMock({
         commands: {
             executeCommand: vscodeMock.executeCommand,
-            registerCommand: vi.fn(() => ({ dispose: vi.fn() })),
+            registerCommand: vi.fn((name: string, handler: (...args: unknown[]) => unknown) => {
+                vscodeMock.registeredCommands.set(name, handler);
+                return { dispose: vi.fn() };
+            }),
         },
         window: {
             showInformationMessage: vscodeMock.showInformationMessage,
@@ -65,6 +69,7 @@ import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteA
 
 function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
     vscodeMock.registeredTools.clear();
+    vscodeMock.registeredCommands.clear();
     const explorer = { refresh: vi.fn(), refreshModuleSubs: vi.fn() };
     registerAgentTools(
         {} as never,
@@ -148,111 +153,218 @@ describe('xlide_createWorkbook agent tool', () => {
     });
 });
 
-describe('agent write review (keep/revert with tree badge)', () => {
+describe('agent write review (diff + tree badge, native surfaces only)', () => {
     let tempDir: string;
 
     beforeEach(() => {
+        clearXlideWriteAudit();
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-agent-review-'));
         vscodeMock.executeCommand.mockClear();
-        vscodeMock.showInformationMessage.mockReset();
-        vscodeMock.showInformationMessage.mockResolvedValue(undefined);
+        vscodeMock.showInformationMessage.mockClear();
+        vscodeMock.showWarningMessage.mockClear();
     });
 
     afterEach(() => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
+    /** Marks an invocation as chat-driven; only those get the review. */
+    const CHAT = { toolInvocationToken: {} };
+
+    /** In-memory module store speaking the bridge protocol. */
+    function fakeEngine(initialByModule: Record<string, string> = {}) {
+        const store = new Map<string, string>(
+            Object.entries(initialByModule).map(([name, source]) => [name.toLowerCase(), source]),
+        );
+        const calls: Array<{ method: string; args: Record<string, unknown> }> = [];
+        const call = vi.fn(async (method: string, args: Record<string, unknown>) => {
+            calls.push({ method, args });
+            const key = String(args.module ?? '').toLowerCase();
+            switch (method) {
+                case 'readModule': {
+                    const source = store.get(key);
+                    if (source === undefined) {
+                        throw new Error(`module not found: ${String(args.module)}`);
+                    }
+                    return { source };
+                }
+                case 'writeModule':
+                    store.set(key, String(args.source));
+                    return { ok: true, signatureDropped: false };
+                case 'renameModule': {
+                    const source = store.get(key);
+                    if (source === undefined) {
+                        throw new Error(`module not found: ${String(args.module)}`);
+                    }
+                    store.delete(key);
+                    store.set(String(args.newName).toLowerCase(), source);
+                    return { ok: true, signatureDropped: false };
+                }
+                case 'deleteModule':
+                    store.delete(key);
+                    return { ok: true, signatureDropped: false };
+                default:
+                    return { ok: true };
+            }
+        });
+        return { call, calls, store };
+    }
+
     function writeTool(bridgeCall: ReturnType<typeof vi.fn>) {
         registerTools(bridgeCall);
         return vscodeMock.registeredTools.get('xlide_writeModule');
     }
 
-    it('opens a diff, prompts, and marks the module pending until resolved', async () => {
-        const target = path.join(tempDir, 'Book.xlsm');
-        const bridgeCall = vi.fn(async (method: string) => {
-            if (method === 'readModule') { return { source: 'Sub Old()\r\nEnd Sub\r\n' }; }
-            return { ok: true, signatureDropped: false };
-        });
-        const tool = writeTool(bridgeCall);
+    async function runCommand(name: string, node: { filePath: string; moduleName: string }) {
+        const handler = vscodeMock.registeredCommands.get(name);
+        expect(handler).toBeDefined();
+        await handler?.(node);
+    }
 
-        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' } }, undefined);
-        await new Promise((resolve) => setTimeout(resolve, 0));
+    async function settle() {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    it('a chat-driven write opens a diff quietly and badges the module', async () => {
+        const target = path.join(tempDir, 'Book.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
 
         const diffCall = vscodeMock.executeCommand.mock.calls
             .find((call: unknown[]) => call[0] === 'vscode.diff');
         expect(diffCall).toBeDefined();
         expect(String(diffCall?.[1])).toContain('xlide-vba-before:');
-        expect(vscodeMock.showInformationMessage).toHaveBeenCalledWith(
-            expect.stringContaining('Keep the change?'), 'Keep', 'Revert');
-        // Dismissed prompt: still pending, so the tree badge stays.
+        // Native surfaces only: no notification prompt, badge until decided.
+        expect(vscodeMock.showInformationMessage).not.toHaveBeenCalled();
         expect(hasPendingAgentReview(target, 'Module1')).toBe(true);
     });
 
-    it('Keep resolves the pending badge', async () => {
-        const target = path.join(tempDir, 'Keep.xlsm');
-        vscodeMock.showInformationMessage.mockResolvedValue('Keep');
-        const bridgeCall = vi.fn(async (method: string) => {
-            if (method === 'readModule') { return { source: 'Sub Old()\r\nEnd Sub\r\n' }; }
-            return { ok: true, signatureDropped: false };
-        });
-        const tool = writeTool(bridgeCall);
+    it('a write without a chat token gets no review and skips the pre-read', async () => {
+        const target = path.join(tempDir, 'Plain.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
 
         await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' } }, undefined);
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await settle();
 
+        expect(vscodeMock.executeCommand.mock.calls.some((call: unknown[]) => call[0] === 'vscode.diff')).toBe(false);
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+        expect(engine.calls.some((entry) => entry.method === 'readModule')).toBe(false);
+    });
+
+    it('Keep Agent Change clears the badge', async () => {
+        const target = path.join(tempDir, 'Keep.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await runCommand('xlide.keepAgentChange', { filePath: target, moduleName: 'Module1' });
+
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+        expect(engine.store.get('module1')).toContain('NewCode');
+    });
+
+    it('Revert restores the before-image through the audited write path', async () => {
+        const target = path.join(tempDir, 'Revert.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
+
+        expect(engine.store.get('module1')).toContain('Sub Old()');
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+        expect(recentXlideWriteAudits(1)).toMatchObject([{
+            command: 'xlide.revertAgentChange',
+            operation: 'write-module',
+            outcome: 'succeeded',
+            workbookPath: target,
+            moduleName: 'Module1',
+            summary: 'Revert agent change: 1 changed',
+        }]);
+    });
+
+    it('stacked writes revert to the state before the first', async () => {
+        const target = path.join(tempDir, 'Stacked.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Original()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub First()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub Second()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
+
+        expect(engine.store.get('module1')).toContain('Sub Original()');
         expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
     });
 
-    it('Revert writes the before-image back and resolves the badge', async () => {
-        const target = path.join(tempDir, 'Revert.xlsm');
-        vscodeMock.showInformationMessage.mockResolvedValue('Revert');
-        const written: string[] = [];
-        let currentSource = 'Sub Old()\r\nEnd Sub\r\n';
-        const bridgeCall = vi.fn(async (method: string, args: Record<string, unknown>) => {
-            if (method === 'readModule') { return { source: currentSource }; }
-            if (method === 'writeModule') {
-                currentSource = String(args.source);
-                written.push(currentSource);
-                return { ok: true, signatureDropped: false };
-            }
-            return { ok: true };
-        });
-        const tool = writeTool(bridgeCall);
+    it('reverting a module the agent created deletes it', async () => {
+        const target = path.join(tempDir, 'Created.xlsm');
+        const engine = fakeEngine();
+        const tool = writeTool(engine.call);
 
-        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' } }, undefined);
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub Fresh()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
 
-        expect(written[0]).toContain('NewCode');
-        expect(written[written.length - 1]).toContain('Sub Old()');
+        expect(engine.calls.some((entry) => entry.method === 'deleteModule')).toBe(true);
+        expect(engine.store.has('module1')).toBe(false);
         expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+        expect(recentXlideWriteAudits(1)).toMatchObject([{
+            command: 'xlide.revertAgentChange',
+            operation: 'delete-module',
+            outcome: 'succeeded',
+            summary: 'Revert agent change: 1 removed',
+        }]);
     });
 
     it('refuses to revert over a change made after the agent wrote', async () => {
         const target = path.join(tempDir, 'Drift.xlsm');
-        vscodeMock.showInformationMessage.mockResolvedValue('Revert');
-        const written: string[] = [];
-        const responses = [
-            { source: 'Sub Old()\r\nEnd Sub\r\n' },        // before-image read
-            { source: 'Sub NewCode()\r\nEnd Sub\r\n' },     // after-image read
-            { source: 'Sub UserEdited()\r\nEnd Sub\r\n' },  // read at revert time: drifted
-        ];
-        const bridgeCall = vi.fn(async (method: string, args: Record<string, unknown>) => {
-            if (method === 'readModule') { return responses.shift() ?? { source: '' }; }
-            if (method === 'writeModule') {
-                written.push(String(args.source));
-                return { ok: true, signatureDropped: false };
-            }
-            return { ok: true };
-        });
-        const tool = writeTool(bridgeCall);
+        const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
 
-        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' } }, undefined);
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        // The module changes again behind the review's back.
+        engine.store.set('module1', 'Sub UserEdited()\r\nEnd Sub\r\n');
+        await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
 
-        // Only the agent's own write happened; the revert was refused.
-        expect(written).toHaveLength(1);
         expect(vscodeMock.showWarningMessage).toHaveBeenCalledWith(
             expect.stringContaining('changed again after the agent'));
+        expect(engine.store.get('module1')).toContain('UserEdited');
         expect(hasPendingAgentReview(target, 'Module1')).toBe(true);
+    });
+
+    it('a rename carries the pending review to the new name', async () => {
+        const target = path.join(tempDir, 'Rename.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        const rename = vscodeMock.registeredTools.get('xlide_renameModule');
+        await rename?.invoke({ input: { filePath: target, moduleName: 'Module1', newName: 'Module2' } }, undefined);
+
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+        expect(hasPendingAgentReview(target, 'Module2')).toBe(true);
+    });
+
+    it('deleting the module discards the pending review', async () => {
+        const target = path.join(tempDir, 'Delete.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub NewCode()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        const del = vscodeMock.registeredTools.get('xlide_deleteModule');
+        await del?.invoke({ input: { filePath: target, moduleName: 'Module1' } }, undefined);
+
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
     });
 });

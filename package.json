@@ -83,7 +83,7 @@
           "type": "boolean",
           "scope": "machine",
           "default": true,
-          "description": "When an AI agent writes a VBA module through the XLIDE tools, open a before/after diff of the change and offer Keep / Revert. Agent tool writes never pass through the editor, so without this no diff appears anywhere."
+          "description": "When an AI agent writes a VBA module through the XLIDE tools, open a before/after diff of the change and badge the module in the XLIDE tree with Keep / Revert actions. Agent tool writes never pass through the editor, so without this no diff appears anywhere."
         },
         "xlide.diagnostics.enabled": {
           "type": "boolean",
@@ -287,6 +287,18 @@
         "icon": "$(diff)"
       },
       {
+        "command": "xlide.keepAgentChange",
+        "title": "Keep Agent Change",
+        "category": "XLIDE",
+        "icon": "$(check)"
+      },
+      {
+        "command": "xlide.revertAgentChange",
+        "title": "Revert Agent Change",
+        "category": "XLIDE",
+        "icon": "$(discard)"
+      },
+      {
         "command": "xlide.exportModulesToFolder",
         "title": "Export All Modules to Folder",
         "category": "XLIDE",
@@ -431,6 +443,26 @@
           "command": "xlide.reviewAgentChange",
           "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
           "group": "2_edit@3"
+        },
+        {
+          "command": "xlide.keepAgentChange",
+          "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
+          "group": "2_edit@4"
+        },
+        {
+          "command": "xlide.revertAgentChange",
+          "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
+          "group": "2_edit@5"
+        },
+        {
+          "command": "xlide.keepAgentChange",
+          "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "xlide.revertAgentChange",
+          "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
+          "group": "inline@3"
         },
         {
           "command": "xlide.openWorkbook",
@@ -788,7 +820,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Canonical way to edit VBA. Writes VBA source directly into the macro-enabled Office file (Excel, Word, or PowerPoint; Access is read-only because Access runs compiled p-code) and saves automatically. These files are binary containers, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by the host application or a user after your read is overwritten silently. After the write, XLIDE shows the user a before/after diff with Keep/Revert controls (xlide.agent.showWriteDiffs), and the XLIDE tree badges the module until they decide.",
+        "modelDescription": "Canonical way to edit VBA. Writes VBA source directly into the macro-enabled Office file (Excel, Word, or PowerPoint; Access is read-only because Access runs compiled p-code) and saves automatically. These files are binary containers, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by the host application or a user after your read is overwritten silently. After a chat-driven write, XLIDE shows the user a before/after diff and badges the module in its tree with Keep/Revert actions until they decide (xlide.agent.showWriteDiffs). A revert restores the pre-write source, or removes a module this write created, so if the user mentions reverting, re-read the module before editing further.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

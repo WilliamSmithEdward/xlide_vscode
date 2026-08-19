@@ -207,7 +207,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         webviewCard: {
             section: 'editor',
             label: 'Review Agent Writes',
-            description: 'When an AI agent writes a VBA module through the XLIDE tools, open a before/after diff and offer Keep / Revert. Agent tool writes never pass through the editor, so without this no diff appears anywhere.',
+            description: 'When an AI agent writes a VBA module through the XLIDE tools, open a before/after diff and badge the module in the XLIDE tree with Keep / Revert actions. Agent tool writes never pass through the editor, so without this no diff appears anywhere.',
             control: { kind: 'boolean' },
         },
     },

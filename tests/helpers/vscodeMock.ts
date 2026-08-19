@@ -96,6 +96,10 @@ export class RelativePattern {
 	) {}
 }
 
+export class TabInputText {
+	constructor(readonly uri: unknown) {}
+}
+
 export class LanguageModelTextPart {
 	constructor(readonly value: string) {}
 }
@@ -123,6 +127,7 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 			showInformationMessage: vi.fn(async () => undefined),
 			showSaveDialog: vi.fn(async () => undefined),
 			showWarningMessage: vi.fn(async () => undefined),
+			tabGroups: { all: [], close: vi.fn(async () => true) },
 		},
 		workspace: {
 			textDocuments: [],
@@ -157,6 +162,7 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 		Position,
 		Range,
 		RelativePattern,
+		TabInputText,
 		ThemeIcon,
 		TreeItem,
 		FileChangeType: { Changed: 1, Created: 2, Deleted: 3 },

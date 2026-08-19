@@ -10,10 +10,13 @@ import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import {
     agentWriteDiffsEnabled,
+    keepAgentChange,
     onDidChangePendingAgentReviews,
+    openAgentReviewDiff,
+    presentAgentModuleWrite,
     registerAgentDiffProvider,
-    reopenAgentReview,
-    reviewAgentModuleWrite,
+    revertAgentChange,
+    type AgentWriteReviewDeps,
 } from './xlideAgentDiff';
 import {
     deleteWorkbookModule,
@@ -102,7 +105,9 @@ export function registerAgentTools(
     vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
     const ops: WorkbookModuleOperationDeps = { bridge, explorer, fsProvider, vbaIndex };
-    const agentDiffDeps = {
+    // Revert runs through the same audited write path as the tools, so the
+    // audit log shows the user's revert next to the agent write it undoes.
+    const agentDiffDeps: AgentWriteReviewDeps = {
         readModuleSource: async (filePath: string, moduleName: string): Promise<string> => {
             const current = await bridge.call<{ source: string }>(
                 'readModule', { path: filePath, module: moduleName },
@@ -110,7 +115,28 @@ export function registerAgentTools(
             return current.source;
         },
         writeModuleSource: async (filePath: string, moduleName: string, source: string): Promise<void> => {
-            await writeWorkbookModule(ops, { filePath, moduleName, source });
+            await withWriteAudit({
+                command: 'xlide.revertAgentChange',
+                operation: 'write-module',
+                workbookPath: filePath,
+                moduleName,
+                failedSummary: 'Revert agent change: 0 changed, 1 failed',
+            }, async () => ({
+                result: await writeWorkbookModule(ops, { filePath, moduleName, source }),
+                summary: 'Revert agent change: 1 changed',
+            }));
+        },
+        deleteModule: async (filePath: string, moduleName: string): Promise<void> => {
+            await withWriteAudit({
+                command: 'xlide.revertAgentChange',
+                operation: 'delete-module',
+                workbookPath: filePath,
+                moduleName,
+                failedSummary: 'Revert agent change: 0 changed, 1 failed',
+            }, async () => ({
+                result: await deleteWorkbookModule(ops, { filePath, moduleName }),
+                summary: 'Revert agent change: 1 removed',
+            }));
         },
     };
     return [
@@ -124,7 +150,19 @@ export function registerAgentTools(
             if (!node?.filePath || !node.moduleName) {
                 return;
             }
-            await reopenAgentReview(agentDiffDeps, node.filePath, node.moduleName);
+            await openAgentReviewDiff(node.filePath, node.moduleName);
+        }),
+        vscode.commands.registerCommand('xlide.keepAgentChange', (node?: { filePath?: string; moduleName?: string }) => {
+            if (!node?.filePath || !node.moduleName) {
+                return;
+            }
+            keepAgentChange(node.filePath, node.moduleName);
+        }),
+        vscode.commands.registerCommand('xlide.revertAgentChange', async (node?: { filePath?: string; moduleName?: string }) => {
+            if (!node?.filePath || !node.moduleName) {
+                return;
+            }
+            await revertAgentChange(agentDiffDeps, node.filePath, node.moduleName);
         }),
         // ----------------------------------------------------------------
         // xlide_listWorkbooks
@@ -242,16 +280,24 @@ export function registerAgentTools(
         vscode.lm.registerTool<WriteModuleInput>('xlide_writeModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, source, expectedContentToken } = options.input;
+                // Only chat-driven invocations carry a toolInvocationToken;
+                // programmatic calls get no review surface.
+                const wantsReview = options.toolInvocationToken !== undefined
+                    && agentWriteDiffsEnabled();
                 // The before-image feeds both the stale-token check and the
                 // keep/revert review; a missing module (a create) reads as ''.
                 let beforeSource = '';
-                try {
-                    const current = await bridge.call<{ source: string }>(
-                        'readModule', { path: filePath, module: moduleName },
-                    );
-                    beforeSource = current.source;
-                } catch {
-                    beforeSource = '';
+                let beforeExisted = false;
+                if (expectedContentToken || wantsReview) {
+                    try {
+                        const current = await bridge.call<{ source: string }>(
+                            'readModule', { path: filePath, module: moduleName },
+                        );
+                        beforeSource = current.source;
+                        beforeExisted = true;
+                    } catch {
+                        // A create: the module does not exist yet.
+                    }
                 }
                 if (expectedContentToken) {
                     const stale = checkModuleContentToken(beforeSource, expectedContentToken, moduleName);
@@ -275,7 +321,7 @@ export function registerAgentTools(
                         }),
                     };
                 });
-                if (agentWriteDiffsEnabled()) {
+                if (wantsReview) {
                     let afterSource = source;
                     try {
                         afterSource = (await agentDiffDeps.readModuleSource(filePath, moduleName));
@@ -283,8 +329,9 @@ export function registerAgentTools(
                         // The write succeeded; the review still opens with the
                         // requested source as the after-image.
                     }
-                    void reviewAgentModuleWrite(agentDiffDeps, filePath, moduleName, {
+                    void presentAgentModuleWrite(filePath, moduleName, {
                         before: beforeSource,
+                        beforeExisted,
                         after: afterSource,
                     });
                 }

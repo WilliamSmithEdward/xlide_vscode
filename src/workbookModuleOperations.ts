@@ -10,6 +10,7 @@ import {
 import { invalidateVbaMemberCompletionCache } from './vbaMemberCompletion';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { noteModuleWrite } from './vbaRenameHistory';
+import { discardPendingAgentReview, renamePendingAgentReview } from './xlideAgentDiff';
 
 /**
  * Shared workbook module mutations used by both the command handlers and the
@@ -140,6 +141,8 @@ export async function renameWorkbookModule(
         }),
     );
     notifySignatureDropped(filePath, Boolean(result.signatureDropped));
+    // An unreviewed agent change follows the module to its new name.
+    renamePendingAgentReview(filePath, moduleName, newName);
     // Tell open editors the old module is gone and refresh workbook stats
     deps.fsProvider.notifyFileChanged(encodeModuleUri(filePath, moduleName));
     if (options.refreshProjectState !== false) {
@@ -161,6 +164,8 @@ export async function deleteWorkbookModule(
         }),
     );
     notifySignatureDropped(filePath, Boolean(result.signatureDropped));
+    // A deleted module has nothing left to review.
+    discardPendingAgentReview(filePath, moduleName);
     // Close any open editors for this module
     const uri = encodeModuleUri(filePath, moduleName);
     for (const tab of vscode.window.tabGroups.all.flatMap((g) => g.tabs)) {
