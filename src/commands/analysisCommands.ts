@@ -398,7 +398,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         registerXlideCommand('xlide.validateWorkbook', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) {
-                vscode.window.showWarningMessage('XLIDE: No workbook selected to validate.');
+                vscode.window.showWarningMessage('XLIDE: No file selected to validate.');
                 return;
             }
             const name = path.basename(filePath);
@@ -434,7 +434,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         registerXlideCommand('xlide.analyzeWorkbook', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) {
-                vscode.window.showWarningMessage('XLIDE: No workbook selected to analyze.');
+                vscode.window.showWarningMessage('XLIDE: No file selected to analyze.');
                 return;
             }
             const name = path.basename(filePath);

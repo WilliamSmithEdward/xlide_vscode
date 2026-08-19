@@ -303,3 +303,51 @@ describe('the module sync plans cover the non-Excel containers', () => {
 		expect(item?.status).toBe('will-update');
 	});
 });
+
+// ---------------------------------------------------------------------------
+// The unit-test staging pipeline over a non-Excel container: the same staging
+// the Run VBA Tests command performs, against a real Word fixture.
+
+import { discoverVbaTestsFromModule } from '../src/vbaTestRunner';
+import { stageOwnedReadOnlyExcelTestHost } from '../src/vbaTestHostStaging';
+
+describe('test staging covers Word containers', () => {
+	it('stages assert, runner and dispatcher modules into a .docm copy', async () => {
+		const target = copyOf('WordFixture.docm');
+		const testSource = [
+			"' @xlide-test",
+			'Public Sub ChecksArithmetic()',
+			'    XlideAssert.AreEqual 4, 2 + 2',
+			'End Sub',
+			'',
+			'Public Sub HelperTarget()',
+			'End Sub',
+			'',
+		].join('\r\n');
+		svc.writeModule(target, 'ZzTests', testSource);
+		const tests = discoverVbaTestsFromModule({
+			name: 'ZzTests',
+			type: 'standard',
+			source: svc.readModule(target, 'ZzTests', true).source,
+		});
+		expect(tests.map((test) => test.qualifiedName)).toEqual(['ZzTests.ChecksArithmetic']);
+
+		const staging = await stageOwnedReadOnlyExcelTestHost(
+			realServiceBridge(), target, tests, { hostApp: 'word', log: () => undefined },
+		);
+		try {
+			const staged = svc.listModules(staging.tempWorkbookPath).map((module) => module.name);
+			expect(staged).toEqual(expect.arrayContaining(['XlideAssert', 'ZzTests', 'XlideTestDispatch']));
+			expect(staged.some((name) => name.startsWith('XlideRun'))).toBe(true);
+			const dispatcher = svc.readModule(staging.tempWorkbookPath, 'XlideTestDispatch', true).source;
+			expect(dispatcher).toContain('ZzTests.HelperTarget');
+			expect(dispatcher).toContain('XlideAssert.RecordTargetOutcome');
+			const script = fs.readFileSync(staging.hostScriptPath, 'utf8');
+			expect(script).toContain("$hostKind = 'word'");
+			expect(script).toContain('$excel.Documents.Open($targetPath, $false, $true, $false)');
+			expect(validateWorkbook(staging.tempWorkbookPath).issues).toEqual([]);
+		} finally {
+			staging.dispose();
+		}
+	});
+});

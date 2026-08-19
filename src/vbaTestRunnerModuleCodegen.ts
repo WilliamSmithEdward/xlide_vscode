@@ -1,4 +1,5 @@
 import type { VbaTestCase } from './vbaTestRunner';
+import { parseModule } from './analyzer';
 import { VBA_IDENTIFIER_NAME_RE } from './vbaSourceScan';
 import { XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES } from './vbaTestSupportModule';
 
@@ -80,4 +81,96 @@ export function validateVbaTestDispatcherIdentifiers(
 
 function vbaStringLiteral(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
+}
+
+export const XLIDE_TEST_DISPATCH_MODULE_NAME = 'XlideTestDispatch';
+
+export interface VbaTestDispatchModuleInput {
+    name: string;
+    type?: string;
+    source?: string;
+}
+
+/**
+ * Generates the staged XlideTestDispatch module: a by-name dispatcher that
+ * DIRECT-CALLS every public zero-parameter Sub in the project's standard
+ * modules and records the outcome through XlideAssert.RecordTargetOutcome.
+ *
+ * XlideAssert.Throws/DoesNotThrow prefer this over `Application.Run target`
+ * because Word surfaces a Run-target's unhandled error as a VBE modal instead
+ * of propagating it to the calling VBA (measured live; Excel propagates). A
+ * direct call inside the dispatcher keeps the error in one execution context,
+ * so every host behaves alike. Targets resolve by `Module.Proc` always, and
+ * by bare `Proc` when that name is unambiguous project-wide.
+ */
+export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModuleInput[]): string {
+    interface DispatchTarget {
+        moduleName: string;
+        procedureName: string;
+    }
+    const targets: DispatchTarget[] = [];
+    for (const module of modules) {
+        if ((module.type ?? 'standard') !== 'standard' || module.source === undefined) {
+            continue;
+        }
+        if (
+            module.name === XLIDE_TEST_DISPATCH_MODULE_NAME ||
+            !VBA_IDENTIFIER_NAME_RE.test(module.name)
+        ) {
+            continue;
+        }
+        const parsed = parseModule(module.source);
+        for (const member of parsed.members) {
+            if (member.kind !== 'Procedure' || member.procKind !== 'Sub' || member.params.length > 0) {
+                continue;
+            }
+            const modifiers = member.modifiers.map((modifier) => modifier.toLowerCase());
+            if (modifiers.includes('private') || modifiers.includes('friend')) {
+                continue;
+            }
+            if (!VBA_IDENTIFIER_NAME_RE.test(member.name)) {
+                continue;
+            }
+            targets.push({ moduleName: module.name, procedureName: member.name });
+        }
+    }
+
+    const bareCounts = new Map<string, number>();
+    for (const target of targets) {
+        const key = target.procedureName.toLowerCase();
+        bareCounts.set(key, (bareCounts.get(key) ?? 0) + 1);
+    }
+
+    const cases: string[] = [];
+    for (const target of targets) {
+        const qualified = `${target.moduleName}.${target.procedureName}`.toLowerCase();
+        const bare = target.procedureName.toLowerCase();
+        const keys = [vbaStringLiteral(qualified)];
+        if (bareCounts.get(bare) === 1) {
+            keys.push(vbaStringLiteral(bare));
+        }
+        cases.push(`        Case ${keys.join(', ')}`);
+        cases.push(`            ${target.moduleName}.${target.procedureName}`);
+    }
+
+    return [
+        `Attribute VB_Name = "${XLIDE_TEST_DISPATCH_MODULE_NAME}"`,
+        'Option Explicit',
+        '',
+        "' Generated for one XLIDE test run and staged into the temporary copy",
+        "' next to XlideAssert; never written into the user's file.",
+        'Public Sub XlideInvokeTarget(ByVal macroName As String)',
+        '    On Error GoTo Caught',
+        '    XlideAssert.RecordTargetOutcome 0, "", ""',
+        '    Select Case LCase$(Trim$(macroName))',
+        ...cases,
+        '        Case Else',
+        '            Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & macroName',
+        '    End Select',
+        '    Exit Sub',
+        'Caught:',
+        '    XlideAssert.RecordTargetOutcome Err.Number, Err.Source, Err.Description',
+        'End Sub',
+        '',
+    ].join('\r\n');
 }

@@ -119,7 +119,7 @@ describe('VBA tests webview', () => {
         }));
 
         expect(html).toContain('data-action="runAll" >Run All Tests</button>');
-        expect(html).toContain('data-action="runWithFilters" title="No test tags discovered in this workbook." disabled');
+        expect(html).toContain('data-action="runWithFilters" title="No test tags discovered in this file." disabled');
         expect(html).toContain('No test tags discovered');
     });
 

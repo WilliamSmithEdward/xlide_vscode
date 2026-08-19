@@ -9,8 +9,11 @@ import {
 } from '../src/vbaTestHostOracle';
 import {
     buildVbaTestDirectRunnerModule,
+    buildVbaTestDispatchModule,
+    XLIDE_TEST_DISPATCH_MODULE_NAME,
     XLIDE_TEST_RUNNER_MODULE_NAME,
 } from '../src/vbaTestRunnerModuleCodegen';
+import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
 import type { VbaTestCase } from '../src/vbaTestRunner';
 
 describe('VBA test Excel host script', () => {
@@ -20,9 +23,11 @@ describe('VBA test Excel host script', () => {
             { qualifiedName: 'Tests.KnownFailure', timeoutMs: 7000, expectedFailure: true },
         ], { failFast: true });
 
-        expect(script).toContain('New-Object -ComObject Excel.Application');
+        expect(script).toContain("$hostProgId = 'Excel.Application'");
+        expect(script).toContain('New-Object -ComObject $hostProgId');
         expect(script).not.toContain('GetActiveObject');
-        expect(script).toContain('$excel.DisplayAlerts = $false');
+        expect(script).toContain('$app.DisplayAlerts = $false');
+        expect(script).toContain('Set-XlideHostAlertsOff $excel');
         expect(script).toContain('$excel.AskToUpdateLinks = $false');
         expect(script).toContain('$excel.Visible = $false');
         expect(script).toContain('$excel.ScreenUpdating = $false');
@@ -93,7 +98,7 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('Emit-XlideHostPhase "excel-create" "passed"');
         expect(script).toContain('Emit-XlideHostPhase "workbook-open" "passed"');
         expect(script).toContain('Emit-XlideHostPhase "workbook-open" "failed"');
-        expect(script).toContain('OPEN_FAILED|XLIDE could not open the workbook read-only for tests');
+        expect(script).toContain('OPEN_FAILED|XLIDE could not open the file read-only for tests');
         expect(script).toContain('Emit-XlideHostPhase "workbook-close" "passed"');
         expect(script).toContain('Emit-XlideHostPhase "excel-quit" "passed"');
         expect(script).toContain('Emit-XlideHostPhase "com-release" "passed"');
@@ -109,7 +114,8 @@ describe('VBA test Excel host script', () => {
         const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
 
         expect(script).toContain('$preExistingExcelPids');
-        expect(script).toContain("Get-Process -Name EXCEL -ErrorAction SilentlyContinue");
+        expect(script).toContain("$hostProcessName = 'EXCEL'");
+        expect(script).toContain('Get-Process -Name $hostProcessName -ErrorAction SilentlyContinue');
         expect(script).toContain('$preExistingExcelPids -contains $excelPid');
         expect(script).toContain('XLIDE refused to run tests');
         expect(script).toContain('Emit-XlideHostPhase "excel-create" "failed"');
@@ -123,7 +129,7 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('$excel.AutomationSecurity = 1');
         // Test VBA can leave DisplayAlerts = True behind, so teardown re-asserts
         // it before both Close and Quit rather than trusting the initial set.
-        const suppressions = script.split('$excel.DisplayAlerts = $false').length - 1;
+        const suppressions = script.split('Set-XlideHostAlertsOff $excel').length - 1;
         expect(suppressions).toBeGreaterThanOrEqual(3);
     });
 
@@ -196,6 +202,35 @@ describe('VBA test Excel host script', () => {
         ]);
     });
 
+    it('parameterizes the host per Office application, semantics measured live', () => {
+        const word = buildOwnedReadOnlyExcelTestHostScript('C:/work/Doc.docm', [], { hostApp: 'word' });
+        expect(word).toContain("$hostKind = 'word'");
+        expect(word).toContain("$hostProgId = 'Word.Application'");
+        expect(word).toContain("$hostProcessName = 'WINWORD'");
+        // Word: Documents.Open, Module.Proc run refs, ByRef [ref] argument,
+        // wdDoNotSaveChanges close; no window handle, so ownership resolves
+        // through the process diff.
+        expect(word).toContain('$excel.Documents.Open($targetPath, $false, $true, $false)');
+        expect(word).toContain('$testRunnerRef = $runnerModuleName + ".RunTest"');
+        expect(word).toContain('$excel.Run($testRunnerRef, [ref]$macroArg)');
+        expect(word).toContain('$workbook.Close(0)');
+
+        const powerpoint = buildOwnedReadOnlyExcelTestHostScript('C:/work/Deck.pptm', [], { hostApp: 'powerpoint' });
+        expect(powerpoint).toContain("$hostProgId = 'PowerPoint.Application'");
+        expect(powerpoint).toContain("$hostProcessName = 'POWERPNT'");
+        // PowerPoint: cannot hide, opens windowless read-only, runs through
+        // reflection (its ParamArray rejects ByRef marshaling), and uses
+        // file-qualified run refs.
+        expect(powerpoint).toContain('if ($hostKind -ne "powerpoint") { try { $excel.Visible = $false } catch { } }');
+        expect(powerpoint).toContain('$excel.Presentations.Open($targetPath, -1, 0, 0)');
+        expect(powerpoint).toContain('$testRunnerRef = $workbook.Name + "!" + $runnerModuleName + ".RunTest"');
+        expect(powerpoint).toContain('InvokeMember("Run"');
+
+        // The default stays Excel, unchanged.
+        const excel = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+        expect(excel).toContain("$hostKind = 'excel'");
+    });
+
     it('parses host event lines and ignores ordinary output', () => {
         expect(parseVbaTestHostEventLine('not an event')).toBeUndefined();
         expect(parseVbaTestHostEventLine(`${XLIDE_TEST_HOST_EVENT_PREFIX}${JSON.stringify({
@@ -235,3 +270,77 @@ function testCase(qualifiedName: string, metadata: Partial<VbaTestCase['metadata
         },
     };
 }
+
+describe('the staged Throws dispatcher', () => {
+    const modules = [
+        {
+            name: 'Tests',
+            type: 'standard',
+            source: [
+                'Public Sub PlainTarget()',
+                'End Sub',
+                '',
+                'Private Sub Hidden()',
+                'End Sub',
+                '',
+                'Friend Sub AlsoHidden()',
+                'End Sub',
+                '',
+                'Public Sub NeedsArg(ByVal value As Long)',
+                'End Sub',
+                '',
+                'Public Function NotASub() As Long',
+                'End Function',
+                '',
+                'Public Sub Shared()',
+                'End Sub',
+            ].join('\r\n'),
+        },
+        {
+            name: 'MoreTests',
+            type: 'standard',
+            source: 'Public Sub Shared()\r\nEnd Sub\r\n',
+        },
+        {
+            name: 'CHelper',
+            type: 'class',
+            source: 'Public Sub ClassTarget()\r\nEnd Sub\r\n',
+        },
+    ];
+
+    it('direct-calls every public zero-parameter Sub in standard modules', () => {
+        const source = buildVbaTestDispatchModule(modules);
+        expect(source).toContain(`Attribute VB_Name = "${XLIDE_TEST_DISPATCH_MODULE_NAME}"`);
+        expect(source).toContain('Case "tests.plaintarget", "plaintarget"');
+        expect(source).toContain('            Tests.PlainTarget');
+        // Errors come back as recorded state, never across a Run boundary.
+        expect(source).toContain('XlideAssert.RecordTargetOutcome 0, "", ""');
+        expect(source).toContain('XlideAssert.RecordTargetOutcome Err.Number, Err.Source, Err.Description');
+        expect(source).toContain('Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & macroName');
+        expect(source).not.toContain('Application.Run');
+    });
+
+    it('excludes what a direct call could not compile or should not reach', () => {
+        const source = buildVbaTestDispatchModule(modules);
+        expect(source).not.toContain('Hidden');
+        expect(source).not.toContain('NeedsArg');
+        expect(source).not.toContain('NotASub');
+        expect(source).not.toContain('ClassTarget');
+    });
+
+    it('keeps ambiguous bare names qualified-only', () => {
+        const source = buildVbaTestDispatchModule(modules);
+        expect(source).toContain('Case "tests.shared"');
+        expect(source).toContain('Case "moretests.shared"');
+        expect(source).not.toContain('Case "tests.shared", "shared"');
+        expect(source).not.toContain('Case "moretests.shared", "shared"');
+    });
+
+    it('XlideAssert prefers the dispatcher and keeps the classic Run fallback', () => {
+        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run "XlideTestDispatch.XlideInvokeTarget", macroName');
+        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Public Sub RecordTargetOutcome');
+        // Editing-time installs have no dispatcher; Excel propagates through
+        // the classic path exactly as before.
+        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run macroName');
+    });
+});

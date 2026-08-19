@@ -5,8 +5,13 @@ import type { VbaTestCase } from './vbaTestRunner';
 import {
     buildOwnedReadOnlyExcelTestHostScript,
     vbaTestHostPlanItems,
+    type VbaTestHostApp,
 } from './vbaTestExcelHost';
-import { buildVbaTestDirectRunnerModule } from './vbaTestRunnerModuleCodegen';
+import {
+    buildVbaTestDirectRunnerModule,
+    buildVbaTestDispatchModule,
+    XLIDE_TEST_DISPATCH_MODULE_NAME,
+} from './vbaTestRunnerModuleCodegen';
 import { createVbaTestHostTempDir } from './vbaTestTempFiles';
 import {
     XLIDE_ASSERT_MODULE_NAME,
@@ -16,6 +21,8 @@ import { errorMessage } from './util/errors';
 
 export interface VbaTestHostStagingOptions {
     failFast?: boolean;
+    /** Which Office application hosts the run. Defaults to Excel. */
+    hostApp?: VbaTestHostApp;
     log: (message: string) => void;
 }
 
@@ -57,10 +64,23 @@ export async function stageOwnedReadOnlyExcelTestHost(
             source: buildVbaTestDirectRunnerModule(tests, runnerModuleName),
             kind: 'standard',
         });
+        // The by-name dispatcher lets XlideAssert.Throws/DoesNotThrow run
+        // their targets as direct calls, which behaves identically on every
+        // host (Word never propagates a Run-target's error to the caller).
+        const stagedModules = await bridge.call<Array<{ name: string; type?: string; source?: string }>>(
+            'readModules',
+            { path: tempWorkbookPath, full: true },
+        );
+        await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
+            path: tempWorkbookPath,
+            module: XLIDE_TEST_DISPATCH_MODULE_NAME,
+            source: buildVbaTestDispatchModule(stagedModules),
+            kind: 'standard',
+        });
         const script = buildOwnedReadOnlyExcelTestHostScript(
             tempWorkbookPath,
             vbaTestHostPlanItems(tests),
-            { failFast: options.failFast, runnerModuleName },
+            { failFast: options.failFast, runnerModuleName, hostApp: options.hostApp },
         );
         await fs.promises.writeFile(hostScriptPath, script, 'utf8');
     } catch (err) {

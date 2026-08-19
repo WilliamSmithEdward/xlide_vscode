@@ -302,7 +302,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
         ? `${model.support.actionLabel} ${model.workbookName}`
         : model.support.description;
     const runHelp = !model.support.canRun
-        ? 'Install the bundled XlideAssert.bas support module before running workbook tests.'
+        ? 'Install the bundled XlideAssert.bas support module before running VBA tests.'
         : !model.runtime.canRun
             ? model.runtime.description
             : '';
@@ -317,12 +317,12 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
         ? runHelp
         : hasTagFilters
             ? 'Run selected tag filters'
-            : 'No test tags discovered in this workbook.';
+            : 'No test tags discovered in this file.';
     const selectedRunTitle = !runEnabled
         ? runHelp
         : hasTests
             ? 'Run the checked tests below'
-            : 'No tests discovered in this workbook.';
+            : 'No tests discovered in this file.';
     const currentScopeTitle = !runEnabled
         ? runHelp
         : `Use the active editor if it belongs to ${model.workbookName}.`;

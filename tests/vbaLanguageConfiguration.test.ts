@@ -299,7 +299,7 @@ describe('VBA language configuration', () => {
 
 		expect(command).toMatchObject({
 			command: 'xlide.openWorkbookSettings',
-			title: 'Open Workbook Settings',
+			title: 'Open File Settings',
 			category: 'XLIDE',
 		});
 		expect(globalCommand).toMatchObject({

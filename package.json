@@ -306,7 +306,7 @@
       },
       {
         "command": "xlide.analyzeWorkbook",
-        "title": "Analyze Workbook",
+        "title": "Analyze File",
         "category": "XLIDE",
         "icon": "$(checklist)"
       },
@@ -330,7 +330,7 @@
       },
       {
         "command": "xlide.openWorkbookSettings",
-        "title": "Open Workbook Settings",
+        "title": "Open File Settings",
         "category": "XLIDE",
         "icon": "$(json)"
       },
@@ -437,7 +437,7 @@
         },
         {
           "command": "xlide.runVbaTests",
-          "when": "view == xlide.explorer && viewItem == xlsm",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
           "group": "4_analyze@2"
         },
         {

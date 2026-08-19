@@ -6,6 +6,22 @@ import { psSingleQuoted } from './util/powershell';
 
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
 
+/** The Office applications the owned read-only test host can drive. */
+export type VbaTestHostApp = 'excel' | 'word' | 'powerpoint';
+
+interface VbaTestHostAppInfo {
+    progId: string;
+    processName: string;
+    /** Display name for user-facing refusal/error text. */
+    noun: string;
+}
+
+const HOST_APPS: Record<VbaTestHostApp, VbaTestHostAppInfo> = {
+    excel: { progId: 'Excel.Application', processName: 'EXCEL', noun: 'Excel' },
+    word: { progId: 'Word.Application', processName: 'WINWORD', noun: 'Word' },
+    powerpoint: { progId: 'PowerPoint.Application', processName: 'POWERPNT', noun: 'PowerPoint' },
+};
+
 export interface VbaTestHostPlanItem {
     qualifiedName: string;
     timeoutMs: number;
@@ -15,6 +31,8 @@ export interface VbaTestHostPlanItem {
 export interface OwnedReadOnlyExcelTestHostScriptOptions {
     failFast?: boolean;
     runnerModuleName?: string;
+    /** Which Office application hosts the run. Defaults to Excel. */
+    hostApp?: VbaTestHostApp;
 }
 
 export function vbaTestHostPlanItems(tests: readonly VbaTestCase[]): VbaTestHostPlanItem[] {
@@ -39,6 +57,7 @@ export function buildOwnedReadOnlyExcelTestHostScript(
 ): string {
     const testsJson = JSON.stringify(tests);
     const runnerModuleName = options.runnerModuleName ?? XLIDE_TEST_RUNNER_MODULE_NAME;
+    const hostApp = HOST_APPS[options.hostApp ?? 'excel'];
     const modalWatcherSource = productionModalWatcherCSharp();
     // Dynamic preamble + static body (assets/testhost/run-vba-tests.ps1),
     // joined with newlines so PowerShell error positions point at meaningful
@@ -51,6 +70,10 @@ export function buildOwnedReadOnlyExcelTestHostScript(
         `$runnerModuleName = ${psSingleQuoted(runnerModuleName)}`,
         `$failFast = ${options.failFast ? '$true' : '$false'}`,
         `$eventPrefix = ${psSingleQuoted(XLIDE_TEST_HOST_EVENT_PREFIX)}`,
+        `$hostKind = ${psSingleQuoted(options.hostApp ?? 'excel')}`,
+        `$hostProgId = ${psSingleQuoted(hostApp.progId)}`,
+        `$hostProcessName = ${psSingleQuoted(hostApp.processName)}`,
+        `$hostNoun = ${psSingleQuoted(hostApp.noun)}`,
         `$modalWatcherSource = ${psSingleQuoted(modalWatcherSource)}`,
         readExtensionTextAsset('assets/testhost/run-vba-tests.ps1'),
     ].join('\n');

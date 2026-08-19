@@ -1,8 +1,12 @@
-# XLIDE owned read-only Excel test host (static body).
+# XLIDE owned read-only Office test host (static body).
 # buildOwnedReadOnlyExcelTestHostScript (src/vbaTestExcelHost.ts) prepends the
 # dynamic preamble before this body: $ErrorActionPreference,
 # $ProgressPreference, $targetPath, $testsJson, $runnerModuleName, $failFast,
-# $eventPrefix, and $modalWatcherSource (assets/testhost/XlideTestModalWatcher.cs).
+# $eventPrefix, $hostKind/$hostProgId/$hostProcessName/$hostNoun (which Office
+# application hosts the run: excel, word, or powerpoint), and
+# $modalWatcherSource (assets/testhost/XlideTestModalWatcher.cs).
+# Event names keep their excel-flavored identifiers for every host: they are
+# wire-protocol ids consumed by vbaTestHostOracle, not display text.
 # Emit UTF-8 so non-ASCII host/COM error text is decoded correctly by the Node side.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $excelId = "xlide-" + [Guid]::NewGuid().ToString("N")
@@ -105,6 +109,14 @@ function Convert-XlideNullableInt([object]$value) {
     return $null
   }
 }
+function Set-XlideHostAlertsOff([object]$app) {
+  if ($null -eq $app) { return }
+  try {
+    if ($hostKind -eq "word") { $app.DisplayAlerts = 0 }
+    elseif ($hostKind -eq "powerpoint") { $app.DisplayAlerts = 1 }
+    else { $app.DisplayAlerts = $false }
+  } catch { }
+}
 function Convert-XlideOutputLines([object]$value) {
   $lines = New-Object System.Collections.Generic.List[string]
   if ($null -eq $value) { return $lines.ToArray() }
@@ -142,10 +154,12 @@ try {
   # This host quits its instance on the way out and kills it on a hang, so
   # attaching to a user's Excel would put their unsaved work in the blast radius.
   $preExistingExcelPids = @()
-  try { $preExistingExcelPids = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.Id }) } catch { }
-  $excel = New-Object -ComObject Excel.Application
-  $excel.Visible = $false
-  $excel.DisplayAlerts = $false
+  try { $preExistingExcelPids = @(Get-Process -Name $hostProcessName -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.Id }) } catch { }
+  $excel = New-Object -ComObject $hostProgId
+  # PowerPoint refuses Application.Visible = False outright; its run stays
+  # windowless anyway because the presentation opens WithWindow:=msoFalse.
+  if ($hostKind -ne "powerpoint") { try { $excel.Visible = $false } catch { } }
+  Set-XlideHostAlertsOff $excel
   try { $excel.AskToUpdateLinks = $false } catch { }
   try { $excel.EnableEvents = $false } catch { }
   try { $excel.ScreenUpdating = $false } catch { }
@@ -154,15 +168,29 @@ try {
   try { $excel.AutomationSecurity = 1 } catch { }
   $excelPid = $null
   try {
-    $processId = [uint32]0
-    [void][XlideWin32]::GetWindowThreadProcessId([IntPtr]$excel.Hwnd, [ref]$processId)
-    if ($processId -gt 0) { $excelPid = [int]$processId }
+    # Excel and PowerPoint expose a window handle; Word does not, and falls
+    # through to the process-diff below.
+    $hostHwnd = [IntPtr]::Zero
+    if ($hostKind -eq "excel") { $hostHwnd = [IntPtr]$excel.Hwnd }
+    elseif ($hostKind -eq "powerpoint") { $hostHwnd = [IntPtr]$excel.HWND }
+    if ($hostHwnd -ne [IntPtr]::Zero) {
+      $processId = [uint32]0
+      [void][XlideWin32]::GetWindowThreadProcessId($hostHwnd, [ref]$processId)
+      if ($processId -gt 0) { $excelPid = [int]$processId }
+    }
   } catch { }
+  if (-not $excelPid) {
+    try {
+      $afterPids = @(Get-Process -Name $hostProcessName -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.Id })
+      $newPids = @($afterPids | Where-Object { $preExistingExcelPids -notcontains $_ })
+      if ($newPids.Count -eq 1) { $excelPid = [int]$newPids[0] }
+    } catch { }
+  }
   if ($excelPid -and ($preExistingExcelPids -contains $excelPid)) {
     # Refuse rather than proceed: this Excel is someone else's.
     $excel = $null
     $phaseSw.Stop()
-    $ownershipMessage = "XLIDE refused to run tests: the new Excel Application resolved to already-running process " + $excelPid + ". The test host must own its Excel instance because it quits that process when the run ends. Close the running Excel and try again."
+    $ownershipMessage = "XLIDE refused to run tests: the new " + $hostNoun + " Application resolved to already-running process " + $excelPid + ". The test host must own its " + $hostNoun + " instance because it quits that process when the run ends. Close the running " + $hostNoun + " and try again."
     Emit-XlideHostPhase "excel-create" "failed" ([int]$phaseSw.ElapsedMilliseconds) $ownershipMessage
     throw $ownershipMessage
   }
@@ -184,10 +212,20 @@ try {
   }
   $phaseSw = [Diagnostics.Stopwatch]::StartNew()
   try {
-    $workbook = $excel.Workbooks.Open($targetPath, 0, $true, [Type]::Missing, [Type]::Missing, [Type]::Missing, $true)
+    if ($hostKind -eq "word") {
+      # Documents.Open(FileName, ConfirmConversions, ReadOnly, AddToRecentFiles)
+      $workbook = $excel.Documents.Open($targetPath, $false, $true, $false)
+    } elseif ($hostKind -eq "powerpoint") {
+      # Presentations.Open(FileName, ReadOnly:=msoTrue, Untitled:=msoFalse,
+      # WithWindow:=msoFalse) - windowless, which is also why the visible
+      # PowerPoint application never shows a document.
+      $workbook = $excel.Presentations.Open($targetPath, -1, 0, 0)
+    } else {
+      $workbook = $excel.Workbooks.Open($targetPath, 0, $true, [Type]::Missing, [Type]::Missing, [Type]::Missing, $true)
+    }
   } catch {
     $phaseSw.Stop()
-    $openMessage = "OPEN_FAILED|XLIDE could not open the workbook read-only for tests: " + $_.Exception.Message
+    $openMessage = "OPEN_FAILED|XLIDE could not open the file read-only for tests: " + $_.Exception.Message
     Emit-XlideHostPhase "workbook-open" "failed" ([int]$phaseSw.ElapsedMilliseconds) $openMessage
     throw $openMessage
   }
@@ -201,9 +239,29 @@ try {
     Emit-XlideTestHostEvent "macro-started" @{ excelId = $excelId; qualifiedName = $macroName; timeoutMs = $timeoutMs }
     $sw = [Diagnostics.Stopwatch]::StartNew()
     try {
-      $testRunnerRef = "'" + ($workbook.Name -replace "'", "''") + "'!" + $runnerModuleName + ".RunTest"
+      if ($hostKind -eq "word") {
+        # Word resolves Module.Proc and rejects document-qualified names.
+        $testRunnerRef = $runnerModuleName + ".RunTest"
+      } elseif ($hostKind -eq "powerpoint") {
+        # PowerPoint takes the presentation-qualified File.pptm!Module.Proc form.
+        $testRunnerRef = $workbook.Name + "!" + $runnerModuleName + ".RunTest"
+      } else {
+        $testRunnerRef = "'" + ($workbook.Name -replace "'", "''") + "'!" + $runnerModuleName + ".RunTest"
+      }
       if ($modalWatcherAvailable -and $excelPid) { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, $macroName) }
-      $vbaRunResult = Convert-XlideVbaRunResult ([string]$excel.Run($testRunnerRef, $macroName))
+      if ($hostKind -eq "word") {
+        # Word declares Run's varargs ByRef, so PowerShell COM interop
+        # requires a [ref] wrapper.
+        $macroArg = $macroName
+        $vbaRunResult = Convert-XlideVbaRunResult ([string]$excel.Run($testRunnerRef, [ref]$macroArg))
+      } elseif ($hostKind -eq "powerpoint") {
+        # PowerPoint's Run takes a ParamArray that rejects PowerShell's
+        # ByRef-marshaled arguments ("type must not be ByRef"); reflection
+        # InvokeMember marshals them ByVal.
+        $vbaRunResult = Convert-XlideVbaRunResult ([string]$excel.GetType().InvokeMember("Run", [Reflection.BindingFlags]::InvokeMethod, $null, $excel, @($testRunnerRef, $macroName)))
+      } else {
+        $vbaRunResult = Convert-XlideVbaRunResult ([string]$excel.Run($testRunnerRef, $macroName))
+      }
       $testOutput = Convert-XlideOutputLines $vbaRunResult.output
       $sw.Stop()
       if ([string]$vbaRunResult.outcome -eq "passed") {
@@ -246,11 +304,13 @@ try {
   # Test VBA can set Application.DisplayAlerts = True and leave it that way,
   # which would let Close or Quit raise a prompt. Re-assert suppression before
   # each, while the watcher is still running to catch anything that slips past.
-  if ($excel) { try { $excel.DisplayAlerts = $false } catch { } }
+  Set-XlideHostAlertsOff $excel
   if ($workbook) {
     $phaseSw = [Diagnostics.Stopwatch]::StartNew()
     try {
-      $workbook.Close($false)
+      if ($hostKind -eq "word") { $workbook.Close(0) }
+      elseif ($hostKind -eq "powerpoint") { try { $workbook.Saved = -1 } catch { }; $workbook.Close() }
+      else { $workbook.Close($false) }
       $phaseSw.Stop()
       Emit-XlideTestHostEvent "workbook-closed" @{ excelId = $excelId; filePath = $targetPath; saveChanges = $false; durationMs = [int]$phaseSw.ElapsedMilliseconds }
       Emit-XlideHostPhase "workbook-close" "passed" ([int]$phaseSw.ElapsedMilliseconds)
@@ -260,7 +320,7 @@ try {
     }
   }
   if ($excel) {
-    try { $excel.DisplayAlerts = $false } catch { }
+    Set-XlideHostAlertsOff $excel
     $phaseSw = [Diagnostics.Stopwatch]::StartNew()
     try {
       $excel.Quit()
