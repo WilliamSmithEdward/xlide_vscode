@@ -199,7 +199,7 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 scheduleRefresh();
             }
         }),
-        vscode.commands.registerCommand('xlide.openWorkbookSettings', async (settingsPath?: string) => {
+        registerXlideCommand('xlide.openWorkbookSettings', async (settingsPath?: string) => {
             if (!settingsPath) {
                 vscode.window.showWarningMessage('XLIDE: No settings file is available for this file.');
                 return;

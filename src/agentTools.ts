@@ -38,6 +38,7 @@ import {
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
 import { formatChangeSummary, withWriteAudit } from './xlideWriteAudit';
+import { registerXlideCommand } from './xlideCommandRegistration';
 
 // --------------------------------------------------------------------------
 // Input types matching the inputSchema in package.json
@@ -146,19 +147,19 @@ export function registerAgentTools(
         onDidChangePendingAgentReviews((change) => {
             explorer.refreshModuleSubs(change.filePath, change.moduleName);
         }),
-        vscode.commands.registerCommand('xlide.reviewAgentChange', async (node?: { filePath?: string; moduleName?: string }) => {
+        registerXlideCommand('xlide.reviewAgentChange', async (node?: { filePath?: string; moduleName?: string }) => {
             if (!node?.filePath || !node.moduleName) {
                 return;
             }
             await openAgentReviewDiff(node.filePath, node.moduleName);
         }),
-        vscode.commands.registerCommand('xlide.keepAgentChange', (node?: { filePath?: string; moduleName?: string }) => {
+        registerXlideCommand('xlide.keepAgentChange', (node?: { filePath?: string; moduleName?: string }) => {
             if (!node?.filePath || !node.moduleName) {
                 return;
             }
             keepAgentChange(node.filePath, node.moduleName);
         }),
-        vscode.commands.registerCommand('xlide.revertAgentChange', async (node?: { filePath?: string; moduleName?: string }) => {
+        registerXlideCommand('xlide.revertAgentChange', async (node?: { filePath?: string; moduleName?: string }) => {
             if (!node?.filePath || !node.moduleName) {
                 return;
             }
