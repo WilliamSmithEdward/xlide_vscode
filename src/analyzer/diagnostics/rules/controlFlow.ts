@@ -608,8 +608,7 @@ function conditionalDirectiveKeywordSpan(
 	source: string,
 	directive: { span: Span },
 ): Span {
-	const tokens = tokenize(source.slice(directive.span.start, directive.span.end))
-		.filter((token) => token.kind !== 'comment' && token.kind !== 'newline');
+	const tokens = statementTokens(source, directive.span);
 	const marker = tokens[0];
 	const keyword = tokens[1];
 	if (marker?.kind === 'directive' && keyword) {

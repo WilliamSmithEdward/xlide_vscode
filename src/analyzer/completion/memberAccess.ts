@@ -10,7 +10,7 @@
 
 import { tokenize } from '../lexer/tokenize';
 import { VbaToken } from '../lexer/tokenKinds';
-import { IDENT_RE, isIdentLike } from '../lexer/tokenHelpers';
+import { IDENT_RE, isIdentLike, statementTokensCached } from '../lexer/tokenHelpers';
 import {
 	MSFORMS_CONTROL_CLASS_NAMES,
 	MSFORMS_REFERENCE_MEMBERS,
@@ -1523,9 +1523,7 @@ function latestSetAssignmentInBody(
 }
 
 function setAssignment(source: string, stmt: LeafStatementNode): SetAssignment | undefined {
-	const tokens = tokenize(source.slice(stmt.span.start, stmt.span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	const tokens = statementTokensCached(source, stmt.span);
 	let i = 0;
 	if (
 		tokens.length >= 2 &&

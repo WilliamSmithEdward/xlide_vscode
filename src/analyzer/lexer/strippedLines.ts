@@ -14,7 +14,7 @@
 // substrates over every VBA sample in the repository and pins that as the
 // only allowed difference.
 
-import { tokenize } from './tokenize';
+import { tokenizeCached } from './tokenize';
 
 /**
  * Every physical line of `source` with string-literal and comment token spans
@@ -24,7 +24,7 @@ import { tokenize } from './tokenize';
  */
 export function lexerStrippedLines(source: string): string[] {
 	const chars = source.split(/\r\n|\r|\n/).map((line) => line.split(''));
-	for (const token of tokenize(source)) {
+	for (const token of tokenizeCached(source)) {
 		if (token.kind !== 'comment' && token.kind !== 'stringLiteral') {
 			continue;
 		}

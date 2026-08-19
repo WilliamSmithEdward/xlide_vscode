@@ -7,7 +7,7 @@
 // pass per cursor position) stops the per-resolver reimplementations from
 // drifting and gives the resolvers a single seam for sharing token state.
 
-import { tokenize } from '../lexer/tokenize';
+import { tokenize, tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { isIdentLike, tokensWithoutLeadingLineNumber } from '../lexer/tokenHelpers';
 
@@ -69,11 +69,62 @@ export function completionCursorContext(
 	return context;
 }
 
+/**
+ * Prefix token stream up to `safeOffset`, derived from the memoized
+ * full-module stream instead of re-lexing the prefix: every keystroke asks
+ * for a new offset, and lexing a large module's prefix per keystroke was
+ * the completion path's dominant cost. Tokens ending at or before the
+ * offset are shared with the cached stream verbatim; when the offset lands
+ * inside a token (a string, comment, identifier, or operator being typed),
+ * only that token's remainder is re-lexed, which reproduces exactly what
+ * lexing the truncated prefix produces since tokenization is local from a
+ * token boundary onward.
+ */
+function prefixTokens(source: string, safeOffset: number): VbaToken[] {
+	const all = tokenizeCached(source);
+	// First token that ends after the offset.
+	let lo = 0;
+	let hi = all.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (all[mid].end <= safeOffset) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	const rebase = (base: number) => (token: VbaToken): VbaToken => ({
+		...token,
+		start: token.start + base,
+		end: token.end + base,
+	});
+	const boundary = all[lo];
+	if (!boundary || boundary.start >= safeOffset) {
+		// The cut lands between tokens. That gap is whitespace or a line
+		// continuation in the full stream, but TRUNCATED it can lex
+		// differently: a prefix ending right after a continuation's `_`
+		// materializes a dangling token the full stream absorbed. Re-lex the
+		// residue (at most a few whitespace characters) to reproduce exactly
+		// what lexing the prefix produces.
+		const head = all.slice(0, lo);
+		const residueStart = lo > 0 ? all[lo - 1].end : 0;
+		if (residueStart < safeOffset) {
+			const residue = tokenize(source.slice(residueStart, safeOffset)).map(rebase(residueStart));
+			if (residue.length > 0) {
+				return [...head, ...residue];
+			}
+		}
+		return head;
+	}
+	const tail = tokenize(source.slice(boundary.start, safeOffset)).map(rebase(boundary.start));
+	return [...all.slice(0, lo), ...tail];
+}
+
 function buildCursorContext(
 	source: string,
 	safeOffset: number,
 ): CompletionCursorContext {
-	const tokens = tokenize(source.slice(0, safeOffset));
+	const tokens = prefixTokens(source, safeOffset);
 	const significantTokens = tokens.filter((t) => t.kind !== 'comment');
 	const last = tokens[tokens.length - 1];
 	const lastSignificant = significantTokens[significantTokens.length - 1];

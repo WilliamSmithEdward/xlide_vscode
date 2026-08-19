@@ -110,9 +110,7 @@ export function checkProcedureHeader(
 		const headerStart = member.span.start;
 		const nl = source.indexOf('\n', headerStart);
 		const headerEnd = nl === -1 ? member.span.end : nl;
-		const toks = tokenize(source.slice(headerStart, headerEnd)).filter(
-			(t) => t.kind !== 'comment' && t.kind !== 'newline',
-		);
+		const toks = statementTokens(source, { start: headerStart, end: headerEnd });
 
 		let i = 0;
 		while (i < toks.length && PROC_MODIFIERS.has(toks[i].rawText.toLowerCase())) {
@@ -1447,9 +1445,7 @@ function keywordSpan(source: string, span: Span, ...keywords: string[]): Span {
  * sub-expressions) are skipped so only a declaration-level `=` is reported.
  */
 function topLevelAssignOffset(source: string, span: Span): number | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	const toks = statementTokens(source, span);
 	let depth = 0;
 	for (const t of toks) {
 		const r = t.rawText;
@@ -1809,9 +1805,7 @@ function valueTokensAfterEquals(
 	source: string,
 	span: Span,
 ): { tokens: VbaToken[]; span: Span } | undefined {
-	const toks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'comment' && t.kind !== 'newline',
-	);
+	const toks = statementTokens(source, span);
 	const eq = topLevelOperatorIndex(toks, '=');
 	if (eq < 0 || eq + 1 >= toks.length) {
 		return undefined;

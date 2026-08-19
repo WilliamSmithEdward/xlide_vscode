@@ -98,11 +98,15 @@ its own Office application.
   against the real-workbook corpus found the editor surfaces re-lexing text
   the caches already held: the semantic-token pass dropped from 72 ms to
   15 ms per edit on a 947 KB class module, and a full diagnostics pass on
-  the same module dropped from 684 ms to 396 ms. One statement-token cache
+  the same module dropped from 684 ms to 390 ms. One statement-token cache
   now serves every analyzer surface, its lookups use integer keys instead
   of allocating a string per call, and identifier-shadow checks layer each
   procedure's locals over one shared module-plus-project name set instead
-  of rebuilding the union per procedure.
+  of rebuilding the union per procedure. Completion stopped re-lexing the
+  cursor prefix on every keystroke too: the cursor context derives its
+  tokens from the cached module stream (proven equivalent at every offset,
+  line continuations included), taking the per-keystroke cost on the same
+  module from 22 ms to under 2 ms.
 
 - **The test host works for names and paths beyond ASCII.** The generated
   host script is now written with a byte-order mark - Windows PowerShell

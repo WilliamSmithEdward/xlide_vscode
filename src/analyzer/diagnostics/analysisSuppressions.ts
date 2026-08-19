@@ -1,4 +1,4 @@
-import { tokenize } from '../lexer/tokenize';
+import { tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { ModuleMember, ModuleNode, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
@@ -79,7 +79,7 @@ export function scanAnalysisSuppressions(
 	source: string,
 	context: ScanAnalysisSuppressionsContext = {},
 ): AnalysisSuppressionAnalysis {
-	const tokens = context.tokens ?? tokenize(source);
+	const tokens = context.tokens ?? tokenizeCached(source);
 	const lineStarts = lineStartOffsets(source);
 	const firstSourceLine = firstNonCommentNonAttributeLine(tokens);
 	const members = suppressibleMembers(context.parsedModule ?? parseModule(source));

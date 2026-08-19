@@ -206,10 +206,7 @@ export function explicitCallStatementBareRuntimeRewrite(
 	source: string,
 	span: VbaTextSpan,
 ): ExplicitCallStatementBareRuntimeRewrite | undefined {
-	const rawToks = tokenize(source.slice(span.start, span.end)).filter(
-		(t) => t.kind !== 'newline',
-	);
-	const toks = rawToks.filter((t) => t.kind !== 'comment');
+	const toks = statementTokensCached(source, span);
 	const start = leadingLineNumberTokenCount(toks);
 	if (toks.length < start + 2 || tokenWord(toks[start]) !== 'call') {
 		return undefined;
@@ -261,6 +258,8 @@ export function explicitCallStatementArgumentListWithoutParens(
 	source: string,
 	span: VbaTextSpan,
 ): ExplicitCallStatementArgumentList | undefined {
+	// Raw on purpose: the trailing-comment scan below needs the comment
+	// tokens the cached statement stream strips.
 	const rawToks = tokenize(source.slice(span.start, span.end)).filter(
 		(t) => t.kind !== 'newline',
 	);

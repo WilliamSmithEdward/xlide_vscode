@@ -3,6 +3,7 @@ import {
 	completionCursorContext,
 	identifierSpanEndingAt,
 	spaceTriggerMayComplete,
+	tokenize,
 } from '../src/analyzer';
 
 /** Context at the | marker in `src`. */
@@ -125,5 +126,40 @@ describe('spaceTriggerMayComplete', () => {
 		expect(spaceTriggerMayComplete('    Rem old-style comment ')).toBe(false);
 		expect(spaceTriggerMayComplete('    x = "inside a string ')).toBe(false);
 		expect(spaceTriggerMayComplete('    .Cells(1, 1).Value = x ')).toBe(false);
+	});
+});
+
+describe('prefix token derivation from the cached module stream', () => {
+	// The cursor context now slices the memoized full-module token stream
+	// instead of re-lexing the prefix per keystroke. This must be
+	// indistinguishable from lexing the truncated prefix, at EVERY offset:
+	// cuts inside strings, comments, identifiers, multi-char operators, line
+	// continuations, and unicode identifiers all included.
+	const FIXTURE = [
+		'Attribute VB_Name = "Módulo"',
+		'Option Explicit',
+		'',
+		"' A comment with \"quotes\" and trailing spaces   ",
+		'Public Sub Пример()',
+		"    Dim s As String: s = \"a \"\"quoted\"\" string with ' inside\"",
+		'    If x <= 42 And y >= 3.14 Then',
+		'        total = total + _',
+		'            offset(1, 2)',
+		'    End If',
+		'    Rem old-style comment, with commas',
+		'End Sub',
+		'',
+	].join('\r\n');
+
+	function tokenSnapshot(tokens: readonly { kind: string; rawText: string; start: number; end: number }[]) {
+		return tokens.map((t) => `${t.kind}:${t.start}:${t.end}:${t.rawText}`);
+	}
+
+	it('matches a fresh prefix lex at every offset of the fixture', () => {
+		for (let offset = 0; offset <= FIXTURE.length; offset++) {
+			const derived = completionCursorContext(FIXTURE, offset);
+			const direct = tokenize(FIXTURE.slice(0, offset));
+			expect(tokenSnapshot(derived.tokens), `offset ${offset}`).toEqual(tokenSnapshot(direct));
+		}
 	});
 });
