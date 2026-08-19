@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildExcelLaunchScript } from '../src/excelLauncher';
+import {
+    buildExcelLaunchScript,
+    buildPowerPointMacroLaunchScript,
+    buildWordMacroLaunchScript,
+} from '../src/excelLauncher';
 
 describe('Excel launcher script', () => {
     const openScript = buildExcelLaunchScript({
@@ -72,5 +76,47 @@ describe('Excel launcher script', () => {
         });
         expect(script).toContain("$targetPath = 'C:\\work\\Bob''s Book.xlsm'");
         expect(script).toContain("$targetName = 'Bob''s Book.xlsm'");
+    });
+});
+
+describe('Word and PowerPoint F5 macro launcher scripts', () => {
+    // Live-verified 2026-08-19: both scripts ran their macro in the real
+    // application (marker file written, XLIDE_MACRO_OK), rejected a missing
+    // macro as RUN_FAILED, and exercised the stale read-only close-and-reopen
+    // path on their second run.
+    const wordScript = buildWordMacroLaunchScript('C:\\work\\Report.docm', 'Module1.Main');
+    const pptScript = buildPowerPointMacroLaunchScript('C:\\work\\Deck.pptm', 'Module1.Main');
+
+    it('drives Word with the measured open, visible window, and plain Module.Proc run', () => {
+        expect(wordScript).toContain('GetActiveObject("Word.Application")');
+        expect(wordScript).toContain('New-Object -ComObject Word.Application');
+        expect(wordScript).toContain('$app.Visible = $true');
+        // Documents.Open(FileName, ConfirmConversions, ReadOnly, AddToRecentFiles)
+        expect(wordScript).toContain('$app.Documents.Open($targetPath, $false, $true, $false)');
+        // Zero-argument run: no [ref] marshaling, no document qualifier.
+        expect(wordScript).toContain('$app.Run($macroName)');
+        expect(wordScript).not.toContain('[ref]');
+        expect(wordScript).toContain('REOPEN_BLOCKED|The document is already open for editing in Word.');
+        expect(wordScript).toContain('XLIDE_MACRO_OK');
+        expect(wordScript).toContain('XLIDE_MACRO_ERROR|');
+    });
+
+    it('drives PowerPoint single-instance with a visible window and reflection Run', () => {
+        // Single-instance host: New-Object attaches to a running PowerPoint.
+        expect(pptScript).toContain('New-Object -ComObject PowerPoint.Application');
+        expect(pptScript).not.toContain('GetActiveObject("PowerPoint.Application")');
+        // Presentations.Open(FileName, ReadOnly, Untitled, WithWindow=msoTrue).
+        expect(pptScript).toContain('$app.Presentations.Open($targetPath, -1, 0, -1)');
+        // Presentation-qualified name through reflection InvokeMember.
+        expect(pptScript).toContain('$macroRef = $pres.Name + "!" + $macroName');
+        expect(pptScript).toContain('InvokeMember("Run", [Reflection.BindingFlags]::InvokeMethod, $null, $app, @($macroRef))');
+        expect(pptScript).toContain('REOPEN_BLOCKED|The presentation is already open for editing in PowerPoint.');
+        expect(pptScript).toContain('XLIDE_MACRO_OK');
+    });
+
+    it('escapes single quotes in interpolated host values', () => {
+        const script = buildWordMacroLaunchScript("C:\\work\\Bob's Report.docm", 'Module1.Main');
+        expect(script).toContain("$targetPath = 'C:\\work\\Bob''s Report.docm'");
+        expect(script).toContain("$targetName = 'Bob''s Report.docm'");
     });
 });

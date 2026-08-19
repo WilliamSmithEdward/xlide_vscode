@@ -4,13 +4,18 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [4.0.1] - Unreleased
 
-- **F5 in a Word or PowerPoint module stops launching Excel.** Run Macro at
-  Cursor was Excel COM end to end, so F5 in a Word module handed the
-  document to Excel with workbook-language notifications. The command now
-  gates by the file's host: Word and PowerPoint modules save and open in
-  their own application with guidance naming the exact macro to run, Access
-  refuses with the engine's stated p-code reason, and the Excel flow is
-  unchanged.
+- **F5 runs the macro in Word and PowerPoint, not just Excel.** Run Macro
+  at Cursor was Excel COM end to end, so F5 in a Word module handed the
+  document to Excel with workbook-language notifications. It now has full
+  parity per host: the module saves, the file reopens read-only in its own
+  visible application, and the macro runs through that application's COM -
+  Word through its measured plain `Module.Proc` form, PowerPoint through
+  its single instance with the presentation-qualified reflection call. A
+  file open for editing is refused with a clear close-and-retry message,
+  Access refuses with the engine's stated p-code reason, non-Windows
+  platforms open the file with run guidance, and the Excel flow is
+  unchanged. Live-verified in real Word and PowerPoint: the macro executed
+  in both, and a missing macro surfaced as a typed run failure.
 
 - **New Macro-Enabled File defaults and filters fit every host.** The save
   dialog's default name was NewWorkbook.xlsm, and the dialog keeps the base

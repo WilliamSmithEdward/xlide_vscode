@@ -15,6 +15,7 @@ import { errorMessage } from '../util/errors';
 import {
     ExcelMacroError,
     openWorkbookInExcel,
+    runHostFileMacroReadOnly,
     runWorkbookMacroReadOnly,
 } from '../excelLauncher';
 import {
@@ -42,19 +43,19 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
         return xlideAttachToRunningExcelFromConfig(vscode.workspace.getConfiguration('xlide')).value;
     }
 
-    function showRunMacroFailure(err: unknown): void {
+    function showRunMacroFailure(err: unknown, appName = 'Excel'): void {
         if (err instanceof ExcelMacroError &&
             (err.code === 'REOPEN_BLOCKED' || err.code === 'REOPEN_FAILED')) {
             void vscode.window.showWarningMessage(`XLIDE: ${err.message}`);
             return;
         }
         const message = errorMessage(err);
-        // Excel was busy and kept rejecting the COM call even after XLIDE's retries
-        // (RPC_E_CALL_REJECTED / RETRYLATER) - almost always a modal dialog left
-        // open in Excel, such as a MsgBox from a previous run.
+        // The host was busy and kept rejecting the COM call even after XLIDE's
+        // retries (RPC_E_CALL_REJECTED / RETRYLATER) - almost always a modal
+        // dialog left open, such as a MsgBox from a previous run.
         if (/rejected by callee|RPC_E_CALL_REJECTED|0x80010001|RETRYLATER|0x8001010A/i.test(message)) {
             void vscode.window.showWarningMessage(
-                'XLIDE: Excel is busy, so the macro could not run. A dialog may be open in Excel '
+                `XLIDE: ${appName} is busy, so the macro could not run. A dialog may be open in ${appName} `
                 + '(for example a MsgBox from a previous run); close it, then press F5 again.',
             );
             return;
@@ -321,11 +322,26 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                     );
                     return;
                 }
-                if (containerHost !== 'excel') {
+                if (containerHost === 'word' || containerHost === 'powerpoint') {
                     const app = containerAppNameForPath(xlsmPath);
                     if (editor.document.isDirty) {
                         await editor.document.save();
                     }
+                    if (process.platform === 'win32') {
+                        // Full parity with the Excel path: reopen read-only in
+                        // the visible owning application and run the macro
+                        // through its COM, per the harness-measured semantics.
+                        try {
+                            await runHostFileMacroReadOnly(
+                                containerHost, xlsmPath, `${moduleName}.${currentProc}`, log,
+                            );
+                        } catch (err) {
+                            showRunMacroFailure(err, app);
+                        }
+                        return;
+                    }
+                    // No COM off Windows: open in the owning application with
+                    // guidance naming the exact macro.
                     const opened = await vscode.env.openExternal(vscode.Uri.file(xlsmPath));
                     if (!opened) {
                         vscode.window.showErrorMessage(
