@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.3] - Unreleased
+## [4.0.3] - 2026-08-19
 
 - **Member access follows a control member into the object it returns**
   (#32). `Views.SelectedItem` always hovered `As Tab`, but completion and
